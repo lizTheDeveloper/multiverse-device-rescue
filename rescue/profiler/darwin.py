@@ -1,15 +1,20 @@
+import logging
 import platform
 import subprocess
 
 from rescue.models import DiskInfo, Platform, ProcessInfo, SystemProfile
+
+logger = logging.getLogger(__name__)
 
 
 def gather_darwin_profile() -> SystemProfile:
     os_version = platform.mac_ver()[0]
     architecture = platform.machine()
     cpu_model = _run("sysctl", "-n", "machdep.cpu.brand_string").strip()
-    cpu_cores = int(_run("sysctl", "-n", "hw.ncpu").strip())
-    ram_bytes = int(_run("sysctl", "-n", "hw.memsize").strip())
+    cpu_cores_str = _run("sysctl", "-n", "hw.ncpu").strip()
+    cpu_cores = int(cpu_cores_str) if cpu_cores_str else 0
+    ram_str = _run("sysctl", "-n", "hw.memsize").strip()
+    ram_bytes = int(ram_str) if ram_str else 0
     hostname = _run("hostname").strip()
 
     df_output = _run("df", "-k")
@@ -33,8 +38,14 @@ def gather_darwin_profile() -> SystemProfile:
 
 
 def _run(*cmd: str) -> str:
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.stdout
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.debug(f"Command {cmd} failed with return code {result.returncode}: {result.stderr}")
+        return result.stdout
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.debug(f"Failed to run command {cmd}: {e}")
+        return ""
 
 
 def _parse_df_output(output: str) -> list[DiskInfo]:
