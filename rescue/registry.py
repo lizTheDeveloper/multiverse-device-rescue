@@ -1,9 +1,12 @@
 import importlib.util
+import logging
 import sys
 from pathlib import Path
 
 from rescue.models import Platform
 from rescue.module_base import ModuleBase
+
+logger = logging.getLogger(__name__)
 
 
 def discover_modules(modules_dir: Path) -> list[ModuleBase]:
@@ -20,9 +23,14 @@ def discover_modules(modules_dir: Path) -> list[ModuleBase]:
             init_file = module_dir / "__init__.py"
             if not init_file.exists():
                 continue
-            mod = _load_module(init_file, module_dir.name)
-            if mod is not None:
-                modules.append(mod)
+            try:
+                mod = _load_module(init_file, module_dir.name)
+                if mod is not None:
+                    modules.append(mod)
+            except Exception as e:
+                logger.error(
+                    f"Failed to load module {module_dir.name} from {init_file}: {e}"
+                )
     return modules
 
 
@@ -33,8 +41,8 @@ def _load_module(init_file: Path, module_name: str) -> ModuleBase | None:
     if spec is None or spec.loader is None:
         return None
     py_module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = py_module
     spec.loader.exec_module(py_module)
+    sys.modules[spec.name] = py_module
     module_class = getattr(py_module, "Module", None)
     if module_class is None or not (
         isinstance(module_class, type) and issubclass(module_class, ModuleBase)
