@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multiverse-device-rescue"
+version = "0.1.0"
+description = "Modern system diagnostic, repair, and maintenance toolkit"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+rescue = "rescue.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["rescue*"]
