@@ -1,7 +1,4 @@
-import sys
-import types
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from rescue.models import Platform, RiskLevel
 from rescue.module_base import ModuleBase
