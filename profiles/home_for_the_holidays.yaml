@@ -1,0 +1,16 @@
+name: home_for_the_holidays
+display_name: "Home for the Holidays"
+description: >
+  Help a family member get their device cleaned up, secured, and
+  documented in one visit. Runs the built-in device maintenance checks
+  and walks through the 13-point checklist: data removal, password
+  manager setup, device maintenance, and account hardening.
+modules:
+  include:
+    - disk_space
+  exclude: []
+module_config:
+  disk_space:
+    sensitivity: normal
+guides:
+  - home_for_the_holidays
