@@ -1,0 +1,25 @@
+{
+  "signers": [
+    {
+      "signer_id": "maintainer-a",
+      "key_id": "REPLACE_WITH_MAINTAINER_A_GPG_LONG_KEYID_OR_SSH_SHA256_FINGERPRINT",
+      "key_format": "gpg",
+      "public_key": "REPLACE_WITH_MAINTAINER_A_ARMORED_GPG_PUBLIC_KEY_OR_SSH_PUBLIC_KEY_LINE",
+      "name": "Maintainer A"
+    },
+    {
+      "signer_id": "maintainer-b",
+      "key_id": "REPLACE_WITH_MAINTAINER_B_GPG_LONG_KEYID_OR_SSH_SHA256_FINGERPRINT",
+      "key_format": "gpg",
+      "public_key": "REPLACE_WITH_MAINTAINER_B_ARMORED_GPG_PUBLIC_KEY_OR_SSH_PUBLIC_KEY_LINE",
+      "name": "Maintainer B"
+    },
+    {
+      "signer_id": "maintainer-c",
+      "key_id": "REPLACE_WITH_MAINTAINER_C_GPG_LONG_KEYID_OR_SSH_SHA256_FINGERPRINT",
+      "key_format": "gpg",
+      "public_key": "REPLACE_WITH_MAINTAINER_C_ARMORED_GPG_PUBLIC_KEY_OR_SSH_PUBLIC_KEY_LINE",
+      "name": "Maintainer C"
+    }
+  ]
+}

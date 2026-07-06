@@ -16,6 +16,7 @@ default branch happens to point at.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -119,11 +120,28 @@ class ContentRepo:
         result = self._run_git(["show", f"{ref}:{rel_path}"])
         return result.stdout.encode("utf-8")
 
-    def verify_tag_raw(self, tag: str) -> subprocess.CompletedProcess:
+    def verify_tag_raw(
+        self,
+        tag: str,
+        extra_env: dict[str, str] | None = None,
+        extra_git_config: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess:
         """Runs `git verify-tag --raw <tag>` WITHOUT raising on nonzero
         exit -- an invalid/unsigned/untrusted tag is an expected outcome
-        the caller (rescue.update.verify) inspects, not a wrapper failure."""
-        return self._run_git_allow_failure(["verify-tag", "--raw", tag])
+        the caller (rescue.update.verify) inspects, not a wrapper failure.
+
+        `extra_env` and `extra_git_config` let the caller point this at a
+        hermetic GNUPGHOME / SSH allowed-signers file instead of whatever
+        is ambiently configured on this machine -- see
+        rescue.update.verify for why that matters. `extra_git_config`
+        entries become `-c key=value` flags passed ahead of the
+        subcommand, which git honors over any on-disk config."""
+        config_args = []
+        for key, value in (extra_git_config or {}).items():
+            config_args += ["-c", f"{key}={value}"]
+        return self._run_git_allow_failure(
+            [*config_args, "verify-tag", "--raw", tag], extra_env=extra_env
+        )
 
     def _run_git(self, args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
         result = self._run_git_allow_failure(args, cwd=cwd)
@@ -134,11 +152,16 @@ class ContentRepo:
         return result
 
     def _run_git_allow_failure(
-        self, args: list[str], cwd: Path | None = None
+        self,
+        args: list[str],
+        cwd: Path | None = None,
+        extra_env: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess:
+        env = {**os.environ, **extra_env} if extra_env else None
         return subprocess.run(
             ["git", *args],
             cwd=str(cwd or self.local_path),
             capture_output=True,
             text=True,
+            env=env,
         )
