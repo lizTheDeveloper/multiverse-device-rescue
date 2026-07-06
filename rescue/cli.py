@@ -3,6 +3,10 @@ from pathlib import Path
 import click
 
 import rescue
+from rescue.ai.explainer import DiagnosticExplainer
+from rescue.ai.factory import get_provider
+from rescue.ai.providers.base import AIRequestError
+from rescue.ai.recommender import ProfileRecommender
 from rescue.guides import discover_guides
 from rescue.models import Mode, RiskLevel
 from rescue.orchestrator import Orchestrator
@@ -55,12 +59,17 @@ def _load_profile_or_exit(profile_name: str):
 @click.group(invoke_without_command=True)
 @click.option("--auto", is_flag=True, help="Run all checks and apply safe fixes automatically.")
 @click.option("--profile", "profile_name", default=None, help="Threat-model profile to apply (filters/configures modules).")
+@click.option(
+    "--copilot",
+    is_flag=True,
+    help="Enable AI-powered plain-language explanations (requires an API key or local Ollama).",
+)
 @click.pass_context
-def main(ctx, auto, profile_name):
+def main(ctx, auto, profile_name, copilot):
     """Multiverse Device Rescue — system diagnostic and repair toolkit."""
     _run_startup_integrity_check()
     if auto:
-        _run_auto(profile_name)
+        _run_auto(profile_name, copilot=copilot)
     elif ctx.invoked_subcommand is None:
         run_tui(_get_modules_dir())
 
@@ -97,7 +106,12 @@ def version():
 @main.command()
 @click.argument("module_names", nargs=-1, required=True)
 @click.option("--yes", is_flag=True, help="Skip confirmation prompts.")
-def run(module_names, yes):
+@click.option(
+    "--copilot",
+    is_flag=True,
+    help="Enable AI-powered plain-language explanations (requires an API key or local Ollama).",
+)
+def run(module_names, yes, copilot):
     """Run specific modules by name."""
     modules_dir = _get_modules_dir()
     all_modules = discover_modules(modules_dir)
@@ -118,8 +132,10 @@ def run(module_names, yes):
 
     mode = Mode.CLI if yes else Mode.MANUAL
 
+    checked = []
     for mod in selected:
         check = mod.check(profile)
+        checked.append((mod, check))
         click.echo(mod.report(check))
         if check.has_issues and (yes or mod.risk_level == RiskLevel.SAFE):
             fix = mod.fix(check, mode)
@@ -129,6 +145,9 @@ def run(module_names, yes):
                 fix = mod.fix(check, mode)
                 click.echo(mod.report(check, fix))
         click.echo()
+
+    if copilot:
+        _print_ai_explanation(checked)
 
 
 @main.command(name="profiles")
@@ -199,7 +218,7 @@ def guide(profile_name, complete_step):
     click.echo("\nRun again with --complete <step number> to mark a step done.")
 
 
-def _run_auto(profile_name: str | None = None):
+def _run_auto(profile_name: str | None = None, copilot: bool = False):
     modules_dir = _get_modules_dir()
     profile = _load_profile_or_exit(profile_name) if profile_name else None
 
@@ -236,6 +255,92 @@ def _run_auto(profile_name: str | None = None):
         click.echo("\n--- Guided walkthroughs available for this profile ---")
         for guide_name in profile.guides:
             click.echo(f"  Run 'rescue guide {guide_name}' to continue.")
+
+    if copilot:
+        _print_ai_explanation([(mod, check) for mod, check, _ in results])
+
+
+def _print_ai_explanation(checked: list) -> None:
+    """Only ever called when the user explicitly passed --copilot (or ran a
+    command, like `explain`, that is itself an explicit opt-in to the AI layer).
+
+    The AI layer is optional and must never take down the deterministic
+    check/fix run that already happened by this point — any failure talking
+    to the provider is caught and reported as a warning, not raised.
+    """
+    provider = get_provider()
+    if provider is None:
+        click.echo("--copilot requested but no AI provider is configured.")
+        click.echo("Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or OLLAMA_HOST, then try again.\n")
+        return
+    explainer = DiagnosticExplainer(provider)
+    try:
+        explanation = explainer.explain(checked)
+    except AIRequestError as exc:
+        click.echo("--- AI Copilot Explanation ---")
+        click.echo(f"AI explanation unavailable: {exc}")
+        click.echo("(the scan results above are unaffected)\n")
+        return
+    click.echo("--- AI Copilot Explanation ---")
+    click.echo(explanation.narrative)
+    click.echo(f"(via {explanation.provider_name})\n")
+
+
+@main.command()
+def recommend():
+    """Answer a few questions to get a recommended threat-model profile.
+
+    This command is itself the explicit opt-in to the AI layer — like
+    --copilot for --auto/run, it never runs unless the user asks for it.
+    """
+    provider = get_provider()
+    if provider is None:
+        click.echo("This feature requires an AI provider.")
+        click.echo("Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or OLLAMA_HOST, then try again.")
+        return
+
+    recommender = ProfileRecommender(provider)
+    click.echo("What brings you in today? (type 'quit' to exit)\n")
+
+    user_input = click.prompt(">")
+    while True:
+        if user_input.strip().lower() in ("quit", "exit"):
+            click.echo("No recommendation made.")
+            return
+        try:
+            turn = recommender.ask(user_input)
+        except AIRequestError as exc:
+            click.echo(f"\nAI request failed: {exc}")
+            click.echo("Try again, or type 'quit' to exit.\n")
+            user_input = click.prompt(">")
+            continue
+        click.echo(f"\n{turn.message}\n")
+        if turn.is_recommendation:
+            click.echo(f"Recommended profile: {turn.profile_slug}")
+            return
+        user_input = click.prompt(">")
+
+
+@main.command()
+def explain():
+    """Run all diagnostic checks and print an AI plain-language explanation.
+
+    This command is itself the explicit opt-in to the AI layer, like
+    --copilot for --auto/run: it runs checks fresh (never applies fixes) and
+    hands the findings to the configured AI provider for a narrative.
+    """
+    provider = get_provider()
+    if provider is None:
+        click.echo("This feature requires an AI provider.")
+        click.echo("Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or OLLAMA_HOST, then try again.")
+        return
+
+    modules_dir = _get_modules_dir()
+    all_modules = discover_modules(modules_dir)
+    profile = gather_profile()
+
+    checked = [(mod, mod.check(profile)) for mod in all_modules]
+    _print_ai_explanation(checked)
 
 
 @main.command()
