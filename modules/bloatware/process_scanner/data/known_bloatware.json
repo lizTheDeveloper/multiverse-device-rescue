@@ -1,0 +1,9 @@
+[
+  {"process_pattern": "MacKeeper", "name": "MacKeeper", "category": "scareware", "description": "Scareware utility known for aggressive fake-issue popups and high resource usage."},
+  {"process_pattern": "Genieo", "name": "Genieo", "category": "adware", "description": "Adware/browser hijacker bundled with free software installers."},
+  {"process_pattern": "InstallMac", "name": "InstallMac Installer", "category": "pup", "description": "Bundleware installer framework commonly used to distribute potentially unwanted programs."},
+  {"process_pattern": "Advanced Mac Cleaner", "name": "Advanced Mac Cleaner", "category": "scareware", "description": "Fake system cleaner that pressures users into paying for a license to fix invented problems."},
+  {"process_pattern": "SearchProtect", "name": "Conduit SearchProtect", "category": "adware", "description": "Browser hijacker that locks in a hijacked search engine and homepage."},
+  {"process_pattern": "MacBooster", "name": "MacBooster", "category": "scareware", "description": "Fake performance-optimization utility that exaggerates system issues to sell upgrades."},
+  {"process_pattern": "Genio", "name": "Genio", "category": "adware", "description": "Adware variant that injects ads into browser sessions."}
+]
