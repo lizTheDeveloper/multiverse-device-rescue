@@ -3,17 +3,25 @@ from pathlib import Path
 from rescue.models import CheckResult, FixResult, Mode, RiskLevel
 from rescue.module_base import ModuleBase
 from rescue.profiler.base import gather_profile
+from rescue.profiles import Profile, filter_modules_by_profile
 from rescue.registry import discover_modules, filter_by_platform, topological_sort
 
 
 class Orchestrator:
-    def __init__(self, modules_dir: Path):
+    def __init__(self, modules_dir: Path, profile: Profile | None = None):
         self._modules_dir = modules_dir
+        self._profile = profile
 
     def run_checks(self) -> list[tuple[ModuleBase, CheckResult]]:
         profile = gather_profile()
         modules = discover_modules(self._modules_dir)
         modules = filter_by_platform(modules, profile.platform)
+
+        if self._profile is not None:
+            modules = filter_modules_by_profile(modules, self._profile)
+            for mod in modules:
+                mod.configure(self._profile.module_config.get(mod.name, {}))
+
         modules = topological_sort(modules)
 
         results = []
