@@ -189,6 +189,7 @@ class Module(ModuleBase):
                 ["ioreg", "-l"],
                 capture_output=True,
                 text=True,
+                errors="replace",
             )
             return result.stdout
         except (OSError, subprocess.SubprocessError):
