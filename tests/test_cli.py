@@ -99,3 +99,12 @@ def test_run_unknown_module():
         result = runner.invoke(main, ["run", "nonexistent"])
 
     assert result.exit_code != 0 or "not found" in result.output.lower() or "unknown" in result.output.lower()
+
+
+def test_bare_invocation_launches_tui():
+    with patch("rescue.cli.run_tui") as mock_run_tui:
+        runner = CliRunner()
+        result = runner.invoke(main, [])
+
+    assert result.exit_code == 0
+    mock_run_tui.assert_called_once()

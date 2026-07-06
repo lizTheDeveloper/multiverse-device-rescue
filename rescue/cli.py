@@ -10,6 +10,7 @@ from rescue.profiler.base import gather_profile
 from rescue.profiles import discover_profiles
 from rescue.registry import discover_modules
 from rescue.session import SessionStore
+from rescue.tui.app import run_tui
 
 
 def _project_root() -> Path:
@@ -50,7 +51,7 @@ def main(ctx, auto, profile_name):
     if auto:
         _run_auto(profile_name)
     elif ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
+        run_tui(_get_modules_dir())
 
 
 @main.command()
