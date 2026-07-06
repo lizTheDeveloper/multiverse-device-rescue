@@ -9,6 +9,7 @@ description = "Modern system diagnostic, repair, and maintenance toolkit"
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
