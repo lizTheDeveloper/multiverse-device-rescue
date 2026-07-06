@@ -9,8 +9,18 @@ from rescue.orchestrator import Orchestrator
 from rescue.profiler.base import gather_profile
 from rescue.profiles import discover_profiles
 from rescue.registry import discover_modules
+from rescue.security.integrity import (
+    DEFAULT_INTEGRITY_MANIFEST_PATH,
+    IntegrityManifest,
+    verify_package_integrity,
+)
+from rescue.security.signers import RevokedSignerStore
 from rescue.session import SessionStore
 from rescue.tui.app import run_tui
+from rescue.update.config import default_config
+from rescue.update.engine import UpdateEngine
+from rescue.update.repo import GitError
+from rescue.update.sideload import SideloadError, load_sideload_repo
 
 
 def _project_root() -> Path:
@@ -48,10 +58,34 @@ def _load_profile_or_exit(profile_name: str):
 @click.pass_context
 def main(ctx, auto, profile_name):
     """Multiverse Device Rescue — system diagnostic and repair toolkit."""
+    _run_startup_integrity_check()
     if auto:
         _run_auto(profile_name)
     elif ctx.invoked_subcommand is None:
         run_tui(_get_modules_dir())
+
+
+def _run_startup_integrity_check() -> None:
+    """Best-effort, never blocking: warns if rescue's own installed files
+    don't match the shipped integrity manifest, then always continues."""
+    try:
+        if not DEFAULT_INTEGRITY_MANIFEST_PATH.exists():
+            return
+        manifest = IntegrityManifest.from_json_bytes(DEFAULT_INTEGRITY_MANIFEST_PATH.read_bytes())
+        package_root = Path(__file__).parent
+        result = verify_package_integrity(package_root, manifest)
+        if not result.ok:
+            click.echo(
+                "WARNING: rescue's own installed files do not match the expected integrity manifest.",
+                err=True,
+            )
+            for rel in result.tampered:
+                click.echo(f"  modified: {rel}", err=True)
+            for rel in result.missing:
+                click.echo(f"  missing:  {rel}", err=True)
+            click.echo("Consider reinstalling the tool. Continuing with existing files.", err=True)
+    except Exception:
+        pass
 
 
 @main.command()
@@ -202,3 +236,93 @@ def _run_auto(profile_name: str | None = None):
         click.echo("\n--- Guided walkthroughs available for this profile ---")
         for guide_name in profile.guides:
             click.echo(f"  Run 'rescue guide {guide_name}' to continue.")
+
+
+@main.command()
+@click.option("--check", is_flag=True, help="Check for updates without applying them.")
+@click.option("--dry-run", is_flag=True, help="Show what would change without applying it.")
+@click.option("--yes", is_flag=True, help="Apply without an interactive confirmation prompt.")
+@click.option(
+    "--sideload",
+    "sideload_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Apply a signed update from a local git bundle file (air-gapped).",
+)
+def update(check, dry_run, yes, sideload_path):
+    """Update module data and guide content from the content repository."""
+    config = default_config()
+
+    try:
+        if sideload_path is not None:
+            repo = load_sideload_repo(sideload_path, config)
+            engine = UpdateEngine(config, repo=repo)
+        else:
+            engine = UpdateEngine(config)
+            engine.refresh()
+    except (GitError, SideloadError) as exc:
+        click.echo(f"Update failed: {exc}", err=True)
+        click.echo("Continuing with existing content.", err=True)
+        raise SystemExit(1)
+
+    result = engine.status()
+
+    if result.status == "up_to_date":
+        click.echo("Content is already up to date.")
+        return
+
+    if result.status == "pending_approval":
+        click.echo(result.message)
+        click.echo("Refusing to apply -- not enough maintainer approvals yet.")
+        raise SystemExit(1)
+
+    click.echo(f"Update available: {result.content_version or result.new_commit[:12]}")
+    click.echo(result.message)
+    if result.commits:
+        click.echo("\nChanges:")
+        for commit in result.commits:
+            click.echo(f"  {commit.sha[:10]}  {commit.subject}  ({commit.author})")
+
+    if check:
+        return
+
+    if dry_run:
+        preview = engine.apply(result, dry_run=True)
+        click.echo(f"\n{preview.message}")
+        return
+
+    if not yes and not click.confirm("\nApply this update?"):
+        click.echo("Update cancelled.")
+        return
+
+    applied = engine.apply(result, dry_run=False)
+    click.echo(applied.message)
+
+
+@main.group()
+def trust():
+    """Manage locally-revoked content-repo signers."""
+
+
+@trust.command("revoke")
+@click.argument("signer_id")
+@click.option("--reason", required=True, help="Why this signer is being revoked.")
+def trust_revoke(signer_id, reason):
+    """Stop trusting a signer's approvals on this machine, effective immediately."""
+    config = default_config()
+    store = RevokedSignerStore(config.revoked_signers_path)
+    store.revoke(signer_id, reason)
+    click.echo(f"Revoked signer '{signer_id}': {reason}")
+
+
+@trust.command("list-revoked")
+def trust_list_revoked():
+    """List signer IDs revoked on this machine."""
+    config = default_config()
+    store = RevokedSignerStore(config.revoked_signers_path)
+    revoked = store.revoked_signer_ids()
+    if not revoked:
+        click.echo("No signers revoked on this machine.")
+        return
+    for signer_id in sorted(revoked):
+        click.echo(signer_id)
