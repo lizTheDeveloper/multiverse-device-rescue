@@ -1,0 +1,37 @@
+[
+  {
+    "label_pattern": "com.adobe.acc",
+    "name": "Adobe Creative Cloud Helper",
+    "description": "Adobe Creative Cloud background helper that auto-launches at login and consumes background resources."
+  },
+  {
+    "label_pattern": "com.microsoft.autoupdate",
+    "name": "Microsoft AutoUpdate",
+    "description": "Microsoft's auto-update agent for Office apps; safe to run on-demand instead of at every login."
+  },
+  {
+    "label_pattern": "com.oracle.java.Java-Updater",
+    "name": "Java Update Checker",
+    "description": "Oracle Java auto-update checker; rarely needed unless actively developing with Java."
+  },
+  {
+    "label_pattern": "com.real.player",
+    "name": "RealPlayer Helper",
+    "description": "Legacy RealPlayer background helper, considered bloatware by most users."
+  },
+  {
+    "label_pattern": "com.citrixonline.gotomeeting",
+    "name": "GoToMeeting Helper",
+    "description": "GoToMeeting background helper that launches at login even when not in a meeting."
+  },
+  {
+    "label_pattern": "com.google.keystone",
+    "name": "Google Software Update (Keystone)",
+    "description": "Google's background updater for Chrome and other Google apps; can be safely limited to manual updates."
+  },
+  {
+    "label_pattern": "com.spotify.webhelper",
+    "name": "Spotify Helper",
+    "description": "Spotify background helper that keeps the app ready to launch instantly; disable if you don't need instant startup."
+  }
+]
