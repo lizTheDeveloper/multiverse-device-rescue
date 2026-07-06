@@ -1,0 +1,28 @@
+#loading-container {
+    align: center middle;
+    height: 100%;
+}
+
+#loading-progress {
+    width: 60%;
+}
+
+#findings-list {
+    height: 1fr;
+    border: solid $primary;
+    padding: 1;
+}
+
+.finding-row {
+    padding: 0 1;
+}
+
+#fix-result-list {
+    height: 1fr;
+    border: solid $primary;
+    padding: 1;
+}
+
+.action-row {
+    padding: 0 1;
+}
