@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -27,23 +27,19 @@ def _get_module():
 
 
 def _create_cache_files(cache_dir: Path, size_bytes: int):
-    """Create dummy files in cache directory to reach target size."""
+    """Create dummy files in cache directory to reach target size using sparse approach."""
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create files in chunks to reach target size
-    chunk_size = 1024 * 1024  # 1 MB chunks
-    chunks = size_bytes // chunk_size
-    remainder = size_bytes % chunk_size
-
-    for i in range(chunks):
-        file_path = cache_dir / f"file_{i}.cache"
-        with open(file_path, "wb") as f:
-            f.write(b"x" * chunk_size)
-
-    if remainder > 0:
-        file_path = cache_dir / "file_remainder.cache"
-        with open(file_path, "wb") as f:
-            f.write(b"x" * remainder)
+    # Create a single file with sparse data (not actual bytes)
+    file_path = cache_dir / "cache.db"
+    # Use sparse file approach: write at the end to create a large file without using disk
+    with open(file_path, "wb") as f:
+        # Write a small header
+        f.write(b"CACHE")
+        # Seek to the desired end position
+        f.seek(int(size_bytes) - 1)
+        # Write final byte to set file size
+        f.write(b"\x00")
 
 
 def test_browser_cache_cleanup_discovered():
@@ -71,7 +67,7 @@ def test_browser_cache_cleanup_small_safari_cache(tmp_path):
 
     # Create small Safari cache (100 MB)
     safari_cache = tmp_path / "Library/Caches/com.apple.Safari"
-    _create_cache_files(safari_cache, 100 * 1024 * 1024)
+    _create_cache_files(safari_cache, int(100 * 1024 * 1024))
 
     with patch("pathlib.Path.home", return_value=tmp_path):
         result = mod.check(_make_profile())
@@ -93,10 +89,10 @@ def test_browser_cache_cleanup_small_all_browsers(tmp_path):
     firefox_cache = tmp_path / "Library/Caches/Firefox/Profiles"
     edge_cache = tmp_path / "Library/Caches/Microsoft Edge"
 
-    _create_cache_files(safari_cache, 500 * 1024 * 1024)
-    _create_cache_files(chrome_cache, 500 * 1024 * 1024)
-    _create_cache_files(firefox_cache, 500 * 1024 * 1024)
-    _create_cache_files(edge_cache, 500 * 1024 * 1024)
+    _create_cache_files(safari_cache, int(500 * 1024 * 1024))
+    _create_cache_files(chrome_cache, int(500 * 1024 * 1024))
+    _create_cache_files(firefox_cache, int(500 * 1024 * 1024))
+    _create_cache_files(edge_cache, int(500 * 1024 * 1024))
 
     with patch("pathlib.Path.home", return_value=tmp_path):
         result = mod.check(_make_profile())
@@ -114,7 +110,7 @@ def test_browser_cache_cleanup_large_single_browser(tmp_path):
 
     # Create large Chrome cache (3 GB)
     chrome_cache = tmp_path / "Library/Caches/Google/Chrome"
-    _create_cache_files(chrome_cache, 3 * 1024 * 1024 * 1024)
+    _create_cache_files(chrome_cache, int(3 * 1024 * 1024 * 1024))
 
     with patch("pathlib.Path.home", return_value=tmp_path):
         result = mod.check(_make_profile())
@@ -140,10 +136,10 @@ def test_browser_cache_cleanup_high_total_cache(tmp_path):
     firefox_cache = tmp_path / "Library/Caches/Firefox/Profiles"
     edge_cache = tmp_path / "Library/Caches/Microsoft Edge"
 
-    _create_cache_files(safari_cache, 2 * 1024 * 1024 * 1024)  # 2 GB
-    _create_cache_files(chrome_cache, 1500 * 1024 * 1024)  # 1.5 GB
-    _create_cache_files(firefox_cache, 1500 * 1024 * 1024)  # 1.5 GB
-    _create_cache_files(edge_cache, 1 * 1024 * 1024 * 1024)  # 1 GB
+    _create_cache_files(safari_cache, int(2 * 1024 * 1024 * 1024))  # 2 GB
+    _create_cache_files(chrome_cache, int(1.5 * 1024 * 1024 * 1024))  # 1.5 GB
+    _create_cache_files(firefox_cache, int(1.5 * 1024 * 1024 * 1024))  # 1.5 GB
+    _create_cache_files(edge_cache, int(1 * 1024 * 1024 * 1024))  # 1 GB
     # Total: 6 GB
 
     with patch("pathlib.Path.home", return_value=tmp_path):
@@ -165,8 +161,8 @@ def test_browser_cache_cleanup_multiple_large_browsers(tmp_path):
     safari_cache = tmp_path / "Library/Caches/com.apple.Safari"
     chrome_cache = tmp_path / "Library/Caches/Google/Chrome"
 
-    _create_cache_files(safari_cache, 3 * 1024 * 1024 * 1024)  # 3 GB
-    _create_cache_files(chrome_cache, 2.5 * 1024 * 1024 * 1024)  # 2.5 GB
+    _create_cache_files(safari_cache, int(3 * 1024 * 1024 * 1024))  # 3 GB
+    _create_cache_files(chrome_cache, int(2.5 * 1024 * 1024 * 1024))  # 2.5 GB
 
     with patch("pathlib.Path.home", return_value=tmp_path):
         result = mod.check(_make_profile())
@@ -186,7 +182,7 @@ def test_browser_cache_cleanup_fix_is_informational(tmp_path):
 
     # Create a cache that triggers warnings
     chrome_cache = tmp_path / "Library/Caches/Google/Chrome"
-    _create_cache_files(chrome_cache, 3 * 1024 * 1024 * 1024)
+    _create_cache_files(chrome_cache, int(3 * 1024 * 1024 * 1024))
 
     with patch("pathlib.Path.home", return_value=tmp_path):
         check = mod.check(_make_profile())
@@ -207,8 +203,8 @@ def test_browser_cache_cleanup_fix_actions_count(tmp_path):
     # Create multiple caches with warnings
     safari_cache = tmp_path / "Library/Caches/com.apple.Safari"
     chrome_cache = tmp_path / "Library/Caches/Google/Chrome"
-    _create_cache_files(safari_cache, 100 * 1024 * 1024)
-    _create_cache_files(chrome_cache, 200 * 1024 * 1024)
+    _create_cache_files(safari_cache, int(100 * 1024 * 1024))
+    _create_cache_files(chrome_cache, int(200 * 1024 * 1024))
 
     with patch("pathlib.Path.home", return_value=tmp_path):
         check = mod.check(_make_profile())
@@ -228,8 +224,8 @@ def test_browser_cache_cleanup_large_total_and_individual(tmp_path):
     safari_cache = tmp_path / "Library/Caches/com.apple.Safari"
     chrome_cache = tmp_path / "Library/Caches/Google/Chrome"
 
-    _create_cache_files(safari_cache, 2.5 * 1024 * 1024 * 1024)  # 2.5 GB (> 2 GB)
-    _create_cache_files(chrome_cache, 3 * 1024 * 1024 * 1024)  # 3 GB (> 2 GB)
+    _create_cache_files(safari_cache, int(2.5 * 1024 * 1024 * 1024))  # 2.5 GB (> 2 GB)
+    _create_cache_files(chrome_cache, int(3 * 1024 * 1024 * 1024))  # 3 GB (> 2 GB)
     # Total: 5.5 GB (> 5 GB)
 
     with patch("pathlib.Path.home", return_value=tmp_path):
@@ -253,7 +249,7 @@ def test_browser_cache_cleanup_path_handling(tmp_path):
 
     # Create only one browser cache, others don't exist
     chrome_cache = tmp_path / "Library/Caches/Google/Chrome"
-    _create_cache_files(chrome_cache, 50 * 1024 * 1024)
+    _create_cache_files(chrome_cache, int(50 * 1024 * 1024))
 
     with patch("pathlib.Path.home", return_value=tmp_path):
         result = mod.check(_make_profile())
