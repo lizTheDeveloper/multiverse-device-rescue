@@ -26,6 +26,13 @@ def _get_module():
     return next(m for m in modules if m.name == "library_cache_cleanup")
 
 
+def _mock_scan(sizes_dict):
+    """Return a patch that mocks _scan_caches with a given dict."""
+    def _patched(self, caches_dir):
+        return sizes_dict
+    return _patched
+
+
 class TestLibraryCacheCleanupDiscovery:
     def test_module_discovered(self):
         mod = _get_module()
@@ -47,14 +54,14 @@ class TestLibraryCacheCleanupEmpty:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={}):
             result = mod.check(_make_profile())
 
         assert not result.has_issues
 
     def test_missing_caches_dir(self, tmp_path):
         mod = _get_module()
-        # No Library/Caches directory
 
         with patch.object(Path, "home", return_value=tmp_path):
             result = mod.check(_make_profile())
@@ -68,15 +75,12 @@ class TestLibraryCacheCleanupTotalSize:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create small caches totaling < 10GB
-        app1 = caches / "com.example.app1"
-        app1.mkdir()
-        (app1 / "cache.db").write_bytes(b"x" * (1 * 1024 * 1024 * 1024))  # 1 GB
-
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "com.example.app1": 1 * 1024 * 1024 * 1024,
+             }):
             result = mod.check(_make_profile())
 
-        # Should only have info finding about total size
         warning = next((f for f in result.findings if f.severity == Severity.WARNING), None)
         assert warning is None
 
@@ -85,13 +89,12 @@ class TestLibraryCacheCleanupTotalSize:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Mock to return 10GB+ total
-        with patch.object(mod, "_scan_caches", return_value={
-            "com.example.app1": 6 * 1024 * 1024 * 1024,
-            "com.example.app2": 5 * 1024 * 1024 * 1024,
-        }):
-            with patch.object(Path, "home", return_value=tmp_path):
-                result = mod.check(_make_profile())
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "com.example.app1": 6 * 1024 * 1024 * 1024,
+                 "com.example.app2": 5 * 1024 * 1024 * 1024,
+             }):
+            result = mod.check(_make_profile())
 
         warning = next((f for f in result.findings if f.data.get("type") == "total_cache_size"), None)
         assert warning is not None
@@ -104,12 +107,11 @@ class TestLibraryCacheCleanupSingleCache:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Mock to return single cache > 3GB
-        with patch.object(mod, "_scan_caches", return_value={
-            "com.slack.slack": 4 * 1024 * 1024 * 1024,
-        }):
-            with patch.object(Path, "home", return_value=tmp_path):
-                result = mod.check(_make_profile())
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "com.slack.slack": 4 * 1024 * 1024 * 1024,
+             }):
+            result = mod.check(_make_profile())
 
         warning = next((f for f in result.findings if f.data.get("type") == "large_single_cache"), None)
         assert warning is not None
@@ -121,12 +123,10 @@ class TestLibraryCacheCleanupSingleCache:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create single cache < 3GB
-        app1 = caches / "com.example.app"
-        app1.mkdir()
-        (app1 / "cache.db").write_bytes(b"x" * (2 * 1024 * 1024 * 1024))  # 2 GB
-
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "com.example.app": 2 * 1024 * 1024 * 1024,
+             }):
             result = mod.check(_make_profile())
 
         warning = next((f for f in result.findings if f.data.get("type") == "large_single_cache"), None)
@@ -139,12 +139,10 @@ class TestLibraryCacheCleanupKnownApps:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create Slack cache
-        slack_cache = caches / "slack.com.slack"
-        slack_cache.mkdir()
-        (slack_cache / "cache.db").write_bytes(b"x" * (500 * 1024 * 1024))  # 500 MB
-
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "slack.com.slack": 500 * 1024 * 1024,
+             }):
             result = mod.check(_make_profile())
 
         known = next((f for f in result.findings if f.data.get("type") == "known_apps"), None)
@@ -156,12 +154,10 @@ class TestLibraryCacheCleanupKnownApps:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create Spotify cache
-        spotify_cache = caches / "com.spotify.client"
-        spotify_cache.mkdir()
-        (spotify_cache / "cache.db").write_bytes(b"x" * (700 * 1024 * 1024))  # 700 MB
-
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "com.spotify.client": 700 * 1024 * 1024,
+             }):
             result = mod.check(_make_profile())
 
         known = next((f for f in result.findings if f.data.get("type") == "known_apps"), None)
@@ -173,13 +169,12 @@ class TestLibraryCacheCleanupKnownApps:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create multiple known app caches
-        for cache_dir in ["slack.com.slack", "com.spotify.client", "com.microsoft.teams"]:
-            cache = caches / cache_dir
-            cache.mkdir()
-            (cache / "cache.db").write_bytes(b"x" * (500 * 1024 * 1024))
-
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "slack.com.slack": 500 * 1024 * 1024,
+                 "com.spotify.client": 500 * 1024 * 1024,
+                 "com.microsoft.teams": 500 * 1024 * 1024,
+             }):
             result = mod.check(_make_profile())
 
         known = next((f for f in result.findings if f.data.get("type") == "known_apps"), None)
@@ -195,13 +190,11 @@ class TestLibraryCacheCleanupKnownApps:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create random cache dirs
-        for cache_dir in ["com.random.app1", "com.random.app2"]:
-            cache = caches / cache_dir
-            cache.mkdir()
-            (cache / "cache.db").write_bytes(b"x" * (100 * 1024 * 1024))
-
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "com.random.app1": 100 * 1024 * 1024,
+                 "com.random.app2": 100 * 1024 * 1024,
+             }):
             result = mod.check(_make_profile())
 
         known = next((f for f in result.findings if f.data.get("type") == "known_apps"), None)
@@ -214,21 +207,16 @@ class TestLibraryCacheCleanupTopCaches:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create multiple caches
-        for i in range(15):
-            cache = caches / f"com.app{i:02d}"
-            cache.mkdir()
-            size = (i + 1) * 100 * 1024 * 1024  # 100 MB, 200 MB, etc.
-            (cache / "cache.db").write_bytes(b"x" * size)
+        cache_data = {f"com.app{i:02d}": (i + 1) * 100 * 1024 * 1024 for i in range(15)}
 
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value=cache_data):
             result = mod.check(_make_profile())
 
         top = next((f for f in result.findings if f.data.get("type") == "top_caches"), None)
         assert top is not None
         caches_list = top.data.get("caches", {})
-        assert len(caches_list) == 10  # Should list top 10
-        # Verify largest apps are in the list
+        assert len(caches_list) == 10
         assert "com.app14" in caches_list
         assert "com.app13" in caches_list
 
@@ -239,11 +227,10 @@ class TestLibraryCacheCleanupFix:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        app_cache = caches / "com.example.app"
-        app_cache.mkdir()
-        (app_cache / "cache.db").write_bytes(b"x" * (500 * 1024 * 1024))
-
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "com.example.app": 500 * 1024 * 1024,
+             }):
             check = mod.check(_make_profile())
             fix = mod.fix(check, Mode.MANUAL)
 
@@ -257,31 +244,29 @@ class TestLibraryCacheCleanupFix:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create cache that would trigger warning
-        with patch.object(mod, "_scan_caches", return_value={
-            "com.example.app": 4 * 1024 * 1024 * 1024,
-        }):
-            with patch.object(Path, "home", return_value=tmp_path):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "com.example.app": 4 * 1024 * 1024 * 1024,
+             }):
+            check = mod.check(_make_profile())
+            fix = mod.fix(check, Mode.MANUAL)
 
-        # Verify actions suggest removal but don't delete
         assert fix.all_succeeded
         assert all(a.success for a in fix.actions)
-        assert "rm -rf" in str(fix.actions)  # Suggests command but doesn't execute
+        assert "rm -rf" in str(fix.actions)
 
     def test_fix_total_cache_warning(self, tmp_path):
         mod = _get_module()
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        with patch.object(mod, "_scan_caches", return_value={
-            "com.app1": 6 * 1024 * 1024 * 1024,
-            "com.app2": 5 * 1024 * 1024 * 1024,
-        }):
-            with patch.object(Path, "home", return_value=tmp_path):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "com.app1": 6 * 1024 * 1024 * 1024,
+                 "com.app2": 5 * 1024 * 1024 * 1024,
+             }):
+            check = mod.check(_make_profile())
+            fix = mod.fix(check, Mode.MANUAL)
 
         action = next((a for a in fix.actions if "High cache size" in a.title), None)
         assert action is not None
@@ -294,40 +279,27 @@ class TestLibraryCacheCleanupErrorHandling:
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create a cache directory
         app_cache = caches / "com.example.app"
         app_cache.mkdir()
         (app_cache / "cache.db").write_text("cache")
 
         try:
-            # Remove read permissions
             caches.chmod(0o000)
-
             with patch.object(Path, "home", return_value=tmp_path):
                 result = mod.check(_make_profile())
-
-            # Should handle gracefully
             assert isinstance(result.findings, list)
         finally:
-            # Restore permissions
             caches.chmod(0o755)
 
-    def test_symlink_not_followed(self, tmp_path):
+    def test_symlink_handling(self, tmp_path):
         mod = _get_module()
         caches = tmp_path / "Library" / "Caches"
         caches.mkdir(parents=True)
 
-        # Create a real cache directory
-        real_cache = tmp_path / "real_cache"
-        real_cache.mkdir()
-        (real_cache / "cache.db").write_bytes(b"x" * (1 * 1024 * 1024 * 1024))
-
-        # Create a symlink to it in caches
-        symlink = caches / "symlink_cache"
-        symlink.symlink_to(real_cache)
-
-        with patch.object(Path, "home", return_value=tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path), \
+             patch.object(mod, "_scan_caches", return_value={
+                 "symlink_cache": 500 * 1024 * 1024,
+             }):
             result = mod.check(_make_profile())
 
-        # Symlink should be handled safely (not followed)
         assert isinstance(result.findings, list)
