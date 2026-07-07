@@ -19,7 +19,8 @@ def gather_profile() -> SystemProfile:
         from rescue.profiler.darwin import gather_darwin_profile
         return gather_darwin_profile()
     elif plat == Platform.WIN32:
-        raise NotImplementedError("Windows profiler not yet implemented")
+        from rescue.profiler.windows import gather_windows_profile
+        return gather_windows_profile()
     elif plat == Platform.LINUX:
         raise NotImplementedError("Linux profiler not yet implemented")
     raise RuntimeError("Unsupported platform (should not be reached)")
