@@ -1,11 +1,125 @@
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+import json
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+
+
+# Minimal healthy Windows services output
+HEALTHY_SERVICES = [
+    {
+        "Name": "WinDefend",
+        "DisplayName": "Windows Defender Antivirus Service",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+    },
+    {
+        "Name": "wuauserv",
+        "DisplayName": "Windows Update",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Windows\\System32\\svchost.exe -k netsvcs",
+    },
+    {
+        "Name": "AudioSrv",
+        "DisplayName": "Windows Audio",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Windows\\System32\\svchost.exe -k netsvcs",
+    },
+]
+
+# Services with bloatware
+BLOATWARE_SERVICES = [
+    {
+        "Name": "WinDefend",
+        "DisplayName": "Windows Defender Antivirus Service",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+    },
+    {
+        "Name": "hpqvfxs",
+        "DisplayName": "HP Quick Functions Service",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Program Files\\HP\\HP OfficeJet\\Bin\\hpqvfxs.exe",
+    },
+    {
+        "Name": "DellSystemDetect",
+        "DisplayName": "Dell System Detect Service",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Program Files (x86)\\Dell\\DellSystemDetect\\bin\\DellSystemDetect.exe",
+    },
+]
+
+# Services with suspicious paths
+SUSPICIOUS_PATH_SERVICES = [
+    {
+        "Name": "WinDefend",
+        "DisplayName": "Windows Defender Antivirus Service",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+    },
+    {
+        "Name": "MalwareService",
+        "DisplayName": "Suspicious Service",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Windows\\Temp\\malware.exe",
+    },
+    {
+        "Name": "UserFolderService",
+        "DisplayName": "User Folder Service",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Users\\john\\AppData\\Local\\Temp\\service.exe",
+    },
+]
+
+# Services that are stopped but set to auto-start
+STOPPED_AUTOSTART_SERVICES = [
+    {
+        "Name": "WinDefend",
+        "DisplayName": "Windows Defender Antivirus Service",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+    },
+    {
+        "Name": "ServiceA",
+        "DisplayName": "Service A",
+        "Status": "Stopped",
+        "StartType": "Automatic",
+        "PathName": "C:\\Program Files\\ServiceA\\service.exe",
+    },
+    {
+        "Name": "ServiceB",
+        "DisplayName": "Service B",
+        "Status": "Stopped",
+        "StartType": "Automatic",
+        "PathName": "C:\\Program Files\\ServiceB\\service.exe",
+    },
+]
+
+# Many auto-start services to exceed the 40 threshold
+EXCESSIVE_AUTOSTART = [
+    {
+        "Name": f"Service{i}",
+        "DisplayName": f"Service {i}",
+        "Status": "Running",
+        "StartType": "Automatic",
+        "PathName": f"C:\\Program Files\\Service{i}\\service.exe",
+    }
+    for i in range(45)
+]
 
 
 def _make_profile():
@@ -26,205 +140,78 @@ def _get_module():
     return next(m for m in modules if m.name == "win_services_audit")
 
 
-def _make_service_block(name: str, display_name: str, status: str, start_type: str) -> str:
-    return (
-        f"Name        : {name}\r\n"
-        f"DisplayName : {display_name}\r\n"
-        f"Status      : {status}\r\n"
-        f"StartType   : {start_type}\r\n"
-    )
-
-
-def _make_powershell_output(services: list[tuple[str, str, str, str]]) -> str:
-    """Create fake PowerShell output from list of (name, display_name, status, start_type)."""
-    blocks = [
-        _make_service_block(name, display_name, status, start_type)
-        for name, display_name, status, start_type in services
-    ]
-    return "\r\n".join(blocks)
-
-
-def _make_subprocess_result(stdout="", stderr="", returncode=0):
-    result = MagicMock()
-    result.stdout = stdout
-    result.stderr = stderr
-    result.returncode = returncode
-    return result
-
-
-def _fake_run_few_services():
-    """System with few services (healthy)"""
+def _fake_powershell_run(services_data):
     def fake_run(cmd, **kwargs):
-        output = _make_powershell_output([
-            ("WinDefend", "Windows Defender Antivirus Service", "Running", "Automatic"),
-            ("wuauserv", "Windows Update", "Running", "Automatic"),
-            ("Bits", "Background Intelligent Transfer Service", "Running", "Automatic"),
-            ("AudioSrv", "Windows Audio", "Running", "Automatic"),
-            ("Spooler", "Print Spooler", "Stopped", "Automatic"),
-        ])
-        return _make_subprocess_result(output)
-    return fake_run
-
-
-def _fake_run_many_services():
-    """System with ~70 services"""
-    def fake_run(cmd, **kwargs):
-        services = [
-            (f"Service{i}", f"Service {i}", "Running", "Automatic")
-            for i in range(70)
-        ]
-        output = _make_powershell_output(services)
-        return _make_subprocess_result(output)
-    return fake_run
-
-
-def _fake_run_bloated_system():
-    """System with >100 running services"""
-    def fake_run(cmd, **kwargs):
-        services = [
-            (f"Service{i}", f"Service {i}", "Running", "Automatic")
-            for i in range(105)
-        ]
-        output = _make_powershell_output(services)
-        return _make_subprocess_result(output)
-    return fake_run
-
-
-def _fake_run_bloatware_services():
-    """System with bloatware services detected"""
-    def fake_run(cmd, **kwargs):
-        services = [
-            ("WinDefend", "Windows Defender Antivirus Service", "Running", "Automatic"),
-            ("DiagTrack", "DiagTrack", "Running", "Automatic"),
-            ("AppUpdate", "App Update Service", "Running", "Automatic"),
-            ("Telemetry", "Telemetry Service", "Stopped", "Automatic"),
-            ("OneProcService", "OneNote", "Running", "Automatic"),
-            ("Cortana", "Cortana", "Running", "Automatic"),
-        ]
-        output = _make_powershell_output(services)
-        return _make_subprocess_result(output)
-    return fake_run
-
-
-def _fake_run_stopped_auto_services():
-    """System with stopped automatic services"""
-    def fake_run(cmd, **kwargs):
-        services = [
-            ("WinDefend", "Windows Defender Antivirus Service", "Running", "Automatic"),
-            ("wuauserv", "Windows Update", "Stopped", "Automatic"),
-            ("Bits", "Background Intelligent Transfer Service", "Stopped", "Automatic"),
-            ("AudioSrv", "Windows Audio", "Running", "Automatic"),
-        ]
-        output = _make_powershell_output(services)
-        return _make_subprocess_result(output)
-    return fake_run
-
-
-def _fake_run_powershell_error():
-    """PowerShell returns error"""
-    def fake_run(cmd, **kwargs):
-        return _make_subprocess_result("", "Error", 1)
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        # Mock the PowerShell call
+        if len(cmd) > 0 and "powershell" in cmd[0].lower():
+            result.stdout = json.dumps(services_data)
+        return result
     return fake_run
 
 
 def test_win_services_audit_discovered():
     mod = _get_module()
     assert mod.name == "win_services_audit"
-    assert mod.category == "performance"
-    assert mod.risk_level == RiskLevel.SAFE
+    assert mod.category == "security"
     assert Platform.WIN32 in mod.platforms
+    assert mod.risk_level == RiskLevel.SAFE
 
 
-def test_win_services_audit_few_services():
+def test_win_services_audit_healthy():
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_few_services()):
+    with patch("subprocess.run", side_effect=_fake_powershell_run(HEALTHY_SERVICES)):
         result = mod.check(_make_profile())
-    # Should have findings for service count
-    assert result.has_issues
-    # Should have INFO for service count
-    assert any(f.data.get("type") == "service_count" for f in result.findings)
-    # Should NOT have warning for high count
-    assert not any(f.severity == Severity.WARNING and f.data.get("type") == "high_service_count" for f in result.findings)
+    assert not result.has_issues
 
 
-def test_win_services_audit_many_services():
+def test_win_services_audit_detects_bloatware():
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_many_services()):
+    with patch("subprocess.run", side_effect=_fake_powershell_run(BLOATWARE_SERVICES)):
         result = mod.check(_make_profile())
-    # Should have findings
     assert result.has_issues
-    # Should have service count
-    assert any(f.data.get("type") == "service_count" for f in result.findings)
-    # Should NOT exceed warning threshold (70 < 100)
-    assert not any(f.severity == Severity.WARNING and f.data.get("type") == "high_service_count" for f in result.findings)
+    assert any("bloatware" in f.title.lower() for f in result.findings)
+    assert any(f.severity == Severity.INFO for f in result.findings)
 
 
-def test_win_services_audit_bloated_system():
+def test_win_services_audit_detects_suspicious_paths():
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_bloated_system()):
+    with patch("subprocess.run", side_effect=_fake_powershell_run(SUSPICIOUS_PATH_SERVICES)):
         result = mod.check(_make_profile())
-    # Should have findings
     assert result.has_issues
-    # Should have WARNING for high service count
-    assert any(f.severity == Severity.WARNING and f.data.get("type") == "high_service_count" for f in result.findings)
-    # Count should be >100
-    high_count_finding = next(f for f in result.findings if f.data.get("type") == "high_service_count")
-    assert high_count_finding.data["count"] >= 100
+    assert any("suspicious path" in f.title.lower() for f in result.findings)
+    assert any(f.severity == Severity.WARNING for f in result.findings)
 
 
-def test_win_services_audit_bloatware_services():
+def test_win_services_audit_detects_stopped_autostart():
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_bloatware_services()):
+    with patch("subprocess.run", side_effect=_fake_powershell_run(STOPPED_AUTOSTART_SERVICES)):
         result = mod.check(_make_profile())
-    # Should have findings
     assert result.has_issues
-    # Should detect bloatware services
-    assert any(f.data.get("type") == "bloatware_services" for f in result.findings)
-    bloatware_finding = next(f for f in result.findings if f.data.get("type") == "bloatware_services")
-    assert bloatware_finding.data["count"] > 0
-    assert any(name in bloatware_finding.data.get("names", []) for name in ["DiagTrack", "Telemetry"])
+    assert any("stopped" in f.title.lower() for f in result.findings)
+    assert any(f.severity == Severity.WARNING for f in result.findings)
 
 
-def test_win_services_audit_stopped_auto_services():
+def test_win_services_audit_detects_excessive_autostart():
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_stopped_auto_services()):
+    with patch("subprocess.run", side_effect=_fake_powershell_run(EXCESSIVE_AUTOSTART)):
         result = mod.check(_make_profile())
-    # Should have findings
     assert result.has_issues
-    # Should detect stopped automatic services
-    assert any(f.data.get("type") == "stopped_auto_services" for f in result.findings)
-    stopped_finding = next(f for f in result.findings if f.data.get("type") == "stopped_auto_services")
-    assert stopped_finding.severity == Severity.WARNING
-    assert stopped_finding.data["count"] == 2
+    assert any("excessive" in f.title.lower() for f in result.findings)
+    assert any(f.severity == Severity.WARNING for f in result.findings)
+    excessive_finding = next(
+        f for f in result.findings if "excessive" in f.title.lower()
+    )
+    assert excessive_finding.data["count"] == 45
 
 
-def test_win_services_audit_powershell_error():
+def test_win_services_audit_fix_provides_bloatware_actions():
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_powershell_error()):
-        result = mod.check(_make_profile())
-    # Should not crash, just return findings with default service count
-    # (empty service list should result in INFO with count 0)
-    assert result.has_issues
-
-
-def test_win_services_audit_fix_is_informational():
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_bloated_system()):
+    with patch("subprocess.run", side_effect=_fake_powershell_run(BLOATWARE_SERVICES)):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
-    # fix() should always succeed with informational messages
-    assert fix.all_succeeded
-    # Should have actions for each finding
-    assert len(fix.actions) == len(check.findings)
-
-
-def test_win_services_audit_service_count_finding():
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_few_services()):
-        result = mod.check(_make_profile())
-    # Should have a service count finding
-    service_count_finding = next(f for f in result.findings if f.data.get("type") == "service_count")
-    # Only 4 services running (Service0-3 are Running)
-    # Actually 5 total services but only 4 running
-    assert service_count_finding.data["count"] >= 0
-    assert service_count_finding.severity == Severity.INFO
+    assert len(fix.actions) > 0
+    assert all("services.msc" in a.description for a in fix.actions)
+    assert all(a.success for a in fix.actions)
