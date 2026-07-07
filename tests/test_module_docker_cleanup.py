@@ -35,6 +35,22 @@ def _make_subprocess_result(stdout="", stderr="", returncode=0):
     return result
 
 
+def _docker_df_ndjson(images="0B", containers="0B", volumes="0B", build_cache="0B"):
+    """Build realistic NDJSON output for 'docker system df --format {{json .}}'.
+
+    Real Docker emits one JSON object per line, one line per row type
+    (Images, Containers, Local Volumes, Build Cache) -- NOT a single JSON
+    blob.
+    """
+    rows = [
+        {"Type": "Images", "TotalCount": 10, "Active": 5, "Size": images, "Reclaimable": "0B (0%)"},
+        {"Type": "Containers", "TotalCount": 3, "Active": 1, "Size": containers, "Reclaimable": "0B (0%)"},
+        {"Type": "Local Volumes", "TotalCount": 2, "Active": 1, "Size": volumes, "Reclaimable": "0B (0%)"},
+        {"Type": "Build Cache", "TotalCount": 0, "Active": 0, "Size": build_cache, "Reclaimable": "0B"},
+    ]
+    return "\n".join(json.dumps(row) for row in rows) + "\n"
+
+
 def _fake_run_docker_not_installed():
     """Docker is not installed"""
     def fake_run(cmd, **kwargs):
@@ -52,13 +68,12 @@ def _fake_run_docker_healthy():
             if cmd[0] == "which" and "docker" in cmd:
                 return _make_subprocess_result(stdout="/usr/local/bin/docker\n")
             elif cmd[0] == "docker" and cmd[1] == "system" and cmd[2] == "df":
-                # Return JSON format with low usage
-                data = {
-                    "Images": "5.2 GB",
-                    "Containers": "500 MB",
-                    "Volumes": "100 MB",
-                }
-                return _make_subprocess_result(stdout=json.dumps(data) + "\n")
+                # Return realistic NDJSON output with low usage
+                return _make_subprocess_result(
+                    stdout=_docker_df_ndjson(
+                        images="5.2GB", containers="500MB", volumes="100MB"
+                    )
+                )
             elif cmd[0] == "docker" and cmd[1] == "images" and any("dangling" in str(c) for c in cmd):
                 # No dangling images
                 return _make_subprocess_result(stdout="")
@@ -77,13 +92,12 @@ def _fake_run_high_docker_usage():
             if cmd[0] == "which" and "docker" in cmd:
                 return _make_subprocess_result(stdout="/usr/local/bin/docker\n")
             elif cmd[0] == "docker" and cmd[1] == "system" and cmd[2] == "df":
-                # Return JSON format with high usage (>20GB)
-                data = {
-                    "Images": "15.2 GB",
-                    "Containers": "8.5 GB",
-                    "Volumes": "2.1 GB",
-                }
-                return _make_subprocess_result(stdout=json.dumps(data) + "\n")
+                # Return realistic NDJSON output with high usage (>20GB)
+                return _make_subprocess_result(
+                    stdout=_docker_df_ndjson(
+                        images="15.2GB", containers="8.5GB", volumes="2.1GB"
+                    )
+                )
             elif cmd[0] == "docker" and cmd[1] == "images" and any("dangling" in str(c) for c in cmd):
                 return _make_subprocess_result(stdout="")
             elif cmd[0] == "docker" and cmd[1] == "ps" and any("exited" in str(c) for c in cmd):
@@ -100,12 +114,11 @@ def _fake_run_dangling_images():
             if cmd[0] == "which" and "docker" in cmd:
                 return _make_subprocess_result(stdout="/usr/local/bin/docker\n")
             elif cmd[0] == "docker" and cmd[1] == "system" and cmd[2] == "df":
-                data = {
-                    "Images": "5.2 GB",
-                    "Containers": "500 MB",
-                    "Volumes": "100 MB",
-                }
-                return _make_subprocess_result(stdout=json.dumps(data) + "\n")
+                return _make_subprocess_result(
+                    stdout=_docker_df_ndjson(
+                        images="5.2GB", containers="500MB", volumes="100MB"
+                    )
+                )
             elif cmd[0] == "docker" and cmd[1] == "images" and any("dangling" in str(c) for c in cmd):
                 # Multiple dangling images
                 return _make_subprocess_result(
@@ -125,12 +138,11 @@ def _fake_run_many_stopped_containers():
             if cmd[0] == "which" and "docker" in cmd:
                 return _make_subprocess_result(stdout="/usr/local/bin/docker\n")
             elif cmd[0] == "docker" and cmd[1] == "system" and cmd[2] == "df":
-                data = {
-                    "Images": "5.2 GB",
-                    "Containers": "500 MB",
-                    "Volumes": "100 MB",
-                }
-                return _make_subprocess_result(stdout=json.dumps(data) + "\n")
+                return _make_subprocess_result(
+                    stdout=_docker_df_ndjson(
+                        images="5.2GB", containers="500MB", volumes="100MB"
+                    )
+                )
             elif cmd[0] == "docker" and cmd[1] == "images" and any("dangling" in str(c) for c in cmd):
                 return _make_subprocess_result(stdout="")
             elif cmd[0] == "docker" and cmd[1] == "ps" and any("exited" in str(c) for c in cmd):
@@ -186,6 +198,114 @@ class TestDockerCleanupHealthy:
         # Should not have WARNING severity findings (only INFO)
         warnings = [f for f in result.findings if f.severity == Severity.WARNING]
         assert len(warnings) == 0
+
+
+class TestDockerCleanupParseDockerSize:
+    """Docker's real Size strings (go-units HumanSize) have no space
+    between the number and unit, e.g. '5.2GB', not '5.2 GB'."""
+
+    def test_parses_no_space_format(self):
+        mod = _get_module()
+        assert mod._parse_docker_size("5.2GB") == int(5.2 * 1024 ** 3)
+        assert mod._parse_docker_size("500MB") == 500 * 1024 ** 2
+        assert mod._parse_docker_size("0B") == 0
+
+    def test_parses_spaced_format_too(self):
+        mod = _get_module()
+        assert mod._parse_docker_size("5.2 GB") == int(5.2 * 1024 ** 3)
+
+
+class TestDockerCleanupNdjsonParsing:
+    """Regression tests for the NDJSON parsing bug.
+
+    'docker system df --format "{{json .}}"' emits one JSON object per
+    line (NDJSON), not a single JSON blob. json.loads() on the whole
+    multi-line string used to raise JSONDecodeError, which was silently
+    swallowed and killed the entire disk-usage check.
+    """
+
+    def test_multiline_ndjson_is_parsed_correctly(self):
+        mod = _get_module()
+
+        def fake_run(cmd, **kwargs):
+            if isinstance(cmd, list):
+                if cmd[0] == "which" and "docker" in cmd:
+                    return _make_subprocess_result(stdout="/usr/local/bin/docker\n")
+                elif cmd[0] == "docker" and cmd[1] == "system" and cmd[2] == "df":
+                    return _make_subprocess_result(
+                        stdout=_docker_df_ndjson(
+                            images="2GB", containers="1GB", volumes="512MB"
+                        )
+                    )
+                elif cmd[0] == "docker" and cmd[1] == "images" and any(
+                    "dangling" in str(c) for c in cmd
+                ):
+                    return _make_subprocess_result(stdout="")
+                elif cmd[0] == "docker" and cmd[1] == "ps" and any(
+                    "exited" in str(c) for c in cmd
+                ):
+                    return _make_subprocess_result(stdout="")
+            return _make_subprocess_result()
+
+        with patch("subprocess.run", side_effect=fake_run):
+            result = mod.check(_make_profile())
+
+        # The check must not silently bail out -- it should produce a
+        # docker_disk_usage (or high_docker_usage) finding with correctly
+        # summed byte totals from all four NDJSON rows it understands.
+        usage_finding = next(
+            (
+                f
+                for f in result.findings
+                if f.data.get("type") in ("docker_disk_usage", "high_docker_usage")
+            ),
+            None,
+        )
+        assert usage_finding is not None
+        assert usage_finding.data["images_bytes"] == 2 * 1024 ** 3
+        assert usage_finding.data["containers_bytes"] == 1 * 1024 ** 3
+        assert usage_finding.data["volumes_bytes"] == 512 * 1024 ** 2
+        expected_total = 2 * 1024 ** 3 + 1 * 1024 ** 3 + 512 * 1024 ** 2
+        assert usage_finding.data["total_bytes"] == expected_total
+
+    def test_malformed_line_is_skipped_not_fatal(self):
+        """A single bad line in the NDJSON stream shouldn't kill the whole check."""
+        mod = _get_module()
+
+        def fake_run(cmd, **kwargs):
+            if isinstance(cmd, list):
+                if cmd[0] == "which" and "docker" in cmd:
+                    return _make_subprocess_result(stdout="/usr/local/bin/docker\n")
+                elif cmd[0] == "docker" and cmd[1] == "system" and cmd[2] == "df":
+                    good_rows = _docker_df_ndjson(
+                        images="1GB", containers="1GB", volumes="1GB"
+                    )
+                    # Inject a corrupted/truncated line into the NDJSON stream.
+                    stdout = "{not valid json\n" + good_rows
+                    return _make_subprocess_result(stdout=stdout)
+                elif cmd[0] == "docker" and cmd[1] == "images" and any(
+                    "dangling" in str(c) for c in cmd
+                ):
+                    return _make_subprocess_result(stdout="")
+                elif cmd[0] == "docker" and cmd[1] == "ps" and any(
+                    "exited" in str(c) for c in cmd
+                ):
+                    return _make_subprocess_result(stdout="")
+            return _make_subprocess_result()
+
+        with patch("subprocess.run", side_effect=fake_run):
+            result = mod.check(_make_profile())
+
+        usage_finding = next(
+            (
+                f
+                for f in result.findings
+                if f.data.get("type") in ("docker_disk_usage", "high_docker_usage")
+            ),
+            None,
+        )
+        assert usage_finding is not None
+        assert usage_finding.data["total_bytes"] == 3 * 1024 ** 3
 
 
 class TestDockerCleanupHighUsage:

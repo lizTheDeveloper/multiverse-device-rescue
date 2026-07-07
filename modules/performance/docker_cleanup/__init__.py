@@ -1,3 +1,4 @@
+import re
 import subprocess
 from pathlib import Path
 
@@ -255,38 +256,60 @@ class Module(ModuleBase):
             if result.returncode != 0:
                 return None
 
-            # Parse output line by line (docker system df outputs JSON with keys)
             import json
 
-            try:
-                # The format returns JSON output
-                output = result.stdout.strip()
-                if not output:
-                    return None
-
-                data = json.loads(output)
-
-                # Extract sizes from the JSON output
-                images_bytes = data.get("Images", 0)
-                if isinstance(images_bytes, str):
-                    images_bytes = self._parse_docker_size(images_bytes)
-
-                containers_bytes = data.get("Containers", 0)
-                if isinstance(containers_bytes, str):
-                    containers_bytes = self._parse_docker_size(containers_bytes)
-
-                volumes_bytes = data.get("Volumes", 0)
-                if isinstance(volumes_bytes, str):
-                    volumes_bytes = self._parse_docker_size(volumes_bytes)
-
-                return {
-                    "total_bytes": images_bytes + containers_bytes + volumes_bytes,
-                    "images_bytes": images_bytes,
-                    "containers_bytes": containers_bytes,
-                    "volumes_bytes": volumes_bytes,
-                }
-            except (json.JSONDecodeError, KeyError, ValueError):
+            output = result.stdout.strip()
+            if not output:
                 return None
+
+            # 'docker system df --format "{{json .}}"' emits NDJSON: one
+            # JSON object per line, one line per row (Images, Containers,
+            # Local Volumes, Build Cache). Parse each line individually
+            # rather than json.loads()-ing the whole blob, which would
+            # raise on the very first newline.
+            images_bytes = 0
+            containers_bytes = 0
+            volumes_bytes = 0
+            parsed_any = False
+
+            for line in output.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                if not isinstance(entry, dict):
+                    continue
+
+                entry_type = entry.get("Type", "")
+                size_value = entry.get("Size", 0)
+                if isinstance(size_value, str):
+                    size_value = self._parse_docker_size(size_value)
+                elif not isinstance(size_value, (int, float)):
+                    size_value = 0
+
+                if entry_type == "Images":
+                    images_bytes = size_value
+                elif entry_type == "Containers":
+                    containers_bytes = size_value
+                elif entry_type in ("Local Volumes", "Volumes"):
+                    volumes_bytes = size_value
+                else:
+                    continue
+                parsed_any = True
+
+            if not parsed_any:
+                return None
+
+            return {
+                "total_bytes": images_bytes + containers_bytes + volumes_bytes,
+                "images_bytes": images_bytes,
+                "containers_bytes": containers_bytes,
+                "volumes_bytes": volumes_bytes,
+            }
         except (subprocess.SubprocessError, TimeoutError, OSError):
             return None
 
@@ -344,19 +367,24 @@ class Module(ModuleBase):
             return None
 
     def _parse_docker_size(self, size_str: str) -> int:
-        """Parse Docker size string (e.g., '2.5 GB') to bytes."""
+        """Parse Docker size string to bytes.
+
+        Docker's real output (via go-units HumanSize) has no space between
+        the number and unit, e.g. '5.2GB', '500MB', '1.235GB' -- not
+        '2.5 GB'. Accept both forms.
+        """
         if not isinstance(size_str, str):
             return int(size_str) if size_str else 0
 
         size_str = size_str.strip()
-        parts = size_str.split()
+        match = re.match(r"^([\d.]+)\s*([A-Za-z]+)$", size_str)
 
-        if len(parts) < 2:
+        if not match:
             return 0
 
         try:
-            value = float(parts[0])
-            unit = parts[1].upper()
+            value = float(match.group(1))
+            unit = match.group(2).upper()
 
             multipliers = {
                 "B": 1,
