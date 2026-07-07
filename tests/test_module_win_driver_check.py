@@ -109,13 +109,14 @@ def _fake_run_all_healthy():
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            if "powershell" in cmd_str and "Win32_PnPEntity" in cmd_str:
-                # No problem devices
-                return _make_subprocess_result("")
+            # Check more specific conditions first
+            if "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_no_unsigned())
             elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
                 return _make_subprocess_result(_powershell_device_count_healthy())
-            elif "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_no_unsigned())
+            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
+                # No problem devices
+                return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
 
@@ -125,12 +126,12 @@ def _fake_run_one_problem_device():
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            if "powershell" in cmd_str and "Win32_PnPEntity" in cmd_str:
-                return _make_subprocess_result(_powershell_one_problem_device())
+            if "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_no_unsigned())
             elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
                 return _make_subprocess_result(_powershell_device_count_few())
-            elif "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_no_unsigned())
+            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
+                return _make_subprocess_result(_powershell_one_problem_device())
         return _make_subprocess_result()
     return fake_run
 
@@ -140,12 +141,12 @@ def _fake_run_multiple_problem_devices():
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            if "powershell" in cmd_str and "Win32_PnPEntity" in cmd_str:
-                return _make_subprocess_result(_powershell_multiple_problem_devices())
+            if "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_no_unsigned())
             elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
                 return _make_subprocess_result(_powershell_device_count_few())
-            elif "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_no_unsigned())
+            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
+                return _make_subprocess_result(_powershell_multiple_problem_devices())
         return _make_subprocess_result()
     return fake_run
 
@@ -155,12 +156,12 @@ def _fake_run_unsigned_drivers():
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            if "powershell" in cmd_str and "Win32_PnPEntity" in cmd_str:
-                return _make_subprocess_result("")
+            if "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_unsigned_drivers())
             elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
                 return _make_subprocess_result(_powershell_device_count_healthy())
-            elif "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_unsigned_drivers())
+            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
+                return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
 
@@ -170,12 +171,12 @@ def _fake_run_both_errors_and_unsigned():
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            if "powershell" in cmd_str and "Win32_PnPEntity" in cmd_str:
-                return _make_subprocess_result(_powershell_multiple_problem_devices())
+            if "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_unsigned_drivers())
             elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
                 return _make_subprocess_result(_powershell_device_count_few())
-            elif "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_unsigned_drivers())
+            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
+                return _make_subprocess_result(_powershell_multiple_problem_devices())
         return _make_subprocess_result()
     return fake_run
 
