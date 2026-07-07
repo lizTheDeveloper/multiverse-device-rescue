@@ -162,6 +162,68 @@ def _fake_run_fv_enabled_not_all_users():
     return fake_run
 
 
+def _fake_run_fv_enabled_empty_fdesetup_list():
+    """FileVault enabled but `fdesetup list` returns nothing (e.g. not run as root).
+
+    Note: when `fdesetup list` itself is empty, `enabled_users` is falsy, and the
+    later f-strings short-circuit around any use of `enabled_set` (they only
+    reference it in the branch taken when `enabled_users` is truthy). So this
+    scenario alone does not exercise the NameError/UnboundLocalError bug, but it's
+    still a realistic case worth covering for correct behavior.
+    """
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list):
+            cmd_str = " ".join(cmd)
+        else:
+            cmd_str = cmd
+
+        if "fdesetup" in cmd_str and "status" in cmd_str:
+            return _make_subprocess_result("FileVault is On.\n")
+        elif "fdesetup" in cmd_str and "haspersonalrecoverykey" in cmd_str:
+            return _make_subprocess_result("Yes\n")
+        elif "fdesetup" in cmd_str and "hasinstitutionalrecoverykey" in cmd_str:
+            return _make_subprocess_result("No\n")
+        elif "fdesetup" in cmd_str and "list" in cmd_str:
+            # Empty output, but still a successful (returncode 0) invocation, as
+            # happens when the module isn't run with root privileges.
+            return _make_subprocess_result("", returncode=0)
+        elif "dscl" in cmd_str and "list /Users" in cmd_str:
+            return _make_subprocess_result("root\nalice\nbob\n")
+        return _make_subprocess_result()
+    return fake_run
+
+
+def _fake_run_fv_enabled_fdesetup_list_ok_but_dscl_empty():
+    """FileVault enabled, `fdesetup list` succeeds with users, but `dscl` (the
+    all-system-users lookup) fails/returns nothing.
+
+    This is the scenario that actually triggers the `enabled_set`
+    NameError/UnboundLocalError: `enabled_users` is truthy so the code path later
+    references `enabled_set`, but `all_users` is falsy so the `if enabled_users and
+    all_users:` block (the only place that previously assigned `enabled_set`) never
+    ran.
+    """
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list):
+            cmd_str = " ".join(cmd)
+        else:
+            cmd_str = cmd
+
+        if "fdesetup" in cmd_str and "status" in cmd_str:
+            return _make_subprocess_result("FileVault is On.\n")
+        elif "fdesetup" in cmd_str and "haspersonalrecoverykey" in cmd_str:
+            return _make_subprocess_result("Yes\n")
+        elif "fdesetup" in cmd_str and "hasinstitutionalrecoverykey" in cmd_str:
+            return _make_subprocess_result("No\n")
+        elif "fdesetup" in cmd_str and "list" in cmd_str:
+            return _make_subprocess_result("alice,550e8400-e29b-41d4-a716-446655440000\n")
+        elif "dscl" in cmd_str and "list /Users" in cmd_str:
+            # dscl fails (e.g. not run as root), so all_users is empty
+            return _make_subprocess_result("", returncode=1)
+        return _make_subprocess_result()
+    return fake_run
+
+
 def test_disk_encryption_recovery_discovered():
     mod = _get_module()
     assert mod.name == "disk_encryption_recovery"
@@ -222,6 +284,40 @@ def test_disk_encryption_recovery_not_all_users_enabled():
     assert any(f.severity == Severity.WARNING and f.data.get("check") == "users_not_all_enabled" for f in result.findings)
     # Should also have INFO status
     assert any(f.severity == Severity.INFO and f.data.get("check") == "disk_encryption_status" for f in result.findings)
+
+
+def test_disk_encryption_recovery_empty_fdesetup_list_does_not_crash():
+    """`fdesetup list` returning empty output (e.g. when not run as root) must not
+    crash, and should be reported as no enabled users detected."""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_fv_enabled_empty_fdesetup_list()):
+        result = mod.check(_make_profile())
+    # Should still produce the INFO status summary without crashing.
+    status_findings = [f for f in result.findings if f.data.get("check") == "disk_encryption_status"]
+    assert len(status_findings) == 1
+    assert status_findings[0].data.get("enabled_users") == []
+    assert "none detected" in status_findings[0].description
+    # No users_not_all_enabled finding should be raised since we couldn't
+    # determine the enabled set (enabled_users was falsy).
+    assert not any(f.data.get("check") == "users_not_all_enabled" for f in result.findings)
+
+
+def test_disk_encryption_recovery_dscl_empty_does_not_crash():
+    """Regression test for the `enabled_set` NameError/UnboundLocalError bug:
+    when `fdesetup list` succeeds with results but the all-system-users lookup
+    (`dscl`) fails/returns nothing (e.g. when not run as root), `enabled_set`
+    must still be defined (as an empty set) rather than crash when referenced
+    later in the INFO summary finding."""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_fv_enabled_fdesetup_list_ok_but_dscl_empty()):
+        result = mod.check(_make_profile())
+    status_findings = [f for f in result.findings if f.data.get("check") == "disk_encryption_status"]
+    assert len(status_findings) == 1
+    # enabled_users was truthy (["alice"]) but all_users was empty, so the
+    # users_not_all_enabled comparison block was skipped and enabled_set stayed
+    # at its initialized default (empty set).
+    assert status_findings[0].data.get("enabled_users") == []
+    assert not any(f.data.get("check") == "users_not_all_enabled" for f in result.findings)
 
 
 def test_disk_encryption_recovery_fix_is_informational():

@@ -113,6 +113,7 @@ class Module(ModuleBase):
         # Check which users are FileVault-enabled
         enabled_users = self._run_fdesetup_list()
         all_users = self._get_all_system_users()
+        enabled_set = set()
 
         if enabled_users and all_users:
             # Filter to real accounts (remove system accounts and root)
