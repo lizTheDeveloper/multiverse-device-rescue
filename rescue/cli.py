@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import click
@@ -28,6 +29,20 @@ from rescue.update.sideload import SideloadError, load_sideload_repo
 
 
 def _project_root() -> Path:
+    """Root directory containing modules/, profiles/, and guides/.
+
+    When running from a PyInstaller onefile bundle, these are extracted at
+    startup to a temp directory exposed as sys._MEIPASS, mirroring the
+    source tree layout (rescue.spec bundles them at the bundle root). We
+    detect that case explicitly via sys.frozen rather than relying on
+    __file__, since PyInstaller does not consistently resolve __file__ for
+    the entry script across platforms/bootloaders.
+
+    Outside of a frozen bundle (the normal `pip install`/source-checkout
+    case), this is unchanged: two directories above this file.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)
     return Path(__file__).parent.parent
 
 
@@ -76,7 +91,16 @@ def main(ctx, auto, profile_name, copilot):
 
 def _run_startup_integrity_check() -> None:
     """Best-effort, never blocking: warns if rescue's own installed files
-    don't match the shipped integrity manifest, then always continues."""
+    don't match the shipped integrity manifest, then always continues.
+
+    Skipped entirely in a PyInstaller frozen bundle: the manifest is
+    generated from loose .py files in a source checkout / pip install, but
+    a onefile bundle has no such files on disk (they're compiled into the
+    archive), so the comparison would always spuriously report everything
+    as missing.
+    """
+    if getattr(sys, "frozen", False):
+        return
     try:
         if not DEFAULT_INTEGRITY_MANIFEST_PATH.exists():
             return
@@ -431,3 +455,11 @@ def trust_list_revoked():
         return
     for signer_id in sorted(revoked):
         click.echo(signer_id)
+
+
+if __name__ == "__main__":
+    # Entry point when this module is run directly, e.g. as the PyInstaller
+    # bundle's frozen script (see rescue.spec). Normal installs invoke
+    # `main` via the `rescue` console-script defined in pyproject.toml
+    # instead, which never triggers this block.
+    main()
