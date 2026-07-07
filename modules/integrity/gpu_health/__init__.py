@@ -279,56 +279,57 @@ class Module(ModuleBase):
             elif "Discrete" in line and "GPU" in line:
                 gpu_info["type"] = "Discrete GPU"
 
-        # Check Metal support
-        metal_support = self._check_metal_support(gpu_info.get("model", ""))
-        gpu_info["metal_support"] = metal_support
+            # Look for the Metal capability field. macOS spells this
+            # differently depending on OS version:
+            #   "Metal Support: Metal 3"                          (Monterey+)
+            #   "Metal Family: Supported, Metal GPUFamily macOS 2" (Mojave/Catalina)
+            #   "Metal: Supported" / "Metal: Not Supported"        (older releases)
+            elif line_stripped.startswith("Metal Support:"):
+                gpu_info["metal_raw"] = line.split(":", 1)[1].strip()
+            elif line_stripped.startswith("Metal Family:"):
+                gpu_info["metal_raw"] = line.split(":", 1)[1].strip()
+            elif line_stripped.startswith("Metal:"):
+                gpu_info["metal_raw"] = line.split(":", 1)[1].strip()
 
-        # Check driver status
-        driver_status = self._check_driver_status()
-        gpu_info["driver_status"] = driver_status
+        # Metal support and driver status are both derived from the same
+        # parsed "Metal ..." field reported by system_profiler. If the field
+        # can't be found, report "Unknown" rather than guessing - the field
+        # can be genuinely absent on some macOS/hardware combos, and treating
+        # a parse miss as "Not Supported" (or "Up to date") would just trade
+        # one false claim for another.
+        metal_raw = gpu_info.get("metal_raw")
+        gpu_info["metal_support"] = self._check_metal_support(metal_raw)
+        gpu_info["driver_status"] = self._check_driver_status(metal_raw)
 
         return gpu_info
 
-    def _check_metal_support(self, gpu_model: str) -> str:
-        """Check if GPU supports Metal."""
-        if not gpu_model:
+    def _check_metal_support(self, metal_raw: str | None) -> str:
+        """Determine Metal support from the parsed system_profiler field.
+
+        Only ever reports "Not Supported" when the field explicitly says so.
+        Absence of the field is reported as "Unknown" rather than assumed to
+        mean either "Supported" or "Not Supported".
+        """
+        if not metal_raw:
             return "Unknown"
 
-        # List of GPUs that don't support Metal (pre-2012 era, some older Intel)
-        no_metal_gpus = [
-            "Intel GMA",
-            "NVIDIA GeForce 320M",
-            "NVIDIA GeForce 330M",
-            "ATI Radeon HD 4000",
-            "ATI Radeon HD 5000",
-            "Intel HD Graphics 3000",
-            "Intel HD Graphics 4000",  # Some versions
-        ]
+        if "not supported" in metal_raw.lower():
+            return "Not Supported"
 
-        gpu_lower = gpu_model.lower()
-        for no_metal in no_metal_gpus:
-            if no_metal.lower() in gpu_lower:
-                return "Not Supported"
-
-        # Most modern GPUs support Metal
         return "Supported"
 
-    def _check_driver_status(self) -> str:
-        """Check GPU driver status."""
-        try:
-            # Try to check if display server is functioning
-            result = subprocess.run(
-                ["system_profiler", "SPDisplaysDataType"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                return "Up to date"
-        except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
+    def _check_driver_status(self, metal_raw: str | None) -> str:
+        """Report the raw Metal capability string found by system_profiler.
+
+        macOS does not expose a GPU driver version through system_profiler,
+        so this surfaces whatever was actually parsed (e.g. "Metal 3" or
+        "Supported, Metal GPUFamily macOS 2") instead of a fabricated
+        "Up to date" status. Reports "Unknown" when nothing could be parsed.
+        """
+        if not metal_raw:
             return "Unknown"
 
-        return "Unknown"
+        return metal_raw
 
     def _parse_vram_to_mb(self, vram_str: str) -> int | None:
         """Parse VRAM string like '512 MB' or '2 GB' to megabytes."""

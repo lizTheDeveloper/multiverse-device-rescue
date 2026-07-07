@@ -64,7 +64,7 @@ def _fake_run_healthy():
 
 
 def _fake_run_no_metal():
-    """GPU without Metal support"""
+    """GPU that explicitly reports no Metal support"""
 
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
@@ -76,12 +76,74 @@ def _fake_run_no_metal():
             return _make_subprocess_result(
                 stdout="""Graphics/Displays:
 
-  Intel HD Graphics 4000:
+  Intel GMA 950:
 
-    Chipset Model: Intel HD Graphics 4000
+    Chipset Model: Intel GMA 950
     Type: Integrated GPU
     Vendor: Intel
-    VRAM (Shared): 1536 MB
+    VRAM (Shared): 64 MB
+    Metal: Not Supported
+"""
+            )
+        elif "log show" in cmd_str and "GPU" in cmd_str:
+            return _make_subprocess_result(stdout="")
+        return _make_subprocess_result()
+
+    return fake_run
+
+
+def _fake_run_metal_family_field():
+    """Older-macOS system_profiler that reports the 'Metal Family:' field"""
+
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list):
+            cmd_str = " ".join(cmd)
+        else:
+            cmd_str = cmd
+
+        if "system_profiler" in cmd_str and "SPDisplaysDataType" in cmd_str:
+            return _make_subprocess_result(
+                stdout="""Graphics/Displays:
+
+  Intel Iris Pro:
+
+    Chipset Model: Intel Iris Pro
+    Type: Integrated GPU
+    Vendor: Intel
+    VRAM (Dynamic, Max): 1536 MB
+    Metal Family: Supported, Metal GPUFamily macOS 2
+"""
+            )
+        elif "log show" in cmd_str and "GPU" in cmd_str:
+            return _make_subprocess_result(stdout="")
+        return _make_subprocess_result()
+
+    return fake_run
+
+
+def _fake_run_no_metal_field():
+    """GPU info parses fine but has no Metal field at all.
+
+    The Metal support/driver status should be reported as "Unknown" rather
+    than falsely claimed as "Up to date" or "Not Supported".
+    """
+
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list):
+            cmd_str = " ".join(cmd)
+        else:
+            cmd_str = cmd
+
+        if "system_profiler" in cmd_str and "SPDisplaysDataType" in cmd_str:
+            return _make_subprocess_result(
+                stdout="""Graphics/Displays:
+
+  Some GPU:
+
+    Chipset Model: Some GPU
+    Type: Integrated GPU
+    Vendor: Unknown
+    VRAM (Shared): 2 GB
 """
             )
         elif "log show" in cmd_str and "GPU" in cmd_str:
@@ -182,17 +244,63 @@ def test_gpu_health_healthy():
         result = mod.check(_make_profile())
     # Should have GPU info but no warnings
     assert result.has_issues
-    assert any(f.data.get("check") == "gpu_info" for f in result.findings)
+    gpu_info_finding = next(
+        f for f in result.findings if f.data.get("check") == "gpu_info"
+    )
+    # "Metal Support: Supported" should be parsed, not hardcoded
+    assert gpu_info_finding.data["metal_support"] == "Supported"
+    # driver_status should reflect the parsed field, not a fabricated
+    # "Up to date" claim
+    assert gpu_info_finding.data["driver_status"] == "Supported"
     # No warnings about Metal, VRAM, or panics
     assert not any(f.severity == Severity.WARNING for f in result.findings)
 
 
 def test_gpu_health_no_metal_support():
+    """GPU that explicitly reports 'Metal: Not Supported' should warn."""
     mod = _get_module()
     with patch("subprocess.run", side_effect=_fake_run_no_metal()):
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(
+        f.data.get("check") == "no_metal_support" for f in result.findings
+    )
+    gpu_info_finding = next(
+        f for f in result.findings if f.data.get("check") == "gpu_info"
+    )
+    assert gpu_info_finding.data["metal_support"] == "Not Supported"
+    assert gpu_info_finding.data["driver_status"] == "Not Supported"
+
+
+def test_gpu_health_metal_family_field():
+    """Older-macOS 'Metal Family:' field should be parsed as supported."""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_metal_family_field()):
+        result = mod.check(_make_profile())
+    gpu_info_finding = next(
+        f for f in result.findings if f.data.get("check") == "gpu_info"
+    )
+    assert gpu_info_finding.data["metal_support"] == "Supported"
+    assert (
+        gpu_info_finding.data["driver_status"]
+        == "Supported, Metal GPUFamily macOS 2"
+    )
+    assert not any(f.severity == Severity.WARNING for f in result.findings)
+
+
+def test_gpu_health_no_metal_field_reports_unknown():
+    """When system_profiler omits the Metal field entirely, report Unknown
+    instead of falsely claiming "Up to date" or "Not Supported"."""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_no_metal_field()):
+        result = mod.check(_make_profile())
+    gpu_info_finding = next(
+        f for f in result.findings if f.data.get("check") == "gpu_info"
+    )
+    assert gpu_info_finding.data["metal_support"] == "Unknown"
+    assert gpu_info_finding.data["driver_status"] == "Unknown"
+    # Absence of the field must not be treated as "Not Supported"
+    assert not any(
         f.data.get("check") == "no_metal_support" for f in result.findings
     )
 
