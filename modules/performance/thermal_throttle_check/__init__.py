@@ -123,7 +123,7 @@ class Module(ModuleBase):
             )
             if result.returncode == 0:
                 return {"source": "powermetrics", "output": result.stdout}
-        except (OSError, subprocess.TimeoutExpired):
+        except Exception:
             pass
 
         # Fallback to ioreg
@@ -136,7 +136,7 @@ class Module(ModuleBase):
             )
             if result.returncode == 0:
                 return {"source": "ioreg", "output": result.stdout}
-        except (OSError, subprocess.TimeoutExpired):
+        except Exception:
             pass
 
         return None
@@ -161,7 +161,7 @@ class Module(ModuleBase):
                     "current": current_result.stdout.strip(),
                     "max": max_result.stdout.strip(),
                 }
-        except (OSError, subprocess.TimeoutExpired):
+        except Exception:
             pass
 
         return None
@@ -177,7 +177,7 @@ class Module(ModuleBase):
             )
             if result.returncode == 0:
                 return {"output": result.stdout}
-        except (OSError, subprocess.TimeoutExpired):
+        except Exception:
             pass
 
         return None
@@ -193,7 +193,7 @@ class Module(ModuleBase):
             )
             if result.returncode == 0:
                 return {"output": result.stdout}
-        except (OSError, subprocess.TimeoutExpired):
+        except Exception:
             pass
 
         return None
