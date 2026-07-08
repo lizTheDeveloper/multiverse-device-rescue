@@ -20,18 +20,6 @@ def _make_profile():
     )
 
 
-def _make_profile_old_windows():
-    return SystemProfile(
-        platform=Platform.WIN32,
-        os_name="Windows",
-        os_version="6.1",  # Windows 7
-        architecture="x86_64",
-        cpu_model="Intel Core i5",
-        cpu_cores=4,
-        ram_bytes=4 * 1024**3,
-    )
-
-
 def _get_module():
     modules_dir = Path(__file__).parent.parent / "modules"
     modules = discover_modules(modules_dir)
@@ -46,143 +34,210 @@ def _make_subprocess_result(stdout="", stderr="", returncode=0):
     return result
 
 
-def _powershell_ram_info_healthy():
-    """Normal RAM info: 16GB total, 8GB available."""
+def _powershell_physical_memory_2x8gb_3200mhz():
+    """Two 8GB modules at 3200 MHz."""
+    return """[
+  {
+    "BankLabel": "BANK 0",
+    "Capacity": 8589934592,
+    "Speed": 3200,
+    "Manufacturer": "Kingston",
+    "MemoryType": 26,
+    "FormFactor": 12
+  },
+  {
+    "BankLabel": "BANK 1",
+    "Capacity": 8589934592,
+    "Speed": 3200,
+    "Manufacturer": "Kingston",
+    "MemoryType": 26,
+    "FormFactor": 12
+  }
+]"""
+
+
+def _powershell_physical_memory_mismatched_speed():
+    """Two modules with different speeds."""
+    return """[
+  {
+    "BankLabel": "BANK 0",
+    "Capacity": 8589934592,
+    "Speed": 3200,
+    "Manufacturer": "Kingston",
+    "MemoryType": 26,
+    "FormFactor": 12
+  },
+  {
+    "BankLabel": "BANK 1",
+    "Capacity": 8589934592,
+    "Speed": 2666,
+    "Manufacturer": "Corsair",
+    "MemoryType": 26,
+    "FormFactor": 12
+  }
+]"""
+
+
+def _powershell_physical_memory_mismatched_capacity():
+    """Two modules with different capacities."""
+    return """[
+  {
+    "BankLabel": "BANK 0",
+    "Capacity": 8589934592,
+    "Speed": 3200,
+    "Manufacturer": "Kingston",
+    "MemoryType": 26,
+    "FormFactor": 12
+  },
+  {
+    "BankLabel": "BANK 1",
+    "Capacity": 16106127360,
+    "Speed": 3200,
+    "Manufacturer": "Kingston",
+    "MemoryType": 26,
+    "FormFactor": 12
+  }
+]"""
+
+
+def _powershell_physical_memory_low_ram():
+    """2GB total RAM."""
+    return """[
+  {
+    "BankLabel": "BANK 0",
+    "Capacity": 2147483648,
+    "Speed": 1333,
+    "Manufacturer": "Micron",
+    "MemoryType": 24,
+    "FormFactor": 12
+  }
+]"""
+
+
+def _powershell_ram_utilization_healthy():
+    """16GB total, 10GB usable (all available)."""
     return """{
   "TotalVisibleMemorySize": 16777216,
-  "FreePhysicalMemory": 8388608
+  "FreePhysicalMemory": 10485760
 }"""
 
 
-def _powershell_ram_info_low_memory():
-    """Low memory: 16GB total, 1GB available (< 10%)."""
+def _powershell_ram_utilization_degraded():
+    """16GB total, only 14.4GB usable (10% missing)."""
     return """{
   "TotalVisibleMemorySize": 16777216,
   "FreePhysicalMemory": 1048576
 }"""
 
 
-def _powershell_ram_info_critical():
-    """Critical memory: 4GB total, 256MB available."""
-    return """{
-  "TotalVisibleMemorySize": 4194304,
-  "FreePhysicalMemory": 262144
-}"""
+def _powershell_memory_errors_found():
+    """Memory diagnostic found 3 errors."""
+    return """Count
+-----
+    3"""
 
 
-def _powershell_diagnostic_no_errors():
-    """Diagnostic ran successfully with no errors."""
-    return """[
-  {
-    "TimeCreated": "2026-07-05T10:30:00",
-    "Message": "Windows Memory Diagnostic completed successfully. No problems detected."
-  }
-]"""
+def _powershell_memory_errors_none():
+    """No memory errors found."""
+    return """Count
+-----
+    0"""
 
 
-def _powershell_diagnostic_with_errors():
-    """Diagnostic ran and found errors."""
-    return """[
-  {
-    "TimeCreated": "2026-07-04T14:20:00",
-    "Message": "Windows Memory Diagnostic detected errors in RAM. Test failed on slot 1. Hardware failure detected."
-  }
-]"""
-
-
-def _powershell_diagnostic_never_run():
-    """No diagnostic events found - never run."""
-    return ""
-
-
-def _powershell_multiple_diagnostics():
-    """Multiple diagnostic runs - most recent is healthy."""
-    return """[
-  {
-    "TimeCreated": "2026-07-05T10:30:00",
-    "Message": "Windows Memory Diagnostic completed successfully. No problems detected."
-  },
-  {
-    "TimeCreated": "2026-06-28T15:45:00",
-    "Message": "Windows Memory Diagnostic completed successfully. No problems detected."
-  }
-]"""
-
-
-def _fake_run_healthy_ram_no_diagnostics():
-    """Healthy RAM, no diagnostics run yet."""
+def _fake_run_healthy_2x8gb():
+    """Healthy: 2x8GB matched modules."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and "powershell" in cmd:
             cmd_str = " ".join(cmd)
-            if "Get-WmiObject" in cmd_str and "Win32_OperatingSystem" in cmd_str:
-                return _make_subprocess_result(_powershell_ram_info_healthy())
-            elif "Get-WinEvent" in cmd_str and "MemoryDiagnostics" in cmd_str:
-                return _make_subprocess_result(_powershell_diagnostic_never_run())
+            if "Win32_PhysicalMemory" in cmd_str:
+                return _make_subprocess_result(_powershell_physical_memory_2x8gb_3200mhz())
+            elif "MemoryDiagnostics-Results" in cmd_str:
+                return _make_subprocess_result(_powershell_memory_errors_none())
+            elif "Win32_OperatingSystem" in cmd_str:
+                return _make_subprocess_result(_powershell_ram_utilization_healthy())
         return _make_subprocess_result()
     return fake_run
 
 
-def _fake_run_healthy_with_successful_diagnostic():
-    """Healthy RAM with successful diagnostic."""
+def _fake_run_mismatched_speed():
+    """Mismatched RAM speeds."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and "powershell" in cmd:
             cmd_str = " ".join(cmd)
-            if "Get-WmiObject" in cmd_str and "Win32_OperatingSystem" in cmd_str:
-                return _make_subprocess_result(_powershell_ram_info_healthy())
-            elif "Get-WinEvent" in cmd_str and "MemoryDiagnostics" in cmd_str:
-                return _make_subprocess_result(_powershell_diagnostic_no_errors())
+            if "Win32_PhysicalMemory" in cmd_str:
+                return _make_subprocess_result(_powershell_physical_memory_mismatched_speed())
+            elif "MemoryDiagnostics-Results" in cmd_str:
+                return _make_subprocess_result(_powershell_memory_errors_none())
+            elif "Win32_OperatingSystem" in cmd_str:
+                return _make_subprocess_result(_powershell_ram_utilization_healthy())
         return _make_subprocess_result()
     return fake_run
 
 
-def _fake_run_low_memory():
-    """Low memory pressure."""
+def _fake_run_mismatched_capacity():
+    """Mismatched RAM capacities."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and "powershell" in cmd:
             cmd_str = " ".join(cmd)
-            if "Get-WmiObject" in cmd_str and "Win32_OperatingSystem" in cmd_str:
-                return _make_subprocess_result(_powershell_ram_info_low_memory())
-            elif "Get-WinEvent" in cmd_str and "MemoryDiagnostics" in cmd_str:
-                return _make_subprocess_result(_powershell_diagnostic_no_errors())
+            if "Win32_PhysicalMemory" in cmd_str:
+                return _make_subprocess_result(_powershell_physical_memory_mismatched_capacity())
+            elif "MemoryDiagnostics-Results" in cmd_str:
+                return _make_subprocess_result(_powershell_memory_errors_none())
+            elif "Win32_OperatingSystem" in cmd_str:
+                return _make_subprocess_result(_powershell_ram_utilization_healthy())
         return _make_subprocess_result()
     return fake_run
 
 
-def _fake_run_critical_memory():
-    """Critical memory low."""
+def _fake_run_low_ram():
+    """System with only 2GB RAM."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and "powershell" in cmd:
             cmd_str = " ".join(cmd)
-            if "Get-WmiObject" in cmd_str and "Win32_OperatingSystem" in cmd_str:
-                return _make_subprocess_result(_powershell_ram_info_critical())
-            elif "Get-WinEvent" in cmd_str and "MemoryDiagnostics" in cmd_str:
-                return _make_subprocess_result(_powershell_diagnostic_no_errors())
+            if "Win32_PhysicalMemory" in cmd_str:
+                return _make_subprocess_result(_powershell_physical_memory_low_ram())
+            elif "MemoryDiagnostics-Results" in cmd_str:
+                return _make_subprocess_result(_powershell_memory_errors_none())
+            elif "Win32_OperatingSystem" in cmd_str:
+                return _make_subprocess_result("""{
+  "TotalVisibleMemorySize": 2097152,
+  "FreePhysicalMemory": 524288
+}""")
         return _make_subprocess_result()
     return fake_run
 
 
-def _fake_run_diagnostic_errors():
-    """Diagnostic found errors."""
+def _fake_run_memory_errors():
+    """System with memory errors detected."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and "powershell" in cmd:
             cmd_str = " ".join(cmd)
-            if "Get-WmiObject" in cmd_str and "Win32_OperatingSystem" in cmd_str:
-                return _make_subprocess_result(_powershell_ram_info_healthy())
-            elif "Get-WinEvent" in cmd_str and "MemoryDiagnostics" in cmd_str:
-                return _make_subprocess_result(_powershell_diagnostic_with_errors())
+            if "Win32_PhysicalMemory" in cmd_str:
+                return _make_subprocess_result(_powershell_physical_memory_2x8gb_3200mhz())
+            elif "MemoryDiagnostics-Results" in cmd_str:
+                return _make_subprocess_result(_powershell_memory_errors_found())
+            elif "Win32_OperatingSystem" in cmd_str:
+                return _make_subprocess_result(_powershell_ram_utilization_healthy())
         return _make_subprocess_result()
     return fake_run
 
 
-def _fake_run_multiple_diagnostics():
-    """Multiple diagnostics - most recent is healthy."""
+def _fake_run_degraded_ram():
+    """System with 10% of RAM missing (bad DIMM).
+    Physical: 16GB, but OS only sees 14.4GB usable."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and "powershell" in cmd:
             cmd_str = " ".join(cmd)
-            if "Get-WmiObject" in cmd_str and "Win32_OperatingSystem" in cmd_str:
-                return _make_subprocess_result(_powershell_ram_info_healthy())
-            elif "Get-WinEvent" in cmd_str and "MemoryDiagnostics" in cmd_str:
-                return _make_subprocess_result(_powershell_multiple_diagnostics())
+            if "Win32_PhysicalMemory" in cmd_str:
+                return _make_subprocess_result(_powershell_physical_memory_2x8gb_3200mhz())
+            elif "MemoryDiagnostics-Results" in cmd_str:
+                return _make_subprocess_result(_powershell_memory_errors_none())
+            elif "Win32_OperatingSystem" in cmd_str:
+                # 16GB physical, but only 14.4GB visible (90% of total)
+                return _make_subprocess_result("""{
+  "TotalVisibleMemorySize": 15099494,
+  "FreePhysicalMemory": 1048576
+}""")
         return _make_subprocess_result()
     return fake_run
 
@@ -204,70 +259,63 @@ def test_win_memory_diagnostics_discovered():
     assert Platform.WIN32 in mod.platforms
 
 
-def test_win_memory_diagnostics_healthy_no_diagnostics():
-    """Healthy RAM but no diagnostics run yet."""
+def test_win_memory_diagnostics_healthy_matched_ram():
+    """Healthy matched RAM configuration."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy_ram_no_diagnostics()):
+    with patch("subprocess.run", side_effect=_fake_run_healthy_2x8gb()):
         result = mod.check(_make_profile())
-    # Should have INFO for healthy RAM
     assert any(f.severity == Severity.INFO for f in result.findings)
-    # Should have WARNING for never run on old machine if os_version indicates old Windows
-    # On Windows 11, no warning for never run
+    assert any("RAM configuration" in f.title for f in result.findings)
 
 
-def test_win_memory_diagnostics_healthy_with_diagnostic():
-    """Healthy RAM with successful diagnostic."""
+def test_win_memory_diagnostics_mismatched_speed():
+    """Mismatched RAM speeds detected."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy_with_successful_diagnostic()):
+    with patch("subprocess.run", side_effect=_fake_run_mismatched_speed()):
         result = mod.check(_make_profile())
-    # Should have INFO finding (healthy status)
-    assert any(f.severity == Severity.INFO for f in result.findings)
-    # Should mention no diagnostic errors
-    finding_strs = [f.description for f in result.findings]
-    assert any("diagnostic" in s.lower() for s in finding_strs)
-
-
-def test_win_memory_diagnostics_low_memory():
-    """Low memory pressure warning."""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_low_memory()):
-        result = mod.check(_make_profile())
-    # Should have WARNING for low memory
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert any("low memory" in f.title.lower() for f in warning_findings)
+    assert any("Mismatched" in f.title for f in warning_findings)
 
 
-def test_win_memory_diagnostics_critical_memory():
-    """Critical memory pressure."""
+def test_win_memory_diagnostics_mismatched_capacity():
+    """Mismatched RAM capacities detected."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_critical_memory()):
+    with patch("subprocess.run", side_effect=_fake_run_mismatched_capacity()):
         result = mod.check(_make_profile())
-    # Should have WARNING for critical memory
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert any("memory" in f.title.lower() for f in warning_findings)
+    assert any("Mismatched" in f.title for f in warning_findings)
 
 
-def test_win_memory_diagnostics_diagnostic_errors():
-    """Diagnostic found errors."""
+def test_win_memory_diagnostics_low_ram():
+    """Low RAM warning for < 4GB."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_diagnostic_errors()):
+    with patch("subprocess.run", side_effect=_fake_run_low_ram()):
         result = mod.check(_make_profile())
-    # Should have WARNING for diagnostic errors
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert any("diagnostic" in f.title.lower() for f in warning_findings)
-    assert any("error" in f.title.lower() for f in warning_findings)
+    assert any("Low RAM" in f.title for f in warning_findings)
 
 
-def test_win_memory_diagnostics_multiple_diagnostics():
-    """Multiple diagnostic runs."""
+def test_win_memory_diagnostics_memory_errors_critical():
+    """Memory diagnostic errors flagged as CRITICAL."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_multiple_diagnostics()):
+    with patch("subprocess.run", side_effect=_fake_run_memory_errors()):
         result = mod.check(_make_profile())
-    # Should have INFO for healthy status
-    assert any(f.severity == Severity.INFO for f in result.findings)
+    critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
+    assert len(critical_findings) > 0
+    assert any("Memory diagnostic errors" in f.title for f in critical_findings)
+
+
+def test_win_memory_diagnostics_degraded_ram():
+    """Degraded RAM (usable < 90% of installed)."""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_degraded_ram()):
+        result = mod.check(_make_profile())
+    warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
+    assert len(warning_findings) > 0
+    assert any("Usable RAM" in f.title for f in warning_findings)
 
 
 def test_win_memory_diagnostics_powershell_error():
@@ -275,39 +323,14 @@ def test_win_memory_diagnostics_powershell_error():
     mod = _get_module()
     with patch("subprocess.run", side_effect=_fake_run_powershell_error()):
         result = mod.check(_make_profile())
-    # Should have WARNING about failed retrieval
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
 
 
-def test_win_memory_diagnostics_old_windows_never_run():
-    """Old Windows with no diagnostics run."""
+def test_win_memory_diagnostics_fix_mismatched():
+    """Fix action for mismatched RAM."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy_ram_no_diagnostics()):
-        result = mod.check(_make_profile_old_windows())
-    # Should have WARNING for never run on old machine
-    warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert len(warning_findings) > 0
-    assert any("never been run" in f.title.lower() for f in warning_findings)
-
-
-def test_win_memory_diagnostics_fix_diagnostic_errors():
-    """Fix action for diagnostic errors."""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_diagnostic_errors()):
-        check_result = mod.check(_make_profile())
-    fix_result = mod.fix(check_result, Mode.AUTO)
-    assert len(fix_result.actions) > 0
-    # All actions should be safe and informational
-    for action in fix_result.actions:
-        assert action.risk_level == RiskLevel.SAFE
-        assert action.success is True
-
-
-def test_win_memory_diagnostics_fix_low_memory():
-    """Fix action for low memory."""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_low_memory()):
+    with patch("subprocess.run", side_effect=_fake_run_mismatched_speed()):
         check_result = mod.check(_make_profile())
     fix_result = mod.fix(check_result, Mode.AUTO)
     assert len(fix_result.actions) > 0
@@ -316,64 +339,13 @@ def test_win_memory_diagnostics_fix_low_memory():
         assert action.success is True
 
 
-def test_win_memory_diagnostics_fix_healthy():
-    """Fix action for healthy system."""
+def test_win_memory_diagnostics_fix_memory_errors():
+    """Fix action for memory errors."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy_with_successful_diagnostic()):
+    with patch("subprocess.run", side_effect=_fake_run_memory_errors()):
         check_result = mod.check(_make_profile())
     fix_result = mod.fix(check_result, Mode.AUTO)
     assert len(fix_result.actions) > 0
     for action in fix_result.actions:
         assert action.risk_level == RiskLevel.SAFE
         assert action.success is True
-
-
-def test_win_memory_diagnostics_fix_all_succeeded():
-    """All fix actions should succeed (informational)."""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy_with_successful_diagnostic()):
-        check_result = mod.check(_make_profile())
-    fix_result = mod.fix(check_result, Mode.MANUAL)
-    # fix() should always succeed with informational actions
-    assert fix_result.all_succeeded
-
-
-def test_win_memory_diagnostics_memory_pressure_calculation():
-    """Memory pressure percentage is calculated correctly."""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_low_memory()):
-        result = mod.check(_make_profile())
-    # Find the low memory finding
-    low_mem_findings = [
-        f for f in result.findings if f.data.get("check") == "low_memory_pressure"
-    ]
-    if low_mem_findings:
-        finding = low_mem_findings[0]
-        percent = finding.data.get("percent_available", 0)
-        assert percent < 10  # Should be low
-
-
-def test_win_memory_diagnostics_format_bytes():
-    """RAM capacity is correctly formatted in findings."""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy_with_successful_diagnostic()):
-        result = mod.check(_make_profile())
-    # Check that capacity is formatted in GB/MB/TB
-    finding_strs = [f.description for f in result.findings]
-    assert any("GB" in s or "MB" in s for s in finding_strs)
-
-
-def test_win_memory_diagnostics_multiple_checks_consistent():
-    """Running check multiple times produces consistent results."""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy_with_successful_diagnostic()):
-        result1 = mod.check(_make_profile())
-    with patch("subprocess.run", side_effect=_fake_run_healthy_with_successful_diagnostic()):
-        result2 = mod.check(_make_profile())
-    # Results should be consistent
-    assert len(result1.findings) == len(result2.findings)
-    if result1.findings and result2.findings:
-        # Check at least one finding is the same severity
-        severities1 = [f.severity for f in result1.findings]
-        severities2 = [f.severity for f in result2.findings]
-        assert severities1 == severities2

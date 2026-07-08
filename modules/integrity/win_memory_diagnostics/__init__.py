@@ -21,141 +21,148 @@ class Module(ModuleBase):
     category = "integrity"
     platforms = [Platform.WIN32]
     risk_level = RiskLevel.SAFE
-    priority = 60
+    priority = 55
     depends_on = []
     estimated_duration = "10s"
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
-        # Get RAM information
-        ram_info = self._get_ram_info()
-        if not ram_info:
+        # Get physical memory information
+        physical_memory = self._get_physical_memory()
+        if not physical_memory:
             findings.append(
                 Finding(
-                    title="Could not retrieve RAM information",
+                    title="Could not retrieve physical memory information",
                     description=(
-                        "Failed to run Get-WmiObject Win32_OperatingSystem. "
+                        "Failed to run Get-WmiObject Win32_PhysicalMemory. "
                         "Memory health cannot be assessed."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
-                    data={"check": "ram_info_failed"},
+                    data={"check": "memory_info_failed"},
                 )
             )
             return CheckResult(module_name=self.name, findings=findings)
 
-        total_ram = ram_info.get("total_bytes", 0)
-        available_ram = ram_info.get("available_bytes", 0)
+        # Check for memory errors in event log
+        memory_errors = self._get_memory_errors()
+        if memory_errors and memory_errors.get("has_errors"):
+            findings.append(
+                Finding(
+                    title="Memory diagnostic errors found",
+                    description=(
+                        f"Windows Memory Diagnostic found {memory_errors.get('error_count', 'unknown')} error(s). "
+                        "Bad RAM detected. Replace faulty memory modules immediately to prevent data corruption and system instability."
+                    ),
+                    severity=Severity.CRITICAL,
+                    category=self.category,
+                    data={
+                        "check": "memory_errors_critical",
+                        "error_count": memory_errors.get("error_count"),
+                    },
+                )
+            )
 
-        # Check for memory pressure (available < 10% of total)
-        if total_ram > 0:
-            memory_available_percent = (available_ram / total_ram) * 100
-            if memory_available_percent < 10:
+        # Get RAM utilization info
+        ram_utilization = self._get_ram_utilization()
+        if ram_utilization:
+            usable_bytes = ram_utilization.get("total_bytes", 0)
+            free_bytes = ram_utilization.get("free_bytes", 0)
+
+            # Compare with physical memory capacity
+            physical_capacity = sum(
+                m.get("capacity", 0) for m in physical_memory.get("modules", [])
+            )
+
+            # Check if usable is significantly less than installed
+            if physical_capacity > 0 and usable_bytes < (physical_capacity * 0.9):
+                missing_percent = ((physical_capacity - usable_bytes) / physical_capacity) * 100
                 findings.append(
                     Finding(
-                        title=f"Low memory availability ({memory_available_percent:.1f}%)",
+                        title=f"Usable RAM less than installed ({missing_percent:.1f}% missing)",
                         description=(
-                            f"Only {_format_bytes(available_ram)} of "
-                            f"{_format_bytes(total_ram)} RAM is available. "
-                            "Memory pressure may cause performance issues and crashes. "
-                            "Close unused applications or add more RAM."
+                            f"Only {_format_bytes(usable_bytes)} of {_format_bytes(physical_capacity)} is usable. "
+                            f"Missing {missing_percent:.1f}%. This indicates possible bad RAM or BIOS configuration issue."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
-                            "check": "low_memory_pressure",
-                            "total_ram": total_ram,
-                            "available_ram": available_ram,
-                            "percent_available": memory_available_percent,
+                            "check": "ram_mismatch",
+                            "total_bytes": physical_capacity,
+                            "usable_bytes": usable_bytes,
+                            "missing_percent": missing_percent,
                         },
                     )
                 )
 
-        # Get memory diagnostic results
-        diag_info = self._get_memory_diagnostics()
+            # Check if total RAM is too low (use usable amount)
+            total_gb = usable_bytes / (1024 ** 3)
+            if total_gb < 4:
+                findings.append(
+                    Finding(
+                        title=f"Low RAM ({total_gb:.1f} GB)",
+                        description=(
+                            f"System has only {total_gb:.1f} GB of RAM installed. "
+                            "This is below the recommended minimum for modern Windows systems (4 GB or more). "
+                            "Consider upgrading RAM for better performance."
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        data={
+                            "check": "low_ram",
+                            "total_gb": total_gb,
+                        },
+                    )
+                )
 
-        if diag_info is None:
+        # Check for mismatched RAM modules
+        mismatched = self._check_mismatched_ram(physical_memory)
+        if mismatched:
             findings.append(
                 Finding(
-                    title="Could not retrieve memory diagnostic results",
+                    title="Mismatched RAM modules detected",
                     description=(
-                        "Failed to query memory diagnostic event logs. "
-                        "Check if you have Administrator privileges."
+                        "RAM modules with different speeds or capacities are installed. "
+                        "All modules will run at the speed of the slowest module, impacting performance."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
-                    data={"check": "diag_query_failed"},
+                    data={
+                        "check": "mismatched_ram",
+                        "details": mismatched,
+                    },
                 )
             )
-        else:
-            # Check if diagnostics have ever been run
-            if not diag_info.get("has_run", False):
-                # On older machines, this might be a concern
-                os_version = profile.os_version if profile else "unknown"
-                if self._is_older_windows(os_version):
-                    findings.append(
-                        Finding(
-                            title="Memory diagnostic has never been run",
-                            description=(
-                                "Windows Memory Diagnostic has not been run on this system. "
-                                "For older PCs, running diagnostics is recommended to ensure "
-                                "RAM is not failing. Memory failures are a common cause of "
-                                "blue screens and crashes."
-                            ),
-                            severity=Severity.WARNING,
-                            category=self.category,
-                            data={"check": "never_run_on_old_machine"},
-                        )
-                    )
-            else:
-                # Check if the last diagnostic found errors
-                if diag_info.get("has_errors", False):
-                    findings.append(
-                        Finding(
-                            title="Memory diagnostic found errors",
-                            description=(
-                                f"The last memory diagnostic (run on {diag_info.get('last_run', 'unknown date')}) "
-                                "detected errors in RAM. This indicates memory failure. "
-                                "You should replace the faulty RAM module to prevent system crashes."
-                            ),
-                            severity=Severity.WARNING,
-                            category=self.category,
-                            data={
-                                "check": "diagnostic_errors",
-                                "last_run": diag_info.get("last_run"),
-                                "error_details": diag_info.get("error_details"),
-                            },
-                        )
-                    )
 
-        # Add informational finding about current RAM status
-        if ram_info:
-            info_desc = (
-                f"Total RAM: {_format_bytes(total_ram)}. "
-                f"Available: {_format_bytes(available_ram)}. "
+        # Add informational findings about RAM configuration
+        if physical_memory.get("modules"):
+            total_capacity = sum(
+                m.get("capacity", 0) for m in physical_memory.get("modules", [])
             )
-            if diag_info and diag_info.get("has_run"):
-                info_desc += (
-                    f"Last memory diagnostic run: {diag_info.get('last_run', 'unknown')}. "
-                )
-                if not diag_info.get("has_errors"):
-                    info_desc += "Diagnostic found no errors."
-            else:
-                info_desc += "No recent memory diagnostic results."
+            speeds = [
+                m.get("speed") for m in physical_memory.get("modules", []) if m.get("speed")
+            ]
+            module_count = len(physical_memory.get("modules", []))
+
+            ram_summary = f"{module_count} module(s), {_format_bytes(total_capacity)} total"
+            if speeds:
+                speed_str = f"{speeds[0]} MHz"
+                if len(set(speeds)) > 1:
+                    speed_str = f"{min(speeds)}-{max(speeds)} MHz"
+                ram_summary += f", {speed_str}"
 
             findings.append(
                 Finding(
-                    title="Memory status",
-                    description=info_desc,
+                    title="RAM configuration",
+                    description=ram_summary,
                     severity=Severity.INFO,
                     category=self.category,
                     data={
-                        "check": "memory_status",
-                        "total_ram": total_ram,
-                        "available_ram": available_ram,
-                        "formatted_total": _format_bytes(total_ram),
-                        "formatted_available": _format_bytes(available_ram),
+                        "check": "ram_info",
+                        "module_count": module_count,
+                        "total_capacity": total_capacity,
+                        "speeds": speeds,
                     },
                 )
             )
@@ -168,97 +175,98 @@ class Module(ModuleBase):
         for finding in findings.findings:
             check = finding.data.get("check")
 
-            if check == "diagnostic_errors":
-                last_run = finding.data.get("last_run", "unknown date")
+            if check == "memory_errors_critical":
+                error_count = finding.data.get("error_count", 0)
                 actions.append(
                     Action(
-                        title="Memory errors detected by Windows Memory Diagnostic",
+                        title=f"Bad RAM detected ({error_count} error(s))",
                         description=(
-                            f"Memory errors were detected in the diagnostic run on {last_run}. "
-                            "This indicates RAM failure. Recommendations: "
-                            "(1) Do not continue using the device for critical work. "
-                            "(2) Back up all data immediately to an external drive. "
-                            "(3) Shut down the PC and do not restart until RAM is replaced. "
-                            "(4) Contact a qualified technician or the computer manufacturer "
-                            "for RAM replacement."
+                            f"Windows Memory Diagnostic found {error_count} RAM error(s). "
+                            "This indicates faulty RAM modules. "
+                            "Recommendations: (1) Identify which DIMM is failing (run Memory Diagnostic to see details). "
+                            "(2) Purchase replacement RAM of the same type and speed. "
+                            "(3) Shut down the system and replace the faulty module(s). "
+                            "(4) Run Memory Diagnostic again to verify the fix. "
+                            "Do not continue using the system with bad RAM as it will cause data corruption."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "low_memory_pressure":
+            elif check == "ram_mismatch":
+                missing_percent = finding.data.get("missing_percent", 0)
                 actions.append(
                     Action(
-                        title="High memory pressure detected",
+                        title=f"Usable RAM less than installed ({missing_percent:.1f}% missing)",
                         description=(
-                            "Available memory is critically low. "
-                            "Recommendations: "
-                            "(1) Close unnecessary applications to free memory. "
-                            "(2) Check Task Manager (Ctrl+Shift+Esc) for memory-consuming processes. "
-                            "(3) Increase virtual memory/page file size in System settings. "
-                            "(4) Consider adding more RAM if the problem persists."
+                            f"{missing_percent:.1f}% of installed RAM is not usable. "
+                            "Recommendations: (1) Run Windows Memory Diagnostic (mdsched.exe) to check for bad RAM. "
+                            "(2) Check BIOS settings to ensure all RAM is detected. "
+                            "(3) Reseat RAM modules (power off, remove and reinstall each DIMM firmly). "
+                            "(4) If the problem persists, one or more modules may be faulty and need replacement."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "never_run_on_old_machine":
+            elif check == "mismatched_ram":
                 actions.append(
                     Action(
-                        title="Memory diagnostic has never been run",
+                        title="Mismatched RAM modules",
                         description=(
-                            "Windows Memory Diagnostic is a built-in tool to check for RAM failures. "
-                            "To run it: "
-                            "(1) Open Settings and search for 'Windows Memory Diagnostic'. "
-                            "(2) Click 'Restart now and check for problems (recommended)'. "
-                            "(3) The system will restart and run the diagnostic automatically. "
-                            "This process typically takes 5-30 minutes. "
-                            "RAM failures are a common cause of blue screens on older systems."
+                            "RAM modules with different speeds or capacities are installed together. "
+                            "All modules will run at the speed of the slowest module. "
+                            "Recommendations: (1) For best performance, use matching RAM modules. "
+                            "(2) If upgrading, purchase RAM with the same speed and type as existing modules. "
+                            "(3) Consider replacing all modules with a matched set for optimal performance."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "ram_info_failed":
+            elif check == "low_ram":
+                total_gb = finding.data.get("total_gb", 0)
                 actions.append(
                     Action(
-                        title="Unable to assess RAM information",
+                        title=f"Low RAM ({total_gb:.1f} GB)",
                         description=(
-                            "Could not retrieve RAM information from the system. "
+                            f"System has only {total_gb:.1f} GB of RAM. "
+                            "This is below recommended levels for modern Windows. "
+                            "Recommendations: (1) Upgrade to at least 8 GB of RAM for acceptable performance. "
+                            "(2) For multitasking or demanding applications, 16 GB or more is recommended. "
+                            "(3) Check available upgrade options for your system (some laptops have soldered RAM). "
+                            "(4) In the meantime, disable unnecessary startup programs and use lighter applications."
+                        ),
+                        risk_level=RiskLevel.SAFE,
+                        success=True,
+                    )
+                )
+
+            elif check == "memory_info_failed":
+                actions.append(
+                    Action(
+                        title="Unable to assess RAM health",
+                        description=(
+                            "The Get-WmiObject Win32_PhysicalMemory command failed. "
                             "Ensure you have Administrator privileges and run the diagnostic again. "
-                            "You can manually check RAM status in Windows Settings > System > About."
+                            "Try running the following in PowerShell (as Administrator): "
+                            "Get-WmiObject Win32_PhysicalMemory | Select-Object BankLabel, Capacity, Speed, Manufacturer"
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "diag_query_failed":
+            elif check == "ram_info":
                 actions.append(
                     Action(
-                        title="Unable to query memory diagnostic results",
+                        title="RAM configuration normal",
                         description=(
-                            "Could not access the memory diagnostic event log. "
-                            "Ensure you have Administrator privileges. "
-                            "Try running the diagnostic again using Windows Memory Diagnostic tool."
-                        ),
-                        risk_level=RiskLevel.SAFE,
-                        success=True,
-                    )
-                )
-
-            elif check == "memory_status":
-                actions.append(
-                    Action(
-                        title="Memory status",
-                        description=(
-                            "Current RAM status is being monitored. "
-                            "Continue regular backups and monitor system stability. "
-                            "If you experience crashes or blue screens, run Windows Memory Diagnostic "
-                            "to check for RAM failures."
+                            "RAM configuration is healthy and within expected parameters. "
+                            "Continue monitoring for performance issues."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -267,11 +275,55 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _get_ram_info(self) -> Optional[dict]:
-        """Get RAM information from PowerShell Get-WmiObject."""
+    def _get_physical_memory(self) -> Optional[dict]:
+        """Get physical memory information from PowerShell Get-WmiObject Win32_PhysicalMemory."""
         try:
             ps_cmd = (
-                "Get-WmiObject Win32_OperatingSystem | "
+                "Get-WmiObject Win32_PhysicalMemory | "
+                "Select-Object BankLabel, Capacity, Speed, Manufacturer, MemoryType, FormFactor | "
+                "ConvertTo-Json"
+            )
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", ps_cmd],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                return None
+
+            return _parse_physical_memory(result.stdout)
+        except (OSError, subprocess.SubprocessError, TimeoutError):
+            return None
+
+    def _get_memory_errors(self) -> Optional[dict]:
+        """Check for memory errors in Windows Memory Diagnostic event log."""
+        try:
+            ps_cmd = (
+                "Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-MemoryDiagnostics-Results'} "
+                "-MaxEvents 5 -ErrorAction SilentlyContinue | Measure-Object | Select-Object Count"
+            )
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", ps_cmd],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                return None
+
+            error_count = _parse_event_count(result.stdout)
+            if error_count and error_count > 0:
+                return {"has_errors": True, "error_count": error_count}
+            return None
+        except (OSError, subprocess.SubprocessError, TimeoutError):
+            return None
+
+    def _get_ram_utilization(self) -> Optional[dict]:
+        """Get total and free RAM information from Win32_OperatingSystem."""
+        try:
+            ps_cmd = (
+                "(Get-WmiObject Win32_OperatingSystem) | "
                 "Select-Object TotalVisibleMemorySize, FreePhysicalMemory | "
                 "ConvertTo-Json"
             )
@@ -284,124 +336,119 @@ class Module(ModuleBase):
             if result.returncode != 0:
                 return None
 
-            return _parse_ram_info(result.stdout)
+            return _parse_ram_utilization(result.stdout)
         except (OSError, subprocess.SubprocessError, TimeoutError):
             return None
 
-    def _get_memory_diagnostics(self) -> Optional[dict]:
-        """Get memory diagnostic results from Windows event logs."""
-        try:
-            # Query for memory diagnostic events
-            ps_cmd = (
-                "Get-WinEvent -FilterHashtable @{LogName='System'; "
-                "ProviderName='Microsoft-Windows-MemoryDiagnostics-Results'} "
-                "-MaxEvents 5 -ErrorAction SilentlyContinue | "
-                "Select-Object TimeCreated, Message | ConvertTo-Json"
-            )
-            result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", ps_cmd],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if result.returncode != 0:
-                return None
-
-            return _parse_diagnostic_results(result.stdout)
-        except (OSError, subprocess.SubprocessError, TimeoutError):
+    def _check_mismatched_ram(self, physical_memory: dict) -> Optional[str]:
+        """Check if RAM modules have mismatched speeds or capacities."""
+        modules = physical_memory.get("modules", [])
+        if not modules or len(modules) < 2:
             return None
 
-    def _is_older_windows(self, os_version: str) -> bool:
-        """Determine if Windows version is older (Windows 7, 8, 8.1, or older)."""
-        if not os_version:
-            return False
-        try:
-            # Windows 7 = 6.1, Windows 8 = 6.2, Windows 8.1 = 6.3, Windows 10 = 10.0
-            version_parts = os_version.split(".")
-            if not version_parts:
-                return False
-            major_version = int(version_parts[0])
-            # Consider Windows 8 and earlier as "older"
-            return major_version <= 6
-        except (ValueError, IndexError):
-            return False
+        speeds = [m.get("speed") for m in modules if m.get("speed")]
+        capacities = [m.get("capacity") for m in modules if m.get("capacity")]
 
+        # Check for speed mismatch
+        if speeds and len(set(speeds)) > 1:
+            min_speed = min(speeds)
+            max_speed = max(speeds)
+            return f"Speed mismatch: {min_speed}-{max_speed} MHz"
 
-def _parse_ram_info(json_output: str) -> Optional[dict]:
-    """Parse PowerShell JSON output from Get-WmiObject Win32_OperatingSystem."""
-    if not json_output.strip():
-        return None
+        # Check for capacity mismatch
+        if capacities and len(set(capacities)) > 1:
+            min_cap = _format_bytes(min(capacities))
+            max_cap = _format_bytes(max(capacities))
+            return f"Capacity mismatch: {min_cap}-{max_cap}"
 
-    try:
-        data = json.loads(json_output)
-
-        total_kb = int(data.get("TotalVisibleMemorySize", 0))
-        free_kb = int(data.get("FreePhysicalMemory", 0))
-
-        # Convert KB to bytes
-        total_bytes = total_kb * 1024
-        available_bytes = free_kb * 1024
-
-        return {
-            "total_bytes": total_bytes,
-            "available_bytes": available_bytes,
-            "formatted_total": _format_bytes(total_bytes),
-            "formatted_available": _format_bytes(available_bytes),
-        }
-    except (json.JSONDecodeError, ValueError, KeyError, TypeError):
         return None
 
 
-def _parse_diagnostic_results(json_output: str) -> Optional[dict]:
-    """Parse PowerShell JSON output from memory diagnostic event log."""
+def _parse_physical_memory(json_output: str) -> dict:
+    """Parse PowerShell JSON output from Get-WmiObject Win32_PhysicalMemory."""
+    info = {"modules": []}
+
     if not json_output.strip():
-        return {
-            "has_run": False,
-            "has_errors": False,
-            "last_run": None,
-            "error_details": None,
-        }
+        return info
 
     try:
-        data = json.loads(json_output)
-
         # Handle both single object and array
+        data = json.loads(json_output)
         if not isinstance(data, list):
-            data = [data] if data else []
+            data = [data]
 
-        if not data:
-            return {
-                "has_run": False,
-                "has_errors": False,
-                "last_run": None,
-                "error_details": None,
-            }
+        for module in data:
+            info["modules"].append(
+                {
+                    "bank_label": module.get("BankLabel", "Unknown"),
+                    "capacity": module.get("Capacity", 0),
+                    "speed": module.get("Speed", 0),
+                    "manufacturer": module.get("Manufacturer", "Unknown"),
+                    "memory_type": module.get("MemoryType", "Unknown"),
+                    "form_factor": module.get("FormFactor", "Unknown"),
+                }
+            )
 
-        # Get the most recent event (first in list)
-        latest_event = data[0]
-        time_created = latest_event.get("TimeCreated", "unknown")
-        message = latest_event.get("Message", "")
+        return info
+    except (json.JSONDecodeError, ValueError, KeyError):
+        return info
 
-        # Check if message indicates errors
-        has_errors = (
-            "error" in message.lower()
-            or "failed" in message.lower()
-            or "problem" in message.lower()
-        )
 
-        return {
-            "has_run": True,
-            "has_errors": has_errors,
-            "last_run": str(time_created),
-            "error_details": message if has_errors else None,
-        }
-    except (json.JSONDecodeError, ValueError, KeyError, TypeError, IndexError):
-        return {
-            "has_run": False,
-            "has_errors": False,
-            "last_run": None,
-            "error_details": None,
-        }
+def _parse_ram_utilization(json_output: str) -> dict:
+    """Parse PowerShell JSON output from Get-WmiObject Win32_OperatingSystem."""
+    info = {
+        "total_bytes": 0,
+        "free_bytes": 0,
+        "usable_bytes": 0,
+    }
+
+    if not json_output.strip():
+        return info
+
+    try:
+        data = json.loads(json_output)
+
+        # Convert from KB to bytes
+        total_kb = data.get("TotalVisibleMemorySize", 0)
+        free_kb = data.get("FreePhysicalMemory", 0)
+
+        info["total_bytes"] = total_kb * 1024 if isinstance(total_kb, int) else 0
+        info["free_bytes"] = free_kb * 1024 if isinstance(free_kb, int) else 0
+        info["usable_bytes"] = info["total_bytes"]  # Usable = total visible
+
+        return info
+    except (json.JSONDecodeError, ValueError, KeyError):
+        return info
+
+
+def _parse_event_count(output: str) -> int:
+    """Extract count from PowerShell Measure-Object output."""
+    try:
+        # Look for "Count" line first, then find the number
+        lines = output.split("\n")
+        found_count = False
+        for i, line in enumerate(lines):
+            if "count" in line.lower():
+                found_count = True
+                # Try to find digits on this line
+                parts = line.split()
+                for part in parts:
+                    if part.isdigit():
+                        return int(part)
+                # If not on this line, look on following lines
+                for j in range(i + 1, min(i + 3, len(lines))):
+                    next_line = lines[j].strip()
+                    if next_line.isdigit():
+                        return int(next_line)
+        # If no "Count" header found, just look for any digit string
+        if not found_count:
+            for line in lines:
+                line_stripped = line.strip()
+                if line_stripped.isdigit():
+                    return int(line_stripped)
+        return 0
+    except (ValueError, IndexError):
+        return 0
 
 
 def _format_bytes(bytes_value: int) -> str:
