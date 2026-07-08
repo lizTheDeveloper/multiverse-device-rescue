@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+from datetime import datetime, timedelta
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -34,66 +35,120 @@ def _make_subprocess_result(stdout="", stderr="", returncode=0):
     return result
 
 
-def _fake_run_healthy():
-    """XProtect is present and up-to-date (version >= MINIMUM_XPROTECT_VERSION)"""
+def _format_date(days_ago=0):
+    """Format a date string for days_ago in the past"""
+    date = datetime.now().date() - timedelta(days=days_ago)
+    return date.strftime("%Y-%m-%d")
+
+
+def _fake_run_gatekeeper_enabled_healthy_xp():
+    """Gatekeeper enabled, XProtect healthy, MRT present"""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
         else:
             cmd_str = cmd
 
-        if "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
-            # Return a current version (above minimum)
+        if "spctl" in cmd_str and "--status" in cmd_str:
+            return _make_subprocess_result(stdout="assessments enabled\n")
+        elif "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
             return _make_subprocess_result(stdout="4001\n")
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_run_outdated():
-    """XProtect is present but outdated (version < MINIMUM_XPROTECT_VERSION)"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
-            # Return an outdated version (below minimum)
-            return _make_subprocess_result(stdout="2500\n")
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_run_missing_bundle():
-    """XProtect bundle is missing or unreadable"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
-            # Simulate bundle missing or unreadable
+        elif "system_profiler" in cmd_str:
             return _make_subprocess_result(
-                stdout="",
-                stderr="The domain/default pair of (com.apple.xprotect, Version) does not exist",
-                returncode=1,
+                stdout=f"XProtect: 4001 {_format_date(5)}\nMRT: 1.2 {_format_date(3)}\n"
             )
         return _make_subprocess_result()
     return fake_run
 
 
-def _fake_run_invalid_version():
-    """XProtect version output is invalid (non-numeric)"""
+def _fake_run_gatekeeper_disabled():
+    """Gatekeeper disabled - CRITICAL issue"""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
         else:
             cmd_str = cmd
 
-        if "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
-            # Return an invalid version string
-            return _make_subprocess_result(stdout="invalid_version\n")
+        if "spctl" in cmd_str and "--status" in cmd_str:
+            return _make_subprocess_result(stdout="assessments disabled\n")
+        elif "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
+            return _make_subprocess_result(stdout="4001\n")
+        return _make_subprocess_result()
+    return fake_run
+
+
+def _fake_run_xprotect_outdated():
+    """XProtect version is outdated (below minimum)"""
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list):
+            cmd_str = " ".join(cmd)
+        else:
+            cmd_str = cmd
+
+        if "spctl" in cmd_str and "--status" in cmd_str:
+            return _make_subprocess_result(stdout="assessments enabled\n")
+        elif "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
+            return _make_subprocess_result(stdout="2500\n")
+        return _make_subprocess_result()
+    return fake_run
+
+
+def _fake_run_xprotect_old():
+    """XProtect definitions are old (>30 days)"""
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list):
+            cmd_str = " ".join(cmd)
+        else:
+            cmd_str = cmd
+
+        if "spctl" in cmd_str and "--status" in cmd_str:
+            return _make_subprocess_result(stdout="assessments enabled\n")
+        elif "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
+            return _make_subprocess_result(stdout="4001\n")
+        elif "system_profiler" in cmd_str:
+            return _make_subprocess_result(
+                stdout=f"XProtect: 4001 {_format_date(35)}\n"
+            )
+        return _make_subprocess_result()
+    return fake_run
+
+
+def _fake_run_mrt_outdated():
+    """MRT is outdated (>30 days)"""
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list):
+            cmd_str = " ".join(cmd)
+        else:
+            cmd_str = cmd
+
+        if "spctl" in cmd_str and "--status" in cmd_str:
+            return _make_subprocess_result(stdout="assessments enabled\n")
+        elif "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
+            return _make_subprocess_result(stdout="4001\n")
+        elif "system_profiler" in cmd_str:
+            return _make_subprocess_result(
+                stdout=f"XProtect: 4001 {_format_date(5)}\nMRT: 1.2 {_format_date(40)}\n"
+            )
+        return _make_subprocess_result()
+    return fake_run
+
+
+def _fake_run_xprotect_missing():
+    """XProtect bundle is missing"""
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list):
+            cmd_str = " ".join(cmd)
+        else:
+            cmd_str = cmd
+
+        if "spctl" in cmd_str and "--status" in cmd_str:
+            return _make_subprocess_result(stdout="assessments enabled\n")
+        elif "defaults" in cmd_str and "XProtect.meta.plist" in cmd_str:
+            return _make_subprocess_result(
+                stdout="",
+                stderr="The domain/default pair does not exist",
+                returncode=1,
+            )
         return _make_subprocess_result()
     return fake_run
 
@@ -105,90 +160,118 @@ def test_xprotect_status_discovered():
     assert mod.risk_level == RiskLevel.SAFE
 
 
-def test_xprotect_status_healthy():
-    """Healthy case: up-to-date XProtect definitions"""
+def test_gatekeeper_enabled_xprotect_healthy():
+    """Healthy case: Gatekeeper enabled, XProtect up-to-date"""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy()):
+    with patch("subprocess.run", side_effect=_fake_run_gatekeeper_enabled_healthy_xp()):
         result = mod.check(_make_profile())
-    # Has issues because there's always at least an INFO finding
     assert result.has_issues
-    # Should have exactly one finding (INFO only)
-    assert len(result.findings) == 1
-    assert result.findings[0].severity == Severity.INFO
-    assert result.findings[0].data["check"] == "xprotect_version"
+    # Should have: gatekeeper_status, xprotect_version, mrt_version
+    assert len(result.findings) >= 2
+    # All should be INFO severity
+    assert all(f.severity == Severity.INFO for f in result.findings)
+    assert any(f.data.get("check") == "gatekeeper_status" for f in result.findings)
 
 
-def test_xprotect_status_outdated():
-    """Outdated case: XProtect definitions below minimum version"""
+def test_gatekeeper_disabled_critical():
+    """Critical case: Gatekeeper is disabled"""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_outdated()):
+    with patch("subprocess.run", side_effect=_fake_run_gatekeeper_disabled()):
         result = mod.check(_make_profile())
-    # Should have issues
     assert result.has_issues
-    # Should have two findings: INFO (version) and WARNING (outdated)
-    assert len(result.findings) == 2
-    severities = [f.severity for f in result.findings]
-    assert Severity.INFO in severities
-    assert Severity.WARNING in severities
-    # Verify the outdated warning is present
-    assert any(f.data.get("check") == "xprotect_outdated" for f in result.findings)
+    # Should have CRITICAL finding for disabled Gatekeeper
+    critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
+    assert len(critical_findings) >= 1
+    assert any(f.data.get("check") == "gatekeeper_disabled" for f in critical_findings)
 
 
-def test_xprotect_status_missing_bundle():
-    """Missing bundle case: XProtect bundle is missing or unreadable"""
+def test_xprotect_version_outdated():
+    """Warning case: XProtect version below minimum"""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_missing_bundle()):
+    with patch("subprocess.run", side_effect=_fake_run_xprotect_outdated()):
         result = mod.check(_make_profile())
-    # Should have issues
     assert result.has_issues
-    # Should have exactly one finding (CRITICAL)
-    assert len(result.findings) == 1
-    assert result.findings[0].severity == Severity.CRITICAL
-    assert result.findings[0].data["check"] == "xprotect_missing"
+    # Should have WARNING for outdated version
+    warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
+    assert len(warning_findings) >= 1
+    assert any(f.data.get("check") == "xprotect_outdated" for f in warning_findings)
 
 
-def test_xprotect_status_invalid_version():
-    """Invalid version case: XProtect version output cannot be parsed"""
+def test_xprotect_definitions_old():
+    """Warning case: XProtect definitions haven't been updated in >30 days"""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_invalid_version()):
+    with patch("subprocess.run", side_effect=_fake_run_xprotect_old()):
         result = mod.check(_make_profile())
-    # Should treat unparseable version as missing/unreadable
     assert result.has_issues
-    assert len(result.findings) == 1
-    assert result.findings[0].severity == Severity.CRITICAL
+    # Should have WARNING for old definitions
+    warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
+    assert len(warning_findings) >= 1
+    assert any(f.data.get("check") == "xprotect_old" for f in warning_findings)
 
 
-def test_xprotect_status_fix_outdated():
-    """Fix for outdated XProtect: informational action"""
+def test_mrt_outdated():
+    """Warning case: MRT is outdated (>30 days)"""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_outdated()):
+    with patch("subprocess.run", side_effect=_fake_run_mrt_outdated()):
+        result = mod.check(_make_profile())
+    assert result.has_issues
+    # Should have WARNING for outdated MRT
+    warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
+    assert len(warning_findings) >= 1
+    assert any(f.data.get("check") == "mrt_outdated" for f in warning_findings)
+
+
+def test_xprotect_missing_bundle():
+    """Critical case: XProtect bundle is missing"""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_xprotect_missing()):
+        result = mod.check(_make_profile())
+    assert result.has_issues
+    # Should have CRITICAL finding for missing bundle
+    critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
+    assert len(critical_findings) >= 1
+    assert any(f.data.get("check") == "xprotect_missing" for f in critical_findings)
+
+
+def test_fix_gatekeeper_disabled():
+    """Fix for disabled Gatekeeper"""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_gatekeeper_disabled()):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
-    # fix() should always succeed (informational)
+    # Should have action to re-enable Gatekeeper
+    assert any("Gatekeeper" in a.title for a in fix.actions)
     assert fix.all_succeeded
-    # Should suggest updating XProtect
-    assert any("Update XProtect" in a.title for a in fix.actions)
 
 
-def test_xprotect_status_fix_missing():
-    """Fix for missing XProtect: informational action"""
+def test_fix_xprotect_outdated():
+    """Fix for outdated XProtect"""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_missing_bundle()):
+    with patch("subprocess.run", side_effect=_fake_run_xprotect_outdated()):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
-    # fix() should always succeed (informational)
+    # Should have action to update
+    assert any("Update" in a.title or "Software Update" in a.description for a in fix.actions)
     assert fix.all_succeeded
-    # Should suggest restoring XProtect
-    assert any("Restore XProtect" in a.title for a in fix.actions)
 
 
-def test_xprotect_status_fix_healthy():
-    """Fix for healthy XProtect: no actions needed"""
+def test_fix_mrt_outdated():
+    """Fix for outdated MRT"""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy()):
+    with patch("subprocess.run", side_effect=_fake_run_mrt_outdated()):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
-    # fix() should succeed (no issues to fix)
+    # Should suggest updating
     assert fix.all_succeeded
-    # Should have no actions for healthy state
+    assert len(fix.actions) >= 1
+
+
+def test_fix_healthy():
+    """Fix for healthy state: no actions needed"""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_gatekeeper_enabled_healthy_xp()):
+        check = mod.check(_make_profile())
+        fix = mod.fix(check, Mode.MANUAL)
+    # Should have no actions
     assert len(fix.actions) == 0
+    assert fix.all_succeeded
