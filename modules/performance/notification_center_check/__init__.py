@@ -245,11 +245,12 @@ class Module(ModuleBase):
             has_dnd = False
 
             # Count app entries (rough heuristic: look for app bundle IDs)
-            # Each app typically has an entry like "com.apple.mail"
+            # Each app typically has an entry like "com.apple.mail = {"
             lines = output.split("\n")
             for line in lines:
-                # Look for bundle ID patterns
-                if "com." in line and "{" not in line and "}" not in line:
+                line = line.strip()
+                # Look for bundle ID patterns: lines starting with "com." and containing " = {"
+                if line.startswith("com.") and " = {" in line:
                     app_count += 1
                 # Check for "alertStyle = 1" which indicates Alerts
                 if "alertStyle = 1" in line:

@@ -509,8 +509,9 @@ class Module(ModuleBase):
             True if filtering is enabled, False otherwise
         """
         try:
+            pref_path = str(Path.home() / "Library/Preferences/com.apple.familycontrols.contentfilter")
             result = subprocess.run(
-                ["defaults", "read", Path.home() / "Library/Preferences/com.apple.familycontrols.contentfilter"],
+                ["defaults", "read", pref_path],
                 capture_output=True,
                 text=True,
             )
