@@ -1,4 +1,7 @@
+import json
+import re
 import subprocess
+from datetime import datetime
 from typing import Optional
 
 from rescue.models import (
@@ -27,129 +30,142 @@ class Module(ModuleBase):
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
-        # Check CBS log for SFC scan results
-        sfc_result = self._get_sfc_status()
-        if sfc_result is None:
+        # Check CBS.log for SFC results
+        cbs_results = self._get_cbs_log_results()
+        if cbs_results is None:
             findings.append(
                 Finding(
-                    title="Could not retrieve SFC scan status",
+                    title="Could not read CBS.log",
                     description=(
-                        "Failed to read Windows CBS log. SFC scan status cannot be assessed. "
+                        "Failed to read C:\\Windows\\Logs\\CBS\\CBS.log. "
+                        "SFC scan results cannot be assessed. "
                         "Ensure you have Administrator privileges."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
-                    data={"check": "sfc_status_failed"},
+                    data={"check": "cbs_log_failed"},
                 )
             )
-        else:
-            # Process SFC findings
-            if sfc_result.get("corrupt_found"):
-                if sfc_result.get("corrupt_repaired"):
-                    findings.append(
-                        Finding(
-                            title="Corrupt files found and repaired",
-                            description=(
-                                f"System File Checker found {sfc_result.get('corrupt_count', 'unknown')} "
-                                "corrupt file(s) and successfully repaired them. "
-                                "The system should be stable now. Monitor for any recurring issues."
-                            ),
-                            severity=Severity.WARNING,
-                            category=self.category,
-                            data={
-                                "check": "sfc_corrupt_repaired",
-                                "corrupt_count": sfc_result.get("corrupt_count"),
-                            },
-                        )
-                    )
-                else:
-                    findings.append(
-                        Finding(
-                            title="Corrupt files found but NOT repaired",
-                            description=(
-                                f"System File Checker found {sfc_result.get('corrupt_count', 'unknown')} "
-                                "corrupt file(s) but was unable to repair them. "
-                                "This indicates serious system file corruption that requires intervention. "
-                                "Run 'sfc /scannow' as Administrator in Command Prompt to attempt repairs, "
-                                "or use DISM to restore files from Windows Update."
-                            ),
-                            severity=Severity.CRITICAL,
-                            category=self.category,
-                            data={
-                                "check": "sfc_corrupt_not_repaired",
-                                "corrupt_count": sfc_result.get("corrupt_count"),
-                            },
-                        )
-                    )
-            elif sfc_result.get("no_violations"):
+            return CheckResult(module_name=self.name, findings=findings)
+
+        # Check for corrupted files that couldn't be repaired
+        if cbs_results.get("cannot_repair_count", 0) > 0:
+            cannot_repair = cbs_results.get("cannot_repair_count", 0)
+            corrupted_files = cbs_results.get("cannot_repair_files", [])
+            file_list = ", ".join(corrupted_files[:3])
+            if len(corrupted_files) > 3:
+                file_list += f", +{len(corrupted_files) - 3} more"
+
+            findings.append(
+                Finding(
+                    title=f"SFC found {cannot_repair} corrupted file(s) that cannot be repaired",
+                    description=(
+                        f"Windows System File Checker detected {cannot_repair} corrupted system files "
+                        f"that it could NOT repair. This indicates system integrity is compromised. "
+                        f"Corrupted files: {file_list}. "
+                        "This may cause crashes, blue screens, and broken Windows features. "
+                        "Attempt to repair by running 'sfc /scannow' from an elevated Command Prompt or "
+                        "use 'DISM /RestoreHealth' to restore from Windows Update."
+                    ),
+                    severity=Severity.CRITICAL,
+                    category=self.category,
+                    data={
+                        "check": "cannot_repair",
+                        "count": cannot_repair,
+                        "files": corrupted_files,
+                    },
+                )
+            )
+
+        # Check for successfully repaired files
+        if cbs_results.get("repaired_count", 0) > 0:
+            repaired = cbs_results.get("repaired_count", 0)
+            findings.append(
+                Finding(
+                    title=f"SFC found and repaired {repaired} corrupted file(s)",
+                    description=(
+                        f"Windows System File Checker found {repaired} corrupted system files "
+                        f"and successfully repaired them. This indicates the system was previously "
+                        f"broken but is now fixed. Continue monitoring for any recurring issues."
+                    ),
+                    severity=Severity.WARNING,
+                    category=self.category,
+                    data={
+                        "check": "repaired",
+                        "count": repaired,
+                    },
+                )
+            )
+
+        # Check for pending file rename operations (reboot needed)
+        pending_ops = self._get_pending_file_operations()
+        if pending_ops and pending_ops.get("pending_count", 0) > 0:
+            findings.append(
+                Finding(
+                    title="Pending file rename operations detected",
+                    description=(
+                        f"Found {pending_ops['pending_count']} file(s) scheduled for replacement on next reboot. "
+                        "These are typically files being updated by Windows Update or repaired by SFC. "
+                        "A system reboot is required to complete these operations."
+                    ),
+                    severity=Severity.WARNING,
+                    category=self.category,
+                    data={
+                        "check": "pending_operations",
+                        "count": pending_ops.get("pending_count", 0),
+                    },
+                )
+            )
+
+        # Check if SFC has been run recently
+        if cbs_results.get("last_scan_age_days") is not None:
+            last_scan_age = cbs_results.get("last_scan_age_days", 0)
+            if last_scan_age > 90:
                 findings.append(
                     Finding(
-                        title="No SFC integrity violations found",
+                        title=f"SFC has not been run recently ({last_scan_age} days ago)",
                         description=(
-                            "System File Checker scan completed successfully and found "
-                            "no integrity violations. System files are healthy."
+                            f"The last SFC scan was {last_scan_age} days ago. "
+                            "It is recommended to run SFC periodically to detect and repair corrupted "
+                            "system files. Run 'sfc /scannow' from an elevated Command Prompt."
                         ),
-                        severity=Severity.INFO,
+                        severity=Severity.WARNING,
                         category=self.category,
-                        data={"check": "sfc_healthy"},
+                        data={
+                            "check": "stale_scan",
+                            "days_ago": last_scan_age,
+                        },
                     )
                 )
 
-        # Check DISM component store health
-        dism_result = self._get_dism_health()
-        if dism_result is None:
-            findings.append(
-                Finding(
-                    title="Could not assess DISM component store health",
-                    description=(
-                        "Failed to run DISM /CheckHealth command. "
-                        "Ensure you have Administrator privileges."
-                    ),
-                    severity=Severity.WARNING,
-                    category=self.category,
-                    data={"check": "dism_status_failed"},
-                )
-            )
-        else:
-            # Process DISM findings
-            if dism_result.get("component_corruption"):
+        # Check if no integrity violations were found
+        if (cbs_results.get("cannot_repair_count", 0) == 0 and
+            cbs_results.get("repaired_count", 0) == 0):
+            if cbs_results.get("scan_found", False):
                 findings.append(
                     Finding(
-                        title="DISM detected component store corruption",
+                        title="SFC scan shows no integrity violations",
                         description=(
-                            "The Windows component store has corruption issues detected by DISM. "
-                            "This may prevent Windows Update and feature updates from working properly. "
-                            "Run 'DISM /Online /Cleanup-Image /RestoreHealth' to attempt repairs."
-                        ),
-                        severity=Severity.WARNING,
-                        category=self.category,
-                        data={"check": "dism_corruption"},
-                    )
-                )
-            elif dism_result.get("repairable_corruption"):
-                findings.append(
-                    Finding(
-                        title="DISM detected repairable component store corruption",
-                        description=(
-                            "The Windows component store has repairable corruption. "
-                            "Run 'DISM /Online /Cleanup-Image /RestoreHealth' to repair."
-                        ),
-                        severity=Severity.WARNING,
-                        category=self.category,
-                        data={"check": "dism_repairable"},
-                    )
-                )
-            elif dism_result.get("healthy"):
-                findings.append(
-                    Finding(
-                        title="DISM component store is healthy",
-                        description=(
-                            "The Windows component store is healthy with no corruption detected. "
-                            "Windows Update and feature updates should work normally."
+                            "The most recent SFC scan found no integrity violations. "
+                            "Windows system files are intact and healthy."
                         ),
                         severity=Severity.INFO,
                         category=self.category,
-                        data={"check": "dism_healthy"},
+                        data={"check": "no_violations"},
+                    )
+                )
+
+        # Add summary info if we have basic scan info
+        if findings or cbs_results.get("scan_found", False):
+            if not findings:
+                # No issues found, add status info
+                findings.append(
+                    Finding(
+                        title="SFC status check complete",
+                        description="System File Checker scan results reviewed.",
+                        severity=Severity.INFO,
+                        category=self.category,
+                        data={"check": "status_summary"},
                     )
                 )
 
@@ -161,134 +177,114 @@ class Module(ModuleBase):
         for finding in findings.findings:
             check = finding.data.get("check")
 
-            if check == "sfc_corrupt_repaired":
-                corrupt_count = finding.data.get("corrupt_count", 0)
+            if check == "cannot_repair":
+                count = finding.data.get("count", 0)
                 actions.append(
                     Action(
-                        title=f"Corrupt files repaired by SFC ({corrupt_count} file(s))",
+                        title=f"SFC detected {count} unrepairable corrupted file(s)",
                         description=(
-                            f"System File Checker previously found and repaired {corrupt_count} "
-                            "corrupt file(s). The system should be stable now. "
-                            "Recommendations: (1) Monitor system stability for any recurring issues. "
-                            "(2) If problems persist, run 'sfc /scannow' again as Administrator. "
-                            "(3) Run Windows Update to ensure system is fully patched."
+                            f"Windows System File Checker found {count} corrupted system files "
+                            "that it could not repair automatically. "
+                            "Recommendations: (1) Run 'sfc /scannow' from an elevated Command Prompt "
+                            "to attempt repair again. (2) If that fails, use 'DISM /Online /Cleanup-Image /RestoreHealth' "
+                            "to restore system files from Windows Update. (3) If corruption persists, "
+                            "consider performing an in-place upgrade or clean Windows installation."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "sfc_corrupt_not_repaired":
-                corrupt_count = finding.data.get("corrupt_count", 0)
+            elif check == "repaired":
+                count = finding.data.get("count", 0)
                 actions.append(
                     Action(
-                        title=f"Corrupt system files require intervention ({corrupt_count} file(s))",
+                        title=f"SFC repaired {count} file(s)",
                         description=(
-                            f"System File Checker found {corrupt_count} corrupt file(s) that could not be "
-                            "automatically repaired. Manual intervention is required. "
-                            "Recommendations: "
-                            "(1) Run 'sfc /scannow' in Command Prompt as Administrator to attempt repairs. "
-                            "(2) If that fails, run 'DISM /Online /Cleanup-Image /RestoreHealth' to restore "
-                            "files from Windows Update. "
-                            "(3) As a last resort, use System Restore or Windows Reset. "
-                            "(4) If the problem persists after these steps, contact Microsoft Support."
+                            f"Windows System File Checker found and successfully repaired {count} corrupted files. "
+                            "The system was previously broken but is now fixed. "
+                            "Recommendations: (1) Monitor the system for any recurring issues. "
+                            "(2) If the same problems recur, there may be underlying hardware or update issues. "
+                            "(3) Check Windows Update for any pending updates. "
+                            "(4) Monitor system logs for file corruption events."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "sfc_status_failed":
+            elif check == "pending_operations":
+                count = finding.data.get("count", 0)
                 actions.append(
                     Action(
-                        title="Unable to assess SFC status",
+                        title=f"Pending file operations require reboot",
                         description=(
-                            "The CBS log could not be read to determine SFC status. "
-                            "Recommendations: (1) Ensure you run this diagnostic with Administrator "
-                            "privileges. (2) Try running 'sfc /scannow' manually in Command Prompt as "
-                            "Administrator to check system file integrity. (3) This will create a detailed "
-                            "log in %windir%\\Logs\\CBS\\CBS.log that records any issues found."
+                            f"There are {count} file(s) scheduled for replacement on the next reboot. "
+                            "Recommendations: (1) Save your work and close all applications. "
+                            "(2) Restart the system to allow file operations to complete. "
+                            "(3) After restart, run SFC again to verify all operations completed successfully."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "sfc_healthy":
+            elif check == "stale_scan":
+                days_ago = finding.data.get("days_ago", 0)
                 actions.append(
                     Action(
-                        title="System files are healthy",
+                        title=f"SFC last run {days_ago} days ago",
                         description=(
-                            "No SFC integrity violations detected. System files are intact and healthy. "
-                            "Continue regular backups and keep Windows updated."
+                            f"System File Checker has not been run in {days_ago} days. "
+                            "It is recommended to run periodic SFC scans to maintain system integrity. "
+                            "How to run: (1) Open Command Prompt as Administrator. "
+                            "(2) Type: sfc /scannow "
+                            "(3) A full scan typically takes 15-30 minutes. "
+                            "(4) The system may require a reboot to complete repairs."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "dism_corruption":
+            elif check == "no_violations":
                 actions.append(
                     Action(
-                        title="DISM component store corruption detected",
+                        title="No system file integrity violations detected",
                         description=(
-                            "The Windows component store has corruption that may affect Windows Update "
-                            "and feature updates. Recommendations: "
-                            "(1) Run 'DISM /Online /Cleanup-Image /RestoreHealth' in Command Prompt as "
-                            "Administrator. This will download and restore corrupted components from Windows Update. "
-                            "(2) If the network is limited, the scan may take significant time. "
-                            "(3) After restoration, restart Windows. "
-                            "(4) If corruption persists, consider Windows Reset or professional support."
+                            "The most recent SFC scan found no corrupted or damaged system files. "
+                            "Windows system file integrity is healthy. "
+                            "Recommendations: (1) Continue with regular system maintenance. "
+                            "(2) Keep Windows Update current. "
+                            "(3) Run SFC periodically (quarterly or after major updates)."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "dism_repairable":
+            elif check == "cbs_log_failed":
                 actions.append(
                     Action(
-                        title="DISM component store has repairable corruption",
+                        title="Unable to read CBS.log",
                         description=(
-                            "The Windows component store has corruption that can be repaired. "
-                            "Recommendations: "
-                            "(1) Run 'DISM /Online /Cleanup-Image /RestoreHealth' in Command Prompt as "
-                            "Administrator to repair the corruption. "
-                            "(2) Ensure a stable internet connection as this will download files from "
-                            "Windows Update. "
-                            "(3) Allow adequate time for completion (can take 15-30 minutes). "
-                            "(4) Restart Windows after completion."
+                            "Could not access the CBS log file. "
+                            "Recommendations: (1) Run this diagnostic as Administrator. "
+                            "(2) Verify the file exists at C:\\Windows\\Logs\\CBS\\CBS.log. "
+                            "(3) If the file is missing, run 'sfc /scannow' to initialize SFC logging."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
                     )
                 )
 
-            elif check == "dism_status_failed":
+            elif check == "status_summary":
                 actions.append(
                     Action(
-                        title="Unable to assess DISM component store health",
+                        title="SFC status check complete",
                         description=(
-                            "The DISM /CheckHealth command could not be executed. "
-                            "Recommendations: (1) Ensure you run this diagnostic with Administrator "
-                            "privileges. (2) Try running 'DISM /Online /Cleanup-Image /CheckHealth' manually "
-                            "in Command Prompt as Administrator to check component store health. "
-                            "(3) If it reports corruption, follow up with "
-                            "'DISM /Online /Cleanup-Image /RestoreHealth'."
-                        ),
-                        risk_level=RiskLevel.SAFE,
-                        success=True,
-                    )
-                )
-
-            elif check == "dism_healthy":
-                actions.append(
-                    Action(
-                        title="DISM component store is healthy",
-                        description=(
-                            "The Windows component store is healthy with no corruption detected. "
-                            "Windows Update and feature updates should function normally. "
-                            "Continue regular system maintenance and updates."
+                            "System File Checker status reviewed. "
+                            "No immediate concerns detected. Continue regular system maintenance."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -297,97 +293,148 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _get_sfc_status(self) -> Optional[dict]:
-        """Get SFC scan status from CBS log."""
+    def _get_cbs_log_results(self) -> Optional[dict]:
+        """Parse CBS.log for SFC scan results."""
         try:
+            # PowerShell command to get last SFC scan results from CBS.log
             ps_cmd = (
-                "Get-Content $env:windir\\Logs\\CBS\\CBS.log -Tail 100 -ErrorAction SilentlyContinue"
+                'Select-String -Path "C:\\Windows\\Logs\\CBS\\CBS.log" '
+                '-Pattern "Cannot repair|successfully repaired|no integrity violations" '
+                "| Select-Object -Last 5 | ConvertTo-Json"
             )
             result = subprocess.run(
                 ["powershell", "-NoProfile", "-Command", ps_cmd],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+
+            if result.returncode != 0:
+                return None
+
+            return _parse_cbs_results(result.stdout)
+
+        except (OSError, subprocess.SubprocessError, TimeoutError):
+            return None
+
+    def _get_pending_file_operations(self) -> Optional[dict]:
+        """Check for pending file rename operations via registry."""
+        try:
+            # Query registry for PendingFileRenameOperations
+            result = subprocess.run(
+                [
+                    "reg",
+                    "query",
+                    "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+                    "/v",
+                    "PendingFileRenameOperations",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,
             )
+
             if result.returncode != 0:
-                return None
+                # Key/value doesn't exist or error
+                return {"pending_count": 0}
 
-            return _parse_sfc_log(result.stdout)
-        except (OSError, subprocess.SubprocessError, TimeoutError):
-            return None
-
-    def _get_dism_health(self) -> Optional[dict]:
-        """Check DISM component store health."""
-        try:
-            ps_cmd = "DISM /Online /Cleanup-Image /CheckHealth"
-            result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", ps_cmd],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            # DISM may return non-zero exit code even on success, check output
+            # If we got output, parse for count
             output = result.stdout + result.stderr
-            return _parse_dism_output(output)
+            if "PendingFileRenameOperations" in output and output.strip():
+                # Count the number of rename operations (each pair of lines = 1 operation)
+                lines = [
+                    line.strip()
+                    for line in output.split("\n")
+                    if line.strip() and not line.startswith("HKEY")
+                ]
+                # Rough count: typically 2 values per operation
+                pending_count = max(1, len(lines) // 2)
+                return {"pending_count": pending_count}
+
+            return {"pending_count": 0}
+
         except (OSError, subprocess.SubprocessError, TimeoutError):
+            return {"pending_count": 0}
+
+
+def _parse_cbs_results(json_output: str) -> dict:
+    """Parse CBS.log entries for SFC results."""
+    results = {
+        "cannot_repair_count": 0,
+        "cannot_repair_files": [],
+        "repaired_count": 0,
+        "no_violations_found": False,
+        "scan_found": False,
+        "last_scan_age_days": None,
+    }
+
+    if not json_output.strip():
+        return results
+
+    try:
+        lines = json_output.split("\n")
+        cannot_repair_files = []
+        repaired_count = 0
+        cannot_repair_count = 0
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Count "Cannot repair" entries
+            if "Cannot repair" in line:
+                cannot_repair_count += 1
+                # Try to extract filename
+                match = re.search(r"file\s+([^\s]+)|Cannot repair\s+([^\s,]+)", line, re.IGNORECASE)
+                if match:
+                    filename = match.group(1) or match.group(2)
+                    if filename and filename not in cannot_repair_files:
+                        cannot_repair_files.append(filename)
+
+            # Count "successfully repaired" entries
+            if "successfully repaired" in line.lower():
+                repaired_count += 1
+
+            # Check for "no integrity violations"
+            if "no integrity violations" in line.lower():
+                results["no_violations_found"] = True
+
+        results["cannot_repair_count"] = cannot_repair_count
+        results["cannot_repair_files"] = cannot_repair_files
+        results["repaired_count"] = repaired_count
+        results["scan_found"] = True
+
+        # Try to extract timestamp for age calculation
+        results["last_scan_age_days"] = _estimate_scan_age(json_output)
+
+        return results
+
+    except (ValueError, AttributeError, IndexError):
+        return results
+
+
+def _estimate_scan_age(log_text: str) -> Optional[int]:
+    """Try to estimate days since last SFC scan from log timestamps."""
+    try:
+        # Look for timestamp patterns in CBS.log format
+        # CBS.log typically has timestamps like "2026-01-15 14:30:45.123+00:00"
+        timestamp_pattern = r"(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})"
+        matches = re.findall(timestamp_pattern, log_text)
+
+        if not matches:
             return None
 
+        # Get the last (most recent) timestamp
+        last_match = matches[-1]
+        year, month, day, hour, minute, second = map(int, last_match)
 
-def _parse_sfc_log(log_output: str) -> dict:
-    """Parse CBS log to extract SFC scan results."""
-    result = {
-        "corrupt_found": False,
-        "corrupt_repaired": False,
-        "no_violations": False,
-        "corrupt_count": 0,
-    }
+        try:
+            last_scan = datetime(year, month, day, hour, minute, second)
+            age = datetime.now() - last_scan
+            return max(0, age.days)
+        except ValueError:
+            return None
 
-    if not log_output.strip():
-        return result
-
-    log_lower = log_output.lower()
-
-    # Check for various SFC result patterns
-    if "windows resource protection found corrupt files" in log_lower:
-        result["corrupt_found"] = True
-        # Look for repair status
-        if "and successfully repaired them" in log_lower:
-            result["corrupt_repaired"] = True
-        else:
-            result["corrupt_repaired"] = False
-
-        # Try to extract count of corrupt files
-        import re
-
-        match = re.search(r"(\d+)\s+file", log_lower)
-        if match:
-            result["corrupt_count"] = int(match.group(1))
-
-    elif "windows resource protection did not find any integrity violations" in log_lower:
-        result["no_violations"] = True
-
-    return result
-
-
-def _parse_dism_output(output: str) -> dict:
-    """Parse DISM output to determine component store health."""
-    result = {
-        "healthy": False,
-        "repairable_corruption": False,
-        "component_corruption": False,
-    }
-
-    if not output.strip():
-        return result
-
-    output_lower = output.lower()
-
-    # DISM health status messages
-    if "the component store is repairable" in output_lower:
-        result["repairable_corruption"] = True
-    elif "the component store is corrupted" in output_lower:
-        result["component_corruption"] = True
-    elif "the component store is healthy" in output_lower:
-        result["healthy"] = True
-
-    return result
+    except (AttributeError, IndexError, ValueError):
+        return None

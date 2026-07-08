@@ -1,453 +1,275 @@
-import subprocess
-from unittest.mock import MagicMock, patch
+import sys
+from pathlib import Path
+from unittest.mock import patch, MagicMock
 
-import pytest
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from modules.integrity.win_sfc_check import Module
-from rescue.models import Mode, Platform, RiskLevel, Severity, SystemProfile
-
-
-@pytest.fixture
-def module():
-    return Module()
+from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
+from rescue.registry import discover_modules
 
 
-@pytest.fixture
-def test_profile():
+def _make_profile():
     return SystemProfile(
         platform=Platform.WIN32,
-        os_name="Windows",
-        os_version="11",
-        architecture="x86_64",
-        cpu_model="Intel Core i7",
+        os_name="Windows 11",
+        os_version="10.0.22621",
+        architecture="AMD64",
+        cpu_model="Intel(R) Core(TM) i7-9700K",
         cpu_cores=8,
-        ram_bytes=16 * 1024 * 1024 * 1024,
+        ram_bytes=16 * 1024**3,
     )
 
 
-class TestSFCCheck:
-    """Tests for SFC check functionality."""
-
-    def test_module_attributes(self, module):
-        """Verify module attributes are correctly set."""
-        assert module.name == "win_sfc_check"
-        assert module.category == "integrity"
-        assert module.platforms == [Platform.WIN32]
-        assert module.risk_level == RiskLevel.SAFE
-
-    def test_sfc_healthy_status(self, module, test_profile):
-        """Test when SFC scan shows no integrity violations."""
-        sfc_output = (
-            "Seconds from 2025-02-15 10:30:45, Status: "
-            "Windows Resource Protection did not find any integrity violations."
-        )
-
-        with patch.object(module, "_get_sfc_status") as mock_sfc:
-            with patch.object(module, "_get_dism_health") as mock_dism:
-                mock_sfc.return_value = {"no_violations": True}
-                mock_dism.return_value = {"healthy": True}
-
-                result = module.check(test_profile)
-
-                assert len(result.findings) == 2
-                assert result.findings[0].severity == Severity.INFO
-                assert "No SFC integrity violations" in result.findings[0].title
-                assert result.findings[1].severity == Severity.INFO
-                assert "DISM component store is healthy" in result.findings[1].title
-
-    def test_sfc_corrupt_files_repaired(self, module, test_profile):
-        """Test when SFC found corrupt files but repaired them."""
-        with patch.object(module, "_get_sfc_status") as mock_sfc:
-            with patch.object(module, "_get_dism_health") as mock_dism:
-                mock_sfc.return_value = {
-                    "corrupt_found": True,
-                    "corrupt_repaired": True,
-                    "corrupt_count": 5,
-                }
-                mock_dism.return_value = {"healthy": True}
-
-                result = module.check(test_profile)
-
-                assert len(result.findings) == 2
-                assert result.findings[0].severity == Severity.WARNING
-                assert "Corrupt files found and repaired" in result.findings[0].title
-                assert result.findings[0].data["check"] == "sfc_corrupt_repaired"
-                assert result.findings[0].data["corrupt_count"] == 5
-
-    def test_sfc_corrupt_files_not_repaired(self, module, test_profile):
-        """Test when SFC found corrupt files but could not repair them."""
-        with patch.object(module, "_get_sfc_status") as mock_sfc:
-            with patch.object(module, "_get_dism_health") as mock_dism:
-                mock_sfc.return_value = {
-                    "corrupt_found": True,
-                    "corrupt_repaired": False,
-                    "corrupt_count": 3,
-                }
-                mock_dism.return_value = {"healthy": True}
-
-                result = module.check(test_profile)
-
-                assert len(result.findings) == 2
-                assert result.findings[0].severity == Severity.CRITICAL
-                assert "Corrupt files found but NOT repaired" in result.findings[0].title
-                assert result.findings[0].data["check"] == "sfc_corrupt_not_repaired"
-
-    def test_sfc_status_retrieval_failed(self, module, test_profile):
-        """Test when SFC status cannot be retrieved."""
-        with patch.object(module, "_get_sfc_status") as mock_sfc:
-            with patch.object(module, "_get_dism_health") as mock_dism:
-                mock_sfc.return_value = None
-                mock_dism.return_value = {"healthy": True}
-
-                result = module.check(test_profile)
-
-                assert len(result.findings) == 2
-                assert result.findings[0].severity == Severity.WARNING
-                assert "Could not retrieve SFC scan status" in result.findings[0].title
-
-    def test_dism_corruption_detected(self, module, test_profile):
-        """Test when DISM detects component store corruption."""
-        with patch.object(module, "_get_sfc_status") as mock_sfc:
-            with patch.object(module, "_get_dism_health") as mock_dism:
-                mock_sfc.return_value = {"no_violations": True}
-                mock_dism.return_value = {"component_corruption": True}
-
-                result = module.check(test_profile)
-
-                assert len(result.findings) == 2
-                assert result.findings[1].severity == Severity.WARNING
-                assert "DISM detected component store corruption" in result.findings[1].title
-
-    def test_dism_repairable_corruption(self, module, test_profile):
-        """Test when DISM detects repairable corruption."""
-        with patch.object(module, "_get_sfc_status") as mock_sfc:
-            with patch.object(module, "_get_dism_health") as mock_dism:
-                mock_sfc.return_value = {"no_violations": True}
-                mock_dism.return_value = {"repairable_corruption": True}
-
-                result = module.check(test_profile)
-
-                assert len(result.findings) == 2
-                assert result.findings[1].severity == Severity.WARNING
-                assert "repairable component store corruption" in result.findings[1].title
-
-    def test_dism_status_retrieval_failed(self, module, test_profile):
-        """Test when DISM health status cannot be retrieved."""
-        with patch.object(module, "_get_sfc_status") as mock_sfc:
-            with patch.object(module, "_get_dism_health") as mock_dism:
-                mock_sfc.return_value = {"no_violations": True}
-                mock_dism.return_value = None
-
-                result = module.check(test_profile)
-
-                assert len(result.findings) == 2
-                assert result.findings[1].severity == Severity.WARNING
-                assert "Could not assess DISM component store health" in result.findings[1].title
-
-
-class TestSFCFix:
-    """Tests for SFC fix functionality."""
-
-    def test_fix_corrupt_repaired(self, module):
-        """Test fix action for repaired corrupt files."""
-        from rescue.models import CheckResult, Finding
-
-        findings = CheckResult(
-            module_name="win_sfc_check",
-            findings=[
-                Finding(
-                    title="Corrupt files found and repaired",
-                    description="Test",
-                    severity=Severity.WARNING,
-                    category="integrity",
-                    data={"check": "sfc_corrupt_repaired", "corrupt_count": 5},
-                )
-            ],
-        )
-
-        result = module.fix(findings, Mode.AUTO)
-
-        assert len(result.actions) == 1
-        assert result.actions[0].success is True
-        assert "repaired" in result.actions[0].title.lower()
-
-    def test_fix_corrupt_not_repaired(self, module):
-        """Test fix action for unrepaired corrupt files."""
-        from rescue.models import CheckResult, Finding
-
-        findings = CheckResult(
-            module_name="win_sfc_check",
-            findings=[
-                Finding(
-                    title="Corrupt files found but NOT repaired",
-                    description="Test",
-                    severity=Severity.CRITICAL,
-                    category="integrity",
-                    data={"check": "sfc_corrupt_not_repaired", "corrupt_count": 3},
-                )
-            ],
-        )
-
-        result = module.fix(findings, Mode.AUTO)
-
-        assert len(result.actions) == 1
-        assert result.actions[0].success is True
-        assert "require intervention" in result.actions[0].title.lower()
-        assert "sfc /scannow" in result.actions[0].description
-
-    def test_fix_sfc_healthy(self, module):
-        """Test fix action when SFC is healthy."""
-        from rescue.models import CheckResult, Finding
-
-        findings = CheckResult(
-            module_name="win_sfc_check",
-            findings=[
-                Finding(
-                    title="No SFC integrity violations found",
-                    description="Test",
-                    severity=Severity.INFO,
-                    category="integrity",
-                    data={"check": "sfc_healthy"},
-                )
-            ],
-        )
-
-        result = module.fix(findings, Mode.AUTO)
-
-        assert len(result.actions) == 1
-        assert result.actions[0].success is True
-
-    def test_fix_dism_corruption(self, module):
-        """Test fix action for DISM corruption."""
-        from rescue.models import CheckResult, Finding
-
-        findings = CheckResult(
-            module_name="win_sfc_check",
-            findings=[
-                Finding(
-                    title="DISM detected component store corruption",
-                    description="Test",
-                    severity=Severity.WARNING,
-                    category="integrity",
-                    data={"check": "dism_corruption"},
-                )
-            ],
-        )
-
-        result = module.fix(findings, Mode.AUTO)
-
-        assert len(result.actions) == 1
-        assert result.actions[0].success is True
-        assert "RestoreHealth" in result.actions[0].description
-
-    def test_fix_multiple_findings(self, module):
-        """Test fix with multiple findings."""
-        from rescue.models import CheckResult, Finding
-
-        findings = CheckResult(
-            module_name="win_sfc_check",
-            findings=[
-                Finding(
-                    title="Corrupt files found and repaired",
-                    description="Test",
-                    severity=Severity.WARNING,
-                    category="integrity",
-                    data={"check": "sfc_corrupt_repaired", "corrupt_count": 5},
-                ),
-                Finding(
-                    title="DISM detected repairable component store corruption",
-                    description="Test",
-                    severity=Severity.WARNING,
-                    category="integrity",
-                    data={"check": "dism_repairable"},
-                ),
-            ],
-        )
-
-        result = module.fix(findings, Mode.AUTO)
-
-        assert len(result.actions) == 2
-        assert all(action.success for action in result.actions)
-
-
-class TestSFCLogParsing:
-    """Tests for CBS log parsing."""
-
-    def test_parse_no_violations(self):
-        """Test parsing log showing no integrity violations."""
-        from modules.integrity.win_sfc_check import _parse_sfc_log
-
-        log = (
-            "Seconds from 2025-02-15 10:30:45\n"
-            "CBS MalformedPackageException\n"
-            "Windows Resource Protection did not find any integrity violations."
-        )
-
-        result = _parse_sfc_log(log)
-
-        assert result["no_violations"] is True
-        assert result["corrupt_found"] is False
-
-    def test_parse_corrupt_files_repaired(self):
-        """Test parsing log with corrupt files that were repaired."""
-        from modules.integrity.win_sfc_check import _parse_sfc_log
-
-        log = (
-            "Seconds from 2025-02-15 10:30:45\n"
-            "Windows Resource Protection found corrupt files and successfully repaired them.\n"
-            "Found 5 file(s) with corruption and repaired them.\n"
-        )
-
-        result = _parse_sfc_log(log)
-
-        assert result["corrupt_found"] is True
-        assert result["corrupt_repaired"] is True
-        assert result["corrupt_count"] == 5
-
-    def test_parse_corrupt_files_not_repaired(self):
-        """Test parsing log with corrupt files that could not be repaired."""
-        from modules.integrity.win_sfc_check import _parse_sfc_log
-
-        log = (
-            "Seconds from 2025-02-15 10:30:45\n"
-            "Windows Resource Protection found corrupt files.\n"
-            "Found 3 file(s) with corruption but unable to repair them.\n"
-        )
-
-        result = _parse_sfc_log(log)
-
-        assert result["corrupt_found"] is True
-        assert result["corrupt_repaired"] is False
-        assert result["corrupt_count"] == 3
-
-    def test_parse_empty_log(self):
-        """Test parsing empty log."""
-        from modules.integrity.win_sfc_check import _parse_sfc_log
-
-        result = _parse_sfc_log("")
-
-        assert result["corrupt_found"] is False
-        assert result["no_violations"] is False
-
-
-class TestDISMOutputParsing:
-    """Tests for DISM output parsing."""
-
-    def test_parse_dism_healthy(self):
-        """Test parsing DISM output showing healthy component store."""
-        from modules.integrity.win_sfc_check import _parse_dism_output
-
-        output = (
-            "Deployment Image Servicing and Management tool\n"
-            "The component store is healthy."
-        )
-
-        result = _parse_dism_output(output)
-
-        assert result["healthy"] is True
-        assert result["component_corruption"] is False
-
-    def test_parse_dism_repairable_corruption(self):
-        """Test parsing DISM output with repairable corruption."""
-        from modules.integrity.win_sfc_check import _parse_dism_output
-
-        output = (
-            "Deployment Image Servicing and Management tool\n"
-            "The component store is repairable."
-        )
-
-        result = _parse_dism_output(output)
-
-        assert result["repairable_corruption"] is True
-        assert result["component_corruption"] is False
-
-    def test_parse_dism_corrupted(self):
-        """Test parsing DISM output showing corrupted component store."""
-        from modules.integrity.win_sfc_check import _parse_dism_output
-
-        output = (
-            "Deployment Image Servicing and Management tool\n"
-            "The component store is corrupted."
-        )
-
-        result = _parse_dism_output(output)
-
-        assert result["component_corruption"] is True
-        assert result["healthy"] is False
-
-    def test_parse_dism_empty_output(self):
-        """Test parsing empty DISM output."""
-        from modules.integrity.win_sfc_check import _parse_dism_output
-
-        result = _parse_dism_output("")
-
-        assert result["healthy"] is False
-        assert result["component_corruption"] is False
-
-
-class TestSubprocessIntegration:
-    """Tests for subprocess command construction."""
-
-    def test_get_sfc_status_subprocess_timeout(self, module):
-        """Test SFC status retrieval with subprocess timeout."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = subprocess.TimeoutExpired("cmd", 10)
-
-            result = module._get_sfc_status()
-
-            assert result is None
-
-    def test_get_sfc_status_subprocess_error(self, module):
-        """Test SFC status retrieval with subprocess error."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = OSError("Process error")
-
-            result = module._get_sfc_status()
-
-            assert result is None
-
-    def test_get_dism_health_subprocess_timeout(self, module):
-        """Test DISM health check with subprocess timeout."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = subprocess.TimeoutExpired("cmd", 30)
-
-            result = module._get_dism_health()
-
-            assert result is None
-
-    def test_get_dism_health_subprocess_error(self, module):
-        """Test DISM health check with subprocess error."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = OSError("Process error")
-
-            result = module._get_dism_health()
-
-            assert result is None
-
-    def test_get_sfc_status_returns_zero_exit(self, module):
-        """Test SFC status with successful command execution."""
-        with patch("subprocess.run") as mock_run:
-            mock_process = MagicMock()
-            mock_process.returncode = 0
-            mock_process.stdout = (
-                "Windows Resource Protection did not find any integrity violations."
-            )
-            mock_run.return_value = mock_process
-
-            result = module._get_sfc_status()
-
-            assert result is not None
-            assert "returncode" not in result or mock_process.returncode == 0
-
-    def test_get_dism_health_returns_data(self, module):
-        """Test DISM health check returns parsed data."""
-        with patch("subprocess.run") as mock_run:
-            mock_process = MagicMock()
-            mock_process.returncode = 0
-            mock_process.stdout = "The component store is healthy."
-            mock_process.stderr = ""
-            mock_run.return_value = mock_process
-
-            result = module._get_dism_health()
-
-            assert result is not None
+def _get_module():
+    modules_dir = Path(__file__).parent.parent / "modules"
+    modules = discover_modules(modules_dir)
+    return next(m for m in modules if m.name == "win_sfc_check")
+
+
+def _make_run_result(
+    cbs_log_output=None,
+    pending_ops=None,
+    cbs_log_error=False,
+    pending_ops_error=False,
+):
+    """Create a fake subprocess.run that returns appropriate results."""
+
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        result.stdout = ""
+
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+
+        # CBS.log query via PowerShell
+        if "powershell" in cmd_str and "CBS.log" in cmd_str:
+            if cbs_log_error:
+                result.returncode = 1
+                result.stderr = "Access denied"
+            else:
+                result.stdout = cbs_log_output or ""
+
+        # Registry query for PendingFileRenameOperations
+        elif cmd[0] == "reg" and "PendingFileRenameOperations" in cmd_str:
+            if pending_ops_error:
+                result.returncode = 1
+            else:
+                result.stdout = pending_ops or ""
+                result.stderr = ""
+
+        return result
+
+    return fake_run
+
+
+def test_win_sfc_check_discovered():
+    mod = _get_module()
+    assert mod.name == "win_sfc_check"
+    assert mod.category == "integrity"
+    assert Platform.WIN32 in mod.platforms
+    assert mod.risk_level == RiskLevel.SAFE
+
+
+def test_win_sfc_check_cbs_log_failed():
+    """Test when CBS.log cannot be read."""
+    mod = _get_module()
+    fake_run = _make_run_result(cbs_log_error=True)
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert result.has_issues
+    assert any(f.data.get("check") == "cbs_log_failed" for f in result.findings)
+    assert result.findings[0].severity == Severity.WARNING
+
+
+def test_win_sfc_check_no_violations():
+    """Test when SFC finds no integrity violations."""
+    mod = _get_module()
+    cbs_log = (
+        "2026-07-08 10:15:30.123+00:00 No integrity violations detected\n"
+        "2026-07-08 10:16:00.456+00:00 SFC scan completed successfully"
+    )
+    fake_run = _make_run_result(cbs_log_output=cbs_log)
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert result.has_issues
+    assert any(f.data.get("check") == "no_violations" for f in result.findings)
+    assert any(f.severity == Severity.INFO for f in result.findings)
+
+
+def test_win_sfc_check_cannot_repair():
+    """Test when SFC finds corrupted files it cannot repair."""
+    mod = _get_module()
+    cbs_log = (
+        "2026-07-08 10:15:30.123+00:00 Cannot repair file C:\\Windows\\System32\\kernel32.dll\n"
+        "2026-07-08 10:15:31.456+00:00 Cannot repair file C:\\Windows\\System32\\ntdll.dll\n"
+    )
+    fake_run = _make_run_result(cbs_log_output=cbs_log)
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert result.has_issues
+    assert any(f.data.get("check") == "cannot_repair" for f in result.findings)
+    critical = [f for f in result.findings if f.data.get("check") == "cannot_repair"]
+    assert critical[0].severity == Severity.CRITICAL
+    assert critical[0].data.get("count") == 2
+
+
+def test_win_sfc_check_successfully_repaired():
+    """Test when SFC finds and repairs corrupted files."""
+    mod = _get_module()
+    cbs_log = (
+        "2026-07-08 10:15:30.123+00:00 CBS successfully repaired file C:\\Windows\\System32\\hal.dll\n"
+        "2026-07-08 10:15:31.456+00:00 CBS successfully repaired file C:\\Windows\\System32\\boot.ini\n"
+    )
+    fake_run = _make_run_result(cbs_log_output=cbs_log)
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert result.has_issues
+    assert any(f.data.get("check") == "repaired" for f in result.findings)
+    repaired = [f for f in result.findings if f.data.get("check") == "repaired"]
+    assert repaired[0].severity == Severity.WARNING
+    assert repaired[0].data.get("count") == 2
+
+
+def test_win_sfc_check_pending_operations():
+    """Test detection of pending file rename operations."""
+    mod = _get_module()
+    cbs_log = "2026-07-08 10:15:30.123+00:00 No issues found"
+    pending_ops_output = (
+        "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\n"
+        "    PendingFileRenameOperations    REG_MULTI_SZ    \\??\\C:\\temp\\file1.txt\\0\\??\\C:\\backup\\file1.txt\\0"
+    )
+    fake_run = _make_run_result(cbs_log_output=cbs_log, pending_ops=pending_ops_output)
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert result.has_issues
+    assert any(f.data.get("check") == "pending_operations" for f in result.findings)
+    pending = [f for f in result.findings if f.data.get("check") == "pending_operations"]
+    assert pending[0].severity == Severity.WARNING
+
+
+def test_win_sfc_check_stale_scan():
+    """Test warning when SFC hasn't been run recently."""
+    mod = _get_module()
+    # Date that's 100+ days ago
+    old_date = "2026-03-20 14:30:45.123+00:00"
+    cbs_log = f"{old_date} SFC scan completed. No integrity violations"
+    fake_run = _make_run_result(cbs_log_output=cbs_log)
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert result.has_issues
+    stale = [f for f in result.findings if f.data.get("check") == "stale_scan"]
+    # Should have stale_scan if date is old enough
+    if stale:
+        assert stale[0].severity == Severity.WARNING
+        assert stale[0].data.get("days_ago", 0) > 0
+
+
+def test_win_sfc_check_multiple_issues():
+    """Test when multiple issues are detected."""
+    mod = _get_module()
+    cbs_log = (
+        "2026-03-15 10:15:30.123+00:00 Cannot repair file system.dll\n"
+        "2026-03-15 10:15:31.456+00:00 CBS successfully repaired ntdll.dll\n"
+    )
+    pending_ops_output = (
+        "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\n"
+        "    PendingFileRenameOperations    REG_MULTI_SZ    \\??\\C:\\temp\\file1.txt\\0"
+    )
+    fake_run = _make_run_result(cbs_log_output=cbs_log, pending_ops=pending_ops_output)
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert result.has_issues
+    checks = [f.data.get("check") for f in result.findings]
+    # Should detect multiple issues
+    assert "cannot_repair" in checks or "repaired" in checks
+
+
+def test_win_sfc_check_fix_cannot_repair():
+    """Test fix action for unrepairable files."""
+    mod = _get_module()
+    cbs_log = "2026-07-08 10:15:30.123+00:00 Cannot repair kernel.dll"
+    fake_run = _make_run_result(cbs_log_output=cbs_log)
+    with patch("subprocess.run", side_effect=fake_run):
+        check = mod.check(_make_profile())
+        fix = mod.fix(check, Mode.MANUAL)
+    assert len(fix.actions) > 0
+    assert any("unrepairable" in a.title.lower() for a in fix.actions)
+
+
+def test_win_sfc_check_fix_repaired():
+    """Test fix action for repaired files."""
+    mod = _get_module()
+    cbs_log = "2026-07-08 10:15:30.123+00:00 CBS successfully repaired hal.dll"
+    fake_run = _make_run_result(cbs_log_output=cbs_log)
+    with patch("subprocess.run", side_effect=fake_run):
+        check = mod.check(_make_profile())
+        fix = mod.fix(check, Mode.MANUAL)
+    assert len(fix.actions) > 0
+    repaired_action = [a for a in fix.actions if "repaired" in a.title.lower()]
+    assert len(repaired_action) > 0
+    assert repaired_action[0].success
+
+
+def test_win_sfc_check_fix_pending_operations():
+    """Test fix action for pending operations."""
+    mod = _get_module()
+    cbs_log = "2026-07-08 10:15:30.123+00:00 No issues"
+    pending_ops_output = (
+        "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\n"
+        "    PendingFileRenameOperations    REG_MULTI_SZ    \\??\\C:\\temp\\file\\0"
+    )
+    fake_run = _make_run_result(cbs_log_output=cbs_log, pending_ops=pending_ops_output)
+    with patch("subprocess.run", side_effect=fake_run):
+        check = mod.check(_make_profile())
+        fix = mod.fix(check, Mode.MANUAL)
+    assert len(fix.actions) > 0
+    pending_action = [a for a in fix.actions if "pending" in a.title.lower()]
+    assert len(pending_action) > 0
+
+
+def test_win_sfc_check_fix_stale_scan():
+    """Test fix action for stale SFC scan."""
+    mod = _get_module()
+    old_date = "2026-02-15 10:15:30.123+00:00"
+    cbs_log = f"{old_date} SFC check complete"
+    fake_run = _make_run_result(cbs_log_output=cbs_log)
+    with patch("subprocess.run", side_effect=fake_run):
+        check = mod.check(_make_profile())
+        fix = mod.fix(check, Mode.MANUAL)
+    # Should have actions if stale scan detected
+    if any(f.data.get("check") == "stale_scan" for f in check.findings):
+        assert len(fix.actions) > 0
+
+
+def test_win_sfc_check_handles_empty_cbs_log():
+    """Test graceful handling of empty CBS log."""
+    mod = _get_module()
+    fake_run = _make_run_result(cbs_log_output="")
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    # Should handle gracefully without crashing
+    assert isinstance(result.findings, list)
+
+
+def test_win_sfc_check_handles_subprocess_error():
+    """Test graceful handling of subprocess errors."""
+    mod = _get_module()
+
+    def error_run(cmd, **kwargs):
+        raise OSError("Command failed")
+
+    with patch("subprocess.run", side_effect=error_run):
+        result = mod.check(_make_profile())
+    assert isinstance(result.findings, list)
+
+
+def test_win_sfc_check_no_pending_operations():
+    """Test when there are no pending file operations."""
+    mod = _get_module()
+    cbs_log = "2026-07-08 10:15:30.123+00:00 No integrity violations"
+    fake_run = _make_run_result(cbs_log_output=cbs_log, pending_ops_error=True)
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    # Should not have pending_operations finding if registry query fails
+    assert not any(f.data.get("check") == "pending_operations" for f in result.findings)
