@@ -34,119 +34,132 @@ def _make_subprocess_result(stdout="", stderr="", returncode=0):
     return result
 
 
-def _powershell_no_problem_devices():
-    """No devices with driver errors."""
+def _pnp_device_ok():
+    """No problem devices."""
     return ""
 
 
-def _powershell_one_problem_device():
-    """One device with driver error code 22."""
+def _pnp_device_problem():
+    """One device with problem status."""
     return """[
   {
-    "Name": "PCI Device",
-    "ConfigManagerErrorCode": 22
+    "Status": "Error",
+    "Class": "USB",
+    "FriendlyName": "USB Unknown Device",
+    "InstanceId": "USB\\\\VID_1234"
   }
 ]"""
 
 
-def _powershell_multiple_problem_devices():
-    """Multiple devices with driver errors."""
+def _pnp_device_multiple_problems():
+    """Multiple devices with problem status."""
     return """[
   {
-    "Name": "USB Unknown Device",
-    "ConfigManagerErrorCode": 22
+    "Status": "Error",
+    "Class": "USB",
+    "FriendlyName": "USB Unknown Device",
+    "InstanceId": "USB\\\\VID_1234"
   },
   {
-    "Name": "Network Adapter",
-    "ConfigManagerErrorCode": 28
-  },
-  {
-    "Name": "Graphics Controller",
-    "ConfigManagerErrorCode": 10
+    "Status": "Degraded",
+    "Class": "Net",
+    "FriendlyName": "Network Adapter",
+    "InstanceId": "PCI\\\\VEN_8086"
   }
 ]"""
 
 
-def _powershell_device_count_healthy():
-    """PowerShell returns count of 45 devices (all healthy)."""
-    return """
-Count       : 45
+def _unsigned_drivers_json():
+    """JSON array of unsigned drivers."""
+    return '["unsigned_driver1.sys", "unsigned_driver2.sys"]'
+
+
+def _stopped_drivers_csv():
+    """CSV output with stopped drivers."""
+    return """"Driver Name","Module Name","Signed","State"
+"Nvidia Driver","nvlddmkm.sys","Yes","Running"
+"Custom Device","custom.sys","No","Stopped"
+"Audio Driver","audio.sys","Yes","Stopped"
 """
 
 
-def _powershell_device_count_few():
-    """PowerShell returns count of 5 devices."""
-    return """
-Count       : 5
-"""
+def _recent_drivers_json():
+    """JSON array of recent drivers."""
+    return '["driver1.inf", "driver2.inf", "driver3.inf"]'
 
 
-def _driverquery_no_unsigned():
-    """driverquery output with no unsigned drivers."""
-    return """
-Module Name                 Signed
-==============              ======
-nvlddmkm.sys                Yes
-display.sys                 Yes
-amdxata.sys                 Yes
-"""
-
-
-def _driverquery_unsigned_drivers():
-    """driverquery output with unsigned drivers."""
-    return """
-Module Name                 Signed
-==============              ======
-nvlddmkm.sys                Yes
-unsigned_driver.sys         No
-amdxata.sys                 Yes
-custom_device.sys           No
+def _driverquery_output():
+    """Basic driverquery output (with header and data lines)."""
+    return """Driver Name                 Associated Module
+=============               =================
+Nvidia Driver              nvlddmkm.sys
+Intel Chipset              iasti.sys
+Realtek Audio              Rtaudio.sys
+USB Driver                 usbhub.sys
+Network Driver             e1g60x64.sys
 """
 
 
 def _fake_run_all_healthy():
-    """All drivers healthy - no errors, no unsigned."""
+    """All drivers healthy."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            # Check more specific conditions first
-            if "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_no_unsigned())
-            elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
-                return _make_subprocess_result(_powershell_device_count_healthy())
-            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
+            # Check for driverquery first with specific patterns
+            if "driverquery" in cmd_str and "CSV" in cmd_str:
+                # Stopped drivers check - CSV format
+                return _make_subprocess_result('""Driver Name"",""Status""\n"driver.sys","Running"')
+            elif "driverquery" in cmd_str:
+                # Total driver count
+                return _make_subprocess_result(_driverquery_output())
+            # Check Get-PnpDevice before other Get-WmiObject commands
+            elif "Get-PnpDevice" in cmd_str:
                 # No problem devices
+                return _make_subprocess_result(_pnp_device_ok())
+            elif "Get-WindowsDriver" in cmd_str:
+                # No recent drivers
+                return _make_subprocess_result("")
+            elif "Win32_SystemDriver" in cmd_str:
+                # No unsigned drivers
                 return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
 
 
-def _fake_run_one_problem_device():
-    """One device with driver error."""
+def _fake_run_problem_devices():
+    """Problem devices detected."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            if "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_no_unsigned())
-            elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
-                return _make_subprocess_result(_powershell_device_count_few())
-            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
-                return _make_subprocess_result(_powershell_one_problem_device())
+            if "driverquery" in cmd_str and "CSV" in cmd_str:
+                return _make_subprocess_result('""Driver Name"",""Status""\n"driver.sys","Running"')
+            elif "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_output())
+            elif "Get-PnpDevice" in cmd_str:
+                return _make_subprocess_result(_pnp_device_problem())
+            elif "Get-WindowsDriver" in cmd_str:
+                return _make_subprocess_result("")
+            elif "Win32_SystemDriver" in cmd_str:
+                return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
 
 
 def _fake_run_multiple_problem_devices():
-    """Multiple devices with driver errors."""
+    """Multiple problem devices detected."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            if "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_no_unsigned())
-            elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
-                return _make_subprocess_result(_powershell_device_count_few())
-            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
-                return _make_subprocess_result(_powershell_multiple_problem_devices())
+            if "driverquery" in cmd_str and "CSV" in cmd_str:
+                return _make_subprocess_result('""Driver Name"",""Status""\n"driver.sys","Running"')
+            elif "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_output())
+            elif "Get-PnpDevice" in cmd_str:
+                return _make_subprocess_result(_pnp_device_multiple_problems())
+            elif "Get-WindowsDriver" in cmd_str:
+                return _make_subprocess_result("")
+            elif "Win32_SystemDriver" in cmd_str:
+                return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
 
@@ -156,36 +169,54 @@ def _fake_run_unsigned_drivers():
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            if "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_unsigned_drivers())
-            elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
-                return _make_subprocess_result(_powershell_device_count_healthy())
-            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
+            if "driverquery" in cmd_str and "CSV" in cmd_str:
+                return _make_subprocess_result('""Driver Name"",""Status""\n"driver.sys","Running"')
+            elif "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_output())
+            elif "Get-PnpDevice" in cmd_str:
+                return _make_subprocess_result(_pnp_device_ok())
+            elif "Get-WindowsDriver" in cmd_str:
+                return _make_subprocess_result("")
+            elif "Win32_SystemDriver" in cmd_str:
+                return _make_subprocess_result(_unsigned_drivers_json())
+        return _make_subprocess_result()
+    return fake_run
+
+
+def _fake_run_stopped_drivers():
+    """Stopped drivers detected."""
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list):
+            cmd_str = " ".join(cmd)
+            if "driverquery" in cmd_str and "CSV" in cmd_str:
+                return _make_subprocess_result(_stopped_drivers_csv())
+            elif "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_output())
+            elif "Get-PnpDevice" in cmd_str:
+                return _make_subprocess_result(_pnp_device_ok())
+            elif "Get-WindowsDriver" in cmd_str:
+                return _make_subprocess_result("")
+            elif "Win32_SystemDriver" in cmd_str:
                 return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
 
 
-def _fake_run_both_errors_and_unsigned():
-    """Both driver errors and unsigned drivers."""
+def _fake_run_recent_drivers():
+    """Recent drivers detected."""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
-            if "driverquery" in cmd_str:
-                return _make_subprocess_result(_driverquery_unsigned_drivers())
-            elif "powershell" in cmd_str and "Measure-Object" in cmd_str:
-                return _make_subprocess_result(_powershell_device_count_few())
-            elif "powershell" in cmd_str and "Where-Object" in cmd_str:
-                return _make_subprocess_result(_powershell_multiple_problem_devices())
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_run_powershell_error():
-    """PowerShell command fails."""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list) and "powershell" in cmd[0]:
-            return _make_subprocess_result(stderr="Error", returncode=1)
+            if "driverquery" in cmd_str and "CSV" in cmd_str:
+                return _make_subprocess_result('""Driver Name"",""Status""\n"driver.sys","Running"')
+            elif "driverquery" in cmd_str:
+                return _make_subprocess_result(_driverquery_output())
+            elif "Get-PnpDevice" in cmd_str:
+                return _make_subprocess_result(_pnp_device_ok())
+            elif "Get-WindowsDriver" in cmd_str:
+                return _make_subprocess_result(_recent_drivers_json())
+            elif "Win32_SystemDriver" in cmd_str:
+                return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
 
@@ -199,43 +230,41 @@ def test_win_driver_check_discovered():
 
 
 def test_win_driver_check_all_healthy():
-    """All drivers healthy - no errors, no unsigned."""
+    """All drivers healthy - no issues."""
     mod = _get_module()
     with patch("subprocess.run", side_effect=_fake_run_all_healthy()):
         result = mod.check(_make_profile())
     # Should have INFO finding
     assert any(f.severity == Severity.INFO for f in result.findings)
-    # Should mention all drivers healthy
-    finding_strs = [f.description for f in result.findings]
-    assert any("healthy" in s.lower() for s in finding_strs)
+    # Should mention healthy in description
+    assert any("healthy" in f.description.lower() for f in result.findings)
 
 
-def test_win_driver_check_one_problem_device():
-    """One device with driver error."""
+def test_win_driver_check_problem_device():
+    """One problem device detected."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_one_problem_device()):
+    with patch("subprocess.run", side_effect=_fake_run_problem_devices()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    # Should have WARNING for the device error
-    warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert len(warning_findings) > 0
+    # Should have CRITICAL for problem device
+    critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
+    assert len(critical_findings) >= 1
     # Should mention the device
-    assert any("PCI Device" in f.description for f in warning_findings)
+    assert any("USB Unknown Device" in f.description for f in critical_findings)
 
 
 def test_win_driver_check_multiple_problem_devices():
-    """Multiple devices with driver errors."""
+    """Multiple problem devices detected."""
     mod = _get_module()
     with patch("subprocess.run", side_effect=_fake_run_multiple_problem_devices()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    # Should have multiple WARNINGs for each device
-    warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert len(warning_findings) >= 3  # At least 3 device errors
-    # Should mention the devices
-    device_names = ["USB Unknown Device", "Network Adapter", "Graphics Controller"]
-    for device_name in device_names:
-        assert any(device_name in f.description for f in warning_findings)
+    # Should have CRITICAL for each problem device
+    critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
+    assert len(critical_findings) >= 2
+    # Check data consistency
+    problem_data = [f for f in result.findings if f.data.get("check") == "problem_device"]
+    assert len(problem_data) >= 2
 
 
 def test_win_driver_check_unsigned_drivers():
@@ -247,50 +276,49 @@ def test_win_driver_check_unsigned_drivers():
     # Should have WARNING for unsigned drivers
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    # Should mention unsigned
-    assert any("unsigned" in f.description.lower() for f in warning_findings)
+    # Check data
+    unsigned_data = [f for f in result.findings if f.data.get("check") == "unsigned_drivers"]
+    assert len(unsigned_data) == 1
+    assert unsigned_data[0].data["count"] == 2
 
 
-def test_win_driver_check_both_errors_and_unsigned():
-    """Both driver errors and unsigned drivers."""
+def test_win_driver_check_stopped_drivers():
+    """Stopped drivers detected."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_both_errors_and_unsigned()):
+    with patch("subprocess.run", side_effect=_fake_run_stopped_drivers()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    # Should have WARNINGs for both errors and unsigned
+    # Should have WARNING for stopped drivers
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
+    # Check data
+    stopped_data = [f for f in result.findings if f.data.get("check") == "stopped_drivers"]
+    assert len(stopped_data) == 1
+    assert stopped_data[0].data["count"] == 2
 
 
-def test_win_driver_check_powershell_error():
-    """PowerShell command fails."""
+def test_win_driver_check_recent_drivers():
+    """Recently updated drivers detected."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_powershell_error()):
+    with patch("subprocess.run", side_effect=_fake_run_recent_drivers()):
         result = mod.check(_make_profile())
-    # May return no findings or handle gracefully
-    # The module should not crash
-
-
-def test_win_driver_check_fix_all_healthy():
-    """Fix action for healthy drivers."""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_all_healthy()):
-        check_result = mod.check(_make_profile())
-    fix_result = mod.fix(check_result, Mode.AUTO)
-    assert len(fix_result.actions) > 0
-    # Actions should be SAFE risk level
-    for action in fix_result.actions:
-        assert action.risk_level == RiskLevel.SAFE
-        assert action.success is True
+    # Should have INFO for recent drivers
+    info_findings = [f for f in result.findings if f.severity == Severity.INFO]
+    assert len(info_findings) > 0
+    # Check data
+    recent_data = [f for f in result.findings if f.data.get("check") == "recent_drivers"]
+    assert len(recent_data) == 1
+    assert recent_data[0].data["count"] == 3
 
 
 def test_win_driver_check_fix_problem_device():
-    """Fix action for device with driver error."""
+    """Fix action for problem device."""
     mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_one_problem_device()):
+    with patch("subprocess.run", side_effect=_fake_run_problem_devices()):
         check_result = mod.check(_make_profile())
     fix_result = mod.fix(check_result, Mode.AUTO)
     assert len(fix_result.actions) > 0
+    # All actions should be SAFE risk level
     for action in fix_result.actions:
         assert action.risk_level == RiskLevel.SAFE
         assert action.success is True
@@ -303,6 +331,30 @@ def test_win_driver_check_fix_unsigned_drivers():
         check_result = mod.check(_make_profile())
     fix_result = mod.fix(check_result, Mode.AUTO)
     assert len(fix_result.actions) > 0
-    for action in fix_result.actions:
-        assert action.risk_level == RiskLevel.SAFE
-        assert action.success is True
+    # Should have action for unsigned drivers
+    unsigned_actions = [a for a in fix_result.actions if "unsigned" in a.title.lower()]
+    assert len(unsigned_actions) > 0
+
+
+def test_win_driver_check_fix_stopped_drivers():
+    """Fix action for stopped drivers."""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_stopped_drivers()):
+        check_result = mod.check(_make_profile())
+    fix_result = mod.fix(check_result, Mode.AUTO)
+    assert len(fix_result.actions) > 0
+    # Should have action for stopped drivers
+    stopped_actions = [a for a in fix_result.actions if "stopped" in a.title.lower()]
+    assert len(stopped_actions) > 0
+
+
+def test_win_driver_check_fix_recent_drivers():
+    """Fix action for recently updated drivers."""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_recent_drivers()):
+        check_result = mod.check(_make_profile())
+    fix_result = mod.fix(check_result, Mode.AUTO)
+    assert len(fix_result.actions) > 0
+    # Should have action for recent drivers
+    recent_actions = [a for a in fix_result.actions if "recent" in a.title.lower()]
+    assert len(recent_actions) > 0
