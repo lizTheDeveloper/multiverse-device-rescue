@@ -301,33 +301,47 @@ Check access times on ~100+ known credential hotspots:
 
 ## Module 6: `mvt_spyware_scan`
 
-Wraps the Mobile Verification Toolkit (MVT) by Amnesty International for mobile spyware detection (Pegasus, Predator, and other commercial spyware).
+Wraps the Mobile Verification Toolkit (MVT) by Amnesty International for mobile spyware detection. MVT is actively maintained (latest release v2026.5.12) and detects traces of commercial spyware families including Pegasus (NSO Group), Predator (Intellexa/Cytrox), KingSpawn (QuaDream), DevilsTongue (Candiru), Operation Triangulation, NoviSpy, Hermit (RCS Lab), and stalkerware.
 
 ### Design
 
-MVT is an external tool (`pip install mvt`) with its own CLI. This module wraps it rather than reimplementing its detection logic.
+MVT analyzes extracted backup data — it does not scan live devices directly. This module wraps MVT's CLI rather than importing its Python internals (which may change between versions).
 
 **What it checks:**
-- iOS device backups (iTunes/Finder backups) for spyware indicators
-- Android device backups and APK analysis
-- IOCs from Amnesty International's regularly updated indicator sets
+- **iOS backups** (iTunes/Finder backups): ~25 forensic modules examining SQLite databases (`sms.db`, `CallHistory.storedata`, `DataUsage.sqlite`, `netusage.sqlite`, `TCC.db`), plist files (`idstatuscache.plist`, `locationd/clients.plist`), log files (`shutdown.log` for suspicious processes), Safari history, and `Cache.db` files
+- **Android backups** (via AndroidQF output): APK hashes with optional VirusTotal lookup, SMS, DNS queries, network connections, process execution records, intrusion logs
+- **IOCs** in STIX 2.1 format from Amnesty International's indicator repos (`github.com/AmnestyTech/investigations`, `github.com/mvt-project/mvt-indicators`)
 
 **How it works:**
-- Detect available device backups on the host machine (standard backup locations per platform)
-- Check if MVT is installed; if not, offer to install it (`pip install mvt`)
-- Run MVT's check commands against discovered backups
-- Parse MVT's JSON output and present findings through the standard `CheckResult`/`Finding` model
+1. Detect available device backups at standard locations
+2. Check if MVT is installed; if not, offer to install it (`pip install mvt` or `pipx install mvt`)
+3. Download/update STIX2 IOC files from MVT indicator repos
+4. Run MVT CLI against discovered backups:
+   - `mvt-ios check-backup --iocs indicators.stix2 --output /path/to/output/ /path/to/backup/`
+   - `mvt-ios decrypt-backup` for encrypted backups (prompts user for password)
+   - `mvt-android check-androidqf --output /path/to/results/ /path/to/androidqf-output/`
+   - `mvt-android check-bugreport --output /path/to/results/ /path/to/bugreport.zip`
+5. Parse MVT's JSON output files and present findings through `CheckResult`/`Finding`
 
 **Backup discovery locations:**
 - macOS: `~/Library/Application Support/MobileSync/Backup/`
-- Windows: `%APPDATA%\Apple Computer\MobileSync\Backup\`
-- Linux: `~/.config/mvt/` (if backups were manually placed)
+- Windows (via WSL): `%APPDATA%\Apple Computer\MobileSync\Backup\`
+- Linux: user-specified path (no standard location)
+
+**Platform notes:**
+- MVT requires Python 3.6+ and sqlite3
+- Windows is not natively supported by MVT — requires WSL. The module will detect Windows and guide the user to run via WSL.
+- System dependencies: libusb (optional, for Android device communication)
+- MVT is read-only forensic analysis — no risk to device or backup data
+
+**Important caveat surfaced to users:** MVT's own documentation warns that absence of findings does NOT mean a device is clean — public IOCs are always incomplete.
 
 ### Fix Actions (informational + guided)
 
 Mobile spyware remediation requires device-level action that this tool can't perform remotely. Fix actions are informational:
 - Guided steps to factory reset the affected device
-- Instructions to update device OS
+- Instructions to update device OS to latest version
+- Guidance on enabling Lockdown Mode (iOS) where appropriate
 - Links to Amnesty International's Security Lab resources
 - Recommendation to consult security professionals for targeted spyware
 
