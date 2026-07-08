@@ -42,12 +42,12 @@ BLOATWARE_PATTERNS = {
 
 # Suspicious paths that indicate malware/adware
 SUSPICIOUS_PATHS = {
-    r"\appdata\local\temp",
-    r"\appdata\roaming\temp",
-    r"\users\*\downloads",
-    r"\temp\",
-    r"\programdata\temp",
-    r":\$recycle",
+    "\\appdata\\local\\temp",
+    "\\appdata\\roaming\\temp",
+    "\\users\\*\\downloads",
+    "\\temp",
+    "\\programdata\\temp",
+    ":\\$recycle",
 }
 
 
