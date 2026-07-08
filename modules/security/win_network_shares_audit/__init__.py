@@ -328,29 +328,27 @@ class Module(ModuleBase):
         return shares
 
     def _parse_net_share_output(self, output: str) -> list:
-        """Parse output from 'net share' command to extract share names."""
+        """Parse output from 'net share' command to extract share names.
+
+        Example output:
+            Share name        C$
+            Path              C:\\
+            Remark            Default share
+
+            Share name        Users
+            Path              C:\\Users
+            ...
+        """
         shares = []
-        in_share_section = False
 
         for line in output.splitlines():
-            line = line.strip()
-
-            # Skip header and separator lines
-            if not line or "Share name" in line or line.startswith("---"):
-                continue
-
-            # Stop at the summary section
-            if "The command completed successfully" in line:
-                break
-
-            # Parse share name (first word before whitespace)
-            if line and not line.startswith("-"):
-                # Share name is the first word
-                parts = line.split()
-                if parts:
-                    share_name = parts[0]
-                    # Filter out common non-share lines
-                    if share_name.lower() not in ["comment:", "path:", "users:"]:
+            # Look for lines that start with "Share name"
+            if line.strip().startswith("Share name"):
+                # Extract the share name (everything after "Share name")
+                parts = line.split(None, 2)  # Split on whitespace, max 3 parts
+                if len(parts) >= 2:
+                    share_name = parts[2].strip()  # Third element is the share name
+                    if share_name:
                         shares.append(share_name)
 
         return shares
