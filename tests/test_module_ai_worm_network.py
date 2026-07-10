@@ -76,6 +76,40 @@ def test_detects_known_malicious_domain_connection():
     assert domain_findings[0].data["confidence"] == "high"
 
 
+def test_domain_connection_severity_follows_ioc_severity():
+    """A warning-severity IOC (not critical) should map to WARNING/medium,
+    not be hardcoded to CRITICAL/high."""
+    mod = _get_module()
+
+    lsof_output = (
+        "COMMAND   PID   USER   FD   TYPE DEVICE SIZE/OFF NODE NAME\n"
+        "node    99999   user   10u  IPv4 0x1234 0t0 TCP "
+        "192.168.1.1:50000->webhook.site:443 (ESTABLISHED)"
+    )
+
+    with patch("subprocess.run") as mock_run:
+        mock_result = MagicMock()
+        mock_result.stdout = lsof_output
+        mock_result.returncode = 0
+
+        def side_effect(cmd, **kwargs):
+            if cmd[0] == "lsof":
+                return mock_result
+            return MagicMock(stdout="", returncode=0)
+
+        mock_run.side_effect = side_effect
+
+        with patch.object(Path, "exists", return_value=False):
+            result = mod.check(_make_profile())
+
+    domain_findings = [
+        f for f in result.findings if f.data.get("check") == "known_malicious_connection"
+    ]
+    assert len(domain_findings) > 0
+    assert domain_findings[0].severity == Severity.WARNING
+    assert domain_findings[0].data["confidence"] == "medium"
+
+
 def test_detects_stepsecurity_bypass():
     """Detect /etc/hosts entry redirecting agent.stepsecurity.io."""
     mod = _get_module()

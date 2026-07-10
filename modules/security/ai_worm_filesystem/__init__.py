@@ -7,6 +7,7 @@ from pathlib import Path
 
 from rescue.models import (
     Action,
+    ActionKind,
     CheckResult,
     Finding,
     FixResult,
@@ -85,7 +86,7 @@ class Module(ModuleBase):
             if confidence == "high" and file_path:
                 quarantine_dir.mkdir(parents=True, exist_ok=True)
                 src = Path(file_path)
-                dest = quarantine_dir / src.name
+                dest = quarantine_dir / f"{src.parent.name}_{src.name}"
                 try:
                     if src.exists():
                         shutil.move(str(src), str(dest))
@@ -94,6 +95,8 @@ class Module(ModuleBase):
                                 title=f"Quarantine: {src.name}",
                                 description=f"Moved {src} to {dest}",
                                 risk_level=RiskLevel.MODERATE,
+                                kind=ActionKind.MUTATION,
+                                executed=True,
                                 success=True,
                             )
                         )
@@ -103,6 +106,7 @@ class Module(ModuleBase):
                                 title=f"Quarantine: {src.name}",
                                 description=f"File already removed: {src}",
                                 risk_level=RiskLevel.SAFE,
+                                executed=True,
                                 success=True,
                             )
                         )
@@ -112,6 +116,8 @@ class Module(ModuleBase):
                             title=f"Quarantine: {src.name}",
                             description=f"Failed to quarantine {src}",
                             risk_level=RiskLevel.MODERATE,
+                            kind=ActionKind.MUTATION,
+                            executed=True,
                             success=False,
                             error=str(e),
                         )

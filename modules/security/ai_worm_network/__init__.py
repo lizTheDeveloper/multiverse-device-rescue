@@ -58,6 +58,9 @@ class Module(ModuleBase):
         findings: list[Finding] = []
 
         for hit in self._check_active_connections(profile):
+            severity, confidence = self._severity_and_confidence(
+                hit.get("ioc_severity")
+            )
             findings.append(
                 Finding(
                     title=(
@@ -67,13 +70,14 @@ class Module(ModuleBase):
                     description=(
                         f"Process {hit.get('process')} (pid {hit.get('pid')}) has an "
                         f"active connection to {hit.get('dest')}, which matches a known "
-                        f"AI worm C2/exfiltration indicator of compromise."
+                        f"AI worm C2/exfiltration indicator of compromise "
+                        f"(threat: {hit.get('threat', 'unknown')})."
                     ),
-                    severity=Severity.CRITICAL,
+                    severity=severity,
                     category=self.category,
                     data={
                         "check": "known_malicious_connection",
-                        "confidence": "high",
+                        "confidence": confidence,
                         "pid": hit.get("pid"),
                         "process": hit.get("process"),
                         "dest": hit.get("dest"),
@@ -297,18 +301,51 @@ class Module(ModuleBase):
 
         return records
 
+    @staticmethod
+    def _severity_and_confidence(ioc_severity: str | None) -> tuple[Severity, str]:
+        """Map an IOC's declared severity to a Finding severity/confidence pair."""
+        if ioc_severity == "critical":
+            return Severity.CRITICAL, "high"
+        if ioc_severity == "warning":
+            return Severity.WARNING, "medium"
+        if ioc_severity == "info":
+            return Severity.WARNING, "low"
+        # Unknown/missing severity: treat conservatively as low confidence.
+        return Severity.WARNING, "low"
+
     def _check_active_connections(self, profile: SystemProfile) -> list[dict]:
         hits: list[dict] = []
         iocs = self._get_iocs()
         if iocs is None:
             return hits
 
+        domains_by_value = {d.value: d for d in iocs.domains}
+        ips_by_value = {ip.value: ip for ip in iocs.ips}
+
         for record in self._get_connection_records(profile):
             host = record["host"]
-            if host in iocs.domains:
-                hits.append({**record, "match_type": "domain", "match_value": host})
-            elif host in iocs.ips:
-                hits.append({**record, "match_type": "ip", "match_value": host})
+            if host in domains_by_value:
+                ioc = domains_by_value[host]
+                hits.append(
+                    {
+                        **record,
+                        "match_type": "domain",
+                        "match_value": host,
+                        "ioc_severity": ioc.severity,
+                        "threat": ioc.threat,
+                    }
+                )
+            elif host in ips_by_value:
+                ioc = ips_by_value[host]
+                hits.append(
+                    {
+                        **record,
+                        "match_type": "ip",
+                        "match_value": host,
+                        "ioc_severity": ioc.severity,
+                        "threat": ioc.threat,
+                    }
+                )
 
         return hits
 

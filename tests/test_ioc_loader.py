@@ -11,8 +11,8 @@ def test_load_iocs_parses_all_files():
 
     db = load_iocs()
     assert db is not None
-    assert isinstance(db.domains, set)
-    assert isinstance(db.ips, set)
+    assert isinstance(db.domains, list)
+    assert isinstance(db.ips, list)
     assert isinstance(db.hashes, dict)
     assert isinstance(db.paths, list)
     assert isinstance(db.git_patterns, list)
@@ -42,6 +42,20 @@ def test_load_iocs_known_paths_have_required_fields():
         assert entry.severity in ("critical", "warning", "info")
         assert entry.description, "description must not be empty"
         assert entry.source, "source must not be empty"
+    _clear_cache()
+
+
+def test_load_iocs_known_domains_have_required_fields():
+    """Every domain IOC entry has value, severity, threat, description."""
+    from modules.security.ai_worm_iocs.loader import load_iocs, _clear_cache
+
+    _clear_cache()
+    db = load_iocs()
+    for entry in db.domains:
+        assert entry.value, "value must not be empty"
+        assert entry.threat, "threat must not be empty"
+        assert entry.severity in ("critical", "warning", "info")
+        assert entry.description, "description must not be empty"
     _clear_cache()
 
 

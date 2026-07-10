@@ -16,6 +16,22 @@ class HashIOC:
 
 
 @dataclass(frozen=True)
+class DomainIOC:
+    value: str
+    severity: str
+    threat: str
+    description: str
+
+
+@dataclass(frozen=True)
+class IPIOC:
+    value: str
+    severity: str
+    threat: str
+    description: str
+
+
+@dataclass(frozen=True)
 class PathIOC:
     path: str
     threat: str
@@ -49,8 +65,8 @@ class MCPServerIOC:
 class IOCDatabase:
     version: str
     hashes: dict[str, HashIOC] = field(default_factory=dict)
-    domains: set[str] = field(default_factory=set)
-    ips: set[str] = field(default_factory=set)
+    domains: list[DomainIOC] = field(default_factory=list)
+    ips: list[IPIOC] = field(default_factory=list)
     paths: list[PathIOC] = field(default_factory=list)
     git_patterns: list[GitPatternIOC] = field(default_factory=list)
     mcp_servers: list[MCPServerIOC] = field(default_factory=list)
@@ -90,10 +106,24 @@ def load_iocs(data_dir: Path | None = None) -> IOCDatabase:
         )
 
     for entry in _load_entries(data_dir / "known_domains.json"):
-        db.domains.add(entry["domain"])
+        db.domains.append(
+            DomainIOC(
+                value=entry["domain"],
+                severity=entry["severity"],
+                threat=entry["threat"],
+                description=entry["description"],
+            )
+        )
 
     for entry in _load_entries(data_dir / "known_ips.json"):
-        db.ips.add(entry["ip"])
+        db.ips.append(
+            IPIOC(
+                value=entry["ip"],
+                severity=entry["severity"],
+                threat=entry["threat"],
+                description=entry["description"],
+            )
+        )
 
     for entry in _load_entries(data_dir / "known_paths.json"):
         db.paths.append(
