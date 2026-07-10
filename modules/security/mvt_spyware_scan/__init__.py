@@ -37,8 +37,6 @@ _CLEAN_SCAN_CAVEAT = (
     "it cannot detect novel, unpublished, or bespoke spyware."
 )
 
-_MVT_BINARIES = ("mvt-ios", "mvt-android")
-
 
 class Module(ModuleBase):
     name = "mvt_spyware_scan"
@@ -67,6 +65,7 @@ class Module(ModuleBase):
                     category=self.category,
                     data={
                         "check": "mvt_requires_wsl",
+                        "confidence": "high",
                         "install_command": "wsl --install",
                     },
                 )
@@ -85,7 +84,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
-                    data={"check": "no_backups_found"},
+                    data={"check": "no_backups_found", "confidence": "high"},
                 )
             )
             return CheckResult(module_name=self.name, findings=findings)
@@ -106,6 +105,7 @@ class Module(ModuleBase):
                     category=self.category,
                     data={
                         "check": "mvt_not_installed",
+                        "confidence": "high",
                         "install_command": "pip install mvt",
                         "backups_found": len(backups),
                     },
@@ -134,6 +134,7 @@ class Module(ModuleBase):
                         category=self.category,
                         data={
                             "check": "mvt_spyware_detected",
+                            "confidence": "high",
                             "module": module_name,
                             "indicator": indicator,
                             "indicator_type": detection.get("indicator_type"),
@@ -152,7 +153,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
-                    data={"check": "mvt_clean_scan", "backups_scanned": len(backups)},
+                    data={"check": "mvt_clean_scan", "confidence": "high", "backups_scanned": len(backups)},
                 )
             )
 
