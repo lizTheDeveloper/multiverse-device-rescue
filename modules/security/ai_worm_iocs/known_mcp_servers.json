@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "name": "index_project",
+      "threat": "sandworm_mode",
+      "severity": "critical",
+      "description": "Rogue MCP server injected by SANDWORM_MODE — poses as project indexer",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    },
+    {
+      "name": "lint_check",
+      "threat": "sandworm_mode",
+      "severity": "critical",
+      "description": "Rogue MCP server injected by SANDWORM_MODE — poses as linter",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    },
+    {
+      "name": "scan_dependencies",
+      "threat": "sandworm_mode",
+      "severity": "critical",
+      "description": "Rogue MCP server injected by SANDWORM_MODE — poses as dependency scanner",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    }
+  ]
+}

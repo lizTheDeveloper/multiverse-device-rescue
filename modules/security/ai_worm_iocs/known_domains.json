@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "domain": "webhook.site",
+      "threat": "shai_hulud",
+      "severity": "warning",
+      "description": "Shai Halud exfiltration endpoint — webhook.site is also used legitimately, flag with context",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    }
+  ]
+}
