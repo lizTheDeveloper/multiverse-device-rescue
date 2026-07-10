@@ -178,25 +178,57 @@ class Module(ModuleBase):
         value = (result.stdout or "").strip()
         return value or None
 
+    _LEGITIMATE_HOOK_MANAGERS = {
+        "husky", "lefthook", "overcommit", "pre-commit", "git-hooks",
+        ".git-hooks", ".githooks", "core.hooksPath",
+    }
+
+    def _looks_legitimate_hooks_path(self, path_str: str) -> bool:
+        p = Path(path_str)
+        name_lower = p.name.lower()
+        for manager in self._LEGITIMATE_HOOK_MANAGERS:
+            if manager in name_lower or manager in str(p).lower():
+                return True
+        home = str(Path.home())
+        if path_str.startswith(home) and not self._path_matches_ioc(path_str):
+            return True
+        return False
+
+    def _path_matches_ioc(self, path_str: str) -> bool:
+        iocs = self._get_iocs()
+        if iocs is None:
+            return False
+        for p_ioc in iocs.paths:
+            if p_ioc.path in path_str or path_str in p_ioc.path:
+                return True
+        return False
+
     def _check_git_global_config(self) -> list[Finding]:
         findings = []
 
         hooks_path = self._run_git_config("core.hooksPath")
         if hooks_path:
+            if self._looks_legitimate_hooks_path(hooks_path):
+                confidence = "low"
+                severity = Severity.INFO
+                title = "Git core.hooksPath set (likely legitimate)"
+            else:
+                confidence = "high"
+                severity = Severity.CRITICAL
+                title = "Git core.hooksPath hijacked"
             findings.append(
                 Finding(
-                    title="Git core.hooksPath hijacked",
+                    title=title,
                     description=(
-                        f"Global git config core.hooksPath is set to a "
-                        f"non-standard location: {hooks_path}. This can be "
-                        "used to run malicious hooks on every git operation "
-                        "in every repository on the system."
+                        f"Global git config core.hooksPath is set to: "
+                        f"{hooks_path}. Custom hooks paths can be used "
+                        "to run code on every git operation."
                     ),
-                    severity=Severity.CRITICAL,
+                    severity=severity,
                     category=self.category,
                     data={
                         "check": "git_hookspath_hijack",
-                        "confidence": "high",
+                        "confidence": confidence,
                         "value": hooks_path,
                     },
                 )
@@ -204,20 +236,27 @@ class Module(ModuleBase):
 
         template_dir = self._run_git_config("init.templateDir")
         if template_dir:
+            if self._looks_legitimate_hooks_path(template_dir):
+                confidence = "low"
+                severity = Severity.INFO
+                title = "Git init.templateDir set (likely legitimate)"
+            else:
+                confidence = "high"
+                severity = Severity.CRITICAL
+                title = "Git init.templateDir hijacked"
             findings.append(
                 Finding(
-                    title="Git init.templateDir hijacked",
+                    title=title,
                     description=(
-                        f"Global git config init.templateDir is set to a "
-                        f"non-standard location: {template_dir}. Malicious "
-                        "template contents (including hooks) are copied "
-                        "into every newly created or cloned repository."
+                        f"Global git config init.templateDir is set to: "
+                        f"{template_dir}. Custom templates (including hooks) "
+                        "are copied into every newly created or cloned repository."
                     ),
-                    severity=Severity.CRITICAL,
+                    severity=severity,
                     category=self.category,
                     data={
                         "check": "git_templatedir_hijack",
-                        "confidence": "high",
+                        "confidence": confidence,
                         "value": template_dir,
                     },
                 )

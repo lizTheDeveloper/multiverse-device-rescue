@@ -370,6 +370,35 @@ class Module(ModuleBase):
 
     # -- detection: beaconing (repeat-sample connection comparison) ---
 
+    _BEACON_PROCESS_ALLOWLIST = {
+        "google", "chrome", "firefox", "safari", "brave", "arc", "edge",
+        "opera", "vivaldi", "chromium",
+        "dropbox", "dropboxfi", "onedrive", "icloud",
+        "slack", "discord", "teams", "zoom", "telegram", "signal", "element",
+        "messages", "facetime", "whatsapp",
+        "spotify", "music", "apple music",
+        "claude", "codex", "cursor", "code", "copilot",
+        "postgres", "mysql", "redis", "mongo", "mysqld", "mongod",
+        "node", "python", "ruby", "java", "go", "deno", "bun",
+        "docker", "containerd", "colima",
+        "cloudd", "nsurlsessiond", "trustd", "rapportd", "sharingd",
+        "apsd", "assistantd", "bird", "callservicesd", "identityservicesd",
+        "imtransferagent", "mds_stores", "netbiosd", "remoted",
+        "com.apple", "apple",
+        "loom", "loom-reco", "figma", "notion", "linear", "obsidian",
+        "1password", "bitwarden", "lastpass", "dashlane",
+        "backblaze", "carbonite", "timemachine",
+        "wireguard", "tailscale", "mullvad", "nordvpn",
+        "git", "ssh", "scp", "rsync", "wget", "curl",
+    }
+
+    def _is_allowlisted_beacon(self, process_name: str) -> bool:
+        name = process_name.lower().strip()
+        for allowed in self._BEACON_PROCESS_ALLOWLIST:
+            if allowed in name:
+                return True
+        return False
+
     def _check_beaconing(self, profile: SystemProfile) -> list[dict]:
         first = self._get_connection_records(profile)
         if not first:
@@ -385,6 +414,8 @@ class Module(ModuleBase):
             key = (r["pid"], r["dest"])
             if key in first_keys and key not in seen:
                 seen.add(key)
+                if self._is_allowlisted_beacon(r["process"]):
+                    continue
                 hits.append(
                     {
                         "process": r["process"],
