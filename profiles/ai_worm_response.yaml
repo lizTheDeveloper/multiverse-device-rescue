@@ -1,0 +1,27 @@
+name: ai_worm_response
+display_name: "AI Worm & Spyware Response"
+description: >
+  Comprehensive scan for AI-led worm compromise (Shai Halud, Miasma,
+  SANDWORM_MODE, SesameOp) and mobile spyware. Checks filesystem
+  artifacts, git/SSH integrity, persistence mechanisms, network C2,
+  lateral movement indicators, and mobile device backups.
+modules:
+  include:
+    - ai_worm_filesystem
+    - ai_worm_git_ssh
+    - ai_worm_persistence
+    - ai_worm_network
+    - ai_worm_lateral
+    - mvt_spyware_scan
+  exclude: []
+module_config:
+  ai_worm_filesystem:
+    sensitivity: elevated
+  ai_worm_git_ssh:
+    sensitivity: elevated
+  ai_worm_persistence:
+    sensitivity: elevated
+  ai_worm_network:
+    sensitivity: elevated
+  ai_worm_lateral:
+    sensitivity: elevated
