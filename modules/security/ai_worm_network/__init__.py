@@ -378,6 +378,7 @@ class Module(ModuleBase):
         "messages", "facetime", "whatsapp",
         "spotify", "music", "apple music",
         "claude", "codex", "cursor", "code", "copilot",
+        "2.1.", "assistant",
         "postgres", "mysql", "redis", "mongo", "mysqld", "mongod",
         "node", "python", "ruby", "java", "go", "deno", "bun",
         "docker", "containerd", "colima",
