@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import signal
 import subprocess
 import time
@@ -370,17 +371,15 @@ class Module(ModuleBase):
 
     # -- detection: beaconing (repeat-sample connection comparison) ---
 
-    _BEACON_PROCESS_ALLOWLIST = {
+    _BEACON_NAME_ALLOWLIST = {
         "google", "chrome", "firefox", "safari", "brave", "arc", "edge",
         "opera", "vivaldi", "chromium",
         "dropbox", "dropboxfi", "onedrive", "icloud",
         "slack", "discord", "teams", "zoom", "telegram", "signal", "element",
         "messages", "facetime", "whatsapp",
         "spotify", "music", "apple music",
-        "claude", "codex", "cursor", "code", "copilot",
-        "2.1.", "assistant",
+        "claude", "codex", "cursor", "copilot",
         "postgres", "mysql", "redis", "mongo", "mysqld", "mongod",
-        "node", "python", "ruby", "java", "go", "deno", "bun",
         "docker", "containerd", "colima",
         "cloudd", "nsurlsessiond", "trustd", "rapportd", "sharingd",
         "apsd", "assistantd", "bird", "callservicesd", "identityservicesd",
@@ -393,11 +392,52 @@ class Module(ModuleBase):
         "git", "ssh", "scp", "rsync", "wget", "curl",
     }
 
-    def _is_allowlisted_beacon(self, process_name: str) -> bool:
+    _BEACON_PATH_ALLOWLIST = (
+        "/Applications/",
+        "/System/",
+        "/usr/",
+        "/Library/",
+        "/opt/homebrew/",
+        "/snap/",
+        "/.local/share/claude/",
+        "/.claude/",
+        "/.volta/",
+        "/.nvm/",
+        "/node_modules/.bin/",
+    )
+
+    def _resolve_binary_path(self, pid: int) -> str | None:
+        try:
+            result = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "args="],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return None
+            cmd = result.stdout.strip().split()[0]
+            if cmd.startswith("/"):
+                return cmd
+            resolved = shutil.which(cmd)
+            if resolved:
+                real = os.path.realpath(resolved)
+                return real
+            return cmd
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+        return None
+
+    def _is_allowlisted_beacon(self, process_name: str, pid: int) -> bool:
         name = process_name.lower().strip()
-        for allowed in self._BEACON_PROCESS_ALLOWLIST:
+        for allowed in self._BEACON_NAME_ALLOWLIST:
             if allowed in name:
                 return True
+
+        binary = self._resolve_binary_path(pid)
+        if binary:
+            for allowed_path in self._BEACON_PATH_ALLOWLIST:
+                if allowed_path in binary:
+                    return True
+
         return False
 
     def _check_beaconing(self, profile: SystemProfile) -> list[dict]:
@@ -415,7 +455,7 @@ class Module(ModuleBase):
             key = (r["pid"], r["dest"])
             if key in first_keys and key not in seen:
                 seen.add(key)
-                if self._is_allowlisted_beacon(r["process"]):
+                if self._is_allowlisted_beacon(r["process"], r["pid"]):
                     continue
                 hits.append(
                     {
