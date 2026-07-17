@@ -112,3 +112,20 @@ class FixResult:
     @property
     def applied_actions(self) -> list[Action]:
         return [action for action in self.actions if action.executed]
+
+    @property
+    def executed_mutations(self) -> list[Action]:
+        """Actions that actually changed the system: executed MUTATIONs only.
+
+        Guidance is never a system change, so it is excluded here regardless of
+        any ``executed``/``success`` flags a module may set on it.
+        """
+        return [
+            a
+            for a in self.actions
+            if a.kind == ActionKind.MUTATION and a.executed and a.success
+        ]
+
+    @property
+    def guidance_actions(self) -> list[Action]:
+        return [a for a in self.actions if a.kind == ActionKind.GUIDANCE]

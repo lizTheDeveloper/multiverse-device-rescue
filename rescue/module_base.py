@@ -20,6 +20,10 @@ class ModuleBase(ABC):
     priority: int = 50
     depends_on: list[str] = []
     estimated_duration: str = "unknown"
+    # Opt-in to unattended mutation in auto mode. Default False keeps auto mode
+    # read-only: a module is only auto-applied once its fix() is known to be an
+    # idempotent, low-impact, reversible SAFE mutation and it sets this True.
+    auto_apply: bool = False
 
     @abstractmethod
     def check(self, profile: SystemProfile) -> CheckResult:

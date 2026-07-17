@@ -14,6 +14,7 @@ class SafeModule(ModuleBase):
     category = "test"
     platforms = [Platform.DARWIN]
     risk_level = RiskLevel.SAFE
+    auto_apply = True  # opted in to unattended SAFE mutation
     depends_on = []
 
     def check(self, profile):

@@ -119,7 +119,12 @@ class Orchestrator:
         for mod, check in check_results:
             if check.error or not check.has_issues:
                 continue
-            if mode == Mode.AUTO and mod.risk_level != RiskLevel.SAFE:
+            if mode == Mode.AUTO and (
+                mod.risk_level != RiskLevel.SAFE
+                or not getattr(mod, "auto_apply", False)
+            ):
+                # Auto mode is read-only unless a module has explicitly opted
+                # in to unattended, idempotent SAFE mutation via `auto_apply`.
                 continue
             try:
                 fix = mod.fix(check, mode)

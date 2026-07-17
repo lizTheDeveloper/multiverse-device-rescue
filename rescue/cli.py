@@ -272,8 +272,13 @@ def _run_auto(profile_name: str | None = None, copilot: bool = False):
     results = orch.run_auto()
 
     total_issues = sum(len(check.findings) for _, check, _ in results)
-    fixed = sum(
-        len(fix.applied_actions)
+    system_changes = sum(
+        len(fix.executed_mutations)
+        for _, _, fix in results
+        if fix is not None
+    )
+    manual_actions = sum(
+        len(fix.guidance_actions)
         for _, _, fix in results
         if fix is not None
     )
@@ -283,7 +288,11 @@ def _run_auto(profile_name: str | None = None, copilot: bool = False):
     if profile:
         click.echo(f"Profile: {profile.display_name}")
     click.echo("=" * 50)
-    click.echo(f"\nScanned {len(results)} module(s), found {total_issues} issue(s), applied {fixed} automatic action(s).\n")
+    click.echo(
+        f"\nScanned {len(results)} module(s), found {total_issues} issue(s). "
+        f"Auto mode is read-only: made {system_changes} system change(s); "
+        f"{manual_actions} manual action(s) require you.\n"
+    )
 
     for mod, check, fix in results:
         if check.has_issues:
