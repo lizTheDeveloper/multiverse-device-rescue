@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rescue.security.signers import TrustedSigner, TrustedSignerSet
+from rescue.security.signers import TrustConfigurationError, TrustedSigner, TrustedSignerSet
 from rescue.update.config import ContentRepoConfig
 from rescue.update.engine import UpdateEngine, UpdateResult
 from rescue.update.repo import CommitInfo
@@ -135,6 +135,10 @@ def test_apply_dry_run_does_not_checkout(tmp_path):
 
 def test_apply_checks_out_target_commit(tmp_path):
     repo = MagicMock()
+    repo.read_file_at.return_value = (
+        b'{"content_version": "2026.07.10-1", "updated_at": "t", "modules": [], "guides": []}'
+    )
+    repo.list_files_at.return_value = ["manifest.json"]
     engine = UpdateEngine(_config(tmp_path), repo=repo, trusted_signers=_trusted())
     target = UpdateResult(status="available", old_commit="old111", new_commit="new222", commits=[])
 
@@ -151,3 +155,13 @@ def test_apply_raises_if_target_not_available(tmp_path):
 
     with pytest.raises(ValueError):
         engine.apply(target)
+
+
+def test_default_trust_configuration_rejects_placeholder_keys(tmp_path):
+    config = _config(tmp_path)
+    config.trusted_signers_path.write_text(
+        '{"signers": [{"signer_id": "a", "key_id": "REPLACE_WITH_KEY", "public_key": "REPLACE_WITH_KEY"}]}'
+    )
+
+    with pytest.raises(TrustConfigurationError):
+        UpdateEngine(config, repo=MagicMock())

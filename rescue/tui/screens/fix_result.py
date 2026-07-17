@@ -6,11 +6,13 @@ from textual.containers import VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
-from rescue.models import Action, CheckResult, FixResult
+from rescue.models import Action, ActionKind, CheckResult, FixResult
 from rescue.module_base import ModuleBase
 
 
 def format_action_line(action: Action) -> str:
+    if action.kind == ActionKind.GUIDANCE:
+        return f"[yellow]MANUAL[/yellow] {action.title} — {action.description}"
     if action.success:
         return f"[green]OK[/green] {action.title} — {action.description}"
     return f"[red]FAILED[/red] {action.title} — {action.error or 'unknown error'}"
@@ -30,7 +32,9 @@ class FixResultScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header()
         with VerticalScroll(id="fix-result-list"):
-            if self.fix.all_succeeded:
+            if not self.fix.applied_actions:
+                yield Static("No automatic changes were made. Review the manual actions below.", id="fix-result-summary")
+            elif self.fix.all_succeeded:
                 yield Static(f"All {len(self.fix.actions)} action(s) succeeded.", id="fix-result-summary")
             else:
                 yield Static("Some actions failed.", id="fix-result-summary")

@@ -2,8 +2,8 @@
 profile: digital_security_reset
 phase: 4
 title: "Rebuilding Security"
-automatable_steps: [2]
-human_only_steps: [1, 3, 4]
+automatable_steps: []
+human_only_steps: [1, 2, 3, 4]
 estimated_time: "40 minutes"
 ---
 
@@ -14,8 +14,9 @@ accounts into it — starting with the ones you haven't touched yet.
 
 ## Step 2: Verify unique passwords everywhere
 
-Run the password manager check across your full account list from Phase 1
-to confirm nothing is reused and everything meets a minimum strength bar.
+Use your password manager's security report across the account list from
+Phase 1 to confirm nothing is reused and everything meets a minimum strength
+bar.
 
 ## Step 3: Review app permissions on your phone
 

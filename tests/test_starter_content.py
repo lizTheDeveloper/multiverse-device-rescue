@@ -21,7 +21,7 @@ def test_digital_security_reset_profile_fields():
     profile = profiles["digital_security_reset"]
     assert profile.display_name == "Digital Security Reset"
     assert profile.guides == ["digital_security_reset"]
-    assert "password_manager_check" in profile.include_modules
+    assert "malware_scan_indicators" in profile.include_modules
 
 
 def test_home_for_the_holidays_profile_fields():
@@ -40,7 +40,12 @@ def test_home_for_the_holidays_profile_matches_real_disk_space_module():
     matched = filter_modules_by_profile(modules, profile)
 
     names = [m.name for m in matched]
-    assert names == ["disk_space"]
+    assert set(names) == {
+        "automatic_updates",
+        "disk_smart_check",
+        "disk_space",
+        "malware_scan_indicators",
+    }
 
 
 def test_digital_security_reset_guides_all_six_phases():
@@ -53,8 +58,8 @@ def test_digital_security_reset_phase_3_matches_design_spec_example():
     phase_3 = next(g for g in guides if g.phase == 3)
 
     assert phase_3.title == "Systematic Cleanup"
-    assert phase_3.automatable_steps == [1, 2, 5]
-    assert phase_3.human_only_steps == [3, 4, 6]
+    assert phase_3.automatable_steps == []
+    assert phase_3.human_only_steps == [1, 2, 3, 4, 5, 6]
     assert phase_3.steps[0].title == "Reset your primary email password"
 
 

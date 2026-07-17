@@ -1,6 +1,6 @@
 from rescue.models import (
     SystemProfile, Platform, CheckResult, FixResult, Finding,
-    Action, Severity, RiskLevel, Mode,
+    Action, ActionKind, Severity, RiskLevel, Mode,
 )
 from rescue.module_base import ModuleBase
 
@@ -35,6 +35,8 @@ class FakeModule(ModuleBase):
                     title="Fixed it",
                     description="Did the fix",
                     risk_level=RiskLevel.SAFE,
+                    kind=ActionKind.MUTATION,
+                    executed=True,
                     success=True,
                 )
             ],

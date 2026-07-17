@@ -9,6 +9,7 @@ from rescue.tui.screens.categories import CategoryMenuScreen
 from rescue.tui.screens.findings import FindingsScreen
 from rescue.tui.screens.fix_result import FixResultScreen
 from rescue.tui.screens.modules import ModuleListScreen
+from rescue.registry import discover_modules
 
 
 def _profile(used_pct: float) -> SystemProfile:
@@ -41,26 +42,20 @@ async def test_full_flow_category_to_fix_result():
     in modules/performance/disk_space, with a mocked-full-disk profile so it
     reliably produces a finding."""
     modules_dir = Path(__file__).parent.parent.parent / "modules"
+    disk_space_module = next(
+        module for module in discover_modules(modules_dir) if module.name == "disk_space"
+    )
 
-    with patch("rescue.orchestrator.gather_profile", return_value=_profile(0.85)):
+    with patch("rescue.orchestrator.gather_profile", return_value=_profile(0.85)), \
+         patch("rescue.orchestrator.discover_modules", return_value=[disk_space_module]):
         app = RescueApp(modules_dir=modules_dir)
         async with app.run_test() as pilot:
-            # The integrity/update_checker module shells out to the real
-            # `softwareupdate -l` (and `brew outdated`) commands. Its own
-            # estimated_duration is "30s", so poll comfortably past that
-            # worst case rather than assume checks finish instantly. The
-            # loop breaks as soon as the screen transitions, so a generous
-            # cap costs nothing in the common (fast) case.
-            for _ in range(1200):
+            for _ in range(100):
                 await pilot.pause(0.05)
                 if isinstance(app.screen, CategoryMenuScreen):
                     break
             assert isinstance(app.screen, CategoryMenuScreen)
 
-            # Categories are sorted alphabetically by group_by_category, so
-            # with the real modules/ tree "performance" is not necessarily
-            # first (bloatware and integrity sort before it). Find it by id
-            # rather than assuming a fixed index.
             category_list = app.screen.query_one("#category-list", OptionList)
             performance_index = next(
                 i

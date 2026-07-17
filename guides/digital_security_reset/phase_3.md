@@ -2,22 +2,20 @@
 profile: digital_security_reset
 phase: 3
 title: "Systematic Cleanup"
-automatable_steps: [1, 2, 5]
-human_only_steps: [3, 4, 6]
+automatable_steps: []
+human_only_steps: [1, 2, 3, 4, 5, 6]
 estimated_time: "45 minutes"
 ---
 
 ## Step 1: Reset your primary email password
 
-Run the password manager check to confirm your new email password is
-strong and not reused anywhere else, and that it's saved somewhere you'll
-actually find it again.
+Use your password manager to confirm the new password is long, unique, and
+stored where you can recover it. The toolkit does not inspect passwords.
 
 ## Step 2: Reset passwords for your top 5 accounts
 
 Banking, primary social media, cloud storage, and your main work account
-first. Run the password manager check again after each one to confirm
-it's unique.
+first. Confirm in your password manager that each password is unique.
 
 ## Step 3: Clean up saved browser passwords
 
@@ -33,8 +31,8 @@ transactions with you.
 
 ## Step 5: Run the 2FA audit
 
-Run the 2FA audit module to see which of your accounts don't have
-two-factor authentication enabled yet, and turn it on for each one.
+Review each provider directly to see which accounts lack two-factor
+authentication, then enable it where available.
 
 ## Step 6: Write down your progress
 

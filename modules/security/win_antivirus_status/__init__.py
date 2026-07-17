@@ -4,6 +4,7 @@ from datetime import datetime
 
 from rescue.models import (
     Action,
+    ActionKind,
     CheckResult,
     Finding,
     FixResult,
@@ -20,7 +21,7 @@ class Module(ModuleBase):
     name = "win_antivirus_status"
     category = "security"
     platforms = [Platform.WIN32]
-    risk_level = RiskLevel.SAFE
+    risk_level = RiskLevel.MODERATE
     priority = 60
     depends_on = []
     estimated_duration = "10s"
@@ -161,7 +162,7 @@ class Module(ModuleBase):
                     Action(
                         title=title,
                         description=description,
-                        risk_level=RiskLevel.SAFE,
+                        risk_level=RiskLevel.MODERATE,
                         success=False,
                         error="Manual installation of antivirus product required",
                     )
@@ -187,10 +188,12 @@ class Module(ModuleBase):
 
             actions.append(
                 Action(
-                    title=title,
-                    description=description,
-                    risk_level=RiskLevel.SAFE,
-                    success=success,
+                title=title,
+                description=description,
+                risk_level=RiskLevel.MODERATE,
+                kind=ActionKind.MUTATION,
+                executed=True,
+                success=success,
                     error=error,
                 )
             )

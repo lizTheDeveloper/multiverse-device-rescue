@@ -5,6 +5,7 @@ from pathlib import Path
 
 from rescue.models import (
     Action,
+    ActionKind,
     CheckResult,
     Finding,
     FixResult,
@@ -15,8 +16,9 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.runtime import content_file
 
-DATA_FILE = Path(__file__).parent / "data" / "known_bloatware.json"
+DATA_FILE = content_file("modules/bloatware/startup_auditor/data/known_bloatware.json")
 
 
 class Module(ModuleBase):
@@ -75,6 +77,8 @@ class Module(ModuleBase):
                         f"next login, remove the file at {plist_path}."
                     ),
                     risk_level=RiskLevel.MODERATE,
+                    kind=ActionKind.MUTATION,
+                    executed=True,
                     success=success,
                     error=error,
                 )

@@ -2,16 +2,15 @@
 profile: home_for_the_holidays
 phase: 1
 title: "The Family Device Checkup"
-automatable_steps: [1, 2, 3]
-human_only_steps: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+automatable_steps: [1]
+human_only_steps: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 estimated_time: "2 hours"
 ---
 
 ## Step 1: Run a full device health check
 
-Run the disk space check and any available malware and update scans to
-get a picture of what state the device is actually in before you touch
-anything.
+Run the profile's disk-space, storage-health, malware-indicator, and update
+checks to understand the device before making changes.
 
 ## Step 2: Clear out old temp files and caches
 

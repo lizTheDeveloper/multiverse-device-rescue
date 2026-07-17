@@ -3,6 +3,7 @@ import subprocess
 
 from rescue.models import (
     Action,
+    ActionKind,
     CheckResult,
     Finding,
     FixResult,
@@ -107,10 +108,12 @@ class Module(ModuleBase):
                 error = str(e)
             actions.append(
                 Action(
-                    title=title,
-                    description=f"Ran `{ps_command}`.",
-                    risk_level=RiskLevel.MODERATE,
-                    success=success,
+                title=title,
+                description=f"Ran `{ps_command}`.",
+                risk_level=RiskLevel.MODERATE,
+                kind=ActionKind.MUTATION,
+                executed=True,
+                success=success,
                     error=error,
                 )
             )

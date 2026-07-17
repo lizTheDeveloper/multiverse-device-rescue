@@ -27,6 +27,11 @@ class Mode(str, Enum):
     CLI = "cli"
 
 
+class ActionKind(str, Enum):
+    GUIDANCE = "guidance"
+    MUTATION = "mutation"
+
+
 @dataclass
 class DiskInfo:
     device: str
@@ -76,6 +81,7 @@ class Finding:
 class CheckResult:
     module_name: str
     findings: list[Finding] = field(default_factory=list)
+    error: str | None = None
 
     @property
     def has_issues(self) -> bool:
@@ -87,6 +93,8 @@ class Action:
     title: str
     description: str
     risk_level: RiskLevel
+    kind: ActionKind = ActionKind.GUIDANCE
+    executed: bool = False
     success: bool = False
     error: str | None = None
     data: dict[str, Any] = field(default_factory=dict)
@@ -100,3 +108,7 @@ class FixResult:
     @property
     def all_succeeded(self) -> bool:
         return all(a.success for a in self.actions)
+
+    @property
+    def applied_actions(self) -> list[Action]:
+        return [action for action in self.actions if action.executed]

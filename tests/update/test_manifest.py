@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from rescue.update.manifest import ManifestError, load_content_manifest
+from rescue.update.manifest import ManifestError, load_content_manifest, validate_content_paths
 
 
 def test_load_content_manifest_parses_fields(tmp_path):
@@ -35,3 +35,9 @@ def test_load_content_manifest_missing_required_key_raises(tmp_path):
     (tmp_path / "manifest.json").write_text(json.dumps({"content_version": "1.0"}))
     with pytest.raises(ManifestError, match="updated_at"):
         load_content_manifest(tmp_path)
+
+
+@pytest.mark.parametrize("path", ["modules/unsafe.py", "../modules/list.json", "other/data.json"])
+def test_validate_content_paths_rejects_unsafe_content(path):
+    with pytest.raises(ManifestError):
+        validate_content_paths([path])

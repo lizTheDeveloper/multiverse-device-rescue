@@ -65,7 +65,7 @@ def test_verify_package_integrity_detects_missing_file(tmp_path):
     assert result.missing == ["profiler/base.py"]
 
 
-def test_verify_package_integrity_reports_added_files_without_failing(tmp_path):
+def test_verify_package_integrity_rejects_added_files(tmp_path):
     pkg = _make_package(tmp_path)
     manifest = compute_package_manifest(pkg)
 
@@ -73,7 +73,7 @@ def test_verify_package_integrity_reports_added_files_without_failing(tmp_path):
 
     result = verify_package_integrity(pkg, manifest)
 
-    assert result.ok  # added-only is not itself a failure, just reported
+    assert not result.ok
     assert result.added == ["new_module.py"]
 
 

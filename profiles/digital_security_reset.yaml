@@ -9,16 +9,16 @@ description: >
   maintenance.
 modules:
   include:
-    - password_manager_check
-    - twofa_audit
-    - session_revocation_scan
+    - malware_scan_indicators
+    - suspicious_processes
+    - remote_login_check
+    - network_connections_monitor
+    - browser_extension_audit
+    - app_permissions
+    - sharing_services
   exclude: []
 module_config:
-  password_manager_check:
-    sensitivity: elevated
-  twofa_audit:
-    sensitivity: elevated
-  session_revocation_scan:
+  malware_scan_indicators:
     sensitivity: elevated
 guides:
   - digital_security_reset

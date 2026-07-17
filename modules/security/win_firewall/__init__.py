@@ -2,6 +2,7 @@ import subprocess
 
 from rescue.models import (
     Action,
+    ActionKind,
     CheckResult,
     Finding,
     FixResult,
@@ -79,10 +80,12 @@ class Module(ModuleBase):
                 error = str(e)
             actions.append(
                 Action(
-                    title=f"Enable {profile_name} firewall",
-                    description=f"Ran `netsh advfirewall set {keyword} state on`.",
-                    risk_level=RiskLevel.MODERATE,
-                    success=success,
+                title=f"Enable {profile_name} firewall",
+                description=f"Ran `netsh advfirewall set {keyword} state on`.",
+                risk_level=RiskLevel.MODERATE,
+                kind=ActionKind.MUTATION,
+                executed=True,
+                success=success,
                     error=error,
                 )
             )

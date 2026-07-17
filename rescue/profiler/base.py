@@ -22,5 +22,6 @@ def gather_profile() -> SystemProfile:
         from rescue.profiler.windows import gather_windows_profile
         return gather_windows_profile()
     elif plat == Platform.LINUX:
-        raise NotImplementedError("Linux profiler not yet implemented")
+        from rescue.profiler.linux import gather_linux_profile
+        return gather_linux_profile()
     raise RuntimeError("Unsupported platform (should not be reached)")

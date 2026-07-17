@@ -12,18 +12,20 @@ from rescue.guides import discover_guides
 from rescue.models import Mode, RiskLevel
 from rescue.orchestrator import Orchestrator
 from rescue.profiler.base import gather_profile
-from rescue.profiles import discover_profiles
+from rescue.profiles import ProfileValidationError, discover_profiles, validate_profile_modules
 from rescue.registry import discover_modules
+from rescue.runtime import bundled_root, content_directory
 from rescue.security.integrity import (
     DEFAULT_INTEGRITY_MANIFEST_PATH,
     IntegrityManifest,
     verify_package_integrity,
 )
-from rescue.security.signers import RevokedSignerStore
+from rescue.security.signers import RevokedSignerStore, TrustConfigurationError
 from rescue.session import SessionStore
 from rescue.tui.app import run_tui
 from rescue.update.config import default_config
 from rescue.update.engine import UpdateEngine
+from rescue.update.manifest import ManifestError
 from rescue.update.repo import GitError
 from rescue.update.sideload import SideloadError, load_sideload_repo
 
@@ -41,9 +43,7 @@ def _project_root() -> Path:
     Outside of a frozen bundle (the normal `pip install`/source-checkout
     case), this is unchanged: two directories above this file.
     """
-    if getattr(sys, "frozen", False):
-        return Path(sys._MEIPASS)
-    return Path(__file__).parent.parent
+    return bundled_root()
 
 
 def _get_modules_dir() -> Path:
@@ -51,11 +51,11 @@ def _get_modules_dir() -> Path:
 
 
 def _get_profiles_dir() -> Path:
-    return _project_root() / "profiles"
+    return content_directory("profiles")
 
 
 def _get_guides_dir() -> Path:
-    return _project_root() / "guides"
+    return content_directory("guides")
 
 
 def _get_session_dir() -> Path:
@@ -68,7 +68,13 @@ def _load_profile_or_exit(profile_name: str):
         click.echo(f"Unknown profile: {profile_name}", err=True)
         click.echo(f"Available: {', '.join(sorted(profiles.keys()))}", err=True)
         raise SystemExit(1)
-    return profiles[profile_name]
+    profile = profiles[profile_name]
+    try:
+        validate_profile_modules(profile, discover_modules(_get_modules_dir()))
+    except ProfileValidationError as exc:
+        click.echo(f"Invalid profile: {exc}", err=True)
+        raise SystemExit(1) from exc
+    return profile
 
 
 @click.group(invoke_without_command=True)
@@ -158,15 +164,31 @@ def run(module_names, yes, copilot):
 
     checked = []
     for mod in selected:
-        check = mod.check(profile)
+        try:
+            check = mod.check(profile)
+        except Exception as exc:
+            check = CheckResult(module_name=mod.name, error=str(exc))
         checked.append((mod, check))
         click.echo(mod.report(check))
+        if check.error:
+            click.echo()
+            continue
         if check.has_issues and (yes or mod.risk_level == RiskLevel.SAFE):
-            fix = mod.fix(check, mode)
+            try:
+                fix = mod.fix(check, mode)
+            except Exception as exc:
+                click.echo(f"Fix unavailable: {exc}", err=True)
+                click.echo()
+                continue
             click.echo(mod.report(check, fix))
         elif check.has_issues and not yes:
             if click.confirm(f"Apply fixes for {mod.name}?"):
-                fix = mod.fix(check, mode)
+                try:
+                    fix = mod.fix(check, mode)
+                except Exception as exc:
+                    click.echo(f"Fix unavailable: {exc}", err=True)
+                    click.echo()
+                    continue
                 click.echo(mod.report(check, fix))
         click.echo()
 
@@ -250,14 +272,18 @@ def _run_auto(profile_name: str | None = None, copilot: bool = False):
     results = orch.run_auto()
 
     total_issues = sum(len(check.findings) for _, check, _ in results)
-    fixed = sum(1 for _, _, fix in results if fix is not None)
+    fixed = sum(
+        len(fix.applied_actions)
+        for _, _, fix in results
+        if fix is not None
+    )
 
     click.echo("=" * 50)
     click.echo("Multiverse Device Rescue — Auto Mode")
     if profile:
         click.echo(f"Profile: {profile.display_name}")
     click.echo("=" * 50)
-    click.echo(f"\nScanned {len(results)} module(s), found {total_issues} issue(s), applied {fixed} fix(es).\n")
+    click.echo(f"\nScanned {len(results)} module(s), found {total_issues} issue(s), applied {fixed} automatic action(s).\n")
 
     for mod, check, fix in results:
         if check.has_issues:
@@ -389,7 +415,7 @@ def update(check, dry_run, yes, sideload_path):
         else:
             engine = UpdateEngine(config)
             engine.refresh()
-    except (GitError, SideloadError) as exc:
+    except (GitError, SideloadError, TrustConfigurationError) as exc:
         click.echo(f"Update failed: {exc}", err=True)
         click.echo("Continuing with existing content.", err=True)
         raise SystemExit(1)
@@ -424,7 +450,11 @@ def update(check, dry_run, yes, sideload_path):
         click.echo("Update cancelled.")
         return
 
-    applied = engine.apply(result, dry_run=False)
+    try:
+        applied = engine.apply(result, dry_run=False)
+    except ManifestError as exc:
+        click.echo(f"Update rejected: {exc}", err=True)
+        raise SystemExit(1) from exc
     click.echo(applied.message)
 
 

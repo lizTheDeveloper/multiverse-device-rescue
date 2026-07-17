@@ -67,40 +67,20 @@ class TestSwapMemoryCheckSwapUsage:
         mod = _get_module()
         profile = _make_profile(ram_bytes=8 * 1024**3)  # 8GB RAM
 
-        # Mock vm_stat and swap to have swap > RAM
-        swap_output = "vm.swapusage: total = 16.0G  used = 10.0G  free = 6.0G  (encrypted)"
-        vm_stat_output = (
-            "Mach Virtual Memory Statistics: (page size of 4096 bytes)\n"
-            "Pages free:                       1000000.\n"
-            "Pages active:                      500000.\n"
-            "Pages inactive:                    300000.\n"
-            "Pages wired down:                  200000.\n"
-            "Pages compressed:                       0.\n"
-            "Pages pageins:                    100000.\n"
-            "Pages pageouts:                   500000.\n"
-        )
-
-        with patch.object(mod, "_parse_swap_usage") as mock_swap:
-            with patch.object(mod, "_parse_vm_stat") as mock_vm:
-                # Manually set up the info dict for critical condition
-                def setup_swap(output, info):
-                    info["swap_total_bytes"] = int(16.0 * 1024 * 1024 * 1024)
-                    info["swap_used_bytes"] = int(10.0 * 1024 * 1024 * 1024)
-
-                def setup_vm(output, info):
-                    info["page_size"] = 4096
-                    info["free_pages"] = 1000000
-                    info["active_pages"] = 500000
-                    info["inactive_pages"] = 300000
-                    info["wired_pages"] = 200000
-                    info["compressed_pages"] = 0
-                    info["page_ins"] = 100000
-                    info["page_outs"] = 500000
-
-                mock_swap.side_effect = setup_swap
-                mock_vm.side_effect = setup_vm
-
-                result = mod.check(profile)
+        memory_info = {
+            "swap_total_bytes": 16 * 1024**3,
+            "swap_used_bytes": 10 * 1024**3,
+            "page_size": 4096,
+            "free_pages": 1_000_000,
+            "active_pages": 500_000,
+            "inactive_pages": 300_000,
+            "wired_pages": 200_000,
+            "compressed_pages": 0,
+            "page_ins": 100_000,
+            "page_outs": 500_000,
+        }
+        with patch.object(mod, "_get_memory_info", return_value=memory_info):
+            result = mod.check(profile)
 
         assert result.has_issues
         critical_finding = next(

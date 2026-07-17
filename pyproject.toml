@@ -27,3 +27,6 @@ asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
 include = ["rescue*"]
+
+[tool.setuptools.package-data]
+rescue = ["security/*.json", "tui/*.tcss"]

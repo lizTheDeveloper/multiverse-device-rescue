@@ -14,9 +14,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from rescue.security.signers import RevokedSignerStore, TrustedSignerSet, load_trusted_signers
+from rescue.security.signers import (
+    RevokedSignerStore,
+    TrustedSignerSet,
+    load_trusted_signers,
+    validate_trusted_signers,
+)
 from rescue.update.config import ContentRepoConfig
-from rescue.update.manifest import ContentManifest, ManifestError
+from rescue.update.manifest import ContentManifest, ManifestError, validate_content_paths
 from rescue.update.repo import CommitInfo, ContentRepo, GitError
 from rescue.update.verify import verify_commit_approval
 
@@ -41,7 +46,10 @@ class UpdateEngine:
     ):
         self.config = config
         self.repo = repo or ContentRepo(config.local_path, config.remote_url)
+        loaded_default_signers = trusted_signers is None
         self.trusted_signers = trusted_signers or load_trusted_signers(config.trusted_signers_path)
+        if loaded_default_signers:
+            validate_trusted_signers(self.trusted_signers, config.required_approvals)
         if revoked_signer_ids is not None:
             self.revoked_signer_ids = revoked_signer_ids
         else:
@@ -113,6 +121,7 @@ class UpdateEngine:
                 message=f"Would update to {target.new_commit[:12]} ({len(target.commits)} commit(s)).",
             )
 
+        self._validate_content_commit(target.new_commit)
         self.repo.checkout(target.new_commit)
         return UpdateResult(
             status="applied",
@@ -133,3 +142,18 @@ class UpdateEngine:
             return ContentManifest.from_json_bytes(data).content_version
         except (GitError, ManifestError):
             return None
+
+    def _validate_content_commit(self, commit_sha: str) -> None:
+        try:
+            manifest = ContentManifest.from_json_bytes(
+                self.repo.read_file_at(commit_sha, "manifest.json")
+            )
+            paths = self.repo.list_files_at(commit_sha)
+        except GitError as exc:
+            raise ManifestError(f"could not inspect content commit {commit_sha}: {exc}") from exc
+
+        if "manifest.json" not in paths:
+            raise ManifestError("content commit is missing manifest.json")
+        validate_content_paths([path for path in paths if path != "manifest.json"])
+        validate_content_paths([f"modules/{path}" for path in manifest.modules])
+        validate_content_paths([f"guides/{path}" for path in manifest.guides])
