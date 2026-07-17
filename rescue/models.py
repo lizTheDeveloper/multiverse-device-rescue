@@ -32,6 +32,21 @@ class ActionKind(str, Enum):
     MUTATION = "mutation"
 
 
+class CheckStatus(str, Enum):
+    """Honest, distinguishable outcomes of a check.
+
+    HEALTHY (ran, nothing wrong), ISSUES (findings), FAILED (the check errored),
+    and UNSUPPORTED (could not run here — e.g. wrong platform or missing
+    permission) must never collapse into one another; in particular an
+    unsupported check must not read as a healthy result.
+    """
+
+    HEALTHY = "healthy"
+    ISSUES = "issues"
+    FAILED = "failed"
+    UNSUPPORTED = "unsupported"
+
+
 @dataclass
 class DiskInfo:
     device: str
@@ -75,6 +90,10 @@ class Finding:
     severity: Severity
     category: str
     data: dict[str, Any] = field(default_factory=dict)
+    # Optional evidence metadata (roadmap P1#1). Left None/empty by modules that
+    # have not been migrated yet, so this stays backward compatible.
+    confidence: float | None = None
+    collected_at: str | None = None
 
 
 @dataclass
@@ -82,10 +101,24 @@ class CheckResult:
     module_name: str
     findings: list[Finding] = field(default_factory=list)
     error: str | None = None
+    # A check that cannot run here reports supported=False rather than an empty
+    # (falsely healthy) result. Backward compatible: defaults keep old behavior.
+    supported: bool = True
+    unsupported_reason: str | None = None
 
     @property
     def has_issues(self) -> bool:
         return len(self.findings) > 0
+
+    @property
+    def status(self) -> "CheckStatus":
+        if self.error:
+            return CheckStatus.FAILED
+        if not self.supported:
+            return CheckStatus.UNSUPPORTED
+        if self.findings:
+            return CheckStatus.ISSUES
+        return CheckStatus.HEALTHY
 
 
 @dataclass

@@ -47,6 +47,10 @@ class ModuleBase(ABC):
         if check.error:
             lines.append(f"Check unavailable: {check.error}")
             return "\n".join(lines)
+        if not check.supported:
+            reason = check.unsupported_reason or "not supported on this system"
+            lines.append(f"Not supported here: {reason}")
+            return "\n".join(lines)
         if not check.has_issues:
             lines.append("No issues found.")
             return "\n".join(lines)
