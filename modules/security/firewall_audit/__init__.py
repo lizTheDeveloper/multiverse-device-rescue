@@ -2,6 +2,7 @@ import subprocess
 
 from rescue.models import (
     Action,
+    ActionKind,
     CheckResult,
     Finding,
     FixResult,
@@ -91,6 +92,8 @@ class Module(ModuleBase):
                     title=label,
                     description=f"Ran `socketfilterfw {flag} on`.",
                     risk_level=RiskLevel.MODERATE,
+                    kind=ActionKind.MUTATION,
+                    executed=True,
                     success=success,
                     error=error,
                 )

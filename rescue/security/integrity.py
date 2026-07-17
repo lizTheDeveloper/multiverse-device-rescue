@@ -76,7 +76,7 @@ def verify_package_integrity(package_root: Path, manifest: IntegrityManifest) ->
     added = sorted(set(current.files) - set(manifest.files))
 
     return IntegrityCheckResult(
-        ok=not tampered and not missing,
+        ok=not tampered and not missing and not added,
         tampered=tampered,
         missing=missing,
         added=added,

@@ -23,7 +23,9 @@ class FindingsScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        if not self.check.has_issues:
+        if self.check.error:
+            yield Static(f"{self.mod.name}: check unavailable — {self.check.error}", id="findings-empty")
+        elif not self.check.has_issues:
             yield Static(f"{self.mod.name}: no issues found.", id="findings-empty")
         else:
             with VerticalScroll(id="findings-list"):

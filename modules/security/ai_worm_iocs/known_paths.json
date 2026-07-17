@@ -1,0 +1,104 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "path": "~/.config/index.js",
+      "threat": "miasma",
+      "type": "payload",
+      "severity": "critical",
+      "platforms": ["darwin", "linux"],
+      "description": "Miasma primary worm payload — Bun script executed via SessionStart hook",
+      "source": "https://socket.dev/blog/when-ai-agents-go-rogue"
+    },
+    {
+      "path": "/tmp/tmp.0144018410.lock",
+      "threat": "miasma",
+      "type": "lock_file",
+      "severity": "critical",
+      "platforms": ["darwin", "linux"],
+      "description": "Miasma execution confirmation marker",
+      "source": "https://socket.dev/blog/when-ai-agents-go-rogue"
+    },
+    {
+      "path": "/tmp/.bun_ran",
+      "threat": "miasma",
+      "type": "lock_file",
+      "severity": "critical",
+      "platforms": ["darwin", "linux"],
+      "description": "Miasma one-run guard file",
+      "source": "https://socket.dev/blog/when-ai-agents-go-rogue"
+    },
+    {
+      "path": "/var/tmp/.gh_update_state",
+      "threat": "miasma",
+      "type": "state_file",
+      "severity": "critical",
+      "platforms": ["darwin", "linux"],
+      "description": "Miasma C2 command deduplication state",
+      "source": "https://socket.dev/blog/when-ai-agents-go-rogue"
+    },
+    {
+      "path": "~/.local/share/updater/update.py",
+      "threat": "miasma",
+      "type": "persistence",
+      "severity": "critical",
+      "platforms": ["linux"],
+      "description": "Miasma GITHUB_MONITOR service script",
+      "source": "https://socket.dev/blog/when-ai-agents-go-rogue"
+    },
+    {
+      "path": "~/.local/bin/gh-token-monitor.sh",
+      "threat": "miasma",
+      "type": "deadman_switch",
+      "severity": "critical",
+      "platforms": ["darwin", "linux"],
+      "description": "Miasma dead-man switch — executes rm -rf ~/ if GitHub PAT returns 4xx",
+      "source": "https://socket.dev/blog/when-ai-agents-go-rogue"
+    },
+    {
+      "path": "~/.config/gh-token-monitor/token",
+      "threat": "miasma",
+      "type": "stolen_credential",
+      "severity": "critical",
+      "platforms": ["darwin", "linux"],
+      "description": "Miasma stolen GitHub PAT storage (mode 600)",
+      "source": "https://socket.dev/blog/when-ai-agents-go-rogue"
+    },
+    {
+      "path": ".github/setup.js",
+      "threat": "miasma",
+      "type": "dropper",
+      "severity": "critical",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "Miasma JavaScript bootstrapper/dropper injected into repos",
+      "source": "https://socket.dev/blog/when-ai-agents-go-rogue"
+    },
+    {
+      "path": ".claude/setup.mjs",
+      "threat": "sandworm_mode",
+      "type": "hook",
+      "severity": "critical",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "Rogue Claude Code SessionStart hook — executes on project open",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    },
+    {
+      "path": ".cursor/rules/setup.mdc",
+      "threat": "sandworm_mode",
+      "type": "hook",
+      "severity": "critical",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "Rogue Cursor rules file loaded on project open",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    },
+    {
+      "path": ".github/workflows/shai-hulud-workflow.yml",
+      "threat": "shai_hulud",
+      "type": "workflow",
+      "severity": "critical",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "Shai Halud malicious GitHub Actions workflow",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    }
+  ]
+}

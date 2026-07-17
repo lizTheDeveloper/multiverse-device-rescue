@@ -1,0 +1,121 @@
+[
+  {
+    "name": "Candy Crush Saga",
+    "publisher_pattern": "king",
+    "app_pattern": "candycrush",
+    "description": "Popular mobile game that often comes pre-installed and consumes disk space and background resources.",
+    "estimated_resource_savings": "500 MB disk space, minimal RAM impact"
+  },
+  {
+    "name": "Bubble Witch 3 Saga",
+    "publisher_pattern": "king",
+    "app_pattern": "bubblewitch",
+    "description": "Mobile game pre-installed on many Windows 10 systems; safe to remove.",
+    "estimated_resource_savings": "300 MB disk space"
+  },
+  {
+    "name": "Farm Heroes Saga",
+    "publisher_pattern": "king",
+    "app_pattern": "farmheroes",
+    "description": "Mobile game pre-installed as bloatware; can be safely uninstalled.",
+    "estimated_resource_savings": "400 MB disk space"
+  },
+  {
+    "name": "Disney Magic Kingdoms",
+    "publisher_pattern": "Disney",
+    "app_pattern": "disney",
+    "description": "Disney game often pre-installed on Windows systems.",
+    "estimated_resource_savings": "600 MB disk space"
+  },
+  {
+    "name": "March of Empires",
+    "publisher_pattern": "Playa Games",
+    "app_pattern": "march",
+    "description": "Strategy game that may be pre-installed as bloatware.",
+    "estimated_resource_savings": "500 MB disk space"
+  },
+  {
+    "name": "Microsoft Solitaire Collection",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "solitaire",
+    "description": "Pre-installed game collection; safe to remove if not used.",
+    "estimated_resource_savings": "300 MB disk space"
+  },
+  {
+    "name": "Windows Mixed Reality Portal",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "mixedreality",
+    "description": "VR-related application not needed for non-VR systems.",
+    "estimated_resource_savings": "2 GB disk space"
+  },
+  {
+    "name": "3D Viewer",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "3dviewer",
+    "description": "3D modeling viewer rarely used on typical systems.",
+    "estimated_resource_savings": "100 MB disk space"
+  },
+  {
+    "name": "People",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "people",
+    "description": "Contacts management app; functionality is available in Outlook.",
+    "estimated_resource_savings": "150 MB disk space"
+  },
+  {
+    "name": "Xbox App",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "xbox",
+    "description": "Xbox gaming platform; unnecessary on non-gaming PCs.",
+    "estimated_resource_savings": "1.5 GB disk space"
+  },
+  {
+    "name": "Skype",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "skype",
+    "description": "Microsoft Skype; web-based version is sufficient for most users.",
+    "estimated_resource_savings": "500 MB disk space"
+  },
+  {
+    "name": "OneNote",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "onenote",
+    "description": "Note-taking app; web version available if not actively used.",
+    "estimated_resource_savings": "800 MB disk space"
+  },
+  {
+    "name": "News",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "news",
+    "description": "News aggregator app rarely used; can be safely removed.",
+    "estimated_resource_savings": "100 MB disk space"
+  },
+  {
+    "name": "Weather",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "weather",
+    "description": "Weather app with minimal use; web alternatives available.",
+    "estimated_resource_savings": "50 MB disk space"
+  },
+  {
+    "name": "Tips",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "tips",
+    "description": "Windows Tips application not essential for system operation.",
+    "estimated_resource_savings": "50 MB disk space"
+  },
+  {
+    "name": "Get Started",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "getstarted",
+    "description": "Windows introduction app; safe to remove after setup.",
+    "estimated_resource_savings": "100 MB disk space"
+  },
+  {
+    "name": "Feedback Hub",
+    "publisher_pattern": "Microsoft",
+    "app_pattern": "feedback",
+    "description": "Windows Feedback Hub for sending system telemetry.",
+    "estimated_resource_savings": "150 MB disk space"
+  }
+]

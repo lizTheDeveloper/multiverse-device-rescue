@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "pattern": "chore: update dependencies [skip ci]",
+      "threat": "shai_hulud",
+      "type": "commit_message",
+      "severity": "warning",
+      "description": "Common commit message used by Shai Halud for malicious commits — also used legitimately by Dependabot, correlate with unsigned author github-actions",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    },
+    {
+      "pattern": "git=node",
+      "threat": "shai_hulud",
+      "type": "npmrc_override",
+      "severity": "critical",
+      "description": "npmrc override that replaces git binary with node, bypassing --ignore-scripts protections",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    }
+  ]
+}

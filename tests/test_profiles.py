@@ -1,8 +1,17 @@
 from pathlib import Path
 
+import pytest
+
 from rescue.models import Platform, RiskLevel
 from rescue.module_base import ModuleBase
-from rescue.profiles import Profile, discover_profiles, filter_modules_by_profile, load_profile
+from rescue.profiles import (
+    Profile,
+    ProfileValidationError,
+    discover_profiles,
+    filter_modules_by_profile,
+    load_profile,
+    validate_profile_modules,
+)
 
 
 PROFILE_YAML = """
@@ -132,3 +141,15 @@ def test_filter_modules_by_profile_no_include_list_keeps_all():
     result = filter_modules_by_profile(modules, profile)
 
     assert len(result) == 3
+
+
+def test_validate_profile_modules_rejects_missing_references():
+    profile = Profile(
+        name="invalid",
+        display_name="Invalid",
+        description="",
+        include_modules=["mod_a", "missing"],
+    )
+
+    with pytest.raises(ProfileValidationError, match="missing"):
+        validate_profile_modules(profile, [ModA()])

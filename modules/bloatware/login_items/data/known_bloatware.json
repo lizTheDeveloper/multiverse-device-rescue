@@ -1,0 +1,37 @@
+[
+  {
+    "name_pattern": "Adobe",
+    "name": "Adobe Creative Cloud",
+    "description": "Adobe Creative Cloud background helper that auto-launches at login and consumes background resources."
+  },
+  {
+    "name_pattern": "Microsoft",
+    "name": "Microsoft AutoUpdate",
+    "description": "Microsoft's auto-update agent for Office apps; safe to run on-demand instead of at every login."
+  },
+  {
+    "name_pattern": "Google Chrome",
+    "name": "Google Chrome",
+    "description": "Google Chrome background helper; can be disabled if you prefer not to have it launch at login."
+  },
+  {
+    "name_pattern": "Spotify",
+    "name": "Spotify",
+    "description": "Spotify background helper that keeps the app ready to launch instantly; disable if you don't need instant startup."
+  },
+  {
+    "name_pattern": "Dropbox",
+    "name": "Dropbox",
+    "description": "Dropbox background sync helper; disable if you prefer to launch it manually."
+  },
+  {
+    "name_pattern": "Java",
+    "name": "Java Update Checker",
+    "description": "Oracle Java auto-update checker; rarely needed unless actively developing with Java."
+  },
+  {
+    "name_pattern": "GoToMeeting",
+    "name": "GoToMeeting",
+    "description": "GoToMeeting background helper that launches at login even when not in a meeting."
+  }
+]

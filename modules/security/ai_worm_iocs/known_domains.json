@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "domain": "webhook.site",
+      "threat": "shai_hulud",
+      "severity": "warning",
+      "description": "Shai Halud exfiltration endpoint — webhook.site is also used legitimately, flag with context",
+      "source": "https://socket.dev/blog/shai-hulud-npm-worm"
+    },
+    {
+      "domain": "cdn.cloudfront-js.com",
+      "threat": "ai_worm_c2",
+      "severity": "critical",
+      "description": "Typosquat CDN domain mimicking AWS CloudFront, used as C2/exfiltration infrastructure by AI worm malware",
+      "source": "internal-threat-intel"
+    }
+  ]
+}

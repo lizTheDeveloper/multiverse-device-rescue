@@ -91,6 +91,18 @@ class CleanModule(ModuleBase):
         return FixResult(module_name=self.name)
 
 
+class BrokenModule(ModuleBase):
+    name = "broken_mod"
+    category = "test"
+    platforms = [Platform.DARWIN]
+
+    def check(self, profile):
+        raise RuntimeError("unavailable")
+
+    def fix(self, findings, mode):
+        raise AssertionError("must not run")
+
+
 FAKE_PROFILE = SystemProfile(
     platform=Platform.DARWIN,
     os_name="macOS",
@@ -180,3 +192,15 @@ def test_run_auto():
     assert ("safe_mod", True) in names_with_fixes
     assert ("destructive_mod", False) in names_with_fixes
     assert ("clean_mod", False) in names_with_fixes
+
+
+def test_run_checks_keeps_running_after_module_error():
+    fake_modules = [BrokenModule(), CleanModule()]
+    with patch("rescue.orchestrator.gather_profile", return_value=FAKE_PROFILE), \
+         patch("rescue.orchestrator.discover_modules", return_value=fake_modules), \
+         patch("rescue.orchestrator.filter_by_platform", return_value=fake_modules), \
+         patch("rescue.orchestrator.topological_sort", return_value=fake_modules):
+        results = Orchestrator(modules_dir=Path("/fake")).run_checks()
+
+    assert results[0][1].error == "unavailable"
+    assert results[1][0].name == "clean_mod"
