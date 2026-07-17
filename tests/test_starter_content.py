@@ -24,6 +24,15 @@ def test_digital_security_reset_profile_fields():
     assert "malware_scan_indicators" in profile.include_modules
 
 
+def test_digital_security_reset_does_not_claim_nonexistent_automation():
+    # The profile once claimed it "Automates password manager, 2FA, and session
+    # checks" while none of those modules were registered (roadmap P0#8/#6).
+    profiles = discover_profiles(PROFILES_DIR)
+    desc = profiles["digital_security_reset"].description.lower()
+    assert "automates password" not in desc
+    assert "human-led" in desc
+
+
 def test_home_for_the_holidays_profile_fields():
     profiles = discover_profiles(PROFILES_DIR)
     profile = profiles["home_for_the_holidays"]

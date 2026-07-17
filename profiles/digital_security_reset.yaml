@@ -2,11 +2,13 @@ name: digital_security_reset
 display_name: "Digital Security Reset"
 description: >
   Post-compromise recovery for someone who has been hacked or suspects
-  their accounts or device have been compromised. Automates password
-  manager, 2FA, and session checks, then guides through the six-phase
-  recovery process: grounding, reality check, immediate protective
-  actions, systematic cleanup, rebuilding security, and mental health
-  maintenance.
+  their accounts or device have been compromised. Runs read-only device
+  checks (malware indicators, suspicious processes, remote logins, network
+  connections, browser extensions, app permissions, sharing services),
+  then guides through the six-phase recovery process: grounding, reality
+  check, immediate protective actions, systematic cleanup, rebuilding
+  security, and mental health maintenance. Account, password-manager, 2FA,
+  and session steps are human-led and covered in the guide, not automated.
 modules:
   include:
     - malware_scan_indicators
