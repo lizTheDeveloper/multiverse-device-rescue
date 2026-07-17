@@ -3,6 +3,7 @@ import subprocess
 
 from rescue.models import (
     Action,
+    ActionKind,
     CheckResult,
     Finding,
     FixResult,
@@ -19,7 +20,7 @@ class Module(ModuleBase):
     name = "win_updates"
     category = "integrity"
     platforms = [Platform.WIN32]
-    risk_level = RiskLevel.SAFE
+    risk_level = RiskLevel.MODERATE
     priority = 55
     depends_on = []
     estimated_duration = "10s"
@@ -80,7 +81,9 @@ class Module(ModuleBase):
                 Action(
                     title="Start Windows Update service",
                     description="Ran `Start-Service -Name wuauserv`.",
-                    risk_level=RiskLevel.SAFE,
+                    risk_level=RiskLevel.MODERATE,
+                    kind=ActionKind.MUTATION,
+                    executed=True,
                     success=success,
                     error=error,
                 )

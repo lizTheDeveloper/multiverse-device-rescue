@@ -18,6 +18,10 @@ class Profile:
     guides: list[str] = field(default_factory=list)
 
 
+class ProfileValidationError(ValueError):
+    pass
+
+
 def load_profile(path: Path) -> Profile:
     with open(path, "r") as f:
         data = yaml.safe_load(f) or {}
@@ -55,3 +59,17 @@ def filter_modules_by_profile(
     if profile.exclude_modules:
         result = [m for m in result if m.name not in profile.exclude_modules]
     return result
+
+
+def validate_profile_modules(profile: Profile, modules: list[ModuleBase]) -> None:
+    available = {module.name for module in modules}
+    referenced = (
+        set(profile.include_modules)
+        | set(profile.exclude_modules)
+        | set(profile.module_config)
+    )
+    missing = sorted(referenced - available)
+    if missing:
+        raise ProfileValidationError(
+            f"Profile '{profile.name}' references unavailable module(s): {', '.join(missing)}"
+        )

@@ -43,6 +43,8 @@ def format_finding_line(finding: Finding) -> str:
 
 def format_module_summary(mod: ModuleBase, check: CheckResult) -> str:
     """One-line summary of a module's check result, for list rows."""
+    if check.error:
+        return f"{mod.name} — [red]check unavailable[/red]"
     if not check.has_issues:
         return f"{mod.name} — no issues found"
     color = "yellow"

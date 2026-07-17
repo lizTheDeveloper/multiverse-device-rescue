@@ -112,7 +112,14 @@ class ContentRepo:
         call this after verify_commit_approval() has approved `ref`."""
         self._run_git(["checkout", "--detach", ref])
         resolved = self._run_git(["rev-parse", ref]).stdout.strip()
-        self._applied_marker_path.write_text(resolved)
+        marker = self._applied_marker_path
+        temp_marker = marker.with_suffix(".tmp")
+        temp_marker.write_text(resolved)
+        os.replace(temp_marker, marker)
+
+    def list_files_at(self, ref: str) -> list[str]:
+        result = self._run_git(["ls-tree", "-r", "--name-only", ref])
+        return [line for line in result.stdout.splitlines() if line]
 
     def read_file_at(self, ref: str, rel_path: str) -> bytes:
         """Reads a file's contents straight out of the git object database

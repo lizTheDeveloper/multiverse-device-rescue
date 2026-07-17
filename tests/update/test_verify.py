@@ -204,17 +204,23 @@ def test_verification_succeeds_without_the_signing_key_in_the_ambient_keyring(
             "Name-Real: Test Maintainer\nName-Email: maintainer@example.com\n"
             "Expire-Date: 0\n%commit\n"
         )
-        subprocess.run(
+        generate_result = subprocess.run(
             ["gpg", "--homedir", signing_gnupghome, "--batch", "--generate-key", str(params_file)],
             capture_output=True, text=True,
         )
+        if generate_result.returncode != 0:
+            pytest.skip(f"GPG key generation is unavailable: {generate_result.stderr.strip()}")
         list_out = subprocess.run(
             ["gpg", "--homedir", signing_gnupghome, "--list-secret-keys", "--keyid-format=long"],
             capture_output=True, text=True,
         ).stdout
-        key_id = next(
-            line for line in list_out.splitlines() if line.strip().startswith("sec")
-        ).split("/")[1].split()[0]
+        secret_key_line = next(
+            (line for line in list_out.splitlines() if line.strip().startswith("sec")),
+            None,
+        )
+        if secret_key_line is None:
+            pytest.skip("GPG did not expose the generated test key")
+        key_id = secret_key_line.split("/")[1].split()[0]
         armored_public_key = subprocess.run(
             ["gpg", "--homedir", signing_gnupghome, "--armor", "--export", key_id],
             capture_output=True, text=True,

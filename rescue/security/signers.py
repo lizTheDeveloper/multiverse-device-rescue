@@ -37,6 +37,10 @@ class TrustedSignerSet:
 DEFAULT_TRUSTED_SIGNERS_PATH = Path(__file__).parent / "trusted_signers.json"
 
 
+class TrustConfigurationError(ValueError):
+    pass
+
+
 def load_trusted_signers(path: Path) -> TrustedSignerSet:
     data = json.loads(path.read_text())
     signers = [
@@ -50,6 +54,28 @@ def load_trusted_signers(path: Path) -> TrustedSignerSet:
         for entry in data["signers"]
     ]
     return TrustedSignerSet(signers=signers)
+
+
+def validate_trusted_signers(signers: TrustedSignerSet, required_approvals: int) -> None:
+    if required_approvals < 1:
+        raise TrustConfigurationError("required approvals must be at least one")
+    if len(signers.signers) < required_approvals:
+        raise TrustConfigurationError(
+            f"configured {len(signers.signers)} trusted signers, but {required_approvals} are required"
+        )
+
+    signer_ids: set[str] = set()
+    key_ids: set[str] = set()
+    for signer in signers.signers:
+        values = (signer.signer_id, signer.key_id, signer.public_key)
+        if not signer.public_key or any(value.startswith("REPLACE_WITH_") for value in values):
+            raise TrustConfigurationError(
+                "trusted signer configuration contains placeholder or missing key material"
+            )
+        if signer.signer_id in signer_ids or signer.key_id in key_ids:
+            raise TrustConfigurationError("trusted signer IDs and key IDs must be unique")
+        signer_ids.add(signer.signer_id)
+        key_ids.add(signer.key_id)
 
 
 class RevokedSignerStore:

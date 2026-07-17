@@ -75,7 +75,7 @@ def test_win_antivirus_status_discovered():
     assert mod.name == "win_antivirus_status"
     assert mod.category == "security"
     assert Platform.WIN32 in mod.platforms
-    assert mod.risk_level == RiskLevel.SAFE
+    assert mod.risk_level == RiskLevel.MODERATE
 
 
 def test_win_antivirus_status_healthy():

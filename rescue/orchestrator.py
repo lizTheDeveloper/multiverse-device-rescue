@@ -1,10 +1,13 @@
 from pathlib import Path
+import logging
 
 from rescue.models import CheckResult, FixResult, Mode, RiskLevel
 from rescue.module_base import ModuleBase
 from rescue.profiler.base import gather_profile
-from rescue.profiles import Profile, filter_modules_by_profile
+from rescue.profiles import Profile, filter_modules_by_profile, validate_profile_modules
 from rescue.registry import discover_modules, filter_by_platform, topological_sort
+
+logger = logging.getLogger(__name__)
 
 
 class Orchestrator:
@@ -15,18 +18,25 @@ class Orchestrator:
     def run_checks(self) -> list[tuple[ModuleBase, CheckResult]]:
         profile = gather_profile()
         modules = discover_modules(self._modules_dir)
-        modules = filter_by_platform(modules, profile.platform)
 
         if self._profile is not None:
+            validate_profile_modules(self._profile, modules)
+            modules = filter_by_platform(modules, profile.platform)
             modules = filter_modules_by_profile(modules, self._profile)
             for mod in modules:
                 mod.configure(self._profile.module_config.get(mod.name, {}))
+        else:
+            modules = filter_by_platform(modules, profile.platform)
 
         modules = topological_sort(modules)
 
         results = []
         for mod in modules:
-            check = mod.check(profile)
+            try:
+                check = mod.check(profile)
+            except Exception as exc:
+                logger.exception("Module check failed: %s", mod.name)
+                check = CheckResult(module_name=mod.name, error=str(exc))
             results.append((mod, check))
         return results
 
@@ -37,11 +47,18 @@ class Orchestrator:
     ) -> list[tuple[ModuleBase, CheckResult, FixResult]]:
         results = []
         for mod, check in check_results:
-            if not check.has_issues:
+            if check.error or not check.has_issues:
                 continue
             if mode == Mode.AUTO and mod.risk_level != RiskLevel.SAFE:
                 continue
-            fix = mod.fix(check, mode)
+            try:
+                fix = mod.fix(check, mode)
+            except Exception as exc:
+                logger.exception("Module fix failed: %s", mod.name)
+                fix = FixResult(
+                    module_name=mod.name,
+                    actions=[],
+                )
             results.append((mod, check, fix))
         return results
 

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from rescue.models import (
+    ActionKind,
     CheckResult,
     FixResult,
     Mode,
@@ -39,6 +40,9 @@ class ModuleBase(ABC):
 
     def report(self, check: CheckResult, fix: FixResult | None = None) -> str:
         lines = [f"=== {self.name} ==="]
+        if check.error:
+            lines.append(f"Check unavailable: {check.error}")
+            return "\n".join(lines)
         if not check.has_issues:
             lines.append("No issues found.")
             return "\n".join(lines)
@@ -48,6 +52,9 @@ class ModuleBase(ABC):
         if fix:
             lines.append(f"\nActions taken: {len(fix.actions)}")
             for a in fix.actions:
-                status = "OK" if a.success else f"FAILED: {a.error}"
+                if a.kind == ActionKind.GUIDANCE:
+                    status = "MANUAL ACTION REQUIRED"
+                else:
+                    status = "OK" if a.success else f"FAILED: {a.error}"
                 lines.append(f"  {a.title}: {status}")
         return "\n".join(lines)

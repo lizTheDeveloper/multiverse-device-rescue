@@ -8,6 +8,9 @@ description: >
 modules:
   include:
     - disk_space
+    - disk_smart_check
+    - malware_scan_indicators
+    - automatic_updates
   exclude: []
 module_config:
   disk_space:

@@ -53,7 +53,7 @@ def test_win_updates_discovered():
     assert mod.name == "win_updates"
     assert mod.category == "integrity"
     assert Platform.WIN32 in mod.platforms
-    assert mod.risk_level == RiskLevel.SAFE
+    assert mod.risk_level == RiskLevel.MODERATE
 
 
 def test_win_updates_healthy_when_service_running():

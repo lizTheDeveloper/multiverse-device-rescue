@@ -15,8 +15,9 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.runtime import content_file
 
-DATA_FILE = Path(__file__).parent / "data" / "known_bloatware.json"
+DATA_FILE = content_file("modules/bloatware/login_items/data/known_bloatware.json")
 
 
 class Module(ModuleBase):

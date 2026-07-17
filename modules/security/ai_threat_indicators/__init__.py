@@ -1,6 +1,7 @@
 import os
 import subprocess
 import re
+import time
 from pathlib import Path
 
 from rescue.models import (
@@ -55,6 +56,10 @@ AI_TOOL_INDICATORS = {
     "llamaindex",
     "llama-index",
 }
+
+MAX_CONFIG_SCAN_SECONDS = 1.0
+MAX_CONFIG_SCAN_FILES = 200
+MAX_CONFIG_SCAN_DEPTH = 2
 
 
 class Module(ModuleBase):
@@ -407,11 +412,7 @@ class Module(ModuleBase):
         """Check ~/.config and ~/.local for AI agent configuration files."""
         findings = []
 
-        config_paths = [
-            Path.home() / ".config",
-            Path.home() / ".local",
-            Path.home() / ".cache",
-        ]
+        config_paths = [Path.home() / ".config", Path.home() / ".local"]
 
         suspicious_patterns = [
             r"ai.?agent",
@@ -422,70 +423,57 @@ class Module(ModuleBase):
             r"anthropic",
         ]
 
-        for config_path in config_paths:
-            if not config_path.exists():
+        deadline = time.monotonic() + MAX_CONFIG_SCAN_SECONDS
+        for item in _bounded_files(config_paths, deadline):
+            filename = item.name.lower()
+            if not any(re.search(pattern, filename) for pattern in suspicious_patterns):
                 continue
-
-            try:
-                # Look for suspicious config files
-                for item in config_path.rglob("*"):
-                    if not item.is_file():
+            if item.suffix in [".log", ".txt", ".md"]:
+                try:
+                    if item.stat().st_size > 10 * 1024 * 1024:
                         continue
-
-                    # Check filename matches suspicious patterns
-                    filename = item.name.lower()
-                    for pattern in suspicious_patterns:
-                        if re.search(pattern, filename):
-                            # Skip common false positives
-                            if item.suffix in [".log", ".txt", ".md"]:
-                                try:
-                                    # Check file size to avoid huge files
-                                    if item.stat().st_size > 10 * 1024 * 1024:  # 10MB
-                                        continue
-
-                                    with open(item, "r", encoding="utf-8", errors="ignore") as f:
-                                        content = f.read(1000)  # Read first 1KB
-                                        # Check if content has AI references
-                                        if any(
-                                            endpoint.lower() in content.lower()
-                                            for endpoint in AI_API_ENDPOINTS
-                                        ):
-                                            findings.append(
-                                                Finding(
-                                                    title=f"AI configuration file detected: {item.name}",
-                                                    description=(
-                                                        f"Found potential AI agent configuration at {item}. "
-                                                        f"Review and remove if unauthorized."
-                                                    ),
-                                                    severity=Severity.WARNING,
-                                                    category=self.category,
-                                                    data={
-                                                        "check": "ai_config_file",
-                                                        "config_path": str(item),
-                                                    },
-                                                )
-                                            )
-                                except (IOError, OSError):
-                                    continue
-                            else:
-                                findings.append(
-                                    Finding(
-                                        title=f"AI agent configuration file detected: {item.name}",
-                                        description=(
-                                            f"Found suspicious configuration file at {item}. "
-                                            f"Review and remove if not authorized."
-                                        ),
-                                        severity=Severity.INFO,
-                                        category=self.category,
-                                        data={
-                                            "check": "ai_config_file",
-                                            "config_path": str(item),
-                                        },
-                                    )
-                                )
-                            break
-            except (IOError, OSError):
-                # Skip directories we can't read
-                continue
+                    with open(item, "r", encoding="utf-8", errors="ignore") as file:
+                        content = file.read(1000).lower()
+                except (IOError, OSError):
+                    continue
+                if not any(endpoint.lower() in content for endpoint in AI_API_ENDPOINTS):
+                    continue
+            findings.append(
+                Finding(
+                    title=f"AI-related configuration file detected: {item.name}",
+                    description=(
+                        f"Found an AI-related configuration at {item}. Review it to confirm "
+                        "that it belongs to software you intentionally installed."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={"check": "ai_config_file", "config_path": str(item)},
+                )
+            )
 
         return findings
+
+
+def _bounded_files(roots: list[Path], deadline: float):
+    seen = 0
+    stack = [(root, 0) for root in roots if root.exists()]
+    while stack and seen < MAX_CONFIG_SCAN_FILES and time.monotonic() < deadline:
+        directory, depth = stack.pop()
+        try:
+            children = list(directory.iterdir())
+        except OSError:
+            continue
+        for child in children:
+            if seen >= MAX_CONFIG_SCAN_FILES or time.monotonic() >= deadline:
+                return
+            try:
+                if child.is_symlink():
+                    continue
+                if child.is_dir():
+                    if depth < MAX_CONFIG_SCAN_DEPTH and child.name not in {".git", "node_modules", "venv"}:
+                        stack.append((child, depth + 1))
+                elif child.is_file():
+                    seen += 1
+                    yield child
+            except OSError:
+                continue

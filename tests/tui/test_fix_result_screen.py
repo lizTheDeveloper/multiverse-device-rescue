@@ -1,7 +1,7 @@
 from textual.app import App
 from textual.widgets import Static
 
-from rescue.models import Action, CheckResult, FixResult, Platform, RiskLevel
+from rescue.models import Action, ActionKind, CheckResult, FixResult, Platform, RiskLevel
 from rescue.module_base import ModuleBase
 from rescue.tui.screens.fix_result import FixResultScreen, format_action_line
 from rescue.tui.screens.guide_placeholder import GuidePlaceholderScreen
@@ -27,6 +27,8 @@ def _make_fix(success: bool):
                 title="Reported disk usage",
                 description="Informational",
                 risk_level=RiskLevel.SAFE,
+                kind=ActionKind.MUTATION,
+                executed=True,
                 success=success,
                 error=None if success else "boom",
             )

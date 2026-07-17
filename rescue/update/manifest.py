@@ -17,12 +17,34 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from pathlib import PurePosixPath
 
 CONTENT_MANIFEST_FILENAME = "manifest.json"
 
 
 class ManifestError(Exception):
     """Raised when manifest.json is missing or malformed."""
+
+
+def validate_content_paths(paths: list[str]) -> None:
+    allowed_suffixes = {".json", ".md", ".toml", ".txt", ".yaml", ".yml"}
+    for raw_path in paths:
+        path = PurePosixPath(raw_path)
+        if (
+            not raw_path
+            or path.is_absolute()
+            or ".." in path.parts
+            or raw_path == CONTENT_MANIFEST_FILENAME
+        ):
+            raise ManifestError(f"invalid content path: {raw_path!r}")
+        if path.parts[0] not in {"modules", "guides", "profiles"}:
+            raise ManifestError(f"content path is outside approved directories: {raw_path}")
+        if path.suffix not in allowed_suffixes:
+            raise ManifestError(f"content path has unsupported file type: {raw_path}")
+        if path.parts[0] == "guides" and path.suffix != ".md":
+            raise ManifestError(f"guide content must be Markdown: {raw_path}")
+        if path.parts[0] == "profiles" and path.suffix not in {".yaml", ".yml"}:
+            raise ManifestError(f"profile content must be YAML: {raw_path}")
 
 
 @dataclass(frozen=True)
