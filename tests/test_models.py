@@ -116,3 +116,8 @@ def test_finding_code_roundtrips():
     f = Finding(title="t", description="d", severity=Severity.CRITICAL,
                 category="security", code="security.ssh_key_audit.world_readable_key")
     assert f.code == "security.ssh_key_audit.world_readable_key"
+
+
+def test_modulebase_emits_codes_defaults_empty():
+    from rescue.module_base import ModuleBase
+    assert ModuleBase.emits_codes == []
