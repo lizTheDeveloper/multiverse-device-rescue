@@ -442,3 +442,10 @@ def test_ssh_key_audit_fix_bad_perms():
     assert len(fix.actions) == 1
     assert fix.all_succeeded
     assert "Fix private key file permissions" in fix.actions[0].title
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.ssh_key_audit.") for c in declared)

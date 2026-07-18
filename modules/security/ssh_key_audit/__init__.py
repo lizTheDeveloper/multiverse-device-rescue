@@ -26,6 +26,21 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.ssh_key_audit.dsa_key_found",
+        "security.ssh_key_audit.weak_rsa_key",
+        "security.ssh_key_audit.ed25519_keys",
+        "security.ssh_key_audit.rsa_keys",
+        "security.ssh_key_audit.bad_ssh_dir_perms",
+        "security.ssh_key_audit.bad_key_perms",
+        "security.ssh_key_audit.authorized_keys",
+        "security.ssh_key_audit.ssh_agent_running",
+        "security.ssh_key_audit.ssh_agent_not_running",
+        "security.ssh_key_audit.permit_root_login",
+        "security.ssh_key_audit.password_auth_enabled",
+        "security.ssh_key_audit.known_hosts",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -207,6 +222,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.ssh_key_audit.dsa_key_found",
                     data={"check": "dsa_key_found", "key_file": key_name},
                 )
             )
@@ -223,6 +239,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.ssh_key_audit.weak_rsa_key",
                     data={"check": "weak_rsa_key", "key_file": key_name, "key_bits": bits},
                 )
             )
@@ -238,6 +255,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.ssh_key_audit.ed25519_keys",
                     data={"check": "ed25519_keys", "keys": ed25519_keys},
                 )
             )
@@ -252,6 +270,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.ssh_key_audit.rsa_keys",
                     data={"check": "rsa_keys", "keys": rsa_keys},
                 )
             )
@@ -300,6 +319,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.ssh_key_audit.bad_ssh_dir_perms",
                         data={"check": "bad_ssh_dir_perms", "current_perms": ssh_perms},
                     )
                 )
@@ -320,6 +340,7 @@ class Module(ModuleBase):
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,
+                                    code="security.ssh_key_audit.bad_key_perms",
                                     data={
                                         "check": "bad_key_perms",
                                         "key_file": key_file.name,
@@ -355,6 +376,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.ssh_key_audit.authorized_keys",
                         data={"check": "authorized_keys", "count": len(lines)},
                     )
                 )
@@ -388,6 +410,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.ssh_key_audit.ssh_agent_running",
                         data={"check": "ssh_agent_running", "key_count": key_count},
                     )
                 )
@@ -400,6 +423,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.ssh_key_audit.ssh_agent_not_running",
                         data={"check": "ssh_agent_not_running"},
                     )
                 )
@@ -447,6 +471,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.ssh_key_audit.permit_root_login",
                         data={"check": "permit_root_login"},
                     )
                 )
@@ -462,6 +487,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.ssh_key_audit.password_auth_enabled",
                         data={"check": "password_auth_enabled"},
                     )
                 )
@@ -493,6 +519,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.ssh_key_audit.known_hosts",
                         data={"check": "known_hosts", "count": len(lines)},
                     )
                 )
