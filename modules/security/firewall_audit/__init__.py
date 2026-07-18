@@ -26,6 +26,11 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.firewall_audit.global_state",
+        "security.firewall_audit.stealth_mode",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -41,6 +46,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.firewall_audit.global_state",
                     data={"check": "global_state"},
                 )
             )
@@ -57,6 +63,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.firewall_audit.stealth_mode",
                     data={"check": "stealth_mode"},
                 )
             )

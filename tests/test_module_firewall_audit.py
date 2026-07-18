@@ -101,3 +101,10 @@ def test_firewall_audit_fix_handles_permission_failure():
         fix = mod.fix(check, Mode.MANUAL)
     assert not fix.all_succeeded
     assert "Operation not permitted" in fix.actions[0].error
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.firewall_audit.") for c in declared)
