@@ -380,6 +380,21 @@ def recommend():
         user_input = click.prompt(">")
 
 
+@main.command("remediation-catalog")
+def remediation_catalog():
+    """Regenerate docs/REMEDIATION_CATALOG.md from modules + walkthroughs."""
+    from rescue.registry import discover_modules
+    from rescue.remediation import (
+        build_catalog, load_remediation_walkthroughs, render_catalog_markdown)
+
+    modules = discover_modules(_get_modules_dir())
+    index = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
+    rows = build_catalog(modules, index)
+    out = _project_root() / "docs" / "REMEDIATION_CATALOG.md"
+    out.write_text(render_catalog_markdown(rows))
+    click.echo(f"Wrote {out} ({len(rows)} codes)")
+
+
 @main.command()
 def explain():
     """Run all diagnostic checks and print an AI plain-language explanation.
