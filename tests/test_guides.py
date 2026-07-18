@@ -97,3 +97,35 @@ def test_discover_guides_sorted_by_phase(tmp_path):
 def test_discover_guides_missing_profile_dir(tmp_path):
     guides = discover_guides(tmp_path, "nonexistent_profile")
     assert guides == []
+
+
+def test_parse_walkthrough_without_profile_or_phase():
+    from rescue.guides import parse_guide_markdown
+    text = (
+        "---\n"
+        "title: \"Reset SSH keys\"\n"
+        "estimated_time: \"15 minutes\"\n"
+        "remediates:\n"
+        "  - security.ssh_key_audit.world_readable_key\n"
+        "automatable_steps: []\n"
+        "human_only_steps: [1]\n"
+        "---\n"
+        "## Step 1: Do the thing\n\nBody text.\n"
+    )
+    g = parse_guide_markdown(text)
+    assert g.profile is None
+    assert g.phase is None
+    assert g.remediates == ["security.ssh_key_audit.world_readable_key"]
+    assert g.steps[0].title == "Do the thing"
+
+
+def test_parse_profile_guide_still_works():
+    from rescue.guides import parse_guide_markdown
+    text = (
+        "---\nprofile: p\nphase: 2\ntitle: t\nestimated_time: \"5 minutes\"\n"
+        "automatable_steps: []\nhuman_only_steps: []\n---\n## Step 1: x\n\nb\n"
+    )
+    g = parse_guide_markdown(text)
+    assert g.profile == "p"
+    assert g.phase == 2
+    assert g.remediates == []

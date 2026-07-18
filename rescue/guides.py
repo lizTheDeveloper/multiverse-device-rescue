@@ -17,13 +17,14 @@ class GuideStep:
 
 @dataclass
 class Guide:
-    profile: str
-    phase: int
+    profile: str | None
+    phase: int | None
     title: str
     estimated_time: str
     steps: list[GuideStep] = field(default_factory=list)
     automatable_steps: list[int] = field(default_factory=list)
     human_only_steps: list[int] = field(default_factory=list)
+    remediates: list[str] = field(default_factory=list)
 
 
 def parse_guide_markdown(text: str) -> Guide:
@@ -44,13 +45,14 @@ def parse_guide_markdown(text: str) -> Guide:
     ]
 
     return Guide(
-        profile=meta["profile"],
-        phase=meta["phase"],
+        profile=meta.get("profile"),
+        phase=meta.get("phase"),
         title=meta.get("title", ""),
         estimated_time=meta.get("estimated_time", ""),
         steps=steps,
         automatable_steps=automatable_steps,
         human_only_steps=human_only_steps,
+        remediates=list(meta.get("remediates", []) or []),
     )
 
 
