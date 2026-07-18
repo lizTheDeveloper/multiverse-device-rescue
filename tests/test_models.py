@@ -103,3 +103,16 @@ def test_disk_info_ssd_default():
         filesystem="apfs",
     )
     assert disk.is_ssd is None
+
+
+def test_finding_code_defaults_to_none():
+    from rescue.models import Finding, Severity
+    f = Finding(title="t", description="d", severity=Severity.WARNING, category="security")
+    assert f.code is None
+
+
+def test_finding_code_roundtrips():
+    from rescue.models import Finding, Severity
+    f = Finding(title="t", description="d", severity=Severity.CRITICAL,
+                category="security", code="security.ssh_key_audit.world_readable_key")
+    assert f.code == "security.ssh_key_audit.world_readable_key"

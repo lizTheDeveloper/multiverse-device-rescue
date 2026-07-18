@@ -94,6 +94,9 @@ class Finding:
     # have not been migrated yet, so this stays backward compatible.
     confidence: float | None = None
     collected_at: str | None = None
+    # Stable finding-type code linking this finding to a remediation
+    # walkthrough. Scheme: "<category>.<module>.<slug>". None = no walkthrough.
+    code: str | None = None
 
 
 @dataclass
