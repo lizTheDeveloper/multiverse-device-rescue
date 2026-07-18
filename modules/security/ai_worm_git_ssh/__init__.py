@@ -80,6 +80,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.ai_worm_git_ssh.git_hookspath_hijack",
+        "security.ai_worm_git_ssh.git_templatedir_hijack",
+        "security.ai_worm_git_ssh.npmrc_git_override",
+        "security.ai_worm_git_ssh.rogue_mcp_server",
+        "security.ai_worm_git_ssh.repo_hook_file",
+        "security.ai_worm_git_ssh.ssh_authorized_keys_recent",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         findings.extend(self._check_git_global_config())
@@ -96,6 +105,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.ai_worm_git_ssh.npmrc_git_override",
                     data={
                         "check": "npmrc_git_override",
                         "confidence": "high",
@@ -116,6 +126,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.ai_worm_git_ssh.rogue_mcp_server",
                     data={
                         "check": "rogue_mcp_server",
                         "confidence": "high",
@@ -226,6 +237,7 @@ class Module(ModuleBase):
                     ),
                     severity=severity,
                     category=self.category,
+                    code="security.ai_worm_git_ssh.git_hookspath_hijack",
                     data={
                         "check": "git_hookspath_hijack",
                         "confidence": confidence,
@@ -254,6 +266,7 @@ class Module(ModuleBase):
                     ),
                     severity=severity,
                     category=self.category,
+                    code="security.ai_worm_git_ssh.git_templatedir_hijack",
                     data={
                         "check": "git_templatedir_hijack",
                         "confidence": confidence,
@@ -406,6 +419,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL if ioc else Severity.WARNING,
                         category=self.category,
+                        code="security.ai_worm_git_ssh.repo_hook_file",
                         data={
                             "check": "repo_hook_file",
                             "confidence": confidence,
@@ -441,6 +455,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.ai_worm_git_ssh.repo_hook_file",
                         data={
                             "check": "repo_hook_file",
                             "confidence": "medium",
@@ -487,6 +502,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.ai_worm_git_ssh.ssh_authorized_keys_recent",
                     data={
                         "check": "ssh_authorized_keys_recent",
                         "confidence": "low",
