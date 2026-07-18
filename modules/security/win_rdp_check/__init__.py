@@ -23,6 +23,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_rdp_check.rdp_enabled_no_nla",
+        "security.win_rdp_check.rdp_enabled_with_nla",
+        "security.win_rdp_check.rdp_disabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -46,6 +52,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_rdp_check.rdp_enabled_no_nla",
                         data={
                             "rdp_enabled": True,
                             "nla_enabled": False,
@@ -67,6 +74,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_rdp_check.rdp_enabled_with_nla",
                         data={
                             "rdp_enabled": True,
                             "nla_enabled": True,
@@ -85,6 +93,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_rdp_check.rdp_disabled",
                     data={
                         "rdp_enabled": False,
                         "nla_enabled": nla_enabled,

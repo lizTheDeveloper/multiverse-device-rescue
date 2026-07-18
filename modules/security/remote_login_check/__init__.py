@@ -23,6 +23,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.remote_login_check.ssh_enabled",
+        "security.remote_login_check.screen_sharing_enabled",
+        "security.remote_login_check.remote_management_enabled",
+        "security.remote_login_check.remote_apple_events_enabled",
+        "security.remote_login_check.all_disabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -38,6 +46,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.remote_login_check.ssh_enabled",
                     data={"service": "ssh"},
                 )
             )
@@ -54,6 +63,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.remote_login_check.screen_sharing_enabled",
                     data={"service": "screen_sharing"},
                 )
             )
@@ -70,6 +80,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.remote_login_check.remote_management_enabled",
                     data={"service": "remote_management"},
                 )
             )
@@ -86,6 +97,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.remote_login_check.remote_apple_events_enabled",
                     data={"service": "remote_apple_events"},
                 )
             )
@@ -101,6 +113,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.remote_login_check.all_disabled",
                     data={"secure": True},
                 )
             )
