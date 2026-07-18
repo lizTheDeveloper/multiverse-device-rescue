@@ -75,3 +75,19 @@ def test_missing_field_and_dup_id_errors():
         [_threat(summary="")], PROFILES, ALL_CODES, ALL_MODULES))
     errs = validate_threat_map([_threat(id="dup"), _threat(id="dup")], PROFILES, ALL_CODES, ALL_MODULES)
     assert any("duplicate id" in e for e in errs)
+
+
+def test_render_markdown_all_run_variants_and_links():
+    from rescue.threat_map import render_threat_markdown
+    threats = [
+        _threat(id="worm", title="AI worm", run=RunTarget(profile="ai_worm_response"),
+                codes=["security.ai_worm_persistence.known_malicious_launchagent"]),
+        _threat(id="ssh", title="SSH keys", run=RunTarget(modules=["ssh_key_audit"])),
+        _threat(id="all", title="General", run=RunTarget(full=True)),
+    ]
+    md = render_threat_markdown(threats, PROFILES)
+    assert '<a id="worm"></a>' in md and '<a id="ssh"></a>' in md and '<a id="all"></a>' in md
+    assert "`rescue --profile ai_worm_response`" in md
+    assert "`rescue run ssh_key_audit`" in md
+    assert "`rescue`" in md  # full scan
+    assert "[Sec](https://x)" in md  # curriculum link uses section as label
