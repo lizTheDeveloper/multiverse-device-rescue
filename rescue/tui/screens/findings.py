@@ -8,6 +8,7 @@ from textual.widgets import Button, Footer, Header, Static
 
 from rescue.models import CheckResult, RiskLevel
 from rescue.module_base import ModuleBase
+from rescue.remediation import walkthrough_for
 from rescue.tui.formatting import format_finding_line
 
 
@@ -29,8 +30,15 @@ class FindingsScreen(Screen):
             yield Static(f"{self.mod.name}: no issues found.", id="findings-empty")
         else:
             with VerticalScroll(id="findings-list"):
-                for finding in self.check.findings:
+                self._wt_by_button: dict[str, object] = {}
+                for i, finding in enumerate(self.check.findings):
                     yield Static(format_finding_line(finding), classes="finding-row")
+                    guide = walkthrough_for(
+                        getattr(self.app, "remediation_index", {}), finding.code)
+                    if guide is not None:
+                        bid = f"wt-{i}"
+                        self._wt_by_button[bid] = guide
+                        yield Button("Walkthrough", id=bid)
             yield Button(
                 f"Apply Fixes ({self.mod.risk_level.value})",
                 id="apply-fixes",
@@ -41,6 +49,9 @@ class FindingsScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "apply-fixes":
             self.run_worker(self.start_fix_flow())
+        elif event.button.id in getattr(self, "_wt_by_button", {}):
+            from rescue.tui.screens.walkthrough import WalkthroughScreen
+            self.app.push_screen(WalkthroughScreen(self._wt_by_button[event.button.id]))
 
     async def start_fix_flow(self) -> None:
         from rescue.tui.screens.confirm import ConfirmScreen
