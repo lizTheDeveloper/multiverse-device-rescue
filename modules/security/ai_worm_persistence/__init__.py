@@ -100,6 +100,17 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.ai_worm_persistence.deadman_switch_launchagent",
+        "security.ai_worm_persistence.known_malicious_launchagent",
+        "security.ai_worm_persistence.deadman_switch_systemd_unit",
+        "security.ai_worm_persistence.malicious_systemd_unit",
+        "security.ai_worm_persistence.heuristic_persistence_artifact",
+        "security.ai_worm_persistence.scheduled_task_persistence",
+        "security.ai_worm_persistence.shell_profile_injection",
+        "security.ai_worm_persistence.sessionstart_hook",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings: list[Finding] = []
 
@@ -234,11 +245,19 @@ class Module(ModuleBase):
                 "Disable it before removing any other persistence."
             )
 
+        if is_deadman:
+            code = "security.ai_worm_persistence.deadman_switch_launchagent"
+        elif confidence == "high":
+            code = "security.ai_worm_persistence.known_malicious_launchagent"
+        else:
+            code = "security.ai_worm_persistence.heuristic_persistence_artifact"
+
         return Finding(
             title=title,
             description=description,
             severity=severity,
             category=self.category,
+            code=code,
             data={
                 "check": "malicious_launchagent",
                 "confidence": confidence,
@@ -346,11 +365,19 @@ class Module(ModuleBase):
                 "removing any other persistence."
             )
 
+        if is_deadman:
+            code = "security.ai_worm_persistence.deadman_switch_systemd_unit"
+        elif confidence == "high":
+            code = "security.ai_worm_persistence.malicious_systemd_unit"
+        else:
+            code = "security.ai_worm_persistence.heuristic_persistence_artifact"
+
         return Finding(
             title=title,
             description=description,
             severity=severity,
             category=self.category,
+            code=code,
             data={
                 "check": "malicious_systemd_unit",
                 "confidence": confidence,
@@ -418,6 +445,7 @@ class Module(ModuleBase):
             ),
             severity=severity,
             category=self.category,
+            code="security.ai_worm_persistence.scheduled_task_persistence",
             data={
                 "check": "scheduled_task_persistence",
                 "confidence": confidence,
@@ -477,6 +505,7 @@ class Module(ModuleBase):
             ),
             severity=severity,
             category=self.category,
+            code="security.ai_worm_persistence.shell_profile_injection",
             data={
                 "check": "shell_profile_injection",
                 "confidence": confidence,
@@ -571,6 +600,7 @@ class Module(ModuleBase):
             ),
             severity=severity,
             category=self.category,
+            code="security.ai_worm_persistence.sessionstart_hook",
             data={
                 "check": "sessionstart_hook",
                 "confidence": confidence,
