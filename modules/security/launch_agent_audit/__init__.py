@@ -25,6 +25,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.launch_agent_audit.too_many_agents",
+        "security.launch_agent_audit.agent_info",
+        "security.launch_agent_audit.suspicious_path",
+        "security.launch_agent_audit.missing_program",
+        "security.launch_agent_audit.obfuscated_name",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -50,6 +58,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.launch_agent_audit.too_many_agents",
                     data={"check": "too_many_agents"},
                 )
             )
@@ -63,6 +72,7 @@ class Module(ModuleBase):
                     description=f"Program path: {program_path}",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.launch_agent_audit.agent_info",
                     data={
                         "check": "agent_info",
                         "label": label,
@@ -253,6 +263,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.launch_agent_audit.suspicious_path",
                     data={
                         "check": "suspicious_path",
                         "label": label,
@@ -275,6 +286,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.launch_agent_audit.suspicious_path",
                             data={
                                 "check": "suspicious_path",
                                 "label": label,
@@ -299,6 +311,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.launch_agent_audit.obfuscated_name",
                     data={
                         "check": "obfuscated_name",
                         "label": label,
@@ -321,6 +334,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.launch_agent_audit.missing_program",
                         data={
                             "check": "missing_program",
                             "label": label,

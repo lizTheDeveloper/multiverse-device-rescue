@@ -477,3 +477,10 @@ def test_launchd_persistence_audit_handles_subprocess_error():
     assert isinstance(result.findings, list)
     # No items should be extracted due to error
     assert not result.has_issues
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.launchd_persistence_audit.") for c in declared)

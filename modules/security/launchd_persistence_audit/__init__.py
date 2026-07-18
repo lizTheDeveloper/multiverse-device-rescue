@@ -24,6 +24,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.launchd_persistence_audit.known_malware",
+        "security.launchd_persistence_audit.suspicious_path",
+        "security.launchd_persistence_audit.keepalive_runatload",
+        "security.launchd_persistence_audit.non_apple_info",
+    ]
+
     # Known malware label prefixes
     KNOWN_MALWARE_LABELS = [
         "com.pcv",
@@ -57,6 +64,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.launchd_persistence_audit.known_malware",
                         data={
                             "check": "known_malware",
                             "label": label,
@@ -78,6 +86,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.launchd_persistence_audit.suspicious_path",
                         data={
                             "check": "suspicious_path",
                             "label": label,
@@ -103,6 +112,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.launchd_persistence_audit.keepalive_runatload",
                         data={
                             "check": "keepalive_runatload",
                             "label": label,
@@ -123,6 +133,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.launchd_persistence_audit.non_apple_info",
                         data={
                             "check": "non_apple_info",
                             "label": label,
