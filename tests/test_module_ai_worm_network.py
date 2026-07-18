@@ -213,3 +213,12 @@ def test_subprocess_timeout_handled():
         with patch.object(Path, "exists", return_value=False):
             result = mod.check(_make_profile())
     assert not result.has_issues
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(
+        c.startswith("security.ai_worm_network.") for c in declared
+    )

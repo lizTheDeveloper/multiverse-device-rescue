@@ -55,6 +55,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.ai_worm_network.known_malicious_connection",
+        "security.ai_worm_network.stepsecurity_bypass",
+        "security.ai_worm_network.beaconing_detected",
+        "security.ai_worm_network.token_harvesting_subprocess",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings: list[Finding] = []
 
@@ -76,6 +83,7 @@ class Module(ModuleBase):
                     ),
                     severity=severity,
                     category=self.category,
+                    code="security.ai_worm_network.known_malicious_connection",
                     data={
                         "check": "known_malicious_connection",
                         "confidence": confidence,
@@ -99,6 +107,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.ai_worm_network.stepsecurity_bypass",
                     data={
                         "check": "stepsecurity_bypass",
                         "confidence": "high",
@@ -119,6 +128,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.ai_worm_network.beaconing_detected",
                     data={
                         "check": "beaconing_detected",
                         "confidence": "medium",
@@ -141,6 +151,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.ai_worm_network.token_harvesting_subprocess",
                     data={
                         "check": "token_harvesting_subprocess",
                         "confidence": "high",
