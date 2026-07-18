@@ -1,5 +1,5 @@
 """Fix result screen — shows what actions were taken and whether they
-succeeded, plus a hook into the (future) guide/walkthrough system."""
+succeeded, with a link to the relevant remediation walkthrough when available."""
 
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll

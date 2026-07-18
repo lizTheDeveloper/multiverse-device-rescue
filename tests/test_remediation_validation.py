@@ -3,7 +3,6 @@ from pathlib import Path
 from rescue.cli import _get_guides_dir, _get_modules_dir
 from rescue.guides import load_guide
 from rescue.registry import discover_modules
-from rescue.remediation import load_remediation_walkthroughs
 
 REM_DIR = _get_guides_dir() / "remediation"
 
