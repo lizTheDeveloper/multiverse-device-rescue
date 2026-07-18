@@ -47,6 +47,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "1-10m (depends on backup size)"
 
+    emits_codes = [
+        "security.mvt_spyware_scan.mvt_requires_wsl",
+        "security.mvt_spyware_scan.no_backups_found",
+        "security.mvt_spyware_scan.mvt_not_installed",
+        "security.mvt_spyware_scan.mvt_spyware_detected",
+        "security.mvt_spyware_scan.mvt_clean_scan",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings: list[Finding] = []
 
@@ -63,6 +71,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.mvt_spyware_scan.mvt_requires_wsl",
                     data={
                         "check": "mvt_requires_wsl",
                         "confidence": "high",
@@ -84,6 +93,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.mvt_spyware_scan.no_backups_found",
                     data={"check": "no_backups_found", "confidence": "high"},
                 )
             )
@@ -103,6 +113,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.mvt_spyware_scan.mvt_not_installed",
                     data={
                         "check": "mvt_not_installed",
                         "confidence": "high",
@@ -132,6 +143,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.mvt_spyware_scan.mvt_spyware_detected",
                         data={
                             "check": "mvt_spyware_detected",
                             "confidence": "high",
@@ -153,6 +165,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.mvt_spyware_scan.mvt_clean_scan",
                     data={"check": "mvt_clean_scan", "confidence": "high", "backups_scanned": len(backups)},
                 )
             )

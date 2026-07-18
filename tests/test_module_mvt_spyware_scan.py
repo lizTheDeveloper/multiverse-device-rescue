@@ -151,3 +151,12 @@ def test_windows_reports_wsl_requirement():
         f for f in result.findings if f.data.get("check") == "mvt_requires_wsl"
     ]
     assert len(wsl_findings) > 0
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(
+        c.startswith("security.mvt_spyware_scan.") for c in declared
+    )
