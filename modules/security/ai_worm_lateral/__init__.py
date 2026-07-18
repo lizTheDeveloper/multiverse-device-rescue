@@ -77,6 +77,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.ai_worm_lateral.credential_harvesting",
+        "security.ai_worm_lateral.supply_chain_artifact",
+        "security.ai_worm_lateral.imds_access",
+        "security.ai_worm_lateral.npm_publish_credentials",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings: list[Finding] = []
 
@@ -97,6 +104,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.ai_worm_lateral.credential_harvesting",
                     data={
                         "check": "credential_harvesting",
                         "confidence": "high" if hit.get("ioc_match") else "medium",
@@ -123,6 +131,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.ai_worm_lateral.supply_chain_artifact",
                     data={
                         "check": "supply_chain_artifact",
                         "confidence": "high",
@@ -150,6 +159,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.ai_worm_lateral.imds_access",
                     data={
                         "check": "imds_access",
                         "confidence": "medium",
@@ -173,6 +183,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.ai_worm_lateral.npm_publish_credentials",
                     data={
                         "check": "npm_publish_credentials",
                         "confidence": "low",
