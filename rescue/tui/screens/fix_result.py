@@ -40,14 +40,18 @@ class FixResultScreen(Screen):
                 yield Static("Some actions failed.", id="fix-result-summary")
             for action in self.fix.actions:
                 yield Static(format_action_line(action), classes="action-row")
-        yield Button("View Guide (coming soon)", id="view-guide")
+        from rescue.tui.screens._pick import highest_severity_walkthrough
+        self._wt = highest_severity_walkthrough(
+            getattr(self.app, "remediation_index", {}), self.check)
+        if self._wt is not None:
+            yield Button("View Walkthrough", id="view-guide")
         yield Button("Back to Categories", id="back-to-categories", variant="primary")
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "view-guide":
-            from rescue.tui.screens.guide_placeholder import GuidePlaceholderScreen
+            from rescue.tui.screens.walkthrough import WalkthroughScreen
 
-            self.app.push_screen(GuidePlaceholderScreen(self.mod))
+            self.app.push_screen(WalkthroughScreen(self._wt))
         elif event.button.id == "back-to-categories":
             self.app.pop_screen_to_categories()

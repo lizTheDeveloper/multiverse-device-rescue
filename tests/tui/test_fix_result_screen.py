@@ -4,7 +4,6 @@ from textual.widgets import Static
 from rescue.models import Action, ActionKind, CheckResult, FixResult, Platform, RiskLevel
 from rescue.module_base import ModuleBase
 from rescue.tui.screens.fix_result import FixResultScreen, format_action_line
-from rescue.tui.screens.guide_placeholder import GuidePlaceholderScreen
 
 
 class SomeModule(ModuleBase):
@@ -66,13 +65,11 @@ class FixResultHostApp(App):
         self.popped_to_categories = True
 
 
-async def test_view_guide_button_pushes_placeholder_screen():
+async def test_view_guide_button_absent_when_no_walkthrough():
     app = FixResultHostApp(SomeModule(), CheckResult(module_name="disk_space"), _make_fix(True))
     async with app.run_test() as pilot:
         await pilot.pause()
-        await pilot.click("#view-guide")
-        await pilot.pause()
-        assert isinstance(app.screen, GuidePlaceholderScreen)
+        assert "view-guide" not in [b.id for b in app.screen.query("Button")]
 
 
 async def test_back_to_categories_button_calls_app_hook():
