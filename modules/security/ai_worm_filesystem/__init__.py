@@ -68,6 +68,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.ai_worm_filesystem.known_payload_path",
+        "security.ai_worm_filesystem.known_hash_match",
+        "security.ai_worm_filesystem.obfuscated_script",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         findings.extend(self._check_known_payload_paths(profile))
@@ -159,6 +165,7 @@ class Module(ModuleBase):
                             description=entry.description,
                             severity=Severity.CRITICAL,
                             category=self.category,
+                            code="security.ai_worm_filesystem.known_payload_path",
                             data={
                                 "check": "known_payload_path",
                                 "confidence": "high",
@@ -201,6 +208,7 @@ class Module(ModuleBase):
                                 description=h.description,
                                 severity=Severity.CRITICAL,
                                 category=self.category,
+                                code="security.ai_worm_filesystem.known_hash_match",
                                 data={
                                     "check": "known_hash_match",
                                     "confidence": "high",
@@ -228,6 +236,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.ai_worm_filesystem.obfuscated_script",
                     data={
                         "check": "obfuscated_script",
                         "confidence": "medium",
