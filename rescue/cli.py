@@ -92,7 +92,7 @@ def main(ctx, auto, profile_name, copilot):
     if auto:
         _run_auto(profile_name, copilot=copilot)
     elif ctx.invoked_subcommand is None:
-        run_tui(_get_modules_dir())
+        run_tui(_get_modules_dir(), _get_guides_dir())
 
 
 def _run_startup_integrity_check() -> None:

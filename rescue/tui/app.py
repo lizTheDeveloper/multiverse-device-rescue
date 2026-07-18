@@ -7,6 +7,7 @@ from textual.app import App
 from rescue.models import CheckResult
 from rescue.module_base import ModuleBase
 from rescue.orchestrator import Orchestrator
+from rescue.remediation import load_remediation_walkthroughs
 from rescue.tui.screens.categories import CategoryMenuScreen
 from rescue.tui.screens.loading import LoadingScreen
 
@@ -20,10 +21,15 @@ class RescueApp(App):
     TITLE = "Multiverse Device Rescue"
     BINDINGS = [("q", "quit", "Quit")]
 
-    def __init__(self, modules_dir: Path):
+    def __init__(self, modules_dir: Path, guides_dir: Path | None = None):
         super().__init__()
         self.modules_dir = modules_dir
         self.orchestrator = Orchestrator(modules_dir=modules_dir)
+        self.remediation_index = (
+            load_remediation_walkthroughs(guides_dir / "remediation")
+            if guides_dir is not None
+            else {}
+        )
 
     def on_mount(self) -> None:
         self.push_screen(LoadingScreen(self.orchestrator))
@@ -40,6 +46,6 @@ class RescueApp(App):
             self.pop_screen()
 
 
-def run_tui(modules_dir: Path) -> None:
-    app = RescueApp(modules_dir=modules_dir)
+def run_tui(modules_dir: Path, guides_dir: Path | None = None) -> None:
+    app = RescueApp(modules_dir=modules_dir, guides_dir=guides_dir)
     app.run()
