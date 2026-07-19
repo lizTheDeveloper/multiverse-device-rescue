@@ -23,6 +23,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_user_accounts.guest_account_enabled",
+        "security.win_user_accounts.auto_login_enabled",
+        "security.win_user_accounts.no_min_password_length",
+        "security.win_user_accounts.multiple_admin_accounts",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -52,6 +59,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_user_accounts.guest_account_enabled",
                         data={"check": "guest_enabled"},
                     )
                 )
@@ -72,6 +80,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_user_accounts.auto_login_enabled",
                         data={"check": "auto_login"},
                     )
                 )
@@ -91,6 +100,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_user_accounts.no_min_password_length",
                         data={"check": "password_policy"},
                     )
                 )
@@ -109,6 +119,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_user_accounts.multiple_admin_accounts",
                     data={"check": "admin_accounts", "users": admin_users},
                 )
             )
