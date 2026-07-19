@@ -23,6 +23,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.siri_privacy.siri_enabled",
+        "security.siri_privacy.hey_siri",
+        "security.siri_privacy.siri_suggestions",
+        "security.siri_privacy.siri_analytics",
+        "security.siri_privacy.lockscreen_siri",
+        "security.siri_privacy.siri_config_status",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         """Check Siri privacy settings on macOS.
 
@@ -44,6 +53,7 @@ class Module(ModuleBase):
                     description="Siri voice assistant is enabled on this device.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.siri_privacy.siri_enabled",
                     data={"check": "siri_enabled"},
                 )
             )
@@ -57,6 +67,7 @@ class Module(ModuleBase):
                     description="'Hey Siri' always-on listening is enabled.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.siri_privacy.hey_siri",
                     data={"check": "hey_siri"},
                 )
             )
@@ -72,6 +83,7 @@ class Module(ModuleBase):
                     description="Siri Suggestions in Spotlight and other features are enabled.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.siri_privacy.siri_suggestions",
                     data={"check": "siri_suggestions"},
                 )
             )
@@ -87,6 +99,7 @@ class Module(ModuleBase):
                     description="Siri sends analytics and usage data to Apple.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.siri_privacy.siri_analytics",
                     data={"check": "siri_analytics"},
                 )
             )
@@ -105,6 +118,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.siri_privacy.lockscreen_siri",
                     data={"check": "lockscreen_siri"},
                 )
             )
@@ -117,6 +131,7 @@ class Module(ModuleBase):
                     description="Siri privacy settings are not currently enabled or accessible.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.siri_privacy.siri_config_status",
                     data={"check": "siri_config_status"},
                 )
             )

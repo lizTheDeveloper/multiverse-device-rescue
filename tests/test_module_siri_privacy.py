@@ -240,3 +240,10 @@ def test_siri_privacy_lockscreen_finding_details():
     assert len(warning_findings) == 1
     finding = warning_findings[0]
     assert "bypass" in finding.description.lower() or "security" in finding.description.lower()
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.siri_privacy.") for c in declared)
