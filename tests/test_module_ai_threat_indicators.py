@@ -318,3 +318,10 @@ def test_ai_threat_indicators_subprocess_error():
 
     # OSError should not crash, just return no findings
     assert not result.has_issues
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.ai_threat_indicators.") for c in declared)

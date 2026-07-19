@@ -71,6 +71,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.ai_threat_indicators.ai_api_connection",
+        "security.ai_threat_indicators.ai_api_key_found",
+        "security.ai_threat_indicators.cron_ai_call",
+        "security.ai_threat_indicators.launchagent_ai",
+        "security.ai_threat_indicators.python_node_ai_process",
+        "security.ai_threat_indicators.ai_config_file",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -200,6 +209,7 @@ class Module(ModuleBase):
                                 ),
                                 severity=Severity.CRITICAL,
                                 category=self.category,
+                                code="security.ai_threat_indicators.ai_api_connection",
                                 data={
                                     "check": "ai_api_connection",
                                     "process": process,
@@ -226,6 +236,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.ai_threat_indicators.ai_api_key_found",
                         data={
                             "check": "ai_api_key_found",
                             "key_name": key_name,
@@ -266,6 +277,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.ai_threat_indicators.cron_ai_call",
                         data={
                             "check": "cron_ai_call",
                             "cron_entry": line[:200],
@@ -326,6 +338,7 @@ class Module(ModuleBase):
                                         ),
                                         severity=Severity.WARNING,
                                         category=self.category,
+                                        code="security.ai_threat_indicators.launchagent_ai",
                                         data={
                                             "check": "launchagent_ai",
                                             "plist_path": str(plist_file),
@@ -345,6 +358,7 @@ class Module(ModuleBase):
                                         ),
                                         severity=Severity.WARNING,
                                         category=self.category,
+                                        code="security.ai_threat_indicators.launchagent_ai",
                                         data={
                                             "check": "launchagent_ai",
                                             "plist_path": str(plist_file),
@@ -397,6 +411,7 @@ class Module(ModuleBase):
                                     ),
                                     severity=Severity.INFO,
                                     category=self.category,
+                                    code="security.ai_threat_indicators.python_node_ai_process",
                                     data={
                                         "check": "python_node_ai_process",
                                         "process": process_cmd,
@@ -447,6 +462,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.ai_threat_indicators.ai_config_file",
                     data={"check": "ai_config_file", "config_path": str(item)},
                 )
             )
