@@ -23,6 +23,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_bitlocker_check.os_drive_not_encrypted",
+        "security.win_bitlocker_check.encryption_suspended",
+        "security.win_bitlocker_check.no_recovery_key",
+        "security.win_bitlocker_check.fixed_drive_not_encrypted",
+        "security.win_bitlocker_check.status_info",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         output = self._run_manage_bde_status()
@@ -61,6 +69,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_bitlocker_check.os_drive_not_encrypted",
                         data={
                             "mount_point": mount_point,
                             "status": status,
@@ -82,6 +91,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_bitlocker_check.encryption_suspended",
                         data={
                             "mount_point": mount_point,
                             "status": status,
@@ -105,6 +115,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_bitlocker_check.no_recovery_key",
                         data={
                             "mount_point": mount_point,
                             "key_protectors": key_protectors,
@@ -123,6 +134,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_bitlocker_check.fixed_drive_not_encrypted",
                         data={
                             "mount_point": mount_point,
                             "status": status,
@@ -143,6 +155,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.win_bitlocker_check.status_info",
                         data={
                             "mount_point": mount_point,
                             "status": status,
