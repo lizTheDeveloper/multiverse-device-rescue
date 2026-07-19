@@ -177,3 +177,10 @@ def test_system_extensions_fix_is_informational():
     assert fix.all_succeeded
     # Should have actions for each finding
     assert len(fix.actions) == len(check.findings)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.system_extensions.") for c in declared)

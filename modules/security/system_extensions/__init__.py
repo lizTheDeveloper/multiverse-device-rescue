@@ -24,6 +24,11 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.system_extensions.unusual_state",
+        "security.system_extensions.active_extension",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -54,6 +59,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.system_extensions.unusual_state",
                         data={
                             "check": "unusual_state",
                             "team_id": team_id,
@@ -79,6 +85,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.system_extensions.active_extension",
                         data={
                             "check": "active_extension",
                             "team_id": team_id,
