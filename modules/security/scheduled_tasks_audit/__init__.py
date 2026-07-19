@@ -24,6 +24,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.scheduled_tasks_audit.suspicious_launch_agent",
+        "security.scheduled_tasks_audit.disabled_launch_agent",
+        "security.scheduled_tasks_audit.launch_agent_info",
+        "security.scheduled_tasks_audit.excessive_user_agents",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -56,6 +63,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.scheduled_tasks_audit.excessive_user_agents",
                     data={
                         "check": "excessive_user_agents",
                         "count": user_agent_count,
@@ -193,6 +201,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.INFO,
                             category=self.category,
+                            code="security.scheduled_tasks_audit.disabled_launch_agent",
                             data={
                                 "check": "disabled_launch_agent",
                                 "label": label,
@@ -215,6 +224,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.scheduled_tasks_audit.suspicious_launch_agent",
                             data={
                                 "check": "suspicious_launch_agent",
                                 "label": label,
@@ -238,6 +248,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.INFO,
                             category=self.category,
+                            code="security.scheduled_tasks_audit.launch_agent_info",
                             data={
                                 "check": "launch_agent_info",
                                 "label": label,

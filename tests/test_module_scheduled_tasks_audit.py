@@ -263,6 +263,13 @@ def test_scheduled_tasks_audit_fix_excessive_agents():
     assert any("reduce" in a.title.lower() or "excessive" in a.title.lower() for a in fix.actions)
 
 
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.scheduled_tasks_audit.") for c in declared)
+
+
 def mock_finding(check_type: str, label: str = "", reason: str = "", extra_data: dict = None):
     """Helper to create mock findings."""
     from rescue.models import Finding
