@@ -4,19 +4,20 @@ nothing is written to session/SessionState."""
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Footer, Header, Markdown
 
 from rescue.guides import Guide
 
 
-def _render_walkthrough(guide: Guide) -> str:
-    lines = [f"[b]{guide.title}[/b]"]
+def _walkthrough_markdown(guide: Guide) -> str:
+    lines = [f"# {guide.title}"]
     if guide.estimated_time:
-        lines.append(f"[dim]Estimated time: {guide.estimated_time}[/dim]")
+        lines.append(f"*Estimated time: {guide.estimated_time}*")
     lines.append("")
     for step in guide.steps:
-        marker = " [cyan](automatable)[/cyan]" if step.automatable else ""
-        lines.append(f"[b]Step {step.number}: {step.title}[/b]{marker}")
+        marker = " _(automatable)_" if step.automatable else ""
+        lines.append(f"## Step {step.number}: {step.title}{marker}")
+        lines.append("")
         lines.append(step.body)
         lines.append("")
     return "\n".join(lines)
@@ -34,5 +35,5 @@ class WalkthroughScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header()
         with VerticalScroll(id="walkthrough-list"):
-            yield Static(_render_walkthrough(self.guide), id="walkthrough-body")
+            yield Markdown(_walkthrough_markdown(self.guide), id="walkthrough-body")
         yield Footer()
