@@ -23,6 +23,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.vpn_config.no_vpn",
+        "security.vpn_config.pptp_detected",
+        "security.vpn_config.vpn_list",
+        "security.vpn_config.third_party_vpns",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -41,6 +48,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.vpn_config.no_vpn",
                     data={"check": "no_vpn"},
                 )
             )
@@ -70,6 +78,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.vpn_config.pptp_detected",
                             data={
                                 "check": "pptp_detected",
                                 "vpn_name": vpn_name,
@@ -91,6 +100,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.vpn_config.vpn_list",
                     data={
                         "check": "vpn_list",
                         "vpn_count": len(vpn_configs),
@@ -112,6 +122,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.vpn_config.third_party_vpns",
                     data={
                         "check": "third_party_vpns",
                         "app_count": len(third_party_vpns),
