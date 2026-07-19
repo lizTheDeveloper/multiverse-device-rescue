@@ -23,6 +23,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.login_window_settings.auto_login",
+        "security.login_window_settings.show_user_list",
+        "security.login_window_settings.password_hints",
+        "security.login_window_settings.login_settings_info",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -50,6 +57,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.login_window_settings.auto_login",
                     data={"check": "auto_login"},
                 )
             )
@@ -79,6 +87,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.login_window_settings.show_user_list",
                     data={"check": "show_user_list"},
                 )
             )
@@ -109,6 +118,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.login_window_settings.password_hints",
                             data={"check": "password_hints"},
                         )
                     )
@@ -142,6 +152,7 @@ class Module(ModuleBase):
                     description="\n".join(settings_info),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.login_window_settings.login_settings_info",
                     data={"check": "login_settings_info"},
                 )
             )

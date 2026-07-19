@@ -197,3 +197,10 @@ def test_login_window_settings_fix_is_informational():
     assert fix.all_succeeded
     # Should have at least one action per finding
     assert len(fix.actions) >= len(check.findings)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.login_window_settings.") for c in declared)
