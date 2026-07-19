@@ -1,0 +1,117 @@
+threats:
+  - id: ai-worm-supply-chain
+    title: "AI worm / malicious package supply-chain compromise"
+    summary: >
+      Self-propagating worms (Shai-Hulud, Miasma) spread via npm/git/SSH and
+      AI-agent tooling, planting persistence and command-and-control.
+    run:
+      profile: ai_worm_response
+    codes:
+      - "security.ai_worm_persistence.*"
+      - "security.ai_worm_filesystem.*"
+      - "security.ai_worm_git_ssh.*"
+      - "security.ai_worm_lateral.*"
+    curriculum_url: "https://themultiverse.school/x/agentic-ai-security-cases"
+    curriculum_section: "Criminal Tooling & AI-Written Malware"
+
+  - id: mobile-spyware
+    title: "Mobile spyware on a phone backup (Pegasus-class)"
+    summary: >
+      Commercial and nation-state spyware (Pegasus, Predator) hides in device
+      backups; MVT (Mobile Verification Toolkit) scans backups for known
+      indicators of compromise.
+    run:
+      profile: ai_worm_response
+    codes:
+      - "security.mvt_spyware_scan.*"
+    curriculum_url: "https://themultiverse.school/x/agentic-ai-security-cases"
+    curriculum_section: "Mobile Spyware & Surveillanceware"
+
+  - id: credential-ssh-compromise
+    title: "SSH key / credential compromise"
+    summary: >
+      Weak, overly permissive, or stolen SSH keys let an attacker impersonate
+      a user, push malicious commits, or pivot to other systems.
+    run:
+      modules: [ssh_key_audit]
+    codes:
+      - "security.ssh_key_audit.*"
+    curriculum_url: "https://themultiverse.school/x/agentic-ai-security-cases"
+    curriculum_section: "Credential Theft & SSH Key Hygiene"
+
+  - id: unwanted-remote-access
+    title: "Unwanted remote access (SSH / Screen Sharing / RDP)"
+    summary: >
+      Remote-login services left enabled — macOS Remote Login/Screen Sharing
+      or Windows RDP without Network Level Authentication — give attackers a
+      direct path onto the device.
+    run:
+      modules: [remote_login_check, win_rdp_check]
+    codes:
+      - "security.remote_login_check.*"
+      - "security.win_rdp_check.*"
+    curriculum_url: "https://themultiverse.school/x/agentic-ai-security-cases"
+    curriculum_section: "Unwanted Remote Access Services"
+
+  - id: launch-persistence-malware
+    title: "Malicious launch-time persistence (LaunchAgents/LaunchDaemons)"
+    summary: >
+      Malware and worms re-establish themselves after reboot via
+      LaunchAgents/LaunchDaemons — known-malware labels, suspicious paths, or
+      an unusually large number of agents.
+    run:
+      modules: [launchd_persistence_audit, launch_agent_audit]
+    codes:
+      - "security.launchd_persistence_audit.*"
+      - "security.launch_agent_audit.*"
+    curriculum_url: "https://themultiverse.school/x/agentic-ai-security-cases"
+    curriculum_section: "Persistence Mechanisms"
+
+  - id: network-c2-beaconing
+    title: "Command-and-control network beaconing"
+    summary: >
+      Compromised hosts phone home to attacker infrastructure — known
+      malicious connections, beaconing patterns, or token-harvesting
+      subprocesses.
+    run:
+      profile: ai_worm_response
+    codes:
+      - "security.ai_worm_network.*"
+    curriculum_url: "https://themultiverse.school/x/agentic-ai-security-cases"
+    curriculum_section: "Network Command-and-Control"
+
+  - id: weak-firewall-exposure
+    title: "Weak or disabled firewall exposure"
+    summary: >
+      A disabled firewall or one running without stealth mode leaves the
+      device open to unsolicited inbound connections and network scanning.
+    run:
+      modules: [firewall_audit]
+    codes:
+      - "security.firewall_audit.*"
+    curriculum_url: "https://themultiverse.school/x/agentic-ai-security-cases"
+    curriculum_section: "Firewall & Network Exposure"
+
+  - id: general-device-compromise
+    title: "General device compromise (unknown or mixed indicators)"
+    summary: >
+      When the specific threat isn't yet known, run a full scan across every
+      module to surface persistence, network, credential, and configuration
+      indicators together.
+    run:
+      full: true
+    codes:
+      - "security.ai_worm_persistence.*"
+      - "security.ai_worm_filesystem.*"
+      - "security.ai_worm_git_ssh.*"
+      - "security.ai_worm_network.*"
+      - "security.ai_worm_lateral.*"
+      - "security.mvt_spyware_scan.*"
+      - "security.ssh_key_audit.*"
+      - "security.firewall_audit.*"
+      - "security.remote_login_check.*"
+      - "security.win_rdp_check.*"
+      - "security.launchd_persistence_audit.*"
+      - "security.launch_agent_audit.*"
+    curriculum_url: "https://themultiverse.school/x/agentic-ai-security-cases"
+    curriculum_section: "General Device Compromise Triage"

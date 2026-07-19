@@ -395,6 +395,33 @@ def remediation_catalog():
     click.echo(f"Wrote {out} ({len(rows)} codes)")
 
 
+@main.command("threat-remediation")
+def threat_remediation():
+    """Regenerate docs/THREAT_REMEDIATION.md from the threat map."""
+    from rescue.profiles import discover_profiles
+    from rescue.registry import discover_modules
+    from rescue.threat_map import (
+        load_threat_map, render_threat_markdown, validate_threat_map)
+
+    mods = discover_modules(_get_modules_dir())
+    all_modules = {m.name for m in mods}
+    all_codes = set()
+    for m in mods:
+        all_codes |= set(getattr(m, "emits_codes", []))
+    profs = discover_profiles(_get_profiles_dir())
+    profiles = {n: ((set(p.include_modules) or all_modules) - set(p.exclude_modules))
+                for n, p in profs.items()}
+    threats = load_threat_map(_project_root() / "docs" / "threat_remediation_map.yaml")
+    errors = validate_threat_map(threats, profiles, all_codes, all_modules)
+    if errors:
+        for e in errors:
+            click.echo("ERROR: " + e, err=True)
+        raise SystemExit(1)
+    out = _project_root() / "docs" / "THREAT_REMEDIATION.md"
+    out.write_text(render_threat_markdown(threats, profiles))
+    click.echo(f"Wrote {out} ({len(threats)} threats)")
+
+
 @main.command()
 def explain():
     """Run all diagnostic checks and print an AI plain-language explanation.

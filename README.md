@@ -30,3 +30,9 @@ needed at runtime.
 
 See `docs/ROADMAP.md` for reliability, security, and capability work in
 progress.
+
+## Threat coverage
+
+`docs/THREAT_REMEDIATION.md` maps common threats (AI worms, mobile spyware,
+credential compromise, unwanted remote access, …) to the exact `rescue` command
+that checks and remediates them. Regenerate it with `rescue threat-remediation`.
