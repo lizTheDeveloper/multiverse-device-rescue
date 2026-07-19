@@ -23,6 +23,11 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.sip_gatekeeper.sip_status",
+        "security.sip_gatekeeper.gatekeeper_status",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -39,6 +44,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sip_gatekeeper.sip_status",
                     data={"check": "sip_status"},
                 )
             )
@@ -56,6 +62,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sip_gatekeeper.gatekeeper_status",
                     data={"check": "gatekeeper_status"},
                 )
             )

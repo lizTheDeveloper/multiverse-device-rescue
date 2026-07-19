@@ -177,3 +177,10 @@ def test_sip_gatekeeper_spctl_error():
         result = mod.check(_make_profile())
         # Should handle error gracefully
         assert isinstance(result.findings, list)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.sip_gatekeeper.") for c in declared)
