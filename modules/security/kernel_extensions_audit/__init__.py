@@ -24,6 +24,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.kernel_extensions_audit.kext_retrieval_failed",
+        "security.kernel_extensions_audit.problematic_kexts",
+        "security.kernel_extensions_audit.third_party_kexts",
+    ]
+
     # Known problematic kexts that cause issues
     KNOWN_PROBLEMATIC_KEXTS = {
         "com.kaspersky": "Kaspersky antivirus (legacy)",
@@ -64,6 +70,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.kernel_extensions_audit.kext_retrieval_failed",
                     data={"check": "kext_retrieval_failed"},
                 )
             )
@@ -108,6 +115,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.kernel_extensions_audit.problematic_kexts",
                     data={
                         "check": "problematic_kexts",
                         "kexts": [bid for bid, _, _ in problematic_kexts],
@@ -139,6 +147,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.kernel_extensions_audit.third_party_kexts",
                         data={
                             "check": "third_party_kexts",
                             "kexts": non_problematic,

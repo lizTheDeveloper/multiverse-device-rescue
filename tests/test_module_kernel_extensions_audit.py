@@ -228,3 +228,10 @@ def test_kernel_extensions_audit_fix_problematic_has_guidance():
     # Should mention update or remove
     description = action.description.lower()
     assert "update" in description or "remove" in description or "uninstall" in description
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.kernel_extensions_audit.") for c in declared)
