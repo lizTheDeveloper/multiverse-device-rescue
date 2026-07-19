@@ -23,6 +23,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_firewall_rules_audit.default_inbound_allow",
+        "security.win_firewall_rules_audit.rule_allows_all_programs",
+        "security.win_firewall_rules_audit.rule_allows_all_ports",
+        "security.win_firewall_rules_audit.excessive_rules",
+        "security.win_firewall_rules_audit.summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -43,6 +51,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_firewall_rules_audit.default_inbound_allow",
                         data={
                             "profile_name": profile_name,
                             "setting_type": "default_inbound_action",
@@ -77,6 +86,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_firewall_rules_audit.rule_allows_all_programs",
                         data={
                             "rule_name": rule_name,
                             "issue_type": "allow_all_programs",
@@ -99,6 +109,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.win_firewall_rules_audit.rule_allows_all_ports",
                             data={
                                 "rule_name": rule_name,
                                 "issue_type": "allow_all_ports",
@@ -119,6 +130,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_firewall_rules_audit.excessive_rules",
                     data={
                         "rule_count": total_enabled_rules,
                         "issue_type": "excessive_rules",
@@ -139,6 +151,7 @@ class Module(ModuleBase):
                 description=f"{profile_summary}\n\n{rule_summary}",
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.win_firewall_rules_audit.summary",
                 data={
                     "firewall_profiles": profiles,
                     "total_rules": total_enabled_rules,

@@ -248,3 +248,10 @@ def test_fix_is_informational():
     for action in fix.actions:
         assert action.risk_level == RiskLevel.SAFE
         assert action.success is True
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_firewall_rules_audit.") for c in declared)
