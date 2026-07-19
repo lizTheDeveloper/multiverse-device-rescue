@@ -229,3 +229,10 @@ def test_win_bitlocker_fix_no_recovery_key():
     assert fix.all_succeeded
     # Should have an action to add recovery key
     assert any("recovery key" in a.title.lower() for a in fix.actions)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_bitlocker.") for c in declared)
