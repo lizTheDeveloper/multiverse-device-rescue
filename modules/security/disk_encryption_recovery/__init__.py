@@ -23,6 +23,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.disk_encryption_recovery.fv_disabled",
+        "security.disk_encryption_recovery.recovery_key_unknown",
+        "security.disk_encryption_recovery.no_recovery_key",
+        "security.disk_encryption_recovery.institutional_key_only",
+        "security.disk_encryption_recovery.users_not_all_enabled",
+        "security.disk_encryption_recovery.disk_encryption_status",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -41,6 +50,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.disk_encryption_recovery.fv_disabled",
                     data={"check": "fv_disabled", "fdesetup_output": fv_status.strip()},
                 )
             )
@@ -63,6 +73,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.disk_encryption_recovery.recovery_key_unknown",
                     data={
                         "check": "recovery_key_unknown",
                         "personal": has_personal_key,
@@ -82,6 +93,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.disk_encryption_recovery.no_recovery_key",
                     data={
                         "check": "no_recovery_key",
                         "personal": has_personal_key,
@@ -102,6 +114,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.disk_encryption_recovery.institutional_key_only",
                     data={
                         "check": "institutional_key_only",
                         "personal": has_personal_key,
@@ -135,6 +148,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.disk_encryption_recovery.users_not_all_enabled",
                         data={
                             "check": "users_not_all_enabled",
                             "enabled_users": sorted(enabled_set),
@@ -155,6 +169,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.disk_encryption_recovery.disk_encryption_status",
                 data={
                     "check": "disk_encryption_status",
                     "fv_enabled": True,
