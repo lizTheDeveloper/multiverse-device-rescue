@@ -331,3 +331,10 @@ def test_command_failures():
 
     # Should not crash, just handle gracefully
     assert isinstance(result.findings, list)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.rootkit_check.") for c in declared)

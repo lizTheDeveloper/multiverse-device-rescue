@@ -23,6 +23,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.rootkit_check.sip_disabled",
+        "security.rootkit_check.binary_integrity",
+        "security.rootkit_check.kernel_extensions",
+        "security.rootkit_check.hidden_processes",
+        "security.rootkit_check.hidden_files",
+        "security.rootkit_check.all_clean",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -39,6 +48,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.rootkit_check.sip_disabled",
                     data={"check": "sip_status"},
                 )
             )
@@ -75,6 +85,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.rootkit_check.all_clean",
                     data={"check": "all_clean"},
                 )
             )
@@ -228,6 +239,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.CRITICAL,
                             category=self.category,
+                            code="security.rootkit_check.binary_integrity",
                             data={"check": "binary_integrity", "binary": binary},
                         )
                     )
@@ -292,6 +304,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.rootkit_check.kernel_extensions",
                         data={"check": "kernel_extensions", "count": len(non_apple_kexts)},
                     )
                 )
@@ -344,6 +357,7 @@ class Module(ModuleBase):
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,
+                                    code="security.rootkit_check.hidden_processes",
                                     data={
                                         "check": "hidden_processes",
                                         "ps_count": ps_count,
@@ -411,6 +425,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.rootkit_check.hidden_files",
                             data={"check": "hidden_files", "files": hidden_items},
                         )
                     )
