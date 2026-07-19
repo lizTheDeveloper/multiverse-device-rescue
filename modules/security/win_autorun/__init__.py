@@ -23,6 +23,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_autorun.autorun_enabled",
+        "security.win_autorun.autorun_disabled_full",
+        "security.win_autorun.autorun_partial",
+        "security.win_autorun.autoplay_enabled",
+        "security.win_autorun.autoplay_disabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -59,6 +67,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_autorun.autorun_enabled",
                     data={"policy_value": autorun_policy},
                 )
             )
@@ -74,6 +83,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_autorun.autorun_disabled_full",
                     data={"policy_value": autorun_policy},
                 )
             )
@@ -89,6 +99,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_autorun.autorun_partial",
                     data={"policy_value": autorun_policy},
                 )
             )
@@ -111,6 +122,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_autorun.autoplay_enabled",
                     data={"autoplay_disabled": autoplay_disabled},
                 )
             )
@@ -125,6 +137,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_autorun.autoplay_disabled",
                     data={"autoplay_disabled": autoplay_disabled},
                 )
             )

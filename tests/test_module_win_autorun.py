@@ -209,3 +209,10 @@ def test_win_autorun_fix_autoplay_only():
     assert len(fix.actions) == 1
     assert "AutoPlay" in fix.actions[0].title
     assert fix.all_succeeded
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_autorun.") for c in declared)
