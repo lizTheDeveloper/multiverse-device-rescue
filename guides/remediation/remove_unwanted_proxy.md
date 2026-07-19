@@ -7,7 +7,7 @@ remediates:
   - security.network_proxy.proxy_enabled
   - security.network_proxy.no_proxies
 automatable_steps: []
-human_only_steps: [1, 2]
+human_only_steps: [1, 2, 3]
 ---
 
 This walkthrough covers everything the `network_proxy` module can flag: a
