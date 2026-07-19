@@ -231,3 +231,10 @@ def test_antivirus_status_fix_no_warnings():
     # Should succeed and have no actions (all findings are INFO)
     assert fix.all_succeeded
     assert len(fix.actions) == 0
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.antivirus_status.") for c in declared)

@@ -39,6 +39,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.antivirus_status.xprotect_remediator",
+        "security.antivirus_status.mrt",
+        "security.antivirus_status.third_party_av",
+        "security.antivirus_status.av_not_running",
+        "security.antivirus_status.no_third_party_av",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -54,6 +62,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.antivirus_status.xprotect_remediator",
                 data={"check": "xprotect_remediator", "version": xprotect_remediator_version},
             )
         )
@@ -70,6 +79,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.antivirus_status.mrt",
                 data={"check": "mrt", "version": mrt_version},
             )
         )
@@ -87,6 +97,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.antivirus_status.third_party_av",
                     data={"check": "third_party_av", "applications": list(detected_av.keys())},
                 )
             )
@@ -105,6 +116,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.antivirus_status.av_not_running",
                             data={"check": "av_not_running", "av_name": av_name},
                         )
                     )
@@ -118,6 +130,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.antivirus_status.no_third_party_av",
                     data={"check": "no_third_party_av"},
                 )
             )
