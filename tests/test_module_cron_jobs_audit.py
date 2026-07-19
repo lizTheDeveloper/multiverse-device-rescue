@@ -308,3 +308,10 @@ def test_cron_jobs_audit_eval_obfuscation():
     assert result.has_issues
     obfuscation_findings = [f for f in result.findings if f.data.get("check") == "obfuscated_command"]
     assert len(obfuscation_findings) == 1
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.cron_jobs_audit.") for c in declared)

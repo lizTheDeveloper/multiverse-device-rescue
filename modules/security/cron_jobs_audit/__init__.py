@@ -25,6 +25,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.cron_jobs_audit.cron_entries_found",
+        "security.cron_jobs_audit.rce_in_cron",
+        "security.cron_jobs_audit.suspicious_path",
+        "security.cron_jobs_audit.every_minute",
+        "security.cron_jobs_audit.obfuscated_command",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -63,6 +71,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.cron_jobs_audit.cron_entries_found",
                     data={"check": "cron_entries_found", "count": len(cron_entries), "entries": cron_entries},
                 )
             )
@@ -321,6 +330,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.cron_jobs_audit.rce_in_cron",
                     data={"check": "rce_in_cron", "count": len(rce_entries), "entries": rce_entries},
                 )
             )
@@ -335,6 +345,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.cron_jobs_audit.suspicious_path",
                     data={"check": "suspicious_path", "count": len(suspicious_path_entries), "entries": suspicious_path_entries},
                 )
             )
@@ -349,6 +360,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.cron_jobs_audit.every_minute",
                     data={"check": "every_minute", "count": len(every_minute_entries), "entries": every_minute_entries},
                 )
             )
@@ -363,6 +375,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.cron_jobs_audit.obfuscated_command",
                     data={"check": "obfuscated_command", "count": len(obfuscated_entries), "entries": obfuscated_entries},
                 )
             )
