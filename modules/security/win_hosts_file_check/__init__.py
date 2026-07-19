@@ -66,6 +66,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_hosts_file_check.blocked_security_domains",
+        "security.win_hosts_file_check.redirected_legitimate",
+        "security.win_hosts_file_check.large_file_size",
+        "security.win_hosts_file_check.file_permissions",
+        "security.win_hosts_file_check.entry_count_summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -91,6 +99,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_hosts_file_check.blocked_security_domains",
                     data={"blocked_domains": blocked_security, "check": "blocked_security_domains"},
                 )
             )
@@ -108,6 +117,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_hosts_file_check.redirected_legitimate",
                     data={"redirected_domains": redirected_legit, "check": "redirected_legitimate"},
                 )
             )
@@ -124,6 +134,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_hosts_file_check.large_file_size",
                     data={"file_size": file_size, "check": "large_file_size"},
                 )
             )
@@ -140,6 +151,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_hosts_file_check.file_permissions",
                     data={"permission_issue": perm_issue, "check": "file_permissions"},
                 )
             )
@@ -155,6 +167,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_hosts_file_check.entry_count_summary",
                     data={"entry_count": len(entries), "check": "entry_count_summary"},
                 )
             )

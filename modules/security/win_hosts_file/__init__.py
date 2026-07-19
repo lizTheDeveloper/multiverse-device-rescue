@@ -43,6 +43,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.win_hosts_file.security_domain_redirect",
+        "security.win_hosts_file.excessive_entries",
+        "security.win_hosts_file.entries_summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         hosts_content = self._read_hosts_file()
@@ -67,6 +73,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_hosts_file.security_domain_redirect",
                     data={"redirects": critical_redirects},
                 )
             )
@@ -83,6 +90,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_hosts_file.excessive_entries",
                     data={"entry_count": len(entries)},
                 )
             )
@@ -99,6 +107,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_hosts_file.entries_summary",
                     data={
                         "entry_count": len(entries),
                         "custom_entries": custom_entries[:10],  # Limit to first 10 for display
