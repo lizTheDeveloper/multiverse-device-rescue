@@ -181,3 +181,10 @@ def test_firmware_password_fix_apple_silicon():
         fix = mod.fix(check, Mode.MANUAL)
     # fix() should always succeed with informational messages
     assert fix.all_succeeded
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.firmware_password.") for c in declared)

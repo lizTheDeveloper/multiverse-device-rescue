@@ -23,6 +23,17 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "2s"
 
+    emits_codes = [
+        "security.firmware_password.chip_type_detection_failed",
+        "security.firmware_password.chip_type",
+        "security.firmware_password.firmware_password_set",
+        "security.firmware_password.firmware_password_not_set",
+        "security.firmware_password.firmware_password_unknown",
+        "security.firmware_password.firmware_password_permission_denied",
+        "security.firmware_password.firmware_password_unavailable",
+        "security.firmware_password.startup_security_info",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -39,6 +50,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.firmware_password.chip_type_detection_failed",
                     data={"check": "chip_type_detection"},
                 )
             )
@@ -51,6 +63,7 @@ class Module(ModuleBase):
                 description=f"This Mac uses {chip_type} processor.",
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.firmware_password.chip_type",
                 data={"check": "chip_type", "chip_type": chip_type},
             )
         )
@@ -191,6 +204,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.firmware_password.firmware_password_set",
                         data={"check": "firmware_password_set"},
                     )
                 )
@@ -208,6 +222,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.firmware_password.firmware_password_not_set",
                         data={"check": "firmware_password_not_set"},
                     )
                 )
@@ -222,6 +237,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.firmware_password.firmware_password_unknown",
                         data={"check": "firmware_password_unknown"},
                     )
                 )
@@ -236,6 +252,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.firmware_password.firmware_password_permission_denied",
                     data={"check": "firmware_password_permission_denied"},
                 )
             )
@@ -249,6 +266,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.firmware_password.firmware_password_unavailable",
                     data={"check": "firmware_password_unavailable"},
                 )
             )
@@ -272,6 +290,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.firmware_password.startup_security_info",
                 data={"check": "startup_security_info"},
             )
         )
