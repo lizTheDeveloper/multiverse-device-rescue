@@ -25,6 +25,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.browser_extension_audit.malicious_extension",
+        "security.browser_extension_audit.adware_extension",
+        "security.browser_extension_audit.excessive_permissions",
+        "security.browser_extension_audit.extension_bloat",
+        "security.browser_extension_audit.installed_extensions",
+    ]
+
     # Known malicious extensions (flag as CRITICAL)
     MALICIOUS_EXTENSIONS = {
         "superfish",
@@ -88,6 +96,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.CRITICAL,
                             category=self.category,
+                            code="security.browser_extension_audit.malicious_extension",
                             data={
                                 "check": "malicious_extension",
                                 "browser": browser,
@@ -112,6 +121,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.browser_extension_audit.adware_extension",
                             data={
                                 "check": "adware_extension",
                                 "browser": browser,
@@ -140,6 +150,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.browser_extension_audit.excessive_permissions",
                             data={
                                 "check": "excessive_permissions",
                                 "browser": browser,
@@ -162,6 +173,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.browser_extension_audit.extension_bloat",
                     data={"check": "extension_bloat", "count": total_count},
                 )
             )
@@ -190,6 +202,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.browser_extension_audit.installed_extensions",
                     data={
                         "check": "installed_extensions",
                         "extensions": extension_info,

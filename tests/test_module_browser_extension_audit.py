@@ -179,3 +179,10 @@ def test_format_extensions_list():
     assert "Extension 1" in formatted
     assert "Extension 2" in formatted
     assert "tabs" in formatted
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.browser_extension_audit.") for c in declared)
