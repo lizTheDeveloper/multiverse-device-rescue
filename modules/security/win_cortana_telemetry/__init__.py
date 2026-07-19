@@ -23,6 +23,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_cortana_telemetry.telemetry_level",
+        "security.win_cortana_telemetry.cortana_enabled",
+        "security.win_cortana_telemetry.advertising_id",
+        "security.win_cortana_telemetry.activity_feed",
+        "security.win_cortana_telemetry.location_services",
+        "security.win_cortana_telemetry.optimized",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -70,6 +79,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_cortana_telemetry.telemetry_level",
                     data={"check": "telemetry_level", "value": telemetry_level},
                 )
             )
@@ -86,6 +96,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_cortana_telemetry.cortana_enabled",
                     data={"check": "cortana_enabled", "value": cortana_enabled},
                 )
             )
@@ -102,6 +113,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_cortana_telemetry.advertising_id",
                     data={"check": "advertising_id", "value": advertising_id},
                 )
             )
@@ -118,6 +130,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_cortana_telemetry.activity_feed",
                     data={"check": "activity_feed", "value": activity_feed},
                 )
             )
@@ -134,6 +147,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_cortana_telemetry.location_services",
                     data={"check": "location_services", "value": location_services},
                 )
             )
@@ -150,6 +164,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_cortana_telemetry.optimized",
                     data={"privacy_status": "optimized"},
                 )
             )

@@ -236,3 +236,10 @@ def test_win_cortana_telemetry_fix_provides_guidance():
     assert len(fix.actions) > 0
     assert all(a.description for a in fix.actions)
     assert any("Settings" in a.description for a in fix.actions)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_cortana_telemetry.") for c in declared)
