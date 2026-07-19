@@ -24,6 +24,18 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_remote_access_audit.teamviewer_installed",
+        "security.win_remote_access_audit.anydesk_installed",
+        "security.win_remote_access_audit.vnc_installed",
+        "security.win_remote_access_audit.logmein_installed",
+        "security.win_remote_access_audit.chrome_remote_desktop",
+        "security.win_remote_access_audit.rdp_enabled",
+        "security.win_remote_access_audit.multiple_tools",
+        "security.win_remote_access_audit.tools_summary",
+        "security.win_remote_access_audit.no_tools_found",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         found_tools = {}
@@ -41,6 +53,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_remote_access_audit.teamviewer_installed",
                     data={"check": "teamviewer_installed", "tool": "TeamViewer"},
                 )
             )
@@ -58,6 +71,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_remote_access_audit.anydesk_installed",
                     data={"check": "anydesk_installed", "tool": "AnyDesk"},
                 )
             )
@@ -76,6 +90,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_remote_access_audit.vnc_installed",
                     data={"check": "vnc_installed", "tool": "VNC", "processes": vnc_found},
                 )
             )
@@ -93,6 +108,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_remote_access_audit.logmein_installed",
                     data={"check": "logmein_installed", "tool": "LogMeIn"},
                 )
             )
@@ -110,6 +126,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_remote_access_audit.chrome_remote_desktop",
                     data={"check": "chrome_remote_desktop", "tool": "Chrome Remote Desktop"},
                 )
             )
@@ -127,6 +144,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_remote_access_audit.rdp_enabled",
                     data={"check": "rdp_enabled"},
                 )
             )
@@ -145,6 +163,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_remote_access_audit.multiple_tools",
                     data={"check": "multiple_tools", "tools": list(found_tools.keys()), "count": len(found_tools)},
                 )
             )
@@ -160,6 +179,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_remote_access_audit.tools_summary",
                     data={"check": "tools_summary", "tools": list(found_tools.keys()), "count": len(found_tools)},
                 )
             )
@@ -173,6 +193,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_remote_access_audit.no_tools_found",
                     data={"check": "no_tools_found"},
                 )
             )
