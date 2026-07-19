@@ -322,3 +322,10 @@ def test_suspicious_processes_handles_subprocess_error():
     assert isinstance(result.findings, list)
     # When ps fails, we should have no findings (graceful failure, not "clean")
     assert len(result.findings) == 0
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.suspicious_processes.") for c in declared)

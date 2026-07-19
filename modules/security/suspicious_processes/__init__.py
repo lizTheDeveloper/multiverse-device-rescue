@@ -25,6 +25,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.suspicious_processes.known_malware",
+        "security.suspicious_processes.suspicious_paths",
+        "security.suspicious_processes.suspicious_names",
+        "security.suspicious_processes.high_cpu",
+        "security.suspicious_processes.unsigned_apps",
+        "security.suspicious_processes.all_clean",
+    ]
+
     # Known malware process names
     KNOWN_MALWARE = {
         "genio",
@@ -123,6 +132,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.suspicious_processes.known_malware",
                     data={
                         "check": "known_malware",
                         "processes": malware_procs,
@@ -142,6 +152,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.suspicious_processes.suspicious_paths",
                     data={
                         "check": "suspicious_paths",
                         "processes": suspicious_path_procs,
@@ -161,6 +172,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.suspicious_processes.suspicious_names",
                     data={
                         "check": "suspicious_names",
                         "processes": suspicious_char_procs,
@@ -181,6 +193,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.suspicious_processes.high_cpu",
                     data={
                         "check": "high_cpu",
                         "processes": high_cpu_procs,
@@ -200,6 +213,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.suspicious_processes.unsigned_apps",
                     data={
                         "check": "unsigned_apps",
                         "apps": unsigned_app_procs,
@@ -215,6 +229,7 @@ class Module(ModuleBase):
                     description="Process scan completed successfully with no suspicious activity found.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.suspicious_processes.all_clean",
                     data={"check": "all_clean"},
                 )
             )
