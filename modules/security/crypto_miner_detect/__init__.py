@@ -79,6 +79,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.crypto_miner_detect.known_miner",
+        "security.crypto_miner_detect.high_cpu_process",
+        "security.crypto_miner_detect.mining_pool_connection",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -184,6 +190,7 @@ class Module(ModuleBase):
                                 ),
                                 severity=Severity.CRITICAL,
                                 category=self.category,
+                                code="security.crypto_miner_detect.known_miner",
                                 data={
                                     "check": "known_miner",
                                     "pid": pid,
@@ -251,6 +258,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.crypto_miner_detect.high_cpu_process",
                         data={
                             "check": "high_cpu_process",
                             "pid": proc["pid"],
@@ -314,6 +322,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.crypto_miner_detect.mining_pool_connection",
                             data={
                                 "check": "mining_pool_connection",
                                 "pid": pid,
@@ -336,6 +345,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.crypto_miner_detect.mining_pool_connection",
                             data={
                                 "check": "mining_pool_connection",
                                 "pid": pid,
