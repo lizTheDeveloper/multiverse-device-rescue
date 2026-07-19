@@ -266,3 +266,10 @@ def test_privacy_permissions_audit_fix_is_informational():
     assert len(fix.actions) > 0
     # Actions should describe how to manage permissions
     assert any("System Settings" in a.description for a in fix.actions)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.privacy_permissions_audit.") for c in declared)

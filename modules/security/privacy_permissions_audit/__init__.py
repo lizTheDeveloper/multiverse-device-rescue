@@ -34,6 +34,29 @@ class Module(ModuleBase):
         "kTCCServiceAddressBook": "Contacts",
     }
 
+    emits_codes = [
+        "security.privacy_permissions_audit.camera_access",
+        "security.privacy_permissions_audit.microphone_access",
+        "security.privacy_permissions_audit.screen_recording_access",
+        "security.privacy_permissions_audit.accessibility_access",
+        "security.privacy_permissions_audit.full_disk_access",
+        "security.privacy_permissions_audit.contacts_access",
+        "security.privacy_permissions_audit.excessive_camera",
+        "security.privacy_permissions_audit.excessive_microphone",
+        "security.privacy_permissions_audit.camera_microphone_combo",
+        "security.privacy_permissions_audit.screen_accessibility_combo",
+    ]
+
+    # Maps TCC service identifiers to their stable finding code suffix.
+    SERVICE_CODE_SUFFIX = {
+        "kTCCServiceCamera": "camera_access",
+        "kTCCServiceMicrophone": "microphone_access",
+        "kTCCServiceScreenCapture": "screen_recording_access",
+        "kTCCServiceAccessibility": "accessibility_access",
+        "kTCCServiceSystemPolicyAllFiles": "full_disk_access",
+        "kTCCServiceAddressBook": "contacts_access",
+    }
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -61,6 +84,21 @@ class Module(ModuleBase):
             display_name = data["display_name"]
             apps = data["apps"]
             app_list = ", ".join(apps)
+            check_name = self.SERVICE_CODE_SUFFIX.get(service, f"{service.lower()}_access")
+            if service == "kTCCServiceCamera":
+                code = "security.privacy_permissions_audit.camera_access"
+            elif service == "kTCCServiceMicrophone":
+                code = "security.privacy_permissions_audit.microphone_access"
+            elif service == "kTCCServiceScreenCapture":
+                code = "security.privacy_permissions_audit.screen_recording_access"
+            elif service == "kTCCServiceAccessibility":
+                code = "security.privacy_permissions_audit.accessibility_access"
+            elif service == "kTCCServiceSystemPolicyAllFiles":
+                code = "security.privacy_permissions_audit.full_disk_access"
+            elif service == "kTCCServiceAddressBook":
+                code = "security.privacy_permissions_audit.contacts_access"
+            else:
+                code = None
             findings.append(
                 Finding(
                     title=f"{display_name} access: {len(apps)} app(s)",
@@ -72,8 +110,9 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code=code,
                     data={
-                        "check": f"{service.lower()}_access",
+                        "check": check_name,
                         "service": service,
                         "display_name": display_name,
                         "apps": apps,
@@ -100,6 +139,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.privacy_permissions_audit.excessive_camera",
                     data={
                         "check": "excessive_camera",
                         "apps": sorted(camera_apps),
@@ -121,6 +161,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.privacy_permissions_audit.excessive_microphone",
                     data={
                         "check": "excessive_microphone",
                         "apps": sorted(microphone_apps),
@@ -144,6 +185,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.privacy_permissions_audit.camera_microphone_combo",
                     data={
                         "check": "camera_microphone_combo",
                         "apps": sorted(both_cam_mic),
@@ -167,6 +209,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.privacy_permissions_audit.screen_accessibility_combo",
                     data={
                         "check": "screen_accessibility_combo",
                         "apps": sorted(screen_and_accessibility),
