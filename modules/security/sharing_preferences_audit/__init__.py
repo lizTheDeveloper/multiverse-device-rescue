@@ -23,6 +23,17 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.sharing_preferences_audit.screen_sharing",
+        "security.sharing_preferences_audit.file_sharing",
+        "security.sharing_preferences_audit.remote_login",
+        "security.sharing_preferences_audit.remote_management",
+        "security.sharing_preferences_audit.printer_sharing",
+        "security.sharing_preferences_audit.airdrop_everyone",
+        "security.sharing_preferences_audit.config_secure",
+        "security.sharing_preferences_audit.config_summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         enabled_services = []
@@ -40,6 +51,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_preferences_audit.screen_sharing",
                     data={"service": "screen_sharing"},
                 )
             )
@@ -57,6 +69,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_preferences_audit.file_sharing",
                     data={"service": "file_sharing"},
                 )
             )
@@ -73,6 +86,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_preferences_audit.remote_login",
                     data={"service": "remote_login"},
                 )
             )
@@ -89,6 +103,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_preferences_audit.remote_management",
                     data={"service": "remote_management"},
                 )
             )
@@ -105,6 +120,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_preferences_audit.printer_sharing",
                     data={"service": "printer_sharing"},
                 )
             )
@@ -123,6 +139,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_preferences_audit.airdrop_everyone",
                     data={"service": "airdrop"},
                 )
             )
@@ -141,6 +158,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.sharing_preferences_audit.config_secure",
                     data={"config": "secure"},
                 )
             )
@@ -157,6 +175,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.sharing_preferences_audit.config_summary",
                     data={"config": "summary", "services": enabled_services},
                 )
             )

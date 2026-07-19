@@ -23,6 +23,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.sharing_services.screen_sharing",
+        "security.sharing_services.file_sharing",
+        "security.sharing_services.remote_login",
+        "security.sharing_services.remote_management",
+        "security.sharing_services.printer_sharing",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -38,6 +46,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_services.screen_sharing",
                     data={"service": "screen_sharing"},
                 )
             )
@@ -54,6 +63,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_services.file_sharing",
                     data={"service": "file_sharing"},
                 )
             )
@@ -70,6 +80,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_services.remote_login",
                     data={"service": "remote_login"},
                 )
             )
@@ -86,6 +97,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_services.remote_management",
                     data={"service": "remote_management"},
                 )
             )
@@ -102,6 +114,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sharing_services.printer_sharing",
                     data={"service": "printer_sharing"},
                 )
             )
