@@ -48,6 +48,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_credential_manager_audit.credential_sprawl",
+        "security.win_credential_manager_audit.domain_credentials_non_domain_joined",
+        "security.win_credential_manager_audit.generic_credentials_sensitive_services",
+        "security.win_credential_manager_audit.inventory_summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -108,6 +115,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_credential_manager_audit.credential_sprawl",
                     data={"credential_count": total_count},
                 )
             )
@@ -125,6 +133,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_credential_manager_audit.domain_credentials_non_domain_joined",
                     data={
                         "domain_credential_count": len(domain_type_creds),
                         "domain_credentials": domain_type_creds,
@@ -145,6 +154,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_credential_manager_audit.generic_credentials_sensitive_services",
                     data={
                         "generic_sensitive_count": len(generic_sensitive_creds),
                         "credentials": generic_sensitive_creds,
@@ -162,6 +172,7 @@ class Module(ModuleBase):
                 description=inventory_summary,
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.win_credential_manager_audit.inventory_summary",
                 data={
                     "total_credentials": total_count,
                     "by_type": cred_types,

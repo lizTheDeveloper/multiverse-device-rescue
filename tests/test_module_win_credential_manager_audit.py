@@ -336,3 +336,10 @@ def test_subprocess_failure_graceful():
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
     assert len(info_findings) == 1
     assert info_findings[0].data["total_credentials"] == 0
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_credential_manager_audit.") for c in declared)
