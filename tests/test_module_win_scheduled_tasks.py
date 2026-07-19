@@ -359,3 +359,10 @@ def test_win_scheduled_tasks_fix_encoded_command():
         and a.data.get("task_name") == "UpdateTask"
         for a in fix.actions
     )
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_scheduled_tasks.") for c in declared)

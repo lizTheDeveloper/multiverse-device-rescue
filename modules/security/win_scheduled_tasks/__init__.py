@@ -24,6 +24,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_scheduled_tasks.non_microsoft_tasks",
+        "security.win_scheduled_tasks.suspicious_path",
+        "security.win_scheduled_tasks.encoded_command",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         tasks = self._get_scheduled_tasks()
@@ -42,6 +48,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_scheduled_tasks.non_microsoft_tasks",
                     data={
                         "check": "non_microsoft_tasks",
                         "task_count": len(tasks),
@@ -68,6 +75,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_scheduled_tasks.suspicious_path",
                         data={
                             "check": "suspicious_path",
                             "task_name": task_name,
@@ -88,6 +96,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_scheduled_tasks.encoded_command",
                         data={
                             "check": "encoded_command",
                             "task_name": task_name,
