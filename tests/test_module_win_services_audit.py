@@ -215,3 +215,10 @@ def test_win_services_audit_fix_provides_bloatware_actions():
     assert len(fix.actions) > 0
     assert all("services.msc" in a.description for a in fix.actions)
     assert all(a.success for a in fix.actions)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_services_audit.") for c in declared)

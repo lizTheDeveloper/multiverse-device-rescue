@@ -116,6 +116,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_services_audit.suspicious_path",
+        "security.win_services_audit.excessive_autostart",
+        "security.win_services_audit.stopped_autostart",
+        "security.win_services_audit.bloatware_detected",
+        "security.win_services_audit.non_microsoft_autostart",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -181,6 +189,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_services_audit.suspicious_path",
                     data=svc,
                 )
             )
@@ -197,6 +206,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_services_audit.excessive_autostart",
                     data={"count": len(auto_start_services), "services": auto_start_services},
                 )
             )
@@ -213,6 +223,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_services_audit.stopped_autostart",
                     data={
                         "count": len(stopped_auto_start_services),
                         "services": stopped_auto_start_services,
@@ -231,6 +242,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_services_audit.bloatware_detected",
                     data={
                         "count": len(bloatware_services),
                         "services": bloatware_services,
@@ -251,6 +263,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_services_audit.non_microsoft_autostart",
                     data={
                         "count": len(non_microsoft_auto_start),
                         "services": non_microsoft_auto_start,
