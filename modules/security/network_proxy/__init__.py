@@ -23,6 +23,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "2s"
 
+    emits_codes = [
+        "security.network_proxy.pac_url_detected",
+        "security.network_proxy.proxy_enabled",
+        "security.network_proxy.no_proxies",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -59,6 +65,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.network_proxy.pac_url_detected",
                         data={
                             "check": "pac_url_detected",
                             "interface": interface,
@@ -80,6 +87,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.network_proxy.proxy_enabled",
                         data={
                             "check": "proxy_enabled",
                             "interface": interface,
@@ -102,6 +110,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.network_proxy.no_proxies",
                     data={"check": "no_proxies"},
                 )
             )
