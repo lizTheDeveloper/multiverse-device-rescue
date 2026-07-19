@@ -425,3 +425,10 @@ def test_win_network_shares_audit_empty_shares_list():
     # Should handle gracefully and report no shares
     assert result.has_issues
     assert any(f.data.get("check") == "shares_list" for f in result.findings)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_network_shares_audit.") for c in declared)

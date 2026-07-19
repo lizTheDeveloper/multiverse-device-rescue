@@ -31,6 +31,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_network_shares_audit.smb1_enabled",
+        "security.win_network_shares_audit.enumeration_failed",
+        "security.win_network_shares_audit.everyone_write_access",
+        "security.win_network_shares_audit.everyone_read_access",
+        "security.win_network_shares_audit.sensitive_directory",
+        "security.win_network_shares_audit.shares_enumerated",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -48,6 +57,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_network_shares_audit.smb1_enabled",
                     data={"check": "smb1_enabled"},
                 )
             )
@@ -65,6 +75,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_network_shares_audit.enumeration_failed",
                     data={"check": "shares_list", "shares_count": 0},
                 )
             )
@@ -101,6 +112,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.win_network_shares_audit.everyone_write_access",
                             data={
                                 "check": "everyone_write_access",
                                 "share": share_name,
@@ -119,6 +131,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.INFO,
                             category=self.category,
+                            code="security.win_network_shares_audit.everyone_read_access",
                             data={
                                 "check": "everyone_read_access",
                                 "share": share_name,
@@ -141,6 +154,7 @@ class Module(ModuleBase):
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
+                                code="security.win_network_shares_audit.sensitive_directory",
                                 data={
                                     "check": "sensitive_directory",
                                     "share": share_name,
@@ -171,6 +185,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.win_network_shares_audit.shares_enumerated",
                 data={
                     "check": "shares_enumerated",
                     "total_shares": len(shares),
