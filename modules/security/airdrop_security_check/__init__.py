@@ -24,6 +24,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.airdrop_security_check.airdrop_mode_everyone",
+        "security.airdrop_security_check.bluetooth_sharing_enabled",
+        "security.airdrop_security_check.sharing_config",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -54,6 +60,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.airdrop_security_check.airdrop_mode_everyone",
                     data={"check": "airdrop_mode_everyone"},
                 )
             )
@@ -69,6 +76,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.airdrop_security_check.bluetooth_sharing_enabled",
                     data={"check": "bluetooth_sharing_enabled"},
                 )
             )
@@ -93,6 +101,7 @@ class Module(ModuleBase):
                     description="\n".join(status_parts),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.airdrop_security_check.sharing_config",
                     data={
                         "check": "sharing_config",
                         "airdrop_mode": airdrop_mode,

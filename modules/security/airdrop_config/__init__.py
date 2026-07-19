@@ -23,6 +23,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.airdrop_config.airdrop_everyone",
+        "security.airdrop_config.airdrop_contacts_only",
+        "security.airdrop_config.airdrop_off",
+        "security.airdrop_config.bluetooth_disabled",
+        "security.airdrop_config.wifi_disabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -48,6 +56,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.airdrop_config.airdrop_everyone",
                     data={"check": "airdrop_mode"},
                 )
             )
@@ -63,6 +72,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.airdrop_config.airdrop_contacts_only",
                     data={"check": "airdrop_mode"},
                 )
             )
@@ -78,6 +88,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.airdrop_config.airdrop_off",
                     data={"check": "airdrop_mode"},
                 )
             )
@@ -93,6 +104,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.airdrop_config.bluetooth_disabled",
                     data={"check": "bluetooth_status"},
                 )
             )
@@ -107,6 +119,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.airdrop_config.wifi_disabled",
                     data={"check": "wifi_status"},
                 )
             )
