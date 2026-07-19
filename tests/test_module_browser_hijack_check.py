@@ -146,3 +146,10 @@ def test_browser_hijack_check_fix_is_informational():
         assert action.success is True
         assert action.error is None
         assert action.risk_level == RiskLevel.SAFE
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.browser_hijack_check.") for c in declared)

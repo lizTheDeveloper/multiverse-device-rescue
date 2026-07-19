@@ -25,6 +25,17 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "2s"
 
+    emits_codes = [
+        "security.browser_hijack_check.safari_homepage_suspicious",
+        "security.browser_hijack_check.safari_search_engine_suspicious",
+        "security.browser_hijack_check.chrome_managed_by_policy",
+        "security.browser_hijack_check.chrome_homepage_suspicious",
+        "security.browser_hijack_check.chrome_search_engine_suspicious",
+        "security.browser_hijack_check.firefox_homepage_suspicious",
+        "security.browser_hijack_check.firefox_search_engine_suspicious",
+        "security.browser_hijack_check.all_browsers_clean",
+    ]
+
     # Known legitimate search engines and homepages
     LEGITIMATE_SEARCH_ENGINES = {
         "com.google.Chrome.safe_browsing",
@@ -77,6 +88,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.browser_hijack_check.all_browsers_clean",
                     data={"check": "all_browsers_clean"},
                 )
             )
@@ -238,6 +250,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.browser_hijack_check.safari_homepage_suspicious",
                         data={"check": "safari_homepage_suspicious", "homepage": homepage},
                     )
                 )
@@ -257,6 +270,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.browser_hijack_check.safari_search_engine_suspicious",
                         data={"check": "safari_search_engine_suspicious", "engine": search_engine},
                     )
                 )
@@ -280,6 +294,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.browser_hijack_check.chrome_managed_by_policy",
                     data={"check": "chrome_managed_by_policy"},
                 )
             )
@@ -299,6 +314,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.browser_hijack_check.chrome_homepage_suspicious",
                         data={"check": "chrome_homepage_suspicious", "homepage": homepage},
                     )
                 )
@@ -318,6 +334,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.browser_hijack_check.chrome_search_engine_suspicious",
                         data={"check": "chrome_search_engine_suspicious", "engine": search_engine},
                     )
                 )
@@ -343,6 +360,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.browser_hijack_check.firefox_homepage_suspicious",
                         data={"check": "firefox_homepage_suspicious", "homepage": homepage},
                     )
                 )
@@ -362,6 +380,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.browser_hijack_check.firefox_search_engine_suspicious",
                         data={"check": "firefox_search_engine_suspicious", "engine": search_engine},
                     )
                 )
