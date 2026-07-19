@@ -23,6 +23,17 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.sudo_config_audit.nopasswd_all",
+        "security.sudo_config_audit.nopasswd_partial",
+        "security.sudo_config_audit.timestamp_long",
+        "security.sudo_config_audit.timestamp_ok",
+        "security.sudo_config_audit.touchid_enabled",
+        "security.sudo_config_audit.touchid_disabled",
+        "security.sudo_config_audit.root_enabled",
+        "security.sudo_config_audit.root_disabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -223,6 +234,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.sudo_config_audit.nopasswd_all",
                         data={
                             "check_type": "nopasswd_all",
                             "location": "/etc/sudoers",
@@ -248,6 +260,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.INFO,
                             category=self.category,
+                            code="security.sudo_config_audit.nopasswd_partial",
                             data={
                                 "check_type": "nopasswd_partial",
                                 "entries": "\n".join(nopasswd_lines[:5]),
@@ -292,6 +305,7 @@ class Module(ModuleBase):
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,
+                                    code="security.sudo_config_audit.timestamp_long",
                                     data={
                                         "check_type": "timestamp_long",
                                         "timeout_minutes": timeout,
@@ -307,6 +321,7 @@ class Module(ModuleBase):
                                     ),
                                     severity=Severity.INFO,
                                     category=self.category,
+                                    code="security.sudo_config_audit.timestamp_ok",
                                     data={
                                         "check_type": "timestamp_ok",
                                         "timeout_minutes": timeout,
@@ -366,6 +381,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.sudo_config_audit.touchid_enabled",
                     data={
                         "check_type": "touchid_enabled",
                         "location": location,
@@ -380,6 +396,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.sudo_config_audit.touchid_disabled",
                     data={
                         "check_type": "touchid_disabled",
                     },
@@ -410,6 +427,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.sudo_config_audit.root_enabled",
                     data={
                         "check_type": "root_enabled",
                     },
@@ -424,6 +442,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.sudo_config_audit.root_disabled",
                     data={
                         "check_type": "root_disabled",
                     },
