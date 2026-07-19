@@ -24,6 +24,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.chrome_extensions.broad_permissions",
+        "security.chrome_extensions.extension_bloat",
+        "security.chrome_extensions.installed_extensions",
+    ]
+
     # Permissions that are considered broad/dangerous
     BROAD_PERMISSIONS = {
         "all_urls",
@@ -70,6 +76,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.chrome_extensions.broad_permissions",
                     data={
                         "check": "broad_permissions",
                         "extension": ext_name,
@@ -91,6 +98,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.chrome_extensions.extension_bloat",
                     data={"check": "extension_bloat", "count": total_count},
                 )
             )
@@ -109,6 +117,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.chrome_extensions.installed_extensions",
                     data={
                         "check": "installed_extensions",
                         "extensions": extension_info,

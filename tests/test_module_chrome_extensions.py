@@ -268,3 +268,10 @@ def test_chrome_extensions_info_severity_for_count(tmp_path):
     assert len(installed_findings) > 0
     # Should be INFO severity for the listing
     assert installed_findings[0].severity == Severity.INFO
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.chrome_extensions.") for c in declared)
