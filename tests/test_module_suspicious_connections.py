@@ -193,3 +193,10 @@ def test_suspicious_connections_lsof_unavailable():
 
     # Should not crash, just return no findings
     assert not result.has_issues
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.suspicious_connections.") for c in declared)
