@@ -58,6 +58,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "1s"
 
+    emits_codes = [
+        "security.hosts_file_check.clean_hosts",
+        "security.hosts_file_check.large_hosts_count",
+        "security.hosts_file_check.suspicious_ip_redirect",
+        "security.hosts_file_check.wellknown_domain_redirect",
+        "security.hosts_file_check.bank_domain_redirect",
+        "security.hosts_file_check.custom_entries_list",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -79,6 +88,7 @@ class Module(ModuleBase):
                     description="The /etc/hosts file contains only default localhost and broadcasthost entries.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.hosts_file_check.clean_hosts",
                     data={"check": "clean_hosts"},
                 )
             )
@@ -103,6 +113,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.hosts_file_check.large_hosts_count",
                     data={
                         "check": "large_hosts_count",
                         "count": len(entries),
@@ -123,6 +134,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.hosts_file_check.suspicious_ip_redirect",
                     data={
                         "check": "suspicious_ip_redirect",
                         "count": len(suspicious_entries),
@@ -152,6 +164,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.hosts_file_check.wellknown_domain_redirect",
                     data={
                         "check": "wellknown_domain_redirect",
                         "count": len(wellknown_redirects),
@@ -179,6 +192,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.hosts_file_check.bank_domain_redirect",
                     data={
                         "check": "bank_domain_redirect",
                         "count": len(bank_redirects),
@@ -199,6 +213,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.hosts_file_check.custom_entries_list",
                     data={
                         "check": "custom_entries_list",
                         "count": len(entries),
