@@ -1,7 +1,6 @@
 import sys
-import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -63,23 +62,13 @@ def test_mvt_not_installed_reports_info():
     assert mvt_findings[0].severity == Severity.INFO
 
 
-def test_mvt_scan_with_detection():
-    """When MVT finds spyware indicators, report as critical findings."""
+def test_default_check_does_not_launch_mvt_scan():
+    """A read-only check() must NOT auto-launch the heavy `mvt check-backup`
+    forensic scan. On a large backup that scan loads gigabytes into memory (in
+    MVT's own process) and can freeze the machine, so backup scanning is
+    opt-in. By default check() only *reports* that a scan is available.
+    """
     mod = _get_module()
-
-    mvt_output = json.dumps(
-        [
-            {
-                "module": "safari_history",
-                "detected": True,
-                "indicator": "suspicious-domain.com",
-                "matched_indicator": {
-                    "type": "domain-name",
-                    "value": "suspicious-domain.com",
-                },
-            }
-        ]
-    )
 
     with patch.object(Path, "exists", return_value=True):
         with patch.object(Path, "is_dir", return_value=True):
@@ -88,13 +77,37 @@ def test_mvt_scan_with_detection():
             ):
                 with patch("shutil.which", return_value="/usr/local/bin/mvt-ios"):
                     with patch("subprocess.run") as mock_run:
-                        mock_result = MagicMock()
-                        mock_result.returncode = 0
-                        mock_result.stdout = ""
-                        mock_run.return_value = mock_result
+                        with patch.object(mod, "_run_mvt_scan") as mock_scan:
+                            result = mod.check(_make_profile())
+
+    # The forensic scan must not have been launched.
+    mock_run.assert_not_called()
+    mock_scan.assert_not_called()
+    # Instead, check() surfaces that a scan is available to run explicitly.
+    available = [
+        f for f in result.findings if f.data.get("check") == "mvt_scan_available"
+    ]
+    assert len(available) == 1
+    assert available[0].severity == Severity.INFO
+
+
+def test_opt_in_scan_with_detection():
+    """When backup scanning is explicitly enabled via configure(), MVT runs and
+    spyware indicators are reported as critical findings."""
+    mod = _get_module()
+    mod.configure({"scan_backups": True})
+
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "is_dir", return_value=True):
+            with patch.object(
+                Path, "iterdir", return_value=[Path("/fake/backup/abc123")]
+            ):
+                with patch("shutil.which", return_value="/usr/local/bin/mvt-ios"):
+                    # Keep the backup under the size guard so it is scanned.
+                    with patch.object(mod, "_estimate_backup_size", return_value=1024):
                         with patch.object(
                             mod,
-                            "_parse_mvt_output",
+                            "_run_mvt_scan",
                             return_value=[
                                 {
                                     "module": "safari_history",
@@ -110,6 +123,31 @@ def test_mvt_scan_with_detection():
     ]
     assert len(spyware_findings) > 0
     assert spyware_findings[0].severity == Severity.CRITICAL
+
+
+def test_opt_in_scan_skips_oversized_backup():
+    """Even when opted in, a backup larger than the size guard is skipped rather
+    than scanned — this is the memory-safety valve that prevents the freeze."""
+    mod = _get_module()
+    mod.configure({"scan_backups": True, "max_backup_bytes": 1024})
+
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "is_dir", return_value=True):
+            with patch.object(
+                Path, "iterdir", return_value=[Path("/fake/backup/huge")]
+            ):
+                with patch("shutil.which", return_value="/usr/local/bin/mvt-ios"):
+                    with patch.object(
+                        mod, "_estimate_backup_size", return_value=50 * 1024**3
+                    ):
+                        with patch.object(mod, "_run_mvt_scan") as mock_scan:
+                            result = mod.check(_make_profile())
+
+    mock_scan.assert_not_called()
+    too_large = [
+        f for f in result.findings if f.data.get("check") == "mvt_backup_too_large"
+    ]
+    assert len(too_large) == 1
 
 
 def test_fix_provides_guidance():

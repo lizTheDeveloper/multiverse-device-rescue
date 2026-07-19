@@ -12,10 +12,12 @@ produces carries an explicit caveat to that effect.
 """
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from rescue.models import (
     Action,
@@ -45,15 +47,40 @@ class Module(ModuleBase):
     risk_level = RiskLevel.SAFE
     priority = 60
     depends_on = []
-    estimated_duration = "1-10m (depends on backup size)"
+    estimated_duration = "instant by default; 1-10m if backup scanning is enabled"
+
+    # A full `mvt check-backup` is a heavy forensic operation: MVT loads and
+    # parses the entire device backup in its own process, so its memory use
+    # scales with backup size and can reach many gigabytes on a full iPhone
+    # backup — enough to freeze the host. Because check() is meant to be a cheap,
+    # read-only probe (and the orchestrator runs it unattended, abandoning it on
+    # timeout while MVT keeps running in the background), backup scanning is
+    # OPT-IN. By default check() only reports that a scan is available.
+    scan_backups: bool = False
+    # When scanning is enabled, backups larger than this are skipped with a
+    # clear finding rather than scanned, as a memory-safety valve.
+    max_backup_bytes: int = 2 * 1024**3  # 2 GiB
 
     emits_codes = [
         "security.mvt_spyware_scan.mvt_requires_wsl",
         "security.mvt_spyware_scan.no_backups_found",
         "security.mvt_spyware_scan.mvt_not_installed",
+        "security.mvt_spyware_scan.mvt_scan_available",
+        "security.mvt_spyware_scan.mvt_backup_too_large",
         "security.mvt_spyware_scan.mvt_spyware_detected",
         "security.mvt_spyware_scan.mvt_clean_scan",
     ]
+
+    def configure(self, config: dict[str, Any]) -> None:
+        """Enable/tune backup scanning from a profile's module_config.
+
+        ``scan_backups: true`` opts in to actually running ``mvt check-backup``;
+        ``max_backup_bytes`` overrides the size above which a backup is skipped.
+        """
+        if "scan_backups" in config:
+            self.scan_backups = bool(config["scan_backups"])
+        if "max_backup_bytes" in config:
+            self.max_backup_bytes = int(config["max_backup_bytes"])
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings: list[Finding] = []
@@ -124,8 +151,68 @@ class Module(ModuleBase):
             )
             return CheckResult(module_name=self.name, findings=findings)
 
+        if not self.scan_backups:
+            # Default path: do NOT launch the heavy forensic scan. Report that
+            # backups exist and a scan is available to run explicitly.
+            findings.append(
+                Finding(
+                    title=(
+                        f"{len(backups)} device backup(s) found — spyware scan "
+                        "available (not run automatically)"
+                    ),
+                    description=(
+                        f"Found {len(backups)} device backup(s) and MVT is "
+                        "installed, but the backup spyware scan was NOT run "
+                        "automatically. `mvt check-backup` loads and parses the "
+                        "entire backup in memory; on a full device backup that "
+                        "can consume many gigabytes and destabilize this machine, "
+                        "so it is opt-in. To run it, enable backup scanning for "
+                        "this module (config `scan_backups: true`) or run it "
+                        "yourself:\n"
+                        f"  {mvt_bin} check-backup --output <dir> <backup-path>"
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.mvt_spyware_scan.mvt_scan_available",
+                    data={
+                        "check": "mvt_scan_available",
+                        "confidence": "high",
+                        "backups_found": len(backups),
+                        "mvt_bin": mvt_bin,
+                    },
+                )
+            )
+            return CheckResult(module_name=self.name, findings=findings)
+
         any_detected = False
         for backup in backups:
+            size = self._estimate_backup_size(backup, self.max_backup_bytes)
+            if size is not None and size > self.max_backup_bytes:
+                findings.append(
+                    Finding(
+                        title=f"Backup too large to scan safely: {backup.name}",
+                        description=(
+                            f"Backup {backup} is larger than the "
+                            f"{self.max_backup_bytes // 1024**3} GiB safety limit "
+                            "for automatic scanning. Scanning it in-process could "
+                            "exhaust memory and freeze the machine, so it was "
+                            "skipped. Scan it manually on a machine with adequate "
+                            f"free memory:\n  {mvt_bin} check-backup "
+                            "--output <dir> "
+                            f"{backup}"
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        code="security.mvt_spyware_scan.mvt_backup_too_large",
+                        data={
+                            "check": "mvt_backup_too_large",
+                            "confidence": "high",
+                            "backup_path": str(backup),
+                            "max_backup_bytes": self.max_backup_bytes,
+                        },
+                    )
+                )
+                continue
             detections = self._run_mvt_scan(mvt_bin, backup)
             if detections:
                 any_detected = True
@@ -292,9 +379,32 @@ class Module(ModuleBase):
                 continue
         return backups
 
+    def _estimate_backup_size(self, backup_path: Path, cap: int) -> int | None:
+        """Total size of files under ``backup_path`` in bytes, short-circuiting
+        as soon as the running total exceeds ``cap`` (so this stays cheap even on
+        huge backups). Returns ``None`` if the tree cannot be walked."""
+        total = 0
+        try:
+            for root, _dirs, files in os.walk(backup_path):
+                for name in files:
+                    try:
+                        total += os.path.getsize(os.path.join(root, name))
+                    except OSError:
+                        continue
+                    if total > cap:
+                        return total
+        except OSError:
+            return None
+        return total
+
     def _run_mvt_scan(self, mvt_bin: str, backup_path: Path) -> list[dict]:
         """Run `mvt-ios check-backup` (or mvt-android) against a backup and
-        return parsed detections. Returns [] on any scan failure."""
+        return parsed detections. Returns [] on any scan failure.
+
+        MVT writes its results as JSON files into ``--output``; we parse those,
+        not stdout. So its (very verbose) console output is discarded rather than
+        captured — capturing it would buffer megabytes-to-gigabytes of log text
+        into this process for no benefit."""
         output_dir = Path(tempfile.mkdtemp(prefix="mvt_scan_"))
         try:
             subprocess.run(
@@ -305,8 +415,8 @@ class Module(ModuleBase):
                     str(output_dir),
                     str(backup_path),
                 ],
-                capture_output=True,
-                text=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 timeout=900,
             )
             return self._parse_mvt_output(output_dir)
