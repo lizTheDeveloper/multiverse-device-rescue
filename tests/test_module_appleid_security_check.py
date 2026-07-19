@@ -302,3 +302,10 @@ def test_appleid_summary_info_always_present():
     assert any(f.data.get("check") == "appleid_summary" for f in result.findings)
     summary = [f for f in result.findings if f.data.get("check") == "appleid_summary"][0]
     assert summary.severity == Severity.INFO
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.appleid_security_check.") for c in declared)

@@ -25,6 +25,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.appleid_security_check.appleid_signin",
+        "security.appleid_security_check.icloud_keychain",
+        "security.appleid_security_check.autoupdate_disabled",
+        "security.appleid_security_check.appleid_summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -49,6 +56,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.appleid_security_check.appleid_signin",
                     data={"check": "appleid_signin"},
                 )
             )
@@ -65,6 +73,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.appleid_security_check.icloud_keychain",
                     data={"check": "icloud_keychain"},
                 )
             )
@@ -81,6 +90,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.appleid_security_check.autoupdate_disabled",
                     data={"check": "autoupdate_disabled"},
                 )
             )
@@ -103,6 +113,7 @@ class Module(ModuleBase):
                 description="\n".join(summary_lines),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.appleid_security_check.appleid_summary",
                 data={
                     "check": "appleid_summary",
                     "appleid_signed_in": appleid_signed_in,
