@@ -178,3 +178,10 @@ def test_win_firewall_fix_handles_permission_failure():
         fix = mod.fix(check, Mode.MANUAL)
     assert not fix.all_succeeded
     assert "Access is denied" in fix.actions[0].error
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_firewall.") for c in declared)

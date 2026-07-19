@@ -32,16 +32,22 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_firewall.public_profile_disabled",
+        "security.win_firewall.private_domain_profile_disabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         output = self._run_netsh_show()
         for profile_name, state in _parse_advfirewall_output(output).items():
             if state == "OFF":
-                severity = (
-                    Severity.CRITICAL
-                    if profile_name == "Public Profile"
-                    else Severity.WARNING
-                )
+                is_public = profile_name == "Public Profile"
+                severity = Severity.CRITICAL if is_public else Severity.WARNING
+                if is_public:
+                    code = "security.win_firewall.public_profile_disabled"
+                else:
+                    code = "security.win_firewall.private_domain_profile_disabled"
                 findings.append(
                     Finding(
                         title=f"{profile_name} firewall is disabled",
@@ -52,6 +58,7 @@ class Module(ModuleBase):
                         ),
                         severity=severity,
                         category=self.category,
+                        code=code,
                         data={"profile_name": profile_name},
                     )
                 )
