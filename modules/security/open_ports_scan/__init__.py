@@ -48,6 +48,11 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.open_ports_scan.exposed_risky_ports",
+        "security.open_ports_scan.listening_ports",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -83,6 +88,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.open_ports_scan.exposed_risky_ports",
                     data={"check": "exposed_risky_ports", "ports": exposed_risky},
                 )
             )
@@ -109,6 +115,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.open_ports_scan.listening_ports",
                     data={
                         "check": "listening_ports",
                         "count": len(all_ports_info),

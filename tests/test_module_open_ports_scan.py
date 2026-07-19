@@ -152,6 +152,13 @@ def test_open_ports_scan_multiple_risky():
     assert any(f.data.get("check") == "listening_ports" for f in result.findings)
 
 
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.open_ports_scan.") for c in declared)
+
+
 def test_open_ports_scan_fix_is_informational():
     mod = _get_module()
     with patch("modules.security.open_ports_scan.subprocess.run", side_effect=_fake_run_exposed_mysql()):
