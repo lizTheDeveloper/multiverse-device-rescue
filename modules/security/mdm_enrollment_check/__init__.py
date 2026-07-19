@@ -24,6 +24,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.mdm_enrollment_check.mdm_enrollment",
+        "security.mdm_enrollment_check.restrictions_profiles",
+        "security.mdm_enrollment_check.all_profiles",
+        "security.mdm_enrollment_check.dep_status",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -53,6 +60,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.mdm_enrollment_check.mdm_enrollment",
                     data={
                         "check": "mdm_enrollment",
                         "mdm_server": mdm_server,
@@ -76,6 +84,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.mdm_enrollment_check.restrictions_profiles",
                     data={
                         "check": "restrictions_profiles",
                         "profiles": restrictions,
@@ -95,6 +104,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.mdm_enrollment_check.all_profiles",
                     data={
                         "check": "all_profiles",
                         "profiles": all_profiles,
@@ -114,6 +124,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.mdm_enrollment_check.dep_status",
                     data={"check": "dep_status"},
                 )
             )

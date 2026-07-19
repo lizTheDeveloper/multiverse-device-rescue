@@ -23,6 +23,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.mdm_enrollment.mdm_enrolled",
+        "security.mdm_enrollment.supervised",
+        "security.mdm_enrollment.no_mdm",
+        "security.mdm_enrollment.profiles_installed",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -44,6 +51,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.mdm_enrollment.mdm_enrolled",
                     data={"check": "mdm_enrolled"},
                 )
             )
@@ -62,6 +70,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.mdm_enrollment.supervised",
                     data={"check": "supervised"},
                 )
             )
@@ -78,6 +87,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.mdm_enrollment.no_mdm",
                     data={"check": "no_mdm"},
                 )
             )
@@ -100,6 +110,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.mdm_enrollment.profiles_installed",
                     data={
                         "check": "profiles_installed",
                         "count": len(profiles_info["profiles"]),

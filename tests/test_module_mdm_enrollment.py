@@ -260,3 +260,10 @@ def test_mdm_enrollment_no_mdm_fix():
         fix = mod.fix(check, Mode.MANUAL)
     assert fix.all_succeeded
     assert any("no mdm" in a.title.lower() for a in fix.actions)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.mdm_enrollment.") for c in declared)

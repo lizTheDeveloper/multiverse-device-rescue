@@ -255,3 +255,10 @@ def test_mdm_enrollment_check_fix_is_informational():
     assert len(fix.actions) > 0
     # All actions should be SAFE risk level
     assert all(a.risk_level == RiskLevel.SAFE for a in fix.actions)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.mdm_enrollment_check.") for c in declared)
