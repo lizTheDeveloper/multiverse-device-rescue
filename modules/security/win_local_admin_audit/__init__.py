@@ -23,6 +23,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_local_admin_audit.guest_account_enabled",
+        "security.win_local_admin_audit.builtin_admin_enabled",
+        "security.win_local_admin_audit.excessive_admin_accounts",
+        "security.win_local_admin_audit.admin_blank_password",
+        "security.win_local_admin_audit.admin_password_never_expires",
+        "security.win_local_admin_audit.admin_accounts_summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -46,6 +55,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_local_admin_audit.guest_account_enabled",
                         data={"check": "guest_enabled"},
                     )
                 )
@@ -66,6 +76,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_local_admin_audit.builtin_admin_enabled",
                         data={"check": "builtin_admin_enabled"},
                     )
                 )
@@ -84,6 +95,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_local_admin_audit.excessive_admin_accounts",
                     data={"check": "excessive_admins", "users": admin_users},
                 )
             )
@@ -120,6 +132,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_local_admin_audit.admin_blank_password",
                     data={"check": "blank_password", "users": blank_password_users},
                 )
             )
@@ -137,6 +150,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_local_admin_audit.admin_password_never_expires",
                     data={"check": "password_never_expires", "users": no_password_expires},
                 )
             )
@@ -163,6 +177,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_local_admin_audit.admin_accounts_summary",
                     data={"check": "admin_accounts", "users": admin_users, "status": admin_status},
                 )
             )
