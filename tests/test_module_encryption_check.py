@@ -63,3 +63,10 @@ def test_encryption_check_fix_is_informational():
         fix = mod.fix(check, Mode.AUTO)
     assert fix.all_succeeded
     assert "fdesetup enable" in fix.actions[0].description
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.encryption_check.") for c in declared)

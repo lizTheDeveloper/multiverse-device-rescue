@@ -23,6 +23,10 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.encryption_check.filevault_disabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         output = self._run_fdesetup_status()
         findings = []
@@ -37,6 +41,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.encryption_check.filevault_disabled",
                     data={"fdesetup_output": output.strip()},
                 )
             )
