@@ -46,6 +46,11 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.kext_audit.loaded_third_party_kext",
+        "security.kext_audit.kext_file",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -83,6 +88,7 @@ class Module(ModuleBase):
                         description=f"{problem_info['description']} Bundle ID: {bundle_id}, Version: {version}",
                         severity=severity,
                         category=self.category,
+                        code="security.kext_audit.loaded_third_party_kext",
                         data={
                             "check": "loaded_third_party_kext",
                             "bundle_id": bundle_id,
@@ -102,6 +108,7 @@ class Module(ModuleBase):
                         description=f"Third-party kernel extension '{name}' is loaded. Bundle ID: {bundle_id}, Version: {version}. Third-party kexts are deprecated and may cause stability issues.",
                         severity=severity,
                         category=self.category,
+                        code="security.kext_audit.loaded_third_party_kext",
                         data={
                             "check": "loaded_third_party_kext",
                             "bundle_id": bundle_id,
@@ -123,6 +130,7 @@ class Module(ModuleBase):
                     description=f"Kernel extension file '{kext_name}.kext' is present in /Library/Extensions/. This is deprecated on modern macOS. Consider removing it.",
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.kext_audit.kext_file",
                     data={
                         "check": "kext_file",
                         "path": kext_path,

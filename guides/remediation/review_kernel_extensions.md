@@ -6,16 +6,24 @@ remediates:
   - security.kernel_extensions_audit.kext_retrieval_failed
   - security.kernel_extensions_audit.problematic_kexts
   - security.kernel_extensions_audit.third_party_kexts
+  - security.kext_audit.loaded_third_party_kext
+  - security.kext_audit.kext_file
 automatable_steps: []
-human_only_steps: [1, 2, 3]
+human_only_steps: [1, 2, 3, 4]
 ---
 
-This walkthrough covers `kernel_extensions_audit`, which lists loaded
-kernel extensions (via `kmutil showloaded` on Monterey+, falling back to
-`kextstat` on older macOS) and separates them into Apple's own kexts,
-known-problematic third-party kexts (legacy antivirus, VPN, and
-virtualization kexts that predate the System Extensions framework), and
-everything else third-party.
+This walkthrough covers both `kernel_extensions_audit` and `kext_audit`,
+which both audit kernel extensions (kexts) from different angles.
+`kernel_extensions_audit` lists loaded kexts (via `kmutil showloaded` on
+Monterey+, falling back to `kextstat` on older macOS) and separates them
+into Apple's own kexts, known-problematic third-party kexts (legacy
+antivirus, VPN, and virtualization kexts that predate the System
+Extensions framework), and everything else third-party. `kext_audit`
+independently checks `kextstat` for third-party kexts (flagging unsigned
+ones as CRITICAL) and scans `/Library/Extensions/` on disk for leftover
+`.kext` bundle files that may not even be currently loaded. They're
+remediated together since the loaded-kext findings from both modules point
+at the same underlying objects.
 
 **Kernel extensions run in kernel space with full system privileges.**
 Removing the wrong one, or removing one while a dependent driver is still
@@ -69,7 +77,30 @@ isn't already flagged as known-problematic, so you have full visibility.
 3. For kexts you no longer need, follow the Step 1 uninstall-first, then
    unload → quarantine sequence.
 
-## Step 3: If kext auditing itself failed
+## Step 3: Remove stale kext files left on disk
+
+`kext_audit` also scans `/Library/Extensions/` directly for `.kext`
+bundles (`kext_file`, WARNING) — these may or may not currently be loaded,
+but their presence means they *can* be loaded (at boot, or by an
+installer) even if `kextstat`/`kmutil` shows nothing right now.
+
+1. Cross-reference the `path` in the finding against the loaded-kext
+   findings from Steps 1–2: is this kext currently loaded?
+   `kextstat | grep <name>` (or `kmutil showloaded | grep <name>`).
+2. If loaded, unload it first: `sudo kextunload <path>`.
+3. Inspect before removing: `codesign -dv --verbose=4 <path>` to check
+   whether it's signed by a recognizable developer, and `ls -la <path>`
+   to check its age/install date.
+4. Quarantine rather than delete outright:
+   ```
+   sudo mkdir -p /Library/Extensions-quarantine
+   sudo mv <path> /Library/Extensions-quarantine/
+   ```
+5. If, after review, you're confident it's leftover cruft from a
+   long-uninstalled app, it's then safe to delete the quarantined copy.
+6. Reboot and re-run the audit to confirm the finding no longer appears.
+
+## Step 4: If kext auditing itself failed
 
 `kext_retrieval_failed` (INFO) means neither `kmutil showloaded` nor
 `kextstat` returned usable output — common on newer macOS releases with
