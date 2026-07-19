@@ -25,6 +25,17 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "15s"
 
+    emits_codes = [
+        "security.win_defender_deep_check.realtime_disabled",
+        "security.win_defender_deep_check.cloud_protection_off",
+        "security.win_defender_deep_check.tamper_protection_disabled",
+        "security.win_defender_deep_check.excessive_exclusions",
+        "security.win_defender_deep_check.pua_protection_disabled",
+        "security.win_defender_deep_check.stale_full_scan",
+        "security.win_defender_deep_check.controlled_folder_access_disabled",
+        "security.win_defender_deep_check.all_passed",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -50,6 +61,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_defender_deep_check.realtime_disabled",
                     data={"check": "realtime_disabled"},
                 )
             )
@@ -65,6 +77,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_defender_deep_check.cloud_protection_off",
                     data={"check": "cloud_protection_off"},
                 )
             )
@@ -80,6 +93,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_defender_deep_check.tamper_protection_disabled",
                     data={"check": "tamper_protection_disabled"},
                 )
             )
@@ -96,6 +110,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_defender_deep_check.excessive_exclusions",
                     data={
                         "check": "excessive_exclusions",
                         "exclusion_count": exclusion_count,
@@ -114,6 +129,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_defender_deep_check.pua_protection_disabled",
                     data={"check": "pua_protection_disabled"},
                 )
             )
@@ -133,6 +149,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.win_defender_deep_check.stale_full_scan",
                             data={
                                 "check": "stale_full_scan",
                                 "days_since_scan": days_since,
@@ -151,6 +168,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_defender_deep_check.controlled_folder_access_disabled",
                     data={"check": "controlled_folder_access_disabled"},
                 )
             )
@@ -163,6 +181,7 @@ class Module(ModuleBase):
                     description="All deep Defender checks passed. Protection appears well-configured.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_defender_deep_check.all_passed",
                     data={"check": "all_passed"},
                 )
             )
