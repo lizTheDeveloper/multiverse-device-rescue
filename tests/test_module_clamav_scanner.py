@@ -276,3 +276,10 @@ def test_clamav_fix_healthy():
     assert fix.all_succeeded
     # Healthy state should have no actions needed
     assert len(fix.actions) == 0
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.clamav_scanner.") for c in declared)

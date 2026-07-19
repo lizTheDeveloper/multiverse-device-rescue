@@ -26,6 +26,16 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "2s"
 
+    emits_codes = [
+        "security.clamav_scanner.clamav_not_installed",
+        "security.clamav_scanner.clamav_version",
+        "security.clamav_scanner.freshclam_not_installed",
+        "security.clamav_scanner.clamav_definitions",
+        "security.clamav_scanner.clamav_outdated_definitions",
+        "security.clamav_scanner.clamd_not_running",
+        "security.clamav_scanner.clamd_running",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -45,6 +55,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.clamav_scanner.clamav_not_installed",
                     data={"check": "clamav_not_installed"},
                 )
             )
@@ -62,6 +73,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.clamav_scanner.clamav_version",
                     data={"check": "clamav_version", "version": version},
                 )
             )
@@ -77,6 +89,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.clamav_scanner.freshclam_not_installed",
                     data={"check": "freshclam_not_installed"},
                 )
             )
@@ -93,6 +106,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.clamav_scanner.clamav_definitions",
                     data={
                         "check": "clamav_definitions",
                         "def_version": def_version,
@@ -113,6 +127,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.clamav_scanner.clamav_outdated_definitions",
                         data={"check": "clamav_outdated_definitions", "def_age": def_age},
                     )
                 )
@@ -130,6 +145,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.clamav_scanner.clamd_not_running",
                     data={"check": "clamd_not_running"},
                 )
             )
@@ -140,6 +156,7 @@ class Module(ModuleBase):
                     description="The ClamAV daemon (clamd) is running and provides on-access scanning.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.clamav_scanner.clamd_running",
                     data={"check": "clamd_running"},
                 )
             )
