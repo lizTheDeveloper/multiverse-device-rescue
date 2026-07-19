@@ -27,6 +27,17 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_scheduled_tasks_security.enumeration_failed",
+        "security.win_scheduled_tasks_security.encoded_powershell",
+        "security.win_scheduled_tasks_security.temp_path_system",
+        "security.win_scheduled_tasks_security.non_microsoft_system",
+        "security.win_scheduled_tasks_security.frequent_schedule",
+        "security.win_scheduled_tasks_security.recent_boot_logon",
+        "security.win_scheduled_tasks_security.hidden_attributes",
+        "security.win_scheduled_tasks_security.inventory",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         tasks = self._get_scheduled_tasks()
@@ -38,6 +49,7 @@ class Module(ModuleBase):
                     description="Could not retrieve scheduled tasks. This may be a permission issue.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_scheduled_tasks_security.enumeration_failed",
                     data={},
                 )
             )
@@ -75,6 +87,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_scheduled_tasks_security.encoded_powershell",
                         data={
                             "task_name": task_name,
                             "task_path": task_path,
@@ -97,6 +110,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_scheduled_tasks_security.temp_path_system",
                         data={
                             "task_name": task_name,
                             "task_path": task_path,
@@ -118,6 +132,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_scheduled_tasks_security.non_microsoft_system",
                         data={
                             "task_name": task_name,
                             "task_path": task_path,
@@ -139,6 +154,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_scheduled_tasks_security.frequent_schedule",
                         data={
                             "task_name": task_name,
                             "task_path": task_path,
@@ -160,6 +176,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_scheduled_tasks_security.recent_boot_logon",
                         data={
                             "task_name": task_name,
                             "task_path": task_path,
@@ -181,6 +198,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.win_scheduled_tasks_security.hidden_attributes",
                         data={
                             "task_name": task_name,
                             "task_path": task_path,
@@ -200,6 +218,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.win_scheduled_tasks_security.inventory",
                 data={
                     "total_count": total_count,
                     "suspicious_count": len(suspicious_tasks),

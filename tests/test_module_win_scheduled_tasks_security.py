@@ -432,3 +432,10 @@ def test_win_scheduled_tasks_security_inventory_finding():
     # Inventory should have total_count data
     inventory = [f for f in info_findings if "inventory" in f.title.lower()]
     assert inventory[0].data.get("total_count") >= 2
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_scheduled_tasks_security.") for c in declared)
