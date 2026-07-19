@@ -37,6 +37,17 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.xprotect_status.gatekeeper_disabled",
+        "security.xprotect_status.gatekeeper_status",
+        "security.xprotect_status.xprotect_missing",
+        "security.xprotect_status.xprotect_version",
+        "security.xprotect_status.xprotect_outdated",
+        "security.xprotect_status.xprotect_old",
+        "security.xprotect_status.mrt_version",
+        "security.xprotect_status.mrt_outdated",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -53,6 +64,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.xprotect_status.gatekeeper_disabled",
                     data={"check": "gatekeeper_disabled"},
                 )
             )
@@ -66,6 +78,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.xprotect_status.gatekeeper_status",
                     data={"check": "gatekeeper_status", "status": gatekeeper_status},
                 )
             )
@@ -83,6 +96,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.xprotect_status.xprotect_missing",
                     data={"check": "xprotect_missing"},
                 )
             )
@@ -97,6 +111,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.xprotect_status.xprotect_version",
                     data={"check": "xprotect_version", "version": xprotect_version},
                 )
             )
@@ -113,6 +128,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.xprotect_status.xprotect_outdated",
                         data={"check": "xprotect_outdated", "version": xprotect_version},
                     )
                 )
@@ -131,6 +147,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.xprotect_status.xprotect_old",
                             data={"check": "xprotect_old", "last_update": last_update},
                         )
                     )
@@ -147,6 +164,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.xprotect_status.mrt_version",
                     data={"check": "mrt_version", "version": mrt_version, "last_update": mrt_last_update},
                 )
             )
@@ -163,6 +181,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.xprotect_status.mrt_outdated",
                         data={"check": "mrt_outdated", "last_update": mrt_last_update},
                     )
                 )

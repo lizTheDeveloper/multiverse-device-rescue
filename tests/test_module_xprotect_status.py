@@ -275,3 +275,10 @@ def test_fix_healthy():
     # Should have no actions
     assert len(fix.actions) == 0
     assert fix.all_succeeded
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.xprotect_status.") for c in declared)
