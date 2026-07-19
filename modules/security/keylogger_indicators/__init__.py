@@ -24,6 +24,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.keylogger_indicators.input_monitoring_access",
+        "security.keylogger_indicators.known_keyloggers",
+        "security.keylogger_indicators.suspicious_input_monitoring",
+        "security.keylogger_indicators.keyboard_hooks",
+        "security.keylogger_indicators.cgeventtap_usage",
+    ]
+
     # Known keylogger process names to flag as CRITICAL
     KNOWN_KEYLOGGERS = {
         "aobo",
@@ -76,6 +84,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.keylogger_indicators.input_monitoring_access",
                     data={"check": "input_monitoring_access", "apps": sorted(input_monitoring_apps)},
                 )
             )
@@ -100,6 +109,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.keylogger_indicators.known_keyloggers",
                     data={"check": "known_keyloggers", "apps": known_keyloggers_found},
                 )
             )
@@ -123,6 +133,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.keylogger_indicators.suspicious_input_monitoring",
                     data={"check": "suspicious_input_monitoring", "apps": suspicious_apps},
                 )
             )
@@ -141,6 +152,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.keylogger_indicators.keyboard_hooks",
                     data={"check": "keyboard_hooks", "hooks": keyboard_hooks},
                 )
             )
@@ -160,6 +172,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.keylogger_indicators.cgeventtap_usage",
                     data={"check": "cgeventtap_usage", "processes": sorted(cgeventtap_processes)},
                 )
             )

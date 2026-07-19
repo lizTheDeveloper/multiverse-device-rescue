@@ -268,3 +268,10 @@ def test_keylogger_indicators_well_known_apps_not_flagged():
     # Should have INFO finding but not WARNING for suspicious apps
     suspicious_findings = [f for f in result.findings if f.data.get("check") == "suspicious_input_monitoring"]
     assert len(suspicious_findings) == 0
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.keylogger_indicators.") for c in declared)
