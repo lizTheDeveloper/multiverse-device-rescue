@@ -313,3 +313,10 @@ def test_network_connections_monitor_all_ports_and_states():
     summary = [f for f in result.findings if f.data.get("check") == "connection_summary"]
     assert len(summary) > 0
     assert summary[0].data.get("total_count") == 4
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.network_connections_monitor.") for c in declared)

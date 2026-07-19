@@ -56,6 +56,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.network_connections_monitor.backdoor_ports",
+        "security.network_connections_monitor.high_connection_count",
+        "security.network_connections_monitor.unusual_ports",
+        "security.network_connections_monitor.private_ip_connections",
+        "security.network_connections_monitor.connection_summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -86,6 +94,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.network_connections_monitor.backdoor_ports",
                     data={"check": "backdoor_ports", "connections": backdoor_connections},
                 )
             )
@@ -114,6 +123,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.network_connections_monitor.high_connection_count",
                     data={"check": "high_connection_count", "processes": high_conn_processes},
                 )
             )
@@ -141,6 +151,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.network_connections_monitor.unusual_ports",
                     data={
                         "check": "unusual_ports",
                         "connections": unusual_port_connections,
@@ -172,6 +183,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.network_connections_monitor.private_ip_connections",
                     data={"check": "private_ip_connections", "count": len(private_ip_connections)},
                 )
             )
@@ -187,6 +199,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.network_connections_monitor.connection_summary",
                     data={"check": "connection_summary", "total_count": len(connections)},
                 )
             )
