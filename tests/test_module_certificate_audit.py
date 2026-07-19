@@ -361,3 +361,10 @@ def test_certificate_audit_handles_openssl_failure():
     with patch("subprocess.run", side_effect=openssl_failing_run):
         result = mod.check(_make_profile())
     assert isinstance(result.has_issues, bool)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.certificate_audit.") for c in declared)

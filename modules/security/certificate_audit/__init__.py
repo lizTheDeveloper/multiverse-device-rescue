@@ -24,6 +24,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.certificate_audit.expired_certificates",
+        "security.certificate_audit.user_root_cas",
+        "security.certificate_audit.total_certificates",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -47,6 +53,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.certificate_audit.expired_certificates",
                     data={
                         "check": "expired_certificates",
                         "count": len(expired_certs),
@@ -74,6 +81,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.certificate_audit.user_root_cas",
                     data={
                         "check": "user_root_cas",
                         "count": len(user_root_cas),
@@ -93,6 +101,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.certificate_audit.total_certificates",
                     data={
                         "check": "total_certificates",
                         "count": total_cert_count,
