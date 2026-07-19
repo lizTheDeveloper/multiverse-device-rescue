@@ -23,6 +23,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_credential_guard.credential_guard_disabled",
+        "security.win_credential_guard.windows_hello_configured",
+        "security.win_credential_guard.password_min_length_below_threshold",
+        "security.win_credential_guard.passwords_never_expire",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -40,6 +47,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.win_credential_guard.credential_guard_disabled",
                         data={"check": "credential_guard"},
                     )
                 )
@@ -59,6 +67,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.win_credential_guard.windows_hello_configured",
                         data={"check": "windows_hello"},
                     )
                 )
@@ -78,6 +87,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_credential_guard.password_min_length_below_threshold",
                         data={"check": "password_min_length", "current_length": password_policy.get("min_length", 0)},
                     )
                 )
@@ -98,6 +108,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_credential_guard.passwords_never_expire",
                         data={"check": "password_never_expires", "users": password_never_expires},
                     )
                 )

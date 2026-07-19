@@ -315,3 +315,10 @@ def test_registry_query_not_found():
         result = mod.check(_make_profile())
     # Should handle gracefully and report credential guard not enabled
     assert any(f.data.get("check") == "credential_guard" for f in result.findings)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_credential_guard.") for c in declared)
