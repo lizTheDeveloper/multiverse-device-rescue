@@ -266,3 +266,10 @@ def test_firewall_summary_has_all_fields():
     assert "block_all" in summary.data
     assert "allow_signed" in summary.data
     assert "allowed_apps_count" in summary.data
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.firewall_rules_audit.") for c in declared)

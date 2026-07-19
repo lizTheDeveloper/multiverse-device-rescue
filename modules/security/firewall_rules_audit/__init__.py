@@ -22,6 +22,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.firewall_rules_audit.alf_disabled",
+        "security.firewall_rules_audit.stealth_disabled",
+        "security.firewall_rules_audit.too_many_apps",
+        "security.firewall_rules_audit.allow_signed_enabled",
+        "security.firewall_rules_audit.firewall_summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -44,6 +52,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.firewall_rules_audit.alf_disabled",
                     data={"check": "alf_disabled"},
                 )
             )
@@ -60,6 +69,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.firewall_rules_audit.stealth_disabled",
                     data={"check": "stealth_disabled"},
                 )
             )
@@ -79,6 +89,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.firewall_rules_audit.too_many_apps",
                     data={"check": "too_many_apps", "count": app_count, "apps": allowed_apps},
                 )
             )
@@ -96,6 +107,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.firewall_rules_audit.allow_signed_enabled",
                     data={"check": "allow_signed_enabled"},
                 )
             )
@@ -114,6 +126,7 @@ class Module(ModuleBase):
                 description="\n".join(config_items),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.firewall_rules_audit.firewall_summary",
                 data={
                     "check": "firewall_summary",
                     "alf_enabled": alf_enabled,
