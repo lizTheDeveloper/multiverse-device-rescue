@@ -201,3 +201,10 @@ def test_filevault_recovery_fix_is_informational():
     assert fix.all_succeeded
     # Should have at least one action
     assert len(fix.actions) > 0
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.filevault_recovery.") for c in declared)
