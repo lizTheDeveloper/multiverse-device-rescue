@@ -23,6 +23,16 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.screen_time_audit.screen_time_enabled",
+        "security.screen_time_audit.screen_time_no_passcode",
+        "security.screen_time_audit.content_privacy_restrictions",
+        "security.screen_time_audit.downtime_enabled",
+        "security.screen_time_audit.app_limits_configured",
+        "security.screen_time_audit.communication_limits_configured",
+        "security.screen_time_audit.screen_time_disabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         """Audit Screen Time and parental controls settings on macOS.
 
@@ -50,6 +60,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_time_audit.screen_time_enabled",
                     data={"check": "screen_time_enabled"},
                 )
             )
@@ -68,6 +79,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.screen_time_audit.screen_time_no_passcode",
                         data={"check": "screen_time_no_passcode"},
                     )
                 )
@@ -86,6 +98,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_time_audit.content_privacy_restrictions",
                     data={"check": "content_privacy_restrictions"},
                 )
             )
@@ -104,6 +117,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_time_audit.downtime_enabled",
                     data={"check": "downtime_enabled"},
                 )
             )
@@ -120,6 +134,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_time_audit.app_limits_configured",
                     data={"check": "app_limits_configured"},
                 )
             )
@@ -136,6 +151,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_time_audit.communication_limits_configured",
                     data={"check": "communication_limits_configured"},
                 )
             )
@@ -152,6 +168,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_time_audit.screen_time_disabled",
                     data={"check": "screen_time_disabled"},
                 )
             )

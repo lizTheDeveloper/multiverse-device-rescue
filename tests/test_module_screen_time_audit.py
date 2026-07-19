@@ -216,3 +216,10 @@ def test_screen_time_audit_fix_has_guidance():
         fix = mod.fix(check, Mode.MANUAL)
     # Should suggest enabling Screen Time for family devices
     assert any("Enable Screen Time" in a.title for a in fix.actions)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.screen_time_audit.") for c in declared)
