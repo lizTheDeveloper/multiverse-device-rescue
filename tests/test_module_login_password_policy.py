@@ -404,3 +404,10 @@ def test_handles_subprocess_error():
         result = mod.check(_make_profile())
     # Should still complete without crashing
     assert isinstance(result.findings, list)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.login_password_policy.") for c in declared)

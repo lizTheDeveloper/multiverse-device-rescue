@@ -24,6 +24,16 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.login_password_policy.auto_login",
+        "security.login_password_policy.ask_password",
+        "security.login_password_policy.password_delay",
+        "security.login_password_policy.guest_account_enabled",
+        "security.login_password_policy.login_window_display",
+        "security.login_password_policy.screensaver_timeout",
+        "security.login_password_policy.remote_login_enabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -43,6 +53,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.login_password_policy.auto_login",
                     data={"check": "auto_login", "user": auto_login_user},
                 )
             )
@@ -62,6 +73,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.login_password_policy.ask_password",
                     data={"check": "ask_password", "value": ask_password},
                 )
             )
@@ -85,6 +97,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.login_password_policy.password_delay",
                             data={"check": "password_delay", "seconds": delay_value},
                         )
                     )
@@ -104,6 +117,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.login_password_policy.guest_account_enabled",
                     data={"check": "guest_account_enabled"},
                 )
             )
@@ -124,6 +138,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.login_password_policy.login_window_display",
                 data={"check": "login_window_display", "display": login_message},
             )
         )
@@ -147,6 +162,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.login_password_policy.screensaver_timeout",
                             data={"check": "screensaver_timeout", "seconds": timeout_value},
                         )
                     )
@@ -161,6 +177,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.login_password_policy.screensaver_timeout",
                             data={"check": "screensaver_timeout", "seconds": timeout_value, "minutes": timeout_minutes},
                         )
                     )
@@ -179,6 +196,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.login_password_policy.remote_login_enabled",
                     data={"check": "remote_login_enabled"},
                 )
             )
