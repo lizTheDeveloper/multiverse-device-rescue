@@ -91,3 +91,29 @@ def test_render_markdown_all_run_variants_and_links():
     assert "`rescue run ssh_key_audit`" in md
     assert "`rescue`" in md  # full scan
     assert "[Sec](https://x)" in md  # curriculum link uses section as label
+
+
+def test_load_threat_map_parses_entries(tmp_path):
+    from rescue.threat_map import load_threat_map
+    p = tmp_path / "m.yaml"
+    p.write_text(
+        "threats:\n"
+        "  - id: t1\n    title: T1\n    summary: S1\n"
+        "    run:\n      profile: ai_worm_response\n"
+        "    codes: ['security.ai_worm_persistence.x']\n"
+        "    curriculum_url: https://x\n    curriculum_section: Sec\n"
+    )
+    threats = load_threat_map(p)
+    assert len(threats) == 1
+    t = threats[0]
+    assert t.id == "t1" and t.run.profile == "ai_worm_response"
+    assert t.codes == ["security.ai_worm_persistence.x"] and t.curriculum_url == "https://x"
+
+
+def test_load_threat_map_bad_yaml_raises_clear_error(tmp_path):
+    import pytest
+    from rescue.threat_map import load_threat_map
+    p = tmp_path / "bad.yaml"
+    p.write_text("threats:\n  - id: t\n   bad: [indent\n")  # broken indentation/bracket
+    with pytest.raises(ValueError, match="not valid YAML"):
+        load_threat_map(p)
