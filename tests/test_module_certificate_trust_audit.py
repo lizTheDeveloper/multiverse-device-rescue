@@ -405,3 +405,10 @@ def test_certificate_trust_audit_timeout():
         result = mod.check(_make_profile())
     # Should still complete without crashing
     assert isinstance(result.findings, list)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.certificate_trust_audit.") for c in declared)

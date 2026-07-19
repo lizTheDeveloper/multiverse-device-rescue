@@ -25,6 +25,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.certificate_trust_audit.suspicious_certificates",
+        "security.certificate_trust_audit.self_signed_root_certs",
+        "security.certificate_trust_audit.expired_certificates",
+        "security.certificate_trust_audit.user_added_certs",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -88,6 +95,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.certificate_trust_audit.suspicious_certificates",
                     data={"check": "suspicious_certificates", "certs": suspicious_certs},
                 )
             )
@@ -105,6 +113,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.certificate_trust_audit.self_signed_root_certs",
                     data={"check": "self_signed_root_certs", "certs": self_signed_certs},
                 )
             )
@@ -121,6 +130,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.certificate_trust_audit.expired_certificates",
                     data={"check": "expired_certificates", "certs": expired_certs},
                 )
             )
@@ -137,6 +147,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.certificate_trust_audit.user_added_certs",
                     data={"check": "user_added_certs", "certs": user_added_certs},
                 )
             )
