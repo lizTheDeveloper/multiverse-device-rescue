@@ -203,3 +203,10 @@ def test_privacy_audit_all_findings_safe_risk_level():
     # All findings should be INFO severity (informational, not critical)
     for finding in result.findings:
         assert finding.severity == Severity.INFO
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.privacy_audit.") for c in declared)

@@ -23,6 +23,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.privacy_audit.location_services",
+        "security.privacy_audit.personalized_ads",
+        "security.privacy_audit.analytics",
+        "security.privacy_audit.significant_locations",
+        "security.privacy_audit.siri_suggestions",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         """Audit privacy settings on macOS.
 
@@ -48,6 +56,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.privacy_audit.location_services",
                     data={"check": "location_services"},
                 )
             )
@@ -67,6 +76,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.privacy_audit.personalized_ads",
                     data={"check": "personalized_ads"},
                 )
             )
@@ -85,6 +95,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.privacy_audit.analytics",
                     data={"check": "analytics"},
                 )
             )
@@ -104,6 +115,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.privacy_audit.significant_locations",
                     data={"check": "significant_locations"},
                 )
             )
@@ -123,6 +135,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.privacy_audit.siri_suggestions",
                     data={"check": "siri_suggestions"},
                 )
             )
