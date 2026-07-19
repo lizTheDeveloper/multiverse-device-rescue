@@ -24,6 +24,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "2s"
 
+    emits_codes = [
+        "security.sudo_touchid.touchid_status",
+        "security.sudo_touchid.no_fingerprints",
+        "security.sudo_touchid.sudo_not_enabled",
+        "security.sudo_touchid.applepay_enabled",
+        "security.sudo_touchid.no_hardware",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -53,6 +61,7 @@ class Module(ModuleBase):
                     description=status,
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.sudo_touchid.touchid_status",
                     data={
                         "check": "touchid_status",
                         "fingerprints": fingerprint_count,
@@ -73,6 +82,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.sudo_touchid.no_fingerprints",
                         data={"check": "no_fingerprints"},
                     )
                 )
@@ -89,6 +99,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.sudo_touchid.sudo_not_enabled",
                         data={"check": "sudo_not_enabled"},
                     )
                 )
@@ -101,6 +112,7 @@ class Module(ModuleBase):
                         description="Touch ID is configured for Apple Pay authentication.",
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.sudo_touchid.applepay_enabled",
                         data={"check": "applepay_enabled"},
                     )
                 )
@@ -114,6 +126,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.sudo_touchid.no_hardware",
                     data={"check": "no_hardware", "has_hardware": False},
                 )
             )

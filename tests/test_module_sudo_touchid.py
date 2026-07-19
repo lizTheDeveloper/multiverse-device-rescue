@@ -256,3 +256,10 @@ def test_sudo_touchid_multiple_findings():
     # Mix of severities (INFO and WARNING)
     severities = {f.severity for f in result.findings}
     assert Severity.INFO in severities or Severity.WARNING in severities
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.sudo_touchid.") for c in declared)
