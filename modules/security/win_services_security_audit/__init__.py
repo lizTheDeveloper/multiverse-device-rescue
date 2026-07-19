@@ -51,6 +51,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_services_security_audit.unquoted_path",
+        "security.win_services_security_audit.user_writable_dir",
+        "security.win_services_security_audit.overprivileged",
+        "security.win_services_security_audit.stopped_auto_start",
+        "security.win_services_security_audit.summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -213,6 +221,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_services_security_audit.unquoted_path",
                         data={
                             "check_type": "unquoted_path",
                             "service_name": name,
@@ -247,6 +256,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.win_services_security_audit.user_writable_dir",
                             data={
                                 "check_type": "user_writable_dir",
                                 "service_name": name,
@@ -281,6 +291,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_services_security_audit.overprivileged",
                     data={
                         "check_type": "overprivileged",
                         "service_name": name,
@@ -310,6 +321,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_services_security_audit.stopped_auto_start",
                         data={
                             "check_type": "stopped_auto_start",
                             "service_name": name,
@@ -346,6 +358,7 @@ class Module(ModuleBase):
             ),
             severity=Severity.INFO,
             category=self.category,
+            code="security.win_services_security_audit.summary",
             data={
                 "check_type": "summary",
                 "total_services": total,

@@ -472,3 +472,10 @@ def test_win_services_malformed_json():
         result = mod.check(_make_profile())
     # Should not crash, just return empty findings
     assert isinstance(result.findings, list)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_services_security_audit.") for c in declared)
