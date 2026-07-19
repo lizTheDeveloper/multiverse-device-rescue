@@ -371,3 +371,10 @@ def test_browser_privacy_check_no_findings_shows_summary():
     summary_findings = [f for f in result.findings if f.data.get("check") == "privacy_summary"]
     assert len(summary_findings) == 1
     assert summary_findings[0].severity == Severity.INFO
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.browser_privacy_check.") for c in declared)

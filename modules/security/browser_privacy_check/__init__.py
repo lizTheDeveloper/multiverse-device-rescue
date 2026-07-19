@@ -24,6 +24,16 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.browser_privacy_check.do_not_track_disabled",
+        "security.browser_privacy_check.fraud_warning_disabled",
+        "security.browser_privacy_check.cookies_always_allow",
+        "security.browser_privacy_check.autofilll_passwords_enabled",
+        "security.browser_privacy_check.installed_browsers",
+        "security.browser_privacy_check.saved_passwords",
+        "security.browser_privacy_check.privacy_summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -51,6 +61,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.browser_privacy_check.privacy_summary",
                     data={"check": "privacy_summary", "status": "clean"},
                 )
             )
@@ -155,6 +166,7 @@ class Module(ModuleBase):
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
+                                code="security.browser_privacy_check.do_not_track_disabled",
                                 data={"check": "do_not_track_disabled"},
                             )
                         )
@@ -174,6 +186,7 @@ class Module(ModuleBase):
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
+                                code="security.browser_privacy_check.fraud_warning_disabled",
                                 data={"check": "fraud_warning_disabled"},
                             )
                         )
@@ -193,6 +206,7 @@ class Module(ModuleBase):
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
+                                code="security.browser_privacy_check.cookies_always_allow",
                                 data={"check": "cookies_always_allow"},
                             )
                         )
@@ -212,6 +226,7 @@ class Module(ModuleBase):
                                 ),
                                 severity=Severity.INFO,
                                 category=self.category,
+                                code="security.browser_privacy_check.autofilll_passwords_enabled",
                                 data={"check": "autofilll_passwords_enabled"},
                             )
                         )
@@ -262,6 +277,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.browser_privacy_check.installed_browsers",
                     data={"check": "installed_browsers", "browsers": browsers},
                 )
             )
@@ -294,6 +310,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.INFO,
                             category=self.category,
+                            code="security.browser_privacy_check.saved_passwords",
                             data={"check": "saved_passwords", "count": keychain_count},
                         )
                     )
