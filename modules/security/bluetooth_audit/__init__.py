@@ -23,6 +23,11 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.bluetooth_audit.paired_devices",
+        "security.bluetooth_audit.discoverable_state",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -50,6 +55,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.bluetooth_audit.paired_devices",
                     data={
                         "check": "paired_devices",
                         "device_count": device_count,
@@ -70,6 +76,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.bluetooth_audit.discoverable_state",
                     data={"check": "discoverable_state"},
                 )
             )

@@ -238,3 +238,10 @@ def test_bluetooth_audit_device_parsing():
     assert len(result.findings) == 1
     assert result.findings[0].data["device_count"] == 3
     assert len(result.findings[0].data["devices"]) == 3
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.bluetooth_audit.") for c in declared)
