@@ -23,6 +23,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "2s"
 
+    emits_codes = [
+        "security.find_my_mac.find_my_mac_disabled",
+        "security.find_my_mac.send_last_location_disabled",
+        "security.find_my_mac.activation_lock_unknown",
+        "security.find_my_mac.configured_ok",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -39,6 +46,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.find_my_mac.find_my_mac_disabled",
                     data={"find_my_mac_enabled": fmm_enabled},
                 )
             )
@@ -56,6 +64,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.find_my_mac.send_last_location_disabled",
                     data={"send_last_location": send_last_location},
                 )
             )
@@ -73,6 +82,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.find_my_mac.activation_lock_unknown",
                     data={"activation_lock": activation_lock},
                 )
             )
@@ -87,6 +97,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.find_my_mac.configured_ok",
                     data={
                         "find_my_mac_enabled": fmm_enabled,
                         "send_last_location": send_last_location,
