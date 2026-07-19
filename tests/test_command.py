@@ -43,6 +43,33 @@ def test_run_truncates_oversized_output():
     code = "print('a' * 200000)"
     result = run([sys.executable, "-c", code], max_output=1024)
     assert result.truncated is True
+    assert len(result.stdout) <= 1024 + 64
+
+
+def test_run_kills_flooding_process_and_returns_promptly():
+    """A command that floods output then holds the pipe open must be terminated
+    as soon as output crosses max_output — bounding PEAK memory — instead of
+    being drained in full and/or waited on until the timeout. Regression guard
+    for the OOM class: the previous implementation buffered the whole stream via
+    communicate() before truncating.
+    """
+    import time
+
+    # Write ~2 MB fast, then sleep so the process does not exit on its own.
+    code = (
+        "import sys, time; sys.stdout.write('a' * 2_000_000); "
+        "sys.stdout.flush(); time.sleep(30)"
+    )
+    start = time.monotonic()
+    result = run([sys.executable, "-c", code], max_output=1024, timeout=20)
+    elapsed = time.monotonic() - start
+
+    assert result.truncated is True
+    # It was killed on overflow, not by the timeout deadline.
+    assert result.timed_out is False
+    # And it returned promptly rather than waiting out the 20s timeout.
+    assert elapsed < 10
+    # Peak captured output stayed bounded near the cap.
     assert len(result.stdout) <= 1024 + 64  # small marker allowance
 
 
