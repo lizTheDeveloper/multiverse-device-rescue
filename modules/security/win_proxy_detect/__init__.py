@@ -23,6 +23,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.win_proxy_detect.localhost_suspicious",
+        "security.win_proxy_detect.ie_proxy_enabled",
+        "security.win_proxy_detect.pac_configured",
+        "security.win_proxy_detect.system_proxy",
+        "security.win_proxy_detect.no_proxies",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -46,6 +54,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_proxy_detect.localhost_suspicious",
                         data={"proxy_server": ie_proxy_server, "type": "localhost_suspicious"},
                     )
                 )
@@ -62,6 +71,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_proxy_detect.ie_proxy_enabled",
                     data={"proxy_server": ie_proxy_server, "type": "ie_proxy_enabled"},
                 )
             )
@@ -77,6 +87,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_proxy_detect.pac_configured",
                     data={"pac_url": ie_pac_url, "type": "pac_configured"},
                 )
             )
@@ -92,6 +103,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_proxy_detect.system_proxy",
                     data={"netsh_proxy": netsh_proxy, "type": "system_proxy"},
                 )
             )
@@ -106,6 +118,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_proxy_detect.no_proxies",
                     data={"type": "no_proxies"},
                 )
             )
