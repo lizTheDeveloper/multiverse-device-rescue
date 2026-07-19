@@ -5,12 +5,29 @@ platforms: [macos]
 remediates:
   - security.sip_gatekeeper.sip_status
   - security.sip_gatekeeper.gatekeeper_status
+  - security.gatekeeper_quarantine_check.gatekeeper_disabled
+  - security.gatekeeper_quarantine_check.gatekeeper_enabled
+  - security.gatekeeper_quarantine_check.sip_disabled
+  - security.gatekeeper_quarantine_check.sip_enabled
+  - security.gatekeeper_quarantine_check.quarantine_removed
+  - security.gatekeeper_quarantine_check.gatekeeper_assessment_failed
+  - security.gatekeeper_quarantine_check.gatekeeper_working
 automatable_steps: []
-human_only_steps: [1, 2]
+human_only_steps: [1, 2, 3, 4]
 ---
 
-This walkthrough covers `sip_gatekeeper`, which checks System Integrity
-Protection (`csrutil status`) and Gatekeeper (`spctl --status`).
+This walkthrough covers both `sip_gatekeeper` and
+`gatekeeper_quarantine_check`, which both check System Integrity
+Protection (`csrutil status`) and Gatekeeper (`spctl --status`) from
+different angles. `sip_gatekeeper` is the lighter check (WARNING on
+disabled). `gatekeeper_quarantine_check` treats a disabled SIP or
+Gatekeeper as CRITICAL (since it also reports the INFO-level "confirmed
+enabled" case for full visibility), and additionally checks a fixed list
+of common apps in `/Applications` for a manually-removed quarantine flag,
+and runs a live Gatekeeper assessment against Safari to confirm the
+mechanism is actually functioning end-to-end, not just reporting
+"enabled". They're remediated together since both point at the same two
+underlying protections.
 
 **Important: both SIP and Gatekeeper are core macOS security protections.**
 Disabling either one reduces your system's defenses — SIP stops even root
@@ -58,3 +75,57 @@ disable these to keep working undetected.
    everything else.
 2. To re-enable Gatekeeper globally: `sudo spctl --master-enable`
 3. Confirm: `spctl --status` should report "assessments enabled."
+
+The `gatekeeper_disabled`/`sip_disabled` (CRITICAL) and
+`gatekeeper_enabled`/`sip_enabled` (INFO) findings from
+`gatekeeper_quarantine_check` describe the same two settings — use the
+same steps above. The CRITICAL severity here (vs. WARNING from
+`sip_gatekeeper`) doesn't change the remediation, just the urgency: treat
+these as a priority if you didn't knowingly disable them yourself.
+
+## Step 3: Review apps with a manually-removed quarantine flag
+
+`quarantine_removed` (WARNING) lists common apps in `/Applications`
+(Safari, Chrome, Firefox, VS Code, Spotify, Discord, Slack, Telegram, VLC)
+whose `com.apple.quarantine` extended attribute is missing — meaning
+Gatekeeper's first-launch verification was bypassed for that app, either
+intentionally (a common step for pirated/cracked software, or by
+developers testing unsigned builds) or by something else stripping it.
+
+1. For each flagged app, inspect the install: `mdls -name
+   kMDItemWhereFroms <app path>` (if quarantine metadata is fully gone,
+   this may return nothing — that's itself informative).
+2. Check the app's code signature: `codesign -dv --verbose=4 <app path>`.
+   A valid signature from the expected vendor is reassuring even without
+   the quarantine flag; an invalid or ad-hoc signature is a strong warning
+   sign.
+3. If you deliberately removed the flag yourself (e.g. `xattr -d
+   com.apple.quarantine` after downloading a signed build from an
+   unusual channel) and the signature checks out, no action is needed.
+4. If you don't recall doing this, or the signature doesn't check out,
+   don't just delete the app outright — first quarantine your own copy
+   for inspection (move it to a holding folder rather than trashing it),
+   then reinstall the app fresh from the vendor's official source.
+5. Restore Gatekeeper's ability to re-check it going forward by
+   re-downloading via a normal browser (which re-applies the quarantine
+   flag automatically) rather than manually re-adding the xattr.
+
+## Step 4: Verify Gatekeeper is functioning, not just "enabled"
+
+`gatekeeper_assessment_failed` (WARNING) means a live test assessment
+(`spctl --assess` against `/Applications/Safari.app`) didn't return a
+clear accepted/rejected result — `spctl --status` can report "enabled"
+while the assessment mechanism itself is broken. `gatekeeper_working`
+(INFO) confirms the opposite: the live test succeeded.
+
+1. Run the same test manually with full output: `spctl -a -t execute
+   -vvv /Applications/Safari.app` and read the verbose reason.
+2. If the command errors out entirely (not just a "rejected" result —
+   rejected is actually a valid working response), try resetting
+   Gatekeeper's rule database: `sudo spctl --reset-default`.
+3. Re-run the assessment to confirm it now returns a clear
+   accepted/rejected verdict rather than an error.
+4. If it still fails after a reset, this may indicate deeper system
+   corruption — consider running Apple Diagnostics or, if other integrity
+   findings are also present, treat this as part of a broader compromise
+   investigation rather than an isolated Gatekeeper bug.

@@ -24,6 +24,16 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "8s"
 
+    emits_codes = [
+        "security.gatekeeper_quarantine_check.gatekeeper_disabled",
+        "security.gatekeeper_quarantine_check.gatekeeper_enabled",
+        "security.gatekeeper_quarantine_check.sip_disabled",
+        "security.gatekeeper_quarantine_check.sip_enabled",
+        "security.gatekeeper_quarantine_check.quarantine_removed",
+        "security.gatekeeper_quarantine_check.gatekeeper_assessment_failed",
+        "security.gatekeeper_quarantine_check.gatekeeper_working",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -41,6 +51,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.gatekeeper_quarantine_check.gatekeeper_disabled",
                     data={"check": "gatekeeper_disabled"},
                 )
             )
@@ -51,6 +62,7 @@ class Module(ModuleBase):
                     description="Gatekeeper is enabled and will verify code signatures on applications.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.gatekeeper_quarantine_check.gatekeeper_enabled",
                     data={"check": "gatekeeper_enabled"},
                 )
             )
@@ -68,6 +80,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.gatekeeper_quarantine_check.sip_disabled",
                     data={"check": "sip_disabled"},
                 )
             )
@@ -78,6 +91,7 @@ class Module(ModuleBase):
                     description="SIP is enabled and protecting critical system files.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.gatekeeper_quarantine_check.sip_enabled",
                     data={"check": "sip_enabled"},
                 )
             )
@@ -97,6 +111,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.gatekeeper_quarantine_check.quarantine_removed",
                     data={"check": "quarantine_removed", "apps": apps_without_quarantine},
                 )
             )
@@ -114,6 +129,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.gatekeeper_quarantine_check.gatekeeper_assessment_failed",
                     data={"check": "gatekeeper_assessment_failed"},
                 )
             )
@@ -124,6 +140,7 @@ class Module(ModuleBase):
                     description="Gatekeeper assessment verification completed successfully.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.gatekeeper_quarantine_check.gatekeeper_working",
                     data={"check": "gatekeeper_working"},
                 )
             )

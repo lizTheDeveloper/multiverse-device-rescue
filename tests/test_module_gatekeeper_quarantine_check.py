@@ -325,3 +325,10 @@ def test_gatekeeper_quarantine_check_subprocess_error_graceful():
         result = mod.check(_make_profile())
     # Should still complete without crashing
     assert isinstance(result.findings, list)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.gatekeeper_quarantine_check.") for c in declared)
