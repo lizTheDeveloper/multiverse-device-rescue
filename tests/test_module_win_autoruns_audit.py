@@ -258,3 +258,10 @@ def test_win_autoruns_audit_obfuscation_detection():
     assert mod._is_obfuscated_command("cmd /c echo malware | powershell")
     assert mod._is_obfuscated_command("IEX(New-Object Net.WebClient)")
     assert not mod._is_obfuscated_command("C:\\Program Files\\Firefox\\firefox.exe")
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_autoruns_audit.") for c in declared)

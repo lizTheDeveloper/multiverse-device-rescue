@@ -24,6 +24,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_autoruns_audit.temp_path_execution",
+        "security.win_autoruns_audit.obfuscated_command",
+        "security.win_autoruns_audit.excessive_entries",
+        "security.win_autoruns_audit.inventory",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         autoruns = {}
@@ -59,6 +66,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_autoruns_audit.temp_path_execution",
                         data={
                             "entry_name": entry_name,
                             "location": location,
@@ -79,6 +87,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_autoruns_audit.obfuscated_command",
                         data={
                             "entry_name": entry_name,
                             "location": location,
@@ -99,6 +108,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_autoruns_audit.excessive_entries",
                     data={"total_autorun_count": total_count},
                 )
             )
@@ -117,6 +127,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_autoruns_audit.inventory",
                     data={
                         "total_count": total_count,
                         "entries_by_location": autoruns,
