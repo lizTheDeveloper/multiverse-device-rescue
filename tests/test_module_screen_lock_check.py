@@ -316,3 +316,10 @@ def test_fix_automatic_login():
     # Should have action for disabling auto login
     actions = [a for a in fix.actions if "automatic" in a.title.lower()]
     assert len(actions) > 0
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.screen_lock_check.") for c in declared)

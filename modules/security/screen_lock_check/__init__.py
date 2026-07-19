@@ -23,6 +23,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.screen_lock_check.screen_lock_required",
+        "security.screen_lock_check.automatic_login",
+        "security.screen_lock_check.screen_lock_delay",
+        "security.screen_lock_check.screensaver_idle_time",
+        "security.screen_lock_check.password_hint",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -43,6 +51,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.screen_lock_check.screen_lock_required",
                     data={"check": "screen_lock_required", "value": "disabled"},
                 )
             )
@@ -57,6 +66,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_lock_check.screen_lock_required",
                     data={"check": "screen_lock_required", "value": "enabled"},
                 )
             )
@@ -77,6 +87,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.screen_lock_check.automatic_login",
                     data={"check": "automatic_login", "value": auto_login.strip()},
                 )
             )
@@ -100,6 +111,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.screen_lock_check.screen_lock_delay",
                             data={"check": "screen_lock_delay", "value": delay_seconds},
                         )
                     )
@@ -113,6 +125,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.INFO,
                             category=self.category,
+                            code="security.screen_lock_check.screen_lock_delay",
                             data={"check": "screen_lock_delay", "value": delay_seconds},
                         )
                     )
@@ -140,6 +153,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.screen_lock_check.screensaver_idle_time",
                             data={"check": "screensaver_idle_time", "value": 0},
                         )
                     )
@@ -154,6 +168,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.screen_lock_check.screensaver_idle_time",
                             data={"check": "screensaver_idle_time", "value": idle_minutes},
                         )
                     )
@@ -167,6 +182,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.INFO,
                             category=self.category,
+                            code="security.screen_lock_check.screensaver_idle_time",
                             data={"check": "screensaver_idle_time", "value": idle_minutes},
                         )
                     )
@@ -184,6 +200,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_lock_check.screensaver_idle_time",
                     data={"check": "screensaver_idle_time", "value": "not_set"},
                 )
             )
@@ -207,6 +224,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.INFO,
                             category=self.category,
+                            code="security.screen_lock_check.password_hint",
                             data={"check": "password_hint", "value": hint_retries_int},
                         )
                     )
