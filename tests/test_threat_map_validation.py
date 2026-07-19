@@ -1,7 +1,7 @@
 from rescue.cli import _get_modules_dir, _get_profiles_dir, _project_root
 from rescue.profiles import discover_profiles
 from rescue.registry import discover_modules
-from rescue.threat_map import load_threat_map, validate_threat_map
+from rescue.threat_map import load_threat_map, render_threat_markdown, validate_threat_map
 
 
 def _ctx():
@@ -22,3 +22,11 @@ def test_shipped_threat_map_is_valid():
     assert threats, "threat map is empty"
     errors = validate_threat_map(threats, profiles, all_codes, all_modules)
     assert errors == [], "threat map invalid:\n" + "\n".join(errors)
+
+
+def test_generated_doc_matches_map():
+    profiles, all_codes, all_modules = _ctx()
+    threats = load_threat_map(_project_root() / "docs" / "threat_remediation_map.yaml")
+    committed = (_project_root() / "docs" / "THREAT_REMEDIATION.md").read_text()
+    assert committed == render_threat_markdown(threats, profiles), (
+        "docs/THREAT_REMEDIATION.md is out of date — run `rescue threat-remediation`")
