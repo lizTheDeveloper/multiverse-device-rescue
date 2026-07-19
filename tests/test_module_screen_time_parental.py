@@ -406,3 +406,10 @@ def test_fix_risk_level_safe():
     # All actions should be SAFE (informational, no system changes)
     for action in fix.actions:
         assert action.risk_level == RiskLevel.SAFE
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.screen_time_parental.") for c in declared)

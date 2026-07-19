@@ -24,6 +24,21 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.screen_time_parental.screen_time_enabled",
+        "security.screen_time_parental.screen_time_no_passcode",
+        "security.screen_time_parental.content_privacy_restrictions",
+        "security.screen_time_parental.content_privacy_disabled_with_children",
+        "security.screen_time_parental.app_limits_configured",
+        "security.screen_time_parental.downtime_enabled",
+        "security.screen_time_parental.communication_limits_configured",
+        "security.screen_time_parental.adult_content_filtering",
+        "security.screen_time_parental.ask_to_buy_enabled",
+        "security.screen_time_parental.screen_time_disabled_with_children",
+        "security.screen_time_parental.screen_time_disabled",
+        "security.screen_time_parental.managed_accounts",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         """Audit Screen Time parental controls and managed child accounts on macOS.
 
@@ -56,6 +71,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_time_parental.screen_time_enabled",
                     data={"check": "screen_time_enabled"},
                 )
             )
@@ -74,6 +90,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.screen_time_parental.screen_time_no_passcode",
                         data={"check": "screen_time_no_passcode"},
                     )
                 )
@@ -93,6 +110,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.screen_time_parental.content_privacy_restrictions",
                         data={"check": "content_privacy_restrictions"},
                     )
                 )
@@ -111,6 +129,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.screen_time_parental.content_privacy_disabled_with_children",
                             data={
                                 "check": "content_privacy_disabled_with_children",
                                 "managed_accounts": managed_accounts,
@@ -130,6 +149,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.screen_time_parental.app_limits_configured",
                         data={"check": "app_limits_configured"},
                     )
                 )
@@ -148,6 +168,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.screen_time_parental.downtime_enabled",
                         data={"check": "downtime_enabled"},
                     )
                 )
@@ -164,6 +185,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.screen_time_parental.communication_limits_configured",
                         data={"check": "communication_limits_configured"},
                     )
                 )
@@ -180,6 +202,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.screen_time_parental.adult_content_filtering",
                         data={"check": "adult_content_filtering"},
                     )
                 )
@@ -196,6 +219,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.screen_time_parental.ask_to_buy_enabled",
                         data={"check": "ask_to_buy_enabled"},
                     )
                 )
@@ -216,6 +240,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.screen_time_parental.screen_time_disabled_with_children",
                         data={
                             "check": "screen_time_disabled_with_children",
                             "managed_accounts": managed_accounts,
@@ -234,6 +259,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.screen_time_parental.screen_time_disabled",
                         data={"check": "screen_time_disabled"},
                     )
                 )
@@ -251,6 +277,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.screen_time_parental.managed_accounts",
                     data={"check": "managed_accounts", "accounts": managed_accounts},
                 )
             )

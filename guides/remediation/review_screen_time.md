@@ -10,14 +10,28 @@ remediates:
   - security.screen_time_audit.app_limits_configured
   - security.screen_time_audit.communication_limits_configured
   - security.screen_time_audit.screen_time_disabled
+  - security.screen_time_parental.screen_time_enabled
+  - security.screen_time_parental.screen_time_no_passcode
+  - security.screen_time_parental.content_privacy_restrictions
+  - security.screen_time_parental.content_privacy_disabled_with_children
+  - security.screen_time_parental.app_limits_configured
+  - security.screen_time_parental.downtime_enabled
+  - security.screen_time_parental.communication_limits_configured
+  - security.screen_time_parental.adult_content_filtering
+  - security.screen_time_parental.ask_to_buy_enabled
+  - security.screen_time_parental.screen_time_disabled_with_children
+  - security.screen_time_parental.screen_time_disabled
+  - security.screen_time_parental.managed_accounts
 automatable_steps: []
-human_only_steps: [1, 2, 3, 4]
+human_only_steps: [1, 2, 3, 4, 5, 6]
 ---
 
-This walkthrough covers what the `screen_time_audit` module inventories:
-whether Screen Time is enabled, whether it's protected by a passcode, and
-the state of Content & Privacy Restrictions, Downtime, App Limits, and
-Communication Limits. All of it is informational review — Screen Time is a
+This walkthrough covers what the `screen_time_audit` and `screen_time_parental`
+modules inventory: whether Screen Time is enabled, whether it's protected by
+a passcode, the state of Content & Privacy Restrictions, Downtime, App
+Limits, and Communication Limits, plus (for `screen_time_parental`) managed
+child accounts, adult content filtering, and purchase ("Ask to Buy")
+restrictions. All of it is informational review — Screen Time is a
 legitimate feature for managing your own usage or a family member's device,
 so nothing here is auto-applied. The goal is to confirm the configuration
 matches what you actually intend, not to assume any particular state is
@@ -70,3 +84,32 @@ on this device.
 2. If you do want Screen Time (self-monitoring, or managing a family
    member's device), enable it: System Settings > Screen Time > Turn On,
    then set a passcode (Step 1) and configure the features in Step 3.
+
+## Step 5: Review managed/child accounts and protections that depend on them
+
+The `screen_time_parental` scan additionally flags cases where this device
+has managed/child accounts but the protections meant for them are missing
+or disabled.
+
+1. If the scan reported managed/child accounts, open System Settings >
+   Screen Time and confirm the list of accounts matches who you expect to
+   have restricted access on this device.
+2. If Content & Privacy Restrictions were reported as **disabled while
+   managed accounts exist**, this is worth acting on promptly: open System
+   Settings > Screen Time > [child account] > Content & Privacy and enable
+   restrictions appropriate for that account's age.
+3. If Screen Time itself was reported as **disabled while managed accounts
+   exist**, enable it for that account and configure a passcode (Step 1),
+   App Limits, Downtime, and Communication Limits (Step 3) — an unmanaged
+   Screen Time state on a child account means none of the intended controls
+   are active.
+
+## Step 6: Review adult content filtering and purchase approval
+
+1. Open System Settings > Screen Time > [child account] > Content &
+   Privacy > Content Restrictions and confirm adult content / web filtering
+   is set the way you expect for that account.
+2. Open Family Sharing settings and confirm "Ask to Buy" is configured for
+   accounts that should require purchase approval — if the scan reported it
+   as enabled, periodically review pending/approved purchase requests to
+   make sure they still look reasonable.
