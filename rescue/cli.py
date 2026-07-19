@@ -173,7 +173,12 @@ def run(module_names, yes, copilot):
         if check.error:
             click.echo()
             continue
-        if check.has_issues and (yes or mod.risk_level == RiskLevel.SAFE):
+        # Only apply a fix without asking when the operator passed --yes, or the
+        # module has explicitly opted in to unattended, vetted SAFE mutation via
+        # auto_apply. Otherwise confirm first — a fix() may perform a mutation,
+        # and no externally-visible change should run unconfirmed (P0#5/#6).
+        auto_ok = mod.risk_level == RiskLevel.SAFE and getattr(mod, "auto_apply", False)
+        if check.has_issues and (yes or auto_ok):
             try:
                 fix = mod.fix(check, mode)
             except Exception as exc:
