@@ -282,3 +282,10 @@ def test_safari_extensions_fix_all_safe_risk_level(tmp_path):
 
     # All actions should be SAFE
     assert all(a.risk_level == RiskLevel.SAFE for a in fix.actions)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.safari_extensions.") for c in declared)

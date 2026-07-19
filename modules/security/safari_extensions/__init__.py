@@ -24,6 +24,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.safari_extensions.legacy_extensions",
+        "security.safari_extensions.app_extensions",
+        "security.safari_extensions.extension_bloat",
+        "security.safari_extensions.content_blockers_enabled",
+        "security.safari_extensions.content_blockers_disabled",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -41,6 +49,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.safari_extensions.legacy_extensions",
                     data={"check": "legacy_extensions", "extensions": legacy_extensions},
                 )
             )
@@ -59,6 +68,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.safari_extensions.app_extensions",
                     data={"check": "app_extensions", "extensions": app_extensions},
                 )
             )
@@ -75,6 +85,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.safari_extensions.extension_bloat",
                         data={"check": "extension_bloat", "count": len(app_extensions)},
                     )
                 )
@@ -91,6 +102,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.safari_extensions.content_blockers_enabled",
                     data={"check": "content_blockers", "enabled": True},
                 )
             )
@@ -105,6 +117,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.safari_extensions.content_blockers_disabled",
                     data={"check": "content_blockers", "enabled": False},
                 )
             )
