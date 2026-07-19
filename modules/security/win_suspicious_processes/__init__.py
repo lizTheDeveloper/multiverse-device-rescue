@@ -45,6 +45,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_suspicious_processes.known_malware",
+        "security.win_suspicious_processes.mining_software",
+        "security.win_suspicious_processes.suspicious_path",
+        "security.win_suspicious_processes.no_file_path",
+        "security.win_suspicious_processes.encoded_powershell",
+        "security.win_suspicious_processes.summary",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -68,6 +77,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_suspicious_processes.known_malware",
                         data={
                             "pid": proc["Id"],
                             "name": proc["Name"],
@@ -89,6 +99,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_suspicious_processes.mining_software",
                         data={
                             "pid": proc["Id"],
                             "name": proc["Name"],
@@ -111,6 +122,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_suspicious_processes.suspicious_path",
                         data={
                             "pid": proc["Id"],
                             "name": proc["Name"],
@@ -132,6 +144,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_suspicious_processes.no_file_path",
                         data={
                             "pid": proc["Id"],
                             "name": proc["Name"],
@@ -158,6 +171,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_suspicious_processes.summary",
                     data={"count": summary_count, "type": "summary"},
                 ),
             )
@@ -261,6 +275,7 @@ class Module(ModuleBase):
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,
+                                    code="security.win_suspicious_processes.encoded_powershell",
                                     data={
                                         "command": cmd_line[:100],
                                         "type": "encoded_powershell",

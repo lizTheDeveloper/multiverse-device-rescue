@@ -268,3 +268,10 @@ def test_win_suspicious_processes_fix_action_details():
     action = fix.actions[0]
     assert "Investigate" in action.title or "xmrig" in action.title
     assert action.risk_level in [RiskLevel.MODERATE, RiskLevel.SAFE]
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_suspicious_processes.") for c in declared)
