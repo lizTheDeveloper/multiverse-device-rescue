@@ -24,6 +24,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_group_policy_audit.stale_domain_policies",
+        "security.win_group_policy_audit.restrictive_policy",
+        "security.win_group_policy_audit.weak_password_policy",
+        "security.win_group_policy_audit.applocker_configured",
+        "security.win_group_policy_audit.status_report",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -46,6 +54,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_group_policy_audit.stale_domain_policies",
                     data={
                         "computer_gpos": computer_gpos,
                         "user_gpos": user_gpos,
@@ -81,6 +90,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_group_policy_audit.status_report",
                     data={
                         "is_domain_joined": is_domain_joined,
                         "computer_gpos_count": len(computer_gpos),
@@ -208,6 +218,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_group_policy_audit.restrictive_policy",
                         data={"policy_name": policy_name, "registry_key": reg_name},
                     )
                 )
@@ -274,6 +285,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_group_policy_audit.weak_password_policy",
                         data={"min_length": min_length},
                     )
                 )
@@ -320,6 +332,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.win_group_policy_audit.applocker_configured",
                         data={"policy_type": "AppLocker"},
                     )
                 )

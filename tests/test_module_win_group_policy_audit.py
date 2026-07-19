@@ -271,3 +271,10 @@ def test_win_group_policy_audit_clean_machine():
     assert result.has_issues  # info findings still count as issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warnings) == 0  # No warnings on clean machine
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_group_policy_audit.") for c in declared)
