@@ -8,6 +8,8 @@ remediates:
   - security.mvt_spyware_scan.mvt_not_installed
   - security.mvt_spyware_scan.mvt_spyware_detected
   - security.mvt_spyware_scan.mvt_clean_scan
+  - security.mvt_spyware_scan.mvt_backup_too_large
+  - security.mvt_spyware_scan.mvt_scan_available
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
