@@ -232,3 +232,10 @@ def test_app_permissions_fix_creates_actions_per_finding():
         fix = mod.fix(check, Mode.MANUAL)
     # Should have one action per finding
     assert len(fix.actions) == len(check.findings)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.app_permissions.") for c in declared)

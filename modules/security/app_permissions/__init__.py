@@ -24,6 +24,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.app_permissions.accessibility_access",
+        "security.app_permissions.full_disk_access",
+        "security.app_permissions.screen_recording",
+        "security.app_permissions.camera_access",
+        "security.app_permissions.microphone_access",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -67,6 +75,7 @@ class Module(ModuleBase):
                     ),
                     severity=severity,
                     category=self.category,
+                    code="security.app_permissions.accessibility_access",
                     data={"check": "accessibility_access", "apps": apps},
                 )
             )
@@ -84,6 +93,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.app_permissions.full_disk_access",
                     data={"check": "full_disk_access", "apps": apps},
                 )
             )
@@ -101,6 +111,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.app_permissions.screen_recording",
                     data={"check": "screen_recording", "apps": apps},
                 )
             )
@@ -117,6 +128,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.app_permissions.camera_access",
                     data={"check": "camera_access", "apps": apps},
                 )
             )
@@ -133,6 +145,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.app_permissions.microphone_access",
                     data={"check": "microphone_access", "apps": apps},
                 )
             )
