@@ -51,6 +51,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.dns_poisoning_check.malicious_dns",
+        "security.dns_poisoning_check.suspicious_dns",
+        "security.dns_poisoning_check.dns_resolution_issue",
+        "security.dns_poisoning_check.dns_config",
+        "security.dns_poisoning_check.dns_over_https",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -66,6 +74,7 @@ class Module(ModuleBase):
                     description="Could not retrieve DNS configuration from system.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.dns_poisoning_check.dns_config",
                     data={"check": "dns_config", "dns_servers": []},
                 )
             )
@@ -247,6 +256,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.dns_poisoning_check.malicious_dns",
                     data={"check": "malicious_dns", "servers": malicious},
                 )
             )
@@ -262,6 +272,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.dns_poisoning_check.suspicious_dns",
                     data={"check": "suspicious_dns", "servers": suspicious},
                 )
             )
@@ -276,6 +287,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.dns_poisoning_check.dns_config",
                     data={"check": "dns_config", "dns_servers": dns_servers},
                 )
             )
@@ -305,6 +317,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.dns_poisoning_check.dns_resolution_issue",
                             data={"check": "dns_resolution_issue", "domain": domain, "resolved_ip": ip},
                         )
                     )
@@ -364,6 +377,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.dns_poisoning_check.dns_over_https",
                     data={"check": "dns_over_https", "enabled": True},
                 )
         except Exception:
