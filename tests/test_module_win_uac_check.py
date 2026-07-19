@@ -172,3 +172,10 @@ def test_win_uac_check_fix_handles_multiple_issues():
     assert any("Enable User Account Control" in t for t in action_titles)
     assert any("Never notify" in t or "prompt behavior" in t for t in action_titles)
     assert any("Secure Desktop" in t for t in action_titles)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.win_uac_check.") for c in declared)

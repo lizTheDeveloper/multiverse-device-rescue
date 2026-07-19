@@ -25,6 +25,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.win_uac_check.uac_disabled",
+        "security.win_uac_check.uac_never_notify",
+        "security.win_uac_check.secure_desktop_disabled",
+        "security.win_uac_check.uac_configured_ok",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -45,6 +52,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_uac_check.uac_disabled",
                     data={"setting": "EnableLUA", "value": enable_lua},
                 )
             )
@@ -60,6 +68,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_uac_check.uac_never_notify",
                     data={"setting": "ConsentPromptBehaviorAdmin", "value": consent_prompt},
                 )
             )
@@ -76,6 +85,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_uac_check.secure_desktop_disabled",
                     data={"setting": "PromptOnSecureDesktop", "value": secure_desktop},
                 )
             )
@@ -91,6 +101,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_uac_check.uac_configured_ok",
                     data={"uac_status": "healthy"},
                 )
             )
