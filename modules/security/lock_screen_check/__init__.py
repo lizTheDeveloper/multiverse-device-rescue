@@ -23,6 +23,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.lock_screen_check.screensaver_password",
+        "security.lock_screen_check.screensaver_delay",
+        "security.lock_screen_check.display_sleep",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -49,6 +55,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.lock_screen_check.screensaver_password",
                     data={"check": "screensaver_password"},
                 )
             )
@@ -75,6 +82,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.lock_screen_check.screensaver_delay",
                     data={"check": "screensaver_delay"},
                 )
             )
@@ -104,6 +112,7 @@ class Module(ModuleBase):
                                         ),
                                         severity=Severity.WARNING,
                                         category=self.category,
+                                        code="security.lock_screen_check.display_sleep",
                                         data={"check": "display_sleep"},
                                     )
                                 )
