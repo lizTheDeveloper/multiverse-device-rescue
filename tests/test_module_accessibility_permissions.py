@@ -197,3 +197,10 @@ def test_accessibility_permissions_fix_is_informational():
     assert len(fix.actions) > 0
     # Actions should describe how to manage accessibility permissions
     assert any("Accessibility" in a.title or "accessibility" in a.description for a in fix.actions)
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.accessibility_permissions.") for c in declared)

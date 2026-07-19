@@ -24,6 +24,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    emits_codes = [
+        "security.accessibility_permissions.accessibility_access",
+        "security.accessibility_permissions.suspicious_accessibility",
+        "security.accessibility_permissions.excessive_accessibility",
+    ]
+
     # Well-known apps that are commonly granted accessibility access
     WELL_KNOWN_APPS = {
         "com.apple.Finder",
@@ -100,6 +106,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
+                code="security.accessibility_permissions.accessibility_access",
                 data={"check": "accessibility_access", "apps": sorted(all_apps)},
             )
         )
@@ -118,6 +125,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.accessibility_permissions.suspicious_accessibility",
                     data={"check": "suspicious_accessibility", "apps": suspicious},
                 )
             )
@@ -135,6 +143,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.accessibility_permissions.excessive_accessibility",
                     data={"check": "excessive_accessibility", "count": len(all_apps)},
                 )
             )
