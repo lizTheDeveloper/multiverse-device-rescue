@@ -24,6 +24,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.find_my_mac_check.find_my_mac_disabled",
+        "security.find_my_mac_check.location_services_disabled",
+        "security.find_my_mac_check.icloud_not_signed_in",
+        "security.find_my_mac_check.configured_ok",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -51,6 +58,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.find_my_mac_check.find_my_mac_disabled",
                     data={"find_my_mac_enabled": find_my_mac_enabled},
                 )
             )
@@ -67,6 +75,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.find_my_mac_check.location_services_disabled",
                     data={"location_services_enabled": location_services_enabled},
                 )
             )
@@ -82,6 +91,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.find_my_mac_check.icloud_not_signed_in",
                     data={"icloud_signed_in": icloud_signed_in},
                 )
             )
@@ -101,6 +111,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.find_my_mac_check.configured_ok",
                     data={
                         "find_my_mac_enabled": find_my_mac_enabled,
                         "location_services_enabled": location_services_enabled,
