@@ -24,6 +24,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "30s"
 
+    emits_codes = [
+        "security.win_rootkit_check.unsigned_drivers",
+        "security.win_rootkit_check.alternate_data_streams",
+        "security.win_rootkit_check.secure_boot_disabled",
+        "security.win_rootkit_check.hidden_services",
+        "security.win_rootkit_check.boot_tampering",
+        "security.win_rootkit_check.all_passed",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -41,6 +50,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_rootkit_check.unsigned_drivers",
                     data={"check": "unsigned_drivers", "drivers": unsigned_drivers},
                 )
             )
@@ -58,6 +68,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_rootkit_check.alternate_data_streams",
                     data={"check": "alternate_data_streams", "files": ads_found},
                 )
             )
@@ -74,6 +85,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_rootkit_check.secure_boot_disabled",
                     data={"check": "secure_boot_disabled"},
                 )
             )
@@ -92,6 +104,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_rootkit_check.hidden_services",
                     data={"check": "hidden_services", "services": hidden_services},
                 )
             )
@@ -109,6 +122,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_rootkit_check.boot_tampering",
                     data={"check": "boot_tampering", "issues": boot_issues},
                 )
             )
@@ -125,6 +139,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_rootkit_check.all_passed",
                     data={"check": "all_passed"},
                 )
             )
