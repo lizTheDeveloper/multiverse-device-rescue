@@ -25,6 +25,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_defender.antivirus_enabled",
+        "security.win_defender.realtime_protection",
+        "security.win_defender.signature_age",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         status = _parse_defender_status(self._run_get_status())
@@ -42,6 +48,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_defender.antivirus_enabled",
                     data={"check": "antivirus_enabled"},
                 )
             )
@@ -56,6 +63,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_defender.realtime_protection",
                     data={"check": "realtime_protection"},
                 )
             )
@@ -71,6 +79,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.win_defender.signature_age",
                     data={"check": "signature_age"},
                 )
             )

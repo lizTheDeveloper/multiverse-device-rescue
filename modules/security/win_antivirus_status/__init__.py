@@ -26,6 +26,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "security.win_antivirus_status.no_av_product",
+        "security.win_antivirus_status.realtime_protection_disabled",
+        "security.win_antivirus_status.stale_definitions",
+        "security.win_antivirus_status.multiple_av_products",
+        "security.win_antivirus_status.registered_products",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -44,6 +52,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.win_antivirus_status.no_av_product",
                     data={"check": "no_av_product"},
                 )
             )
@@ -63,6 +72,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
+                        code="security.win_antivirus_status.realtime_protection_disabled",
                         data={"check": "realtime_protection_disabled"},
                     )
                 )
@@ -90,6 +100,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_antivirus_status.stale_definitions",
                         data={"check": "stale_definitions"},
                     )
                 )
@@ -105,6 +116,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="security.win_antivirus_status.multiple_av_products",
                         data={"check": "multiple_av_products", "count": len(av_products)},
                     )
                 )
@@ -125,6 +137,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.win_antivirus_status.registered_products",
                     data={"check": "registered_products", "products": av_products},
                 )
             )
