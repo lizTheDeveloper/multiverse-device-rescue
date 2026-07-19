@@ -24,6 +24,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.location_services.location_services_enabled",
+        "security.location_services.location_system_services",
+        "security.location_services.location_desktop_find_my_only",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         """Audit Location Services on macOS.
 
@@ -49,6 +55,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="security.location_services.location_services_enabled",
                     data={"check": "location_services_enabled"},
                 )
             )
@@ -66,6 +73,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="security.location_services.location_system_services",
                         data={
                             "check": "location_system_services",
                             "services": system_services,
@@ -89,6 +97,7 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="security.location_services.location_desktop_find_my_only",
                             data={"check": "location_desktop_find_my_only"},
                         )
                     )
