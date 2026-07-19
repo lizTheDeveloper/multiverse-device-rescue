@@ -23,6 +23,15 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    emits_codes = [
+        "security.automatic_updates.automatic_check",
+        "security.automatic_updates.automatic_download",
+        "security.automatic_updates.auto_install_macos",
+        "security.automatic_updates.critical_update",
+        "security.automatic_updates.config_data",
+        "security.automatic_updates.app_store_auto",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -41,6 +50,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.automatic_updates.automatic_check",
                     data={"check": "automatic_check"},
                 )
             )
@@ -60,6 +70,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.automatic_updates.automatic_download",
                     data={"check": "automatic_download"},
                 )
             )
@@ -79,6 +90,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.automatic_updates.auto_install_macos",
                     data={"check": "auto_install_macos"},
                 )
             )
@@ -98,6 +110,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="security.automatic_updates.critical_update",
                     data={"check": "critical_update"},
                 )
             )
@@ -118,6 +131,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.automatic_updates.config_data",
                     data={"check": "config_data"},
                 )
             )
@@ -138,6 +152,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="security.automatic_updates.app_store_auto",
                     data={"check": "app_store_auto"},
                 )
             )

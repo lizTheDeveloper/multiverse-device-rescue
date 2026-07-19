@@ -207,3 +207,10 @@ def test_automatic_updates_fix_is_informational():
     assert "System Settings" in action.description
     assert action.success is True
     assert action.error is None
+
+
+def test_emitted_codes_are_declared():
+    mod = _get_module()
+    declared = set(mod.emits_codes)
+    assert declared, "emits_codes must be populated"
+    assert all(c.startswith("security.automatic_updates.") for c in declared)
