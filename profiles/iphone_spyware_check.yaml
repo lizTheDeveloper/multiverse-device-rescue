@@ -1,0 +1,23 @@
+name: iphone_spyware_check
+display_name: "iPhone / iPad Spyware Check"
+description: >
+  Scans a local iPhone or iPad backup for known mercenary-spyware indicators
+  (Pegasus, Predator, and similar) using Amnesty International's Mobile
+  Verification Toolkit (MVT). This is the one profile that actually RUNS the
+  backup scan — every other scan only reports that a scan is available, because
+  scanning a backup is a heavy operation. As a safety measure, backups larger
+  than 2 GB are skipped rather than scanned (scanning a very large backup can
+  use a lot of memory). See docs/CHECK_IPHONE_FOR_SPYWARE.md.
+modules:
+  include:
+    - mvt_spyware_scan
+  exclude: []
+module_config:
+  mvt_spyware_scan:
+    # Turn the backup scan ON for this profile (off everywhere else).
+    scan_backups: true
+    # Safety limit: skip backups bigger than this many bytes (2 GB) instead of
+    # scanning them. Raising this lets bigger backups be scanned, but a very
+    # large backup can use a lot of memory — only raise it on a computer with
+    # plenty of free memory. 2 GB = 2147483648.
+    max_backup_bytes: 2147483648

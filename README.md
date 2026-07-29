@@ -36,3 +36,9 @@ progress.
 `docs/THREAT_REMEDIATION.md` maps common threats (AI worms, mobile spyware,
 credential compromise, unwanted remote access, …) to the exact `rescue` command
 that checks and remediates them. Regenerate it with `rescue threat-remediation`.
+
+## Step-by-step guides
+
+- **Check an iPhone/iPad for spyware** — a plain-language, non-technical
+  walkthrough: `docs/CHECK_IPHONE_FOR_SPYWARE.md`
+  (one command: `rescue --auto --profile iphone_spyware_check`).
