@@ -9,7 +9,7 @@ from rescue.ai.factory import get_provider
 from rescue.ai.providers.base import AIRequestError
 from rescue.ai.recommender import ProfileRecommender
 from rescue.guides import discover_guides
-from rescue.models import Mode, RiskLevel
+from rescue.models import CheckResult, Mode, RiskLevel
 from rescue.orchestrator import Orchestrator
 from rescue.profiler.base import gather_profile
 from rescue.profiles import ProfileValidationError, discover_profiles, validate_profile_modules
@@ -131,6 +131,21 @@ def _run_startup_integrity_check() -> None:
 def version():
     """Show version information."""
     click.echo(f"multiverse-device-rescue {rescue.__version__}")
+
+
+@main.command()
+@click.option("--json", "as_json", is_flag=True, help="Emit read-only check results as JSON on stdout.")
+def scan(as_json):
+    """Run read-only checks. With --json, print structured results to stdout."""
+    from rescue.serialize import checks_to_json
+    profile = gather_profile()
+    orch = Orchestrator(modules_dir=_get_modules_dir())
+    results = orch.run_checks()
+    if as_json:
+        click.echo(checks_to_json(results, profile.platform.value))
+        return
+    for mod, check in results:
+        click.echo(mod.report(check))
 
 
 @main.command()
