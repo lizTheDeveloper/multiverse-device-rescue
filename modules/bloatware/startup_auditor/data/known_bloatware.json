@@ -33,5 +33,60 @@
     "label_pattern": "com.spotify.webhelper",
     "name": "Spotify Helper",
     "description": "Spotify background helper that keeps the app ready to launch instantly; disable if you don't need instant startup."
+  },
+  {
+    "label_pattern": "com.zeobit.MacKeeper",
+    "name": "MacKeeper agent",
+    "description": "MacKeeper's background agent. MacKeeper is scareware: it invents system problems to sell a licence, and its agent reinstalls the app after it is dragged to the Trash. Remove the agent as well as the application."
+  },
+  {
+    "label_pattern": "com.mackeeper",
+    "name": "MacKeeper helper",
+    "description": "MacKeeper background helper that restarts the scareware application after removal."
+  },
+  {
+    "label_pattern": "com.pcv.hlpramc",
+    "name": "Advanced Mac Cleaner agent",
+    "description": "Persistence agent for Advanced Mac Cleaner, a fake cleaning utility that reports invented problems to sell a licence."
+  },
+  {
+    "label_pattern": "com.genieoinnovation",
+    "name": "Genieo agent",
+    "description": "Genieo adware agent. It hijacks the browser's homepage and search engine and reinstalls itself at every login."
+  },
+  {
+    "label_pattern": "com.genieo",
+    "name": "Genieo helper",
+    "description": "Genieo adware helper that restores the hijacked search settings after they are changed back."
+  },
+  {
+    "label_pattern": "com.searchmine",
+    "name": "SearchMine agent",
+    "description": "Browser hijacker agent that redirects searches through SearchMine and reinstates itself after removal."
+  },
+  {
+    "label_pattern": "com.spigot",
+    "name": "Spigot adware agent",
+    "description": "Spigot adware agent that installs browser extensions and changes search settings."
+  },
+  {
+    "label_pattern": "com.vsearch",
+    "name": "VSearch agent",
+    "description": "VSearch adware agent that redirects searches and reinstalls its payload."
+  },
+  {
+    "label_pattern": "com.pirrit",
+    "name": "Pirrit adware agent",
+    "description": "Pirrit adware agent. Pirrit injects advertising into web pages and keeps a background agent specifically so it can rebuild itself."
+  },
+  {
+    "label_pattern": "com.adobe.fpsaud",
+    "name": "Adobe Flash Player update service",
+    "description": "Flash Player's update service. Flash reached end of life in 2020 and is no longer supported, so an agent still running under this name is either a leftover or adware impersonating Flash — fake Flash updaters are the most common macOS adware delivery method."
+  },
+  {
+    "label_pattern": "com.avast",
+    "name": "Avast background agent",
+    "description": "Avast background service. It is functional antivirus software, but it also runs several always-on agents and has a history of monetising browsing data; keep it only if it is deliberately in use."
   }
 ]

@@ -17,7 +17,11 @@ from rescue.module_base import ModuleBase
 from rescue.runtime import content_file
 
 DATA_FILE = content_file("modules/bloatware/process_scanner/data/known_bloatware.json")
-CRITICAL_CATEGORIES = {"scareware"}
+# Categories where the software's own purpose is the harm: scareware extracts
+# money through invented problems, and a miner spends the owner's electricity
+# on someone else's behalf. Adware and bundled programs are a nuisance and are
+# reported as warnings.
+CRITICAL_CATEGORIES = {"scareware", "cryptominer"}
 
 
 class Module(ModuleBase):

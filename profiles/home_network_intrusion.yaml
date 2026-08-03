@@ -1,0 +1,40 @@
+name: home_network_intrusion
+display_name: "Home Network Intrusion & Cryptojacking Response"
+description: >
+  Response for a household whose Wi-Fi has been broken into, and for the
+  cryptojacking and monitoring software that tends to arrive with it.
+  Inventories what is actually on the local network, checks for traffic
+  interception, audits the router's exposed surface, and searches every
+  device for mining and monitoring software — including the startup
+  entries that quietly bring a miner back after it is killed. Ordered so
+  that the network is reclaimed before the devices are cleaned, because a
+  cleaned device rejoining a compromised network is compromised again.
+modules:
+  include:
+    # The network: who is on it, is anyone intercepting, what is the router
+    # offering to whoever is connected.
+    - lan_device_inventory
+    - arp_spoof_check
+    - router_security_audit
+    - wifi_security_audit
+    # Cryptojacking: what is running now, what restarts it, and the browser.
+    - crypto_miner_detect
+    - win_crypto_miner_detect
+    - crypto_miner_persistence
+    - browser_cryptojacking_check
+    - process_scanner
+    # Who else has access to the machine itself.
+    - stalkerware_scan
+    - remote_login_check
+    - win_remote_access_audit
+    - suspicious_connections
+    - open_ports_scan
+  exclude: []
+module_config:
+  # Set expected_device_count to the number of devices the household can
+  # actually name — phones, laptops, TVs, speakers, consoles, printers, and
+  # every smart plug and doorbell. known_macs can list hardware addresses
+  # already accounted for, so the inventory only flags the rest.
+  lan_device_inventory: {}
+guides:
+  - home_network_intrusion

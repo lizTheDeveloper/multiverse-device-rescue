@@ -33,5 +33,45 @@
     "name_pattern": "GoToMeeting",
     "name": "GoToMeeting",
     "description": "GoToMeeting background helper that launches at login even when not in a meeting."
+  },
+  {
+    "name_pattern": "MacKeeper",
+    "name": "MacKeeper",
+    "description": "Scareware that invents system problems to sell a licence. It sets itself to start at login so it can reinstall itself after removal; remove the login item as well as the application."
+  },
+  {
+    "name_pattern": "Advanced Mac Cleaner",
+    "name": "Advanced Mac Cleaner",
+    "description": "Fake cleaning utility that reports invented problems to sell a licence, and restarts itself at every login."
+  },
+  {
+    "name_pattern": "Mac Auto Fixer",
+    "name": "Mac Auto Fixer",
+    "description": "Fake repair utility distributed by bundled installers; it starts at login to keep showing warnings."
+  },
+  {
+    "name_pattern": "MacBooster",
+    "name": "MacBooster",
+    "description": "Fake performance optimiser that exaggerates system issues to sell upgrades."
+  },
+  {
+    "name_pattern": "Genieo",
+    "name": "Genieo",
+    "description": "Adware that hijacks the browser homepage and search engine and restores itself at login."
+  },
+  {
+    "name_pattern": "SearchMine",
+    "name": "SearchMine",
+    "description": "Browser hijacker that redirects searches and reinstates itself after being removed."
+  },
+  {
+    "name_pattern": "TeamViewer",
+    "name": "TeamViewer",
+    "description": "Remote control software set to start at login. That is expected if it is deliberately used for remote support, and a serious problem if nobody knows why it is there — it lets whoever holds its credentials watch and control this Mac."
+  },
+  {
+    "name_pattern": "AnyDesk",
+    "name": "AnyDesk",
+    "description": "Remote control software set to start at login. It is frequently left behind after 'tech support' phone scams; if you do not know why it is installed, treat it as unauthorised remote access."
   }
 ]

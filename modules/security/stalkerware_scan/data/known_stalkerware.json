@@ -1,0 +1,391 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-08-03",
+  "note": "Categories matter more than the raw list. 'stalkerware' is software sold for covert monitoring of another adult; 'employee_monitoring' and 'parental_control' are legitimate products that are routinely repurposed for abuse; 'remote_access' tools are ordinary IT software that gives someone else full control of the machine. Only the first category is inherently a finding — the rest are reported with the context needed to judge them.",
+  "entries": [
+    {
+      "pattern": "flexispy",
+      "name": "FlexiSPY",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Covert monitoring software that captures messages, calls, location, and ambient audio, and is marketed explicitly for monitoring partners."
+    },
+    {
+      "pattern": "mspy",
+      "name": "mSpy",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Covert monitoring suite that records keystrokes, messages, browsing, and location, and hides itself from the person being monitored."
+    },
+    {
+      "pattern": "hoverwatch",
+      "name": "Hoverwatch",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Hidden monitoring software that logs keystrokes, screenshots, and webcam images without notifying the user."
+    },
+    {
+      "pattern": "cocospy",
+      "name": "Cocospy",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Covert monitoring service marketed for tracking partners and family members."
+    },
+    {
+      "pattern": "umobix",
+      "name": "uMobix",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Covert monitoring service capturing messages, calls, and screen activity."
+    },
+    {
+      "pattern": "spyzie",
+      "name": "Spyzie",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Covert monitoring service marketed for silent tracking of another person's device."
+    },
+    {
+      "pattern": "thetruthspy",
+      "name": "TheTruthSpy",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Covert monitoring service; its own servers have leaked victim data repeatedly."
+    },
+    {
+      "pattern": "xnspy",
+      "name": "XNSPY",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Covert monitoring suite advertised for partner and employee surveillance."
+    },
+    {
+      "pattern": "ikeymonitor",
+      "name": "iKeyMonitor",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Keylogger and screen recorder marketed for covert monitoring."
+    },
+    {
+      "pattern": "clevguard",
+      "name": "ClevGuard / KidsGuard",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "KidsGuard Pro records keystrokes, screenshots, and messages while hiding its presence."
+    },
+    {
+      "pattern": "kidsguard",
+      "name": "KidsGuard Pro",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Covert monitoring product that hides its icon and runs invisibly."
+    },
+    {
+      "pattern": "spyrix",
+      "name": "Spyrix",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["win32"],
+      "description": "Keylogger that streams keystrokes, screenshots, and webcam captures to a remote dashboard."
+    },
+    {
+      "pattern": "refog",
+      "name": "Refog Personal Monitor",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Hidden keylogger and screen recorder sold for monitoring family members."
+    },
+    {
+      "pattern": "ardamax",
+      "name": "Ardamax Keylogger",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["win32"],
+      "description": "Stealth keylogger that runs invisibly and emails captured keystrokes."
+    },
+    {
+      "pattern": "spyagent",
+      "name": "Spytech SpyAgent",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["win32"],
+      "description": "Stealth monitoring suite recording keystrokes, screenshots, and application use."
+    },
+    {
+      "pattern": "realtime-spy",
+      "name": "Realtime-Spy",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Remote monitoring product that installs silently and reports to a web dashboard."
+    },
+    {
+      "pattern": "pctattletale",
+      "name": "PC Tattletale",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["win32"],
+      "description": "Screen recording monitoring product; its recordings have been exposed publicly by its own misconfiguration."
+    },
+    {
+      "pattern": "webwatcher",
+      "name": "WebWatcher",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Covert monitoring product recording messages, browsing, and screenshots."
+    },
+    {
+      "pattern": "elite keylogger",
+      "name": "Elite Keylogger",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Stealth keylogger that hides from the process list and task manager."
+    },
+    {
+      "pattern": "perfect keylogger",
+      "name": "Perfect Keylogger",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Stealth keylogger with remote log delivery."
+    },
+    {
+      "pattern": "aobo",
+      "name": "Aobo Keylogger",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32"],
+      "description": "Invisible keylogger for macOS and Windows sold for covert monitoring."
+    },
+    {
+      "pattern": "kidlogger",
+      "name": "KidLogger",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Monitoring software that records keystrokes, applications, and screenshots in the background."
+    },
+    {
+      "pattern": "actual keylogger",
+      "name": "Actual Keylogger",
+      "category": "stalkerware",
+      "severity": "critical",
+      "platforms": ["win32"],
+      "description": "Hidden keystroke recorder."
+    },
+    {
+      "pattern": "teramind",
+      "name": "Teramind",
+      "category": "employee_monitoring",
+      "severity": "warning",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Workplace monitoring agent recording screen, keystrokes, and application use. Expected on a company-managed computer; on a personal machine it means someone is watching everything done on it."
+    },
+    {
+      "pattern": "activtrak",
+      "name": "ActivTrak",
+      "category": "employee_monitoring",
+      "severity": "warning",
+      "platforms": ["darwin", "win32"],
+      "description": "Workplace activity monitoring agent capturing screenshots and application use."
+    },
+    {
+      "pattern": "veriato",
+      "name": "Veriato / Cerberus",
+      "category": "employee_monitoring",
+      "severity": "warning",
+      "platforms": ["darwin", "win32"],
+      "description": "Employee monitoring suite with covert recording modes."
+    },
+    {
+      "pattern": "interguard",
+      "name": "InterGuard",
+      "category": "employee_monitoring",
+      "severity": "warning",
+      "platforms": ["darwin", "win32"],
+      "description": "Employee monitoring agent that can run invisibly to the user."
+    },
+    {
+      "pattern": "staffcop",
+      "name": "StaffCop",
+      "category": "employee_monitoring",
+      "severity": "warning",
+      "platforms": ["win32", "linux"],
+      "description": "Employee monitoring suite recording screen, keystrokes, and files."
+    },
+    {
+      "pattern": "kickidler",
+      "name": "Kickidler",
+      "category": "employee_monitoring",
+      "severity": "warning",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Employee monitoring agent with continuous screen recording."
+    },
+    {
+      "pattern": "hubstaff",
+      "name": "Hubstaff",
+      "category": "employee_monitoring",
+      "severity": "info",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Time-tracking agent that can capture periodic screenshots. Normal on a work machine when the person knows it is installed."
+    },
+    {
+      "pattern": "timedoctor",
+      "name": "Time Doctor",
+      "category": "employee_monitoring",
+      "severity": "info",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Time-tracking agent with optional screenshot capture."
+    },
+    {
+      "pattern": "qustodio",
+      "name": "Qustodio",
+      "category": "parental_control",
+      "severity": "info",
+      "platforms": ["darwin", "win32"],
+      "description": "Parental control software. Legitimate for a child's device; on an adult's own computer it gives whoever set it up a log of their activity."
+    },
+    {
+      "pattern": "net nanny",
+      "name": "Net Nanny",
+      "category": "parental_control",
+      "severity": "info",
+      "platforms": ["darwin", "win32"],
+      "description": "Parental control and content filtering software with activity reporting."
+    },
+    {
+      "pattern": "bark",
+      "name": "Bark",
+      "category": "parental_control",
+      "severity": "info",
+      "platforms": ["darwin", "win32"],
+      "description": "Parental monitoring service that reports messages and browsing to an account owner."
+    },
+    {
+      "pattern": "teamviewer",
+      "name": "TeamViewer",
+      "category": "remote_access",
+      "severity": "info",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Remote control software. Useful and common — and it gives whoever holds the credentials complete control of the machine, including watching the screen. Check whether unattended access is enabled and who is on its trusted-devices list."
+    },
+    {
+      "pattern": "anydesk",
+      "name": "AnyDesk",
+      "category": "remote_access",
+      "severity": "info",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Remote control software frequently installed by tech-support scammers and left behind afterwards."
+    },
+    {
+      "pattern": "screenconnect",
+      "name": "ScreenConnect / ConnectWise Control",
+      "category": "remote_access",
+      "severity": "warning",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Remote support agent very commonly abused for persistent unauthorised access, because it installs as a service and reconnects on its own."
+    },
+    {
+      "pattern": "netsupport",
+      "name": "NetSupport Manager",
+      "category": "remote_access",
+      "severity": "warning",
+      "platforms": ["darwin", "win32"],
+      "description": "Remote control product routinely repackaged as malware ('NetSupport RAT') and installed silently."
+    },
+    {
+      "pattern": "remoteutilities",
+      "name": "Remote Utilities",
+      "category": "remote_access",
+      "severity": "warning",
+      "platforms": ["win32"],
+      "description": "Remote access product commonly used for persistent covert access."
+    },
+    {
+      "pattern": "ammyy",
+      "name": "Ammyy Admin",
+      "category": "remote_access",
+      "severity": "warning",
+      "platforms": ["win32"],
+      "description": "Remote access tool strongly associated with support scams and unauthorised access."
+    },
+    {
+      "pattern": "dwagent",
+      "name": "DWAgent",
+      "category": "remote_access",
+      "severity": "warning",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Unattended remote access agent that runs as a service."
+    },
+    {
+      "pattern": "logmein",
+      "name": "LogMeIn",
+      "category": "remote_access",
+      "severity": "info",
+      "platforms": ["darwin", "win32"],
+      "description": "Unattended remote access service."
+    },
+    {
+      "pattern": "splashtop",
+      "name": "Splashtop",
+      "category": "remote_access",
+      "severity": "info",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Remote desktop service with unattended access."
+    },
+    {
+      "pattern": "realvnc",
+      "name": "RealVNC",
+      "category": "remote_access",
+      "severity": "info",
+      "platforms": ["darwin", "win32", "linux"],
+      "description": "Remote screen access server."
+    },
+    {
+      "pattern": "tightvnc",
+      "name": "TightVNC",
+      "category": "remote_access",
+      "severity": "warning",
+      "platforms": ["win32", "linux"],
+      "description": "VNC server, often installed silently to provide hidden screen access."
+    },
+    {
+      "pattern": "ultravnc",
+      "name": "UltraVNC",
+      "category": "remote_access",
+      "severity": "warning",
+      "platforms": ["win32"],
+      "description": "VNC server, often installed silently to provide hidden screen access."
+    },
+    {
+      "pattern": "radmin",
+      "name": "Radmin",
+      "category": "remote_access",
+      "severity": "warning",
+      "platforms": ["win32"],
+      "description": "Remote administration server providing full control of the machine."
+    },
+    {
+      "pattern": "atera",
+      "name": "Atera agent",
+      "category": "remote_access",
+      "severity": "warning",
+      "platforms": ["darwin", "win32"],
+      "description": "Remote management agent; abused by intruders because it is signed, silent, and grants full remote control."
+    }
+  ]
+}
