@@ -125,13 +125,19 @@ class Module(ModuleBase):
                 )
             )
 
-        # INFO: BSOD history with details
+        # INFO: BSOD history with details.
+        # Built outside the f-string: nesting the same quote character inside an
+        # f-string expression is a syntax error before Python 3.12, and this
+        # package supports 3.11.
+        stop_code_summary = ", ".join(
+            f"{code} ({self.STOP_CODES.get(code, 'Unknown')})" for code in stop_codes
+        )
         findings.append(
             Finding(
                 title=f"BSOD history ({event_count} events)",
                 description=(
                     f"Found {event_count} Blue Screen of Death event(s) in event log. "
-                    f"Stop codes: {', '.join(f'{code} ({self.STOP_CODES.get(code, 'Unknown')})' for code in stop_codes.keys())}. "
+                    f"Stop codes: {stop_code_summary}. "
                     f"Minidump files: {'present' if minidump_exists else 'not found'}. "
                     "Review the event log for patterns and driver/hardware issues."
                 ),

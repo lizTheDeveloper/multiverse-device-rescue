@@ -1,0 +1,6 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-08-03",
+  "source": "Multiverse Device Rescue IOC Database",
+  "description": "Indicators of compromise for cryptojacking (unauthorised cryptocurrency mining) detection modules"
+}
