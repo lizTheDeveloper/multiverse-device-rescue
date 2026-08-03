@@ -52,9 +52,24 @@ def test_profile_covers_network_cryptojacking_and_monitoring():
     assert {"stalkerware_scan", "remote_login_check"} <= matched
 
 
-def test_guide_has_all_five_phases_in_order():
+def test_guide_has_all_six_phases_in_order():
     guides = discover_guides(GUIDES_DIR, "home_network_intrusion")
-    assert [g.phase for g in guides] == [0, 1, 2, 3, 4]
+    assert [g.phase for g in guides] == [0, 1, 2, 3, 4, 5]
+
+
+def test_guide_ends_with_reachable_help():
+    guides = discover_guides(GUIDES_DIR, "home_network_intrusion")
+    resources = guides[-1]
+    assert "Resources" in resources.title
+
+    body = "\n".join(step.body for step in resources.steps).lower()
+    # Abuse support comes first, because it changes the order of everything.
+    assert "1-800-799-7233" in body
+    assert "techsafety.org" in body
+    assert "accessnow.org/help" in body
+    assert "ic3.gov" in body
+    # And the warning that makes the rest of the list safe to use.
+    assert "gift card" in body
 
 
 def test_guide_opens_with_the_safety_check_not_a_scan():

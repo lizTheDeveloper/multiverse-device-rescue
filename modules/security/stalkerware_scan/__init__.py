@@ -71,10 +71,19 @@ _SAFETY_WARNING = (
     "with you, or has ever frightened you, removing it can be dangerous. "
     "Monitoring software usually tells whoever set it up when it stops "
     "reporting, and that can escalate the situation. Talk to a domestic abuse "
-    "advocate first — in the US, the National Domestic Violence Hotline is "
-    "1-800-799-7233, and the Coalition Against Stalkerware "
-    "(stopstalkerware.org) lists services in other countries. They can help "
-    "you plan the order in which to do this safely."
+    "advocate first — they can help you plan the order in which to do this "
+    "safely.\n\n"
+    "  US: National Domestic Violence Hotline, 1-800-799-7233, or text START "
+    "to 88788 (thehotline.org)\n"
+    "  US: NNEDV Safety Net, techsafety.org — specialists in "
+    "technology-facilitated abuse\n"
+    "  UK: National Domestic Abuse Helpline, 0808 2000 247; tech abuse support "
+    "at refugetechsafety.org\n"
+    "  Australia: 1800RESPECT, 1800 737 732\n"
+    "  Elsewhere: the Coalition Against Stalkerware (stopstalkerware.org) "
+    "lists services by country\n\n"
+    "Do not look these up from this device if you can avoid it — browsing "
+    "history is one of the things monitoring software reports."
 )
 
 
