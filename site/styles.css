@@ -1,0 +1,409 @@
+/* Device Rescue — landing page styles
+   Calm, reassuring, trustworthy. Supports light + dark via prefers-color-scheme. */
+
+:root {
+  --bg: #f6f4ef;
+  --bg-raised: #ffffff;
+  --text: #23271f;
+  --text-muted: #565b4f;
+  --accent: #2f6f4f;
+  --accent-strong: #24583f;
+  --accent-contrast: #ffffff;
+  --border: #e0ddd2;
+  --safety-bg: #eef4ea;
+  --safety-border: #cfe0c4;
+  --card-shadow: 0 1px 2px rgba(35, 39, 31, 0.06), 0 6px 20px rgba(35, 39, 31, 0.05);
+  --code-bg: #edeadf;
+  --disabled-bg: #e7e4d9;
+  --disabled-text: #8b8a7c;
+  --link: #2f6f4f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171a15;
+    --bg-raised: #1f231b;
+    --text: #ecebe3;
+    --text-muted: #b5b8a9;
+    --accent: #6fbf8c;
+    --accent-strong: #86d1a3;
+    --accent-contrast: #10150f;
+    --border: #33392b;
+    --safety-bg: #1e2a1c;
+    --safety-border: #35462f;
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    --code-bg: #262b1f;
+    --disabled-bg: #262b1f;
+    --disabled-text: #6d7365;
+    --link: #86d1a3;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+h1, h2, h3 {
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  line-height: 1.2;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: var(--link);
+}
+
+/* Header */
+
+.site-header {
+  padding: 1.5rem 0;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.brand-mark {
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+
+/* Hero */
+
+.hero {
+  padding: 2.5rem 0 3rem;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 4vw + 1rem, 2.75rem);
+  margin: 0 0 0.75rem;
+}
+
+.pitch {
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  max-width: 42rem;
+  margin: 0 0 2rem;
+}
+
+.safety-note {
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+  background: var(--safety-bg);
+  border: 1px solid var(--safety-border);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 2rem;
+  max-width: 42rem;
+}
+
+.safety-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  margin-top: 0.1rem;
+}
+
+.safety-note strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 1.02rem;
+}
+
+.safety-note p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* Downloads */
+
+.downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-bottom: 1.1rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 12px;
+  padding: 0.85rem 1.3rem;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.btn-primary:hover {
+  background: var(--accent-strong);
+}
+
+.btn-disabled {
+  background: var(--disabled-bg);
+  color: var(--disabled-text);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-disabled:hover {
+  transform: none;
+}
+
+.btn-icon {
+  font-size: 1.3rem;
+}
+
+.btn-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+
+.btn-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.btn-sub {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.fine-print {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  max-width: 42rem;
+  margin: 0;
+}
+
+/* How it works */
+
+.how-it-works {
+  padding: 2.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.how-it-works h2,
+.walkthrough h2,
+.requirements h2 {
+  font-size: 1.6rem;
+  margin: 0 0 1.5rem;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.step-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.3rem;
+  box-shadow: var(--card-shadow);
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: var(--safety-bg);
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.step-card h3 {
+  font-size: 1.05rem;
+  margin: 0 0 0.4rem;
+}
+
+.step-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* Walkthrough */
+
+.walkthrough {
+  padding: 2.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.section-lede {
+  color: var(--text-muted);
+  max-width: 42rem;
+  margin: -0.75rem 0 1.5rem;
+}
+
+.os-tabs {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  background: var(--code-bg);
+  border-radius: 999px;
+  margin-bottom: 1.5rem;
+}
+
+.os-tab {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.os-tab.is-active {
+  background: var(--bg-raised);
+  color: var(--text);
+  box-shadow: var(--card-shadow);
+}
+
+.permissions-content .loading,
+.permissions-content .error,
+.permissions-content .empty {
+  color: var(--text-muted);
+}
+
+.permission-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.permission-step {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.2rem 1.4rem;
+  box-shadow: var(--card-shadow);
+}
+
+.permission-step-title {
+  font-size: 1.02rem;
+  margin: 0 0 0.4rem;
+}
+
+.permission-step-body {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.permission-step-action {
+  display: inline-block;
+  margin-top: 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--accent);
+  border: 1px solid var(--safety-border);
+  background: var(--safety-bg);
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+}
+
+.permission-step-action:hover {
+  border-color: var(--accent);
+}
+
+/* Requirements */
+
+.requirements {
+  padding: 2.5rem 0 3rem;
+  border-top: 1px solid var(--border);
+}
+
+.req-list {
+  color: var(--text-muted);
+  max-width: 42rem;
+  padding-left: 1.2rem;
+  margin: 0;
+}
+
+.req-list li {
+  margin-bottom: 0.5rem;
+}
+
+/* Footer */
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 2rem 0 3rem;
+}
+
+.site-footer p {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+/* Responsive */
+
+@media (max-width: 720px) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .downloads {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn {
+    justify-content: center;
+  }
+}

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Device Rescue — a calm, plain-English checkup for your computer</title>
+  <meta name="description" content="Device Rescue looks over your Mac or PC, explains what it finds in plain language, and only changes anything if you say yes. Free download for macOS." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">◈</span>
+        <span class="brand-name">Device Rescue</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <h1>A calm checkup for your computer.</h1>
+        <p class="pitch">
+          Device Rescue looks around your Mac, tells you in plain English what it finds,
+          and never changes anything unless you say so.
+        </p>
+
+        <div class="safety-note">
+          <span class="safety-icon" aria-hidden="true">🔒</span>
+          <div>
+            <strong>Read-only by default. You're always in control.</strong>
+            <p>
+              Device Rescue only looks — it doesn't fix, delete, or change anything on its own.
+              If it finds something worth fixing, it explains what that means and asks
+              for your okay before doing anything. Nothing happens behind your back.
+            </p>
+          </div>
+        </div>
+
+        <div class="downloads">
+          <a
+            class="btn btn-primary"
+            href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/download/v0.1.0/DeviceRescue-0.1.0-mac-arm64.dmg"
+          >
+            <span class="btn-icon" aria-hidden="true">⌘</span>
+            <span class="btn-text">
+              <span class="btn-title">Download for Mac</span>
+              <span class="btn-sub">Apple Silicon · macOS</span>
+            </span>
+          </a>
+
+          <button class="btn btn-disabled" type="button" disabled aria-disabled="true" title="Windows build is on its way">
+            <span class="btn-icon" aria-hidden="true">⊞</span>
+            <span class="btn-text">
+              <span class="btn-title">Download for Windows</span>
+              <span class="btn-sub">Coming soon</span>
+            </span>
+          </button>
+        </div>
+
+        <p class="fine-print">
+          The download is fairly large — around 350–500 MB, because it includes everything
+          Device Rescue needs to run on its own. It's ready to use on macOS with Apple Silicon
+          (M1 or newer) today. A Windows version is on the way.
+        </p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <div class="wrap">
+        <h2>How it works</h2>
+        <div class="steps">
+          <div class="step-card">
+            <span class="step-number">1</span>
+            <h3>Open it up</h3>
+            <p>Launch Device Rescue. It doesn't need an account, a subscription, or an internet connection to get started.</p>
+          </div>
+          <div class="step-card">
+            <span class="step-number">2</span>
+            <h3>It looks around</h3>
+            <p>It checks things like storage space, background apps, and common security settings — quietly, and without changing anything.</p>
+          </div>
+          <div class="step-card">
+            <span class="step-number">3</span>
+            <h3>You decide</h3>
+            <p>You'll see a plain-English summary. If something needs fixing, Device Rescue explains it and waits for your go-ahead.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="walkthrough" id="first-time">
+      <div class="wrap">
+        <h2>What you'll see the first time (per OS)</h2>
+        <p class="section-lede">
+          New apps that aren't from an app store usually trigger a few security prompts.
+          That's normal — here's exactly what to expect and what to click, for whichever computer you use.
+        </p>
+
+        <div class="os-tabs" role="tablist" aria-label="Choose your operating system">
+          <button class="os-tab is-active" role="tab" aria-selected="true" data-os="macos" type="button">macOS</button>
+          <button class="os-tab" role="tab" aria-selected="false" data-os="windows" type="button">Windows</button>
+          <button class="os-tab" role="tab" aria-selected="false" data-os="linux" type="button">Linux</button>
+        </div>
+
+        <div id="permissions-content" class="permissions-content">
+          <p class="loading">Loading walkthrough…</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="requirements">
+      <div class="wrap">
+        <h2>Good to know</h2>
+        <ul class="req-list">
+          <li>Works on macOS with Apple Silicon (M1 or newer) today; a Windows version is coming soon.</li>
+          <li>The installer is currently unsigned, so macOS and Windows will show a security prompt the first time — see the walkthrough above.</li>
+          <li>Nothing is uploaded anywhere. Device Rescue looks at your computer, not the other way around.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Device Rescue is a small, independent tool built to make computer checkups less scary.</p>
+    </div>
+  </footer>
+
+  <script src="permissions.js"></script>
+</body>
+</html>
