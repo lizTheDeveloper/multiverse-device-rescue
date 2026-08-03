@@ -1,0 +1,62 @@
+{
+  "macos": [
+    {
+      "title": "\"Device Rescue can't be opened because Apple cannot check it for malware.\"",
+      "body": "You'll see this the first time you open Device Rescue because it's an unsigned download (Gatekeeper). It's expected for this app. Go to System Settings → Privacy & Security, scroll down to the message about Device Rescue, click \"Open Anyway\", then confirm. You only need to do this once per download. Note: right-click → Open no longer reliably works on macOS Sequoia, so use the System Settings steps instead.",
+      "action_label": "Open Privacy & Security",
+      "setting_url": "x-apple.systempreferences:com.apple.preference.security"
+    },
+    {
+      "title": "Full Disk Access",
+      "body": "Some checks need to read protected locations, like other apps' data or iOS backups. To allow this, go to System Settings → Privacy & Security → Full Disk Access, then turn on the toggle for Device Rescue. macOS may ask you to quit and reopen the app afterward. If Device Rescue notices it's missing this access, it will link you straight to this pane.",
+      "action_label": "Open Full Disk Access",
+      "setting_url": "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+    },
+    {
+      "title": "Files & Folders prompts (Documents, Desktop, Downloads)",
+      "body": "macOS may ask permission for Device Rescue to access specific folders like Documents, Desktop, or Downloads. Click \"Allow\" for each one — these let the app check those folders as part of your checkup.",
+      "action_label": null,
+      "setting_url": null
+    },
+    {
+      "title": "Administrator password",
+      "body": "You'll only be asked for your administrator password if you choose to apply a fix that changes a system setting. Read-only checks never ask for your password.",
+      "action_label": null,
+      "setting_url": null
+    },
+    {
+      "title": "\"Device Rescue wants to control System Events\"",
+      "body": "If Device Rescue needs to open a System Settings pane for you automatically, macOS may show this Automation prompt. Click \"Allow\" so it can take you there directly.",
+      "action_label": null,
+      "setting_url": null
+    }
+  ],
+  "windows": [
+    {
+      "title": "\"Windows protected your PC\" (SmartScreen)",
+      "body": "Because the installer isn't signed yet, Windows SmartScreen may warn you before you can run it. Click \"More info\", then click \"Run anyway\" to continue installing Device Rescue.",
+      "action_label": null,
+      "setting_url": null
+    },
+    {
+      "title": "User Account Control (UAC) prompt",
+      "body": "Windows may ask for permission to let Device Rescue make changes to your PC. This appears for checks or fixes that need administrator access; click \"Yes\" to allow it. Read-only checks run without this prompt whenever possible.",
+      "action_label": null,
+      "setting_url": null
+    },
+    {
+      "title": "Antivirus or Windows Defender false-positive warning",
+      "body": "Your antivirus software or Windows Defender may flag Device Rescue because it's an unsigned tool built with PyInstaller. This is a known false positive and expected for now — you can allow it to run. Once the app is signed in a future release, this warning should go away.",
+      "action_label": null,
+      "setting_url": null
+    }
+  ],
+  "linux": [
+    {
+      "title": "Linux install (command line only)",
+      "body": "There's no graphical app for Linux yet. Install Device Rescue from the command line, either with \"pip install .\" from the source, or by downloading the release binary and running it from a terminal.",
+      "action_label": null,
+      "setting_url": null
+    }
+  ]
+}

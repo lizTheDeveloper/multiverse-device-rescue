@@ -1,12 +1,114 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
   <title>Device Rescue</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="app">Device Rescue</div>
+  <div id="app">
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">&#128737;</span>
+        <span class="brand-name">Device Rescue</span>
+      </div>
+      <ol class="steps" aria-label="Setup progress">
+        <li class="step-dot" data-step-dot="welcome"><span class="step-num">1</span><span class="step-label">Welcome</span></li>
+        <li class="step-dot" data-step-dot="permissions"><span class="step-num">2</span><span class="step-label">Permissions</span></li>
+        <li class="step-dot" data-step-dot="scan"><span class="step-num">3</span><span class="step-label">Checkup</span></li>
+        <li class="step-dot" data-step-dot="results"><span class="step-num">4</span><span class="step-label">Results</span></li>
+      </ol>
+    </header>
+
+    <main id="screens">
+
+      <!-- Screen 1: Welcome -->
+      <section id="screen-welcome" class="screen" data-screen="welcome" aria-labelledby="welcome-title">
+        <div class="card card--hero">
+          <h1 id="welcome-title">Let's check on your device</h1>
+          <p class="lede">
+            Device Rescue looks over your Mac, Windows PC, or Linux machine for signs of
+            trouble &mdash; unwanted software, risky settings, and things worth double-checking.
+            It explains what it finds in plain language, so you can decide what to do next.
+          </p>
+          <div class="safety-note" role="note">
+            <span class="safety-note__icon" aria-hidden="true">&#128274;</span>
+            <div>
+              <strong>Read-only by default.</strong>
+              <span>Device Rescue only looks &mdash; it never changes anything on your device without your explicit OK.</span>
+            </div>
+          </div>
+          <button id="btn-get-started" class="btn btn--primary btn--large" type="button">Get started</button>
+        </div>
+      </section>
+
+      <!-- Screen 2: Permissions -->
+      <section id="screen-permissions" class="screen" data-screen="permissions" aria-labelledby="permissions-title" hidden>
+        <div class="card">
+          <h1 id="permissions-title">A quick heads-up before you begin</h1>
+          <p class="lede">
+            Your computer may show a few permission prompts while Device Rescue runs its
+            checkup. Here's what to expect and how to handle each one &mdash; you can always
+            come back to this later.
+          </p>
+          <div id="permissions-steps" class="steps-list" aria-live="polite">
+            <p class="muted">Loading walkthrough&hellip;</p>
+          </div>
+          <button id="btn-permissions-continue" class="btn btn--primary btn--large" type="button">Continue</button>
+        </div>
+      </section>
+
+      <!-- Screen 3: Scan -->
+      <section id="screen-scan" class="screen" data-screen="scan" aria-labelledby="scan-title" hidden>
+        <div class="card card--hero">
+          <h1 id="scan-title">Ready for your checkup</h1>
+          <p class="lede">
+            When you click below, Device Rescue will look through your system for anything
+            worth your attention. Nothing will be changed &mdash; this is just a look-around.
+          </p>
+          <p class="muted">This can take a few minutes, especially the first time. Feel free to keep this window open and wait.</p>
+
+          <button id="btn-run-scan" class="btn btn--primary btn--large" type="button">Run checkup</button>
+
+          <div id="scan-progress" class="scan-progress" hidden>
+            <div class="spinner" aria-hidden="true"></div>
+            <p id="scan-status" class="scan-status" role="status" aria-live="polite">Running checkup&hellip; this can take a few minutes.</p>
+          </div>
+
+          <div id="scan-error" class="error-note" role="alert" hidden>
+            <p id="scan-error-text"></p>
+            <button id="btn-scan-retry" class="btn btn--secondary" type="button">Try again</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 4: Results -->
+      <section id="screen-results" class="screen" data-screen="results" aria-labelledby="results-title" hidden>
+        <div class="card card--wide">
+          <h1 id="results-title">Here's what we found</h1>
+          <p class="lede">
+            This is guidance, not action &mdash; Device Rescue hasn't changed anything on your
+            device. Review each item and decide what, if anything, you'd like to do about it.
+          </p>
+
+          <div id="results-summary" class="results-summary"></div>
+
+          <div id="results-groups"></div>
+
+          <section id="results-errors" class="results-errors" hidden>
+            <h2>Couldn't check these</h2>
+            <p class="muted">These parts of the checkup didn't run. It's usually nothing to worry about.</p>
+            <ul id="results-errors-list" class="errors-list"></ul>
+          </section>
+
+          <button id="btn-start-over" class="btn btn--secondary" type="button">Start over</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
