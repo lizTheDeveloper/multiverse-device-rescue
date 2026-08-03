@@ -46,8 +46,33 @@ def test_profile_answers_whether_the_device_is_leaking_credentials():
     assert {"remote_login_check", "win_remote_access_audit"} <= matched
 
 
-def test_guide_has_six_phases_in_order():
-    assert [g.phase for g in _guides()] == [0, 1, 2, 3, 4, 5]
+def test_guide_has_seven_phases_in_order():
+    assert [g.phase for g in _guides()] == [0, 1, 2, 3, 4, 5, 6]
+
+
+def test_resources_phase_lists_free_case_managed_help():
+    resources = _guides()[-1]
+    assert "Resources" in resources.title
+
+    body = "\n".join(step.body for step in resources.steps).lower()
+    for expected in (
+        "idtheftcenter.org",   # free advisors who stay with the case
+        "1-888-400-5530",
+        "1-877-908-3360",      # AARP helpline, open to any age
+        "1-833-372-8311",      # DOJ elder fraud hotline
+        "idcare.org",          # AU/NZ equivalent
+        "accessnow.org/help",  # for people at elevated risk
+        "lawhelp.org",         # legal aid
+    ):
+        assert expected in body, f"resources should include {expected}"
+
+
+def test_resources_phase_warns_about_fake_helplines_first():
+    """The scam-helpline warning is useless anywhere but the top of the list."""
+    resources = _guides()[-1]
+    first = resources.steps[0]
+    assert "helpline" in first.title.lower()
+    assert "gift card" in first.body.lower()
 
 
 def test_recovery_runs_in_the_order_that_makes_it_work():
