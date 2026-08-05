@@ -4,7 +4,18 @@ import stat
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Several tests here call os.getuid(), which does not exist on Windows. The
+# module under test is macOS-only, so there is nothing for Windows to exercise;
+# skipping is honest, and it is done at module scope so a Windows run reports
+# "skipped" rather than a pile of AttributeErrors.
+pytestmark = pytest.mark.skipif(
+    not hasattr(os, "getuid"),
+    reason="directory_permissions is macOS-only and depends on POSIX uids",
+)
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules

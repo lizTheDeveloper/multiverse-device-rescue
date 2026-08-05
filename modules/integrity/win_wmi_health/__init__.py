@@ -316,7 +316,7 @@ class Module(ModuleBase):
             return None
 
     def _get_wmi_repository_size(self) -> Optional[dict]:
-        """Get WMI repository size from C:\Windows\System32\wbem\Repository."""
+        r"""Get WMI repository size from C:\Windows\System32\wbem\Repository."""
         try:
             ps_cmd = (
                 "(Get-ChildItem -Recurse C:\\Windows\\System32\\wbem\\Repository -ErrorAction SilentlyContinue | "
