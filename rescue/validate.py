@@ -107,7 +107,35 @@ def validate_modules(modules: list[ModuleBase]) -> list[Problem]:
         problems.extend(_validate_module_metadata(module, available))
 
     problems.extend(_validate_dependency_graph(modules))
+    problems.extend(_documentation_coverage(modules))
     return problems
+
+
+def _documentation_coverage(modules: list[ModuleBase]) -> list[Problem]:
+    """Report undocumented modules as one warning, not one warning each.
+
+    The roadmap asks for "actionable support documentation" (P1#3), and 264 of
+    287 shipped modules carry no prose at all. Emitting a warning per module
+    buries the handful of problems that need acting on today under a backlog
+    that will be worked through over time, and makes `--strict` unusable — a
+    gate nobody can turn on protects nothing.
+
+    One line, with the count and a sample, keeps the backlog visible and the
+    output readable.
+    """
+    undocumented = sorted(m.name for m in modules if not _has_documentation(m))
+    if not undocumented:
+        return []
+    sample = ", ".join(undocumented[:5])
+    more = f", and {len(undocumented) - 5} more" if len(undocumented) > 5 else ""
+    return [
+        _warning(
+            "registry",
+            "documentation",
+            f"{len(undocumented)} of {len(modules)} modules have no docstring "
+            f"explaining what they check or why ({sample}{more})",
+        )
+    ]
 
 
 def _validate_module_metadata(module: ModuleBase, available: set[str]) -> list[Problem]:
@@ -163,11 +191,6 @@ def _validate_module_metadata(module: ModuleBase, available: set[str]) -> list[P
     if not module.estimated_duration or module.estimated_duration == _UNKNOWN_DURATION:
         problems.append(
             _warning("module", name, "declares no estimated_duration; scans cannot show progress honestly")
-        )
-
-    if not _has_documentation(module):
-        problems.append(
-            _warning("module", name, "has no docstring explaining what it checks or why")
         )
 
     return problems

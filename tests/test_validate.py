@@ -181,3 +181,45 @@ def test_the_shipped_catalog_is_consistent():
     )
     assert report.module_count > 0
     assert report.errors == [], "\n".join(p.format() for p in report.errors)
+
+
+def _undocumented(name: str) -> ModuleBase:
+    """A module with neither a class docstring nor a documented source file.
+
+    `__module__` matters: a real shipped module's prose usually lives in the
+    file-level docstring of its `__init__.py`, so the validator looks there as
+    well as at the class. Pointing it at a name that is not in sys.modules is
+    how a test double gets to be genuinely undocumented.
+    """
+    return type(f"Module_{name}", (_Stub,), {"name": name, "__module__": "not_a_real_module"})()
+
+
+def test_undocumented_modules_produce_one_warning_not_hundreds():
+    """A per-module warning would bury the actionable problems in a backlog."""
+    modules = [_undocumented(f"m{i}") for i in range(10)]
+    warnings = [
+        p for p in validate_modules(modules)
+        if p.severity is Severity.WARNING and "docstring" in p.message
+    ]
+    assert len(warnings) == 1
+    assert "10 of 10 modules" in warnings[0].message
+
+
+def test_documented_modules_produce_no_documentation_warning():
+    class _Documented(_Stub):
+        """This module explains itself."""
+
+        name = "documented"
+
+    problems = validate_modules([_Documented()])
+    assert not [p for p in problems if "docstring" in p.message]
+
+
+def test_the_shipped_catalog_has_no_errors_only_the_documentation_backlog():
+    """`rescue validate` (no --strict) is the CI gate, so it must exit clean."""
+    report = validate_catalog(
+        modules_dir=REPO_ROOT / "modules",
+        profiles_dir=REPO_ROOT / "profiles",
+        guides_dir=REPO_ROOT / "guides",
+    )
+    assert report.ok(strict=False), "\n".join(p.format() for p in report.errors)
