@@ -558,9 +558,28 @@ def explain():
     default=None,
     help="Apply a signed update from a local git bundle file (air-gapped).",
 )
-def update(check, dry_run, yes, sideload_path):
+@click.option(
+    "--rollback",
+    is_flag=True,
+    help="Return to the content version that was applied before the current one.",
+)
+@click.option(
+    "--use-bundled",
+    "use_bundled",
+    is_flag=True,
+    help="Deactivate downloaded content and use what shipped with the install.",
+)
+def update(check, dry_run, yes, sideload_path, rollback, use_bundled):
     """Update module data and guide content from the content repository."""
     config = default_config()
+
+    if rollback and use_bundled:
+        click.echo("--rollback and --use-bundled cannot be combined.", err=True)
+        raise SystemExit(2)
+
+    if rollback or use_bundled:
+        _update_recovery(config, rollback=rollback, dry_run=dry_run)
+        return
 
     try:
         if sideload_path is not None:
@@ -610,6 +629,34 @@ def update(check, dry_run, yes, sideload_path):
         click.echo(f"Update rejected: {exc}", err=True)
         raise SystemExit(1) from exc
     click.echo(applied.message)
+
+
+def _update_recovery(config, *, rollback: bool, dry_run: bool) -> None:
+    """Back out of a content update (roadmap P0#2).
+
+    Neither path fetches anything: rolling back to a version this machine
+    already had, or falling back to what the install shipped with, must work
+    when the network is the problem — or when the update is.
+    """
+    try:
+        engine = UpdateEngine(config)
+    except (GitError, TrustConfigurationError) as exc:
+        click.echo(f"Cannot load the content repository: {exc}", err=True)
+        raise SystemExit(1) from exc
+
+    if not rollback:
+        click.echo(engine.use_bundled_content().message)
+        return
+
+    try:
+        result = engine.rollback(dry_run=dry_run)
+    except (GitError, ManifestError) as exc:
+        click.echo(f"Rollback failed: {exc}", err=True)
+        raise SystemExit(1) from exc
+
+    click.echo(result.message)
+    if result.status in ("no_previous_version", "pending_approval"):
+        raise SystemExit(1)
 
 
 @main.group()

@@ -28,7 +28,8 @@ from rescue.update.verify import verify_commit_approval
 
 @dataclass
 class UpdateResult:
-    status: str  # "up_to_date" | "available" | "pending_approval" | "applied" | "dry_run"
+    status: str  # "up_to_date" | "available" | "pending_approval" | "applied"
+    #             | "dry_run" | "rolled_back" | "no_previous_version" | "using_bundled"
     old_commit: str | None
     new_commit: str | None
     commits: list[CommitInfo] = field(default_factory=list)
@@ -130,6 +131,96 @@ class UpdateEngine:
             commits=target.commits,
             content_version=target.content_version,
             message=f"Updated to {target.new_commit[:12]} ({len(target.commits)} commit(s)).",
+        )
+
+    def rollback(self, dry_run: bool = False) -> UpdateResult:
+        """Return to the content version applied before the current one (P0#2).
+
+        Rollback re-verifies maintainer approval rather than trusting that the
+        commit was approved when it was first applied. A signer can be revoked
+        between then and now, and the whole point of revocation is that content
+        that signer approved stops being trusted — including content already on
+        the machine. When that happens the honest answer is not to quietly roll
+        forward or back but to say so, and point at
+        :meth:`use_bundled_content`, which needs no signatures at all because
+        it activates the content that shipped inside the installed package.
+        """
+        current = self.repo.current_commit()
+        previous = self.repo.previous_applied_commit()
+
+        if previous is None or previous == current:
+            return UpdateResult(
+                status="no_previous_version",
+                old_commit=current,
+                new_commit=None,
+                message=(
+                    "No previous content version is recorded on this machine, so there is "
+                    "nothing to roll back to. `rescue update --use-bundled` returns to the "
+                    "content that shipped with the installed package."
+                ),
+            )
+
+        approval = verify_commit_approval(
+            self.repo,
+            previous,
+            self.trusted_signers,
+            self.config.required_approvals,
+            self.config.tag_prefix,
+            self.revoked_signer_ids,
+        )
+        if not approval.approved:
+            return UpdateResult(
+                status="pending_approval",
+                old_commit=current,
+                new_commit=previous,
+                message=(
+                    f"The previous content version ({previous[:12]}) is no longer approved "
+                    f"({approval.reason}) — most likely a signer has been revoked since it "
+                    "was applied. Refusing to roll back to it. Use "
+                    "`rescue update --use-bundled` to fall back to the content that shipped "
+                    "with the installed package."
+                ),
+            )
+
+        content_version = self._peek_content_version(previous)
+        if dry_run:
+            return UpdateResult(
+                status="dry_run",
+                old_commit=current,
+                new_commit=previous,
+                content_version=content_version,
+                message=f"Would roll back to {previous[:12]}.",
+            )
+
+        self._validate_content_commit(previous)
+        self.repo.checkout(previous)
+        return UpdateResult(
+            status="rolled_back",
+            old_commit=current,
+            new_commit=previous,
+            content_version=content_version,
+            message=f"Rolled back to {previous[:12]}.",
+        )
+
+    def use_bundled_content(self) -> UpdateResult:
+        """Deactivate updated content entirely and use what was installed.
+
+        The escape hatch of last resort, and the only one with no dependency on
+        git, on signatures, or on anything an update wrote. Nothing is deleted:
+        the checkout stays on disk, so a later `rescue update` can reactivate
+        content once whatever went wrong is understood.
+        """
+        current = self.repo.current_commit()
+        self.repo.clear_applied_marker()
+        return UpdateResult(
+            status="using_bundled",
+            old_commit=current,
+            new_commit=None,
+            message=(
+                "Updated content is deactivated. The tool will use the modules, profiles "
+                "and guides that shipped with the installed package. Nothing was deleted; "
+                "`rescue update` can activate downloaded content again."
+            ),
         )
 
     def _peek_content_version(self, commit_sha: str) -> str | None:
