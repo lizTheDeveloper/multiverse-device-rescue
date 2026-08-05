@@ -1,0 +1,125 @@
+name: Bug report
+description: The tool crashed, hung, printed something wrong, or did not do what it said.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: if the bug is that a **check reported a healthy result
+        when it should not have**, that is a security bug in this project — see
+        [SECURITY.md](https://github.com/lizTheDeveloper/multiverse-device-rescue/blob/main/SECURITY.md)
+        and report it privately instead.
+
+        If the bug is a **wrong finding** (reported a problem that is not real,
+        or missed one that is), use the "False positive / false negative"
+        template instead — it asks for the right things.
+
+        Issues are public. Redact anything you would not post on a forum.
+        `rescue export` redacts credentials, tokens, email addresses, your
+        username, and your home path, but module output is free text — read the
+        file before pasting from it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The exact command you ran and the output, trimmed and redacted.
+      placeholder: |
+        $ rescue run some_module --yes
+        ...
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `rescue version`.
+      placeholder: multiverse-device-rescue 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows
+        - Linux
+        - Other / more than one
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: "macOS 15.2 / Windows 11 23H2 / Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: python
+    attributes:
+      label: Python version
+      options:
+        - "3.11"
+        - "3.12"
+        - "3.13"
+        - "Not applicable (desktop app or PyInstaller binary)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How it was installed
+      options:
+        - Source checkout (running from the repo)
+        - pip install .
+        - pip install -e ".[dev]"
+        - PyInstaller binary
+        - Desktop app
+    validations:
+      required: true
+
+  - type: textarea
+    id: integrity
+    attributes:
+      label: Integrity check output
+      description: >-
+        Did launching the tool print "WARNING: rescue's own installed files do
+        not match the expected integrity manifest"? If so, paste it. If not, say
+        so — it rules out a modified install.
+    validations:
+      required: false
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Traceback or error output
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: I redacted anything sensitive in the output above.
+          required: true
+        - label: This is not a security vulnerability (those go through the private advisory form).
+          required: true

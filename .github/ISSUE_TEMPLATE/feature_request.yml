@@ -1,0 +1,80 @@
+name: Feature request
+description: Something the tool should do that is not a new module.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a new **check**, use the "New module proposal" template instead.
+
+        Please skim
+        [docs/ROADMAP.md](https://github.com/lizTheDeveloper/multiverse-device-rescue/blob/main/docs/ROADMAP.md)
+        and
+        [docs/ROADMAP_STATUS.md](https://github.com/lizTheDeveloper/multiverse-device-rescue/blob/main/docs/ROADMAP_STATUS.md)
+        first. Several known gaps — sandboxed module discovery, real signing
+        keys, signed release artifacts, per-call command bounding — are already
+        written down with reasons. Adding detail to one of those is more useful
+        than a new issue restating it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        What you were trying to do, and where the tool got in the way. Describe
+        the situation, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the tool
+      options:
+        - CLI
+        - TUI
+        - Profiles / guides
+        - JSON output or case export
+        - Update and trust (signed content)
+        - AI layer (opt-in)
+        - Desktop app
+        - Packaging / distribution
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: Existing commands, flags, or workarounds, and why they were not enough.
+    validations:
+      required: false
+
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety implications
+      description: >-
+        Would this make the tool change more of the system, run more code,
+        reach the network, or reduce how much the user confirms? Say so plainly
+        — it is not a reason to reject the idea, it is a reason to design it
+        carefully.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: offer
+    attributes:
+      label: Are you offering to build it
+      options:
+        - label: I intend to open a PR for this.

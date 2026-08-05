@@ -1,0 +1,108 @@
+name: False positive / false negative
+description: A check reported something that is not true, or missed something that is.
+title: "[finding] "
+labels: ["finding-accuracy"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most valuable kind of report this project gets. Every
+        finding is something a person may act on — freezing credit, wiping a
+        machine, confronting someone — and every missed finding is someone
+        walking away believing a device is clean.
+
+        **If a check reported "No issues found" on a machine where the
+        condition it detects is genuinely present, that is a security bug.**
+        Report it privately through the
+        [security advisory form](https://github.com/lizTheDeveloper/multiverse-device-rescue/security/advisories/new)
+        instead of here, especially if it is reproducible or generalises beyond
+        your machine. Use this template for accuracy problems that are safe to
+        discuss in public.
+
+        Issues are public. Redact hostnames, usernames, paths, serial numbers,
+        and anything else identifying.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Which is it
+      options:
+        - False positive — reported a problem that is not real
+        - False negative — missed a problem that is real
+        - Misleading — technically true, but the description leads to the wrong conclusion
+        - Wrong severity
+    validations:
+      required: true
+
+  - type: input
+    id: module
+    attributes:
+      label: Module name
+      description: The name in the `=== module_name ===` header, or the `name` field in JSON.
+      placeholder: linux_ssh_hardening
+    validations:
+      required: true
+
+  - type: input
+    id: code
+    attributes:
+      label: Finding code
+      description: >-
+        The `code` field from `rescue scan --json`, if the finding has one.
+        Looks like `category.module.slug`.
+      placeholder: security.linux_ssh_hardening.password_auth_enabled
+    validations:
+      required: false
+
+  - type: textarea
+    id: reported
+    attributes:
+      label: What the tool reported
+      description: Paste the finding, redacted. `rescue scan --json` output is ideal.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: truth
+    attributes:
+      label: What is actually true, and how you know
+      description: >-
+        The evidence that contradicts the finding — the real setting, the real
+        command output, the vendor documentation. This is the part that lets a
+        maintainer write a failing test.
+    validations:
+      required: true
+
+  - type: textarea
+    id: system
+    attributes:
+      label: System context
+      description: >-
+        OS and version, hardware where relevant, and anything unusual about this
+        machine — managed by an employer, non-default security software,
+        unusual filesystem layout, a distro or shell that is not the common case.
+    validations:
+      required: true
+
+  - type: textarea
+    id: consequence
+    attributes:
+      label: What acting on this finding would have caused
+      description: >-
+        Optional but useful for prioritising. "I would have reinstalled the OS"
+        and "I would have ignored a real problem" are different severities.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: I redacted hostnames, usernames, paths, and anything else identifying.
+          required: true
+        - label: >-
+            This is not a reproducible false-healthy result that would generalise to other
+            machines (those go through the private security advisory form).
+          required: true
