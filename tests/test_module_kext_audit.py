@@ -49,7 +49,7 @@ def _fake_run_no_third_party_kexts():
                 "    1    0 0xffffff7f80000000 0x1000     0x1000     com.apple.driver.AppleACPIPlatform (1.0) <7 6 5 4 3 1>\n"
                 "    2    0 0xffffff7f80001000 0x2000     0x2000     com.apple.driver.AppleNVMe (2.0) <7 6 5 4 3 1>\n"
             )
-        elif "find" in cmd_str and "/Library/Extensions" in cmd_str:
+        elif "find" in cmd_str:
             return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
@@ -70,7 +70,7 @@ def _fake_run_with_virtualbox():
                 "    2    3 0xffffff7f80001000 0x5000     0x4000     org.virtualbox.kext.VBoxDrv (7.0.6) <7 6 5 4 3 1>\n"
                 "    3    1 0xffffff7f80006000 0x2000     0x1000     org.virtualbox.kext.VBoxNetFlt (7.0.6) <2 1>\n"
             )
-        elif "find" in cmd_str and "/Library/Extensions" in cmd_str:
+        elif "find" in cmd_str:
             return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
@@ -90,7 +90,7 @@ def _fake_run_with_vmware():
                 "    1    0 0xffffff7f80000000 0x1000     0x1000     com.apple.driver.AppleACPIPlatform (1.0) <7 6 5 4 3 1>\n"
                 "    2    2 0xffffff7f80001000 0x3000     0x2000     com.vmware.kext.vmci (13.5.12) <7 6 5 4 3 1>\n"
             )
-        elif "find" in cmd_str and "/Library/Extensions" in cmd_str:
+        elif "find" in cmd_str:
             return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
@@ -110,7 +110,7 @@ def _fake_run_with_unsigned_kext():
                 "    1    0 0xffffff7f80000000 0x1000     0x1000     com.apple.driver.AppleACPIPlatform (1.0) <7 6 5 4 3 1>\n"
                 "    2    1 0xffffff7f80001000 0x3000     0x2000     com.example.driver.Unsigned (1.0.0)\n"
             )
-        elif "find" in cmd_str and "/Library/Extensions" in cmd_str:
+        elif "find" in cmd_str:
             return _make_subprocess_result("")
         return _make_subprocess_result()
     return fake_run
@@ -129,7 +129,7 @@ def _fake_run_with_kext_files():
                 "Index Refs Address            Size       Wired      Name (Version) <Linked Against>\n"
                 "    1    0 0xffffff7f80000000 0x1000     0x1000     com.apple.driver.AppleACPIPlatform (1.0) <7 6 5 4 3 1>\n"
             )
-        elif "find" in cmd_str and "/Library/Extensions" in cmd_str:
+        elif "find" in cmd_str:
             return _make_subprocess_result(
                 "/Library/Extensions/OldDriver.kext\n"
                 "/Library/Extensions/LegacyHW.kext\n"
@@ -187,9 +187,12 @@ def test_kext_audit_unsigned_kext_critical():
     assert any(f.severity == Severity.CRITICAL for f in result.findings)
 
 
-def test_kext_audit_kext_files_detected():
+def test_kext_audit_kext_files_detected(tmp_path):
     """Kext files in /Library/Extensions/ should be flagged as WARNING"""
     mod = _get_module()
+    # The module checks the directory exists before shelling out to `find`, so
+    # without a real directory here the mocked `find` was never reached.
+    mod.extensions_dir = str(tmp_path)
     with patch("subprocess.run", side_effect=_fake_run_with_kext_files()):
         result = mod.check(_make_profile())
     assert result.has_issues

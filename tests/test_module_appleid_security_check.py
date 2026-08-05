@@ -27,11 +27,19 @@ def _get_module():
     return next(m for m in modules if m.name == "appleid_security_check")
 
 
-def _make_appleid_plist(signed_in=True):
-    """Create mock plist content for MobileMeAccounts."""
-    if signed_in:
-        return {"Accounts": [{"AccountID": "user@icloud.com"}]}
-    return {"Accounts": []}
+def _write_appleid_plist(tmp_path, signed_in=True):
+    """Write a real MobileMeAccounts.plist and return its path.
+
+    The module opens this file directly, so patching plistlib.load alone was not
+    enough -- open() still had to succeed, and on a non-macOS host it raised
+    FileNotFoundError, which the module swallows as "not signed in". Writing a
+    real fixture exercises the actual plist parsing instead.
+    """
+    accounts = [{"AccountID": "user@icloud.com"}] if signed_in else []
+    path = tmp_path / "MobileMeAccounts.plist"
+    with open(path, "wb") as f:
+        plistlib.dump({"Accounts": accounts}, f)
+    return path
 
 
 def _make_run_result(
@@ -103,7 +111,7 @@ def _make_run_result(
     return fake_run
 
 
-def test_appleid_security_check_discovered():
+def test_appleid_security_check_discovered(tmp_path):
     mod = _get_module()
     assert mod.name == "appleid_security_check"
     assert mod.category == "security"
@@ -111,7 +119,7 @@ def test_appleid_security_check_discovered():
     assert mod.risk_level == RiskLevel.SAFE
 
 
-def test_appleid_all_secure():
+def test_appleid_all_secure(tmp_path):
     """Test when all Apple ID security features are enabled."""
     mod = _get_module()
     fake_run = _make_run_result(
@@ -124,10 +132,9 @@ def test_appleid_all_secure():
         icloud_devices=["MacBook Pro", "iPad Pro"],
     )
 
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True)
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("plistlib.load", return_value=_make_appleid_plist(True)):
-                result = mod.check(_make_profile())
+        result = mod.check(_make_profile())
 
     # Should have INFO finding with summary
     assert result.has_issues
@@ -137,15 +144,14 @@ def test_appleid_all_secure():
     assert not any(f.severity == Severity.WARNING for f in result.findings)
 
 
-def test_appleid_not_signed_in():
+def test_appleid_not_signed_in(tmp_path):
     """Test detection when Apple ID is not signed in."""
     mod = _get_module()
     fake_run = _make_run_result(appleid_signin=False)
 
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, False)
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("plistlib.load", return_value=_make_appleid_plist(False)):
-                result = mod.check(_make_profile())
+        result = mod.check(_make_profile())
 
     assert result.has_issues
     assert any(f.data.get("check") == "appleid_signin" for f in result.findings)
@@ -153,7 +159,7 @@ def test_appleid_not_signed_in():
     assert signin_finding[0].severity == Severity.WARNING
 
 
-def test_appleid_keychain_disabled():
+def test_appleid_keychain_disabled(tmp_path):
     """Test detection when iCloud Keychain is disabled."""
     mod = _get_module()
     fake_run = _make_run_result(
@@ -161,10 +167,9 @@ def test_appleid_keychain_disabled():
         keychain_enabled=False,
     )
 
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True)
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("plistlib.load", return_value=_make_appleid_plist(True)):
-                result = mod.check(_make_profile())
+        result = mod.check(_make_profile())
 
     assert result.has_issues
     assert any(f.data.get("check") == "icloud_keychain" for f in result.findings)
@@ -172,7 +177,7 @@ def test_appleid_keychain_disabled():
     assert keychain_finding[0].severity == Severity.WARNING
 
 
-def test_appleid_autoupdate_disabled():
+def test_appleid_autoupdate_disabled(tmp_path):
     """Test detection when automatic updates are disabled."""
     mod = _get_module()
     fake_run = _make_run_result(
@@ -180,10 +185,9 @@ def test_appleid_autoupdate_disabled():
         autoupdate_enabled=False,
     )
 
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True)
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("plistlib.load", return_value=_make_appleid_plist(True)):
-                result = mod.check(_make_profile())
+        result = mod.check(_make_profile())
 
     assert result.has_issues
     assert any(f.data.get("check") == "autoupdate_disabled" for f in result.findings)
@@ -191,7 +195,7 @@ def test_appleid_autoupdate_disabled():
     assert update_finding[0].severity == Severity.WARNING
 
 
-def test_appleid_multiple_issues():
+def test_appleid_multiple_issues(tmp_path):
     """Test when multiple security issues are detected."""
     mod = _get_module()
     fake_run = _make_run_result(
@@ -200,10 +204,9 @@ def test_appleid_multiple_issues():
         autoupdate_enabled=False,
     )
 
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, False)
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("plistlib.load", return_value=_make_appleid_plist(False)):
-                result = mod.check(_make_profile())
+        result = mod.check(_make_profile())
 
     assert result.has_issues
     checks = [f.data.get("check") for f in result.findings]
@@ -214,89 +217,85 @@ def test_appleid_multiple_issues():
     assert len(result.findings) >= 3
 
 
-def test_appleid_fix_signin():
+def test_appleid_fix_signin(tmp_path):
     """Test fix recommendation for Apple ID signin."""
     mod = _get_module()
     fake_run = _make_run_result(appleid_signin=False)
 
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, False)
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("plistlib.load", return_value=_make_appleid_plist(False)):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
+        check = mod.check(_make_profile())
+        fix = mod.fix(check, Mode.MANUAL)
 
     assert len(fix.actions) > 0
     assert any("sign in" in a.title.lower() for a in fix.actions)
 
 
-def test_appleid_fix_keychain():
+def test_appleid_fix_keychain(tmp_path):
     """Test fix recommendation for iCloud Keychain."""
     mod = _get_module()
     fake_run = _make_run_result(keychain_enabled=False)
 
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True)
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("plistlib.load", return_value=_make_appleid_plist(True)):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
+        check = mod.check(_make_profile())
+        fix = mod.fix(check, Mode.MANUAL)
 
     assert len(fix.actions) > 0
     assert any("keychain" in a.title.lower() for a in fix.actions)
 
 
-def test_appleid_fix_autoupdate():
+def test_appleid_fix_autoupdate(tmp_path):
     """Test fix recommendation for automatic updates."""
     mod = _get_module()
     fake_run = _make_run_result(autoupdate_enabled=False)
 
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True)
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("plistlib.load", return_value=_make_appleid_plist(True)):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
+        check = mod.check(_make_profile())
+        fix = mod.fix(check, Mode.MANUAL)
 
     assert len(fix.actions) > 0
     assert any("update" in a.title.lower() for a in fix.actions)
 
 
-def test_appleid_handles_missing_plist():
+def test_appleid_handles_missing_plist(tmp_path):
     """Test graceful handling when MobileMeAccounts.plist is missing."""
     mod = _get_module()
     fake_run = _make_run_result(appleid_signin=False)
 
+    mod.mobileme_plist_path = tmp_path / "absent.plist"
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=False):
-            result = mod.check(_make_profile())
+        result = mod.check(_make_profile())
 
     # Should still complete and flag no signin
     assert result.has_issues
     assert any(f.data.get("check") == "appleid_signin" for f in result.findings)
 
 
-def test_appleid_handles_subprocess_error():
+def test_appleid_handles_subprocess_error(tmp_path):
     """Test graceful handling of subprocess errors."""
     mod = _get_module()
 
     def error_run(cmd, **kwargs):
         raise OSError("Command failed")
 
+    mod.mobileme_plist_path = tmp_path / "absent.plist"
     with patch("subprocess.run", side_effect=error_run):
-        with patch("pathlib.Path.exists", return_value=False):
-            result = mod.check(_make_profile())
+        result = mod.check(_make_profile())
 
     # Should still complete without crashing
     assert isinstance(result.findings, list)
 
 
-def test_appleid_summary_info_always_present():
+def test_appleid_summary_info_always_present(tmp_path):
     """Test that summary info finding is always present."""
     mod = _get_module()
     fake_run = _make_run_result()
 
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True)
     with patch("subprocess.run", side_effect=fake_run):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("plistlib.load", return_value=_make_appleid_plist(True)):
-                result = mod.check(_make_profile())
+        result = mod.check(_make_profile())
 
     # Summary should always be present
     assert any(f.data.get("check") == "appleid_summary" for f in result.findings)

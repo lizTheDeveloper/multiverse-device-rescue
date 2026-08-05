@@ -22,10 +22,22 @@ def _make_profile():
     )
 
 
-def _get_module():
+def _get_module(tmp_path=None):
     modules_dir = Path(__file__).parent.parent / "modules"
     modules = discover_modules(modules_dir)
-    return next(m for m in modules if m.name == "notification_center_check")
+    mod = next(m for m in modules if m.name == "notification_center_check")
+    if tmp_path is not None:
+        # The module reads two real paths under ~/Library and returns early if
+        # they are absent, which on a non-macOS host meant check() short-circuited
+        # before the mocked `defaults` call was ever reached. Point both at a
+        # fixture so these tests exercise the parser on every platform.
+        prefs = tmp_path / "com.apple.ncprefs.plist"
+        prefs.write_bytes(b"")
+        nc_dir = tmp_path / "NotificationCenter"
+        nc_dir.mkdir()
+        mod.ncprefs_path = prefs
+        mod.notification_center_dir = nc_dir
+    return mod
 
 
 def test_notification_center_check_discovered():
@@ -37,9 +49,9 @@ def test_notification_center_check_discovered():
     assert mod.risk_level == RiskLevel.SAFE
 
 
-def test_notification_center_check_clean():
+def test_notification_center_check_clean(tmp_path):
     """Test when notification center is clean (no issues)."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     def mock_walk(path):
         return []
@@ -59,9 +71,9 @@ def test_notification_center_check_clean():
     assert not any(f.severity == Severity.CRITICAL for f in result.findings)
 
 
-def test_notification_center_check_large_database():
+def test_notification_center_check_large_database(tmp_path):
     """Test detection of bloated notification database."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     def mock_walk(path):
         # Return fake files that add up to 600MB
@@ -93,9 +105,9 @@ def test_notification_center_check_large_database():
     assert isinstance(result.findings, list)
 
 
-def test_notification_center_check_too_many_apps():
+def test_notification_center_check_too_many_apps(tmp_path):
     """Test detection of too many apps with notification permissions."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     # Create defaults output with 60 apps (using correct format)
     defaults_output = "\n".join(
@@ -119,9 +131,9 @@ def test_notification_center_check_too_many_apps():
     assert "overload" in app_warnings[0].title.lower()
 
 
-def test_notification_center_check_too_many_alerts():
+def test_notification_center_check_too_many_alerts(tmp_path):
     """Test detection of too many apps using Alerts style."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     # Create defaults output with 15 apps using alertStyle = 1 (Alerts)
     defaults_output = "\n".join(
@@ -150,9 +162,9 @@ def test_notification_center_check_too_many_alerts():
     assert "alerts" in alert_warnings[0].title.lower()
 
 
-def test_notification_center_check_dnd_active():
+def test_notification_center_check_dnd_active(tmp_path):
     """Test detection of active Do Not Disturb."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     defaults_output = """
     com.example.app1 = {
@@ -178,9 +190,9 @@ def test_notification_center_check_dnd_active():
     assert summary_findings[0].data.get("dnd_active") is True
 
 
-def test_notification_center_check_multiple_issues():
+def test_notification_center_check_multiple_issues(tmp_path):
     """Test detection of multiple notification issues simultaneously."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     # Create defaults output with >50 apps and >10 using alerts
     defaults_output = "\n".join(
@@ -214,9 +226,9 @@ def test_notification_center_check_multiple_issues():
     assert "alert_style_count" in checks
 
 
-def test_notification_center_check_fix_recommendations_exist():
+def test_notification_center_check_fix_recommendations_exist(tmp_path):
     """Test that fix provides recommendations for findings."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     defaults_output = "\n".join([f"com.example.app{i} = {{" for i in range(60)])
 
@@ -237,9 +249,9 @@ def test_notification_center_check_fix_recommendations_exist():
     assert all(a.success is True for a in fix.actions)
 
 
-def test_notification_center_check_fix_app_permissions():
+def test_notification_center_check_fix_app_permissions(tmp_path):
     """Test fix recommendations for too many app permissions."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     defaults_output = "\n".join([f"com.example.app{i} = {{" for i in range(60)])
 
@@ -261,9 +273,9 @@ def test_notification_center_check_fix_app_permissions():
     assert all(a.risk_level == RiskLevel.SAFE for a in app_actions)
 
 
-def test_notification_center_check_fix_alerts():
+def test_notification_center_check_fix_alerts(tmp_path):
     """Test fix recommendations for too many alerts."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     defaults_output = "\n".join(
         [
@@ -290,9 +302,9 @@ def test_notification_center_check_fix_alerts():
     assert all(a.risk_level == RiskLevel.SAFE for a in alert_actions)
 
 
-def test_notification_center_check_subprocess_error():
+def test_notification_center_check_subprocess_error(tmp_path):
     """Test graceful handling of subprocess errors."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     def error_run(cmd, **kwargs):
         raise OSError("Command failed")
@@ -305,9 +317,9 @@ def test_notification_center_check_subprocess_error():
     assert isinstance(result.findings, list)
 
 
-def test_notification_center_check_subprocess_timeout():
+def test_notification_center_check_subprocess_timeout(tmp_path):
     """Test graceful handling of subprocess timeout."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     def timeout_run(cmd, **kwargs):
         raise Exception("Timeout")
@@ -320,9 +332,9 @@ def test_notification_center_check_subprocess_timeout():
     assert isinstance(result.findings, list)
 
 
-def test_notification_center_check_missing_prefs():
+def test_notification_center_check_missing_prefs(tmp_path):
     """Test handling when preferences file doesn't exist."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     with patch("modules.performance.notification_center_check.os.walk", return_value=[]):
         with patch("modules.performance.notification_center_check.Path.exists", return_value=False):
@@ -332,9 +344,9 @@ def test_notification_center_check_missing_prefs():
     assert isinstance(result.findings, list)
 
 
-def test_notification_center_check_empty_database():
+def test_notification_center_check_empty_database(tmp_path):
     """Test when notification database is very small."""
-    mod = _get_module()
+    mod = _get_module(tmp_path)
 
     def mock_walk(path):
         # Return empty - no database files

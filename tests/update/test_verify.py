@@ -234,7 +234,12 @@ def test_verification_succeeds_without_the_signing_key_in_the_ambient_keyring(
         sign_env = {**os.environ, "GNUPGHOME": signing_gnupghome}
         tag_result = subprocess.run(
             [
-                "git", "-c", f"user.signingkey={key_id}", "-c", "gpg.program=gpg",
+                # gpg.format must be pinned: git honours the ambient setting, so on
+                # a machine configured for SSH commit signing (gpg.format = ssh)
+                # `tag -s` quietly produces an SSH signature and this test ends up
+                # exercising the SSH path while asserting on the GPG one.
+                "git", "-c", "gpg.format=openpgp",
+                "-c", f"user.signingkey={key_id}", "-c", "gpg.program=gpg",
                 "tag", "-s", "approved/maintainer-a/1", "-m", "approved", commit_sha,
             ],
             cwd=origin, capture_output=True, text=True, env=sign_env,

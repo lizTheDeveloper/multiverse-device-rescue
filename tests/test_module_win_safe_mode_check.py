@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -7,6 +8,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+
+
+def _boot_time_days_ago(days: float) -> str:
+    """An ISO boot timestamp `days` before now.
+
+    The module computes uptime against datetime.now(), so these fixtures must be
+    relative. They were originally hardcoded absolute dates, which silently
+    became wrong once real time moved past them: a "5 days ago" fixture aged
+    into a >30-day uptime and started tripping the high-uptime warning.
+    """
+    return (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")
 
 
 def _make_profile():
@@ -87,7 +99,7 @@ def _make_run_result(
                 result.stdout = json.dumps(uptime_data)
             else:
                 # Default to 5 days ago
-                result.stdout = json.dumps({"LastBootUpTime": "2026-07-02T10:00:00"})
+                result.stdout = json.dumps({"LastBootUpTime": _boot_time_days_ago(5)})
 
         return result
 
@@ -155,7 +167,7 @@ def test_win_safe_mode_check_high_uptime():
     """Test detection of high uptime (>30 days)."""
     mod = _get_module()
     # 35 days ago
-    fake_run = _make_run_result(last_boot_time="2026-06-02T10:00:00")
+    fake_run = _make_run_result(last_boot_time=_boot_time_days_ago(35))
     with patch("subprocess.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
@@ -169,7 +181,7 @@ def test_win_safe_mode_check_low_uptime():
     """Test system with low uptime (<30 days)."""
     mod = _get_module()
     # 5 days ago
-    fake_run = _make_run_result(last_boot_time="2026-07-02T10:00:00")
+    fake_run = _make_run_result(last_boot_time=_boot_time_days_ago(5))
     with patch("subprocess.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     # Should not have high_uptime warning
@@ -182,7 +194,7 @@ def test_win_safe_mode_check_multiple_issues():
     fake_run = _make_run_result(
         current_safeboot="minimal",
         bootmgr_safeboot=True,
-        last_boot_time="2026-06-01T10:00:00",  # 36 days ago
+        last_boot_time=_boot_time_days_ago(36),
     )
     with patch("subprocess.run", side_effect=fake_run):
         result = mod.check(_make_profile())
@@ -221,7 +233,7 @@ def test_win_safe_mode_check_fix_safeboot_default():
 def test_win_safe_mode_check_fix_high_uptime():
     """Test fix recommendation for high uptime."""
     mod = _get_module()
-    fake_run = _make_run_result(last_boot_time="2026-05-30T10:00:00")  # 38 days ago
+    fake_run = _make_run_result(last_boot_time=_boot_time_days_ago(38))
     with patch("subprocess.run", side_effect=fake_run):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
