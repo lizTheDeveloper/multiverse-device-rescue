@@ -3,14 +3,22 @@ display_name: "Digital Security Reset"
 description: >
   Post-compromise recovery for someone who has been hacked or suspects
   their accounts or device have been compromised. Runs read-only device
-  checks (malware indicators, suspicious processes, remote logins, network
-  connections, browser extensions, app permissions, sharing services),
-  then guides through the six-phase recovery process: grounding, reality
-  check, immediate protective actions, systematic cleanup, rebuilding
-  security, and mental health maintenance. Account, password-manager, 2FA,
-  and session steps are human-led and covered in the guide, not automated.
+  checks (evidence preservation readiness, malware indicators, suspicious
+  processes, remote logins, network connections, browser extensions, app
+  permissions, sharing services, code-signature integrity), plus a
+  device-side review of password storage, two-factor capability, and the
+  sign-in sessions that survive a password change. Then guides through the
+  six-phase recovery process: grounding, reality check, immediate protective
+  actions, systematic cleanup, rebuilding security, and mental health
+  maintenance. The device checks report what is observable locally; actually
+  changing passwords, enabling 2FA, and revoking sessions happens at each
+  provider and stays human-led in the guide. This tool never asks for an
+  account password, a one-time code, or a recovery code.
 modules:
   include:
+    # Runs first: repairs destroy the record of what happened, so evidence
+    # readiness is assessed before anything else reports a problem to fix.
+    - evidence_bundle
     - malware_scan_indicators
     - suspicious_processes
     - remote_login_check
@@ -18,6 +26,13 @@ modules:
     - browser_extension_audit
     - app_permissions
     - sharing_services
+    - code_signature_audit
+    # The device-side half of the account-recovery phases. These answer
+    # "is this device leaking credentials, and what is still logged in";
+    # the account-side work remains human-led in the guide.
+    - password_manager_check
+    - twofa_audit
+    - session_revocation_scan
   exclude: []
 module_config:
   malware_scan_indicators:
