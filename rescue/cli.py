@@ -27,7 +27,7 @@ from rescue.tui.app import run_tui
 from rescue.update.config import default_config
 from rescue.update.engine import UpdateEngine
 from rescue.update.manifest import ManifestError
-from rescue.update.repo import GitError
+from rescue.update.repo import ContentRepo, GitError
 from rescue.update.sideload import SideloadError, load_sideload_repo
 from rescue.validate import validate_catalog
 
@@ -638,15 +638,30 @@ def _update_recovery(config, *, rollback: bool, dry_run: bool) -> None:
     already had, or falling back to what the install shipped with, must work
     when the network is the problem — or when the update is.
     """
+    if not rollback:
+        # Deliberately does NOT construct an UpdateEngine. Doing so validates
+        # the trusted-signer configuration, and a machine whose trust config is
+        # broken or unpopulated is exactly the machine that most needs to be
+        # able to fall back to the content it was installed with. An escape
+        # hatch that depends on the thing that failed is not an escape hatch.
+        repo = ContentRepo(config.local_path, config.remote_url)
+        repo.clear_applied_marker()
+        click.echo(
+            "Updated content is deactivated. The tool will use the modules, profiles "
+            "and guides that shipped with the installed package. Nothing was deleted; "
+            "`rescue update` can activate downloaded content again."
+        )
+        return
+
     try:
         engine = UpdateEngine(config)
     except (GitError, TrustConfigurationError) as exc:
         click.echo(f"Cannot load the content repository: {exc}", err=True)
+        click.echo(
+            "`rescue update --use-bundled` still works: it needs no signature check.",
+            err=True,
+        )
         raise SystemExit(1) from exc
-
-    if not rollback:
-        click.echo(engine.use_bundled_content().message)
-        return
 
     try:
         result = engine.rollback(dry_run=dry_run)
