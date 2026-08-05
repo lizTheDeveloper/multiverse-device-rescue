@@ -8,6 +8,7 @@ from rescue.ai.explainer import DiagnosticExplainer
 from rescue.ai.factory import get_provider
 from rescue.ai.providers.base import AIRequestError
 from rescue.ai.recommender import ProfileRecommender
+from rescue.case import RescueCase, write_case
 from rescue.guides import discover_guides
 from rescue.models import CheckResult, Mode, RiskLevel
 from rescue.orchestrator import Orchestrator
@@ -28,6 +29,7 @@ from rescue.update.engine import UpdateEngine
 from rescue.update.manifest import ManifestError
 from rescue.update.repo import GitError
 from rescue.update.sideload import SideloadError, load_sideload_repo
+from rescue.validate import validate_catalog
 
 
 def _project_root() -> Path:
@@ -146,6 +148,87 @@ def scan(as_json):
         return
     for mod, check in results:
         click.echo(mod.report(check))
+
+
+@main.command()
+@click.option("--profile", "profile_name", default=None, help="Only run the modules a profile selects.")
+@click.option(
+    "--output",
+    "output_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Directory to write the case into (default: ~/.rescue/cases).",
+)
+@click.option("--stdout", "to_stdout", is_flag=True, help="Print the JSON case instead of writing files.")
+def export(profile_name, output_dir, to_stdout):
+    """Run read-only checks and write a redacted rescue-case report.
+
+    Produces a JSON record for tooling and a Markdown summary for people. Both
+    are redacted: credential-shaped strings, email addresses, the account name,
+    and the home-directory path are removed before anything is written.
+    """
+    profile = _load_profile_or_exit(profile_name) if profile_name else None
+
+    system_profile = gather_profile()
+    orch = Orchestrator(modules_dir=_get_modules_dir(), profile=profile)
+    case = RescueCase(
+        profile=system_profile,
+        profile_name=profile_name,
+        started_at=_utc_now(),
+    )
+    for mod, check in orch.run_checks():
+        case.add(mod, check)
+    case.finished_at = _utc_now()
+
+    if to_stdout:
+        from rescue.case import case_to_json
+
+        click.echo(case_to_json(case))
+        return
+
+    directory = output_dir or (Path.home() / ".rescue" / "cases")
+    json_path, md_path = write_case(case, directory)
+    click.echo(f"Wrote {json_path}")
+    click.echo(f"Wrote {md_path}")
+    click.echo(
+        "\nBoth files are redacted, but module output is free text — read them "
+        "before sharing."
+    )
+
+
+def _utc_now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+@main.command()
+@click.option("--strict", is_flag=True, help="Treat warnings as failures (used by CI).")
+def validate(strict):
+    """Validate the shipped catalog: modules, profiles, guides, and their links.
+
+    Checks that module names are unique, dependencies resolve without cycles,
+    platforms and risk levels are declared correctly, every profile selects real
+    modules, and no guide advertises a step as automatable that no module can
+    perform. Exits non-zero when the catalog is inconsistent.
+    """
+    report = validate_catalog(
+        modules_dir=_get_modules_dir(),
+        profiles_dir=_get_profiles_dir(),
+        guides_dir=_get_guides_dir(),
+    )
+
+    for problem in report.problems:
+        click.echo(problem.format(), err=problem.severity.value == "error")
+
+    click.echo(
+        f"\n{report.module_count} modules, {report.profile_count} profiles, "
+        f"{report.guide_count} guide phases checked: "
+        f"{len(report.errors)} error(s), {len(report.warnings)} warning(s)."
+    )
+    if not report.ok(strict=strict):
+        raise SystemExit(1)
+    click.echo("Catalog is consistent.")
 
 
 @main.command()

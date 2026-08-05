@@ -11,7 +11,8 @@
     "ai/providers/ollama_provider.py": "eb7bb8a3f9a54c359b964d448917bb6c42f7de10234044fbd17ba8044e9ed2bd",
     "ai/providers/openai_provider.py": "8e53fc2a5aaf860aa6debe67d012327dc1f830a0fd32cf4c1b266172a384efcd",
     "ai/recommender.py": "4427a4340f37eb8963f6f6656eaeb44647d01fc5b8a8f7b1ce1c7a0a85fd2d27",
-    "cli.py": "c9ff51b97fdb8e00ed89c3dd5189f2185af545c58ad3c8bea184bb9c625a6eb9",
+    "case.py": "a6b9e1fd314395f97e971194f6d3a352b85e2273d986eb422b659ade3feb0e87",
+    "cli.py": "37d5b81ffed898166b65bdd2fed3ed73f336d06315488f80440d3f404a35e048",
     "command.py": "fa75b1df5b3b742f81e0e3117f628030523c9442c63aac5c747e99d3c632043e",
     "fsbounds.py": "9eae7c588b5e31a373a42bc3d0fa029e3ac7df15f9d50409b61c2c80acbacdc8",
     "guides.py": "324b103e3895bc353619521b7ee88c32e624535bc5de9ccab8d3a9b7b013d749",
@@ -53,6 +54,7 @@
     "update/manifest.py": "78bb554819a911020633d3ee0fc54e118409f0d883a887e4f4fdbc5e45ebb2ad",
     "update/repo.py": "800ac9461a025c3e49fc211f8cc8e3e6eed361e78cd98011b4db1348260edc90",
     "update/sideload.py": "cf94e79dbc85ebe604ce268f170d5ecc9d1ec082417b7dd6e9f42c57b6d9354e",
-    "update/verify.py": "d902798e797833a54e550ca01a9d0961bfbf29614a2f831a412eed450b680f7a"
+    "update/verify.py": "d902798e797833a54e550ca01a9d0961bfbf29614a2f831a412eed450b680f7a",
+    "validate.py": "74a1b14cd7685bb862922631b44851e22e9ebbaa0f2a9e0e27edb45d40b113f6"
   }
 }
