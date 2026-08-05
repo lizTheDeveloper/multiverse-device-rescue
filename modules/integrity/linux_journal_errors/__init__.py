@@ -24,6 +24,7 @@ teach the reader to ignore all of them.
 
 import re
 from collections import Counter
+from dataclasses import dataclass
 
 from rescue.command import run
 from rescue.models import (
@@ -42,50 +43,75 @@ from rescue.module_base import ModuleBase
 
 _TIMEOUT = 30.0
 
+@dataclass(frozen=True)
+class _Signal:
+    """One class of journal message worth reporting.
+
+    The finding code is spelled out here as a literal rather than derived from
+    ``key``. Building it with an f-string would make it invisible to the
+    emits_codes consistency gate, which exists so every code a module can emit
+    is statically discoverable — that is what powers the remediation catalog.
+    """
+
+    key: str
+    pattern: re.Pattern[str]
+    severity: Severity
+    label: str
+    code: str
+
+
 # Ordered: the first pattern that matches a line classifies it, so the more
 # specific hardware signals come before the generic ones.
-_SIGNALS: list[tuple[str, re.Pattern[str], Severity, str]] = [
-    (
-        "storage_io_error",
-        re.compile(
+_SIGNALS: list[_Signal] = [
+    _Signal(
+        key="storage_io_error",
+        pattern=re.compile(
             r"(?i)\b(i/o error|blk_update_request|medium error|unrecovered read error|"
             r"failed command: (read|write) fpdma|ata\d+\.\d+: exception emask)\b"
         ),
-        Severity.CRITICAL,
-        "storage read/write errors",
+        severity=Severity.CRITICAL,
+        label="storage read/write errors",
+        code="integrity.linux_journal_errors.storage_io_error",
     ),
-    (
-        "smart_failure",
-        re.compile(r"(?i)\b(smart error|failure prediction|reallocated_sector|pending sector)\b"),
-        Severity.CRITICAL,
-        "drive self-monitoring warnings",
+    _Signal(
+        key="smart_failure",
+        pattern=re.compile(
+            r"(?i)\b(smart error|failure prediction|reallocated_sector|pending sector)\b"
+        ),
+        severity=Severity.CRITICAL,
+        label="drive self-monitoring warnings",
+        code="integrity.linux_journal_errors.smart_failure",
     ),
-    (
-        "memory_error",
-        re.compile(r"(?i)\b(edac|machine check|mce:|hardware error|corrected error)\b"),
-        Severity.CRITICAL,
-        "memory or CPU hardware errors",
+    _Signal(
+        key="memory_error",
+        pattern=re.compile(r"(?i)\b(edac|machine check|mce:|hardware error|corrected error)\b"),
+        severity=Severity.CRITICAL,
+        label="memory or CPU hardware errors",
+        code="integrity.linux_journal_errors.memory_error",
     ),
-    (
-        "filesystem_error",
-        re.compile(
+    _Signal(
+        key="filesystem_error",
+        pattern=re.compile(
             r"(?i)(ext4-fs error|xfs .*(corruption|internal error)|btrfs.*(checksum|csum) "
             r"(error|failed)|remounting filesystem read-only|journal has aborted)"
         ),
-        Severity.CRITICAL,
-        "filesystem corruption",
+        severity=Severity.CRITICAL,
+        label="filesystem corruption",
+        code="integrity.linux_journal_errors.filesystem_error",
     ),
-    (
-        "oom_kill",
-        re.compile(r"(?i)(out of memory: kill|oom-kill|killed process \d+)"),
-        Severity.WARNING,
-        "out-of-memory kills",
+    _Signal(
+        key="oom_kill",
+        pattern=re.compile(r"(?i)(out of memory: kill|oom-kill|killed process \d+)"),
+        severity=Severity.WARNING,
+        label="out-of-memory kills",
+        code="integrity.linux_journal_errors.oom_kill",
     ),
-    (
-        "segfault",
-        re.compile(r"(?i)\b(segfault at|general protection fault|traps:)\b"),
-        Severity.WARNING,
-        "program crashes",
+    _Signal(
+        key="segfault",
+        pattern=re.compile(r"(?i)\b(segfault at|general protection fault|traps:)\b"),
+        severity=Severity.WARNING,
+        label="program crashes",
+        code="integrity.linux_journal_errors.segfault",
     ),
 ]
 
@@ -164,22 +190,22 @@ class Module(ModuleBase):
 
         matches: dict[str, list[str]] = {}
         for line in result.stdout.splitlines():
-            for key, pattern, _, _ in _SIGNALS:
-                if pattern.search(line):
-                    matches.setdefault(key, []).append(line.strip()[:300])
+            for signal in _SIGNALS:
+                if signal.pattern.search(line):
+                    matches.setdefault(signal.key, []).append(line.strip()[:300])
                     break
 
         findings: list[Finding] = []
-        for key, _, severity, label in _SIGNALS:
-            lines = matches.get(key, [])
+        for signal in _SIGNALS:
+            lines = matches.get(signal.key, [])
             if not lines:
                 continue
-            if key == "segfault" and len(lines) < _SEGFAULT_MIN:
+            if signal.key == "segfault" and len(lines) < _SEGFAULT_MIN:
                 continue
-            findings.append(self._finding(key, label, severity, lines))
+            findings.append(self._finding(signal, lines))
         return CheckResult(module_name=self.name, findings=findings)
 
-    def _finding(self, key: str, label: str, severity: Severity, lines: list[str]) -> Finding:
+    def _finding(self, signal: _Signal, lines: list[str]) -> Finding:
         explanation = {
             "storage_io_error": (
                 "The kernel could not read from or write to a drive. Drives that have "
@@ -209,23 +235,23 @@ class Module(ModuleBase):
                 "Programs crashed repeatedly. If they are all the same program, that "
                 "program is broken; if they are different programs, suspect memory."
             ),
-        }[key]
+        }[signal.key]
 
         counts = Counter(self._normalise(line) for line in lines)
         top = counts.most_common(5)
         sample = "\n".join(f"  [{count}x] {text}" for text, count in top)
 
         return Finding(
-            title=f"{len(lines)} journal entries indicating {label}",
+            title=f"{len(lines)} journal entries indicating {signal.label}",
             description=(
                 f"{explanation}\n\nIn the last {self.since}:\n{sample}"
             ),
-            severity=severity,
+            severity=signal.severity,
             category=self.category,
-            code=f"integrity.linux_journal_errors.{key}",
+            code=signal.code,
             confidence=0.8,
             data={
-                "check": key,
+                "check": signal.key,
                 "count": len(lines),
                 "since": self.since,
                 "samples": [text for text, _ in top],

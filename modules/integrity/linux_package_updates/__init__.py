@@ -56,8 +56,9 @@ class Module(ModuleBase):
         "integrity.linux_package_updates.updates_pending",
         "integrity.linux_package_updates.reboot_required",
         "integrity.linux_package_updates.release_end_of_life",
-        "integrity.linux_package_updates.no_package_manager",
     ]
+    # An unrecognised distribution is reported through CheckResult.supported,
+    # not as a finding, so it carries no remediation code.
 
     os_release_path: str = "/etc/os-release"
     reboot_required_path: str = "/var/run/reboot-required"

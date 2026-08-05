@@ -58,8 +58,10 @@ class Module(ModuleBase):
         "integrity.linux_service_health.failed_backup_unit",
         "integrity.linux_service_health.restart_loop",
         "integrity.linux_service_health.time_sync_inactive",
-        "integrity.linux_service_health.no_systemd",
     ]
+    # A system without systemd is reported through CheckResult.supported rather
+    # than as a finding, so it has no code: "this check does not apply here" is
+    # not something a remediation walkthrough can act on.
 
     # Cap how many failed units get an individual `systemctl show` call: on a
     # badly broken machine there can be dozens, and each one costs a subprocess.
@@ -100,41 +102,46 @@ class Module(ModuleBase):
 
         findings: list[Finding] = []
         for unit in failed:
-            is_backup = any(hint in unit.lower() for hint in _BACKUP_HINTS)
-            findings.append(
-                Finding(
-                    title=(
-                        f"Backup unit '{unit}' has failed"
-                        if is_backup
-                        else f"Service '{unit}' has failed"
-                    ),
-                    description=(
-                        (
-                            "This unit runs backups, and systemd has given up on it. A "
-                            "backup that stopped working is indistinguishable from a "
-                            "backup that is working right up until the moment you need "
-                            "it.\n\n"
-                            if is_backup
-                            else "systemd started this unit, it failed, and systemd has "
-                            "stopped trying. Whatever it provides is not running.\n\n"
-                        )
-                        + f"See why:\n    systemctl status {unit}\n"
-                        f"    journalctl -u {unit} -n 50 --no-pager"
-                    ),
-                    severity=Severity.CRITICAL if is_backup else Severity.WARNING,
-                    category=self.category,
-                    code=(
-                        "integrity.linux_service_health.failed_backup_unit"
-                        if is_backup
-                        else "integrity.linux_service_health.failed_unit"
-                    ),
-                    confidence=1.0,
-                    data={
-                        "check": "failed_backup_unit" if is_backup else "failed_unit",
-                        "unit": unit,
-                    },
-                )
+            how_to_look = (
+                f"See why:\n    systemctl status {unit}\n"
+                f"    journalctl -u {unit} -n 50 --no-pager"
             )
+            # Two constructions rather than one with conditional arguments: the
+            # code literal has to be visible at the call site, which is what
+            # lets the remediation catalog know statically which codes this
+            # module can emit.
+            if any(hint in unit.lower() for hint in _BACKUP_HINTS):
+                findings.append(
+                    Finding(
+                        title=f"Backup unit '{unit}' has failed",
+                        description=(
+                            "This unit runs backups, and systemd has given up on it. A "
+                            "backup that stopped working is indistinguishable from a backup "
+                            "that is working, right up until the moment you need it.\n\n"
+                            + how_to_look
+                        ),
+                        severity=Severity.CRITICAL,
+                        category=self.category,
+                        code="integrity.linux_service_health.failed_backup_unit",
+                        confidence=1.0,
+                        data={"check": "failed_backup_unit", "unit": unit},
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        title=f"Service '{unit}' has failed",
+                        description=(
+                            "systemd started this unit, it failed, and systemd has stopped "
+                            "trying. Whatever it provides is not running.\n\n" + how_to_look
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        code="integrity.linux_service_health.failed_unit",
+                        confidence=1.0,
+                        data={"check": "failed_unit", "unit": unit},
+                    )
+                )
 
         findings.extend(self._restart_loop_findings(failed))
         time_finding = self._time_sync_finding()

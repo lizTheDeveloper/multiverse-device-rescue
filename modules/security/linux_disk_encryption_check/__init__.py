@@ -114,38 +114,54 @@ class Module(ModuleBase):
                 protected.append(mount_point)
                 continue
 
-            is_root = mount_point == "/"
-            findings.append(
-                Finding(
-                    title=f"{mount_point} is not encrypted",
-                    description=(
-                        f"{device} mounted at {mount_point} is stored unencrypted.\n\n"
-                        + (
-                            "Everything on this machine — saved passwords, browser "
-                            "sessions, SSH keys, documents — can be read by anyone who "
-                            "gets the drive out of it. That takes a screwdriver and a few "
+            preamble = f"{device} mounted at {mount_point} is stored unencrypted.\n\n"
+            # Written as two constructions rather than one with conditional
+            # arguments so each finding code is a literal at its call site —
+            # that is what makes the set of codes a module can emit statically
+            # discoverable for the remediation catalog.
+            if mount_point == "/":
+                findings.append(
+                    Finding(
+                        title=f"{mount_point} is not encrypted",
+                        description=(
+                            preamble
+                            + "Everything on this machine — saved passwords, browser "
+                            "sessions, SSH keys, documents — can be read by anyone who gets "
+                            "the drive out of it. That takes a screwdriver and a few "
                             "minutes; your login password is not involved."
-                            if is_root
-                            else "Your personal files are stored unencrypted, so they can "
-                            "be read directly off the drive by anyone who has it, "
-                            "regardless of your login password."
-                        )
-                    ),
-                    severity=Severity.WARNING,
-                    category=self.category,
-                    code=(
-                        "security.linux_disk_encryption_check.root_not_encrypted"
-                        if is_root
-                        else "security.linux_disk_encryption_check.home_not_encrypted"
-                    ),
-                    confidence=0.85,
-                    data={
-                        "check": "root_not_encrypted" if is_root else "home_not_encrypted",
-                        "mount_point": mount_point,
-                        "device": device,
-                    },
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        code="security.linux_disk_encryption_check.root_not_encrypted",
+                        confidence=0.85,
+                        data={
+                            "check": "root_not_encrypted",
+                            "mount_point": mount_point,
+                            "device": device,
+                        },
+                    )
                 )
-            )
+            else:
+                findings.append(
+                    Finding(
+                        title=f"{mount_point} is not encrypted",
+                        description=(
+                            preamble
+                            + "Your personal files are stored unencrypted, so they can be "
+                            "read directly off the drive by anyone who has it, regardless "
+                            "of your login password."
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        code="security.linux_disk_encryption_check.home_not_encrypted",
+                        confidence=0.85,
+                        data={
+                            "check": "home_not_encrypted",
+                            "mount_point": mount_point,
+                            "device": device,
+                        },
+                    )
+                )
 
         if protected:
             findings.append(

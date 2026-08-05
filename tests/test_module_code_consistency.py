@@ -13,7 +13,12 @@ from pathlib import Path
 from rescue.cli import _get_modules_dir
 from rescue.registry import discover_modules
 
-_CODE_LITERAL = re.compile(r'code\s*=\s*["\'](security\.[a-z0-9_.]+)["\']')
+# Codes are "<category>.<module>.<slug>". The category was hardcoded to
+# `security` when this gate was written, because those were the only modules
+# declaring emits_codes; that silently exempted every other category from the
+# check rather than passing it. Matching any category makes the gate apply to
+# integrity, performance, network and bloatware modules too.
+_CODE_LITERAL = re.compile(r'code\s*=\s*["\']([a-z0-9_]+\.[a-z0-9_.]+)["\']')
 
 
 def _module_source(modules_dir: Path, mod) -> str:
