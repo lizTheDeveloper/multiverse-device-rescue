@@ -76,8 +76,15 @@ DISPLAY_NAME: Windows Update
 
 
 def _ps_last_update_recent():
-    """PowerShell Get-HotFix output: recent update."""
-    return "7/5/2026 10:30:00 AM"
+    """PowerShell Get-HotFix output: recent update.
+
+    Computed relative to now, like the stale/old fixtures below. This was
+    previously a hardcoded date that was recent when it was written; real time
+    moved past it and the fixture aged into a "no updates in 31 days" warning,
+    failing three tests on nothing but the calendar.
+    """
+    recent_date = datetime.now() - timedelta(days=2)
+    return recent_date.strftime("%m/%d/%Y %I:%M:%S %p")
 
 
 def _ps_last_update_old():

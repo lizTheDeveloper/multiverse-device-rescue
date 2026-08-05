@@ -1,0 +1,135 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The largest defect ever found in this tree was code that did not even parse
+  # on the declared minimum Python (PEP 701 f-strings) plus 30 call sites using
+  # a keyword that only exists in 3.13. Both shipped because nothing compiled
+  # the tree on 3.11. This job is deliberately first and deliberately cheap.
+  syntax-floor:
+    name: parses on the declared minimum Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Byte-compile every shipped Python file
+        run: python -m compileall -q rescue modules scripts
+
+  test:
+    name: pytest ${{ matrix.python-version }} / ${{ matrix.os }}
+    needs: syntax-floor
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Run the suite
+        run: python -m pytest -q --maxfail=20
+        env:
+          # Tests must never reach the network or an uncontrolled home
+          # directory; anything that does is environment coupling, which is
+          # what made this suite pass on exactly one developer's machine.
+          RESCUE_TEST_MODE: '1'
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install ruff
+      - name: ruff check
+        run: ruff check .
+      - name: ruff format --diff
+        run: ruff format --diff --quiet . || true
+
+  integrity:
+    name: integrity manifest is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      # A stale manifest is worse than none: it prints a tamper warning on
+      # every launch, which trains users to ignore the one signal that would
+      # tell them their install was modified.
+      - name: Regenerate and diff
+        run: |
+          python scripts/generate_integrity_manifest.py
+          git diff --exit-code -- rescue/security/integrity_manifest.json \
+            || { echo "::error::integrity manifest is stale — run 'python scripts/generate_integrity_manifest.py' and commit the result"; exit 1; }
+
+  content:
+    name: registry + shipped content validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      # Unique module names, resolvable dependencies, no cycles, declared
+      # platforms, and every profile/guide/threat-map reference resolving to a
+      # real module. Roadmap P1#3.
+      - name: rescue validate
+        run: python -m rescue.cli validate --strict
+
+  package:
+    name: clean install discovers its own content
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # Modules, profiles, and guides live outside the Python package and are
+      # shipped as data_files. A `pip install .` that silently omits them
+      # produces a tool that discovers nothing — this is roadmap P0#1, and it
+      # is only caught by installing into a clean environment and running from
+      # somewhere other than the source tree.
+      - name: Install from source into a clean venv and run outside the tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ -d "$RUNNER_TEMP/venv/Scripts" ]; then BIN="$RUNNER_TEMP/venv/Scripts"; else BIN="$RUNNER_TEMP/venv/bin"; fi
+          "$BIN/python" -m pip install --upgrade pip
+          "$BIN/python" -m pip install .
+          cd "$RUNNER_TEMP"
+          "$BIN/rescue" version
+          "$BIN/rescue" profiles | tee profiles.txt
+          grep -q digital_security_reset profiles.txt
+          "$BIN/rescue" run disk_space --yes
