@@ -1,0 +1,37 @@
+# Lint configuration for the CI `lint` job.
+#
+# The rule set is deliberately narrow: rules that catch code which is *wrong*,
+# not code which is untidy. This tree has 280-odd modules written over a long
+# period, and turning on the full default set produces four thousand findings —
+# a gate that is red on arrival is a gate everyone learns to ignore, which
+# leaves the tree no better protected than having no linter at all.
+#
+# What is selected here is the class of defect this repository has actually
+# shipped:
+#
+#   E9   syntax and IO errors — the tree previously contained three files that
+#        did not parse on the declared minimum Python at all.
+#   F821 undefined names — a typo'd name in a rarely-taken branch of a
+#        diagnostic module surfaces as "check unavailable" at exactly the
+#        moment someone is relying on it.
+#   F811 redefinition of an unused name — two functions with one name means the
+#        first silently never runs.
+#   F823 use before assignment.
+#   E711/E712/E713/E714 comparison mistakes that change meaning silently.
+#
+# Tidiness rules (unused imports, unused locals) are intentionally not gating.
+# They are worth cleaning up, but as their own change with its own review, not
+# as a blocking check bolted on to unrelated work.
+
+line-length = 100
+
+[lint]
+select = ["E9", "F821", "F811", "F823", "E711", "E712", "E713", "E714"]
+
+[lint.per-file-ignores]
+# Test files insert the repository root on sys.path before importing, which
+# every static checker reads as an import that is not at the top of the file.
+"tests/**" = ["E402"]
+
+[format]
+quote-style = "preserve"

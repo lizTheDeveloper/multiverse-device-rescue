@@ -106,7 +106,7 @@ class Module(ModuleBase):
 
         # Check 4: Guest account enabled
         guest_auth = self._get_dscl_value("/Users/Guest", "AuthenticationAuthority")
-        if guest_auth and not "No such key" in guest_auth:
+        if guest_auth and "No such key" not in guest_auth:
             findings.append(
                 Finding(
                     title="Guest account is enabled",
