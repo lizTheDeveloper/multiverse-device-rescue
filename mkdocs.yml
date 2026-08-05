@@ -1,0 +1,144 @@
+site_name: Multiverse Device Rescue
+site_description: >-
+  A local, read-only-by-default diagnostic and guided-recovery toolkit for
+  macOS, Windows, and Linux.
+site_url: https://lizthedeveloper.github.io/multiverse-device-rescue/
+repo_url: https://github.com/lizTheDeveloper/multiverse-device-rescue
+repo_name: lizTheDeveloper/multiverse-device-rescue
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+# `site/` is already taken by the marketing landing page that lives in this
+# repo, so the built documentation goes somewhere else entirely.
+site_dir: site_build
+
+# `superpowers/` holds internal planning documents and design specs, and
+# `threat_remediation_map.yaml` is machine-readable input to
+# `rescue threat-remediation` rather than a page. Neither belongs on the site,
+# and excluding them keeps `mkdocs build --strict` clean.
+exclude_docs: |
+  superpowers/
+  threat_remediation_map.yaml
+
+# Turn every link problem into a build warning, which `--strict` turns into a
+# failure. A dead link is a broken doc, and a dead *anchor* is worse: it looks
+# like it works. This is what makes `mkdocs build --strict` a real check.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+theme:
+  name: material
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Follow the system theme
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+
+plugins:
+  - search
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Link to this section
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/lizTheDeveloper/multiverse-device-rescue
+      name: The project on GitHub
+
+nav:
+  - Home:
+      - index.md
+      - Quickstart: quickstart.md
+      - FAQ: faq.md
+      - Troubleshooting: troubleshooting.md
+  - Scenarios:
+      - scenarios/index.md
+      - Digital security reset: scenarios/digital-security-reset.md
+      - Home network intrusion: scenarios/home-network-intrusion.md
+      - Identity theft recovery: scenarios/identity-theft-recovery.md
+      - AI worm response: scenarios/ai-worm-response.md
+      - iPhone / iPad spyware check: scenarios/iphone-spyware-check.md
+      - Linux security checkup: scenarios/linux-security-checkup.md
+      - Home for the holidays: scenarios/home-for-the-holidays.md
+      - Walkthrough - check an iPhone for spyware: CHECK_IPHONE_FOR_SPYWARE.md
+  - Reference:
+      - CLI reference: cli.md
+      - Module catalog: modules.md
+      - Architecture: architecture.md
+      - Threat remediation map: THREAT_REMEDIATION.md
+      - Remediation catalog: REMEDIATION_CATALOG.md
+  - Trust:
+      - Trust and safety: trust-and-safety.md
+      - Privacy: privacy.md
+  - Contributing:
+      - Contributing: contributing.md
+      - Writing a module: writing-a-module.md
+      - Roadmap: ROADMAP.md
+      - Roadmap status: ROADMAP_STATUS.md

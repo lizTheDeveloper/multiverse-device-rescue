@@ -66,6 +66,10 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# MkDocs build output. NOT `site/` — that directory is the checked-in marketing
+# landing page; the documentation site builds to `site_build/` (see mkdocs.yml).
+site_build/
+
 # PyBuilder
 target/
 
