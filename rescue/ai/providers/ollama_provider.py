@@ -29,7 +29,8 @@ class OllamaProvider(AIProvider):
         if httpx is None:
             raise AIProviderUnavailable(
                 "The 'httpx' package is not installed. Install it with "
-                "`pip install multiverse-device-rescue[ai]` to use the Ollama provider."
+                "`pip install httpx`, or reinstall this tool from a source "
+                "checkout with `pip install '.[ai]'`, to use the Ollama provider."
             )
         self.host = host.rstrip("/")
         self.model = model

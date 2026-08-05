@@ -299,7 +299,7 @@ Validates everything the installation ships, without executing any module's
 
 | Flag | Effect |
 | --- | --- |
-| `--strict` | Treat warnings as failures. Used by CI. |
+| `--strict` | Treat warnings as failures. Exits 1 today on the docstring backlog, so CI runs the plain form and gates on errors. |
 
 It verifies that module names are unique; that `depends_on` entries resolve and
 form no cycles; that platforms and risk levels are real enum members; that

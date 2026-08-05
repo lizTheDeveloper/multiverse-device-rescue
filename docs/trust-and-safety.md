@@ -95,7 +95,8 @@ change(s); 0 manual action(s) require you.
 
 **4. The guardrail on the flag.** If a module ever does set `auto_apply = True`
 at a non-`SAFE` risk level, `rescue validate` reports it as an **error**
-(`rescue/validate.py`), and CI runs `rescue validate --strict`.
+(`rescue/validate.py`), and CI runs `rescue validate` on every pull request —
+errors fail the build.
 
 **5. What is *not* covered.** `rescue run <module> --yes` and answering `y` to a
 confirmation prompt both call `fix()` regardless of `auto_apply`, and `fix()`

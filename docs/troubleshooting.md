@@ -233,11 +233,12 @@ a fully local setup, `RESCUE_AI_PROVIDER=ollama` defaults to
 `http://localhost:11434`. If the provider SDK is not installed, run
 `pip install ".[ai]"` **from your checkout**.
 
-!!! warning "The SDK-missing error message names a PyPI package that is not this project"
-    `rescue/ai/providers/anthropic_provider.py` suggests
-    `pip install multiverse-device-rescue[ai]`. That is wrong — this project is
-    not published on PyPI. Install the extra from your source checkout with
-    `pip install ".[ai]"` instead.
+The error each provider prints when its SDK is missing names the SDK itself
+(`pip install anthropic`, `openai`, or `httpx`) and the source-checkout extra.
+It deliberately does not name a PyPI package for this project, because there
+isn't one — an error message that sends people to install
+`multiverse-device-rescue` from PyPI would be telling them to install whatever
+an unrelated party has uploaded under that name.
 
 An AI request that fails is reported as a warning and never affects the scan
 results printed above it.

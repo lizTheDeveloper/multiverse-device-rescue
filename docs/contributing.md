@@ -85,10 +85,14 @@ reduced functionality. Warnings mean legal but degraded metadata.
     explaining what they check or why
     ```
 
-    CI's `content` job runs `--strict`, so that job is red until the docstrings
-    land. If you touch a module, adding its docstring is a free contribution —
-    and the [module catalog](modules.md) uses the first line as its
-    description, so it shows up on the site immediately.
+    CI's `content` job runs the plain form, so it gates on errors and passes
+    today; the workflow comment records that `--strict` goes back on once the
+    docstring backlog reaches zero. Failing every pull request on a backlog
+    would only teach people to route around the check.
+
+    If you touch a module, adding its docstring is a free contribution — and
+    the [module catalog](modules.md) uses the first line as its description, so
+    it shows up on the site immediately.
 
 ## Regenerating generated files
 
