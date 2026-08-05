@@ -26,3 +26,29 @@
 .action-row {
     padding: 0 1;
 }
+
+#guide-step-list {
+    height: 1fr;
+    border: solid $primary;
+    padding: 1;
+}
+
+#guide-steps-title {
+    padding: 1 1 0 1;
+    text-style: bold;
+}
+
+#guide-steps-summary {
+    padding: 0 1 1 1;
+    color: $text-muted;
+}
+
+#guide-step-detail {
+    height: 1fr;
+    border: solid $primary;
+    padding: 1;
+}
+
+#guide-empty {
+    padding: 1;
+}
