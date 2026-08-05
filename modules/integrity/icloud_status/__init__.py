@@ -14,6 +14,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_file_nofollow
 
 
 class Module(ModuleBase):
@@ -310,7 +311,7 @@ class Module(ModuleBase):
         total = 0
         try:
             for entry in path.rglob("*"):
-                if entry.is_file(follow_symlinks=False):
+                if is_file_nofollow(entry):
                     try:
                         total += entry.stat().st_size
                     except (OSError, ValueError):

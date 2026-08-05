@@ -13,6 +13,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_file_nofollow
 
 # Thresholds
 FONT_CACHE_SIZE_WARNING = 500 * 1024 * 1024  # 500 MB
@@ -358,7 +359,7 @@ class Module(ModuleBase):
                 return path.stat().st_size
             for item in path.rglob("*"):
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         total_size += item.stat().st_size
                 except (OSError, PermissionError):
                     continue

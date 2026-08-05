@@ -12,6 +12,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_file_nofollow
 
 # Thresholds
 SINGLE_BROWSER_WARNING = 2 * 1024 * 1024 * 1024  # 2 GB
@@ -181,7 +182,7 @@ class Module(ModuleBase):
         try:
             for item in path.rglob("*"):
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         total_size += item.stat().st_size
                 except (OSError, PermissionError):
                     continue

@@ -4,6 +4,11 @@ from click.testing import CliRunner
 from rescue.cli import main
 from rescue.models import CheckResult, Finding, Severity
 
+# click >= 8.2 removed CliRunner(mix_stderr=...): stdout and stderr are always
+# captured separately now, and result.stdout is stdout alone. That is exactly what
+# these tests need -- 'rescue scan --json' must put one pure JSON document on
+# stdout with diagnostics kept off it -- so the runner is constructed bare.
+
 
 def test_scan_json_is_single_valid_json_document_on_stdout():
     # Mock the Orchestrator to return a small set of results quickly
@@ -14,7 +19,7 @@ def test_scan_json_is_single_valid_json_document_on_stdout():
         instance = MockOrch.return_value
         instance.run_checks.return_value = [(mock_mod, mock_result)]
 
-        result = CliRunner(mix_stderr=False).invoke(main, ["scan", "--json"])
+        result = CliRunner().invoke(main, ["scan", "--json"])
 
     assert result.exit_code == 0, result.output
     doc = json.loads(result.stdout)          # must parse: stdout is pure JSON
@@ -40,7 +45,7 @@ def test_scan_json_handles_bytes_and_exotic_values_in_finding_data():
 
     with patch('rescue.cli.Orchestrator') as MockOrch:
         MockOrch.return_value.run_checks.return_value = [(mock_mod, mock_result)]
-        result = CliRunner(mix_stderr=False).invoke(main, ["scan", "--json"])
+        result = CliRunner().invoke(main, ["scan", "--json"])
 
     assert result.exit_code == 0, result.output
     doc = json.loads(result.stdout)          # must not raise
@@ -65,7 +70,7 @@ def test_scan_json_enums_are_strings():
         instance = MockOrch.return_value
         instance.run_checks.return_value = [(mock_mod, mock_result)]
 
-        result = CliRunner(mix_stderr=False).invoke(main, ["scan", "--json"])
+        result = CliRunner().invoke(main, ["scan", "--json"])
 
     doc = json.loads(result.stdout)
     for mod in doc["modules"]:

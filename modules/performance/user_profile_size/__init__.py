@@ -14,6 +14,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_dir_nofollow
 
 # Thresholds
 USER_DIR_WARNING_THRESHOLD = 50 * 1024**3  # 50 GB
@@ -43,11 +44,17 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    # Traversal roots, as attributes so a test can point them at a fixture tree
+    # instead of the real filesystem. Overriding these is the only supported way
+    # to exercise check() off a real macOS box.
+    users_root = Path("/Users")
+    home_root: Path | None = None  # None => Path.home()
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
         # Get all user directories
-        users_dir = Path("/Users")
+        users_dir = Path(self.users_root)
         user_dirs = self._get_user_directories(users_dir)
 
         if not user_dirs:
@@ -70,7 +77,7 @@ class Module(ModuleBase):
                 continue
 
         # Check Library directory bloat for current user
-        current_user = Path.home()
+        current_user = Path(self.home_root) if self.home_root else Path.home()
         library_path = current_user / "Library"
         library_size = 0
         library_bloat = False
@@ -255,7 +262,7 @@ class Module(ModuleBase):
         user_dirs = []
         try:
             for item in users_dir.iterdir():
-                if not item.is_dir(follow_symlinks=False):
+                if not is_dir_nofollow(item):
                     continue
                 if item.name in SKIP_DIRS:
                     continue

@@ -12,6 +12,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_dir_nofollow, is_file_nofollow
 
 # Thresholds
 TRASH_SIZE_WARNING = 5 * 1024 * 1024 * 1024  # 5 GB
@@ -170,10 +171,10 @@ class Module(ModuleBase):
         try:
             for item in trash_dir.rglob("*"):
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         total_size += item.stat().st_size
                         item_count += 1
-                    elif item.is_dir(follow_symlinks=False):
+                    elif is_dir_nofollow(item):
                         item_count += 1
                 except (OSError, PermissionError):
                     continue
@@ -199,10 +200,10 @@ class Module(ModuleBase):
                         if trashes_dir.exists():
                             for trash_item in trashes_dir.rglob("*"):
                                 try:
-                                    if trash_item.is_file(follow_symlinks=False):
+                                    if is_file_nofollow(trash_item):
                                         total_size += trash_item.stat().st_size
                                         total_count += 1
-                                    elif trash_item.is_dir(follow_symlinks=False):
+                                    elif is_dir_nofollow(trash_item):
                                         # Don't double-count directories in the count
                                         pass
                                 except (OSError, PermissionError):
@@ -223,7 +224,7 @@ class Module(ModuleBase):
         try:
             for item in path.rglob("*"):
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         total_size += item.stat().st_size
                 except (OSError, PermissionError):
                     continue

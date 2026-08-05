@@ -9,10 +9,38 @@ regular files while enforcing hard limits and stopping cleanly when any is hit.
 from __future__ import annotations
 
 import os
+import stat
 import time
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+
+def is_file_nofollow(path: Path | str) -> bool:
+    """True if ``path`` is a regular file, without following a final symlink.
+
+    ``Path.is_file(follow_symlinks=False)`` only exists from Python 3.13, but
+    this package supports 3.11, where passing that keyword raises TypeError.
+    ``os.lstat`` gives the same no-follow semantics on every supported version.
+    Returns False rather than raising for a missing or unreadable path, matching
+    how ``Path.is_file`` swallows OSError.
+    """
+    try:
+        return stat.S_ISREG(os.lstat(path).st_mode)
+    except (OSError, ValueError):
+        return False
+
+
+def is_dir_nofollow(path: Path | str) -> bool:
+    """True if ``path`` is a directory, without following a final symlink.
+
+    The no-follow counterpart of :func:`is_file_nofollow`; see its note on why
+    ``Path.is_dir(follow_symlinks=False)`` cannot be used here.
+    """
+    try:
+        return stat.S_ISDIR(os.lstat(path).st_mode)
+    except (OSError, ValueError):
+        return False
 
 
 @dataclass

@@ -14,6 +14,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_file_nofollow
 
 FONT_COUNT_WARNING_THRESHOLD = 500
 FONT_FOLDER_SIZE_WARNING_THRESHOLD = 1024 * 1024 * 1024  # 1GB
@@ -316,7 +317,7 @@ class Module(ModuleBase):
                 return path.stat().st_size
             for item in path.rglob("*"):
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         total_size += item.stat().st_size
                 except (OSError, PermissionError):
                     continue
