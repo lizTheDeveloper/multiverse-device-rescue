@@ -41,6 +41,22 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    # Filesystem locations this module reads, as attributes so a test can point
+    # them at a fixture instead of the running user's real home directory.
+    # None means "derive from Path.home() at call time".
+    ncprefs_path: Path | None = None
+    notification_center_dir: Path | None = None
+
+    def _ncprefs_path(self) -> Path:
+        if self.ncprefs_path is not None:
+            return Path(self.ncprefs_path)
+        return Path.home() / "Library" / "Preferences" / "com.apple.ncprefs.plist"
+
+    def _notification_center_dir(self) -> Path:
+        if self.notification_center_dir is not None:
+            return Path(self.notification_center_dir)
+        return Path.home() / "Library" / "Application Support" / "NotificationCenter"
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -185,7 +201,7 @@ class Module(ModuleBase):
     def _check_database_size(self) -> Finding | None:
         """Check notification database size at ~/Library/Application Support/NotificationCenter/"""
         try:
-            nc_path = Path.home() / "Library" / "Application Support" / "NotificationCenter"
+            nc_path = self._notification_center_dir()
             if not nc_path.exists():
                 return None
 
@@ -223,7 +239,7 @@ class Module(ModuleBase):
         """Get notification app settings from defaults."""
         try:
             # Read the notification preferences plist
-            prefs_path = Path.home() / "Library" / "Preferences" / "com.apple.ncprefs.plist"
+            prefs_path = self._ncprefs_path()
             if not prefs_path.exists():
                 return None
 

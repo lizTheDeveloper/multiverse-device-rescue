@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -26,7 +27,17 @@ def _get_module():
     return next(m for m in modules if m.name == "disk_permissions_repair")
 
 
-def _make_stat_result(st_uid=501, st_gid=20, st_mode=0o40755):
+# The module checks ownership against os.getuid(), so the "correctly owned"
+# fixture uid must be this process's uid -- not a hardcoded 501, which only
+# matched on a typical macOS user account and failed as root or on CI.
+CURRENT_UID = os.getuid()
+
+# A healthy /usr/local is specifically *not* root-owned, so it cannot reuse
+# CURRENT_UID when the suite runs as root (as it does in CI containers).
+NON_ROOT_UID = CURRENT_UID if CURRENT_UID != 0 else 501
+
+
+def _make_stat_result(st_uid=CURRENT_UID, st_gid=20, st_mode=0o40755):
     """Create a mock stat result."""
     result = MagicMock()
     result.st_uid = st_uid
@@ -38,7 +49,7 @@ def _make_stat_result(st_uid=501, st_gid=20, st_mode=0o40755):
 def _mock_owner_method(uid):
     """Return a mock owner method that returns the expected user."""
     def owner_method():
-        if uid == 501:
+        if uid == CURRENT_UID:
             return "testuser"
         elif uid == 0:
             return "root"
@@ -120,12 +131,14 @@ def test_disk_permissions_repair_healthy():
     def mock_stat(path_self):
         # Return healthy stat result based on path
         path_str = str(path_self)
+        if "/usr/local" in path_str:
+            # Healthy /usr/local is owned by a normal user, not root.
+            return _make_stat_result(st_uid=NON_ROOT_UID, st_mode=0o40755)
         if "/tmp" in path_str or "/var/tmp" in path_str:
             # /tmp and /var/tmp need sticky bit + 777 permissions
-            return _make_stat_result(st_uid=501, st_mode=0o41777)  # 0o40000 (dir) + 0o01000 (sticky) + 0o777 (perms)
-        else:
-            # Other directories: normal user directory
-            return _make_stat_result(st_uid=501, st_mode=0o40755)
+            return _make_stat_result(st_uid=CURRENT_UID, st_mode=0o41777)  # 0o40000 (dir) + 0o01000 (sticky) + 0o777 (perms)
+        # Home directories must match the running uid.
+        return _make_stat_result(st_uid=CURRENT_UID, st_mode=0o40755)
 
     with patch("subprocess.run", side_effect=_fake_run_healthy()):
         with patch("pathlib.Path.exists", return_value=True):
@@ -142,7 +155,7 @@ def test_disk_permissions_repair_home_ownership_mismatch():
     mod = _get_module()
     with patch("subprocess.run", side_effect=_fake_run_home_ownership_mismatch()):
         with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.stat", return_value=_make_stat_result(st_uid=501)):
+            with patch("pathlib.Path.stat", return_value=_make_stat_result(st_uid=CURRENT_UID)):
                 with patch("pathlib.Path.owner", return_value="testuser"):
                     with patch("os.access", return_value=True):
                         result = mod.check(_make_profile())
@@ -159,7 +172,7 @@ def test_disk_permissions_repair_tmp_permissions():
     with patch("subprocess.run", side_effect=_fake_run_healthy()):
         with patch("pathlib.Path.exists", return_value=True):
             # Regular directory mode without sticky bit (0o40755 = drwxr-xr-x)
-            with patch("pathlib.Path.stat", return_value=_make_stat_result(st_uid=501, st_mode=0o40755)):
+            with patch("pathlib.Path.stat", return_value=_make_stat_result(st_uid=CURRENT_UID, st_mode=0o40755)):
                 with patch("pathlib.Path.owner", return_value="testuser"):
                     with patch("os.access", return_value=True):
                         result = mod.check(_make_profile())
@@ -181,10 +194,10 @@ def test_disk_permissions_repair_usr_local_root():
             return _make_stat_result(st_uid=0, st_mode=0o40755)
         elif "/tmp" in path_str or "/var/tmp" in path_str:
             # /tmp and /var/tmp with correct sticky bit permissions
-            return _make_stat_result(st_uid=501, st_mode=0o41777)
+            return _make_stat_result(st_uid=CURRENT_UID, st_mode=0o41777)
         else:
             # Other directories: normal user directory
-            return _make_stat_result(st_uid=501, st_mode=0o40755)
+            return _make_stat_result(st_uid=CURRENT_UID, st_mode=0o40755)
 
     with patch("subprocess.run", side_effect=_fake_run_healthy()):
         with patch("pathlib.Path.exists", return_value=True):
@@ -201,7 +214,7 @@ def test_disk_permissions_repair_fix_is_informational():
     mod = _get_module()
     with patch("subprocess.run", side_effect=_fake_run_home_ownership_mismatch()):
         with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.stat", return_value=_make_stat_result(st_uid=501)):
+            with patch("pathlib.Path.stat", return_value=_make_stat_result(st_uid=CURRENT_UID)):
                 with patch("pathlib.Path.owner", return_value="testuser"):
                     with patch("os.access", return_value=True):
                         check = mod.check(_make_profile())

@@ -15,6 +15,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_file_nofollow
 
 # Thresholds
 LARGE_FILE_SIZE = 1024 * 1024 * 1024  # 1 GB
@@ -305,7 +306,7 @@ class Module(ModuleBase):
         try:
             for item in downloads_dir.iterdir():
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         size = item.stat().st_size
                         mtime = datetime.fromtimestamp(item.stat().st_mtime)
 
@@ -331,7 +332,7 @@ class Module(ModuleBase):
         try:
             for item in desktop_dir.iterdir():
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         size = item.stat().st_size
                         if size > LARGE_FILE_SIZE:
                             files.append({

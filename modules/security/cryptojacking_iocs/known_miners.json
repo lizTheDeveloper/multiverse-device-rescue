@@ -1,0 +1,181 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "pattern": "xmrig",
+      "name": "XMRig",
+      "family": "xmrig",
+      "severity": "critical",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "XMRig is the most widely deployed Monero miner in cryptojacking campaigns. It is legitimate open-source software, but on a machine nobody deliberately set up for mining its presence means someone else is spending your electricity and CPU."
+    },
+    {
+      "pattern": "xmr-stak",
+      "name": "XMR-Stak",
+      "family": "xmr_stak",
+      "severity": "critical",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "XMR-Stak is a Monero/Cryptonight miner frequently dropped by cryptojacking loaders."
+    },
+    {
+      "pattern": "minerd",
+      "name": "cpuminer (minerd)",
+      "family": "cpuminer",
+      "severity": "critical",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "The cpuminer daemon, historically dropped by worms that brute-force SSH and Redis."
+    },
+    {
+      "pattern": "cpuminer",
+      "name": "cpuminer",
+      "family": "cpuminer",
+      "severity": "critical",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "Generic CPU mining binary used across many cryptojacking families."
+    },
+    {
+      "pattern": "cgminer",
+      "name": "CGMiner",
+      "family": "cgminer",
+      "severity": "warning",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "ASIC/GPU mining software. Legitimate for deliberate mining rigs; unexpected on a personal machine."
+    },
+    {
+      "pattern": "bfgminer",
+      "name": "BFGMiner",
+      "family": "bfgminer",
+      "severity": "warning",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "ASIC/FPGA mining software. Unexpected on a personal machine."
+    },
+    {
+      "pattern": "ethminer",
+      "name": "ethminer",
+      "family": "ethminer",
+      "severity": "warning",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "Ethash GPU miner, commonly repurposed for unauthorised GPU mining."
+    },
+    {
+      "pattern": "phoenixminer",
+      "name": "PhoenixMiner",
+      "family": "phoenixminer",
+      "severity": "warning",
+      "platforms": ["linux", "win32"],
+      "description": "Closed-source GPU miner distributed with cracked software and game mods."
+    },
+    {
+      "pattern": "nbminer",
+      "name": "NBMiner",
+      "family": "nbminer",
+      "severity": "warning",
+      "platforms": ["linux", "win32"],
+      "description": "GPU miner bundled into pirated installers and 'optimiser' downloads."
+    },
+    {
+      "pattern": "lolminer",
+      "name": "lolMiner",
+      "family": "lolminer",
+      "severity": "warning",
+      "platforms": ["linux", "win32"],
+      "description": "GPU miner used both legitimately and in silent-mining bundles."
+    },
+    {
+      "pattern": "teamredminer",
+      "name": "TeamRedMiner",
+      "family": "teamredminer",
+      "severity": "warning",
+      "platforms": ["linux", "win32"],
+      "description": "AMD GPU miner seen in unauthorised mining deployments."
+    },
+    {
+      "pattern": "srbminer",
+      "name": "SRBMiner",
+      "family": "srbminer",
+      "severity": "warning",
+      "platforms": ["linux", "win32"],
+      "description": "Multi-algorithm miner used in cryptojacking bundles."
+    },
+    {
+      "pattern": "nanominer",
+      "name": "nanominer",
+      "family": "nanominer",
+      "severity": "warning",
+      "platforms": ["linux", "win32"],
+      "description": "Multi-algorithm miner distributed by nanopool, frequently repackaged by cryptojackers."
+    },
+    {
+      "pattern": "nicehash",
+      "name": "NiceHash miner",
+      "family": "nicehash",
+      "severity": "warning",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "NiceHash mining client. Legitimate if the owner installed it deliberately; otherwise it is mining for someone else's account."
+    },
+    {
+      "pattern": "kdevtmpfsi",
+      "name": "kdevtmpfsi",
+      "family": "kinsing",
+      "severity": "critical",
+      "platforms": ["linux"],
+      "description": "The Kinsing malware's miner payload. The name deliberately imitates a kernel thread; a real kernel thread never lives in /tmp or /var/tmp."
+    },
+    {
+      "pattern": "kinsing",
+      "name": "Kinsing loader",
+      "family": "kinsing",
+      "severity": "critical",
+      "platforms": ["linux"],
+      "description": "Kinsing is a Go-based cryptojacking loader that installs the kdevtmpfsi miner and spreads to other hosts."
+    },
+    {
+      "pattern": "sysrv",
+      "name": "Sysrv-hello botnet",
+      "family": "sysrv",
+      "severity": "critical",
+      "platforms": ["linux", "win32"],
+      "description": "Sysrv-hello is a cryptojacking worm that mines Monero and spreads across the local network."
+    },
+    {
+      "pattern": "dbused",
+      "name": "dbused (miner masquerade)",
+      "family": "generic_masquerade",
+      "severity": "critical",
+      "platforms": ["linux"],
+      "description": "Miner payload masquerading as the D-Bus daemon (the real service is 'dbus-daemon')."
+    },
+    {
+      "pattern": "mshelper",
+      "name": "mshelper",
+      "family": "osx_mshelper",
+      "severity": "critical",
+      "platforms": ["darwin"],
+      "description": "macOS adware/miner payload that pins a CPU core at 100% and is installed by fake Flash Player updates."
+    },
+    {
+      "pattern": "osaminer",
+      "name": "OSAMiner",
+      "family": "osaminer",
+      "severity": "critical",
+      "platforms": ["darwin"],
+      "description": "macOS Monero miner distributed inside pirated games and software, hidden in run-only AppleScripts."
+    },
+    {
+      "pattern": "moneroocean",
+      "name": "MoneroOcean installer",
+      "family": "moneroocean",
+      "severity": "critical",
+      "platforms": ["darwin", "linux"],
+      "description": "The MoneroOcean setup script installs XMRig as a service under an attacker's wallet."
+    },
+    {
+      "pattern": "coinminer",
+      "name": "Generic coin miner",
+      "family": "generic",
+      "severity": "critical",
+      "platforms": ["darwin", "linux", "win32"],
+      "description": "Binary or service explicitly named as a coin miner."
+    }
+  ]
+}

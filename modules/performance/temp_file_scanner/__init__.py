@@ -13,6 +13,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_file_nofollow
 
 
 class Module(ModuleBase):
@@ -268,7 +269,7 @@ class Module(ModuleBase):
         try:
             for item in path.rglob("*"):
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         total_size += item.stat().st_size
                 except (OSError, PermissionError):
                     # Skip files we can't access
@@ -290,7 +291,7 @@ class Module(ModuleBase):
         try:
             for item in path.rglob("*"):
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         mtime = datetime.fromtimestamp(item.stat().st_mtime)
                         if mtime < cutoff:
                             count += 1

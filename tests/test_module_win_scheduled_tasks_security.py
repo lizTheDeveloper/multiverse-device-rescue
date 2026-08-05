@@ -53,26 +53,31 @@ def _make_csv_output(
 
     rows = [headers]
 
+    # Field values are pulled out before formatting: quoting and backslashes
+    # inside an f-string expression are only legal from Python 3.12, and this
+    # package supports 3.11.
     if tasks:
         for task in tasks:
-            row = (
-                f"{task.get('HostName', 'DESKTOP')},"
-                f'"{task.get("TaskName", "Task")}","'
-                f'{task.get("Next Run Time", "")}",'
-                f'"{task.get("Status", "Ready")}","'
-                f'{task.get("LogonMode", "Interactive only")}","'
-                f'{task.get("ScheduleType", "")}",'
-                f'"{task.get("LastRunTime", "")}",'
-                f"{task.get("LastResult", "0")},"
-                f'"{task.get("Author", "")}",'
-                f'"{task.get("TaskPath", "\\\\")}",'
-                f'"{task.get("RunAsUser", "")}",'
-                f'"{task.get("DeletedWhen", "")}",'
-                f'"{task.get("DeletedFrom", "")}",'
-                f'"{task.get("Attributes", "")}",'
-                f'"{task.get("Task To Run", "")}",'
-                f'"{task.get("Created", "")}"'
-            )
+            values = [
+                task.get("HostName", "DESKTOP"),
+                task.get("TaskName", "Task"),
+                task.get("Next Run Time", ""),
+                task.get("Status", "Ready"),
+                task.get("LogonMode", "Interactive only"),
+                task.get("ScheduleType", ""),
+                task.get("LastRunTime", ""),
+                task.get("LastResult", "0"),
+                task.get("Author", ""),
+                task.get("TaskPath", "\\"),
+                task.get("RunAsUser", ""),
+                task.get("DeletedWhen", ""),
+                task.get("DeletedFrom", ""),
+                task.get("Attributes", ""),
+                task.get("Task To Run", ""),
+                task.get("Created", ""),
+            ]
+            host_name, rest = values[0], values[1:]
+            row = f"{host_name}," + ",".join(f'"{value}"' for value in rest)
             rows.append(row)
 
     return "\n".join(rows)

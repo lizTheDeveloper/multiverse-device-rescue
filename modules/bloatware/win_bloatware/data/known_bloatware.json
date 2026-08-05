@@ -117,5 +117,82 @@
     "app_pattern": "feedback",
     "description": "Windows Feedback Hub for sending system telemetry.",
     "estimated_resource_savings": "150 MB disk space"
+  },
+  {
+    "name": "McAfee LiveSafe trial",
+    "publisher_pattern": "McAfee",
+    "app_pattern": "mcafee",
+    "description": "Pre-installed antivirus trial. Once the trial expires it stops updating but keeps Microsoft Defender switched off, which leaves the machine less protected than having no third-party antivirus at all. Uninstall it with McAfee's own removal tool, then confirm Defender turned itself back on.",
+    "estimated_resource_savings": "1 GB disk space, and Microsoft Defender re-enables itself"
+  },
+  {
+    "name": "Norton Security trial",
+    "publisher_pattern": "NortonLifeLock",
+    "app_pattern": "norton",
+    "description": "Pre-installed antivirus trial that disables Microsoft Defender while it is present and stops receiving updates when the trial ends. Recent versions also ship a cryptocurrency miner feature, which is opt-in but installed regardless.",
+    "estimated_resource_savings": "1 GB disk space, and Microsoft Defender re-enables itself"
+  },
+  {
+    "name": "WildTangent Games",
+    "publisher_pattern": "WildTangent",
+    "app_pattern": "wildtangent",
+    "description": "Pre-installed game service that runs a background updater and shows advertising.",
+    "estimated_resource_savings": "500 MB disk space, one background process"
+  },
+  {
+    "name": "Booking.com",
+    "publisher_pattern": "Booking.com",
+    "app_pattern": "booking",
+    "description": "Pre-installed advertising app placed on many consumer laptops; it is a shortcut to a website.",
+    "estimated_resource_savings": "50 MB disk space"
+  },
+  {
+    "name": "Candy Crush Friends Saga",
+    "publisher_pattern": "king",
+    "app_pattern": "candycrushfriends",
+    "description": "Additional pre-installed King game variant.",
+    "estimated_resource_savings": "400 MB disk space"
+  },
+  {
+    "name": "Cooking Fever",
+    "publisher_pattern": "Nordcurrent",
+    "app_pattern": "cookingfever",
+    "description": "Pre-installed mobile game.",
+    "estimated_resource_savings": "300 MB disk space"
+  },
+  {
+    "name": "Hidden City",
+    "publisher_pattern": "G5 Entertainment",
+    "app_pattern": "hiddencity",
+    "description": "Pre-installed mobile game.",
+    "estimated_resource_savings": "400 MB disk space"
+  },
+  {
+    "name": "Dolby Access",
+    "publisher_pattern": "Dolby",
+    "app_pattern": "dolbyaccess",
+    "description": "Trial app for Dolby Atmos; the feature it unlocks is a paid add-on.",
+    "estimated_resource_savings": "200 MB disk space"
+  },
+  {
+    "name": "PC App Store",
+    "publisher_pattern": "PC App Store",
+    "app_pattern": "pcappstore",
+    "description": "Third-party software store bundled by installers; it installs further software and advertising without clear consent.",
+    "estimated_resource_savings": "300 MB disk space, one background process"
+  },
+  {
+    "name": "Driver Booster",
+    "publisher_pattern": "IObit",
+    "app_pattern": "driverbooster",
+    "description": "Driver updater that reports invented out-of-date drivers to sell an upgrade, and can install drivers Windows Update would not. Windows Update already handles drivers on supported systems.",
+    "estimated_resource_savings": "250 MB disk space, one background process"
+  },
+  {
+    "name": "Advanced SystemCare",
+    "publisher_pattern": "IObit",
+    "app_pattern": "advancedsystemcare",
+    "description": "System optimiser that reports large numbers of low-impact issues to prompt an upgrade purchase, and installs several background services.",
+    "estimated_resource_savings": "400 MB disk space, several background processes"
   }
 ]

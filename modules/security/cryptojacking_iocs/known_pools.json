@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "ports": [3333, 4444, 5555, 7777, 8888, 9999, 14433, 14444, 45700],
+  "entries": [
+    {"domain": "pool.minexmr.com", "coin": "monero", "severity": "critical", "description": "MinerXMR Monero pool, the most common XMRig default target."},
+    {"domain": "minexmr.com", "coin": "monero", "severity": "critical", "description": "MinerXMR Monero pool."},
+    {"domain": "supportxmr.com", "coin": "monero", "severity": "critical", "description": "SupportXMR Monero pool, heavily used by cryptojacking payloads."},
+    {"domain": "moneroocean.stream", "coin": "monero", "severity": "critical", "description": "MoneroOcean pool used by the widely copied MoneroOcean auto-installer script."},
+    {"domain": "monerohash.com", "coin": "monero", "severity": "critical", "description": "MoneroHash pool."},
+    {"domain": "nanopool.org", "coin": "multi", "severity": "critical", "description": "Nanopool multi-coin pool."},
+    {"domain": "dwarfpool.com", "coin": "multi", "severity": "critical", "description": "Dwarfpool multi-coin pool."},
+    {"domain": "minergate.com", "coin": "multi", "severity": "critical", "description": "MinerGate pool and bundled miner client."},
+    {"domain": "2miners.com", "coin": "multi", "severity": "warning", "description": "2Miners pool."},
+    {"domain": "f2pool.com", "coin": "multi", "severity": "warning", "description": "F2Pool mining pool."},
+    {"domain": "ethermine.org", "coin": "ethereum", "severity": "warning", "description": "Ethermine pool."},
+    {"domain": "hiveon.net", "coin": "multi", "severity": "warning", "description": "Hiveon pool."},
+    {"domain": "herominers.com", "coin": "multi", "severity": "warning", "description": "HeroMiners pool."},
+    {"domain": "c3pool.com", "coin": "monero", "severity": "critical", "description": "C3Pool Monero pool, commonly hard-coded by cryptojacking installers."},
+    {"domain": "nicehash.com", "coin": "multi", "severity": "warning", "description": "NiceHash hashpower marketplace."},
+    {"domain": "unmineable.com", "coin": "multi", "severity": "warning", "description": "Unmineable pool, used by bundled 'free game' miners."}
+  ]
+}

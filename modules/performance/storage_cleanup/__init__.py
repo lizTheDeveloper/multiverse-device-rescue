@@ -13,6 +13,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_dir_nofollow, is_file_nofollow
 
 # Thresholds
 OLD_FILES_DAYS = 90
@@ -272,7 +273,7 @@ class Module(ModuleBase):
         try:
             for item in downloads_dir.iterdir():
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         mtime = datetime.fromtimestamp(item.stat().st_mtime)
                         if mtime < cutoff:
                             total_size += item.stat().st_size
@@ -295,7 +296,7 @@ class Module(ModuleBase):
         try:
             for item in caches_dir.iterdir():
                 try:
-                    if item.is_dir(follow_symlinks=False):
+                    if is_dir_nofollow(item):
                         dir_size = self._get_directory_size(item)
                         if dir_size > LARGE_CACHE_SIZE:
                             total_size += dir_size
@@ -316,9 +317,9 @@ class Module(ModuleBase):
         try:
             for item in trash_dir.iterdir():
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         total_size += item.stat().st_size
-                    elif item.is_dir(follow_symlinks=False):
+                    elif is_dir_nofollow(item):
                         total_size += self._get_directory_size(item)
                 except (OSError, PermissionError):
                     continue
@@ -338,7 +339,7 @@ class Module(ModuleBase):
         try:
             for item in downloads_dir.iterdir():
                 try:
-                    if item.is_file(follow_symlinks=False) and item.suffix.lower() == ".dmg":
+                    if is_file_nofollow(item) and item.suffix.lower() == ".dmg":
                         total_size += item.stat().st_size
                         count += 1
                 except (OSError, PermissionError):
@@ -359,7 +360,7 @@ class Module(ModuleBase):
         try:
             for item in app_support_dir.iterdir():
                 try:
-                    if item.is_dir(follow_symlinks=False):
+                    if is_dir_nofollow(item):
                         # Simple heuristic: count directories (can't easily detect uninstalled apps)
                         dir_size = self._get_directory_size(item)
                         total_size += dir_size
@@ -380,7 +381,7 @@ class Module(ModuleBase):
         try:
             for item in path.rglob("*"):
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         total_size += item.stat().st_size
                 except (OSError, PermissionError):
                     continue

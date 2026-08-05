@@ -12,6 +12,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.fsbounds import is_dir_nofollow, is_file_nofollow
 
 # Thresholds
 TOTAL_CACHE_WARNING = 10 * 1024 * 1024 * 1024  # 10 GB
@@ -266,7 +267,7 @@ class Module(ModuleBase):
         try:
             for item in caches_dir.iterdir():
                 try:
-                    if item.is_dir(follow_symlinks=False):
+                    if is_dir_nofollow(item):
                         dir_size = self._get_directory_size(item)
                         if dir_size > 0:
                             cache_sizes[item.name] = dir_size
@@ -303,7 +304,7 @@ class Module(ModuleBase):
         try:
             for item in path.rglob("*"):
                 try:
-                    if item.is_file(follow_symlinks=False):
+                    if is_file_nofollow(item):
                         total_size += item.stat().st_size
                 except (OSError, PermissionError):
                     continue

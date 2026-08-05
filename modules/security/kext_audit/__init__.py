@@ -46,6 +46,11 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "3s"
 
+    # Scanned for third-party kexts. An attribute so a test can point it at a
+    # fixture directory: the existence check below runs before the `find` call,
+    # so on a non-macOS host the scan silently returned nothing.
+    extensions_dir = "/Library/Extensions"
+
     emits_codes = [
         "security.kext_audit.loaded_third_party_kext",
         "security.kext_audit.kext_file",
@@ -249,7 +254,7 @@ class Module(ModuleBase):
     def _get_kext_files(self) -> list[str]:
         """Find kext files in /Library/Extensions/"""
         kext_files = []
-        extensions_dir = "/Library/Extensions"
+        extensions_dir = str(self.extensions_dir)
 
         if not os.path.exists(extensions_dir):
             return kext_files
@@ -259,6 +264,7 @@ class Module(ModuleBase):
                 ["find", extensions_dir, "-name", "*.kext", "-type", "d"],
                 capture_output=True,
                 text=True,
+                timeout=15,
             )
             if result.returncode == 0:
                 for line in result.stdout.strip().split("\n"):

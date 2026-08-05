@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import sys
 import sysconfig
 from pathlib import Path
+from types import ModuleType
 
 
 ASSET_DIRECTORY_NAME = "multiverse-device-rescue"
@@ -46,6 +48,40 @@ def content_directory(name: str) -> Path:
         if candidate.is_dir():
             return candidate
     return bundled_root() / name
+
+
+def load_content_module(relative_path: str | Path, key: str) -> ModuleType | None:
+    """Import a helper shipped alongside the modules, by path.
+
+    Modules ship as data files rather than as an importable package (see
+    `setup.py`), so a shared helper such as an IOC loader cannot be reached
+    with a normal `import`. Loading it by path works in a source checkout, a
+    pip install, and a PyInstaller bundle alike.
+
+    Returns None when the helper is missing or fails to execute; every caller
+    is expected to degrade to "this check is unavailable" rather than raise.
+    """
+    existing = sys.modules.get(key)
+    if existing is not None:
+        return existing
+
+    path = content_file(relative_path)
+    try:
+        spec = importlib.util.spec_from_file_location(key, path)
+        if spec is None or spec.loader is None:
+            return None
+        module = importlib.util.module_from_spec(spec)
+        # Registered before execution: dataclasses defined in the helper look
+        # their own module up in sys.modules while being constructed.
+        sys.modules[key] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception:
+            del sys.modules[key]
+            raise
+        return module
+    except Exception:
+        return None
 
 
 def content_file(relative_path: str | Path) -> Path:

@@ -25,6 +25,16 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "5s"
 
+    # The one file this module opens directly rather than reading through
+    # `defaults`. An attribute so a test can supply a real fixture plist:
+    # patching plistlib.load is not enough, because open() still has to succeed.
+    mobileme_plist_path: Path | None = None
+
+    def _mobileme_plist_path(self) -> Path:
+        if self.mobileme_plist_path is not None:
+            return Path(self.mobileme_plist_path)
+        return Path.home() / "Library/Preferences/MobileMeAccounts.plist"
+
     emits_codes = [
         "security.appleid_security_check.appleid_signin",
         "security.appleid_security_check.icloud_keychain",
@@ -219,7 +229,7 @@ class Module(ModuleBase):
     def _check_appleid_signin(self) -> bool:
         """Check if signed in to Apple ID via MobileMeAccounts.plist."""
         try:
-            plist_path = Path.home() / "Library/Preferences/MobileMeAccounts.plist"
+            plist_path = self._mobileme_plist_path()
             if not plist_path.exists():
                 return False
 
