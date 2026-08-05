@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "description": "Multiverse Device Rescue desktop app",
   "main": "main.js",
-  "scripts": { "start": "electron ." },
+  "scripts": { "start": "electron .", "test": "node --test test/*.test.js" },
   "devDependencies": { "electron": "^32.0.0", "electron-builder": "^25.0.0" }
 }
