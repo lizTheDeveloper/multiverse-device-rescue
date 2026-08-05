@@ -83,3 +83,117 @@ cd /tmp && /tmp/rv/bin/rescue profiles  # discovers shipped content
 /tmp/rv/bin/rescue run disk_space --yes # end-to-end read-only check
 python scripts/generate_integrity_manifest.py   # then startup verifies clean
 ```
+
+---
+
+# Update — 2026-08-05: branch consolidation, audit, and planned modules
+
+This section corrects several claims above that did not hold on `main`, and
+records what changed. Where an earlier claim was wrong, it is called out rather
+than quietly edited, because "we verified this" appearing next to something
+untrue is the failure mode worth avoiding.
+
+## Corrections to the status above
+
+**P0#4 (self-integrity) was recorded as "DONE — manifest regenerated; verifies
+clean". It did not verify clean on `main`.** `verify_package_integrity` reported
+8 tampered and 5 added files, so startup verification failed and every launch
+printed a tamper warning. The regeneration was real, but it happened on a
+different lineage; `main`'s own commits then added `remediation.py`,
+`serialize.py`, `threat_map.py`, and two TUI screens without regenerating.
+Regenerated here, and it now verifies clean.
+
+**P0#8 (security-reset profile) was recorded as DONE.** It was made *valid* by
+deleting the references to `password_manager_check`, `twofa_audit`, and
+`session_revocation_scan` — the profile stopped naming modules that did not
+exist, but the capability was never built. Those three modules now exist and the
+profile references them again.
+
+**The test-suite baseline was recorded as "3094 passing".** The suite was not
+green: it was 64 failed / 3341 passed, and one file did not even parse under the
+declared minimum Python. See below.
+
+## Python version support was broken, not partially broken
+
+`pyproject.toml` declares `requires-python = ">=3.11"`. On 3.11:
+
+- 3 files failed to parse at all (PEP 701 nested-quote f-strings, and a
+  backslash inside an f-string expression). Two were shipped modules, so module
+  discovery broke.
+- 30 call sites across 16 modules passed `follow_symlinks=` to
+  `pathlib.Path.is_file()` / `is_dir()`. That keyword arrived in **3.13**, so
+  every one raised `TypeError` at runtime. Those modules did not work on two of
+  the three supported versions.
+
+Both are fixed; `rescue.fsbounds` now exposes `is_file_nofollow` /
+`is_dir_nofollow` with the same semantics on every supported version.
+
+**Nothing was catching this.** There is no `.github/` directory and no CI. A
+matrix that actually ran the suite on 3.11 would have caught the largest defect
+in the tree. This is the highest-value remaining infrastructure gap.
+
+## The 64 failures were environment coupling, not flakiness
+
+Every one was a test that silently depended on the machine it ran on, so the
+suite only passed on one developer's macOS box:
+
+- Modules that check a real path under `~/Library` or `/Library` and return
+  early if absent, so `check()` short-circuited before the mocked subprocess was
+  reached (`notification_center_check`, `kext_audit`,
+  `appleid_security_check`).
+- A time bomb: `win_safe_mode_check` used absolute dates chosen to be "5 days
+  ago" when written. Real time moved past them and the fixture aged into a
+  >30-day uptime, tripping the warning it asserts is absent.
+- `disk_permissions_repair` asserted ownership against a hardcoded uid 501, so
+  it only passed as a typical macOS user account.
+- `test_cli_scan_json` used `CliRunner(mix_stderr=...)`, removed in click 8.2.
+- `update/test_verify` signed a tag without pinning `gpg.format`, so on a host
+  configured for SSH commit signing it produced an SSH signature while asserting
+  on the GPG path. **No trust check was weakened to green this**; the
+  verification code was correct and only the test changed.
+
+The pattern is now a convention: a module's traversal roots are class attributes
+so tests can point them at a fixture tree.
+
+Full suite: **3503 passed, 0 failed.**
+
+## Planned modules — resolved
+
+"Planned but missing" was resolved against the roadmap, not guessed. Profiles,
+guides, and the threat map reference no missing modules, and every module named
+in `docs/superpowers/plans/` exists. Two sources yielded real gaps, both now
+closed:
+
+| Module | Source | Why it exists |
+| --- | --- | --- |
+| `password_manager_check` | P0#8 | Named, never built |
+| `twofa_audit` | P0#8 | Named, never built |
+| `session_revocation_scan` | P0#8 | Named, never built |
+| `code_signature_audit` | P2 "Trust and reputation verification" | No signature validation existed |
+| `security_baseline_diff` | P2 "Baselines and differential scans" | No baseline capability existed |
+| `evidence_bundle` | P2 "Evidence collection and forensic handoff" | Nothing preserved evidence before repair |
+
+Registry now discovers **278** modules. The remaining P2 rows are framework- or
+guide-level rather than module-shaped (transactional remediation, offline and
+bootable recovery, incident triage), or already have substantial module coverage
+(backup validation, hardware recovery), and are deliberately out of scope here.
+
+## Remaining work, with current numbers
+
+These were already recorded above as follow-ups. The counts have **grown** since
+the roadmap was written, which is worth knowing before scheduling them:
+
+- **P0#7 command-runner migration has not started.** 756 `subprocess.run` calls
+  in modules, **0** routed through `rescue.command.run`, 435 with no timeout.
+  The roadmap counted 744 and 395.
+- **Remediation codes are ~38% migrated.** 169 of 272 pre-existing modules
+  declare no `emits_codes`; 30% of `Finding()` constructions set `code=`.
+  (`tests/test_module_code_consistency.py` does guard the ones that do.)
+- **No CI**, as above.
+
+Verified healthy, for balance: `auto_apply = True` appears in **zero** modules,
+so auto mode genuinely is read-only as P0#5 intends; there are no
+`NotImplementedError` stubs or placeholder TODOs; the only skipped tests are
+correctly conditional on `gpg` being available; and both `setup.py` and
+`rescue.spec` glob the content directories, so new modules ship without
+packaging changes.
