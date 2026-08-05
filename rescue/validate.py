@@ -203,11 +203,25 @@ def _has_documentation(module: ModuleBase) -> bool:
     module's ``__init__.py`` (see ``code_signature_audit``), so look there as
     well as at the class. Either satisfies "actionable support documentation";
     requiring both would flag almost every module and make the signal useless.
+
+    Two details that are easy to get wrong, both of which were:
+
+    ``vars()`` rather than attribute access for the class docstring, so a
+    module does not inherit credit for its base class's prose.
+
+    An explicit ``is None`` check on the containing module. ``getattr(None,
+    "__doc__", "")`` does not return the default — it returns *NoneType's own*
+    docstring, which is empty on Python 3.11 and 3.12 and the string "The type
+    of the None singleton." on 3.13. Written the obvious way, this function
+    silently reported every module with an unresolvable ``__module__`` as
+    documented, but only on 3.13.
     """
-    if (type(module).__doc__ or "").strip():
+    if (vars(type(module)).get("__doc__") or "").strip():
         return True
     containing = sys.modules.get(type(module).__module__)
-    return bool((getattr(containing, "__doc__", "") or "").strip())
+    if containing is None:
+        return False
+    return bool((getattr(containing, "__doc__", None) or "").strip())
 
 
 def _validate_dependency_graph(modules: list[ModuleBase]) -> list[Problem]:

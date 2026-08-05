@@ -223,3 +223,23 @@ def test_the_shipped_catalog_has_no_errors_only_the_documentation_backlog():
         guides_dir=REPO_ROOT / "guides",
     )
     assert report.ok(strict=False), "\n".join(p.format() for p in report.errors)
+
+
+def test_documentation_check_does_not_credit_nonetype_for_a_missing_module():
+    """Regression: `getattr(None, "__doc__", "")` is not the default on 3.13.
+
+    It returns NoneType's own docstring — empty on 3.11 and 3.12, and "The type
+    of the None singleton." on 3.13. Written the obvious way, a module whose
+    containing module is not in sys.modules counted as documented on one Python
+    version and not the others.
+    """
+    from rescue.validate import _has_documentation
+
+    assert not _has_documentation(_undocumented("ghost"))
+
+
+def test_documentation_check_does_not_inherit_credit_from_a_base_class():
+    """_Stub has a docstring; a subclass without one is still undocumented."""
+    from rescue.validate import _has_documentation
+
+    assert not _has_documentation(_undocumented("child"))

@@ -1,8 +1,19 @@
+import os
+import pytest
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Skipped off POSIX: browser_privacy_check is macOS-only; these fixtures are ~/Library paths.
+# The module under test cannot run on Windows, so there is nothing here a
+# Windows job could meaningfully exercise — and a test that fails for the
+# platform rather than for the code teaches people to ignore the suite.
+pytestmark = pytest.mark.skipif(
+    os.name != "posix",
+    reason="browser_privacy_check is macOS-only; these fixtures are ~/Library paths",
+)
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules

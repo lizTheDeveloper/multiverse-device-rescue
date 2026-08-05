@@ -101,8 +101,14 @@ def test_auto_without_copilot_never_mentions_ai():
 
     assert result.exit_code == 0
     mock_get_provider.assert_not_called()
-    assert "AI" not in result.output
-    assert "copilot" not in result.output.lower()
+    # Asserted against stdout, not `output`. Since click 8.2 `output` mixes
+    # stderr in, and the startup integrity check writes its warning there —
+    # listing every file that failed to verify, one of which is
+    # `ai/copilot.py`. That made this test fail for an unrelated reason on any
+    # machine with a stale or line-ending-mangled manifest, which is exactly
+    # what Windows CI hit.
+    assert "AI" not in result.stdout
+    assert "copilot" not in result.stdout.lower()
 
 
 def test_auto_copilot_provider_error_does_not_crash():

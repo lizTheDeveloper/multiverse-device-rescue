@@ -55,6 +55,6 @@
     "update/repo.py": "a58ca0061c49d4a052d65ee5be9b4ff88bd5546bf01460db067d46465511bdc5",
     "update/sideload.py": "cf94e79dbc85ebe604ce268f170d5ecc9d1ec082417b7dd6e9f42c57b6d9354e",
     "update/verify.py": "d902798e797833a54e550ca01a9d0961bfbf29614a2f831a412eed450b680f7a",
-    "validate.py": "3d29848d6cd83c46c19c6be9d60a8772f23ca739c5c951c4eeff907ad147a18f"
+    "validate.py": "ca1fbd6a08f39ddfa65025d8eee09afa4b94eff6aee109a10fd3a3390ce22eb7"
   }
 }

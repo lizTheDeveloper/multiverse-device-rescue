@@ -1,0 +1,39 @@
+# Line endings must be identical on every platform, because this repository
+# ships a SHA-256 manifest of its own source files and verifies it at launch.
+#
+# Without this, git on Windows converts LF to CRLF on checkout. Every byte of
+# every .py file changes, so every hash changes, and `verify_package_integrity`
+# reports the entire `rescue/` package as tampered — on a clean checkout, with
+# nothing wrong. CI surfaced exactly that: the Windows job printed "modified:"
+# for all 56 manifest entries.
+#
+# The wrong fix would be to normalise line endings before hashing. That would
+# weaken the check for everyone in order to accommodate a checkout setting: a
+# tamper check that ignores a class of byte difference is a tamper check with a
+# hole in it. Making the checkout byte-identical instead keeps the hash exact.
+#
+# A user who gets a tamper warning on every launch learns to ignore the one
+# signal that would tell them their install had been modified, which is worse
+# than having no check at all.
+
+* text=auto eol=lf
+
+# Binary and already-compressed formats: never touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.dmg binary
+*.exe binary
+*.dll binary
+
+# Windows-only scripts genuinely need CRLF: cmd.exe mis-parses LF batch files.
+# These are not covered by the integrity manifest (it hashes rescue/**/*.py).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

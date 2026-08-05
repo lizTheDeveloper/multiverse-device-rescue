@@ -5,11 +5,23 @@ The module's value depends on not crying wolf: an ordinary systemd unit or
 patterns, /tmp execution, and world-writable startup files must always escalate.
 """
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# These tests assert on POSIX file modes — the world-writable check is the whole
+# point of one of them. Windows reports 0o666 for ordinary files, so the check
+# fires on every fixture and "an ordinary unit produces only an inventory entry"
+# becomes untestable. The module is Linux-only and can never run there anyway.
+pytestmark = pytest.mark.skipif(
+    os.name != "posix",
+    reason="linux_persistence_audit is Linux-only and asserts on POSIX file modes",
+)
 
 from rescue.command import CommandResult
 from rescue.models import Mode, Platform, Severity, SystemProfile
