@@ -23,7 +23,10 @@ _CODE_LITERAL = re.compile(r'code\s*=\s*["\']([a-z0-9_]+\.[a-z0-9_.]+)["\']')
 
 def _module_source(modules_dir: Path, mod) -> str:
     src = modules_dir / mod.category / mod.name / "__init__.py"
-    return src.read_text() if src.exists() else ""
+    # Explicit encoding: module sources are UTF-8 and several contain
+    # typographic punctuation. The locale codec on Windows (cp1252) raised
+    # UnicodeDecodeError here, so this gate could not run on Windows at all.
+    return src.read_text(encoding="utf-8") if src.exists() else ""
 
 
 def test_emits_codes_match_code_literals():

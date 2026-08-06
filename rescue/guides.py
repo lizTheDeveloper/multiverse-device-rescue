@@ -57,7 +57,11 @@ def parse_guide_markdown(text: str) -> Guide:
 
 
 def load_guide(path: Path) -> Guide:
-    return parse_guide_markdown(path.read_text())
+    # Guide content is UTF-8 and contains typographic punctuation. Without an
+    # explicit encoding, Python uses the locale codec, which on Windows is
+    # cp1252 — that silently mangles em-dashes and quotes into mojibake, and
+    # raises outright on some byte sequences.
+    return parse_guide_markdown(path.read_text(encoding="utf-8"))
 
 
 def discover_guides(guides_dir: Path, profile_name: str) -> list[Guide]:

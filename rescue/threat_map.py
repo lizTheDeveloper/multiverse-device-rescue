@@ -33,7 +33,7 @@ class Threat:
 
 def load_threat_map(path: Path) -> list[Threat]:
     try:
-        data = yaml.safe_load(path.read_text()) or {}
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as e:
         raise ValueError(f"threat map {path} is not valid YAML: {e}") from e
     threats: list[Threat] = []

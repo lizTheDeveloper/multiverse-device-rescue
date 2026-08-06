@@ -42,7 +42,7 @@ class TrustConfigurationError(ValueError):
 
 
 def load_trusted_signers(path: Path) -> TrustedSignerSet:
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     signers = [
         TrustedSigner(
             signer_id=entry["signer_id"],
@@ -92,7 +92,7 @@ class RevokedSignerStore:
 
     def _load(self) -> None:
         if self._path.exists():
-            data = json.loads(self._path.read_text())
+            data = json.loads(self._path.read_text(encoding="utf-8"))
             self._revoked = dict(data.get("revoked", {}))
 
     def _save(self) -> None:

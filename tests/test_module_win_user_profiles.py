@@ -320,3 +320,47 @@ def test_fix_with_all_finding_types(module):
     fix_result = module.fix(check_result, Mode.MANUAL)
     assert len(fix_result.actions) == 5
     assert all(a.success for a in fix_result.actions)
+
+
+def test_sid_objects_from_powershell_are_normalised_to_strings():
+    """Regression: this crashed the check on every real Windows machine.
+
+    `Get-LocalUser | Select-Object SID | ConvertTo-Json` serialises the SID as
+    a nested object, not the "S-1-5-21-…" string. Putting that straight into a
+    set raised `TypeError: unhashable type: 'dict'`, so the whole check
+    reported "unavailable" — on Windows, for a Windows-only module. The suite
+    had never run on Windows, so nothing caught it.
+    """
+    from modules.performance.win_user_profiles import _sid_string
+
+    assert _sid_string("S-1-5-21-1") == "S-1-5-21-1"
+    assert _sid_string({"BinaryLength": 28, "Value": "S-1-5-21-2"}) == "S-1-5-21-2"
+    assert _sid_string({"BinaryLength": 28}) == ""
+    assert _sid_string(None) == ""
+    assert _sid_string(1234) == ""
+
+
+def test_user_accounts_handles_object_shaped_sids(module):
+    payload = json.dumps([
+        {"SID": {"BinaryLength": 28, "Value": "S-1-5-21-100"}},
+        {"SID": "S-1-5-21-200"},
+        {"SID": {"BinaryLength": 28}},
+    ])
+    completed = MagicMock(returncode=0, stdout=payload)
+    with patch("subprocess.run", return_value=completed):
+        assert module._get_user_accounts() == {"S-1-5-21-100", "S-1-5-21-200"}
+
+
+def test_user_accounts_handles_a_single_user(module):
+    """PowerShell emits an object, not a list, when there is exactly one user."""
+    payload = json.dumps({"SID": {"Value": "S-1-5-21-solo"}})
+    completed = MagicMock(returncode=0, stdout=payload)
+    with patch("subprocess.run", return_value=completed):
+        assert module._get_user_accounts() == {"S-1-5-21-solo"}
+
+
+def test_user_accounts_survives_unexpected_json(module):
+    """A check must degrade to "no accounts known", never raise."""
+    completed = MagicMock(returncode=0, stdout='"just a string"')
+    with patch("subprocess.run", return_value=completed):
+        assert module._get_user_accounts() == set()

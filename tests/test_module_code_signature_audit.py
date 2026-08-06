@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -124,6 +125,13 @@ def test_broken_signature_is_critical(mod):
     assert "Tampered" in finding.title
 
 
+@pytest.mark.skipif(
+    os.name != "posix",
+    reason=(
+        "asserts on the macOS /Applications prefix; on Windows a PurePath "
+        "renders it with backslashes and the system-wide check cannot match"
+    ),
+)
 def test_unsigned_app_in_system_location_is_a_warning(mod):
     """An unsigned app is WARNING, never CRITICAL: it has benign explanations."""
     mod.app_dirs = ["/Applications"]
