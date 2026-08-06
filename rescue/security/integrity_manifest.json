@@ -12,7 +12,7 @@
     "ai/providers/openai_provider.py": "1a32636cff5234bd1b684d821b80e5dc0ecfd689e8c6832e6f2c940cd5402b5a",
     "ai/recommender.py": "4427a4340f37eb8963f6f6656eaeb44647d01fc5b8a8f7b1ce1c7a0a85fd2d27",
     "case.py": "a6b9e1fd314395f97e971194f6d3a352b85e2273d986eb422b659ade3feb0e87",
-    "cli.py": "bfa40035ece370f2299756b39af7f60e46cc2984619275ec7bca8f7b74b06658",
+    "cli.py": "806682f5f7f8f40ee0de15149c593ac2f84e149086f72db5d8f81a42c725c13d",
     "command.py": "fa75b1df5b3b742f81e0e3117f628030523c9442c63aac5c747e99d3c632043e",
     "fsbounds.py": "9eae7c588b5e31a373a42bc3d0fa029e3ac7df15f9d50409b61c2c80acbacdc8",
     "guides.py": "dc6ca9534d08f8aa6575ef76c25705dc5cf50402d5820e94c6f4cf22cd60c18d",

@@ -494,7 +494,9 @@ def remediation_catalog():
     index = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
     rows = build_catalog(modules, index)
     out = _project_root() / "docs" / "REMEDIATION_CATALOG.md"
-    out.write_text(render_catalog_markdown(rows))
+    # Explicit UTF-8: this markdown contains em-dashes and curly quotes, and
+    # the locale codec on Windows (cp1252) either mangles them or raises.
+    out.write_text(render_catalog_markdown(rows), encoding="utf-8")
     click.echo(f"Wrote {out} ({len(rows)} codes)")
 
 
@@ -521,7 +523,7 @@ def threat_remediation():
             click.echo("ERROR: " + e, err=True)
         raise SystemExit(1)
     out = _project_root() / "docs" / "THREAT_REMEDIATION.md"
-    out.write_text(render_threat_markdown(threats, profiles))
+    out.write_text(render_threat_markdown(threats, profiles), encoding="utf-8")
     click.echo(f"Wrote {out} ({len(threats)} threats)")
 
 
