@@ -82,6 +82,21 @@ class _Host(App):
         self.push_screen(self._screen_factory())
 
 
+async def _wait_for_screen(pilot, app, screen_type, attempts=100):
+    """Wait for a screen transition instead of assuming one message-pump tick.
+
+    Selecting twice in quick succession pushed a screen while the previous
+    one's Header was still mounting. Textual's Header defers a `set_title`
+    coroutine that queries its own HeaderTitle child; if the Header is torn
+    down first, that query raises NoMatches from inside the framework. On a
+    fast runner the two never overlap, on a loaded Windows runner they do.
+    """
+    for _ in range(attempts):
+        if isinstance(app.screen, screen_type):
+            return
+        await pilot.pause(0.05)
+
+
 def test_discover_guide_sets_skips_remediation(tmp_path):
     sets = discover_guide_sets(_guides_dir(tmp_path))
     assert [name for name, _ in sets] == ["demo_recovery"]
@@ -206,11 +221,11 @@ async def test_selecting_a_set_opens_its_phases(tmp_path):
     async with app.run_test() as pilot:
         await pilot.pause()
         app.screen.query_one("#guide-set-list", OptionList).action_select()
-        await pilot.pause()
+        await _wait_for_screen(pilot, app, GuidePhasesScreen)
         assert isinstance(app.screen, GuidePhasesScreen)
 
         phase_list = app.screen.query_one("#guide-phase-list", OptionList)
         phase_list.highlighted = 0
         phase_list.action_select()
-        await pilot.pause()
+        await _wait_for_screen(pilot, app, GuideStepsScreen)
         assert isinstance(app.screen, GuideStepsScreen)
