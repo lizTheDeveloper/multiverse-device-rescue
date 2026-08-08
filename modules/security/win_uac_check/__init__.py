@@ -186,7 +186,7 @@ class Module(ModuleBase):
 
 
 def _parse_reg_value(output: str, value_name: str) -> str | None:
-    """Parse reg query output to extract the value.
+    r"""Parse reg query output to extract the value.
 
     Example output:
         HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System

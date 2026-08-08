@@ -48,6 +48,17 @@ class ContentRepo:
     def _applied_marker_path(self) -> Path:
         return self.local_path / ".git" / "rescue-applied-head"
 
+    @property
+    def _previous_marker_path(self) -> Path:
+        """The commit that was applied before the current one (roadmap P0#2).
+
+        Kept as a second marker rather than derived from git history: history
+        tells you which commit came earlier, not which one this machine was
+        actually running. Those differ whenever a machine skips versions, which
+        is the normal case for a tool that is opened occasionally.
+        """
+        return self.local_path / ".git" / "rescue-previous-head"
+
     def is_cloned(self) -> bool:
         return (self.local_path / ".git").exists()
 
@@ -110,12 +121,46 @@ class ContentRepo:
         """Checks out `ref` into the working tree and records it as the
         newly-applied commit. Callers (rescue.update.engine) must only
         call this after verify_commit_approval() has approved `ref`."""
+        previous = self.current_commit()
         self._run_git(["checkout", "--detach", ref])
         resolved = self._run_git(["rev-parse", ref]).stdout.strip()
-        marker = self._applied_marker_path
-        temp_marker = marker.with_suffix(".tmp")
-        temp_marker.write_text(resolved)
-        os.replace(temp_marker, marker)
+
+        # Written before the applied marker: if the process dies between the
+        # two writes, the worst outcome is a previous-marker that matches the
+        # still-current applied marker, which rollback treats as "nothing to
+        # roll back to". The reverse order could lose the only record of what
+        # was working.
+        if previous is not None and previous != resolved:
+            self._write_marker(self._previous_marker_path, previous)
+        self._write_marker(self._applied_marker_path, resolved)
+
+    def previous_applied_commit(self) -> str | None:
+        """The commit this machine was running before the current one."""
+        try:
+            value = self._previous_marker_path.read_text().strip()
+        except OSError:
+            return None
+        return value or None
+
+    def clear_applied_marker(self) -> None:
+        """Deactivate updated content without deleting it.
+
+        `runtime.active_content_root()` gates on this marker, so removing it
+        makes the tool fall back to the content bundled with the installed
+        package. That is the one recovery path that cannot itself fail: the
+        bundled content shipped with the binary and was never written by an
+        update.
+        """
+        try:
+            self._applied_marker_path.unlink()
+        except FileNotFoundError:
+            pass
+
+    @staticmethod
+    def _write_marker(path: Path, value: str) -> None:
+        temp = path.with_suffix(".tmp")
+        temp.write_text(value)
+        os.replace(temp, path)
 
     def list_files_at(self, ref: str) -> list[str]:
         result = self._run_git(["ls-tree", "-r", "--name-only", ref])

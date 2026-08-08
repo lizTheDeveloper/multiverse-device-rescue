@@ -1,0 +1,14 @@
+# Default owner for everything in this repository.
+* @lizTheDeveloper
+
+# The safety boundary of the whole product lives in these files: the read-only
+# default, the guidance-vs-mutation split, self-integrity, and the content-update
+# trust root. Changes here need the same review as changes to the trust config,
+# so they are called out explicitly rather than relying on the catch-all above.
+/rescue/module_base.py   @lizTheDeveloper
+/rescue/models.py        @lizTheDeveloper
+/rescue/security/        @lizTheDeveloper
+/rescue/update/          @lizTheDeveloper
+/rescue/runtime.py       @lizTheDeveloper
+/SECURITY.md             @lizTheDeveloper
+/.github/workflows/      @lizTheDeveloper

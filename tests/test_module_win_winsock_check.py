@@ -66,7 +66,7 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
         """Test detection of excessive Winsock catalog entries."""
         winsock_output = "\n".join([f"  Entry {i}:  Transport: TEST" for i in range(1, 36)])
 
-        tcpip_output = """
+        tcpip_output = r"""
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
     DefaultTTL    REG_DWORD    0x40
         """

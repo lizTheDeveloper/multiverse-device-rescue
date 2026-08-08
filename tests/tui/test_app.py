@@ -36,6 +36,21 @@ def _profile(used_pct: float) -> SystemProfile:
     )
 
 
+async def _wait_for_screen(pilot, app, screen_type, attempts=100):
+    """Pause until `app.screen` is `screen_type`, or give up after `attempts`.
+
+    A single `pilot.pause()` assumes the screen push completes within one
+    message-pump cycle. It does on a fast Linux runner; on a loaded Windows
+    runner it does not, and the test failed on the transition rather than on
+    anything the code did wrong. This is the bounded-wait shape the test
+    already used for the loading and fix-result screens, applied throughout.
+    """
+    for _ in range(attempts):
+        if isinstance(app.screen, screen_type):
+            return
+        await pilot.pause(0.05)
+
+
 async def test_full_flow_category_to_fix_result():
     """End-to-end: loading -> categories -> modules -> findings -> fix ->
     result -> back to categories, using the real disk_space module shipped
@@ -50,10 +65,7 @@ async def test_full_flow_category_to_fix_result():
          patch("rescue.orchestrator.discover_modules", return_value=[disk_space_module]):
         app = RescueApp(modules_dir=modules_dir)
         async with app.run_test() as pilot:
-            for _ in range(100):
-                await pilot.pause(0.05)
-                if isinstance(app.screen, CategoryMenuScreen):
-                    break
+            await _wait_for_screen(pilot, app, CategoryMenuScreen)
             assert isinstance(app.screen, CategoryMenuScreen)
 
             category_list = app.screen.query_one("#category-list", OptionList)
@@ -64,23 +76,20 @@ async def test_full_flow_category_to_fix_result():
             )
             category_list.highlighted = performance_index
             category_list.action_select()
-            await pilot.pause()
+            await _wait_for_screen(pilot, app, ModuleListScreen)
             assert isinstance(app.screen, ModuleListScreen)
 
             module_list = app.screen.query_one("#module-list", OptionList)
             assert module_list.get_option_at_index(0).id == "disk_space"
             module_list.action_select()
-            await pilot.pause()
+            await _wait_for_screen(pilot, app, FindingsScreen)
             assert isinstance(app.screen, FindingsScreen)
 
             await pilot.click("#apply-fixes")
-            for _ in range(100):
-                await pilot.pause(0.05)
-                if isinstance(app.screen, FixResultScreen):
-                    break
+            await _wait_for_screen(pilot, app, FixResultScreen)
             assert isinstance(app.screen, FixResultScreen)
             assert app.screen.fix.all_succeeded
 
             await pilot.click("#back-to-categories")
-            await pilot.pause()
+            await _wait_for_screen(pilot, app, CategoryMenuScreen)
             assert isinstance(app.screen, CategoryMenuScreen)

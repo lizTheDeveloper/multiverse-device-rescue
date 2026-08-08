@@ -28,7 +28,8 @@ class OpenAIProvider(AIProvider):
         if openai is None:
             raise AIProviderUnavailable(
                 "The 'openai' package is not installed. Install it with "
-                "`pip install multiverse-device-rescue[ai]` to use the OpenAI provider."
+                "`pip install openai`, or reinstall this tool from a source "
+                "checkout with `pip install '.[ai]'`, to use the OpenAI provider."
             )
         self.model = model
         self.max_tokens = max_tokens

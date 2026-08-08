@@ -3,7 +3,20 @@ import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# `os.getuid` does not exist on Windows, and this file calls it at import time,
+# so on Windows it did not fail — it aborted collection of the entire suite
+# before any test ran. The module under test is macOS-only and calls
+# `os.getuid()` itself, so there is nothing here Windows could meaningfully
+# exercise; skipping the file is the honest outcome, and skipping it at module
+# scope is what keeps the other 3600 tests running.
+pytestmark = pytest.mark.skipif(
+    not hasattr(os, "getuid"),
+    reason="disk_permissions_repair is macOS-only and depends on POSIX uids",
+)
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
@@ -30,7 +43,7 @@ def _get_module():
 # The module checks ownership against os.getuid(), so the "correctly owned"
 # fixture uid must be this process's uid -- not a hardcoded 501, which only
 # matched on a typical macOS user account and failed as root or on CI.
-CURRENT_UID = os.getuid()
+CURRENT_UID = os.getuid() if hasattr(os, "getuid") else 501
 
 # A healthy /usr/local is specifically *not* root-owned, so it cannot reuse
 # CURRENT_UID when the suite runs as root (as it does in CI containers).

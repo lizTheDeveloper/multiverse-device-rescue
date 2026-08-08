@@ -28,7 +28,8 @@ class AnthropicProvider(AIProvider):
         if anthropic is None:
             raise AIProviderUnavailable(
                 "The 'anthropic' package is not installed. Install it with "
-                "`pip install multiverse-device-rescue[ai]` to use the Anthropic provider."
+                "`pip install anthropic`, or reinstall this tool from a source "
+                "checkout with `pip install '.[ai]'`, to use the Anthropic provider."
             )
         self.model = model
         self.max_tokens = max_tokens

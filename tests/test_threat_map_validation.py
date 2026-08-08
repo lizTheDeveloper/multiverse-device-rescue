@@ -27,6 +27,8 @@ def test_shipped_threat_map_is_valid():
 def test_generated_doc_matches_map():
     profiles, all_codes, all_modules = _ctx()
     threats = load_threat_map(_project_root() / "docs" / "threat_remediation_map.yaml")
-    committed = (_project_root() / "docs" / "THREAT_REMEDIATION.md").read_text()
+    committed = (_project_root() / "docs" / "THREAT_REMEDIATION.md").read_text(
+        encoding="utf-8"
+    )
     assert committed == render_threat_markdown(threats, profiles), (
         "docs/THREAT_REMEDIATION.md is out of date — run `rescue threat-remediation`")

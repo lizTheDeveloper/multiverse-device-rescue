@@ -308,7 +308,7 @@ def test_fix_provides_guidance():
     assert len(passcode_actions) > 0
     # Actions should be informational (success=True, no actual system changes)
     for action in fix.actions:
-        assert action.success == True
+        assert action.success is True
 
 
 def test_fix_for_no_passcode():

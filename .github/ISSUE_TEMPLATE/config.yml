@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/lizTheDeveloper/multiverse-device-rescue/security/advisories/new
+    about: >-
+      Do not open a public issue for a security flaw. This includes a check that
+      reports a healthy result when it should not. See SECURITY.md.
+  - name: Documentation
+    url: https://lizthedeveloper.github.io/multiverse-device-rescue/
+    about: Command reference, module catalog, and guides.
+  - name: What is and is not finished
+    url: https://github.com/lizTheDeveloper/multiverse-device-rescue/blob/main/docs/ROADMAP_STATUS.md
+    about: Read this before filing "X is missing" — several gaps are already documented.

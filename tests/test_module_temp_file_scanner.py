@@ -1,3 +1,4 @@
+import pytest
 import sys
 import os
 from pathlib import Path
@@ -6,6 +7,15 @@ from datetime import datetime, timedelta
 
 # Add project root so modules/ is importable via discover_modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Skipped off POSIX: temp_file_scanner's fixtures are POSIX temp paths (/tmp, /var/folders).
+# The module under test cannot run on Windows, so there is nothing here a
+# Windows job could meaningfully exercise — and a test that fails for the
+# platform rather than for the code teaches people to ignore the suite.
+pytestmark = pytest.mark.skipif(
+    os.name != "posix",
+    reason="temp_file_scanner's fixtures are POSIX temp paths (/tmp, /var/folders)",
+)
 
 from rescue.models import (
     SystemProfile,

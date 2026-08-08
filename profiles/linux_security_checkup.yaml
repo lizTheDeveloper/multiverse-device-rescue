@@ -1,0 +1,35 @@
+name: linux_security_checkup
+display_name: "Linux Security Checkup"
+description: >
+  A read-only security and health review of a Linux machine, in one command.
+  Answers the questions a Linux desktop or laptop rarely gets asked: is
+  anything filtering inbound traffic, can anyone log in over SSH with a
+  password, who on this machine can become root, is the disk encrypted if it
+  is lost or stolen, is anything arranged to run at every boot that you do not
+  recognise, are there published security fixes waiting to be installed, and
+  is the hardware reporting the early warnings that precede a drive or memory
+  failure. Nothing is changed: every module reports what it found and, where
+  there is something to do, tells you the exact command to do it yourself. A
+  check that needs root and does not have it says so rather than reporting a
+  clean result.
+modules:
+  include:
+    # Exposure first — what can reach this machine, and who can log in to it.
+    - linux_firewall_check
+    - linux_ssh_hardening
+    - linux_account_audit
+    # Then what happens if the machine itself is taken.
+    - linux_disk_encryption_check
+    # Then what is arranged to run again, which is where persistence lives.
+    - linux_persistence_audit
+    # Then the patch level, which is what most real compromises actually use.
+    - linux_package_updates
+    # Then health: services that have failed, and hardware asking for help.
+    - linux_service_health
+    - linux_journal_errors
+    - linux_memory_pressure
+    # Cross-platform checks that apply here too.
+    - disk_space
+  exclude: []
+module_config: {}
+guides: []

@@ -1,0 +1,117 @@
+name: New module proposal
+description: Propose a new check for something the tool does not look at yet.
+title: "[module] "
+labels: ["new-module"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A module is one directory — `modules/<category>/<name>/__init__.py` —
+        exporting a class named `Module`. See
+        [CONTRIBUTING.md](https://github.com/lizTheDeveloper/multiverse-device-rescue/blob/main/CONTRIBUTING.md#writing-a-module)
+        for the authoring rules.
+
+        Before filing, check that it does not already exist:
+        `python -m rescue.cli validate` lists the count, and
+        `ls modules/*/` shows every name. There are 287 of them.
+
+  - type: input
+    id: name
+    attributes:
+      label: Proposed module name
+      description: lowercase_with_underscores, unique across the whole registry.
+      placeholder: linux_kernel_module_audit
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options: [security, integrity, performance, network, bloatware]
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: platforms
+    attributes:
+      label: Platforms it would support
+      options:
+        - label: macOS
+        - label: Windows
+        - label: Linux
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What it checks, and why it matters
+      description: >-
+        What condition on the machine it detects, and what goes wrong for a
+        person when that condition is present and nobody notices.
+    validations:
+      required: true
+
+  - type: textarea
+    id: how
+    attributes:
+      label: How it would detect it
+      description: >-
+        The command, file, or API it would read, per platform. Note anything
+        that needs elevated privileges, and what the module should do when it
+        does not have them (report `supported=False` — never an empty healthy
+        result).
+      placeholder: |
+        Linux: `sshd -T` (falls back to parsing /etc/ssh/sshd_config when not root)
+        macOS: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: false-positives
+    attributes:
+      label: How it would be wrong
+      description: >-
+        The legitimate configurations that would trip it, and how the module
+        avoids alarming someone whose setup is merely unusual. A check that
+        cries wolf is worse than no check.
+    validations:
+      required: true
+
+  - type: textarea
+    id: remediation
+    attributes:
+      label: Remediation
+      description: >-
+        What the user does about a finding. Is that guidance (a step they
+        perform) or a mutation the tool could perform? If a mutation — is it
+        idempotent, low-impact, and reversible?
+    validations:
+      required: true
+
+  - type: textarea
+    id: codes
+    attributes:
+      label: Proposed finding codes
+      description: "One per line, as `category.module_name.slug`."
+      placeholder: |
+        security.linux_kernel_module_audit.unsigned_module_loaded
+        security.linux_kernel_module_audit.module_signing_disabled
+    validations:
+      required: false
+
+  - type: textarea
+    id: testing
+    attributes:
+      label: How it would be tested
+      description: >-
+        Tests must not depend on the host machine. Which paths or commands
+        become class attributes so a test can point them at a fixture tree?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: offer
+    attributes:
+      label: Are you offering to write it
+      options:
+        - label: I intend to open a PR for this.

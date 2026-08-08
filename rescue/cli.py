@@ -8,6 +8,7 @@ from rescue.ai.explainer import DiagnosticExplainer
 from rescue.ai.factory import get_provider
 from rescue.ai.providers.base import AIRequestError
 from rescue.ai.recommender import ProfileRecommender
+from rescue.case import RescueCase, write_case
 from rescue.guides import discover_guides
 from rescue.models import CheckResult, Mode, RiskLevel
 from rescue.orchestrator import Orchestrator
@@ -26,8 +27,9 @@ from rescue.tui.app import run_tui
 from rescue.update.config import default_config
 from rescue.update.engine import UpdateEngine
 from rescue.update.manifest import ManifestError
-from rescue.update.repo import GitError
+from rescue.update.repo import ContentRepo, GitError
 from rescue.update.sideload import SideloadError, load_sideload_repo
+from rescue.validate import validate_catalog
 
 
 def _project_root() -> Path:
@@ -146,6 +148,87 @@ def scan(as_json):
         return
     for mod, check in results:
         click.echo(mod.report(check))
+
+
+@main.command()
+@click.option("--profile", "profile_name", default=None, help="Only run the modules a profile selects.")
+@click.option(
+    "--output",
+    "output_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Directory to write the case into (default: ~/.rescue/cases).",
+)
+@click.option("--stdout", "to_stdout", is_flag=True, help="Print the JSON case instead of writing files.")
+def export(profile_name, output_dir, to_stdout):
+    """Run read-only checks and write a redacted rescue-case report.
+
+    Produces a JSON record for tooling and a Markdown summary for people. Both
+    are redacted: credential-shaped strings, email addresses, the account name,
+    and the home-directory path are removed before anything is written.
+    """
+    profile = _load_profile_or_exit(profile_name) if profile_name else None
+
+    system_profile = gather_profile()
+    orch = Orchestrator(modules_dir=_get_modules_dir(), profile=profile)
+    case = RescueCase(
+        profile=system_profile,
+        profile_name=profile_name,
+        started_at=_utc_now(),
+    )
+    for mod, check in orch.run_checks():
+        case.add(mod, check)
+    case.finished_at = _utc_now()
+
+    if to_stdout:
+        from rescue.case import case_to_json
+
+        click.echo(case_to_json(case))
+        return
+
+    directory = output_dir or (Path.home() / ".rescue" / "cases")
+    json_path, md_path = write_case(case, directory)
+    click.echo(f"Wrote {json_path}")
+    click.echo(f"Wrote {md_path}")
+    click.echo(
+        "\nBoth files are redacted, but module output is free text — read them "
+        "before sharing."
+    )
+
+
+def _utc_now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+@main.command()
+@click.option("--strict", is_flag=True, help="Treat warnings as failures (used by CI).")
+def validate(strict):
+    """Validate the shipped catalog: modules, profiles, guides, and their links.
+
+    Checks that module names are unique, dependencies resolve without cycles,
+    platforms and risk levels are declared correctly, every profile selects real
+    modules, and no guide advertises a step as automatable that no module can
+    perform. Exits non-zero when the catalog is inconsistent.
+    """
+    report = validate_catalog(
+        modules_dir=_get_modules_dir(),
+        profiles_dir=_get_profiles_dir(),
+        guides_dir=_get_guides_dir(),
+    )
+
+    for problem in report.problems:
+        click.echo(problem.format(), err=problem.severity.value == "error")
+
+    click.echo(
+        f"\n{report.module_count} modules, {report.profile_count} profiles, "
+        f"{report.guide_count} guide phases checked: "
+        f"{len(report.errors)} error(s), {len(report.warnings)} warning(s)."
+    )
+    if not report.ok(strict=strict):
+        raise SystemExit(1)
+    click.echo("Catalog is consistent.")
 
 
 @main.command()
@@ -411,7 +494,9 @@ def remediation_catalog():
     index = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
     rows = build_catalog(modules, index)
     out = _project_root() / "docs" / "REMEDIATION_CATALOG.md"
-    out.write_text(render_catalog_markdown(rows))
+    # Explicit UTF-8: this markdown contains em-dashes and curly quotes, and
+    # the locale codec on Windows (cp1252) either mangles them or raises.
+    out.write_text(render_catalog_markdown(rows), encoding="utf-8")
     click.echo(f"Wrote {out} ({len(rows)} codes)")
 
 
@@ -438,7 +523,7 @@ def threat_remediation():
             click.echo("ERROR: " + e, err=True)
         raise SystemExit(1)
     out = _project_root() / "docs" / "THREAT_REMEDIATION.md"
-    out.write_text(render_threat_markdown(threats, profiles))
+    out.write_text(render_threat_markdown(threats, profiles), encoding="utf-8")
     click.echo(f"Wrote {out} ({len(threats)} threats)")
 
 
@@ -475,9 +560,28 @@ def explain():
     default=None,
     help="Apply a signed update from a local git bundle file (air-gapped).",
 )
-def update(check, dry_run, yes, sideload_path):
+@click.option(
+    "--rollback",
+    is_flag=True,
+    help="Return to the content version that was applied before the current one.",
+)
+@click.option(
+    "--use-bundled",
+    "use_bundled",
+    is_flag=True,
+    help="Deactivate downloaded content and use what shipped with the install.",
+)
+def update(check, dry_run, yes, sideload_path, rollback, use_bundled):
     """Update module data and guide content from the content repository."""
     config = default_config()
+
+    if rollback and use_bundled:
+        click.echo("--rollback and --use-bundled cannot be combined.", err=True)
+        raise SystemExit(2)
+
+    if rollback or use_bundled:
+        _update_recovery(config, rollback=rollback, dry_run=dry_run)
+        return
 
     try:
         if sideload_path is not None:
@@ -527,6 +631,49 @@ def update(check, dry_run, yes, sideload_path):
         click.echo(f"Update rejected: {exc}", err=True)
         raise SystemExit(1) from exc
     click.echo(applied.message)
+
+
+def _update_recovery(config, *, rollback: bool, dry_run: bool) -> None:
+    """Back out of a content update (roadmap P0#2).
+
+    Neither path fetches anything: rolling back to a version this machine
+    already had, or falling back to what the install shipped with, must work
+    when the network is the problem — or when the update is.
+    """
+    if not rollback:
+        # Deliberately does NOT construct an UpdateEngine. Doing so validates
+        # the trusted-signer configuration, and a machine whose trust config is
+        # broken or unpopulated is exactly the machine that most needs to be
+        # able to fall back to the content it was installed with. An escape
+        # hatch that depends on the thing that failed is not an escape hatch.
+        repo = ContentRepo(config.local_path, config.remote_url)
+        repo.clear_applied_marker()
+        click.echo(
+            "Updated content is deactivated. The tool will use the modules, profiles "
+            "and guides that shipped with the installed package. Nothing was deleted; "
+            "`rescue update` can activate downloaded content again."
+        )
+        return
+
+    try:
+        engine = UpdateEngine(config)
+    except (GitError, TrustConfigurationError) as exc:
+        click.echo(f"Cannot load the content repository: {exc}", err=True)
+        click.echo(
+            "`rescue update --use-bundled` still works: it needs no signature check.",
+            err=True,
+        )
+        raise SystemExit(1) from exc
+
+    try:
+        result = engine.rollback(dry_run=dry_run)
+    except (GitError, ManifestError) as exc:
+        click.echo(f"Rollback failed: {exc}", err=True)
+        raise SystemExit(1) from exc
+
+    click.echo(result.message)
+    if result.status in ("no_previous_version", "pending_approval"):
+        raise SystemExit(1)
 
 
 @main.group()

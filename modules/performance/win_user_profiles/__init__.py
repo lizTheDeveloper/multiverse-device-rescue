@@ -50,7 +50,10 @@ class Module(ModuleBase):
 
         for profile in profiles:
             path = profile.get("LocalPath", "")
-            sid = profile.get("SID", "")
+            # Normalised for the same reason as in _get_user_accounts: a SID
+            # that arrives as an object rather than a string must not make an
+            # orphan-detection comparison silently meaningless.
+            sid = _sid_string(profile.get("SID", ""))
             last_use_str = profile.get("LastUseTime", "")
             is_special = profile.get("Special", False)
 
@@ -344,7 +347,25 @@ class Module(ModuleBase):
             return []
 
     def _get_user_accounts(self) -> set[str]:
-        """Get set of user account SIDs using PowerShell."""
+        """Get the set of local user account SIDs, as strings.
+
+        `Get-LocalUser` returns a SecurityIdentifier *object*, and
+        `ConvertTo-Json` serialises it as a nested object rather than as the
+        "S-1-5-21-..." string everyone expects:
+
+            {"SID": {"BinaryLength": 28, "AccountDomainSid": {...},
+                     "Value": "S-1-5-21-..."}}
+
+        The original query asked for `Select-Object SID` and then put the
+        result straight into a set, so on any real Windows machine this raised
+        `TypeError: unhashable type: 'dict'` and the whole check reported
+        "unavailable". It was never caught because the suite had never been run
+        on Windows.
+
+        Fixed on both sides: the query now projects the string out, and the
+        parser normalises anything object-shaped that reaches it anyway — the
+        exact serialisation varies between PowerShell 5.1 and 7.
+        """
         try:
             cmd = [
                 "powershell",
@@ -352,7 +373,7 @@ class Module(ModuleBase):
                 "-Command",
                 (
                     "Get-LocalUser | "
-                    "Select-Object SID | "
+                    "Select-Object @{Name='SID';Expression={$_.SID.Value}} | "
                     "ConvertTo-Json"
                 ),
             ]
@@ -366,18 +387,20 @@ class Module(ModuleBase):
                 import json
                 try:
                     data = json.loads(result.stdout.strip())
-                    # Handle both single user (dict) and multiple users (list)
-                    if isinstance(data, dict):
-                        return {data.get("SID", "")}
-                    sids = set()
-                    if isinstance(data, list):
-                        for user in data:
-                            sid = user.get("SID", "")
-                            if sid:
-                                sids.add(sid)
-                    return sids
                 except json.JSONDecodeError:
                     return set()
+                # Handle both single user (dict) and multiple users (list)
+                entries = [data] if isinstance(data, dict) else data
+                if not isinstance(entries, list):
+                    return set()
+                sids = set()
+                for user in entries:
+                    if not isinstance(user, dict):
+                        continue
+                    sid = _sid_string(user.get("SID"))
+                    if sid:
+                        sids.add(sid)
+                return sids
             return set()
         except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
             return set()
@@ -405,6 +428,23 @@ class Module(ModuleBase):
             return 0
         except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
             return 0
+
+
+def _sid_string(value) -> str:
+    """Normalise a SID from PowerShell JSON into the plain 'S-1-5-…' string.
+
+    PowerShell serialises a SecurityIdentifier as an object with a ``Value``
+    member, and which cmdlets do that varies between 5.1 and 7. Anything that
+    is not a string or a recognisable SID object yields "" rather than raising:
+    a profile whose SID cannot be read should be treated as unknown, not crash
+    the check for every other profile on the machine.
+    """
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        inner = value.get("Value")
+        return inner.strip() if isinstance(inner, str) else ""
+    return ""
 
 
 def _fmt_bytes(n: int) -> str:

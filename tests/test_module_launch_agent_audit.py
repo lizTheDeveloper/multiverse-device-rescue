@@ -1,9 +1,20 @@
+import os
+import pytest
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Skipped off POSIX: launch_agent_audit is macOS-only; these fixtures are ~/Library/LaunchAgents paths.
+# The module under test cannot run on Windows, so there is nothing here a
+# Windows job could meaningfully exercise — and a test that fails for the
+# platform rather than for the code teaches people to ignore the suite.
+pytestmark = pytest.mark.skipif(
+    os.name != "posix",
+    reason="launch_agent_audit is macOS-only; these fixtures are ~/Library/LaunchAgents paths",
+)
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules

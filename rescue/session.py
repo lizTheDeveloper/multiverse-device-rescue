@@ -43,13 +43,13 @@ class SessionStore:
         path = self._path(profile_name)
         if not path.exists():
             return SessionState(profile=profile_name)
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return SessionState.from_dict(data)
 
     def save(self, state: SessionState) -> None:
         path = self._path(state.profile)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(state.to_dict(), f, indent=2)
 
     def mark_step_complete(self, profile_name: str, phase: int, step: int) -> SessionState:

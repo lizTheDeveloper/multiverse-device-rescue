@@ -192,11 +192,14 @@ def test_verification_succeeds_without_the_signing_key_in_the_ambient_keyring(
     simulating exactly what a real end user's machine looks like."""
     from rescue.update.repo import ContentRepo
 
-    # Short paths are required here: gpg-agent's control socket has a
-    # small max path length that tmp_path's nested pytest directories can
-    # exceed on some platforms.
-    signing_gnupghome = tempfile.mkdtemp(prefix="mdr-gpg-", dir="/tmp")
-    empty_ambient_gnupghome = tempfile.mkdtemp(prefix="mdr-gpg-empty-", dir="/tmp")
+    # Short paths are required here: gpg-agent's control socket is a unix
+    # socket with a small max path length, which tmp_path's nested pytest
+    # directories can exceed. `dir` was hardcoded to "/tmp", which does not
+    # exist on Windows — the test raised FileNotFoundError there instead of
+    # running or skipping.
+    short_tmp = tempfile.gettempdir()
+    signing_gnupghome = tempfile.mkdtemp(prefix="mdr-gpg-", dir=short_tmp)
+    empty_ambient_gnupghome = tempfile.mkdtemp(prefix="mdr-gpg-empty-", dir=short_tmp)
     try:
         params_file = Path(signing_gnupghome) / "params.txt"
         params_file.write_text(

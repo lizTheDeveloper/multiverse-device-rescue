@@ -23,7 +23,7 @@ class ProfileValidationError(ValueError):
 
 
 def load_profile(path: Path) -> Profile:
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
     modules_section = data.get("modules", {}) or {}

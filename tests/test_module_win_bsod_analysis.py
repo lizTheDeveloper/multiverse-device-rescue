@@ -105,9 +105,15 @@ def test_win_bsod_analysis_recent_24h():
 def test_win_bsod_analysis_recurring_7d():
     """Test when multiple BSODs in last 7 days (WARNING)."""
     mod = _get_module()
-    # Create two events in the last 7 days
+    # Two events inside 7 days and clearly outside 24 hours. `days_ago=1` put
+    # the first event exactly on the 24-hour boundary: the fixture computes
+    # now-24h, the module computes now-24h a moment later, and the comparison
+    # is `>=`. On Linux the two `now`s differ by microseconds and the event
+    # falls outside; on Windows, whose clock granularity is ~15ms, they can be
+    # the same tick, the event counts as "within 24 hours", the CRITICAL branch
+    # wins, and this WARNING is never emitted. Two days removes the ambiguity.
     events = [
-        _make_bsod_event(days_ago=1, stop_code="0x0000007F"),
+        _make_bsod_event(days_ago=2, stop_code="0x0000007F"),
         _make_bsod_event(days_ago=5, stop_code="0x0000007E"),
     ]
     fake_run = _make_run_result(bsod_events=events, minidump_exists=True)
