@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "script_domains": [
+    {"domain": "coinhive.com", "severity": "critical", "description": "Coinhive, the in-browser Monero miner that started the drive-by mining wave. The service shut down in 2019, so any surviving reference means stale injected code is still on the machine."},
+    {"domain": "authedmine.com", "severity": "critical", "description": "Coinhive's 'opt-in' branded endpoint, used to evade blocklists."},
+    {"domain": "coin-hive.com", "severity": "critical", "description": "Coinhive endpoint variant."},
+    {"domain": "crypto-loot.com", "severity": "critical", "description": "Crypto-Loot browser mining service."},
+    {"domain": "cryptoloot.pro", "severity": "critical", "description": "Crypto-Loot browser mining service endpoint."},
+    {"domain": "coinimp.com", "severity": "critical", "description": "CoinIMP browser miner, a common Coinhive successor."},
+    {"domain": "webminepool.com", "severity": "critical", "description": "WebMinePool in-browser mining service."},
+    {"domain": "jsecoin.com", "severity": "critical", "description": "JSEcoin in-browser mining service."},
+    {"domain": "minero.cc", "severity": "critical", "description": "Minero.cc in-browser mining service."},
+    {"domain": "coinwebmining.com", "severity": "critical", "description": "In-browser mining service endpoint."},
+    {"domain": "webmine.cz", "severity": "critical", "description": "Webmine.cz in-browser mining service."},
+    {"domain": "monerise.com", "severity": "critical", "description": "Monerise browser mining service."},
+    {"domain": "cryptonight.wasm", "severity": "critical", "description": "CryptoNight WebAssembly mining module, the hashing core of most browser miners."},
+    {"domain": "deepminer", "severity": "critical", "description": "deepMiner, a self-hosted open-source browser mining kit used after Coinhive shut down."}
+  ],
+  "script_markers": [
+    {"marker": "CoinHive.Anonymous", "severity": "critical", "description": "Coinhive JavaScript miner initialisation."},
+    {"marker": "CoinHive.User", "severity": "critical", "description": "Coinhive JavaScript miner initialisation."},
+    {"marker": "CryptoLoot.Anonymous", "severity": "critical", "description": "Crypto-Loot JavaScript miner initialisation."},
+    {"marker": "Client.Anonymous", "severity": "warning", "description": "CoinIMP/deepMiner client initialisation used by several browser mining kits."},
+    {"marker": "cryptonight", "severity": "warning", "description": "CryptoNight hashing algorithm reference inside browser code."},
+    {"marker": "stratum+tcp", "severity": "critical", "description": "Stratum mining protocol URL embedded in browser or extension code."},
+    {"marker": "startMining", "severity": "warning", "description": "Mining start call used by several browser mining libraries."}
+  ],
+  "extensions": [
+    {
+      "name": "SafeBrowse",
+      "severity": "critical",
+      "description": "Chrome extension that was caught running a hidden Monero miner in the background of every browsing session."
+    },
+    {
+      "name": "Archive Poster",
+      "severity": "critical",
+      "description": "Tumblr helper extension that was compromised and shipped a hidden Coinhive miner to its users."
+    },
+    {
+      "name": "Ldoco",
+      "severity": "warning",
+      "description": "Extension family repeatedly re-uploaded to the Chrome Web Store carrying browser mining payloads."
+    },
+    {
+      "name": "Bitcoin Mining",
+      "severity": "warning",
+      "description": "Extension advertising in-browser mining. Only expected if the device owner deliberately installed it."
+    }
+  ]
+}

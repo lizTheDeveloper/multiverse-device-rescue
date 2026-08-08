@@ -1,0 +1,35 @@
+name: identity_theft_recovery
+display_name: "Identity Theft Recovery"
+description: >
+  Step-by-step recovery for someone whose identity has been stolen: credit
+  and account freezes, the official reports that unlock legal protections,
+  disputing fraudulent accounts, and the long tail of monitoring afterwards.
+  Most of this work happens with banks, credit bureaus, and government
+  agencies rather than on the computer, so the guide is the substance and the
+  modules only answer one question — whether the device being used to do the
+  recovery is itself leaking credentials. The walkthrough doubles as a
+  checklist: run `rescue guide identity_theft_recovery` to see what is done
+  and what is outstanding, and mark steps off as you go.
+modules:
+  include:
+    # Is this device the leak? Doing recovery from a compromised machine
+    # hands the new passwords straight back.
+    - stalkerware_scan
+    - keylogger_indicators
+    - malware_scan_indicators
+    - win_malware_indicators
+    - suspicious_processes
+    - win_suspicious_processes
+    - process_scanner
+    # Credential and session theft happens in the browser more often than
+    # anywhere else.
+    - browser_extension_audit
+    - browser_hijack_check
+    - certificate_trust_audit
+    # Somebody else still being logged in is the simplest explanation of all.
+    - remote_login_check
+    - win_remote_access_audit
+  exclude: []
+module_config: {}
+guides:
+  - identity_theft_recovery
