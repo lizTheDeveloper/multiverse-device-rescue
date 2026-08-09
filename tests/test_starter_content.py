@@ -24,6 +24,26 @@ def test_digital_security_reset_profile_fields():
     assert "malware_scan_indicators" in profile.include_modules
 
 
+def test_digital_security_reset_includes_the_account_recovery_modules():
+    """The profile's description promises password-manager, 2FA, and session
+    checks; these are the modules that deliver them."""
+    profiles = discover_profiles(PROFILES_DIR)
+    profile = profiles["digital_security_reset"]
+    for name in ("password_manager_check", "twofa_audit", "session_revocation_scan"):
+        assert name in profile.include_modules
+
+
+def test_every_profile_includes_only_registered_modules():
+    """A profile that names a module nobody implemented silently selects
+    nothing, which is how the security-reset profile shipped broken once."""
+    registered = {module.name for module in discover_modules(MODULES_DIR)}
+    missing = {
+        profile_name: sorted(set(profile.include_modules) - registered)
+        for profile_name, profile in discover_profiles(PROFILES_DIR).items()
+    }
+    assert {name: names for name, names in missing.items() if names} == {}
+
+
 def test_home_for_the_holidays_profile_fields():
     profiles = discover_profiles(PROFILES_DIR)
     profile = profiles["home_for_the_holidays"]

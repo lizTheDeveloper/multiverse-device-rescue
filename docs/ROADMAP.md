@@ -83,10 +83,14 @@ tool contains and uses its declared content.
    limit. The full 3,031-test suite currently stalls in
    `test_module_ai_threat_indicators` after it begins such a scan.
 
-8. **The security-reset profile is nonfunctional.**
-   `digital_security_reset` names `password_manager_check`, `twofa_audit`, and
-   `session_revocation_scan`, but none is registered. Its profile therefore
-   selects no modules while its guide presents those checks as automatable.
+8. ~~**The security-reset profile is nonfunctional.**~~ *Resolved.*
+   `password_manager_check`, `twofa_audit`, and `session_revocation_scan` are
+   now implemented under `modules/security/` and included in the
+   `digital_security_reset` profile, and the guide steps that describe them are
+   marked automatable. All three are read-only: they report the presence,
+   modification date, and permissions of credential and session artefacts and
+   never open one. The profile-validation test this item asked for is still
+   outstanding — see Phase 0 item 9.
 
 9. **Linux is advertised but cannot run.**
    Three modules declare Linux support, but `gather_profile()` raises
@@ -144,7 +148,7 @@ isolated checks:
 | Offline and bootable recovery | Some malware cannot be assessed safely from the running OS. | Guided safe-mode/recovery-environment workflows, offline scanner integration, and clear limits when full forensic tooling is required. |
 | Backup and restore validation | Backup presence does not prove recovery is possible. | Backup freshness, encryption, destination capacity, restore-point inventory, sampled restore drill, and recovery-key handling without collecting secrets. |
 | Transactional remediation | Rescue actions must be reviewable and reversible. | Action plan, preflight backup/snapshot where supported, least-privilege elevation, change journal, rollback, and post-action recheck. |
-| Account and browser recovery | Security-reset guidance currently promises capabilities that do not exist. | Human-led account inventory, password-manager migration checklist, session/device review links, extension inventory, and secure deletion guidance. Never collect account passwords or tokens. |
+| Account and browser recovery | The local half now exists (`password_manager_check`, `twofa_audit`, `session_revocation_scan`); the account-side half does not. | Human-led account inventory, password-manager migration checklist, session/device review links, extension inventory, and secure deletion guidance. Never collect account passwords or tokens. |
 | Hardware recovery workflow | Device rescue also needs to distinguish hardware faults from software issues. | Unified storage, battery, thermal, memory, display, input, and network-adapter evidence with vendor diagnostics and repair/escalation thresholds. |
 | Cross-platform recovery | Linux is inoperable and mobile is only mentioned in guides. | Finish Linux first; then build separate, permission-aware Android/iOS companion workflows instead of pretending desktop modules apply to mobile. |
 
@@ -178,9 +182,9 @@ isolated checks:
 8. Add per-module exception isolation, retries only where safe, execution
    budgets, and cancellation. Bound filesystem traversal by roots, depth,
    file count, bytes, and time.
-9. Remove or repair the unavailable security-reset module references and add a
-   profile validation test that fails on every missing module, guide, or
-   automatable step.
+9. Add a profile validation test that fails on every missing module, guide, or
+   automatable step. (The unavailable security-reset module references this
+   item also covered are now repaired — see P0 item 8.)
 
 **Exit criteria**
 
