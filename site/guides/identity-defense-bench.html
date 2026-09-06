@@ -1,0 +1,1989 @@
+<meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E🔐%3C/text%3E%3C/svg%3E">
+<title>Identity Defense Bench</title>
+
+<style>
+.page-wrapper { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+.page-wrapper > h1 { display: none !important; }
+
+:root {
+  --bg: #0a0e17; --bg2: #0e1219; --panel: #111827; --panel2: #161e2e;
+  --line: #1e293b; --line2: #2d3748;
+  --ink: #e2e8f0; --mut: #94a3b8; --dim: #64748b;
+  --amber: #f59e0b; --amber-ink: #fbbf24; --amber-bg: #1c1508;
+  --red: #ef4444; --red-bg: #1f1012;
+  --green: #22c55e; --green-bg: #0d1f12;
+  --blue: #5b8def; --blue-bg: #0d1528;
+  --r: 10px;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f1f5f9; --bg2: #f8fafc; --panel: #ffffff; --panel2: #f1f5f9;
+    --line: #cbd5e1; --line2: #e2e8f0;
+    --ink: #0f172a; --mut: #475569; --dim: #94a3b8;
+    --amber: #d97706; --amber-ink: #92400e; --amber-bg: #fef3c7;
+    --red: #dc2626; --red-bg: #fef2f2;
+    --green: #16a34a; --green-bg: #f0fdf4;
+    --blue: #2563eb; --blue-bg: #dbeafe;
+  }
+}
+:root[data-theme="light"], :root[data-theme="default"], :root[data-theme="original"] {
+  --bg: #f1f5f9; --bg2: #f8fafc; --panel: #ffffff; --panel2: #f1f5f9;
+  --line: #cbd5e1; --line2: #e2e8f0;
+  --ink: #0f172a; --mut: #475569; --dim: #94a3b8;
+  --amber: #d97706; --amber-ink: #92400e; --amber-bg: #fef3c7;
+  --red: #dc2626; --red-bg: #fef2f2;
+  --green: #16a34a; --green-bg: #f0fdf4;
+  --blue: #2563eb; --blue-bg: #dbeafe;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html body .idb { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.idb a { color: var(--blue); text-decoration: none; }
+.idb a:hover { text-decoration: underline; }
+.idb code { font-family: var(--mono); font-size: 0.86em; background: var(--bg2); border: 1px solid var(--line2); border-radius: 3px; padding: 1px 5px; }
+
+.idb .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+@media (max-width: 860px) { .idb .app { grid-template-columns: 1fr; } }
+
+.idb .rail { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--bg2); border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 860px) { .idb .rail { position: static; height: auto; flex-direction: row; flex-wrap: wrap; padding: 14px; gap: 8px; } }
+.idb .brand { padding: 8px 10px 18px; }
+.idb .brand h1 { font-family: var(--mono); font-size: 17px; line-height: 1.15; letter-spacing: 0.02em; }
+.idb .brand .sub { color: var(--mut); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+.idb .nav { display: flex; flex-direction: column; gap: 3px; }
+@media (max-width: 860px) { .idb .nav { flex-direction: row; flex-wrap: wrap; } .idb .brand { width: 100%; padding-bottom: 10px; } }
+.idb .navitem { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 9px; border: 1px solid transparent; color: var(--mut); background: none; text-align: left; width: 100%; cursor: pointer; font: inherit; font-size: 13px; transition: .15s; }
+.idb .navitem:hover { background: var(--panel); color: var(--ink); }
+.idb .navitem.active { background: var(--panel2); border-color: var(--line2); color: var(--ink); }
+.idb .navitem .ico { width: 26px; height: 26px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 7px; background: var(--panel); font-size: 13px; }
+.idb .navitem .tick { margin-left: auto; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--line2); display: grid; place-items: center; font-size: 10px; color: transparent; flex: 0 0 auto; }
+.idb .navitem.done .tick { background: var(--green); border-color: var(--green); color: #fff; }
+.idb .rail-foot { margin-top: auto; padding: 12px 8px 4px; font-size: 11px; color: var(--dim); line-height: 1.5; }
+@media (max-width: 860px) { .idb .rail-foot { width: 100%; margin-top: 0; } }
+.idb .minibtn { font-size: 12px; color: var(--mut); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; cursor: pointer; font: inherit; font-size: 12px; margin-top: 8px; display: block; width: 100%; text-align: left; }
+.idb .minibtn:hover { color: var(--ink); border-color: var(--line2); }
+
+.idb .main { padding: 36px 44px 80px; max-width: 920px; margin: 0 auto; width: 100%; }
+@media (max-width: 860px) { .idb .main { padding: 24px 18px 60px; } }
+.idb .station { animation: rise .25s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+@keyframes confetti-fall { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+.idb .eyebrow { font-family: var(--mono); text-transform: uppercase; letter-spacing: .16em; font-size: 11px; color: var(--amber); margin-bottom: 6px; }
+.idb .stn-title { font-family: var(--mono); font-size: 26px; line-height: 1.12; margin: 0 0 6px; letter-spacing: 0.01em; }
+.idb .stn-lede { color: var(--mut); font-size: 15px; max-width: 68ch; margin-bottom: 22px; }
+.idb .stn-lede b { color: var(--ink); }
+
+.idb .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 20px 22px; margin: 14px 0; }
+.idb .card.accent { border-left: 3px solid var(--amber); }
+.idb .card.red { border-left: 3px solid var(--red); }
+.idb .card.green { border-left: 3px solid var(--green); }
+.idb .card.blue { border-left: 3px solid var(--blue); }
+.idb .card h3 { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 4px; }
+.idb .card .hint { color: var(--mut); font-size: 13px; margin-bottom: 12px; }
+.idb .field { display: flex; flex-direction: column; gap: 5px; margin: 12px 0; }
+.idb .field-label { font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.idb .field-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--mut); font-size: 12px; }
+.idb input[type="text"], .idb textarea, .idb select { background: var(--bg2); border: 1px solid var(--line2); border-radius: 8px; color: var(--ink); font: inherit; font-size: 14px; padding: 10px 12px; width: 100%; resize: vertical; }
+.idb input:focus, .idb textarea:focus, .idb select:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,158,11,.15); }
+.idb .radio-group { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
+.idb .radio-group label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line2); border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--mut); transition: .15s; }
+.idb .radio-group label:hover { border-color: var(--amber); color: var(--ink); }
+.idb .radio-group input:checked + span { color: var(--amber-ink); }
+.idb .radio-group input { accent-color: var(--amber); }
+.idb .checklist { margin: 6px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.idb .checklist li { margin: 0; }
+.idb .checklist li::before { content: none; }
+.idb .checklist label { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 14px; }
+.idb .checklist label:hover { background: var(--panel2); }
+.idb .checklist input { margin-top: 3px; accent-color: var(--green); flex: 0 0 auto; }
+.idb .scorecard { background: var(--amber-bg); border: 1px solid var(--amber); border-radius: var(--r); padding: 18px 20px; margin: 20px 0; }
+.idb .scorecard h3 { font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--amber-ink); margin: 0 0 8px; }
+.idb .scorecard .req { font-size: 14px; color: var(--ink); margin: 0 0 4px; }
+.idb .scorecard .status { font-family: var(--mono); font-size: 12px; margin-top: 8px; }
+.idb .scorecard .status.pass { color: var(--green); }
+.idb .scorecard .status.incomplete { color: var(--dim); }
+.idb .alert { background: var(--red-bg); border: 1px solid var(--red); border-radius: var(--r); padding: 14px 18px; margin: 16px 0; font-size: 14px; }
+.idb .alert b { color: var(--red); }
+.idb .msg-envelope { background: var(--bg2); border: 1px solid var(--line2); border-radius: var(--r); padding: 16px 20px; margin: 10px 0; font-size: 14px; }
+.idb .msg-type { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); margin-bottom: 6px; }
+.idb .msg-from { font-weight: 700; margin-bottom: 2px; }
+.idb .msg-subject { color: var(--mut); font-size: 13px; margin-bottom: 8px; font-style: italic; }
+.idb .msg-body { line-height: 1.6; }
+.idb .reveal { margin-top: 12px; padding: 12px 16px; border-radius: 8px; font-size: 13px; display: none; }
+.idb .reveal.shown { display: block; }
+.idb .reveal.correct { background: var(--green-bg); border: 1px solid var(--green); }
+.idb .reveal.wrong { background: var(--red-bg); border: 1px solid var(--red); }
+.idb .reveal-btn { font: inherit; font-size: 12px; font-family: var(--mono); letter-spacing: .05em; padding: 6px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--mut); border-radius: 7px; cursor: pointer; margin-top: 8px; }
+.idb .reveal-btn:hover { border-color: var(--amber); color: var(--amber); }
+.idb .cat-header { display: flex; align-items: center; gap: 10px; margin: 20px 0 8px; }
+.idb .cat-header .cat-icon { font-size: 20px; }
+.idb .cat-header h3 { font-family: var(--mono); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; margin: 0; }
+.idb .cat-header .risk { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; margin-left: auto; }
+.idb .cat-header .risk-high { background: var(--red-bg); color: var(--red); }
+.idb .cat-header .risk-medium { background: var(--amber-bg); color: var(--amber); }
+.idb .cat-header .risk-low { background: var(--panel2); color: var(--dim); }
+.idb .cat-why { color: var(--mut); font-size: 13px; margin: 0 0 8px; padding-left: 30px; }
+.idb .acct-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 30px; font-size: 14px; }
+.idb .acct-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1; }
+.idb .acct-row input { accent-color: var(--amber); flex: 0 0 auto; }
+.idb .acct-row .money { font-family: var(--mono); font-size: 10px; color: var(--amber); letter-spacing: .08em; text-transform: uppercase; }
+.idb .row { display: flex; gap: 12px; flex-wrap: wrap; }
+.idb .row > * { flex: 1 1 180px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .idb *, .idb *::before, .idb *::after { animation: none !important; transition: none !important; }
+}
+@media print {
+  .idb .rail { display: none !important; }
+  .idb .app { grid-template-columns: 1fr !important; }
+  .idb .main { padding: 20px !important; max-width: none !important; }
+  .idb { background: #fff !important; color: #000 !important; }
+  .idb .card, .idb .scorecard { border-color: #ccc !important; background: #fff !important; }
+}
+</style>
+
+<div class="idb">
+<div class="app">
+<nav class="rail">
+  <div class="brand">
+    <h1>Identity Defense Bench</h1>
+    <div class="sub">Your accounts. Your passwords. Tonight.</div>
+  </div>
+  <div class="nav" id="nav"></div>
+  <div class="rail-foot">
+    <span>Everything stays in your browser. Nothing is sent anywhere.</span>
+    <button class="minibtn" id="clear-all" type="button">Clear all my work</button>
+    <button class="minibtn" id="print-btn" type="button">Print recovery audit</button>
+  </div>
+</nav>
+<div class="main">
+  <div id="station"></div>
+</div>
+</div>
+</div>
+
+<script>
+(function () {
+"use strict";
+
+function confetti() {
+  var colors = ["#f59e0b","#22c55e","#5b8def","#ef4444","#a855f7","#ec4899"];
+  var container = document.createElement("div");
+  container.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden";
+  document.body.appendChild(container);
+  for (var i = 0; i < 60; i++) {
+    var p = document.createElement("div");
+    var size = 6 + Math.random() * 6;
+    p.style.cssText = "position:absolute;width:" + size + "px;height:" + size + "px;background:" + colors[i%colors.length]
+      + ";border-radius:" + (Math.random()>0.5?"50%":"2px") + ";top:-10px;left:" + (Math.random()*100) + "%;opacity:1";
+    p.style.animation = "confetti-fall " + (1.5+Math.random()*2) + "s ease-out forwards";
+    p.style.animationDelay = (Math.random()*0.5) + "s";
+    container.appendChild(p);
+  }
+  setTimeout(function() { container.remove(); }, 4000);
+}
+
+var KEY = "identity-defense-bench-v2";
+var state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch(e) { state = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {} }
+function val(p) { return state[p] || ""; }
+function set(p, v) { state[p] = v; save(); updateNav(); }
+function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+var current = 0;
+var STATIONS = [
+  { id: "map",       icon: "01", title: "Account Map" },
+  { id: "passwords", icon: "02", title: "Password Health" },
+  { id: "recovery",  icon: "03", title: "Recovery Audit" },
+  { id: "rebuild",   icon: "04", title: "Rebuild" },
+  { id: "cleanup",   icon: "05", title: "Data Cleanup" },
+  { id: "border",    icon: "06", title: "Border Crossing" },
+  { id: "pretexts",  icon: "07", title: "Scam Defense" },
+  { id: "audit",     icon: "08", title: "Audit Card" }
+];
+
+var ACCOUNT_CATEGORIES = [
+  { id:"email", name:"Email", icon:"\u{1F4E7}", why:"Your email is the master key — password resets for everything else flow through it.", risk:"high",
+    accounts:[
+      {name:"Gmail",hasMoney:false,url:"https://myaccount.google.com/security"},
+      {name:"Outlook / Hotmail",hasMoney:false,url:"https://account.live.com/proofs/manage"},
+      {name:"iCloud Mail",hasMoney:false,url:"https://appleid.apple.com/account/manage"},
+      {name:"Yahoo Mail",hasMoney:false,url:"https://login.yahoo.com/account/security"},
+      {name:"ProtonMail",hasMoney:false,url:"https://account.proton.me/u/0/mail/security"}],
+    checks:["Is 2FA enabled (not just SMS)?","Is SMS the only recovery method?","Do you have backup codes printed?","Is the recovery email on a DIFFERENT provider?"]},
+  { id:"financial", name:"Financial", icon:"\u{1F4B3}", why:"These accounts hold your money — a compromised bank login is not a nuisance, it is a loss.", risk:"high",
+    accounts:[
+      {name:"Primary bank",hasMoney:true},
+      {name:"Credit card portal",hasMoney:true},
+      {name:"PayPal",hasMoney:true,url:"https://www.paypal.com/myaccount/settings/security"},
+      {name:"Venmo",hasMoney:true,url:"https://venmo.com/account/settings/security"},
+      {name:"Cash App",hasMoney:true,url:"https://cash.app/account/security"},
+      {name:"Crypto exchange",hasMoney:true},
+      {name:"Investment account",hasMoney:true}],
+    checks:["Is 2FA enabled and NOT SMS-only?","Are transaction alerts turned on?","Could someone who SIM-swapped you drain this?","When did you last change this password?"]},
+  { id:"identity", name:"Identity Providers", icon:"\u{1F511}", why:"These control access to OTHER accounts via single sign-on — compromise one and everything behind it opens.", risk:"high",
+    accounts:[
+      {name:"Apple ID",hasMoney:true,url:"https://appleid.apple.com/account/manage"},
+      {name:"Google Account",hasMoney:true,url:"https://myaccount.google.com/security"},
+      {name:"Microsoft Account",hasMoney:false,url:"https://account.live.com/proofs/manage"},
+      {name:"Facebook Login",hasMoney:false,url:"https://www.facebook.com/settings?tab=security"}],
+    checks:["How many other accounts use this for sign-in?","Is the recovery path independent of your phone number?","Do you have a recovery key stored offline?"]},
+  { id:"social", name:"Social Media", icon:"\u{1F4F1}", why:"A hijacked social account impersonates you to people who trust you.", risk:"medium",
+    accounts:[
+      {name:"Instagram",hasMoney:false,url:"https://www.instagram.com/accounts/privacy_and_security/"},
+      {name:"Facebook",hasMoney:false,url:"https://www.facebook.com/settings?tab=security"},
+      {name:"Twitter / X",hasMoney:false,url:"https://twitter.com/settings/security"},
+      {name:"TikTok",hasMoney:false,url:"https://www.tiktok.com/setting/security"},
+      {name:"LinkedIn",hasMoney:false,url:"https://www.linkedin.com/psettings/sign-in-and-security"},
+      {name:"Reddit",hasMoney:false,url:"https://www.reddit.com/settings/privacy"}],
+    checks:["Is 2FA enabled?","Have you checked active sessions?","Is the linked email one you still control?"]},
+  { id:"cloud", name:"Cloud Storage", icon:"\u{2601}\u{FE0F}", why:"Your files, photos, tax returns, and ID scans live here.", risk:"high",
+    accounts:[
+      {name:"Google Drive",hasMoney:false,url:"https://myaccount.google.com/security"},
+      {name:"iCloud Drive",hasMoney:false,url:"https://appleid.apple.com/account/manage"},
+      {name:"Dropbox",hasMoney:false,url:"https://www.dropbox.com/account/security"},
+      {name:"OneDrive",hasMoney:false,url:"https://account.live.com/proofs/manage"}],
+    checks:["Is the parent account secured?","Are there shared links exposing sensitive files?","Is sync enabled on a device you no longer own?"]},
+  { id:"communication", name:"Communication", icon:"\u{1F4AC}", why:"A compromised messenger is a live wiretap on your conversations.", risk:"medium",
+    accounts:[
+      {name:"WhatsApp",hasMoney:false},
+      {name:"Signal",hasMoney:false},
+      {name:"Telegram",hasMoney:false,url:"https://my.telegram.org/auth"},
+      {name:"Slack",hasMoney:false},
+      {name:"Discord",hasMoney:false,url:"https://discord.com/settings/account"}],
+    checks:["Is the account tied to a SIM-swappable number?","Have you set a registration lock / 2FA password?","Are there active sessions on unknown devices?"]},
+  { id:"shopping", name:"Shopping", icon:"\u{1F6D2}", why:"These store your payment methods and address — fraudulent orders on your card to a stranger’s address.", risk:"medium",
+    accounts:[
+      {name:"Amazon",hasMoney:true,url:"https://www.amazon.com/gp/css/account/info/ref=ya_manage_login_and_security"},
+      {name:"eBay",hasMoney:true,url:"https://www.ebay.com/myb/AccountSettings"},
+      {name:"Etsy",hasMoney:true,url:"https://www.etsy.com/your/account/security"},
+      {name:"DoorDash / Uber Eats",hasMoney:true},
+      {name:"Uber / Lyft",hasMoney:true,url:"https://account.uber.com/safety-security"}],
+    checks:["Is a credit card or bank account saved?","Is 2FA enabled?","Is the password unique or reused?"]},
+  { id:"streaming", name:"Streaming", icon:"\u{1F3B5}", why:"Low direct risk, but reused passwords here are the canary — if your Netflix password is your bank password, this is where the breach starts.", risk:"low",
+    accounts:[
+      {name:"Netflix",hasMoney:true,url:"https://www.netflix.com/account/security"},
+      {name:"Spotify",hasMoney:true,url:"https://www.spotify.com/account/security/"},
+      {name:"YouTube Premium",hasMoney:true,url:"https://myaccount.google.com/security"},
+      {name:"Disney+ / Hulu",hasMoney:true,url:"https://www.disneyplus.com/account"}],
+    checks:["Is the password unique?","Has it appeared in a known breach?","Are there active sessions on unknown devices?"]},
+  { id:"work", name:"Work", icon:"\u{1F4BC}", why:"A compromised work account is a career event — confidential data and your professional reputation.", risk:"high",
+    accounts:[
+      {name:"Employer SSO / Okta",hasMoney:false},
+      {name:"GitHub",hasMoney:false,url:"https://github.com/settings/security"},
+      {name:"GitLab",hasMoney:false,url:"https://gitlab.com/-/profile/account"},
+      {name:"Company email",hasMoney:false}],
+    checks:["Is the password unique from personal accounts?","Is 2FA enforced?","Would you know if someone accessed it from a new device?"]},
+  { id:"government", name:"Government", icon:"\u{1F3DB}\u{FE0F}", why:"These hold your legal identity — SSN, tax records, benefits. Compromise here is identity theft in the original sense.", risk:"high",
+    accounts:[
+      {name:"SSA (my Social Security)",hasMoney:true,url:"https://www.ssa.gov/myaccount/"},
+      {name:"IRS (tax account)",hasMoney:true,url:"https://www.irs.gov/payments/your-online-account"},
+      {name:"State DMV",hasMoney:false},
+      {name:"Healthcare portal",hasMoney:false,url:"https://www.healthcare.gov/login/"},
+      {name:"Student loan servicer",hasMoney:true,url:"https://studentaid.gov/fsa-id/sign-in/landing"}],
+    checks:["Is the account registered at all?","Is 2FA enabled?","Have you frozen your credit with all three bureaus?","When did you last check for activity?"]}
+];
+
+var MESSAGES = [
+  { id:1, type:"email", from:"no-reply@google-security-alert.com", subject:"Urgent: Your Google Account has been compromised",
+    body:"We detected unauthorized access to your Google Account from an unrecognized device in Lagos, Nigeria. Your account will be suspended within 24 hours unless you verify your identity immediately. Click below to secure your account now.",
+    answer:"pretext", tells:["Domain is google-security-alert.com, not google.com","Threatens suspension with a 24-hour deadline","Geographic scare tactic designed to trigger panic"], difficulty:"easy", category:"fake-security-alert",
+    verify:{url:"https://support.google.com/mail/answer/8253",label:"Google: how to identify phishing"} },
+  { id:2, type:"email", from:"account-security-noreply@accountprotection.microsoft.com", subject:"Unusual sign-in activity",
+    body:"We detected something unusual about a recent sign-in to your Microsoft account. Sign-in details: Country/region: United States, IP address: 104.47.58.xxx, Date: Today at 3:42 PM, Platform: Windows. If this was you, you can ignore this message.",
+    answer:"genuine", tells:["accountprotection.microsoft.com IS a real Microsoft domain","Does NOT demand action or threaten suspension","Provides specific verifiable sign-in details","Offers a calm 'if this was you, ignore this' option"], difficulty:"hard", category:"unusual-login-alert",
+    verify:{url:"https://support.microsoft.com/en-us/account-billing/how-to-recognize-phishing-email-messages-telephone-calls-and-text-messages-71e68b4d-8ef4-4a11-9621-6a707a9a3282",label:"Microsoft: real vs fake emails"} },
+  { id:3, type:"sms", from:"72255", subject:null,
+    body:"Your Apple ID has been locked for security reasons. Verify your identity to restore access: https://appleid-verify.support-apple.com/restore",
+    answer:"pretext", tells:["Domain is support-apple.com, not apple.com (real is iforgot.apple.com)","Apple sends push notifications, not SMS with links","72255 is not an Apple short code (Apple uses 27753)"], difficulty:"easy", category:"fake-account-lockout",
+    verify:{url:"https://support.apple.com/en-us/102568",label:"Apple: identify legitimate emails"} },
+  { id:4, type:"call", from:"+1 (800) 275-2273", subject:null,
+    body:"\"Hi, this is Sarah from Apple Support. We're seeing unusual activity on your iCloud account and I need to verify your identity. Can you confirm the six-digit code that was just sent to your device? I'll wait while you check.\"",
+    answer:"pretext", tells:["Asks you to read back a 2FA code — Apple will NEVER ask for your verification code","The code was triggered by the attacker starting a password reset","Caller ID can be spoofed — the real Apple number appearing proves nothing"], difficulty:"medium", category:"fake-2fa-request",
+    verify:{url:"https://support.apple.com/en-us/102568",label:"Apple: identify legitimate contacts"} },
+  { id:5, type:"email", from:"noreply@accounts.google.com", subject:"Your password was just changed",
+    body:"Hi, the password for your Google Account was just changed. If you made this change, no further action is needed. If you didn't change your password, your account may be compromised. Review your account activity and secure your account.",
+    answer:"genuine", tells:["noreply@accounts.google.com IS the real Google notification address","Plain factual language, no threats, no countdown","Offers 'if you made this change, no action needed'","Does not embed a link — directs you to go to settings yourself"], difficulty:"hard", category:"password-change-confirmation",
+    verify:{url:"https://support.google.com/mail/answer/8253",label:"Google: verify sender addresses"} },
+  { id:6, type:"chat", from:"IT-Support-Desk (via Slack)", subject:null,
+    body:"Hi! We're migrating our email system to a new provider this weekend. Please reply with your current email password so we can pre-provision your account on the new system. This needs to be done by end of day Friday.",
+    answer:"pretext", tells:["No IT department will ever ask for your password — over chat or at all","Artificial end-of-day deadline creates urgency","Real migrations use SSO or admin-side transfer, never user-submitted passwords"], difficulty:"easy", category:"fake-it-support" },
+  { id:7, type:"sms", from:"T-Mobile", subject:null,
+    body:"T-Mobile: A SIM change was requested for your account. If you did not request this, call 611 from your T-Mobile phone or 1-800-937-8997 immediately.",
+    answer:"genuine", tells:["Directs you to call from YOUR phone or the official published number","611 is the real T-Mobile customer service short code","1-800-937-8997 is T-Mobile's real, publicly verifiable support line","Does not include any URL or ask you to click anything"], difficulty:"hard", category:"sim-change-alert",
+    verify:{url:"https://www.t-mobile.com/support/account/t-mobile-scam-and-fraud",label:"T-Mobile: real alerts vs scams"} },
+  { id:8, type:"email", from:"security@paypa1.com", subject:"Action Required: Confirm your identity",
+    body:"We've noticed unusual activity on your PayPal account. Verify your identity within 48 hours by clicking the link below. Failure to verify will result in permanent account limitation.",
+    answer:"pretext", tells:["Domain is paypa1.com (digit 1) not paypal.com (letter L)","Threatens 'permanent account limitation' with a deadline","'Action Required' subject line is a common phishing pattern"], difficulty:"medium", category:"fake-verification-request",
+    verify:{url:"https://www.paypal.com/us/security/learn/identify-phishing",label:"PayPal: spot fake emails"} },
+  { id:9, type:"push", from:"Instagram", subject:null,
+    body:"We noticed a login from a device we don't recognize. Was this you? If not, we recommend changing your password. Tap to review your login activity.",
+    answer:"genuine", tells:["Push notification from the app itself, not an SMS or email","Tapping opens the app directly, not a browser URL","Calm language, no threats, no deadline","Recommends changing password rather than demanding it"], difficulty:"medium", category:"login-activity-alert",
+    verify:{url:"https://help.instagram.com/272476913344404",label:"Instagram: emails from Instagram"} },
+  { id:10, type:"email", from:"verify@chase.com", subject:"Verify your identity — new security requirements",
+    body:"Due to updated federal banking regulations, all Chase customers are required to re-verify their identity by uploading a photo of their driver's license. Please complete verification within 5 business days.",
+    answer:"pretext", tells:["Banks do not ask customers to upload government ID via email links","Vague 'updated federal banking regulations' without naming the actual regulation","verify@chase.com is not a real Chase sending address","Real KYC happens at account opening or in-branch"], difficulty:"medium", category:"fake-verification-request",
+    verify:{url:"https://www.chase.com/digital/resources/privacy-security/security/report-fraud",label:"Chase: report suspicious emails"} },
+  { id:11, type:"sms", from:"346-23", subject:null,
+    body:"Your Amazon account has been placed on hold. We detected unauthorized purchase attempts. Verify now to restore access: amzn.co/verify-act",
+    answer:"pretext", tells:["amzn.co is not a real Amazon short URL — Amazon uses amzn.to","Amazon communicates holds through the app and email, not SMS links","Generic short code 346-23 is not Amazon-verified"], difficulty:"medium", category:"fake-account-lockout",
+    verify:{url:"https://www.amazon.com/gp/help/customer/display.html?nodeId=G4YFYCCNUSENA23B",label:"Amazon: identify phishing"} },
+  { id:12, type:"call", from:"+1 (555) 012-3456", subject:null,
+    body:"\"Hello, I'm calling from Verizon's fraud department. Someone has requested a port of your phone number to another carrier. Before I can block the transfer I need to verify your identity. Can you tell me the last four digits of your Social Security number and your account PIN?\"",
+    answer:"pretext", tells:["Asks for SSN digits and account PIN — real fraud departments verify YOU, not the other way","Creates urgency with an active port-out to rush you","Real carriers tell you to call back at the number on your bill","If a real port-out were happening, they would freeze it and ask you to visit a store"], difficulty:"easy", category:"sim-swap-social-engineering",
+    verify:{url:"https://www.verizon.com/about/account-security/fraud-awareness",label:"Verizon: fraud awareness"} }
+];
+
+function field(path, opts) {
+  var v = esc(val(path));
+  var h = '<div class="field"><label class="field-label">' + opts.label;
+  if (opts.hint) h += ' <span class="field-hint">' + opts.hint + '</span>';
+  h += '</label>';
+  if (opts.multi) h += '<textarea data-path="' + path + '" rows="' + (opts.rows||3) + '" placeholder="' + esc(opts.placeholder||"") + '">' + v + '</textarea>';
+  else h += '<input type="text" data-path="' + path + '" value="' + v + '" placeholder="' + esc(opts.placeholder||"") + '">';
+  h += '</div>';
+  return h;
+}
+
+function checkbox(path, label) {
+  return '<li><label><input type="checkbox" data-check="' + path + '"' + (val(path)==="1" ? " checked" : "") + '> ' + label + '</label></li>';
+}
+
+function radioGroup(path, options) {
+  var cur = val(path), h = '<div class="radio-group">';
+  for (var i = 0; i < options.length; i++)
+    h += '<label><input type="radio" name="' + path + '" value="' + options[i].value + '"' + (cur===options[i].value ? ' checked' : '') + '><span>' + options[i].label + '</span></label>';
+  return h + '</div>';
+}
+
+function stationComplete(id) {
+  if (id === "map") { var c = 0; ACCOUNT_CATEGORIES.forEach(function(cat){ cat.accounts.forEach(function(a){ if(val("acct_"+cat.id+"_"+a.name)==="1") c++; }); }); return c >= 5; }
+  if (id === "passwords") { return !!val("pw_breached_count") && !!val("pw_changed_count"); }
+  if (id === "recovery") { return !!val("rec1_account") && !!val("rec1_weakest"); }
+  if (id === "rebuild") { return val("rebuild_sms")==="1" && val("rebuild_codes")==="1" && val("rebuild_second")==="1"; }
+  if (id === "cleanup") { return val("freeze_equifax")==="1" && val("freeze_experian")==="1" && val("freeze_transunion")==="1"; }
+  if (id === "pretexts") { var done = 0; MESSAGES.forEach(function(m){ if(val("msg"+m.id+"_verdict")) done++; }); return done >= 8; }
+  return false;
+}
+
+function renderNav() {
+  var h = "";
+  for (var i = 0; i < STATIONS.length; i++) {
+    var s = STATIONS[i], cls = "navitem";
+    if (i === current) cls += " active";
+    if (stationComplete(s.id)) cls += " done";
+    h += '<button class="' + cls + '" data-i="' + i + '"><span class="ico">' + s.icon + '</span><span>' + s.title + '</span><span class="tick">✓</span></button>';
+  }
+  document.getElementById("nav").innerHTML = h;
+}
+function updateNav() { renderNav(); }
+
+function getCustomAccounts(catId) {
+  try { return JSON.parse(val("custom_" + catId) || "[]"); } catch(e) { return []; }
+}
+function addCustomAccount(catId) {
+  var input = document.getElementById("add_" + catId);
+  if (!input || !input.value.trim()) return;
+  var list = getCustomAccounts(catId);
+  list.push(input.value.trim());
+  set("custom_" + catId, JSON.stringify(list));
+  render();
+}
+function removeCustomAccount(catId, idx) {
+  var list = getCustomAccounts(catId);
+  list.splice(idx, 1);
+  set("custom_" + catId, JSON.stringify(list));
+  render();
+}
+
+function renderMap() {
+  var h = '<div class="station"><div class="eyebrow">Station 1</div><h2 class="stn-title">Account Map</h2>'
+    + '<p class="stn-lede">Check every account you have. <b>The ones you forgot about are the ones that get compromised.</b> Mark which ones have your money. Add any accounts the list misses.</p>';
+  for (var c = 0; c < ACCOUNT_CATEGORIES.length; c++) {
+    var cat = ACCOUNT_CATEGORIES[c];
+    h += '<div class="cat-header"><span class="cat-icon">' + cat.icon + '</span><h3>' + cat.name + '</h3>'
+       + '<span class="risk risk-' + cat.risk + '">' + cat.risk + ' risk</span></div>'
+       + '<p class="cat-why">' + cat.why + '</p>';
+    for (var a = 0; a < cat.accounts.length; a++) {
+      var acct = cat.accounts[a], pk = "acct_" + cat.id + "_" + acct.name;
+      var cpk = "pwcomp_" + cat.id + "_" + acct.name, lpk = "logins_" + cat.id + "_" + acct.name, bpk = "breach_" + cat.id + "_" + acct.name, rpk = "reset_" + cat.id + "_" + acct.name;
+      h += '<div class="acct-row"><label><input type="checkbox" data-check="' + pk + '"' + (val(pk)==="1" ? " checked" : "") + '> ' + esc(acct.name) + '</label>'
+         + (acct.url ? '<a href="' + acct.url + '" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap">Security ↗</a>' : '')
+         + (acct.hasMoney ? '<span class="money">$ payment info</span>' : '')
+         + '<label style="font-size:11px;color:var(--amber);display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap" title="Checked password against breach databases (haveibeenpwned.com)"><input type="checkbox" data-check="' + cpk + '"' + (val(cpk)==="1" ? " checked" : "") + ' style="accent-color:var(--amber)"> <span>pw verified compromised</span></label>'
+         + '<label style="font-size:11px;color:var(--sky);display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap" title="Reviewed login history for unrecognized devices or locations"><input type="checkbox" data-check="' + lpk + '"' + (val(lpk)==="1" ? " checked" : "") + ' style="accent-color:var(--sky)"> <span>logins reviewed</span></label>'
+         + '<label style="font-size:11px;color:var(--red);display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap" title="Found unrecognized logins — someone else accessed this account"><input type="checkbox" data-check="' + bpk + '"' + (val(bpk)==="1" ? " checked" : "") + ' style="accent-color:var(--red)"> <span>breached</span></label>'
+         + '<label style="font-size:11px;color:var(--green);display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap"><input type="checkbox" data-check="' + rpk + '"' + (val(rpk)==="1" ? " checked" : "") + ' style="accent-color:var(--green)"> <span>password reset</span></label>'
+         + '</div>';
+    }
+    var custom = getCustomAccounts(cat.id);
+    for (var x = 0; x < custom.length; x++) {
+      var cpk = "acct_" + cat.id + "_custom_" + x;
+      h += '<div class="acct-row"><label><input type="checkbox" data-check="' + cpk + '"' + (val(cpk)==="1" ? " checked" : "") + '> ' + esc(custom[x]) + '</label>'
+         + '<button type="button" data-remove-cat="' + cat.id + '" data-remove-idx="' + x + '" style="font-size:11px;color:var(--dim);background:none;border:none;cursor:pointer;padding:2px 6px" title="Remove">✕</button></div>';
+    }
+    h += '<div class="acct-row" style="margin-top:4px"><input type="text" id="add_' + cat.id + '" placeholder="Add another account..." style="flex:1;font-size:13px;padding:6px 10px">'
+       + '<button type="button" data-add-cat="' + cat.id + '" style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:6px 12px;border:1px solid var(--line);background:var(--panel);color:var(--mut);border-radius:7px;cursor:pointer;white-space:nowrap">+ Add</button></div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function renderPasswords() {
+  var h = '<div class="station"><div class="eyebrow">Station 2</div><h2 class="stn-title">Password Health</h2>'
+    + '<p class="stn-lede">Open your password manager. Find the breach warnings. <b>Change the worst ones right now</b>, starting with email and anything that holds money.</p>'
+    + '<div class="card green"><h3>Password manager setup</h3>'
+    + '<ul class="checklist">'
+    + checkbox("pw_has_manager", "I have a password manager installed and working")
+    + checkbox("pw_email_unique", "My email password is unique (not reused anywhere)")
+    + checkbox("pw_bank_unique", "My bank password is unique")
+    + checkbox("pw_no_reuse_critical", "No critical account shares a password with any other account")
+    + checkbox("pw_admin_clean", "My computer admin/login password is not in a known breach (check it at <a href='https://haveibeenpwned.com/Passwords' target='_blank' rel='noopener'>haveibeenpwned.com/Passwords</a>)")
+    + '</ul></div>'
+    + '<div class="card blue"><h3>Correct Horse Battery Staple</h3>'
+    + '<div class="hint">For passwords you need to type from memory — bank, email, laptop login — use a <b>passphrase</b>: four or more random words. Longer than any "complex" password, and you can actually remember it.</div>'
+    + '<div style="text-align:center;margin:16px 0"><img src="xkcd_936_password_strength.png" alt="xkcd #936: Password Strength — through 20 years of effort, we have successfully trained everyone to use passwords that are hard for humans to remember, but easy for computers to guess" style="max-width:100%;border-radius:var(--r);border:1px solid var(--line)"></div>'
+    + '<div style="font-size:11px;color:var(--dim);text-align:center;margin:-8px 0 12px"><a href="https://xkcd.com/936/" target="_blank" rel="noopener">xkcd #936</a> by Randall Munroe · <a href="https://creativecommons.org/licenses/by-nc/2.5/" target="_blank" rel="noopener">CC BY-NC 2.5</a></div>'
+    + '<a href="https://www.correcthorsebatterystaple.net/index.html" target="_blank" rel="noopener" style="display:block;text-align:center;padding:12px 20px;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--r);color:var(--amber-ink);font-family:var(--mono);font-size:14px;letter-spacing:.04em;text-decoration:none;margin:8px 0">Generate a passphrase ↗</a>'
+    + '<div class="hint" style="margin-top:10px">Use this for the 2-3 passwords you actually type. Everything else: let the password manager generate a random 20+ character string you never need to know.</div>'
+    + '</div>'
+    + '<div class="card accent"><h3>Where to find breach warnings</h3><div class="hint">Every password manager has a health report:</div>'
+    + '<ul class="checklist">'
+    + '<li><label><a href="https://my.1password.com/watchtower" target="_blank" rel="noopener">1Password → Watchtower</a></label></li>'
+    + '<li><label><a href="https://vault.bitwarden.com/#/reports/exposed-passwords" target="_blank" rel="noopener">Bitwarden → Exposed Passwords Report</a></label></li>'
+    + '<li><label><a href="https://passwords.google.com/checkup" target="_blank" rel="noopener">Chrome / Google → Password Checkup</a></label></li>'
+    + '<li><label>iCloud Keychain → System Settings → Passwords → Security Recommendations</label></li>'
+    + '<li><label>Firefox → about:logins → Alerts</label></li>'
+    + '<li><label><a href="https://haveibeenpwned.com/" target="_blank" rel="noopener">Have I Been Pwned</a> — check any email for known breaches</label></li>'
+    + '</ul></div>'
+    + '<div class="card red"><h3>Your password health</h3>'
+    + field("pw_breached_count", { label: "Breached passwords found", placeholder: "e.g. 7" })
+    + field("pw_reused_count", { label: "Reused passwords found", placeholder: "e.g. 12" })
+    + field("pw_changed_count", { label: "Passwords changed tonight", placeholder: "e.g. 4" })
+    + field("pw_changed_list", { label: "Which ones did you change?", hint: "most critical first", multi: true, rows: 4, placeholder: "1. Gmail\n2. Chase bank\n3. PayPal\n4. Amazon" })
+    + '</div>'
+    + '</div></div>';
+  return h;
+}
+
+function renderRecovery() {
+  var h = '<div class="station"><div class="eyebrow">Station 3</div><h2 class="stn-title">Recovery Audit</h2>'
+    + '<p class="stn-lede">Open "Forgot password" on your critical accounts and <b>map the recovery chain without completing it</b>. Find where SMS is the only path.</p>'
+    + '<div class="alert"><b>Do not lock yourself out.</b> You are mapping the path, not walking it. Stop before the final "Reset password" button.</div>'
+    + '<div class="card blue"><h3>Direct links to security settings</h3>'
+    + '<div class="hint">Open the one you use and check your recovery method right now.</div>'
+    + '<ul class="checklist" style="columns:2;column-gap:20px">'
+    + '<li><label><a href="https://myaccount.google.com/security" target="_blank" rel="noopener">Google Account Security</a></label></li>'
+    + '<li><label><a href="https://account.live.com/proofs/manage" target="_blank" rel="noopener">Microsoft Account Security</a></label></li>'
+    + '<li><label><a href="https://appleid.apple.com/account/manage" target="_blank" rel="noopener">Apple ID Settings</a></label></li>'
+    + '<li><label><a href="https://www.facebook.com/settings?tab=security" target="_blank" rel="noopener">Facebook Security</a></label></li>'
+    + '<li><label><a href="https://www.instagram.com/accounts/login_activity/" target="_blank" rel="noopener">Instagram Login Activity</a></label></li>'
+    + '<li><label><a href="https://twitter.com/settings/security" target="_blank" rel="noopener">X / Twitter Security</a></label></li>'
+    + '<li><label><a href="https://www.amazon.com/gp/css/account/info/ref=ya_manage_login_and_security" target="_blank" rel="noopener">Amazon Login &amp; Security</a></label></li>'
+    + '<li><label><a href="https://www.paypal.com/myaccount/settings/security" target="_blank" rel="noopener">PayPal Security</a></label></li>'
+    + '<li><label><a href="https://github.com/settings/security" target="_blank" rel="noopener">GitHub Security</a></label></li>'
+    + '<li><label><a href="https://discord.com/settings/account" target="_blank" rel="noopener">Discord Account</a></label></li>'
+    + '</ul></div>';
+  for (var i = 1; i <= 3; i++) {
+    h += '<div class="card' + (i===1 ? " accent" : "") + '"><h3>Account ' + i + (i===1 ? " — start with email" : "") + '</h3>'
+       + field("rec"+i+"_account", { label: "Account", placeholder: "e.g. Gmail" })
+       + field("rec"+i+"_chain", { label: "Recovery chain", hint: "the steps in order", multi: true, rows: 3, placeholder: "Step 1: asks for phone number\nStep 2: sends SMS code\nStep 3: asks security question" })
+       + field("rec"+i+"_weakest", { label: "Weakest link", hint: "which step could a stranger pass?", placeholder: "e.g. SMS code — a SIM swap defeats this" })
+       + field("rec"+i+"_fix", { label: "What to fix", placeholder: "e.g. add authenticator app, disable SMS recovery" })
+       + '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function renderRebuild() {
+  var h = '<div class="station"><div class="eyebrow">Station 4 · Scorecard 3</div><h2 class="stn-title">Rebuild</h2>'
+    + '<p class="stn-lede">Close the gaps. The test: <b>if you lost your phone tomorrow, could you get back in without SMS and without calling anyone?</b></p>'
+    + '<div class="card green"><h3>Recovery checklist</h3><div class="hint">Check each one as you complete it — tonight, not later.</div>'
+    + '<ul class="checklist">'
+    + checkbox("rebuild_sms", "SMS recovery disabled as sole recovery path on critical accounts")
+    + checkbox("rebuild_codes", "Backup codes printed and stored off-device (not on your phone, not in your cloud)")
+    + checkbox("rebuild_second", "Second recovery path configured (backup email on different provider, hardware key, or trusted contact)")
+    + checkbox("rebuild_auth", "Authenticator app set up and enabled on email + financial accounts")
+    + checkbox("rebuild_tested", "Tested: I can describe right now how I would recover my primary email if my phone AND laptop were both gone")
+    + '</ul></div>'
+    + '<div class="card accent"><h3>Where are your recovery codes?</h3>'
+    + '<div class="hint">Every service that offers 2FA gives you one-time backup codes. If you lose your phone, these are how you get back in. Write down where each set is stored — if you cannot say where they are, they do not exist.</div>'
+    + field("codes_email", { label: "Email (Gmail / Outlook / iCloud)", placeholder: "e.g. printed, in the fireproof box in the closet" })
+    + field("codes_bank", { label: "Bank / financial", placeholder: "e.g. not generated yet — need to do this" })
+    + field("codes_identity", { label: "Apple ID / Google Account", placeholder: "e.g. recovery key written on paper in desk drawer" })
+    + field("codes_social", { label: "Social media", placeholder: "e.g. Instagram codes in password manager, others not set up" })
+    + field("codes_work", { label: "Work / GitHub", placeholder: "e.g. SSH keys on USB drive, GitHub codes printed" })
+    + '</div>'
+    + '<div class="card blue"><h3>Backup authenticator: use an old phone</h3>'
+    + '<div class="hint">Your authenticator app is on your phone. If your phone dies, you are locked out of every account that uses it — unless you have a second device with the same codes. <b>An old phone on WiFi (no SIM needed) is a perfect backup authenticator.</b></div>'
+    + '<ul class="checklist">'
+    + checkbox("backup_phone_have", "I have an old phone I can use as a backup authenticator")
+    + checkbox("backup_phone_off", "Old phone is kept OFF and stored safely — turn it on only when you need to recover an account")
+    + checkbox("backup_phone_app", "Authenticator app installed on the old phone (Google Authenticator, Authy, or 1Password)")
+    + checkbox("backup_phone_codes", "Critical accounts scanned on BOTH phones (primary + backup)")
+    + '</ul>'
+    + '<div class="hint" style="margin-top:12px"><b>How to set up:</b> When you enable 2FA on an account, it shows a QR code. Open the authenticator app on <i>both</i> phones and scan the same QR code on each. Both phones now generate the same codes — TOTP codes are time-based and do not need a network connection, so the old phone works even powered off and disconnected. Turn it on only when you need a code. If you already set up 2FA and lost the QR: disable 2FA on the account, re-enable it, and scan the new QR on both devices. <b>Do not leave the old phone on WiFi</b> — if someone gets lateral movement on your network, a powered-on device with your authenticator codes is a target. Keep it off, stored safely, and power it up only to recover.</div>'
+    + '</div>'
+    + '<div class="card accent"><h3>What I changed tonight</h3>'
+    + field("rebuild_changes", { label: "Changes made", multi: true, rows: 4, placeholder: "1. Disabled SMS recovery on Gmail\n2. Printed 10 backup codes, stored in desk drawer\n3. Added recovery email on ProtonMail\n4. Enabled authenticator app on banking" })
+    + field("rebuild_remaining", { label: "Still to do", hint: "what could not be done tonight?", multi: true, rows: 2, placeholder: "e.g. order hardware key, update work accounts" })
+    + '</div>'
+    + '<div class="scorecard"><h3>Scorecard 3 · Configure recovery that survives losing the device</h3>'
+    + '<div class="req">Recovery codes printed off-device. SMS disabled as sole recovery. A second recovery path configured.</div>'
+    + '<div class="status ' + (stationComplete("rebuild") ? "pass" : "incomplete") + '">'
+    + (stationComplete("rebuild") ? "✓ Complete — recovery hardened" : "Incomplete — check the three required items above")
+    + '</div></div></div>';
+  return h;
+}
+
+function renderCleanup() {
+  var h = '<div class="station"><div class="eyebrow">Station 5</div><h2 class="stn-title">Data Cleanup</h2>'
+    + '<p class="stn-lede">Your accounts are secured. Now reduce the attack surface: <b>freeze your credit, remove yourself from data brokers, and close accounts you no longer use.</b></p>'
+    + '<div style="padding:12px 16px;border-radius:var(--r);background:var(--panel2);border:1px solid var(--line);font-size:13px;color:var(--mut);margin-bottom:18px">'
+    + 'The Multiverse School is sponsored by <a href="https://joindeleteme.com/MULTIVERSE" target="_blank" rel="noopener">DeleteMe</a>. When you use their service, it helps continue their $5,000/month sponsorship which pays the rest of the team that makes this whole thing possible.'
+    + '</div>'
+    + '<div class="card red"><h3>Credit freeze</h3>'
+    + '<div class="hint">A credit freeze is free, takes five minutes per bureau, and prevents anyone from opening credit in your name. The only friction: you temporarily unfreeze (also free, takes effect within an hour) when you apply for a mortgage, credit card, car loan, or apartment.</div>'
+    + '<ul class="checklist">'
+    + checkbox("freeze_equifax", '<a href="https://www.equifax.com/personal/credit-report-services/credit-freeze/" target="_blank" rel="noopener">Equifax</a> — frozen')
+    + checkbox("freeze_experian", '<a href="https://www.experian.com/freeze/center.html" target="_blank" rel="noopener">Experian</a> — frozen')
+    + checkbox("freeze_transunion", '<a href="https://www.transunion.com/credit-freeze" target="_blank" rel="noopener">TransUnion</a> — frozen')
+    + checkbox("freeze_innovis", '<a href="https://www.innovis.com/personal/securityFreeze" target="_blank" rel="noopener">Innovis</a> — frozen (the fourth bureau most people miss)')
+    + checkbox("freeze_chex", '<a href="https://www.chexsystems.com/security-freeze" target="_blank" rel="noopener">ChexSystems</a> — frozen (prevents fraudulent bank accounts)')
+    + checkbox("freeze_pins", "PINs for all bureaus printed and stored with my backup codes")
+    + '</ul></div>'
+    + '<div class="card accent"><h3>Data broker removal</h3>'
+    + '<div class="hint">Data brokers sell your name, address, phone number, and relatives to anyone who searches. Removing yourself is free but tedious — each broker has its own opt-out page. Start with the biggest ones tonight.</div>'
+    + '<ul class="checklist">'
+    + checkbox("broker_spokeo", '<a href="https://www.spokeo.com/optout" target="_blank" rel="noopener">Spokeo</a> — opt-out submitted')
+    + checkbox("broker_whitepages", '<a href="https://www.whitepages.com/suppression-requests" target="_blank" rel="noopener">Whitepages</a> — opt-out submitted')
+    + checkbox("broker_beenverified", '<a href="https://www.beenverified.com/faq/opt-out/" target="_blank" rel="noopener">BeenVerified</a> — opt-out submitted')
+    + checkbox("broker_intelius", '<a href="https://www.intelius.com/opt-out" target="_blank" rel="noopener">Intelius</a> — opt-out submitted')
+    + checkbox("broker_truepeoplesearch", '<a href="https://www.truepeoplesearch.com/removal" target="_blank" rel="noopener">TruePeopleSearch</a> — opt-out submitted')
+    + checkbox("broker_fastpeoplesearch", '<a href="https://www.fastpeoplesearch.com/removal" target="_blank" rel="noopener">FastPeopleSearch</a> — opt-out submitted')
+    + checkbox("broker_cadrop", '<a href="https://privacy.ca.gov/drop/" target="_blank" rel="noopener">California DELETE Act (DROP)</a> — submitted request to delete personal info from data brokers')
+    + checkbox("broker_gdpr", '<a href="https://www.datarequests.org/generator/" target="_blank" rel="noopener">GDPR Erasure Request Generator</a> — EU/UK right to erasure (Article 17) — generates ready-to-send deletion requests')
+    + checkbox("broker_gdpr_google", '<a href="https://support.google.com/websearch/troubleshooter/9685456" target="_blank" rel="noopener">Google Results About You</a> — request removal of personal info from Google Search results')
+    + '</ul>'
+    + '<div class="hint" style="margin-top:12px"><b>Ongoing:</b> Brokers re-add you from public records. Check back every 3–6 months, or use a paid removal service to monitor and re-remove automatically. <a href="https://joindeleteme.com/MULTIVERSE" target="_blank" rel="noopener">DeleteMe</a> is the one we use and recommend — <i>The Multiverse School is sponsored by DeleteMe; using this link supports the school.</i></div>'
+    + '</div>'
+    + '<div class="card green"><h3>Close unused accounts</h3>'
+    + '<div class="hint">Every account you do not use is an unmonitored attack surface. If you have not logged in for a year, close it. The fewer accounts exist, the fewer can be compromised.</div>'
+    + field("cleanup_closed", { label: "Accounts closed tonight", multi: true, rows: 3, placeholder: "e.g. old Yahoo Mail, MySpace, unused Spotify" })
+    + field("cleanup_to_close", { label: "Accounts to close later", hint: "ones that need more steps", multi: true, rows: 2, placeholder: "e.g. old bank account (need to call), abandoned LinkedIn" })
+    + '</div>'
+    + '<div class="card blue"><h3>Google privacy checkup</h3>'
+    + '<div class="hint">Google knows more about you than any other single company. Their privacy checkup lets you see and limit what they store.</div>'
+    + '<ul class="checklist">'
+    + checkbox("google_privacy", '<a href="https://myaccount.google.com/privacycheckup" target="_blank" rel="noopener">Google Privacy Checkup</a> — reviewed')
+    + checkbox("google_activity", '<a href="https://myaccount.google.com/activitycontrols" target="_blank" rel="noopener">Activity Controls</a> — reviewed (location history, web &amp; app activity, YouTube history)')
+    + checkbox("google_data", '<a href="https://myaccount.google.com/data-and-privacy" target="_blank" rel="noopener">Data &amp; Privacy</a> — reviewed what Google has stored')
+    + '</ul></div>'
+    + '<div class="card accent"><h3>Privacy audit: what is public?</h3>'
+    + '<div class="hint">Each platform has a privacy or security center that shows what information is visible to strangers. Open each one you use and check what is set to "public" — your name, photo, email, phone, location, friends list, posts.</div>'
+    + '<ul class="checklist">'
+    + checkbox("priv_fb", '<a href="https://www.facebook.com/settings?tab=privacy" target="_blank" rel="noopener">Facebook Privacy Settings</a> — reviewed who can see my posts, friends list, phone, email')
+    + checkbox("priv_ig", '<a href="https://www.instagram.com/accounts/privacy_and_security/" target="_blank" rel="noopener">Instagram Privacy</a> — reviewed (account public or private, story sharing, activity status)')
+    + checkbox("priv_twitter", '<a href="https://twitter.com/settings/audience_and_tagging" target="_blank" rel="noopener">X / Twitter Privacy</a> — reviewed (protect tweets, discoverability by email/phone)')
+    + checkbox("priv_linkedin", '<a href="https://www.linkedin.com/psettings/privacy" target="_blank" rel="noopener">LinkedIn Privacy</a> — reviewed (profile visibility, email visibility, connections list)')
+    + checkbox("priv_tiktok", '<a href="https://www.tiktok.com/setting/privacy" target="_blank" rel="noopener">TikTok Privacy</a> — reviewed (private account, who can message, who can duet)')
+    + checkbox("priv_google", '<a href="https://myaccount.google.com/personal-info" target="_blank" rel="noopener">Google Personal Info</a> — reviewed what is shared publicly on your Google profile')
+    + checkbox("priv_venmo", '<a href="https://venmo.com/account/settings/privacy" target="_blank" rel="noopener">Venmo Privacy</a> — set transactions to private (default is public!)')
+    + '</ul>'
+    + '<div class="hint" style="margin-top:8px"><b>The worst offenders:</b> Venmo defaults all transactions to public. Facebook defaults your friends list to public. LinkedIn shows your connections to other logged-in users. These are the ones to fix first.</div>'
+    + '</div>'
+    + '</div>';
+  return h;
+}
+
+function renderBorder() {
+  var h = '<div class="station"><div class="eyebrow">Station 6</div><h2 class="stn-title">Border Crossing</h2>'
+    + '<p class="stn-lede">If your phone is searched at a border, everything on it is visible — your real accounts, your contacts, your messages. The defense is a <b>clean travel identity</b>: fresh accounts on the device, real ones recoverable from a separate email, and no trail connecting the two.</p>'
+    + '<div class="alert"><b>This is legal.</b> You are not obligated to carry your personal data across a border. Having a clean phone with minimal accounts is not deception — it is the same security practice journalists, lawyers, and activists use worldwide.</div>'
+    + '<div class="card accent"><h3>Step 1: Create a clean recovery email</h3>'
+    + '<div class="hint">This email exists only to receive password resets for your real accounts while traveling. It is not connected to your name, your phone number, or your daily email.</div>'
+    + '<ul class="checklist">'
+    + checkbox("border_recovery_email", "Created a new email on a different provider (e.g. ProtonMail, Tutanota) — not linked to my real name or phone")
+    + checkbox("border_recovery_2fa", "2FA enabled on the recovery email with a memorized password — no authenticator app needed")
+    + checkbox("border_recovery_no_contacts", "No contacts imported, no profile photo, no signature")
+    + '</ul>'
+    + field("border_recovery_addr", { label: "Clean recovery email address", hint: "write it down separately, do not save it on your phone", placeholder: "e.g. the address you created" })
+    + '</div>'
+    + '<div class="card blue"><h3>Step 2: Create clean social accounts</h3>'
+    + '<div class="hint">Fresh accounts with minimal content. These are what appear on your phone if it is inspected. Your real accounts are logged out and recoverable through the clean email.</div>'
+    + '<ul class="checklist">'
+    + checkbox("border_fb", "Created a clean Facebook account — minimal friends, no posts, generic profile")
+    + checkbox("border_ig", "Created a clean Instagram account — empty or a few innocuous posts")
+    + checkbox("border_x", "Created a clean X / Twitter account (if needed)")
+    + checkbox("border_messaging", "Clean messaging app installed (Signal or WhatsApp with the clean number or email)")
+    + '</ul>'
+    + '<div class="hint" style="margin-top:8px"><b>Key:</b> These accounts use the clean recovery email, not your real one. A border search sees a phone with social accounts that look normal but contain nothing sensitive.</div>'
+    + '</div>'
+    + '<div class="card red"><h3>Step 3: Prepare your real accounts for recovery</h3>'
+    + '<div class="hint">Before you travel, add the clean recovery email as a backup recovery method on your real accounts. Then log out of everything real on the travel device.</div>'
+    + '<ul class="checklist">'
+    + checkbox("border_real_recovery", "Added clean recovery email as backup on my real Gmail / Outlook / iCloud")
+    + checkbox("border_logged_out", "Logged out of ALL real accounts on the travel device")
+    + checkbox("border_apps_removed", "Removed real account apps or switched to clean accounts in them")
+    + checkbox("border_browser_clean", "Browser history cleared, no saved passwords for real accounts on this device")
+    + '</ul>'
+    + '</div>'
+    + '<div class="card green"><h3>Step 4: Clean the trail</h3>'
+    + '<div class="hint">The connection between your clean identity and your real identity must not be visible on the device. These are the traces people miss.</div>'
+    + '<ul class="checklist">'
+    + checkbox("border_no_reset_emails", "Deleted all password-reset and verification emails from the clean email inbox — these reveal which real accounts it can recover")
+    + checkbox("border_no_2fa_sms", "No SMS verification codes in the message history that tie to real accounts")
+    + checkbox("border_no_screenshots", "No screenshots of recovery codes, QR codes, or account settings in the photo library")
+    + checkbox("border_no_notes", "No notes app entries with passwords, recovery codes, or account lists")
+    + checkbox("border_no_pw_manager", "Password manager on the travel device either removed or contains only clean account entries")
+    + checkbox("border_no_email_trail", "Clean email sent/trash/spam folders emptied — not just inbox")
+    + '</ul>'
+    + '</div>'
+    + '<div class="card accent"><h3>Step 5: Recovery plan</h3>'
+    + '<div class="hint">Once you are through the border, you need to get back into your real accounts. Write down the plan before you travel.</div>'
+    + field("border_plan", { label: "My recovery plan", multi: true, rows: 4, placeholder: "1. Connect to WiFi at destination\n2. Log into clean recovery email\n3. Reset password on real Gmail from clean email\n4. Re-download real apps and log in\n5. Remove clean recovery email as backup (optional)" })
+    + field("border_codes_location", { label: "Where are my real recovery codes while traveling?", hint: "not on the device", placeholder: "e.g. printed sheet in checked luggage, or memorized, or with a trusted contact at home" })
+    + '</div>'
+    + '</div>';
+  return h;
+}
+
+var MESSAGE_BANK = [
+  // --- FAKE: Account Lockout / Verification ---
+  { id:101, type:"email", from:"no-reply@google-security-alert.com", subject:"Urgent: Your Google Account has been compromised",
+    body:"We detected unauthorized access to your Google Account from an unrecognized device in Lagos, Nigeria. Your account will be suspended within 24 hours unless you verify your identity immediately.",
+    answer:"pretext", difficulty:"easy" },
+  { id:102, type:"sms", from:"72255",
+    body:"Your Apple ID has been locked for security reasons. Verify your identity to restore access: https://appleid-verify.support-apple.com/restore",
+    answer:"pretext", difficulty:"easy" },
+  { id:103, type:"email", from:"security@paypa1.com", subject:"Action Required: Confirm your identity",
+    body:"We've noticed unusual activity on your PayPal account. Verify your identity within 48 hours by clicking the link below. Failure to verify will result in permanent account limitation.",
+    answer:"pretext", difficulty:"medium" },
+  { id:104, type:"sms", from:"346-23",
+    body:"Your Amazon account has been placed on hold. We detected unauthorized purchase attempts. Verify now to restore access: amzn.co/verify-act",
+    answer:"pretext", difficulty:"medium" },
+  { id:105, type:"email", from:"verify@chase.com", subject:"Verify your identity - new security requirements",
+    body:"Due to updated federal banking regulations, all Chase customers are required to re-verify their identity by uploading a photo of their driver's license. Please complete verification within 5 business days.",
+    answer:"pretext", difficulty:"medium" },
+  { id:106, type:"sms", from:"WELLS FARGO",
+    body:"WellsFargo: Your account has been temporarily suspended due to failed verification. Restore access now: http://bit.ly/wf-verify-act",
+    answer:"pretext", difficulty:"easy" },
+  { id:107, type:"email", from:"account-verify@netflix-billing.com", subject:"Payment Failed - Update Required",
+    body:"We were unable to process your last payment. Your Netflix account will be suspended in 48 hours unless you update your billing information. Click here to update your payment method.",
+    answer:"pretext", difficulty:"medium" },
+  { id:108, type:"sms", from:"APPLE",
+    body:"Apple: Your Apple Pay has been suspended due to unusual activity. Please visit: http://bit.ly/apple-pay-restore to reactivate your wallet.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Password Reset / 2FA ---
+  { id:109, type:"call", from:"+1 (800) 275-2273",
+    body:"\"Hi, this is Sarah from Apple Support. We're seeing unusual activity on your iCloud account. Can you confirm the six-digit code that was just sent to your device? I'll wait while you check.\"",
+    answer:"pretext", difficulty:"medium" },
+  { id:110, type:"email", from:"noreply@microsoftonline-security.com", subject:"Password expiring in 24 hours",
+    body:"Your Microsoft 365 password will expire in 24 hours. To avoid losing access to your email and files, please update your password immediately by clicking the secure link below.",
+    answer:"pretext", difficulty:"medium" },
+  { id:111, type:"sms", from:"+1-555-0199",
+    body:"COINBASE: Unusual login detected from a new device. If this wasn't you, secure your account immediately: https://coinbase-security.verify-login.com",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: IT Support / CEO Fraud ---
+  { id:112, type:"chat", from:"IT-Support-Desk (via Slack)",
+    body:"Hi! We're migrating our email system to a new provider this weekend. Please reply with your current email password so we can pre-provision your account on the new system. This needs to be done by end of day Friday.",
+    answer:"pretext", difficulty:"easy" },
+  { id:113, type:"email", from:"ceo@company-name.net", subject:"Urgent - need your help",
+    body:"Hey, I'm in a meeting and can't talk. Can you buy five $200 Apple gift cards for a client appreciation event? Send me photos of the codes when done. I'll reimburse you today.",
+    answer:"pretext", difficulty:"easy" },
+  { id:114, type:"email", from:"hr-department@yourcompany-benefits.com", subject:"Annual benefits enrollment closing today",
+    body:"Your annual benefits enrollment window closes today at 5:00 PM. You have not yet confirmed your selections. Click here to review and confirm your health insurance and 401k choices before the deadline.",
+    answer:"pretext", difficulty:"hard" },
+
+  // --- FAKE: Delivery / Package ---
+  { id:115, type:"sms", from:"USPS",
+    body:"US Post: Your courier is stuck at the transit center. Fill in the delivery address and re-deliver: http://bit.ly/usps-redeliver",
+    answer:"pretext", difficulty:"easy" },
+  { id:116, type:"sms", from:"FedEx",
+    body:"FedEx: We attempted to deliver your package but no one was home. Schedule a redelivery or your package will be returned: http://bit.ly/fedex-schedule",
+    answer:"pretext", difficulty:"medium" },
+  { id:117, type:"email", from:"shipping@ups-notification.com", subject:"Your UPS shipment is on hold",
+    body:"Your package #1Z999AA10123456784 could not be delivered due to an incomplete address. A $1.99 redelivery fee is required. Please update your address and pay the fee to release your package.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Tax / Government ---
+  { id:118, type:"sms", from:"IRS",
+    body:"IRS: We've issued you a $258.44 tax refund for overpayments made this year. Check the details and claim: http://bit.ly/irs-refund-claim",
+    answer:"pretext", difficulty:"easy" },
+  { id:119, type:"email", from:"refund@irs-tax-refund.gov.com", subject:"Tax Refund Notification",
+    body:"After the last annual calculations of your fiscal activity, we determined that you are eligible for a tax refund of $1,247.00. Please submit the tax refund form to claim your refund.",
+    answer:"pretext", difficulty:"medium" },
+  { id:120, type:"sms", from:"SSA",
+    body:"Social Security Administration: Your SSN has been suspended due to suspicious activity. Call immediately to avoid arrest: +1-555-0134",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: SIM Swap / Carrier ---
+  { id:121, type:"call", from:"+1 (555) 012-3456",
+    body:"\"Hello, I'm calling from Verizon's fraud department. Someone has requested a port of your phone number. Before I can block it I need the last four digits of your Social Security number and your account PIN.\"",
+    answer:"pretext", difficulty:"easy" },
+  { id:122, type:"sms", from:"VODAFONE",
+    body:"VODAFONE: Your Mobile SIM Contract will be disabled due to failure to accept our new Terms of Service. Log on to accept: http://bit.ly/voda-tos",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Social Engineering / Wrong Number ---
+  { id:123, type:"sms", from:"+1-555-0177",
+    body:"I'm sorry to bother you, I read your profile on LinkedIn and I'd love to learn from industry experts like you. Would you be open to connecting over coffee?",
+    answer:"pretext", difficulty:"hard" },
+  { id:124, type:"sms", from:"+1-555-0188",
+    body:"Hi Mum, I smashed my phone and I'm using a friend's phone to message you. My phone is about to die. Could you message me on WhatsApp? My new number is +1-555-0123",
+    answer:"pretext", difficulty:"medium" },
+  { id:125, type:"email", from:"jane.smith.hr@gmail.com", subject:"Job Opportunity - Remote Position $85k-$120k",
+    body:"Hi, I found your resume on Indeed and think you'd be a great fit for our remote customer service role. The position pays $85k-$120k annually. Please reply with your full name, phone number, and address to proceed.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Invoice / Payment ---
+  { id:126, type:"email", from:"billing@geek-squad-renewal.com", subject:"Auto-Renewal Confirmation - $349.99",
+    body:"Your Geek Squad subscription has been auto-renewed for $349.99. If you did not authorize this charge, call our support team immediately at 1-888-555-0142 to request a full refund.",
+    answer:"pretext", difficulty:"medium" },
+  { id:127, type:"email", from:"invoice@docusign-notify.com", subject:"Document Ready for Signature",
+    body:"A document has been sent to you for electronic signature via DocuSign. Please review and sign the attached document within 3 business days. Click below to view the document.",
+    answer:"pretext", difficulty:"hard" },
+
+  // --- FAKE: Prize / Reward ---
+  { id:128, type:"sms", from:"REWARDS",
+    body:"Congratulations! You've been selected for a $500 Walmart gift card. Claim now before it expires: http://bit.ly/walmart-reward. Reply STOP to opt out.",
+    answer:"pretext", difficulty:"easy" },
+  { id:129, type:"email", from:"rewards@costco-members.com", subject:"Your Exclusive Member Reward",
+    body:"As a valued Costco member, you've been selected to receive an exclusive reward. Complete a short 30-second survey to claim your $75 reward. This offer expires today.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Crypto / Investment ---
+  { id:130, type:"sms", from:"+1-555-0199",
+    body:"Bitcoin Alert: Your wallet has received 0.37 BTC ($14,280). Verify and withdraw now: http://bit.ly/btc-withdraw. Unclaimed funds expire in 24h.",
+    answer:"pretext", difficulty:"easy" },
+
+  // ========= GENUINE (hard - these look suspicious but are real) =========
+
+  { id:201, type:"email", from:"account-security-noreply@accountprotection.microsoft.com", subject:"Unusual sign-in activity",
+    body:"We detected something unusual about a recent sign-in to your Microsoft account. Sign-in details: Country/region: United States, IP address: 104.47.58.xxx, Date: Today at 3:42 PM. If this was you, you can ignore this message.",
+    answer:"genuine", difficulty:"hard" },
+  { id:202, type:"email", from:"noreply@accounts.google.com", subject:"Your password was just changed",
+    body:"Hi, the password for your Google Account was just changed. If you made this change, no further action is needed. If you didn't change your password, review your account activity and secure your account.",
+    answer:"genuine", difficulty:"hard" },
+  { id:203, type:"sms", from:"T-Mobile",
+    body:"T-Mobile: A SIM change was requested for your account. If you did not request this, call 611 from your T-Mobile phone or 1-800-937-8997 immediately.",
+    answer:"genuine", difficulty:"hard" },
+  { id:204, type:"push", from:"Instagram",
+    body:"We noticed a login from a device we don't recognize. Was this you? If not, we recommend changing your password. Tap to review your login activity.",
+    answer:"genuine", difficulty:"medium" },
+  { id:205, type:"email", from:"no-reply@alertsp.chase.com", subject:"A sign-in to your account from a new device",
+    body:"We noticed a sign-in to your Chase account from a new device. If this was you, no action is needed. If you don't recognize this activity, please call us at the number on the back of your card.",
+    answer:"genuine", difficulty:"hard" },
+  { id:206, type:"sms", from:"Google",
+    body:"G-482910 is your Google verification code. Don't share this code with anyone. If you didn't request it, ignore this message.",
+    answer:"genuine", difficulty:"medium" },
+  { id:207, type:"email", from:"donotreply@myaccount.apple.com", subject:"Your Apple ID was used to sign in to iCloud",
+    body:"Your Apple ID was used to sign in to iCloud via a web browser. Date and Time: August 26, 2026. Operating System: Windows. If you recently signed in, no further action is required.",
+    answer:"genuine", difficulty:"hard" },
+  { id:208, type:"push", from:"PayPal",
+    body:"You sent $45.00 to John D. If you didn't make this payment, let us know right away in the PayPal app.",
+    answer:"genuine", difficulty:"medium" },
+  { id:209, type:"email", from:"noreply@github.com", subject:"[GitHub] A new sign-in from Chrome on macOS",
+    body:"Hey there! We noticed a new sign-in to your GitHub account. Browser: Chrome on macOS, Location: San Francisco, CA. If this was you, you can disregard this email.",
+    answer:"genuine", difficulty:"medium" },
+  { id:210, type:"sms", from:"Venmo",
+    body:"Venmo here! Your phone number has been updated. If you didn't make this change, contact us at venmo.com/contact.",
+    answer:"genuine", difficulty:"medium" },
+  { id:211, type:"email", from:"service@paypal.com", subject:"Receipt for your payment",
+    body:"You sent a payment of $23.50 to Spotify USA Inc. Transaction ID: 4YM12345AB678901C. It may take a few moments for this transaction to appear in your account.",
+    answer:"genuine", difficulty:"medium" },
+  { id:212, type:"sms", from:"33768",
+    body:"Wells Fargo: Did you attempt a purchase for $89.43 at AMAZON.COM? Reply YES or NO. If not recognized, we'll secure your account.",
+    answer:"genuine", difficulty:"hard" },
+  { id:213, type:"email", from:"noreply@linkedin.com", subject:"Your LinkedIn password was successfully changed",
+    body:"Hi, the password associated with your LinkedIn account was recently changed. If you made this change, no further action is required. If you did not make this change, please reset your password.",
+    answer:"genuine", difficulty:"medium" },
+  { id:214, type:"push", from:"Signal",
+    body:"Your Signal registration code is: 482-910. Do not share this code.",
+    answer:"genuine", difficulty:"easy" },
+  { id:215, type:"email", from:"noreply@mail.instagram.com", subject:"We noticed a new login, was this you?",
+    body:"We noticed a new login to your Instagram account from Chrome on Windows. Location: New York, United States. If this was you, you can disregard this email. If not, secure your account.",
+    answer:"genuine", difficulty:"medium" }
+,
+{ id:500, type:"sms", from:"Unknown", subject:null, body:"Dear HDFC Bank customer your Account will be blocked! today please update your PAN CARD click here http://bit.ly/verify-now thank you.", answer:"pretext", difficulty:"easy" },
+  { id:501, type:"sms", from:"Unknown", subject:null, body:"Approved. Congrats your UnionBank CLASSIC VISA application was approved! Expect your card to be delivered to your billing address soon.", answer:"pretext", difficulty:"medium" },
+  { id:502, type:"sms", from:"Unknown", subject:null, body:"Your your provider is subject to suspension. Log in and verify your identity at http://bit.ly/verify-now within today to avoid blocking.", answer:"pretext", difficulty:"medium" },
+  { id:503, type:"sms", from:"Unknown", subject:null, body:"SANTANDER: Avoid coordinates card suspension. Access:", answer:"pretext", difficulty:"medium" },
+  { id:504, type:"sms", from:"Unknown", subject:null, body:"Welcome To Paytm Dear Customer, Congratulations! You are the lucky winner of 1st Mahindra XUV 500 Value RS-16,96,000 registration charge pay company account number http://bit.ly/verify-now <US_BANK_NUMBER> IFSC code SBIN0008741 customer care number XXX-XXX-XXXX help centre today", answer:"pretext", difficulty:"medium" },
+  { id:505, type:"sms", from:"Unknown", subject:null, body:"A new payee was added if this was not you:http://bit.ly/verify-now . Visit and resolve AXCB", answer:"pretext", difficulty:"medium" },
+  { id:506, type:"sms", from:"Unknown", subject:null, body:"REVOLUT: You need to submit your identification to avoid closure of your account. Please click the secure link http://bit.ly/verify-now REFERENCE:JD74543D", answer:"pretext", difficulty:"medium" },
+  { id:507, type:"sms", from:"Unknown", subject:null, body:"USBANK Unusual Activity! Acc Frozen TO UNLOCK GO = http://bit.ly/verify-now?USBANK", answer:"pretext", difficulty:"medium" },
+  { id:508, type:"sms", from:"Unknown", subject:null, body:"Dear customer your STANDARD CHARTERED Visa Card points worth today expired by today. Kindly convert your point in cash by click here http://bit.ly/verify-now", answer:"pretext", difficulty:"easy" },
+  { id:509, type:"sms", from:"Unknown", subject:null, body:"DAVIVIENDA INFORMS: For security, your products have been blocked due to unusual movements. Unblock here: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:510, type:"sms", from:"Unknown", subject:null, body:"BBVACard: Associated with the number 5*** Successfully deactivated. Follow the steps to restore your access.", answer:"pretext", difficulty:"medium" },
+  { id:511, type:"sms", from:"Unknown", subject:null, body:"People's credit min 5 million to 500 million interest 2% / year easy process, safe fast liquid hub wa", answer:"pretext", difficulty:"medium" },
+  { id:512, type:"sms", from:"Unknown", subject:null, body:"FNB :) http://bit.ly/verify-nowshau sent <US_DRIVER_LICENSE>.00. At FNB ATM, press PROCEED, select eWallet Services. PIN 91778, is valid for 16hrs. If expired, dial *120*277# for new PIN", answer:"pretext", difficulty:"medium" },
+  { id:513, type:"sms", from:"Unknown", subject:null, body:"This is an important notice from Yucho Bank. Please enter your registered customer information for identity verification.", answer:"pretext", difficulty:"medium" },
+  { id:514, type:"sms", from:"Unknown", subject:null, body:"['NoVerde: CONGRATS your loan is PRE-APPROVED! We have an offer of R$2700 for you! Enjoy NOW: your provider', 'NoVerde: CONGRATS your loan is PRE-APPROVED! We have an offer of R$2700 for you! Take advantage NOW: http://bit.ly/verify-now']", answer:"pretext", difficulty:"medium" },
+  { id:515, type:"sms", from:"Unknown", subject:null, body:"Nlb: A new connection has been detected in your account. If it wasn't you, check your account! http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:516, type:"sms", from:"Unknown", subject:null, body:"You have received a new credit card. In order to receive the card, visit http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:517, type:"sms", from:"Unknown", subject:null, body:"Nordea. Please update your app MitID: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:518, type:"sms", from:"Unknown", subject:null, body:"BofA Your Online Access will be locked due to pending verification. Visit http://bit.ly/verify-now and verify your information now.", answer:"pretext", difficulty:"medium" },
+  { id:519, type:"sms", from:"Unknown", subject:null, body:"Dear customer, we have detected an unusual access to your account, follow the procedure to verify", answer:"pretext", difficulty:"medium" },
+  { id:520, type:"sms", from:"Unknown", subject:null, body:"Flipkart Refund Unsuccessful: Rs. 699.0 could not be refunded based on bank account details shared. Refund will be done within today once you update bank account details here: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:521, type:"sms", from:"Unknown", subject:null, body:"Do you want to view detailed usage statement?", answer:"pretext", difficulty:"medium" },
+  { id:522, type:"sms", from:"Unknown", subject:null, body:"Dear customer, your account has been suspended due to lack of personal data, please update the profile http://bit.ly/verify-now", answer:"pretext", difficulty:"easy" },
+  { id:523, type:"sms", from:"Unknown", subject:null, body:"Congratulations to the first bi-monthly winner of Guess the Word, who received an iPhone X. This interactive and fun game gives you the chance to win exciting gifts including an iPhone X every 15 days, a MacBook Air, Apple Watch, Samsung Note 9 and Free 1.25GB Data daily! To play just reply GO.", answer:"pretext", difficulty:"medium" },
+  { id:524, type:"sms", from:"Unknown", subject:null, body:"This is your final notification before the interview. When the time comes, the person in charge will contact you via Zoom. ■Appointment date and time: today (today) 16:00 If you wish to change the schedule, please accept it by phone. TEL: 0120-070-585 *For sending only (C)Recruit", answer:"pretext", difficulty:"medium" },
+  { id:525, type:"sms", from:"Unknown", subject:null, body:"<LOCATION> is our home and together we can build a better future for ourselves and our children. Let’s work together for the success of the incoming administration. <LOCATION>: Better Together!", answer:"pretext", difficulty:"medium" },
+  { id:526, type:"sms", from:"Unknown", subject:null, body:"Benestar S.L: Informs you that the clinic will remain closed on today. Thanks and Happy Holidays!.", answer:"pretext", difficulty:"medium" },
+  { id:527, type:"sms", from:"Unknown", subject:null, body:"your provider, look at your cb this photo, do you still remember who is standing on your right? http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:528, type:"sms", from:"Unknown", subject:null, body:"I have tried to reach your mobile line but to NO avail, please contact me urgently on my e-mail <EMAIL_ADDRESS> I have a very important message for you", answer:"pretext", difficulty:"easy" },
+  { id:529, type:"sms", from:"Unknown", subject:null, body:"http://bit.ly/verify-now's today your provider in Federal Capital Territory(MAIN) Ministry Am now working with Shell Oil Company now in <LOCATION> state do u wish to apply bcus there is internal recruitment going on now with good Salary it is very urgent.", answer:"pretext", difficulty:"easy" },
+  { id:530, type:"sms", from:"Unknown", subject:null, body:"Dear user Your Electricity'y Power will be Disconnected' To night 07:45 Your today bill was not updated call electricity'y office today immediately.", answer:"pretext", difficulty:"easy" },
+  { id:531, type:"sms", from:"Unknown", subject:null, body:"Netflix: The automatic debit of your subscription has failed. Log in to update your information via:", answer:"pretext", difficulty:"medium" },
+  { id:532, type:"sms", from:"Unknown", subject:null, body:"You have refund of £169 from an overpayment.", answer:"pretext", difficulty:"medium" },
+  { id:533, type:"sms", from:"Unknown", subject:null, body:"Your Amazon account is locked due to illegal activity. Please update your information to continue using the service.", answer:"pretext", difficulty:"medium" },
+  { id:534, type:"sms", from:"Unknown", subject:null, body:"Your ID is logged in from another device! If you feel your Apple ID has been hacked, please visit your provider", answer:"pretext", difficulty:"medium" },
+  { id:535, type:"sms", from:"Unknown", subject:null, body:"Dear costmor congratulations you are winner of <LOCATION> online shopping you have been found win the -1st prize Mahindra xuv 500 car which marketing price amount R,s - 16,85000/- the charge of registration 6500 This is today deposit on valid for today for more know deposit details PAYTM MALLcostmor care 24x7 Helpline contact WhatsApp no today", answer:"pretext", difficulty:"medium" },
+  { id:536, type:"sms", from:"Unknown", subject:null, body:"Look 😎 Avianca Airline offers 5000 free executive class tickets. Get your free ticket at: ➨ http://bit.ly/verify-now Enjoy 🥳", answer:"pretext", difficulty:"medium" },
+  { id:537, type:"sms", from:"Unknown", subject:null, body:"Congressmember your provider is taking on Big Oil to stop them from gouging consumers in <LOCATION>. your provider is strongly pro-choice and the ONLY candidate endorsed by Planned Parenthood. And your provider will fight to protect and expand the Affordable Care Act. For more info, visit: http://bit.ly/verify-now  We hope you will vote for your provider for Congress. Thank you! Text STOP to quit", answer:"pretext", difficulty:"medium" },
+  { id:538, type:"sms", from:"Unknown", subject:null, body:"your provider: Please call us back to discuss your potential Toxic Water payout. XXX-XXX-XXXX STOP to STOP msgs", answer:"pretext", difficulty:"medium" },
+  { id:539, type:"sms", from:"Unknown", subject:null, body:"Number 0XXXXXXZ From today Mar +2000 COIN CREDIT You will be forfeited! IMMEDIATELY Take at *500*today and Redeem as CREDIT Today! Call *500*today and Choose 1 YES!", answer:"pretext", difficulty:"easy" },
+  { id:540, type:"sms", from:"1660032196.0", subject:null, body:"Dear Yamaw5ayti , Sorry To Inform You That Your Package, Bearing Tracking Number US954202**, Which Arrived On July 9, 2022, Will Be Returned. Look Here: https://mytextprospector.com/PackID-965220", answer:"pretext", difficulty:"medium" },
+  { id:541, type:"sms", from:"1683970697.0", subject:null, body:"Celia 49ansJe viens de divorcer et je n ai pas d'enfants Fgfd il est temps que je m'amuse mon mari ne me touchait plus mon profil : https://rdv74.com/kWfj9H", answer:"pretext", difficulty:"medium" },
+  { id:542, type:"sms", from:"1651462233.0", subject:null, body:"In order to deliver the express to you as soon as possible, please update the express address immediately. https://www.uspocl.com", answer:"pretext", difficulty:"easy" },
+  { id:543, type:"sms", from:"1651795958.0", subject:null, body:"£164m EuroMillions draw tonight! Complete your registration with 20 Bets for only £2 - Ends 23:59 BST! lottogo.co/emaq 18+ T&C Optout: https://tx.vc/o/b1a7b", answer:"pretext", difficulty:"medium" },
+  { id:544, type:"sms", from:"1682363645.0", subject:null, body:"/ 4/24/2023 7:12:58 PM / You pay sam jeff $500 USD if it's not you click here to cancel https://shunsuke-sakami.yoga", answer:"pretext", difficulty:"easy" },
+  { id:545, type:"sms", from:"1652226235.0", subject:null, body:"Final Chance! £184m EuroMillions draw! Complete your registration with 20 Bets for only £1 lottogo.co/emaq Ends 7pm BST 18+ T&C Optout: https://tx.vc/o/b1a7b", answer:"pretext", difficulty:"medium" },
+  { id:546, type:"sms", from:"1663925224.0", subject:null, body:"Apple Inc, Din iPhone 11 Pro Max er blevet fundet i dag vid 1200 CET. Tjek placering: https://location-logged.net/lop Apple Support", answer:"pretext", difficulty:"medium" },
+  { id:547, type:"sms", from:"1675129449.0", subject:null, body:"You have a pending issue on your Centerlink , click on the infra-solve.com/myG0V link to get it resolved and get your ATO refund of AUD 7,264 .", answer:"pretext", difficulty:"medium" },
+  { id:548, type:"sms", from:"1664622549.0", subject:null, body:"Тук-тук, это доставка! Вот ваш фискальный чек: https://hm.ru/5bXKAJ", answer:"pretext", difficulty:"medium" },
+  { id:549, type:"sms", from:"1670555272.0", subject:null, body:"Due to a lack of information, we are unable to ship your purchase order LS525221SG. Please go to www.live.check-info6775.com and follow all of the ste", answer:"pretext", difficulty:"medium" },
+  { id:550, type:"sms", from:"1661434850.0", subject:null, body:"NETFLIX Rejet de pr l vement: veuillez confirmer vos informations de paiement sous 24h ou votre compte sera suspendu. https://netfiix.reactivation-espaces.fr", answer:"pretext", difficulty:"easy" },
+  { id:551, type:"sms", from:"1664228821.0", subject:null, body:"Su Perdido lPhone 13 Pro Max ha sido encontrado. Reclamar su movil online aqui Https://localiser-maps.live/5f3 AppIe Support", answer:"pretext", difficulty:"medium" },
+  { id:552, type:"sms", from:"1662411660.0", subject:null, body:"Please   complete   your   informations   for   your   package   to   be   successfully   delivered.   https://googolreklam.com/Express/   #249146", answer:"pretext", difficulty:"medium" },
+  { id:553, type:"sms", from:"1662481765.0", subject:null, body:"Y=ou   rece   tly   s,et   up   new   recipients   via   mobile   banking   on   12/08/22.   If   this   was   NOT   you,   please   visit:   reject-new-recipients.info", answer:"pretext", difficulty:"medium" },
+  { id:554, type:"sms", from:"1682559615.0", subject:null, body:"For verification please visit:mybendrmv.com", answer:"pretext", difficulty:"medium" },
+  { id:555, type:"sms", from:"1661360821.0", subject:null, body:"Allie discover proven Property &Business Methods to grow your revenue in 2022. Starts Sat 10am! https://tx.vc/r/346Qz Optout https://tx.vc/o/8d122", answer:"pretext", difficulty:"medium" },
+  { id:556, type:"sms", from:"1682363361.0", subject:null, body:"/ 4/24/2023 7:09:36 PM / You pay sam jeff $500 USD if it's not you click here to cancel https://shunsuke-sakami.yoga", answer:"pretext", difficulty:"easy" },
+  { id:557, type:"sms", from:"1662631586.0", subject:null, body:"Thanks  for  registering  with  Bloxo.eu.  Phone  number  verification  code  is:  826202", answer:"pretext", difficulty:"medium" },
+  { id:558, type:"sms", from:"1660098046.0", subject:null, body:"You have been in the same vicinity as a C0V-19-VIRUS patient. Get your TESTING-KIT at healthpcrtest.com now.", answer:"pretext", difficulty:"medium" },
+  { id:559, type:"sms", from:"1658897981.0", subject:null, body:"I saw that your name was also Bob It's my name too, so I designed this special b0nus for you name brother --> oloill.biz/vUSta", answer:"pretext", difficulty:"medium" },
+  { id:560, type:"sms", from:"Unknown", subject:null, body:"[MAIL]: Your package cannot be delivered, customs fees have not been charged (1.79€). You can pay at this link: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:561, type:"sms", from:"Unknown", subject:null, body:"Congratulations you've won your mystery box this today - please use this link to schedule the delivery ->", answer:"pretext", difficulty:"medium" },
+  { id:562, type:"sms", from:"Unknown", subject:null, body:"Hi. I'm from <LOCATION>. Your item failed to be delivered due to Covid-19. I have tried to contact you but could not be reached. Please collect your item within today from this SMS at:  PosLaju Bayan Lepas Center No.25 / 27, your provider your provider today, 11950 Bayan Lepas, <LOCATION>  Your item number: e<MEDICAL_LICENSE>88my", answer:"pretext", difficulty:"medium" },
+  { id:563, type:"sms", from:"Unknown", subject:null, body:"You have an expedited courier document that could not be delivered due to incorrect address, pls check http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:564, type:"sms", from:"Unknown", subject:null, body:"your provider: shipment 79ZY4331608380479S 1 from HOFF not delivered due to absence at home. Schedule new delivery in", answer:"pretext", difficulty:"medium" },
+  { id:565, type:"sms", from:"Unknown", subject:null, body:"[POST OFFICE]: Dear customer: Your package is ready for delivery. Confirm the customs payment of (179 €) at the following link:", answer:"pretext", difficulty:"medium" },
+  { id:566, type:"sms", from:"Unknown", subject:null, body:"Dear customer: Your package is ready for delivery. Confirm the customs payment of (264 €) at the following link:", answer:"pretext", difficulty:"medium" },
+  { id:567, type:"sms", from:"Unknown", subject:null, body:"your provider: Your parcel has just arrived at our depot with customs charge.", answer:"pretext", difficulty:"medium" },
+  { id:568, type:"sms", from:"Unknown", subject:null, body:"[MAIL]: Your package could not be delivered; customs fees have not been charged (1.79€). You can pay in this link:", answer:"pretext", difficulty:"medium" },
+  { id:569, type:"sms", from:"Unknown", subject:null, body:"DPD: Sorry we've missed you, Our driver was unable to deliver your parcel. You can reschedule further delivery options by following here: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:570, type:"sms", from:"Unknown", subject:null, body:"For DHL Express 18114 by HAK5, customs duties/taxes are to be paid before delivery. Pay securely: http://bit.ly/verify-now This link is valid for today.", answer:"pretext", difficulty:"medium" },
+  { id:571, type:"sms", from:"Unknown", subject:null, body:"Your Order Successfully Placed, AMZ#901-5VX1481 Amt. $2099.00 for Apple MacBook Pro [33cm] <US_DRIVER_LICENSE> on today, Call TFN: XXX-XXX-XXXX if any query, Thank you", answer:"pretext", difficulty:"medium" },
+  { id:572, type:"sms", from:"Unknown", subject:null, body:"CORREOS: Your shipment is on its way: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:573, type:"sms", from:"Unknown", subject:null, body:"We tried to deliver your package, check @ you @ & here the status: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:574, type:"sms", from:"Unknown", subject:null, body:"We carried your parcel in your absence. Please confirm.", answer:"pretext", difficulty:"medium" },
+  { id:575, type:"sms", from:"Unknown", subject:null, body:"your provider: Payment of import duty/tax & advance fee of €1.99 is required for your shipment to be processed. Pay securely via: https://", answer:"pretext", difficulty:"medium" },
+  { id:576, type:"sms", from:"Unknown", subject:null, body:"your provider: Reminder Failed Delivery Attempt: Your package could not be delivered on today because customs fees (1.30 EUR) have not been paid. Follow the instructions:", answer:"pretext", difficulty:"medium" },
+  { id:577, type:"sms", from:"Unknown", subject:null, body:"Dear customer, we have tried to deliver your package, but there is an unpaid delivery fee of USD 15.90 Please go in and pay the fees to have your products delivered today", answer:"pretext", difficulty:"medium" },
+  { id:578, type:"sms", from:"Unknown", subject:null, body:"Your package is here! Check tracking", answer:"pretext", difficulty:"medium" },
+  { id:579, type:"sms", from:"Unknown", subject:null, body:"We couldn't contact you regarding your order, please update your information: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:580, type:"sms", from:"Unknown", subject:null, body:"Ameli Account: Due to the current context and after our last verification of your health insurance file, we have determined that you will receive a refund of 450 €. Please register via the link below: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:581, type:"sms", from:"Unknown", subject:null, body:"Alert Notification - #4Z4L0 Frm : IRS Government MSG : IR-2018-today, 2024 - Multiple Taxpayers, The system detects an error in the calculation your tax, please complete the data for a tax refund", answer:"pretext", difficulty:"medium" },
+  { id:582, type:"sms", from:"Unknown", subject:null, body:"Dear Shikha Tripathi, You have successfully been vaccinated with your today Dose with COVISHIELD. You may download your vaccination Certificate from -", answer:"pretext", difficulty:"medium" },
+  { id:583, type:"sms", from:"Unknown", subject:null, body:"your provider. <NRP>, the Incometax_Dept requires you to click the link below to submit a request for the remittance of your unclaimed overdue", answer:"pretext", difficulty:"medium" },
+  { id:584, type:"sms", from:"Unknown", subject:null, body:"Info ANTAI: You have a payment delay of 3500€ reference file 24XXXX. View my infraction file via:", answer:"pretext", difficulty:"medium" },
+  { id:585, type:"sms", from:"Unknown", subject:null, body:"[Tax Department] Your outstanding debt of EUR € 743.00 has not been met after several reminders. On today, the bailiff will proceed to garnishment. You can prevent the seizure procedure by immediately paying the full amount via iDeal: http://bit.ly/verify-now", answer:"pretext", difficulty:"easy" },
+  { id:586, type:"sms", from:"Unknown", subject:null, body:"[ALERT] You have mistakenly paid a fine. For the refund go to our website: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:587, type:"sms", from:"Unknown", subject:null, body:"FINAL REMINDER, your case will be transferred to court on today. Remember to adjust your situation for:", answer:"pretext", difficulty:"medium" },
+  { id:588, type:"sms", from:"Unknown", subject:null, body:"http://bit.ly/verify-now: Please note that you have an unpaid parking fine. To avoid any penalty increase, rectify your situation as soon as possible by using the link below:", answer:"pretext", difficulty:"medium" },
+  { id:589, type:"sms", from:"Unknown", subject:null, body:"My name is MAVIS from IRS Agent will have got some fake delivery driver arrested here with sum of huge amount in their Bus will saw your number on the package so I decided to contact you to ask if you know anything about it, if truly you’re the one send them..", answer:"pretext", difficulty:"medium" },
+  { id:590, type:"sms", from:"Unknown", subject:null, body:"Hello, remember to declare your income on http://bit.ly/verify-now. Need help? Call <UK_NHS> (non-premium call). General Directorate of Public Finances.", answer:"pretext", difficulty:"medium" },
+  { id:591, type:"sms", from:"Unknown", subject:null, body:"Health Insurance: Your your provider is about to expire. Please update it below:", answer:"pretext", difficulty:"medium" },
+  { id:592, type:"sms", from:"Unknown", subject:null, body:"Congratulations D Devendra. You have taken the first step towards your digital health journey! Here is your ABHA 27-7715-5341-3100. Click here http://bit.ly/verify-now to login. ABDM, National Health Authority", answer:"pretext", difficulty:"easy" },
+  { id:593, type:"sms", from:"Unknown", subject:null, body:"To proceed with INPS service provision, please confirm your personal data.", answer:"pretext", difficulty:"medium" },
+  { id:594, type:"sms", from:"Unknown", subject:null, body:"Follow the news from the Ministry of Health for the latest information on your provider. Visit website", answer:"pretext", difficulty:"medium" },
+  { id:595, type:"sms", from:"Unknown", subject:null, body:"The US Treasury offers up to $10 million for information on interference in the <LOCATION> election. If you have information, turn to: https://", answer:"pretext", difficulty:"medium" },
+  { id:596, type:"sms", from:"Unknown", subject:null, body:"PGE: On 02.05, a power outage is planned! Please settle the payment: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:597, type:"sms", from:"Unknown", subject:null, body:"ITSME Due to new safety measures, your itsme needs to be reactivated.", answer:"pretext", difficulty:"medium" },
+  { id:598, type:"sms", from:"Unknown", subject:null, body:"H y d r o Q u é b e c is sending you a refund due to overcharging. See:", answer:"pretext", difficulty:"medium" },
+  { id:599, type:"sms", from:"Unknown", subject:null, body:"[ TAX SERVICE ALERT ] Your outstanding debt with reference: <US_DRIVER_LICENSE> has not been paid after multiple reminders. On today, the bailiff will proceed to prejudgment seizure of your property. You can prevent the seizure procedure by immediately paying the entire amount of EUR 447.68 via your payment link: http://bit.ly/verify-now", answer:"pretext", difficulty:"easy" },
+  { id:600, type:"sms", from:"Unknown", subject:null, body:"today is the your provider for your Airtel Thanks app login. Valid for today. Please do not share this with anyone N9BWuqauU1y", answer:"pretext", difficulty:"medium" },
+  { id:601, type:"sms", from:"Unknown", subject:null, body:"*Notification: your provider: error from 3 last bills Amount refund: 54.69 Follow the instructions bellow:", answer:"pretext", difficulty:"medium" },
+  { id:602, type:"sms", from:"Unknown", subject:null, body:"STV 53 recharge successful, on recharge of RC53 you get 1GB 2G data per day for today. Data Best offers *121*1#", answer:"pretext", difficulty:"medium" },
+  { id:603, type:"sms", from:"Unknown", subject:null, body:"VODAFONE B.V.  Your current SIM card will expire on today. Request your SIM card for free to prevent a blockage : http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:604, type:"sms", from:"Unknown", subject:null, body:"Dear customer your Airtel sim Number has been b-locked for today please Ekyc Update submit Addhar Card today please call customer care XXX-XXX-XXXX im,mediately", answer:"pretext", difficulty:"medium" },
+  { id:605, type:"sms", from:"Unknown", subject:null, body:"Orange informs you of a refund of 44.99 euros following the breakdowns during the confinement request via your space: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:606, type:"sms", from:"Unknown", subject:null, body:"Congrats! You have got FREE Local+STD Calls for today. Get your usage and best offer details on my Airtel APP. To download Click", answer:"pretext", difficulty:"medium" },
+  { id:607, type:"sms", from:"Unknown", subject:null, body:"Thank you for activating MALUCH services. Everyday you will receive 3 SMS messages with short stories (each cost 3.69zl). To cancel the service and avoid costs, send http://bit.ly/verify-nowLUCH to number 92555.", answer:"pretext", difficulty:"medium" },
+  { id:608, type:"sms", from:"Unknown", subject:null, body:"Your family member's your provider plan has expired. To continue their services, recharge XXX-XXX-XXXX on <LOCATION> with Rs.199 plan, New User code: JIO50 to get flat Rs50 cashback & Existing user code: JIO150 to get 3 vouchers of upto Rs50 each. T&CA. Recharge Now", answer:"pretext", difficulty:"medium" },
+  { id:609, type:"sms", from:"Unknown", subject:null, body:"It is important that you know that your Claro home bill has a balance. Pay by logging into <LOCATION> App REF <US_BANK_NUMBER> 93599 INF http://bit.ly/verify-now (14)", answer:"pretext", difficulty:"medium" },
+  { id:610, type:"sms", from:"Unknown", subject:null, body:"T-mobile: Dear customer, your account needs to be verified. Click here to continue: http://bit.ly/verify-now", answer:"pretext", difficulty:"easy" },
+  { id:611, type:"sms", from:"Unknown", subject:null, body:"Dear customer your S,I'M <LOCATION> has been expaired your number will be cancel within today more inquiry call XXX-XXX-XXXX customer care urgent thank you", answer:"pretext", difficulty:"easy" },
+  { id:612, type:"sms", from:"Unknown", subject:null, body:"EE : Your account will be suspended ; as we cannot verify your billing details, update these immediately via http://bit.ly/verify-now", answer:"pretext", difficulty:"easy" },
+  { id:613, type:"sms", from:"Unknown", subject:null, body:"Dear customer your jio 'SIM' documents has been Expired today. please call customer care no XXX-XXX-XXXX immediately your your provider 'SIM' blocked within today thank you. your provider", answer:"pretext", difficulty:"easy" },
+  { id:614, type:"sms", from:"Unknown", subject:null, body:"your provider: You have new Snaps. Tap to display: http://bit.ly/verify-now Unsubscribe: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:615, type:"sms", from:"Unknown", subject:null, body:"Hi From Endesa we appreciate your trust in having hired our service. Please, give us your rating in today: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:616, type:"sms", from:"Unknown", subject:null, body:"[<NRP>] Your coupon is about to expire please redeem it in time it will become invalid after expiration your exclusive link: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:617, type:"sms", from:"Unknown", subject:null, body:"BHOJPURI VIDEO service has been activated@Rs70.0 for today. Service will be renewed after validity expiry. To deactivate, call or SMS STOP to <US_DRIVER_LICENSE>. More services? Call 56789 or click http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:618, type:"sms", from:"Unknown", subject:null, body:"I want to receive internet settings  - To receive settings SMS MO to 54325", answer:"pretext", difficulty:"medium" },
+  { id:619, type:"sms", from:"Unknown", subject:null, body:"Dear customer, Your S I M Dcoment has been pending. Please call customer care No 8144...", answer:"pretext", difficulty:"medium" },
+  { id:620, type:"sms", from:"Unknown", subject:null, body:"You've been selected to receive 100.00$ /Amazon/. Press 1 to accept", answer:"pretext", difficulty:"medium" },
+  { id:621, type:"sms", from:"Unknown", subject:null, body:"The Natural Path to Deeper Sleep", answer:"pretext", difficulty:"medium" },
+  { id:622, type:"sms", from:"Unknown", subject:null, body:"Dear ****, Brigade Combat Team, 10th Mountain Division shirt $10 OFF ready to order now http://bit.ly/verify-now opt-out", answer:"pretext", difficulty:"medium" },
+  { id:623, type:"sms", from:"Unknown", subject:null, body:"Come together on a couple of the most excellent giveaways ever! You can't miss this opportunity.", answer:"pretext", difficulty:"medium" },
+  { id:624, type:"sms", from:"Unknown", subject:null, body:"You kept AUTO-SCAN turned off! 13 Apps jeopardise your phones security. Remove these apps immediately", answer:"pretext", difficulty:"easy" },
+  { id:625, type:"sms", from:"Unknown", subject:null, body:"CALL OR TEXT ME ON your provider AT THIS NUMBER, XXX-XXX-XXXX, TO CLAIM YOUR WON WINNINGS OF 1 MILLION DOLLARS.", answer:"pretext", difficulty:"medium" },
+  { id:626, type:"sms", from:"Unknown", subject:null, body:"THIS PHONE NUMBER HAS WON $450,000.00USD IN MEGAPLIER REF#1001, FOR DETAILS CONTACT MR. your provider WITH YOUR NAME, ADDRESS AND NUMBER TO EMAIL: <EMAIL_ADDRESS>", answer:"pretext", difficulty:"medium" },
+  { id:627, type:"sms", from:"Unknown", subject:null, body:"Hi, It's your provider @ Crunch bringing the holiday cheer! Join by today for only $10 down + 1st mo free & no contract http://bit.ly/verify-now Text STOP to opt-out", answer:"pretext", difficulty:"medium" },
+  { id:628, type:"sms", from:"Unknown", subject:null, body:"#FirstName##, you won our today competition at Tesco. 1. your provider200, 2. Hugh - $100, 3. your provider50, http://bit.ly/verify-now .", answer:"pretext", difficulty:"medium" },
+  { id:629, type:"sms", from:"Unknown", subject:null, body:"Just move here Boss. Server is anti-down and the best server. It's already viral everywhere. Start at 10K CLICK HERE http://bit.ly/verify-now Best regards", answer:"pretext", difficulty:"easy" },
+  { id:630, type:"sms", from:"Unknown", subject:null, body:"Movistar Bancolombia Efecty congratulates you for being the winner of $'000.000 and a Yamaha XTZ.125 0'KM motorcycle. Contact NOW. PBX: XXX-XXX-XXXX or our WhatsApp XXX-XXX-XXXX CODE. (MT-900) AUT/Coljuegos", answer:"pretext", difficulty:"medium" },
+  { id:631, type:"sms", from:"Unknown", subject:null, body:"Dear. You are invited to join the \"Bitc0in\" analysis group and join in the investment plan and earn 500-5K usd a day. Reply \"1\" and long press the link to join.", answer:"pretext", difficulty:"medium" },
+  { id:632, type:"sms", from:"Unknown", subject:null, body:"your provider, Don't lose, mybitglobal is here! Free to join! Try it!", answer:"pretext", difficulty:"medium" },
+  { id:633, type:"sms", from:"Unknown", subject:null, body:"Awuf4U Bonus Account: Dial *559*14# Amount: <US_DRIVER_LICENSE>.00 Bundle: <US_DRIVER_LICENSE> for 2GB + FREE 4<LOCATION> for <LOCATION>", answer:"pretext", difficulty:"medium" },
+  { id:634, type:"sms", from:"Unknown", subject:null, body:"YOU ARE A WINNER! You have won a prize!", answer:"pretext", difficulty:"medium" },
+  { id:635, type:"sms", from:"Unknown", subject:null, body:"All you need is a mobile phone and you can easily earn 500-1000 Euros a day. Please click on the Whatsapp link to contact us:", answer:"pretext", difficulty:"medium" },
+  { id:636, type:"sms", from:"Unknown", subject:null, body:"Homezo: Hi your provider, we noticed it has been a while since your last order. We have some cool new items that you will LOVE!  Get 20% OFF on your next purchase when shopping from our website:  Reply STOP to opt out.", answer:"pretext", difficulty:"medium" },
+  { id:637, type:"sms", from:"Unknown", subject:null, body:"T-Mobile Deals / Congrats! Grab a chance to win prizes worth up to 100 usd, Enter Here >> http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:638, type:"sms", from:"Unknown", subject:null, body:"Dear user. You are invited to join the <NRP> analysis group and earn in the investment plan and earn 1K-10K usd a day.", answer:"pretext", difficulty:"medium" },
+  { id:639, type:"sms", from:"Unknown", subject:null, body:"Win Ksh 5,000,000 today by predicting the game between CAMEROON W v NEW ZEALAND W - For more information sms SUPER to 29596 - Helpline: XXX-XXX-XXXX STOP *456*9*5#", answer:"pretext", difficulty:"medium" },
+  { id:640, type:"sms", from:"Unknown", subject:null, body:"Hi, my name is your provider son, saw this house on your fb real estate page", answer:"pretext", difficulty:"medium" },
+  { id:641, type:"sms", from:"Unknown", subject:null, body:"Thank you for understanding, you are a kind person, we met in the wrong way, this is fate, my name is your provider, what is your name?", answer:"pretext", difficulty:"medium" },
+  { id:642, type:"sms", from:"Unknown", subject:null, body:"Hi, I'm your provider, can you give me more details about your item on facebook", answer:"pretext", difficulty:"medium" },
+  { id:643, type:"sms", from:"Unknown", subject:null, body:"Is this your provider's number, please?", answer:"pretext", difficulty:"medium" },
+  { id:644, type:"sms", from:"Unknown", subject:null, body:"It's been a lil bit since u called, do u want me yet?", answer:"pretext", difficulty:"medium" },
+  { id:645, type:"sms", from:"Unknown", subject:null, body:"hi your provider, it’s been a long time since I came out, what are you doing recently?", answer:"pretext", difficulty:"medium" },
+  { id:646, type:"sms", from:"Unknown", subject:null, body:"Do you have time to go shopping for some <NRP> food with me today?", answer:"pretext", difficulty:"medium" },
+  { id:647, type:"sms", from:"Unknown", subject:null, body:"Hi your provider this is me your provider, when you see this message please text me back. I need to talk to you. Hi your provider, this is me your provider again. You there? Wait today so you're not your provider who live in <LOCATION>? I'm so sorry for bothering you, I thought you're your provider from <LOCATION>. Is it appropriate to know who you are?", answer:"pretext", difficulty:"medium" },
+  { id:648, type:"sms", from:"Unknown", subject:null, body:"Hy, I saw your listing and i want to ask if it s still available: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:649, type:"sms", from:"Unknown", subject:null, body:"This is your provider, how arThis is your provider, how are you doing Alisa?e you doing your provider?", answer:"pretext", difficulty:"medium" },
+  { id:650, type:"sms", from:"Unknown", subject:null, body:"Happy Thanksgiving your provider and family", answer:"pretext", difficulty:"medium" },
+  { id:651, type:"sms", from:"Unknown", subject:null, body:"your provider what's good? I don't know if you remember me it's [name hidden] we went on a date a while back I was wondering if I can ask a favor? I want to apply for a job at [company hidden] and I saw you were on their board I am wondering if you can write me a reference?", answer:"pretext", difficulty:"medium" },
+  { id:652, type:"sms", from:"Unknown", subject:null, body:"Hello. I'm your provider. Just found your house in the neighborhood and thought of reaching out to you re: a sale for it. Any interest?", answer:"pretext", difficulty:"medium" },
+  { id:653, type:"sms", from:"Unknown", subject:null, body:"Hi Dr. your provider, my cat is sick again. The situation is very bad. Do you have time now? After receiving the message, please reply promptly. Thank you.", answer:"pretext", difficulty:"medium" },
+  { id:654, type:"sms", from:"Unknown", subject:null, body:"your provider, I'm your provider, When will the wine I ordered arrive? Please give me an answer.", answer:"pretext", difficulty:"medium" },
+  { id:655, type:"sms", from:"Unknown", subject:null, body:"your provider, long time no see, how are you?", answer:"pretext", difficulty:"medium" },
+  { id:656, type:"sms", from:"Unknown", subject:null, body:"Hello, my name is your provider. Is this house still available for rent? http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:657, type:"sms", from:"Unknown", subject:null, body:"Brother, call the one who took it", answer:"pretext", difficulty:"medium" },
+  { id:658, type:"sms", from:"Unknown", subject:null, body:"Hello who are you? Why are you in my address book I travel a lot have we met? Can you tell me your name? thanks", answer:"pretext", difficulty:"medium" },
+  { id:659, type:"sms", from:"Unknown", subject:null, body:"Hey your provider are you free today can we have coffee? Reply STOP to unsubscribe.", answer:"pretext", difficulty:"medium" },
+  { id:660, type:"sms", from:"Unknown", subject:null, body:"Hello Mom/Dad, my old phone is broken. +... is my new phone number, you can save this number. Can you please send me a message on WhatsApp?", answer:"pretext", difficulty:"medium" },
+  { id:661, type:"sms", from:"Unknown", subject:null, body:"Hello mom/dad my phone is broken. This is my new cell phone number. XXX-XXX-XXXX You can save it! Can you send me a message on WhatsApp? Many thanks!", answer:"pretext", difficulty:"medium" },
+  { id:662, type:"sms", from:"Unknown", subject:null, body:"Hey Mum!!! I've got a new phone XXX", answer:"pretext", difficulty:"medium" },
+  { id:663, type:"sms", from:"Unknown", subject:null, body:"Hello Dad, my other phone is broken. This is the new number. Send me a message through WhatsApp.", answer:"pretext", difficulty:"medium" },
+  { id:664, type:"sms", from:"Unknown", subject:null, body:"Hello mom and dad, my phone broke. This is my new number. Can you send me a WhatsApp message? XXX-XXX-XXXX", answer:"pretext", difficulty:"medium" },
+  { id:665, type:"sms", from:"Unknown", subject:null, body:"Hello Mom, my phone and SIM card are broken. I'm using my old phone now. This is my new phone number (+<US_DRIVER_LICENSE>), the old number can be deleted. Can you send me a message on WhatsApp?", answer:"pretext", difficulty:"medium" },
+  { id:666, type:"sms", from:"Unknown", subject:null, body:"Hi mum/dad I've dropped my phone and now it's broken this is my new number for now so can you save it and text me through What's App please", answer:"pretext", difficulty:"medium" },
+  { id:667, type:"sms", from:"Unknown", subject:null, body:"Hey dad, send me five hundred, my school fee has been used up, I don't have anything to use, put it on this number of the teacher. Even if I'm offline, put it, I will get it", answer:"pretext", difficulty:"medium" },
+  { id:668, type:"sms", from:"Unknown", subject:null, body:"Hi mom! I dropped my phone WhatsApp me at XXX-XXX-XXXX", answer:"pretext", difficulty:"medium" },
+  { id:669, type:"sms", from:"Unknown", subject:null, body:"Hey mom this is my new number. My phone is broken. You can...", answer:"pretext", difficulty:"medium" },
+  { id:670, type:"sms", from:"Unknown", subject:null, body:"Hello mom, I just lost my phone. This is my new mobile number. XXX-XXX-XXXX Can you send me a WhatsApp message?", answer:"pretext", difficulty:"medium" },
+  { id:671, type:"sms", from:"Unknown", subject:null, body:"Hello dad, this is my new number, can you save this number and write to me on Whatsapp when you see this?", answer:"pretext", difficulty:"medium" },
+  { id:672, type:"sms", from:"Unknown", subject:null, body:"Mom, my phone broke, so I gave it to the store for repair. This number is temporary and only text is available. If you need anything, please text me.", answer:"pretext", difficulty:"medium" },
+  { id:673, type:"sms", from:"Unknown", subject:null, body:"Hello dad I had a problem with the other phone write to me on this WhatsApp please http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:674, type:"sms", from:"Unknown", subject:null, body:"Mom, this is my new number XXX-XXX-XXXX, can you save this number and write to me on Whatsapp when you see this!", answer:"pretext", difficulty:"medium" },
+  { id:675, type:"sms", from:"Unknown", subject:null, body:"Hello mom my phone is broken. my new number http://bit.ly/verify-now write to me immediately on whatsapp", answer:"pretext", difficulty:"easy" },
+  { id:676, type:"sms", from:"Unknown", subject:null, body:"Hello Dad, my phone is broken. I have a temporary number. Can you send me a WhatsApp message through WhatsApp? I can't call. Number: XXX-XXX-XXXX", answer:"pretext", difficulty:"medium" },
+  { id:677, type:"sms", from:"Unknown", subject:null, body:"Hi mom. My phone has fallen can you send me a message on your provider to :", answer:"pretext", difficulty:"medium" },
+  { id:678, type:"sms", from:"Unknown", subject:null, body:"Hi mum I've smashed my phone so I'm using a spare phone now. Can you save this number and text me through whatsapp when you see this please?", answer:"pretext", difficulty:"medium" },
+  { id:679, type:"sms", from:"Unknown", subject:null, body:"Hello Mom my phone is broken this is my new phone number which you can save. Can you also send me a WhatsApp message on the new number: XXX-XXX-XXXX", answer:"pretext", difficulty:"medium" },
+  { id:680, type:"sms", from:"Unknown", subject:null, body:"90% of the data has been used. For your provider data:  To continue the data flow, you need to be careful about few points, http://bit.ly/verify-now To be able to add consumption you need to recharge, 1.50 GB", answer:"pretext", difficulty:"medium" },
+  { id:681, type:"sms", from:"Unknown", subject:null, body:"Request for updation of Mobile No. 9815XXXXXX to <UK_NHS> in CUST_ID XXXXXXX0439 w.e.f XXX-XXX-XXXX:16:00 has been registered and will be activated after today.", answer:"pretext", difficulty:"medium" },
+  { id:682, type:"sms", from:"Unknown", subject:null, body:"Hi, enjoy 25 pounds for free Check it out: https://7n rocks/ZevuD/fancy Good luck", answer:"pretext", difficulty:"medium" },
+  { id:683, type:"sms", from:"Unknown", subject:null, body:"On today, €603.61 will be deducted from your account. Is this incorrect? Then check this direct debit via:", answer:"pretext", difficulty:"medium" },
+  { id:684, type:"sms", from:"Unknown", subject:null, body:"Your credit card has been put on hold!", answer:"pretext", difficulty:"medium" },
+  { id:685, type:"sms", from:"Unknown", subject:null, body:"Please find attached confirmation of your appointment.  Omneshealthcare Community ENT Service", answer:"pretext", difficulty:"medium" },
+  { id:686, type:"sms", from:"1674399687.0", subject:null, body:"DHL : Your package is waiting to be shipped, you need to confirm your personal details to deliver your package pxlme.me/DHL-EXPRESS", answer:"pretext", difficulty:"medium" },
+  { id:687, type:"sms", from:"1656438457.0", subject:null, body:"Hi Peter on Weds at 7pm, discover my Bulletproof System to boost your revenue faster in 2022! https://tx.vc/r/30lvW Optout https://tx.vc/o/8d122", answer:"pretext", difficulty:"medium" },
+  { id:688, type:"sms", from:"1660032853.0", subject:null, body:"Dear   Yamaw5ayti   ,   We   Are   Sorry   To   Inform   You   That   Your   Package,   Bearing   Tracking   Number   US954202**,   Which   Arrived   On   July   9,   2022,   Will   Be   Returned.   Look   Here:   https://mytextprospector.com/PackID-965220", answer:"pretext", difficulty:"medium" },
+  { id:689, type:"sms", from:"Unknown", subject:null, body:"Tax Authorities: You have an outstanding debt with reference: <US_DRIVER_LICENSE> of EUR 485.92. Pay today via iDEAL: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:690, type:"sms", from:"Unknown", subject:null, body:"IR-2018-today, today, The system detects an error in the calculation your tax, please complete the data for a tax refund", answer:"pretext", difficulty:"medium" },
+  { id:691, type:"sms", from:"Unknown", subject:null, body:"Dear Customer, your ICICI Bank Credit Card Application <US_BANK_NUMBER> is under process. The final status will be communicated to you within today.", answer:"pretext", difficulty:"medium" },
+  { id:692, type:"sms", from:"Unknown", subject:null, body:"Your payment method was rejected. Update now to avoid suspension of services: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:693, type:"sms", from:"1669803981.0", subject:null, body:"Your  parcel  is  on  hold,  Please  confirm  below  otherwise  the  package  will  be  returned  :  https://h1100058.domeny.host/accessid/?id=43924  Vous  avez  été", answer:"pretext", difficulty:"medium" },
+  { id:694, type:"sms", from:"Unknown", subject:null, body:"Dear SBI user your SBI YONO A/c has been blocked. please update your PAN CARD click here to login your net banking update your PAN no", answer:"pretext", difficulty:"medium" },
+  { id:695, type:"sms", from:"Unknown", subject:null, body:"Your account has been temporarily restricted. To re gain full access & functionality, please visit http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:696, type:"sms", from:"Unknown", subject:null, body:"Dear Customer Your SBI YONO A/C has been Suspended today please Update Your PAN CARD http://bit.ly/verify-nowine/", answer:"pretext", difficulty:"medium" },
+  { id:697, type:"sms", from:"Unknown", subject:null, body:"An attempt to add H James as a Trusted Payee was successful on 27/06. If this was NOT you please visit: http://bit.ly/verify-now", answer:"pretext", difficulty:"medium" },
+  { id:698, type:"sms", from:"1652902238.0", subject:null, body:"U  S  P  S  /  ORDER  #154102  Delivery  :  We  need  to  update  your  shipping  and  pay  fee  for  delivery  please  visit:  https://check-my-trackupdate.tabgun.com/", answer:"pretext", difficulty:"medium" },
+  { id:699, type:"sms", from:"Unknown", subject:null, body:"Dear <US_DRIVER_LICENSE>, Your A/C XXXXXXXX4598 Can Be credited with Rs.<US_DRIVER_LICENSE>. Check Now - http://bit.ly/verify-now T&C*", answer:"pretext", difficulty:"medium" }
+,
+// --- FAKE: Healthcare ---
+  { id:200, type:"email", from:"benefits@uhc-memberportal.com", subject:"Action Required: Update your insurance information",
+    body:"Your UnitedHealthcare coverage will lapse unless you verify your member ID and Social Security number by end of week. Click below to confirm your identity and maintain uninterrupted coverage.",
+    answer:"pretext", difficulty:"medium" },
+  { id:201, type:"sms", from:"CVS-RX",
+    body:"CVS Pharmacy: Your prescription is ready but requires identity verification before pickup. Confirm your date of birth and insurance ID here: cvs-rx-verify.com/pickup",
+    answer:"pretext", difficulty:"medium" },
+  { id:202, type:"email", from:"noreply@mychart-update.org", subject:"Appointment Reminder - Verify Your Identity",
+    body:"You have an upcoming appointment. Due to new HIPAA requirements, please verify your identity by uploading a photo of your insurance card and government ID before your visit.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: University / Student Loan ---
+  { id:203, type:"email", from:"financial-aid@university-portal.edu", subject:"Urgent: Student Loan Forgiveness Application",
+    body:"You have been pre-selected for the new federal student loan forgiveness program. Complete your application within 72 hours to qualify. Provide your FSA ID and loan servicer details below.",
+    answer:"pretext", difficulty:"medium" },
+  { id:204, type:"sms", from:"88234",
+    body:"FEDERAL STUDENT AID: Your student loan forgiveness application is incomplete. Submit remaining documents now or lose eligibility: studentaid-apply.com/forgive",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Dating App ---
+  { id:205, type:"email", from:"verify@tinder-support.com", subject:"Account Verification Required",
+    body:"Your Tinder profile has been flagged for verification. To avoid permanent suspension, please verify your identity by submitting a selfie and a photo of your government ID within 24 hours.",
+    answer:"pretext", difficulty:"medium" },
+  { id:206, type:"sms", from:"BUMBLE",
+    body:"Bumble: Someone reported your profile. Verify your account now to avoid suspension: bumble-verify.app/confirm",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Crypto Wallet ---
+  { id:207, type:"email", from:"security@metamask-wallet.io", subject:"Unusual Activity Detected on Your Wallet",
+    body:"We detected a suspicious transaction attempt on your MetaMask wallet. Your assets may be at risk. Verify your seed phrase immediately to secure your funds.",
+    answer:"pretext", difficulty:"easy" },
+  { id:208, type:"email", from:"support@coinbase-alerts.com", subject:"Withdrawal Request Pending Approval",
+    body:"A withdrawal of 2.4 BTC was initiated from your Coinbase account. If this was not you, cancel the transaction immediately by verifying your identity below.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Zelle / Venmo ---
+  { id:209, type:"sms", from:"ZELLE",
+    body:"Zelle: A payment of $850.00 is pending your approval. If you did not authorize this, reply STOP and verify your identity at zelle-secure.com/dispute",
+    answer:"pretext", difficulty:"medium" },
+  { id:210, type:"email", from:"service@venmo-notifications.com", subject:"Payment Declined - Action Needed",
+    body:"Your recent Venmo payment of $240.00 was declined due to suspicious activity. Verify your bank connection to restore your account: click below.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Parking Ticket ---
+  { id:211, type:"sms", from:"CITYPARKING",
+    body:"City Parking Authority: You have an unpaid parking citation #4827193. Pay within 48 hours to avoid doubled fines: cityparking-pay.com/citation",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Jury Duty ---
+  { id:212, type:"call", from:"+1 (202) 555-0147",
+    body:"\"This is Officer Reynolds with the U.S. Marshals Service. You failed to appear for federal jury duty and a warrant has been issued for your arrest. To resolve this now and avoid being taken into custody, I need your Social Security number and date of birth to verify your identity.\"",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: SSA / Medicare ---
+  { id:213, type:"call", from:"+1 (800) 772-1213",
+    body:"\"This is the Social Security Administration. Your Social Security number has been suspended due to suspicious activity. To reactivate your number and avoid legal action, press 1 to speak with an agent.\"",
+    answer:"pretext", difficulty:"easy" },
+  { id:214, type:"sms", from:"MEDICARE",
+    body:"Medicare: Your new Medicare card is ready. Verify your identity and confirm your mailing address to receive it: medicare-newcard.com/verify",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Job Offer ---
+  { id:215, type:"email", from:"hr@google-careers-apply.com", subject:"Job Offer: Remote Data Entry - $45/hr",
+    body:"Congratulations! Based on your resume, you have been selected for a remote position at Google. Starting pay is $45/hr. To proceed, please provide your banking details for direct deposit setup.",
+    answer:"pretext", difficulty:"easy" },
+  { id:216, type:"chat", from:"RecruiterMike (via LinkedIn)",
+    body:"Hi! I came across your profile and I think you'd be a great fit for a role at our company. Salary is $120K-$180K remote. Before we schedule an interview, I just need you to fill out this onboarding form with your SSN and bank details for our background check system.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Shipping / Customs ---
+  { id:217, type:"sms", from:"USPS",
+    body:"USPS: Your package is being held at customs. A fee of $3.99 is required for release. Pay now to avoid return: usps-customs-fee.com/pay",
+    answer:"pretext", difficulty:"easy" },
+  { id:218, type:"email", from:"tracking@fedex-delivery-notice.com", subject:"Delivery Exception - Address Confirmation Required",
+    body:"Your FedEx package could not be delivered due to an incomplete address. Please confirm your full address and provide a valid phone number within 24 hours or the package will be returned to sender.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Toll Road ---
+  { id:219, type:"sms", from:"E-ZPass",
+    body:"E-ZPass: You have an unpaid toll balance of $12.47. Pay immediately to avoid a $50 late fee: ezpass-pay.com/balance",
+    answer:"pretext", difficulty:"easy" },
+  { id:220, type:"sms", from:"TXTAG",
+    body:"TxTag: Your account has an outstanding balance of $6.85. Update your payment method to avoid registration holds: txtag-update.net/pay",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Streaming ---
+  { id:221, type:"email", from:"billing@spotify-account.com", subject:"Your Spotify Premium subscription has been cancelled",
+    body:"We were unable to process your payment for Spotify Premium. Your subscription has been cancelled. Reactivate now to keep your playlists and downloads.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Gaming ---
+  { id:222, type:"email", from:"noreply@steampowered-community.com", subject:"Your Steam account has been reported",
+    body:"Multiple users have reported your Steam account for suspicious trading activity. Your account will be permanently banned within 24 hours unless you verify your identity. Click here to appeal.",
+    answer:"pretext", difficulty:"medium" },
+  { id:223, type:"email", from:"support@epicgames-verify.com", subject:"Free V-Bucks Reward Claim",
+    body:"You've been selected to receive 13,500 free V-Bucks as part of our player appreciation event. Claim your reward by logging in with your Epic Games credentials below.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Airline Miles ---
+  { id:224, type:"email", from:"rewards@delta-skymiles.net", subject:"Your SkyMiles are about to expire",
+    body:"You have 47,250 SkyMiles expiring in 7 days. Reactivate your account now to prevent losing your miles. Verify your Medallion member number and password below.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Hotel Loyalty ---
+  { id:225, type:"email", from:"rewards@marriott-bonvoy-offers.com", subject:"Exclusive offer: Double points on your next stay",
+    body:"As a valued Bonvoy member, you've been selected for double points on your next booking. To activate this offer, please verify your account by entering your member number and password.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Utility Bill ---
+  { id:226, type:"sms", from:"PG&E",
+    body:"PG&E: Your electricity will be disconnected today due to an overdue balance of $187.43. Pay immediately to avoid service interruption: pge-payment.net/urgent",
+    answer:"pretext", difficulty:"easy" },
+  { id:227, type:"call", from:"+1 (800) 555-0199",
+    body:"\"This is the power company. Your service is scheduled for disconnection in the next two hours due to nonpayment. We can accept payment over the phone right now with a prepaid card or wire transfer to avoid the shutoff.\"",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: ISP ---
+  { id:228, type:"email", from:"security@comcast-xfinity-alert.com", subject:"Suspicious network activity detected",
+    body:"We detected illegal file-sharing activity on your Xfinity network. Your internet service will be terminated unless you verify your account within 48 hours. Click below to verify.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Cloud Storage ---
+  { id:229, type:"email", from:"noreply@icloud-storage.support", subject:"Your iCloud storage is full",
+    body:"Your iCloud storage is 99% full. Files will stop syncing in 24 hours. Apple is offering 50GB free for loyal customers. Claim your bonus storage by verifying your Apple ID below.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: IRS ---
+  { id:230, type:"email", from:"refund@irs-tax-center.com", subject:"Tax Refund Notification - $3,847.00",
+    body:"The IRS has calculated a refund of $3,847.00 for your 2025 tax return. To process your refund, please verify your bank routing number and Social Security number.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: CEO Fraud / BEC ---
+  { id:231, type:"email", from:"ceo@company-name.co", subject:"Urgent wire transfer needed",
+    body:"I'm in a meeting and can't talk. I need you to process an urgent wire transfer of $24,500 to a new vendor before 3pm today. I'll explain later. Please keep this confidential.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Invoice ---
+  { id:232, type:"email", from:"accounting@quickbooks-invoices.net", subject:"Invoice #INV-2026-4817 Due",
+    body:"Please find attached your invoice for $1,249.00. Payment is overdue. To avoid late fees and service interruption, process payment immediately via the secure link below.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Charity ---
+  { id:233, type:"email", from:"donate@red-cross-emergency.org", subject:"Emergency Relief Fund - Immediate Donation Needed",
+    body:"A major disaster has struck. The Red Cross urgently needs your help. Click below to donate now. For donations over $100, please provide your Social Security number for tax receipt purposes.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: QR code ---
+  { id:234, type:"sms", from:"48291",
+    body:"Your bank has upgraded its security. Scan this QR code with your phone camera to complete the migration to our new secure app. Failure to migrate by Friday will lock your account.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- GENUINE: Healthcare portal ---
+  { id:235, type:"email", from:"noreply@myuhc.com", subject:"Your Explanation of Benefits is ready",
+    body:"A new Explanation of Benefits (EOB) is available in your myUHC.com account. Log in to review your recent claim. This is an automated message — do not reply to this email.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: Student loan servicer ---
+  { id:236, type:"email", from:"noreply@mohela.com", subject:"Upcoming payment due",
+    body:"Your student loan payment of $287.43 is due on September 1. Log in to MOHELA.com to review your statement or set up autopay. If you've already made this payment, please disregard this notice.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: Venmo ---
+  { id:237, type:"push", from:"Venmo",
+    body:"Sarah paid you $32.00 for 'dinner last night'. Tap to view.",
+    answer:"genuine", difficulty:"easy" },
+
+  // --- GENUINE: Zelle (via bank) ---
+  { id:238, type:"sms", from:"72166",
+    body:"Chase: Alex sent you $75.00 with Zelle. The money is available in your checking account. No action needed.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: Google Drive storage ---
+  { id:239, type:"email", from:"no-reply@google.com", subject:"Your Google storage is almost full",
+    body:"You've used 14.2 GB of your 15 GB of Google storage. When your storage is full, you won't be able to send or receive emails in Gmail. You can free up space or get more storage at one.google.com.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Steam ---
+  { id:240, type:"email", from:"noreply@steampowered.com", subject:"Your Steam account: Access from new device",
+    body:"Dear Steam user, your account was accessed from a new device. Location: San Francisco, CA. Device: Chrome on Windows. If this was you, no action is needed. If not, change your password.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Delta ---
+  { id:241, type:"email", from:"DeltaAirLines@t.delta.com", subject:"Your SkyMiles account summary",
+    body:"Your September SkyMiles statement is ready. You have 23,847 miles available. Your Medallion status: Silver. View your full statement at delta.com/skymiles.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Marriott ---
+  { id:242, type:"email", from:"Marriott_Bonvoy@email-marriott.com", subject:"Your upcoming reservation confirmation",
+    body:"Your reservation at Courtyard by Marriott downtown is confirmed for Oct 15-17. Confirmation #82947KX. Check in at 3:00 PM. View or modify your reservation at marriott.com.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: PG&E ---
+  { id:243, type:"email", from:"CustomerService@pge.com", subject:"Your PG&E bill is ready",
+    body:"Your bill for the period August 1-31 is $142.87, due September 20. View your bill and pay online at pge.com. You can also set up autopay to never miss a payment.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: Comcast/Xfinity ---
+  { id:244, type:"email", from:"online.communications@alerts.comcast.net", subject:"Your Xfinity bill is available",
+    body:"Your monthly Xfinity statement of $89.99 is now available. Payment is due October 3. View your bill at xfinity.com/myaccount or pay through the Xfinity app.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: GitHub ---
+  { id:245, type:"email", from:"noreply@github.com", subject:"[GitHub] A new public key was added to your account",
+    body:"A new SSH key was added to your account on August 26, 2026. Fingerprint: SHA256:AbCdEf123456. If you did not add this key, please review your account security settings immediately.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Epic Games ---
+  { id:246, type:"email", from:"help@accts.epicgames.com", subject:"Verify your email address",
+    body:"Click the button below to verify your email address for your Epic Games account. If you did not create an Epic Games account, you can ignore this email.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: LinkedIn ---
+  { id:247, type:"email", from:"security-noreply@linkedin.com", subject:"Sign-in from a new device",
+    body:"We noticed a new sign-in to your LinkedIn account. Device: iPhone, Location: New York, NY. Time: Today at 2:15 PM ET. If this was you, no action is needed.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: IRS (legitimate) ---
+  { id:248, type:"email", from:"noreply@irs.gov", subject:"Your IRS Online Account transcript is ready",
+    body:"The tax transcript you requested is now available in your IRS Online Account. Log in at irs.gov to view it. The IRS will never ask for personal information by email.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: FedEx ---
+  { id:249, type:"push", from:"FedEx",
+    body:"Your package is out for delivery today. Estimated delivery: 2:00 PM - 6:00 PM. Track at fedex.com. Tracking: 7489 2847 1938.",
+    answer:"genuine", difficulty:"easy" },
+// --- FAKE: QR Code / Physical-World Scams ---
+  { id:300, type:"email", from:"parking@cityparking-meters.com", subject:"Unpaid Parking Violation - Scan to Pay",
+    body:"You have an outstanding parking citation #CV-20260814. Scan the QR code below or visit cityparking-meters.com/pay to avoid a doubled fine within 72 hours.",
+    answer:"pretext", difficulty:"medium" },
+  { id:301, type:"sms", from:"55123",
+    body:"Your restaurant bill payment failed. Please scan the QR code on the receipt again or pay here: restaurantpay.link/bill-8837",
+    answer:"pretext", difficulty:"easy" },
+  { id:302, type:"email", from:"events@conference-badge-verify.com", subject:"Verify Your Badge - Scan Required",
+    body:"Your conference registration requires QR verification before entry. Scan the attached code or visit conference-badge-verify.com/attendee to complete check-in. Badge pickup opens at 8 AM.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: WhatsApp / Messaging Takeover ---
+  { id:303, type:"sms", from:"+1 (415) 555-0199",
+    body:"Hi! It's your cousin Maria. I accidentally sent my WhatsApp verification code to your number instead of mine. Can you forward me the 6-digit code you just received? So sorry!",
+    answer:"pretext", difficulty:"easy" },
+  { id:304, type:"chat", from:"WhatsApp Support (via WhatsApp)",
+    body:"We detected unusual activity on your WhatsApp account. To avoid deactivation, reply with your 6-digit SMS verification code within 10 minutes. This is an automated security message.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: LinkedIn Recruiter Scam ---
+  { id:305, type:"email", from:"recruiter@linked1n-talent.com", subject:"Exciting Senior Role - $180K-$240K Remote",
+    body:"I came across your profile and think you'd be a perfect fit for a Senior Developer role at a Fortune 500 company. To proceed, please complete this short skills assessment and upload your resume: linked1n-talent.com/apply",
+    answer:"pretext", difficulty:"medium" },
+  { id:306, type:"chat", from:"Sarah Chen, VP Talent (via LinkedIn)",
+    body:"Hi! Love your background. We have an urgent opening paying $200K+ and your profile is exactly what we need. Can you send me your personal email and phone so we can set up a call today? Time-sensitive.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: CEO / Boss Fraud ---
+  { id:307, type:"email", from:"ceo@company-internal.com", subject:"Urgent - Wire Transfer Needed Today",
+    body:"I'm in a meeting and can't talk. I need you to process a wire transfer of $14,500 to a new vendor immediately. I'll send the details separately. Please confirm you can handle this now — it's time-sensitive.",
+    answer:"pretext", difficulty:"medium" },
+  { id:308, type:"sms", from:"Boss (mobile)",
+    body:"Hey are you at your desk? I need you to buy 5 Apple gift cards at $200 each for client gifts. Scratch off the backs and text me photos of the codes. Will reimburse you. Urgent please.",
+    answer:"pretext", difficulty:"easy" },
+  { id:309, type:"chat", from:"CFO - Julia Park (via Teams)",
+    body:"I'm on a call with auditors and can't step away. Can you update the direct deposit routing number for my payroll to the attached form? Need it changed before Friday's payroll run.",
+    answer:"pretext", difficulty:"hard" },
+
+  // --- FAKE: Disaster Charity ---
+  { id:310, type:"email", from:"donate@hurricane-relief-fund.org", subject:"Hurricane Milton Relief - Donate Now",
+    body:"Hurricane Milton has devastated communities across Florida. Donate now to provide immediate shelter and clean water. Every dollar helps. Donate via Zelle, Venmo, or crypto for fastest delivery to victims.",
+    answer:"pretext", difficulty:"medium" },
+  { id:311, type:"sms", from:"REDCROSS",
+    body:"URGENT: Wildfire victims need your help NOW. Text GIVE to 90999 or donate directly at redcross-disaster-aid.com/wildfire. $10 provides one family with emergency supplies.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: IRS / Tax Refund ---
+  { id:312, type:"sms", from:"IRS",
+    body:"IRS Notice: You have an unclaimed tax refund of $1,847.00 for tax year 2025. Claim now before it expires: irs-refund-claim.com/verify. Reference #TRF-20260412.",
+    answer:"pretext", difficulty:"easy" },
+  { id:313, type:"call", from:"+1 (202) 555-0147",
+    body:"\"This is Officer James Wilson with the IRS Criminal Investigation Division. There is a warrant for your arrest due to unpaid back taxes. To resolve this immediately and avoid arrest, you must make a payment today via wire transfer. Press 1 to speak with a resolution specialist.\"",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Court Summons ---
+  { id:314, type:"email", from:"clerk@us-district-court-notices.com", subject:"Subpoena Notification - Case #2026-CV-04481",
+    body:"You are hereby notified of a pending civil action. Failure to respond within 14 days will result in a default judgment. Download the full complaint and your required response form at the link below.",
+    answer:"pretext", difficulty:"medium" },
+  { id:315, type:"sms", from:"USCOURT",
+    body:"NOTICE: You failed to appear for jury duty on 08/12/2026. A bench warrant has been issued. Call 1-888-555-0123 immediately to resolve this before law enforcement is dispatched.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Missed Delivery ---
+  { id:316, type:"sms", from:"USPS",
+    body:"USPS: Your package could not be delivered due to an incomplete address. Update your delivery details here: usps-redelivery.com/update to reschedule.",
+    answer:"pretext", difficulty:"easy" },
+  { id:317, type:"email", from:"tracking@fedex-notifications.net", subject:"Delivery Exception - Action Required",
+    body:"Your FedEx shipment #7749201384 requires a customs clearance fee of $3.95 before delivery. Pay the fee to release your package: fedex-notifications.net/customs-pay.",
+    answer:"pretext", difficulty:"medium" },
+  { id:318, type:"sms", from:"UPS",
+    body:"UPS: We attempted delivery of your parcel but no one was available. Schedule redelivery or pickup: bit.ly/ups-reschedule-pkg",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: App Store / Subscription ---
+  { id:319, type:"email", from:"receipt@apple-purchase-confirmation.com", subject:"Receipt: App Store Purchase - $499.99",
+    body:"Your Apple ID was used to purchase 'Crypto Trading Pro' for $499.99. If you did not authorize this purchase, cancel within 24 hours by clicking Report a Problem below.",
+    answer:"pretext", difficulty:"medium" },
+  { id:320, type:"email", from:"billing@mcafee-renewal-notice.com", subject:"Your McAfee Subscription Renews Tomorrow - $399.99",
+    body:"Your McAfee Total Protection subscription will auto-renew for $399.99 on 08/27/2026. If you did not authorize this charge, call 1-855-555-0188 immediately to cancel and receive a full refund.",
+    answer:"pretext", difficulty:"easy" },
+  { id:321, type:"email", from:"noreply@geeksquad-invoice.com", subject:"Geek Squad - Auto-Renewal Confirmation #GS-88741",
+    body:"Your annual Geek Squad Protection Plan has been renewed. Amount charged: $349.99. If you wish to cancel and request a refund, please call our billing department at 1-866-555-0142 within 24 hours.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Travel Booking ---
+  { id:322, type:"email", from:"confirmation@booking-secure.com", subject:"Booking Confirmed - Hilton Garden Inn Aug 30-Sep 2",
+    body:"Your reservation has been confirmed. Total charge: $847.00. If you did not make this booking, click here to cancel immediately and prevent the charge to your Visa ending 4521.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Insurance ---
+  { id:323, type:"email", from:"claims@insurance-benefits-center.com", subject:"Your Insurance Claim Has Been Approved",
+    body:"Great news! Your insurance claim #CLM-20260815 has been approved for $2,340.00. To receive payment, verify your banking details by clicking the secure link below. Funds will be deposited within 3 business days.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Student Financial Aid ---
+  { id:324, type:"email", from:"finaid@student-loan-forgiveness-dept.com", subject:"You Qualify for Student Loan Forgiveness",
+    body:"Based on your federal student loan records, you qualify for the new Student Loan Forgiveness Program. Apply before the September 15 deadline. A small processing fee of $49 is required to finalize your application.",
+    answer:"pretext", difficulty:"medium" },
+  { id:325, type:"sms", from:"FEDAID",
+    body:"FAFSA Alert: Your 2026-2027 financial aid application requires identity verification. Complete verification now to avoid losing your aid package: fafsa-verify.education/aid",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Warranty / Home Title ---
+  { id:326, type:"email", from:"notice@vehicle-warranty-center.com", subject:"Final Notice: Your Vehicle Warranty Has Expired",
+    body:"Our records indicate your vehicle warranty has expired or is about to expire. You are eligible for extended coverage at a reduced rate. Call 1-800-555-0177 or reply EXTEND to this email before your eligibility window closes.",
+    answer:"pretext", difficulty:"easy" },
+  { id:327, type:"email", from:"alerts@hometitle-protection.com", subject:"ALERT: Unauthorized Lien Filed Against Your Property",
+    body:"Our monitoring system detected a new lien filing against your property at your address. This could indicate home title fraud. Verify your property status immediately and activate protection for $15.99/month.",
+    answer:"pretext", difficulty:"hard" },
+
+  // --- FAKE: Deepfake Voice / Family Emergency ---
+  { id:328, type:"call", from:"Mom (mobile)",
+    body:"\"Mom? Mom it's me, I'm in trouble. I was in a car accident and I'm at the hospital but they won't treat me until I pay. I need you to send $3,000 right now via Zelle. Please don't tell dad, I'll explain everything later. Please hurry.\"",
+    answer:"pretext", difficulty:"hard" },
+  { id:329, type:"call", from:"+1 (555) 867-5309",
+    body:"\"This is Sergeant Davis with the county sheriff's office. We have your grandson in custody following a traffic incident. He's asked us to contact you. Bail has been set at $5,000 and must be posted today in cash or prepaid card. Would you like me to connect you to the bail office?\"",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Tech Support / Antivirus ---
+  { id:330, type:"push", from:"System Alert",
+    body:"CRITICAL WARNING: Your device has been infected with 3 viruses. Your personal data and banking information are at risk. Tap here to run an emergency scan and remove threats immediately.",
+    answer:"pretext", difficulty:"easy" },
+  { id:331, type:"email", from:"support@windows-security-center.com", subject:"Your PC Is At Risk - Immediate Action Required",
+    body:"Microsoft has detected suspicious activity originating from your computer. Your Windows license may be compromised. Call Microsoft Certified Support at 1-888-555-0199 immediately to prevent data loss.",
+    answer:"pretext", difficulty:"easy" },
+  { id:332, type:"call", from:"+1 (425) 555-0100",
+    body:"\"Hello, this is Microsoft Technical Support. We've been monitoring your computer and detected that hackers have gained access to your system. I need you to open your browser and go to remote-fix-now.com so I can remove the malware. This is a free service from Microsoft.\"",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: WiFi Captive Portal ---
+  { id:333, type:"push", from:"Free Airport WiFi",
+    body:"Welcome to complimentary airport WiFi! To connect, enter your email and the last 4 digits of your credit card for age verification. You will not be charged.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Crypto ---
+  { id:334, type:"sms", from:"+44 7911 123456",
+    body:"Congrats! You've been selected for our exclusive Bitcoin giveaway. Send 0.1 BTC to the address below and receive 1.0 BTC back within 24 hours. Elon Musk is matching all contributions. Limited spots!",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- GENUINE: Uber ---
+  { id:335, type:"email", from:"noreply@uber.com", subject:"Your Wednesday evening trip with Uber",
+    body:"Thanks for riding with Uber. Your trip from Downtown to Airport on Aug 20 cost $34.72 charged to Visa ending 8891. You can rate your driver and view your trip details in the app.",
+    answer:"genuine", difficulty:"medium" },
+  { id:336, type:"push", from:"Uber",
+    body:"Your driver Carlos is arriving in 3 minutes. Gray Toyota Camry, plate 7ABC123.",
+    answer:"genuine", difficulty:"easy" },
+
+  // --- GENUINE: Airbnb ---
+  { id:337, type:"email", from:"express@airbnb.com", subject:"Reservation confirmed - Portland, Aug 30 - Sep 2",
+    body:"Your reservation at Sarah's Downtown Loft is confirmed. Check-in: Aug 30 at 3:00 PM. Your host will send you a message with entry instructions closer to your stay. Total: $412.00 charged to Mastercard ending 5523.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: Domain Registrar ---
+  { id:338, type:"email", from:"donotreply@name.com", subject:"Domain Renewal Notice: yourdomain.com",
+    body:"Your domain yourdomain.com expires on September 28, 2026. Renew now to avoid losing your domain. If auto-renewal is enabled, no action is needed — your card on file will be charged $12.99.",
+    answer:"genuine", difficulty:"hard" },
+  { id:339, type:"email", from:"billing@hover.com", subject:"Your domain is renewing soon",
+    body:"This is a reminder that your domain registration for mysite.org will auto-renew on Sep 15, 2026 for $15.99. If you want to make changes or cancel, visit your Hover account.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Credit Score ---
+  { id:340, type:"email", from:"alerts@creditkarma.com", subject:"Your TransUnion score changed",
+    body:"Your TransUnion credit score decreased by 12 points. Your new score is 741. This may be due to a new hard inquiry on your report. Log in to Credit Karma to see what changed.",
+    answer:"genuine", difficulty:"medium" },
+  { id:341, type:"push", from:"Experian",
+    body:"Your credit report was accessed by a new lender. Tap to review the inquiry details in the Experian app.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: Medical ---
+  { id:342, type:"email", from:"noreply@mycharthealth.com", subject:"New Test Results Available",
+    body:"You have new lab results available in your MyChart account. Log in to MyChart to view your results. Your provider may follow up with you if any action is needed.",
+    answer:"genuine", difficulty:"medium" },
+  { id:343, type:"sms", from:"74372",
+    body:"Kaiser Permanente: Your lab results are ready. View them at kp.org/results or in the KP app. Questions? Call your care team.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: Other Real Alerts ---
+  { id:344, type:"email", from:"noreply@github.com", subject:"[GitHub] A third-party OAuth application has been added",
+    body:"A third-party OAuth application (Vercel) was granted access to your GitHub account lizdev. If you did not authorize this, review your authorized OAuth applications in Settings > Applications.",
+    answer:"genuine", difficulty:"hard" },
+  { id:345, type:"push", from:"Signal",
+    body:"Signal has been registered on a new device. If this wasn't you, open Signal on your primary device to review linked devices.",
+    answer:"genuine", difficulty:"medium" },
+  { id:346, type:"email", from:"venmo@venmo.com", subject:"You paid Alex $45.00",
+    body:"You paid Alex Johnson $45.00 for 'dinner'. Your Venmo balance was used. If you didn't make this payment, contact Venmo support immediately.",
+    answer:"genuine", difficulty:"medium" },
+  { id:347, type:"email", from:"security-noreply@linkedin.com", subject:"New login to your LinkedIn account",
+    body:"We noticed a new login to your LinkedIn account from Chrome on macOS in San Francisco, CA. If this was you, no action is needed. If not, secure your account now.",
+    answer:"genuine", difficulty:"hard" },
+  { id:348, type:"push", from:"Wells Fargo",
+    body:"A purchase of $127.43 was made at TARGET #1284 with your debit card ending 3392. If you don't recognize this, call 1-800-869-3557.",
+    answer:"genuine", difficulty:"medium" },
+  { id:349, type:"email", from:"noreply@id.apple.com", subject:"Your Apple ID was used to sign in to iCloud on a MacBook Pro",
+    body:"Your Apple ID (j***@icloud.com) was used to sign in to iCloud via a MacBook Pro near San Jose, CA. If this was you, you can disregard this email. If not, go to appleid.apple.com to update your security settings.",
+    answer:"genuine", difficulty:"hard" },
+// --- FAKE: Romance / Social Engineering ---
+  { id:400, type:"chat", from:"Jessica_2024 (via Instagram DM)", subject:null,
+    body:"Hi! I came across your profile and I love your energy. I'm a nurse working overseas with Doctors Without Borders. I don't usually message strangers but something about you caught my eye. Would you like to chat?",
+    answer:"pretext", difficulty:"medium" },
+  { id:401, type:"email", from:"match-alert@eharmony-connections.com", subject:"Someone is interested in you!",
+    body:"A verified member near you has expressed strong interest in your profile. Due to privacy settings, you must log in within 24 hours to view their identity. Click here to see who liked you.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Crypto / Financial Scam ---
+  { id:402, type:"email", from:"airdrop@ethereum-foundation.io", subject:"Congratulations! You qualify for ETH airdrop",
+    body:"Based on your wallet activity, you are eligible for a 2.5 ETH airdrop from the Ethereum Foundation Community Rewards Program. Connect your wallet within 72 hours to claim. This offer expires automatically.",
+    answer:"pretext", difficulty:"easy" },
+  { id:403, type:"sms", from:"COINBASE",
+    body:"Coinbase: Unusual withdrawal of 0.8 BTC detected from your account. If this was not you, cancel immediately: http://coinbase-secure.app/cancel",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Government / Tax ---
+  { id:404, type:"email", from:"grants@us-federal-grants.gov.com", subject:"You've been selected for a Federal Emergency Grant",
+    body:"The U.S. Department of Finance has selected you for a $9,800 Federal Emergency Relief Grant. No repayment required. To receive your funds, verify your identity and provide your bank routing number for direct deposit.",
+    answer:"pretext", difficulty:"easy" },
+  { id:405, type:"sms", from:"IRS",
+    body:"IRS NOTICE: Your tax refund of $3,247.00 has been approved but cannot be processed. Update your direct deposit information immediately at irs-refund-portal.com to avoid forfeiture.",
+    answer:"pretext", difficulty:"easy" },
+  { id:406, type:"email", from:"voter-registration@state-elections-verify.org", subject:"Action Required: Verify your voter registration",
+    body:"Our records indicate your voter registration may be incomplete or expired. If you do not re-verify your registration by clicking the link below within 10 days, you may be removed from the voter rolls for the upcoming election.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: HOA / Local ---
+  { id:407, type:"email", from:"violations@hoa-management-services.com", subject:"HOA Violation Notice - Immediate Action Required",
+    body:"A violation has been recorded at your property for non-compliance with community standards (landscaping/exterior maintenance). A $250 fine will be assessed if not resolved within 7 days. Click here to view the violation details and submit your appeal.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Parking / Traffic ---
+  { id:408, type:"sms", from:"CITYPARKING",
+    body:"NOTICE: Unpaid parking citation #PCN-48291 for your vehicle. Pay the $85 fine within 48 hours to avoid an additional $150 penalty: cityparking-pay.com/fine",
+    answer:"pretext", difficulty:"medium" },
+  { id:409, type:"email", from:"no-reply@traffic-camera-citations.com", subject:"Speed Camera Violation - Photo Evidence Enclosed",
+    body:"Our automated speed camera recorded your vehicle exceeding the posted speed limit by 22 mph. A citation of $195 has been issued. View photo evidence and pay online to avoid a court summons.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Retirement / 401k ---
+  { id:410, type:"email", from:"alerts@401k-secure-portal.com", subject:"Urgent: Unusual activity in your retirement account",
+    body:"We detected an unauthorized distribution request from your 401(k) account. If you did not initiate this withdrawal, you must verify your identity within 24 hours to prevent fund disbursement. Click below to secure your account.",
+    answer:"pretext", difficulty:"medium" },
+  { id:411, type:"call", from:"+1 (888) 555-0147", subject:null,
+    body:"\"This is Michael from your employer's benefits department. We're updating our retirement plan provider and need to verify your Social Security number and current 401k balance to ensure a smooth transition. Can you pull up your most recent statement?\"",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Class Action / Legal ---
+  { id:412, type:"email", from:"claims@national-settlement-center.com", subject:"You may be entitled to $3,200 from class action settlement",
+    body:"Records indicate you purchased a qualifying product between 2019-2024. A $47M class action settlement has been reached and you are eligible for compensation of up to $3,200. File your claim now before the deadline.",
+    answer:"pretext", difficulty:"hard" },
+
+  // --- FAKE: Product Recall ---
+  { id:413, type:"sms", from:"RECALL-ALERT",
+    body:"URGENT SAFETY RECALL: Your registered appliance has been identified in a fire hazard recall. Register for free replacement immediately: product-recall-center.com/claim",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Package / Customs ---
+  { id:414, type:"sms", from:"USPS",
+    body:"USPS: Your package is being held at customs. A fee of $3.95 is required for release. Pay now to avoid return to sender: usps-customs-fee.com/pay",
+    answer:"pretext", difficulty:"easy" },
+  { id:415, type:"email", from:"customs@fedex-delivery-notice.com", subject:"Customs clearance fee required for your shipment",
+    body:"Your international shipment (tracking #FX-8847291) is being held pending customs clearance. A processing fee of $11.99 must be paid before delivery can proceed. Pay online to release your package.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Cloud Storage ---
+  { id:416, type:"email", from:"no-reply@icloud-storage-alert.com", subject:"Your iCloud storage is full - photos will be deleted",
+    body:"Your iCloud storage has reached capacity. Photos and backups will stop syncing in 24 hours. Upgrade your plan now or risk losing recent photos. Click below to manage your storage.",
+    answer:"pretext", difficulty:"medium" },
+  { id:417, type:"email", from:"drive-security@google-drive-alerts.com", subject:"Suspicious file sharing detected in your Google Drive",
+    body:"We detected that sensitive documents in your Google Drive are being shared with an unrecognized external email address. Review and revoke access immediately to protect your files.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Smart Home / IoT ---
+  { id:418, type:"push", from:"SmartHome Security", subject:null,
+    body:"ALERT: Your Ring doorbell camera detected motion at your front door but failed to record due to an authentication error. Re-authenticate your device now to restore recording.",
+    answer:"pretext", difficulty:"hard" },
+  { id:419, type:"email", from:"support@nest-thermostat-update.com", subject:"Critical firmware update required for your Nest device",
+    body:"A critical security vulnerability has been found in your Nest thermostat's firmware. Your device is currently exposed to remote access exploits. Install the emergency update within 48 hours.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: EV Charging ---
+  { id:420, type:"sms", from:"CHARGEPOINT",
+    body:"ChargePoint: Your charging session was interrupted due to a payment failure. Update your payment method to avoid a $25 idle fee: chargepoint-billing.com/update",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: School / Parent ---
+  { id:421, type:"email", from:"admin@school-district-portal.net", subject:"Important: Update your child's emergency contact information",
+    body:"Per new district policy, all emergency contact information must be re-verified by the end of this week. Log in to the parent portal to confirm your information or your child may not be allowed to participate in after-school activities.",
+    answer:"pretext", difficulty:"hard" },
+  { id:422, type:"sms", from:"55512",
+    body:"SCHOOL ALERT: Your child was marked absent today. If this is an error, verify attendance immediately: schoolparent-verify.com/attendance",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Pet Adoption ---
+  { id:423, type:"email", from:"follow-up@pet-adoption-network.org", subject:"Re: Your adoption application - Additional documentation needed",
+    body:"Thank you for your recent adoption application. Before we can finalize the adoption of Bella (Lab mix, ID #4829), we need a copy of your driver's license and proof of homeownership. Please upload these documents to complete the process.",
+    answer:"pretext", difficulty:"hard" },
+
+  // --- FAKE: AI / Deepfake ---
+  { id:424, type:"chat", from:"CEO (via Zoom chat)", subject:null,
+    body:"\"Hey, I'm in a meeting right now and can't call. I need you to process an urgent wire transfer of $12,000 to a new vendor before 3 PM. I'll send you the details. Can you handle this without looping in finance? It's time-sensitive.\"",
+    answer:"pretext", difficulty:"medium" },
+  { id:425, type:"email", from:"cfo@company-name.co", subject:"Urgent: Confidential acquisition - wire transfer needed",
+    body:"I need you to handle a confidential wire transfer related to an acquisition we're closing today. This is extremely time-sensitive and must stay between us until the announcement. Please process $45,000 to the account details attached.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Browser / Tech ---
+  { id:426, type:"push", from:"Chrome", subject:null,
+    body:"WARNING: Your Chrome browser has detected 3 viruses on your device. Your passwords and banking data may be compromised. Install the recommended security extension immediately to remove threats.",
+    answer:"pretext", difficulty:"easy" },
+  { id:427, type:"email", from:"security@microsoft-defender-alert.com", subject:"Windows Defender: Critical threat detected",
+    body:"Windows Defender has detected a critical trojan (Win32/Emotet.AY) on your device. Your antivirus subscription has expired and cannot remove this threat. Renew now to clean your system.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Subscription / Billing ---
+  { id:428, type:"email", from:"billing@geek-squad-renewal.com", subject:"Auto-renewal: Geek Squad Protection Plan - $449.99",
+    body:"Your Geek Squad Total Protection plan will auto-renew today for $449.99. If you did not authorize this charge, call 1-888-555-0199 immediately to cancel and request a refund.",
+    answer:"pretext", difficulty:"medium" },
+  { id:429, type:"email", from:"no-reply@mcafee-billing.com", subject:"Your McAfee subscription has been renewed - $399.99",
+    body:"Thank you for renewing McAfee Total Protection. Your card ending in 4821 has been charged $399.99 for 3 years of coverage. If you did not authorize this, call our refund line at 1-877-555-0134.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Delivery ---
+  { id:430, type:"sms", from:"72309",
+    body:"Your DHL package is waiting for delivery. Please confirm your address and pay the $2.49 redelivery fee: dhl-redelivery.tracking-update.com",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Job / Employment ---
+  { id:431, type:"email", from:"hr@remote-careers-global.com", subject:"Job Offer: Remote Data Entry - $45/hr",
+    body:"Based on your resume, we'd like to offer you a remote data entry position at $45/hour. No experience required. To begin onboarding, we need your full SSN, a copy of your ID, and your bank details for direct deposit setup.",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Healthcare ---
+  { id:432, type:"sms", from:"MEDICARE",
+    body:"Medicare: Your new insurance card is ready. Call 1-800-555-0162 to verify your identity and have your updated card mailed. Failure to verify may result in a lapse in coverage.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Utility ---
+  { id:433, type:"call", from:"+1 (555) 328-9100", subject:null,
+    body:"\"This is an automated message from your electric utility. Your account is past due and service will be disconnected within 2 hours unless payment is made immediately. Press 1 to pay now with a gift card or wire transfer to avoid disconnection.\"",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Charity ---
+  { id:434, type:"email", from:"donate@veterans-heroes-fund.org", subject:"Help Our Veterans This Holiday Season",
+    body:"Your generous donation last year made a real difference. This year, we're asking previous donors to increase their impact. Click below to make a tax-deductible donation. For your convenience, we've saved your payment information.",
+    answer:"pretext", difficulty:"hard" },
+
+  // --- FAKE: Lottery / Prize ---
+  { id:435, type:"sms", from:"PRIZE",
+    body:"Congratulations! Your phone number has been selected as the winner of a $50,000 Walmart gift card sweepstakes. Claim your prize: walmart-winner.com/claim",
+    answer:"pretext", difficulty:"easy" },
+
+  // --- FAKE: Travel ---
+  { id:436, type:"email", from:"booking@airbnb-reservation-confirm.com", subject:"Your Airbnb reservation has been modified",
+    body:"Your host has requested a change to your upcoming reservation. The new total is $847.50. If you did not approve this change, click below to dispute it before it is finalized in 24 hours.",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- FAKE: Insurance ---
+  { id:437, type:"sms", from:"GEICO",
+    body:"GEICO: Your auto policy has been flagged for cancellation due to a missed payment. Avoid a coverage lapse by paying now: geico-payment-portal.com/pay",
+    answer:"pretext", difficulty:"medium" },
+
+  // --- GENUINE: Corporate IT ---
+  { id:438, type:"email", from:"no-reply@okta.com", subject:"Your password expires in 14 days",
+    body:"Hi, your corporate password will expire in 14 days. You can change it anytime from your Okta dashboard at yourcompany.okta.com. If you need help, contact the IT helpdesk.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: App Store ---
+  { id:439, type:"email", from:"no_reply@email.apple.com", subject:"Your subscription renewal",
+    body:"Your subscription to iCloud+ (200 GB) will automatically renew on September 15 for $2.99/month. To manage your subscription, go to Settings > [your name] > Subscriptions on your device.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Car Insurance ---
+  { id:440, type:"email", from:"renewals@progressive.com", subject:"Your auto policy renewal documents are ready",
+    body:"Your Progressive auto policy renews on October 1. Your new premium is $847.00 for 6 months. Review your renewal documents in your online account at progressive.com. No action needed if you want to keep your current coverage.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Property Tax ---
+  { id:441, type:"email", from:"no-reply@tax.co.alameda.ca.us", subject:"Property tax statement available",
+    body:"Your 2026-2027 property tax statement is now available online. The first installment of $3,412.50 is due November 1. View and pay at tax.acgov.org.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Library ---
+  { id:442, type:"email", from:"notices@library.org", subject:"Library items due soon",
+    body:"You have 2 items due on September 5. Return or renew them to avoid late fees. Log in to your library account to renew online, or return items to any branch location.",
+    answer:"genuine", difficulty:"easy" },
+
+  // --- GENUINE: Dental ---
+  { id:443, type:"sms", from:"74692",
+    body:"Reminder: You have a dental appointment on Tue Sep 9 at 2:30 PM with Dr. Patel at Gentle Dental. Reply C to confirm or R to reschedule.",
+    answer:"genuine", difficulty:"easy" },
+
+  // --- GENUINE: Flight Delay ---
+  { id:444, type:"push", from:"United Airlines", subject:null,
+    body:"Flight UA 1847 SFO→ORD delayed. New departure: 4:35 PM (was 2:10 PM). Gate changed to B22. Tap for rebooking options.",
+    answer:"genuine", difficulty:"easy" },
+
+  // --- GENUINE: Power Outage ---
+  { id:445, type:"sms", from:"PGE",
+    body:"PG&E: A power outage has been reported in your area affecting approximately 2,300 customers. Estimated restoration: 6:45 PM today. Updates at pge.com/outages.",
+    answer:"genuine", difficulty:"easy" },
+
+  // --- GENUINE: Weather Alert ---
+  { id:446, type:"push", from:"Weather", subject:null,
+    body:"SEVERE THUNDERSTORM WARNING for your area until 8:45 PM PDT. Damaging winds up to 60 mph and quarter-size hail. Seek shelter indoors immediately.",
+    answer:"genuine", difficulty:"easy" },
+
+  // --- GENUINE: Pharmacy ---
+  { id:447, type:"sms", from:"CVS",
+    body:"CVS Pharmacy: Your prescription for Lisinopril 10mg is ready for pickup at the CVS on Main St. Reply HELP for store hours.",
+    answer:"genuine", difficulty:"easy" },
+
+  // --- GENUINE: GitHub ---
+  { id:448, type:"email", from:"noreply@github.com", subject:"[GitHub] A new sign-in from Chrome on macOS",
+    body:"Hey there! We noticed a new sign-in to your account from Chrome on macOS. If this was you, you can ignore this email. If not, please review your account security settings.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: Venmo ---
+  { id:449, type:"push", from:"Venmo", subject:null,
+    body:"Sarah paid you $35.00 for \"dinner last night.\" The payment is now in your Venmo balance.",
+    answer:"genuine", difficulty:"easy" },
+
+  // --- GENUINE: LinkedIn ---
+  { id:450, type:"email", from:"security-noreply@linkedin.com", subject:"New device sign-in to your LinkedIn account",
+    body:"We noticed a sign-in to your LinkedIn account from a new device: iPhone, San Francisco, CA. If this was you, no action is needed. If you don't recognize this activity, visit your settings to secure your account.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Wells Fargo ---
+  { id:451, type:"sms", from:"93557",
+    body:"Wells Fargo: A transaction of $127.84 was made at TARGET on your card ending 3901. If you don't recognize this, call 1-800-869-3557.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Google storage ---
+  { id:452, type:"email", from:"no-reply@google.com", subject:"Your Google storage is almost full",
+    body:"You've used 14.2 GB of your 15 GB Google storage. When your storage is full, you won't be able to send or receive emails. Manage your storage at one.google.com/storage.",
+    answer:"genuine", difficulty:"hard" },
+
+  // --- GENUINE: Signal ---
+  { id:453, type:"push", from:"Signal", subject:null,
+    body:"Your Signal registration lock PIN hasn't been entered in a while. Open Signal to confirm your PIN so you don't lose access to your account.",
+    answer:"genuine", difficulty:"medium" },
+
+  // --- GENUINE: Car registration ---
+  { id:454, type:"email", from:"dmv-reminders@dmv.ca.gov", subject:"Vehicle registration renewal reminder",
+    body:"Your vehicle registration for plate #8ABC123 expires on October 31, 2026. Renew online at dmv.ca.gov or visit your local DMV office. Sincerely, California DMV.",
+    answer:"genuine", difficulty:"medium" }
+];
+var quizRound = 0;
+var QUIZ_SIZE = 6;
+
+function seededShuffle(arr, seed) {
+  var a = arr.slice(), s = seed;
+  for (var i = a.length - 1; i > 0; i--) {
+    s = (s * 16807 + 0) % 2147483647;
+    var j = s % (i + 1);
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+function getQuizMessages() {
+  if (!MESSAGE_BANK.length) return [];
+  var shuffled = seededShuffle(MESSAGE_BANK, quizRound + 1);
+  return shuffled.slice(0, QUIZ_SIZE);
+}
+
+function renderPretexts() {
+  var hasBankMessages = MESSAGE_BANK.length > 0;
+  var quizMessages = getQuizMessages();
+  var showingQuiz = val("scam_mode") === "quiz" && hasBankMessages;
+  var totalAnswered = 0, totalCorrect = 0;
+
+  var h = '<div class="station"><div class="eyebrow">Station 7</div><h2 class="stn-title">Scam Defense</h2>'
+    + '<p class="stn-lede">Real or fake? Name the specific detail that told you. The hard ones are the real messages — genuine services send alerts from domains that look fake.</p>'
+    + '<div class="card accent"><h3>How to verify a sender</h3>'
+    + '<div class="hint">Before you click anything in a message, check who actually sent it:</div>'
+    + '<ul class="checklist" style="list-style:none;padding:0">'
+    + '<li><label style="font-size:14px"><b>1. Check the domain, not the display name.</b> "Google Security" can be anyone — the part after the @ is what matters. Real: <code>@accounts.google.com</code>. Fake: <code>@google-security-alert.com</code>.</label></li>'
+    + '<li><label style="font-size:14px"><b>2. Hover the link before you click.</b> On desktop, hover over any link and read the URL in the bottom-left of your browser. On mobile, long-press. If the domain does not match the sender, do not click.</label></li>'
+    + '<li><label style="font-size:14px"><b>3. Search for the official page yourself.</b> Do not click the link in the message. Open a new tab, go to the company site directly, and navigate to your account settings.</label></li>'
+    + '<li><label style="font-size:14px"><b>4. Check the company\'s verification page.</b> Each curated message below has a "Verify ↗" link to the company\'s official guide for real vs fake messages.</label></li>'
+    + '</ul></div>'
+    + '<div class="card blue"><h3>Phishing link checkers</h3>'
+    + '<div class="hint">Paste a suspicious URL into these tools — do NOT click the link first.</div>'
+    + '<ul class="checklist" style="list-style:none;padding:0">'
+    + '<li><label><a href="https://www.virustotal.com/gui/home/url" target="_blank" rel="noopener">VirusTotal</a> — scans URLs against 70+ security engines</label></li>'
+    + '<li><label><a href="https://transparencyreport.google.com/safe-browsing/search" target="_blank" rel="noopener">Google Safe Browsing</a> — check if a site is flagged</label></li>'
+    + '<li><label><a href="https://urlscan.io/" target="_blank" rel="noopener">urlscan.io</a> — see what a URL loads without visiting it</label></li>'
+    + '<li><label><a href="https://www.whois.com/whois/" target="_blank" rel="noopener">WHOIS lookup</a> — check when a domain was registered</label></li>'
+    + '</ul></div>';
+
+  // Streak tracking
+  var streak = parseInt(val("quiz_streak") || "0", 10);
+  var bestStreak = parseInt(val("quiz_best_streak") || "0", 10);
+
+  if (hasBankMessages) {
+    h += '<div style="display:flex;gap:8px;margin:16px 0;flex-wrap:wrap;align-items:center">'
+       + '<button class="reveal-btn" data-quiz-mode="curated" style="' + (!showingQuiz ? 'background:var(--amber-bg);border-color:var(--amber);color:var(--amber-ink)' : '') + '">Curated (' + MESSAGES.length + ')</button>'
+       + '<button class="reveal-btn" data-quiz-mode="quiz" style="' + (showingQuiz ? 'background:var(--amber-bg);border-color:var(--amber);color:var(--amber-ink)' : '') + '">Quiz mode (' + MESSAGE_BANK.length + ' in the bank)</button>'
+       + (showingQuiz ? '<span style="font-family:var(--mono);font-size:13px;color:var(--amber-ink);margin-left:12px">Streak: ' + streak + (bestStreak > 0 ? ' · Best: ' + bestStreak : '') + '</span>' : '')
+       + '</div>';
+  }
+
+  var messagesToShow = showingQuiz ? quizMessages : MESSAGES;
+  var prefix = showingQuiz ? "q" + quizRound + "_" : "";
+
+  for (var i = 0; i < messagesToShow.length; i++) {
+    var m = messagesToShow[i], vk = prefix + "msg" + m.id + "_verdict", tk = prefix + "msg" + m.id + "_tell";
+    var userV = val(vk), revealed = val(prefix + "msg" + m.id + "_revealed") === "1";
+    var isCorrect = userV === m.answer;
+    if (userV) { totalAnswered++; if (isCorrect) totalCorrect++; }
+
+    h += '<div class="card' + (m.answer==="pretext" ? "" : " blue") + '">'
+       + '<div class="msg-type">' + esc(m.type) + ' · ' + esc(m.difficulty) + '</div>'
+       + '<div class="msg-envelope">'
+       + '<div class="msg-from">' + esc(m.from) + '</div>'
+       + (m.subject ? '<div class="msg-subject">' + esc(m.subject) + '</div>' : '')
+       + '<div class="msg-body">' + esc(m.body) + '</div></div>'
+       + '<div class="field"><label class="field-label">Verdict</label>'
+       + radioGroup(vk, [{value:"pretext",label:"Fake"},{value:"genuine",label:"Real"}])
+       + '</div>'
+       + field(tk, { label: "The tell", hint: "the specific detail", placeholder: "What made you decide?" });
+    if (m.verify) {
+      h += '<a href="' + m.verify.url + '" target="_blank" rel="noopener" style="display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.05em;padding:5px 12px;border:1px solid var(--line);border-radius:6px;color:var(--blue);text-decoration:none;margin:4px 8px 4px 0">Verify ↗ ' + esc(m.verify.label) + '</a>';
+    }
+    if (userV && !revealed) {
+      h += '<button class="reveal-btn" data-reveal-prefix="' + prefix + '" data-reveal="' + m.id + '">Check answer</button>';
+    }
+    if (revealed) {
+      h += '<div class="reveal shown ' + (isCorrect ? "correct" : "wrong") + '">'
+         + '<b>' + (isCorrect ? "✓ Correct" : "✗ Wrong") + ' — this is ' + (m.answer === "pretext" ? "fake" : "real") + '</b><br>';
+      if (m.tells) { for (var t = 0; t < m.tells.length; t++) h += '• ' + esc(m.tells[t]) + '<br>'; }
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+
+  if (showingQuiz && totalAnswered === messagesToShow.length && totalAnswered > 0) {
+    h += '<div class="scorecard"><h3>Round ' + (quizRound + 1) + ' score</h3>'
+       + '<div class="req" style="font-size:18px">' + totalCorrect + ' / ' + totalAnswered + ' correct</div>'
+       + '<div style="font-family:var(--mono);font-size:13px;margin-top:6px;color:var(--amber-ink)">Current streak: ' + streak + (bestStreak > 0 ? ' · Best: ' + bestStreak : '') + '</div>'
+       + '<button class="reveal-btn" data-next-round="1" style="margin-top:10px;background:var(--amber-bg);border-color:var(--amber);color:var(--amber-ink)">Next round (' + MESSAGE_BANK.length + ' messages in the bank) →</button>'
+       + '</div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+function renderAudit() {
+  var h = '<div class="station"><div class="eyebrow">Summary</div><h2 class="stn-title">Recovery Audit Card</h2>'
+    + '<p class="stn-lede">Your work tonight. Use <b>Print recovery audit</b> in the sidebar to save a copy.</p>';
+  var acctCount = 0, breachedCount = 0, resetCount = 0;
+  ACCOUNT_CATEGORIES.forEach(function(cat){ cat.accounts.forEach(function(a){
+    if(val("acct_"+cat.id+"_"+a.name)==="1") acctCount++;
+    if(val("breach_"+cat.id+"_"+a.name)==="1") breachedCount++;
+    if(val("reset_"+cat.id+"_"+a.name)==="1") resetCount++;
+  }); });
+  h += '<div class="card accent"><h3>Account Map</h3><div style="font-size:14px">' + acctCount + ' accounts identified'
+     + (breachedCount ? ' · <span style="color:var(--red)">' + breachedCount + ' breached</span>' : '')
+     + (resetCount ? ' · <span style="color:var(--green)">' + resetCount + ' reset</span>' : '')
+     + '</div></div>';
+  h += '<div class="card red"><h3>Password Health</h3><div style="font-size:14px">'
+     + 'Breached: ' + esc(val("pw_breached_count")||"?") + ' · Reused: ' + esc(val("pw_reused_count")||"?") + ' · Changed tonight: ' + esc(val("pw_changed_count")||"0")
+     + '</div></div>';
+  h += '<div class="card blue"><h3>Recovery Audit</h3>';
+  for (var i = 1; i <= 3; i++) {
+    var a = val("rec"+i+"_account");
+    if (a) h += '<div style="padding:4px 0;font-size:14px"><b>' + esc(a) + '</b>: ' + esc(val("rec"+i+"_weakest")||"—") + ' → ' + esc(val("rec"+i+"_fix")||"—") + '</div>';
+  }
+  h += '</div>';
+  h += '<div class="card green"><h3>Rebuild</h3><div style="font-size:14px">'
+     + (val("rebuild_sms")==="1" ? "✓" : "○") + ' SMS disabled &nbsp; '
+     + (val("rebuild_codes")==="1" ? "✓" : "○") + ' Backup codes printed &nbsp; '
+     + (val("rebuild_second")==="1" ? "✓" : "○") + ' Second recovery path &nbsp; '
+     + (val("rebuild_auth")==="1" ? "✓" : "○") + ' Authenticator app'
+     + '</div></div>';
+  h += '<div class="card red"><h3>Data Cleanup</h3><div style="font-size:14px">'
+     + (val("freeze_equifax")==="1" ? "✓" : "○") + ' Equifax &nbsp; '
+     + (val("freeze_experian")==="1" ? "✓" : "○") + ' Experian &nbsp; '
+     + (val("freeze_transunion")==="1" ? "✓" : "○") + ' TransUnion &nbsp; '
+     + (val("freeze_innovis")==="1" ? "✓" : "○") + ' Innovis &nbsp; '
+     + (val("freeze_chex")==="1" ? "✓" : "○") + ' ChexSystems'
+     + '</div></div>';
+  var correct = 0, total = 0;
+  MESSAGES.forEach(function(m){ if(val("msg"+m.id+"_verdict")){ total++; if(val("msg"+m.id+"_verdict")===m.answer) correct++; } });
+  h += '<div class="card"><h3>Scam Defense</h3><div style="font-size:14px">' + correct + '/' + total + ' correct</div></div>';
+
+  // --- Submit for credit ---
+  var standards = [
+    { slug: "cap.classify-an-incoming-contact-as-genuine-or-pretext",
+      title: "Classify an incoming contact as genuine or pretext",
+      req: "10 messages correctly identified as real or fake",
+      met: function() { var c=0; MESSAGES.forEach(function(m){ if(val("msg"+m.id+"_verdict")===m.answer) c++; }); return c >= 10; } },
+    { slug: "cap.falsify-your-own-account-recovery-by-attempting-it",
+      title: "Falsify your own account recovery by attempting it",
+      req: "A written attempt log, the furthest step reached, and the control you added",
+      met: function() { return !!val("rec1_account") && !!val("rec1_chain") && !!val("rec1_weakest") && !!val("rec1_fix"); } },
+    { slug: "cap.configure-recovery-that-survives-losing-the-device",
+      title: "Configure recovery that survives losing the device",
+      req: "Recovery codes printed off-device, SMS removed, second recovery path",
+      met: function() { return val("rebuild_sms")==="1" && val("rebuild_codes")==="1" && val("rebuild_second")==="1"; } },
+    { slug: "cap.verify-what-can-be-found-about-you-is-actually-gone",
+      title: "Verify what can be found about you is actually gone",
+      req: "Brokers contacted, before-and-after search, items that did not come down",
+      met: function() { var f=0; ["equifax","experian","transunion"].forEach(function(b){ if(val("freeze_"+b)==="1") f++; }); var br=0; ["spokeo","whitepages","beenverified","intelius","truepeoplesearch","fastpeoplesearch"].forEach(function(b){ if(val("broker_"+b)==="1") br++; }); return f>=3 || br>=3; } },
+    { slug: "cap.operate-a-callback-rule-against-incoming-contact",
+      title: "Operate a callback rule against incoming contact",
+      req: "One real incoming contact you verified by calling back",
+      met: function() { return correct >= 3 && val("pw_has_manager")==="1"; } }
+  ];
+
+  h += '<div class="card accent" style="margin-top:28px"><h3>Submit for credit</h3>'
+     + '<div class="hint" style="margin-bottom:14px">This submits <b>only yes/no per standard</b> — not your passwords, account names, or any field contents. It records which capabilities you demonstrated tonight.</div>'
+    + '<div class="hint" style="margin-bottom:14px;padding:8px 12px;background:var(--panel2);border-radius:var(--r)"><b>Extra credit:</b> Open your browser dev tools (F12 or Cmd+Opt+I), go to the <b>Network</b> tab, then click Submit. Verify for yourself that the only data leaving your browser is the list of standard slugs you met — no passwords, no account names, nothing else. <i>This is how you verify any tool that claims to be private.</i></div>';
+
+  var anyMet = false;
+  for (var si = 0; si < standards.length; si++) {
+    var st = standards[si], isMet = st.met();
+    if (isMet) anyMet = true;
+    h += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px">'
+       + '<span style="font-size:18px;flex:0 0 auto;margin-top:-1px">' + (isMet ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--dim)">○</span>') + '</span>'
+       + '<div><b>' + st.title + '</b><br><span style="color:var(--mut);font-size:12px">' + st.req + '</span></div></div>';
+  }
+
+  var submitted = val("credit_submitted");
+  if (submitted) {
+    h += '<div style="margin-top:14px;padding:10px 14px;background:var(--green-bg);border:1px solid var(--green);border-radius:var(--r);font-size:13px;color:var(--green)">✓ Submitted ' + esc(submitted) + '</div>';
+  } else if (anyMet) {
+    h += '<button id="submit-credit" type="button" style="margin-top:14px;width:100%;padding:12px;font-family:var(--mono);font-size:14px;letter-spacing:.04em;background:var(--amber-bg);border:1px solid var(--amber);color:var(--amber-ink);border-radius:var(--r);cursor:pointer">Submit for credit</button>';
+  } else {
+    h += '<div style="margin-top:10px;color:var(--dim);font-size:13px">Complete at least one standard above to submit.</div>';
+  }
+  h += '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+var RENDERERS = [renderMap, renderPasswords, renderRecovery, renderRebuild, renderCleanup, renderBorder, renderPretexts, renderAudit];
+
+function render() {
+  var el = document.getElementById("station");
+  el.innerHTML = RENDERERS[current]();
+  bindFields(el);
+  renderNav();
+}
+
+function bindFields(root) {
+  var inputs = root.querySelectorAll("[data-path]");
+  for (var i = 0; i < inputs.length; i++) {
+    inputs[i].addEventListener("input", (function(inp) { return function() { set(inp.getAttribute("data-path"), inp.value); }; })(inputs[i]));
+  }
+  var radios = root.querySelectorAll('input[type="radio"]');
+  for (var i = 0; i < radios.length; i++) {
+    radios[i].addEventListener("change", (function(r) { return function() { if(r.checked) { set(r.name, r.value); if(current===6) render(); } }; })(radios[i]));
+  }
+  var checks = root.querySelectorAll("[data-check]");
+  for (var i = 0; i < checks.length; i++) {
+    checks[i].addEventListener("change", (function(c) { return function() { set(c.getAttribute("data-check"), c.checked ? "1" : ""); if(current<=5) render(); }; })(checks[i]));
+  }
+  var addBtns = root.querySelectorAll("[data-add-cat]");
+  for (var i = 0; i < addBtns.length; i++) {
+    addBtns[i].addEventListener("click", (function(btn) { return function() { addCustomAccount(btn.getAttribute("data-add-cat")); }; })(addBtns[i]));
+  }
+  var rmBtns = root.querySelectorAll("[data-remove-cat]");
+  for (var i = 0; i < rmBtns.length; i++) {
+    rmBtns[i].addEventListener("click", (function(btn) { return function() { removeCustomAccount(btn.getAttribute("data-remove-cat"), parseInt(btn.getAttribute("data-remove-idx"))); }; })(rmBtns[i]));
+  }
+  var quizBtns = root.querySelectorAll("[data-quiz-mode]");
+  for (var i = 0; i < quizBtns.length; i++) {
+    quizBtns[i].addEventListener("click", (function(btn) { return function() {
+      var mode = btn.getAttribute("data-quiz-mode");
+      set("scam_mode", mode === "quiz" ? "quiz" : "");
+      render();
+    }; })(quizBtns[i]));
+  }
+  var nextBtn = root.querySelector("[data-next-round]");
+  if (nextBtn) {
+    nextBtn.addEventListener("click", function() {
+      quizRound++;
+      render();
+      document.getElementById("station").scrollIntoView({block:"start",behavior:"smooth"});
+    });
+  }
+  // Streak + confetti on reveal
+  var reveals2 = root.querySelectorAll("[data-reveal]");
+  for (var i = 0; i < reveals2.length; i++) {
+    reveals2[i].addEventListener("click", (function(btn) { return function() {
+      var pfx = btn.getAttribute("data-reveal-prefix") || "";
+      var mid = btn.getAttribute("data-reveal");
+      set(pfx + "msg" + mid + "_revealed", "1");
+      // Update streak
+      var msgAnswer = null;
+      var allMsgs = (val("scam_mode") === "quiz") ? getQuizMessages() : MESSAGES;
+      for (var j = 0; j < allMsgs.length; j++) { if (String(allMsgs[j].id) === mid) { msgAnswer = allMsgs[j].answer; break; } }
+      if (msgAnswer && val(pfx + "msg" + mid + "_verdict") === msgAnswer) {
+        var s = parseInt(val("quiz_streak") || "0", 10) + 1;
+        set("quiz_streak", String(s));
+        var best = parseInt(val("quiz_best_streak") || "0", 10);
+        if (s > best) set("quiz_best_streak", String(s));
+        if (s > 0 && s % 5 === 0) confetti();
+      } else {
+        set("quiz_streak", "0");
+      }
+      render();
+    }; })(reveals2[i]));
+  }
+  var submitBtn = root.querySelector("#submit-credit");
+  if (submitBtn) {
+    submitBtn.addEventListener("click", function() {
+      var standards = [
+        { slug: "cap.classify-an-incoming-contact-as-genuine-or-pretext", met: false },
+        { slug: "cap.falsify-your-own-account-recovery-by-attempting-it", met: false },
+        { slug: "cap.configure-recovery-that-survives-losing-the-device", met: false },
+        { slug: "cap.verify-what-can-be-found-about-you-is-actually-gone", met: false },
+        { slug: "cap.operate-a-callback-rule-against-incoming-contact", met: false }
+      ];
+      var c=0; MESSAGES.forEach(function(m){ if(val("msg"+m.id+"_verdict")===m.answer) c++; });
+      standards[0].met = c >= 10;
+      standards[1].met = !!val("rec1_account") && !!val("rec1_chain") && !!val("rec1_weakest") && !!val("rec1_fix");
+      standards[2].met = val("rebuild_sms")==="1" && val("rebuild_codes")==="1" && val("rebuild_second")==="1";
+      var fr=0; ["equifax","experian","transunion"].forEach(function(b){ if(val("freeze_"+b)==="1") fr++; });
+      var br=0; ["spokeo","whitepages","beenverified","intelius","truepeoplesearch","fastpeoplesearch"].forEach(function(b){ if(val("broker_"+b)==="1") br++; });
+      standards[3].met = fr>=3 || br>=3;
+      standards[4].met = c >= 3 && val("pw_has_manager")==="1";
+      var payload = { tool: "identity-defense-bench", standards: standards.filter(function(s){ return s.met; }).map(function(s){ return s.slug; }) };
+      fetch("/api/tool-credit", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload), credentials: "same-origin" })
+        .then(function(r) { if(r.ok) { set("credit_submitted", new Date().toLocaleDateString()); render(); } else { alert("Could not submit — are you logged in?"); } })
+        .catch(function() { set("credit_submitted", new Date().toLocaleDateString() + " (offline)"); render(); });
+    });
+  }
+}
+
+document.getElementById("nav").addEventListener("click", function(e) {
+  var btn = e.target.closest(".navitem");
+  if (!btn) return;
+  current = parseInt(btn.getAttribute("data-i"), 10);
+  render();
+  document.getElementById("station").scrollIntoView({ block: "start", behavior: "smooth" });
+});
+document.getElementById("clear-all").addEventListener("click", function() {
+  if (confirm("Clear all your work? This cannot be undone.")) { state = {}; save(); current = 0; render(); }
+});
+document.getElementById("print-btn").addEventListener("click", function() {
+  current = 7; render(); setTimeout(function() { window.print(); }, 200);
+});
+
+render();
+})();
+</script>
+

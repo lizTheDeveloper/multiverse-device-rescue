@@ -116,6 +116,7 @@ nav:
   - Home:
       - index.md
       - Quickstart: quickstart.md
+      - USB rescue stick: usb-rescue-stick.md
       - FAQ: faq.md
       - Troubleshooting: troubleshooting.md
   - Scenarios:

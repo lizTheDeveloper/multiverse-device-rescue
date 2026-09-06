@@ -1,0 +1,652 @@
+<meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E🛡️%3C/text%3E%3C/svg%3E">
+<title>Digital Identity Defense — Day Companion</title>
+
+<style>
+.page-wrapper { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+.page-wrapper > h1 { display: none !important; }
+
+:root {
+  --paper:      #0a0e17;
+  --surface:    #111827;
+  --surface-2:  #161e2e;
+  --ink:        #e2e8f0;
+  --ink-soft:   #94a3b8;
+  --ink-faint:  #64748b;
+  --rule:       #1e293b;
+  --rule-soft:  #1a2332;
+  --accent:     #f59e0b;
+  --accent-ink: #fbbf24;
+  --accent-bg:  #1c1508;
+  --track2:     #5b8def;
+  --track2-ink: #93b4f5;
+  --track2-bg:  #0d1528;
+  --flag:       #ef4444;
+  --flag-bg:    #1f1012;
+  --done:       #22c55e;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  --maxw: 1180px;
+  --radius: 3px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --paper:      #f1f5f9;
+    --surface:    #ffffff;
+    --surface-2:  #f8fafc;
+    --ink:        #0f172a;
+    --ink-soft:   #475569;
+    --ink-faint:  #94a3b8;
+    --rule:       #cbd5e1;
+    --rule-soft:  #e2e8f0;
+    --accent:     #d97706;
+    --accent-ink: #92400e;
+    --accent-bg:  #fef3c7;
+    --track2:     #2563eb;
+    --track2-ink: #1e40af;
+    --track2-bg:  #dbeafe;
+    --flag:       #dc2626;
+    --flag-bg:    #fef2f2;
+    --done:       #16a34a;
+  }
+}
+:root[data-theme="light"], :root[data-theme="default"], :root[data-theme="original"] {
+  --paper:      #f1f5f9;
+  --surface:    #ffffff;
+  --surface-2:  #f8fafc;
+  --ink:        #0f172a;
+  --ink-soft:   #475569;
+  --ink-faint:  #94a3b8;
+  --rule:       #cbd5e1;
+  --rule-soft:  #e2e8f0;
+  --accent:     #d97706;
+  --accent-ink: #92400e;
+  --accent-bg:  #fef3c7;
+  --track2:     #2563eb;
+  --track2-ink: #1e40af;
+  --track2-bg:  #dbeafe;
+  --flag:       #dc2626;
+  --flag-bg:    #fef2f2;
+  --done:       #16a34a;
+}
+
+.ctc *, .ctc *::before, .ctc *::after { box-sizing: border-box; }
+
+html body .ctc {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+}
+
+.ctc .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px 64px; }
+
+/* ---------- masthead ---------- */
+.ctc .masthead {
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface);
+  padding: 20px 0 16px;
+  margin-bottom: 26px;
+}
+.ctc .masthead-in {
+  max-width: var(--maxw); margin: 0 auto; padding: 0 20px;
+  display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: baseline;
+}
+.ctc .masthead h1 {
+  font-family: var(--mono);
+  font-size: clamp(1.2rem, 2.4vw, 1.6rem);
+  font-weight: 700; margin: 0; letter-spacing: -0.01em; color: var(--ink);
+  text-wrap: balance; flex: 1 1 320px; line-height: 1.2;
+}
+.ctc .stamp {
+  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--ink-faint);
+  display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+}
+.ctc .clock { color: var(--accent); font-variant-numeric: tabular-nums; }
+.ctc .creed {
+  margin: 14px auto 0; padding: 13px 20px 0; max-width: var(--maxw);
+  border-top: 1px dashed var(--rule);
+  font-family: var(--serif); font-size: 0.95rem; color: var(--ink-soft);
+}
+.ctc .creed b { color: var(--ink); font-weight: 600; }
+
+/* ---------- layout ---------- */
+.ctc .grid { display: grid; grid-template-columns: 268px minmax(0, 1fr); gap: 34px; align-items: start; }
+@media (max-width: 860px) { .ctc .grid { grid-template-columns: 1fr; gap: 20px; } }
+
+/* ---------- rail ---------- */
+.ctc .rail { position: sticky; top: 14px; }
+@media (max-width: 860px) { .ctc .rail { position: static; } }
+.ctc .rail h2 {
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--ink-faint);
+  margin: 0 0 10px; font-weight: 600;
+}
+.ctc .rail ol { list-style: none; margin: 0; padding: 0; position: relative; }
+.ctc .rail ol::before {
+  content: ""; position: absolute; left: 7px; top: 10px; bottom: 10px;
+  width: 1px; background: var(--rule);
+}
+.ctc .rail li { position: relative; margin: 0; }
+.ctc .rail li::before { content: none; }
+.ctc .rail a.step {
+  width: 100%; text-align: left; background: none; border: 0; cursor: pointer;
+  font: inherit; color: var(--ink-soft); text-decoration: none;
+  padding: 7px 8px 7px 26px; display: grid;
+  grid-template-columns: auto 1fr; gap: 2px 9px; align-items: baseline;
+  border-radius: var(--radius);
+}
+.ctc .rail a.step:hover { background: var(--surface); color: var(--ink); }
+.ctc .rail a.step:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ctc .rail .dot {
+  position: absolute; left: 3px; top: 13px; width: 9px; height: 9px;
+  border-radius: 50%; background: var(--paper);
+  border: 1.5px solid var(--rule); box-sizing: border-box;
+}
+.ctc .rail .t {
+  font-family: var(--mono); font-size: 0.72rem; font-variant-numeric: tabular-nums;
+  color: var(--ink-faint); grid-column: 1;
+}
+.ctc .rail .n { font-size: 0.87rem; grid-column: 2; line-height: 1.3; }
+.ctc .rail li.is-current a.step { color: var(--ink); font-weight: 600; background: var(--accent-bg); }
+.ctc .rail li.is-current .dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.ctc .rail li.is-current .t { color: var(--accent-ink); }
+.ctc .rail li.is-selected a.step { box-shadow: inset 2px 0 0 var(--accent); color: var(--ink); }
+.ctc .rail li.is-done .n { color: var(--ink-faint); text-decoration: line-through; text-decoration-thickness: 1px; }
+.ctc .rail li.is-done .dot { background: var(--done); border-color: var(--done); }
+
+/* ---------- block panel ---------- */
+.ctc .panel {
+  background: var(--surface); border: 1px solid var(--rule);
+  border-radius: var(--radius); padding: 26px 28px 30px; scroll-margin-top: 14px;
+}
+.ctc .panel:focus { outline: none; }
+@media (max-width: 520px) { .ctc .panel { padding: 20px 17px 24px; } }
+
+.ctc .eyebrow {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent-ink);
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+.ctc .eyebrow .time { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.ctc .eyebrow .now { color: var(--accent); }
+.ctc h2.title {
+  font-family: var(--mono); font-weight: 700; color: var(--ink);
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  margin: 9px 0 0; letter-spacing: -0.015em; text-wrap: balance; line-height: 1.15;
+}
+.ctc .lede {
+  font-family: var(--serif); font-size: 1.05rem; color: var(--ink-soft);
+  margin: 13px 0 0; max-width: 62ch;
+}
+
+.ctc h3.sec {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--ink-faint);
+  margin: 30px 0 12px; font-weight: 600;
+  padding-bottom: 6px; border-bottom: 1px solid var(--rule-soft);
+}
+
+.ctc .steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.ctc .steps li { display: grid; grid-template-columns: auto 1fr; gap: 11px; align-items: baseline; font-size: 0.96rem; margin: 0; }
+.ctc .steps li::before { content: none; }
+.ctc .steps .bullet { font-family: var(--mono); font-size: 0.72rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+/* ---------- mode chip ---------- */
+.ctc .mode {
+  display: inline-flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+  margin: 0 0 18px; padding: 9px 15px; border-radius: var(--radius);
+  border: 1px solid var(--rule); background: var(--surface-2);
+  font-size: 0.9rem; color: var(--ink-soft);
+}
+.ctc .mode .k {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.13em;
+  text-transform: uppercase; font-weight: 700;
+}
+.ctc .mode-watch { border-color: var(--accent); background: var(--accent-bg); }
+.ctc .mode-watch .k { color: var(--accent-ink); }
+.ctc .mode-build { border-color: var(--track2); background: var(--track2-bg); }
+.ctc .mode-build .k { color: var(--track2-ink); }
+.ctc .mode-work { border-color: var(--accent); background: var(--accent-bg); }
+.ctc .mode-work .k { color: var(--accent-ink); }
+.ctc .mode-break { border-style: dashed; }
+.ctc .mode-break .k, .ctc .mode-setup .k { color: var(--ink-faint); }
+
+/* ---------- callout ---------- */
+.ctc .callout {
+  margin: 4px 0 24px; padding: 16px 20px;
+  border: 2px solid var(--flag); border-radius: var(--radius);
+  background: var(--flag-bg); color: var(--ink); font-size: 0.97rem; line-height: 1.6;
+}
+.ctc .callout .lbl {
+  display: block; margin-bottom: 6px;
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--flag); font-weight: 700;
+}
+.ctc .callout b { color: var(--ink); }
+
+/* ---------- deck links ---------- */
+.ctc .decklink {
+  display: block; margin: 0 0 12px; padding: 14px 18px;
+  border: 1px solid var(--rule); border-radius: var(--radius);
+  background: var(--surface-2); text-decoration: none; color: var(--ink);
+}
+.ctc .decklink:hover { border-color: var(--accent); background: var(--accent-bg); }
+.ctc .decklink .dl-t {
+  display: block; font-family: var(--mono); font-weight: 700;
+  font-size: 1.02rem; color: var(--accent-ink);
+}
+.ctc .decklink .dl-s {
+  display: block; margin-top: 5px; font-family: var(--mono);
+  font-size: 0.84rem; line-height: 1.5; color: var(--ink-soft);
+}
+
+/* ---------- room links ---------- */
+.ctc .roomlinks { display: block; margin-top: 10px; }
+.ctc .roomlinks a {
+  font-family: var(--mono); font-size: 0.72rem; color: var(--accent); text-decoration: none;
+  border: 1px solid var(--rule); border-radius: var(--radius); padding: 6px 11px;
+  margin-right: 8px; display: inline-block; background: var(--surface);
+}
+.ctc .roomlinks a:hover { border-color: var(--accent); background: var(--accent-bg); }
+.ctc .roomlinks a.primary { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+.ctc .roomlinks .missing { color: var(--flag); border-color: var(--flag); }
+
+/* ---------- footer controls ---------- */
+.ctc .panel-foot {
+  margin-top: 30px; padding-top: 17px; border-top: 1px solid var(--rule-soft);
+  display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap;
+}
+.ctc .markdone {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-soft);
+}
+.ctc .markdone input { accent-color: var(--done); width: 15px; height: 15px; cursor: pointer; }
+.ctc .nav { display: flex; gap: 8px; }
+.ctc .nav button {
+  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.05em;
+  border: 1px solid var(--rule); background: var(--surface); color: var(--ink-soft);
+  padding: 6px 13px; border-radius: var(--radius); cursor: pointer;
+}
+.ctc .nav button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.ctc .nav button:disabled { opacity: 0.35; cursor: default; }
+.ctc .nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.ctc .colophon {
+  margin-top: 26px; padding-top: 15px; border-top: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em;
+  color: var(--ink-faint); display: flex; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; align-items: center;
+}
+.ctc .colophon a { color: var(--accent); text-decoration: none; margin-right: 12px; }
+.ctc .colophon a:hover { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ctc *, .ctc *::before, .ctc *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+
+<div class="ctc" data-tool="digital-identity-companion">
+  <header class="masthead" data-section="masthead" data-section-label="Masthead">
+    <div class="masthead-in">
+      <h1>Digital Identity Defense</h1>
+      <div class="stamp">
+        <span>Day Companion</span>
+        <span class="clock" id="clock">&mdash;</span>
+      </div>
+    </div>
+    <p class="creed">
+      <b>Tonight you are the attacker.</b> You will read pretext messages and name the tell that gives them away. You will run your own account recovery and discover how far a stranger gets. Then you will close the gap. <b>Three scorecards, three skills:</b> classify a pretext, falsify your own recovery, and configure recovery that survives losing the device. The guides linked below are your field manuals &mdash; written for people whose accounts are already compromised, whose partners tracked their location, whose sources need protecting. <b>Your job tonight is simpler: find your own weak point before someone else does.</b></p>
+    <div class="roomlinks" id="roomlinks"></div>
+  </header>
+
+  <div class="wrap">
+    <div class="grid">
+      <nav class="rail" aria-label="Running order">
+        <h2>The Session</h2>
+        <ol id="rail"></ol>
+      </nav>
+
+      <main>
+        <article class="panel" id="panel" tabindex="-1" aria-live="polite"></article>
+        <div class="colophon" data-section="colophon" data-section-label="Colophon">
+          <span>
+            <a href="/x/digital-security-reset" target="_blank" rel="noopener" data-track="reset-guide">Security Reset Guide &#8599;</a>
+            <a href="/x/six-roses" target="_blank" rel="noopener" data-track="six-roses">Six Roses &#8599;</a>
+            <a href="/x/activist-security" target="_blank" rel="noopener" data-track="activist">Activist Security &#8599;</a>
+            <a href="/x/journalist-security" target="_blank" rel="noopener" data-track="journalist">Journalist Security &#8599;</a>
+            <a href="/x/home-for-the-holidays" target="_blank" rel="noopener" data-track="holidays">Home for the Holidays &#8599;</a>
+          </span>
+          <a href="#" id="reset" class="markdone">Clear my checkmarks</a>
+      </main>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+"use strict";
+
+var BLOCKS = [
+
+  {
+    id: "before", n: "Before we start", from: 1050, to: 1080,
+    time: "Before 6:00",
+    mode: "setup", modeText: "Do this now &mdash; ten minutes",
+    title: "Open your accounts",
+    lede: "Tonight you are doing the things you know you should have done already. No lectures. Open your accounts. We fix them. <b>You need to be logged in to the accounts you are going to test</b> &mdash; do not wait until 6:50 to discover you cannot reach your own email recovery page.",
+    steps: [
+      "<b>Log in to your primary email.</b> Gmail, Outlook, iCloud &mdash; whichever one your bank password-resets go to. Confirm you can reach its security settings page.",
+      "<b>Open your password manager.</b> 1Password, Bitwarden, LastPass, or your browser&rsquo;s saved passwords (Chrome: <code>chrome://settings/passwords</code>, Safari: System Settings &rarr; Passwords). If you do not use a password manager, that is the first thing we fix tonight.",
+      "<b>Open your phone&rsquo;s account-recovery settings.</b> Apple ID or Google Account &mdash; know where &ldquo;Recovery Options&rdquo; lives before you need it.",
+      "<b>Have a pen and paper nearby.</b> You will write down recovery codes and chain maps. Not in a notes app &mdash; on paper, off-device.",
+      "<b>Open the Identity Defense Bench</b> in a second tab. That is where you do the exercises and keep your work."
+    ]
+  },
+
+  {
+    id: "map", n: "Account map", from: 1080, to: 1100,
+    time: "6:00&ndash;6:20",
+    mode: "work", modeText: "Inventory &mdash; 20 minutes",
+    title: "Map your digital identity",
+    lede: "Before you can defend anything, you need to know what you have. Most people undercount by half. The bench has the full checklist &mdash; go category by category and check every account you actually use.",
+    steps: [
+      "<b>Email accounts.</b> Gmail, Outlook, iCloud, Yahoo, ProtonMail, work email. Which one do all your password-resets flow through? That is your primary &mdash; it is the single most important account you own.",
+      "<b>Financial.</b> Banks, credit cards, PayPal, Venmo, Zelle, Cash App, crypto exchanges. Every one of these has money or can move money. Mark them.",
+      "<b>Social &amp; messaging.</b> Instagram, Facebook, X, TikTok, LinkedIn, Reddit, WhatsApp, Signal, Telegram, Discord, Slack.",
+      "<b>Cloud &amp; storage.</b> Google Drive, iCloud, Dropbox, OneDrive. These hold your photos, documents, and backups. Losing access here can mean losing years of files.",
+      "<b>Shopping &amp; subscriptions.</b> Amazon, eBay, Netflix, Spotify, app stores. These have saved payment methods.",
+      "<b>Government &amp; health.</b> SSA, IRS, DMV, healthcare portal, insurance. These are the hardest to recover and the most dangerous to lose.",
+      "<b>Count them.</b> Write the number down. Most people have 40&ndash;80 accounts. Tonight we are fixing the top 5&ndash;10."
+    ],
+    callout: "<b>Everything chains back to email.</b> If someone owns your primary email, they can reset the password on almost everything else. That is why email is the first thing we lock down tonight. If your email recovery method is an SMS code to a phone number you have had for years, a SIM-swap hands everything to a stranger."
+  },
+
+  {
+    id: "passwords", n: "Password health", from: 1100, to: 1130,
+    time: "6:20&ndash;6:50",
+    mode: "work", modeText: "Fix the worst ones &mdash; 30 minutes",
+    title: "Find the breached and reused passwords",
+    lede: "Open your password manager. It already knows which of your passwords were found in a data breach and which ones you reused across sites. <b>The red warnings are not nagging &mdash; they are a list of accounts an attacker can walk into right now.</b>",
+    steps: [
+      "<b>Find the breach report.</b> 1Password: Watchtower. Bitwarden: Reports &rarr; Exposed Passwords. Chrome: chrome://settings/passwords &rarr; Check passwords. Safari: Settings &rarr; Passwords (shows warnings inline). LastPass: Security Dashboard.",
+      "<b>Sort by severity.</b> Email first, then financial, then anything with saved payment info. A breached password on Netflix is annoying; a breached password on Gmail is catastrophic.",
+      "<b>Change your email password first.</b> Right now. Use the password manager to generate a new one &mdash; at least 16 characters, random. If you are not using a password manager, this is when you set one up.",
+      "<b>Change your financial passwords.</b> Bank, credit cards, PayPal, Venmo. Same rule: generated, random, unique.",
+      "<b>Find the reused passwords.</b> Every account that shares a password with another account is one breach away from giving up both. Fix the ones connected to money or identity first.",
+      "<b>No password manager?</b> Tonight is the night. Bitwarden is free. 1Password has a family plan. Your browser&rsquo;s built-in manager is better than nothing and better than reusing passwords. Set it up now &mdash; we will wait."
+    ],
+    callout: "<b>The reuse problem is worse than it sounds.</b> When a site you forgot about gets breached, attackers take that email/password pair and try it on Gmail, on banks, on PayPal. It is called credential stuffing and it is automated &mdash; they test millions of pairs. If you reused a password, you do not get a warning. You get a login from a device you have never seen.",
+    decks: [
+      { slug: "digital-security-reset", title: "Digital Security Reset Guide", sub: "The full 5-phase recovery playbook &mdash; start here if you think you have already been compromised" }
+    ]
+  },
+
+  {
+    id: "recovery", n: "Recovery audit", from: 1130, to: 1170,
+    time: "6:50&ndash;7:30",
+    mode: "work", modeText: "The core exercise &mdash; 40 minutes",
+    title: "Attack your own account recovery",
+    lede: "Now you are the attacker. Pick an account &mdash; start with email &mdash; and try to recover it <b>as if you were a stranger who had stolen your phone number</b>. The goal is to discover how far you get before something stops you. Whatever stops you is your security. Whatever does <i>not</i> stop you is your exposure.",
+    steps: [
+      "<b>Pick the account.</b> Start with your primary email &mdash; the one everything else resets through.",
+      "<b>Open the account recovery flow.</b> Click &ldquo;Forgot password.&rdquo; Do <b>not</b> complete the reset &mdash; you are mapping the path, not walking it.",
+      "<b>Document each step.</b> What did it ask for? Phone number? Backup email? Security question? Identity verification? Write the steps in order in the bench. This is your recovery chain.",
+      "<b>Rate each link.</b> Could a stranger who SIM-swapped your number pass this step? Could someone who knew your mother&rsquo;s maiden name? Could someone who had your unlocked laptop for two minutes?",
+      "<b>Find the weakest link.</b> The step where the answer is &ldquo;yes, a stranger could pass this&rdquo; &mdash; that is the control you fix in the next phase.",
+      "<b>Fix it now if you can.</b> If the weakness is &ldquo;SMS is my only recovery method,&rdquo; disable SMS recovery and add an authenticator app. Do not write it down as a plan &mdash; do it.",
+      "<b>Try a second account.</b> Financial accounts next. Same exercise: map the chain, rate each link, fix the gap."
+    ],
+    callout: "<b>SIM-swapping is not theoretical.</b> A stranger calls your carrier, claims to be you, and ports your number to their SIM. Every account that uses SMS as the sole recovery method is now theirs. Tonight you find out which of your accounts that includes &mdash; and you fix the ones that matter before someone else tests them.",
+    decks: [
+      { slug: "six-roses", title: "The Story of Six Roses", sub: "When someone who had your trust had your passwords &mdash; 5-phase IPV security" },
+      { slug: "journalist-security", title: "Journalist Security Guide", sub: "Anti-doxxing, device architecture, source protection" }
+    ]
+  },
+
+  {
+    id: "rebuild", n: "Rebuild", from: 1170, to: 1190,
+    time: "7:30&ndash;7:50",
+    mode: "work", modeText: "Lock it down &mdash; 20 minutes",
+    title: "Make recovery survive losing the device",
+    lede: "You found the gaps. Now close them. The test is simple: <b>if you lost your phone tomorrow, could you still get back into your email without calling anyone and without SMS?</b>",
+    steps: [
+      "<b>Print your backup codes.</b> Every major service (Google, Apple, Microsoft, Facebook) gives you a set of one-time recovery codes. Print them. Put them somewhere that is not your phone and not your laptop &mdash; a desk drawer, a safe, a sealed envelope.",
+      "<b>Set up an authenticator app</b> if you have not already. Google Authenticator, Authy, or the one built into your password manager. Move your critical accounts off SMS-only 2FA.",
+      "<b>Add a second recovery path.</b> A backup email on a <i>different</i> provider (Gmail primary? Add a ProtonMail backup). A trusted contact. A hardware key if you have one. The rule: <b>no single device or single number is the only way back in.</b>",
+      "<b>Test it.</b> Can you describe, right now, out loud, how you would recover your primary email if your phone were gone and you had no SMS? If you cannot say it, you are not done.",
+      "<b>Update the bench.</b> Check off what you completed. Write down what you still need to do &mdash; hardware key to order, work accounts to fix, family members to help."
+    ],
+    callout: "<b>Three things, and you are done.</b> Recovery codes printed off-device. SMS disabled as sole recovery. A second path configured. If those three are true, you have done more for your security tonight than most people do in a year.",
+    decks: [
+      { slug: "home-for-the-holidays", title: "Home for the Holidays", sub: "The visit-length security checklist &mdash; do this for your parents next time you visit" },
+      { slug: "activist-security", title: "Activist Security Guide", sub: "Compartmentalisation, counter-surveillance, and why security is a practice" }
+    ]
+  },
+
+  {
+    id: "pretexts", n: "Pretext taste", from: 1190, to: 1200,
+    time: "7:50&ndash;8:00",
+    mode: "work", modeText: "Quick round &mdash; 10 minutes",
+    title: "Spot the fake: identity pretexts",
+    lede: "Quick round before we close. A few messages appear on screen. Some are genuine account notifications from real services. Some are pretexts &mdash; manufactured urgency designed to steal your credentials. <b>For each one: genuine or fake? Name the specific tell.</b> This is a taste of what the Scam &amp; Fraud Defense class covers in depth.",
+    steps: [
+      "<b>Read each message.</b> Look at the sender address, the domain, the urgency language, the link target. Do not go by feeling &mdash; name the <i>specific</i> detail.",
+      "<b>The hard one is the genuine message that looks fake.</b> Real services send real security alerts with real urgency. The skill is not &ldquo;be suspicious of everything&rdquo; &mdash; it is knowing which details to check.",
+      "<b>Name the tell for each one.</b> Not &ldquo;it felt off&rdquo; &mdash; the exact feature: the misspelled domain, the generic greeting, the mismatched reply-to, the threat of account deletion within 24 hours.",
+      "<b>Discussion.</b> Which one fooled you? What would you check if this arrived in your real inbox tomorrow? The answer is always the same: <b>do not click the link in the message. Go to the service directly.</b>"
+    ],
+    callout: "<b>The callback rule.</b> Never act on a message by clicking its link or calling its number. Go to the service directly &mdash; type the URL yourself or use your bookmark. Call the number on the back of your card, not the number in the email. This one rule defeats almost every pretext. The Scam &amp; Fraud Defense class teaches you why, and how to hold it when someone is rushing you."
+  }
+
+];
+
+
+var JOIN_LINK   = "https://themultiverse.school/classroom/239";
+var CURRICULUM  = "https://themultiverse.school/curriculum/digital-identity-defense/";
+var MATRIX_LINK = "https://matrix.to/#/!nfvLDDIGFiY7mA3PzixPToj3J47Pkhw0k9SNTYhPyvs";
+var CAMPUS_HOME = "https://campus.themultiverse.school";
+
+var GUIDES = [
+  { href: "/x/digital-security-reset", label: "Security Reset Guide" },
+  { href: "/x/six-roses",             label: "Six Roses" },
+  { href: "/x/activist-security",     label: "Activist Security" },
+  { href: "/x/journalist-security",   label: "Journalist Security" },
+  { href: "/x/home-for-the-holidays", label: "Home for the Holidays" }
+];
+
+var KEY = "digital-identity-companion-done-v1";
+var selected = 0;
+var done = {};
+try { done = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { done = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {} }
+
+var $ = function (id) { return document.getElementById(id); };
+
+function pacificNow() {
+  var p = {};
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles", hour: "2-digit", minute: "2-digit",
+    hour12: false, weekday: "short", month: "short", day: "numeric"
+  }).formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
+  var hh = parseInt(p.hour, 10) % 24;
+  return { mins: hh * 60 + parseInt(p.minute, 10),
+           label: p.hour + ":" + p.minute,
+           date: p.weekday + " " + p.month + " " + p.day };
+}
+
+function currentIndex() {
+  var m = pacificNow().mins;
+  for (var i = 0; i < BLOCKS.length; i++) if (m >= BLOCKS[i].from && m < BLOCKS[i].to) return i;
+  return -1;
+}
+
+function indexFromHash() {
+  var h = (location.hash || "").replace(/^#/, "");
+  if (!h) return -1;
+  for (var i = 0; i < BLOCKS.length; i++) if (BLOCKS[i].id === h) return i;
+  return -1;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderRail() {
+  var cur = currentIndex(), html = "";
+  for (var i = 0; i < BLOCKS.length; i++) {
+    var b = BLOCKS[i], cls = [];
+    if (i === cur) cls.push("is-current");
+    if (i === selected) cls.push("is-selected");
+    if (done[i]) cls.push("is-done");
+    html += '<li class="' + cls.join(" ") + '">'
+      + '<span class="dot" aria-hidden="true"></span>'
+      + '<a class="step" href="#' + b.id + '" data-i="' + i + '"'
+      + (i === selected ? ' aria-current="page"' : '') + '>'
+      + '<span class="t">' + esc(b.time) + '</span>'
+      + '<span class="n">' + b.title + '</span></a></li>';
+  }
+  $("rail").innerHTML = html;
+}
+
+function renderPanel() {
+  var b = BLOCKS[selected], cur = currentIndex(), i;
+  var h = '<div class="eyebrow"><span>' + esc(b.n) + '</span>'
+        + '<span class="time">' + esc(b.time) + '</span>'
+        + (selected === cur ? '<span class="now">● happening now</span>' : '')
+        + '</div>'
+        + '<h2 class="title">' + b.title + '</h2>'
+        + '<p class="lede">' + b.lede + '</p>';
+
+  var MODES = { work: "Work", watch: "Watch", "break": "Break", setup: "Set up" };
+  if (b.mode) {
+    h += '<div class="mode mode-' + b.mode + '">'
+       + '<span class="k">' + (MODES[b.mode] || b.mode) + '</span>'
+       + '<span>' + (b.modeText || "") + '</span></div>';
+  }
+
+  if (b.callout) {
+    h += '<div class="callout"><span class="lbl">Read this before anything else</span>'
+       + b.callout + '</div>';
+  }
+
+  if (b.steps && b.steps.length) {
+    h += '<h3 class="sec">What we&rsquo;re doing</h3><ul class="steps">';
+    for (i = 0; i < b.steps.length; i++) {
+      h += '<li><span class="bullet">' + ("0" + (i + 1)).slice(-2) + '</span><span>' + b.steps[i] + '</span></li>';
+    }
+    h += '</ul>';
+  }
+
+  if (b.decks && b.decks.length) {
+    h += '<h3 class="sec">Guides for this phase</h3>';
+    for (i = 0; i < b.decks.length; i++) {
+      h += '<a class="decklink" href="/x/' + b.decks[i].slug + '" target="_blank" rel="noopener">'
+         + '<span class="dl-t">' + b.decks[i].title + ' →</span>'
+         + '<span class="dl-s">' + b.decks[i].sub + '</span></a>';
+    }
+  }
+
+  if (b.note) h += '<p class="note">' + b.note + '</p>';
+
+  h += '<div class="panel-foot">'
+    + '<label class="markdone"><input type="checkbox" id="dn"' + (done[selected] ? " checked" : "") + '> Done</label>'
+    + '<span class="nav">'
+    + '<button type="button" id="prev"' + (selected === 0 ? " disabled" : "") + '>← ' + (selected === 0 ? "Prev" : esc(BLOCKS[selected - 1].n)) + '</button>'
+    + '<button type="button" id="next"' + (selected === BLOCKS.length - 1 ? " disabled" : "") + '>' + (selected === BLOCKS.length - 1 ? "Next" : esc(BLOCKS[selected + 1].n)) + ' →</button>'
+    + '</span></div>';
+
+  var panel = $("panel");
+  panel.innerHTML = h;
+
+  var dn = $("dn");
+  if (dn) dn.addEventListener("change", function () { done[selected] = dn.checked; save(); renderRail(); });
+  var pv = $("prev"), nx = $("next");
+  if (pv) pv.addEventListener("click", function () { go(selected - 1, true); });
+  if (nx) nx.addEventListener("click", function () { go(selected + 1, true); });
+}
+
+function go(i, scroll) {
+  if (i < 0 || i >= BLOCKS.length || i === selected) return;
+  selected = i;
+  if (location.hash !== "#" + BLOCKS[i].id) {
+    if (history && history.replaceState) history.replaceState(null, "", "#" + BLOCKS[i].id);
+    else location.hash = BLOCKS[i].id;
+  }
+  renderRail();
+  renderPanel();
+  if (scroll !== false) {
+    var p = $("panel");
+    if (p.scrollIntoView) p.scrollIntoView({ block: "start", behavior: "smooth" });
+    p.focus({ preventScroll: true });
+  }
+}
+
+$("rail").addEventListener("click", function (e) {
+  var a = e.target.closest ? e.target.closest("a.step") : null;
+  if (!a) return;
+  e.preventDefault();
+  go(parseInt(a.getAttribute("data-i"), 10), true);
+});
+
+window.addEventListener("hashchange", function () {
+  var i = indexFromHash();
+  if (i >= 0) go(i, true);
+});
+
+document.addEventListener("keydown", function (e) {
+  var t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "ArrowLeft") { e.preventDefault(); go(selected - 1, true); }
+  if (e.key === "ArrowRight") { e.preventDefault(); go(selected + 1, true); }
+});
+
+$("reset").addEventListener("click", function (e) {
+  e.preventDefault();
+  done = {}; save(); renderRail(); renderPanel();
+});
+
+function renderRoomLinks() {
+  var el = $('roomlinks'); if (!el) return;
+  var h = '';
+  if (JOIN_LINK) {
+    h += '<a class="primary" href="' + JOIN_LINK + '" target="_blank" rel="noopener">Join the call ↗</a>';
+  }
+  if (MATRIX_LINK) {
+    h += '<a href="' + MATRIX_LINK + '" target="_blank" rel="noopener">Class chat ↗</a>';
+  }
+  h += '<a href="' + CAMPUS_HOME + '" target="_blank" rel="noopener">Campus ↗</a>';
+  h += '<a class="primary" href="/tools/identity-defense-bench" target="_blank" rel="noopener">Open the Bench</a>';
+  for (var i = 0; i < GUIDES.length; i++) {
+    h += '<a href="' + GUIDES[i].href + '" target="_blank" rel="noopener">' + GUIDES[i].label + '</a>';
+  }
+  el.innerHTML = h;
+}
+
+function tick() {
+  var p = pacificNow();
+  $("clock").textContent = p.date + " \xb7 " + p.label + " PT";
+  renderRail();
+}
+
+var fromHash = indexFromHash();
+var cur = currentIndex();
+selected = fromHash >= 0 ? fromHash : (cur >= 0 ? cur : 0);
+renderRoomLinks();
+renderRail();
+renderPanel();
+tick();
+setInterval(tick, 30000);
+})();
+</script>
+

@@ -1,0 +1,626 @@
+<meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E🌐%3C/text%3E%3C/svg%3E">
+<title>Home Network Bench</title>
+
+<style>
+.page-wrapper { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+.page-wrapper > h1 { display: none !important; }
+
+:root {
+  --bg: #0a0e17; --bg2: #0e1219; --panel: #111827; --panel2: #161e2e;
+  --line: #1e293b; --line2: #2d3748;
+  --ink: #e2e8f0; --mut: #94a3b8; --dim: #64748b;
+  --accent: #22c55e; --accent-ink: #4ade80; --accent-bg: #0d1f12;
+  --red: #ef4444; --red-bg: #1f1012;
+  --amber: #f59e0b; --amber-bg: #1c1508;
+  --blue: #5b8def; --blue-bg: #0d1528;
+  --r: 10px;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f1f5f9; --bg2: #f8fafc; --panel: #ffffff; --panel2: #f1f5f9;
+    --line: #cbd5e1; --line2: #e2e8f0;
+    --ink: #0f172a; --mut: #475569; --dim: #94a3b8;
+    --accent: #16a34a; --accent-ink: #15803d; --accent-bg: #f0fdf4;
+    --red: #dc2626; --red-bg: #fef2f2;
+    --amber: #d97706; --amber-bg: #fef3c7;
+    --blue: #2563eb; --blue-bg: #dbeafe;
+  }
+}
+:root[data-theme="light"], :root[data-theme="default"], :root[data-theme="original"] {
+  --bg: #f1f5f9; --bg2: #f8fafc; --panel: #ffffff; --panel2: #f1f5f9;
+  --line: #cbd5e1; --line2: #e2e8f0;
+  --ink: #0f172a; --mut: #475569; --dim: #94a3b8;
+  --accent: #16a34a; --accent-ink: #15803d; --accent-bg: #f0fdf4;
+  --red: #dc2626; --red-bg: #fef2f2;
+  --amber: #d97706; --amber-bg: #fef3c7;
+  --blue: #2563eb; --blue-bg: #dbeafe;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html body .hnb { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.hnb a { color: var(--blue); text-decoration: none; }
+.hnb a:hover { text-decoration: underline; }
+.hnb code { font-family: var(--mono); font-size: 0.86em; background: var(--bg2); border: 1px solid var(--line2); border-radius: 3px; padding: 1px 5px; }
+
+.hnb .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+@media (max-width: 860px) { .hnb .app { grid-template-columns: 1fr; } }
+.hnb .rail { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--bg2); border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 860px) { .hnb .rail { position: static; height: auto; flex-direction: row; flex-wrap: wrap; padding: 14px; gap: 8px; } }
+.hnb .brand { padding: 8px 10px 18px; }
+.hnb .brand h1 { font-family: var(--mono); font-size: 17px; line-height: 1.15; letter-spacing: 0.02em; }
+.hnb .brand .sub { color: var(--mut); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+.hnb .nav { display: flex; flex-direction: column; gap: 3px; }
+@media (max-width: 860px) { .hnb .nav { flex-direction: row; flex-wrap: wrap; } .hnb .brand { width: 100%; padding-bottom: 10px; } }
+.hnb .navitem { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 9px; border: 1px solid transparent; color: var(--mut); background: none; text-align: left; width: 100%; cursor: pointer; font: inherit; font-size: 13px; transition: .15s; }
+.hnb .navitem:hover { background: var(--panel); color: var(--ink); }
+.hnb .navitem.active { background: var(--panel2); border-color: var(--line2); color: var(--ink); }
+.hnb .navitem .ico { width: 26px; height: 26px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 7px; background: var(--panel); font-size: 13px; }
+.hnb .navitem .tick { margin-left: auto; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--line2); display: grid; place-items: center; font-size: 10px; color: transparent; flex: 0 0 auto; }
+.hnb .navitem.done .tick { background: var(--accent); border-color: var(--accent); color: #fff; }
+.hnb .rail-foot { margin-top: auto; padding: 12px 8px 4px; font-size: 11px; color: var(--dim); line-height: 1.5; }
+@media (max-width: 860px) { .hnb .rail-foot { width: 100%; margin-top: 0; } }
+.hnb .minibtn { font-size: 12px; color: var(--mut); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; cursor: pointer; font: inherit; font-size: 12px; margin-top: 8px; display: block; width: 100%; text-align: left; }
+.hnb .minibtn:hover { color: var(--ink); border-color: var(--line2); }
+
+.hnb .main { padding: 36px 44px 80px; max-width: 920px; margin: 0 auto; width: 100%; }
+@media (max-width: 860px) { .hnb .main { padding: 24px 18px 60px; } }
+.hnb .station { animation: rise .25s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+.hnb .eyebrow { font-family: var(--mono); text-transform: uppercase; letter-spacing: .16em; font-size: 11px; color: var(--accent); margin-bottom: 6px; }
+.hnb .stn-title { font-family: var(--mono); font-size: 26px; line-height: 1.12; margin: 0 0 6px; letter-spacing: 0.01em; }
+.hnb .stn-lede { color: var(--mut); font-size: 15px; max-width: 68ch; margin-bottom: 22px; }
+.hnb .stn-lede b { color: var(--ink); }
+
+.hnb .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 20px 22px; margin: 14px 0; }
+.hnb .card.accent { border-left: 3px solid var(--accent); }
+.hnb .card.red { border-left: 3px solid var(--red); }
+.hnb .card.amber { border-left: 3px solid var(--amber); }
+.hnb .card.blue { border-left: 3px solid var(--blue); }
+.hnb .card h3 { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 4px; }
+.hnb .card .hint { color: var(--mut); font-size: 13px; margin-bottom: 12px; }
+.hnb .field { display: flex; flex-direction: column; gap: 5px; margin: 12px 0; }
+.hnb .field-label { font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.hnb .field-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--mut); font-size: 12px; }
+.hnb input[type="text"], .hnb textarea, .hnb select { background: var(--bg2); border: 1px solid var(--line2); border-radius: 8px; color: var(--ink); font: inherit; font-size: 14px; padding: 10px 12px; width: 100%; resize: vertical; }
+.hnb input:focus, .hnb textarea:focus, .hnb select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
+.hnb .radio-group { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
+.hnb .radio-group label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line2); border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--mut); transition: .15s; }
+.hnb .radio-group label:hover { border-color: var(--accent); color: var(--ink); }
+.hnb .radio-group input:checked + span { color: var(--accent-ink); }
+.hnb .radio-group input { accent-color: var(--accent); }
+.hnb .checklist { margin: 6px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.hnb .checklist li { margin: 0; }
+.hnb .checklist li::before { content: none; }
+.hnb .checklist label { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 14px; }
+.hnb .checklist label:hover { background: var(--panel2); }
+.hnb .checklist input { margin-top: 3px; accent-color: var(--accent); flex: 0 0 auto; }
+.hnb .scorecard { background: var(--accent-bg); border: 1px solid var(--accent); border-radius: var(--r); padding: 18px 20px; margin: 20px 0; }
+.hnb .scorecard h3 { font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 8px; }
+.hnb .scorecard .req { font-size: 14px; color: var(--ink); margin: 0 0 4px; }
+.hnb .scorecard .status { font-family: var(--mono); font-size: 12px; margin-top: 8px; }
+.hnb .scorecard .status.pass { color: var(--accent); }
+.hnb .scorecard .status.incomplete { color: var(--dim); }
+.hnb .alert { background: var(--amber-bg); border: 1px solid var(--amber); border-radius: var(--r); padding: 14px 18px; margin: 16px 0; font-size: 14px; }
+.hnb .alert b { color: var(--amber); }
+.hnb .dev-row { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 14px; flex-wrap: wrap; }
+.hnb .dev-row input[type="text"] { flex: 1; min-width: 120px; font-size: 13px; padding: 6px 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hnb *, .hnb *::before, .hnb *::after { animation: none !important; transition: none !important; }
+}
+@media print {
+  .hnb .rail { display: none !important; }
+  .hnb .app { grid-template-columns: 1fr !important; }
+  .hnb .main { padding: 20px !important; max-width: none !important; }
+  .hnb { background: #fff !important; color: #000 !important; }
+  .hnb .card, .hnb .scorecard { border-color: #ccc !important; background: #fff !important; }
+}
+</style>
+
+<div class="hnb">
+<div class="app">
+<nav class="rail">
+  <div class="brand">
+    <h1>Home Network Bench</h1>
+    <div class="sub">Your router. Your devices. Your network.</div>
+  </div>
+  <div class="nav" id="nav"></div>
+  <div class="rail-foot">
+    <span>Everything stays in your browser. Nothing is sent anywhere.</span>
+    <button class="minibtn" id="clear-all" type="button">Clear all my work</button>
+    <button class="minibtn" id="print-btn" type="button">Print network audit</button>
+  </div>
+</nav>
+<div class="main">
+  <div id="station"></div>
+</div>
+</div>
+</div>
+
+<script>
+(function () {
+"use strict";
+
+var KEY = "home-network-bench-v1";
+var state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch(e) { state = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {} }
+function val(p) { return state[p] || ""; }
+function set(p, v) { state[p] = v; save(); updateNav(); }
+function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+var current = 0;
+var STATIONS = [
+  { id: "router",    icon: "01", title: "Router Access" },
+  { id: "harden",    icon: "02", title: "Router Hardening" },
+  { id: "inventory", icon: "03", title: "Device Inventory" },
+  { id: "threat",    icon: "04", title: "Threat Model" },
+  { id: "household", icon: "05", title: "Household Posture" },
+  { id: "compromise",icon: "06", title: "The Compromise" },
+  { id: "audit",     icon: "07", title: "Audit Card" }
+];
+
+function field(path, opts) {
+  var v = esc(val(path));
+  var h = '<div class="field"><label class="field-label">' + opts.label;
+  if (opts.hint) h += ' <span class="field-hint">' + opts.hint + '</span>';
+  h += '</label>';
+  if (opts.multi) h += '<textarea data-path="' + path + '" rows="' + (opts.rows||3) + '" placeholder="' + esc(opts.placeholder||"") + '">' + v + '</textarea>';
+  else h += '<input type="text" data-path="' + path + '" value="' + v + '" placeholder="' + esc(opts.placeholder||"") + '">';
+  h += '</div>';
+  return h;
+}
+
+function checkbox(path, label) {
+  return '<li><label><input type="checkbox" data-check="' + path + '"' + (val(path)==="1" ? " checked" : "") + '> ' + label + '</label></li>';
+}
+
+function radioGroup(path, options) {
+  var cur = val(path), h = '<div class="radio-group">';
+  for (var i = 0; i < options.length; i++)
+    h += '<label><input type="radio" name="' + path + '" value="' + options[i].value + '"' + (cur===options[i].value ? ' checked' : '') + '><span>' + options[i].label + '</span></label>';
+  return h + '</div>';
+}
+
+function getDevices() {
+  try { return JSON.parse(val("devices") || "[]"); } catch(e) { return []; }
+}
+
+function stationComplete(id) {
+  if (id === "router") return !!val("router_access");
+  if (id === "harden") {
+    var count = 0;
+    ["h_admin_pw","h_firmware","h_remote","h_upnp","h_dns","h_encryption","h_wifi_pw","h_guest","h_smart_devices"].forEach(function(k){ if(val(k)==="1") count++; });
+    return count >= 5;
+  }
+  if (id === "inventory") return getDevices().length >= 3;
+  if (id === "threat") return !!val("t1_who") && !!val("t2_who") && !!val("t3_who");
+  if (id === "household") return !!val("hp_person1") && !!val("hp_held");
+  if (id === "compromise") return !!val("comp_bypassing") && !!val("comp_revised") && !!val("comp_evidence");
+  return false;
+}
+
+function renderNav() {
+  var h = "";
+  for (var i = 0; i < STATIONS.length; i++) {
+    var s = STATIONS[i], cls = "navitem";
+    if (i === current) cls += " active";
+    if (stationComplete(s.id)) cls += " done";
+    h += '<button class="' + cls + '" data-i="' + i + '"><span class="ico">' + s.icon + '</span><span>' + s.title + '</span><span class="tick">&#10003;</span></button>';
+  }
+  document.getElementById("nav").innerHTML = h;
+}
+function updateNav() { renderNav(); }
+
+// ---- Station 1: Router Access ----
+function renderRouter() {
+  var access = val("router_access");
+  var h = '<div class="station"><div class="eyebrow">Station 1</div><h2 class="stn-title">Router Access</h2>'
+    + '<p class="stn-lede">First: can you log into your router? <b>Half the room hits this wall</b> — the landlord owns the box, the building manages the network, or the admin password was set in 2019 by someone who moved out. That is a supported answer, not a failure.</p>'
+    + '<div class="card accent"><h3>Can you access your router?</h3>'
+    + '<div class="field"><label class="field-label">Router access</label>'
+    + radioGroup("router_access", [
+        {value:"yes", label:"Yes, I can log in"},
+        {value:"no", label:"No access (landlord, ISP locked, lost password)"},
+        {value:"own", label:"I bought my own router"}
+      ])
+    + '</div>'
+    + field("router_ip", { label: "Router IP address", placeholder: "usually 192.168.1.1 or 192.168.0.1" })
+    + field("router_model", { label: "Router model", hint: "printed on the bottom or back", placeholder: "e.g. Netgear R7000, TP-Link AX1800" })
+    + '</div>';
+
+  if (access === "no") {
+    h += '<div class="alert"><b>That is fine.</b> Three things still work without admin access:</div>'
+       + '<div class="card blue"><h3>What you can still do</h3>'
+       + '<ul class="checklist">'
+       + '<li><label>1. <b>Know what is on the network</b> — scan from your laptop without touching the router (use <a href="https://nmap.org/" target="_blank" rel="noopener">nmap</a> or <a href="https://angryip.org/" target="_blank" rel="noopener">Angry IP Scanner</a>)</label></li>'
+       + '<li><label>2. <b>Filtering DNS per device</b> — set it on each phone and computer instead of centrally (<a href="https://nextdns.io/" target="_blank" rel="noopener">NextDNS</a>)</label></li>'
+       + '<li><label>3. <b>Put your own router in front of theirs</b> — a router you own plugged into their box gives you back every item on this list</label></li>'
+       + '</ul></div>';
+  }
+
+  h += '<div class="card"><h3>Useful links</h3>'
+     + '<ul class="checklist">'
+     + '<li><label><a href="https://www.routerpasswords.com/" target="_blank" rel="noopener">RouterPasswords.com</a> — default admin credentials by manufacturer</label></li>'
+     + '<li><label><a href="https://www.grc.com/shieldsup" target="_blank" rel="noopener">GRC ShieldsUP!</a> — scan your network from the outside</label></li>'
+     + '</ul></div>';
+
+  h += '</div>';
+  return h;
+}
+
+// ---- Station 2: Router Hardening ----
+function renderHarden() {
+  var items = [
+    {key:"h_admin_pw",   label:"Admin password changed from default",           closes:"Stops anyone on your wifi from reconfiguring the router with the sticker password"},
+    {key:"h_firmware",   label:"Automatic firmware updates enabled",             closes:"Patches security holes in the router software — routers are small computers exposed to the internet"},
+    {key:"h_remote",     label:"Remote administration turned OFF",               closes:"Prevents the router login page from being reachable from anywhere on the internet"},
+    {key:"h_upnp",       label:"UPnP turned OFF",                               closes:"Stops any program on your network from silently opening a hole from the internet to itself"},
+    {key:"h_dns",        label:"Filtering DNS set (NextDNS / Quad9 / Control D)",closes:"Blocks known-malicious addresses for every device in the house without anyone having to be careful"},
+    {key:"h_encryption", label:"WiFi encryption is WPA2 or WPA3 (not WEP/WPA)", closes:"Prevents eavesdropping on wifi traffic — WEP can be cracked in minutes"},
+    {key:"h_wifi_pw",    label:"WiFi password changed from sticker default",     closes:"Stops neighbours and visitors from joining with the printed password"},
+    {key:"h_guest",      label:"Guest network enabled",                          closes:"Creates a separate network so untrusted devices cannot see trusted ones"},
+    {key:"h_smart_devices",label:"Smart devices moved to guest network",         closes:"Isolates cheap IoT devices (cameras, speakers, vacuums) from your laptops and phones"}
+  ];
+
+  var h = '<div class="station"><div class="eyebrow">Station 2 &middot; Scorecard 1</div><h2 class="stn-title">Router Hardening</h2>'
+    + '<p class="stn-lede">Work through each item. Check the box when done and write <b>one line on what it closes</b> — that is the scorecard requirement.</p>'
+    + '<div class="card accent"><h3>Filtering DNS providers</h3>'
+    + '<div class="hint">Pick one and set it in your router DNS settings. It covers every device in the house.</div>'
+    + '<ul class="checklist">'
+    + '<li><label><a href="https://nextdns.io/" target="_blank" rel="noopener">NextDNS</a> — customizable, free tier, shows what it blocked</label></li>'
+    + '<li><label><a href="https://quad9.net/" target="_blank" rel="noopener">Quad9</a> — nonprofit, no logging, fast (9.9.9.9)</label></li>'
+    + '<li><label><a href="https://controld.com/" target="_blank" rel="noopener">Control D</a> — flexible rules, good UI</label></li>'
+    + '</ul></div>';
+
+  h += '<div class="card accent"><h3>Hardening checklist</h3>';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    h += '<div style="border-bottom:1px solid var(--line);padding:10px 0">'
+       + '<ul class="checklist" style="margin:0"><li><label><input type="checkbox" data-check="' + it.key + '"' + (val(it.key)==="1" ? " checked" : "") + '> ' + it.label + '</label></li></ul>'
+       + field(it.key + "_closes", { label: "What this closes", hint: "one line", placeholder: it.closes })
+       + '</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="scorecard"><h3>Scorecard 1 &middot; Follow a device hardening checklist</h3>'
+     + '<div class="req">The router admin pages before and after — default password changed, remote administration off, automatic updates on — with one line per item on what it closes.</div>'
+     + '<div class="status ' + (stationComplete("harden") ? "pass" : "incomplete") + '">'
+     + (stationComplete("harden") ? "&#10003; Complete" : "Incomplete — check at least 5 items with explanations")
+     + '</div></div>';
+
+  h += '</div>';
+  return h;
+}
+
+// ---- Station 3: Device Inventory ----
+function renderInventory() {
+  var devices = getDevices();
+
+  var h = '<div class="station"><div class="eyebrow">Station 3 &middot; Scorecard 2</div><h2 class="stn-title">Device Inventory</h2>'
+    + '<p class="stn-lede">Open your router device list — <b>attached devices</b>, <b>DHCP clients</b>, or <b>my network</b>. Write down everything. <b>Most people have 2-3x more devices than they think.</b></p>'
+    + '<div class="card blue"><h3>Useful tools</h3>'
+    + '<ul class="checklist">'
+    + '<li><label><a href="https://maclookup.app/" target="_blank" rel="noopener">MAC Address Lookup</a> — identify a device by the first half of its MAC address</label></li>'
+    + '<li><label><a href="https://angryip.org/" target="_blank" rel="noopener">Angry IP Scanner</a> — scan your network from your laptop (works without router admin)</label></li>'
+    + '<li><label><a href="https://nmap.org/" target="_blank" rel="noopener">nmap</a> — the standard network scanner (command line)</label></li>'
+    + '</ul></div>';
+
+  var identified = 0, unidentified = 0;
+  for (var i = 0; i < devices.length; i++) {
+    if (devices[i].identified === "yes") identified++;
+    else unidentified++;
+  }
+
+  h += '<div class="card accent"><h3>Devices on your network</h3>'
+     + '<div class="hint">' + devices.length + ' devices logged &mdash; '
+     + '<span style="color:var(--accent)">' + identified + ' identified</span>, '
+     + '<span style="color:var(--red)">' + unidentified + ' unidentified</span></div>';
+
+  for (var i = 0; i < devices.length; i++) {
+    var d = devices[i];
+    h += '<div class="dev-row">'
+       + '<span style="font-family:var(--mono);font-size:12px;color:var(--dim);width:24px">' + (i+1) + '</span>'
+       + '<input type="text" data-dev-field="name" data-dev-idx="' + i + '" value="' + esc(d.name||"") + '" placeholder="Device name">'
+       + '<input type="text" data-dev-field="mac" data-dev-idx="' + i + '" value="' + esc(d.mac||"") + '" placeholder="MAC (optional)" style="max-width:160px">'
+       + '<input type="text" data-dev-field="what" data-dev-idx="' + i + '" value="' + esc(d.what||"") + '" placeholder="What is it?">'
+       + radioGroup("dev_" + i + "_id", [{value:"yes",label:"Known"},{value:"no",label:"Unknown"}])
+       + '<button type="button" data-remove-dev="' + i + '" style="font-size:11px;color:var(--dim);background:none;border:none;cursor:pointer;padding:2px 6px" title="Remove">&#10005;</button>'
+       + '</div>';
+  }
+
+  h += '<div style="padding:8px 10px"><button type="button" data-add-dev="1" style="font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:8px 16px;border:1px solid var(--line);background:var(--panel);color:var(--mut);border-radius:7px;cursor:pointer">+ Add device</button></div>'
+     + '</div>';
+
+  h += '<div class="scorecard"><h3>Scorecard 2 &middot; Locate every device on your own network</h3>'
+     + '<div class="req">A device inventory taken from the router, with each entry identified or explicitly listed as unidentified.</div>'
+     + '<div class="status ' + (stationComplete("inventory") ? "pass" : "incomplete") + '">'
+     + (stationComplete("inventory") ? "&#10003; Complete — " + devices.length + " devices logged" : "Incomplete — log at least 3 devices")
+     + '</div></div>';
+
+  h += '</div>';
+  return h;
+}
+
+// ---- Station 4: Threat Model ----
+function renderThreat() {
+  var h = '<div class="station"><div class="eyebrow">Station 4 &middot; Scorecard 3</div><h2 class="stn-title">Threat Model</h2>'
+    + '<p class="stn-lede">Who might target your network, what can they actually do, and which of tonight\'s practices addresses each one? <b>Three tiers, from casual to resourced.</b></p>';
+
+  var tiers = [
+    {n:1, name:"Opportunistic", hint:"neighbour guessing wifi password, drive-by scanner, bot scanning default ports", color:"accent"},
+    {n:2, name:"Targeted", hint:"ex-partner, disgruntled housemate, someone who once had your wifi password", color:"amber"},
+    {n:3, name:"Resourced", hint:"ISP, state-level actor, employer monitoring, sophisticated criminal", color:"red"}
+  ];
+
+  for (var i = 0; i < tiers.length; i++) {
+    var t = tiers[i];
+    h += '<div class="card ' + t.color + '"><h3>Tier ' + t.n + ' &mdash; ' + t.name + '</h3>'
+       + '<div class="hint">' + t.hint + '</div>'
+       + field("t" + t.n + "_who", { label: "Who is the adversary?", placeholder: "Be specific to YOUR situation" })
+       + field("t" + t.n + "_capability", { label: "What can they actually do?", placeholder: "e.g. guess default password, intercept wifi, physical access to router" })
+       + field("t" + t.n + "_practice", { label: "Which practice addresses this?", placeholder: "e.g. changed admin password + WPA3 stops tier 1 entirely" })
+       + '</div>';
+  }
+
+  h += '<div class="scorecard"><h3>Scorecard 3 &middot; Produce a threat model for your own situation</h3>'
+     + '<div class="req">Your own tier model, naming the adversary and capability at each tier, with the specific practice each tier changes.</div>'
+     + '<div class="status ' + (stationComplete("threat") ? "pass" : "incomplete") + '">'
+     + (stationComplete("threat") ? "&#10003; Complete" : "Incomplete — fill in all three tiers")
+     + '</div></div>';
+
+  h += '</div>';
+  return h;
+}
+
+// ---- Station 5: Household Posture ----
+function renderHousehold() {
+  var h = '<div class="station"><div class="eyebrow">Station 5 &middot; Scorecard 4</div><h2 class="stn-title">Household Posture</h2>'
+    + '<p class="stn-lede">Security that only works for the person who set it up is not security. <b>Name the people in your household who did not choose this but are covered by it.</b></p>'
+    + '<div class="alert"><b>This is the hardest scorecard.</b> Most people finish it after class, not during. Start it tonight and complete it once the posture is actually in place.</div>';
+
+  h += '<div class="card accent"><h3>People covered</h3>'
+     + '<div class="hint">Name 3+ people who did NOT set up the security but are protected by it.</div>';
+  for (var i = 1; i <= 4; i++) {
+    h += '<div class="dev-row">'
+       + '<input type="text" data-path="hp_person' + i + '" value="' + esc(val("hp_person"+i)) + '" placeholder="Person ' + i + ' (e.g. partner, kid, housemate)" style="flex:2">'
+       + '<input type="text" data-path="hp_protection' + i + '" value="' + esc(val("hp_protection"+i)) + '" placeholder="What protection covers them?" style="flex:3">'
+       + '</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="card accent"><h3>The resilience test</h3>'
+     + field("hp_held", { label: "One protection that held when someone did the wrong thing anyway", multi: true, rows: 3, placeholder: "e.g. filtering DNS blocked a phishing link my kid clicked before I even knew about it" })
+     + '</div>';
+
+  h += '<div class="scorecard"><h3>Scorecard 4 &middot; Design a household security posture for people who did not choose it</h3>'
+     + '<div class="req">A posture in place across at least three people who did not set it up, and one protection that held when someone did the wrong thing anyway.</div>'
+     + '<div class="status ' + (stationComplete("household") ? "pass" : "incomplete") + '">'
+     + (stationComplete("household") ? "&#10003; Complete" : "Incomplete — name at least 1 person and 1 protection that held")
+     + '</div></div>';
+
+  h += '</div>';
+  return h;
+}
+
+// ---- Station 6: The Compromise ----
+function renderCompromise() {
+  var h = '<div class="station"><div class="eyebrow">Station 6 &middot; Scorecard 5</div><h2 class="stn-title">The Compromise</h2>'
+    + '<p class="stn-lede">The best security control is one people actually follow. <b>Name a requirement people were bypassing, what you replaced it with, and why it still works.</b></p>';
+
+  h += '<div class="card amber"><h3>The compromise</h3>'
+     + '<div class="hint">e.g., nobody used the VPN because it was slow &rarr; switched to DNS filtering which requires no action &rarr; traffic still goes through a filter</div>'
+     + field("comp_bypassing", { label: "What were people bypassing?", multi: true, rows: 2, placeholder: "The security requirement nobody was actually following" })
+     + field("comp_revised", { label: "The revised version they actually follow", multi: true, rows: 2, placeholder: "What you replaced it with — simpler, invisible, or automatic" })
+     + field("comp_evidence", { label: "Evidence the revision still closes the threat", multi: true, rows: 2, placeholder: "Why the new version is still effective — what attack does it still prevent?" })
+     + '</div>';
+
+  h += '<div class="scorecard"><h3>Scorecard 5 &middot; Reconcile security with what people will actually do</h3>'
+     + '<div class="req">A requirement people were bypassing, the revised version they follow, and evidence the revision still closes the original threat.</div>'
+     + '<div class="status ' + (stationComplete("compromise") ? "pass" : "incomplete") + '">'
+     + (stationComplete("compromise") ? "&#10003; Complete" : "Incomplete — fill in all three fields")
+     + '</div></div>';
+
+  h += '</div>';
+  return h;
+}
+
+// ---- Station 7: Audit Card ----
+function renderAudit() {
+  var h = '<div class="station"><div class="eyebrow">Summary</div><h2 class="stn-title">Network Audit Card</h2>'
+    + '<p class="stn-lede">Your work tonight. Use <b>Print network audit</b> in the sidebar to save a copy.</p>';
+
+  // Router
+  h += '<div class="card accent"><h3>Router Access</h3><div style="font-size:14px">'
+     + 'Access: ' + esc(val("router_access")||"not set") + ' &mdash; IP: ' + esc(val("router_ip")||"?") + ' &mdash; Model: ' + esc(val("router_model")||"?")
+     + '</div></div>';
+
+  // Hardening
+  var hCount = 0;
+  ["h_admin_pw","h_firmware","h_remote","h_upnp","h_dns","h_encryption","h_wifi_pw","h_guest","h_smart_devices"].forEach(function(k){ if(val(k)==="1") hCount++; });
+  h += '<div class="card accent"><h3>Router Hardening</h3><div style="font-size:14px">' + hCount + '/9 items checked</div></div>';
+
+  // Inventory
+  var devices = getDevices();
+  var idCount = 0;
+  devices.forEach(function(d){ if(d.identified === "yes") idCount++; });
+  h += '<div class="card blue"><h3>Device Inventory</h3><div style="font-size:14px">'
+     + devices.length + ' devices &mdash; ' + idCount + ' identified, ' + (devices.length - idCount) + ' unidentified</div></div>';
+
+  // Threat model
+  h += '<div class="card amber"><h3>Threat Model</h3><div style="font-size:14px">';
+  for (var i = 1; i <= 3; i++) {
+    var who = val("t"+i+"_who");
+    if (who) h += '<div>Tier ' + i + ': ' + esc(who) + ' &rarr; ' + esc(val("t"+i+"_practice")||"?") + '</div>';
+  }
+  h += '</div></div>';
+
+  // Household + Compromise
+  h += '<div class="card accent"><h3>Household Posture</h3><div style="font-size:14px">'
+     + (val("hp_person1") ? esc(val("hp_person1")) : "?") + ', '
+     + (val("hp_person2") ? esc(val("hp_person2")) : "?") + ', '
+     + (val("hp_person3") ? esc(val("hp_person3")) : "?")
+     + '</div></div>';
+
+  h += '<div class="card amber"><h3>The Compromise</h3><div style="font-size:14px">'
+     + (val("comp_bypassing") ? esc(val("comp_bypassing")).substring(0,100) + ' &rarr; ' + esc(val("comp_revised")||"?").substring(0,100) : "Not filled in yet")
+     + '</div></div>';
+
+  // Links
+  h += '<div class="card blue"><h3>Tools &amp; resources</h3>'
+     + '<ul class="checklist">'
+     + '<li><label><a href="https://maclookup.app/" target="_blank" rel="noopener">MAC Address Lookup</a></label></li>'
+     + '<li><label><a href="https://www.grc.com/shieldsup" target="_blank" rel="noopener">GRC ShieldsUP! Port Scanner</a></label></li>'
+     + '<li><label><a href="https://nextdns.io/" target="_blank" rel="noopener">NextDNS</a> &middot; <a href="https://quad9.net/" target="_blank" rel="noopener">Quad9</a> &middot; <a href="https://controld.com/" target="_blank" rel="noopener">Control D</a></label></li>'
+     + '<li><label><a href="https://github.com/lizTheDeveloper/multiverse-device-rescue" target="_blank" rel="noopener">Multiverse Device Rescue Tool</a></label></li>'
+     + '</ul></div>';
+
+  // Submit for credit
+  var standards = [
+    { slug: "cap.follow-a-device-hardening-checklist", title: "Follow a device hardening checklist",
+      req: "Default password changed, remote admin off, updates on, with one line per item",
+      met: function() { return stationComplete("harden"); } },
+    { slug: "cap.locate-every-device-on-your-own-network", title: "Locate every device on your own network",
+      req: "A device inventory with each entry identified or listed as unidentified",
+      met: function() { return stationComplete("inventory"); } },
+    { slug: "cap.produce-a-threat-model-for-your-own-situation", title: "Produce a threat model for your own situation",
+      req: "Three tiers naming the adversary, capability, and the practice that addresses each",
+      met: function() { return stationComplete("threat"); } },
+    { slug: "cap.design-a-household-security-posture-for-people-who-did-not-choose-it", title: "Design a household security posture",
+      req: "3+ people covered, one protection that held when someone did the wrong thing",
+      met: function() { return stationComplete("household"); } },
+    { slug: "cap.reconcile-security-with-what-people-will-actually-do", title: "Reconcile security with what people will actually do",
+      req: "A bypassed requirement, the revised version, and evidence it still closes the threat",
+      met: function() { return stationComplete("compromise"); } }
+  ];
+
+  h += '<div class="card accent" style="margin-top:28px"><h3>Submit for credit</h3>'
+     + '<div class="hint" style="margin-bottom:14px">This submits <b>only yes/no per standard</b> &mdash; not your device names, passwords, or any field contents.</div>'
+     + '<div class="hint" style="margin-bottom:14px;padding:8px 12px;background:var(--panel2);border-radius:var(--r)"><b>Extra credit:</b> Open your browser dev tools (F12 or Cmd+Opt+I), go to the <b>Network</b> tab, then click Submit. Verify for yourself that the only data leaving your browser is the list of standard slugs you met.</div>';
+
+  var anyMet = false;
+  for (var si = 0; si < standards.length; si++) {
+    var st = standards[si], isMet = st.met();
+    if (isMet) anyMet = true;
+    h += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px">'
+       + '<span style="font-size:18px;flex:0 0 auto;margin-top:-1px">' + (isMet ? '<span style="color:var(--accent)">&#10003;</span>' : '<span style="color:var(--dim)">&#9675;</span>') + '</span>'
+       + '<div><b>' + st.title + '</b><br><span style="color:var(--mut);font-size:12px">' + st.req + '</span></div></div>';
+  }
+
+  var submitted = val("credit_submitted");
+  if (submitted) {
+    h += '<div style="margin-top:14px;padding:10px 14px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:var(--r);font-size:13px;color:var(--accent)">&#10003; Submitted ' + esc(submitted) + '</div>';
+  } else if (anyMet) {
+    h += '<button id="submit-credit" type="button" style="margin-top:14px;width:100%;padding:12px;font-family:var(--mono);font-size:14px;letter-spacing:.04em;background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent-ink);border-radius:var(--r);cursor:pointer">Submit for credit</button>';
+  } else {
+    h += '<div style="margin-top:10px;color:var(--dim);font-size:13px">Complete at least one standard above to submit.</div>';
+  }
+  h += '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+var RENDERERS = [renderRouter, renderHarden, renderInventory, renderThreat, renderHousehold, renderCompromise, renderAudit];
+
+function render() {
+  var el = document.getElementById("station");
+  el.innerHTML = RENDERERS[current]();
+  bindFields(el);
+  renderNav();
+}
+
+function bindFields(root) {
+  var inputs = root.querySelectorAll("[data-path]");
+  for (var i = 0; i < inputs.length; i++) {
+    inputs[i].addEventListener("input", (function(inp) { return function() { set(inp.getAttribute("data-path"), inp.value); }; })(inputs[i]));
+  }
+  var radios = root.querySelectorAll('input[type="radio"]');
+  for (var i = 0; i < radios.length; i++) {
+    radios[i].addEventListener("change", (function(r) { return function() { if(r.checked) { set(r.name, r.value); if(current===0) render(); } }; })(radios[i]));
+  }
+  var checks = root.querySelectorAll("[data-check]");
+  for (var i = 0; i < checks.length; i++) {
+    checks[i].addEventListener("change", (function(c) { return function() { set(c.getAttribute("data-check"), c.checked ? "1" : ""); }; })(checks[i]));
+  }
+
+  // Device inventory: field updates
+  var devFields = root.querySelectorAll("[data-dev-field]");
+  for (var i = 0; i < devFields.length; i++) {
+    devFields[i].addEventListener("input", (function(inp) { return function() {
+      var devices = getDevices();
+      var idx = parseInt(inp.getAttribute("data-dev-idx"));
+      var fld = inp.getAttribute("data-dev-field");
+      if (devices[idx]) { devices[idx][fld] = inp.value; set("devices", JSON.stringify(devices)); }
+    }; })(devFields[i]));
+  }
+  // Device inventory: identified radio
+  var devRadios = root.querySelectorAll('[name^="dev_"][name$="_id"]');
+  for (var i = 0; i < devRadios.length; i++) {
+    devRadios[i].addEventListener("change", (function(r) { return function() {
+      if (!r.checked) return;
+      var idx = parseInt(r.name.replace("dev_","").replace("_id",""));
+      var devices = getDevices();
+      if (devices[idx]) { devices[idx].identified = r.value; set("devices", JSON.stringify(devices)); }
+    }; })(devRadios[i]));
+  }
+  // Add device button
+  var addDev = root.querySelector("[data-add-dev]");
+  if (addDev) {
+    addDev.addEventListener("click", function() {
+      var devices = getDevices();
+      devices.push({name:"", mac:"", what:"", identified:"no"});
+      set("devices", JSON.stringify(devices));
+      render();
+    });
+  }
+  // Remove device button
+  var rmDevs = root.querySelectorAll("[data-remove-dev]");
+  for (var i = 0; i < rmDevs.length; i++) {
+    rmDevs[i].addEventListener("click", (function(btn) { return function() {
+      var devices = getDevices();
+      devices.splice(parseInt(btn.getAttribute("data-remove-dev")), 1);
+      set("devices", JSON.stringify(devices));
+      render();
+    }; })(rmDevs[i]));
+  }
+
+  // Submit for credit
+  var submitBtn = root.querySelector("#submit-credit");
+  if (submitBtn) {
+    submitBtn.addEventListener("click", function() {
+      var slugs = [];
+      if (stationComplete("harden")) slugs.push("cap.follow-a-device-hardening-checklist");
+      if (stationComplete("inventory")) slugs.push("cap.locate-every-device-on-your-own-network");
+      if (stationComplete("threat")) slugs.push("cap.produce-a-threat-model-for-your-own-situation");
+      if (stationComplete("household")) slugs.push("cap.design-a-household-security-posture-for-people-who-did-not-choose-it");
+      if (stationComplete("compromise")) slugs.push("cap.reconcile-security-with-what-people-will-actually-do");
+      var payload = { tool: "home-network-bench", standards: slugs };
+      fetch("/api/tool-credit", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload), credentials: "same-origin" })
+        .then(function(r) { if(r.ok) { set("credit_submitted", new Date().toLocaleDateString()); render(); } else { alert("Could not submit - are you logged in?"); } })
+        .catch(function() { set("credit_submitted", new Date().toLocaleDateString() + " (offline)"); render(); });
+    });
+  }
+}
+
+document.getElementById("nav").addEventListener("click", function(e) {
+  var btn = e.target.closest(".navitem");
+  if (!btn) return;
+  current = parseInt(btn.getAttribute("data-i"), 10);
+  render();
+  document.getElementById("station").scrollIntoView({ block: "start", behavior: "smooth" });
+});
+document.getElementById("clear-all").addEventListener("click", function() {
+  if (confirm("Clear all your work? This cannot be undone.")) { state = {}; save(); current = 0; render(); }
+});
+document.getElementById("print-btn").addEventListener("click", function() {
+  current = 6; render(); setTimeout(function() { window.print(); }, 200);
+});
+
+render();
+})();
+</script>
+

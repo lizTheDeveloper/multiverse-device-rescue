@@ -360,6 +360,229 @@ a {
   border-color: var(--accent);
 }
 
+/* Site nav */
+
+.site-header .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.site-nav a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.site-nav a:hover {
+  color: var(--text);
+}
+
+/* Secondary button */
+
+.btn-secondary {
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Situations */
+
+.situations {
+  padding: 2.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.situations h2 {
+  font-size: 1.6rem;
+  margin: 0 0 0.5rem;
+}
+
+.situation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.situation-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.3rem;
+  box-shadow: var(--card-shadow);
+}
+
+.situation-icon {
+  font-size: 1.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.situation-card h3 {
+  font-size: 1rem;
+  margin: 0 0 0.4rem;
+}
+
+.situation-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Rescue Stick */
+
+.rescue-stick {
+  padding: 3rem 0;
+  border-top: 1px solid var(--border);
+  background: var(--safety-bg);
+}
+
+.rescue-stick h2 {
+  font-size: 1.6rem;
+  margin: 0 0 1.5rem;
+}
+
+.stick-layout {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.stick-pitch {
+  font-size: 1.1rem;
+  margin: 0 0 1rem;
+}
+
+.stick-features {
+  padding-left: 1.2rem;
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+}
+
+.stick-features li {
+  margin-bottom: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.stick-use-case {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 0 0 1.5rem;
+}
+
+.stick-cta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.stick-price {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.stick-contents h3 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+
+.stick-tree {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 0 0 0.75rem;
+}
+
+.stick-contents-note {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.stick-contents-note code {
+  background: var(--code-bg);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* Security Tools */
+
+.tools-section {
+  padding: 2.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.tools-section h2 {
+  font-size: 1.6rem;
+  margin: 0 0 0.5rem;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.tool-card {
+  display: block;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.3rem;
+  box-shadow: var(--card-shadow);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.tool-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.tool-icon {
+  font-size: 1.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.tool-card h3 {
+  font-size: 1rem;
+  margin: 0 0 0.4rem;
+  color: var(--accent);
+}
+
+.tool-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.tools-more {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
 /* Requirements */
 
 .requirements {
@@ -394,8 +617,21 @@ a {
 /* Responsive */
 
 @media (max-width: 720px) {
-  .steps {
+  .site-header .wrap {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .steps,
+  .situation-grid,
+  .tools-grid {
     grid-template-columns: 1fr;
+  }
+
+  .stick-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
   .downloads {
@@ -405,5 +641,12 @@ a {
 
   .btn {
     justify-content: center;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 960px) {
+  .situation-grid,
+  .tools-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

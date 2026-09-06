@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Device Rescue — a calm, plain-English checkup for your computer</title>
-  <meta name="description" content="Device Rescue looks over your Mac or PC, explains what it finds in plain language, and only changes anything if you say yes. Free download for macOS." />
+  <meta name="description" content="Device Rescue looks over your Mac or PC, explains what it finds in plain language, and only changes anything if you say yes. Available as a USB rescue stick or free download." />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -14,6 +14,12 @@
         <span class="brand-mark" aria-hidden="true">◈</span>
         <span class="brand-name">Device Rescue</span>
       </a>
+      <nav class="site-nav">
+        <a href="#how-it-works">How it works</a>
+        <a href="#rescue-stick">Rescue Stick</a>
+        <a href="#tools">Tools</a>
+        <a href="https://lizthedeveloper.github.io/multiverse-device-rescue/">Docs</a>
+      </nav>
     </div>
   </header>
 
@@ -22,8 +28,9 @@
       <div class="wrap">
         <h1>A calm checkup for your computer.</h1>
         <p class="pitch">
-          Device Rescue looks around your Mac, tells you in plain English what it finds,
-          and never changes anything unless you say so.
+          Device Rescue looks around your Mac or PC, tells you in plain English what it finds,
+          and never changes anything unless you say so. Use it yourself, or hand a
+          rescue stick to the person you're helping.
         </p>
 
         <div class="safety-note">
@@ -41,12 +48,23 @@
         <div class="downloads">
           <a
             class="btn btn-primary"
+            href="#rescue-stick"
+          >
+            <span class="btn-icon" aria-hidden="true">🔑</span>
+            <span class="btn-text">
+              <span class="btn-title">Get a Rescue Stick</span>
+              <span class="btn-sub">Ready-to-run USB drive</span>
+            </span>
+          </a>
+
+          <a
+            class="btn btn-secondary"
             href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/download/v0.1.0/DeviceRescue-0.1.0-mac-arm64.dmg"
           >
             <span class="btn-icon" aria-hidden="true">⌘</span>
             <span class="btn-text">
               <span class="btn-title">Download for Mac</span>
-              <span class="btn-sub">Apple Silicon · macOS</span>
+              <span class="btn-sub">Apple Silicon · macOS · Free</span>
             </span>
           </a>
 
@@ -58,16 +76,10 @@
             </span>
           </button>
         </div>
-
-        <p class="fine-print">
-          The download is fairly large — around 350–500 MB, because it includes everything
-          Device Rescue needs to run on its own. It's ready to use on macOS with Apple Silicon
-          (M1 or newer) today. A Windows version is on the way.
-        </p>
       </div>
     </section>
 
-    <section class="how-it-works">
+    <section class="how-it-works" id="how-it-works">
       <div class="wrap">
         <h2>How it works</h2>
         <div class="steps">
@@ -90,12 +102,153 @@
       </div>
     </section>
 
+    <section class="situations">
+      <div class="wrap">
+        <h2>Pick your situation</h2>
+        <p class="section-lede">
+          Device Rescue includes guided walkthroughs for common scenarios. Each one
+          runs the right checks and walks you through what to do — step by step,
+          at your own pace.
+        </p>
+        <div class="situation-grid">
+          <div class="situation-card">
+            <span class="situation-icon" aria-hidden="true">🛡️</span>
+            <h3>Digital Security Reset</h3>
+            <p>You've been hacked, or think you have. This walks you through securing your accounts, checking your device, and recovering — in the right order.</p>
+          </div>
+          <div class="situation-card">
+            <span class="situation-icon" aria-hidden="true">🏠</span>
+            <h3>Home Network Intrusion</h3>
+            <p>Someone is on your Wi-Fi who shouldn't be. Find out what they can see, kick them off, and lock things down.</p>
+          </div>
+          <div class="situation-card">
+            <span class="situation-icon" aria-hidden="true">🪪</span>
+            <h3>Identity Theft Recovery</h3>
+            <p>Your identity has been stolen. A checklist that survives the next three weeks of phone calls — credit freezes, fraud reports, account recovery.</p>
+          </div>
+          <div class="situation-card">
+            <span class="situation-icon" aria-hidden="true">📱</span>
+            <h3>iPhone Spyware Check</h3>
+            <p>Scan a local iPhone backup for signs of mercenary spyware like Pegasus, using Amnesty International's Mobile Verification Toolkit.</p>
+          </div>
+          <div class="situation-card">
+            <span class="situation-icon" aria-hidden="true">🎄</span>
+            <h3>Home for the Holidays</h3>
+            <p>You're visiting family and have one afternoon to leave their laptop in a better state than you found it.</p>
+          </div>
+          <div class="situation-card">
+            <span class="situation-icon" aria-hidden="true">🐛</span>
+            <h3>AI Worm Response</h3>
+            <p>Comprehensive scan for AI-led worm compromise, git SSH tampering, and mobile spyware.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rescue-stick" id="rescue-stick">
+      <div class="wrap">
+        <h2>The Rescue Stick</h2>
+        <div class="stick-layout">
+          <div class="stick-description">
+            <p class="stick-pitch">
+              A USB drive with Device Rescue ready to run. No install, no internet,
+              no Python. Plug it in, open the drive, and go.
+            </p>
+            <ul class="stick-features">
+              <li>Works on Mac and Windows — both binaries on every stick</li>
+              <li>Includes all 287 checks, 7 guided walkthroughs, and the quick-reference card</li>
+              <li>Hand it to someone and they can use it on their own</li>
+              <li>Nothing is uploaded — the tool works entirely offline</li>
+            </ul>
+            <p class="stick-use-case">
+              Perfect for the person in your life who is everyone's tech support,
+              or for anyone who helps others with device security — counselors,
+              IT volunteers, librarians, community organizations.
+            </p>
+            <div class="stick-cta">
+              <a class="btn btn-primary" href="https://github.com/lizTheDeveloper/multiverse-device-rescue">
+                <span class="btn-text">
+                  <span class="btn-title">Coming Soon</span>
+                  <span class="btn-sub">Sign up to be notified</span>
+                </span>
+              </a>
+              <p class="stick-price">Estimated price: $29–$39</p>
+            </div>
+          </div>
+          <div class="stick-contents">
+            <h3>What's on the stick</h3>
+            <pre class="stick-tree">
+RESCUE-STICK/
+├── START-HERE.txt
+├── macos/
+│   └── rescue
+├── windows/
+│   └── rescue.exe
+└── guides/
+    └── quick-reference.txt</pre>
+            <p class="stick-contents-note">
+              <code>START-HERE.txt</code> walks the person through opening and running
+              the tool. The quick-reference card is one page you can print.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tools-section" id="tools">
+      <div class="wrap">
+        <h2>Free security tools</h2>
+        <p class="section-lede">
+          Device Rescue is one part of a larger set of tools for personal security
+          and digital self-defense. These are all free, run in your browser, and
+          don't collect your data.
+        </p>
+        <div class="tools-grid">
+          <a class="tool-card" href="https://themultiverse.school/tools/password_health/">
+            <span class="tool-icon" aria-hidden="true">🔑</span>
+            <h3>Password Health Check</h3>
+            <p>Assess your password practices: manager usage, breach exposure, 2FA audit, recovery keys. Includes an emergency triage flow for active breaches.</p>
+          </a>
+          <a class="tool-card" href="https://themultiverse.school/tools/threat_model/">
+            <span class="tool-icon" aria-hidden="true">🗺️</span>
+            <h3>Personal Threat Model</h3>
+            <p>Figure out who might target you, what they're after, and what to protect first. Builds a playbook tailored to your situation.</p>
+          </a>
+          <a class="tool-card" href="https://themultiverse.school/tools/pretext_anatomy/">
+            <span class="tool-icon" aria-hidden="true">🎣</span>
+            <h3>Scam &amp; Phishing Autopsy</h3>
+            <p>Got a suspicious email, text, or call? Dissect the pretext, identify the ask, and learn the verification steps. Builds a household scam defense card.</p>
+          </a>
+          <a class="tool-card" href="https://themultiverse.school/tools/ad_surface/">
+            <span class="tool-icon" aria-hidden="true">👁️</span>
+            <h3>Ad Tracking Audit</h3>
+            <p>See how much of your data is being used for advertising — across Google, Apple, Facebook, and your apps — and reduce it.</p>
+          </a>
+          <a class="tool-card" href="https://themultiverse.school/tools/device_rescue/">
+            <span class="tool-icon" aria-hidden="true">💻</span>
+            <h3>Device Rescue (Web)</h3>
+            <p>The browser version of Device Rescue — walk through a device audit, check for stalkerware, and harden your settings, guided step by step.</p>
+          </a>
+          <a class="tool-card" href="https://themultiverse.school/tools/attack_surface_bench/">
+            <span class="tool-icon" aria-hidden="true">🔍</span>
+            <h3>Attack Surface Map</h3>
+            <p>Map your personal attack surface: endpoints, services, credentials. For the more technically inclined.</p>
+          </a>
+        </div>
+        <p class="tools-more">
+          These tools are part of
+          <a href="https://themultiverse.school">The Multiverse School</a> —
+          a free school for AI, security, and digital self-defense.
+        </p>
+      </div>
+    </section>
+
     <section class="walkthrough" id="first-time">
       <div class="wrap">
-        <h2>What you'll see the first time (per OS)</h2>
+        <h2>What you'll see the first time</h2>
         <p class="section-lede">
           New apps that aren't from an app store usually trigger a few security prompts.
-          That's normal — here's exactly what to expect and what to click, for whichever computer you use.
+          That's normal — here's exactly what to expect and what to click.
         </p>
 
         <div class="os-tabs" role="tablist" aria-label="Choose your operating system">
@@ -117,6 +270,7 @@
           <li>Works on macOS with Apple Silicon (M1 or newer) today; a Windows version is coming soon.</li>
           <li>The installer is currently unsigned, so macOS and Windows will show a security prompt the first time — see the walkthrough above.</li>
           <li>Nothing is uploaded anywhere. Device Rescue looks at your computer, not the other way around.</li>
+          <li>The source code is on <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue">GitHub</a> — every check is a plain Python file you can read before you run it.</li>
         </ul>
       </div>
     </section>
@@ -124,7 +278,10 @@
 
   <footer class="site-footer">
     <div class="wrap">
-      <p>Device Rescue is a small, independent tool built to make computer checkups less scary.</p>
+      <p>
+        Device Rescue is a small, independent tool built to make computer checkups less scary.
+        Part of <a href="https://themultiverse.school">The Multiverse School</a>.
+      </p>
     </div>
   </footer>
 
