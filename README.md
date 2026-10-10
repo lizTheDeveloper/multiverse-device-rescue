@@ -14,7 +14,8 @@ walks you through fixing it. **It is read-only by default** — it never changes
 anything unless you say so, it never asks for a password, and it never phones
 home.
 
-**Documentation:** <https://lizthedeveloper.github.io/multiverse-device-rescue/>
+**Website:** <https://lizthedeveloper.github.io/multiverse-device-rescue/>  
+**Documentation:** <https://lizthedeveloper.github.io/multiverse-device-rescue/docs/>
 
 ---
 

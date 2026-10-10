@@ -6,7 +6,7 @@ contact_links:
       Do not open a public issue for a security flaw. This includes a check that
       reports a healthy result when it should not. See SECURITY.md.
   - name: Documentation
-    url: https://lizthedeveloper.github.io/multiverse-device-rescue/
+    url: https://lizthedeveloper.github.io/multiverse-device-rescue/docs/
     about: Command reference, module catalog, and guides.
   - name: What is and is not finished
     url: https://github.com/lizTheDeveloper/multiverse-device-rescue/blob/main/docs/ROADMAP_STATUS.md

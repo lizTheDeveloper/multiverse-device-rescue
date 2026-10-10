@@ -10,6 +10,7 @@ on:
       - 'profiles/**'
       - 'guides/**'
       - 'scripts/generate_module_catalog.py'
+      - 'site/**'
       - '.github/workflows/docs.yml'
   pull_request:
     paths:
@@ -43,10 +44,18 @@ jobs:
         run: python scripts/generate_module_catalog.py --check
       - name: Build (warnings are errors — a dead link is a broken doc)
         run: mkdocs build --strict
+      # The landing page in `site/` is the root of the Pages site and the
+      # MkDocs build sits under /docs/ (mkdocs.yml `site_url` agrees).
+      - name: Assemble landing page + docs
+        run: |
+          mkdir -p _pages
+          cp -R site/. _pages/
+          rm -f _pages/Dockerfile
+          cp -R site_build _pages/docs
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
-          path: site_build
+          path: _pages
 
   deploy:
     name: deploy to GitHub Pages
