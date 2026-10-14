@@ -71,6 +71,7 @@ datas += [
     (str(PROJECT_ROOT / "rescue" / "security" / "trusted_signers.json"), "rescue/security"),
     (str(PROJECT_ROOT / "rescue" / "security" / "integrity_manifest.json"), "rescue/security"),
     (str(PROJECT_ROOT / "rescue" / "tui" / "app.tcss"), "rescue/tui"),
+    (str(PROJECT_ROOT / "rescue" / "attribution_names.json"), "rescue"),
 ]
 
 hiddenimports = collect_submodules("rescue")

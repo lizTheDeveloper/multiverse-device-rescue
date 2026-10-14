@@ -1,0 +1,513 @@
+"""Who made it?  A plain-language maker line for programs named in findings.
+
+Normal people cannot tell which processes, launch agents or apps are suspicious.
+This module answers one question per program: who made it, and is that
+verifiable?  It is a read-only *enrichment layer*: it never changes a finding,
+it only produces ``made_by`` entries that the JSON output and the desktop app
+show next to it.
+
+Performance contract (an earlier version froze a Mac by doing heavy work during
+a scan): every external command goes through :mod:`rescue.command` with a short
+timeout, results are cached per path, the number of lookups per scan is capped,
+and a wall-clock budget stops further lookups.  Anything over budget simply gets
+no maker line.
+
+What "verified" means: the program carries a code signature whose certificate
+chain was issued by Apple / Microsoft / the OS package manager, and it names the
+maker.  We read the signature (``codesign -dv``); we do not re-hash the whole
+bundle, which is expensive for big apps.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import plistlib
+import re
+import stat
+import time
+from dataclasses import dataclass
+from pathlib import Path
+
+from rescue import command
+
+LOOKUP_TIMEOUT = 5.0
+DEFAULT_MAX_LOOKUPS = 150
+DEFAULT_BUDGET_SECONDS = 60.0
+MAX_SUBJECTS_PER_FINDING = 6
+
+# Finding.data keys that name a program, plist, app or bundle id.
+PROGRAM_KEYS = (
+    "program", "plist", "plist_path", "path", "binary", "executable", "exe",
+    "app", "apps", "bundle_id",
+)
+# Inside dict items of those lists, the keys that hold the actual path.
+_ITEM_PATH_KEYS = ("path", "program", "exe", "executable", "binary", "command")
+
+_UNKNOWN = "Unknown maker"
+_INTERPRETERS = {
+    "sh", "bash", "zsh", "dash", "ksh", "fish", "python", "python3", "node",
+    "ruby", "perl", "osascript", "env", "php", "open",
+}
+# Where the OS's own interpreters live: signed by Apple, but that says nothing
+# about the script they were told to run.
+_SYSTEM_BIN = ("/bin/", "/usr/bin/", "/sbin/", "/usr/sbin/")
+_BUNDLE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+){2,}$")
+_DEVID_RE = re.compile(r"^Authority=Developer ID Application: (.+) \(([A-Z0-9]{10})\)\s*$", re.M)
+_DEVCERT_RE = re.compile(r"^Authority=Apple (?:Development|Distribution): (.+?)(?: \(([A-Z0-9]{10})\))?\s*$", re.M)
+
+_SCRIPT_NOTE = "A script, not signed; check who created it."
+
+
+@dataclass(frozen=True)
+class MadeBy:
+    """A maker line.  ``verified`` is True only for a signature or a trusted
+    system package that names the maker."""
+
+    name: str
+    verified: bool
+    how: str
+    location_note: str = ""
+
+    def to_dict(self, subject: str) -> dict:
+        return {
+            "subject": subject,
+            "name": self.name,
+            "verified": self.verified,
+            "how": self.how,
+            "location_note": self.location_note,
+        }
+
+
+def _names() -> dict:
+    try:
+        return json.loads((Path(__file__).parent / "attribution_names.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+_NAMES_CACHE: dict | None = None
+
+
+def _name_table() -> dict:
+    global _NAMES_CACHE
+    if _NAMES_CACHE is None:
+        _NAMES_CACHE = _names()
+    return _NAMES_CACHE
+
+
+def _team_name(team: str | None, fallback: str) -> str:
+    return _name_table().get("team_ids", {}).get(team or "", fallback)
+
+
+# --- codesign parsing -------------------------------------------------------------
+
+def parse_codesign(text: str) -> MadeBy | None:
+    """Turn ``codesign -dv --verbose=2`` output into a MadeBy (no location)."""
+    if not text:
+        return None
+    if "not signed at all" in text:
+        return MadeBy(_UNKNOWN, False, "unsigned")
+    if "Signature=adhoc" in text or "(adhoc" in text or ",adhoc" in text:
+        return MadeBy(_UNKNOWN, False, "ad-hoc signed")
+    team_m = re.search(r"^TeamIdentifier=([A-Z0-9]{10})\s*$", text, re.M)
+    team = team_m.group(1) if team_m else None
+    ident_m = re.search(r"^Identifier=(\S+)", text, re.M)
+    ident = ident_m.group(1) if ident_m else ""
+
+    m = _DEVID_RE.search(text)
+    if m:
+        return MadeBy(_team_name(m.group(2), m.group(1).strip()), True, "Developer ID signature")
+    if "Authority=Software Signing" in text:
+        return MadeBy("Apple", True, "Apple system file")
+    if "Authority=Apple Mac OS Application Signing" in text:
+        if ident.startswith("com.apple.") or team == "74J34U3R6X":
+            return MadeBy("Apple", True, "Mac App Store signature")
+        fallback = f"an App Store developer (team {team})" if team else "an App Store developer"
+        return MadeBy(_team_name(team, fallback), True, "Mac App Store signature")
+    m = _DEVCERT_RE.search(text)
+    if m:
+        return MadeBy(_team_name(m.group(2), m.group(1).strip()), False, "development certificate")
+    if "Authority=" in text:
+        return MadeBy(_UNKNOWN, False, "unrecognised signature")
+    return None
+
+
+# --- location ---------------------------------------------------------------------
+
+_POSIX_RISKY = (
+    ("/private/var/tmp/", "/var/tmp"), ("/private/tmp/", "/tmp"),
+    ("/var/tmp/", "/var/tmp"), ("/tmp/", "/tmp"), ("/dev/shm/", "/dev/shm"),
+    ("/private/var/folders/", "a temporary folder"), ("/var/folders/", "a temporary folder"),
+)
+
+
+def location_note(path: str, platform: str) -> str:
+    """Plain-language warning when ``path`` is somewhere any program can write."""
+    p = path.replace("\\", "/") if platform == "win32" else path
+    low = p.lower()
+    if platform == "win32":
+        if "/appdata/local/temp/" in low or "/windows/temp/" in low or "/temp/" in low:
+            return "Runs from a temporary folder (Temp), which any program can write to."
+        if "/users/public/" in low:
+            return "Runs from C:\\Users\\Public, a folder every account can write to."
+        if "/downloads/" in low:
+            return "Runs from your Downloads folder, where files from the internet land."
+        return ""
+    for prefix, shown in _POSIX_RISKY:
+        if p.startswith(prefix) or p == prefix.rstrip("/"):
+            if shown.startswith("a "):
+                return "Runs from a temporary folder, which any program can write to."
+            return f"Runs from {shown}, a temporary folder any program can write to."
+    if p.startswith("/Users/Shared/"):
+        return "Runs from /Users/Shared, a folder every account on this computer can write to."
+    if "/Downloads/" in p:
+        return "Runs from your Downloads folder, where files from the internet land."
+    return ""
+
+
+def _world_writable(path: str) -> bool:
+    try:
+        return bool(os.stat(path).st_mode & stat.S_IWOTH)
+    except OSError:
+        return False
+
+
+# --- the attributor ---------------------------------------------------------------
+
+class Attributor:
+    """Identifies makers with a per-path cache, a lookup cap and a time budget."""
+
+    def __init__(
+        self,
+        platform: str,
+        *,
+        run=None,
+        max_lookups: int = DEFAULT_MAX_LOOKUPS,
+        budget_seconds: float = DEFAULT_BUDGET_SECONDS,
+        applications_dirs: list[str] | None = None,
+        distro: str | None = None,
+    ):
+        self.platform = platform
+        self._run = run or command.run
+        self.max_lookups = max_lookups
+        self.lookups = 0
+        self.skipped = 0
+        self._deadline = time.monotonic() + budget_seconds
+        self._cache: dict[str, MadeBy | None] = {}
+        self._app_dirs = applications_dirs
+        self._bundle_index: dict[str, str] | None = None
+        self._distro = distro
+
+    # budget ----------------------------------------------------------------
+    def _can_lookup(self) -> bool:
+        return self.lookups < self.max_lookups and time.monotonic() < self._deadline
+
+    def _exec(self, args: list[str]):
+        """Run one bounded command; None if out of budget or it failed."""
+        if not self._can_lookup():
+            return None
+        self.lookups += 1
+        try:
+            res = self._run(args, timeout=LOOKUP_TIMEOUT)
+        except Exception:
+            return None
+        if getattr(res, "timed_out", False):
+            return None
+        return res
+
+    # public ----------------------------------------------------------------
+    def identify(self, path_or_label: str, exists=os.path.exists) -> MadeBy | None:
+        """Return who made ``path_or_label`` (a path, plist, bundle id or label)."""
+        subject = (path_or_label or "").strip()
+        if not subject:
+            return None
+        if subject in self._cache:
+            return self._cache[subject]
+        if not self._can_lookup():
+            self.skipped += 1
+            return None
+        try:
+            result = self._identify(subject, exists)
+        except Exception:
+            result = None
+        self._cache[subject] = result
+        return result
+
+    # internals -------------------------------------------------------------
+    def _identify(self, subject: str, exists) -> MadeBy | None:
+        for prefix, what in _name_table().get("label_prefixes", {}).items():
+            if subject.startswith(prefix):
+                return MadeBy(f"{what} {subject[len(prefix):]}", True, "Homebrew package")
+        path = subject
+        if self.platform == "darwin" and "/" not in subject and not subject.endswith(".plist"):
+            path = self._resolve_app(subject, exists)
+            if path is None:
+                return None
+        path = os.path.expanduser(path)
+        if not exists(path):
+            return None
+        if path.endswith(".plist") and self.platform == "darwin":
+            return self._identify_plist(path, exists)
+        return self._identify_program(path)
+
+    def _identify_plist(self, plist_path: str, exists) -> MadeBy | None:
+        try:
+            with open(plist_path, "rb") as fh:
+                data = plistlib.load(fh)
+        except Exception:
+            return None
+        program = data.get("Program")
+        args = data.get("ProgramArguments") or []
+        if not program and args:
+            program = args[0]
+            if os.path.basename(str(program)) in _INTERPRETERS:
+                for extra in args[1:]:
+                    extra = os.path.expanduser(str(extra))
+                    if extra.startswith("/") and exists(extra):
+                        program = extra
+                        break
+                else:
+                    # Never credit Apple for a script/app we could not find.
+                    if str(program).startswith(_SYSTEM_BIN):
+                        return None
+        if not program:
+            return None
+        program = os.path.expanduser(str(program))
+        if not exists(program):
+            return None
+        return self._identify_program(program)
+
+    def _identify_program(self, path: str) -> MadeBy | None:
+        note = location_note(path, self.platform)
+        if not note and self.platform != "win32" and os.path.isfile(path) and _world_writable(path):
+            note = "This file can be changed by any program on the computer."
+        made = self._signature_for(path)
+        if made is None:
+            return None
+        if note:
+            joined = f"{made.location_note} {note}".strip()
+            made = MadeBy(made.name, made.verified, made.how, joined)
+        return made
+
+    def _signature_for(self, path: str) -> MadeBy | None:
+        if self.platform == "darwin":
+            return self._mac(path)
+        if self.platform == "win32":
+            return self._windows(path)
+        return self._linux(path)
+
+    # macOS -----------------------------------------------------------------
+    def _mac(self, path: str) -> MadeBy | None:
+        brew = re.match(r"^(?:/opt/homebrew|/usr/local)/(?:Cellar|opt)/([^/]+)", path)
+        if not brew:
+            real = os.path.realpath(path)
+            brew = re.match(r"^(?:/opt/homebrew|/usr/local)/(?:Cellar|opt)/([^/]+)", real)
+        if brew:
+            return MadeBy(f"Homebrew package {brew.group(1)}", True, "Homebrew package")
+        if _is_script(path):
+            return MadeBy(_UNKNOWN, False, "script", _SCRIPT_NOTE)
+        target = path
+        idx = path.find(".app/")
+        if idx != -1:
+            target = path[: idx + 4]
+        res = self._exec(["codesign", "-dv", "--verbose=2", target])
+        if res is None:
+            return None
+        return parse_codesign((res.stderr or "") + "\n" + (res.stdout or ""))
+
+    def _resolve_app(self, ident: str, exists) -> str | None:
+        """Bundle id (or app name) -> .app path, read-only."""
+        if _BUNDLE_ID_RE.match(ident):
+            # Cheapest first: read the Info.plists in /Applications (no process).
+            found = self._index().get(ident)
+            if found:
+                return found
+            res = self._exec(["mdfind", f"kMDItemCFBundleIdentifier == '{ident}'"])
+            if res is not None and getattr(res, "stdout", ""):
+                for line in res.stdout.splitlines():
+                    line = line.strip()
+                    if line.endswith(".app") and exists(line):
+                        return line
+            return None
+        name = ident if ident.endswith(".app") else f"{ident}.app"
+        for d in self._applications_dirs():
+            cand = os.path.join(d, name)
+            if exists(cand):
+                return cand
+        return None
+
+    def _applications_dirs(self) -> list[str]:
+        if self._app_dirs is not None:
+            return self._app_dirs
+        return ["/Applications", os.path.expanduser("~/Applications")]
+
+    def _index(self) -> dict[str, str]:
+        if self._bundle_index is None:
+            index: dict[str, str] = {}
+            for d in self._applications_dirs():
+                try:
+                    names = sorted(os.listdir(d))[:600]
+                except OSError:
+                    continue
+                for n in names:
+                    if not n.endswith(".app"):
+                        continue
+                    try:
+                        with open(os.path.join(d, n, "Contents", "Info.plist"), "rb") as fh:
+                            bid = plistlib.load(fh).get("CFBundleIdentifier")
+                    except Exception:
+                        continue
+                    if bid:
+                        index.setdefault(bid, os.path.join(d, n))
+            self._bundle_index = index
+        return self._bundle_index
+
+    # Windows ---------------------------------------------------------------
+    def _windows(self, path: str) -> MadeBy | None:
+        quoted = path.replace("'", "''")
+        script = (
+            f"$s = Get-AuthenticodeSignature -LiteralPath '{quoted}'; "
+            "@{Status=[string]$s.Status; Subject=$s.SignerCertificate.Subject} | ConvertTo-Json -Compress"
+        )
+        res = self._exec(["powershell", "-NoProfile", "-NonInteractive", "-Command", script])
+        if res is None:
+            return None
+        try:
+            info = json.loads(res.stdout)
+        except (ValueError, TypeError):
+            return None
+        status = str(info.get("Status", ""))
+        subject = info.get("Subject") or ""
+        cn = re.search(r'CN=("[^"]+"|[^,]+)', subject)
+        org = re.search(r'O=("[^"]+"|[^,]+)', subject)
+        name = ((cn or org).group(1).strip('"').strip()) if (cn or org) else _UNKNOWN
+        if status == "Valid":
+            return MadeBy(name, True, "Authenticode signature")
+        if status == "NotSigned":
+            return MadeBy(_UNKNOWN, False, "unsigned")
+        if status == "HashMismatch":
+            return MadeBy(name, False, "signature does not match the file (changed after signing)")
+        if status in ("NotTrusted", "UnknownError", "Incompatible"):
+            return MadeBy(name if subject else _UNKNOWN, False, "untrusted signature")
+        return None
+
+    # Linux -----------------------------------------------------------------
+    def _distro_name(self) -> str:
+        if self._distro is None:
+            self._distro = "System"
+            try:
+                for line in Path("/etc/os-release").read_text("utf-8").splitlines():
+                    if line.startswith("NAME="):
+                        self._distro = line.split("=", 1)[1].strip().strip('"').split()[0]
+                        break
+            except OSError:
+                pass
+        return self._distro
+
+    def _linux(self, path: str) -> MadeBy | None:
+        if _is_script(path):
+            return MadeBy(_UNKNOWN, False, "script", _SCRIPT_NOTE)
+        res = self._exec(["dpkg", "-S", path])
+        pkg = None
+        if res is not None and res.ok and ":" in (res.stdout or ""):
+            pkg = res.stdout.splitlines()[0].split(":", 1)[0].split(",")[0].strip()
+        else:
+            res = self._exec(["rpm", "-qf", path])
+            if res is not None and res.ok and (res.stdout or "").strip():
+                pkg = res.stdout.splitlines()[0].strip()
+        if pkg:
+            return MadeBy(f"{self._distro_name()} package {pkg}", True, "system package")
+        return MadeBy(_UNKNOWN, False, "not part of any installed package")
+
+
+def _is_script(path: str) -> bool:
+    try:
+        if not os.path.isfile(path):
+            return False
+        with open(path, "rb") as fh:
+            return fh.read(2) == b"#!"
+    except OSError:
+        return False
+
+
+# --- module-level convenience -----------------------------------------------------
+
+_DEFAULT: dict[str, Attributor] = {}
+
+
+def identify(path_or_label: str, platform: str) -> MadeBy | None:
+    """Identify one subject with a shared per-platform cache and budget."""
+    att = _DEFAULT.get(platform)
+    if att is None:
+        att = _DEFAULT[platform] = Attributor(platform)
+    return att.identify(path_or_label)
+
+
+# --- finding enrichment -----------------------------------------------------------
+
+def _looks_like_subject(s: str) -> bool:
+    if not s or len(s) > 1024 or "\n" in s:
+        return False
+    if s.startswith(("/", "~")) or re.match(r"^[A-Za-z]:[\\/]", s):
+        return True
+    return bool(_BUNDLE_ID_RE.match(s)) or s.endswith(".app")
+
+
+def _candidates(value) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        for k in _ITEM_PATH_KEYS:
+            v = value.get(k)
+            if isinstance(v, str) and v:
+                if k == "command" and not os.path.exists(v):
+                    v = v.split(" ", 1)[0]  # a command line: keep the program
+                return [v]
+        return []
+    if isinstance(value, (list, tuple)):
+        out: list[str] = []
+        for item in value:
+            out.extend(_candidates(item))
+        return out
+    return []
+
+
+def subjects_for_finding(finding) -> list[str]:
+    """Programs a finding names, in order, deduplicated and capped."""
+    data = getattr(finding, "data", None) or {}
+    seen: list[str] = []
+    for key in PROGRAM_KEYS:
+        if key not in data:
+            continue
+        for cand in _candidates(data[key]):
+            if _looks_like_subject(cand) and cand not in seen:
+                seen.append(cand)
+                if len(seen) >= MAX_SUBJECTS_PER_FINDING:
+                    return seen
+    return seen
+
+
+def compute_made_by(
+    results,
+    platform: str,
+    *,
+    max_lookups: int = DEFAULT_MAX_LOOKUPS,
+    attributor: Attributor | None = None,
+) -> dict[int, list[dict]]:
+    """Map ``id(finding)`` -> list of made_by dicts for every attributable finding."""
+    att = attributor or Attributor(platform, max_lookups=max_lookups)
+    out: dict[int, list[dict]] = {}
+    for _mod, check in results:
+        for finding in getattr(check, "findings", []) or []:
+            entries = []
+            for subject in subjects_for_finding(finding):
+                try:
+                    made = att.identify(subject)
+                except Exception:
+                    made = None
+                if made is not None:
+                    entries.append(made.to_dict(subject))
+            if entries:
+                out[id(finding)] = entries
+    return out

@@ -36,15 +36,18 @@ def _remediation(guide) -> dict:
     }
 
 
-def _finding(finding, walkthroughs) -> dict:
+def _finding(finding, walkthroughs, made_by=None) -> dict:
     out = _plain(finding)
+    entries = made_by.get(id(finding)) if made_by else None
+    if entries:
+        out["made_by"] = _plain(entries)
     guide = walkthroughs.get(getattr(finding, "code", None)) if walkthroughs else None
     if guide is not None:
         out["remediation"] = _remediation(guide)
     return out
 
 
-def checks_to_json(results, platform: str, walkthroughs=None) -> str:
+def checks_to_json(results, platform: str, walkthroughs=None, made_by=None) -> str:
     """Convert check results to a JSON string suitable for external consumption.
 
     Args:
@@ -52,6 +55,8 @@ def checks_to_json(results, platform: str, walkthroughs=None) -> str:
         platform: Platform string (e.g. "darwin", "win32", "linux")
         walkthroughs: Optional {finding code: Guide}; a finding whose code has
             a walkthrough gets its steps under "remediation".
+        made_by: Optional {id(finding): [maker entry]} from rescue.attribution;
+            attached to each finding as "made_by".
 
     Returns:
         JSON string with schema_version, platform, and modules array
@@ -65,7 +70,7 @@ def checks_to_json(results, platform: str, walkthroughs=None) -> str:
             # False means the check could not run here: not a clean result.
             "supported": getattr(check, "supported", True),
             "unsupported_reason": getattr(check, "unsupported_reason", None),
-            "findings": [_finding(f, walkthroughs) for f in check.findings],
+            "findings": [_finding(f, walkthroughs, made_by) for f in check.findings],
         })
     return json.dumps(
         {"schema_version": 1, "platform": platform, "modules": modules},
