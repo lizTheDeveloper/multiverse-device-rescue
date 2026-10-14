@@ -458,7 +458,13 @@ class Module(ModuleBase):
                     and parts[-1].lower().startswith("python")
                     and any(p.lower() in ("venv", "virtualenv") or p.lower().startswith(".venv") for p in parts[:-2])
                 ):
-                    excused.extend(found)
+                    # Only the virtualenv's own folders are excused; any other hidden
+                    # folder on the way to it (~/.evil/venv/bin/python) still counts.
+                    for p in found:
+                        if p in self.DEVELOPER_TOOL_DIRS or p.lower().startswith(".venv"):
+                            excused.append(p)
+                        else:
+                            hidden.append(p)
                 else:
                     hidden.extend(found)
         if not hidden and not excused:

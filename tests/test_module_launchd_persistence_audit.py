@@ -148,7 +148,6 @@ def test_launchd_persistence_audit_tmp_in_program_arguments(tmp_path):
 def test_launchd_persistence_audit_developer_dirs_not_flagged(tmp_path):
     programs = {
         "a": "/Users/me/.nvm/versions/node/v22.16.0/bin/node",
-        "b": "/Users/me/.hermes/hermes-agent/venv/bin/python",
         "c": "/Users/me/src/x/.venv/bin/python",
         "h": "/Users/me/src/x/.venv-hermes/bin/python",
         "d": "/Users/me/.pyenv/shims/python",
@@ -367,3 +366,16 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.launchd_persistence_audit.") for c in declared)
+
+
+def test_venv_interpreter_does_not_excuse_an_unrelated_hidden_folder():
+    mod = _get_module()
+    assert mod._hidden_kind("/Users/x/.evil/venv/bin/python", []) == "unusual"
+    assert mod._hidden_kind("/Users/x/proj/.venv/bin/python", []) == "developer"
+
+
+def test_venv_inside_an_unknown_hidden_folder_is_a_warning():
+    # ".hermes" is not a developer-tool folder; a venv inside it does not make
+    # it one. (Folder names are attacker-chosen; maker lines give context.)
+    mod = _get_module()
+    assert mod._hidden_kind("/Users/me/.hermes/hermes-agent/venv/bin/python", []) == "unusual"
