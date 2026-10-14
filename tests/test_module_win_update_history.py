@@ -149,10 +149,10 @@ def test_win_update_history_no_updates_90_days():
 def test_win_update_history_no_updates_30_days():
     """Test warning severity when no updates in 30-89 days."""
     mod = _get_module()
-    # Update from 30-90 days ago (approximately 58 days based on the math)
-    # Current date is 2026-07-07, so 2026-05-10 is about 58 days ago
+    # 58 days ago, relative to today so the test does not age out of the window.
+    from datetime import date, timedelta
     update_history = [
-        {"KB": "KB5022000", "InstalledOn": "2026-05-10"},
+        {"KB": "KB5022000", "InstalledOn": (date.today() - timedelta(days=58)).isoformat()},
     ]
     fake_run = _make_run_result(service_running=True, update_history=update_history)
     with patch("subprocess.run", side_effect=fake_run):
