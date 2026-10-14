@@ -449,3 +449,45 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.ssh_key_audit.") for c in declared)
+
+
+def _real_ssh_home(tmp_path, dir_mode, files):
+    ssh = tmp_path / ".ssh"
+    ssh.mkdir()
+    for name, (mode, content) in files.items():
+        f = ssh / name
+        f.write_text(content)
+        f.chmod(mode)
+    ssh.chmod(dir_mode)
+    return tmp_path
+
+
+_KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----\n"
+
+
+def _run_real(tmp_path):
+    mod = _get_module()
+    with patch("pathlib.Path.home", return_value=tmp_path):
+        with patch("subprocess.run", side_effect=OSError):
+            return mod.check(_make_profile())
+
+
+def test_ssh_correct_perms_not_flagged(tmp_path):
+    home = _real_ssh_home(tmp_path, 0o700, {"id_ed25519": (0o600, _KEY), "id_old": (0o400, _KEY)})
+    result = _run_real(home)
+    assert not [f for f in result.findings if f.data.get("check") in ("bad_ssh_dir_perms", "bad_key_perms")]
+
+
+def test_ssh_group_readable_key_flagged_with_numeric_perms(tmp_path):
+    home = _real_ssh_home(tmp_path, 0o755, {"id_rsa": (0o644, _KEY)})
+    result = _run_real(home)
+    d = [f for f in result.findings if f.data.get("check") == "bad_ssh_dir_perms"]
+    k = [f for f in result.findings if f.data.get("check") == "bad_key_perms"]
+    assert d and d[0].data["current_perms"] == "755"
+    assert k and k[0].data["current_perms"] == "644"
+
+
+def test_ssh_non_key_files_not_checked_as_keys(tmp_path):
+    home = _real_ssh_home(tmp_path, 0o700, {"config.backup": (0o644, "Host x\n")})
+    result = _run_real(home)
+    assert not [f for f in result.findings if f.data.get("check") == "bad_key_perms"]

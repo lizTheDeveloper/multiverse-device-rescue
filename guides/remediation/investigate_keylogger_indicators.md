@@ -6,7 +6,6 @@ remediates:
   - security.keylogger_indicators.input_monitoring_access
   - security.keylogger_indicators.known_keyloggers
   - security.keylogger_indicators.suspicious_input_monitoring
-  - security.keylogger_indicators.keyboard_hooks
   - security.keylogger_indicators.cgeventtap_usage
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
@@ -15,7 +14,7 @@ human_only_steps: [1, 2, 3, 4, 5]
 This walkthrough covers everything the `keylogger_indicators` module can
 flag: the full inventory of apps with Input Monitoring access, apps matching
 known commercial keylogger names, unrecognized apps with that same access,
-raw keyboard event hooks, and processes using `CGEventTap` to capture input
+and processes using `CGEventTap` to capture input
 programmatically. Input Monitoring is a legitimate macOS permission used by
 many trusted apps (terminals, window managers, some IDEs) — the goal here is
 distinguishing that from a keylogger, not treating every hit as malicious.
@@ -93,8 +92,10 @@ list but also aren't a recognized system app or common developer tool.
 
 ## Step 4: Investigate keyboard event hooks
 
-Raw `HIDKeyboard`/`KeyboardEventTap` entries in `ioreg` are lower-level and
-harder to attribute to a specific app than TCC permissions.
+The scan no longer reports "keyboard hooks": ordinary `ioreg` output is not
+evidence of a hook. This step is kept only for manual follow-up. Raw `ioreg`
+entries are lower-level and harder to attribute to a specific app than TCC
+permissions.
 
 1. Use Activity Monitor to look for any unfamiliar processes running around
    the same time as the scan.

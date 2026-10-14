@@ -412,3 +412,38 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.certificate_trust_audit.") for c in declared)
+
+
+def _run_with_subject(subject_line, issuer_line):
+    mod = _get_module()
+    certs_output = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
+
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        result.stdout = ""
+        cmd_str = " ".join(cmd if isinstance(cmd, list) else cmd.split())
+        if "security" in cmd_str and "find-certificate" in cmd_str:
+            result.stdout = certs_output
+        elif "openssl" in cmd_str and "-subject" in cmd_str:
+            result.stdout = f"subject={subject_line}\nnotAfter=Nov 14 13:53:39 2043 GMT\n"
+        elif "openssl" in cmd_str and "-issuer" in cmd_str:
+            result.stdout = f"issuer={issuer_line}\n"
+        return result
+
+    with patch("subprocess.run", side_effect=fake_run):
+        return mod.check(_make_profile())
+
+
+def test_apple_system_identity_certs_not_flagged_as_self_signed():
+    for cn in ("com.apple.systemdefault", "com.apple.kerberos.kdc"):
+        line = f"CN={cn}, O=System Identity"
+        result = _run_with_subject(line, line)
+        assert not [f for f in result.findings if f.data.get("check") == "self_signed_root_certs"], cn
+
+
+def test_same_cn_with_different_org_still_flagged():
+    line = "CN=com.apple.systemdefault, O=Someone Else"
+    result = _run_with_subject(line, line)
+    assert [f for f in result.findings if f.data.get("check") == "self_signed_root_certs"]

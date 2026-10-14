@@ -205,6 +205,41 @@ def test_crypto_miner_detect_high_cpu_process():
     assert any(f.severity == Severity.WARNING for f in result.findings)
 
 
+def _high_cpu_with(comm_lines):
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:2] == ["ps", "-eo"]:
+            return _make_subprocess_result("  PID %CPU COMM\n" + comm_lines)
+        return _make_subprocess_result()
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    return [f for f in result.findings if f.data.get("check") == "high_cpu_process"]
+
+
+def test_apple_system_daemons_high_cpu_not_flagged():
+    lines = (
+        " 400  95.0 /usr/libexec/syspolicyd\n"
+        " 401  90.0 /System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Versions/A/Support/mds_stores\n"
+        " 402  88.0 /usr/sbin/softwareupdated\n"
+        " 403  88.0 /usr/bin/something\n"
+        " 404  99.0 /System/Library/PrivateFrameworks/Foo.framework/XprotectService\n"
+    )
+    assert _high_cpu_with(lines) == []
+
+
+def test_high_cpu_outside_system_paths_still_flagged():
+    # lookalike names/paths outside SIP-protected dirs must still be flagged
+    lines = (
+        " 500  95.0 /usr/local/bin/syspolicyd\n"
+        " 501  95.0 /Users/me/Library/syspolicyd\n"
+        " 502  95.0 /usr/bin/../local/bin/evil\n"
+    )
+    flagged = _high_cpu_with(lines)
+    assert {f.data["pid"] for f in flagged} == {500, 501, 502}
+
+
 def test_crypto_miner_detect_mining_pool_connection():
     mod = _get_module()
     with patch("subprocess.run", side_effect=_fake_run_with_mining_pool_connection()):

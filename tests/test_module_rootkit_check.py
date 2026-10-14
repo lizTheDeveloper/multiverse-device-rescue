@@ -338,3 +338,43 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.rootkit_check.") for c in declared)
+
+
+_REAL_ROOT_LS = """total 17
+drwxr-xr-x   22 root  wheel   704 Feb 24  2026 .
+drwxr-xr-x   22 root  wheel   704 Feb 24  2026 ..
+----------    1 root  admin     0 Feb 24  2026 .file
+drwxr-xr-x    2 root  wheel    64 Feb 24  2026 .nofollow
+drwxr-xr-x    2 root  wheel    64 Feb 24  2026 .resolve
+drwxr-xr-x    2 root  wheel    64 Feb 24  2026 .vol
+lrwxr-xr-x    1 root  admin    36 Feb 24  2026 .VolumeIcon.icns -> System/Volumes/Data/.VolumeIcon.icns
+drwxr-xr-x    3 root  wheel    96 Feb 24  2026 .DocumentRevisions-V100
+drwxr-xr-x    3 root  wheel    96 Feb 24  2026 .com.apple.something
+drwxrwxr-x  107 root  admin  3424 Oct 14 12:03 Applications
+"""
+
+
+def _hidden_root_findings(listing):
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        result.stdout = listing
+        return result
+
+    with patch("modules.security.rootkit_check.subprocess.run", side_effect=fake_run):
+        return mod._check_hidden_root_files()
+
+
+def test_standard_macos_root_dot_entries_not_flagged():
+    assert _hidden_root_findings(_REAL_ROOT_LS) == []
+
+
+def test_unknown_root_dot_entry_still_flagged_alongside_standard():
+    listing = _REAL_ROOT_LS + "-rw-r--r--    1 root  wheel  1024 Jul  7 12:00 .rootkit_config\n"
+    findings = _hidden_root_findings(listing)
+    assert len(findings) == 1
+    assert ".rootkit_config" in findings[0].description
+    assert ".nofollow" not in findings[0].description

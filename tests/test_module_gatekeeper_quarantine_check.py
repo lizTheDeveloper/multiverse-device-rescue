@@ -232,7 +232,7 @@ def test_gatekeeper_quarantine_check_quarantine_removed():
     assert any(f.data.get("check") == "quarantine_removed" for f in result.findings)
     quarantine_findings = [f for f in result.findings if f.data.get("check") == "quarantine_removed"]
     assert len(quarantine_findings) == 1
-    assert quarantine_findings[0].severity == Severity.WARNING
+    assert quarantine_findings[0].severity == Severity.INFO
     apps = quarantine_findings[0].data.get("apps", [])
     assert "Firefox.app" in apps
     assert "Discord.app" in apps
@@ -325,6 +325,28 @@ def test_gatekeeper_quarantine_check_subprocess_error_graceful():
         result = mod.check(_make_profile())
     # Should still complete without crashing
     assert isinstance(result.findings, list)
+
+
+def test_gatekeeper_quarantine_safari_never_listed_and_wording_neutral():
+    """Safari (system app) is never listed, and the note must not imply tampering."""
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+        if "xattr" in cmd_str:
+            return _make_subprocess_result(stderr="No such xattr\n", returncode=1)
+        return _make_subprocess_result()
+
+    with patch("subprocess.run", side_effect=fake_run), \
+         patch("pathlib.Path.exists", _fake_path_exists_applications()):
+        result = mod.check(_make_profile())
+    f = [x for x in result.findings if x.data.get("check") == "quarantine_removed"]
+    assert len(f) == 1
+    assert "Safari.app" not in f[0].data["apps"]
+    assert f[0].severity == Severity.INFO
+    text = (f[0].title + f[0].description).lower()
+    for bad in ("removed", "bypass", "compromise", "circumvention"):
+        assert bad not in text
 
 
 def test_emitted_codes_are_declared():

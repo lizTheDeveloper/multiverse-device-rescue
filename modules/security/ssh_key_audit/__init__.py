@@ -308,8 +308,10 @@ class Module(ModuleBase):
         try:
             # Check ~/.ssh directory permissions (should be 700)
             ssh_stat = ssh_dir.stat()
-            ssh_perms = stat.filemode(ssh_stat.st_mode)[-3:]
-            if ssh_perms != "700":
+            ssh_mode = stat.S_IMODE(ssh_stat.st_mode)
+            ssh_perms = format(ssh_mode, "03o")
+            # Only group/other access matters; owner bits are the user's own.
+            if ssh_mode & 0o077:
                 findings.append(
                     Finding(
                         title=f"SSH directory has incorrect permissions ({ssh_perms})",
@@ -328,15 +330,19 @@ class Module(ModuleBase):
             for key_file in ssh_dir.iterdir():
                 if key_file.is_file() and not key_file.name.endswith(".pub"):
                     if key_file.name not in ["known_hosts", "authorized_keys", "config"]:
+                        if not self._looks_like_private_key(key_file):
+                            continue
                         key_stat = key_file.stat()
-                        key_perms = stat.filemode(key_stat.st_mode)[-3:]
-                        if key_perms != "600":
+                        key_mode = stat.S_IMODE(key_stat.st_mode)
+                        key_perms = format(key_mode, "03o")
+                        # Owner read-only (400) is fine; flag group/other access only.
+                        if key_mode & 0o077:
                             findings.append(
                                 Finding(
                                     title=f"Private key has incorrect permissions ({key_perms})",
                                     description=(
                                         f"Private key {key_file.name} has permissions {key_perms}. "
-                                        f"Should be 600 (rw-------) to prevent unauthorized access."
+                                        f"Should not be accessible by group or others (600 recommended)."
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,
@@ -352,6 +358,17 @@ class Module(ModuleBase):
             pass
 
         return findings
+
+    def _looks_like_private_key(self, key_file: Path) -> bool:
+        """True if the file is a private key (not a backup config, log, etc.)."""
+        try:
+            with key_file.open("rb") as fh:
+                head = fh.read(256)
+            if b"PRIVATE KEY" in head:
+                return True
+        except (OSError, TypeError):
+            pass
+        return bool(self._get_key_info(key_file))
 
     def _check_authorized_keys(self) -> list[Finding]:
         """Check authorized_keys for entries."""

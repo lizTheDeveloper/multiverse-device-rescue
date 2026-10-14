@@ -404,13 +404,31 @@ class Module(ModuleBase):
                     ".Trashes",
                     ".com.apple.nfs_lockd",
                     ".kern.aslmanifest.pid",
+                    # Standard APFS / firmlink / volume entries present on every modern Mac
+                    ".file",
+                    ".nofollow",
+                    ".resolve",
+                    ".VolumeIcon.icns",
+                    ".DocumentRevisions-V100",
+                    ".PKInstallSandboxManager",
+                    ".PKInstallSandboxManager-SystemSoftware",
+                    ".Spotlight-V100",
+                    ".MobileBackups",
                 }
+                standard_hidden_prefixes = (".com.apple.",)
 
                 for line in lines:
                     parts = line.split()
                     if len(parts) > 8:
                         name = parts[-1]
-                        if name.startswith(".") and name not in standard_hidden:
+                        if "->" in parts:
+                            # Symlink: "name -> target"
+                            name = parts[parts.index("->") - 1]
+                        if (
+                            name.startswith(".")
+                            and name not in standard_hidden
+                            and not name.startswith(standard_hidden_prefixes)
+                        ):
                             hidden_items.append(name)
 
                 if hidden_items:

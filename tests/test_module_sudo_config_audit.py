@@ -163,7 +163,7 @@ root ALL=(ALL) ALL
             )
         elif isinstance(cmd, list) and "cat" in cmd and "/etc/pam.d/sudo" in cmd:
             return _make_subprocess_result(returncode=1)
-        elif isinstance(cmd, list) and "dscl" in cmd and "root" in cmd:
+        elif isinstance(cmd, list) and "dscl" in cmd and "/Users/root" in cmd:
             return _make_subprocess_result(
                 stdout="AuthenticationAuthority: ;ShadowHash;\n"
             )
@@ -279,3 +279,20 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.sudo_config_audit.") for c in declared)
+
+
+def test_sudo_config_audit_root_disabled_when_dscl_says_no_such_key():
+    """dscl exits 0 but prints "No such key" on a Mac with root disabled."""
+    mod = _get_module()
+    base = _fake_run_root_enabled()
+
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list) and "dscl" in cmd and "/Users/root" in cmd:
+            return _make_subprocess_result(stdout="No such key: AuthenticationAuthority\n")
+        return base(cmd, **kwargs)
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    checks = [f.data.get("check_type") for f in result.findings]
+    assert "root_enabled" not in checks
+    assert "root_disabled" in checks
