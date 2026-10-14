@@ -763,4 +763,49 @@ h3 {
 .made-by__explainer p { margin: 0.3rem 0 0; }
 @media (prefers-color-scheme: dark) {
   .made-by__line--ok { color: #8fd3bf; background: rgba(143, 211, 191, 0.12); }
+/* ---------- Ask about this ---------- */
+
+.ask {
+  margin: 0.75rem 0 0;
+}
+
+.ask__panel,
+.ask__answer {
+  margin-top: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.93rem;
+  line-height: 1.55;
+}
+
+.ask__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ask__answer h4 {
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.98rem;
+}
+
+.ask__answer h4:first-child {
+  margin-top: 0;
+}
+
+.ask__answer p,
+.ask__answer ol,
+.ask__answer ul {
+  margin: 0 0 0.5rem;
+}
+
+.ask__footer {
+  font-size: 0.85rem;
+  margin: 0.6rem 0 0;
+}
+
+.ask__error {
+  margin: 0.6rem 0 0;
+  color: var(--warning-text);
 }
