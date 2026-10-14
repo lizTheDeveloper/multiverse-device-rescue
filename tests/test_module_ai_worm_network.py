@@ -257,6 +257,39 @@ def test_beacon_normal_location_is_info_with_neutral_wording():
     assert "C2" not in f[0].description
 
 
+def _beacon_findings(hits, mod):
+    with patch.object(mod, "_check_beaconing", return_value=hits), \
+         patch("subprocess.run") as run:
+        run.return_value = MagicMock(stdout="", returncode=0)
+        result = mod.check(_make_profile())
+    return [x for x in result.findings if x.data.get("check") == "beaconing_detected"]
+
+
+def test_beacon_familiar_name_in_tmp_is_not_hidden_by_allowlist():
+    # "claude" is an allowlisted name, but the kernel says it lives in /tmp
+    mod, hits = _beacon_hits([_rec("claude", 4, "5.78.101.158")], "/private/tmp/.claude/claude")
+    assert len(hits) == 1 and hits[0]["odd_location"] is True and not hits[0]["familiar"]
+    f = _beacon_findings(hits, mod)
+    assert f[0].severity == Severity.WARNING
+
+
+def test_beacon_unknown_binary_location_is_not_treated_as_safe():
+    mod, hits = _beacon_hits([_rec("claude", 5, "5.78.101.158")], None)
+    assert hits[0]["odd_location"] is True
+    assert _beacon_findings(hits, mod)[0].severity == Severity.WARNING
+
+
+def test_beacon_familiar_program_in_normal_place_is_listed_as_one_info():
+    mod, hits = _beacon_hits(
+        [_rec("Google Chrome", 6, "142.250.1.1"), _rec("Slack", 7, "3.3.3.3")],
+        "/Applications/Some.app/Contents/MacOS/Some",
+    )
+    assert len(hits) == 2 and all(h["familiar"] for h in hits)
+    f = _beacon_findings(hits, mod)
+    assert len(f) == 1 and f[0].severity == Severity.INFO
+    assert set(f[0].data["processes"]) == {"Google Chrome", "Slack"}
+
+
 def test_beacon_binary_in_tmp_stays_warning():
     mod, hits = _beacon_hits([_rec("updater", 3, "5.78.101.158")], "/tmp/x/updater")
     assert hits[0]["odd_location"] is True
