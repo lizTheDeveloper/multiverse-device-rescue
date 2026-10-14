@@ -103,8 +103,10 @@ Chrome    12346     user   11u  IPv4 0x1234567890123457      0t0  TCP 192.168.1.
     with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
         result = mod.check(_make_profile())
 
-    # Both Safari and Chrome are known safe processes, so should not flag
-    assert not result.has_issues
+    # Familiar names are not alarming, but they stay listed (as info) because
+    # a process name can be chosen by any program.
+    assert not [f for f in result.findings if f.severity != Severity.INFO]
+    assert [f for f in result.findings if f.data.get("check") == "familiar_connections"]
 
 
 def test_suspicious_connections_high_connection_count():
@@ -283,7 +285,22 @@ def test_loopback_to_loopback_connection_is_not_outbound():
 
 def test_fcm_port_5228_is_normal():
     lsof = _HDR + "Slack 5 u 10u IPv4 0x1 0t0 TCP 192.168.1.5:50000->142.250.1.1:5228 (ESTABLISHED)\n"
-    assert not _run_with(lsof).has_issues
+    result = _run_with(lsof)
+    assert not [f for f in result.findings if f.severity != Severity.INFO]
+    # ...but it stays listed: a port number proves nothing about who is talking
+    assert [f for f in result.findings if f.data.get("check") == "familiar_connections"]
+
+
+def test_familiar_name_or_push_port_does_not_hide_odd_connection():
+    lsof = _HDR + (
+        "Chrome 7 u 10u IPv4 0x1 0t0 TCP 192.168.1.5:50000->8.8.8.8:9999 (ESTABLISHED)\n"
+        "backdoor 8 u 10u IPv4 0x1 0t0 TCP 192.168.1.5:50001->8.8.8.8:5228 (ESTABLISHED)\n"
+    )
+    result = _run_with(lsof, {7: "/private/tmp/Chrome", 8: "/private/tmp/backdoor"})
+    listed = [f for f in result.findings if f.data.get("check") == "familiar_connections"]
+    assert len(listed) == 1
+    assert listed[0].severity == Severity.INFO
+    assert {p["process"] for p in listed[0].data["items"]} == {"Chrome", "backdoor"}
 
 
 def test_remote_unusual_port_collapses_per_process():

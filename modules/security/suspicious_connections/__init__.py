@@ -189,24 +189,52 @@ class Module(ModuleBase):
 
         # Unusual established connections, one finding per process
         out_by_proc: dict[tuple, dict] = {}
+        familiar: dict[tuple, dict] = {}
         for conn in connections:
             if conn["type"] != "ESTABLISHED":
                 continue
             port = conn["port"]
-            if not port or self._is_standard_port(port) or port in WELL_KNOWN_REMOTE_PORTS:
+            if not port or self._is_standard_port(port):
                 continue
             if self._is_loopback_host(conn["local_host"]) and self._is_loopback_host(
                 conn.get("remote_host") or conn["local_host"]
             ):
                 continue
-            if self._is_known_safe_process(conn["process"]):
-                continue
+            # Only an Apple-signed program in a SIP folder is skipped outright.
             if self._is_apple_system_process(conn["pid"]):
                 continue
-            entry = out_by_proc.setdefault(
-                (conn["process"], conn["pid"]), {"ports": set()}
+            # A familiar process name or a push-notification port is shown to
+            # the person, but is not a reason to treat the connection as odd.
+            # Both are chosen by the program, so they never hide it.
+            bucket = (
+                familiar
+                if port in WELL_KNOWN_REMOTE_PORTS or self._is_known_safe_process(conn["process"])
+                else out_by_proc
             )
+            entry = bucket.setdefault((conn["process"], conn["pid"]), {"ports": set()})
             entry["ports"].add(port)
+
+        if familiar:
+            items = [
+                {"process": proc, "pid": pid, "ports": sorted(e["ports"])}
+                for (proc, pid), e in familiar.items()
+            ]
+            names = sorted({i["process"] for i in items})
+            findings.append(
+                Finding(
+                    title=f"{len(items)} connection(s) from familiar-looking programs on uncommon ports",
+                    description=(
+                        "These programs use a familiar name or a port used for push "
+                        f"notifications: {', '.join(names)}. That is normal for browsers, "
+                        "chat apps and developer tools. This tool has not verified who "
+                        "made them, because a program can pick any name."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.suspicious_connections.unusual_outbound_connection",
+                    data={"check": "familiar_connections", "items": items},
+                )
+            )
 
         for (process, pid), entry in out_by_proc.items():
             ports = sorted(entry["ports"])

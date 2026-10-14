@@ -270,7 +270,32 @@ class Module(ModuleBase):
             kernel_path = self._kernel_path(proc["pid"])
             if kernel_path and self._is_system_binary(kernel_path):
                 continue
-            if not self._is_known_safe_process(process_name):
+            if self._is_known_safe_process(process_name):
+                # The name comes from the process itself, so it proves nothing:
+                # keep it listed, as information only.
+                findings.append(
+                    Finding(
+                        title=f"High CPU use by {process_name}",
+                        description=(
+                            f"A program called {process_name} (PID {proc['pid']}) is using "
+                            f"{proc['cpu_percent']}% CPU. The name is one that ordinary apps and "
+                            "developer tools use, and busy periods are normal for them, but "
+                            "this tool has not verified where the program really came from. "
+                            "If your Mac feels hot or slow for long stretches, check Activity Monitor."
+                        ),
+                        severity=Severity.INFO,
+                        category=self.category,
+                        code="security.crypto_miner_detect.high_cpu_process",
+                        data={
+                            "check": "high_cpu_familiar_process",
+                            "pid": proc["pid"],
+                            "process": process_name,
+                            "cpu_percent": proc["cpu_percent"],
+                            "path": kernel_path,
+                        },
+                    )
+                )
+            else:
                 findings.append(
                     Finding(
                         title=f"Suspicious high CPU usage by {process_name}",

@@ -277,6 +277,27 @@ def test_system_interpreter_running_a_script_is_still_flagged():
     assert {f.data["pid"] for f in flagged} == {602, 603}
 
 
+def test_familiar_process_name_in_odd_place_is_listed_not_dropped():
+    # A miner can call itself "node" or "Chrome"; it must stay visible.
+    mod = _get_module()
+    lines = " 700  95.0 /private/tmp/.x/node\n 701  91.0 /Users/me/Library/Chrome\n"
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:2] == ["ps", "-eo"]:
+            return _make_subprocess_result("  PID %CPU COMM\n" + lines)
+        return _make_subprocess_result()
+
+    kernel = {700: "/private/tmp/.x/node", 701: "/Users/me/Library/Chrome"}
+    with patch("subprocess.run", side_effect=fake_run), patch.object(
+        type(mod), "_kernel_path", staticmethod(lambda pid: kernel.get(pid))
+    ):
+        result = mod.check(_make_profile())
+    listed = [f for f in result.findings if f.data.get("check") == "high_cpu_familiar_process"]
+    assert {f.data["pid"] for f in listed} == {700, 701}
+    assert all(f.severity == Severity.INFO for f in listed)
+    assert not [f for f in result.findings if f.severity != Severity.INFO]
+
+
 def test_crypto_miner_detect_mining_pool_connection():
     mod = _get_module()
     with patch("subprocess.run", side_effect=_fake_run_with_mining_pool_connection()):
