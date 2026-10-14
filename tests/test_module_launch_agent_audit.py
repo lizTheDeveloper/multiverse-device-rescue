@@ -103,7 +103,7 @@ def test_launch_agent_audit_suspicious_tmp_path(tmp_path):
         {"com.tmp.app": {"Label": "com.tmp.app", "Program": "/tmp/suspicious.app"}},
     )
     assert any(
-        f.severity == Severity.WARNING
+        f.severity == Severity.CRITICAL
         and f.data.get("check") == "suspicious_path"
         and "any program" in f.description
         for f in result.findings
@@ -116,7 +116,7 @@ def test_launch_agent_audit_suspicious_vartmp_path(tmp_path):
         {"com.vartmp.app": {"Label": "com.vartmp.app", "Program": "/var/tmp/malware"}},
     )
     assert any(
-        f.severity == Severity.WARNING and f.data.get("check") == "suspicious_path"
+        f.severity == Severity.CRITICAL and f.data.get("check") == "suspicious_path"
         for f in result.findings
     )
 
@@ -196,3 +196,89 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.launch_agent_audit.") for c in declared)
+
+
+# --- identities an attacker controls must not hide anything -------------------
+
+
+def _checks(result, check):
+    return [f for f in result.findings if f.data.get("check") == check]
+
+
+def test_tmp_agent_is_critical(tmp_path):
+    _, result = _check(tmp_path, {"com.a.b": {"Label": "com.a.b", "Program": "/tmp/x"}})
+    assert any(f.severity == Severity.CRITICAL for f in _checks(result, "suspicious_path"))
+
+
+def test_developer_tool_folder_is_listed_as_info_not_dropped(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.dev.nvm": {"Label": "com.dev.nvm", "Program": "/Users/u/.nvm/versions/node/v22/bin/node"}},
+    )
+    listed = _checks(result, "developer_tool_path")
+    assert len(listed) == 1
+    assert listed[0].severity == Severity.INFO
+    assert "developer tool folder" in listed[0].title
+    assert not any(f.severity in (Severity.WARNING, Severity.CRITICAL) for f in result.findings
+                   if f.data.get("check") == "suspicious_path")
+
+
+def test_developer_dir_names_cannot_cover_other_hidden_folders(tmp_path):
+    for i, prog in enumerate(
+        (
+            "/Users/me/.hidden/.nvm/bin/x",
+            "/Users/me/.nvm/../.evil/x",
+            "/Users/me/.xvenv/bin/x",
+        )
+    ):
+        sub = tmp_path / str(i)
+        sub.mkdir()
+        _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": prog}})
+        assert any(f.severity == Severity.WARNING for f in _checks(result, "suspicious_path")), prog
+
+
+def test_traversal_symlink_and_shell_string_into_tmp_are_critical(tmp_path):
+    link = tmp_path / "link"
+    link.symlink_to("/private/tmp")
+    cases = [
+        {"Program": "/Users/me/../../tmp/x"},
+        {"Program": str(link / "x")},
+        {"ProgramArguments": ["/bin/sh", "-c", "cd /var/tmp && ./x"]},
+    ]
+    for i, extra in enumerate(cases):
+        sub = tmp_path / f"p{i}"
+        sub.mkdir()
+        _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", **extra}})
+        assert any(f.severity == Severity.CRITICAL for f in _checks(result, "suspicious_path")), extra
+
+
+def test_short_name_exemption_does_not_cover_user_writable_bin_dirs(tmp_path):
+    for i, prog in enumerate(("/usr/local/bin/ab", "/opt/homebrew/bin/ab")):
+        sub = tmp_path / str(i)
+        sub.mkdir()
+        _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": prog}})
+        assert _checks(result, "obfuscated_name"), prog
+
+
+def test_short_name_exemption_cannot_be_reached_by_traversal(tmp_path):
+    _, result = _check(
+        tmp_path, {"com.a.b": {"Label": "com.a.b", "Program": "/bin/../Users/me/ab"}}
+    )
+    assert _checks(result, "obfuscated_name")
+
+
+def test_odd_plist_shapes_and_unreadable_files_are_still_listed(tmp_path):
+    (tmp_path / "broken.plist").write_text("not a plist")
+    _, result = _check(
+        tmp_path,
+        {
+            "com.a.one": {"Label": "com.a.one", "ProgramArguments": "/Users/me/.hidden/x"},
+            "com.a.two": {"Label": "com.a.two", "Program": ["/Users/me/.hidden/y"]},
+            "com.a.three": {"Label": "com.a.three"},
+            "com.a.four": {"Program": "/Users/me/z"},
+        },
+    )
+    labels = {f.data.get("label") for f in result.findings}
+    assert {"broken", "com.a.one", "com.a.two", "com.a.three", "com.a.four"} <= labels
+    hidden = _checks(result, "suspicious_path")
+    assert {f.data["label"] for f in hidden} >= {"com.a.one", "com.a.two"}

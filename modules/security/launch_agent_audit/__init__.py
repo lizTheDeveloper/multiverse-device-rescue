@@ -1,4 +1,7 @@
+import os
 import plistlib
+import posixpath
+import re
 from pathlib import Path
 
 from rescue.models import (
@@ -50,10 +53,14 @@ class Module(ModuleBase):
         ".virtualenvs", ".pipx", ".uv", ".mise", ".config", "virtualenv",
     }
 
-    # Standard system locations where short program names (sh, ls) are normal.
-    SYSTEM_BIN_DIRS = (
-        "/bin/", "/sbin/", "/usr/bin/", "/usr/sbin/", "/usr/local/bin/",
-        "/opt/homebrew/bin/", "/opt/homebrew/opt/",
+    # SIP-protected locations where short program names (sh, ls) are normal.
+    # /usr/local and /opt/homebrew are writable by non-root users, so they are
+    # deliberately not here.
+    SYSTEM_BIN_DIRS = ("/bin/", "/sbin/", "/usr/bin/", "/usr/sbin/")
+
+    _WRITABLE_RE = re.compile(
+        r"(?:^|[\s\"'=;|&(:])(?:(?:/private)?/(?:var/)?tmp(?=[/\s\"';|&)]|$)"
+        r"|/Users/Shared/|/dev/shm/)"
     )
 
     def check(self, profile: SystemProfile) -> CheckResult:
@@ -96,7 +103,13 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=f"Launch agent found: {label}",
-                    description=f"Program path: {program_path}",
+                    description=(
+                        f"Program path: {program_path}"
+                        if program_path
+                        else "This tool could not read a program from this launch agent file "
+                        "(it may be damaged or in an unusual format). If you do not "
+                        "recognize it, check where it came from."
+                    ),
                     severity=Severity.INFO,
                     category=self.category,
                     code="security.launch_agent_audit.agent_info",
@@ -109,8 +122,9 @@ class Module(ModuleBase):
             )
 
             # Check for suspicious characteristics
-            suspicious_findings = self._check_suspicious_agent(label, program_path, arguments)
-            findings.extend(suspicious_findings)
+            if program_path:
+                suspicious_findings = self._check_suspicious_agent(label, program_path, arguments)
+                findings.extend(suspicious_findings)
 
         return CheckResult(module_name=self.name, findings=findings)
 
@@ -212,36 +226,107 @@ class Module(ModuleBase):
 
         for plist_path in plist_paths:
             label, program, arguments = self._extract_from_plist(str(plist_path))
-            if label and program:
-                agents.append((label, program, arguments))
+            agents.append((label, program, arguments))
 
         return agents
 
     @staticmethod
     def _extract_from_plist(
         plist_path: str,
-    ) -> tuple[str | None, str | None, list[str]]:
-        """Read Label and the program (Program, else ProgramArguments[0]) with plistlib."""
+    ) -> tuple[str, str, list[str]]:
+        """Read Label and the program (Program, else ProgramArguments[0]) with plistlib.
+
+        Never drops an agent: unreadable files or unexpected value types come
+        back with an empty program so the caller can still list them.
+        """
+        stem = Path(plist_path).stem
         try:
             with open(plist_path, "rb") as f:
                 data = plistlib.load(f)
         except Exception:
-            return None, None, []
+            return stem, "", []
         if not isinstance(data, dict):
-            return None, None, []
+            return stem, "", []
 
         label = data.get("Label")
         if not isinstance(label, str) or not label:
-            return None, None, []
+            label = stem
 
         args = data.get("ProgramArguments")
-        arguments = [str(a) for a in args] if isinstance(args, list) else []
+        if isinstance(args, str):
+            args = [args]
+        arguments = [str(a) for a in args] if isinstance(args, (list, tuple)) else []
         program = data.get("Program")
-        if not isinstance(program, str) or not program:
-            program = arguments[0] if arguments else None
+        if isinstance(program, (list, tuple)):
+            program = " ".join(str(a) for a in program)
+        elif program and not isinstance(program, str):
+            program = str(program)
         if not program:
-            return None, None, []
+            program = arguments[0] if arguments else ""
         return label, program.strip().strip("\"'"), arguments
+
+    @staticmethod
+    def _path_forms(candidate: str) -> list[str]:
+        """Absolute normalized and symlink-resolved forms of a path-looking string."""
+        c = str(candidate).strip().strip("\"'")
+        if not (c.startswith("/") or c.startswith("~")):
+            return []
+        try:
+            expanded = posixpath.normpath(os.path.expanduser(c))
+            forms = [expanded]
+            real = os.path.realpath(expanded)
+            if real != expanded:
+                forms.append(real)
+            return forms
+        except Exception:
+            return [c]
+
+    def _writable_location(self, program_path: str, arguments: list[str]) -> str | None:
+        """First program/argument in a world-writable place (raw text, normalized or resolved)."""
+        for candidate in [program_path, *arguments]:
+            text = str(candidate).strip().strip("\"'")
+            if self._WRITABLE_RE.search(text):
+                return text
+            for form in self._path_forms(text):
+                if (form + "/").startswith(self.WORLD_WRITABLE_PREFIXES):
+                    return text
+        return None
+
+    def _hidden_kind(self, program_path: str, arguments: list[str]) -> str | None:
+        """None, "developer" or "unusual" for hidden folders in program paths.
+
+        "developer" only when every hidden folder is an exact developer-tool
+        folder name. It is informational and never a reason to drop the item.
+        """
+        hidden: list[str] = []
+        excused: list[str] = []
+        for candidate in [program_path, *arguments]:
+            for form in self._path_forms(candidate):
+                parts = [p for p in form.split("/") if p]
+                found = [p for p in parts if p.startswith(".") and p not in (".", "..")]
+                # A virtualenv's own interpreter runs only what it is given; any
+                # script path in the arguments is checked on its own.
+                if (
+                    found
+                    and parts[-1].lower().startswith("python")
+                    and any(
+                        p.lower() in ("venv", "virtualenv") or p.lower().startswith(".venv")
+                        for p in parts[:-2]
+                    )
+                ):
+                    excused.extend(found)
+                else:
+                    hidden.extend(found)
+        if not hidden and not excused:
+            return None
+        if all(p in self.DEVELOPER_TOOL_DIRS or p.lower().startswith(".venv") for p in hidden):
+            return "developer"
+        return "unusual"
+
+    def _in_system_bin_dir(self, program_path: str) -> bool:
+        """True if every resolved form of the program path is in a SIP bin directory."""
+        forms = self._path_forms(program_path)
+        return bool(forms) and all(f.startswith(self.SYSTEM_BIN_DIRS) for f in forms)
 
     def _check_suspicious_agent(
         self, label: str, program_path: str, arguments: list[str] | None = None
@@ -250,24 +335,8 @@ class Module(ModuleBase):
         findings = []
         arguments = arguments or []
 
-        writable = next(
-            (
-                str(c).strip().strip("\"'")
-                for c in [program_path, *arguments]
-                if str(c).strip().strip("\"'").startswith(self.WORLD_WRITABLE_PREFIXES)
-            ),
-            None,
-        )
-        parts = [p for p in program_path.split("/") if p]
-        unusual_hidden = (
-            not any(
-                p in self.DEVELOPER_TOOL_DIRS
-                or p.lower().startswith((".venv", "venv"))
-                or p.lower().endswith("venv")
-                for p in parts
-            )
-            and any(p.startswith(".") and p not in (".", "..") for p in parts)
-        )
+        writable = self._writable_location(program_path, arguments)
+        hidden_kind = None if writable else self._hidden_kind(program_path, arguments)
 
         if writable:
             findings.append(
@@ -279,7 +348,7 @@ class Module(ModuleBase):
                         "to. Whatever is placed there will run automatically as you, "
                         "even if the file does not exist right now."
                     ),
-                    severity=Severity.WARNING,
+                    severity=Severity.CRITICAL,
                     category=self.category,
                     code="security.launch_agent_audit.suspicious_path",
                     data={
@@ -289,7 +358,29 @@ class Module(ModuleBase):
                     },
                 )
             )
-        elif unusual_hidden:
+        elif hidden_kind == "developer":
+            # Ordinary for developer tools, but a hidden folder is also a place
+            # to hide, so keep it listed (info) instead of dropping it.
+            findings.append(
+                Finding(
+                    title=f"Background program from a developer tool folder: {label}",
+                    description=(
+                        f"The launch agent '{label}' runs a program from a folder used by "
+                        f"developer tools: {program_path}\n"
+                        "This is normal if you use that tool. Anyone can create a folder "
+                        "with that name, so check that you recognize it."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.launch_agent_audit.suspicious_path",
+                    data={
+                        "check": "developer_tool_path",
+                        "label": label,
+                        "program": program_path,
+                    },
+                )
+            )
+        elif hidden_kind == "unusual":
             findings.append(
                 Finding(
                     title=f"Launch agent runs from a hidden folder: {label}",
@@ -315,7 +406,7 @@ class Module(ModuleBase):
         if (
             len(program_name) <= 2
             and not program_name.startswith(".")
-            and not program_path.startswith(self.SYSTEM_BIN_DIRS)
+            and not self._in_system_bin_dir(program_path)
         ):
             findings.append(
                 Finding(
