@@ -15,6 +15,7 @@ from rescue.orchestrator import Orchestrator
 from rescue.profiler.base import gather_profile
 from rescue.profiles import ProfileValidationError, discover_profiles, validate_profile_modules
 from rescue.registry import discover_modules
+from rescue.remediation import load_remediation_walkthroughs
 from rescue.runtime import bundled_root, content_directory
 from rescue.security.integrity import (
     DEFAULT_INTEGRITY_MANIFEST_PATH,
@@ -161,7 +162,8 @@ def scan(as_json, profile_name, progress, trace):
     else:
         results = orch.run_checks()
     if as_json:
-        click.echo(checks_to_json(results, profile.platform.value))
+        walkthroughs = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
+        click.echo(checks_to_json(results, profile.platform.value, walkthroughs))
         return
     for mod, check in results:
         click.echo(mod.report(check))

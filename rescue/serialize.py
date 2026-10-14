@@ -28,12 +28,30 @@ def _plain(value: Any) -> Any:
     return str(value)
 
 
-def checks_to_json(results, platform: str) -> str:
+def _remediation(guide) -> dict:
+    return {
+        "title": guide.title,
+        "estimated_time": guide.estimated_time,
+        "steps": [{"number": s.number, "title": s.title, "body": s.body} for s in guide.steps],
+    }
+
+
+def _finding(finding, walkthroughs) -> dict:
+    out = _plain(finding)
+    guide = walkthroughs.get(getattr(finding, "code", None)) if walkthroughs else None
+    if guide is not None:
+        out["remediation"] = _remediation(guide)
+    return out
+
+
+def checks_to_json(results, platform: str, walkthroughs=None) -> str:
     """Convert check results to a JSON string suitable for external consumption.
 
     Args:
         results: List of (ModuleBase, CheckResult) tuples from Orchestrator.run_checks()
         platform: Platform string (e.g. "darwin", "win32", "linux")
+        walkthroughs: Optional {finding code: Guide}; a finding whose code has
+            a walkthrough gets its steps under "remediation".
 
     Returns:
         JSON string with schema_version, platform, and modules array
@@ -47,7 +65,7 @@ def checks_to_json(results, platform: str) -> str:
             # False means the check could not run here: not a clean result.
             "supported": getattr(check, "supported", True),
             "unsupported_reason": getattr(check, "unsupported_reason", None),
-            "findings": [_plain(f) for f in check.findings],
+            "findings": [_finding(f, walkthroughs) for f in check.findings],
         })
     return json.dumps(
         {"schema_version": 1, "platform": platform, "modules": modules},

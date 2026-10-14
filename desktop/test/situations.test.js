@@ -66,3 +66,11 @@ test('traced commands render like a shell line', () => {
   const { parseStderrLine } = require('../engine-runner');
   assert.strictEqual(parseStderrLine('{"exec": {"argv": ["x"]}}').type, 'exec');
 });
+
+test('walkthrough markdown renders lists, code and bold, and escapes HTML', () => {
+  const { renderMiniMarkdown } = require('../renderer/app.js');
+  assert.strictEqual(
+    renderMiniMarkdown('Intro with `brew install clamav`.\n\n1. **Decide** first\n2. Then <script>x</script>'),
+    '<p>Intro with <code>brew install clamav</code>.</p><ol><li><strong>Decide</strong> first</li><li>Then &lt;script&gt;x&lt;/script&gt;</li></ol>');
+  assert.strictEqual(renderMiniMarkdown('```\nsudo x\n```'), '<pre><code>sudo x</code></pre>');
+});

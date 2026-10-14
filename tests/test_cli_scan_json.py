@@ -161,3 +161,32 @@ def test_scan_trace_reports_commands_under_the_module_that_ran_them():
              if line.startswith('{"exec"')]
     assert len(execs) == 1 and execs[0]["module"] == "disk_space"
     assert any(line.startswith('{"progress"') for line in result.stderr.splitlines())
+
+
+def test_scan_json_attaches_the_fix_walkthrough_to_coded_findings():
+    # The app shows "How to fix this" from these steps; a finding whose code
+    # has no walkthrough simply has no "remediation" key.
+    from rescue.guides import Guide, GuideStep
+    mod = type('MockModule', (), {'name': 'clamav_scanner', 'report': lambda self, check, fix=None: ''})()
+    coded = Finding(title="ClamAV missing", description="d", severity=Severity.WARNING,
+                    category="security", code="security.clamav_scanner.clamav_not_installed")
+    uncoded = Finding(title="Other", description="d", severity=Severity.WARNING, category="security")
+    guide = Guide(profile=None, phase=None, title="Act on ClamAV scanner findings",
+                  estimated_time="20 minutes",
+                  steps=[GuideStep(number=1, title="Install ClamAV", body="brew install clamav", automatable=False)],
+                  remediates=["security.clamav_scanner.clamav_not_installed"])
+
+    with patch('rescue.cli.Orchestrator') as MockOrch, \
+         patch('rescue.cli.load_remediation_walkthroughs', return_value={coded.code: guide}):
+        MockOrch.return_value.run_checks.return_value = [
+            (mod, CheckResult(module_name='clamav_scanner', findings=[coded, uncoded]))]
+        result = CliRunner().invoke(main, ["scan", "--json"])
+
+    assert result.exit_code == 0, result.output
+    findings = json.loads(result.stdout)["modules"][0]["findings"]
+    assert findings[0]["remediation"] == {
+        "title": "Act on ClamAV scanner findings",
+        "estimated_time": "20 minutes",
+        "steps": [{"number": 1, "title": "Install ClamAV", "body": "brew install clamav"}],
+    }
+    assert "remediation" not in findings[1]

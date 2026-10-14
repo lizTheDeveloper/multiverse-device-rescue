@@ -84,6 +84,50 @@ function describeProgress(ev) {
   };
 }
 
+/**
+ * A deliberately tiny Markdown renderer for the fix walkthroughs: paragraphs,
+ * numbered and bulleted lists, `code`, **bold**, and ```fenced``` blocks.
+ * Everything is HTML-escaped first, so walkthrough text can never inject markup.
+ */
+function renderMiniMarkdown(text) {
+  const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const inline = (v) => esc(v)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const out = [];
+  let list = null; // 'ol' | 'ul'
+  let para = [];
+  let fence = null;
+  const flushPara = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para = []; } };
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  for (const raw of String(text || '').split('\n')) {
+    if (fence !== null) {
+      if (/^\s*```/.test(raw)) { out.push(`<pre><code>${esc(fence.join('\n'))}</code></pre>`); fence = null; }
+      else fence.push(raw);
+      continue;
+    }
+    if (/^\s*```/.test(raw)) { flushPara(); closeList(); fence = []; continue; }
+    const ol = raw.match(/^\s*\d+\.\s+(.*)$/);
+    const ul = raw.match(/^\s*[-*]\s+(.*)$/);
+    if (ol || ul) {
+      flushPara();
+      const kind = ol ? 'ol' : 'ul';
+      if (list !== kind) { closeList(); out.push(`<${kind}>`); list = kind; }
+      out.push(`<li>${inline((ol || ul)[1])}</li>`);
+    } else if (raw.trim() === '') {
+      flushPara(); closeList();
+    } else if (list && /^\s+\S/.test(raw)) {
+      // continuation of the previous list item
+      out[out.length - 1] = out[out.length - 1].replace(/<\/li>$/, ` ${inline(raw.trim())}</li>`);
+    } else {
+      closeList(); para.push(raw.trim());
+    }
+  }
+  if (fence !== null) out.push(`<pre><code>${esc(fence.join('\n'))}</code></pre>`);
+  flushPara(); closeList();
+  return out.join('');
+}
+
 const OS_LABELS = {
   macos: 'macOS',
   windows: 'Windows',
@@ -149,6 +193,7 @@ if (typeof module !== 'undefined' && module.exports) {
     SITUATIONS,
     describeProgress,
     formatExec,
+    renderMiniMarkdown,
     SEVERITY_ORDER,
     SEVERITY_LABELS,
   };
@@ -292,6 +337,17 @@ if (typeof document !== 'undefined') {
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
               <p>${escapeHtml(finding.description || '')}</p>
+              ${finding.remediation ? `
+              <details class="fix-steps">
+                <summary>How to fix this${finding.remediation.estimated_time ? ` <span class="muted">(about ${escapeHtml(finding.remediation.estimated_time)})</span>` : ''}</summary>
+                <ol class="fix-steps__list">
+                  ${(finding.remediation.steps || []).map((step) => `
+                    <li>
+                      <h4>${escapeHtml(step.title)}</h4>
+                      <div class="fix-steps__body">${renderMiniMarkdown(step.body)}</div>
+                    </li>`).join('')}
+                </ol>
+              </details>` : ''}
               <details class="tech-details">
                 <summary>Technical details</summary>
                 <pre class="tech-log">${escapeHtml(JSON.stringify({

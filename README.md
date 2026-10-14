@@ -22,7 +22,8 @@ over and tells you, in plain words, what it found and what to do about it.
 instead. If it says **Chip: Apple M1/M2/M3/M4…**, the button above is right.
 
 Prefer a web page? The same downloads, with pictures, are at
-**<https://lizthedeveloper.github.io/multiverse-device-rescue/>**.
+**<https://themultiverse.school/x/device-rescue>** (also
+<https://lizthedeveloper.github.io/multiverse-device-rescue/>).
 
 ## Opening it the first time
 

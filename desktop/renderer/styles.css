@@ -695,3 +695,57 @@ h3 {
 .finding-card .tech-details {
   margin: 0.6rem 0 0;
 }
+
+/* ---------- How to fix this ---------- */
+
+.fix-steps {
+  margin: 0.75rem 0 0;
+  border: 1.5px solid var(--brand);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem;
+}
+
+.fix-steps summary {
+  cursor: pointer;
+  font-weight: 650;
+  color: var(--brand);
+}
+
+.fix-steps__list {
+  margin: 0.75rem 0 0.25rem;
+  padding-left: 1.3rem;
+}
+
+.fix-steps__list > li {
+  margin-bottom: 0.9rem;
+}
+
+.fix-steps__list h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.98rem;
+}
+
+.fix-steps__body {
+  font-size: 0.93rem;
+  line-height: 1.55;
+}
+
+.fix-steps__body p,
+.fix-steps__body ol,
+.fix-steps__body ul {
+  margin: 0 0 0.5rem;
+}
+
+.fix-steps__body code,
+.fix-steps__body pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--surface-muted);
+  border-radius: 6px;
+  padding: 0.1em 0.35em;
+}
+
+.fix-steps__body pre {
+  padding: 0.6rem 0.75rem;
+  overflow-x: auto;
+}
