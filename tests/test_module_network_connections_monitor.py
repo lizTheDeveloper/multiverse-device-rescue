@@ -139,6 +139,29 @@ def test_network_connections_monitor_high_connection_count():
     assert "malware" in warning[0].description
 
 
+def test_browser_named_process_with_many_connections_is_listed_not_dropped():
+    # A botnet can call itself "chrome"; below the browser limit it is info, not silence.
+    mod = _get_module()
+    connections = [("chrome", 3000, f"93.184.{i // 200}.{i % 200 + 1}", 443, "ESTABLISHED") for i in range(100)]
+    with patch("subprocess.run", side_effect=_make_run_result(connections=connections)):
+        result = mod.check(_make_profile())
+    listed = [f for f in result.findings if f.data.get("check") == "many_connections_familiar_name"]
+    assert len(listed) == 1 and listed[0].severity == Severity.INFO
+    assert "chrome" in listed[0].description
+    assert not [f for f in result.findings if f.data.get("check") == "high_connection_count"]
+
+
+def test_push_port_connections_are_listed_not_dropped():
+    mod = _get_module()
+    connections = [("backdoor", 9, "93.184.216.34", 5228, "ESTABLISHED")]
+    with patch("subprocess.run", side_effect=_make_run_result(connections=connections)):
+        result = mod.check(_make_profile())
+    listed = [f for f in result.findings if f.data.get("check") == "push_port_connections"]
+    assert len(listed) == 1 and listed[0].severity == Severity.INFO
+    assert "backdoor" in listed[0].description
+    assert not [f for f in result.findings if f.data.get("check") == "unusual_ports"]
+
+
 def test_network_connections_monitor_unusual_ports():
     """Test detection of connections on unusual ports."""
     mod = _get_module()

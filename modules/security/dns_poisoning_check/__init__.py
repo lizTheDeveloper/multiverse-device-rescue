@@ -297,16 +297,50 @@ class Module(ModuleBase):
         findings = []
         malicious = []
         suspicious = []
+        local_other = []
+        gateway = None
+        gateway_read = False
 
         for server in dns_servers:
             # Check for malicious servers
             if server in MALICIOUS_DNS:
                 malicious.append(server)
+            elif server in KNOWN_GOOD_DNS:
+                continue
+            elif _known_dns_provider(server) == "your router" or server.startswith(
+                ("192.168.", "10.")
+            ):
+                # A private address is only "your router" if it IS the router.
+                # Any device on the network (including one someone else runs)
+                # can answer DNS, so anything else stays listed, not skipped.
+                if not gateway_read:
+                    gateway, gateway_read = self._default_gateway(), True
+                if gateway is None or server != gateway:
+                    local_other.append(server)
             # Check if it's not a known-good server
-            elif server not in KNOWN_GOOD_DNS and not _known_dns_provider(server):
+            elif not _known_dns_provider(server):
                 # Check if it looks like a valid IP (not ISP DNS, localhost, etc)
                 if not self._is_isp_dns(server) and server not in ["127.0.0.1", "::1"]:
                     suspicious.append(server)
+
+        if local_other:
+            findings.append(
+                Finding(
+                    title="DNS is set to a device on your local network",
+                    description=(
+                        f"Your computer is set to ask {', '.join(local_other)} for DNS "
+                        "(the phone book for websites). That is usual when it is your "
+                        "router, but any device on your network can act as a DNS server, "
+                        "and this tool could not confirm that this address is your "
+                        "router. If you do not recognize it, check System Settings > "
+                        "Network > DNS, or ask whoever set up your network."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.dns_poisoning_check.suspicious_dns",
+                    data={"check": "local_dns_server", "servers": local_other},
+                )
+            )
 
         if malicious:
             findings.append(
@@ -450,6 +484,24 @@ class Module(ModuleBase):
             pass
 
         return None
+
+    @staticmethod
+    def _default_gateway() -> Optional[str]:
+        """The default gateway as reported by the routing table (read-only)."""
+        try:
+            result = subprocess.run(
+                ["route", "-n", "get", "default"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            out = result.stdout
+            if result.returncode != 0 or not isinstance(out, str):
+                return None
+            m = re.search(r"^\s*gateway:\s*(\S+)", out, re.MULTILINE)
+            return m.group(1) if m else None
+        except Exception:
+            return None
 
     def _is_isp_dns(self, ip: str) -> bool:
         """Check if IP looks like a typical ISP DNS server.
