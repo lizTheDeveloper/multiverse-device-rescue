@@ -1,3 +1,4 @@
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,14 @@ class Module(ModuleBase):
         "security.certificate_trust_audit.user_added_certs",
     ]
 
+    # Apple's per-machine system identity certificates. macOS generates these
+    # self-signed certificates on every Mac, so they are not user-added roots.
+    # Matched on the exact (CN, O) pair.
+    SYSTEM_IDENTITY_CERTS = {
+        ("com.apple.systemdefault", "System Identity"),
+        ("com.apple.kerberos.kdc", "System Identity"),
+    }
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -58,6 +67,8 @@ class Module(ModuleBase):
 
         for cert in certs:
             subject = cert.get("subject", "")
+            if (subject, cert.get("org", "")) in self.SYSTEM_IDENTITY_CERTS:
+                continue
             is_apple = any(apple_name in subject for apple_name in apple_roots)
             is_self_signed = cert.get("self_signed", False)
             is_expired = cert.get("expired", False)
@@ -278,15 +289,20 @@ class Module(ModuleBase):
             subject = ""
             not_after = None
             self_signed = False
+            org = ""
 
             for line in result.stdout.split("\n"):
                 if line.startswith("subject="):
                     # Extract subject CN
                     subject = line.replace("subject=", "").strip()
-                    # Parse CN from subject
-                    if "CN = " in subject:
-                        cn = subject.split("CN = ")[1].split(",")[0]
-                        subject = cn
+                    # Parse CN (and O) from subject; openssl prints either
+                    # "CN = x, O = y" or "CN=x, O=y" depending on version.
+                    cn_match = re.search(r"CN\s*=\s*([^,]+)", subject)
+                    org_match = re.search(r"\bO\s*=\s*([^,]+)", subject)
+                    if org_match:
+                        org = org_match.group(1).strip()
+                    if cn_match:
+                        subject = cn_match.group(1).strip()
                 elif line.startswith("notAfter="):
                     not_after_str = line.replace("notAfter=", "").strip()
                     try:
@@ -314,6 +330,7 @@ class Module(ModuleBase):
 
             return {
                 "subject": subject,
+                "org": org,
                 "self_signed": self_signed,
                 "expired": is_expired,
                 "suspicious": False,  # Will be checked in check() method
