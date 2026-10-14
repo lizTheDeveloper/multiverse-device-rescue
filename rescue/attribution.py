@@ -68,6 +68,52 @@ _DEVCERT_RE = re.compile(r"^Authority=Apple (?:Development|Distribution): (.+?)(
 _SCRIPT_NOTE = "A script, not signed; check who created it."
 
 
+_INLINE = object()
+_INLINE_NOTE = ("Runs a command written into its settings rather than a signed "
+                "program; check who created it.")
+# Flags that make an interpreter run code given on the command line.
+_INLINE_FLAGS = {"-c", "-e", "-E", "-r", "-m", "-p", "--eval", "--print", "--command"}
+# Flags whose next argument is a value, not the script.
+_VALUE_FLAGS = {"-a", "-b", "-W", "-X", "-I", "-u", "-S"}
+
+
+def _interpreter_target(argv):
+    """What an interpreter launch actually runs.
+
+    Only the first non-option argument is the script (or, for ``open -a``, the
+    app). Later arguments are data handed to it, so a signed file among them
+    must not lend the launch its maker. Inline code returns ``_INLINE``.
+    ``env`` is unwrapped once: ``env VAR=1 /bin/sh -c ...``.
+    """
+    name = os.path.basename(argv[0])
+    rest = argv[1:]
+    if name == "env":
+        rest = [a for a in rest if "=" not in a or a.startswith("-")]
+        rest = [a for a in rest if not a.startswith("-")]
+        if not rest:
+            return None
+        if os.path.basename(rest[0]) in _INTERPRETERS:
+            return _interpreter_target(rest)
+        return rest[0]
+    i = 0
+    while i < len(rest):
+        arg = rest[i]
+        if arg in _INLINE_FLAGS or (arg.startswith("-") and not arg.startswith("--")
+                                    and len(arg) > 2 and "c" in arg[1:] and name in
+                                    {"sh", "bash", "zsh", "dash", "ksh", "fish"}):
+            return _INLINE
+        if name == "open" and arg == "-a" and i + 1 < len(rest):
+            return rest[i + 1]
+        if arg in _VALUE_FLAGS:
+            i += 2
+            continue
+        if arg.startswith("-"):
+            i += 1
+            continue
+        return arg
+    return None
+
+
 @dataclass(frozen=True)
 class MadeBy:
     """A maker line.  Out of ``parse_codesign`` ``verified`` only means "claims a
@@ -279,18 +325,18 @@ class Attributor:
             return None
         program = data.get("Program")
         args = data.get("ProgramArguments") or []
-        if not program and args:
+        if not program and isinstance(args, list) and args:
             program = args[0]
             if os.path.basename(str(program)) in _INTERPRETERS:
-                for extra in args[1:]:
-                    extra = os.path.expanduser(str(extra))
-                    if os.path.isabs(extra) and exists(extra):
-                        program = extra
-                        break
-                else:
+                target = _interpreter_target([str(a) for a in args])
+                if target is _INLINE:
+                    return MadeBy(_UNKNOWN, False, "inline command", _INLINE_NOTE)
+                target = os.path.expanduser(target) if target else None
+                if target and os.path.isabs(target) and exists(target):
+                    program = target
+                elif str(program).startswith(_SYSTEM_BIN):
                     # Never credit Apple for a script/app we could not find.
-                    if str(program).startswith(_SYSTEM_BIN):
-                        return None
+                    return None
         if not program:
             return None
         program = os.path.expanduser(str(program))

