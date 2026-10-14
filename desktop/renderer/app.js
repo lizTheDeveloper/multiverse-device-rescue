@@ -348,6 +348,7 @@ if (typeof document !== 'undefined') {
                     </li>`).join('')}
                 </ol>
               </details>` : ''}
+              ${askButtonHtml(finding)}
               <details class="tech-details">
                 <summary>Technical details</summary>
                 <pre class="tech-log">${escapeHtml(JSON.stringify({

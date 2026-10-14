@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
 const path = require('path');
+const { askAbout } = require('./ask-about');
 const { runScan } = require('./engine-runner');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 
@@ -41,6 +42,11 @@ app.whenReady().then(() => {
     shell.openExternal(url);
     return true;
   });
+  ipcMain.handle('ask-about', (e, payload) =>
+    askAbout(payload, {
+      fetch: (url, init) => net.fetch(url, init),
+      onWarming: () => { if (!e.sender.isDestroyed()) e.sender.send('ask-warming'); },
+    }));
   createWindow();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
