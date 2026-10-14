@@ -85,6 +85,59 @@ function describeProgress(ev) {
 }
 
 /**
+ * "Who made it?" One plain line per program a finding names, from the engine's
+ * `made_by` entries ({subject, name, verified, how, location_note}).
+ * tone 'ok' = calm green, 'warn' = amber.
+ */
+const MADE_BY_VERIFIED_LABEL = {
+  'Developer ID signature': 'verified signature',
+  'Authenticode signature': 'verified signature',
+  'Mac App Store signature': 'App Store signature',
+  'Apple system file': 'part of macOS',
+  'Homebrew package': 'Homebrew package',
+  'system package': 'installed by your system package manager',
+};
+const MADE_BY_REASON = {
+  unsigned: 'not signed',
+  'ad-hoc signed': 'only self-signed by whoever built it',
+  'development certificate': "signed with a developer's test certificate, not a published one",
+  'unrecognised signature': 'its signature could not be recognised',
+  'not part of any installed package': 'not part of any installed package',
+};
+
+function describeMadeBy(entry) {
+  const e = entry || {};
+  const name = e.name || 'Unknown maker';
+  const note = e.location_note ? String(e.location_note).trim() : '';
+  const subject = String(e.subject || '').split(/[\\/]/).filter(Boolean).pop() || '';
+  if (e.verified) {
+    const label = MADE_BY_VERIFIED_LABEL[e.how] || e.how || 'verified';
+    // A verified maker running from a risky folder deserves a second look.
+    const mark = note ? '⚠' : '✓';
+    return { tone: note ? 'warn' : 'ok', text: `${mark} Made by ${name} (${label})${note ? '. ' + note : ''}`, subject };
+  }
+  if (e.how === 'script') {
+    return { tone: 'warn', text: `⚠ Unknown maker: ${note || 'a script, not signed; check who created it.'}`, subject };
+  }
+  const reason = MADE_BY_REASON[e.how] || e.how || 'not verified';
+  const head = name === 'Unknown maker' ? 'Unknown maker' : `Made by ${name}, but it cannot be verified`;
+  return { tone: 'warn', text: `⚠ ${head}: ${reason}.${note ? ' ' + note : ''}`, subject };
+}
+
+function madeByHtml(entries, esc) {
+  if (!Array.isArray(entries) || entries.length === 0) return '';
+  const lines = entries.map((entry) => {
+    const d = describeMadeBy(entry);
+    const who = entries.length > 1 && d.subject ? `<span class="made-by__subject">${esc(d.subject)}</span> ` : '';
+    return `<li class="made-by__line made-by__line--${d.tone}">${who}${esc(d.text)}</li>`;
+  }).join('');
+  return `<div class="made-by"><ul class="made-by__list">${lines}</ul>
+    <details class="made-by__explainer"><summary>What does this mean?</summary>
+      <p>Programs can be digitally signed by the company that made them, like a seal on a package. A <strong>verified signature</strong> means the seal is real and names the maker. An <strong>unknown maker</strong> is not proof of anything bad, but nobody has vouched for it, so be more careful, especially if it runs from a temporary folder or one you did not install into.</p>
+    </details></div>`;
+}
+
+/**
  * A deliberately tiny Markdown renderer for the fix walkthroughs: paragraphs,
  * numbered and bulleted lists, `code`, **bold**, and ```fenced``` blocks.
  * Everything is HTML-escaped first, so walkthrough text can never inject markup.
@@ -194,6 +247,8 @@ if (typeof module !== 'undefined' && module.exports) {
     describeProgress,
     formatExec,
     renderMiniMarkdown,
+    describeMadeBy,
+    madeByHtml,
     SEVERITY_ORDER,
     SEVERITY_LABELS,
   };
@@ -337,6 +392,7 @@ if (typeof document !== 'undefined') {
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
               <p>${escapeHtml(finding.description || '')}</p>
+              ${madeByHtml(finding.made_by, escapeHtml)}
               ${finding.remediation ? `
               <details class="fix-steps">
                 <summary>How to fix this${finding.remediation.estimated_time ? ` <span class="muted">(about ${escapeHtml(finding.remediation.estimated_time)})</span>` : ''}</summary>

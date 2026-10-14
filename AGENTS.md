@@ -82,7 +82,11 @@ normal.
           "category": "security",
           "code": "security.launch_agents_audit.unsigned",  // remediation key, may be null
           "confidence": 0.8,           // may be null
-          "data": { }                  // module-specific evidence
+          "data": { },                 // module-specific evidence
+          "made_by": [                 // optional: who made each program the finding names
+            { "subject": "…", "name": "Google LLC", "verified": true,
+              "how": "Developer ID signature", "location_note": "" }
+          ]                            // skip with `rescue scan --json --no-attribution`
         }
       ]
     }

@@ -149,7 +149,12 @@ def version():
     is_flag=True,
     help='Also write one {"exec": ...} JSON line to stderr for every external command run. Implies --progress.',
 )
-def scan(as_json, profile_name, progress, trace):
+@click.option(
+    "--no-attribution",
+    is_flag=True,
+    help='Skip the "Who made it?" lookups (code-signature checks) that add made_by to findings.',
+)
+def scan(as_json, profile_name, progress, trace, no_attribution):
     """Run read-only checks. With --json, print structured results to stdout."""
     from rescue.serialize import checks_to_json
     threat_profile = _load_profile_or_exit(profile_name) if profile_name else None
@@ -163,7 +168,14 @@ def scan(as_json, profile_name, progress, trace):
         results = orch.run_checks()
     if as_json:
         walkthroughs = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
-        click.echo(checks_to_json(results, profile.platform.value, walkthroughs))
+        made_by = None
+        if not no_attribution:
+            try:
+                from rescue.attribution import compute_made_by
+                made_by = compute_made_by(results, profile.platform.value)
+            except Exception:
+                made_by = None  # enrichment is optional; never break a scan
+        click.echo(checks_to_json(results, profile.platform.value, walkthroughs, made_by))
         return
     for mod, check in results:
         click.echo(mod.report(check))
