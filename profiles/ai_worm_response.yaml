@@ -12,6 +12,9 @@ modules:
     - ai_worm_persistence
     - ai_worm_network
     - ai_worm_lateral
+    - launch_agent_audit
+    - launchd_persistence_audit
+    - scheduled_tasks_audit
     - mvt_spyware_scan
   exclude: []
 module_config:

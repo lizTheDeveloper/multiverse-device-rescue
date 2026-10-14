@@ -27,6 +27,13 @@ modules:
     - app_permissions
     - sharing_services
     - code_signature_audit
+    # Background jobs and monitoring permissions: where stalkerware and
+    # malware persist, so "hacked" and "someone is watching me" must look.
+    - launch_agent_audit
+    - launchd_persistence_audit
+    - scheduled_tasks_audit
+    - keylogger_indicators
+    - privacy_permissions_audit
     # The device-side half of the account-recovery phases. These answer
     # "is this device leaking credentials, and what is still logged in";
     # the account-side work remains human-led in the guide.
