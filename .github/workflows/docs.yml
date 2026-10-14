@@ -10,6 +10,7 @@ on:
       - 'profiles/**'
       - 'guides/**'
       - 'scripts/generate_module_catalog.py'
+      - 'scripts/generate_command_catalog.py'
       - 'site/**'
       - '.github/workflows/docs.yml'
   pull_request:
@@ -17,6 +18,7 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
       - 'scripts/generate_module_catalog.py'
+      - 'scripts/generate_command_catalog.py'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -41,7 +43,9 @@ jobs:
       # The module catalog page is generated from the registry, so it can never
       # drift from what the tool actually ships.
       - name: Generate the module catalog
-        run: python scripts/generate_module_catalog.py --check
+        run: |
+          python scripts/generate_module_catalog.py --check
+          python scripts/generate_command_catalog.py --check
       - name: Build (warnings are errors — a dead link is a broken doc)
         run: mkdocs build --strict
       # The landing page in `site/` is the root of the Pages site and the

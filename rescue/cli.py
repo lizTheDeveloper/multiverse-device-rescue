@@ -137,17 +137,70 @@ def version():
 
 @main.command()
 @click.option("--json", "as_json", is_flag=True, help="Emit read-only check results as JSON on stdout.")
-def scan(as_json):
+@click.option("--profile", "profile_name", default=None, help="Only run the modules a profile selects.")
+@click.option(
+    "--progress",
+    is_flag=True,
+    help='Write one {"progress": ...} JSON line per check to stderr as the scan runs.',
+)
+@click.option(
+    "--trace",
+    is_flag=True,
+    help='Also write one {"exec": ...} JSON line to stderr for every external command run. Implies --progress.',
+)
+def scan(as_json, profile_name, progress, trace):
     """Run read-only checks. With --json, print structured results to stdout."""
     from rescue.serialize import checks_to_json
+    threat_profile = _load_profile_or_exit(profile_name) if profile_name else None
     profile = gather_profile()
-    orch = Orchestrator(modules_dir=_get_modules_dir())
-    results = orch.run_checks()
+    orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile)
+    if trace:
+        results = _run_traced(orch)
+    elif progress:
+        results = orch.run_checks(on_progress=_emit_progress)
+    else:
+        results = orch.run_checks()
     if as_json:
         click.echo(checks_to_json(results, profile.platform.value))
         return
     for mod, check in results:
         click.echo(mod.report(check))
+
+
+def _run_traced(orch):
+    """Run the checks, reporting progress and every external command on stderr."""
+    import json
+
+    from rescue.trace import trace_commands
+
+    current = {"module": None}
+
+    def on_progress(phase, index, total, mod, check):
+        current["module"] = mod.name if phase == "start" else None
+        _emit_progress(phase, index, total, mod, check)
+
+    def on_exec(event):
+        click.echo(json.dumps({"exec": event}), err=True)
+
+    with trace_commands(on_exec, current_module=lambda: current["module"]):
+        return orch.run_checks(on_progress=on_progress)
+
+
+def _emit_progress(phase, index, total, mod, check):
+    """One machine-readable progress line on stderr (stdout stays pure JSON)."""
+    import json
+
+    event = {
+        "phase": phase,
+        "index": index,
+        "total": total,
+        "module": mod.name,
+        "category": getattr(mod, "category", None),
+    }
+    if check is not None:
+        event["findings"] = len(check.findings)
+        event["error"] = check.error
+    click.echo(json.dumps({"progress": event}), err=True)
 
 
 @main.command()

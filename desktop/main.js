@@ -1,11 +1,13 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { runScan } = require('./engine-runner');
-const { isAllowedSettingUrl } = require('./setting-urls');
+const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 900, height: 680,
+    width: 1100, height: 860,
+    minWidth: 720, minHeight: 600,
+    title: 'Device Rescue',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -21,7 +23,17 @@ function createWindow() {
   win.webContents.on('will-navigate', (event) => event.preventDefault());
 }
 app.whenReady().then(() => {
-  ipcMain.handle('run-scan', () => runScan());
+  ipcMain.handle('run-scan', (e, profile) =>
+    runScan(undefined, profile, (ev) => {
+      if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
+    }));
+  ipcMain.handle('open-guide', (_e, url) => {
+    if (!isAllowedGuideUrl(url)) {
+      return false;
+    }
+    shell.openExternal(url);
+    return true;
+  });
   ipcMain.handle('open-setting', (_e, url) => {
     if (!isAllowedSettingUrl(url)) {
       return false;

@@ -46,36 +46,29 @@
         </div>
 
         <div class="downloads">
-          <a
-            class="btn btn-primary"
-            href="#rescue-stick"
-          >
-            <span class="btn-icon" aria-hidden="true">🔑</span>
-            <span class="btn-text">
-              <span class="btn-title">Get a Rescue Stick</span>
-              <span class="btn-sub">Ready-to-run USB drive</span>
-            </span>
-          </a>
-
-          <a
-            class="btn btn-secondary"
-            href="docs/quickstart/"
-          >
+          <a class="btn btn-primary" id="dl-mac" href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-arm64.dmg">
             <span class="btn-icon" aria-hidden="true">⌘</span>
             <span class="btn-text">
-              <span class="btn-title">Install on Mac</span>
-              <span class="btn-sub">Step-by-step guide · Free</span>
+              <span class="btn-title">Download for Mac</span>
+              <span class="btn-sub">Apple M1 or newer · Free</span>
             </span>
           </a>
 
-          <button class="btn btn-disabled" type="button" disabled aria-disabled="true" title="Windows build is on its way">
+          <a class="btn btn-primary" id="dl-win" href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-windows-x64.exe">
             <span class="btn-icon" aria-hidden="true">⊞</span>
             <span class="btn-text">
               <span class="btn-title">Download for Windows</span>
-              <span class="btn-sub">Coming soon</span>
+              <span class="btn-sub">Windows 10 or 11 · Free</span>
             </span>
-          </button>
+          </a>
         </div>
+        <p class="download-help">
+          Older Mac with an Intel processor? <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-x64.dmg">Download the Intel version</a>.
+          Not sure? Apple menu (top-left corner) → About This Mac: “Chip: Apple M…” means the main button is right.
+          <br />
+          Your computer will show a one-time warning the first time you open it —
+          <a href="#first-time">here’s exactly what to click</a>.
+        </p>
       </div>
     </section>
 
@@ -267,7 +260,7 @@ RESCUE-STICK/
       <div class="wrap">
         <h2>Good to know</h2>
         <ul class="req-list">
-          <li>Works on macOS with Apple Silicon (M1 or newer) today; a Windows version is coming soon.</li>
+          <li>Works on Macs (Apple Silicon and Intel) and on Windows 10 and 11. Linux users can run the command-line version from <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue">GitHub</a>.</li>
           <li>The installer is currently unsigned, so macOS and Windows will show a security prompt the first time — see the walkthrough above.</li>
           <li>Nothing is uploaded anywhere. Device Rescue looks at your computer, not the other way around.</li>
           <li>The source code is on <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue">GitHub</a> — every check is a plain Python file you can read before you run it.</li>

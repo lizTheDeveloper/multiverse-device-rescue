@@ -77,3 +77,87 @@ def test_scan_json_enums_are_strings():
         assert isinstance(mod["status"], str)
         for f in mod["findings"]:
             assert isinstance(f["severity"], str)   # not an Enum repr
+
+
+def test_scan_json_marks_a_check_that_could_not_run():
+    # A check that cannot run here is not a clean result. The text output says
+    # "Check unavailable"; the JSON must carry the same signal, or the desktop
+    # app and any script reading it report the machine as healthy.
+    mock_mod = type('MockModule', (), {'name': 'needs_root', 'report': lambda self, check, fix=None: ''})()
+    mock_result = CheckResult(
+        module_name='needs_root', supported=False,
+        unsupported_reason='The neighbour table could not be read.')
+
+    with patch('rescue.cli.Orchestrator') as MockOrch:
+        MockOrch.return_value.run_checks.return_value = [(mock_mod, mock_result)]
+        result = CliRunner().invoke(main, ["scan", "--json"])
+
+    assert result.exit_code == 0, result.output
+    mod = json.loads(result.stdout)["modules"][0]
+    assert mod["supported"] is False
+    assert mod["unsupported_reason"] == 'The neighbour table could not be read.'
+
+
+def test_scan_profile_limits_the_scan_to_that_profile():
+    # The desktop app's "what are you worried about?" screen runs one
+    # situation's checks, not all of them.
+    with patch('rescue.cli.Orchestrator') as MockOrch, \
+         patch('rescue.cli._load_profile_or_exit') as load:
+        load.return_value = 'loaded-profile'
+        MockOrch.return_value.run_checks.return_value = []
+        result = CliRunner().invoke(main, ["scan", "--json", "--profile", "digital_security_reset"])
+
+    assert result.exit_code == 0, result.output
+    load.assert_called_once_with("digital_security_reset")
+    assert MockOrch.call_args.kwargs["profile"] == 'loaded-profile'
+
+
+def test_scan_progress_reports_each_check_on_stderr_and_keeps_stdout_pure():
+    # The desktop app shows "Checking X (3 of 120)" from these lines; stdout
+    # must still be exactly one JSON document.
+    mod = type('MockModule', (), {'name': 'disk_space', 'category': 'performance',
+                                  'report': lambda self, check, fix=None: ''})()
+    check = CheckResult(module_name='disk_space')
+
+    def fake_run_checks(on_progress=None):
+        on_progress('start', 1, 1, mod, None)
+        on_progress('done', 1, 1, mod, check)
+        return [(mod, check)]
+
+    with patch('rescue.cli.Orchestrator') as MockOrch:
+        MockOrch.return_value.run_checks.side_effect = fake_run_checks
+        result = CliRunner().invoke(main, ["scan", "--json", "--progress"])
+
+    assert result.exit_code == 0, result.output
+    json.loads(result.stdout)
+    events = [json.loads(line)["progress"] for line in result.stderr.splitlines()
+              if line.startswith('{"progress"')]
+    assert [e["phase"] for e in events] == ["start", "done"]
+    assert events[0] == {"phase": "start", "index": 1, "total": 1,
+                         "module": "disk_space", "category": "performance"}
+    assert events[1]["findings"] == 0 and events[1]["error"] is None
+
+
+def test_scan_trace_reports_commands_under_the_module_that_ran_them():
+    import subprocess
+    import sys
+    mod = type('MockModule', (), {'name': 'disk_space', 'category': 'performance',
+                                  'report': lambda self, check, fix=None: ''})()
+    check = CheckResult(module_name='disk_space')
+
+    def fake_run_checks(on_progress=None):
+        on_progress('start', 1, 1, mod, None)
+        subprocess.run([sys.executable, '-c', 'pass'])
+        on_progress('done', 1, 1, mod, check)
+        return [(mod, check)]
+
+    with patch('rescue.cli.Orchestrator') as MockOrch:
+        MockOrch.return_value.run_checks.side_effect = fake_run_checks
+        result = CliRunner().invoke(main, ["scan", "--json", "--trace"])
+
+    assert result.exit_code == 0, result.output
+    json.loads(result.stdout)
+    execs = [json.loads(line)["exec"] for line in result.stderr.splitlines()
+             if line.startswith('{"exec"')]
+    assert len(execs) == 1 and execs[0]["module"] == "disk_space"
+    assert any(line.startswith('{"progress"') for line in result.stderr.splitlines())

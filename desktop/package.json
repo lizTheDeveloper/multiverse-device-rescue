@@ -1,8 +1,45 @@
 {
   "name": "device-rescue",
-  "version": "0.1.0",
+  "productName": "Device Rescue",
+  "version": "0.2.0",
   "description": "Multiverse Device Rescue desktop app",
+  "author": "The Multiverse School",
   "main": "main.js",
-  "scripts": { "start": "electron .", "test": "node --test test/*.test.js" },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist": "electron-builder --publish never"
+  },
+  "build": {
+    "appId": "school.themultiverse.devicerescue",
+    "productName": "Device Rescue",
+    "files": [
+      "main.js",
+      "preload.js",
+      "engine-runner.js",
+      "setting-urls.js",
+      "renderer/**"
+    ],
+    "extraResources": [
+      { "from": "engine", "to": "engine" }
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.utilities",
+      "artifactName": "DeviceRescue-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "Device Rescue"
+    },
+    "win": {
+      "target": "nsis",
+      "artifactName": "DeviceRescue-windows-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "shortcutName": "Device Rescue"
+    }
+  },
   "devDependencies": { "electron": "^32.0.0", "electron-builder": "^25.0.0" }
 }

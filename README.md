@@ -1,141 +1,112 @@
-# Multiverse Device Rescue
+# Device Rescue
 
-[![tests](https://github.com/lizTheDeveloper/multiverse-device-rescue/actions/workflows/tests.yml/badge.svg)](https://github.com/lizTheDeveloper/multiverse-device-rescue/actions/workflows/tests.yml)
-[![docs](https://github.com/lizTheDeveloper/multiverse-device-rescue/actions/workflows/docs.yml/badge.svg)](https://github.com/lizTheDeveloper/multiverse-device-rescue/actions/workflows/docs.yml)
-![Python 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)
-![Platforms: macOS | Windows | Linux](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
+**Worried something is wrong with your computer?** Device Rescue checks it
+over and tells you, in plain words, what it found and what to do about it.
 
-You, or someone you're helping, thinks something is wrong with a computer.
-Maybe an account was broken into. Maybe something unfamiliar showed up in the
-startup list. Maybe a partner or housemate installed something.
+- 🔒 **It only looks.** It doesn't change or delete anything unless you say yes.
+- 🙅 **It never asks for your passwords.**
+- 🏠 **Nothing leaves your computer.** It doesn't upload your files or results.
+- 💸 **It's free.**
 
-Device Rescue scans the machine, tells you in plain English what it found, and
-walks you through fixing it. **It is read-only by default** — it never changes
-anything unless you say so, it never asks for a password, and it never phones
-home.
+## Download
 
-**Website:** <https://lizthedeveloper.github.io/multiverse-device-rescue/>  
-**Documentation:** <https://lizthedeveloper.github.io/multiverse-device-rescue/docs/>
+<p>
+  <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-arm64.dmg"><img alt="Download for Mac" src="https://img.shields.io/badge/Download_for_Mac-000000?style=for-the-badge&logo=apple&logoColor=white" height="44"></a>
+  &nbsp;
+  <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-windows-x64.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download_for_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" height="44"></a>
+</p>
+
+**Older Mac?** Click the Apple menu (top-left corner) → **About This Mac**. If it says
+**Processor … Intel**, use the
+[Intel Mac version](https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-x64.dmg)
+instead. If it says **Chip: Apple M1/M2/M3/M4…**, the button above is right.
+
+Prefer a web page? The same downloads, with pictures, are at
+**<https://lizthedeveloper.github.io/multiverse-device-rescue/>**.
+
+## Opening it the first time
+
+Your computer will warn you, because we haven't paid Apple or Microsoft for a
+signing certificate yet. That warning is expected for this app. Here's what to do:
+
+**On a Mac**
+1. Open the file you downloaded and drag **Device Rescue** into **Applications**.
+2. Open **Device Rescue** from Applications. A warning appears. Click **Done**.
+3. Open **System Settings → Privacy & Security**. Scroll down and click **Open Anyway** next to Device Rescue.
+
+**On Windows**
+1. Open the file you downloaded.
+2. If a blue box says **"Windows protected your PC"**, click **More info**, then **Run anyway**.
+
+Then click **Get started** and follow the screens. A checkup takes a few minutes.
+
+## If you're scared someone is watching you
+
+If you think a partner, ex, or someone you live with put something on your
+phone or computer, **read this before you scan or delete anything:**
+
+- Removing monitoring software can **alert the person who installed it.**
+  If you're unsure whether that's safe, talk to an advocate first.
+- If you can, use a device they've never had access to (a library computer,
+  or a friend's phone) to read guides and make plans.
+- In the US, the National Domestic Violence Hotline is **1-800-799-7233**, or
+  text **START** to **88788**. They help with tech safety as well.
+
+## What it checks
+
+It runs about 290 read-only checks, including:
+
+- software that starts itself, hides, or watches what you type
+- people logged in from somewhere else, or strangers on your Wi-Fi
+- browser extensions and risky settings
+- signs of the "worm" attacks that spread through developer tools (npm, PyPI, GitHub)
+- spyware on an iPhone backup
+- a full disk, a failing drive, missing updates
+
+When it finds something, it explains what it means and walks you through
+fixing it, one step at a time. A check that couldn't run says so. It doesn't
+pretend everything is fine.
 
 ---
 
-## Who it's for
+## For helpers, tech people, and AI assistants
 
-- Someone who's been hacked and needs a checklist that doesn't assume they're a
-  security engineer.
-- The relative who ends up as everyone's tech support at the holidays.
-- People helping others in a domestic-abuse or stalking context, where "is there
-  monitoring software on this device?" needs a concrete answer.
-- Sysadmins who want a fast, scriptable read-only sweep (`rescue scan --json`)
-  before deciding what to do next.
+Everything above is the desktop app. Underneath it is a command-line tool,
+`rescue`, which you can run yourself.
 
-## Install
-
-> [!WARNING]
-> This project is **not on PyPI**. Any package published there under this name
-> is not this project. Install from a source checkout only.
+**If you're an AI assistant helping someone, read [AGENTS.md](AGENTS.md) first.**
+It explains how to run a scan safely and read the results.
 
 ```bash
 git clone https://github.com/lizTheDeveloper/multiverse-device-rescue.git
 cd multiverse-device-rescue
-python3 -m venv .venv && source .venv/bin/activate   # Windows: py -m venv .venv && .venv\Scripts\activate
+python3 -m venv .venv && source .venv/bin/activate   # Windows: py -m venv .venv; .venv\Scripts\activate
 pip install .
-rescue version
+rescue scan            # read-only checkup, plain-text results
+rescue scan --json     # the same, as JSON
+rescue profiles        # situation-specific checkups (hacked, stalkerware, Wi-Fi intrusion…)
+rescue guide digital_security_reset   # step-by-step recovery walkthrough
+rescue export          # a redacted report to share with a helper
 ```
 
-For development: `pip install -e ".[dev]"` — see [Contributing](CONTRIBUTING.md).
+> [!WARNING]
+> This project is **not on PyPI**. Any package there with this name is not
+> ours. Install from this repository only.
 
-There's also an Electron desktop app in `desktop/` and a standalone binary via
-PyInstaller — see [Desktop app builds](docs/quickstart.md) and
-[USB rescue stick](docs/usb-rescue-stick.md).
-
-## Quick start
-
-### Scan the machine
-
-```console
-$ rescue scan
-=== disk_space ===
-Found 2 issue(s):
-  [critical] Disk / is 95% full
-  [warning]  Disk /home is 80% full
-=== linux_service_health ===
-Found 1 issue(s):
-  [warning] No time-synchronisation service appears to be running
-=== arp_spoof_check ===
-Check unavailable: The neighbour table could not be read.
-=== linux_firewall_check ===
-No issues found.
-```
-
-Nothing was changed. "Check unavailable" means the check couldn't run — it's
-not a clean bill of health, and the tool says so explicitly.
-
-### Pick your situation
-
-The generic scan checks everything. Profiles focus on a specific threat and
-pair the scan with a human walkthrough:
-
-```console
-$ rescue profiles
-digital_security_reset    — Post-compromise recovery
-home_for_the_holidays     — Help a family member's device in one visit
-home_network_intrusion    — Someone is on your Wi-Fi
-identity_theft_recovery   — Step-by-step after identity theft
-iphone_spyware_check      — Scan an iPhone backup for spyware
-ai_worm_response          — AI worm & spyware response
-linux_security_checkup    — Full Linux security review
-```
-
-Run a profile and open its guide:
-
-```console
-$ rescue --auto --profile digital_security_reset
-$ rescue guide digital_security_reset
-```
-
-### Export a report
-
-```console
-$ rescue export
-Wrote ~/.rescue/cases/case-20260805T230525Z.md
-```
-
-Credentials, email addresses, and account names are redacted before the file
-is written. Read it before sharing — module output is free text.
-
-## What else it does
-
-| Command | What it does |
+| More detail | |
 | --- | --- |
-| `rescue` | Interactive TUI — scan, browse findings, open guides |
-| `rescue scan --json` | Machine-readable output for scripts |
-| `rescue run <module> [--yes]` | Run a specific check (and optionally its fix) |
-| `rescue guide <profile>` | Resume a step-by-step walkthrough |
-| `rescue validate` | Check the shipped module/profile/guide catalog |
-| `rescue export` | Redacted case report (JSON + Markdown) |
-| `rescue explain` / `rescue recommend` | Opt-in AI explanations (needs an API key) |
-
-## 287 checks across three platforms
-
-| | macOS | Windows | Linux |
-| --- | ---: | ---: | ---: |
-| Modules | 199 | 100 | 26 |
-
-Security (118), integrity (106), performance (51), network (8), bloatware (4).
-macOS has the deepest coverage; Linux is newer and narrower.
-
-## Learn more
-
-| | |
-| --- | --- |
-| [Quickstart](docs/quickstart.md) | Install and run your first scan |
-| [Scenarios](docs/scenarios/) | The seven built-in situations |
+| [Documentation site](https://lizthedeveloper.github.io/multiverse-device-rescue/docs/) | Everything, searchable |
+| [Situations](docs/scenarios/) | The built-in walkthroughs |
 | [CLI reference](docs/cli.md) | Every command and flag |
-| [Trust and safety](docs/trust-and-safety.md) | How to verify it does what it claims |
-| [Privacy](docs/privacy.md) | What leaves your machine (almost nothing) |
-| [USB rescue stick](docs/usb-rescue-stick.md) | Build a portable rescue drive |
-| [Architecture](docs/architecture.md) | How the code is organized |
-| [Roadmap](docs/ROADMAP.md) | What's planned |
-| [Contributing](CONTRIBUTING.md) | Dev setup, tests, module authoring |
-| [Security policy](SECURITY.md) | How to report a vulnerability |
+| [What each check runs](docs/commands.md) | Every system command, per check (`rescue scan --trace` shows them live) |
+| [Trust and safety](docs/trust-and-safety.md) / [Privacy](docs/privacy.md) | How to verify what it claims |
+| [USB rescue stick](docs/usb-rescue-stick.md) | A portable drive for helping others |
+| [Contributing](CONTRIBUTING.md) / [Architecture](docs/architecture.md) | Working on the code |
+| [Security policy](SECURITY.md) | Reporting a vulnerability |
+
+**Building the apps:** pushing a `v*` tag runs
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which builds
+the Mac and Windows installers on GitHub's machines and attaches them to the
+release. You don't need a Mac or a Windows PC to ship either one.
+
+Part of [The Multiverse School](https://themultiverse.school).

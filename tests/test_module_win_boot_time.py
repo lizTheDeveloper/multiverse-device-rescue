@@ -35,12 +35,21 @@ def _make_subprocess_result(stdout="", stderr="", returncode=0):
     return result
 
 
+def _recent_boot_str():
+    # Relative to today: a fixed date here becomes "uptime > 30 days" a month
+    # after it was written, and the fast-boot test starts failing on its own.
+    d = datetime.now() - timedelta(days=1)
+    return f"{d.month}/{d.day}/{d.year} {d.strftime('%I:%M:%S %p')}"
+
+
 def _fake_run_fast_boot(
-    last_boot_time_str="7/7/2026 10:30:45 AM",
+    last_boot_time_str=None,
     boot_duration_ms="45000",
     fast_startup_enabled=True,
 ):
     """Mock subprocess for fast boot scenario (< 60s, < 30 days uptime, Fast Startup enabled)"""
+    if last_boot_time_str is None:
+        last_boot_time_str = _recent_boot_str()
 
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
