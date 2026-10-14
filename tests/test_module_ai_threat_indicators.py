@@ -325,3 +325,21 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.ai_threat_indicators.") for c in declared)
+
+
+def test_launchagent_ai_tool_reference_is_info(tmp_path):
+    """A vendor updater for an AI tool is normal: info severity, informative text."""
+    mod = _get_module()
+    la = tmp_path / "Library" / "LaunchAgents"
+    la.mkdir(parents=True)
+    (la / "com.anthropic.claude-code-updater.plist").write_text(
+        "<plist><dict><key>Label</key><string>com.anthropic.claude-code-updater"
+        "</string></dict></plist>"
+    )
+    with patch.object(Path, "home", return_value=tmp_path):
+        findings = mod._check_launch_agents()
+    tool = [f for f in findings if f.data.get("check") == "launchagent_ai"]
+    assert len(tool) == 1
+    assert tool[0].severity == Severity.INFO
+    assert "rogue" not in tool[0].description.lower()
+    assert "normal" in tool[0].description

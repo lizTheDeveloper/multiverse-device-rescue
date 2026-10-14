@@ -1,6 +1,7 @@
+import plistlib
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -26,52 +27,28 @@ def _get_module():
     return next(m for m in modules if m.name == "launchd_persistence_audit")
 
 
-def _make_defaults_result(key_name, return_value, returncode=0):
-    """Helper to create subprocess result for defaults read."""
-    result = MagicMock()
-    result.returncode = returncode
-    result.stdout = str(return_value) if returncode == 0 else ""
-    result.stderr = ""
-    return result
+def _check(tmp_path, plists):
+    """Write real plists into tmp_path (the user LaunchAgents dir) and run check()."""
+    mod = _get_module()
+    for name, data in plists.items():
+        with open(tmp_path / f"{name}.plist", "wb") as f:
+            plistlib.dump(data, f)
+    real_scan = mod._scan_launchd_dir
+
+    def scan(directory):
+        if directory == Path.home() / "Library" / "LaunchAgents":
+            return real_scan(tmp_path)
+        return []
+
+    with patch.object(mod, "_scan_launchd_dir", side_effect=scan):
+        return mod, mod.check(_make_profile())
 
 
-def _make_fake_defaults_run(plist_data):
-    """Create a fake subprocess.run for defaults command.
-
-    plist_data is a dict where keys are plist filenames and values are dicts
-    of {field_name: value} for each plist.
-    """
-
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list) and cmd[0] == "defaults" and cmd[1] == "read":
-            plist_path = cmd[2]
-            field_name = cmd[3] if len(cmd) > 3 else None
-
-            # Extract plist filename for lookup
-            plist_file = Path(plist_path).name
-            plist_name = plist_file.replace(".plist", "")
-
-            if plist_name in plist_data and field_name in plist_data[plist_name]:
-                value = plist_data[plist_name][field_name]
-                result = MagicMock()
-                result.returncode = 0
-                result.stdout = str(value) + "\n"
-                result.stderr = ""
-                return result
-            else:
-                result = MagicMock()
-                result.returncode = 1
-                result.stdout = ""
-                result.stderr = ""
-                return result
-
-        return MagicMock(returncode=1, stdout="", stderr="")
-
-    return fake_run
+def _by_check(result, check):
+    return [f for f in result.findings if f.data.get("check") == check]
 
 
 def test_launchd_persistence_audit_discovered():
-    """Test that module is discovered with correct properties."""
     mod = _get_module()
     assert mod.name == "launchd_persistence_audit"
     assert mod.category == "security"
@@ -80,403 +57,183 @@ def test_launchd_persistence_audit_discovered():
 
 
 def test_launchd_persistence_audit_no_items():
-    """Test when no launchd items are found."""
     mod = _get_module()
-
     with patch.object(Path, "exists", return_value=False):
-        with patch.object(Path, "glob", return_value=[]):
-            result = mod.check(_make_profile())
-
+        result = mod.check(_make_profile())
     assert not result.has_issues
 
 
-def test_launchd_persistence_audit_known_malware():
-    """Test detection of known malware labels."""
-    mod = _get_module()
-
-    plist_data = {
-        "com.vsearch.helper": {
-            "Label": "com.vsearch.helper",
-            "Program": "/tmp/malware",
-            "KeepAlive": "0",
-            "RunAtLoad": "0",
-        }
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    mock_plist = MagicMock()
-    mock_plist.name = "com.vsearch.helper.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.vsearch.helper.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = mod.check(_make_profile())
-
-    assert result.has_issues
-    assert any(f.data.get("check") == "known_malware" for f in result.findings)
-    malware_finding = [f for f in result.findings if f.data.get("check") == "known_malware"]
-    assert malware_finding[0].severity == Severity.CRITICAL
-
-
-def test_launchd_persistence_audit_suspicious_path_tmp():
-    """Test detection of launchd items in /tmp."""
-    mod = _get_module()
-
-    plist_data = {
-        "com.example.app": {
-            "Label": "com.example.app",
-            "Program": "/tmp/suspicious",
-            "KeepAlive": "0",
-            "RunAtLoad": "0",
-        }
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    mock_plist = MagicMock()
-    mock_plist.name = "com.example.app.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.example.app.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = mod.check(_make_profile())
-
-    assert result.has_issues
-    assert any(f.data.get("check") == "suspicious_path" for f in result.findings)
-    path_finding = [f for f in result.findings if f.data.get("check") == "suspicious_path"]
-    assert path_finding[0].severity == Severity.CRITICAL
-
-
-def test_launchd_persistence_audit_suspicious_path_hidden():
-    """Test detection of launchd items in hidden directories."""
-    mod = _get_module()
-
-    plist_data = {
-        "com.example.app": {
-            "Label": "com.example.app",
-            "Program": "/Users/admin/.hidden/malware",
-            "KeepAlive": "0",
-            "RunAtLoad": "0",
-        }
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    mock_plist = MagicMock()
-    mock_plist.name = "com.example.app.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.example.app.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = mod.check(_make_profile())
-
-    assert result.has_issues
-    assert any(f.data.get("check") == "suspicious_path" for f in result.findings)
-
-
-def test_launchd_persistence_audit_keepalive_runatload():
-    """Test detection of KeepAlive + RunAtLoad combination."""
-    mod = _get_module()
-
-    plist_data = {
-        "com.thirdparty.app": {
-            "Label": "com.thirdparty.app",
-            "Program": "/Applications/App.app/Contents/MacOS/app",
-            "KeepAlive": "1",
-            "RunAtLoad": "1",
-        }
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    mock_plist = MagicMock()
-    mock_plist.name = "com.thirdparty.app.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.thirdparty.app.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = mod.check(_make_profile())
-
-    assert result.has_issues
-    assert any(f.data.get("check") == "keepalive_runatload" for f in result.findings)
-    persist_finding = [
-        f for f in result.findings if f.data.get("check") == "keepalive_runatload"
-    ]
-    assert persist_finding[0].severity == Severity.WARNING
-
-
-def test_launchd_persistence_audit_non_apple_info():
-    """Test that non-Apple items are flagged as INFO."""
-    mod = _get_module()
-
-    plist_data = {
-        "com.thirdparty.app": {
-            "Label": "com.thirdparty.app",
-            "Program": "/Applications/App.app/Contents/MacOS/app",
-            "KeepAlive": "0",
-            "RunAtLoad": "0",
-        }
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    mock_plist = MagicMock()
-    mock_plist.name = "com.thirdparty.app.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.thirdparty.app.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = mod.check(_make_profile())
-
-    assert result.has_issues
-    assert any(f.data.get("check") == "non_apple_info" for f in result.findings)
-    info_finding = [f for f in result.findings if f.data.get("check") == "non_apple_info"]
-    assert info_finding[0].severity == Severity.INFO
-
-
-def test_launchd_persistence_audit_apple_no_info():
-    """Test that Apple items don't get flagged."""
-    mod = _get_module()
-
-    plist_data = {
-        "com.apple.someservice": {
-            "Label": "com.apple.someservice",
-            "Program": "/System/Library/CoreServices/app",
-            "KeepAlive": "1",
-            "RunAtLoad": "1",
-        }
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    mock_plist = MagicMock()
-    mock_plist.name = "com.apple.someservice.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.apple.someservice.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = mod.check(_make_profile())
-
-    # Apple items should not be flagged
-    assert not result.has_issues
-
-
-def test_launchd_persistence_audit_program_arguments():
-    """Test extraction of Program from ProgramArguments when Program is missing."""
-    mod = _get_module()
-
-    plist_data = {
-        "com.example.app": {
-            "Label": "com.example.app",
-            "ProgramArguments": (
-                "(\n"
-                "    /Applications/App.app/Contents/MacOS/app,\n"
-                "    -arg1,\n"
-                "    -arg2\n"
-                ")"
-            ),
-            "KeepAlive": "0",
-            "RunAtLoad": "0",
-        }
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    mock_plist = MagicMock()
-    mock_plist.name = "com.example.app.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.example.app.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = mod.check(_make_profile())
-
-    assert result.has_issues
-    assert any(f.data.get("check") == "non_apple_info" for f in result.findings)
-
-
-def test_launchd_persistence_audit_scan_multiple_dirs():
-    """Test scanning of all three directories."""
-    mod = _get_module()
-
-    # Test data for each directory
-    plist_data = {
-        "com.user.app": {
-            "Label": "com.user.app",
-            "Program": "/Applications/App.app/Contents/MacOS/app",
-            "KeepAlive": "0",
-            "RunAtLoad": "0",
-        },
-        "com.system.app": {
-            "Label": "com.system.app",
-            "Program": "/System/Library/CoreServices/app",
-            "KeepAlive": "0",
-            "RunAtLoad": "0",
-        },
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    # Create mock plists for each directory
-    user_plist = MagicMock()
-    user_plist.name = "com.user.app.plist"
-    user_plist.__str__ = MagicMock(
-        return_value="/Users/test/Library/LaunchAgents/com.user.app.plist"
+def test_launchd_persistence_audit_known_malware(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.vsearch.helper": {"Label": "com.vsearch.helper", "Program": "/tmp/malware"}},
     )
-
-    system_plist = MagicMock()
-    system_plist.name = "com.system.app.plist"
-    system_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.system.app.plist")
-
-    call_count = [0]
-    def glob_side_effect(pattern):
-        # Return different plists based on call order
-        call_count[0] += 1
-        if call_count[0] == 1:  # First call (user LaunchAgents)
-            return [user_plist]
-        elif call_count[0] == 2:  # Second call (system LaunchAgents)
-            return [system_plist]
-        else:  # Third call (LaunchDaemons)
-            return []
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", side_effect=glob_side_effect):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = mod.check(_make_profile())
-
-    # Should find user agents
-    assert any(f.data.get("label") == "com.user.app" for f in result.findings)
+    found = _by_check(result, "known_malware")
+    assert found and found[0].severity == Severity.CRITICAL
 
 
-def test_launchd_persistence_audit_fix_known_malware():
-    """Test fix action for known malware."""
-    mod = _get_module()
+def test_launchd_persistence_audit_tmp_stays_critical(tmp_path):
+    """Regression: a missing /tmp script is still a true positive. Anyone can create it."""
+    _, result = _check(
+        tmp_path,
+        {
+            "com.morgan.bluesky-poster": {
+                "Label": "com.morgan.bluesky-poster",
+                "Program": "/tmp/morgan-local-post.sh",
+                "RunAtLoad": True,
+                "StartInterval": 7200,
+            }
+        },
+    )
+    found = _by_check(result, "suspicious_path")
+    assert len(found) == 1
+    assert found[0].severity == Severity.CRITICAL
+    assert "any program" in found[0].description
+    assert "/tmp" in found[0].description
 
-    plist_data = {
-        "com.pcv.malware": {
-            "Label": "com.pcv.malware",
-            "Program": "/tmp/malware",
-            "KeepAlive": "0",
-            "RunAtLoad": "0",
-        }
+
+def test_launchd_persistence_audit_private_tmp_and_shared_critical(tmp_path):
+    for i, prog in enumerate(
+        ("/private/tmp/x", "/var/tmp/x", "/Users/Shared/x", "/private/var/tmp/x")
+    ):
+        sub = tmp_path / str(i)
+        sub.mkdir()
+        _, result = _check(sub, {"com.example.a": {"Label": "com.example.a", "Program": prog}})
+        found = _by_check(result, "suspicious_path")
+        assert found and found[0].severity == Severity.CRITICAL, prog
+
+
+def test_launchd_persistence_audit_tmp_in_program_arguments(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {
+            "com.example.a": {
+                "Label": "com.example.a",
+                "ProgramArguments": ["/bin/bash", "/tmp/run.sh"],
+            }
+        },
+    )
+    found = _by_check(result, "suspicious_path")
+    assert found and found[0].severity == Severity.CRITICAL
+
+
+def test_launchd_persistence_audit_developer_dirs_not_flagged(tmp_path):
+    programs = {
+        "a": "/Users/me/.nvm/versions/node/v22.16.0/bin/node",
+        "b": "/Users/me/.hermes/hermes-agent/venv/bin/python",
+        "c": "/Users/me/src/x/.venv/bin/python",
+        "h": "/Users/me/src/x/.venv-hermes/bin/python",
+        "d": "/Users/me/.pyenv/shims/python",
+        "e": "/Users/me/.bun/bin/bun",
+        "f": "/Users/me/.local/bin/tool",
+        "g": "/Users/me/.cargo/bin/tool",
     }
+    _, result = _check(
+        tmp_path,
+        {f"com.dev.{k}": {"Label": f"com.dev.{k}", "Program": v} for k, v in programs.items()},
+    )
+    assert not _by_check(result, "suspicious_path")
+    assert not any(f.severity in (Severity.WARNING, Severity.CRITICAL) for f in result.findings)
 
-    fake_run = _make_fake_defaults_run(plist_data)
 
-    mock_plist = MagicMock()
-    mock_plist.name = "com.pcv.malware.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.pcv.malware.plist")
+def test_launchd_persistence_audit_unusual_hidden_dir_is_warning_not_malware(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.example.app": {"Label": "com.example.app", "Program": "/Users/admin/.hidden/thing"}},
+    )
+    found = _by_check(result, "suspicious_path")
+    assert found and found[0].severity == Severity.WARNING
+    assert "malware persistence" not in found[0].description
 
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
 
-    assert len(fix.actions) > 0
+def test_launchd_persistence_audit_keepalive_runatload_existing_program_is_info(tmp_path):
+    prog = tmp_path / "svc"
+    prog.write_text("x")
+    _, result = _check(
+        tmp_path,
+        {
+            "homebrew.mxcl.redis": {
+                "Label": "homebrew.mxcl.redis",
+                "ProgramArguments": [str(prog), "/opt/homebrew/etc/redis.conf"],
+                "KeepAlive": True,
+                "RunAtLoad": True,
+            }
+        },
+    )
+    assert not _by_check(result, "keepalive_runatload")
+    assert not any(f.severity in (Severity.WARNING, Severity.CRITICAL) for f in result.findings)
+    assert _by_check(result, "non_apple_info")[0].severity == Severity.INFO
+
+
+def test_launchd_persistence_audit_keepalive_runatload_missing_program_warns(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {
+            "com.example.gone": {
+                "Label": "com.example.gone",
+                "Program": str(tmp_path / "does-not-exist"),
+                "KeepAlive": True,
+                "RunAtLoad": True,
+            }
+        },
+    )
+    found = _by_check(result, "keepalive_runatload")
+    assert found and found[0].severity == Severity.WARNING
+
+
+def test_launchd_persistence_audit_apple_no_info(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {
+            "com.apple.someservice": {
+                "Label": "com.apple.someservice",
+                "Program": "/System/Library/CoreServices/app",
+                "KeepAlive": True,
+                "RunAtLoad": True,
+            }
+        },
+    )
+    assert not result.has_issues
+
+
+def test_launchd_persistence_audit_program_arguments_and_quotes(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {
+            "com.example.app": {
+                "Label": "com.example.app",
+                "ProgramArguments": ["/Applications/App.app/Contents/MacOS/app", "-arg1"],
+            }
+        },
+    )
+    info = _by_check(result, "non_apple_info")
+    assert info and info[0].data["program"] == "/Applications/App.app/Contents/MacOS/app"
+    assert '"' not in info[0].data["program"]
+
+
+def test_launchd_persistence_audit_fix_known_malware(tmp_path):
+    mod, check = _check(
+        tmp_path,
+        {"com.pcv.malware": {"Label": "com.pcv.malware", "Program": "/tmp/malware"}},
+    )
+    fix = mod.fix(check, Mode.MANUAL)
     assert any("Remove known malware" in a.title for a in fix.actions)
-    # Actions should succeed (informational)
     assert all(a.success for a in fix.actions)
 
 
-def test_launchd_persistence_audit_fix_suspicious_path():
-    """Test fix action for suspicious path."""
-    mod = _get_module()
-
-    plist_data = {
-        "com.example.app": {
-            "Label": "com.example.app",
-            "Program": "/tmp/badapp",
-            "KeepAlive": "0",
-            "RunAtLoad": "0",
-        }
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    mock_plist = MagicMock()
-    mock_plist.name = "com.example.app.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.example.app.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
-
-    assert len(fix.actions) > 0
+def test_launchd_persistence_audit_fix_suspicious_path(tmp_path):
+    mod, check = _check(
+        tmp_path,
+        {"com.example.app": {"Label": "com.example.app", "Program": "/tmp/badapp"}},
+    )
+    fix = mod.fix(check, Mode.MANUAL)
     assert any("Remove suspicious" in a.title for a in fix.actions)
 
 
-def test_launchd_persistence_audit_multiple_findings():
-    """Test when multiple issues are detected."""
+def test_launchd_persistence_audit_unreadable_plist(tmp_path):
+    (tmp_path / "broken.plist").write_text("not a plist")
     mod = _get_module()
-
-    plist_data = {
-        "com.vsearch.helper": {
-            "Label": "com.vsearch.helper",
-            "Program": "/tmp/vsearch",
-            "KeepAlive": "1",
-            "RunAtLoad": "1",
-        },
-        "com.thirdparty.app": {
-            "Label": "com.thirdparty.app",
-            "Program": "/Applications/App.app/Contents/MacOS/app",
-            "KeepAlive": "1",
-            "RunAtLoad": "1",
-        },
-    }
-
-    fake_run = _make_fake_defaults_run(plist_data)
-
-    malware_plist = MagicMock()
-    malware_plist.name = "com.vsearch.helper.plist"
-    malware_plist.__str__ = MagicMock(
-        return_value="/Library/LaunchAgents/com.vsearch.helper.plist"
-    )
-
-    app_plist = MagicMock()
-    app_plist.name = "com.thirdparty.app.plist"
-    app_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.thirdparty.app.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[malware_plist, app_plist]):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = mod.check(_make_profile())
-
-    # Should detect known malware (and stop checking that item)
-    assert any(f.data.get("check") == "known_malware" for f in result.findings)
-    # Should detect non-Apple persistence pattern
-    assert any(f.data.get("check") == "keepalive_runatload" for f in result.findings)
-
-
-def test_launchd_persistence_audit_handles_subprocess_error():
-    """Test graceful handling of subprocess errors."""
-    mod = _get_module()
-
-    def error_run(cmd, **kwargs):
-        raise OSError("Command failed")
-
-    mock_plist = MagicMock()
-    mock_plist.name = "com.example.app.plist"
-    mock_plist.__str__ = MagicMock(return_value="/Library/LaunchAgents/com.example.app.plist")
-
-    with patch.object(Path, "exists", return_value=True):
-        with patch.object(Path, "glob", return_value=[mock_plist]):
-            with patch("subprocess.run", side_effect=error_run):
-                result = mod.check(_make_profile())
-
-    # Should complete without crashing
-    assert isinstance(result.findings, list)
-    # No items should be extracted due to error
-    assert not result.has_issues
+    assert mod._scan_launchd_dir(tmp_path) == []
 
 
 def test_emitted_codes_are_declared():

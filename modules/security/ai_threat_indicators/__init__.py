@@ -349,19 +349,27 @@ class Module(ModuleBase):
                             elif any(
                                 tool in content for tool in AI_TOOL_INDICATORS
                             ):
+                                tool = next(
+                                    t for t in sorted(AI_TOOL_INDICATORS) if t in content
+                                )
                                 findings.append(
                                     Finding(
-                                        title=f"LaunchAgent/Daemon with AI tool reference: {plist_file.name}",
+                                        title=f"Background item mentions an AI tool: {plist_file.name}",
                                         description=(
-                                            f"Found AI tool reference in {plist_file}. "
-                                            f"Verify this is an authorized AI service."
+                                            f"{plist_file} mentions an AI tool or vendor "
+                                            f"(\"{tool}\"). Updaters and helpers for AI "
+                                            "tools you installed, such as Claude Code, "
+                                            "are normal. This is for your information; "
+                                            "it only needs a closer look if you do not "
+                                            "recognize the tool."
                                         ),
-                                        severity=Severity.WARNING,
+                                        severity=Severity.INFO,
                                         category=self.category,
                                         code="security.ai_threat_indicators.launchagent_ai",
                                         data={
                                             "check": "launchagent_ai",
                                             "plist_path": str(plist_file),
+                                            "matched": tool,
                                         },
                                     )
                                 )

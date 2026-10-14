@@ -130,7 +130,10 @@ def test_scheduled_tasks_audit_suspicious_tmp_agent():
     # Should detect suspicious path
     suspicious = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(suspicious) > 0
-    assert any("suspicious" in f.title.lower() for f in suspicious)
+    assert any(f.data.get("check") == "suspicious_launch_agent" for f in suspicious)
+    # Titles must read naturally ("launch agent", never "launch user").
+    assert not any("launch user" in f.title.lower() for f in result.findings)
+    assert any("any program" in f.description for f in suspicious)
 
 
 def test_scheduled_tasks_audit_disabled_agents_clutter():
@@ -171,7 +174,7 @@ def test_scheduled_tasks_audit_disabled_agents_clutter():
 
 
 def test_scheduled_tasks_audit_excessive_agents():
-    """Test WARNING when more than 20 user-level agents."""
+    """Test INFO (not a warning) when more than 20 user-level agents."""
     mod = _get_module()
 
     user_agents_path = Path.home() / "Library/LaunchAgents"
@@ -202,8 +205,9 @@ def test_scheduled_tasks_audit_excessive_agents():
     # Should have WARNING about excessive agents
     excessive = [f for f in result.findings if f.data.get("check") == "excessive_user_agents"]
     assert len(excessive) > 0
-    assert excessive[0].severity == Severity.WARNING
-    assert "25" in excessive[0].description or "excessive" in excessive[0].title.lower()
+    assert excessive[0].severity == Severity.INFO
+    assert "25" in excessive[0].title
+    assert "malware" not in excessive[0].description.lower()
 
 
 def test_scheduled_tasks_audit_fix_is_informational():
@@ -283,3 +287,12 @@ def mock_finding(check_type: str, label: str = "", reason: str = "", extra_data:
         category="security",
         data=data,
     )
+
+
+def test_scheduled_tasks_audit_template_dir_not_flagged():
+    """'Temp' inside a longer folder name (e.g. Templates) is not a temp folder."""
+    mod = _get_module()
+    flagged, _ = mod._check_suspicious(
+        "com.example.tool", "/Applications/Templates/tool", [], {}
+    )
+    assert not flagged

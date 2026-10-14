@@ -191,3 +191,72 @@ def test_subprocess_timeout_handled():
                 with patch.object(Path, "glob", return_value=[]):
                     result = mod.check(_make_profile())
     assert not result.has_issues
+
+
+def _scan_la_dir(tmp_path, plists):
+    import plistlib
+
+    mod = _get_module()
+    la = tmp_path / "Library" / "LaunchAgents"
+    la.mkdir(parents=True)
+    for name, data in plists.items():
+        with open(la / f"{name}.plist", "wb") as f:
+            plistlib.dump(data, f)
+    with patch.object(Path, "home", return_value=tmp_path):
+        return mod, mod._check_launchagents_darwin()
+
+
+def test_bun_on_path_does_not_flag_openclaw(tmp_path):
+    """Regression: '.bun/bin' inside a PATH env var is not a bun invocation."""
+    _, raw = _scan_la_dir(
+        tmp_path,
+        {
+            "ai.openclaw.gateway": {
+                "Label": "ai.openclaw.gateway",
+                "EnvironmentVariables": {
+                    "PATH": "/Users/u/.bun/bin:/Users/u/.volta/bin:/opt/homebrew/bin"
+                },
+                "ProgramArguments": [
+                    "/Users/u/.nvm/versions/node/v22.16.0/bin/node",
+                    "/opt/homebrew/lib/node_modules/openclaw/dist/index.js",
+                    "gateway",
+                ],
+                "KeepAlive": True,
+                "RunAtLoad": True,
+            }
+        },
+    )
+    assert raw == []
+
+
+def test_running_bun_is_heuristic_match_without_malicious_wording(tmp_path):
+    mod, raw = _scan_la_dir(
+        tmp_path,
+        {
+            "com.example.bunjob": {
+                "Label": "com.example.bunjob",
+                "ProgramArguments": ["/Users/u/.bun/bin/bun", "run", "x.ts"],
+            }
+        },
+    )
+    assert len(raw) == 1 and raw[0]["confidence"] == "medium"
+    finding = mod._finding_from_launchagent(raw[0])
+    assert "malicious" not in finding.title.lower()
+    assert "malicious" not in finding.description.lower()
+    assert "verify you installed" in finding.description.lower()
+    assert finding.severity in (Severity.INFO, Severity.WARNING)
+
+
+def test_known_bad_label_still_critical_and_named(tmp_path):
+    mod, raw = _scan_la_dir(
+        tmp_path,
+        {
+            "com.user.update-monitor": {
+                "Label": "com.user.update-monitor",
+                "ProgramArguments": ["/bin/sh"],
+            }
+        },
+    )
+    finding = mod._finding_from_launchagent(raw[0])
+    assert finding.severity == Severity.CRITICAL
+    assert "Malicious" in finding.title and "miasma" in finding.description
