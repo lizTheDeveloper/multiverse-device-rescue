@@ -10,7 +10,7 @@ from rescue.ai.explainer import DiagnosticExplainer
 from rescue.ai.factory import get_provider
 from rescue.ai.providers.base import AIRequestError
 from rescue.ai.recommender import ProfileRecommender
-from rescue.app_fixes import AppFixesError, load_app_fixes
+from rescue.app_fixes import AppFixesError, load_app_actions, load_app_fixes
 from rescue.case import RescueCase, write_case
 from rescue.guides import discover_guides
 from rescue.models import ActionKind, CheckResult, Mode, RiskLevel
@@ -182,7 +182,10 @@ def scan(as_json, profile_name, progress, trace, no_attribution):
             app_fixes = load_app_fixes()
         except AppFixesError:
             app_fixes = {}  # unreadable list: offer nothing, never everything
-        click.echo(checks_to_json(results, profile.platform.value, walkthroughs, app_fixes, made_by))
+        click.echo(checks_to_json(
+            results, profile.platform.value, walkthroughs, app_fixes, made_by,
+            app_actions=load_app_actions(),
+        ))
         return
     for mod, check in results:
         click.echo(mod.report(check))
@@ -515,8 +518,30 @@ def _apply_app_fix(module_name: str, acknowledged: bool) -> tuple[dict, int]:
     return doc, 0 if status == "fixed" else 1
 
 
+def _apply_app_action(action: str, target: str | None, acknowledged: bool) -> tuple[dict, int]:
+    """Run one allowlisted engine-level action (not a module fix())."""
+    from rescue.actions import launch_agent
+
+    if not acknowledged:
+        return _fix_doc(
+            action, action=action, error="not_confirmed",
+            message="Refusing to change anything without --i-understand.",
+        ), 2
+    if action not in load_app_actions() or action != launch_agent.ACTION:
+        return _fix_doc(
+            action, action=action, error="not_allowed",
+            message="This fix is not available in the app. Use the written steps instead.",
+        ), 2
+    if not target:
+        return _fix_doc(action, action=action, error="not_allowed", message="No target was given. We changed nothing."), 2
+    doc = launch_agent.disable(target)
+    return doc, launch_agent.exit_code(doc)
+
+
 @main.command(name="fix")
-@click.argument("module_name")
+@click.argument("module_name", required=False)
+@click.option("--action", "action", default=None, help="An engine-level action, e.g. disable_launch_agent.")
+@click.option("--target", "target", default=None, help="What the action acts on (a plist path).")
 @click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
 @click.option(
     "--i-understand",
@@ -524,15 +549,40 @@ def _apply_app_fix(module_name: str, acknowledged: bool) -> tuple[dict, int]:
     is_flag=True,
     help="Required. Confirms the person has been told what will change and agreed.",
 )
-def fix_cmd(module_name, as_json, acknowledged):
-    """Apply one audited fix (only modules listed in rescue/app_fixes.json)."""
-    doc, code = _apply_app_fix(module_name, acknowledged)
+def fix_cmd(module_name, action, target, as_json, acknowledged):
+    """Apply one audited fix (only modules/actions listed in rescue/app_fixes.json)."""
+    if action is not None and module_name is None:
+        doc, code = _apply_app_action(action, target, acknowledged)
+    elif module_name is not None and action is None and target is None:
+        doc, code = _apply_app_fix(module_name, acknowledged)
+    else:
+        doc, code = _fix_doc(
+            module_name or action or "", error="not_allowed",
+            message="Name either a check, or --action with --target. We changed nothing.",
+        ), 2
     if as_json:
         click.echo(json.dumps(doc, indent=2))
     else:
         click.echo(doc["message"])
         for step in doc["how_to_undo"]:
             click.echo(f"  To undo: {step}")
+    if code:
+        raise SystemExit(code)
+
+
+@main.command(name="undo")
+@click.option("--quarantine-id", "quarantine_id", required=True, help="The id returned when the job was turned off.")
+@click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
+def undo_cmd(quarantine_id, as_json):
+    """Put back a background job that Device Rescue turned off."""
+    from rescue.actions import launch_agent
+
+    doc = launch_agent.restore(quarantine_id)
+    if as_json:
+        click.echo(json.dumps(doc, indent=2))
+    else:
+        click.echo(doc["message"])
+    code = launch_agent.exit_code(doc)
     if code:
         raise SystemExit(code)
 

@@ -415,7 +415,7 @@ if (typeof document !== 'undefined') {
                   evidence: finding.data || {},
                 }, null, 2))}</pre>
               </details>
-              ${FixFlow.fixControlsHtml(finding)}
+              ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
             </li>
           `
         )

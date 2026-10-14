@@ -78,13 +78,39 @@ function failure(moduleName, error, message) {
   return { module: moduleName, applied: false, verified: false, changes: [], how_to_undo: [], status: 'failed', error, message };
 }
 
+const ACTION_NAME = /^[a-z0-9_]+$/;
+const QUARANTINE_ID = /^[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9][A-Za-z0-9._-]{0,200}$/;
+
+function actionArgs(action, target) {
+  if (typeof action !== 'string' || !ACTION_NAME.test(action)) throw new Error(`invalid action: ${action}`);
+  if (typeof target !== 'string' || !target.startsWith('/') || target.includes('\0')) throw new Error('invalid target');
+  return ['fix', '--action', action, '--target', target, '--json', '--i-understand'];
+}
+
+function undoArgs(quarantineId) {
+  if (typeof quarantineId !== 'string' || !QUARANTINE_ID.test(quarantineId)) throw new Error('invalid quarantine id');
+  return ['undo', '--quarantine-id', quarantineId, '--json'];
+}
+
 // Resolves with the engine's JSON result. The engine reports refusals and failures
 // as JSON with a non-zero exit code, so stdout is parsed whatever the exit code.
 function runFix(moduleName, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
+  return runEngineJson(() => fixArgs(moduleName), moduleName, spawnFn, timeoutMs);
+}
+
+function runAction(action, target, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
+  return runEngineJson(() => actionArgs(action, target), action, spawnFn, timeoutMs);
+}
+
+function runUndo(quarantineId, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
+  return runEngineJson(() => undoArgs(quarantineId), 'undo', spawnFn, timeoutMs);
+}
+
+function runEngineJson(buildArgs, moduleName, spawnFn, timeoutMs) {
   return new Promise((resolve) => {
     let p;
     try {
-      p = spawnFn(resolveEnginePath(), fixArgs(moduleName));
+      p = spawnFn(resolveEnginePath(), buildArgs());
     } catch (e) {
       return resolve(failure(moduleName, 'engine_error', e.message));
     }
@@ -110,4 +136,4 @@ function runFix(moduleName, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
   });
 }
 
-module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine, fixArgs, runFix };
+module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo };

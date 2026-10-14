@@ -1,8 +1,8 @@
 const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
 const path = require('path');
 const { askAbout } = require('./ask-about');
-const { runScan, runFix } = require('./engine-runner');
-const { createFixPolicy, handleRunFix } = require('./fix-policy');
+const { runScan, runFix, runAction, runUndo } = require('./engine-runner');
+const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 
 function createWindow() {
@@ -36,6 +36,10 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('run-fix', (_e, moduleName) =>
     handleRunFix(moduleName, { policy: fixPolicy, runFix }));
+  ipcMain.handle('run-fix-action', (_e, action, target) =>
+    handleRunAction(action, target, { policy: fixPolicy, runAction }));
+  ipcMain.handle('undo-fix', (_e, quarantineId) =>
+    handleRunUndo(quarantineId, { policy: fixPolicy, runUndo }));
   ipcMain.handle('open-guide', (_e, url) => {
     if (!isAllowedGuideUrl(url)) {
       return false;

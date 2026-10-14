@@ -1,1 +1,21 @@
-{}
+{
+  "actions": {
+    "disable_launch_agent": {
+      "audit": "OFFER",
+      "modules": [
+        "launchd_persistence_audit",
+        "launch_agent_audit",
+        "scheduled_tasks_audit",
+        "ai_worm_persistence",
+        "ai_threat_indicators"
+      ],
+      "severities": ["warning", "critical"],
+      "will_change": "Stops the background job '{label}' and moves its settings file to Device Rescue's quarantine folder. Nothing is deleted.",
+      "how_to_undo": [
+        "Open Device Rescue and choose Undo on this item",
+        "Or move the file from ~/Library/Application Support/Device Rescue/Quarantine back to ~/Library/LaunchAgents and log out and back in"
+      ],
+      "needs_admin": false
+    }
+  }
+}

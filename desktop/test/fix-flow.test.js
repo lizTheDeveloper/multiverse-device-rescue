@@ -131,7 +131,7 @@ function fakeRoot() {
   const listeners = {};
   const root = {
     addEventListener(type, fn) { listeners[type] = fn; },
-    click(target) { return listeners.click({ target: { closest: (sel) => (sel === '[data-fix-open],[data-fix-confirm],[data-fix-cancel]' ? target : null) } }); },
+    click(target) { return listeners.click({ target: { closest: (sel) => (sel === '[data-fix-open],[data-fix-confirm],[data-fix-cancel],[data-fix-undo]' ? target : null) } }); },
     key(key) { return listeners.keydown && listeners.keydown({ key, target: els.card }); },
   };
   return { root, els };

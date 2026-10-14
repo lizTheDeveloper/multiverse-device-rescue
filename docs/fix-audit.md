@@ -24,7 +24,8 @@ unlink, rmtree, write, move, mkdir, chmod, `ActionKind.MUTATION`). The other
 modules' `fix()` only return guidance text (some contain `sudo ...` commands in
 strings for the person to read; none run them).
 
-Result: 11 modules have a state-changing `fix()`. **0 are offerable today.**
+Result: 11 modules have a state-changing `fix()`. **0 are offerable today.** One
+engine-level action, `disable_launch_agent`, is offered instead (last row).
 The feature, the allowlist and the gate are in place and tested, so a module can
 be added later once its `fix()` is narrowed and re-audited.
 
@@ -41,6 +42,7 @@ be added later once its `fix()` is narrowed and re-audited.
 | `ai_worm_lateral` | Deletes files flagged as malicious artifacts. | NO | Permanent deletion with no undo. Rotating exposed credentials must come first and cannot be automated. |
 | `ai_worm_network` | Sends SIGTERM to a process id taken from the scan, and rewrites the hosts file. | NO | The process id can be reused by a different program between the scan and the fix, so it could close the wrong program. Rewriting `/etc/hosts` needs admin. |
 | `ai_worm_persistence` | Unloads and deletes launch agents, systemd units and scheduled tasks, and rewrites shell profiles, settings hooks. | NO | Deletes persistence entries and rewrites files with no undo copy, and the order matters for dead-man-switch malware. Needs human guidance. |
+| `disable_launch_agent` | Engine action, not a module `fix()`. Stops one background job (`launchctl bootout gui/<uid>/<label>`) and moves its plist from the person's own `~/Library/LaunchAgents` to `~/Library/Application Support/Device Rescue/Quarantine`, with a JSON manifest (original path, label, time, sha256). Undo moves it back and runs `launchctl bootstrap`. | OFFER | 1. Reversible in one click (Undo), or by moving the file back. 2. One job stops; nothing is deleted. 3. One sentence says it. 4. No password: it is the person's own user domain and their own file. 5. Touches only the one named plist. 6. The path is re-validated at run time (regular file, not a symlink, owned by the user, directly inside their LaunchAgents, parseable, Label equals file name), and never `/Library` or `/System`; the scan is not trusted. Offered only for warning/critical findings from the persistence audits. Caveat: whoever set the job up may notice it stopped, so the app adds a warning for the "someone is watching me" situation. |
 
 ## Adding a module later
 
