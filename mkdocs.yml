@@ -133,6 +133,7 @@ nav:
       - CLI reference: cli.md
       - Module catalog: modules.md
       - What each check runs: commands.md
+      - Fix it for me — safety audit: fix-audit.md
       - Architecture: architecture.md
       - Threat remediation map: THREAT_REMEDIATION.md
       - Remediation catalog: REMEDIATION_CATALOG.md
