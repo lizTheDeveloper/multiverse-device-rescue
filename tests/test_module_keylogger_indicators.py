@@ -128,17 +128,26 @@ def test_keylogger_indicators_suspicious_app_warning():
     assert suspicious_findings[0].severity == Severity.WARNING
 
 
-def test_keylogger_indicators_keyboard_hooks():
-    """Test detection of keyboard event hooks."""
+def test_keylogger_indicators_ioreg_dump_never_flagged_as_hooks():
+    """An ordinary ioreg dump (IOKitDiagnostics fragments) is not a keyboard hook."""
     mod = _get_module()
-    hooks = ["HIDKeyboard device at IOService", "KeyboardEventTap registered"]
-    fake_run = _make_run_result(keyboard_hooks=hooks)
+    dump = ["HIDKeyboard device at IOService", "KeyboardEventTap registered",
+            '"IOKitDiagnostics" = {"Classes"={"AppleHIDKeyboardEventDriver"=1}}']
+    fake_run = _make_run_result(keyboard_hooks=dump)
     with patch("subprocess.run", side_effect=fake_run):
         result = mod.check(_make_profile())
-    assert result.has_issues
-    hook_findings = [f for f in result.findings if f.data.get("check") == "keyboard_hooks"]
-    assert len(hook_findings) > 0
-    assert hook_findings[0].severity == Severity.WARNING
+    assert not [f for f in result.findings if f.data.get("check") == "keyboard_hooks"]
+    assert not any("hook" in f.title.lower() for f in result.findings)
+
+
+def test_keylogger_indicators_steam_is_not_suspicious():
+    mod = _get_module()
+    fake_run = _make_run_result(input_monitoring_apps=["com.valvesoftware.steam"])
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    checks = [f.data.get("check") for f in result.findings]
+    assert "suspicious_input_monitoring" not in checks
+    assert "input_monitoring_access" in checks
 
 
 def test_keylogger_indicators_cgeventtap():
@@ -172,7 +181,6 @@ def test_keylogger_indicators_multiple_issues():
     checks = [f.data.get("check") for f in result.findings]
     assert "input_monitoring_access" in checks
     assert "known_keyloggers" in checks
-    assert "keyboard_hooks" in checks
     assert "cgeventtap_usage" in checks
 
 
@@ -214,19 +222,6 @@ def test_keylogger_indicators_fix_known_keyloggers():
     # Should have critical action to remove keyloggers
     keylogger_actions = [a for a in fix.actions if "keylogger" in a.title.lower()]
     assert len(keylogger_actions) > 0
-
-
-def test_keylogger_indicators_fix_keyboard_hooks():
-    """Test fix action for keyboard hooks."""
-    mod = _get_module()
-    hooks = ["HIDKeyboard event detected"]
-    fake_run = _make_run_result(keyboard_hooks=hooks)
-    with patch("subprocess.run", side_effect=fake_run):
-        check = mod.check(_make_profile())
-        fix = mod.fix(check, Mode.MANUAL)
-    assert len(fix.actions) > 0
-    # Should have action for investigating hooks
-    assert any("keyboard" in a.title.lower() for a in fix.actions)
 
 
 def test_keylogger_indicators_fix_cgeventtap():
@@ -275,3 +270,23 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.keylogger_indicators.") for c in declared)
+
+
+def test_vendor_prefixed_app_is_listed_as_unverified_info_not_dropped():
+    # An app can use any bundle ID; it must stay visible, never silently cleared.
+    mod = _get_module()
+    fake_run = _make_run_result(
+        input_monitoring_apps=["com.valvesoftware.impostor", "com.logitech.evil", "com.apple.impostor"]
+    )
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    claimed = [f for f in result.findings if f.data.get("check") == "claimed_vendor_input_monitoring"]
+    assert len(claimed) == 1
+    assert claimed[0].severity == Severity.INFO
+    assert set(claimed[0].data["apps"]) == {
+        "com.valvesoftware.impostor",
+        "com.logitech.evil",
+        "com.apple.impostor",
+    }
+    assert "not verified" in claimed[0].description.lower()
+    assert not [f for f in result.findings if f.severity in (Severity.WARNING, Severity.CRITICAL)]

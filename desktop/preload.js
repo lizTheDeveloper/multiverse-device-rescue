@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer, shell } = require('electron');
 contextBridge.exposeInMainWorld('rescue', {
   runScan: (profile) => ipcRenderer.invoke('run-scan', profile),
+  runFix: (moduleName) => ipcRenderer.invoke('run-fix', moduleName),
+  runAction: (action, target) => ipcRenderer.invoke('run-fix-action', action, target),
+  undoFix: (quarantineId) => ipcRenderer.invoke('undo-fix', quarantineId),
   openGuide: (url) => ipcRenderer.invoke('open-guide', url),
   onScanEvent: (cb) => {
     const listener = (_e, ev) => cb(ev);
@@ -8,4 +11,10 @@ contextBridge.exposeInMainWorld('rescue', {
     return () => ipcRenderer.removeListener('scan-event', listener);
   },
   openSetting: (url) => ipcRenderer.invoke('open-setting', url),
+  askAbout: (payload) => ipcRenderer.invoke('ask-about', payload),
+  onAskWarming: (cb) => {
+    const listener = () => cb();
+    ipcRenderer.on('ask-warming', listener);
+    return () => ipcRenderer.removeListener('ask-warming', listener);
+  },
 });

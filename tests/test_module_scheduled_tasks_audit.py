@@ -130,7 +130,10 @@ def test_scheduled_tasks_audit_suspicious_tmp_agent():
     # Should detect suspicious path
     suspicious = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(suspicious) > 0
-    assert any("suspicious" in f.title.lower() for f in suspicious)
+    assert any(f.data.get("check") == "suspicious_launch_agent" for f in suspicious)
+    # Titles must read naturally ("launch agent", never "launch user").
+    assert not any("launch user" in f.title.lower() for f in result.findings)
+    assert any("any program" in f.description for f in suspicious)
 
 
 def test_scheduled_tasks_audit_disabled_agents_clutter():
@@ -171,7 +174,7 @@ def test_scheduled_tasks_audit_disabled_agents_clutter():
 
 
 def test_scheduled_tasks_audit_excessive_agents():
-    """Test WARNING when more than 20 user-level agents."""
+    """Test INFO (not a warning) when more than 20 user-level agents."""
     mod = _get_module()
 
     user_agents_path = Path.home() / "Library/LaunchAgents"
@@ -202,8 +205,9 @@ def test_scheduled_tasks_audit_excessive_agents():
     # Should have WARNING about excessive agents
     excessive = [f for f in result.findings if f.data.get("check") == "excessive_user_agents"]
     assert len(excessive) > 0
-    assert excessive[0].severity == Severity.WARNING
-    assert "25" in excessive[0].description or "excessive" in excessive[0].title.lower()
+    assert excessive[0].severity == Severity.INFO
+    assert "25" in excessive[0].title
+    assert "malware" not in excessive[0].description.lower()
 
 
 def test_scheduled_tasks_audit_fix_is_informational():
@@ -283,3 +287,57 @@ def mock_finding(check_type: str, label: str = "", reason: str = "", extra_data:
         category="security",
         data=data,
     )
+
+
+def test_scheduled_tasks_audit_template_dir_not_flagged():
+    """'Temp' inside a longer folder name (e.g. Templates) is not a temp folder."""
+    mod = _get_module()
+    flagged, _ = mod._check_suspicious(
+        "com.example.tool", "/Applications/Templates/tool", [], {}
+    )
+    assert not flagged
+
+
+# --- trusted-looking labels must not hide anything ---------------------------
+
+def _scan_dir(tmp_path, name, data=None, raw=None):
+    mod = _get_module()
+    path = tmp_path / name
+    path.write_bytes(raw if raw is not None else plistlib.dumps(data))
+    return mod._scan_launch_agents(tmp_path, "user")
+
+
+def _warnings(findings):
+    return [f for f in findings if f.severity != Severity.INFO]
+
+
+def test_trusted_looking_label_does_not_hide_tmp_program(tmp_path):
+    for label in ("com.apple.updater", "com.google.keystone", "com.docker.helper"):
+        data = {"Label": label, "Program": "/tmp/payload", "RunAtLoad": True}
+        assert _warnings(_scan_dir(tmp_path, f"{label}.plist", data)), label
+
+
+def test_trusted_looking_label_does_not_hide_tmp_in_arguments(tmp_path):
+    data = {
+        "Label": "com.apple.thing",
+        "ProgramArguments": ["/bin/sh", "-c", "cd /var/tmp && ./x"],
+    }
+    assert _warnings(_scan_dir(tmp_path, "a.plist", data))
+
+
+def test_non_string_program_is_still_listed(tmp_path):
+    data = {"Label": "com.evil.x", "Program": ["/tmp/x"], "ProgramArguments": "/tmp/y"}
+    findings = _scan_dir(tmp_path, "x.plist", data)
+    assert findings, "malformed values must not make the item disappear"
+    assert _warnings(findings)
+
+
+def test_unreadable_plist_is_listed_not_skipped(tmp_path):
+    findings = _scan_dir(tmp_path, "broken.plist", raw=b"\x00not a plist at all")
+    assert len(findings) == 1
+    assert "broken.plist" in findings[0].description
+
+
+def test_binary_plist_with_tmp_program_is_flagged(tmp_path):
+    raw = plistlib.dumps({"Label": "com.x.y", "Program": "/tmp/p"}, fmt=plistlib.FMT_BINARY)
+    assert _warnings(_scan_dir(tmp_path, "b.plist", raw=raw))

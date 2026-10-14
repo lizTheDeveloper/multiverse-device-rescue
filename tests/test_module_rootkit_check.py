@@ -243,7 +243,9 @@ def test_suspicious_hidden_files():
 
         return result
 
-    with patch("modules.security.rootkit_check.subprocess.run", side_effect=hidden_files_run):
+    with patch("modules.security.rootkit_check.subprocess.run", side_effect=hidden_files_run), patch.object(
+        type(mod), "_list_root_dot_entries", staticmethod(lambda: [(".rootkit_config", "f")])
+    ):
         result = mod.check(_make_profile())
 
     assert result.has_issues
@@ -338,3 +340,52 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.rootkit_check.") for c in declared)
+
+
+_REAL_ROOT = [
+    (".file", "f"),
+    (".nofollow", "d"),
+    (".resolve", "d"),
+    (".vol", "d"),
+    (".VolumeIcon.icns", "l"),
+    (".DocumentRevisions-V100", "d"),
+]
+
+
+def _hidden_root_findings(entries):
+    mod = _get_module()
+    with patch.object(type(mod), "_list_root_dot_entries", staticmethod(lambda: entries)):
+        return mod._check_hidden_root_files()
+
+
+def test_standard_macos_root_dot_entries_not_flagged():
+    assert _hidden_root_findings(_REAL_ROOT) == []
+
+
+def test_unknown_root_dot_entry_still_flagged_alongside_standard():
+    findings = _hidden_root_findings(_REAL_ROOT + [(".rootkit_config", "f")])
+    assert len(findings) == 1
+    assert ".rootkit_config" in findings[0].description
+    assert ".nofollow" not in findings[0].description
+
+
+def test_com_apple_lookalike_is_flagged():
+    findings = _hidden_root_findings(_REAL_ROOT + [(".com.apple.evil", "d")])
+    assert len(findings) == 1 and ".com.apple.evil" in findings[0].description
+
+
+def test_pkinstall_prefix_lookalike_is_flagged():
+    findings = _hidden_root_findings([(".PKInstallSandboxManager-evil", "d")])
+    assert len(findings) == 1
+
+
+def test_standard_name_with_wrong_type_is_flagged():
+    # A symlink or regular file posing as the .Spotlight-V100 directory
+    assert len(_hidden_root_findings([(".Spotlight-V100", "l")])) == 1
+    assert len(_hidden_root_findings([(".nofollow", "f")])) == 1
+
+
+def test_real_lstat_listing_does_not_crash():
+    mod = _get_module()
+    entries = mod._list_root_dot_entries()
+    assert all(n.startswith(".") for n, _ in entries)

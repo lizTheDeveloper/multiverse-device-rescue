@@ -1,7 +1,7 @@
 {
   "name": "device-rescue",
   "productName": "Device Rescue",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Multiverse Device Rescue desktop app",
   "author": "The Multiverse School",
   "main": "main.js",
@@ -17,7 +17,9 @@
       "main.js",
       "preload.js",
       "engine-runner.js",
+      "fix-policy.js",
       "setting-urls.js",
+      "ask-about.js",
       "renderer/**"
     ],
     "extraResources": [

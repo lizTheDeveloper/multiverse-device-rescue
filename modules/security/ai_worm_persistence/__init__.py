@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import os
+import plistlib
 import re
 import subprocess
 from pathlib import Path
@@ -56,8 +57,14 @@ _KNOWN_MALICIOUS_SYSTEMD_UNITS = {
 # Heuristic markers for persistence artifacts that aren't (yet) in the IOC
 # database: references to the `bun` runtime (Miasma's payload interpreter)
 # or well-known AI API endpoints being called from a background agent.
+#
+# The bun marker is matched only against what the agent actually *runs*
+# (Program/ProgramArguments), never the whole plist: a PATH value such as
+# "~/.bun/bin" is on many developers' machines and says nothing about what runs.
+_BUN_COMMAND_PATTERN = re.compile(r"(?:^|[\s;&|(/])bunx?(?=\s|$)")
+# systemd unit files: ExecStart lines are plain text, keep the original match.
+_SYSTEMD_BUN_PATTERN = re.compile(r"\bbun\b")
 _HEURISTIC_PERSISTENCE_PATTERNS = [
-    re.compile(r"\bbun\b"),
     re.compile(r"api\.anthropic\.com"),
     re.compile(r"api\.openai\.com"),
     re.compile(r"generativelanguage\.googleapis\.com"),
@@ -208,34 +215,76 @@ class Module(ModuleBase):
                 )
                 continue
 
-            for pat in _HEURISTIC_PERSISTENCE_PATTERNS:
-                if pat.search(content):
-                    results.append(
-                        {
-                            "plist": str(plist),
-                            "label": label,
-                            "threat": "unknown",
-                            "is_deadman_switch": False,
-                            "confidence": "medium",
-                        }
-                    )
-                    break
+            matched = self._runs_bun(plist, content) or any(
+                pat.search(content) for pat in _HEURISTIC_PERSISTENCE_PATTERNS
+            )
+            if matched:
+                results.append(
+                    {
+                        "plist": str(plist),
+                        "label": label,
+                        "threat": "unknown",
+                        "is_deadman_switch": False,
+                        "confidence": "medium",
+                    }
+                )
 
         return results
 
+    @staticmethod
+    def _runs_bun(plist: Path, content: str = "") -> bool:
+        """True if the agent's Program/ProgramArguments invoke the bun runtime.
+
+        If the file cannot be parsed as a property list we cannot tell what it
+        runs, so fall back to a plain-text match instead of assuming it is fine.
+        """
+        try:
+            with open(plist, "rb") as f:
+                data = plistlib.load(f)
+            commands = []
+            program = data.get("Program")
+            if isinstance(program, str):
+                commands.append(program)
+            elif isinstance(program, (list, tuple)):
+                commands.extend(str(a) for a in program)
+            args = data.get("ProgramArguments")
+            if isinstance(args, str):
+                commands.append(args)
+            elif isinstance(args, (list, tuple)):
+                commands.extend(str(a) for a in args)
+        except Exception:
+            return bool(_SYSTEMD_BUN_PATTERN.search(content or ""))
+        for cmd in commands:
+            if Path(cmd.split()[0] if cmd.split() else "").name in ("bun", "bunx"):
+                return True
+            if _BUN_COMMAND_PATTERN.search(cmd):
+                return True
+        return False
+
     def _finding_from_launchagent(self, raw: dict) -> Finding:
         confidence = raw.get("confidence", "high")
-        severity = Severity.CRITICAL if confidence == "high" else Severity.WARNING
+        severity = Severity.CRITICAL if confidence == "high" else Severity.INFO
         plist = raw.get("plist")
         label = raw.get("label") or (Path(plist).stem if plist else "unknown")
         threat = raw.get("threat", "unknown")
         is_deadman = bool(raw.get("is_deadman_switch", False))
 
-        title = f"Malicious LaunchAgent detected: {label}"
-        description = (
-            f"LaunchAgent '{label}' at {plist} matches a known {threat} "
-            "persistence mechanism."
-        )
+        if confidence == "high":
+            title = f"Malicious LaunchAgent detected: {label}"
+            description = (
+                f"LaunchAgent '{label}' at {plist} matches a known {threat} "
+                "persistence mechanism."
+            )
+        else:
+            # Heuristic match only: no named threat. Never call this malicious.
+            title = f"AI agent service running in the background: {label}"
+            description = (
+                f"The background item '{label}' ({plist}) looks like an AI agent "
+                "or runs a tool often used by them (it calls an AI service or "
+                "runs the bun runtime). Many people install these on purpose, "
+                "for example OpenClaw or Claude tools. Verify you installed it. "
+                "If you do not recognize it, it is worth a closer look."
+            )
         if is_deadman:
             title = f"Dead-man switch LaunchAgent detected: {label}"
             description += (
@@ -330,7 +379,7 @@ class Module(ModuleBase):
                 )
                 continue
 
-            for pat in _HEURISTIC_PERSISTENCE_PATTERNS:
+            for pat in (_SYSTEMD_BUN_PATTERN, *_HEURISTIC_PERSISTENCE_PATTERNS):
                 if pat.search(content):
                     results.append(
                         {

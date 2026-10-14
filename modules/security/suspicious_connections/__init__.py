@@ -1,3 +1,7 @@
+import ctypes
+import ctypes.util
+import os
+import posixpath
 import subprocess
 import re
 from collections import defaultdict
@@ -79,6 +83,14 @@ KNOWN_SAFE_PROCESSES = {
 }
 
 
+# Remote ports that are normal for everyday software
+# (5228: Google/FCM push, 5223: Apple push)
+WELL_KNOWN_REMOTE_PORTS = {5228, 5223}
+
+# Executables under these prefixes are shipped with macOS
+APPLE_SYSTEM_PREFIXES = ("/System/", "/usr/libexec/")
+
+
 class Module(ModuleBase):
     name = "suspicious_connections"
     category = "security"
@@ -106,60 +118,159 @@ class Module(ModuleBase):
         # Parse lsof output
         connections = self._parse_lsof_output(lsof_output)
 
-        # Check for unusual listening ports
-        for conn in connections:
-            if conn["type"] == "LISTEN":
-                port = conn["port"]
-                if port and not self._is_standard_port(port):
-                    findings.append(
-                        Finding(
-                            title=f"Unusual listening port {port} by {conn['process']}",
-                            description=(
-                                f"Process {conn['process']} (PID {conn['pid']}) is listening on "
-                                f"port {port}, which is not a standard service port. This could "
-                                f"indicate malware or an unauthorized service."
-                            ),
-                            severity=Severity.WARNING,
-                            category=self.category,
-                            code="security.suspicious_connections.unusual_listening_port",
-                            data={
-                                "check": "unusual_listening_port",
-                                "pid": conn["pid"],
-                                "process": conn["process"],
-                                "port": port,
-                            },
-                        )
-                    )
 
-        # Check for unusual established connections
+        # Unusual listening ports: only listeners reachable from the network
+        # matter. Loopback-only listeners are summarised in one info line.
+        listen_by_proc: dict[tuple, dict] = {}
+        loopback_listeners: dict[str, set] = defaultdict(set)
         for conn in connections:
-            if conn["type"] == "ESTABLISHED":
-                port = conn["port"]
-                if port and not self._is_standard_port(port):
-                    # Only flag if process is not in known safe list
-                    if not self._is_known_safe_process(conn["process"]):
-                        findings.append(
-                            Finding(
-                                title=f"Unusual outbound connection on port {port} from {conn['process']}",
-                                description=(
-                                    f"Process {conn['process']} (PID {conn['pid']}) has an "
-                                    f"established connection to port {port}, which is not a standard "
-                                    f"service port. This could indicate data exfiltration or C2 communication."
-                                ),
-                                severity=Severity.WARNING,
-                                category=self.category,
-                                code="security.suspicious_connections.unusual_outbound_connection",
-                                data={
-                                    "check": "unusual_outbound_connection",
-                                    "pid": conn["pid"],
-                                    "process": conn["process"],
-                                    "port": port,
-                                },
-                            )
-                        )
+            if conn["type"] != "LISTEN":
+                continue
+            port = conn["port"]
+            if not port or self._is_standard_port(port):
+                continue
+            if self._is_loopback_host(conn["local_host"]):
+                loopback_listeners[conn["process"]].add(port)
+                continue
+            if self._is_apple_system_process(conn["pid"]):
+                continue
+            entry = listen_by_proc.setdefault(
+                (conn["process"], conn["pid"]), {"ports": set()}
+            )
+            entry["ports"].add(port)
+
+        for (process, pid), entry in listen_by_proc.items():
+            ports = sorted(entry["ports"])
+            port_text = ", ".join(str(p) for p in ports)
+            plural = "ports" if len(ports) > 1 else "port"
+            findings.append(
+                Finding(
+                    title=f"Unusual listening {plural} {port_text} by {process}",
+                    description=(
+                        f"Process {process} (PID {pid}) is accepting connections from "
+                        f"other devices on your network on {plural} {port_text}. Many "
+                        f"developer tools and sync apps do this on purpose. If you do "
+                        f"not recognize {process}, check where it came from."
+                    ),
+                    severity=Severity.WARNING,
+                    category=self.category,
+                    code="security.suspicious_connections.unusual_listening_port",
+                    data={
+                        "check": "unusual_listening_port",
+                        "pid": pid,
+                        "process": process,
+                        "port": ports[0],
+                        "ports": ports,
+                    },
+                )
+            )
+
+        if loopback_listeners:
+            names = sorted(loopback_listeners)
+            total = sum(len(v) for v in loopback_listeners.values())
+            findings.append(
+                Finding(
+                    title=f"{total} local-only service port(s) in use",
+                    description=(
+                        "These programs listen only on this computer (localhost), so "
+                        "nothing on your network or the internet can reach them: "
+                        + ", ".join(names) + "."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.suspicious_connections.unusual_listening_port",
+                    data={
+                        "check": "loopback_listeners",
+                        "processes": names,
+                        "count": total,
+                    },
+                )
+            )
+
+        # Unusual established connections, one finding per process
+        out_by_proc: dict[tuple, dict] = {}
+        familiar: dict[tuple, dict] = {}
+        for conn in connections:
+            if conn["type"] != "ESTABLISHED":
+                continue
+            port = conn["port"]
+            if not port or self._is_standard_port(port):
+                continue
+            if self._is_loopback_host(conn["local_host"]) and self._is_loopback_host(
+                conn.get("remote_host") or conn["local_host"]
+            ):
+                continue
+            # Only an Apple-signed program in a SIP folder is skipped outright.
+            if self._is_apple_system_process(conn["pid"]):
+                continue
+            # A familiar process name or a push-notification port is shown to
+            # the person, but is not a reason to treat the connection as odd.
+            # Both are chosen by the program, so they never hide it.
+            bucket = (
+                familiar
+                if port in WELL_KNOWN_REMOTE_PORTS or self._is_known_safe_process(conn["process"])
+                else out_by_proc
+            )
+            entry = bucket.setdefault((conn["process"], conn["pid"]), {"ports": set()})
+            entry["ports"].add(port)
+
+        if familiar:
+            items = [
+                {"process": proc, "pid": pid, "ports": sorted(e["ports"])}
+                for (proc, pid), e in familiar.items()
+            ]
+            names = sorted({i["process"] for i in items})
+            findings.append(
+                Finding(
+                    title=f"{len(items)} connection(s) from familiar-looking programs on uncommon ports",
+                    description=(
+                        "These programs use a familiar name or a port used for push "
+                        f"notifications: {', '.join(names)}. That is normal for browsers, "
+                        "chat apps and developer tools. This tool has not verified who "
+                        "made them, because a program can pick any name."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.suspicious_connections.unusual_outbound_connection",
+                    data={"check": "familiar_connections", "items": items},
+                )
+            )
+
+        for (process, pid), entry in out_by_proc.items():
+            ports = sorted(entry["ports"])
+            port_text = ", ".join(str(p) for p in ports)
+            findings.append(
+                Finding(
+                    title=f"Unusual outbound connection on port {port_text} from {process}",
+                    description=(
+                        f"Process {process} (PID {pid}) has connections to port "
+                        f"{port_text} on another machine, which is not a common service "
+                        f"port. Plenty of normal software does this; if you do not "
+                        f"recognize {process}, it is worth a closer look."
+                    ),
+                    severity=Severity.WARNING,
+                    category=self.category,
+                    code="security.suspicious_connections.unusual_outbound_connection",
+                    data={
+                        "check": "unusual_outbound_connection",
+                        "pid": pid,
+                        "process": process,
+                        "port": ports[0],
+                        "ports": ports,
+                    },
+                )
+            )
 
         # Check for high connection counts per process (potential C2 beaconing)
-        connection_counts = self._count_connections_by_process(connections)
+        connection_counts = self._count_connections_by_process(
+            [
+                c for c in connections
+                if not (
+                    self._is_loopback_host(c["local_host"])
+                    and self._is_loopback_host(c.get("remote_host") or c["local_host"])
+                )
+            ]
+        )
         for process, count in connection_counts.items():
             if count > 10 and not self._is_known_safe_process(process):
                 findings.append(
@@ -261,9 +372,12 @@ class Module(ModuleBase):
             else:
                 continue
 
-            # Extract port from the local address (format: IP:PORT)
-            local_addr = parts[8] if len(parts) > 8 else ""
-            port = self._extract_port(local_addr)
+            # NAME is "local" or "local->remote". For established connections
+            # the port of interest is the remote one.
+            name = parts[8] if len(parts) > 8 else ""
+            local_addr, _, remote_addr = name.partition("->")
+            target = remote_addr or local_addr
+            port = self._extract_port(target)
 
             if port:
                 connections.append(
@@ -273,6 +387,8 @@ class Module(ModuleBase):
                         "type": connection_state,
                         "port": port,
                         "local_addr": local_addr,
+                        "local_host": self._extract_host(local_addr),
+                        "remote_host": self._extract_host(remote_addr) if remote_addr else None,
                     }
                 )
 
@@ -289,6 +405,65 @@ class Module(ModuleBase):
             except (ValueError, IndexError):
                 return None
         return None
+
+    @staticmethod
+    def _extract_host(addr: str) -> str:
+        host = addr.rsplit(":", 1)[0] if ":" in addr else addr
+        return host.strip("[]")
+
+    @staticmethod
+    def _is_loopback_host(host: str | None) -> bool:
+        if not host:
+            return False
+        return host in ("::1", "localhost") or host.startswith("127.")
+
+    @staticmethod
+    def _kernel_path(pid) -> str | None:
+        """Executable path reported by the kernel (libproc proc_pidpath).
+
+        Unlike the ps/lsof command name this cannot be set by the process.
+        None means unknown, which is never trusted.
+        """
+        try:
+            lib = ctypes.CDLL(
+                ctypes.util.find_library("proc") or "/usr/lib/libproc.dylib", use_errno=True
+            )
+            buf = ctypes.create_string_buffer(4096)
+            n = lib.proc_pidpath(int(pid), buf, ctypes.c_uint32(len(buf)))
+            return buf.value.decode("utf-8", "surrogateescape") if n > 0 else None
+        except Exception:
+            return None
+
+    def _apple_signed(self, path: str) -> bool:
+        """True if ``path`` verifies against Apple's anchor. Cached per path."""
+        cache = self.__dict__.setdefault("_apple_sig_cache", {})
+        if path not in cache:
+            from rescue import command
+
+            res = command.run(
+                ["/usr/bin/codesign", "--verify", "--strict", "-R=anchor apple", path],
+                timeout=5,
+            )
+            cache[path] = res.ok
+        return cache[path]
+
+    def _is_apple_system_process(self, pid) -> bool:
+        """Apple daemon = kernel path in a SIP directory AND a valid Apple signature.
+
+        Names and ps paths are attacker-controlled and are not consulted.
+        """
+        key = ("_apple_proc", str(pid))
+        cache = self.__dict__.setdefault("_apple_proc_cache", {})
+        if key in cache:
+            return cache[key]
+        verdict = False
+        kpath = self._kernel_path(pid)
+        if kpath:
+            real = posixpath.normpath(os.path.realpath(kpath))
+            if real.startswith(APPLE_SYSTEM_PREFIXES):
+                verdict = self._apple_signed(real)
+        cache[key] = verdict
+        return verdict
 
     def _is_standard_port(self, port: int) -> bool:
         """Check if port is a standard service port."""

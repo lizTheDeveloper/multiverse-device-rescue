@@ -28,7 +28,6 @@ class Module(ModuleBase):
         "security.keylogger_indicators.input_monitoring_access",
         "security.keylogger_indicators.known_keyloggers",
         "security.keylogger_indicators.suspicious_input_monitoring",
-        "security.keylogger_indicators.keyboard_hooks",
         "security.keylogger_indicators.cgeventtap_usage",
     ]
 
@@ -65,6 +64,32 @@ class Module(ModuleBase):
         "com.apple.Script Editor",
         "org.hammerspoon.Hammerspoon",
     }
+
+    # Well-known vendors whose apps legitimately ask for Input Monitoring
+    # (game controllers, gaming keyboards/mice, remappers, password managers).
+    # These are reported as informational, not as suspicious.
+    WELL_KNOWN_VENDOR_PREFIXES = (
+        "com.valvesoftware.",  # Steam (controller / Steam Input)
+        "com.logitech.",
+        "com.logi.",
+        "com.razer.",
+        "com.corsair.",
+        "com.steelseries.",
+        "com.elgato.",
+        "org.pqrs.",  # Karabiner-Elements
+        "com.hegenberg.",  # BetterTouchTool
+        "com.1password.",
+        "com.agilebits.",
+        "com.microsoft.",
+        "com.google.",
+    )
+
+    def _is_well_known(self, app: str) -> bool:
+        return (
+            app in self.WELL_KNOWN_INPUT_MONITORING_APPS
+            or app.startswith("com.apple.")
+            or app.startswith(self.WELL_KNOWN_VENDOR_PREFIXES)
+        )
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
@@ -116,20 +141,47 @@ class Module(ModuleBase):
 
         # Check 3: Flag suspicious apps with Input Monitoring access
         suspicious_apps = []
+        claimed_known_apps = []
         for app in input_monitoring_apps:
-            if app not in self.WELL_KNOWN_INPUT_MONITORING_APPS and not app.startswith("com.apple."):
+            if not self._is_well_known(app):
                 suspicious_apps.append(app)
+            else:
+                claimed_known_apps.append(app)
+
+        # A bundle ID is just a string any app can choose, so a familiar-looking
+        # ID is never proof of who made the app. Keep these visible (info), never drop.
+        if claimed_known_apps:
+            findings.append(
+                Finding(
+                    title=f"Input Monitoring for {len(claimed_known_apps)} app(s) with familiar names",
+                    description=(
+                        f"These app(s) have Input Monitoring access and use the name of a "
+                        f"familiar company or app: {', '.join(sorted(claimed_known_apps))}. "
+                        "This tool has not verified who actually made them, because an app can "
+                        "pick any name. If you don't remember installing one, turn its access "
+                        "off in System Settings > Privacy & Security > Input Monitoring."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.keylogger_indicators.suspicious_input_monitoring",
+                    data={
+                        "check": "claimed_vendor_input_monitoring",
+                        "apps": sorted(claimed_known_apps),
+                    },
+                )
+            )
 
         if suspicious_apps:
             findings.append(
                 Finding(
-                    title=f"Suspicious Input Monitoring access: {len(suspicious_apps)} app(s)",
+                    title=f"Input Monitoring access for {len(suspicious_apps)} unrecognized app(s)",
                     description=(
-                        f"{len(suspicious_apps)} unknown or suspicious app(s) have Input Monitoring "
-                        f"access: {', '.join(sorted(suspicious_apps))}. "
-                        "These apps may not be trusted applications. Input Monitoring is often abused "
-                        "by spyware to capture sensitive information. Investigate and revoke access "
-                        "for apps you don't recognize or trust."
+                        f"{len(suspicious_apps)} app(s) that this tool does not recognize have Input "
+                        f"Monitoring access: {', '.join(sorted(suspicious_apps))}. "
+                        "Many ordinary apps (remappers, game launchers, screen tools) request this, "
+                        "so this is not by itself a sign of spying. If you don't recognize an app "
+                        "or didn't install it, turn its access off in System Settings > Privacy & "
+                        "Security > Input Monitoring."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -138,26 +190,7 @@ class Module(ModuleBase):
                 )
             )
 
-        # Check 4: Check for keyboard event hooks via ioreg
-        keyboard_hooks = self._check_keyboard_hooks()
-        if keyboard_hooks:
-            findings.append(
-                Finding(
-                    title=f"Keyboard event hooks detected: {len(keyboard_hooks)} instance(s)",
-                    description=(
-                        f"Detected {len(keyboard_hooks)} keyboard event hook(s) in the system. "
-                        "These could indicate keylogging activity. Hooks detected: "
-                        f"{', '.join(keyboard_hooks)}. "
-                        "Investigate the source and purpose of these hooks."
-                    ),
-                    severity=Severity.WARNING,
-                    category=self.category,
-                    code="security.keylogger_indicators.keyboard_hooks",
-                    data={"check": "keyboard_hooks", "hooks": keyboard_hooks},
-                )
-            )
-
-        # Check 5: Check for CGEventTap usage
+        # Check 4: Check for CGEventTap usage
         cgeventtap_processes = self._check_cgeventtap_usage()
         if cgeventtap_processes:
             findings.append(
@@ -242,26 +275,6 @@ class Module(ModuleBase):
                         error=None,
                     )
                 )
-            elif check == "keyboard_hooks":
-                hooks = finding.data.get("hooks", [])
-                hooks_list = ", ".join(hooks)
-                actions.append(
-                    Action(
-                        title="Investigate keyboard event hooks",
-                        description=(
-                            f"Keyboard event hooks detected: {hooks_list}.\n"
-                            "These hooks may indicate keylogging activity. To investigate:\n"
-                            "1. Use Activity Monitor to identify which processes are using hooks\n"
-                            "2. Search for the hook names online to understand their purpose\n"
-                            "3. Uninstall suspicious applications\n"
-                            "4. Run anti-malware scans if hooks are not from trusted apps\n"
-                            "5. Consider expert help if hooks persist after cleanup"
-                        ),
-                        risk_level=RiskLevel.SAFE,
-                        success=True,
-                        error=None,
-                    )
-                )
             elif check == "cgeventtap_usage":
                 processes = finding.data.get("processes", [])
                 processes_list = ", ".join(processes)
@@ -320,31 +333,6 @@ class Module(ModuleBase):
                     pass
 
             return apps
-        except Exception:
-            return []
-
-    def _check_keyboard_hooks(self) -> list[str]:
-        """Check for keyboard event hooks via ioreg.
-
-        Returns list of detected keyboard hooks.
-        Returns [] on any failure.
-        """
-        try:
-            result = subprocess.run(
-                ["ioreg", "-l"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if result.returncode != 0:
-                return []
-
-            hooks = []
-            for line in result.stdout.split("\n"):
-                if "HIDKeyboard" in line or "KeyboardEventTap" in line:
-                    hooks.append(line.strip())
-
-            return hooks[:10] if hooks else []  # Limit to first 10 to avoid noise
         except Exception:
             return []
 

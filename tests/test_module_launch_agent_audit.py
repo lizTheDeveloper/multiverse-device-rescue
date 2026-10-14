@@ -1,32 +1,49 @@
-import os
-import pytest
+import plistlib
+import shutil
 import sys
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from tempfile import TemporaryDirectory
+from unittest.mock import patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Skipped off POSIX: launch_agent_audit is macOS-only; these fixtures are ~/Library/LaunchAgents paths.
-# The module under test cannot run on Windows, so there is nothing here a
-# Windows job could meaningfully exercise — and a test that fails for the
-# platform rather than for the code teaches people to ignore the suite.
-pytestmark = pytest.mark.skipif(
-    os.name != "posix",
-    reason="launch_agent_audit is macOS-only; these fixtures are ~/Library/LaunchAgents paths",
-)
-
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+
+
+_POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32", reason="needs POSIX symlinks (symlink_to needs privileges on Windows)"
+)
+
+
+@pytest.fixture
+def tmp_path(tmp_path):
+    """On Linux, a scratch dir that is not under /tmp.
+
+    This module flags programs in world-writable folders (/tmp, /var/tmp) as
+    suspicious, and pytest's tmp_path is /tmp/pytest-of-... on Linux, so a
+    "healthy" fixture program there would be flagged. On macOS tmp_path is
+    under /private/var/folders and is used unchanged, as on Windows.
+    """
+    if not sys.platform.startswith("linux"):
+        yield tmp_path
+        return
+    d = Path(tempfile.mkdtemp(prefix="rescue-test-", dir=Path.home()))
+    try:
+        yield d
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def _make_profile():
     return SystemProfile(
         platform=Platform.DARWIN,
         os_name="macOS",
-        os_version="15.2",
+        os_version="13.0",
         architecture="arm64",
-        cpu_model="Apple M2",
+        cpu_model="Apple M1",
         cpu_cores=8,
         ram_bytes=16 * 1024**3,
     )
@@ -38,301 +55,167 @@ def _get_module():
     return next(m for m in modules if m.name == "launch_agent_audit")
 
 
-def _make_subprocess_result(stdout="", stderr="", returncode=0):
-    result = MagicMock()
-    result.stdout = stdout
-    result.stderr = stderr
-    result.returncode = returncode
-    return result
+def _check(tmp_path, plists):
+    """Write real plists to tmp_path (the user LaunchAgents dir) and run check()."""
+    mod = _get_module()
+    for name, data in plists.items():
+        with open(tmp_path / f"{name}.plist", "wb") as f:
+            plistlib.dump(data, f)
+    real_scan = mod._scan_launch_agents_dir
+
+    def scan(directory):
+        if directory == Path.home() / "Library" / "LaunchAgents":
+            return real_scan(tmp_path)
+        return []
+
+    with patch.object(mod, "_scan_launch_agents_dir", side_effect=scan):
+        return mod, mod.check(_make_profile())
 
 
-def _fake_defaults_read_healthy():
-    """Normal case: healthy launch agents"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        # Mocking find commands for user and system LaunchAgents
-        if "find" in cmd_str and "LaunchAgents" in cmd_str:
-            if "/Library/LaunchAgents" in cmd_str and "testuser" in cmd_str:
-                # User LaunchAgents directory
-                return _make_subprocess_result(
-                    "/Users/testuser/Library/LaunchAgents/com.example.app.plist\n"
-                    "/Users/testuser/Library/LaunchAgents/com.another.service.plist\n"
-                )
-            elif "/Library/LaunchAgents" in cmd_str:
-                # System LaunchAgents directory
-                return _make_subprocess_result(
-                    "/Library/LaunchAgents/com.system.app.plist\n"
-                )
-
-        # Mocking defaults read commands
-        if "defaults read" in cmd_str:
-            if "com.example.app" in cmd_str:
-                if "Label" in cmd_str:
-                    return _make_subprocess_result("com.example.app\n")
-                elif "ProgramArguments" in cmd_str:
-                    return _make_subprocess_result(
-                        "(\n  /usr/local/bin/app,\n  -arg1\n)\n"
-                    )
-            elif "com.another.service" in cmd_str:
-                if "Label" in cmd_str:
-                    return _make_subprocess_result("com.another.service\n")
-                elif "ProgramArguments" in cmd_str:
-                    return _make_subprocess_result(
-                        "(\n  /opt/bin/service\n)\n"
-                    )
-            elif "com.system.app" in cmd_str:
-                if "Label" in cmd_str:
-                    return _make_subprocess_result("com.system.app\n")
-                elif "ProgramArguments" in cmd_str:
-                    return _make_subprocess_result(
-                        "(\n  /Applications/App.app/Contents/MacOS/App\n)\n"
-                    )
-
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_defaults_read_suspicious_paths():
-    """Case with suspicious paths: /tmp/, /var/tmp/, hidden dirs, non-existent"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "find" in cmd_str and "LaunchAgents" in cmd_str:
-            if "/Library/LaunchAgents" in cmd_str and "testuser" in cmd_str:
-                return _make_subprocess_result(
-                    "/Users/testuser/Library/LaunchAgents/com.tmp.app.plist\n"
-                    "/Users/testuser/Library/LaunchAgents/com.vartmp.app.plist\n"
-                    "/Users/testuser/Library/LaunchAgents/com.hidden.app.plist\n"
-                    "/Users/testuser/Library/LaunchAgents/com.missing.app.plist\n"
-                )
-            else:
-                return _make_subprocess_result("")
-
-        if "defaults read" in cmd_str:
-            if "com.tmp.app" in cmd_str:
-                if "Label" in cmd_str:
-                    return _make_subprocess_result("com.tmp.app\n")
-                elif "ProgramArguments" in cmd_str:
-                    return _make_subprocess_result("(\n  /tmp/suspicious.app\n)\n")
-            elif "com.vartmp.app" in cmd_str:
-                if "Label" in cmd_str:
-                    return _make_subprocess_result("com.vartmp.app\n")
-                elif "ProgramArguments" in cmd_str:
-                    return _make_subprocess_result("(\n  /var/tmp/malware\n)\n")
-            elif "com.hidden.app" in cmd_str:
-                if "Label" in cmd_str:
-                    return _make_subprocess_result("com.hidden.app\n")
-                elif "ProgramArguments" in cmd_str:
-                    return _make_subprocess_result("(\n  /Users/testuser/.hidden/app\n)\n")
-            elif "com.missing.app" in cmd_str:
-                if "Label" in cmd_str:
-                    return _make_subprocess_result("com.missing.app\n")
-                elif "ProgramArguments" in cmd_str:
-                    return _make_subprocess_result("(\n  /nonexistent/path/app\n)\n")
-
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_defaults_read_obfuscated_names():
-    """Case with obfuscated names"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "find" in cmd_str and "LaunchAgents" in cmd_str:
-            if "/Library/LaunchAgents" in cmd_str and "testuser" in cmd_str:
-                return _make_subprocess_result(
-                    "/Users/testuser/Library/LaunchAgents/com.x.plist\n"
-                    "/Users/testuser/Library/LaunchAgents/com.a.plist\n"
-                )
-            else:
-                return _make_subprocess_result("")
-
-        if "defaults read" in cmd_str:
-            if "com.x" in cmd_str:
-                if "Label" in cmd_str:
-                    return _make_subprocess_result("com.x\n")
-                elif "ProgramArguments" in cmd_str:
-                    return _make_subprocess_result("(\n  /usr/local/bin/x\n)\n")
-            elif "com.a" in cmd_str:
-                if "Label" in cmd_str:
-                    return _make_subprocess_result("com.a\n")
-                elif "ProgramArguments" in cmd_str:
-                    return _make_subprocess_result("(\n  /usr/local/bin/a\n)\n")
-
-        return _make_subprocess_result()
-    return fake_run
-
-
-def _fake_defaults_read_too_many_agents():
-    """Case with more than 20 user agents"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "find" in cmd_str and "LaunchAgents" in cmd_str:
-            if "/Library/LaunchAgents" in cmd_str and "testuser" in cmd_str:
-                # Return 25 agents
-                agents = "\n".join(
-                    f"/Users/testuser/Library/LaunchAgents/com.agent{i}.plist"
-                    for i in range(25)
-                )
-                return _make_subprocess_result(agents + "\n")
-            else:
-                return _make_subprocess_result("")
-
-        if "defaults read" in cmd_str:
-            # Extract agent number from plist path
-            for i in range(25):
-                if f"com.agent{i}" in cmd_str:
-                    if "Label" in cmd_str:
-                        return _make_subprocess_result(f"com.agent{i}\n")
-                    elif "ProgramArguments" in cmd_str:
-                        return _make_subprocess_result(
-                            f"(\n  /usr/local/bin/agent{i}\n)\n"
-                        )
-
-        return _make_subprocess_result()
-    return fake_run
+def _real_program(tmp_path, name="svc"):
+    p = tmp_path / name
+    p.write_text("x")
+    return str(p)
 
 
 def test_launch_agent_audit_discovered():
     mod = _get_module()
     assert mod.name == "launch_agent_audit"
     assert mod.category == "security"
+    assert Platform.DARWIN in mod.platforms
     assert mod.risk_level == RiskLevel.SAFE
 
 
-def test_launch_agent_audit_healthy():
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_defaults_read_healthy()):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.home", return_value=Path("/Users/testuser")):
-                result = mod.check(_make_profile())
-    # Should have INFO findings for each agent, but no WARNINGs/CRITICALs
-    assert result.has_issues  # Should have INFO entries for agents
-    for finding in result.findings:
-        assert finding.severity in [Severity.INFO]
+def test_launch_agent_audit_healthy(tmp_path):
+    prog = _real_program(tmp_path)
+    _, result = _check(
+        tmp_path,
+        {"com.example.app": {"Label": "com.example.app", "ProgramArguments": [prog]}},
+    )
+    assert result.findings
+    assert all(f.severity == Severity.INFO for f in result.findings)
 
 
-def test_launch_agent_audit_suspicious_tmp_path():
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_defaults_read_suspicious_paths()):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.home", return_value=Path("/Users/testuser")):
-                result = mod.check(_make_profile())
-    assert result.has_issues
-    # Should have a WARNING for /tmp/ path
+def test_launch_agent_audit_program_arguments_array_no_false_missing(tmp_path):
+    """Regression: ProgramArguments must be parsed as an array, not as quoted text."""
+    prog = _real_program(tmp_path, "redis-server")
+    _, result = _check(
+        tmp_path,
+        {
+            "homebrew.mxcl.redis": {
+                "Label": "homebrew.mxcl.redis",
+                "ProgramArguments": [prog, "/opt/homebrew/etc/redis.conf"],
+                "KeepAlive": True,
+                "RunAtLoad": True,
+            }
+        },
+    )
+    assert not any(f.data.get("check") == "missing_program" for f in result.findings)
+    info = [f for f in result.findings if f.data.get("check") == "agent_info"]
+    assert info[0].data["program"] == prog
+    assert '"' not in info[0].data["program"]
+
+
+def test_launch_agent_audit_program_key(tmp_path):
+    prog = _real_program(tmp_path)
+    _, result = _check(
+        tmp_path,
+        {"com.example.a": {"Label": "com.example.a", "Program": prog}},
+    )
+    assert not any(f.data.get("check") == "missing_program" for f in result.findings)
+
+
+def test_launch_agent_audit_suspicious_tmp_path(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.tmp.app": {"Label": "com.tmp.app", "Program": "/tmp/suspicious.app"}},
+    )
     assert any(
-        f.severity == Severity.WARNING and "temporary directory" in f.title.lower()
+        f.severity == Severity.CRITICAL
         and f.data.get("check") == "suspicious_path"
+        and "any program" in f.description
         for f in result.findings
     )
 
 
-def test_launch_agent_audit_suspicious_vartmp_path():
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_defaults_read_suspicious_paths()):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.home", return_value=Path("/Users/testuser")):
-                result = mod.check(_make_profile())
-    assert result.has_issues
-    # Should have a WARNING for /var/tmp path (covered by temporary directory check)
+def test_launch_agent_audit_suspicious_vartmp_path(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.vartmp.app": {"Label": "com.vartmp.app", "Program": "/var/tmp/malware"}},
+    )
     assert any(
-        f.severity == Severity.WARNING and "temporary directory" in f.title.lower()
-        and f.data.get("check") == "suspicious_path"
+        f.severity == Severity.CRITICAL and f.data.get("check") == "suspicious_path"
         for f in result.findings
     )
 
 
-def test_launch_agent_audit_hidden_directory():
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_defaults_read_suspicious_paths()):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.home", return_value=Path("/Users/testuser")):
-                result = mod.check(_make_profile())
-    assert result.has_issues
-    # Should have a WARNING for hidden directory
+def test_launch_agent_audit_hidden_directory(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.hidden.app": {"Label": "com.hidden.app", "Program": "/Users/testuser/.hidden/app"}},
+    )
     assert any(
         f.severity == Severity.WARNING and "hidden" in f.title.lower()
         for f in result.findings
     )
 
 
-def test_launch_agent_audit_missing_program():
-    mod = _get_module()
+def test_launch_agent_audit_developer_dirs_not_hidden_flagged(tmp_path):
+    plists = {
+        "com.dev.nvm": {"Label": "com.dev.nvm", "Program": "/Users/u/.nvm/versions/node/v22/bin/node"},
+        "com.dev.venv": {"Label": "com.dev.venv", "Program": "/Users/u/src/x/.venv/bin/python"},
+    }
+    _, result = _check(tmp_path, plists)
+    assert not any(f.data.get("check") == "suspicious_path" for f in result.findings)
 
-    def path_exists_side_effect(self):
-        """Mock exists() to return False only for /nonexistent/path/app"""
-        path_str = str(self)
-        if "/nonexistent/path/app" in path_str:
-            return False
-        return True
 
-    with patch("subprocess.run", side_effect=_fake_defaults_read_suspicious_paths()):
-        with patch("pathlib.Path.home", return_value=Path("/Users/testuser")):
-            with patch("pathlib.Path.exists", path_exists_side_effect):
-                result = mod.check(_make_profile())
-    assert result.has_issues
-    # Should have a WARNING for non-existent program
+def test_launch_agent_audit_missing_program(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.missing.app": {"Label": "com.missing.app", "Program": "/nonexistent/path/app"}},
+    )
     assert any(
-        f.severity == Severity.WARNING and "does not exist" in f.title.lower()
-        and f.data.get("check") == "missing_program"
+        f.severity == Severity.WARNING and f.data.get("check") == "missing_program"
         for f in result.findings
     )
 
 
-def test_launch_agent_audit_obfuscated_names():
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_defaults_read_obfuscated_names()):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.home", return_value=Path("/Users/testuser")):
-                result = mod.check(_make_profile())
-    assert result.has_issues
-    # Should have WARNINGs for obfuscated names
-    assert any(
-        f.severity == Severity.WARNING and "obfuscated" in f.title.lower()
-        for f in result.findings
+def test_launch_agent_audit_obfuscated_names(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.x": {"Label": "com.x", "Program": "/usr/local/x"}},
     )
+    assert any(f.data.get("check") == "obfuscated_name" for f in result.findings)
 
 
-def test_launch_agent_audit_too_many_agents():
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_defaults_read_too_many_agents()):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.home", return_value=Path("/Users/testuser")):
-                result = mod.check(_make_profile())
-    assert result.has_issues
-    # Should have a WARNING for too many agents
-    assert any(
-        f.severity == Severity.WARNING and "unusual" in f.title.lower()
-        and f.data.get("check") == "too_many_agents"
-        for f in result.findings
+def test_launch_agent_audit_bin_sh_not_obfuscated(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.sh": {"Label": "com.sh", "ProgramArguments": ["/bin/sh", "-c", "true"]}},
     )
+    assert not any(f.data.get("check") == "obfuscated_name" for f in result.findings)
 
 
-def test_launch_agent_audit_fix_is_informational():
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_defaults_read_suspicious_paths()):
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.home", return_value=Path("/Users/testuser")):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
-    # fix() should always succeed with informational messages
+def test_launch_agent_audit_too_many_agents_is_info(tmp_path):
+    prog = _real_program(tmp_path)
+    plists = {
+        f"com.agent{i}": {"Label": f"com.agent{i}", "ProgramArguments": [prog]}
+        for i in range(25)
+    }
+    _, result = _check(tmp_path, plists)
+    many = [f for f in result.findings if f.data.get("check") == "too_many_agents"]
+    assert many and many[0].severity == Severity.INFO
+    assert "malware" not in many[0].description.lower()
+    assert "adware" not in many[0].description.lower()
+
+
+def test_launch_agent_audit_fix_is_informational(tmp_path):
+    mod, check = _check(
+        tmp_path,
+        {"com.tmp.app": {"Label": "com.tmp.app", "Program": "/tmp/suspicious.app"}},
+    )
+    fix = mod.fix(check, Mode.MANUAL)
     assert fix.all_succeeded
-    # Should have at least one action
     assert len(fix.actions) > 0
 
 
@@ -341,3 +224,96 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.launch_agent_audit.") for c in declared)
+
+
+# --- identities an attacker controls must not hide anything -------------------
+
+
+def _checks(result, check):
+    return [f for f in result.findings if f.data.get("check") == check]
+
+
+def test_tmp_agent_is_critical(tmp_path):
+    _, result = _check(tmp_path, {"com.a.b": {"Label": "com.a.b", "Program": "/tmp/x"}})
+    assert any(f.severity == Severity.CRITICAL for f in _checks(result, "suspicious_path"))
+
+
+def test_developer_tool_folder_is_listed_as_info_not_dropped(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.dev.nvm": {"Label": "com.dev.nvm", "Program": "/Users/u/.nvm/versions/node/v22/bin/node"}},
+    )
+    listed = _checks(result, "developer_tool_path")
+    assert len(listed) == 1
+    assert listed[0].severity == Severity.INFO
+    assert "developer tool folder" in listed[0].title
+    assert not any(f.severity in (Severity.WARNING, Severity.CRITICAL) for f in result.findings
+                   if f.data.get("check") == "suspicious_path")
+
+
+def test_developer_dir_names_cannot_cover_other_hidden_folders(tmp_path):
+    for i, prog in enumerate(
+        (
+            "/Users/me/.hidden/.nvm/bin/x",
+            "/Users/me/.nvm/../.evil/x",
+            "/Users/me/.xvenv/bin/x",
+        )
+    ):
+        sub = tmp_path / str(i)
+        sub.mkdir()
+        _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": prog}})
+        assert any(f.severity == Severity.WARNING for f in _checks(result, "suspicious_path")), prog
+
+
+def test_traversal_and_shell_string_into_tmp_are_critical(tmp_path):
+    cases = [
+        {"Program": "/Users/me/../../tmp/x"},
+        {"ProgramArguments": ["/bin/sh", "-c", "cd /var/tmp && ./x"]},
+    ]
+    for i, extra in enumerate(cases):
+        sub = tmp_path / f"p{i}"
+        sub.mkdir()
+        _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", **extra}})
+        assert any(f.severity == Severity.CRITICAL for f in _checks(result, "suspicious_path")), extra
+
+
+@_POSIX_ONLY
+def test_symlink_into_tmp_is_critical(tmp_path):
+    link = tmp_path / "link"
+    link.symlink_to("/private/tmp")
+    sub = tmp_path / "p"
+    sub.mkdir()
+    _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": str(link / "x")}})
+    assert any(f.severity == Severity.CRITICAL for f in _checks(result, "suspicious_path"))
+
+
+def test_short_name_exemption_does_not_cover_user_writable_bin_dirs(tmp_path):
+    for i, prog in enumerate(("/usr/local/bin/ab", "/opt/homebrew/bin/ab")):
+        sub = tmp_path / str(i)
+        sub.mkdir()
+        _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": prog}})
+        assert _checks(result, "obfuscated_name"), prog
+
+
+def test_short_name_exemption_cannot_be_reached_by_traversal(tmp_path):
+    _, result = _check(
+        tmp_path, {"com.a.b": {"Label": "com.a.b", "Program": "/bin/../Users/me/ab"}}
+    )
+    assert _checks(result, "obfuscated_name")
+
+
+def test_odd_plist_shapes_and_unreadable_files_are_still_listed(tmp_path):
+    (tmp_path / "broken.plist").write_text("not a plist")
+    _, result = _check(
+        tmp_path,
+        {
+            "com.a.one": {"Label": "com.a.one", "ProgramArguments": "/Users/me/.hidden/x"},
+            "com.a.two": {"Label": "com.a.two", "Program": ["/Users/me/.hidden/y"]},
+            "com.a.three": {"Label": "com.a.three"},
+            "com.a.four": {"Program": "/Users/me/z"},
+        },
+    )
+    labels = {f.data.get("label") for f in result.findings}
+    assert {"broken", "com.a.one", "com.a.two", "com.a.three", "com.a.four"} <= labels
+    hidden = _checks(result, "suspicious_path")
+    assert {f.data["label"] for f in hidden} >= {"com.a.one", "com.a.two"}

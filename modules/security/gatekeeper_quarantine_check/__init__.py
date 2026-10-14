@@ -101,15 +101,19 @@ class Module(ModuleBase):
         if apps_without_quarantine:
             findings.append(
                 Finding(
-                    title=f"Quarantine flag removed from {len(apps_without_quarantine)} app(s)",
+                    title=f"{len(apps_without_quarantine)} app(s) have no download-quarantine marker",
                     description=(
-                        f"The following {len(apps_without_quarantine)} app(s) have had their "
-                        f"quarantine flag manually removed, potentially bypassing Gatekeeper "
-                        f"assessment: {', '.join(sorted(apps_without_quarantine))}. "
-                        "This could indicate either intentional security circumvention or "
-                        "evidence of compromise."
+                        f"{len(apps_without_quarantine)} app(s) do not carry macOS's "
+                        "'downloaded from the internet' (quarantine) marker: "
+                        f"{', '.join(sorted(apps_without_quarantine))}. "
+                        "This is normal and not a sign of tampering. Apps installed by an "
+                        "installer package, by the app's own auto-updater, through Homebrew, "
+                        "or copied from another Mac usually have no quarantine marker. "
+                        "This check cannot tell whether a marker was ever present, so it is "
+                        "shown for information only. Gatekeeper still checks these apps' "
+                        "code signatures."
                     ),
-                    severity=Severity.WARNING,
+                    severity=Severity.INFO,
                     category=self.category,
                     code="security.gatekeeper_quarantine_check.quarantine_removed",
                     data={"check": "quarantine_removed", "apps": apps_without_quarantine},
@@ -196,13 +200,13 @@ class Module(ModuleBase):
                 app_list = ", ".join(sorted(apps))
                 actions.append(
                     Action(
-                        title="Review and restore quarantine flags on suspicious apps",
+                        title="Apps without a download-quarantine marker",
                         description=(
-                            f"The following apps have quarantine flags removed: {app_list}\n"
-                            "Restore quarantine flags with: xattr -d com.apple.quarantine /path/to/app\n"
-                            "Then verify Gatekeeper assessment with: spctl -a -t execute -vvv /path/to/app\n"
-                            "Review each app and determine if the quarantine flag removal was "
-                            "legitimate or indicates a security issue."
+                            f"These apps have no quarantine marker: {app_list}\n"
+                            "This is usually normal (installer packages, auto-updaters and "
+                            "Homebrew do not set it). If you do not remember installing one of "
+                            "them, check it with: spctl -a -t execute -vvv /path/to/app\n"
+                            "No action is needed if you installed them yourself."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -278,8 +282,9 @@ class Module(ModuleBase):
 
         try:
             # Check common system and third-party apps
+            # Safari is a built-in system app (delivered via the OS and never
+            # quarantined), so it is deliberately not checked.
             check_apps = [
-                "Safari.app",
                 "Firefox.app",
                 "Google Chrome.app",
                 "Visual Studio Code.app",

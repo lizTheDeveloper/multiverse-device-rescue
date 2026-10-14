@@ -480,7 +480,9 @@ defaults read com.apple.ScreenTimeAgent ScreenTimePasscodeSet
 defaults read com.apple.applicationaccess
 defaults read …
 dscl . -list /Users
+dscl . -read /Groups/admin GroupMembership
 dscl . -read … ParentalControls
+dscl . -read … UniqueID UserShell IsHidden NFSHomeDirectory
 ```
 
 ### `sleep_wake_issues`
@@ -1296,7 +1298,6 @@ npm whoami
 ### `ai_worm_network`
 
 ```text
-ps -p … -o args=
 ps aux
 ```
 
@@ -1410,6 +1411,7 @@ security find-certificate -c … -p /Library/Keychains/login.keychain-db
 ```text
 openssl x509 -noout -issuer
 openssl x509 -noout -subject -dates
+security dump-trust-settings …
 security find-certificate -a -p /Library/Keychains/System.keychain
 ```
 
@@ -1478,6 +1480,7 @@ fdesetup status
 defaults read /Library/Preferences/com.apple.networkd DNSSettings
 dig +short …
 networksetup -getdnsservers Wi-Fi
+route -n get default
 scutil --dns
 ```
 
@@ -1579,28 +1582,17 @@ kextstat
 ### `keylogger_indicators`
 
 ```text
-ioreg -l
 log show --last 1h --predicate "eventMessage CONTAINS 'CGEventTap'" --style compact
 sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceListenEvent' AND auth_value=2"
 ```
 
 ### `launch_agent_audit`
 
-```text
-defaults read … Label
-defaults read … ProgramArguments
-find … -name '*.plist' -type f
-```
+Runs no external commands; reads files and system APIs only.
 
 ### `launchd_persistence_audit`
 
-```text
-defaults read … KeepAlive
-defaults read … Label
-defaults read … Program
-defaults read … ProgramArguments
-defaults read … RunAtLoad
-```
+Runs no external commands; reads files and system APIs only.
 
 ### `linux_account_audit`
 
@@ -1750,7 +1742,6 @@ systemsetup -getremotelogin
 ### `rootkit_check`
 
 ```text
-/bin/ls -la /
 /bin/ps -eo pid
 /usr/bin/codesign -v …
 /usr/bin/csrutil status

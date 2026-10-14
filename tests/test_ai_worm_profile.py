@@ -27,6 +27,9 @@ def test_profile_includes_all_modules():
         "ai_worm_persistence",
         "ai_worm_network",
         "ai_worm_lateral",
+        "launch_agent_audit",
+        "launchd_persistence_audit",
+        "scheduled_tasks_audit",
         "mvt_spyware_scan",
     }
     assert set(profile.include_modules) == expected
@@ -48,6 +51,9 @@ def test_profile_filters_modules():
         "ai_worm_persistence",
         "ai_worm_network",
         "ai_worm_lateral",
+        "launch_agent_audit",
+        "launchd_persistence_audit",
+        "scheduled_tasks_audit",
         "mvt_spyware_scan",
     }
     assert filtered_names == expected
@@ -65,6 +71,9 @@ def test_all_modules_discoverable():
         "ai_worm_persistence",
         "ai_worm_network",
         "ai_worm_lateral",
+        "launch_agent_audit",
+        "launchd_persistence_audit",
+        "scheduled_tasks_audit",
         "mvt_spyware_scan",
     }
     assert expected.issubset(module_names)

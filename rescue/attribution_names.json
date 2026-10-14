@@ -1,0 +1,26 @@
+{
+  "_comment": "Friendly maker names. team_ids: Apple Developer Team ID -> company; every entry was confirmed with `codesign -dv --verbose=2` against an app actually installed on a real Mac. label_prefixes: launchd label prefix -> what it is.",
+  "team_ids": {
+    "EQHXZ8M8AV": "Google LLC",
+    "UBF8T346G9": "Microsoft Corporation",
+    "G7HH3F8CAK": "Dropbox, Inc.",
+    "BJ4HAAB9B3": "Zoom Video Communications, Inc.",
+    "CKG9MXH72F": "Mullvad VPN AB",
+    "HUAQ24HBR6": "Orbital Labs (OrbStack)",
+    "9BNSXJN65R": "Docker Inc",
+    "MXGJJ98X76": "Valve Corporation (Steam)",
+    "U68MSDN6DR": "Signal Messenger, LLC",
+    "Q6L2SF6YDW": "Anthropic PBC",
+    "KL8N8XSYF4": "Brave Software, Inc.",
+    "VDXQ22DGB9": "Anysphere (Cursor)",
+    "LBQJ96FQ8D": "Notion Labs, Incorporated",
+    "6JSW4SJWN9": "Dynalist Inc. (Obsidian)",
+    "3MU9H2V9Y9": "Infra Technologies, Inc (Ollama)",
+    "75GAHG3SZQ": "VideoLAN (VLC)",
+    "94KV3E626L": "Amazon (AMZN Mobile LLC)",
+    "74J34U3R6X": "Apple"
+  },
+  "label_prefixes": {
+    "homebrew.mxcl.": "Homebrew service"
+  }
+}

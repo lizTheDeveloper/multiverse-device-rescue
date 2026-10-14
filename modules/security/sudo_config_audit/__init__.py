@@ -416,8 +416,16 @@ class Module(ModuleBase):
                 text=True,
             )
 
-            # If returncode is 0, the root account exists and is enabled
-            if result.returncode == 0:
+            # dscl exits 0 even when the attribute is absent, printing
+            # "No such key: AuthenticationAuthority". A disabled root account
+            # (the macOS default) has no AuthenticationAuthority record, so the
+            # attribute must actually be present in the output.
+            output = result.stdout.strip()
+            if (
+                result.returncode == 0
+                and "No such key" not in output
+                and output.startswith("AuthenticationAuthority")
+            ):
                 return Finding(
                     title="Root account is enabled",
                     description=(

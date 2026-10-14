@@ -22,6 +22,40 @@ BACKDOOR_PORTS = {4444, 5555, 8080, 8888, 1337, 31337}
 # Well-known legitimate ports that are expected
 LEGITIMATE_PORTS = {80, 443, 53, 22, 993, 587}
 
+# Remote ports normal for everyday software (5228 Google/FCM push, 5223 Apple push)
+WELL_KNOWN_REMOTE_PORTS = {5228, 5223}
+
+# Browsers legitimately hold hundreds of connections (tabs, extensions, helpers)
+BROWSER_PREFIXES = (
+    "google", "chrome", "safari", "firefox", "brave", "arc", "opera",
+    "vivaldi", "msedge", "microsoft\\x20edge", "com.apple.webkit",
+)
+BROWSER_CONNECTION_THRESHOLD = 300
+
+# Developer tools and AI coding agents poll APIs and hold many sockets
+DEV_TOOL_PREFIXES = ("node", "opencode", "claude", "python", "code", "cursor", "electron")
+DEV_TOOL_CONNECTION_THRESHOLD = 60
+
+DEFAULT_CONNECTION_THRESHOLD = 20
+
+
+def _is_loopback(addr: str) -> bool:
+    return addr in ("::1", "localhost") or addr.startswith("127.")
+
+
+def _is_link_local_v6(addr: str) -> bool:
+    return addr.lower().startswith("fe80")
+
+
+def _threshold_for(process: str) -> int:
+    name = process.lower()
+    if name.startswith(BROWSER_PREFIXES):
+        return BROWSER_CONNECTION_THRESHOLD
+    if name.startswith(DEV_TOOL_PREFIXES):
+        return DEV_TOOL_CONNECTION_THRESHOLD
+    return DEFAULT_CONNECTION_THRESHOLD
+
+
 # Private IP ranges
 PRIVATE_IP_RANGES = [
     "10.",
@@ -102,24 +136,50 @@ class Module(ModuleBase):
         # Check for processes with many outbound connections (possible botnet)
         process_conn_count = defaultdict(list)
         for conn in connections:
+            if _is_loopback(conn["remote_addr"]):
+                continue  # talking to itself, not the network
             if conn["state"] == "ESTABLISHED":
                 process_key = f"{conn['process']} (PID {conn['pid']})"
                 process_conn_count[process_key].append(conn)
 
         high_conn_processes = []
+        familiar_many = []
         for process_key, conns in process_conn_count.items():
-            if len(conns) > 20:
+            if len(conns) > _threshold_for(conns[0]["process"]):
                 high_conn_processes.append(f"{process_key}: {len(conns)} connections")
+            elif len(conns) > DEFAULT_CONNECTION_THRESHOLD:
+                # The higher browser/developer limit applies only because of the
+                # process NAME, which any program can choose. Keep it listed.
+                familiar_many.append(f"{process_key}: {len(conns)} connections")
+
+        if familiar_many:
+            findings.append(
+                Finding(
+                    title=f"Programs with many connections: {len(familiar_many)}",
+                    description=(
+                        "These programs have many open connections, which is normal for "
+                        "web browsers and developer tools:\n"
+                        f"{chr(10).join(familiar_many)}\n\n"
+                        "This tool went by the program's name and has not verified who made it. "
+                        "If you do not recognize one, look it up."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.network_connections_monitor.high_connection_count",
+                    data={"check": "many_connections_familiar_name", "processes": familiar_many},
+                )
+            )
 
         if high_conn_processes:
             findings.append(
                 Finding(
                     title=f"WARNING: Processes with high connection count: {len(high_conn_processes)}",
                     description=(
-                        f"Found {len(high_conn_processes)} process(es) with >20 active connections:\n"
+                        f"Found {len(high_conn_processes)} process(es) holding an unusually "
+                        f"large number of network connections:\n"
                         f"{chr(10).join(high_conn_processes)}\n\n"
-                        "This may indicate a botnet, scanner, or malicious activity. "
-                        "Review these processes."
+                        "Web browsers, sync tools and servers often do this on purpose. "
+                        "If you do not recognize the program, look it up before worrying."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -130,14 +190,45 @@ class Module(ModuleBase):
 
         # Check for connections on unusual ports from unknown processes
         unusual_port_connections = []
+        push_port_connections = []
         for conn in connections:
             port = conn["port"]
             # Flag if on unusual port (not in legitimate list) and not a system port (< 1024)
+            if _is_loopback(conn["remote_addr"]) or _is_link_local_v6(conn["remote_addr"]):
+                continue  # stays on this computer or the local link
+            if port in WELL_KNOWN_REMOTE_PORTS:
+                # Push-notification ports are common, but a port number is chosen
+                # by the program, so list these as info instead of skipping them.
+                push_port_connections.append(
+                    f"{conn['process']} -> {conn['remote_addr']}:{port}"
+                )
+                continue
             if port not in LEGITIMATE_PORTS and port not in BACKDOOR_PORTS:
                 if port > 1024:  # Skip system ports
                     unusual_port_connections.append(
                         f"{conn['process']} -> {conn['remote_addr']}:{port}"
                     )
+
+        if push_port_connections:
+            findings.append(
+                Finding(
+                    title=f"Connections on push-notification ports: {len(push_port_connections)}",
+                    description=(
+                        "Ports 5223 and 5228 are used for Apple and Google push notifications, "
+                        "so this is normal for chat and mail apps:\n"
+                        f"{chr(10).join(push_port_connections[:20])}\n\n"
+                        "A port number does not prove who is using it; check that you "
+                        "recognize the programs listed."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.network_connections_monitor.unusual_ports",
+                    data={
+                        "check": "push_port_connections",
+                        "connections": push_port_connections,
+                    },
+                )
+            )
 
         if unusual_port_connections:
             findings.append(
@@ -147,7 +238,8 @@ class Module(ModuleBase):
                         f"Found {len(unusual_port_connections)} connection(s) on unusual ports:\n"
                         f"{chr(10).join(unusual_port_connections[:20])}"
                         f"{chr(10) + '... and more' if len(unusual_port_connections) > 20 else ''}\n\n"
-                        "Review these connections to ensure they are legitimate."
+                        "Many apps use uncommon ports for normal reasons. Check that you "
+                        "recognize the programs listed."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

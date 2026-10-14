@@ -1,4 +1,5 @@
 import plistlib
+import re
 from pathlib import Path
 
 from rescue.models import (
@@ -55,13 +56,16 @@ class Module(ModuleBase):
         if user_agent_count > 20:
             findings.append(
                 Finding(
-                    title=f"Excessive user launch agents ({user_agent_count})",
+                    title=f"{user_agent_count} launch agents are set up for your user",
                     description=(
                         f"Found {user_agent_count} user-level launch agents. "
-                        "More than 20 agents can slow down system boot time. "
-                        "Review and remove unnecessary or unused agents."
+                        "Apps, updaters and developer tools (such as Homebrew services) "
+                        "each add one, so a high number is common and not a problem by "
+                        "itself. Many at once can slightly slow login, and you may "
+                        "want to remove ones left behind by apps you uninstalled. "
+                        "Anything that looks wrong is reported separately."
                     ),
-                    severity=Severity.WARNING,
+                    severity=Severity.INFO,
                     category=self.category,
                     code="security.scheduled_tasks_audit.excessive_user_agents",
                     data={
@@ -126,7 +130,8 @@ class Module(ModuleBase):
                         title=f"Review and reduce excessive user launch agents ({count})",
                         description=(
                             f"Found {count} user-level launch agents. "
-                            "More than 20 agents can slow down system boot.\n\n"
+                            "This is common and usually harmless; many at once can "
+                            "slightly slow login.\n\n"
                             "To review:\n"
                             "1. Open: ~/Library/LaunchAgents in Finder\n"
                             "2. Review each plist file\n"
@@ -155,9 +160,18 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
+    # "agent_type" is the scan location. Use a readable noun in titles so a
+    # user agent reads "launch agent (yours)" rather than "launch user".
+    _TYPE_NOUNS = {
+        "user": "agent (yours)",
+        "system": "agent (all users)",
+        "daemon": "daemon (system-wide)",
+    }
+
     def _scan_launch_agents(self, directory: Path, agent_type: str) -> list[Finding]:
         """Scan a directory for launch agents/daemons and parse plists."""
         findings = []
+        noun = self._TYPE_NOUNS.get(agent_type, agent_type)
 
         if not directory.exists():
             return findings
@@ -172,10 +186,24 @@ class Module(ModuleBase):
                 with open(plist_path, "rb") as f:
                     plist_data = plistlib.load(f)
 
+                if not isinstance(plist_data, dict):
+                    raise ValueError("plist root is not a dictionary")
+                # Values come from a file anyone can write: never assume types.
                 label = plist_data.get("Label", plist_path.stem)
+                label = label if isinstance(label, str) and label else plist_path.stem
                 program = plist_data.get("Program", "")
-                program_args = plist_data.get("ProgramArguments", [])
-                disabled = plist_data.get("Disabled", False)
+                raw_args = plist_data.get("ProgramArguments", [])
+                if isinstance(program, (list, tuple)):
+                    program = " ".join(str(a) for a in program)
+                elif not isinstance(program, str):
+                    program = str(program) if program else ""
+                if isinstance(raw_args, str):
+                    program_args = [raw_args]
+                elif isinstance(raw_args, (list, tuple)):
+                    program_args = [str(a) for a in raw_args]
+                else:
+                    program_args = []
+                disabled = plist_data.get("Disabled", False) is True
 
                 # Build command string for display
                 if program:
@@ -193,9 +221,9 @@ class Module(ModuleBase):
                 if disabled:
                     findings.append(
                         Finding(
-                            title=f"Disabled launch {agent_type}: {label}",
+                            title=f"Disabled launch {noun}: {label}",
                             description=(
-                                f"Launch {agent_type} is disabled but still on disk: {label}\n"
+                                f"Launch {noun} is disabled but still on disk: {label}\n"
                                 f"Location: {plist_path}\n"
                                 "This is clutter—consider deleting it."
                             ),
@@ -213,14 +241,14 @@ class Module(ModuleBase):
                 elif is_suspicious:
                     findings.append(
                         Finding(
-                            title=f"Suspicious launch {agent_type}: {label}",
+                            title=f"Launch {noun} to check: {label}",
                             description=(
-                                f"Suspicious launch {agent_type} detected: {label}\n"
+                                f"Launch {noun} with a warning sign: {label}\n"
                                 f"Command: {command}\n"
                                 f"Location: {plist_path}\n"
                                 f"Reason: {reason}\n\n"
-                                f"This {agent_type} exhibits suspicious characteristics. "
-                                "Review and delete if confirmed as malicious."
+                                "Check that you recognize this item. If you do not, "
+                                "it can be removed."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -239,9 +267,9 @@ class Module(ModuleBase):
                     # Log legitimate agents as INFO
                     findings.append(
                         Finding(
-                            title=f"Launch {agent_type}: {label}",
+                            title=f"Launch {noun}: {label}",
                             description=(
-                                f"Launch {agent_type} found: {label}\n"
+                                f"Launch {noun} found: {label}\n"
                                 f"Command: {command}\n"
                                 f"Location: {plist_path}\n"
                                 "Verify this is from a trusted source."
@@ -260,8 +288,28 @@ class Module(ModuleBase):
                     )
 
             except Exception:
-                # Skip files that can't be parsed
-                pass
+                # A file we cannot read is still something that sits in a launch
+                # folder, so list it rather than hiding it from the report.
+                findings.append(
+                    Finding(
+                        title=f"Launch {noun} file could not be read: {plist_path.name}",
+                        description=(
+                            f"This tool could not read {plist_path}. It may be damaged or "
+                            "in an unusual format. If you do not recognize it, "
+                            "check where it came from."
+                        ),
+                        severity=Severity.INFO,
+                        category=self.category,
+                        code="security.scheduled_tasks_audit.launch_agent_info",
+                        data={
+                            "check": "launch_agent_info",
+                            "label": plist_path.stem,
+                            "location": str(plist_path),
+                            "type": agent_type,
+                            "command": "(unreadable)",
+                        },
+                    )
+                )
 
         return findings
 
@@ -271,15 +319,34 @@ class Module(ModuleBase):
         """Check if a launch agent/daemon exhibits suspicious characteristics."""
         reasons = []
 
-        # Check for suspicious paths (temp, downloads, user-writable locations)
-        suspicious_paths = ["/tmp", "/var/tmp", "Downloads", "Temp"]
-        check_paths = [program] + program_args if isinstance(program_args, list) else []
+        # World-writable or throwaway locations. These are writable by any
+        # program, so whatever appears there runs as the user, even if the file
+        # is missing now. This is judged on the path alone: a label such as
+        # com.apple.* or com.google.* is just text anyone can choose.
+        check_paths = ([program] if isinstance(program, str) and program else []) + (
+            [a for a in program_args if isinstance(a, str)]
+            if isinstance(program_args, (list, tuple))
+            else []
+        )
+        writable_re = re.compile(
+            r"(?:^|[\s\"'=;|&(:])(?:(?:/private)?/(?:var/)?tmp(?=[/\s\"';|&)]|$)|/Users/Shared/)"
+        )
 
         for path in check_paths:
-            if isinstance(path, str):
-                if any(sp in path for sp in suspicious_paths):
-                    reasons.append(f"runs from suspicious path: {path}")
-                    break
+            path = path.strip().strip("\"'")
+            if writable_re.search(path):
+                reasons.append(
+                    f"runs from {path}, a folder any program on this Mac can write "
+                    "to (whatever is placed there runs automatically as you)"
+                )
+                break
+            if "Downloads" in path.split("/") or "Temp" in path.split("/"):
+                reasons.append(f"runs from a downloads/temporary folder: {path}")
+                break
+
+        # Writable-location reasons always flag, whatever the label says.
+        if any("any program on this Mac can write" in r for r in reasons):
+            return True, " | ".join(reasons)
 
         # Check for obfuscated labels (very short, all numbers, unusual chars)
         if len(label) < 5 and label.replace("_", "").replace("-", "").isdigit():

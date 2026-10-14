@@ -1,3 +1,5 @@
+import ctypes
+import ctypes.util
 import os
 import re
 import shutil
@@ -116,26 +118,87 @@ class Module(ModuleBase):
                 )
             )
 
+        familiar_hits = []
         for hit in self._check_beaconing(profile):
+            if hit.get("familiar"):
+                familiar_hits.append(hit)
+                continue
+            # An identical connection seen in two samples only shows that a
+            # connection stayed open, which every API client does. Escalate
+            # only when there is evidence beyond that (binary in a temp or
+            # download folder). Hits without that information are treated as
+            # strong so a signal is never silently downgraded.
+            strong = hit.get("odd_location", True)
+            if strong:
+                findings.append(
+                    Finding(
+                        title=f"Beaconing pattern detected: {hit.get('process')}",
+                        description=(
+                            f"Process {hit.get('process')} (pid {hit.get('pid')}) maintained "
+                            f"an identical connection to {hit.get('dest')} across repeated "
+                            f"samples ~{hit.get('interval_seconds')}s apart, and its program "
+                            f"runs from an unusual location ({hit.get('binary') or 'unknown'}). "
+                            f"That combination can indicate periodic C2 polling."
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        code="security.ai_worm_network.beaconing_detected",
+                        data={
+                            "check": "beaconing_detected",
+                            "confidence": "medium",
+                            "pid": hit.get("pid"),
+                            "process": hit.get("process"),
+                            "dest": hit.get("dest"),
+                            "binary": hit.get("binary"),
+                            "interval_seconds": hit.get("interval_seconds"),
+                        },
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        title=f"Steady connection: {hit.get('process')} to {hit.get('dest')}",
+                        description=(
+                            f"Process {hit.get('process')} (pid {hit.get('pid')}) kept a "
+                            f"connection to {hit.get('dest')} open between two checks "
+                            f"~{hit.get('interval_seconds')}s apart. Developer tools, "
+                            f"AI coding assistants and many apps do this routinely, and "
+                            f"nothing else about this program looks unusual."
+                        ),
+                        severity=Severity.INFO,
+                        category=self.category,
+                        code="security.ai_worm_network.beaconing_detected",
+                        data={
+                            "check": "beaconing_detected",
+                            "confidence": "low",
+                            "pid": hit.get("pid"),
+                            "process": hit.get("process"),
+                            "dest": hit.get("dest"),
+                            "binary": hit.get("binary"),
+                            "interval_seconds": hit.get("interval_seconds"),
+                        },
+                    )
+                )
+
+        if familiar_hits:
+            names = sorted({str(h.get("process")) for h in familiar_hits})
             findings.append(
                 Finding(
-                    title=f"Beaconing pattern detected: {hit.get('process')}",
+                    title=f"Steady connections from {len(names)} familiar program(s)",
                     description=(
-                        f"Process {hit.get('process')} (pid {hit.get('pid')}) maintained "
-                        f"an identical connection to {hit.get('dest')} across repeated "
-                        f"samples ~{hit.get('interval_seconds')}s apart, suggesting "
-                        f"periodic C2 polling."
+                        "These programs kept connections open between two checks: "
+                        f"{', '.join(names)}. Browsers, chat apps, cloud-sync and developer "
+                        "tools do this routinely. They run from a normal install folder, "
+                        "but this tool has not verified who made them."
                     ),
-                    severity=Severity.WARNING,
+                    severity=Severity.INFO,
                     category=self.category,
                     code="security.ai_worm_network.beaconing_detected",
                     data={
                         "check": "beaconing_detected",
-                        "confidence": "medium",
-                        "pid": hit.get("pid"),
-                        "process": hit.get("process"),
-                        "dest": hit.get("dest"),
-                        "interval_seconds": hit.get("interval_seconds"),
+                        "confidence": "low",
+                        "processes": names,
+                        "count": len(familiar_hits),
                     },
                 )
             )
@@ -418,32 +481,48 @@ class Module(ModuleBase):
     )
 
     def _resolve_binary_path(self, pid: int) -> str | None:
+        """Executable path as reported by the kernel, with symlinks resolved.
+
+        ps/argv[0] are set by the process itself and can say anything, so they
+        are not used. None means unknown (callers must not treat it as safe).
+        """
         try:
-            result = subprocess.run(
-                ["ps", "-p", str(pid), "-o", "args="],
-                capture_output=True, text=True, timeout=5,
+            exe = f"/proc/{int(pid)}/exe"
+            if os.path.islink(exe):
+                return os.path.realpath(exe)
+        except (OSError, ValueError):
+            pass
+        try:
+            lib = ctypes.CDLL(
+                ctypes.util.find_library("proc") or "/usr/lib/libproc.dylib", use_errno=True
             )
-            if result.returncode != 0 or not result.stdout.strip():
-                return None
-            cmd = result.stdout.strip().split()[0]
-            if cmd.startswith("/"):
-                return cmd
-            resolved = shutil.which(cmd)
-            if resolved:
-                real = os.path.realpath(resolved)
-                return real
-            return cmd
-        except (subprocess.TimeoutExpired, OSError):
+            buf = ctypes.create_string_buffer(4096)
+            n = lib.proc_pidpath(int(pid), buf, ctypes.c_uint32(len(buf)))
+            if n > 0:
+                return os.path.realpath(buf.value.decode("utf-8", "surrogateescape"))
+        except Exception:
             pass
         return None
 
-    def _is_allowlisted_beacon(self, process_name: str, pid: int) -> bool:
+    _ODD_LOCATION_MARKERS = (
+        "/tmp/", "/private/tmp/", "/var/tmp/", "/private/var/tmp/",
+        "/var/folders/", "/Downloads/", "/dev/shm/",
+    )
+
+    def _is_odd_location(self, binary: str | None) -> bool:
+        """True when the program is in a temp/download folder, or its location is unknown."""
+        if not binary:
+            return True
+        return any(m in binary for m in self._ODD_LOCATION_MARKERS)
+
+    def _is_allowlisted_beacon(self, process_name: str, pid: int, binary: str | None = None) -> bool:
         name = process_name.lower().strip()
         for allowed in self._BEACON_NAME_ALLOWLIST:
             if allowed in name:
                 return True
 
-        binary = self._resolve_binary_path(pid)
+        if binary is None:
+            binary = self._resolve_binary_path(pid)
         if binary:
             for allowed_path in self._BEACON_PATH_ALLOWLIST:
                 if allowed_path in binary:
@@ -466,13 +545,24 @@ class Module(ModuleBase):
             key = (r["pid"], r["dest"])
             if key in first_keys and key not in seen:
                 seen.add(key)
-                if self._is_allowlisted_beacon(r["process"], r["pid"]):
-                    continue
+                if r["host"] in ("127.0.0.1", "::1", "localhost") or r["host"].startswith("[::1"):
+                    continue  # talking to itself, not the network
+                binary = self._resolve_binary_path(r["pid"])
+                odd = self._is_odd_location(binary)
+                # A familiar name or install folder is chosen by the program, so
+                # it can lower the concern (info) but never hides the connection,
+                # and never overrides a temp/download location.
+                familiar = (not odd) and self._is_allowlisted_beacon(
+                    r["process"], r["pid"], binary
+                )
                 hits.append(
                     {
                         "process": r["process"],
                         "pid": r["pid"],
                         "dest": r["dest"],
+                        "binary": binary,
+                        "odd_location": odd,
+                        "familiar": familiar,
                         "interval_seconds": _BEACON_GAP_SECONDS,
                     }
                 )

@@ -1,4 +1,6 @@
 import sys
+
+import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -7,6 +9,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
 
+
+
+_POSIX_PATHS = pytest.mark.skipif(
+    sys.platform == "win32", reason="resolves POSIX SIP paths with os.path.realpath, which Windows rewrites to a drive path"
+)
 
 def _make_profile():
     return SystemProfile(
@@ -103,8 +110,10 @@ Chrome    12346     user   11u  IPv4 0x1234567890123457      0t0  TCP 192.168.1.
     with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
         result = mod.check(_make_profile())
 
-    # Both Safari and Chrome are known safe processes, so should not flag
-    assert not result.has_issues
+    # Familiar names are not alarming, but they stay listed (as info) because
+    # a process name can be chosen by any program.
+    assert not [f for f in result.findings if f.severity != Severity.INFO]
+    assert [f for f in result.findings if f.data.get("check") == "familiar_connections"]
 
 
 def test_suspicious_connections_high_connection_count():
@@ -200,3 +209,114 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.suspicious_connections.") for c in declared)
+
+
+# --- false-alarm regressions -------------------------------------------------
+
+_HDR = "COMMAND     PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME\n"
+
+
+def _run_with(lsof_text, kernel=None, apple_signed=True):
+    """kernel: {pid_int: kernel-reported path}; apple_signed: result of the signature check."""
+    mod = _get_module()
+    kernel = kernel or {}
+
+    def fake_run(cmd, **kwargs):
+        r = MagicMock()
+        r.returncode = 0
+        r.stderr = ""
+        r.stdout = lsof_text
+        return r
+
+    with patch("subprocess.run", side_effect=fake_run), patch.object(
+        type(mod), "_kernel_path", staticmethod(lambda pid: kernel.get(int(pid)))
+    ), patch.object(type(mod), "_apple_signed", lambda self, path: apple_signed):
+        return mod.check(_make_profile())
+
+
+def test_loopback_listeners_do_not_warn_and_are_aggregated():
+    lsof = _HDR + (
+        "node 100 u 10u IPv4 0x1 0t0 TCP 127.0.0.1:3100 (LISTEN)\n"
+        "redis-ser 101 u 10u IPv6 0x2 0t0 TCP [::1]:6390 (LISTEN)\n"
+        "postgres 102 u 10u IPv4 0x3 0t0 TCP 127.0.0.1:54329 (LISTEN)\n"
+    )
+    result = _run_with(lsof)
+    assert not [f for f in result.findings if f.severity == Severity.WARNING]
+    infos = [f for f in result.findings if f.severity == Severity.INFO]
+    assert len(infos) == 1
+
+
+def test_network_listener_still_warns_one_finding_per_process():
+    lsof = _HDR + (
+        "node 100 u 10u IPv4 0x1 0t0 TCP *:8765 (LISTEN)\n"
+        "node 100 u 11u IPv4 0x1 0t0 TCP *:8766 (LISTEN)\n"
+    )
+    result = _run_with(lsof)
+    warns = [f for f in result.findings if f.severity == Severity.WARNING]
+    assert len(warns) == 1
+    assert warns[0].data["ports"] == [8765, 8766]
+
+
+@_POSIX_PATHS
+def test_apple_daemon_listener_by_kernel_path_and_signature_is_ignored():
+    lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    assert not _run_with(lsof, {998: "/usr/libexec/rapportd"}).has_issues
+
+
+def test_same_name_outside_system_path_still_warns():
+    lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    assert _run_with(lsof, {998: "/tmp/evil/rapportd"}).has_issues
+
+
+def test_unknown_kernel_path_still_warns():
+    lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    assert _run_with(lsof, {}).has_issues
+
+
+def test_system_path_without_apple_signature_still_warns():
+    lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    assert _run_with(lsof, {998: "/usr/libexec/rapportd"}, apple_signed=False).has_issues
+
+
+def test_system_interpreter_listener_still_warns():
+    lsof = _HDR + "python3 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    assert _run_with(lsof, {998: "/usr/bin/python3"}).has_issues
+
+
+def test_loopback_to_loopback_connection_is_not_outbound():
+    lsof = _HDR + (
+        "postgres 6839 u 10u IPv6 0x1 0t0 TCP [::1]:54329->[::1]:57148 (ESTABLISHED)\n"
+        "ssh 22527 u 10u IPv4 0x1 0t0 TCP 127.0.0.1:55000->127.0.0.1:64456 (ESTABLISHED)\n"
+    )
+    assert not _run_with(lsof).has_issues
+
+
+def test_fcm_port_5228_is_normal():
+    lsof = _HDR + "Slack 5 u 10u IPv4 0x1 0t0 TCP 192.168.1.5:50000->142.250.1.1:5228 (ESTABLISHED)\n"
+    result = _run_with(lsof)
+    assert not [f for f in result.findings if f.severity != Severity.INFO]
+    # ...but it stays listed: a port number proves nothing about who is talking
+    assert [f for f in result.findings if f.data.get("check") == "familiar_connections"]
+
+
+def test_familiar_name_or_push_port_does_not_hide_odd_connection():
+    lsof = _HDR + (
+        "Chrome 7 u 10u IPv4 0x1 0t0 TCP 192.168.1.5:50000->8.8.8.8:9999 (ESTABLISHED)\n"
+        "backdoor 8 u 10u IPv4 0x1 0t0 TCP 192.168.1.5:50001->8.8.8.8:5228 (ESTABLISHED)\n"
+    )
+    result = _run_with(lsof, {7: "/private/tmp/Chrome", 8: "/private/tmp/backdoor"})
+    listed = [f for f in result.findings if f.data.get("check") == "familiar_connections"]
+    assert len(listed) == 1
+    assert listed[0].severity == Severity.INFO
+    assert {p["process"] for p in listed[0].data["items"]} == {"Chrome", "backdoor"}
+
+
+def test_remote_unusual_port_collapses_per_process():
+    lsof = _HDR + "".join(
+        f"BadApp 7 u {i}u IPv4 0x1 0t0 TCP 192.168.1.5:5000{i}->8.8.8.8:{9990 + i} (ESTABLISHED)\n"
+        for i in range(3)
+    )
+    result = _run_with(lsof)
+    out = [f for f in result.findings if f.data.get("check") == "unusual_outbound_connection"]
+    assert len(out) == 1
+    assert out[0].data["ports"] == [9990, 9991, 9992]
