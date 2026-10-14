@@ -1,3 +1,4 @@
+import posixpath
 import subprocess
 import re
 from collections import defaultdict
@@ -36,6 +37,9 @@ KNOWN_MINER_PROCESSES = {
 
 # Known mining pool ports
 MINING_POOL_PORTS = {3333, 4444, 5555, 7777, 8888, 9999, 14444}
+
+# SIP-protected locations holding Apple's own executables
+SYSTEM_BINARY_PREFIXES = ("/usr/libexec/", "/System/", "/usr/sbin/", "/usr/bin/")
 
 # Known safe macOS processes that may have high CPU occasionally
 KNOWN_SAFE_HIGH_CPU_PROCESSES = {
@@ -224,7 +228,7 @@ class Module(ModuleBase):
             if not line.strip():
                 continue
 
-            parts = line.split()
+            parts = line.split(None, 2)  # keep spaces in the command path
             if len(parts) < 3:
                 continue
 
@@ -247,6 +251,11 @@ class Module(ModuleBase):
         # Flag high CPU processes that aren't known safe
         for proc in high_cpu_processes:
             process_name = proc["process"].split("/")[-1]
+            # Apple system daemons (syspolicyd, mds_stores, mdworker, ...) live in
+            # SIP-protected locations and legitimately spike; malware cannot be
+            # installed there, so never treat them as miners.
+            if self._is_system_binary(proc["process"]):
+                continue
             if not self._is_known_safe_process(process_name):
                 findings.append(
                     Finding(
@@ -371,6 +380,13 @@ class Module(ModuleBase):
             except (ValueError, IndexError):
                 return None
         return None
+
+    def _is_system_binary(self, path: str) -> bool:
+        """True if the executable path is under a SIP-protected system directory."""
+        if not path.startswith("/"):
+            return False
+        normalized = posixpath.normpath(path)
+        return normalized.startswith(SYSTEM_BINARY_PREFIXES)
 
     def _is_known_safe_process(self, process: str) -> bool:
         """Check if process is in known safe list."""
