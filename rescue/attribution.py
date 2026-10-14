@@ -12,10 +12,14 @@ timeout, results are cached per path, the number of lookups per scan is capped,
 and a wall-clock budget stops further lookups.  Anything over budget simply gets
 no maker line.
 
-What "verified" means: the program carries a code signature whose certificate
-chain was issued by Apple / Microsoft / the OS package manager, and it names the
-maker.  We read the signature (``codesign -dv``); we do not re-hash the whole
-bundle, which is expensive for big apps.
+What "verified" means: on macOS, ``codesign --verify --strict`` succeeded AND
+the signature satisfies a requirement pinning Apple's anchor and the Team ID the
+certificate names.  Reading the claimed signature (``codesign -dv``) alone never
+yields "verified": an attacker controls that text.  Friendly names from
+attribution_names.json are applied only after verification.  If verification
+fails or runs out of budget, the claimed name is shown as *unverified*.
+Homebrew paths and launchd label prefixes only say where something came from;
+they are never "verified".
 """
 
 from __future__ import annotations
@@ -52,7 +56,12 @@ _INTERPRETERS = {
 # Where the OS's own interpreters live: signed by Apple, but that says nothing
 # about the script they were told to run.
 _SYSTEM_BIN = ("/bin/", "/usr/bin/", "/sbin/", "/usr/sbin/")
-_BUNDLE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+){2,}$")
+_BUNDLE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+){2,}\Z")
+# Strict reverse-DNS check applied right before a bundle id goes into any query.
+_SAFE_BUNDLE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,254}\Z")
+_TEAM_ID_RE = re.compile(r"^[A-Z0-9]{10}\Z")
+_SMALL_BUNDLE_MAX_ENTRIES = 400
+_SMALL_BUNDLE_MAX_BYTES = 100 * 1024 * 1024
 _DEVID_RE = re.compile(r"^Authority=Developer ID Application: (.+) \(([A-Z0-9]{10})\)\s*$", re.M)
 _DEVCERT_RE = re.compile(r"^Authority=Apple (?:Development|Distribution): (.+?)(?: \(([A-Z0-9]{10})\))?\s*$", re.M)
 
@@ -61,13 +70,16 @@ _SCRIPT_NOTE = "A script, not signed; check who created it."
 
 @dataclass(frozen=True)
 class MadeBy:
-    """A maker line.  ``verified`` is True only for a signature or a trusted
-    system package that names the maker."""
+    """A maker line.  Out of ``parse_codesign`` ``verified`` only means "claims a
+    signature type we can check"; :meth:`Attributor._mac` makes it true only after
+    ``codesign --verify`` succeeds."""
 
     name: str
     verified: bool
     how: str
     location_note: str = ""
+    # Team ID named by the (still unverified) certificate; never serialised.
+    team: str = ""
 
     def to_dict(self, subject: str) -> dict:
         return {
@@ -103,7 +115,11 @@ def _team_name(team: str | None, fallback: str) -> str:
 # --- codesign parsing -------------------------------------------------------------
 
 def parse_codesign(text: str) -> MadeBy | None:
-    """Turn ``codesign -dv --verbose=2`` output into a MadeBy (no location)."""
+    """Turn ``codesign -dv --verbose=2`` output into a *claimed* MadeBy (no location).
+
+    Names are the raw certificate names; the friendly-name table is applied only
+    after ``codesign --verify`` passes.
+    """
     if not text:
         return None
     if "not signed at all" in text:
@@ -117,17 +133,19 @@ def parse_codesign(text: str) -> MadeBy | None:
 
     m = _DEVID_RE.search(text)
     if m:
-        return MadeBy(_team_name(m.group(2), m.group(1).strip()), True, "Developer ID signature")
+        if team is not None and team != m.group(2):
+            return MadeBy(m.group(1).strip(), False, "team ID does not match the certificate")
+        return MadeBy(m.group(1).strip(), True, "Developer ID signature", team=m.group(2))
     if "Authority=Software Signing" in text:
         return MadeBy("Apple", True, "Apple system file")
     if "Authority=Apple Mac OS Application Signing" in text:
         if ident.startswith("com.apple.") or team == "74J34U3R6X":
             return MadeBy("Apple", True, "Mac App Store signature")
         fallback = f"an App Store developer (team {team})" if team else "an App Store developer"
-        return MadeBy(_team_name(team, fallback), True, "Mac App Store signature")
+        return MadeBy(fallback, True, "Mac App Store signature", team=team or "")
     m = _DEVCERT_RE.search(text)
     if m:
-        return MadeBy(_team_name(m.group(2), m.group(1).strip()), False, "development certificate")
+        return MadeBy(m.group(1).strip(), False, "development certificate")
     if "Authority=" in text:
         return MadeBy(_UNKNOWN, False, "unrecognised signature")
     return None
@@ -238,7 +256,9 @@ class Attributor:
     def _identify(self, subject: str, exists) -> MadeBy | None:
         for prefix, what in _name_table().get("label_prefixes", {}).items():
             if subject.startswith(prefix):
-                return MadeBy(f"{what} {subject[len(prefix):]}", True, "Homebrew package")
+                # A label is just text any program can pick; say so, never "verified".
+                return MadeBy(f"{what} {subject[len(prefix):]}", False,
+                              "named like a Homebrew service; the program itself was not checked")
         path = subject
         if self.platform == "darwin" and "/" not in subject and not subject.endswith(".plist"):
             path = self._resolve_app(subject, exists)
@@ -299,22 +319,42 @@ class Attributor:
 
     # macOS -----------------------------------------------------------------
     def _mac(self, path: str) -> MadeBy | None:
-        brew = re.match(r"^(?:/opt/homebrew|/usr/local)/(?:Cellar|opt)/([^/]+)", path)
-        if not brew:
-            real = os.path.realpath(path)
-            brew = re.match(r"^(?:/opt/homebrew|/usr/local)/(?:Cellar|opt)/([^/]+)", real)
+        brew_re = r"^(?:/opt/homebrew|/usr/local)/(?:Cellar|opt)/([^/]+)"
+        brew = re.match(brew_re, path) and re.match(brew_re, os.path.realpath(path))
         if brew:
-            return MadeBy(f"Homebrew package {brew.group(1)}", True, "Homebrew package")
+            # Homebrew binaries are usually unsigned and the folder is writable by
+            # the user, so this says where it lives, not who made it.
+            return MadeBy(f"Homebrew package {brew.group(1)}", False,
+                          "installed in Homebrew's folder; not signature-checked")
         if _is_script(path):
             return MadeBy(_UNKNOWN, False, "script", _SCRIPT_NOTE)
         target = path
         idx = path.find(".app/")
         if idx != -1:
             target = path[: idx + 4]
-        res = self._exec(["codesign", "-dv", "--verbose=2", target])
+        res = self._exec(["codesign", "-dv", "--verbose=2", "--", target])
         if res is None:
             return None
-        return parse_codesign((res.stderr or "") + "\n" + (res.stdout or ""))
+        claimed = parse_codesign((res.stderr or "") + "\n" + (res.stdout or ""))
+        if claimed is None or not claimed.verified:
+            return claimed
+        return self._verify_signature(claimed, target)
+
+    def _verify_signature(self, claimed: MadeBy, target: str) -> MadeBy:
+        """Upgrade a claimed signature to verified only if codesign validates it."""
+        requirement = _requirement_for(claimed)
+        if requirement is not None:
+            args = ["codesign", "--verify", "--strict"]
+            if _small_bundle(target):
+                args.append("--deep")
+            args += [f"-R={requirement}", "--", target]
+            res = self._exec(args)
+            if res is not None and res.ok:
+                return MadeBy(_team_name(claimed.team, claimed.name), True, claimed.how)
+        return MadeBy(
+            claimed.name, False,
+            f"claims to be made by {claimed.name}; couldn't verify",
+        )
 
     def _resolve_app(self, ident: str, exists) -> str | None:
         """Bundle id (or app name) -> .app path, read-only."""
@@ -323,6 +363,8 @@ class Attributor:
             found = self._index().get(ident)
             if found:
                 return found
+            if not _SAFE_BUNDLE_ID_RE.match(ident):
+                return None
             res = self._exec(["mdfind", f"kMDItemCFBundleIdentifier == '{ident}'"])
             if res is not None and getattr(res, "stdout", ""):
                 for line in res.stdout.splitlines():
@@ -365,7 +407,8 @@ class Attributor:
 
     # Windows ---------------------------------------------------------------
     def _windows(self, path: str) -> MadeBy | None:
-        quoted = path.replace("'", "''")
+        # PowerShell treats the typographic single quotes as quotes too.
+        quoted = re.sub("['\u2018\u2019\u201a\u201b]", lambda m: m.group(0) * 2, path)
         script = (
             f"$s = Get-AuthenticodeSignature -LiteralPath '{quoted}'; "
             "@{Status=[string]$s.Status; Subject=$s.SignerCertificate.Subject} | ConvertTo-Json -Compress"
@@ -408,17 +451,66 @@ class Attributor:
     def _linux(self, path: str) -> MadeBy | None:
         if _is_script(path):
             return MadeBy(_UNKNOWN, False, "script", _SCRIPT_NOTE)
-        res = self._exec(["dpkg", "-S", path])
+        res = self._exec(["dpkg", "-S", "--", path])
         pkg = None
         if res is not None and res.ok and ":" in (res.stdout or ""):
             pkg = res.stdout.splitlines()[0].split(":", 1)[0].split(",")[0].strip()
         else:
-            res = self._exec(["rpm", "-qf", path])
+            res = self._exec(["rpm", "-qf", "--", path])
             if res is not None and res.ok and (res.stdout or "").strip():
                 pkg = res.stdout.splitlines()[0].strip()
         if pkg:
             return MadeBy(f"{self._distro_name()} package {pkg}", True, "system package")
         return MadeBy(_UNKNOWN, False, "not part of any installed package")
+
+
+def _requirement_for(claimed: MadeBy) -> str | None:
+    """Code requirement that pins Apple's anchor (and the Team ID) for ``claimed``."""
+    if claimed.how == "Apple system file":
+        return "anchor apple"
+    team_clause = ""
+    if claimed.team:
+        if not _TEAM_ID_RE.match(claimed.team):
+            return None
+        team_clause = f' and certificate leaf[subject.OU] = "{claimed.team}"'
+    if claimed.how == "Developer ID signature":
+        if not team_clause:
+            return None
+        return (
+            "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists"
+            " and certificate leaf[field.1.2.840.113635.100.6.1.13] exists" + team_clause
+        )
+    if claimed.how == "Mac App Store signature":
+        return (
+            "anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9] exists"
+            + team_clause
+        )
+    return None
+
+
+def _small_bundle(path: str) -> bool:
+    """True if ``path`` is small enough for ``codesign --deep`` within the timeout."""
+    if not os.path.isdir(path):
+        return False
+    entries = 0
+    total = 0
+    stack = [path]
+    try:
+        while stack:
+            with os.scandir(stack.pop()) as it:
+                for e in it:
+                    entries += 1
+                    if entries > _SMALL_BUNDLE_MAX_ENTRIES:
+                        return False
+                    if e.is_dir(follow_symlinks=False):
+                        stack.append(e.path)
+                    else:
+                        total += e.stat(follow_symlinks=False).st_size
+                        if total > _SMALL_BUNDLE_MAX_BYTES:
+                            return False
+    except OSError:
+        return False
+    return True
 
 
 def _is_script(path: str) -> bool:

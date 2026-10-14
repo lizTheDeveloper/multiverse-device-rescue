@@ -177,7 +177,7 @@ def test_missing_path_returns_none():
 def test_homebrew_path_needs_no_codesign():
     calls = []
     m = mac({}, calls).identify("/opt/homebrew/Cellar/wget/1.24/bin/wget", exists=lambda p: True)
-    assert m.how == "Homebrew package" and "wget" in m.name
+    assert m.verified is False and "wget" in m.name
     assert calls == []
 
 
@@ -240,16 +240,16 @@ def test_results_are_cached_per_path():
     a = mac({("codesign",): APPLE_LS}, calls)
     a.identify("/bin/ls", exists=lambda p: True)
     a.identify("/bin/ls", exists=lambda p: True)
-    assert len(calls) == 1
+    assert len(calls) == 2  # one -dv + one --verify, not repeated
 
 
 def test_lookup_cap_stops_further_commands():
     calls = []
     a = mac({("codesign",): APPLE_LS}, calls, max_lookups=3)
     results = [a.identify(f"/usr/bin/tool{i}", exists=lambda p: True) for i in range(6)]
-    assert len(calls) == 3
-    assert results[3:] == [None, None, None]
-    assert a.skipped == 3
+    assert len(calls) == 3  # tool0: -dv + --verify, tool1: -dv; then the cap
+    assert results[2:] == [None] * 4 and results[1].verified is False  # verify ran out of budget
+    assert a.skipped == 4
 
 
 def test_commands_use_short_timeouts_and_no_shell():
@@ -407,7 +407,7 @@ def test_bundle_id_found_in_applications_needs_no_mdfind(tmp_path):
     calls = []
     a = mac({("codesign",): CHROME}, calls, applications_dirs=[str(tmp_path)])
     assert a.identify("dev.zed.Zed").name == "Google LLC"
-    assert [c[0] for c in calls] == ["codesign"]
+    assert [c[0] for c in calls] == ["codesign", "codesign"]  # -dv then --verify, no mdfind
 
 
 def test_plist_run_through_open_is_attributed_to_the_app(tmp_path):
@@ -427,3 +427,116 @@ def test_missing_script_is_not_credited_to_apple(tmp_path):
     calls = []
     assert mac({("codesign",): APPLE_LS}, calls).identify(str(pl), exists=lambda p: p == str(pl)) is None
     assert calls == []
+
+
+# --- hardening: verification, injection, name mapping ---------------------------------
+
+def verify_run(codesign_dv, verify_ok, calls=None, mdfind_out=""):
+    """Runner: `codesign -dv` prints a claim; `codesign --verify` passes or fails."""
+    def run(args, *, timeout=5.0, **_):
+        args = list(args)
+        if calls is not None:
+            calls.append(args)
+        assert isinstance(args, list)
+        if args[0] == "mdfind":
+            return SimpleNamespace(ok=True, stdout=mdfind_out, stderr="", returncode=0, timed_out=False)
+        if args[0] == "codesign" and "--verify" in args:
+            return SimpleNamespace(ok=verify_ok, stdout="", stderr="", returncode=0 if verify_ok else 3, timed_out=False)
+        if args[0] == "codesign":
+            return SimpleNamespace(ok=True, stdout="", stderr=codesign_dv, returncode=0, timed_out=False)
+        return SimpleNamespace(ok=False, stdout="", stderr="", returncode=1, timed_out=False)
+    return run
+
+
+def test_tampered_signature_is_not_verified():
+    calls = []
+    a = Attributor("darwin", run=verify_run(CHROME, False, calls))
+    m = a.identify("/Applications/Google Chrome.app", exists=lambda p: True)
+    assert m.verified is False
+    assert "Google LLC" in m.name
+    assert "couldn't verify" in m.how
+    verify = [c for c in calls if "--verify" in c]
+    assert verify and "--strict" in verify[0] and "--" in verify[0]
+
+
+def test_verified_signature_runs_strict_verify_against_apple_anchor():
+    calls = []
+    m = Attributor("darwin", run=verify_run(CHROME, True, calls)).identify(
+        "/Applications/Google Chrome.app", exists=lambda p: True)
+    assert m.verified is True and m.name == "Google LLC"
+    req = [c for c in calls if "--verify" in c][0]
+    joined = " ".join(req)
+    assert "anchor apple generic" in joined and 'EQHXZ8M8AV' in joined
+
+
+def test_friendly_name_not_applied_without_verification():
+    # Cert claims to be a look-alike, but the Team ID is Google's.
+    fake = CHROME.replace("Google LLC (EQHXZ8M8AV)", "Totally Legit Ltd (EQHXZ8M8AV)")
+    bad = Attributor("darwin", run=verify_run(fake, False)).identify("/Applications/X.app", exists=lambda p: True)
+    assert bad.verified is False and "Google LLC" not in bad.name
+    good = Attributor("darwin", run=verify_run(fake, True)).identify("/Applications/X.app", exists=lambda p: True)
+    assert good.verified is True and good.name == "Google LLC"
+
+
+def test_team_identifier_mismatch_is_not_verified():
+    forged = CHROME.replace("TeamIdentifier=EQHXZ8M8AV", "TeamIdentifier=ABCDE12345")
+    calls = []
+    m = Attributor("darwin", run=verify_run(forged, True, calls)).identify(
+        "/Applications/X.app", exists=lambda p: True)
+    assert m.verified is False
+
+
+def test_verify_timeout_means_unverified():
+    def run(args, *, timeout=5.0, **_):
+        if "--verify" in args:
+            return SimpleNamespace(ok=False, stdout="", stderr="", returncode=None, timed_out=True)
+        return SimpleNamespace(ok=True, stdout="", stderr=CHROME, returncode=0, timed_out=False)
+    m = Attributor("darwin", run=run).identify("/Applications/X.app", exists=lambda p: True)
+    assert m.verified is False
+
+
+def test_apple_system_file_requires_anchor_apple_verify():
+    m = Attributor("darwin", run=verify_run(APPLE_LS, False)).identify("/bin/ls", exists=lambda p: True)
+    assert m.verified is False
+    m = Attributor("darwin", run=verify_run(APPLE_LS, True)).identify("/bin/ls", exists=lambda p: True)
+    assert m.verified is True and m.name == "Apple"
+
+
+def test_homebrew_path_and_label_are_never_verified():
+    m = mac({}).identify("/opt/homebrew/Cellar/wget/1.24/bin/wget", exists=lambda p: True)
+    assert m.verified is False and "wget" in m.name
+    m = mac({}).identify("homebrew.mxcl.evil")
+    assert m.verified is False
+
+
+def test_codesign_commands_use_double_dash(tmp_path):
+    calls = []
+    Attributor("darwin", run=verify_run(CHROME, True, calls)).identify("-evil/x", exists=lambda p: True)
+    assert all("--" in c for c in calls if c[0] == "codesign")
+    calls.clear()
+    Attributor("linux", run=fake_run({}, calls), distro="Debian").identify("-weird", exists=lambda p: True)
+    assert all("--" in c for c in calls)
+
+
+def test_bundle_id_with_query_metacharacters_never_reaches_mdfind():
+    calls = []
+    a = Attributor("darwin", run=verify_run(CHROME, True, calls), applications_dirs=[])
+    for evil in ("com.x.y' || kMDItemKind == '*", "com.a.b\" || 1", "com.a.b'c"):
+        assert a.identify(evil, exists=lambda p: True) is None
+    assert [c for c in calls if c[0] == "mdfind"] == []
+
+
+def test_valid_bundle_id_is_still_looked_up_via_mdfind():
+    calls = []
+    a = Attributor("darwin", run=verify_run(CHROME, True, calls, mdfind_out="/Applications/Google Chrome.app\n"),
+                   applications_dirs=[])
+    assert a.identify("com.google.Chrome", exists=lambda p: True).name == "Google LLC"
+    assert calls[0][0] == "mdfind" and calls[0][1] == "kMDItemCFBundleIdentifier == 'com.google.Chrome'"
+
+
+def test_windows_curly_quotes_are_escaped():
+    calls = []
+    a = Attributor("win32", run=fake_run({}, calls))
+    a.identify("C:\\x\\a\u2019; calc; \u2018.exe", exists=lambda p: True)
+    script = calls[0][-1]
+    assert "\u2019\u2019" in script and "\u2018\u2018" in script
