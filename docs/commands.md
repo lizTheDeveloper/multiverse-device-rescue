@@ -1298,7 +1298,6 @@ npm whoami
 ### `ai_worm_network`
 
 ```text
-ps -p … -o args=
 ps aux
 ```
 
@@ -1412,6 +1411,7 @@ security find-certificate -c … -p /Library/Keychains/login.keychain-db
 ```text
 openssl x509 -noout -issuer
 openssl x509 -noout -subject -dates
+security dump-trust-settings …
 security find-certificate -a -p /Library/Keychains/System.keychain
 ```
 
@@ -1480,6 +1480,7 @@ fdesetup status
 defaults read /Library/Preferences/com.apple.networkd DNSSettings
 dig +short …
 networksetup -getdnsservers Wi-Fi
+route -n get default
 scutil --dns
 ```
 
@@ -1741,7 +1742,6 @@ systemsetup -getremotelogin
 ### `rootkit_check`
 
 ```text
-/bin/ls -la /
 /bin/ps -eo pid
 /usr/bin/codesign -v …
 /usr/bin/csrutil status
@@ -1871,7 +1871,6 @@ system_profiler SPiBridgeDataType
 
 ```text
 lsof -i -n -P
-ps -p … -o pid=,comm=
 ```
 
 ### `suspicious_processes`
