@@ -270,3 +270,23 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.keylogger_indicators.") for c in declared)
+
+
+def test_vendor_prefixed_app_is_listed_as_unverified_info_not_dropped():
+    # An app can use any bundle ID; it must stay visible, never silently cleared.
+    mod = _get_module()
+    fake_run = _make_run_result(
+        input_monitoring_apps=["com.valvesoftware.impostor", "com.logitech.evil", "com.apple.impostor"]
+    )
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    claimed = [f for f in result.findings if f.data.get("check") == "claimed_vendor_input_monitoring"]
+    assert len(claimed) == 1
+    assert claimed[0].severity == Severity.INFO
+    assert set(claimed[0].data["apps"]) == {
+        "com.valvesoftware.impostor",
+        "com.logitech.evil",
+        "com.apple.impostor",
+    }
+    assert "not verified" in claimed[0].description.lower()
+    assert not [f for f in result.findings if f.severity in (Severity.WARNING, Severity.CRITICAL)]

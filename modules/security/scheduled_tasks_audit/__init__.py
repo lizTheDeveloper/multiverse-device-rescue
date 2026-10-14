@@ -1,4 +1,5 @@
 import plistlib
+import re
 from pathlib import Path
 
 from rescue.models import (
@@ -185,10 +186,24 @@ class Module(ModuleBase):
                 with open(plist_path, "rb") as f:
                     plist_data = plistlib.load(f)
 
+                if not isinstance(plist_data, dict):
+                    raise ValueError("plist root is not a dictionary")
+                # Values come from a file anyone can write: never assume types.
                 label = plist_data.get("Label", plist_path.stem)
+                label = label if isinstance(label, str) and label else plist_path.stem
                 program = plist_data.get("Program", "")
-                program_args = plist_data.get("ProgramArguments", [])
-                disabled = plist_data.get("Disabled", False)
+                raw_args = plist_data.get("ProgramArguments", [])
+                if isinstance(program, (list, tuple)):
+                    program = " ".join(str(a) for a in program)
+                elif not isinstance(program, str):
+                    program = str(program) if program else ""
+                if isinstance(raw_args, str):
+                    program_args = [raw_args]
+                elif isinstance(raw_args, (list, tuple)):
+                    program_args = [str(a) for a in raw_args]
+                else:
+                    program_args = []
+                disabled = plist_data.get("Disabled", False) is True
 
                 # Build command string for display
                 if program:
@@ -273,8 +288,28 @@ class Module(ModuleBase):
                     )
 
             except Exception:
-                # Skip files that can't be parsed
-                pass
+                # A file we cannot read is still something that sits in a launch
+                # folder, so list it rather than hiding it from the report.
+                findings.append(
+                    Finding(
+                        title=f"Launch {noun} file could not be read: {plist_path.name}",
+                        description=(
+                            f"This tool could not read {plist_path}. It may be damaged or "
+                            "in an unusual format. If you do not recognize it, "
+                            "check where it came from."
+                        ),
+                        severity=Severity.INFO,
+                        category=self.category,
+                        code="security.scheduled_tasks_audit.launch_agent_info",
+                        data={
+                            "check": "launch_agent_info",
+                            "label": plist_path.stem,
+                            "location": str(plist_path),
+                            "type": agent_type,
+                            "command": "(unreadable)",
+                        },
+                    )
+                )
 
         return findings
 
@@ -284,31 +319,34 @@ class Module(ModuleBase):
         """Check if a launch agent/daemon exhibits suspicious characteristics."""
         reasons = []
 
-        # World-writable or throwaway locations. /tmp is writable by any
+        # World-writable or throwaway locations. These are writable by any
         # program, so whatever appears there runs as the user, even if the file
-        # is missing now.
-        writable_prefixes = (
-            "/tmp/", "/private/tmp/", "/var/tmp/", "/private/var/tmp/",
-            "/Users/Shared/",
+        # is missing now. This is judged on the path alone: a label such as
+        # com.apple.* or com.google.* is just text anyone can choose.
+        check_paths = ([program] if isinstance(program, str) and program else []) + (
+            [a for a in program_args if isinstance(a, str)]
+            if isinstance(program_args, (list, tuple))
+            else []
         )
-        check_paths = ([program] if program else []) + (
-            list(program_args) if isinstance(program_args, list) else []
+        writable_re = re.compile(
+            r"(?:^|[\s\"'=;|&(:])(?:(?:/private)?/(?:var/)?tmp(?=[/\s\"';|&)]|$)|/Users/Shared/)"
         )
 
         for path in check_paths:
-            if not isinstance(path, str):
-                continue
             path = path.strip().strip("\"'")
-            parts = path.split("/")
-            if path.startswith(writable_prefixes):
+            if writable_re.search(path):
                 reasons.append(
                     f"runs from {path}, a folder any program on this Mac can write "
                     "to (whatever is placed there runs automatically as you)"
                 )
                 break
-            if "Downloads" in parts or "Temp" in parts:
+            if "Downloads" in path.split("/") or "Temp" in path.split("/"):
                 reasons.append(f"runs from a downloads/temporary folder: {path}")
                 break
+
+        # Writable-location reasons always flag, whatever the label says.
+        if any("any program on this Mac can write" in r for r in reasons):
+            return True, " | ".join(reasons)
 
         # Check for obfuscated labels (very short, all numbers, unusual chars)
         if len(label) < 5 and label.replace("_", "").replace("-", "").isdigit():

@@ -143,9 +143,32 @@ class Module(ModuleBase):
                 process_conn_count[process_key].append(conn)
 
         high_conn_processes = []
+        familiar_many = []
         for process_key, conns in process_conn_count.items():
             if len(conns) > _threshold_for(conns[0]["process"]):
                 high_conn_processes.append(f"{process_key}: {len(conns)} connections")
+            elif len(conns) > DEFAULT_CONNECTION_THRESHOLD:
+                # The higher browser/developer limit applies only because of the
+                # process NAME, which any program can choose. Keep it listed.
+                familiar_many.append(f"{process_key}: {len(conns)} connections")
+
+        if familiar_many:
+            findings.append(
+                Finding(
+                    title=f"Programs with many connections: {len(familiar_many)}",
+                    description=(
+                        "These programs have many open connections, which is normal for "
+                        "web browsers and developer tools:\n"
+                        f"{chr(10).join(familiar_many)}\n\n"
+                        "This tool went by the program's name and has not verified who made it. "
+                        "If you do not recognize one, look it up."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.network_connections_monitor.high_connection_count",
+                    data={"check": "many_connections_familiar_name", "processes": familiar_many},
+                )
+            )
 
         if high_conn_processes:
             findings.append(
@@ -167,18 +190,45 @@ class Module(ModuleBase):
 
         # Check for connections on unusual ports from unknown processes
         unusual_port_connections = []
+        push_port_connections = []
         for conn in connections:
             port = conn["port"]
             # Flag if on unusual port (not in legitimate list) and not a system port (< 1024)
             if _is_loopback(conn["remote_addr"]) or _is_link_local_v6(conn["remote_addr"]):
                 continue  # stays on this computer or the local link
             if port in WELL_KNOWN_REMOTE_PORTS:
+                # Push-notification ports are common, but a port number is chosen
+                # by the program, so list these as info instead of skipping them.
+                push_port_connections.append(
+                    f"{conn['process']} -> {conn['remote_addr']}:{port}"
+                )
                 continue
             if port not in LEGITIMATE_PORTS and port not in BACKDOOR_PORTS:
                 if port > 1024:  # Skip system ports
                     unusual_port_connections.append(
                         f"{conn['process']} -> {conn['remote_addr']}:{port}"
                     )
+
+        if push_port_connections:
+            findings.append(
+                Finding(
+                    title=f"Connections on push-notification ports: {len(push_port_connections)}",
+                    description=(
+                        "Ports 5223 and 5228 are used for Apple and Google push notifications, "
+                        "so this is normal for chat and mail apps:\n"
+                        f"{chr(10).join(push_port_connections[:20])}\n\n"
+                        "A port number does not prove who is using it; check that you "
+                        "recognize the programs listed."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.network_connections_monitor.unusual_ports",
+                    data={
+                        "check": "push_port_connections",
+                        "connections": push_port_connections,
+                    },
+                )
+            )
 
         if unusual_port_connections:
             findings.append(

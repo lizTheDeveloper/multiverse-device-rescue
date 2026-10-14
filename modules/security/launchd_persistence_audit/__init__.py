@@ -1,4 +1,7 @@
+import os
 import plistlib
+import posixpath
+import re
 from pathlib import Path
 
 from rescue.models import (
@@ -62,6 +65,18 @@ class Module(ModuleBase):
         ".virtualenvs", ".pipx", ".uv", ".mise", ".config", "virtualenv",
     }
 
+    # Locations holding macOS's own programs (SIP-protected; /usr/local is NOT
+    # among them). Only a program that lives here can back an "Apple" claim.
+    SYSTEM_PROGRAM_PREFIXES = (
+        "/System/", "/usr/libexec/", "/usr/sbin/", "/usr/bin/", "/bin/", "/sbin/",
+        "/Library/Apple/", "/usr/lib/",
+    )
+
+    _WRITABLE_RE = re.compile(
+        r"(?:^|[\s\"'=;|&(:])(?:(?:/private)?/(?:var/)?tmp(?=[/\s\"';|&)]|$)"
+        r"|/Users/Shared/|/dev/shm/)"
+    )
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -73,6 +88,24 @@ class Module(ModuleBase):
         all_items = user_agents + system_agents + system_daemons
 
         for label, program_path, keep_alive, run_at_load, arguments in all_items:
+            if not program_path:
+                findings.append(
+                    Finding(
+                        title=f"Launchd item with no readable program: {label}",
+                        description=(
+                            f"The launchd item '{label}' has no program this tool could read "
+                            "(the file may be damaged, in an unusual format, or have an "
+                            "unexpected layout). If you do not recognize it, check where "
+                            "it came from."
+                        ),
+                        severity=Severity.INFO,
+                        category=self.category,
+                        code="security.launchd_persistence_audit.non_apple_info",
+                        data={"check": "non_apple_info", "label": label, "program": ""},
+                    )
+                )
+                continue
+
             # Check for known malware labels
             if self._is_known_malware(label):
                 findings.append(
@@ -124,7 +157,30 @@ class Module(ModuleBase):
                 )
                 continue
 
-            if self._has_unusual_hidden_path(program_path):
+            hidden = self._hidden_kind(program_path, arguments)
+            if hidden == "developer":
+                # Ordinary on a developer machine, but a hidden folder is also a
+                # place to hide, so it stays listed rather than being dropped.
+                findings.append(
+                    Finding(
+                        title=f"Background program from a developer tool folder: {label}",
+                        description=(
+                            f"The launchd item '{label}' runs a program from a folder "
+                            f"used by developer tools: {program_path}\n"
+                            "This is normal if you use that tool. Anyone can create a "
+                            "folder with that name, so check that you recognize it."
+                        ),
+                        severity=Severity.INFO,
+                        category=self.category,
+                        code="security.launchd_persistence_audit.suspicious_path",
+                        data={
+                            "check": "developer_tool_path",
+                            "label": label,
+                            "program": program_path,
+                        },
+                    )
+                )
+            elif hidden == "unusual":
                 findings.append(
                     Finding(
                         title=f"Launchd item runs from a hidden folder: {label}",
@@ -150,7 +206,7 @@ class Module(ModuleBase):
             # KeepAlive + RunAtLoad is how every background service works, so it
             # is only worth a warning when the program is also missing.
             if (
-                not self._is_apple(label)
+                not self._is_apple(label, program_path, arguments)
                 and keep_alive
                 and run_at_load
                 and not self._program_exists(program_path)
@@ -176,8 +232,14 @@ class Module(ModuleBase):
                     )
                 )
 
-            # Flag INFO for all non-Apple items
-            if not self._is_apple(label):
+            # Flag INFO for all items not provably Apple's
+            if not self._is_apple(label, program_path, arguments):
+                lookalike = (
+                    "\nThe name starts with com.apple. but the program is not in a "
+                    "macOS system folder."
+                    if label.startswith("com.apple.")
+                    else ""
+                )
                 findings.append(
                     Finding(
                         title=f"Non-Apple launchd item: {label}",
@@ -185,6 +247,7 @@ class Module(ModuleBase):
                             f"Found non-Apple launchd item: {label}\n"
                             f"Program: {program_path}\n"
                             f"KeepAlive: {keep_alive}, RunAtLoad: {run_at_load}"
+                            f"{lookalike}"
                         ),
                         severity=Severity.INFO,
                         category=self.category,
@@ -294,17 +357,21 @@ class Module(ModuleBase):
             label, program, keep_alive, run_at_load, arguments = (
                 self._extract_from_plist(str(plist_path))
             )
-            if label and program:
-                items.append((label, program, keep_alive, run_at_load, arguments))
+            items.append((label, program, keep_alive, run_at_load, arguments))
 
         return items
 
     @staticmethod
     def _extract_from_plist(
         plist_path: str,
-    ) -> tuple[str | None, str | None, bool, bool, list[str]]:
-        """Read Label, program, KeepAlive and RunAtLoad straight from the plist."""
-        empty = (None, None, False, False, [])
+    ) -> tuple[str, str, bool, bool, list[str]]:
+        """Read Label, program, KeepAlive and RunAtLoad straight from the plist.
+
+        Never drops an item: a file we cannot read, or with unexpected value
+        types, comes back with an empty program so the caller can list it.
+        """
+        stem = Path(plist_path).stem
+        empty = (stem, "", False, False, [])
         try:
             with open(plist_path, "rb") as f:
                 data = plistlib.load(f)
@@ -315,15 +382,19 @@ class Module(ModuleBase):
 
         label = data.get("Label")
         if not isinstance(label, str) or not label:
-            return empty
+            label = stem
 
         args = data.get("ProgramArguments")
-        arguments = [str(a) for a in args] if isinstance(args, list) else []
+        if isinstance(args, str):
+            args = [args]
+        arguments = [str(a) for a in args] if isinstance(args, (list, tuple)) else []
         program = data.get("Program")
-        if not isinstance(program, str) or not program:
-            program = arguments[0] if arguments else None
+        if isinstance(program, (list, tuple)):
+            program = " ".join(str(a) for a in program)
+        elif program and not isinstance(program, str):
+            program = str(program)
         if not program:
-            return empty
+            program = arguments[0] if arguments else ""
         program = program.strip().strip("\"'")
 
         return (
@@ -334,26 +405,65 @@ class Module(ModuleBase):
             arguments,
         )
 
+    @staticmethod
+    def _path_forms(candidate: str) -> list[str]:
+        """Absolute normalized and symlink-resolved forms of a path-looking string."""
+        c = str(candidate).strip().strip("\"'")
+        if not (c.startswith("/") or c.startswith("~")):
+            return []
+        try:
+            expanded = posixpath.normpath(os.path.expanduser(c))
+            forms = [expanded]
+            real = os.path.realpath(expanded)
+            if real != expanded:
+                forms.append(real)
+            return forms
+        except Exception:
+            return [c]
+
     def _world_writable_path(self, program_path: str, arguments: list[str]) -> str | None:
-        """Return the first program/argument path in a world-writable location."""
+        """Return the first program/argument in a world-writable location.
+
+        Checks the raw text (shell command strings), the normalized path (so
+        ``..`` cannot hide it) and the symlink-resolved path.
+        """
         for candidate in [program_path, *arguments]:
-            expanded = str(candidate).strip().strip("\"'")
-            if expanded.startswith(self.WORLD_WRITABLE_PREFIXES):
-                return expanded
+            text = str(candidate).strip().strip("\"'")
+            if self._WRITABLE_RE.search(text):
+                return text
+            for form in self._path_forms(text):
+                if (form + "/").startswith(self.WORLD_WRITABLE_PREFIXES):
+                    return text
         return None
 
-    def _has_unusual_hidden_path(self, program_path: str) -> bool:
-        """True for a hidden folder that is not a known developer tool folder."""
-        parts = [p for p in program_path.split("/") if p]
-        if any(p in self.DEVELOPER_TOOL_DIRS or self._is_venv_name(p) for p in parts):
-            return False
-        return any(p.startswith(".") and p not in (".", "..") for p in parts)
+    def _hidden_kind(self, program_path: str, arguments: list[str]) -> str | None:
+        """None, "developer" or "unusual" for hidden folders in program paths.
 
-    @staticmethod
-    def _is_venv_name(part: str) -> bool:
-        """Virtualenv folders such as .venv, venv, .venv-hermes, project-venv."""
-        p = part.lower()
-        return p.startswith((".venv", "venv")) or p.endswith("venv")
+        "developer" only when every hidden folder is an exact developer-tool
+        folder name; the result is informational, never a reason to drop an item.
+        """
+        hidden: list[str] = []
+        excused: list[str] = []
+        for candidate in [program_path, *arguments]:
+            for form in self._path_forms(candidate):
+                parts = [p for p in form.split("/") if p]
+                found = [p for p in parts if p.startswith(".") and p not in (".", "..")]
+                # A virtualenv's own interpreter (.../venv/bin/python) runs only
+                # what it is given; any script path in the arguments is checked
+                # on its own above.
+                if (
+                    found
+                    and parts[-1].lower().startswith("python")
+                    and any(p.lower() in ("venv", "virtualenv") or p.lower().startswith(".venv") for p in parts[:-2])
+                ):
+                    excused.extend(found)
+                else:
+                    hidden.extend(found)
+        if not hidden and not excused:
+            return None
+        if all(p in self.DEVELOPER_TOOL_DIRS or p.lower().startswith(".venv") for p in hidden):
+            return "developer"
+        return "unusual"
 
     @staticmethod
     def _program_exists(program_path: str) -> bool:
@@ -369,6 +479,19 @@ class Module(ModuleBase):
                 return True
         return False
 
-    def _is_apple(self, label: str) -> bool:
-        """Check if label is from Apple."""
-        return label.startswith("com.apple.")
+    def _is_apple(self, label: str, program_path: str = "", arguments: list[str] | None = None) -> bool:
+        """Apple-made only if the name says so AND every program path is a macOS system path.
+
+        A label is just text any program can pick; the location (SIP-protected,
+        excluding /usr/local) is what an attacker cannot fake.
+        """
+        if not label.startswith("com.apple."):
+            return False
+        paths = [c for c in [program_path, *(arguments or [])] if str(c).strip().strip("\"'")[:1] in ("/", "~")]
+        if not paths:
+            return False
+        for c in paths:
+            forms = self._path_forms(c)
+            if not forms or not all(f.startswith(self.SYSTEM_PROGRAM_PREFIXES) for f in forms):
+                return False
+        return True

@@ -1,3 +1,7 @@
+import ctypes
+import ctypes.util
+import os
+import posixpath
 import subprocess
 import re
 from collections import defaultdict
@@ -114,7 +118,6 @@ class Module(ModuleBase):
         # Parse lsof output
         connections = self._parse_lsof_output(lsof_output)
 
-        paths = self._lookup_process_paths(connections)
 
         # Unusual listening ports: only listeners reachable from the network
         # matter. Loopback-only listeners are summarised in one info line.
@@ -129,7 +132,7 @@ class Module(ModuleBase):
             if self._is_loopback_host(conn["local_host"]):
                 loopback_listeners[conn["process"]].add(port)
                 continue
-            if self._is_apple_system_path(paths.get(conn["pid"])):
+            if self._is_apple_system_process(conn["pid"]):
                 continue
             entry = listen_by_proc.setdefault(
                 (conn["process"], conn["pid"]), {"ports": set()}
@@ -186,24 +189,52 @@ class Module(ModuleBase):
 
         # Unusual established connections, one finding per process
         out_by_proc: dict[tuple, dict] = {}
+        familiar: dict[tuple, dict] = {}
         for conn in connections:
             if conn["type"] != "ESTABLISHED":
                 continue
             port = conn["port"]
-            if not port or self._is_standard_port(port) or port in WELL_KNOWN_REMOTE_PORTS:
+            if not port or self._is_standard_port(port):
                 continue
             if self._is_loopback_host(conn["local_host"]) and self._is_loopback_host(
                 conn.get("remote_host") or conn["local_host"]
             ):
                 continue
-            if self._is_known_safe_process(conn["process"]):
+            # Only an Apple-signed program in a SIP folder is skipped outright.
+            if self._is_apple_system_process(conn["pid"]):
                 continue
-            if self._is_apple_system_path(paths.get(conn["pid"])):
-                continue
-            entry = out_by_proc.setdefault(
-                (conn["process"], conn["pid"]), {"ports": set()}
+            # A familiar process name or a push-notification port is shown to
+            # the person, but is not a reason to treat the connection as odd.
+            # Both are chosen by the program, so they never hide it.
+            bucket = (
+                familiar
+                if port in WELL_KNOWN_REMOTE_PORTS or self._is_known_safe_process(conn["process"])
+                else out_by_proc
             )
+            entry = bucket.setdefault((conn["process"], conn["pid"]), {"ports": set()})
             entry["ports"].add(port)
+
+        if familiar:
+            items = [
+                {"process": proc, "pid": pid, "ports": sorted(e["ports"])}
+                for (proc, pid), e in familiar.items()
+            ]
+            names = sorted({i["process"] for i in items})
+            findings.append(
+                Finding(
+                    title=f"{len(items)} connection(s) from familiar-looking programs on uncommon ports",
+                    description=(
+                        "These programs use a familiar name or a port used for push "
+                        f"notifications: {', '.join(names)}. That is normal for browsers, "
+                        "chat apps and developer tools. This tool has not verified who "
+                        "made them, because a program can pick any name."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.suspicious_connections.unusual_outbound_connection",
+                    data={"check": "familiar_connections", "items": items},
+                )
+            )
 
         for (process, pid), entry in out_by_proc.items():
             ports = sorted(entry["ports"])
@@ -387,30 +418,52 @@ class Module(ModuleBase):
         return host in ("::1", "localhost") or host.startswith("127.")
 
     @staticmethod
-    def _is_apple_system_path(path: str | None) -> bool:
-        if not path:
-            return False
-        return path.startswith(APPLE_SYSTEM_PREFIXES)
+    def _kernel_path(pid) -> str | None:
+        """Executable path reported by the kernel (libproc proc_pidpath).
 
-    def _lookup_process_paths(self, connections: list[dict]) -> dict:
-        """Map PID -> executable path using ps (read-only)."""
-        pids = sorted({str(c["pid"]) for c in connections if str(c["pid"]).isdigit()})
-        if not pids:
-            return {}
+        Unlike the ps/lsof command name this cannot be set by the process.
+        None means unknown, which is never trusted.
+        """
         try:
-            result = subprocess.run(
-                ["ps", "-p", ",".join(pids), "-o", "pid=,comm="],
-                capture_output=True,
-                text=True,
+            lib = ctypes.CDLL(
+                ctypes.util.find_library("proc") or "/usr/lib/libproc.dylib", use_errno=True
             )
-        except (OSError, subprocess.SubprocessError):
-            return {}
-        paths = {}
-        for line in (result.stdout or "").splitlines():
-            bits = line.strip().split(None, 1)
-            if len(bits) == 2 and bits[0].isdigit():
-                paths[int(bits[0])] = bits[1].strip()
-        return paths
+            buf = ctypes.create_string_buffer(4096)
+            n = lib.proc_pidpath(int(pid), buf, ctypes.c_uint32(len(buf)))
+            return buf.value.decode("utf-8", "surrogateescape") if n > 0 else None
+        except Exception:
+            return None
+
+    def _apple_signed(self, path: str) -> bool:
+        """True if ``path`` verifies against Apple's anchor. Cached per path."""
+        cache = self.__dict__.setdefault("_apple_sig_cache", {})
+        if path not in cache:
+            from rescue import command
+
+            res = command.run(
+                ["/usr/bin/codesign", "--verify", "--strict", "-R=anchor apple", path],
+                timeout=5,
+            )
+            cache[path] = res.ok
+        return cache[path]
+
+    def _is_apple_system_process(self, pid) -> bool:
+        """Apple daemon = kernel path in a SIP directory AND a valid Apple signature.
+
+        Names and ps paths are attacker-controlled and are not consulted.
+        """
+        key = ("_apple_proc", str(pid))
+        cache = self.__dict__.setdefault("_apple_proc_cache", {})
+        if key in cache:
+            return cache[key]
+        verdict = False
+        kpath = self._kernel_path(pid)
+        if kpath:
+            real = posixpath.normpath(os.path.realpath(kpath))
+            if real.startswith(APPLE_SYSTEM_PREFIXES):
+                verdict = self._apple_signed(real)
+        cache[key] = verdict
+        return verdict
 
     def _is_standard_port(self, port: int) -> bool:
         """Check if port is a standard service port."""

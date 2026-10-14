@@ -297,6 +297,26 @@ def test_nextdns_and_other_known_providers_not_suspicious():
         assert not [f for f in result.findings if f.data.get("check") == "suspicious_dns"], ip
 
 
+def test_private_dns_that_is_not_the_gateway_is_listed_not_skipped():
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if "scutil" in cmd_str:
+            return _make_subprocess_result(
+                stdout="resolver #0\n  nameserver[0] : 192.168.1.1\n  nameserver[1] : 192.168.1.77\n"
+            )
+        if cmd[0] == "route":
+            return _make_subprocess_result(stdout="   route to: default\n    gateway: 192.168.1.1\n")
+        if cmd[0] == "dig":
+            return _make_subprocess_result(stdout=_GOOD.get(cmd[-1], "") + "\n")
+        return _make_subprocess_result(returncode=1)
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = _get_module().check(_make_profile())
+    listed = [f for f in result.findings if f.data.get("check") == "local_dns_server"]
+    assert len(listed) == 1 and listed[0].severity == Severity.INFO
+    assert listed[0].data["servers"] == ["192.168.1.77"]
+
+
 def test_unknown_public_dns_still_suspicious():
     result = _run_dns(["203.0.113.77"], _GOOD)
     assert any(f.data.get("check") == "suspicious_dns" for f in result.findings)

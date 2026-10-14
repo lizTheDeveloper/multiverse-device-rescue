@@ -296,3 +296,48 @@ def test_scheduled_tasks_audit_template_dir_not_flagged():
         "com.example.tool", "/Applications/Templates/tool", [], {}
     )
     assert not flagged
+
+
+# --- trusted-looking labels must not hide anything ---------------------------
+
+def _scan_dir(tmp_path, name, data=None, raw=None):
+    mod = _get_module()
+    path = tmp_path / name
+    path.write_bytes(raw if raw is not None else plistlib.dumps(data))
+    return mod._scan_launch_agents(tmp_path, "user")
+
+
+def _warnings(findings):
+    return [f for f in findings if f.severity != Severity.INFO]
+
+
+def test_trusted_looking_label_does_not_hide_tmp_program(tmp_path):
+    for label in ("com.apple.updater", "com.google.keystone", "com.docker.helper"):
+        data = {"Label": label, "Program": "/tmp/payload", "RunAtLoad": True}
+        assert _warnings(_scan_dir(tmp_path, f"{label}.plist", data)), label
+
+
+def test_trusted_looking_label_does_not_hide_tmp_in_arguments(tmp_path):
+    data = {
+        "Label": "com.apple.thing",
+        "ProgramArguments": ["/bin/sh", "-c", "cd /var/tmp && ./x"],
+    }
+    assert _warnings(_scan_dir(tmp_path, "a.plist", data))
+
+
+def test_non_string_program_is_still_listed(tmp_path):
+    data = {"Label": "com.evil.x", "Program": ["/tmp/x"], "ProgramArguments": "/tmp/y"}
+    findings = _scan_dir(tmp_path, "x.plist", data)
+    assert findings, "malformed values must not make the item disappear"
+    assert _warnings(findings)
+
+
+def test_unreadable_plist_is_listed_not_skipped(tmp_path):
+    findings = _scan_dir(tmp_path, "broken.plist", raw=b"\x00not a plist at all")
+    assert len(findings) == 1
+    assert "broken.plist" in findings[0].description
+
+
+def test_binary_plist_with_tmp_program_is_flagged(tmp_path):
+    raw = plistlib.dumps({"Label": "com.x.y", "Program": "/tmp/p"}, fmt=plistlib.FMT_BINARY)
+    assert _warnings(_scan_dir(tmp_path, "b.plist", raw=raw))
