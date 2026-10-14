@@ -314,7 +314,9 @@ class Module(ModuleBase):
                         "check": "library_install_strings",
                         "confidence": "low",
                         "count": len(library_mentions),
-                        "paths": library_mentions[:20],
+                        # Folder names are chosen by whoever put the file there, so
+                        # every file stays listed (no short cut-off).
+                        "paths": library_mentions[:500],
                     },
                 )
             )

@@ -200,6 +200,18 @@ def test_install_one_liner_in_site_packages_is_info_only(tmp_path):
     assert len(found) == 1  # aggregated
 
 
+def test_library_tree_downgrade_still_lists_every_file(tmp_path):
+    # A folder named like a package tree can hold anything; none may be dropped.
+    mod = _get_module()
+    d = tmp_path / "node_modules" / "pkg"
+    d.mkdir(parents=True)
+    for i in range(30):
+        (d / f"s{i}.sh").write_text("curl https://example.com/x.sh | bash\n")
+    found = _obf(_scan_dir(mod, tmp_path))
+    assert len(found) == 1 and found[0].severity == Severity.INFO
+    assert len(found[0].data["paths"]) == 30 == found[0].data["count"]
+
+
 def test_pipe_to_shell_in_loose_script_still_warns_with_accurate_title(tmp_path):
     mod = _get_module()
     (tmp_path / "setup.sh").write_text("curl https://example.com/x.sh | bash\n")

@@ -61,7 +61,7 @@ _KNOWN_MALICIOUS_SYSTEMD_UNITS = {
 # The bun marker is matched only against what the agent actually *runs*
 # (Program/ProgramArguments), never the whole plist: a PATH value such as
 # "~/.bun/bin" is on many developers' machines and says nothing about what runs.
-_BUN_COMMAND_PATTERN = re.compile(r"(?:^|[\s;&|(])bunx?(?=\s|$)")
+_BUN_COMMAND_PATTERN = re.compile(r"(?:^|[\s;&|(/])bunx?(?=\s|$)")
 # systemd unit files: ExecStart lines are plain text, keep the original match.
 _SYSTEMD_BUN_PATTERN = re.compile(r"\bbun\b")
 _HEURISTIC_PERSISTENCE_PATTERNS = [
@@ -233,17 +233,27 @@ class Module(ModuleBase):
 
     @staticmethod
     def _runs_bun(plist: Path, content: str = "") -> bool:
-        """True if the agent's Program/ProgramArguments invoke the bun runtime."""
+        """True if the agent's Program/ProgramArguments invoke the bun runtime.
+
+        If the file cannot be parsed as a property list we cannot tell what it
+        runs, so fall back to a plain-text match instead of assuming it is fine.
+        """
         try:
             with open(plist, "rb") as f:
                 data = plistlib.load(f)
             commands = []
-            if isinstance(data.get("Program"), str):
-                commands.append(data["Program"])
-            if isinstance(data.get("ProgramArguments"), list):
-                commands.extend(str(a) for a in data["ProgramArguments"])
+            program = data.get("Program")
+            if isinstance(program, str):
+                commands.append(program)
+            elif isinstance(program, (list, tuple)):
+                commands.extend(str(a) for a in program)
+            args = data.get("ProgramArguments")
+            if isinstance(args, str):
+                commands.append(args)
+            elif isinstance(args, (list, tuple)):
+                commands.extend(str(a) for a in args)
         except Exception:
-            return False
+            return bool(_SYSTEMD_BUN_PATTERN.search(content or ""))
         for cmd in commands:
             if Path(cmd.split()[0] if cmd.split() else "").name in ("bun", "bunx"):
                 return True

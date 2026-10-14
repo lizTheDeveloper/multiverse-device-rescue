@@ -247,6 +247,26 @@ def test_running_bun_is_heuristic_match_without_malicious_wording(tmp_path):
     assert finding.severity in (Severity.INFO, Severity.WARNING)
 
 
+def test_bun_inside_shell_command_or_odd_plist_shapes_still_matches(tmp_path):
+    cases = {
+        "com.a.shell": {
+            "Label": "com.a.shell",
+            "ProgramArguments": ["/bin/sh", "-c", "cd /x && /Users/u/.bun/bin/bun run p.ts"],
+        },
+        "com.a.env": {"Label": "com.a.env", "ProgramArguments": ["/usr/bin/env", "bun", "run"]},
+        "com.a.str": {"Label": "com.a.str", "ProgramArguments": "/Users/u/.bun/bin/bun run x"},
+        "com.a.list": {"Label": "com.a.list", "Program": ["/Users/u/.bun/bin/bun"]},
+    }
+    _, raw = _scan_la_dir(tmp_path, cases)
+    assert {r["label"] for r in raw} == set(cases)
+
+
+def test_unparseable_plist_mentioning_bun_is_not_assumed_fine(tmp_path):
+    (tmp_path / "broken.plist").write_text("<plist><string>/x/bun run y</string>")
+    mod = _get_module()
+    assert mod._runs_bun(tmp_path / "broken.plist", "/x/bun run y")
+
+
 def test_known_bad_label_still_critical_and_named(tmp_path):
     mod, raw = _scan_la_dir(
         tmp_path,

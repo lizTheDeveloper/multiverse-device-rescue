@@ -300,9 +300,6 @@ def test_scheduled_tasks_audit_template_dir_not_flagged():
 
 # --- trusted-looking labels must not hide anything ---------------------------
 
-import plistlib
-
-
 def _scan_dir(tmp_path, name, data=None, raw=None):
     mod = _get_module()
     path = tmp_path / name
