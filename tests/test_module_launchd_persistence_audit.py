@@ -132,8 +132,12 @@ def test_launchd_persistence_audit_developer_dirs_not_flagged(tmp_path):
         tmp_path,
         {f"com.dev.{k}": {"Label": f"com.dev.{k}", "Program": v} for k, v in programs.items()},
     )
-    assert not _by_check(result, "suspicious_path")
     assert not any(f.severity in (Severity.WARNING, Severity.CRITICAL) for f in result.findings)
+    # They stay listed (as info), they are not dropped
+    listed = _by_check(result, "developer_tool_path")
+    assert len(listed) == len(programs)
+    assert all(f.severity == Severity.INFO for f in listed)
+    assert all("developer tool folder" in f.title for f in listed)
 
 
 def test_launchd_persistence_audit_unusual_hidden_dir_is_warning_not_malware(tmp_path):
@@ -233,7 +237,94 @@ def test_launchd_persistence_audit_fix_suspicious_path(tmp_path):
 def test_launchd_persistence_audit_unreadable_plist(tmp_path):
     (tmp_path / "broken.plist").write_text("not a plist")
     mod = _get_module()
-    assert mod._scan_launchd_dir(tmp_path) == []
+    items = mod._scan_launchd_dir(tmp_path)
+    # Unreadable items are still reported, never silently skipped
+    assert len(items) == 1 and items[0][0] == "broken" and items[0][1] == ""
+
+
+# --- identities an attacker controls must not hide anything -------------------
+
+
+def _severities(result, check=None):
+    return [f.severity for f in result.findings if check is None or f.data.get("check") == check]
+
+
+def test_developer_dir_name_nested_in_hidden_folder_is_still_warned(tmp_path):
+    for i, prog in enumerate(
+        (
+            "/Users/me/.hidden/.nvm/bin/x",
+            "/Users/me/.nvm/../.evil/x",
+            "/Users/me/.xvenv/bin/x",
+            "/Users/me/.nvm-evil/x",
+        )
+    ):
+        sub = tmp_path / str(i)
+        sub.mkdir()
+        _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": prog}})
+        assert Severity.WARNING in _severities(result, "suspicious_path"), prog
+
+
+def test_traversal_and_symlink_into_tmp_are_critical(tmp_path):
+    link = tmp_path / "link"
+    link.symlink_to("/private/tmp")
+    for i, prog in enumerate(("/Users/me/../../tmp/x", str(link / "x"))):
+        sub = tmp_path / f"p{i}"
+        sub.mkdir()
+        _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": prog}})
+        assert Severity.CRITICAL in _severities(result, "suspicious_path"), prog
+
+
+def test_tmp_inside_shell_command_is_critical(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {"com.a.b": {"Label": "com.a.b", "ProgramArguments": ["/bin/sh", "-c", "cd /tmp && ./x"]}},
+    )
+    assert Severity.CRITICAL in _severities(result, "suspicious_path")
+
+
+def test_apple_looking_label_with_non_system_program_is_still_listed(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {
+            "com.apple.evil": {
+                "Label": "com.apple.evil",
+                "Program": "/Users/me/Library/evil",
+                "KeepAlive": True,
+                "RunAtLoad": True,
+            }
+        },
+    )
+    assert _by_check(result, "non_apple_info")
+    assert _by_check(result, "keepalive_runatload")
+
+
+def test_apple_label_with_tmp_helper_argument_is_not_trusted(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {
+            "com.apple.x": {
+                "Label": "com.apple.x",
+                "ProgramArguments": ["/usr/bin/python3", "/Users/me/Library/evil.py"],
+            }
+        },
+    )
+    assert _by_check(result, "non_apple_info")
+
+
+def test_odd_plist_shapes_are_still_listed(tmp_path):
+    _, result = _check(
+        tmp_path,
+        {
+            "com.a.one": {"Label": "com.a.one", "ProgramArguments": "/Users/me/.hidden/x"},
+            "com.a.two": {"Label": "com.a.two", "Program": ["/Users/me/.hidden/y"]},
+            "com.a.three": {"Label": "com.a.three"},
+            "com.a.four": {"Program": "/Users/me/z"},
+        },
+    )
+    labels = {f.data.get("label") for f in result.findings}
+    assert {"com.a.one", "com.a.two", "com.a.three", "com.a.four"} <= labels
+    hidden = _by_check(result, "suspicious_path")
+    assert {f.data["label"] for f in hidden} >= {"com.a.one", "com.a.two"}
 
 
 def test_emitted_codes_are_declared():
