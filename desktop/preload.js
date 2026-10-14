@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer, shell } = require('electron');
 contextBridge.exposeInMainWorld('rescue', {
   runScan: (profile) => ipcRenderer.invoke('run-scan', profile),
+  runFix: (moduleName) => ipcRenderer.invoke('run-fix', moduleName),
   openGuide: (url) => ipcRenderer.invoke('open-guide', url),
   onScanEvent: (cb) => {
     const listener = (_e, ev) => cb(ev);

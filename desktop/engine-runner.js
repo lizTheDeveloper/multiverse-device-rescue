@@ -61,4 +61,53 @@ function runScan(spawnFn = spawn, profile = null, onEvent = () => {}) {
     });
   });
 }
-module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine };
+// "Fix it for me". The module name arrives over IPC, so only plain identifiers are
+// passed to the engine; the acknowledgement flag is always present because the
+// person has already said yes in the app by the time this runs.
+const FIX_MODULE_NAME = /^[a-z0-9_]+$/;
+const FIX_TIMEOUT_MS = 120000;
+
+function fixArgs(moduleName) {
+  if (typeof moduleName !== 'string' || !FIX_MODULE_NAME.test(moduleName)) {
+    throw new Error(`invalid module name: ${moduleName}`);
+  }
+  return ['fix', moduleName, '--json', '--i-understand'];
+}
+
+function failure(moduleName, error, message) {
+  return { module: moduleName, applied: false, verified: false, changes: [], how_to_undo: [], status: 'failed', error, message };
+}
+
+// Resolves with the engine's JSON result. The engine reports refusals and failures
+// as JSON with a non-zero exit code, so stdout is parsed whatever the exit code.
+function runFix(moduleName, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    let p;
+    try {
+      p = spawnFn(resolveEnginePath(), fixArgs(moduleName));
+    } catch (e) {
+      return resolve(failure(moduleName, 'engine_error', e.message));
+    }
+    let out = '', err = '', finished = false;
+    const finish = (value) => { if (!finished) { finished = true; clearTimeout(timer); resolve(value); } };
+    const timer = setTimeout(() => {
+      // Answer first: killing the process makes 'close' fire, which must not win.
+      const timedOut = failure(moduleName, 'timeout', 'The fix took too long, so we stopped waiting. Run the checkup again to see where things stand.');
+      finish(timedOut);
+      try { p.kill(); } catch (_) { /* already gone */ }
+    }, timeoutMs);
+    p.stdout.on('data', d => (out += d));
+    p.stderr.on('data', d => (err += d));
+    p.on('error', e => finish(failure(moduleName, 'engine_error', e.message)));
+    p.on('close', code => {
+      try {
+        finish(parseEngineOutput(out));
+      } catch (_) {
+        const tail = err.trim().split('\n').slice(-3).join(' ');
+        finish(failure(moduleName, 'engine_error', `The checkup engine gave an unexpected answer (exit ${code}). ${tail}`.trim()));
+      }
+    });
+  });
+}
+
+module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine, fixArgs, runFix };

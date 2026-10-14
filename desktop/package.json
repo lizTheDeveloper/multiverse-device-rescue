@@ -17,6 +17,7 @@
       "main.js",
       "preload.js",
       "engine-runner.js",
+      "fix-policy.js",
       "setting-urls.js",
       "ask-about.js",
       "renderer/**"

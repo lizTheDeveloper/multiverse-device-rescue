@@ -36,8 +36,14 @@ def _remediation(guide) -> dict:
     }
 
 
-def _finding(finding, walkthroughs, made_by=None) -> dict:
+def _fixable(entry) -> dict:
+    return {"will_change": entry["will_change"], "how_to_undo": list(entry["how_to_undo"])}
+
+
+def _finding(finding, walkthroughs, fixable=None, made_by=None) -> dict:
     out = _plain(finding)
+    if fixable is not None:
+        out["fixable"] = _fixable(fixable)
     entries = made_by.get(id(finding)) if made_by else None
     if entries:
         out["made_by"] = _plain(entries)
@@ -47,7 +53,7 @@ def _finding(finding, walkthroughs, made_by=None) -> dict:
     return out
 
 
-def checks_to_json(results, platform: str, walkthroughs=None, made_by=None) -> str:
+def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, made_by=None) -> str:
     """Convert check results to a JSON string suitable for external consumption.
 
     Args:
@@ -55,6 +61,9 @@ def checks_to_json(results, platform: str, walkthroughs=None, made_by=None) -> s
         platform: Platform string (e.g. "darwin", "win32", "linux")
         walkthroughs: Optional {finding code: Guide}; a finding whose code has
             a walkthrough gets its steps under "remediation".
+        app_fixes: Optional {module name: {will_change, how_to_undo}} allowlist
+            (rescue/app_fixes.json). Findings of a listed module that ran
+            cleanly get a "fixable" object so the app can offer a fix.
         made_by: Optional {id(finding): [maker entry]} from rescue.attribution;
             attached to each finding as "made_by".
 
@@ -63,6 +72,8 @@ def checks_to_json(results, platform: str, walkthroughs=None, made_by=None) -> s
     """
     modules = []
     for mod, check in results:
+        entry = (app_fixes or {}).get(mod.name)
+        offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
         modules.append({
             "name": mod.name,
             "status": "error" if check.error else "ok",
@@ -70,7 +81,7 @@ def checks_to_json(results, platform: str, walkthroughs=None, made_by=None) -> s
             # False means the check could not run here: not a clean result.
             "supported": getattr(check, "supported", True),
             "unsupported_reason": getattr(check, "unsupported_reason", None),
-            "findings": [_finding(f, walkthroughs, made_by) for f in check.findings],
+            "findings": [_finding(f, walkthroughs, offer, made_by) for f in check.findings],
         })
     return json.dumps(
         {"schema_version": 1, "platform": platform, "modules": modules},

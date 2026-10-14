@@ -1,3 +1,5 @@
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -8,11 +10,12 @@ from rescue.ai.explainer import DiagnosticExplainer
 from rescue.ai.factory import get_provider
 from rescue.ai.providers.base import AIRequestError
 from rescue.ai.recommender import ProfileRecommender
+from rescue.app_fixes import AppFixesError, load_app_fixes
 from rescue.case import RescueCase, write_case
 from rescue.guides import discover_guides
-from rescue.models import CheckResult, Mode, RiskLevel
+from rescue.models import ActionKind, CheckResult, Mode, RiskLevel
 from rescue.orchestrator import Orchestrator
-from rescue.profiler.base import gather_profile
+from rescue.profiler.base import detect_platform, gather_profile
 from rescue.profiles import ProfileValidationError, discover_profiles, validate_profile_modules
 from rescue.registry import discover_modules
 from rescue.remediation import load_remediation_walkthroughs
@@ -175,7 +178,11 @@ def scan(as_json, profile_name, progress, trace, no_attribution):
                 made_by = compute_made_by(results, profile.platform.value)
             except Exception:
                 made_by = None  # enrichment is optional; never break a scan
-        click.echo(checks_to_json(results, profile.platform.value, walkthroughs, made_by))
+        try:
+            app_fixes = load_app_fixes()
+        except AppFixesError:
+            app_fixes = {}  # unreadable list: offer nothing, never everything
+        click.echo(checks_to_json(results, profile.platform.value, walkthroughs, app_fixes, made_by))
         return
     for mod, check in results:
         click.echo(mod.report(check))
@@ -364,6 +371,170 @@ def run(module_names, yes, copilot):
 
     if copilot:
         _print_ai_explanation(checked)
+
+
+_MODULE_NAME = re.compile(r"^[a-z0-9_]+$")
+
+
+def _fix_doc(module, **fields) -> dict:
+    doc = {
+        "module": module,
+        "applied": False,
+        "message": "",
+        "changes": [],
+        "how_to_undo": [],
+        "verified": False,
+        "status": "refused",
+    }
+    doc.update(fields)
+    return doc
+
+
+def _finding_keys(check) -> set:
+    return {(f.code or "", f.title) for f in check.findings}
+
+
+def _check_quietly(mod, profile):
+    """Run check() with anything the module prints kept off stdout (it carries JSON)."""
+    from contextlib import redirect_stdout
+
+    with redirect_stdout(sys.stderr):
+        return mod.check(profile)
+
+
+def _apply_app_fix(module_name: str, acknowledged: bool) -> tuple[dict, int]:
+    """Run one allowlisted fix. Returns (result document, exit code).
+
+    Exit codes: 0 done or nothing to do, 1 not fixed, 2 refused, 3 unknown or
+    unsupported module, 4 the check itself could not run.
+    """
+    from contextlib import redirect_stdout
+
+    not_available = "This fix is not available in the app. Use the written steps instead."
+    if not _MODULE_NAME.match(module_name):
+        return _fix_doc(module_name, error="not_allowed", message=not_available), 2
+    if not acknowledged:
+        return _fix_doc(
+            module_name,
+            error="not_confirmed",
+            message="Refusing to change anything without --i-understand.",
+        ), 2
+    try:
+        allowed = load_app_fixes()
+    except AppFixesError:
+        allowed = {}
+    entry = allowed.get(module_name)
+    if entry is None:
+        return _fix_doc(module_name, error="not_allowed", message=not_available), 2
+
+    undo = list(entry.get("how_to_undo", []))
+    by_name = {m.name: m for m in discover_modules(_get_modules_dir())}
+    mod = by_name.get(module_name)
+    if mod is None:
+        return _fix_doc(module_name, error="unknown_module", message="That check was not found.", how_to_undo=undo), 3
+    if mod.risk_level == RiskLevel.DESTRUCTIVE:
+        return _fix_doc(module_name, error="not_allowed", message=not_available), 2
+    if detect_platform() not in mod.platforms:
+        return _fix_doc(
+            module_name,
+            error="unsupported_platform",
+            message="This fix is not for this kind of computer.",
+            how_to_undo=undo,
+        ), 3
+
+    profile = gather_profile()
+    try:
+        before = _check_quietly(mod, profile)
+    except Exception as exc:
+        before = CheckResult(module_name=module_name, error=str(exc))
+    if before.error or not before.supported:
+        return _fix_doc(
+            module_name,
+            error="check_failed",
+            message="We could not check this setting, so we changed nothing: "
+            + (before.error or before.unsupported_reason or "unsupported"),
+            how_to_undo=undo,
+        ), 4
+    if not before.findings:
+        return _fix_doc(
+            module_name,
+            status="nothing_to_fix",
+            verified=True,
+            message="There is nothing to fix. This already looks fine.",
+            how_to_undo=undo,
+        ), 0
+
+    fix_error = None
+    fix_result = None
+    try:
+        with redirect_stdout(sys.stderr):
+            fix_result = mod.fix(before, Mode.CLI)
+    except Exception as exc:
+        fix_error = str(exc) or exc.__class__.__name__
+
+    changes = []
+    if fix_result is not None:
+        changes = [
+            {"title": a.title, "description": a.description, "success": bool(a.success), "error": a.error}
+            for a in fix_result.actions
+            if a.kind == ActionKind.MUTATION and a.executed
+        ]
+    failed = [c for c in changes if not c["success"]]
+    applied = bool(changes) and not failed and fix_error is None
+
+    # Always look again, even after a failure, so the answer reflects the computer.
+    try:
+        after = _check_quietly(mod, profile)
+    except Exception as exc:
+        after = CheckResult(module_name=module_name, error=str(exc))
+    after_ok = not after.error and after.supported
+    still = (_finding_keys(before) & _finding_keys(after)) if after_ok else _finding_keys(before)
+    verified = applied and after_ok and not still
+
+    if fix_error is not None:
+        status, message = "failed", f"The change did not go through: {fix_error}"
+    elif failed:
+        status = "failed"
+        message = "The change did not go through: " + "; ".join(c["error"] or c["title"] for c in failed)
+    elif not applied:
+        status, message = "failed", "Nothing was changed."
+    elif verified:
+        status, message = "fixed", "Done, and checked again: fixed."
+    else:
+        status = "not_fixed"
+        message = "We made the change, but when we checked again the problem still shows."
+    doc = _fix_doc(
+        module_name,
+        applied=applied,
+        message=message,
+        changes=changes,
+        how_to_undo=undo,
+        verified=bool(verified),
+        status=status,
+    )
+    return doc, 0 if status == "fixed" else 1
+
+
+@main.command(name="fix")
+@click.argument("module_name")
+@click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
+@click.option(
+    "--i-understand",
+    "acknowledged",
+    is_flag=True,
+    help="Required. Confirms the person has been told what will change and agreed.",
+)
+def fix_cmd(module_name, as_json, acknowledged):
+    """Apply one audited fix (only modules listed in rescue/app_fixes.json)."""
+    doc, code = _apply_app_fix(module_name, acknowledged)
+    if as_json:
+        click.echo(json.dumps(doc, indent=2))
+    else:
+        click.echo(doc["message"])
+        for step in doc["how_to_undo"]:
+            click.echo(f"  To undo: {step}")
+    if code:
+        raise SystemExit(code)
 
 
 @main.command(name="profiles")
