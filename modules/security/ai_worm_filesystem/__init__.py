@@ -37,12 +37,31 @@ _OBFUSCATION_PATTERNS = [
     re.compile(r"eval\s*\(\s*atob\s*\("),
     re.compile(r"eval\s*\(\s*Buffer\.from\s*\(.*,\s*['\"]base64['\"]\s*\)"),
     re.compile(r"exec\s*\(\s*compile\s*\(\s*base64\."),
+]
+
+# Plain-text "download and run" one-liners. Not obfuscated, but worth a look in
+# a loose script; ordinary in library source that prints install instructions.
+_PIPE_TO_SHELL_PATTERNS = [
     re.compile(r"curl\s+[^\n]*\|\s*(bash|sh|zsh|python|node)"),
     re.compile(r"wget\s+[^\n]*\|\s*(bash|sh|zsh|python|node)"),
     re.compile(r"wget\s+-O\s*-\s+[^\n]*\|\s*(bash|sh|zsh|python|node)"),
 ]
 
-_SCRIPT_EXTENSIONS = {".py", ".js", ".mjs", ".sh", ".bash", ".zsh", ".ps1", ".ts"}
+# Directory markers for package-manager-managed trees. Files here are installed
+# library source, not something the person wrote or a startup location.
+_PACKAGE_TREE_MARKERS = (
+    "/site-packages/", "/dist-packages/", "/node_modules/", "/.cache/uv/",
+    "/.npm/", "/.cargo/registry/", "/.pnpm/", "/pnpm/store/", "/.pnpm-store/",
+    "/Library/pnpm/", "/Cellar/", "/.venv/", "/venv/",
+)
+
+
+def _in_package_tree(path: str) -> bool:
+    norm = path.replace("\\", "/")
+    return any(m in norm for m in _PACKAGE_TREE_MARKERS)
+
+
+_SCRIPT_EXTENSIONS ={".py", ".js", ".mjs", ".sh", ".bash", ".zsh", ".ps1", ".ts"}
 
 _SCAN_DIRS_UNIX = [
     "~/.local/bin",
@@ -225,13 +244,42 @@ class Module(ModuleBase):
 
     def _check_obfuscated_scripts(self, profile: SystemProfile) -> list[Finding]:
         findings = []
-        scan_results = self._scan_for_obfuscated_scripts(profile)
-        for result in scan_results:
+        library_mentions = []
+        for result in self._scan_for_obfuscated_scripts(profile):
+            kind = result.get("kind", "obfuscated")
+            path = result["path"]
+            if kind == "pipe_to_shell":
+                if result.get("in_package_tree", _in_package_tree(path)):
+                    library_mentions.append(path)
+                    continue
+                findings.append(
+                    Finding(
+                        title=f"Script downloads and runs code: {Path(path).name}",
+                        description=(
+                            f"The script at {path} contains a command that downloads "
+                            f"something and runs it immediately ({result['pattern'][:80]}). "
+                            "Installers and setup scripts often do this on purpose. If you "
+                            "did not write or install this script yourself, check where it "
+                            "came from."
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        code="security.ai_worm_filesystem.obfuscated_script",
+                        data={
+                            "check": "obfuscated_script",
+                            "kind": "pipe_to_shell",
+                            "confidence": "medium",
+                            "path": path,
+                            "pattern": result["pattern"],
+                        },
+                    )
+                )
+                continue
             findings.append(
                 Finding(
-                    title=f"Obfuscated script: {Path(result['path']).name}",
+                    title=f"Obfuscated script: {Path(path).name}",
                     description=(
-                        f"Script at {result['path']} contains suspicious pattern: "
+                        f"Script at {path} contains suspicious pattern: "
                         f"{result['pattern'][:80]}"
                     ),
                     severity=Severity.WARNING,
@@ -239,9 +287,34 @@ class Module(ModuleBase):
                     code="security.ai_worm_filesystem.obfuscated_script",
                     data={
                         "check": "obfuscated_script",
+                        "kind": "obfuscated",
                         "confidence": "medium",
-                        "path": result["path"],
+                        "path": path,
                         "pattern": result["pattern"],
+                    },
+                )
+            )
+        if library_mentions:
+            findings.append(
+                Finding(
+                    title=(
+                        "Installed libraries mention download-and-run commands "
+                        f"({len(library_mentions)} files)"
+                    ),
+                    description=(
+                        "Some installed software packages contain text like "
+                        "'curl ... | bash' (for example, install instructions they "
+                        "print). That is normal for library source code and is listed "
+                        "here only for completeness."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.ai_worm_filesystem.obfuscated_script",
+                    data={
+                        "check": "library_install_strings",
+                        "confidence": "low",
+                        "count": len(library_mentions),
+                        "paths": library_mentions[:20],
                     },
                 )
             )
@@ -270,13 +343,21 @@ class Module(ModuleBase):
                         if f.stat().st_size > 1 * 1024 * 1024:
                             continue
                         content = f.read_text(encoding="utf-8", errors="ignore")
-                        for pat in _OBFUSCATION_PATTERNS:
-                            match = pat.search(content)
+                        for kind, patterns in (
+                            ("obfuscated", _OBFUSCATION_PATTERNS),
+                            ("pipe_to_shell", _PIPE_TO_SHELL_PATTERNS),
+                        ):
+                            match = next(
+                                (m for m in (p.search(content) for p in patterns) if m),
+                                None,
+                            )
                             if match:
                                 results.append(
                                     {
                                         "path": str(f),
                                         "pattern": match.group(0),
+                                        "kind": kind,
+                                        "in_package_tree": _in_package_tree(str(f)),
                                     }
                                 )
                                 break

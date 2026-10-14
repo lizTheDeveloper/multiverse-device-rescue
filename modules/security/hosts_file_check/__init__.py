@@ -127,10 +127,19 @@ class Module(ModuleBase):
                 Finding(
                     title=f"Found {len(suspicious_entries)} entries redirecting to non-standard IPs",
                     description=(
-                        f"The hosts file contains entries redirecting to IPs other than 127.0.0.1 or 0.0.0.0. "
-                        f"This is suspicious and could indicate malware redirecting traffic. "
-                        f"Entries: {', '.join([e['hostname'] for e in suspicious_entries[:5]])}"
-                        f"{'...' if len(suspicious_entries) > 5 else ''}"
+                        "Your hosts file (/etc/hosts) is a short list that overrides the "
+                        "internet's address book: for each name listed, your computer goes "
+                        "to the address written there instead of asking DNS. "
+                        f"{len(suspicious_entries)} entr{'y sends' if len(suspicious_entries) == 1 else 'ies send'} "
+                        "a website name to an address other than your own computer "
+                        "(127.0.0.1 or 0.0.0.0), which is how a site can be silently redirected. "
+                        "Some apps add entries like this themselves (Adobe, VPN, "
+                        "development and ad-blocking tools), so this is not proof of a "
+                        "problem. Check whether you recognize each one: "
+                        f"{', '.join(e['ip'] + ' ' + e['hostname'] for e in suspicious_entries[:5])}"
+                        f"{'...' if len(suspicious_entries) > 5 else ''}. "
+                        "If you do not recognize an entry, especially for a bank, email, or "
+                        "software-update site, treat it as a warning sign."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

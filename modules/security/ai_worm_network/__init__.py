@@ -117,28 +117,62 @@ class Module(ModuleBase):
             )
 
         for hit in self._check_beaconing(profile):
-            findings.append(
-                Finding(
-                    title=f"Beaconing pattern detected: {hit.get('process')}",
-                    description=(
-                        f"Process {hit.get('process')} (pid {hit.get('pid')}) maintained "
-                        f"an identical connection to {hit.get('dest')} across repeated "
-                        f"samples ~{hit.get('interval_seconds')}s apart, suggesting "
-                        f"periodic C2 polling."
-                    ),
-                    severity=Severity.WARNING,
-                    category=self.category,
-                    code="security.ai_worm_network.beaconing_detected",
-                    data={
-                        "check": "beaconing_detected",
-                        "confidence": "medium",
-                        "pid": hit.get("pid"),
-                        "process": hit.get("process"),
-                        "dest": hit.get("dest"),
-                        "interval_seconds": hit.get("interval_seconds"),
-                    },
+            # An identical connection seen in two samples only shows that a
+            # connection stayed open, which every API client does. Escalate
+            # only when there is evidence beyond that (binary in a temp or
+            # download folder). Hits without that information are treated as
+            # strong so a signal is never silently downgraded.
+            strong = hit.get("odd_location", True)
+            if strong:
+                findings.append(
+                    Finding(
+                        title=f"Beaconing pattern detected: {hit.get('process')}",
+                        description=(
+                            f"Process {hit.get('process')} (pid {hit.get('pid')}) maintained "
+                            f"an identical connection to {hit.get('dest')} across repeated "
+                            f"samples ~{hit.get('interval_seconds')}s apart, and its program "
+                            f"runs from an unusual location ({hit.get('binary') or 'unknown'}). "
+                            f"That combination can indicate periodic C2 polling."
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        code="security.ai_worm_network.beaconing_detected",
+                        data={
+                            "check": "beaconing_detected",
+                            "confidence": "medium",
+                            "pid": hit.get("pid"),
+                            "process": hit.get("process"),
+                            "dest": hit.get("dest"),
+                            "binary": hit.get("binary"),
+                            "interval_seconds": hit.get("interval_seconds"),
+                        },
+                    )
                 )
-            )
+            else:
+                findings.append(
+                    Finding(
+                        title=f"Steady connection: {hit.get('process')} to {hit.get('dest')}",
+                        description=(
+                            f"Process {hit.get('process')} (pid {hit.get('pid')}) kept a "
+                            f"connection to {hit.get('dest')} open between two checks "
+                            f"~{hit.get('interval_seconds')}s apart. Developer tools, "
+                            f"AI coding assistants and many apps do this routinely, and "
+                            f"nothing else about this program looks unusual."
+                        ),
+                        severity=Severity.INFO,
+                        category=self.category,
+                        code="security.ai_worm_network.beaconing_detected",
+                        data={
+                            "check": "beaconing_detected",
+                            "confidence": "low",
+                            "pid": hit.get("pid"),
+                            "process": hit.get("process"),
+                            "dest": hit.get("dest"),
+                            "binary": hit.get("binary"),
+                            "interval_seconds": hit.get("interval_seconds"),
+                        },
+                    )
+                )
 
         for hit in self._check_token_harvesting_subprocess():
             findings.append(
@@ -437,6 +471,17 @@ class Module(ModuleBase):
             pass
         return None
 
+    _ODD_LOCATION_MARKERS = (
+        "/tmp/", "/private/tmp/", "/var/tmp/", "/private/var/tmp/",
+        "/var/folders/", "/Downloads/", "/dev/shm/",
+    )
+
+    def _is_odd_location(self, binary: str | None) -> bool:
+        """True when the program is not in a normal install location."""
+        if not binary:
+            return False
+        return any(m in binary for m in self._ODD_LOCATION_MARKERS)
+
     def _is_allowlisted_beacon(self, process_name: str, pid: int) -> bool:
         name = process_name.lower().strip()
         for allowed in self._BEACON_NAME_ALLOWLIST:
@@ -466,13 +511,18 @@ class Module(ModuleBase):
             key = (r["pid"], r["dest"])
             if key in first_keys and key not in seen:
                 seen.add(key)
+                if r["host"] in ("127.0.0.1", "::1", "localhost") or r["host"].startswith("[::1"):
+                    continue  # talking to itself, not the network
                 if self._is_allowlisted_beacon(r["process"], r["pid"]):
                     continue
+                binary = self._resolve_binary_path(r["pid"])
                 hits.append(
                     {
                         "process": r["process"],
                         "pid": r["pid"],
                         "dest": r["dest"],
+                        "binary": binary,
+                        "odd_location": self._is_odd_location(binary),
                         "interval_seconds": _BEACON_GAP_SECONDS,
                     }
                 )
