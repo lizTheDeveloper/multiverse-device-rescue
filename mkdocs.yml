@@ -132,6 +132,7 @@ nav:
   - Reference:
       - CLI reference: cli.md
       - Module catalog: modules.md
+      - What each check runs: commands.md
       - Architecture: architecture.md
       - Threat remediation map: THREAT_REMEDIATION.md
       - Remediation catalog: REMEDIATION_CATALOG.md

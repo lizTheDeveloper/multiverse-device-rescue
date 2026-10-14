@@ -115,5 +115,6 @@ normal.
 ## Pointers
 
 - [docs/cli.md](docs/cli.md): every command and flag
+- [docs/commands.md](docs/commands.md): every system command each check can run; `rescue scan --trace` streams the ones that actually ran as `{"exec": …}` lines on stderr
 - [docs/THREAT_REMEDIATION.md](docs/THREAT_REMEDIATION.md): threat → command
 - [docs/trust-and-safety.md](docs/trust-and-safety.md): what the tool does and doesn't do

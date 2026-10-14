@@ -98,6 +98,7 @@ rescue export          # a redacted report to share with a helper
 | [Documentation site](https://lizthedeveloper.github.io/multiverse-device-rescue/docs/) | Everything, searchable |
 | [Situations](docs/scenarios/) | The built-in walkthroughs |
 | [CLI reference](docs/cli.md) | Every command and flag |
+| [What each check runs](docs/commands.md) | Every system command, per check (`rescue scan --trace` shows them live) |
 | [Trust and safety](docs/trust-and-safety.md) / [Privacy](docs/privacy.md) | How to verify what it claims |
 | [USB rescue stick](docs/usb-rescue-stick.md) | A portable drive for helping others |
 | [Contributing](CONTRIBUTING.md) / [Architecture](docs/architecture.md) | Working on the code |

@@ -14,4 +14,12 @@ function isAllowedSettingUrl(url) {
   return ALLOWED_SETTING_SCHEMES.some((scheme) => url.startsWith(scheme));
 }
 
-module.exports = { isAllowedSettingUrl, ALLOWED_SETTING_SCHEMES };
+// The 'open-guide' channel opens a step-by-step guide in the browser. Only
+// pages on the project's own documentation site are allowed.
+const GUIDE_URL_PREFIX = 'https://lizthedeveloper.github.io/multiverse-device-rescue/';
+
+function isAllowedGuideUrl(url) {
+  return typeof url === 'string' && url.startsWith(GUIDE_URL_PREFIX);
+}
+
+module.exports = { isAllowedSettingUrl, ALLOWED_SETTING_SCHEMES, isAllowedGuideUrl, GUIDE_URL_PREFIX };

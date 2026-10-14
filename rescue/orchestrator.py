@@ -63,7 +63,13 @@ class Orchestrator:
         self._module_timeout = module_timeout
         self._total_budget = total_budget
 
-    def run_checks(self) -> list[tuple[ModuleBase, CheckResult]]:
+    def run_checks(self, on_progress=None) -> list[tuple[ModuleBase, CheckResult]]:
+        """Run every applicable module's check().
+
+        ``on_progress(phase, index, total, module, check)``, if given, is called
+        with phase "start" before each module (check is None) and "done" after
+        it, so a caller can say what is happening during a long scan.
+        """
         profile = gather_profile()
         modules = discover_modules(self._modules_dir)
 
@@ -81,7 +87,9 @@ class Orchestrator:
         results = []
         start = time.monotonic()
         budget_exhausted = False
-        for mod in modules:
+        total = len(modules)
+        report = on_progress or (lambda *args: None)
+        for index, mod in enumerate(modules, start=1):
             if budget_exhausted or (
                 self._total_budget is not None
                 and (time.monotonic() - start) >= self._total_budget
@@ -96,7 +104,9 @@ class Orchestrator:
                         ),
                     )
                 )
+                report("done", index, total, mod, results[-1][1])
                 continue
+            report("start", index, total, mod, None)
             try:
                 check = _call_with_timeout(
                     lambda m=mod: m.check(profile), self._module_timeout
@@ -108,6 +118,7 @@ class Orchestrator:
                 logger.exception("Module check failed: %s", mod.name)
                 check = CheckResult(module_name=mod.name, error=str(exc))
             results.append((mod, check))
+            report("done", index, total, mod, check)
         return results
 
     def run_fixes(

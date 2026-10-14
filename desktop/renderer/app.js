@@ -21,6 +21,69 @@ const SEVERITY_DESCRIPTIONS = {
   info: 'Background details and reassurance-level notes.',
 };
 
+/**
+ * The "what's worrying you?" choices. Each runs one profile from profiles/
+ * (null = every check) and links to that situation's step-by-step guide.
+ * Worded the way a frightened person would say it, not the way we name things.
+ */
+const SITUATIONS = [
+  { id: 'hacked', icon: '\u{1F513}', title: 'I think I\u2019ve been hacked',
+    sub: 'Strange logins, passwords changed, accounts acting on their own',
+    profile: 'digital_security_reset', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/digital-security-reset/' },
+  { id: 'watched', icon: '\u{1F440}', title: 'I think someone is watching me',
+    sub: 'A partner, ex, or housemate may have put something on this computer',
+    profile: 'digital_security_reset', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/digital-security-reset/', safety: true },
+  { id: 'wifi', icon: '\u{1F4F6}', title: 'Someone is on my Wi-Fi, or my computer is hot and slow',
+    sub: 'Unknown devices, a hijacked router, or hidden crypto-mining',
+    profile: 'home_network_intrusion', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/home-network-intrusion/' },
+  { id: 'identity', icon: '\u{1FAAA}', title: 'Someone stole my identity',
+    sub: 'Accounts opened in my name, money missing, credit alerts',
+    profile: 'identity_theft_recovery', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/identity-theft-recovery/' },
+  { id: 'sketchy', icon: '\u{1F41B}', title: 'I installed something sketchy',
+    sub: 'A bad npm or pip package, an AI tool, a coding extension',
+    profile: 'ai_worm_response', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/ai-worm-response/' },
+  { id: 'phone', icon: '\u{1F4F1}', title: 'I\u2019m worried about spyware on my iPhone',
+    sub: 'Needs a backup of the iPhone saved on this computer',
+    profile: 'iphone_spyware_check', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/iphone-spyware-check/' },
+  { id: 'helping', icon: '\u{1F381}', title: 'I\u2019m helping a family member',
+    sub: 'A friendly tune-up and safety check on someone else\u2019s computer',
+    profile: 'home_for_the_holidays', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/home-for-the-holidays/' },
+  { id: 'unsure', icon: '\u{1F937}', title: 'I\u2019m not sure \u2014 check everything',
+    sub: 'The full checkup. It takes longer: often 10 minutes or more',
+    profile: null, guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/' },
+];
+
+const CATEGORY_PHRASES = {
+  security: 'Looking for security problems',
+  integrity: 'Checking that your system is healthy',
+  performance: 'Checking speed and storage',
+  network: 'Checking your network',
+  bloatware: 'Looking for unwanted software',
+};
+
+/** Render a traced command for the technical log, shell-style. */
+function formatExec(ev) {
+  const argv = (ev.argv || []).map((a) => (/^[\w@%+=:,./-]+$/.test(a) ? a : `'${String(a).replace(/'/g, "'\\''")}'`));
+  const outcome = ev.returncode == null ? `did not start${ev.error ? `: ${ev.error}` : ''}` : `exit ${ev.returncode}`;
+  return `    $ ${argv.join(' ')}   (${outcome}, ${ev.seconds}s)`;
+}
+
+/**
+ * Turn an engine progress event into words for the status line, e.g.
+ * {phase:'start', index:23, total:120, module:'launch_agent_audit', category:'security'}
+ *  -> { headline: 'Looking for security problems', detail: 'Launch agent audit · check 23 of 120', percent: 18 }
+ */
+function describeProgress(ev) {
+  const words = String(ev.module || '').replace(/_/g, ' ');
+  const name = words.charAt(0).toUpperCase() + words.slice(1);
+  const done = ev.phase === 'done' ? ev.index : ev.index - 1;
+  return {
+    headline: CATEGORY_PHRASES[ev.category] || 'Checking your computer',
+    detail: `${name} \u00b7 check ${ev.index} of ${ev.total}`,
+    percent: ev.total ? Math.round((done / ev.total) * 100) : 0,
+  };
+}
+
 const OS_LABELS = {
   macos: 'macOS',
   windows: 'Windows',
@@ -83,6 +146,9 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     detectOS,
     groupFindingsBySeverity,
+    SITUATIONS,
+    describeProgress,
+    formatExec,
     SEVERITY_ORDER,
     SEVERITY_LABELS,
   };
@@ -97,6 +163,7 @@ if (typeof document !== 'undefined') {
   (function () {
     const screens = {
       welcome: document.getElementById('screen-welcome'),
+      worry: document.getElementById('screen-worry'),
       permissions: document.getElementById('screen-permissions'),
       scan: document.getElementById('screen-scan'),
       results: document.getElementById('screen-results'),
@@ -105,6 +172,7 @@ if (typeof document !== 'undefined') {
 
     let permissionsContent = null;
     let lastKnownPlatform = null; // e.g. "darwin" | "win32" | "linux", once we have a scan result
+    let situation = null; // the SITUATIONS entry the person picked
 
     function showScreen(name) {
       Object.keys(screens).forEach((key) => {
@@ -174,6 +242,45 @@ if (typeof document !== 'undefined') {
       });
     }
 
+    function renderSituations() {
+      const list = document.getElementById('situations');
+      list.innerHTML = SITUATIONS.map(
+        (s) => `
+          <li>
+            <button type="button" class="situation" data-situation="${escapeHtml(s.id)}">
+              <span class="situation__icon" aria-hidden="true">${escapeHtml(s.icon)}</span>
+              <span class="situation__text">
+                <span class="situation__title">${escapeHtml(s.title)}</span>
+                <span class="situation__sub">${escapeHtml(s.sub)}</span>
+              </span>
+            </button>
+          </li>`
+      ).join('');
+      list.querySelectorAll('[data-situation]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
+          goToPermissions();
+        });
+      });
+    }
+
+    function renderScanIntro() {
+      document.getElementById('scan-situation').textContent = situation
+        ? `Checking for: ${situation.title}`
+        : '';
+      document.getElementById('scan-safety').hidden = !(situation && situation.safety);
+    }
+
+    function renderNextStep() {
+      const box = document.getElementById('results-next');
+      if (!situation || !situation.guide) {
+        box.hidden = true;
+        return;
+      }
+      box.hidden = false;
+      document.getElementById('results-next-safety').hidden = !situation.safety;
+    }
+
     function renderSeverityGroup(severity, findings) {
       if (findings.length === 0) return '';
       const items = findings
@@ -185,6 +292,16 @@ if (typeof document !== 'undefined') {
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
               <p>${escapeHtml(finding.description || '')}</p>
+              <details class="tech-details">
+                <summary>Technical details</summary>
+                <pre class="tech-log">${escapeHtml(JSON.stringify({
+                  check: finding.module,
+                  code: finding.code || null,
+                  category: finding.category,
+                  confidence: finding.confidence == null ? null : finding.confidence,
+                  evidence: finding.data || {},
+                }, null, 2))}</pre>
+              </details>
             </li>
           `
         )
@@ -241,7 +358,11 @@ if (typeof document !== 'undefined') {
       const progress = document.getElementById('scan-progress');
       const errorNote = document.getElementById('scan-error');
       runButton.disabled = isBusy;
+      runButton.hidden = isBusy;
       progress.hidden = !isBusy;
+      document.getElementById('scan-title').textContent = isBusy
+        ? 'Your checkup is running'
+        : 'Ready for your checkup';
       if (isBusy) errorNote.hidden = true;
     }
 
@@ -253,31 +374,89 @@ if (typeof document !== 'undefined') {
       errorNote.hidden = false;
     }
 
+    let lastScanDoc = null;
+    let foundSoFar = 0;
+
+    function resetProgress() {
+      foundSoFar = 0;
+      document.getElementById('scan-status').textContent = 'Getting ready\u2026';
+      document.getElementById('scan-substatus').textContent = 'Starting the checkup engine.';
+      document.getElementById('scan-bar-fill').style.width = '0%';
+      document.getElementById('scan-bar').setAttribute('aria-valuenow', '0');
+      document.getElementById('scan-log').textContent = '';
+    }
+
+    function appendLog(text) {
+      const log = document.getElementById('scan-log');
+      const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+      log.textContent += text + '\n';
+      if (atBottom) log.scrollTop = log.scrollHeight;
+    }
+
+    function onScanEvent(ev) {
+      if (ev.type === 'log') {
+        appendLog(ev.line);
+        return;
+      }
+      if (ev.type === 'exec') {
+        appendLog(formatExec(ev));
+        return;
+      }
+      if (ev.type !== 'progress') return;
+      const p = describeProgress(ev);
+      document.getElementById('scan-bar-fill').style.width = `${p.percent}%`;
+      document.getElementById('scan-bar').setAttribute('aria-valuenow', String(p.percent));
+      if (ev.phase === 'start') {
+        document.getElementById('scan-status').textContent = `${p.headline}\u2026`;
+        const found = foundSoFar
+          ? ` \u00b7 ${foundSoFar} thing${foundSoFar === 1 ? '' : 's'} noted so far`
+          : '';
+        document.getElementById('scan-substatus').textContent = p.detail + found;
+        appendLog(`[${ev.index}/${ev.total}] ${ev.module} ...`);
+      } else {
+        foundSoFar += ev.findings || 0;
+        appendLog(`[${ev.index}/${ev.total}] ${ev.module}: ${
+          ev.error ? `could not run (${ev.error})` : `${ev.findings} finding(s)`}`);
+      }
+    }
+
     async function runCheckup() {
       setScanBusy(true);
+      resetProgress();
+      const unsubscribe = window.rescue.onScanEvent(onScanEvent);
       try {
-        const doc = await window.rescue.runScan();
+        const doc = await window.rescue.runScan(situation ? situation.profile : null);
         if (doc && typeof doc.platform === 'string') {
           lastKnownPlatform = doc.platform;
         }
+        lastScanDoc = doc;
         renderResults(doc);
+        renderNextStep();
         setScanBusy(false);
         showScreen('results');
       } catch (err) {
         setScanBusy(false);
         showScanError(err && err.message ? err.message : String(err));
+      } finally {
+        unsubscribe();
       }
     }
 
     function resetToWelcome() {
       const runButton = document.getElementById('btn-run-scan');
       runButton.disabled = false;
+      runButton.hidden = false;
       document.getElementById('scan-progress').hidden = true;
       document.getElementById('scan-error').hidden = true;
+      situation = null;
       showScreen('welcome');
     }
 
-    document.getElementById('btn-get-started').addEventListener('click', async () => {
+    document.getElementById('btn-get-started').addEventListener('click', () => {
+      showScreen('worry');
+    });
+
+    async function goToPermissions() {
       showScreen('permissions');
       try {
         const content = await loadPermissionsContent();
@@ -288,16 +467,32 @@ if (typeof document !== 'undefined') {
           err && err.message ? err.message : String(err)
         )}). You can still continue.</p>`;
       }
-    });
+    }
 
     document.getElementById('btn-permissions-continue').addEventListener('click', () => {
+      renderScanIntro();
       showScreen('scan');
+    });
+
+    document.getElementById('btn-copy-json').addEventListener('click', async () => {
+      const status = document.getElementById('copy-json-status');
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(lastScanDoc, null, 2));
+        status.textContent = ' Copied.';
+      } catch (err) {
+        status.textContent = ` Couldn\u2019t copy (${err && err.message ? err.message : err}).`;
+      }
+    });
+
+    document.getElementById('btn-open-guide').addEventListener('click', () => {
+      if (situation && situation.guide) window.rescue.openGuide(situation.guide);
     });
 
     document.getElementById('btn-run-scan').addEventListener('click', runCheckup);
     document.getElementById('btn-scan-retry').addEventListener('click', runCheckup);
     document.getElementById('btn-start-over').addEventListener('click', resetToWelcome);
 
+    renderSituations();
     showScreen('welcome');
   })();
 }
