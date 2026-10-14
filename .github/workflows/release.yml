@@ -101,9 +101,16 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # A missing secret arrives as an empty string, and electron-builder
+          # reads an empty CSC_LINK as "the certificate is the current
+          # directory". Only pass signing variables that have a value.
+          for v in CSC_LINK CSC_KEY_PASSWORD WIN_CSC_LINK WIN_CSC_KEY_PASSWORD \
+                   APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [ -n "${!v}" ] || unset "$v"
+          done
           npm ci
           npm test
-          if [ -z "$CSC_LINK" ]; then
+          if [ -z "${CSC_LINK:-}" ]; then
             # No Developer ID: ad-hoc sign, which Apple Silicon requires to run at all.
             export CSC_IDENTITY_AUTO_DISCOVERY=false
             npx electron-builder ${{ matrix.builder }} --publish never -c.mac.identity=-
