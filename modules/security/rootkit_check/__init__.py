@@ -373,82 +373,81 @@ class Module(ModuleBase):
 
         return findings
 
+    # Exact names (no wildcards) and the file type each one has on a real Mac.
+    # "d" directory, "f" regular file, "l" symlink. An entry with an expected
+    # name but the wrong type is still reported, so a rootkit cannot hide behind
+    # a look-alike name.
+    STANDARD_ROOT_DOT_ENTRIES = {
+        ".DS_Store": "f",
+        ".fseventsd": "d",
+        ".vol": "d",
+        ".metadata_never_index": "f",
+        ".hotfiles.btree": "f",
+        ".Spotlight-V100": "d",
+        ".TemporaryItems": "d",
+        ".Trashes": "d",
+        ".file": "f",
+        ".nofollow": "d",
+        ".resolve": "d",
+        ".VolumeIcon.icns": "l",
+        ".DocumentRevisions-V100": "d",
+        ".PKInstallSandboxManager": "d",
+        ".PKInstallSandboxManager-SystemSoftware": "d",
+        ".MobileBackups": "d",
+        ".com.apple.nfs_lockd": "d",
+    }
+
+    @staticmethod
+    def _list_root_dot_entries() -> list[tuple[str, str]]:
+        """Return (name, type) for dot-entries in /, using lstat (never follows links)."""
+        import os
+        import stat
+
+        entries = []
+        with os.scandir("/") as it:
+            for entry in it:
+                if not entry.name.startswith("."):
+                    continue
+                mode = os.lstat(entry.path).st_mode
+                if stat.S_ISLNK(mode):
+                    kind = "l"
+                elif stat.S_ISDIR(mode):
+                    kind = "d"
+                elif stat.S_ISREG(mode):
+                    kind = "f"
+                else:
+                    kind = "o"
+                entries.append((entry.name, kind))
+        return entries
+
     def _check_hidden_root_files(self) -> list[Finding]:
-        """
-        Check for suspicious hidden files in / root directory.
-        Rootkits commonly hide files using dot-prefix naming.
-        Returns WARNING if suspicious hidden files found.
-        """
+        """Flag dot-entries in / that are not exact, correctly-typed standard ones."""
         findings = []
-
         try:
-            result = subprocess.run(
-                ["/bin/ls", "-la", "/"],
-                capture_output=True,
-                text=True,
+            entries = self._list_root_dot_entries()
+        except OSError:
+            return findings
+
+        hidden_items = [
+            name
+            for name, kind in entries
+            if self.STANDARD_ROOT_DOT_ENTRIES.get(name) != kind
+        ]
+        if hidden_items:
+            hidden_items.sort()
+            findings.append(
+                Finding(
+                    title="Suspicious hidden files in root directory",
+                    description=(
+                        f"Found {len(hidden_items)} non-standard hidden file(s) in /: "
+                        f"{', '.join(hidden_items)}. "
+                        "Rootkits often hide files using dot-prefix naming in the root directory. "
+                        "Verify these files are legitimate system files."
+                    ),
+                    severity=Severity.WARNING,
+                    category=self.category,
+                    code="security.rootkit_check.hidden_files",
+                    data={"check": "hidden_files", "files": hidden_items},
+                )
             )
-            if result.returncode == 0:
-                lines = result.stdout.strip().split("\n")
-                # Filter for hidden files/dirs (starting with .)
-                hidden_items = []
-                standard_hidden = {
-                    ".",
-                    "..",
-                    ".DS_Store",
-                    ".fseventsd",
-                    ".vol",
-                    ".metadata_never_index",
-                    ".hotfiles.btree",
-                    ".Spotlight-V100",
-                    ".TemporaryItems",
-                    ".Trashes",
-                    ".com.apple.nfs_lockd",
-                    ".kern.aslmanifest.pid",
-                    # Standard APFS / firmlink / volume entries present on every modern Mac
-                    ".file",
-                    ".nofollow",
-                    ".resolve",
-                    ".VolumeIcon.icns",
-                    ".DocumentRevisions-V100",
-                    ".PKInstallSandboxManager",
-                    ".PKInstallSandboxManager-SystemSoftware",
-                    ".Spotlight-V100",
-                    ".MobileBackups",
-                }
-                standard_hidden_prefixes = (".com.apple.",)
-
-                for line in lines:
-                    parts = line.split()
-                    if len(parts) > 8:
-                        name = parts[-1]
-                        if "->" in parts:
-                            # Symlink: "name -> target"
-                            name = parts[parts.index("->") - 1]
-                        if (
-                            name.startswith(".")
-                            and name not in standard_hidden
-                            and not name.startswith(standard_hidden_prefixes)
-                        ):
-                            hidden_items.append(name)
-
-                if hidden_items:
-                    findings.append(
-                        Finding(
-                            title="Suspicious hidden files in root directory",
-                            description=(
-                                f"Found {len(hidden_items)} non-standard hidden file(s) in /: "
-                                f"{', '.join(hidden_items)}. "
-                                "Rootkits often hide files using dot-prefix naming in the root directory. "
-                                "Verify these files are legitimate system files."
-                            ),
-                            severity=Severity.WARNING,
-                            category=self.category,
-                            code="security.rootkit_check.hidden_files",
-                            data={"check": "hidden_files", "files": hidden_items},
-                        )
-                    )
-
-        except (OSError, subprocess.SubprocessError):
-            pass
-
         return findings

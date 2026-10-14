@@ -243,7 +243,9 @@ def test_suspicious_hidden_files():
 
         return result
 
-    with patch("modules.security.rootkit_check.subprocess.run", side_effect=hidden_files_run):
+    with patch("modules.security.rootkit_check.subprocess.run", side_effect=hidden_files_run), patch.object(
+        type(mod), "_list_root_dot_entries", staticmethod(lambda: [(".rootkit_config", "f")])
+    ):
         result = mod.check(_make_profile())
 
     assert result.has_issues
@@ -340,41 +342,50 @@ def test_emitted_codes_are_declared():
     assert all(c.startswith("security.rootkit_check.") for c in declared)
 
 
-_REAL_ROOT_LS = """total 17
-drwxr-xr-x   22 root  wheel   704 Feb 24  2026 .
-drwxr-xr-x   22 root  wheel   704 Feb 24  2026 ..
-----------    1 root  admin     0 Feb 24  2026 .file
-drwxr-xr-x    2 root  wheel    64 Feb 24  2026 .nofollow
-drwxr-xr-x    2 root  wheel    64 Feb 24  2026 .resolve
-drwxr-xr-x    2 root  wheel    64 Feb 24  2026 .vol
-lrwxr-xr-x    1 root  admin    36 Feb 24  2026 .VolumeIcon.icns -> System/Volumes/Data/.VolumeIcon.icns
-drwxr-xr-x    3 root  wheel    96 Feb 24  2026 .DocumentRevisions-V100
-drwxr-xr-x    3 root  wheel    96 Feb 24  2026 .com.apple.something
-drwxrwxr-x  107 root  admin  3424 Oct 14 12:03 Applications
-"""
+_REAL_ROOT = [
+    (".file", "f"),
+    (".nofollow", "d"),
+    (".resolve", "d"),
+    (".vol", "d"),
+    (".VolumeIcon.icns", "l"),
+    (".DocumentRevisions-V100", "d"),
+]
 
 
-def _hidden_root_findings(listing):
+def _hidden_root_findings(entries):
     mod = _get_module()
-
-    def fake_run(cmd, **kwargs):
-        result = MagicMock()
-        result.returncode = 0
-        result.stderr = ""
-        result.stdout = listing
-        return result
-
-    with patch("modules.security.rootkit_check.subprocess.run", side_effect=fake_run):
+    with patch.object(type(mod), "_list_root_dot_entries", staticmethod(lambda: entries)):
         return mod._check_hidden_root_files()
 
 
 def test_standard_macos_root_dot_entries_not_flagged():
-    assert _hidden_root_findings(_REAL_ROOT_LS) == []
+    assert _hidden_root_findings(_REAL_ROOT) == []
 
 
 def test_unknown_root_dot_entry_still_flagged_alongside_standard():
-    listing = _REAL_ROOT_LS + "-rw-r--r--    1 root  wheel  1024 Jul  7 12:00 .rootkit_config\n"
-    findings = _hidden_root_findings(listing)
+    findings = _hidden_root_findings(_REAL_ROOT + [(".rootkit_config", "f")])
     assert len(findings) == 1
     assert ".rootkit_config" in findings[0].description
     assert ".nofollow" not in findings[0].description
+
+
+def test_com_apple_lookalike_is_flagged():
+    findings = _hidden_root_findings(_REAL_ROOT + [(".com.apple.evil", "d")])
+    assert len(findings) == 1 and ".com.apple.evil" in findings[0].description
+
+
+def test_pkinstall_prefix_lookalike_is_flagged():
+    findings = _hidden_root_findings([(".PKInstallSandboxManager-evil", "d")])
+    assert len(findings) == 1
+
+
+def test_standard_name_with_wrong_type_is_flagged():
+    # A symlink or regular file posing as the .Spotlight-V100 directory
+    assert len(_hidden_root_findings([(".Spotlight-V100", "l")])) == 1
+    assert len(_hidden_root_findings([(".nofollow", "f")])) == 1
+
+
+def test_real_lstat_listing_does_not_crash():
+    mod = _get_module()
+    entries = mod._list_root_dot_entries()
+    assert all(n.startswith(".") for n, _ in entries)

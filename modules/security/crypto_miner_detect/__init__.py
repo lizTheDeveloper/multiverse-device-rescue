@@ -1,3 +1,6 @@
+import ctypes
+import ctypes.util
+import os
 import posixpath
 import subprocess
 import re
@@ -40,6 +43,14 @@ MINING_POOL_PORTS = {3333, 4444, 5555, 7777, 8888, 9999, 14444}
 
 # SIP-protected locations holding Apple's own executables
 SYSTEM_BINARY_PREFIXES = ("/usr/libexec/", "/System/", "/usr/sbin/", "/usr/bin/")
+
+# Apple-signed interpreters/shells live in SIP paths but run whatever script they
+# are handed, so living there says nothing about the code actually running.
+SYSTEM_INTERPRETERS = {
+    "python", "python2", "python3", "perl", "ruby", "php", "osascript", "tclsh",
+    "wish", "bash", "sh", "zsh", "dash", "csh", "tcsh", "ksh", "awk", "java",
+    "node", "lua", "swift", "jjs", "expect", "env", "xargs", "nohup",
+}
 
 # Known safe macOS processes that may have high CPU occasionally
 KNOWN_SAFE_HIGH_CPU_PROCESSES = {
@@ -254,7 +265,10 @@ class Module(ModuleBase):
             # Apple system daemons (syspolicyd, mds_stores, mdworker, ...) live in
             # SIP-protected locations and legitimately spike; malware cannot be
             # installed there, so never treat them as miners.
-            if self._is_system_binary(proc["process"]):
+            # The decision uses the kernel-reported executable path, never the
+            # name/path from ps (a process can set its own argv[0]).
+            kernel_path = self._kernel_path(proc["pid"])
+            if kernel_path and self._is_system_binary(kernel_path):
                 continue
             if not self._is_known_safe_process(process_name):
                 findings.append(
@@ -381,12 +395,32 @@ class Module(ModuleBase):
                 return None
         return None
 
+    @staticmethod
+    def _kernel_path(pid: int) -> str | None:
+        """Executable path as reported by the kernel (libproc proc_pidpath).
+
+        Unlike ps comm/argv this cannot be set by the process itself. Returns None
+        if it cannot be determined; callers must then NOT trust the process.
+        """
+        try:
+            libname = ctypes.util.find_library("proc") or "/usr/lib/libproc.dylib"
+            lib = ctypes.CDLL(libname, use_errno=True)
+            buf = ctypes.create_string_buffer(4096)
+            n = lib.proc_pidpath(int(pid), buf, ctypes.c_uint32(len(buf)))
+            if n <= 0:
+                return None
+            return buf.value.decode("utf-8", "surrogateescape")
+        except Exception:
+            return None
+
     def _is_system_binary(self, path: str) -> bool:
-        """True if the executable path is under a SIP-protected system directory."""
+        """True if the real (symlink-resolved) path is a non-interpreter under a SIP directory."""
         if not path.startswith("/"):
             return False
-        normalized = posixpath.normpath(path)
-        return normalized.startswith(SYSTEM_BINARY_PREFIXES)
+        real = posixpath.normpath(os.path.realpath(path))
+        if real.startswith("/usr/local/") or not real.startswith(SYSTEM_BINARY_PREFIXES):
+            return False
+        return posixpath.basename(real).rstrip("0123456789.") not in SYSTEM_INTERPRETERS
 
     def _is_known_safe_process(self, process: str) -> bool:
         """Check if process is in known safe list."""

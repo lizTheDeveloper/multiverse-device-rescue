@@ -207,17 +207,21 @@ def test_emitted_codes_are_declared():
 _HDR = "COMMAND     PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME\n"
 
 
-def _run_with(lsof_text, ps_text=""):
+def _run_with(lsof_text, kernel=None, apple_signed=True):
+    """kernel: {pid_int: kernel-reported path}; apple_signed: result of the signature check."""
     mod = _get_module()
+    kernel = kernel or {}
 
     def fake_run(cmd, **kwargs):
         r = MagicMock()
         r.returncode = 0
         r.stderr = ""
-        r.stdout = ps_text if cmd and cmd[0] == "ps" else lsof_text
+        r.stdout = lsof_text
         return r
 
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("subprocess.run", side_effect=fake_run), patch.object(
+        type(mod), "_kernel_path", staticmethod(lambda pid: kernel.get(int(pid)))
+    ), patch.object(type(mod), "_apple_signed", lambda self, path: apple_signed):
         return mod.check(_make_profile())
 
 
@@ -244,16 +248,29 @@ def test_network_listener_still_warns_one_finding_per_process():
     assert warns[0].data["ports"] == [8765, 8766]
 
 
-def test_apple_daemon_listener_by_system_path_is_ignored():
+def test_apple_daemon_listener_by_kernel_path_and_signature_is_ignored():
     lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
-    ps = "  998 /usr/libexec/rapportd\n"
-    assert not _run_with(lsof, ps).has_issues
+    assert not _run_with(lsof, {998: "/usr/libexec/rapportd"}).has_issues
 
 
 def test_same_name_outside_system_path_still_warns():
     lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
-    ps = "  998 /tmp/evil/rapportd\n"
-    assert _run_with(lsof, ps).has_issues
+    assert _run_with(lsof, {998: "/tmp/evil/rapportd"}).has_issues
+
+
+def test_unknown_kernel_path_still_warns():
+    lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    assert _run_with(lsof, {}).has_issues
+
+
+def test_system_path_without_apple_signature_still_warns():
+    lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    assert _run_with(lsof, {998: "/usr/libexec/rapportd"}, apple_signed=False).has_issues
+
+
+def test_system_interpreter_listener_still_warns():
+    lsof = _HDR + "python3 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    assert _run_with(lsof, {998: "/usr/bin/python3"}).has_issues
 
 
 def test_loopback_to_loopback_connection_is_not_outbound():

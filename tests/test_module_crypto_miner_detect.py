@@ -205,7 +205,8 @@ def test_crypto_miner_detect_high_cpu_process():
     assert any(f.severity == Severity.WARNING for f in result.findings)
 
 
-def _high_cpu_with(comm_lines):
+def _high_cpu_with(comm_lines, kernel=None):
+    """kernel: {pid: kernel-reported path}. Default: kernel path == ps path (honest)."""
     mod = _get_module()
 
     def fake_run(cmd, **kwargs):
@@ -213,7 +214,16 @@ def _high_cpu_with(comm_lines):
             return _make_subprocess_result("  PID %CPU COMM\n" + comm_lines)
         return _make_subprocess_result()
 
-    with patch("subprocess.run", side_effect=fake_run):
+    if kernel is None:
+        kernel = {}
+        for line in comm_lines.splitlines():
+            parts = line.split(None, 2)
+            if len(parts) == 3:
+                kernel[int(parts[0])] = parts[2]
+
+    with patch("subprocess.run", side_effect=fake_run), patch.object(
+        type(mod), "_kernel_path", staticmethod(lambda pid: kernel.get(pid))
+    ):
         result = mod.check(_make_profile())
     return [f for f in result.findings if f.data.get("check") == "high_cpu_process"]
 
@@ -230,7 +240,6 @@ def test_apple_system_daemons_high_cpu_not_flagged():
 
 
 def test_high_cpu_outside_system_paths_still_flagged():
-    # lookalike names/paths outside SIP-protected dirs must still be flagged
     lines = (
         " 500  95.0 /usr/local/bin/syspolicyd\n"
         " 501  95.0 /Users/me/Library/syspolicyd\n"
@@ -238,6 +247,34 @@ def test_high_cpu_outside_system_paths_still_flagged():
     )
     flagged = _high_cpu_with(lines)
     assert {f.data["pid"] for f in flagged} == {500, 501, 502}
+
+
+def test_spoofed_ps_path_with_real_path_elsewhere_is_flagged():
+    # ps says /usr/libexec/syspolicyd but the kernel says it runs from /tmp
+    lines = " 600  95.0 /usr/libexec/syspolicyd\n"
+    flagged = _high_cpu_with(lines, kernel={600: "/private/tmp/.x/miner"})
+    assert {f.data["pid"] for f in flagged} == {600}
+
+
+def test_unknown_kernel_path_is_not_trusted():
+    lines = " 601  95.0 /usr/libexec/syspolicyd\n"
+    flagged = _high_cpu_with(lines, kernel={})
+    assert {f.data["pid"] for f in flagged} == {601}
+
+
+def test_system_path_symlinking_to_usr_local_is_not_trusted():
+    mod = _get_module()
+    with patch("os.path.realpath", return_value="/usr/local/bin/evil"):
+        assert not mod._is_system_binary("/usr/bin/looks-fine")
+    with patch("os.path.realpath", side_effect=lambda p: p):
+        assert mod._is_system_binary("/usr/bin/looks-fine")
+
+
+def test_system_interpreter_running_a_script_is_still_flagged():
+    # Apple's /usr/bin/python3 can run an attacker's miner script
+    lines = " 602  97.0 /usr/bin/python3\n 603  97.0 /bin/bash\n"
+    flagged = _high_cpu_with(lines)
+    assert {f.data["pid"] for f in flagged} == {602, 603}
 
 
 def test_crypto_miner_detect_mining_pool_connection():
