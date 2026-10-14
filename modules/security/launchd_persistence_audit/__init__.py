@@ -415,7 +415,9 @@ class Module(ModuleBase):
             expanded = posixpath.normpath(os.path.expanduser(c))
             forms = [expanded]
             real = os.path.realpath(expanded)
-            if real != expanded:
+            # On Windows realpath() turns "/x" into "C:\\x"; only keep results
+            # that are still POSIX paths.
+            if real != expanded and real.startswith("/"):
                 forms.append(real)
             return forms
         except Exception:

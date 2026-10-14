@@ -1,12 +1,40 @@
 import plistlib
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+
+
+_POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32", reason="needs POSIX symlinks (symlink_to needs privileges on Windows)"
+)
+
+
+@pytest.fixture
+def tmp_path(tmp_path):
+    """On Linux, a scratch dir that is not under /tmp.
+
+    This module flags programs in world-writable folders (/tmp, /var/tmp) as
+    suspicious, and pytest's tmp_path is /tmp/pytest-of-... on Linux, so a
+    "healthy" fixture program there would be flagged. On macOS tmp_path is
+    under /private/var/folders and is used unchanged, as on Windows.
+    """
+    if not sys.platform.startswith("linux"):
+        yield tmp_path
+        return
+    d = Path(tempfile.mkdtemp(prefix="rescue-test-", dir=Path.home()))
+    try:
+        yield d
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def _make_profile():
@@ -237,12 +265,9 @@ def test_developer_dir_names_cannot_cover_other_hidden_folders(tmp_path):
         assert any(f.severity == Severity.WARNING for f in _checks(result, "suspicious_path")), prog
 
 
-def test_traversal_symlink_and_shell_string_into_tmp_are_critical(tmp_path):
-    link = tmp_path / "link"
-    link.symlink_to("/private/tmp")
+def test_traversal_and_shell_string_into_tmp_are_critical(tmp_path):
     cases = [
         {"Program": "/Users/me/../../tmp/x"},
-        {"Program": str(link / "x")},
         {"ProgramArguments": ["/bin/sh", "-c", "cd /var/tmp && ./x"]},
     ]
     for i, extra in enumerate(cases):
@@ -250,6 +275,16 @@ def test_traversal_symlink_and_shell_string_into_tmp_are_critical(tmp_path):
         sub.mkdir()
         _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", **extra}})
         assert any(f.severity == Severity.CRITICAL for f in _checks(result, "suspicious_path")), extra
+
+
+@_POSIX_ONLY
+def test_symlink_into_tmp_is_critical(tmp_path):
+    link = tmp_path / "link"
+    link.symlink_to("/private/tmp")
+    sub = tmp_path / "p"
+    sub.mkdir()
+    _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": str(link / "x")}})
+    assert any(f.severity == Severity.CRITICAL for f in _checks(result, "suspicious_path"))
 
 
 def test_short_name_exemption_does_not_cover_user_writable_bin_dirs(tmp_path):

@@ -1,4 +1,6 @@
 import sys
+
+import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -7,6 +9,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
 
+
+
+_POSIX_PATHS = pytest.mark.skipif(
+    sys.platform == "win32", reason="resolves POSIX SIP paths with os.path.realpath, which Windows rewrites to a drive path"
+)
 
 def _make_profile():
     return SystemProfile(
@@ -250,6 +257,7 @@ def test_network_listener_still_warns_one_finding_per_process():
     assert warns[0].data["ports"] == [8765, 8766]
 
 
+@_POSIX_PATHS
 def test_apple_daemon_listener_by_kernel_path_and_signature_is_ignored():
     lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
     assert not _run_with(lsof, {998: "/usr/libexec/rapportd"}).has_issues

@@ -1,12 +1,40 @@
 import plistlib
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+
+
+_POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32", reason="needs POSIX symlinks (symlink_to needs privileges on Windows)"
+)
+
+
+@pytest.fixture
+def tmp_path(tmp_path):
+    """On Linux, a scratch dir that is not under /tmp.
+
+    This module flags programs in world-writable folders (/tmp, /var/tmp) as
+    suspicious, and pytest's tmp_path is /tmp/pytest-of-... on Linux, so a
+    "healthy" fixture program there would be flagged. On macOS tmp_path is
+    under /private/var/folders and is used unchanged, as on Windows.
+    """
+    if not sys.platform.startswith("linux"):
+        yield tmp_path
+        return
+    d = Path(tempfile.mkdtemp(prefix="rescue-test-", dir=Path.home()))
+    try:
+        yield d
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def _make_profile():
@@ -264,14 +292,21 @@ def test_developer_dir_name_nested_in_hidden_folder_is_still_warned(tmp_path):
         assert Severity.WARNING in _severities(result, "suspicious_path"), prog
 
 
-def test_traversal_and_symlink_into_tmp_are_critical(tmp_path):
+def test_traversal_into_tmp_is_critical(tmp_path):
+    sub = tmp_path / "p"
+    sub.mkdir()
+    _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": "/Users/me/../../tmp/x"}})
+    assert Severity.CRITICAL in _severities(result, "suspicious_path")
+
+
+@_POSIX_ONLY
+def test_symlink_into_tmp_is_critical(tmp_path):
     link = tmp_path / "link"
     link.symlink_to("/private/tmp")
-    for i, prog in enumerate(("/Users/me/../../tmp/x", str(link / "x"))):
-        sub = tmp_path / f"p{i}"
-        sub.mkdir()
-        _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": prog}})
-        assert Severity.CRITICAL in _severities(result, "suspicious_path"), prog
+    sub = tmp_path / "p"
+    sub.mkdir()
+    _, result = _check(sub, {"com.a.b": {"Label": "com.a.b", "Program": str(link / "x")}})
+    assert Severity.CRITICAL in _severities(result, "suspicious_path")
 
 
 def test_tmp_inside_shell_command_is_critical(tmp_path):

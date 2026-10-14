@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import plistlib
+import sys
 
 import pytest
 from click.testing import CliRunner
@@ -21,6 +22,14 @@ from rescue.serialize import checks_to_json
 
 LABEL = "com.morgan.bluesky-poster"
 ACTIONS = load_app_actions()
+
+# The action is a macOS feature that leans on POSIX semantics (os.getuid, HOME,
+# symlinks, mode bits). It runs on macOS and Linux (launchctl is mocked); on
+# Windows none of that exists, so the suite is skipped there and
+# test_unsupported_off_mac covers what the action does instead.
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32", reason="launch agent action needs POSIX uid/HOME/symlink semantics"
+)
 
 
 def _res(code=0, out="", err=""):

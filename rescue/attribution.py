@@ -260,7 +260,7 @@ class Attributor:
                 return MadeBy(f"{what} {subject[len(prefix):]}", False,
                               "named like a Homebrew service; the program itself was not checked")
         path = subject
-        if self.platform == "darwin" and "/" not in subject and not subject.endswith(".plist"):
+        if self.platform == "darwin" and "/" not in subject and "\\" not in subject and not subject.endswith(".plist"):
             path = self._resolve_app(subject, exists)
             if path is None:
                 return None
@@ -284,7 +284,7 @@ class Attributor:
             if os.path.basename(str(program)) in _INTERPRETERS:
                 for extra in args[1:]:
                     extra = os.path.expanduser(str(extra))
-                    if extra.startswith("/") and exists(extra):
+                    if os.path.isabs(extra) and exists(extra):
                         program = extra
                         break
                 else:
@@ -329,9 +329,9 @@ class Attributor:
         if _is_script(path):
             return MadeBy(_UNKNOWN, False, "script", _SCRIPT_NOTE)
         target = path
-        idx = path.find(".app/")
-        if idx != -1:
-            target = path[: idx + 4]
+        bundle = re.search(r"\.app[\\/]", path)
+        if bundle:
+            target = path[: bundle.start() + 4]
         res = self._exec(["codesign", "-dv", "--verbose=2", "--", target])
         if res is None:
             return None

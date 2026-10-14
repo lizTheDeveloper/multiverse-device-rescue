@@ -1,4 +1,6 @@
 import sys
+
+import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -7,6 +9,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
 
+
+
+_POSIX_PATHS = pytest.mark.skipif(
+    sys.platform == "win32", reason="resolves POSIX SIP paths with os.path.realpath, which Windows rewrites to a drive path"
+)
 
 def _make_profile():
     return SystemProfile(
@@ -228,6 +235,7 @@ def _high_cpu_with(comm_lines, kernel=None):
     return [f for f in result.findings if f.data.get("check") == "high_cpu_process"]
 
 
+@_POSIX_PATHS
 def test_apple_system_daemons_high_cpu_not_flagged():
     lines = (
         " 400  95.0 /usr/libexec/syspolicyd\n"

@@ -275,7 +275,9 @@ class Module(ModuleBase):
             expanded = posixpath.normpath(os.path.expanduser(c))
             forms = [expanded]
             real = os.path.realpath(expanded)
-            if real != expanded:
+            # On Windows realpath() turns "/x" into "C:\\x"; that is not a form of
+            # the POSIX path, so only keep results that are still POSIX paths.
+            if real != expanded and real.startswith("/"):
                 forms.append(real)
             return forms
         except Exception:
@@ -432,7 +434,9 @@ class Module(ModuleBase):
         # on PATH by launchd).
         try:
             program_path_obj = Path(program_path).expanduser()
-            if program_path_obj.is_absolute() and not program_path_obj.exists():
+            # launchd paths are POSIX; "/x" is not absolute to Windows' pathlib.
+            is_abs = program_path_obj.is_absolute() or program_path.startswith("/")
+            if is_abs and not program_path_obj.exists():
                 findings.append(
                     Finding(
                         title=f"Launch agent program does not exist: {label}",

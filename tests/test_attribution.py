@@ -5,9 +5,11 @@ Command output below was captured read-only from a real Mac with
 """
 import json
 import plistlib
+import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
 from click.testing import CliRunner
 
 from rescue.attribution import (
@@ -174,6 +176,14 @@ def test_missing_path_returns_none():
     assert mac({}).identify("/definitely/not/here") is None
 
 
+# The Homebrew check compares os.path.realpath() output with /opt/homebrew, a
+# POSIX path that only exists on a Mac, so it can only be exercised there.
+_MAC_ONLY_PATHS = pytest.mark.skipif(
+    sys.platform != "darwin", reason="Homebrew prefix paths are POSIX/macOS-only"
+)
+
+
+@_MAC_ONLY_PATHS
 def test_homebrew_path_needs_no_codesign():
     calls = []
     m = mac({}, calls).identify("/opt/homebrew/Cellar/wget/1.24/bin/wget", exists=lambda p: True)
@@ -502,9 +512,13 @@ def test_apple_system_file_requires_anchor_apple_verify():
     assert m.verified is True and m.name == "Apple"
 
 
-def test_homebrew_path_and_label_are_never_verified():
+@_MAC_ONLY_PATHS
+def test_homebrew_path_is_never_verified():
     m = mac({}).identify("/opt/homebrew/Cellar/wget/1.24/bin/wget", exists=lambda p: True)
     assert m.verified is False and "wget" in m.name
+
+
+def test_homebrew_label_is_never_verified():
     m = mac({}).identify("homebrew.mxcl.evil")
     assert m.verified is False
 
