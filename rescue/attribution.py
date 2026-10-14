@@ -69,49 +69,45 @@ _SCRIPT_NOTE = "A script, not signed; check who created it."
 
 
 _INLINE = object()
-_INLINE_NOTE = ("Runs a command written into its settings rather than a signed "
-                "program; check who created it.")
-# Flags that make an interpreter run code given on the command line.
-_INLINE_FLAGS = {"-c", "-e", "-E", "-r", "-m", "-p", "--eval", "--print", "--command"}
-# Flags whose next argument is a value, not the script.
-_VALUE_FLAGS = {"-a", "-b", "-W", "-X", "-I", "-u", "-S"}
+_INLINE_NOTE = ("Runs through an interpreter with extra options or a command "
+                "written into its settings, not a signed program on its own; "
+                "check who created it.")
 
 
 def _interpreter_target(argv):
-    """What an interpreter launch actually runs.
+    """What an interpreter launch actually runs, or ``_INLINE`` when unsure.
 
-    Only the first non-option argument is the script (or, for ``open -a``, the
-    app). Later arguments are data handed to it, so a signed file among them
-    must not lend the launch its maker. Inline code returns ``_INLINE``.
-    ``env`` is unwrapped once: ``env VAR=1 /bin/sh -c ...``.
+    Deliberately conservative: a script is credited only when it immediately
+    follows the interpreter (``/bin/sh /path/job.sh arg ...``). Any option
+    before it (``-c``, ``-r preload.js``, ``-o``, ``-W``, ``env -S``...) can
+    make something else run, so the launch is reported as unverified rather
+    than borrowing the maker of a file named in its arguments. ``open`` is
+    credited only as ``open [-a] /path/App.app [--args]`` with nothing after it, and
+    ``env`` only as ``env [VAR=value ...] <program> ...``.
     """
     name = os.path.basename(argv[0])
     rest = argv[1:]
     if name == "env":
-        rest = [a for a in rest if "=" not in a or a.startswith("-")]
-        rest = [a for a in rest if not a.startswith("-")]
-        if not rest:
-            return None
+        while rest and "=" in rest[0] and not rest[0].startswith("-"):
+            rest = rest[1:]
+        if not rest or rest[0].startswith("-"):
+            return _INLINE
         if os.path.basename(rest[0]) in _INTERPRETERS:
             return _interpreter_target(rest)
         return rest[0]
-    i = 0
-    while i < len(rest):
-        arg = rest[i]
-        if arg in _INLINE_FLAGS or (arg.startswith("-") and not arg.startswith("--")
-                                    and len(arg) > 2 and "c" in arg[1:] and name in
-                                    {"sh", "bash", "zsh", "dash", "ksh", "fish"}):
-            return _INLINE
-        if name == "open" and arg == "-a" and i + 1 < len(rest):
-            return rest[i + 1]
-        if arg in _VALUE_FLAGS:
-            i += 2
-            continue
-        if arg.startswith("-"):
-            i += 1
-            continue
-        return arg
-    return None
+    if name == "open":
+        if rest[:1] == ["-a"]:
+            rest = rest[1:]
+        if rest[-1:] == ["--args"]:
+            rest = rest[:-1]  # a bare --args passes nothing
+        if len(rest) == 1 and not rest[0].startswith("-"):
+            return rest[0]
+        return _INLINE
+    if not rest:
+        return None
+    if rest[0].startswith("-"):
+        return _INLINE
+    return rest[0]
 
 
 @dataclass(frozen=True)
