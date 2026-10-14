@@ -317,3 +317,11 @@ def test_odd_plist_shapes_and_unreadable_files_are_still_listed(tmp_path):
     assert {"broken", "com.a.one", "com.a.two", "com.a.three", "com.a.four"} <= labels
     hidden = _checks(result, "suspicious_path")
     assert {f.data["label"] for f in hidden} >= {"com.a.one", "com.a.two"}
+
+
+def test_venv_interpreter_does_not_excuse_an_unrelated_hidden_folder():
+    # A virtualenv's interpreter excuses only the virtualenv's own folders:
+    # "~/.evil/venv/bin/python" must still be an unusual hidden location.
+    mod = _get_module()
+    assert mod._hidden_kind("/Users/x/.evil/venv/bin/python", []) == "unusual"
+    assert mod._hidden_kind("/Users/x/proj/.venv/bin/python", []) == "developer"
