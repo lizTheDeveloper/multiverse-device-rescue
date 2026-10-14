@@ -1,0 +1,136 @@
+name: release
+
+# Builds the downloadable desktop app on GitHub's own Mac and Windows machines
+# and attaches it to a GitHub Release. Nobody needs a Mac or a Windows PC to
+# ship either one.
+#
+#   git tag v0.2.0 && git push origin v0.2.0      -> builds and publishes
+#   Actions tab -> release -> Run workflow         -> builds only (artifacts)
+#
+# File names carry no version number on purpose, so these links never change:
+#   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-arm64.dmg
+#   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-x64.dmg
+#   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-windows-x64.exe
+#
+# Code signing is optional. Without it the app works, but macOS and Windows
+# show a one-time "unverified developer" prompt (the download page explains
+# it). To sign, add these repository secrets and nothing else changes:
+#   macOS:   CSC_LINK, CSC_KEY_PASSWORD (Developer ID .p12, base64),
+#            APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID (notarization)
+#   Windows: WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: mac (Apple Silicon)
+            os: macos-14
+            engine: rescue
+            builder: --mac --arm64
+          - name: mac (Intel)
+            os: macos-15-intel
+            engine: rescue
+            builder: --mac --x64
+          - name: windows
+            os: windows-latest
+            engine: rescue.exe
+            builder: --win --x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Build the scan engine (PyInstaller)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . "pyinstaller>=6.0"
+          python scripts/build.py
+
+      # A binary that cannot start is worse than no binary: the app would open
+      # and then fail on the first click. Prove it boots before packaging it.
+      - name: Smoke-test the engine
+        run: dist/${{ matrix.engine }} version
+
+      - name: Stage the engine inside the desktop app
+        shell: bash
+        run: |
+          mkdir -p desktop/engine
+          cp dist/${{ matrix.engine }} desktop/engine/
+          chmod +x desktop/engine/${{ matrix.engine }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Build the installer (electron-builder)
+        working-directory: desktop
+        shell: bash
+        env:
+          # Only used when the secrets exist; otherwise the build is unsigned.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          npm ci
+          npm test
+          if [ -z "$CSC_LINK" ]; then
+            # No Developer ID: ad-hoc sign, which Apple Silicon requires to run at all.
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            npx electron-builder ${{ matrix.builder }} --publish never -c.mac.identity=-
+          else
+            npx electron-builder ${{ matrix.builder }} --publish never -c.mac.notarize=true
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            desktop/dist/DeviceRescue-*.dmg
+            desktop/dist/DeviceRescue-*.exe
+          if-no-files-found: error
+
+  publish:
+    name: attach to the GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Checksums
+        working-directory: out
+        run: sha256sum DeviceRescue-* > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "Device Rescue $TAG" \
+                 --notes "Download for Mac or Windows below. First time opening it? See https://lizthedeveloper.github.io/multiverse-device-rescue/#first-time"
+          gh release upload "$TAG" out/* -R "$GITHUB_REPOSITORY" --clobber
