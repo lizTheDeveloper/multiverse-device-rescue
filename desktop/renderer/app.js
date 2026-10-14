@@ -393,9 +393,10 @@ if (typeof document !== 'undefined') {
               </div>
               <p>${escapeHtml(finding.description || '')}</p>
               ${madeByHtml(finding.made_by, escapeHtml)}
+              ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
               ${finding.remediation ? `
               <details class="fix-steps">
-                <summary>How to fix this${finding.remediation.estimated_time ? ` <span class="muted">(about ${escapeHtml(finding.remediation.estimated_time)})</span>` : ''}</summary>
+                <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'How to fix this'}${finding.remediation.estimated_time ? ` <span class="muted">(about ${escapeHtml(finding.remediation.estimated_time)})</span>` : ''}</summary>
                 <ol class="fix-steps__list">
                   ${(finding.remediation.steps || []).map((step) => `
                     <li>
@@ -415,7 +416,6 @@ if (typeof document !== 'undefined') {
                   evidence: finding.data || {},
                 }, null, 2))}</pre>
               </details>
-              ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
             </li>
           `
         )
