@@ -361,6 +361,10 @@ class Attributor:
 
     # macOS -----------------------------------------------------------------
     def _mac(self, path: str) -> MadeBy | None:
+        # Resolve "..", symlinks and the like first: a name such as
+        # "X.app/Contents/../../evil" points outside the bundle, and checking
+        # the bundle's signature would credit its maker for that file.
+        path = os.path.realpath(path)
         brew_re = r"^(?:/opt/homebrew|/usr/local)/(?:Cellar|opt)/([^/]+)"
         brew = re.match(brew_re, path) and re.match(brew_re, os.path.realpath(path))
         if brew:

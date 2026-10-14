@@ -4,6 +4,7 @@ Command output below was captured read-only from a real Mac with
 ``codesign -dv --verbose=2`` (codesign writes to stderr).
 """
 import json
+import os
 import plistlib
 import sys
 from types import SimpleNamespace
@@ -599,3 +600,18 @@ def test_windows_curly_quotes_are_escaped():
     a.identify("C:\\x\\a\u2019; calc; \u2018.exe", exists=lambda p: True)
     script = calls[0][-1]
     assert "\u2019\u2019" in script and "\u2018\u2018" in script
+
+
+def test_dotdot_out_of_an_app_bundle_is_not_credited_to_the_bundle(tmp_path):
+    # "/Applications/Google Chrome.app/Contents/../../evil" names a file outside
+    # the bundle; checking the bundle's signature would credit Google.
+    app = tmp_path / "Google Chrome.app" / "Contents" / "MacOS"
+    app.mkdir(parents=True)
+    evil = tmp_path / "evil"
+    evil.write_bytes(b"\xcf\xfa\xed\xfe")
+    sneaky = str(tmp_path / "Google Chrome.app" / "Contents" / ".." / ".." / "evil")
+    calls = []
+    mac({("codesign",): CHROME}, calls).identify(sneaky)
+    assert calls, "expected a codesign call"
+    assert all(".app" not in c[-1] for c in calls)
+    assert calls[0][-1] == os.path.realpath(str(evil))

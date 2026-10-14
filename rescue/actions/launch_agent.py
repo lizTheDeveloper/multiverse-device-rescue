@@ -14,7 +14,6 @@ import json
 import os
 import plistlib
 import re
-import shutil
 import stat
 import sys
 from datetime import datetime, timezone
@@ -163,6 +162,27 @@ def _manifest_path(qid: str) -> Path:
     return quarantine_dir() / f"{qid}.json"
 
 
+
+def _move_no_clobber(src: Path, dst: Path, expect_sha256: str | None = None) -> None:
+    """Move a regular file without following or replacing anything.
+
+    ``os.link`` with ``follow_symlinks=False`` fails if *anything* (a file, a
+    symlink, a directory) already exists at ``dst``, atomically, so there is no
+    check-then-move window. Afterwards the new name must be the very same
+    regular file (same inode) and, when given, have the validated contents;
+    otherwise the new name is removed and nothing else is touched.
+    """
+    before = os.lstat(src)
+    if not stat.S_ISREG(before.st_mode):
+        raise OSError("not a regular file any more")
+    os.link(src, dst, follow_symlinks=False)
+    after = os.lstat(dst)
+    same = stat.S_ISREG(after.st_mode) and (after.st_ino, after.st_dev) == (before.st_ino, before.st_dev)
+    if not same or (expect_sha256 is not None and _sha256(dst) != expect_sha256):
+        os.unlink(dst)
+        raise OSError("the file changed while it was being moved")
+    os.unlink(src)
+
 def disable(plist_path) -> dict:
     if not _supported():
         return _doc(ACTION, status="unsupported", error="unsupported_platform", message=NOT_SUPPORTED)
@@ -212,7 +232,7 @@ def disable(plist_path) -> dict:
     }
     try:
         manifest.write_text(json.dumps(entry, indent=2), encoding="utf-8")
-        shutil.move(str(path), str(dest))
+        _move_no_clobber(Path(path), Path(dest), expect_sha256=digest)
     except OSError as exc:
         try:
             manifest.unlink()
@@ -277,7 +297,7 @@ def restore(quarantine_id) -> dict:
         )
     try:
         orig.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src), str(orig))
+        _move_no_clobber(Path(src), Path(orig), expect_sha256=entry.get("sha256"))
         entry["restored_at"] = datetime.now(timezone.utc).isoformat()
         _manifest_path(qid).write_text(json.dumps(entry, indent=2), encoding="utf-8")
     except OSError as exc:

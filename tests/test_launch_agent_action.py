@@ -357,3 +357,49 @@ def test_cli_rejects_unknown_action_and_mixed_args(env):
 def test_cli_undo_bad_id(env):
     r = CliRunner().invoke(main, ["undo", "--quarantine-id", "../x", "--json"])
     assert r.exit_code == 2 and json.loads(r.stdout)["status"] == "refused"
+
+
+# ---- races between validation and the move (found in review) ----
+
+def test_disable_does_not_move_a_file_swapped_in_after_validation(env, tmp_path):
+    # validate() sees a regular plist; while the job is being stopped, the plist
+    # is replaced with a symlink to a private file. The private file must stay
+    # where it is and nothing may land in quarantine.
+    secret = tmp_path / "id_ed25519"
+    secret.write_text("PRIVATE")
+    p = _plist(env)
+
+    def swap_then_ok(args, **kw):
+        env.calls.append(list(args))
+        p.unlink()
+        p.symlink_to(secret)
+        return _res()
+
+    import rescue.actions.launch_agent as mod
+    mod.run = swap_then_ok
+    doc = la.disable(str(p))
+    assert not doc.get("applied")
+    assert secret.read_text() == "PRIVATE"
+    qdir = env.home / "Library" / "Application Support" / "Device Rescue" / "Quarantine"
+    assert not any(qdir.glob("*.plist")) if qdir.exists() else True
+
+
+def test_restore_never_follows_a_symlink_planted_at_the_destination(env, tmp_path, monkeypatch):
+    # The existence check passes, then a symlink to a directory appears where
+    # the plist belongs. The file must not end up inside that directory.
+    p = _plist(env)
+    qid = la.disable(str(p))["quarantine_id"]
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    real_lexists = os.path.lexists
+
+    def lexists_then_plant(path):
+        result = real_lexists(path)
+        if str(path) == str(p) and not real_lexists(p):
+            p.symlink_to(elsewhere)
+        return result
+
+    monkeypatch.setattr(la.os.path, "lexists", lexists_then_plant)
+    doc = la.restore(qid)
+    assert not doc.get("applied")
+    assert list(elsewhere.iterdir()) == []
