@@ -749,3 +749,79 @@ h3 {
   padding: 0.6rem 0.75rem;
   overflow-x: auto;
 }
+
+/* "Fix it for me" button, confirmation and result */
+.fix-it {
+  margin-top: 0.75rem;
+}
+
+.fix-panel {
+  margin-top: 0.6rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.fix-panel[hidden],
+.fix-status[hidden] {
+  display: none;
+}
+
+.fix-panel__line {
+  margin: 0 0 0.35rem;
+}
+
+.fix-undo {
+  margin: 0 0 0.6rem 1.2rem;
+  padding: 0;
+}
+
+.fix-panel__note {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+}
+
+.fix-panel__actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.fix-status {
+  margin-top: 0.6rem;
+}
+
+.fix-status__box {
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.fix-status__box p {
+  margin: 0 0 0.3rem;
+}
+
+.fix-status--success {
+  background: var(--info-bg);
+  border-color: var(--info-border);
+  color: var(--info-text);
+}
+
+.fix-status--info {
+  background: var(--info-bg);
+  border-color: var(--info-border);
+  color: var(--info-text);
+}
+
+.fix-status--warning {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.fix-status--error {
+  background: var(--critical-bg);
+  border-color: var(--critical-border);
+  color: var(--critical-text);
+}

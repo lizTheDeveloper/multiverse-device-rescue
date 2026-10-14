@@ -1,7 +1,8 @@
+import asyncio
 from pathlib import Path
 from unittest.mock import patch
 
-from textual.widgets import OptionList
+from textual.widgets import Button, OptionList
 
 from rescue.models import DiskInfo, Platform, SystemProfile
 from rescue.tui.app import RescueApp
@@ -36,19 +37,44 @@ def _profile(used_pct: float) -> SystemProfile:
     )
 
 
-async def _wait_for_screen(pilot, app, screen_type, attempts=100):
-    """Pause until `app.screen` is `screen_type`, or give up after `attempts`.
+async def _wait_for_screen(pilot, app, screen_type, timeout=30.0):
+    """Wait until `app.screen` is `screen_type`, then let it finish settling.
 
-    A single `pilot.pause()` assumes the screen push completes within one
-    message-pump cycle. It does on a fast Linux runner; on a loaded Windows
-    runner it does not, and the test failed on the transition rather than on
-    anything the code did wrong. This is the bounded-wait shape the test
-    already used for the loading and fix-result screens, applied throughout.
+    This used to poll a fixed number of times and then return silently, so a
+    slow runner (Windows CI) surfaced as a bare `assert False` on the next
+    line, with no hint which transition was late. Two things made it flaky:
+
+    * the deadline was a handful of seconds of sleeping, which a loaded runner
+      can miss; and
+    * `app.screen` flips to the new screen before that screen's widgets are
+      mounted and laid out, so acting on it straight away raced the layout.
+
+    Now the wait is a generous wall-clock deadline that fails loudly naming the
+    screen it was waiting for, and once the screen is current we drain the
+    message queue (`pilot.pause()` with no delay waits for pending messages)
+    so its widgets exist before the test touches them.
     """
-    for _ in range(attempts):
-        if isinstance(app.screen, screen_type):
-            return
-        await pilot.pause(0.05)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while not isinstance(app.screen, screen_type):
+        if loop.time() > deadline:
+            raise AssertionError(
+                f"timed out after {timeout}s waiting for {screen_type.__name__}; "
+                f"current screen is {type(app.screen).__name__}"
+            )
+        await pilot.pause(0.02)
+    await pilot.pause()
+
+
+async def _press(pilot, app, selector):
+    """Press a button by id without depending on screen size or layout.
+
+    `pilot.click` needs the widget on screen at known coordinates; on a small
+    CI terminal the button can be scrolled out of view and the click misses.
+    `Button.press()` posts the same Pressed message the click would.
+    """
+    app.screen.query_one(selector, Button).press()
+    await pilot.pause()
 
 
 async def test_full_flow_category_to_fix_result():
@@ -85,11 +111,11 @@ async def test_full_flow_category_to_fix_result():
             await _wait_for_screen(pilot, app, FindingsScreen)
             assert isinstance(app.screen, FindingsScreen)
 
-            await pilot.click("#apply-fixes")
+            await _press(pilot, app, "#apply-fixes")
             await _wait_for_screen(pilot, app, FixResultScreen)
             assert isinstance(app.screen, FixResultScreen)
             assert app.screen.fix.all_succeeded
 
-            await pilot.click("#back-to-categories")
+            await _press(pilot, app, "#back-to-categories")
             await _wait_for_screen(pilot, app, CategoryMenuScreen)
             assert isinstance(app.screen, CategoryMenuScreen)

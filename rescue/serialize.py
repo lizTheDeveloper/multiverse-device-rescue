@@ -36,15 +36,21 @@ def _remediation(guide) -> dict:
     }
 
 
-def _finding(finding, walkthroughs) -> dict:
+def _fixable(entry) -> dict:
+    return {"will_change": entry["will_change"], "how_to_undo": list(entry["how_to_undo"])}
+
+
+def _finding(finding, walkthroughs, fixable=None) -> dict:
     out = _plain(finding)
+    if fixable is not None:
+        out["fixable"] = _fixable(fixable)
     guide = walkthroughs.get(getattr(finding, "code", None)) if walkthroughs else None
     if guide is not None:
         out["remediation"] = _remediation(guide)
     return out
 
 
-def checks_to_json(results, platform: str, walkthroughs=None) -> str:
+def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None) -> str:
     """Convert check results to a JSON string suitable for external consumption.
 
     Args:
@@ -52,12 +58,17 @@ def checks_to_json(results, platform: str, walkthroughs=None) -> str:
         platform: Platform string (e.g. "darwin", "win32", "linux")
         walkthroughs: Optional {finding code: Guide}; a finding whose code has
             a walkthrough gets its steps under "remediation".
+        app_fixes: Optional {module name: {will_change, how_to_undo}} allowlist
+            (rescue/app_fixes.json). Findings of a listed module that ran
+            cleanly get a "fixable" object so the app can offer a fix.
 
     Returns:
         JSON string with schema_version, platform, and modules array
     """
     modules = []
     for mod, check in results:
+        entry = (app_fixes or {}).get(mod.name)
+        offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
         modules.append({
             "name": mod.name,
             "status": "error" if check.error else "ok",
@@ -65,7 +76,7 @@ def checks_to_json(results, platform: str, walkthroughs=None) -> str:
             # False means the check could not run here: not a clean result.
             "supported": getattr(check, "supported", True),
             "unsupported_reason": getattr(check, "unsupported_reason", None),
-            "findings": [_finding(f, walkthroughs) for f in check.findings],
+            "findings": [_finding(f, walkthroughs, offer) for f in check.findings],
         })
     return json.dumps(
         {"schema_version": 1, "platform": platform, "modules": modules},

@@ -358,6 +358,7 @@ if (typeof document !== 'undefined') {
                   evidence: finding.data || {},
                 }, null, 2))}</pre>
               </details>
+              ${FixFlow.fixControlsHtml(finding)}
             </li>
           `
         )
@@ -507,6 +508,9 @@ if (typeof document !== 'undefined') {
       situation = null;
       showScreen('welcome');
     }
+
+    // "Fix it for me": delegated, so it keeps working when results are re-rendered.
+    FixFlow.attach(document.getElementById('results-groups'), window.rescue);
 
     document.getElementById('btn-get-started').addEventListener('click', () => {
       showScreen('worry');

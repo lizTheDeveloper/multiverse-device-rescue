@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const { runScan } = require('./engine-runner');
+const { runScan, runFix } = require('./engine-runner');
+const { createFixPolicy, handleRunFix } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 
 function createWindow() {
@@ -23,10 +24,17 @@ function createWindow() {
   win.webContents.on('will-navigate', (event) => event.preventDefault());
 }
 app.whenReady().then(() => {
-  ipcMain.handle('run-scan', (e, profile) =>
-    runScan(undefined, profile, (ev) => {
+  // Modules the engine itself marked fixable in the scans this process ran.
+  const fixPolicy = createFixPolicy();
+  ipcMain.handle('run-scan', async (e, profile) => {
+    const doc = await runScan(undefined, profile, (ev) => {
       if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
-    }));
+    });
+    fixPolicy.remember(doc);
+    return doc;
+  });
+  ipcMain.handle('run-fix', (_e, moduleName) =>
+    handleRunFix(moduleName, { policy: fixPolicy, runFix }));
   ipcMain.handle('open-guide', (_e, url) => {
     if (!isAllowedGuideUrl(url)) {
       return false;
