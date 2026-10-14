@@ -480,7 +480,9 @@ defaults read com.apple.ScreenTimeAgent ScreenTimePasscodeSet
 defaults read com.apple.applicationaccess
 defaults read …
 dscl . -list /Users
+dscl . -read /Groups/admin GroupMembership
 dscl . -read … ParentalControls
+dscl . -read … UniqueID UserShell IsHidden NFSHomeDirectory
 ```
 
 ### `sleep_wake_issues`
@@ -1579,28 +1581,17 @@ kextstat
 ### `keylogger_indicators`
 
 ```text
-ioreg -l
 log show --last 1h --predicate "eventMessage CONTAINS 'CGEventTap'" --style compact
 sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceListenEvent' AND auth_value=2"
 ```
 
 ### `launch_agent_audit`
 
-```text
-defaults read … Label
-defaults read … ProgramArguments
-find … -name '*.plist' -type f
-```
+Runs no external commands; reads files and system APIs only.
 
 ### `launchd_persistence_audit`
 
-```text
-defaults read … KeepAlive
-defaults read … Label
-defaults read … Program
-defaults read … ProgramArguments
-defaults read … RunAtLoad
-```
+Runs no external commands; reads files and system APIs only.
 
 ### `linux_account_audit`
 
@@ -1880,6 +1871,7 @@ system_profiler SPiBridgeDataType
 
 ```text
 lsof -i -n -P
+ps -p … -o pid=,comm=
 ```
 
 ### `suspicious_processes`
