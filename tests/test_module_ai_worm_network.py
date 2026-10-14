@@ -222,3 +222,47 @@ def test_emitted_codes_are_declared():
     assert all(
         c.startswith("security.ai_worm_network.") for c in declared
     )
+
+
+# --- false-alarm regressions -------------------------------------------------
+
+def _beacon_hits(records, binary):
+    mod = _get_module()
+    with patch.object(mod, "_get_connection_records", return_value=records), \
+         patch("time.sleep"), \
+         patch.object(mod, "_resolve_binary_path", return_value=binary):
+        return mod, mod._check_beaconing(_make_profile())
+
+
+def _rec(process, pid, host, port="443"):
+    return {"process": process, "pid": pid, "host": host, "port": port, "dest": f"{host}:{port}"}
+
+
+def test_beacon_loopback_destination_is_ignored():
+    _, hits = _beacon_hits([_rec("node", 1, "127.0.0.1", "54329")], "/usr/local/bin/node-x")
+    assert hits == []
+
+
+def test_beacon_normal_location_is_info_with_neutral_wording():
+    mod, hits = _beacon_hits([_rec("python3.1", 2, "5.78.101.158")], "/Users/me/.local/bin/mytool")
+    assert len(hits) == 1 and hits[0]["odd_location"] is False
+    with patch.object(mod, "_check_beaconing", return_value=hits), \
+         patch("subprocess.run") as run:
+        run.return_value = MagicMock(stdout="", returncode=0)
+        result = mod.check(_make_profile())
+    f = [x for x in result.findings if x.data.get("check") == "beaconing_detected"]
+    assert len(f) == 1
+    assert f[0].severity == Severity.INFO
+    assert "beaconing" not in f[0].title.lower()
+    assert "C2" not in f[0].description
+
+
+def test_beacon_binary_in_tmp_stays_warning():
+    mod, hits = _beacon_hits([_rec("updater", 3, "5.78.101.158")], "/tmp/x/updater")
+    assert hits[0]["odd_location"] is True
+    with patch.object(mod, "_check_beaconing", return_value=hits), \
+         patch("subprocess.run") as run:
+        run.return_value = MagicMock(stdout="", returncode=0)
+        result = mod.check(_make_profile())
+    f = [x for x in result.findings if x.data.get("check") == "beaconing_detected"]
+    assert f[0].severity == Severity.WARNING

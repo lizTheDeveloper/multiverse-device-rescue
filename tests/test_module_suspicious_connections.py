@@ -200,3 +200,81 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.suspicious_connections.") for c in declared)
+
+
+# --- false-alarm regressions -------------------------------------------------
+
+_HDR = "COMMAND     PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME\n"
+
+
+def _run_with(lsof_text, ps_text=""):
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        r = MagicMock()
+        r.returncode = 0
+        r.stderr = ""
+        r.stdout = ps_text if cmd and cmd[0] == "ps" else lsof_text
+        return r
+
+    with patch("subprocess.run", side_effect=fake_run):
+        return mod.check(_make_profile())
+
+
+def test_loopback_listeners_do_not_warn_and_are_aggregated():
+    lsof = _HDR + (
+        "node 100 u 10u IPv4 0x1 0t0 TCP 127.0.0.1:3100 (LISTEN)\n"
+        "redis-ser 101 u 10u IPv6 0x2 0t0 TCP [::1]:6390 (LISTEN)\n"
+        "postgres 102 u 10u IPv4 0x3 0t0 TCP 127.0.0.1:54329 (LISTEN)\n"
+    )
+    result = _run_with(lsof)
+    assert not [f for f in result.findings if f.severity == Severity.WARNING]
+    infos = [f for f in result.findings if f.severity == Severity.INFO]
+    assert len(infos) == 1
+
+
+def test_network_listener_still_warns_one_finding_per_process():
+    lsof = _HDR + (
+        "node 100 u 10u IPv4 0x1 0t0 TCP *:8765 (LISTEN)\n"
+        "node 100 u 11u IPv4 0x1 0t0 TCP *:8766 (LISTEN)\n"
+    )
+    result = _run_with(lsof)
+    warns = [f for f in result.findings if f.severity == Severity.WARNING]
+    assert len(warns) == 1
+    assert warns[0].data["ports"] == [8765, 8766]
+
+
+def test_apple_daemon_listener_by_system_path_is_ignored():
+    lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    ps = "  998 /usr/libexec/rapportd\n"
+    assert not _run_with(lsof, ps).has_issues
+
+
+def test_same_name_outside_system_path_still_warns():
+    lsof = _HDR + "rapportd 998 u 10u IPv4 0x1 0t0 TCP *:50584 (LISTEN)\n"
+    ps = "  998 /tmp/evil/rapportd\n"
+    assert _run_with(lsof, ps).has_issues
+
+
+def test_loopback_to_loopback_connection_is_not_outbound():
+    lsof = _HDR + (
+        "postgres 6839 u 10u IPv6 0x1 0t0 TCP [::1]:54329->[::1]:57148 (ESTABLISHED)\n"
+        "ssh 22527 u 10u IPv4 0x1 0t0 TCP 127.0.0.1:55000->127.0.0.1:64456 (ESTABLISHED)\n"
+    )
+    assert not _run_with(lsof).has_issues
+
+
+def test_fcm_port_5228_is_normal():
+    lsof = _HDR + "Slack 5 u 10u IPv4 0x1 0t0 TCP 192.168.1.5:50000->142.250.1.1:5228 (ESTABLISHED)\n"
+    assert not _run_with(lsof).has_issues
+
+
+def test_remote_unusual_port_collapses_per_process():
+    lsof = _HDR + "".join(
+        f"BadApp 7 u {i}u IPv4 0x1 0t0 TCP 192.168.1.5:5000{i}->8.8.8.8:{9990 + i} (ESTABLISHED)\n"
+        for i in range(3)
+    )
+    result = _run_with(lsof)
+    out = [f for f in result.findings if f.data.get("check") == "unusual_outbound_connection"]
+    assert len(out) == 1
+    assert out[0].data["ports"] == [9990, 9991, 9992]

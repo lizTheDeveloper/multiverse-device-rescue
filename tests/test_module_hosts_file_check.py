@@ -361,3 +361,20 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.hosts_file_check.") for c in declared)
+
+
+def test_redirect_warning_explains_hosts_file_in_plain_language():
+    from unittest.mock import patch
+    mod = _get_module()
+    content = "127.0.0.1\tlocalhost\n166.117.29.222\tdetect-ccd.creativecloud.adobe.com\n"
+    with patch.object(Path, "exists", return_value=True), \
+         patch.object(Path, "read_text", return_value=content):
+        result = mod.check(_make_profile())
+    f = [x for x in result.findings if x.data.get("check") == "suspicious_ip_redirect"]
+    assert len(f) == 1
+    assert f[0].severity == Severity.WARNING
+    d = f[0].description.lower()
+    assert "address book" in d
+    assert "some apps add entries" in d
+    assert "recognize" in d
+    assert "166.117.29.222" in f[0].description

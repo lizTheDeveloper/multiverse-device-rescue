@@ -268,3 +268,47 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.dns_poisoning_check.") for c in declared)
+
+
+# --- false-alarm regressions -------------------------------------------------
+
+def _run_dns(servers, resolutions):
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if "scutil" in cmd_str:
+            lines = "".join(f"  nameserver[{i}] : {s}\n" for i, s in enumerate(servers))
+            return _make_subprocess_result(stdout="resolver #0\n" + lines)
+        if cmd[0] == "dig":
+            return _make_subprocess_result(stdout=resolutions.get(cmd[-1], "") + "\n")
+        return _make_subprocess_result(returncode=1)
+
+    with patch("subprocess.run", side_effect=fake_run):
+        return _get_module().check(_make_profile())
+
+
+_GOOD = {"apple.com": "17.142.160.1", "google.com": "142.251.41.14", "microsoft.com": "150.171.109.152"}
+
+
+def test_nextdns_and_other_known_providers_not_suspicious():
+    for ip in ["45.90.28.163", "45.90.30.163", "194.242.2.2", "76.76.2.0", "76.76.10.5",
+               "94.140.14.14", "94.140.15.15", "9.9.9.11", "208.67.222.123", "1.1.1.3",
+               "192.168.1.1", "10.0.0.1", "fe80::1"]:
+        result = _run_dns([ip], _GOOD)
+        assert not [f for f in result.findings if f.data.get("check") == "suspicious_dns"], ip
+
+
+def test_unknown_public_dns_still_suspicious():
+    result = _run_dns(["203.0.113.77"], _GOOD)
+    assert any(f.data.get("check") == "suspicious_dns" for f in result.findings)
+
+
+def test_cdn_resolution_outside_old_hardcoded_ranges_is_fine():
+    result = _run_dns(["8.8.8.8"], _GOOD)
+    assert not [f for f in result.findings if f.data.get("check") == "dns_resolution_issue"]
+
+
+def test_public_domain_resolving_to_bogon_is_flagged():
+    for bad in ["127.0.0.1", "169.254.1.1", "10.1.2.3", "100.64.0.1", "0.0.0.0"]:
+        res = dict(_GOOD, **{"google.com": bad})
+        result = _run_dns(["8.8.8.8"], res)
+        assert any(f.data.get("check") == "dns_resolution_issue" for f in result.findings), bad

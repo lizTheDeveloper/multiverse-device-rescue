@@ -1,3 +1,4 @@
+import ipaddress
 import subprocess
 import re
 from typing import Optional
@@ -34,12 +35,74 @@ MALICIOUS_DNS = {
     "127.0.0.1": "Localhost sinkhole",
 }
 
-# Expected IP ranges for major domains (simplified - just check they're not obviously wrong)
-EXPECTED_DOMAINS = {
-    "apple.com": ["17.", "104."],  # Apple IP blocks
-    "google.com": ["142.", "172.", "216."],  # Google IP blocks
-    "microsoft.com": ["13.", "40.", "204."],  # Microsoft IP blocks
-}
+# Well-known public DNS provider networks (privacy / filtering resolvers are
+# common and intentional: NextDNS, Mullvad, Control D, AdGuard, ...)
+KNOWN_DNS_NETWORKS = [
+    ("NextDNS", "45.90.28.0/24"),
+    ("NextDNS", "45.90.30.0/24"),
+    ("NextDNS", "2a07:a8c0::/32"),
+    ("NextDNS", "2a07:a8c1::/32"),
+    ("Mullvad DNS", "194.242.2.0/24"),
+    ("Mullvad DNS", "2a07:e340::/32"),
+    ("Control D", "76.76.2.0/24"),
+    ("Control D", "76.76.10.0/24"),
+    ("AdGuard DNS", "94.140.14.0/24"),
+    ("AdGuard DNS", "94.140.15.0/24"),
+    ("AdGuard DNS", "2a10:50c0::/32"),
+    ("Quad9", "9.9.9.0/24"),
+    ("Quad9", "149.112.112.0/24"),
+    ("Quad9", "2620:fe::/48"),
+    ("OpenDNS", "208.67.222.0/24"),
+    ("OpenDNS", "208.67.220.0/24"),
+    ("OpenDNS", "2620:119::/48"),
+    ("Cloudflare DNS", "1.1.1.0/24"),
+    ("Cloudflare DNS", "1.0.0.0/24"),
+    ("Cloudflare DNS", "2606:4700:4700::/48"),
+    ("Google DNS", "8.8.8.0/24"),
+    ("Google DNS", "8.8.4.0/24"),
+    ("Google DNS", "2001:4860:4860::/48"),
+]
+_KNOWN_DNS_PARSED = [(n, ipaddress.ip_network(c)) for n, c in KNOWN_DNS_NETWORKS]
+
+# Domains whose public DNS answer should never be a private/internal address.
+# We deliberately do not hard-code "expected" IP ranges: CDN-backed sites move
+# between networks all the time. A public name resolving to a private,
+# loopback, link-local or otherwise non-routable address is the real signal.
+CANARY_DOMAINS = ["apple.com", "google.com", "microsoft.com"]
+
+
+# Addresses a home/office router or local network hands out as DNS
+_LOCAL_NETWORKS = [
+    ipaddress.ip_network(n)
+    for n in (
+        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16",
+        "100.64.0.0/10", "fc00::/7", "fe80::/10",
+    )
+]
+
+
+def _known_dns_provider(server: str) -> Optional[str]:
+    """Return a friendly name if server is a known provider or a local/router address."""
+    try:
+        addr = ipaddress.ip_address(server.split("%")[0])
+    except ValueError:
+        return None
+    if addr.is_loopback or addr.is_unspecified:
+        return None  # handled separately (sinkhole list)
+    if any(addr.version == n.version and addr in n for n in _LOCAL_NETWORKS):
+        return "your router"
+    for name, net in _KNOWN_DNS_PARSED:
+        if addr.version == net.version and addr in net:
+            return name
+    return None
+
+
+def _is_bogon(ip: str) -> bool:
+    """True if ip is not a publicly routable address."""
+    try:
+        return not ipaddress.ip_address(ip).is_global
+    except ValueError:
+        return False
 
 
 class Module(ModuleBase):
@@ -198,9 +261,10 @@ class Module(ModuleBase):
                 for line in result.stdout.split("\n"):
                     if "nameserver" in line.lower():
                         # Extract IP from lines like "  nameserver[0] : 192.168.1.1"
-                        parts = line.split(":")
-                        if len(parts) >= 2:
-                            ip = parts[1].strip()
+                        # partition (not split) so IPv6 addresses keep their colons
+                        _, sep, rest = line.partition(":")
+                        if sep:
+                            ip = rest.strip()
                             if ip and ip not in dns_servers:
                                 dns_servers.append(ip)
         except Exception:
@@ -239,7 +303,7 @@ class Module(ModuleBase):
             if server in MALICIOUS_DNS:
                 malicious.append(server)
             # Check if it's not a known-good server
-            elif server not in KNOWN_GOOD_DNS:
+            elif server not in KNOWN_GOOD_DNS and not _known_dns_provider(server):
                 # Check if it looks like a valid IP (not ISP DNS, localhost, etc)
                 if not self._is_isp_dns(server) and server not in ["127.0.0.1", "::1"]:
                     suspicious.append(server)
@@ -266,9 +330,11 @@ class Module(ModuleBase):
                 Finding(
                     title=f"WARNING: Non-standard DNS server(s) configured",
                     description=(
-                        f"Non-standard DNS servers are configured: {', '.join(suspicious)}. "
-                        "These do not appear to be from known public DNS providers. "
-                        "Verify these are from a trusted source and not from malware."
+                        f"Your computer is set to use DNS servers we do not recognize: {', '.join(suspicious)}. "
+                        "DNS is the phone book your computer uses to find websites. Some people "
+                        "choose a custom one on purpose (for privacy, ad blocking, or work), and "
+                        "some ISPs and routers set one for you. If you do not remember choosing "
+                        "this, check System Settings > Network > DNS, or ask whoever set up your network."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -301,19 +367,19 @@ class Module(ModuleBase):
         """
         findings = []
 
-        for domain, expected_prefixes in EXPECTED_DOMAINS.items():
+        for domain in CANARY_DOMAINS:
             ip = self._resolve_domain(domain)
             if ip:
-                # Check if resolved IP matches expected ranges
-                matches_expected = any(ip.startswith(prefix) for prefix in expected_prefixes)
-                if not matches_expected:
+                if _is_bogon(ip):
                     findings.append(
                         Finding(
                             title=f"WARNING: Unexpected DNS resolution for {domain}",
                             description=(
-                                f"Domain {domain} resolved to {ip}, which is not in the expected IP ranges. "
-                                "This could indicate DNS redirection/poisoning. "
-                                "Verify the domain resolves correctly and check your DNS settings."
+                                f"The public website {domain} resolved to {ip}, which is a "
+                                "private or non-internet address. Real public sites never "
+                                "resolve there, so this can mean DNS redirection/poisoning "
+                                "(or a filtering tool or captive portal on your network). "
+                                "Check your DNS settings."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
