@@ -150,6 +150,13 @@ a {
   margin-bottom: 1.1rem;
 }
 
+.download-help {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0 0 1.5rem;
+  opacity: 0.85;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

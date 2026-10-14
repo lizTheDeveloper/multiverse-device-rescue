@@ -63,6 +63,9 @@ function groupFindingsBySeverity(doc) {
   for (const mod of modules) {
     if (mod && mod.status === 'error') {
       erroredModules.push({ name: mod.name, error: mod.error || null });
+    } else if (mod && mod.supported === false) {
+      // Could not run here: not a clean result, so it must not read as one.
+      erroredModules.push({ name: mod.name, error: mod.unsupported_reason || null });
     }
     const findings = (mod && mod.findings) || [];
     for (const finding of findings) {
@@ -204,7 +207,10 @@ if (typeof document !== 'undefined') {
       const total = SEVERITY_ORDER.reduce((sum, sev) => sum + groups[sev].length, 0);
 
       const summaryEl = document.getElementById('results-summary');
-      if (total === 0) {
+      if (total === 0 && erroredModules.length > 0) {
+        summaryEl.innerHTML =
+          '<p class="results-summary__all-clear">Nothing stood out in the checks that ran. Some checks couldn\'t run on this computer &mdash; they\'re listed at the bottom.</p>';
+      } else if (total === 0) {
         summaryEl.innerHTML =
           '<p class="results-summary__all-clear">Nothing stood out during this checkup. Nice and tidy.</p>';
       } else {

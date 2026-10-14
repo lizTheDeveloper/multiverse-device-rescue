@@ -44,6 +44,9 @@ def checks_to_json(results, platform: str) -> str:
             "name": mod.name,
             "status": "error" if check.error else "ok",
             "error": check.error,
+            # False means the check could not run here: not a clean result.
+            "supported": getattr(check, "supported", True),
+            "unsupported_reason": getattr(check, "unsupported_reason", None),
             "findings": [_plain(f) for f in check.findings],
         })
     return json.dumps(

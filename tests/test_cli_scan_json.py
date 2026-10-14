@@ -77,3 +77,22 @@ def test_scan_json_enums_are_strings():
         assert isinstance(mod["status"], str)
         for f in mod["findings"]:
             assert isinstance(f["severity"], str)   # not an Enum repr
+
+
+def test_scan_json_marks_a_check_that_could_not_run():
+    # A check that cannot run here is not a clean result. The text output says
+    # "Check unavailable"; the JSON must carry the same signal, or the desktop
+    # app and any script reading it report the machine as healthy.
+    mock_mod = type('MockModule', (), {'name': 'needs_root', 'report': lambda self, check, fix=None: ''})()
+    mock_result = CheckResult(
+        module_name='needs_root', supported=False,
+        unsupported_reason='The neighbour table could not be read.')
+
+    with patch('rescue.cli.Orchestrator') as MockOrch:
+        MockOrch.return_value.run_checks.return_value = [(mock_mod, mock_result)]
+        result = CliRunner().invoke(main, ["scan", "--json"])
+
+    assert result.exit_code == 0, result.output
+    mod = json.loads(result.stdout)["modules"][0]
+    assert mod["supported"] is False
+    assert mod["unsupported_reason"] == 'The neighbour table could not be read.'

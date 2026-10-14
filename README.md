@@ -16,7 +16,7 @@ over and tells you, in plain words, what it found and what to do about it.
   <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-windows-x64.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download_for_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" height="44"></a>
 </p>
 
-**Older Mac?** Click the Apple menu  → **About This Mac**. If it says
+**Older Mac?** Click the Apple menu (top-left corner) → **About This Mac**. If it says
 **Processor … Intel**, use the
 [Intel Mac version](https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-x64.dmg)
 instead. If it says **Chip: Apple M1/M2/M3/M4…**, the button above is right.
