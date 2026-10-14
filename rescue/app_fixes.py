@@ -23,6 +23,7 @@ from rescue.registry import discover_modules
 
 DEFAULT_APP_FIXES_PATH = Path(__file__).parent / "app_fixes.json"
 
+ACTIONS_KEY = "actions"
 _ALLOWED_KEYS = {"will_change", "how_to_undo", "needs_admin"}
 
 # Calls that change something outside the process. Reading the source for these
@@ -48,7 +49,44 @@ def load_app_fixes(path: Path | None = None) -> dict[str, dict]:
         raise AppFixesError(f"cannot read app fix list {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise AppFixesError(f"app fix list {path} must be a JSON object keyed by module name")
-    return data
+    # "actions" is reserved for engine-level actions; it is never a module name.
+    return {k: v for k, v in data.items() if k != ACTIONS_KEY}
+
+
+def load_app_actions(path: Path | None = None) -> dict[str, dict]:
+    """Engine-level actions (not module fix()es) the app may offer. Empty on any problem."""
+    path = Path(path) if path is not None else DEFAULT_APP_FIXES_PATH
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    actions = data.get(ACTIONS_KEY) if isinstance(data, dict) else None
+    return actions if isinstance(actions, dict) else {}
+
+
+_ACTION_KEYS = _ALLOWED_KEYS | {"audit", "modules", "severities"}
+KNOWN_ACTIONS = {"disable_launch_agent"}
+
+
+def validate_app_actions(actions: dict[str, dict]) -> list[str]:
+    """Problems with the `actions` section (empty = valid)."""
+    problems: list[str] = []
+    for name, entry in actions.items():
+        if name not in KNOWN_ACTIONS:
+            problems.append(f"{name}: no such action is implemented")
+        if not isinstance(entry, dict):
+            problems.append(f"{name}: entry must be an object")
+            continue
+        for key in entry:
+            if key not in _ACTION_KEYS:
+                problems.append(f"{name}: unknown key {key!r}")
+        problems.extend(p for p in _entry_problems(name, entry) if "unknown key" not in p)
+        if entry.get("audit") != "OFFER":
+            problems.append(f"{name}: audit verdict must be OFFER")
+        mods = entry.get("modules")
+        if not isinstance(mods, list) or not mods or not all(isinstance(m, str) for m in mods):
+            problems.append(f"{name}: modules must be a non-empty list of module names")
+    return problems
 
 
 def _function_table(tree: ast.AST) -> dict[str, ast.FunctionDef]:

@@ -13,6 +13,9 @@
  */
 const FixFlow = (function () {
   const MODULE_NAME = /^[a-z0-9_]+$/;
+  const ACTION_NAME = /^[a-z0-9_]+$/;
+  const QUARANTINE_ID = /^[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9][A-Za-z0-9._-]{0,200}$/;
+  const WATCHED_WARNING = 'Turning this off may be noticed by whoever set it up. If you\u2019re not sure that\u2019s safe for you, talk to an advocate first.';
 
   function esc(value) {
     return String(value == null ? '' : value)
@@ -40,16 +43,34 @@ const FixFlow = (function () {
 
   // Markup placed inside a finding card. The confirmation panel is rendered
   // hidden; opening it is a separate, deliberate click.
-  function fixControlsHtml(finding) {
+  // A fixable that names an engine action must also name a plausible target.
+  function actionOf(fixable) {
+    if (!fixable || fixable.action === undefined) return null;
+    if (typeof fixable.action !== 'string' || !ACTION_NAME.test(fixable.action)) return false;
+    if (typeof fixable.target !== 'string' || !fixable.target.startsWith('/') || fixable.target.includes('\0')) return false;
+    return { action: fixable.action, target: fixable.target };
+  }
+
+  // opts.watched: the person said "I think someone is watching me".
+  function fixControlsHtml(finding, opts) {
     const fixable = fixableOf(finding);
     if (!fixable || typeof finding.module !== 'string' || !MODULE_NAME.test(finding.module)) return '';
+    const act = actionOf(fixable);
+    if (act === false) return '';
+    const attrs = act
+      ? ` data-fix-action="${esc(act.action)}" data-fix-target="${esc(act.target)}"`
+      : '';
+    const watched = act && opts && opts.watched
+      ? `<p class="fix-panel__line fix-panel__warning"><strong>${esc(WATCHED_WARNING)}</strong></p>`
+      : '';
     return `
-      <div class="fix-it" data-fix-module="${esc(finding.module)}">
+      <div class="fix-it" data-fix-module="${esc(finding.module)}"${attrs}>
         <button type="button" class="btn btn--secondary btn--small" data-fix-open>Fix it for me</button>
         <div class="fix-panel" data-fix-panel hidden role="group" aria-label="Confirm fix">
           <p class="fix-panel__line"><strong>This will:</strong> ${esc(fixable.will_change)}</p>
           <p class="fix-panel__line"><strong>To undo later:</strong></p>
           ${undoListHtml(fixable.how_to_undo)}
+          ${watched}
           <p class="muted fix-panel__note">Nothing else on your computer will be changed.</p>
           <div class="fix-panel__actions">
             <button type="button" class="btn btn--primary btn--small" data-fix-confirm>Yes, fix it</button>
@@ -66,6 +87,14 @@ const FixFlow = (function () {
     const r = result && typeof result === 'object' ? result : {};
     const undo = Array.isArray(r.how_to_undo) ? r.how_to_undo.filter((s) => typeof s === 'string') : [];
     const said = typeof r.message === 'string' ? r.message : '';
+    const qid = typeof r.quarantine_id === 'string' && QUARANTINE_ID.test(r.quarantine_id) ? r.quarantine_id : null;
+
+    if (r.action === 'disable_launch_agent' && r.applied === true && r.verified === true && r.status === 'fixed') {
+      return { tone: 'success', headline: 'Done. Nothing was deleted.', detail: '', undo, undoId: qid };
+    }
+    if (r.action === 'undo_disable_launch_agent' && r.applied === true && r.status === 'restored') {
+      return { tone: 'info', restored: true, headline: 'Put back the way it was.', detail: said, undo: [] };
+    }
 
     if (r.status === 'nothing_to_fix' && !r.error) {
       return { tone: 'info', headline: 'There is nothing to fix. This already looks fine.', detail: '', undo: [] };
@@ -103,6 +132,7 @@ const FixFlow = (function () {
       <div class="fix-status--${d.tone} fix-status__box">
         <p class="fix-status__headline"><strong>${esc(d.headline)}</strong></p>
         ${d.detail ? `<p class="fix-status__detail">${esc(d.detail)}</p>` : ''}
+        ${d.undoId ? `<p><button type="button" class="btn btn--secondary btn--small" data-fix-undo data-quarantine-id="${esc(d.undoId)}">Undo</button></p>` : ''}
         ${d.undo.length ? `<p class="fix-status__detail"><strong>To undo later:</strong></p>${undoListHtml(d.undo)}` : ''}
       </div>`;
   }
@@ -118,6 +148,8 @@ const FixFlow = (function () {
         <p class="fix-status__detail">Nothing was confirmed. Run the checkup again to see where things stand.</p>
       </div>`;
   }
+
+  const CLICK_TARGETS = '[data-fix-open],[data-fix-confirm],[data-fix-cancel],[data-fix-undo]';
 
   // Delegated handlers on a container that survives re-renders. `api.runFix(name)`
   // is the preload bridge to the 'run-fix' IPC channel.
@@ -137,6 +169,8 @@ const FixFlow = (function () {
     async function confirm(card) {
       if (state.get(card) !== 'confirming') return;
       const name = card.getAttribute('data-fix-module');
+      const action = card.getAttribute('data-fix-action');
+      const actionTarget = card.getAttribute('data-fix-target');
       state.set(card, 'running');
       const panel = card.querySelector('[data-fix-panel]');
       const status = card.querySelector('[data-fix-status]');
@@ -146,7 +180,7 @@ const FixFlow = (function () {
       status.hidden = false;
       status.innerHTML = runningHtml();
       try {
-        const result = await api.runFix(name);
+        const result = action ? await api.runAction(action, actionTarget) : await api.runFix(name);
         status.innerHTML = resultHtml(result);
         const d = describeFixResult(result);
         state.delete(card);
@@ -159,9 +193,26 @@ const FixFlow = (function () {
       }
     }
 
+    async function undo(card, button) {
+      const id = button.getAttribute('data-quarantine-id');
+      if (typeof id !== 'string' || !QUARANTINE_ID.test(id)) return;
+      state.set(card, 'running');
+      const status = card.querySelector('[data-fix-status]');
+      const open = card.querySelector('[data-fix-open]');
+      status.innerHTML = runningHtml();
+      try {
+        const result = await api.undoFix(id);
+        status.innerHTML = resultHtml(result);
+        if (open && describeFixResult(result).restored === true) open.hidden = false;
+      } catch (_) {
+        status.innerHTML = errorHtml();
+      }
+      state.delete(card);
+    }
+
     root.addEventListener('click', (event) => {
       const target = event.target && event.target.closest
-        ? event.target.closest('[data-fix-open],[data-fix-confirm],[data-fix-cancel]')
+        ? event.target.closest(CLICK_TARGETS)
         : null;
       const card = cardOf(target);
       if (!target || !card) return undefined;
@@ -178,6 +229,7 @@ const FixFlow = (function () {
         closePanel(card);
         return undefined;
       }
+      if (target.hasAttribute('data-fix-undo')) return undo(card, target);
       return confirm(card);
     });
 
@@ -188,7 +240,7 @@ const FixFlow = (function () {
     });
   }
 
-  return { fixableOf, fixControlsHtml, describeFixResult, resultHtml, attach, esc };
+  return { WATCHED_WARNING, fixableOf, fixControlsHtml, describeFixResult, resultHtml, attach, esc };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

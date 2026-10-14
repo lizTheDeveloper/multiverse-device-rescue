@@ -15,8 +15,10 @@ from rescue.app_fixes import (
     DEFAULT_APP_FIXES_PATH,
     AppFixesError,
     fix_is_mutating,
+    load_app_actions,
     load_app_fixes,
     mutating_fix_modules,
+    validate_app_actions,
     validate_app_fixes,
 )
 
@@ -150,7 +152,42 @@ def test_every_mutating_module_has_been_audited():
     audited = set(re.findall(r"^\| `([a-z0-9_]+)` \|", AUDIT_DOC.read_text(), flags=re.M))
     mutating = set(mutating_fix_modules(MODULES_DIR))
     assert mutating - audited == set(), f"unaudited mutating fix(): {sorted(mutating - audited)}"
+    audited -= set(load_app_actions())  # engine-level actions have their own rows
     assert audited - mutating == set(), f"audit lists non-mutating modules: {sorted(audited - mutating)}"
+
+
+def test_every_engine_action_is_marked_offerable_in_the_audit():
+    text = AUDIT_DOC.read_text()
+    actions = load_app_actions()
+    assert actions
+    for name in actions:
+        row = re.search(rf"^\| `{name}` \|.*$", text, flags=re.M)
+        assert row, f"action {name} missing from audit"
+        assert "OFFER" in row.group(0)
+    assert validate_app_actions(actions) == []
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda e: e.update(audit="NO"),
+        lambda e: e.pop("will_change"),
+        lambda e: e.update(how_to_undo=[]),
+        lambda e: e.update(needs_admin=True),
+        lambda e: e.update(modules=[]),
+        lambda e: e.update(surprise=1),
+    ],
+)
+def test_validate_app_actions_flags_bad_entries(mutate):
+    entry = json.loads(json.dumps(load_app_actions()["disable_launch_agent"]))
+    mutate(entry)
+    assert validate_app_actions({"disable_launch_agent": entry}) != []
+    assert validate_app_actions({"rm_everything": entry}) != []
+
+
+def test_actions_section_is_never_a_module_and_missing_means_none(tmp_path):
+    assert "actions" not in load_app_fixes()
+    assert load_app_actions(tmp_path / "absent.json") == {}
 
 
 def test_every_allowlisted_module_is_marked_offerable_in_the_audit():
