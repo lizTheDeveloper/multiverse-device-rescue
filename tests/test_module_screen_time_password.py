@@ -34,6 +34,26 @@ def _make_subprocess_result(stdout="", stderr="", returncode=0):
     return result
 
 
+_ACCOUNTS = {
+    "alice": ("502", "/bin/zsh", "/Users/alice"),
+    "bob": ("503", "/bin/zsh", "/Users/bob"),
+    "annhoward": ("501", "/bin/zsh", "/Users/annhoward"),
+    "postgres": ("503", "/bin/bash", "/Library/PostgreSQL/17"),
+    "daemon": ("1", "/usr/bin/false", "/var/root"),
+}
+
+
+def _dscl_account_read(cmd_str):
+    """Fake `dscl . -read /Users/<u> UniqueID UserShell IsHidden NFSHomeDirectory`."""
+    user = cmd_str.split("/Users/")[1].split()[0]
+    if user not in _ACCOUNTS:
+        return _make_subprocess_result(returncode=1)
+    uid, shell, home = _ACCOUNTS[user]
+    return _make_subprocess_result(
+        stdout=f"NFSHomeDirectory: {home}\nUniqueID: {uid}\nUserShell: {shell}\n"
+    )
+
+
 def _fake_run_healthy():
     """Normal case: Screen Time enabled with passcode set, alice has parental controls"""
     def fake_run(cmd, **kwargs):
@@ -50,6 +70,10 @@ def _fake_run_healthy():
             return _make_subprocess_result(stdout="some content\n")
         elif "dscl" in cmd_str and "-list /Users" in cmd_str:
             return _make_subprocess_result(stdout="root\n_api\nalice\n")
+        elif "dscl" in cmd_str and "/Groups/admin" in cmd_str:
+            return _make_subprocess_result(stdout="GroupMembership: root annhoward\n")
+        elif "dscl" in cmd_str and "UniqueID" in cmd_str:
+            return _dscl_account_read(cmd_str)
         elif "dscl" in cmd_str and "ParentalControls" in cmd_str:
             # alice has parental controls
             if "/Users/alice" in cmd_str:
@@ -75,6 +99,10 @@ def _fake_run_no_passcode():
             return _make_subprocess_result(returncode=1)
         elif "dscl" in cmd_str and "-list /Users" in cmd_str:
             return _make_subprocess_result(stdout="root\n_api\nalice\n")
+        elif "dscl" in cmd_str and "/Groups/admin" in cmd_str:
+            return _make_subprocess_result(stdout="GroupMembership: root annhoward\n")
+        elif "dscl" in cmd_str and "UniqueID" in cmd_str:
+            return _dscl_account_read(cmd_str)
         elif "dscl" in cmd_str and "ParentalControls" in cmd_str:
             return _make_subprocess_result(returncode=1)
         return _make_subprocess_result()
@@ -97,6 +125,10 @@ def _fake_run_child_no_controls():
             return _make_subprocess_result(stdout="some content\n")
         elif "dscl" in cmd_str and "-list /Users" in cmd_str:
             return _make_subprocess_result(stdout="root\n_api\nalice\nbob\n")
+        elif "dscl" in cmd_str and "/Groups/admin" in cmd_str:
+            return _make_subprocess_result(stdout="GroupMembership: root annhoward\n")
+        elif "dscl" in cmd_str and "UniqueID" in cmd_str:
+            return _dscl_account_read(cmd_str)
         elif "dscl" in cmd_str and "ParentalControls" in cmd_str:
             # No parental controls found for any user
             return _make_subprocess_result(returncode=1)
@@ -120,6 +152,10 @@ def _fake_run_disabled():
             return _make_subprocess_result(returncode=1)
         elif "dscl" in cmd_str and "-list /Users" in cmd_str:
             return _make_subprocess_result(stdout="root\n_api\nalice\n")
+        elif "dscl" in cmd_str and "/Groups/admin" in cmd_str:
+            return _make_subprocess_result(stdout="GroupMembership: root annhoward\n")
+        elif "dscl" in cmd_str and "UniqueID" in cmd_str:
+            return _dscl_account_read(cmd_str)
         elif "dscl" in cmd_str and "ParentalControls" in cmd_str:
             return _make_subprocess_result(returncode=1)
         return _make_subprocess_result()
@@ -157,14 +193,46 @@ def test_screen_time_password_no_passcode():
     )
 
 
-def test_screen_time_password_child_no_controls():
-    """Test warning when child account has no parental controls"""
+def test_screen_time_password_unmanaged_standard_accounts_not_child():
+    """Ordinary standard accounts without controls are not 'child accounts'."""
     mod = _get_module()
     with patch("subprocess.run", side_effect=_fake_run_child_no_controls()):
         result = mod.check(_make_profile())
-    assert result.has_issues
+    assert not any("child_account" in f.data.get("check", "") for f in result.findings)
+
+
+def test_screen_time_password_admin_and_service_accounts_not_flagged():
+    """Admin user and daemon/postgres service accounts never get child findings."""
+    mod = _get_module()
+    base = _fake_run_child_no_controls()
+
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
+        if "dscl" in cmd_str and "-list /Users" in cmd_str:
+            return _make_subprocess_result(stdout="root\ndaemon\nannhoward\npostgres\n")
+        if "dscl" in cmd_str and "ParentalControls" in cmd_str:
+            return _make_subprocess_result(stdout="ParentalControls: managed\n")
+        return base(cmd, **kwargs)
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert not any("child_account" in f.data.get("check", "") for f in result.findings)
+
+
+def test_screen_time_password_managed_standard_account_reported():
+    mod = _get_module()
+    base = _fake_run_child_no_controls()
+
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
+        if "dscl" in cmd_str and "ParentalControls" in cmd_str and "/Users/bob" in cmd_str:
+            return _make_subprocess_result(stdout="ParentalControls: managed\n")
+        return base(cmd, **kwargs)
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
     assert any(
-        f.data.get("check") == "child_account_no_controls" and f.severity == Severity.WARNING
+        f.data.get("check") == "child_account_has_controls" and "bob" in f.title
         for f in result.findings
     )
 

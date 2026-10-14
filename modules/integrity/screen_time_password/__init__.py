@@ -293,15 +293,72 @@ class Module(ModuleBase):
         except OSError:
             return ""
 
+    def _admin_members(self) -> set[str]:
+        """Return the set of users in the local admin group."""
+        try:
+            result = subprocess.run(
+                ["dscl", ".", "-read", "/Groups/admin", "GroupMembership"],
+                capture_output=True,
+                text=True,
+            )
+        except OSError:
+            return set()
+        if result.returncode != 0:
+            return set()
+        _, _, members = result.stdout.partition(":")
+        return set(members.split())
+
+    def _is_standard_human_account(self, user: str, admins: set[str]) -> bool:
+        """True for a real, visible, non-admin login account (not a service account).
+
+        Fails closed: if the account details cannot be read, it is not considered.
+        """
+        if user in admins:
+            return False
+        try:
+            result = subprocess.run(
+                ["dscl", ".", "-read", f"/Users/{user}", "UniqueID", "UserShell",
+                 "IsHidden", "NFSHomeDirectory"],
+                capture_output=True,
+                text=True,
+            )
+        except OSError:
+            return False
+        if result.returncode != 0:
+            return False
+        attrs = {}
+        for line in result.stdout.splitlines():
+            key, sep, value = line.partition(":")
+            if sep:
+                attrs[key.strip()] = value.strip()
+        try:
+            uid = int(attrs.get("UniqueID", ""))
+        except ValueError:
+            return False
+        if uid < 500:
+            return False
+        if attrs.get("IsHidden", "0") in ("1", "true", "YES"):
+            return False
+        shell = attrs.get("UserShell", "")
+        if not shell or shell.endswith(("/false", "/nologin", "/true")):
+            return False
+        # Real people have a home under /Users; service accounts (postgres,
+        # macports helpers, etc.) live elsewhere or have no home.
+        return attrs.get("NFSHomeDirectory", "").startswith("/Users/")
+
     def _check_child_accounts(self) -> list[tuple[str, bool]]:
-        """Check for child accounts and their parental control status.
+        """Find child (managed) accounts and whether they have parental controls.
+
+        Only real, standard (non-admin), visible human accounts are considered, and
+        only those that are actually configured as managed (have a ParentalControls
+        record). Admin, system and service accounts are never reported, and an
+        ordinary standard account without controls is not a "child account".
 
         Returns:
-            A list of tuples (username, has_parental_controls) for non-system users
+            A list of tuples (username, has_parental_controls)
         """
         child_accounts = []
 
-        # Get list of all users
         try:
             result = subprocess.run(
                 ["dscl", ".", "-list", "/Users"],
@@ -315,25 +372,25 @@ class Module(ModuleBase):
         except OSError:
             return []
 
-        # Check each non-system user for parental controls
+        admins = self._admin_members()
+
         for user in users:
             user = user.strip()
-            # Skip system users (start with underscore or are root/nobody)
-            if not user or user.startswith("_") or user in ("root", "nobody"):
+            if not user or user.startswith("_") or user in ("root", "nobody", "daemon"):
+                continue
+            if not self._is_standard_human_account(user, admins):
                 continue
 
-            # Check if user has parental controls configured
             try:
                 result = subprocess.run(
                     ["dscl", ".", "-read", f"/Users/{user}", "ParentalControls"],
                     capture_output=True,
                     text=True,
                 )
-                # If we get a result with content, parental controls are configured
-                has_controls = result.returncode == 0 and bool(result.stdout.strip())
-                child_accounts.append((user, has_controls))
             except OSError:
-                # If dscl fails, assume no controls
-                child_accounts.append((user, False))
+                continue
+            managed = result.returncode == 0 and bool(result.stdout.strip())
+            if managed:
+                child_accounts.append((user, True))
 
         return child_accounts
