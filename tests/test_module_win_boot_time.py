@@ -38,7 +38,6 @@ def _make_subprocess_result(stdout="", stderr="", returncode=0):
 def _recent_boot_str():
     # Relative to today: a fixed date here becomes "uptime > 30 days" a month
     # after it was written, and the fast-boot test starts failing on its own.
-    from datetime import datetime, timedelta
     d = datetime.now() - timedelta(days=1)
     return f"{d.month}/{d.day}/{d.year} {d.strftime('%I:%M:%S %p')}"
 
