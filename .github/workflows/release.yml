@@ -6,6 +6,8 @@ name: release
 #
 #   git tag v0.2.0 && git push origin v0.2.0      -> builds and publishes
 #   Actions tab -> release -> Run workflow         -> builds only (artifacts)
+#   a PR touching the packaging                    -> builds only, so a broken
+#                                                     installer is caught before a tag
 #
 # File names carry no version number on purpose, so these links never change:
 #   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-arm64.dmg
@@ -22,6 +24,13 @@ name: release
 on:
   push:
     tags: ['v*']
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'rescue.spec'
+      - 'scripts/build.py'
+      - 'pyproject.toml'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 permissions:
