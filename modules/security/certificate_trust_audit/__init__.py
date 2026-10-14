@@ -41,6 +41,33 @@ class Module(ModuleBase):
         ("com.apple.kerberos.kdc", "System Identity"),
     }
 
+    @staticmethod
+    def _trusted_cert_names() -> set[str] | None:
+        """Names of certificates with admin or user trust settings (can be trusted for SSL).
+
+        Returns None when the trust settings cannot be read, so callers fail safe
+        (do not skip anything).
+        """
+        names: set[str] = set()
+        for extra in (["-d"], []):
+            try:
+                result = subprocess.run(
+                    ["security", "dump-trust-settings", *extra],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            except (subprocess.TimeoutExpired, OSError):
+                return None
+            out = (result.stdout or "") + (result.stderr or "")
+            if "No Trust Settings were found" in out:
+                continue
+            if result.returncode != 0:
+                return None
+            for m in re.finditer(r"^\s*Cert \d+:\s*(.+?)\s*$", out, re.MULTILINE):
+                names.add(m.group(1))
+        return names
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
@@ -65,10 +92,16 @@ class Module(ModuleBase):
             "Apple Worldwide Developer Relations",
         }
 
+        trusted_names: set[str] | None = None
         for cert in certs:
             subject = cert.get("subject", "")
             if (subject, cert.get("org", "")) in self.SYSTEM_IDENTITY_CERTS:
-                continue
+                # The (CN, O) pair is just a name; anyone can mint a root with it.
+                # Only skip it if it is demonstrably not trusted for anything.
+                if trusted_names is None:
+                    trusted_names = self._trusted_cert_names()
+                if trusted_names is not None and subject not in trusted_names:
+                    continue
             is_apple = any(apple_name in subject for apple_name in apple_roots)
             is_self_signed = cert.get("self_signed", False)
             is_expired = cert.get("expired", False)

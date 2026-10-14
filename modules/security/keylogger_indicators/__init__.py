@@ -141,9 +141,35 @@ class Module(ModuleBase):
 
         # Check 3: Flag suspicious apps with Input Monitoring access
         suspicious_apps = []
+        claimed_known_apps = []
         for app in input_monitoring_apps:
             if not self._is_well_known(app):
                 suspicious_apps.append(app)
+            else:
+                claimed_known_apps.append(app)
+
+        # A bundle ID is just a string any app can choose, so a familiar-looking
+        # ID is never proof of who made the app. Keep these visible (info), never drop.
+        if claimed_known_apps:
+            findings.append(
+                Finding(
+                    title=f"Input Monitoring for {len(claimed_known_apps)} app(s) with familiar names",
+                    description=(
+                        f"These app(s) have Input Monitoring access and use the name of a "
+                        f"familiar company or app: {', '.join(sorted(claimed_known_apps))}. "
+                        "This tool has not verified who actually made them, because an app can "
+                        "pick any name. If you don't remember installing one, turn its access "
+                        "off in System Settings > Privacy & Security > Input Monitoring."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.keylogger_indicators.suspicious_input_monitoring",
+                    data={
+                        "check": "claimed_vendor_input_monitoring",
+                        "apps": sorted(claimed_known_apps),
+                    },
+                )
+            )
 
         if suspicious_apps:
             findings.append(

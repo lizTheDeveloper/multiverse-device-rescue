@@ -414,7 +414,7 @@ def test_emitted_codes_are_declared():
     assert all(c.startswith("security.certificate_trust_audit.") for c in declared)
 
 
-def _run_with_subject(subject_line, issuer_line):
+def _run_with_subject(subject_line, issuer_line, trust_stdout="SecTrustSettingsCopyCertificates: No Trust Settings were found.\n", trust_rc=0):
     mod = _get_module()
     certs_output = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
 
@@ -424,7 +424,10 @@ def _run_with_subject(subject_line, issuer_line):
         result.stderr = ""
         result.stdout = ""
         cmd_str = " ".join(cmd if isinstance(cmd, list) else cmd.split())
-        if "security" in cmd_str and "find-certificate" in cmd_str:
+        if "dump-trust-settings" in cmd_str:
+            result.returncode = trust_rc
+            result.stdout = trust_stdout
+        elif "security" in cmd_str and "find-certificate" in cmd_str:
             result.stdout = certs_output
         elif "openssl" in cmd_str and "-subject" in cmd_str:
             result.stdout = f"subject={subject_line}\nnotAfter=Nov 14 13:53:39 2043 GMT\n"
@@ -446,4 +449,29 @@ def test_apple_system_identity_certs_not_flagged_as_self_signed():
 def test_same_cn_with_different_org_still_flagged():
     line = "CN=com.apple.systemdefault, O=Someone Else"
     result = _run_with_subject(line, line)
+    assert [f for f in result.findings if f.data.get("check") == "self_signed_root_certs"]
+
+
+def test_system_identity_lookalike_that_is_trusted_for_ssl_is_flagged():
+    line = "CN=com.apple.systemdefault, O=System Identity"
+    trust = (
+        "Number of trusted certs = 1\n"
+        "Cert 0: com.apple.systemdefault\n"
+        "   Number of trust settings : 1\n"
+        "   Trust Settings for Cert 0\n"
+        "      Result Type          : kSecTrustSettingsResultTrustRoot\n"
+    )
+    result = _run_with_subject(line, line, trust_stdout=trust)
+    assert [f for f in result.findings if f.data.get("check") == "self_signed_root_certs"]
+
+
+def test_system_identity_skipped_only_when_trust_settings_say_untrusted():
+    line = "CN=com.apple.kerberos.kdc, O=System Identity"
+    result = _run_with_subject(line, line)
+    assert not [f for f in result.findings if f.data.get("check") == "self_signed_root_certs"]
+
+
+def test_system_identity_not_skipped_when_trust_settings_cannot_be_read():
+    line = "CN=com.apple.kerberos.kdc, O=System Identity"
+    result = _run_with_subject(line, line, trust_stdout="", trust_rc=1)
     assert [f for f in result.findings if f.data.get("check") == "self_signed_root_certs"]
