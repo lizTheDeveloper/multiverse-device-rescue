@@ -50,11 +50,17 @@ class Module(ModuleBase):
         if not find_my_mac_enabled:
             findings.append(
                 Finding(
-                    title="Find My Mac is disabled",
+                    title="Find My Mac is turned off",
                     description=(
-                        "Find My Mac is disabled. If this device is lost or stolen, "
-                        "you will not be able to locate, lock, or remotely wipe it. "
-                        "This is critical for device recovery and theft prevention."
+                        "Find My Mac is currently off. This means that if your Mac is "
+                        "ever lost or stolen, you won't be able to see where it is, lock "
+                        "it, or erase your data from a distance. This is a key safety "
+                        "feature for recovering a missing device.\n\n"
+                        "If someone else knows your Apple Account password, they will be "
+                        "able to see where this Mac is too. If that worries you, change "
+                        "the password first.\n\n"
+                        "What to do: Open System Settings, click your name at the top, "
+                        "choose iCloud, and turn on Find My Mac."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -67,11 +73,15 @@ class Module(ModuleBase):
         if not location_services_enabled:
             findings.append(
                 Finding(
-                    title="Location Services are disabled",
+                    title="Location Services are turned off",
                     description=(
-                        "Location Services are disabled. Find My Mac requires Location Services "
-                        "to be enabled to locate your device. Enable Location Services in "
-                        "System Settings > Privacy & Security > Location Services."
+                        "Location Services are off, which stops Find My Mac from working. "
+                        "Find My Mac needs to know your Mac's location to help you find "
+                        "it if it goes missing. Turning this on allows the feature to "
+                        "work as intended.\n\n"
+                        "What to do: Go to System Settings > Privacy & Security > Location "
+                        "Services and turn it on. Make sure Find My Mac is also checked "
+                        "in the list below."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -84,10 +94,13 @@ class Module(ModuleBase):
         if not icloud_signed_in:
             findings.append(
                 Finding(
-                    title="iCloud is not signed in",
+                    title="You are not signed in to iCloud",
                     description=(
-                        "iCloud is not signed in. Find My Mac requires an active iCloud account. "
-                        "Sign in to your Apple ID in System Settings > [Your Name] > iCloud."
+                        "Find My Mac requires an active iCloud account to work, but you "
+                        "are not currently signed in. Without a sign-in, the feature cannot "
+                        "connect to your Apple ID to help locate the device.\n\n"
+                        "What to do: Open System Settings and click 'Sign in' at the top "
+                        "of the sidebar."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
