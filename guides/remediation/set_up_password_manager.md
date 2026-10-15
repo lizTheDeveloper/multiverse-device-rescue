@@ -14,7 +14,7 @@ remembers them for you, so one leaked password can't unlock everything else.
 You only have to remember one password: the one for your computer or the
 manager itself.
 
-## Step 1: Pick one place for your passwords
+## Step 1: Choose one app to store your passwords
 
 - **Mac, iPhone and iPad only:** use the **Passwords** app. It's already
   installed and free. Open it from Launchpad or Spotlight (press Command +
@@ -25,7 +25,7 @@ manager itself.
 
 Pick one. Having passwords in several places is how they get lost or reused.
 
-## Step 2: Protect the password manager itself
+## Step 2: Set a strong main password for the app
 
 1. If you installed Bitwarden or 1Password, choose a long main password you
    have never used anywhere else. Four or five random words is good, like
@@ -37,7 +37,7 @@ Pick one. Having passwords in several places is how they get lost or reused.
 The Passwords app on a Mac is protected by your Mac login, so make sure that
 is a password only you know.
 
-## Step 3: Bring in the passwords your browsers saved
+## Step 3: Move your saved browser passwords to the app
 
 Each browser can export its saved passwords so the manager can import them.
 
@@ -52,7 +52,7 @@ Each browser can export its saved passwords so the manager can import them.
 The exported file holds every password in plain text. As soon as the import
 finishes, delete the file and empty the Trash.
 
-## Step 4: Turn off password saving in the other browsers
+## Step 4: Stop your browsers from saving new passwords
 
 So new passwords don't end up scattered again:
 

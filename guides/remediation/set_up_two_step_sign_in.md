@@ -14,7 +14,7 @@ password is the most common way accounts get taken over. This scan can't see
 your online accounts, so it only noticed that this computer has no
 authenticator app. If you already use one on your phone, you're covered there.
 
-## Step 1: Choose a second step
+## Step 1: Pick a safe way to get your second sign-in code
 
 In order of strength:
 
@@ -23,7 +23,7 @@ In order of strength:
    Authenticator, or the one built into your password manager).
 3. Text messages. This is better than nothing, but weaker.
 
-## Step 2: Turn it on for the accounts that matter most
+## Step 2: Turn on two-step sign-in for your most important accounts
 
 Start with your email, because anyone who controls your email can reset every
 other password. Then banking, then social media and shopping. On each site,
@@ -34,7 +34,7 @@ The site shows a code or a QR picture only on the screen you're setting up. Scan
 it with the app; never send it, or any code you receive later, to anyone, not
 even someone claiming to be the company's support.
 
-## Step 3: Save your backup codes safely
+## Step 3: Write down your backup codes and keep them safe
 
 Sites give you one-time backup codes in case you lose your phone. Write them on
 paper and keep them somewhere private at home, or save them in your password

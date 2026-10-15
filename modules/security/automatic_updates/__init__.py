@@ -43,10 +43,13 @@ class Module(ModuleBase):
         if auto_check == "0":
             findings.append(
                 Finding(
-                    title="Automatic software update check is disabled",
+                    title="Your Mac is not checking for updates automatically",
                     description=(
-                        "The system is not configured to automatically check for "
-                        "software updates. This can delay important security patches."
+                        "Your Mac is set to not check for new software updates on its "
+                        "own. However, if you don't check manually, you might miss important "
+                        "security fixes.\n\n"
+                        "What to do: Open System Settings > General > Software Update "
+                        "> Automatic Updates, and turn on 'Check for updates'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -63,10 +66,13 @@ class Module(ModuleBase):
         if auto_download == "0":
             findings.append(
                 Finding(
-                    title="Automatic software update download is disabled",
+                    title="Your Mac is not downloading updates automatically",
                     description=(
-                        "The system is not configured to automatically download "
-                        "available updates. This delays the installation of security patches."
+                        "Your Mac is set to not download updates once they are found. "
+                        "It just means you have to click 'Download' yourself when an update "
+                        "is ready.\n\n"
+                        "What to do: Open System Settings > General > Software Update "
+                        "> Automatic Updates, and turn on 'Download new updates when available'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -83,10 +89,14 @@ class Module(ModuleBase):
         if auto_install_macos == "0":
             findings.append(
                 Finding(
-                    title="Automatic macOS updates are disabled",
+                    title="Your Mac is not installing macOS updates automatically",
                     description=(
-                        "The system is not configured to automatically install macOS "
-                        "updates. Regular macOS updates are critical for security."
+                        "Your Mac is set to ask you before installing new versions of "
+                        "macOS, so you'll need to install them yourself when they "
+                        "appear.\n\n"
+                        "What to do: Open System Settings > General > Software Update "
+                        "> Automatic Updates, and turn on 'Install macOS updates' if you "
+                        "want them to happen in the background."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -103,10 +113,15 @@ class Module(ModuleBase):
         if critical_update == "0":
             findings.append(
                 Finding(
-                    title="Automatic critical update installation is disabled",
+                    title=(
+                        "Your Mac is not installing critical security updates automatically"
+                    ),
                     description=(
-                        "The system is not configured to automatically install critical "
-                        "security updates. This is a significant security risk."
+                        "Your Mac is set to ask you before installing critical security "
+                        "patches. However, these patches fix serious vulnerabilities, "
+                        "so it is best to let them install.\n\n"
+                        "What to do: Open System Settings > General > Software Update "
+                        "> Automatic Updates, and turn on 'Install critical security updates'."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -123,11 +138,16 @@ class Module(ModuleBase):
         if config_data == "0":
             findings.append(
                 Finding(
-                    title="Automatic configuration data updates are disabled",
+                    title=(
+                        "Your Mac is not updating its security detection data automatically"
+                    ),
                     description=(
-                        "The system is not configured to automatically install "
-                        "configuration data updates (XProtect, Gatekeeper data). "
-                        "This impacts security threat detection."
+                        "Your Mac is set to not automatically update its internal security "
+                        "databases (like XProtect, which helps block malware). It just "
+                        "means your Mac might not know about the newest types of malware.\n\n"
+                        "What to do: Open System Settings > General > Software Update "
+                        "> Automatic Updates, and turn on 'Install system data files and "
+                        "security updates'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -144,11 +164,13 @@ class Module(ModuleBase):
         if app_store_auto == "0":
             findings.append(
                 Finding(
-                    title="App Store automatic updates are disabled",
+                    title="App Store apps are not updating automatically",
                     description=(
-                        "The system is not configured to automatically update apps "
-                        "from the App Store. This can delay security patches for "
-                        "installed applications."
+                        "Your Mac is set to not automatically update apps you downloaded "
+                        "from the App Store. It just means you have to check the App Store "
+                        "manually to update your apps.\n\n"
+                        "What to do: Open the App Store, choose App Store > Settings from "
+                        "the menu bar, and turn on Automatic Updates."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
