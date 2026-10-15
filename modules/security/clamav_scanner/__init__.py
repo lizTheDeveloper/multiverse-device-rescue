@@ -47,11 +47,13 @@ class Module(ModuleBase):
             # ClamAV is not installed - this is a warning/info
             findings.append(
                 Finding(
-                    title="ClamAV antivirus is not installed",
+                    title="You don't have ClamAV antivirus installed",
                     description=(
-                        "ClamAV is a free, open-source antivirus engine. "
-                        "Consider installing it as a complementary security tool. "
-                        "Install via: brew install clamav"
+                        "ClamAV is a free antivirus program that helps find malware. It "
+                        "is not currently on your Mac.\n\n"
+                        "What to do: If you use the command line tool Homebrew, you can "
+                        "install it by typing 'brew install clamav' in Terminal. Otherwise, "
+                        "you can ignore this for now."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -82,10 +84,14 @@ class Module(ModuleBase):
         if not freshclam_installed:
             findings.append(
                 Finding(
-                    title="freshclam (ClamAV definition updater) is not installed",
+                    title="ClamAV cannot automatically update its virus list",
                     description=(
-                        "freshclam is used to automatically update ClamAV virus definitions. "
-                        "Install via: brew install clamav"
+                        "ClamAV needs a tool called 'freshclam' to download new virus "
+                        "definitions. Without it, your virus list will get old and less "
+                        "effective.\n\n"
+                        "What to do: If you installed ClamAV using Homebrew, run 'brew "
+                        "install clamav' again in Terminal to ensure the updater is present. "
+                        "If you didn't install ClamAV, you can ignore this."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -119,11 +125,13 @@ class Module(ModuleBase):
             if def_age > 30:
                 findings.append(
                     Finding(
-                        title="ClamAV virus definitions are outdated",
+                        title=f"ClamAV's virus list is {def_age} days old",
                         description=(
-                            f"Virus definitions are {def_age} days old (>30 days). "
-                            "This creates a false sense of security. "
-                            "Update definitions manually via: freshclam"
+                            "ClamAV uses a list of known viruses to identify threats. "
+                            f"Your list is {def_age} days old. New viruses appear daily, "
+                            "so an old list means ClamAV might miss recent threats.\n\n"
+                            "What to do: Type 'freshclam' in Terminal to update the list. "
+                            "If you don't use ClamAV regularly, you can ignore this."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -137,11 +145,14 @@ class Module(ModuleBase):
         if not clamd_running:
             findings.append(
                 Finding(
-                    title="clamd daemon is not running",
+                    title="ClamAV's background scanner is not running",
                     description=(
-                        "The ClamAV daemon (clamd) is not running. "
-                        "This disables on-access scanning. "
-                        "Start clamd via: brew services start clamav"
+                        "ClamAV has a background service that watches files as you use "
+                        "them. Right now, that service is stopped, so it isn't actively "
+                        "checking new files.\n\n"
+                        "What to do: If you use Homebrew, type 'brew services start clamav' "
+                        "in Terminal to restart it. If you don't use ClamAV regularly, "
+                        "you can ignore this."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

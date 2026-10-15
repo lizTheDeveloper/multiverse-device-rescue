@@ -119,19 +119,22 @@ class Module(ModuleBase):
         for entry in tampered:
             findings.append(
                 Finding(
-                    title=f"Signature does not match contents: {entry['name']}",
+                    title=f"App {entry['name']} was changed after it was signed",
                     description=(
-                        f"{entry['path']} carries a code signature, but the signature "
-                        "does not match the file's current contents. That means the "
-                        "application was modified after it was signed.\n\n"
-                        "Unlike an unsigned application, there is no benign explanation "
-                        "for this: legitimate updates are re-signed by the vendor. Treat "
-                        "this application as untrusted until you have reinstalled it "
-                        "from the vendor.\n\n"
-                        "What to do: download a fresh copy from the maker's own website "
-                        "or the app store and replace this one. If you do not recognise "
-                        "the app, do not open it, and talk to an advocate first if "
-                        "someone you know may be monitoring you.\n\n"
+                        f"{entry['path']} has a digital signature, but it no longer matches "
+                        "the file. This means the app was modified after the maker signed "
+                        "it.\n\n"
+                        "Legitimate updates are always re-signed by the maker, so there "
+                        "is no normal reason for this mismatch. It is a strong sign the "
+                        "app is not what it claims to be. Do not open it.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Download a fresh copy from the maker's official "
+                        "website or the App Store and replace this one. If you do not "
+                        "recognize the app, do not open it and seek help before deleting "
+                        "it.\n\n"
                         f"Reported by: {entry['detail']}"
                     ),
                     severity=Severity.CRITICAL,
@@ -149,17 +152,20 @@ class Module(ModuleBase):
         for entry in unsigned:
             findings.append(
                 Finding(
-                    title=f"Unsigned application in a system-wide location: {entry['name']}",
+                    title=f"Unsigned app {entry['name']} is installed for all users",
                     description=(
-                        f"{entry['path']} has no valid code signature, and it lives in a "
-                        "location that applies to every user of this machine.\n\n"
-                        "This is evidence, not a verdict. Software you compiled yourself, "
-                        "developer tooling, and some open-source applications are "
-                        "legitimately unsigned. What matters is whether you can account "
-                        "for this one: if you did not install it deliberately, or you do "
-                        "not recognise it, that is worth following up.\n\n"
-                        "What to do: if you did not install it, note its name and ask an "
-                        "advocate or trusted technical person before removing it.\n\n"
+                        f"{entry['path']} has no digital signature, and it is in a folder "
+                        "that affects everyone who uses this computer.\n\n"
+                        "This is not automatically bad. Some developer tools and open-source "
+                        "software are legitimately unsigned. However, if you did not "
+                        "install this app yourself, it is worth checking.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: If you do not recognize this app, do not delete "
+                        "it yet. Note its name and ask a trusted technical person or "
+                        "advocate to help you identify it safely.\n\n"
                         f"Reported by: {entry['detail']}"
                     ),
                     severity=Severity.WARNING,
@@ -177,16 +183,18 @@ class Module(ModuleBase):
         for entry in rejected:
             findings.append(
                 Finding(
-                    title=f"Gatekeeper will not accept: {entry['name']}",
+                    title=f"macOS blocks {entry['name']} from running",
                     description=(
-                        f"{entry['path']} is signed, but macOS Gatekeeper rejects it — "
-                        "typically because it is not notarised, or the signing identity "
-                        "is not one macOS accepts for distribution.\n\n"
-                        "Common and often benign for software distributed outside the App "
-                        "Store, or installed before notarisation was required. Worth "
-                        "checking against where you got it from.\n\n"
-                        "What to do: if you trust where you got it, you can leave it. "
-                        "If not, replace it with the maker's current version.\n\n"
+                        f"{entry['path']} has a signature, but macOS refuses to run it. "
+                        "This usually happens when the app was not officially verified "
+                        "(notarized) by Apple, or the signature is from a source Apple "
+                        "does not trust.\n\n"
+                        "This is common for software downloaded from websites rather "
+                        "than the App Store, or for older versions of apps. It is often "
+                        "harmless, but you should check where you got it.\n\n"
+                        "What to do: If you trust the source, you can leave it as is. "
+                        "If you are unsure, download the current version from the maker's "
+                        "official website to replace it.\n\n"
                         f"Reported by: {entry['detail']}"
                     ),
                     severity=Severity.WARNING,
@@ -285,7 +293,7 @@ class Module(ModuleBase):
                             "it from a source you trust, unsigned is usually just how it "
                             "ships.\n"
                             "  2. Did you build it yourself? Then it is expected.\n"
-                            "  3. If neither — you do not recognise it, or it appeared "
+                            "  3. If neither — you do not recognize it, or it appeared "
                             "without you installing it — that is the case worth "
                             "investigating. Look at when it was installed and what else "
                             "arrived at the same time.\n\n"
@@ -308,7 +316,7 @@ class Module(ModuleBase):
                         description=(
                             f"{finding.data.get('path')}\n\n"
                             "Gatekeeper rejecting an application usually means it is not "
-                            "notarised. That is common for smaller developers and for "
+                            "notarized. That is common for smaller developers and for "
                             "software installed years ago, and is not by itself a sign of "
                             "compromise.\n\n"
                             "Confirm it came from the developer's own distribution "

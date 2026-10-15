@@ -75,7 +75,7 @@ def test_find_my_mac_disabled():
     assert result.has_issues
     critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
     assert len(critical_findings) > 0
-    assert "Find My Mac is disabled" in critical_findings[0].title
+    assert "Find My Mac is turned off" in critical_findings[0].title
 
 
 def test_send_last_location_disabled():
@@ -89,7 +89,7 @@ def test_send_last_location_disabled():
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert "Send Last Location is disabled" in warning_findings[0].title
+    assert "Send Last Location is turned off" in warning_findings[0].title
 
 
 def test_activation_lock_unknown():

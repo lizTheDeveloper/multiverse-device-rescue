@@ -6,6 +6,10 @@ remediates:
   - security.suspicious_connections.unusual_listening_port
   - security.suspicious_connections.unusual_outbound_connection
   - security.suspicious_connections.high_connection_count
+steps_for:
+  security.suspicious_connections.unusual_listening_port: [1]
+  security.suspicious_connections.unusual_outbound_connection: [2]
+  security.suspicious_connections.high_connection_count: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -19,7 +23,7 @@ non-standard ports and multiple connections are common for entirely
 legitimate software (dev servers, sync tools, game clients, VPNs) — this is
 an investigate-and-confirm walkthrough, not an assume-malicious one.
 
-## Step 1: Investigate unusual listening ports
+## Step 1: Check what is listening on the flagged port
 
 A process listening on a port outside the standard service list (SSH, HTTP,
 HTTPS, mail, common databases) could be a legitimate local service — or a
@@ -48,7 +52,7 @@ backdoor / remote-access tool.
    disconnect from the network, and once clean, change passwords for
    accounts accessed from this machine from a separate known-clean device.
 
-## Step 2: Investigate unusual outbound connections
+## Step 2: Check where the app is sending data
 
 An established outbound connection on a non-standard port from a process
 that isn't in the module's known-safe list could be legitimate app traffic
@@ -75,7 +79,7 @@ that isn't in the module's known-safe list could be legitimate app traffic
    process and its persistence mechanism, and change credentials from a
    separate device afterward.
 
-## Step 3: Review high connection counts
+## Step 3: Check why the app has so many connections
 
 More than 10 simultaneous connections from a single process that isn't in
 the known-safe list is informational — it can be entirely normal for

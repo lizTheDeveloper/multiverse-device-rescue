@@ -126,7 +126,7 @@ class Module(ModuleBase):
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []
         for finding in findings.findings:
-            if "Find My Mac is disabled" in finding.title:
+            if finding.code == "security.find_my_mac_check.find_my_mac_disabled":
                 actions.append(
                     Action(
                         title="Enable Find My Mac",
@@ -141,7 +141,7 @@ class Module(ModuleBase):
                         success=True,
                     )
                 )
-            elif "Location Services are disabled" in finding.title:
+            elif finding.code == "security.find_my_mac_check.location_services_disabled":
                 actions.append(
                     Action(
                         title="Enable Location Services",
@@ -155,7 +155,7 @@ class Module(ModuleBase):
                         success=True,
                     )
                 )
-            elif "iCloud is not signed in" in finding.title:
+            elif finding.code == "security.find_my_mac_check.icloud_not_signed_in":
                 actions.append(
                     Action(
                         title="Sign in to iCloud",

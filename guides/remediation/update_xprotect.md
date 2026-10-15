@@ -11,6 +11,15 @@ remediates:
   - security.xprotect_status.xprotect_old
   - security.xprotect_status.mrt_version
   - security.xprotect_status.mrt_outdated
+steps_for:
+  security.xprotect_status.gatekeeper_disabled: [1, 4]
+  security.xprotect_status.gatekeeper_status: [4]
+  security.xprotect_status.xprotect_missing: [2, 4]
+  security.xprotect_status.xprotect_version: [4]
+  security.xprotect_status.xprotect_outdated: [2, 4]
+  security.xprotect_status.xprotect_old: [2, 4]
+  security.xprotect_status.mrt_version: [4]
+  security.xprotect_status.mrt_outdated: [3, 4]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -22,7 +31,7 @@ fixes go through System Settings or Software Update — nothing here is
 auto-applied, and re-enabling Gatekeeper in particular should be done
 deliberately since it affects what software you're allowed to run.
 
-## Step 1: Re-enable Gatekeeper (critical)
+## Step 1: Turn on app security checks
 
 `gatekeeper_disabled` means macOS is not verifying that apps are signed
 and notarized before running them — a significant reduction in
@@ -38,7 +47,7 @@ protection against malicious or tampered software.
 3. Alternatively from Terminal: `sudo spctl --master-enable`. Verify with
    `spctl --status` — it should report `assessments enabled`.
 
-## Step 2: Restore or update XProtect definitions
+## Step 2: Update your malware definitions
 
 `xprotect_missing` (critical), `xprotect_outdated`, and `xprotect_old`
 all mean XProtect's malware signature database is absent, below the
@@ -59,7 +68,7 @@ recommended version floor, or hasn't been refreshed recently.
    that setting controls whether XProtect updates apply automatically
    going forward, preventing this from recurring.
 
-## Step 3: Update MRT (Malware Removal Tool)
+## Step 3: Update your malware removal tool
 
 `mrt_outdated` means the tool responsible for detecting and removing
 already-known malware families hasn't been refreshed recently.
@@ -69,7 +78,7 @@ already-known malware families hasn't been refreshed recently.
 2. MRT runs automatically in the background after malware definitions
    update; no manual scan trigger is needed once it's current.
 
-## Step 4: Review informational status
+## Step 4: Check your current security status
 
 `gatekeeper_status`, `xprotect_version`, and `mrt_version` are
 informational confirmations of current state. No action is required

@@ -9,6 +9,12 @@ remediates:
   - security.siri_privacy.siri_analytics
   - security.siri_privacy.lockscreen_siri
   - security.siri_privacy.siri_config_status
+steps_for:
+  security.siri_privacy.siri_enabled: [2]
+  security.siri_privacy.hey_siri: [3]
+  security.siri_privacy.siri_suggestions: [4]
+  security.siri_privacy.siri_analytics: [5]
+  security.siri_privacy.lockscreen_siri: [1]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -22,7 +28,7 @@ deliberately-installed feature, so most of this is preference review, not a
 problem to fix. Nothing is auto-applied since disabling Siri outright is a
 significant workflow change you should decide on yourself.
 
-## Step 1: Disable Siri access from the lock screen (do this first if flagged)
+## Step 1: Turn off Siri on the lock screen
 
 This is the one finding here that's a real security exposure rather than a
 preference trade-off: anyone with physical access to a locked Mac can talk
@@ -36,14 +42,14 @@ messages, query calendar/reminders) without ever unlocking the device.
 3. Confirm by locking the screen and attempting to invoke Siri — it should
    be unavailable until the device is unlocked.
 
-## Step 2: Decide whether Siri should be enabled at all
+## Step 2: Decide if you want Siri enabled
 
 1. Open System Settings > Siri & Spotlight.
 2. If you don't use voice commands, turn off "Enable Ask Siri" (or the
    equivalent top-level toggle). This is a convenience trade-off, not a
    security requirement.
 
-## Step 3: Review "Hey Siri" always-on listening
+## Step 3: Turn off always-on Hey Siri listening
 
 "Hey Siri" requires the microphone to listen continuously for the wake
 phrase.
@@ -52,7 +58,7 @@ phrase.
 2. If you'd rather not have always-on listening, disable it — you can still
    invoke Siri via keyboard shortcut or the menu bar icon.
 
-## Step 4: Review Siri Suggestions
+## Step 4: Review Siri suggestions settings
 
 1. In System Settings > Siri & Spotlight, review the Suggestions section
    (Spotlight, Lock Screen, Share Sheet).
@@ -60,7 +66,7 @@ phrase.
    what Apple analyzes to power those suggestions, not core Siri
    functionality.
 
-## Step 5: Review Siri analytics and data sharing
+## Step 5: Turn off Siri data sharing with Apple
 
 1. In System Settings > Siri & Spotlight, scroll to the bottom for "Siri &
    Dictation Analytics" (or a similar sharing toggle).

@@ -9,6 +9,13 @@ remediates:
   - security.win_suspicious_processes.no_file_path
   - security.win_suspicious_processes.encoded_powershell
   - security.win_suspicious_processes.summary
+steps_for:
+  security.win_suspicious_processes.known_malware: [1]
+  security.win_suspicious_processes.mining_software: [2]
+  security.win_suspicious_processes.suspicious_path: [3]
+  security.win_suspicious_processes.no_file_path: [4]
+  security.win_suspicious_processes.encoded_powershell: [5]
+  security.win_suspicious_processes.summary: [6]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -21,7 +28,7 @@ varies by category — a matched malware name is high-confidence, while a
 missing file path or an encoded PowerShell command each have legitimate
 explanations, so investigate before taking action.
 
-## Step 1: Known malware process (critical)
+## Step 1: Stop known malware and save evidence
 
 The process name matched a known malware/RAT/credential-theft-tool
 signature (e.g. Mimikatz, Cobalt Strike beacon names, LaZagne, or a known
@@ -58,7 +65,7 @@ cryptominer like XMRig).
 8. Only reconnect the machine to the network after the offline scan is
    clean and persistence mechanisms are removed.
 
-## Step 2: Mining software (nicehash and similar)
+## Step 2: Check if the mining software is yours
 
 Cryptomining software was detected. This may be something you installed
 deliberately (e.g. you mine crypto on this machine) or may indicate a
@@ -81,7 +88,7 @@ cryptojacking infection running without your knowledge.
    browser extension; check those sources before reinstalling anything
    similar.
 
-## Step 3: Process running from a suspicious path
+## Step 3: Inspect apps running from temporary folders
 
 A process is executing from `%TEMP%` or `C:\Windows\Temp` rather than a
 normal installed-application location — legitimate installers commonly run
@@ -101,7 +108,7 @@ unusual.
 5. Re-run the scan to confirm it no longer appears, and check Scheduled
    Tasks / Run keys for anything that might relaunch it.
 
-## Step 4: Process with no file path
+## Step 4: Check processes missing a file location
 
 A process with no on-disk file path (other than the `System` process
 itself, which is expected to have none) can indicate process hollowing or
@@ -128,7 +135,7 @@ scan without elevation.
    component (common for certain kernel-adjacent or virtualization-related
    processes), no action is needed.
 
-## Step 5: PowerShell running an encoded command
+## Step 5: Look into the scrambled PowerShell command
 
 A PowerShell process was found running with `-EncodedCommand` (or the `-e`
 /`-enc`/`-ec` shorthand), which Base64-encodes the script being run. This is
@@ -159,7 +166,7 @@ string-based detection).
 6. Run an offline malware scan afterward, since encoded PowerShell is
    frequently a second-stage loader rather than the full payload.
 
-## Step 6: Summary finding
+## Step 6: Review the full list of suspicious activity
 
 The INFO-level "Suspicious process activity detected" finding is a count
 summary generated whenever any of the above categories fired during this

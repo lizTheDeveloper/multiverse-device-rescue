@@ -99,7 +99,7 @@ class Module(ModuleBase):
                 )
             elif finding.severity == Severity.INFO:
                 # Only add INFO actions if they're significant thermal reports
-                if "fan" in finding.title.lower() or "throttle" in finding.title.lower():
+                if finding.data.get("check") in ("fan_speed", "thermal_throttle_state"):
                     actions.append(
                         Action(
                             title=f"Thermal status: {finding.title}",

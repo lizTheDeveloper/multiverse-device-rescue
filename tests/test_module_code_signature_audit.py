@@ -148,7 +148,7 @@ def test_unsigned_app_in_system_location_is_a_warning(mod):
     assert finding is not None
     assert finding.severity == Severity.WARNING
     # It must not overclaim: the text has to leave room for legitimate cases.
-    assert "evidence, not a verdict" in finding.description
+    assert "not automatically bad" in finding.description
 
 
 def test_unsigned_app_in_user_location_is_not_flagged(mod):

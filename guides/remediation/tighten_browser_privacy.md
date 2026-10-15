@@ -10,6 +10,13 @@ remediates:
   - security.browser_privacy_check.installed_browsers
   - security.browser_privacy_check.saved_passwords
   - security.browser_privacy_check.privacy_summary
+steps_for:
+  security.browser_privacy_check.do_not_track_disabled: [2]
+  security.browser_privacy_check.fraud_warning_disabled: [1]
+  security.browser_privacy_check.cookies_always_allow: [3]
+  security.browser_privacy_check.autofilll_passwords_enabled: [4]
+  security.browser_privacy_check.installed_browsers: [5]
+  security.browser_privacy_check.saved_passwords: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -22,7 +29,7 @@ through Safari's own Settings UI — nothing here is auto-applied, since
 some of these (like cookie policy) can affect site functionality you
 rely on.
 
-## Step 1: Enable fraud website warnings (recommended first)
+## Step 1: Turn on fraud website warnings
 
 `fraud_warning_disabled` means Safari won't warn you before visiting a
 known phishing/malicious site.
@@ -30,7 +37,7 @@ known phishing/malicious site.
 1. Open Safari > Settings > Security.
 2. Enable "Warn when visiting a fraudulent website."
 
-## Step 2: Enable Do Not Track
+## Step 2: Ask websites not to track you
 
 `do_not_track_disabled` means Safari isn't sending the DNT signal to
 sites.
@@ -40,7 +47,7 @@ sites.
    enforcement mechanism — sites can ignore it — but it's a free, no-risk
    signal to enable.
 
-## Step 3: Restrict overly permissive cookie policy
+## Step 3: Block third-party cookies
 
 `cookies_always_allow` means Safari is set to allow all cookies,
 including third-party/advertiser cookies.
@@ -54,7 +61,7 @@ including third-party/advertiser cookies.
    cookies), you can add a site-specific exception rather than reverting
    the global policy.
 
-## Step 4: Review password autofill (informational)
+## Step 4: Check your password autofill settings
 
 `autofilll_passwords_enabled` is informational, not necessarily a
 problem — autofill is generally safe because it's backed by your
@@ -68,7 +75,7 @@ your login password is itself weak.
 2. If you still want to disable it: Safari > Settings > Passwords and
    toggle off "AutoFill passwords and passkeys."
 
-## Step 5: Review browser and saved-password inventory
+## Step 5: Review installed browsers and saved passwords
 
 `installed_browsers` and `saved_passwords` are informational.
 

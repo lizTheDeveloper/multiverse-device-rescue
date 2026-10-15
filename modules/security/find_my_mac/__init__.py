@@ -38,11 +38,17 @@ class Module(ModuleBase):
         if not fmm_enabled:
             findings.append(
                 Finding(
-                    title="Find My Mac is disabled",
+                    title="Find My Mac is turned off",
                     description=(
-                        "Find My Mac is disabled. If this device is lost or stolen, "
-                        "you will not be able to locate, lock, or remotely wipe it. "
-                        "This is critical for device recovery."
+                        "Your Mac's 'Find My' feature is currently off. This is a safety "
+                        "tool that lets you locate, lock, or erase your Mac if it is lost "
+                        "or stolen. Because it is off, you cannot use these remote controls "
+                        "right now.\n\n"
+                        "If someone else knows your Apple Account password, they will be "
+                        "able to see where this Mac is too. If that worries you, change "
+                        "the password first.\n\n"
+                        "What to do: Open System Settings, click your name at the top, "
+                        "then select 'iCloud'. Turn on 'Find My Mac' and 'Send Last Location'."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -56,11 +62,14 @@ class Module(ModuleBase):
         if not send_last_location:
             findings.append(
                 Finding(
-                    title="Send Last Location is disabled",
+                    title="Send Last Location is turned off",
                     description=(
-                        "Send Last Location is disabled. The device will not send "
-                        "its final location when the battery is critically low, "
-                        "reducing recovery chances for a lost device."
+                        "Your Mac is not set to share its location when the battery runs "
+                        "out. If your Mac is lost and the battery dies, this feature helps "
+                        "you find it by sending its last known spot. Turning it on improves "
+                        "your chances of getting the device back.\n\n"
+                        "What to do: Open System Settings, click your name at the top, "
+                        "then select 'iCloud'. Turn on 'Send Last Location'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -111,7 +120,7 @@ class Module(ModuleBase):
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []
         for finding in findings.findings:
-            if "Find My Mac is disabled" in finding.title:
+            if finding.code == "security.find_my_mac.find_my_mac_disabled":
                 actions.append(
                     Action(
                         title="Enable Find My Mac",
@@ -126,7 +135,7 @@ class Module(ModuleBase):
                         success=True,
                     )
                 )
-            elif "Send Last Location is disabled" in finding.title:
+            elif finding.code == "security.find_my_mac.send_last_location_disabled":
                 actions.append(
                     Action(
                         title="Enable Send Last Location",

@@ -146,7 +146,7 @@ class Module(ModuleBase):
 
         for finding in findings.findings:
             status = finding.data.get("status")
-            version_name = finding.title.split("macOS ")[1].split(" ")[0] if "macOS" in finding.title else "macOS"
+            version_name = finding.data.get("version") or "macOS"
 
             if status == "supported":
                 actions.append(

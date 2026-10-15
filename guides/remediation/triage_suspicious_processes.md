@@ -9,6 +9,12 @@ remediates:
   - security.suspicious_processes.high_cpu
   - security.suspicious_processes.unsigned_apps
   - security.suspicious_processes.all_clean
+steps_for:
+  security.suspicious_processes.known_malware: [1]
+  security.suspicious_processes.suspicious_paths: [2]
+  security.suspicious_processes.suspicious_names: [3]
+  security.suspicious_processes.high_cpu: [4]
+  security.suspicious_processes.unsigned_apps: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -22,7 +28,7 @@ category has a different confidence level, so investigate before removing
 anything — several of these (especially unsigned apps and suspicious names)
 have legitimate explanations.
 
-## Step 1: Remove known malware processes (critical)
+## Step 1: Remove known malware and stop it from returning
 
 The scan matched a running process name against a list of well-documented
 macOS adware/malware families (Genieo, VSearch, MacKeeper,
@@ -51,7 +57,7 @@ sources.
 8. Investigate how it arrived (a bundled "free" download, a fake Flash
    Player update, a cracked app) so you avoid reinstalling the same source.
 
-## Step 2: Investigate processes from suspicious locations
+## Step 2: Check apps running from temporary folders
 
 Processes launched directly from `/tmp`, `/var/tmp`, `~/Downloads`, or
 `~/Desktop` are unusual — legitimate installed software normally runs from
@@ -72,7 +78,7 @@ Processes launched directly from `/tmp`, `/var/tmp`, `~/Downloads`, or
    possible) to see what other files/connections it touched — this can
    reveal a broader footprint worth investigating.
 
-## Step 3: Investigate processes with suspicious names
+## Step 3: Verify apps with hidden or random names
 
 A process name that's hidden (dot-prefixed) or looks like a random
 hex/obfuscated string is a common malware pattern, but can also be a
@@ -89,7 +95,7 @@ legitimate helper process or daemon with an intentionally opaque name.
    2 rather than deleting immediately.
 5. If signed and traceable to known software, no action is needed.
 
-## Step 4: Investigate high-CPU processes
+## Step 4: Investigate apps using too much computer power
 
 A process sustained above 80% CPU that isn't a known safe process (browser,
 compiler, media app) could be resource-abuse malware (a miner, a
@@ -108,7 +114,7 @@ scraper/bot) or could be legitimate work you're doing.
    anti-malware scan (e.g. Malwarebytes for Mac) before deciding to remove
    anything.
 
-## Step 5: Review unsigned apps in /Applications
+## Step 5: Review apps without a verified developer signature
 
 An app without a readable `CFBundleIdentifier` (or one `defaults read`
 can't parse) is often just an oddly-packaged legitimate app, an app the

@@ -33,11 +33,16 @@ class Module(ModuleBase):
         if "off" in output.lower():
             findings.append(
                 Finding(
-                    title="FileVault disk encryption is disabled",
+                    title="Your Mac's disk encryption is off",
                     description=(
-                        "FileVault is off. If this device is lost or stolen, "
-                        "its contents can be read by anyone with physical "
-                        "access to the disk."
+                        "Your Mac's built-in disk encryption (FileVault) is currently "
+                        "turned off. This means that if your computer is lost or stolen, "
+                        "anyone who has physical access to it can read your files, photos, "
+                        "and passwords.\n\n"
+                        "What to do: Open System Settings, go to Privacy & Security, and "
+                        "turn on FileVault. You will be asked to create a recovery key. "
+                        "Write this down or save it in a password manager, as you will "
+                        "need it to unlock your Mac if you forget your password."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
