@@ -60,6 +60,20 @@ _WIN_BROWSER_PROFILE_ROOTS = {
 
 _SSH_AUTHORIZED_KEYS = "~/.ssh/authorized_keys"
 
+_CMDKEY_PREFIXES = ("LegacyGeneric:target=", "Domain:target=", "WindowsLive:target=")
+
+
+def _plain_target(name: str) -> str:
+    """Drop Credential Manager's type prefix so the listed name is readable.
+
+    Display only: ``data["accounts"]`` keeps the raw value.
+    """
+    for prefix in _CMDKEY_PREFIXES:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
+
+
 _REVOCATION_ORDER = (
     "Do this in order. Revoking sessions before changing the password just lets "
     "whoever has the password sign straight back in:\n\n"
@@ -67,10 +81,13 @@ _REVOCATION_ORDER = (
     "resets through it.\n"
     "  2. THEN sign out of all other devices/sessions, from the account's own "
     "security page.\n"
-    "  3. Review and revoke third-party app access (OAuth grants). These survive "
-    "both a password change and a sign-out-everywhere on many providers.\n"
-    "  4. Revoke app-specific passwords and long-lived API tokens.\n"
-    "  5. Remove any SSH keys and remote-access grants you do not recognise."
+    "  3. Review the apps and websites you have allowed to use the account "
+    "(often listed as 'connected apps' or 'third-party access'; technically, OAuth "
+    "grants) and remove any you do not recognise. On many providers these keep "
+    "working after both a password change and a sign-out-everywhere.\n"
+    "  4. Remove app passwords you made for older mail or calendar apps.\n"
+    "  5. Remove any remote-login keys and remote-access tools you do not "
+    "recognise."
 )
 
 
@@ -111,53 +128,98 @@ class Module(ModuleBase):
         accounts = self._system_accounts(profile)
         ssh_keys = self._authorized_keys_count()
 
+        on_mac = profile.platform == Platform.DARWIN
+        browser_total = sum(b["profiles"] for b in browsers)
+
         if browsers:
-            total = sum(b["profiles"] for b in browsers)
             detail = "\n".join(
                 f"  {b['browser']}: {b['profiles']} profile(s)" for b in browsers
             )
             findings.append(
                 Finding(
-                    title=f"{total} browser profiles are signed in to your accounts",
+                    title=f"Your browsers have {browser_total} profile(s)",
                     description=(
-                        f"Your browser has {total} separate profiles. Each one keeps its "
-                        "own login information, meaning they stay signed in to your accounts "
-                        "even if you change your password.\n\n"
+                        "A browser profile is a separate set of bookmarks, history and "
+                        "saved sign-ins inside one browser. Having several is normal. On "
+                        "its own it does not mean anything is wrong.\n\n"
                         f"{detail}\n\n"
-                        "We only counted the folders. We did not read any passwords or "
-                        "login details.\n\n"
-                        "What to do: For your email, banking, and social media, go to "
-                        "their security settings and choose 'Sign out of all devices'. "
-                        "Then sign back in on this computer."
+                        "Why it can matter: each profile stays signed in to the websites "
+                        "you used in it, even after you change that website's password. "
+                        "So if you are changing passwords because you think someone got "
+                        "into an account, the new password alone may not sign them out.\n\n"
+                        "We only counted the profile folders. We did not open them or read "
+                        "any passwords or sign-in details.\n\n"
+                        "What to do: Nothing, unless you are changing passwords after a "
+                        "break-in. In that case, change the password first. Then, in that "
+                        "website's security settings, choose 'Sign out of all devices', "
+                        "and sign back in on this computer."
                     ),
-                    severity=Severity.WARNING,
+                    severity=Severity.INFO,
                     category=self.category,
                     code="security.session_revocation_scan.browser_sessions",
                     data={
                         "check": "browser_sessions",
                         "browsers": browsers,
-                        "profile_count": total,
+                        "profile_count": browser_total,
                     },
                 )
             )
 
         if accounts:
+            listing = "\n".join(f"  {_plain_target(a)}" for a in accounts)
+            if on_mac:
+                title = (
+                    "This Mac is signed in to an Apple Account"
+                    if len(accounts) == 1
+                    else f"This Mac is signed in to {len(accounts)} Apple Accounts"
+                )
+                description = (
+                    "An Apple Account (it used to be called an Apple ID) is what this Mac "
+                    "uses for iCloud. Through it, the Mac can share things like photos, "
+                    "messages, notes, contacts, saved passwords and its location with "
+                    "every other device signed in to the same account.\n\n"
+                    f"{listing}\n\n"
+                    "We only listed the names. We did not read any passwords.\n\n"
+                    "Why it can matter: if this is your own account, this is normal. If "
+                    "you don't recognize it, someone else's account could be receiving "
+                    "what this Mac shares. And anyone who knows your Apple Account "
+                    "password can see the same things from their own device.\n\n"
+                    "If you think someone close to you set this up to monitor you, "
+                    "changing it can alert them. Talk to an advocate first (US National "
+                    "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                    "What to do: Check that the name above is yours. To see it on the "
+                    "Mac, open System Settings and click your name at the top of the "
+                    "sidebar (on older Macs: System Preferences > Apple ID). Scroll down "
+                    "to see every device signed in with the same account. If one isn't "
+                    "yours, or the account itself isn't yours, change your Apple Account "
+                    "password and remove what you don't recognize."
+                )
+            else:
+                title = f"Windows has {len(accounts)} saved sign-in(s)"
+                description = (
+                    "Windows keeps saved sign-ins so that apps and network drives (for "
+                    "example OneDrive, Office, or a shared folder at work) can sign in "
+                    "without asking you every time. These are the names they are saved "
+                    "under:\n\n"
+                    f"{listing}\n\n"
+                    "We only listed the names. We did not read any passwords.\n\n"
+                    "Why it can matter: most of these are put there by apps you use, and "
+                    "are normal. One you don't recognize could mean someone set this "
+                    "computer up to sign in to an account or computer of theirs, or "
+                    "saved their own sign-in here.\n\n"
+                    "If you think someone close to you set this up to monitor you, "
+                    "removing it can alert them. Talk to an advocate first (US National "
+                    "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                    "What to do: Search the Start menu for Credential Manager, open it, "
+                    "and choose Windows Credentials. Remove any entry you don't recognize "
+                    "or no longer use. Removing one only makes that app ask for the "
+                    "password again; it does not delete the account."
+                )
             findings.append(
                 Finding(
-                    title=f"{len(accounts)} account(s) saved on this computer",
-                    description=(
-                        "These accounts are saved directly on your device. They keep their "
-                        "own login access, separate from your web browser.\n\n"
-                        + "\n".join(f"  {a}" for a in accounts)
-                        + "\n\nWe only listed the names. We did not read any passwords.\n\n"
-                        "If you think someone close to you added these to monitor you, "
-                        "removing them can alert them. Talk to an advocate first (US National "
-                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
-                        "What to do: Open System Settings > Internet Accounts (on Mac) "
-                        "or Settings > Accounts (on Windows). Remove any account you do "
-                        "not recognize or use."
-                    ),
-                    severity=Severity.WARNING,
+                    title=title,
+                    description=description,
+                    severity=Severity.INFO,
                     category=self.category,
                     code="security.session_revocation_scan.system_accounts",
                     data={"check": "system_accounts", "accounts": accounts},
@@ -167,18 +229,34 @@ class Module(ModuleBase):
         if ssh_keys > 0:
             findings.append(
                 Finding(
-                    title=f"{ssh_keys} key(s) can be used to log in to this computer remotely",
+                    title=f"{ssh_keys} saved key(s) could let another computer log in to this one",
                     description=(
-                        f"Your computer has {ssh_keys} key(s) that let someone log "
-                        "in remotely. These keys work even if you change your password, "
-                        "so they are a common way for unauthorized access to persist.\n\n"
-                        "We only counted the keys. We did not read the key data.\n\n"
+                        f"This computer keeps a list of {ssh_keys} key(s). Each one lets "
+                        "a computer that holds the matching key log in to this one over "
+                        "the network, without a password. Changing your password does not "
+                        "stop them. "
+                        + (
+                            "They only work while Remote Login is turned on.\n\n"
+                            if on_mac
+                            else "They only work if the OpenSSH Server feature is "
+                            "installed and running.\n\n"
+                        )
+                        + "Most people never set this up. People who write software or "
+                        "look after computers often do, for their own other machines.\n\n"
+                        "We only counted the keys. We did not read them.\n\n"
                         "If you think someone close to you set this up to monitor you, "
                         "removing it can alert them. Talk to an advocate first (US National "
                         "Domestic Violence Hotline: 1-800-799-7233, or text START to "
                         "88788).\n\n"
-                        "What to do: If you did not set these up, ask a trusted technical "
-                        "person to review them with you."
+                        "What to do: If you did not set these up yourself, ask a trusted "
+                        "technical person to go through the list with you. "
+                        + (
+                            "To stop them working in the meantime, open System Settings > "
+                            "General > Sharing and turn off Remote Login."
+                            if on_mac
+                            else "The list is the file .ssh\\authorized_keys in your "
+                            "user folder."
+                        )
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -187,24 +265,27 @@ class Module(ModuleBase):
                 )
             )
 
+        accounts_label = "Apple Accounts" if on_mac else "Saved Windows sign-ins"
         findings.append(
             Finding(
-                title="Where you are signed in on this device",
+                title="What this check could and could not see",
                 description=(
-                    f"Browser profiles: {sum(b['profiles'] for b in browsers)}\n"
-                    f"System accounts: {len(accounts)}\n"
-                    f"Authorised SSH keys: {ssh_keys}\n\n"
-                    "This is the local surface only. Sessions held by your accounts at "
-                    "their providers — active logins, OAuth app grants, app-specific "
-                    "passwords — are not visible from this device and must be reviewed "
-                    "on each provider's own security page."
+                    "On this computer we found:\n"
+                    f"  Browser profiles: {browser_total}\n"
+                    f"  {accounts_label}: {len(accounts)}\n"
+                    f"  Keys that allow remote login: {ssh_keys}\n\n"
+                    "This only covers what is stored on this computer. To see where your "
+                    "accounts are signed in elsewhere (other phones and computers, and "
+                    "apps you have allowed to use your account), go to each provider's "
+                    "own security page, for example your email's. We can't see those "
+                    "from here."
                 ),
                 severity=Severity.INFO,
                 category=self.category,
                 code="security.session_revocation_scan.inventory",
                 data={
                     "check": "inventory",
-                    "browser_profile_count": sum(b["profiles"] for b in browsers),
+                    "browser_profile_count": browser_total,
                     "system_account_count": len(accounts),
                     "ssh_key_count": ssh_keys,
                     "provider_sessions_checked": False,
@@ -258,14 +339,16 @@ class Module(ModuleBase):
                 Action(
                     title="Review accounts configured on this device",
                     description=(
-                        "These hold their own tokens on the device:\n\n"
-                        "  macOS: System Settings > Internet Accounts, and "
-                        "System Settings > [your name]\n"
-                        "  Windows: Settings > Accounts > Email & accounts, and "
-                        "Access work or school\n\n"
+                        "These stay signed in on the device by themselves:\n\n"
+                        "  macOS: System Settings > [your name] (your Apple Account and "
+                        "the devices signed in with it), and System Settings > Internet "
+                        "Accounts (email, calendar and contacts accounts added to Mail, "
+                        "Calendar and Contacts)\n"
+                        "  Windows: Credential Manager > Windows Credentials (search the "
+                        "Start menu for it), and Settings > Accounts > Email & accounts\n\n"
                         "Remove any you do not recognise or no longer use. Removing an "
-                        "account here deletes the device's stored token for it; it does "
-                        "not delete the account."
+                        "account here only signs this device out of it; it does not "
+                        "delete the account."
                     ),
                     risk_level=RiskLevel.SAFE,
                     kind=ActionKind.GUIDANCE,

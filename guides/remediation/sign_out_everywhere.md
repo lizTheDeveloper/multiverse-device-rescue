@@ -35,12 +35,21 @@ have this.
 
 ## Step 2: Check the accounts saved on this computer
 
-- **Mac:** **System Settings > Internet Accounts**.
-- **Windows:** **Settings > Accounts > Email & accounts**, and
-  **Settings > Accounts > Access work or school**.
+Some accounts stay signed in on the computer itself, not just in a browser.
 
-Remove any account you don't recognise or no longer use. Read the note above
-first.
+- **Mac:** open **System Settings** and click your name at the top of the
+  sidebar. That is your Apple Account (it used to be called Apple ID), which
+  the Mac uses for iCloud. Check the name is yours, then scroll down to see
+  every device signed in with it. Also look at **System Settings > Internet
+  Accounts**, which lists email, calendar and contacts accounts added to the
+  Mail, Calendar and Contacts apps.
+- **Windows:** search the Start menu for **Credential Manager**, open it, and
+  choose **Windows Credentials**. These are sign-ins that apps and network
+  drives saved. Also look at **Settings > Accounts > Email & accounts**.
+
+Remove any account or device you don't recognise or no longer use. Removing an
+account here only signs this computer out of it; it doesn't delete the
+account. Read the note above first.
 
 ## Step 3: Clean up unused browser profiles
 
