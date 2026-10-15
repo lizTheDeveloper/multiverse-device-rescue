@@ -10,6 +10,14 @@ remediates:
   - security.clamav_scanner.clamav_outdated_definitions
   - security.clamav_scanner.clamd_not_running
   - security.clamav_scanner.clamd_running
+steps_for:
+  security.clamav_scanner.clamav_not_installed: [1, 4]
+  security.clamav_scanner.clamav_version: [4]
+  security.clamav_scanner.freshclam_not_installed: [1, 4]
+  security.clamav_scanner.clamav_definitions: [4]
+  security.clamav_scanner.clamav_outdated_definitions: [2, 4]
+  security.clamav_scanner.clamd_not_running: [3, 4]
+  security.clamav_scanner.clamd_running: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -22,7 +30,7 @@ running. ClamAV is complementary to Apple's built-in protections
 (see `enable_antivirus.md` and `update_xprotect.md`) — it is not required,
 but if you've chosen to run it, these findings keep it effective.
 
-## Step 1: Install ClamAV (if you want it, and it's missing)
+## Step 1: Install ClamAV if you want extra virus scanning
 
 `clamav_not_installed` and `freshclam_not_installed` mean ClamAV or its
 updater isn't present.
@@ -36,7 +44,7 @@ updater isn't present.
 3. Verify the install: `clamscan --version` and `freshclam --version`
    should both report a version.
 
-## Step 2: Update outdated virus definitions (critical)
+## Step 2: Update your virus definition files
 
 `clamav_outdated_definitions` (definitions older than 30 days) means
 ClamAV is present but effectively providing a false sense of security —
@@ -53,7 +61,7 @@ it won't catch recent malware.
    clamav` runs `freshclam` on a schedule as part of the Homebrew
    service, or add your own `launchd` job) so this doesn't go stale again.
 
-## Step 3: Start the clamd on-access daemon
+## Step 3: Start the background virus scanner
 
 `clamd_not_running` means the daemon that would provide on-access
 scanning isn't active. `clamd_running` is the informational
@@ -65,7 +73,7 @@ confirmation that it is.
 2. To start it: `brew services start clamav`.
 3. Confirm it's active: `pgrep clamd` should return a PID.
 
-## Step 4: Review inventory findings
+## Step 4: Check your scanner version and definition age
 
 `clamav_version` and `clamav_definitions` are informational — they report
 the installed engine and signature database versions. No action is

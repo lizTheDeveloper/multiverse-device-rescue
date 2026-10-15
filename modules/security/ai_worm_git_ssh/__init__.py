@@ -96,12 +96,16 @@ class Module(ModuleBase):
         for entry in self._check_npmrc_override():
             findings.append(
                 Finding(
-                    title="npm config overrides git binary with node",
+                    title="Your npm settings tell it to use a fake git tool",
                     description=(
-                        f".npmrc at {entry['path']} contains 'git=node', which "
-                        "replaces the git binary invoked by npm — a known "
-                        "Shai-Hulud technique used to bypass --ignore-scripts "
-                        "protections."
+                        f"We found a setting in your npm config file ({entry['path']}) "
+                        "that tells it to use a script instead of the real git program. "
+                        "This is a known trick used by malware to sneak code past safety "
+                        "checks when you install software packages.\n\n"
+                        "This is a serious security risk because it can allow hidden code "
+                        "to run on your computer.\n\n"
+                        f"What to do: Open the file {entry['path']} in a text editor and "
+                        "delete the line that says 'git=node'. Save the file."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -118,11 +122,16 @@ class Module(ModuleBase):
         for entry in self._check_mcp_configs():
             findings.append(
                 Finding(
-                    title=f"Rogue MCP server detected: {entry['server_name']}",
+                    title="An AI tool setting points to a known malicious server",
                     description=(
-                        f"MCP server '{entry['server_name']}' configured in "
-                        f"{entry['config_path']} matches a known malicious "
-                        f"server IOC (threat: {entry['threat']})."
+                        "Your AI coding tool is configured to connect to a server named "
+                        f"'{entry['server_name']}' in the file {entry['config_path']}. "
+                        "This specific server name is known to be associated with malicious "
+                        "software.\n\n"
+                        "If you did not add this server yourself, it may be part of an "
+                        "attack trying to control your AI tools.\n\n"
+                        f"What to do: Open {entry['config_path']} in a text editor and "
+                        f"delete the section for '{entry['server_name']}'. Save the file."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -231,9 +240,14 @@ class Module(ModuleBase):
                 Finding(
                     title=title,
                     description=(
-                        f"Global git config core.hooksPath is set to: "
-                        f"{hooks_path}. Custom hooks paths can be used "
-                        "to run code on every git operation."
+                        f"Your global git settings are set to look for scripts in {hooks_path}. "
+                        "Normally, git looks for scripts in each project's own folder. "
+                        "Pointing it to a different location can allow hidden code to "
+                        "run every time you use git.\n\n"
+                        "If you did not set this up intentionally, it is a serious security "
+                        "risk.\n\n"
+                        "What to do: Open a terminal and run: git config --global --unset "
+                        "core.hooksPath"
                     ),
                     severity=severity,
                     category=self.category,
@@ -260,9 +274,13 @@ class Module(ModuleBase):
                 Finding(
                     title=title,
                     description=(
-                        f"Global git config init.templateDir is set to: "
-                        f"{template_dir}. Custom templates (including hooks) "
-                        "are copied into every newly created or cloned repository."
+                        f"Your global git settings are set to copy files from {template_dir} "
+                        "into every new project you create. "
+                        "This can be used to hide malicious scripts in your projects.\n\n"
+                        "If you did not set this up intentionally, it is a serious security "
+                        "risk.\n\n"
+                        "What to do: Open a terminal and run: git config --global --unset "
+                        "init.templateDir"
                     ),
                     severity=severity,
                     category=self.category,
@@ -406,16 +424,14 @@ class Module(ModuleBase):
                 confidence = "high" if ioc else "medium"
                 findings.append(
                     Finding(
-                        title=f"Suspicious repo hook file: {rel_path}",
+                        title=f"A suspicious file was found in your project: {rel_path}",
                         description=(
-                            f"Found {candidate}, matching a known malicious "
-                            f"hook/dropper IOC pattern (threat: {threat})."
-                            if ioc
-                            else (
-                                f"Found {candidate}, a filename pattern "
-                                "associated with AI worm hook injection "
-                                "(not IOC-confirmed — review manually)."
-                            )
+                            f"We found the file {candidate} in your project. "
+                            f"{'This file matches a known pattern used by malicious software.' if ioc else 'This filename is often used by malicious software, but we are not 100% sure.'}\n\n"
+                            "If you did not create this file, it may be part of an attack.\n\n"
+                            "What to do: If you don't recognize it, follow the steps below to "
+                            "remove it, then change the passwords and access tokens "
+                            "stored on this computer."
                         ),
                         severity=Severity.CRITICAL if ioc else Severity.WARNING,
                         category=self.category,
@@ -445,13 +461,16 @@ class Module(ModuleBase):
                 seen.add(key)
                 findings.append(
                     Finding(
-                        title=f"Auto-run task configuration detected: {rel_path}",
+                        title=(
+                            "A setting makes a task run automatically when you open a folder"
+                        ),
                         description=(
-                            f"{candidate} configures a task to run "
-                            "automatically on folder open (runOn: "
-                            "folderOpen), a technique that can be abused "
-                            "for silent code execution. Not IOC-confirmed — "
-                            "review manually."
+                            f"The file {candidate} is set to run a task automatically "
+                            "when you open the folder. "
+                            "This can be used to run hidden code without you knowing.\n\n"
+                            "If you did not set this up, it is a security risk.\n\n"
+                            f"What to do: Open {candidate} in a text editor and delete "
+                            "the part that says \"runOn\": \"folderOpen\". Save the file."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -492,13 +511,19 @@ class Module(ModuleBase):
         if age_seconds <= _SSH_KEY_RECENT_WINDOW_SECONDS:
             findings.append(
                 Finding(
-                    title="SSH authorized_keys recently modified",
+                    title="A file that allows remote login was changed recently",
                     description=(
-                        f"{path} was modified within the last 7 days and "
-                        f"contains {len(key_lines)} key(s). Recent, "
-                        "unexpected additions to authorized_keys can "
-                        "indicate unauthorized remote-access persistence — "
-                        "verify every key is recognized."
+                        f"The file {path} was changed within the last 7 days and contains "
+                        f"{len(key_lines)} keys. "
+                        "This file controls who can log into your computer remotely. If "
+                        "you did not add these keys recently, someone else may have added "
+                        "them to keep access.\n\n"
+                        "If you think someone close to you may have added these keys to "
+                        "monitor you, please talk to an advocate first (US National Domestic "
+                        "Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        f"What to do: Open {path} in a text editor. Check if you recognize "
+                        "every key. If you see keys you don't recognize, delete those "
+                        "lines and save the file."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

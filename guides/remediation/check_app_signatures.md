@@ -6,6 +6,10 @@ remediates:
   - security.code_signature_audit.tampered_binary
   - security.code_signature_audit.unsigned_system_app
   - security.code_signature_audit.gatekeeper_rejected
+steps_for:
+  security.code_signature_audit.tampered_binary: [1, 2]
+  security.code_signature_audit.unsigned_system_app: [1]
+  security.code_signature_audit.gatekeeper_rejected: [1, 3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -22,7 +26,7 @@ removing an app they installed can alert that person. Talk to an advocate first
 (US National DV Hotline: 1-800-799-7233, or text START to 88788). Take a photo
 of the finding and write down the app name. That is your record.
 
-## Step 1: Work out whether you installed it
+## Step 1: Check if you installed this app
 
 Look at the app name and location shown in the finding. Ask yourself: did I
 install this, or did a program I trust install it? If it's a tool you downloaded
