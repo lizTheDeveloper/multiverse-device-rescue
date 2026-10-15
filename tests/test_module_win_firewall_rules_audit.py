@@ -162,7 +162,7 @@ def test_dangerous_default_inbound_allow():
     assert result.has_issues
     critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
     assert len(critical_findings) == 1
-    assert "DefaultInboundAction set to Allow" in critical_findings[0].title
+    assert "letting all traffic in" in critical_findings[0].title
 
 
 def test_allow_all_programs_rule():
@@ -172,7 +172,7 @@ def test_allow_all_programs_rule():
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     # Should have warning about "Allow All Programs" rule + summary
-    allow_all_warnings = [f for f in warning_findings if "allow all programs" in f.title.lower()]
+    allow_all_warnings = [f for f in warning_findings if "lets any app" in f.title.lower()]
     assert len(allow_all_warnings) >= 1
 
 
@@ -183,7 +183,7 @@ def test_allow_all_ports_rule():
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     # Should have warning about "Allow All Ports" rule
-    allow_all_port_warnings = [f for f in warning_findings if "allow all ports" in f.title.lower()]
+    allow_all_port_warnings = [f for f in warning_findings if "every port" in f.title.lower()]
     assert len(allow_all_port_warnings) >= 1
 
 
@@ -194,7 +194,7 @@ def test_excessive_rules():
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     # Should have warning about excessive rules
-    excessive_warnings = [f for f in warning_findings if "excessive" in f.title.lower()]
+    excessive_warnings = [f for f in warning_findings if "a lot of open rules" in f.title.lower()]
     assert len(excessive_warnings) >= 1
 
 
