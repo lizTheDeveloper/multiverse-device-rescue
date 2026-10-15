@@ -67,11 +67,21 @@ class Module(ModuleBase):
             if self._is_suspicious_path(actions):
                 findings.append(
                     Finding(
-                        title=f"Task '{task_name}' executes from suspicious location",
+                        title=f"Task '{task_name}' runs from a folder often used by malware",
                         description=(
-                            "This scheduled task is configured to execute from "
-                            "a temporary, AppData, or Downloads directory, "
-                            "which is common for malware persistence."
+                            f"We found a scheduled task named '{task_name}' that is set "
+                            "to run a program from a temporary, AppData, or Downloads "
+                            "folder. Legitimate software usually lives in the main Program "
+                            "Files folder. Malware often hides in these other folders "
+                            "to keep running after you restart your computer.\n\n"
+                            "This does not prove your computer is infected, but it is "
+                            "a common sign of unwanted software.\n\n"
+                            "What to do: Open Task Scheduler (search for it in the Start "
+                            "menu), find the task, and check if you recognize the program "
+                            "it runs. If you do not recognize it, right-click the task "
+                            "and select 'Disable' to stop it from running. Do not delete "
+                            "the file yet; move it to a safe folder so you can investigate "
+                            "further."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -88,11 +98,18 @@ class Module(ModuleBase):
             if self._has_encoded_command(actions):
                 findings.append(
                     Finding(
-                        title=f"Task '{task_name}' has encoded/obfuscated command",
+                        title=f"Task '{task_name}' uses a hidden command",
                         description=(
-                            "This scheduled task contains base64-encoded or "
-                            "obfuscated PowerShell commands (-enc flag), "
-                            "which is a common malware obfuscation technique."
+                            f"The scheduled task '{task_name}' contains a command that "
+                            "is scrambled (encoded) so it is hard to read. This is often "
+                            "done to hide what the task is actually doing. While some "
+                            "legitimate tools use this, it is a very common trick used "
+                            "by malware to hide its actions.\n\n"
+                            "This is a strong signal that this task might be unwanted.\n\n"
+                            "What to do: Open Task Scheduler, find the task, and right-click "
+                            "it to select 'Disable'. This stops it from running without "
+                            "deleting it, which is safer while you figure out what it "
+                            "is."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

@@ -125,12 +125,21 @@ class Module(ModuleBase):
         if known_keyloggers_found:
             findings.append(
                 Finding(
-                    title=f"CRITICAL: Known keylogger(s) detected: {len(known_keyloggers_found)}",
+                    title=f"Known keylogger app found: {', '.join(known_keyloggers_found)}",
                     description=(
-                        f"One or more known keylogger applications have Input Monitoring access: "
-                        f"{', '.join(known_keyloggers_found)}. "
-                        "These are malicious applications that steal passwords, credit cards, and "
-                        "private messages. Immediately remove these apps and revoke their permissions."
+                        f"We found {len(known_keyloggers_found)} app(s) with keyboard "
+                        f"access that match known spyware: {', '.join(known_keyloggers_found)}. "
+                        "These apps can secretly record everything you type, including "
+                        "passwords and private messages. This is a serious sign that "
+                        "someone may be spying on you.\n\n"
+                        "If you think a partner, ex, or family member set this up to "
+                        "monitor you, removing it can alert them. Talk to an advocate "
+                        "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                        "or text START to 88788).\n\n"
+                        "What to do: If you are safe to proceed, go to System Settings "
+                        "> Privacy & Security > Input Monitoring and turn off access "
+                        "for these apps. Then, move the app folders to a safe location "
+                        "to keep as evidence."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -174,14 +183,22 @@ class Module(ModuleBase):
         if suspicious_apps:
             findings.append(
                 Finding(
-                    title=f"Input Monitoring access for {len(suspicious_apps)} unrecognized app(s)",
+                    title=(
+                        f"Unrecognized apps have keyboard access: {', '.join(sorted(suspicious_apps))}"
+                    ),
                     description=(
-                        f"{len(suspicious_apps)} app(s) that this tool does not recognize have Input "
-                        f"Monitoring access: {', '.join(sorted(suspicious_apps))}. "
-                        "Many ordinary apps (remappers, game launchers, screen tools) request this, "
-                        "so this is not by itself a sign of spying. If you don't recognize an app "
-                        "or didn't install it, turn its access off in System Settings > Privacy & "
-                        "Security > Input Monitoring."
+                        f"{len(suspicious_apps)} app(s) have permission to see your keyboard "
+                        f"input, but we don't recognize them: {', '.join(sorted(suspicious_apps))}. "
+                        "Many normal tools (like keyboard remappers or game launchers) "
+                        "ask for this, so it is not automatically a sign of spying. However, "
+                        "if you do not remember installing one, it is worth checking.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Go to System Settings > Privacy & Security > Input "
+                        "Monitoring. Turn off access for any app you don't recognize "
+                        "or didn't install yourself."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -195,13 +212,22 @@ class Module(ModuleBase):
         if cgeventtap_processes:
             findings.append(
                 Finding(
-                    title=f"CGEventTap usage detected: {len(cgeventtap_processes)} process(es)",
+                    title=(
+                        f"Apps are actively capturing your keystrokes: {', '.join(sorted(cgeventtap_processes))}"
+                    ),
                     description=(
-                        f"Detected {len(cgeventtap_processes)} process(es) using CGEventTap for "
-                        "programmatic keyboard/mouse capture: "
-                        f"{', '.join(sorted(cgeventtap_processes))}. "
-                        "CGEventTap allows capturing system input events. Investigate processes "
-                        "using this API to ensure they are legitimate."
+                        f"{len(cgeventtap_processes)} running process(es) are currently "
+                        f"using a system tool to capture your keyboard and mouse: {', '.join(sorted(cgeventtap_processes))}. "
+                        "This means these programs are actively listening to your input "
+                        "right now. While some legitimate tools do this, it is a common "
+                        "method for spyware to steal passwords.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Check if you recognize these names. If not, go to "
+                        "System Settings > Privacy & Security > Input Monitoring and "
+                        "turn off access for the corresponding apps to stop the capture."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

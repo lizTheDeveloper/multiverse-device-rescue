@@ -46,11 +46,15 @@ class Module(ModuleBase):
         if not is_domain_joined and (computer_gpos or user_gpos):
             findings.append(
                 Finding(
-                    title="Stale domain Group Policies detected on non-domain machine",
+                    title="Old work rules are still active on your personal computer",
                     description=(
-                        "Group Policies from a domain are still applied to this machine, "
-                        "but it's no longer domain-joined. These stale policies may cause "
-                        "mysterious restrictions and should be cleaned up."
+                        "Your computer is no longer connected to a work or school network, "
+                        "but some rules from that network are still active. These leftover "
+                        "rules can cause confusing restrictions, like blocking certain "
+                        "features.\n\n"
+                        "What to do: If you are not currently employed by the organization "
+                        "that set these rules, contact their IT support to help remove "
+                        "them. If you are still employed, ask them to update your settings."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -210,11 +214,16 @@ class Module(ModuleBase):
             if self._check_registry_policy(reg_name):
                 findings.append(
                     Finding(
-                        title=f"{policy_name}",
+                        title=f"Your computer is blocking {policy_name}",
                         description=(
-                            f"{policy_name}. This may be a legitimate organizational policy "
-                            "or a sign of malware/unauthorized changes. If unexpected, "
-                            "investigate the Group Policy source."
+                            "A setting on your computer is currently preventing you from "
+                            f"using {policy_name}. This can happen if you work for a company "
+                            "that manages your device, or if a program changed your settings "
+                            "without asking. It's unusual on a personal computer.\n\n"
+                            "What to do: If you work for a company, ask your IT team "
+                            "if they set this. If this is your personal computer and "
+                            "you did not set it, search for 'Group Policy' in the Start "
+                            "menu to review the settings."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -278,10 +287,14 @@ class Module(ModuleBase):
             if 0 < min_length < 8:
                 findings.append(
                     Finding(
-                        title=f"Weak password minimum length ({min_length} characters)",
+                        title=f"Your password rule is too short ({min_length} characters)",
                         description=(
-                            f"Password minimum length is set to {min_length} characters. "
-                            "Microsoft recommends at least 8 characters for security."
+                            "Your computer is currently set to allow passwords that are "
+                            f"only {min_length} characters long. Shorter passwords are "
+                            "easier for attackers to guess. Microsoft recommends a minimum "
+                            "of at least 8 characters; longer is better.\n\n"
+                            "What to do: Open Command Prompt as administrator and run: net "
+                            "accounts /minpwlen:12"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

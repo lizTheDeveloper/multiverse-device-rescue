@@ -190,16 +190,20 @@ class Module(ModuleBase):
             if size is not None and size > self.max_backup_bytes:
                 findings.append(
                     Finding(
-                        title=f"Backup too large to scan safely: {backup.name}",
+                        title=(
+                            f"A backup file is too big to check automatically: {backup.name}"
+                        ),
                         description=(
-                            f"Backup {backup} is larger than the "
-                            f"{self.max_backup_bytes // 1024**3} GiB safety limit "
-                            "for automatic scanning. Scanning it in-process could "
-                            "exhaust memory and freeze the machine, so it was "
-                            "skipped. Scan it manually on a machine with adequate "
-                            f"free memory:\n  {mvt_bin} check-backup "
-                            "--output <dir> "
-                            f"{backup}"
+                            f"We found a backup file named {backup.name}, but it is larger "
+                            f"than the {self.max_backup_bytes // 1024**3} GiB safety limit. "
+                            "Checking such a large file can use up all your computer's "
+                            "memory and freeze it, so we skipped it. This means we could "
+                            "not verify if this specific backup is safe, but it is not "
+                            "a sign that something is wrong with your current device.\n\n"
+                            "What to do: Nothing needs to be done on this computer right "
+                            "now. If you want to check this backup, you would need to "
+                            "do it on a different, more powerful computer using the MVT "
+                            "tool."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -221,12 +225,19 @@ class Module(ModuleBase):
                 indicator = detection.get("indicator", "unknown")
                 findings.append(
                     Finding(
-                        title=f"Spyware indicator detected: {module_name}",
+                        title=f"Signs of spyware found in backup: {module_name}",
                         description=(
-                            f"MVT detected a known spyware indicator ('{indicator}') "
-                            f"while scanning the '{module_name}' module of backup "
-                            f"{backup}. This is consistent with mercenary spyware "
-                            "such as Pegasus or Predator."
+                            f"We found a known sign of spyware ('{indicator}') inside "
+                            f"the '{module_name}' part of the backup file {backup}. This "
+                            "suggests the phone that was backed up may have been targeted "
+                            "by sophisticated spyware, such as Pegasus or Predator.\n\n"
+                            "If you think someone close to you set this up to monitor "
+                            "you, removing it can alert them. Talk to an advocate first "
+                            "(US National Domestic Violence Hotline: 1-800-799-7233, "
+                            "or text START to 88788).\n\n"
+                            "What to do: Do not restore this backup to any phone. Keep "
+                            "the backup file safe as evidence and contact a security "
+                            "expert or the hotline above for guidance on next steps."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,

@@ -375,6 +375,6 @@ def test_redirect_warning_explains_hosts_file_in_plain_language():
     assert f[0].severity == Severity.WARNING
     d = f[0].description.lower()
     assert "address book" in d
-    assert "some apps add entries" in d
+    assert "many apps" in d
     assert "recognize" in d
     assert "166.117.29.222" in f[0].description

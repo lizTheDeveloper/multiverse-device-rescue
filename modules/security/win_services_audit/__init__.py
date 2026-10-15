@@ -181,11 +181,19 @@ class Module(ModuleBase):
         for svc in suspicious_path_services:
             findings.append(
                 Finding(
-                    title=f"Service running from suspicious path: {svc['name']}",
+                    title=f"Program '{svc['display_name']}' runs from an unusual location",
                     description=(
-                        f"The service '{svc['display_name']}' ({svc['name']}) is set to "
-                        f"auto-start and runs from a suspicious path: {svc['path']}. "
-                        "This could indicate malware or compromised system files."
+                        f"We found a background program named '{svc['display_name']}' "
+                        "that starts automatically when you turn on your computer. It "
+                        "is stored in a folder that is not a standard place for such "
+                        f"programs: {svc['path']}. This is not normal, but it does not "
+                        "automatically mean your computer is hacked. It could be a leftover "
+                        "from a past installation or a piece of software that moved itself. "
+                        "Please check if you recognize this program.\n\n"
+                        "What to do: If you don't recognize it, open Services (type "
+                        "services.msc in the Start menu), double-click it, and set "
+                        "Startup type to Disabled. Don't delete its file; an expert may "
+                        "want to look at it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -198,11 +206,15 @@ class Module(ModuleBase):
         if len(auto_start_services) > 40:
             findings.append(
                 Finding(
-                    title=f"Excessive number of auto-start services ({len(auto_start_services)})",
+                    title=f"Many programs start automatically ({len(auto_start_services)})",
                     description=(
-                        f"Found {len(auto_start_services)} services set to auto-start. "
-                        "A large number of auto-start services can impact system startup time "
-                        "and may include unnecessary or malicious services."
+                        f"Your computer is set to start {len(auto_start_services)} different "
+                        "background programs every time you turn it on. This is a lot. "
+                        "It can make your computer take longer to boot up and use more "
+                        "battery.\n\n"
+                        "What to do: Nothing urgent. Leave services alone unless a "
+                        "technical helper suggests a change. For apps, open Task Manager "
+                        "(Ctrl+Shift+Esc) > Startup apps and turn off ones you don't use."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -215,11 +227,20 @@ class Module(ModuleBase):
         if stopped_auto_start_services:
             findings.append(
                 Finding(
-                    title=f"Stopped services set to auto-start ({len(stopped_auto_start_services)})",
+                    title=(
+                        f"{len(stopped_auto_start_services)} programs are set to start "
+                        "but are currently off"
+                    ),
                     description=(
-                        f"Found {len(stopped_auto_start_services)} service(s) configured to auto-start "
-                        "but currently stopped. This may indicate broken dependencies, missing files, "
-                        "or orphaned services."
+                        f"We found {len(stopped_auto_start_services)} background programs "
+                        "that are set to start automatically, but they are currently "
+                        "stopped. This usually happens when a program is missing a file "
+                        "it needs or was uninstalled incorrectly. It is likely harmless, "
+                        "but it can cause small errors or slow down your computer slightly.\n\n"
+                        "What to do: You can usually ignore this. If you want to clean "
+                        "it up, open 'Services' (type 'services.msc' in the Start menu), "
+                        "find the listed programs, and change their 'Startup type' to "
+                        "'Manual'. This stops them from trying to start and failing."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

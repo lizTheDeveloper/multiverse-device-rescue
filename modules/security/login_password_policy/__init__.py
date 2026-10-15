@@ -44,12 +44,14 @@ class Module(ModuleBase):
         if auto_login_user and auto_login_user.strip():
             findings.append(
                 Finding(
-                    title="Auto-login is enabled",
+                    title=f"Your Mac logs in automatically as {auto_login_user}",
                     description=(
-                        f"Auto-login is enabled for user '{auto_login_user}'. "
-                        "This means anyone who opens the lid can immediately access the Mac. "
-                        "Disable auto-login in System Settings > General > Login Items & Extensions > "
-                        "Login Options and uncheck 'Automatically log in as'."
+                        f"Your Mac is set to automatically log in as '{auto_login_user}' "
+                        "when it wakes up. This means anyone who opens the lid can immediately "
+                        "use your computer without a password. This is a major security "
+                        "risk if your Mac is ever left unattended.\n\n"
+                        "What to do: Open System Settings > Users & Groups and set "
+                        "'Automatically log in as' to Off."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -65,11 +67,14 @@ class Module(ModuleBase):
         if ask_password == "0":
             findings.append(
                 Finding(
-                    title="Password not required after screensaver",
+                    title="No password needed after screensaver",
                     description=(
-                        "Password is not required after the screensaver activates. "
-                        "Enable this in System Settings > Lock Screen > "
-                        "Turn on 'Require password after screensaver or screen saver begins'."
+                        "Your Mac does not ask for a password when the screensaver starts. "
+                        "This means anyone who walks by can click the screen and use your "
+                        "computer without logging in.\n\n"
+                        "What to do: Open System Settings > Lock Screen and set 'Require "
+                        "password after screen saver begins or display is turned off' to "
+                        "Immediately."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -88,12 +93,14 @@ class Module(ModuleBase):
                 if delay_value > 5:
                     findings.append(
                         Finding(
-                            title=f"Password delay is {delay_value} seconds",
+                            title=f"Password wait is {delay_value} seconds after lock",
                             description=(
-                                f"Password requirement is delayed by {delay_value} seconds after lock. "
-                                "A {delay_value} second delay provides a window for unattended access. "
-                                "Reduce this to 0-5 seconds in System Preferences > Security & Privacy > "
-                                "General > 'Require password ... after sleep or screensaver begins'."
+                                f"Your Mac waits {delay_value} seconds before asking for "
+                                "a password after the screen locks. This creates a short "
+                                "window where someone could use your Mac without a password.\n\n"
+                                "What to do: Open System Settings > Lock Screen and set 'Require "
+                                "password after screen saver begins or display is turned "
+                                "off' to Immediately."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -111,9 +118,12 @@ class Module(ModuleBase):
                 Finding(
                     title="Guest account is enabled",
                     description=(
-                        "The Guest account is enabled, providing a potential access point. "
-                        "Disable the Guest account in System Settings > General > Login Items & Extensions > "
-                        "Login Options and uncheck 'Allow guests to log in'."
+                        "The built-in 'Guest' account is turned on. This allows anyone "
+                        "to use your Mac without a password, which can be a security risk "
+                        "if your computer is shared or left in public.\n\n"
+                        "What to do: Open System Settings > Users & Groups, click the "
+                        "info button next to Guest User, and turn off 'Allow guests to "
+                        "log in to this computer'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -156,9 +166,12 @@ class Module(ModuleBase):
                         Finding(
                             title="Screensaver is disabled",
                             description=(
-                                "The screensaver is disabled, leaving the display on indefinitely. "
-                                "Enable screensaver and set it to activate within 10 minutes in "
-                                "System Settings > Lock Screen."
+                                "Your Mac's screensaver is turned off, so the screen stays "
+                                "on indefinitely when you are not using it. This makes "
+                                "it easier for someone nearby to see your screen and interact "
+                                "with it.\n\n"
+                                "What to do: Open System Settings > Lock Screen and set 'Start "
+                                "Screen Saver when inactive' to 5 or 10 minutes."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -169,11 +182,13 @@ class Module(ModuleBase):
                 elif timeout_minutes > 10:
                     findings.append(
                         Finding(
-                            title=f"Screensaver timeout is {timeout_minutes} minutes",
+                            title=f"Screensaver waits {timeout_minutes} minutes",
                             description=(
-                                f"Screensaver activates after {timeout_minutes} minutes of inactivity, "
-                                "creating a long window of unattended access. "
-                                "Set it to activate within 10 minutes in System Settings > Lock Screen."
+                                f"Your Mac waits {timeout_minutes} minutes before the "
+                                "screensaver starts. This is a long time to leave your "
+                                "screen visible and potentially accessible to others.\n\n"
+                                "What to do: Open System Settings > Lock Screen and set 'Start "
+                                "Screen Saver when inactive' to 5 or 10 minutes."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
