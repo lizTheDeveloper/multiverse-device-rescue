@@ -11,6 +11,7 @@ steps_for:
   security.location_services.location_desktop_find_my_only: [1, 3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers what the `location_services` module inventories:

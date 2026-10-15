@@ -22,6 +22,7 @@ steps_for:
   security.mdm_enrollment_check.dep_status: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 `mdm_enrollment` and `mdm_enrollment_check` both scan Mobile Device

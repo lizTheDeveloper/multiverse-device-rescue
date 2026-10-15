@@ -14,6 +14,7 @@ steps_for:
   security.scheduled_tasks_audit.excessive_user_agents: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 `scheduled_tasks_audit` parses every plist in

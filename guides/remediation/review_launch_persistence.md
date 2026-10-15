@@ -24,6 +24,7 @@ steps_for:
   security.launch_agent_audit.obfuscated_name: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 This walkthrough covers findings from both `launchd_persistence_audit`

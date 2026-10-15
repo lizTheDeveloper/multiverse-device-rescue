@@ -12,6 +12,7 @@ steps_for:
   security.network_proxy.no_proxies: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `network_proxy` module can flag: a

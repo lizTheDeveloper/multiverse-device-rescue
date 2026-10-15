@@ -14,6 +14,7 @@ steps_for:
   security.win_autorun.autoplay_enabled: [2]
 automatable_steps: []
 human_only_steps: [1, 2]
+monitoring_risk: true
 ---
 
 This walkthrough covers the `win_autorun` module, which checks the

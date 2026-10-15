@@ -20,6 +20,7 @@ steps_for:
   security.win_rdp_check.rdp_enabled_with_nla: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 Every remote-access service covered here — SSH (Remote Login), Screen

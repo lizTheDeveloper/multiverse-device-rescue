@@ -44,6 +44,7 @@ steps_for:
   security.screen_time_parental.managed_accounts: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
+monitoring_risk: true
 ---
 
 This walkthrough covers what the `screen_time_audit` and `screen_time_parental`

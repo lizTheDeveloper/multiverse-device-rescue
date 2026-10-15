@@ -20,6 +20,7 @@ steps_for:
   security.mvt_spyware_scan.mvt_scan_available: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
+monitoring_risk: true
 ---
 
 This module wraps Amnesty International's Mobile Verification Toolkit (MVT)

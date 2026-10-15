@@ -17,6 +17,7 @@ steps_for:
   security.suspicious_processes.unsigned_apps: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `suspicious_processes` module can

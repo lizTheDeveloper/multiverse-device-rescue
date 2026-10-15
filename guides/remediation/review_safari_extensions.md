@@ -16,6 +16,7 @@ steps_for:
   security.safari_extensions.content_blockers_disabled: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 This walkthrough covers `safari_extensions` findings specific to Safari:

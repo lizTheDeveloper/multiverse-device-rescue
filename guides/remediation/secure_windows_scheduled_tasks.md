@@ -22,6 +22,7 @@ steps_for:
   security.win_scheduled_tasks_security.inventory: [8]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6, 7]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `win_scheduled_tasks_security`

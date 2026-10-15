@@ -15,6 +15,7 @@ steps_for:
   security.win_proxy_detect.system_proxy: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 A configured proxy is not automatically malicious — corporate networks, VPN

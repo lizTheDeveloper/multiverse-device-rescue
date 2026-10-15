@@ -979,3 +979,12 @@ h3 {
 .finding-card > p + p {
   margin-top: 0.55rem;
 }
+
+.finding-card__safety {
+  border-left: 3px solid var(--warning-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: 12px 0;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}

@@ -14,6 +14,7 @@ steps_for:
   security.appleid_security_check.appleid_summary: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `appleid_security_check` module can

@@ -28,14 +28,25 @@ def _plain(value: Any) -> Any:
     return str(value)
 
 
+SAFETY_NOTE = (
+    "Before you remove or turn anything off: if you think someone close to you "
+    "set this up to watch you, removing it can alert them. Talk to an advocate "
+    "first. In the US: National Domestic Violence Hotline, 1-800-799-7233, or "
+    "text START to 88788."
+)
+
+
 def _remediation(guide, code=None) -> dict:
     steps = guide.steps_for_code(code)
-    return {
+    out = {
         "title": guide.title,
         "estimated_time": guide.estimated_time,
         "steps": [{"number": s.number, "title": s.title, "body": s.body} for s in steps],
         "all_steps": len(steps) == len(guide.steps),
     }
+    if getattr(guide, "monitoring_risk", False):
+        out["safety_note"] = SAFETY_NOTE
+    return out
 
 
 def _fixable(entry) -> dict:

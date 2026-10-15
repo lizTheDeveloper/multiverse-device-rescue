@@ -16,6 +16,7 @@ steps_for:
   security.browser_extension_audit.installed_extensions: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
+monitoring_risk: true
 ---
 
 This walkthrough covers `browser_extension_audit` findings across Chrome,

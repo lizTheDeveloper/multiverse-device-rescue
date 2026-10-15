@@ -16,6 +16,7 @@ steps_for:
   security.network_connections_monitor.connection_summary: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `network_connections_monitor`

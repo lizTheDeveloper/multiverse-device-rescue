@@ -12,6 +12,7 @@ steps_for:
   security.accessibility_permissions.excessive_accessibility: [1, 3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `accessibility_permissions` module

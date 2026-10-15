@@ -17,6 +17,7 @@ steps_for:
   security.win_local_admin_audit.admin_password_never_expires: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
+monitoring_risk: true
 ---
 
 `win_local_admin_audit` focuses specifically on accounts with administrator

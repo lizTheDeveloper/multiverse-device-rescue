@@ -14,6 +14,7 @@ steps_for:
   security.keylogger_indicators.cgeventtap_usage: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `keylogger_indicators` module can

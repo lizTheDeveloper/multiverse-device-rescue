@@ -14,6 +14,7 @@ steps_for:
   security.certificate_trust_audit.user_added_certs: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `certificate_trust_audit` module can

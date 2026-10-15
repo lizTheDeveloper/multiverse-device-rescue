@@ -22,6 +22,7 @@ steps_for:
   security.win_remote_access_audit.tools_summary: [2, 3, 4, 5, 6, 7]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
+monitoring_risk: true
 ---
 
 This walkthrough covers `win_remote_access_audit`, which inventories

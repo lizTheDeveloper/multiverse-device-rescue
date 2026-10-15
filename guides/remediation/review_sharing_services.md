@@ -32,6 +32,7 @@ steps_for:
   security.sharing_services.printer_sharing: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
+monitoring_risk: true
 ---
 
 Both `sharing_preferences_audit` and `sharing_services` scan the same set of

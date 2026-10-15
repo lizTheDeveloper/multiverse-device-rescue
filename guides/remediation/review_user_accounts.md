@@ -12,6 +12,7 @@ steps_for:
   security.user_account_audit.admin_accounts: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers what `user_account_audit` flags: the Guest account

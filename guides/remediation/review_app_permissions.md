@@ -16,6 +16,7 @@ steps_for:
   security.app_permissions.microphone_access: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
+monitoring_risk: true
 ---
 
 This walkthrough covers every macOS privacy permission (TCC) grant the

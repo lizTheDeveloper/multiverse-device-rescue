@@ -12,6 +12,7 @@ steps_for:
   security.win_scheduled_tasks.encoded_command: [1, 3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 `win_scheduled_tasks` is a lighter-weight scan than

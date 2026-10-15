@@ -166,6 +166,16 @@ function descriptionHtml(text, esc) {
     .join('');
 }
 
+/**
+ * The advocate note from a monitoring-related walkthrough, shown above the
+ * steps. Skipped when the finding's own text already gives the hotline.
+ */
+function safetyNoteHtml(finding, esc) {
+  const note = finding && finding.remediation && finding.remediation.safety_note;
+  if (!note || String(finding.description || '').includes('799-7233')) return '';
+  return `<p class="finding-card__safety">${esc(note)}</p>`;
+}
+
 /** "Step 2: Turn it off" -> "Turn it off" for the short What-to-do list. */
 function stepTitle(title) {
   return String(title || '').replace(/^\s*step\s*\d+\s*[:.)-]\s*/i, '');
@@ -277,6 +287,7 @@ if (typeof module !== 'undefined' && module.exports) {
     formatExec,
     renderMiniMarkdown,
     stepTitle,
+    safetyNoteHtml,
     descriptionHtml,
     describeMadeBy,
     madeByHtml,
@@ -425,6 +436,7 @@ if (typeof document !== 'undefined') {
               ${descriptionHtml(finding.description, escapeHtml)}
               ${madeByHtml(finding.made_by, escapeHtml)}
               ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
+              ${safetyNoteHtml(finding, escapeHtml)}
               ${finding.remediation && (finding.remediation.steps || []).length ? `
               <div class="next-steps">
                 <h4>What to do</h4>

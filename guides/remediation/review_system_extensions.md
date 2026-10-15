@@ -10,6 +10,7 @@ steps_for:
   security.system_extensions.active_extension: [1]
 automatable_steps: []
 human_only_steps: [1, 2]
+monitoring_risk: true
 ---
 
 `system_extensions` runs `systemextensionsctl list` and reports each

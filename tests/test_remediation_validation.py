@@ -81,3 +81,13 @@ def test_a_finding_gets_only_its_own_steps():
     # A code with no steps_for entry still gets the whole guide.
     assert [s["number"] for s in _remediation(g, "a.loose")["steps"]] == [1, 2, 3]
     assert _remediation(g, "a.loose")["all_steps"] is True
+
+
+def test_monitoring_risk_guides_carry_the_safety_note():
+    from rescue.guides import parse_guide_markdown
+    from rescue.serialize import _remediation
+
+    flagged = parse_guide_markdown(_TWO_CODE_GUIDE.replace("---\n\n", "monitoring_risk: true\n---\n\n", 1))
+    note = _remediation(flagged, "a.off").get("safety_note", "")
+    assert "1-800-799-7233" in note
+    assert "safety_note" not in _remediation(parse_guide_markdown(_TWO_CODE_GUIDE), "a.off")

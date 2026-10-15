@@ -14,6 +14,7 @@ steps_for:
   security.win_autoruns_audit.inventory: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers the `win_autoruns_audit` module, which inventories

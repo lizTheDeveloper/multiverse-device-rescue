@@ -28,6 +28,10 @@ class Guide:
     # Optional {finding code: [step numbers]}: which steps matter for that
     # finding. A code with no entry gets every step.
     steps_for: dict[str, list[int]] = field(default_factory=dict)
+    # True for walkthroughs about things someone close could use to watch a
+    # person (remote access, monitoring apps, accounts, permissions). The app
+    # then shows the advocate safety note above the steps.
+    monitoring_risk: bool = False
 
     def steps_for_code(self, code: str | None) -> list[GuideStep]:
         wanted = self.steps_for.get(code) if code else None
@@ -63,6 +67,7 @@ def parse_guide_markdown(text: str) -> Guide:
         human_only_steps=human_only_steps,
         remediates=list(meta.get("remediates", []) or []),
         steps_for=_steps_for(meta.get("steps_for")),
+        monitoring_risk=meta.get("monitoring_risk") is True,
     )
 
 

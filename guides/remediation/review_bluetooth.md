@@ -10,6 +10,7 @@ steps_for:
   security.bluetooth_audit.discoverable_state: [1]
 automatable_steps: []
 human_only_steps: [1, 2]
+monitoring_risk: true
 ---
 
 Bluetooth is a feature you likely rely on for a mouse, keyboard, headphones,

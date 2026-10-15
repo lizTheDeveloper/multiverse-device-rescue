@@ -12,6 +12,7 @@ steps_for:
   security.chrome_extensions.installed_extensions: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers `chrome_extensions` findings specific to Chrome's

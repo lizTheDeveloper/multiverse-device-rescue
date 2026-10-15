@@ -14,6 +14,7 @@ steps_for:
   security.win_user_accounts.multiple_admin_accounts: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 `win_user_accounts` looks at account-level settings that affect who can get
