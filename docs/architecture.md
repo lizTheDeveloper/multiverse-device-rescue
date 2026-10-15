@@ -260,6 +260,13 @@ automatable until it resolves to a registered module.
 carries a matching code. A walkthrough whose codes no module emits is dead
 content, and `rescue validate` warns about it.
 
+A walkthrough that covers several codes can say which steps belong to which
+finding with `steps_for: {<finding code>: [<step numbers>]}`. A finding then
+shows only those steps, and `"all_steps": false` in the scan JSON says the list
+was narrowed. A code without an entry gets every step. `rescue validate`
+rejects a `steps_for` entry for a code the walkthrough doesn't remediate, or a
+step number that doesn't exist.
+
 ## Testing conventions
 
 The suite mirrors the tree: `tests/test_module_<module_name>.py` per module,
