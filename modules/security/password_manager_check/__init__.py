@@ -86,6 +86,20 @@ _WIN_BROWSER_PROFILES = {
 # Built-in OS credential stores. Real password managers for the platform's own
 # ecosystem, but they do not cover a second OS or a shared household, so their
 # presence does not by itself clear the "no manager" warning.
+_START_HERE = {
+    Platform.DARWIN: (
+        "What to do: you already have one built in. Open the Passwords app "
+        "(on Mac, iPhone and iPad) and start saving your passwords there. If "
+        "you also use Windows or Android, a password manager such as Bitwarden "
+        "(free) or 1Password works everywhere."
+    ),
+    Platform.WIN32: (
+        "What to do: install a password manager such as Bitwarden (free) or "
+        "1Password, then save your passwords in it. Get it from the maker's own "
+        "website or the Microsoft Store, not from an ad."
+    ),
+}
+
 _BUILTIN = {
     Platform.DARWIN: "Apple Passwords / iCloud Keychain",
     Platform.WIN32: "Windows Credential Manager",
@@ -136,19 +150,19 @@ class Module(ModuleBase):
         if not managers:
             findings.append(
                 Finding(
-                    title="No dedicated password manager found",
+                    title="Your passwords don't have one safe home",
                     description=(
-                        "No dedicated password manager is installed on this machine. "
-                        f"{builtin} is available on this platform and is genuinely "
-                        "better than reusing passwords, but it does not follow you to "
-                        "another operating system and cannot be shared or audited.\n\n"
-                        "This matters most right now if you are working through a "
-                        "security reset: you need somewhere to put new, unique "
-                        "passwords before you start changing them, or you will end up "
-                        "reusing one again."
+                        "We didn't find a password manager: an app that makes a "
+                        "different strong password for every account and remembers "
+                        "them for you. Without one, most people reuse passwords, so "
+                        "one leaked password can unlock many accounts.\n\n"
+                        + _START_HERE.get(profile.platform, _START_HERE[Platform.WIN32])
+                        + "\n\nIf you're changing passwords because of a break-in, "
+                        "set this up first, so every new password is unique and saved."
                         + (
-                            "\n\nBrowsers holding passwords on this machine: "
+                            "\n\nRight now passwords may be saved in: "
                             + ", ".join(browsers)
+                            + "."
                             if browsers
                             else ""
                         )
@@ -167,17 +181,19 @@ class Module(ModuleBase):
         if browsers and not managers:
             findings.append(
                 Finding(
-                    title=f"Passwords may be stored in {len(browsers)} browser(s)",
+                    title=f"Passwords are spread across {len(browsers)} browser"
+                    + ("s" if len(browsers) != 1 else ""),
                     description=(
-                        "These browsers keep their own password stores and no dedicated "
-                        "manager was found alongside them: "
+                        "These browsers can each save passwords: "
                         + ", ".join(browsers)
-                        + ".\n\n"
-                        "Browser-stored passwords are encrypted on disk, but they unlock "
-                        "with your operating-system login, so anything running as you can "
-                        "read them, and they sync wherever that browser account syncs. "
-                        "This module only looked at whether the browser profile exists — "
-                        "it did not open any password database."
+                        + ". That's better than reusing them, but it's hard to keep "
+                        "track of what's where, and any program running as you can "
+                        "read them.\n\n"
+                        "What to do: choose one place for passwords (see the item "
+                        "above), import the saved passwords from each browser into it, "
+                        "then turn off password saving in the other browsers.\n\n"
+                        "We only checked that these browsers are set up here. We did "
+                        "not open or read any saved passwords."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

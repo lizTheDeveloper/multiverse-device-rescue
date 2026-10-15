@@ -950,3 +950,24 @@ h3 {
 .copy-ai-all {
   margin: 1.5rem 0;
 }
+
+/* ---------- What to do (always visible) ---------- */
+
+.next-steps {
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--brand);
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+}
+
+.next-steps h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.98rem;
+}
+
+.next-steps ol {
+  margin: 0;
+  padding-left: 1.3rem;
+  line-height: 1.55;
+}

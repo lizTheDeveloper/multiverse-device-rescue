@@ -142,6 +142,11 @@ function madeByHtml(entries, esc) {
  * numbered and bulleted lists, `code`, **bold**, and ```fenced``` blocks.
  * Everything is HTML-escaped first, so walkthrough text can never inject markup.
  */
+/** "Step 2: Turn it off" -> "Turn it off" for the short What-to-do list. */
+function stepTitle(title) {
+  return String(title || '').replace(/^\s*step\s*\d+\s*[:.)-]\s*/i, '');
+}
+
 function renderMiniMarkdown(text) {
   const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const inline = (v) => esc(v)
@@ -247,6 +252,7 @@ if (typeof module !== 'undefined' && module.exports) {
     describeProgress,
     formatExec,
     renderMiniMarkdown,
+    stepTitle,
     describeMadeBy,
     madeByHtml,
     SEVERITY_ORDER,
@@ -394,9 +400,14 @@ if (typeof document !== 'undefined') {
               <p>${escapeHtml(finding.description || '')}</p>
               ${madeByHtml(finding.made_by, escapeHtml)}
               ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
+              ${finding.remediation && (finding.remediation.steps || []).length ? `
+              <div class="next-steps">
+                <h4>What to do</h4>
+                <ol>${finding.remediation.steps.map((step) => `<li>${escapeHtml(stepTitle(step.title))}</li>`).join('')}</ol>
+              </div>` : ''}
               ${finding.remediation ? `
               <details class="fix-steps">
-                <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'How to fix this'}${finding.remediation.estimated_time ? ` <span class="muted">(about ${escapeHtml(finding.remediation.estimated_time)})</span>` : ''}</summary>
+                <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}${finding.remediation.estimated_time ? ` <span class="muted">(about ${escapeHtml(finding.remediation.estimated_time)})</span>` : ''}</summary>
                 <ol class="fix-steps__list">
                   ${(finding.remediation.steps || []).map((step) => `
                     <li>
