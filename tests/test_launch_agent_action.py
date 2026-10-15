@@ -403,3 +403,149 @@ def test_restore_never_follows_a_symlink_planted_at_the_destination(env, tmp_pat
     doc = la.restore(qid)
     assert not doc.get("applied")
     assert list(elsewhere.iterdir()) == []
+
+
+# ---- the same job on more than one card (reported bug) ----
+#
+# launchd_persistence_audit ("points to a file that is missing") and
+# launch_agent_audit ("points to a missing file") both report a user agent whose
+# program is gone, and both cards were offered "Fix it for me" for the same file.
+# After the first card turned it off, the second card's button came back with
+# "We can't do this one for you", because the engine refused a file that no
+# longer existed as not_allowed.
+
+def _missing_program_plist(env, label="ai.openclaw.gateway"):
+    p = env.agents / f"{label}.plist"
+    p.write_bytes(plistlib.dumps({
+        "Label": label,
+        "ProgramArguments": [str(env.home / ".nvm" / "versions" / "node" / "v22.16.0" / "bin" / "node"), "x.js"],
+        "KeepAlive": True,
+        "RunAtLoad": True,
+    }))
+    return p
+
+
+def _module(name):
+    from pathlib import Path
+    from rescue.registry import discover_modules
+
+    return next(m for m in discover_modules(Path(__file__).parent.parent / "modules") if m.name == name)
+
+
+def _scan_modules(env, names):
+    """Run the real checks against the fixture HOME only (no system folders)."""
+    from unittest.mock import patch
+
+    from rescue.models import Platform, SystemProfile
+
+    profile = SystemProfile(
+        platform=Platform.DARWIN, os_name="macOS", os_version="15.0", architecture="arm64",
+        cpu_model="Apple M1", cpu_cores=8, ram_bytes=16 * 1024**3,
+    )
+    results = []
+    for name in names:
+        mod = _module(name)
+        scan_attr = "_scan_launchd_dir" if hasattr(mod, "_scan_launchd_dir") else "_scan_launch_agents_dir"
+        real = getattr(mod, scan_attr)
+
+        def only_home(directory, _real=real):
+            return _real(directory) if directory == env.agents else []
+
+        with patch.object(mod, scan_attr, side_effect=only_home):
+            results.append((mod, mod.check(profile)))
+    return json.loads(checks_to_json(results, "darwin", app_actions=ACTIONS))
+
+
+def _offers(doc):
+    return [
+        (m["name"], f["fixable"]["target"], f["data"].get("plist"))
+        for m in doc["modules"] for f in m["findings"] if "fixable" in f
+    ]
+
+
+def test_both_missing_program_cards_offer_the_same_exact_file(env):
+    p = _missing_program_plist(env)
+    doc = _scan_modules(env, ["launchd_persistence_audit", "launch_agent_audit"])
+    offers = _offers(doc)
+    assert sorted(o[0] for o in offers) == ["launch_agent_audit", "launchd_persistence_audit"]
+    assert {o[1] for o in offers} == {str(p)}
+    # The finding names its own file, so the offer is not guessed from the label.
+    assert {o[2] for o in offers} == {str(p)}
+
+
+def test_second_card_after_first_fix_is_nothing_to_fix_not_a_refusal(env):
+    p = _missing_program_plist(env)
+    first = la.disable(str(p))
+    assert first["status"] == "fixed" and not p.exists()
+    calls_after_first = list(env.calls)
+
+    second = la.disable(str(p))
+    assert second["status"] == "nothing_to_fix"
+    assert second["error"] is None and second["applied"] is False
+    assert second["quarantine_id"] == first["quarantine_id"]
+    assert "already turned off" in second["message"] and "Nothing was changed" in second["message"]
+    assert la.exit_code(second) == 0
+    assert env.calls == calls_after_first  # launchctl was not run again
+
+
+def test_second_card_through_the_cli_exits_zero(env):
+    p = _missing_program_plist(env)
+    args = ["fix", "--action", "disable_launch_agent", "--target", str(p), "--json", "--i-understand"]
+    assert CliRunner().invoke(main, args).exit_code == 0
+    r = CliRunner().invoke(main, args)
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.stdout)["status"] == "nothing_to_fix"
+
+
+def test_removed_by_hand_since_the_scan_is_nothing_to_fix(env):
+    p = _missing_program_plist(env)
+    p.unlink()
+    doc = la.disable(str(p))
+    assert doc["status"] == "nothing_to_fix" and doc["error"] is None
+    assert "already gone" in doc["message"] and "quarantine_id" not in doc
+    assert env.calls == []
+
+
+def test_after_undo_the_job_can_be_turned_off_again(env, monkeypatch):
+    from datetime import datetime as real_datetime, timedelta
+
+    p = _missing_program_plist(env)
+    qid = la.disable(str(p))["quarantine_id"]
+    assert la.restore(qid)["status"] == "restored"
+    # A put-back record is not "already turned off". (A minute later, so the new
+    # quarantine id cannot collide with the first one.)
+    later = real_datetime.now(la.timezone.utc) + timedelta(minutes=1)
+    monkeypatch.setattr(la, "datetime", type("D", (), {"now": staticmethod(lambda tz=None: later)}))
+    again = la.disable(str(p))
+    assert again["status"] == "fixed" and not p.exists()
+
+
+def test_missing_file_outside_launch_agents_is_still_refused(env, tmp_path):
+    for target in (
+        str(tmp_path / "gone.plist"),
+        "/Library/LaunchDaemons/com.nothing.here.plist",
+        str(env.agents / "sub" / "x.plist"),
+        str(env.agents / "x.txt"),
+        "x.plist",
+    ):
+        doc = la.disable(target)
+        assert doc["status"] == "refused" and doc["error"] == "not_allowed", target
+    assert env.calls == []
+
+
+def test_a_named_plist_is_never_swapped_for_a_same_label_user_agent(env):
+    """A finding about /Library/LaunchDaemons/x.plist must not offer to move ~/Library/LaunchAgents/x.plist."""
+    _plist(env)
+    f = _f({"plist": f"/Library/LaunchDaemons/{LABEL}.plist", "label": LABEL})
+    assert "fixable" not in _scan(env, f)
+    # Without a named file the label still finds the user's own agent.
+    assert _scan(env, _f({"label": LABEL}))["fixable"]["target"] == str(env.agents / f"{LABEL}.plist")
+    assert "fixable" in _scan(env, _f({"plist": None, "label": LABEL}))
+
+
+def test_scheduled_tasks_warning_names_its_own_file(env):
+    p = env.agents / "com.x.y.plist"
+    p.write_bytes(plistlib.dumps({"Label": "com.x.y", "Program": "/tmp/x.sh"}))
+    mod = _module("scheduled_tasks_audit")
+    warnings = [f for f in mod._scan_launch_agents(env.agents, "user") if f.severity == Severity.WARNING]
+    assert warnings and all(f.data["plist"] == str(p) for f in warnings)

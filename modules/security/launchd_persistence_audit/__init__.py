@@ -19,6 +19,20 @@ from rescue.models import (
 from rescue.module_base import ModuleBase
 
 
+def _tag_plists(findings: list, starts: list) -> None:
+    """Record the plist each finding came from as data["plist"].
+
+    The app uses it to offer "Fix it for me" on exactly that file, rather than
+    guessing a file from the label (which any plist can choose).
+    """
+    bounds = starts + [(len(findings), None)]
+    for (start, plist), (end, _) in zip(bounds, bounds[1:]):
+        if not plist:
+            continue
+        for finding in findings[start:end]:
+            finding.data.setdefault("plist", plist)
+
+
 class Module(ModuleBase):
     name = "launchd_persistence_audit"
     category = "security"
@@ -88,7 +102,12 @@ class Module(ModuleBase):
 
         all_items = user_agents + system_agents + system_daemons
 
-        for label, program_path, keep_alive, run_at_load, arguments in all_items:
+        # (index of the item's first finding, the plist it came from), so each
+        # finding can say which file it is about.
+        starts: list[tuple[int, str | None]] = []
+        for item in all_items:
+            label, program_path, keep_alive, run_at_load, arguments = item[:5]
+            starts.append((len(findings), item[5] if len(item) > 5 else None))
             if not program_path:
                 findings.append(
                     Finding(
@@ -285,6 +304,7 @@ class Module(ModuleBase):
                     )
                 )
 
+        _tag_plists(findings, starts)
         return CheckResult(module_name=self.name, findings=findings)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
@@ -366,8 +386,8 @@ class Module(ModuleBase):
 
     def _scan_launchd_dir(
         self, directory: Path
-    ) -> list[tuple[str, str, bool, bool, list[str]]]:
-        """Return (label, program, keep_alive, run_at_load, arguments) per plist."""
+    ) -> list[tuple[str, str, bool, bool, list[str], str]]:
+        """Return (label, program, keep_alive, run_at_load, arguments, plist path) per plist."""
         items = []
 
         if not directory.exists():
@@ -382,7 +402,7 @@ class Module(ModuleBase):
             label, program, keep_alive, run_at_load, arguments = (
                 self._extract_from_plist(str(plist_path))
             )
-            items.append((label, program, keep_alive, run_at_load, arguments))
+            items.append((label, program, keep_alive, run_at_load, arguments, str(plist_path)))
 
         return items
 

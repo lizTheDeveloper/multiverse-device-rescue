@@ -42,7 +42,7 @@ UNDO_STEPS = [
     "Or move the file from ~/Library/Application Support/Device Rescue/Quarantine back to "
     "~/Library/LaunchAgents and log out and back in",
 ]
-_EXIT = {"fixed": 0, "restored": 0, "refused": 2, "unsupported": 3}
+_EXIT = {"fixed": 0, "restored": 0, "nothing_to_fix": 0, "refused": 2, "unsupported": 3}
 
 
 class Refused(Exception):
@@ -121,11 +121,16 @@ def offer_target(data, severity: str, module: str):
         if not isinstance(data, dict):
             return None
         candidates = []
+        named = False
         for key in ("plist", "plist_path"):
             if isinstance(data.get(key), str) and data[key].strip():
+                named = True
                 candidates.append(data[key])
+        # Guess the file from the label only when the finding did not say which
+        # file it came from. A finding about /Library/LaunchDaemons/x.plist must
+        # never turn into an offer to move a different ~/Library/LaunchAgents/x.plist.
         label = data.get("label")
-        if isinstance(label, str) and _SAFE_LABEL.match(label):
+        if not named and isinstance(label, str) and _SAFE_LABEL.match(label):
             candidates.append(str(launch_agents_dir() / f"{label}.plist"))
         for cand in candidates:
             try:
@@ -183,9 +188,69 @@ def _move_no_clobber(src: Path, dst: Path, expect_sha256: str | None = None) -> 
         raise OSError("the file changed while it was being moved")
     os.unlink(src)
 
+def _already_gone(plist_path):
+    """The quarantine id (or "") if plist_path is a .plist that USED to be in the
+    user's LaunchAgents folder and is not there now; None otherwise.
+
+    This is what happens when the same background job is listed on more than one
+    card and the person already turned it off from another card, or removed it
+    themselves since the scan. That is not a refusal: there is nothing left to do.
+    """
+    if not isinstance(plist_path, (str, os.PathLike)) or "\0" in str(plist_path):
+        return None
+    raw = os.path.expanduser(str(plist_path))
+    if not os.path.isabs(raw) or not raw.endswith(".plist"):
+        return None
+    path = Path(os.path.normpath(raw))
+    try:
+        if os.path.realpath(path.parent) != os.path.realpath(launch_agents_dir()):
+            return None
+        if os.path.lexists(path):
+            return None
+    except OSError:
+        return None
+    qid = ""
+    try:
+        for manifest in sorted(quarantine_dir().glob("*.json"), reverse=True):
+            try:
+                entry = json.loads(manifest.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if (
+                isinstance(entry, dict)
+                and not entry.get("restored_at")
+                and isinstance(entry.get("id"), str)
+                and QUARANTINE_ID.match(entry["id"])
+                and entry.get("original_path") in (str(plist_path), raw, str(path))
+            ):
+                qid = entry["id"]
+                break
+    except OSError:
+        pass
+    return qid
+
+
 def disable(plist_path) -> dict:
     if not _supported():
         return _doc(ACTION, status="unsupported", error="unsupported_platform", message=NOT_SUPPORTED)
+    gone = _already_gone(plist_path)
+    if gone is not None:
+        fields = {
+            "status": "nothing_to_fix",
+            "error": None,
+            "verified": True,
+            "target": os.path.expanduser(str(plist_path)),
+        }
+        if gone:
+            fields.update(
+                message="This background job is already turned off, and its settings file is "
+                "in Device Rescue's quarantine folder. Nothing was changed.",
+                how_to_undo=list(UNDO_STEPS),
+                quarantine_id=gone,
+            )
+        else:
+            fields["message"] = "This background job is already gone. Nothing was changed."
+        return _doc(ACTION, **fields)
     try:
         info = validate(plist_path)
     except Refused as exc:

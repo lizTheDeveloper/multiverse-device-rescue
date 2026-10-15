@@ -263,6 +263,9 @@ class Module(ModuleBase):
                                 "label": label,
                                 "reason": reason,
                                 "location": str(plist_path),
+                                # The exact file, so "Fix it for me" acts on it
+                                # and never on a same-named file elsewhere.
+                                "plist": str(plist_path),
                                 "type": agent_type,
                                 "command": command,
                             },
