@@ -802,6 +802,7 @@ reg query 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager' /v Pending
 
 ```text
 reg query 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SystemRestore' /v RPSessionInterval
+sc qc VSS
 sc query VSS
 vssadmin list shadows
 vssadmin list shadowstorage
