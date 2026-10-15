@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('rescue', {
     return () => ipcRenderer.removeListener('scan-event', listener);
   },
   openSetting: (url) => ipcRenderer.invoke('open-setting', url),
+  askPreview: (payload) => ipcRenderer.invoke('ask-preview', payload),
   askAbout: (payload) => ipcRenderer.invoke('ask-about', payload),
   onAskWarming: (cb) => {
     const listener = () => cb();

@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
 const path = require('path');
-const { askAbout } = require('./ask-about');
+const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { runScan, runFix, runAction, runUndo } = require('./engine-runner');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
@@ -53,6 +53,11 @@ app.whenReady().then(() => {
     }
     shell.openExternal(url);
     return true;
+  });
+  // The exact redacted body askAbout would send, so the person can read it first.
+  ipcMain.handle('ask-preview', (_e, payload) => {
+    const body = buildAskBody(payload);
+    return body ? { endpoint: ASK_ENDPOINT, body } : null;
   });
   ipcMain.handle('ask-about', (e, payload) =>
     askAbout(payload, {

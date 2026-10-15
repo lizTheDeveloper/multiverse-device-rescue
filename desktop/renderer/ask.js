@@ -5,8 +5,10 @@
 
 const ASK_FOOTER = 'AI-generated. It can be wrong — the step-by-step guide is the reliable source.';
 const ASK_CONSENT_TEXT =
-  "This sends only this finding's title and description to The Multiverse School's AI helper. " +
-  'No files, no account names. Nothing is stored.';
+  "Below is exactly what we'll send to The Multiverse School's AI helper, word for word. " +
+  'Your name, computer name, network addresses and anything that looks like a password have already been blanked out. ' +
+  'No files are sent and nothing is stored.';
+const ASK_FIELD_LABELS = { title: 'Title', description: 'Description', severity: 'How serious', category: 'Kind', code: 'Code' };
 const ASK_WARMING_TEXT = 'The helper is waking up, this takes about 30 seconds…';
 const ASK_ERRORS = {
   unavailable: "The helper isn't available right now. The step-by-step guide still works.",
@@ -74,23 +76,50 @@ function askButtonHtml(finding) {
   </div>`;
 }
 
+/** The exact outgoing request as readable HTML: where it goes and every field. */
+function renderPreviewHtml(preview) {
+  const finding = (preview && preview.body && preview.body.finding) || {};
+  const rows = Object.keys(ASK_FIELD_LABELS)
+    .filter((k) => typeof finding[k] === 'string' && finding[k])
+    .map((k) => `<dt>${askEscape(ASK_FIELD_LABELS[k])}</dt><dd>${askEscape(finding[k])}</dd>`)
+    .join('');
+  return `<dl class="ask__sent">${rows}</dl>
+    <p class="ask__dest muted">Sent to <code>${askEscape(preview && preview.endpoint)}</code></p>
+    <details class="ask__raw"><summary>Show the raw request</summary><pre>${askEscape(JSON.stringify(preview && preview.body, null, 2))}</pre></details>`;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { renderAnswerHtml, ASK_FOOTER, ASK_CONSENT_TEXT, ASK_WARMING_TEXT };
+  module.exports = { renderAnswerHtml, renderPreviewHtml, ASK_FOOTER, ASK_CONSENT_TEXT, ASK_WARMING_TEXT };
 }
 
 if (typeof document !== 'undefined') {
-  let askConsented = false; // this session only; deliberately not persisted
+  // Every ask shows exactly what will be sent and waits for "Send". No "don't
+  // ask again": the text differs per finding, so each one gets read first.
   const pending = new Set();
+  const previews = new Map();
 
   const slotFor = (id) => document.querySelector(`[data-ask-slot="${id}"]`);
   const buttonFor = (id) => document.querySelector(`[data-ask-id="${id}"]`);
 
-  function showConsent(id) {
+  async function showConsent(id) {
+    let preview = null;
+    try {
+      preview = await window.rescue.askPreview({ finding: askRegistry[id] });
+    } catch (_e) {
+      preview = null;
+    }
+    if (!preview) {
+      slotFor(id).innerHTML = `<p class="ask__error">${askEscape(ASK_ERRORS.invalid)}</p>`;
+      return;
+    }
+    previews.set(id, preview);
     slotFor(id).innerHTML = `
-      <div class="ask__panel" role="group" aria-label="Before we ask">
+      <div class="ask__panel" role="group" aria-label="What will be sent">
+        <h4>What we'll send</h4>
         <p>${askEscape(ASK_CONSENT_TEXT)}</p>
+        ${renderPreviewHtml(preview)}
         <div class="ask__actions">
-          <button type="button" class="btn btn--primary btn--small" data-ask-go="${id}">OK, ask</button>
+          <button type="button" class="btn btn--primary btn--small" data-ask-go="${id}">Send this</button>
           <button type="button" class="btn btn--secondary btn--small" data-ask-cancel="${id}">Cancel</button>
         </div>
       </div>`;
@@ -112,8 +141,10 @@ if (typeof document !== 'undefined') {
     pending.delete(id);
     if (btn) btn.disabled = false;
     if (result && result.ok) {
+      const sent = previews.get(id);
       slot.innerHTML = `<div class="ask__answer">${renderAnswerHtml(result.answer)}
-        <p class="ask__footer muted">${askEscape(ASK_FOOTER)}</p></div>`;
+        <p class="ask__footer muted">${askEscape(ASK_FOOTER)}</p>
+        ${sent ? `<details class="ask__raw"><summary>What we sent</summary>${renderPreviewHtml(sent)}</details>` : ''}</div>`;
     } else {
       const msg = ASK_ERRORS[result && result.reason] || ASK_ERRORS.unavailable;
       slot.innerHTML = `<p class="ask__error">${askEscape(msg)}</p>`;
@@ -125,9 +156,8 @@ if (typeof document !== 'undefined') {
     if (!t) return;
     if (t.hasAttribute('data-ask-id')) {
       const id = Number(t.getAttribute('data-ask-id'));
-      if (askConsented) runAsk(id); else showConsent(id);
+      showConsent(id);
     } else if (t.hasAttribute('data-ask-go')) {
-      askConsented = true;
       runAsk(Number(t.getAttribute('data-ask-go')));
     } else {
       slotFor(Number(t.getAttribute('data-ask-cancel'))).innerHTML = '';

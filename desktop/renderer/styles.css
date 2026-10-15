@@ -884,3 +884,46 @@ h3 {
   border-color: var(--critical-border);
   color: var(--critical-text);
 }
+
+.ask__panel h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.98rem;
+}
+
+.ask__sent {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface, transparent);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+}
+
+.ask__sent dt {
+  font-weight: 600;
+}
+
+.ask__sent dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ask__dest {
+  font-size: 0.85rem;
+  margin: 0 0 0.4rem;
+}
+
+.ask__raw {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+}
+
+.ask__raw pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 16rem;
+  overflow: auto;
+}
