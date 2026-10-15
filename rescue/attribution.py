@@ -141,6 +141,13 @@ _INLINE = object()
 _INLINE_NOTE = ("Runs through an interpreter with extra options or a command "
                 "written into its settings, not a signed program on its own; "
                 "check who created it.")
+_PATH_NOTE = ("Its settings don't name the program by its full path, so it could "
+              "be any program with that name; check who created it.")
+_UNREADABLE_NOTE = ("Its settings could not be read clearly, so what it runs could "
+                    "not be checked; check who created it.")
+# Each note above is a whole sentence that already says why the maker can't be
+# verified. The app shows the note in place of its short reason for that `how`
+# (desktop/renderer/app.js MADE_BY_NOTE_SAYS_WHY), so keep the two in step.
 
 
 def _interpreter_target(argv):
@@ -486,7 +493,7 @@ class Attributor:
         if args is None:
             args = []
         if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
-            return MadeBy(_UNKNOWN, False, "unreadable settings", _INLINE_NOTE)
+            return MadeBy(_UNKNOWN, False, "unreadable settings", _UNREADABLE_NOTE)
         if program is None and args:
             program = args[0]
         if not isinstance(program, str) or not program:
@@ -494,7 +501,7 @@ class Attributor:
         # launchd neither expands "~" nor searches our working folder: a program
         # that isn't a full path could be anything, so nothing is credited.
         if not program.startswith("/"):
-            return MadeBy(_UNKNOWN, False, "program not named by full path", _INLINE_NOTE)
+            return MadeBy(_UNKNOWN, False, "program not named by full path", _PATH_NOTE)
         if _injects_code(data.get("EnvironmentVariables")) or any(
             not isinstance(k, str) or k not in _SAFE_KEYS for k in data
         ):

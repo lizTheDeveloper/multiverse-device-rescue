@@ -110,6 +110,20 @@ const MADE_BY_REASON = {
   'settings change how the program loads code': 'its settings change how or where the program runs',
   'unreadable settings': 'its settings could not be read clearly',
 };
+// For these, the engine's note (rescue/attribution.py) is a whole sentence that
+// already says why, so it replaces the short reason instead of repeating it.
+const MADE_BY_NOTE_SAYS_WHY = new Set([
+  'script',
+  'inline command',
+  'program not named by full path',
+  'settings change how the program loads code',
+  'unreadable settings',
+]);
+
+function sameStart(note, reason) {
+  const norm = (s) => String(s).toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
+  return norm(note).startsWith(norm(reason));
+}
 
 function describeMadeBy(entry) {
   const e = entry || {};
@@ -128,6 +142,9 @@ function describeMadeBy(entry) {
   }
   const reason = MADE_BY_REASON[e.how] || e.how || 'not verified';
   const head = name === 'Unknown maker' ? 'Unknown maker' : `Made by ${name}, but it cannot be verified`;
+  if (note && (MADE_BY_NOTE_SAYS_WHY.has(e.how) || sameStart(note, reason))) {
+    return { tone: 'warn', text: `⚠ ${head}: ${note}`, subject };
+  }
   return { tone: 'warn', text: `⚠ ${head}: ${reason}.${note ? ' ' + note : ''}`, subject };
 }
 
@@ -366,6 +383,8 @@ if (typeof module !== 'undefined' && module.exports) {
     withoutSafetyParagraphs,
     descriptionHtml,
     describeMadeBy,
+    MADE_BY_REASON,
+    MADE_BY_VERIFIED_LABEL,
     madeByHtml,
     SEVERITY_ORDER,
     SEVERITY_LABELS,

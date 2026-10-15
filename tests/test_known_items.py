@@ -691,3 +691,140 @@ def test_cli_mark_then_scan_end_to_end(tmp_path, agents_dir):
         _, result = _run(name, agents_dir)
         assert all(f.severity == Severity.INFO for f in _about(result))
         assert any(f.data.get("marked_by_user") for f in _about(result))
+
+
+# --- one task reported by two checks ---------------------------------------------
+
+
+def _scan_both(agents_dir):
+    results = [_run(name, agents_dir) for name in ("launch_agent_audit", "launchd_persistence_audit")]
+    return json.loads(checks_to_json(results, "darwin"))
+
+
+def _offers(doc):
+    return {
+        f["markable"]["code"]: f["markable"]
+        for m in doc["modules"] for f in m["findings"] if "markable" in f
+    }
+
+
+def _app_mark_args(offers, ids):
+    """What desktop/engine-runner.js markArgs builds: one --code/--expect-id pair per mark."""
+    first = next(iter(offers.values()))
+    args = ["known", "add"]
+    for code in offers:
+        args += ["--code", code, "--expect-id", ids[code]]
+    return args + ["--label", first["label"], "--program", first["program"], "--plist", first["plist"],
+                   "--json", "--i-understand"]
+
+
+def test_scan_groups_every_markable_warning_about_the_same_task(tmp_path, agents_dir):
+    prog = _hidden_python(tmp_path)
+    _write_task(agents_dir, prog)
+    offers = _offers(_scan_both(agents_dir))
+    assert set(offers) == set(CODES.values())
+    ids = sorted(o["id"] for o in offers.values())
+    for offer in offers.values():
+        assert sorted(offer["ids"]) == ids
+        assert "every warning about this task" in offer["will_change"]
+        assert offer["will_change"].startswith(
+            f"Device Rescue will stop warning you about the background task '{LABEL}'. This covers"
+        )
+
+
+def test_scan_does_not_group_different_tasks(tmp_path, agents_dir):
+    prog = _hidden_python(tmp_path)
+    other = _hidden_python(tmp_path, folder=".other")
+    _write_task(agents_dir, prog)
+    _write_task(agents_dir, other, label="ai.example.other")
+    doc = _scan_both(agents_dir)
+    offers = [f["markable"] for m in doc["modules"] for f in m["findings"] if "markable" in f]
+    assert len(offers) == 4
+    for offer in offers:
+        siblings = {o["id"] for o in offers if o["label"] == offer["label"]}
+        assert set(offer["ids"]) == siblings and len(siblings) == 2
+
+
+def test_one_confirmation_marks_the_task_for_every_check(tmp_path, agents_dir):
+    prog = _hidden_python(tmp_path)
+    _write_task(agents_dir, prog)
+    offers = _offers(_scan_both(agents_dir))
+    r = _invoke(_app_mark_args(offers, {c: o["id"] for c, o in offers.items()}))
+    assert r.exit_code == 0, r.output
+    saved = json.loads(r.stdout)
+    assert sorted(saved["ids"]) == sorted(o["id"] for o in offers.values())
+
+    doc = _scan_both(agents_dir)
+    about = [f for m in doc["modules"] for f in m["findings"] if f["data"].get("label") == LABEL]
+    assert about and all(f["severity"] == "info" for f in about), "both checks' cards are quieted"
+    marked = [f for f in about if f["data"].get("marked_by_user")]
+    assert {f["code"] for f in marked} == set(CODES.values())
+    for f in marked:
+        assert sorted(f["marked_ids"]) == sorted(saved["ids"])
+    assert not _offers(doc)
+
+    # "Stop treating this as mine" removes the task's marks together.
+    r = _invoke(["known", "remove", *saved["ids"], "--json"])
+    assert r.exit_code == 0, r.output
+    assert sorted(json.loads(r.stdout)["ids"]) == sorted(saved["ids"])
+    assert KnownItemsStore().load() == []
+    assert set(_offers(_scan_both(agents_dir))) == set(CODES.values())
+
+
+def test_one_stale_id_refuses_every_mark(tmp_path, agents_dir):
+    """If what one check showed no longer matches the disk, nothing is saved."""
+    prog = _hidden_python(tmp_path)
+    _write_task(agents_dir, prog)
+    before = _offers(_scan_both(agents_dir))
+    Path(prog).write_text("#!/bin/sh\necho updated\n")
+    after = _offers(_scan_both(agents_dir))
+    assert before[LAA]["id"] != after[LAA]["id"]
+    lpa = CODES["launchd_persistence_audit"]
+    mixed = {LAA: after[LAA]["id"], lpa: before[lpa]["id"]}
+    r = _invoke(_app_mark_args(after, mixed))
+    assert r.exit_code == 2 and json.loads(r.stdout)["status"] == "refused"
+    assert KnownItemsStore().load() == []
+    # The current ids for both still work.
+    r = _invoke(_app_mark_args(after, {c: o["id"] for c, o in after.items()}))
+    assert r.exit_code == 0, r.output
+    assert len(KnownItemsStore().load()) == 2
+
+
+@pytest.mark.parametrize("extra", [
+    ["--expect-id", "abcdef012345"],  # one id for two codes
+    ["--expect-id", "abcdef012345", "--expect-id", "abcdef012345"],  # the same id twice
+    ["--expect-id", "abcdef012345", "--expect-id", "not-an-id"],
+])
+def test_cli_expect_ids_must_pair_with_codes(tmp_path, agents_dir, extra):
+    prog = _hidden_python(tmp_path)
+    _write_task(agents_dir, prog)
+    args = ["known", "add", "--code", LAA, "--code", CODES["launchd_persistence_audit"],
+            "--label", LABEL, "--program", prog, *extra, "--json", "--i-understand"]
+    r = _invoke(args)
+    assert r.exit_code == 2 and json.loads(r.stdout)["status"] == "refused"
+    assert KnownItemsStore().load() == []
+
+
+def test_add_many_is_all_or_nothing(tmp_path):
+    store = KnownItemsStore()
+    good = _ident()
+    with pytest.raises(KnownItemsError):
+        store.add_many(BACKGROUND_TASK, [good, _ident(program="")], via="test")
+    assert store.load() == []
+    saved = store.add_many(BACKGROUND_TASK, [good, _ident(code=CODES["launchd_persistence_audit"])], via="test")
+    assert [c for _, c in saved] == [True, True] and len(store.load()) == 2
+    again = store.add_many(BACKGROUND_TASK, [good], via="test")
+    assert again[0][1] is False and len(store.load()) == 2
+
+
+def test_only_markable_warnings_join_the_group():
+    """A critical finding about the same task has no markable block, so it is never quieted."""
+    offer = {"kind": BACKGROUND_TASK, "id": "a" * 12, "code": LAA, "label": LABEL, "plist": "/p",
+             "program": "/x", "arguments_sha256": "s", "content_sha256": "c"}
+    findings = [
+        {"markable": offer, "data": {}},
+        {"severity": "critical", "data": {"label": LABEL, "plist": "/p", "program": "/x"}},
+    ]
+    known_items.link_task_marks(findings)
+    assert offer["ids"] == ["a" * 12]
+    assert "markable" not in findings[1]

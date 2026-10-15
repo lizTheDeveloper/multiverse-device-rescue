@@ -109,6 +109,7 @@ function runUndo(quarantineId, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
 // "This is mine". The target was already checked against the last scan by the
 // main process; it is checked again here because it is passed to the engine.
 const MARK_ID = /^[0-9a-f]{12}$/;
+const MARK_CODE = /^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$/;
 const MARK_TIMEOUT_MS = 30000;
 
 function clean(s, max = 1024) {
@@ -121,17 +122,30 @@ function markArgs(target) {
   if (!clean(t.label, 256) || t.label.startsWith('-')) throw new Error('invalid label');
   if (!clean(t.program) || !(t.program.startsWith('/') || t.program.startsWith('~'))) throw new Error('invalid program');
   if (!clean(t.plist) || !t.plist.startsWith('/')) throw new Error('invalid plist');
-  if (typeof t.code !== 'string' || !/^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$/.test(t.code)) throw new Error('invalid code');
-  if (typeof t.id !== 'string' || !MARK_ID.test(t.id)) throw new Error('invalid id');
+  const marks = Array.isArray(t.marks) && t.marks.length ? t.marks : [{ code: t.code, id: t.id }];
+  if (!marks.some((m) => m && m.id === t.id)) throw new Error('invalid marks');
+  const codes = new Set();
+  const ids = new Set();
+  const pairs = [];
+  for (const m of marks) {
+    if (!m || typeof m.code !== 'string' || !MARK_CODE.test(m.code)) throw new Error('invalid code');
+    if (typeof m.id !== 'string' || !MARK_ID.test(m.id)) throw new Error('invalid id');
+    if (codes.has(m.code) || ids.has(m.id)) throw new Error('duplicate mark');
+    codes.add(m.code);
+    ids.add(m.id);
+    pairs.push('--code', m.code, '--expect-id', m.id);
+  }
   // The person has already confirmed in the app, hence --i-understand. The
-  // engine re-reads the task and refuses unless it still hashes to --expect-id.
-  return ['known', 'add', '--code', t.code, '--label', t.label, '--program', t.program,
-    '--plist', t.plist, '--expect-id', t.id, '--json', '--i-understand'];
+  // engine re-reads the task and refuses all of them unless each code still
+  // hashes to its --expect-id.
+  return ['known', 'add', ...pairs, '--label', t.label, '--program', t.program,
+    '--plist', t.plist, '--json', '--i-understand'];
 }
 
-function unmarkArgs(id) {
-  if (typeof id !== 'string' || !MARK_ID.test(id)) throw new Error('invalid id');
-  return ['known', 'remove', id, '--json'];
+function unmarkArgs(ids) {
+  const list = Array.isArray(ids) ? ids : [ids];
+  if (list.length === 0 || !list.every((id) => typeof id === 'string' && MARK_ID.test(id))) throw new Error('invalid id');
+  return ['known', 'remove', ...new Set(list), '--json'];
 }
 
 function markFailure(error, message) {

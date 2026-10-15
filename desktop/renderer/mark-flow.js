@@ -50,6 +50,17 @@ const MarkFlow = (function () {
     return typeof d.known_item_id === 'string' && MARK_ID.test(d.known_item_id) ? d.known_item_id : null;
   }
 
+  // Every mark id the engine grouped with this one (same task, other checks), own id first.
+  function groupOf(ownId, list) {
+    const ids = Array.isArray(list) ? list.filter((x) => typeof x === 'string' && MARK_ID.test(x)) : [];
+    return [ownId, ...ids].filter((x, i, a) => a.indexOf(x) === i);
+  }
+
+  function coversHtml(count) {
+    if (count < 2) return '';
+    return `<p class="fix-panel__line">That is ${count} warnings about this task on this checkup; one answer covers them all.</p>`;
+  }
+
   function undoListHtml(steps) {
     return `<ol class="fix-undo">${(steps || []).map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`;
   }
@@ -57,11 +68,13 @@ const MarkFlow = (function () {
   function markControlsHtml(finding) {
     const m = markableOf(finding);
     if (m) {
+      const group = groupOf(m.id, m.ids);
       return `
-      <div class="mark-mine" data-mark-card data-mark-id="${esc(m.id)}">
+      <div class="mark-mine" data-mark-card data-mark-id="${esc(m.id)}" data-mark-group="${esc(group.join(' '))}">
         <button type="button" class="btn btn--secondary btn--small" data-mark-open>This is mine — stop flagging it</button>
         <div class="fix-panel" data-mark-panel hidden role="group" aria-label="Confirm this is yours">
           <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.will_change)}</p>
+          ${coversHtml(group.length)}
           <p class="fix-panel__line"><strong>To undo later:</strong></p>
           ${undoListHtml(m.how_to_undo)}
           <p class="fix-panel__line fix-panel__warning"><strong>${esc(ONLY_IF_YOURS)}</strong></p>
@@ -76,8 +89,9 @@ const MarkFlow = (function () {
     }
     const id = markedIdOf(finding);
     if (id) {
+      const group = groupOf(id, finding.marked_ids);
       return `
-      <div class="mark-mine" data-mark-card data-unmark-id="${esc(id)}">
+      <div class="mark-mine" data-mark-card data-unmark-id="${esc(id)}" data-unmark-group="${esc(group.join(' '))}">
         <button type="button" class="btn btn--secondary btn--small" data-unmark>Stop treating this as mine</button>
         <div class="fix-status" data-mark-status role="status" aria-live="polite" hidden></div>
       </div>`;
@@ -123,6 +137,28 @@ const MarkFlow = (function () {
       </div>`;
   }
 
+  // Shown on the other cards about the same task once one card's answer covered them.
+  function siblingHtml(kind) {
+    const d = kind === 'marked'
+      ? {
+        tone: 'success', headline: 'Marked as yours.',
+        detail: 'Marked together with the other warning about this task. From your next checkup it will be listed as “marked as yours” instead of being flagged.',
+      }
+      : {
+        tone: 'info', headline: 'No longer marked as yours.',
+        detail: 'Removed together with the other warning about this task. Its warning comes back on your next checkup.',
+      };
+    return `
+      <div class="fix-status--${d.tone} fix-status__box">
+        <p class="fix-status__headline"><strong>${esc(d.headline)}</strong></p>
+        <p class="fix-status__detail">${esc(d.detail)}</p>
+      </div>`;
+  }
+
+  function idsAttr(card, name) {
+    return String(card.getAttribute(name) || '').split(/\s+/).filter((x) => MARK_ID.test(x));
+  }
+
   const CLICK_TARGETS = '[data-mark-open],[data-mark-confirm],[data-mark-cancel],[data-unmark]';
 
   // Delegated handlers on a container that survives re-renders. `api` is the
@@ -140,7 +176,30 @@ const MarkFlow = (function () {
       state.delete(card);
     }
 
-    async function send(card, call) {
+    // The same task is often reported by more than one check, so it has more
+    // than one card. Once the engine has saved (or removed) the marks for all
+    // of them, the other cards say so instead of offering the button again.
+    function updateSiblings(card, kind, result) {
+      if (typeof root.querySelectorAll !== 'function') return;
+      const ownAttr = kind === 'marked' ? 'data-mark-id' : 'data-unmark-id';
+      const groupAttr = kind === 'marked' ? 'data-mark-group' : 'data-unmark-group';
+      const own = card.getAttribute(ownAttr);
+      let ids = idsAttr(card, groupAttr).filter((x) => x !== own);
+      // When the engine lists what it saved or removed, only those.
+      if (result && Array.isArray(result.ids)) ids = ids.filter((x) => result.ids.includes(x));
+      if (!ids.length) return;
+      for (const other of Array.from(root.querySelectorAll(`[${ownAttr}]`))) {
+        if (other === card || !ids.includes(other.getAttribute(ownAttr))) continue;
+        if (state.get(other) === 'running') continue;
+        closePanel(other);
+        other.querySelectorAll('[data-mark-open],[data-unmark]').forEach((b) => { b.hidden = true; });
+        const status = other.querySelector('[data-mark-status]');
+        if (status) { status.hidden = false; status.innerHTML = siblingHtml(kind); }
+        other.setAttribute('data-mark-handled-by-other', '');
+      }
+    }
+
+    async function send(card, call, kind) {
       state.set(card, 'running');
       const panel = card.querySelector('[data-mark-panel]');
       const status = card.querySelector('[data-mark-status]');
@@ -154,6 +213,9 @@ const MarkFlow = (function () {
         const result = await call();
         status.innerHTML = resultHtml(result);
         d = describeMarkResult(result);
+        const r = result || {};
+        if (kind === 'marked' && (r.status === 'marked' || r.status === 'already_marked')) updateSiblings(card, kind, r);
+        if (kind === 'removed' && r.status === 'removed') updateSiblings(card, kind, r);
       } catch (_) {
         status.innerHTML = resultHtml(null);
         d = { done: false };
@@ -181,13 +243,13 @@ const MarkFlow = (function () {
       if (target.hasAttribute('data-unmark')) {
         const id = card.getAttribute('data-unmark-id');
         if (typeof id !== 'string' || !MARK_ID.test(id)) return undefined;
-        return send(card, () => api.unmarkMine(id));
+        return send(card, () => api.unmarkMine(id), 'removed');
       }
       if (state.get(card) !== 'confirming') return undefined;
       // Only the engine's id is sent; the main process looks up what it showed.
       const id = card.getAttribute('data-mark-id');
       if (typeof id !== 'string' || !MARK_ID.test(id)) return undefined;
-      return send(card, () => api.markMine(id));
+      return send(card, () => api.markMine(id), 'marked');
     });
 
     root.addEventListener('keydown', (event) => {
@@ -197,7 +259,7 @@ const MarkFlow = (function () {
     });
   }
 
-  return { ONLY_IF_YOURS, markableOf, markedIdOf, markControlsHtml, describeMarkResult, resultHtml, attach, esc };
+  return { ONLY_IF_YOURS, groupOf, markableOf, markedIdOf, markControlsHtml, describeMarkResult, resultHtml, attach, esc };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

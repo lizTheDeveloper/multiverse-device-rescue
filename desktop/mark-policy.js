@@ -10,6 +10,11 @@
 // then re-reads the task from disk and refuses unless it still hashes to the
 // same id (--expect-id), so a task that changed after the checkup is never
 // marked. Everything goes to the engine as argv, never through a shell.
+//
+// One task reported by several checks is marked as one: the stored target
+// carries every {code, id} the scan offered for that same task, the engine
+// re-checks each id and saves all of them or none. "Stop treating this as
+// mine" likewise removes every mark the scan showed for that task.
 
 const MARK_ID = /^[0-9a-f]{12}$/;
 const CODE = /^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$/;
@@ -38,35 +43,77 @@ function isValidMarkId(id) {
   return typeof id === 'string' && MARK_ID.test(id);
 }
 
+// What makes two findings "the same task". Two offers group only if every
+// one of these matches; the engine's `ids` list is never trusted on its own.
+function taskKey(m) {
+  return JSON.stringify([m.kind, m.label, m.plist, m.program, m.arguments_sha256,
+    typeof m.content_sha256 === 'string' ? m.content_sha256 : '']);
+}
+
+function markedKey(data) {
+  return JSON.stringify([data.label, data.plist, data.program, data.arguments_sha256]);
+}
+
+function idList(value) {
+  return Array.isArray(value) ? value.filter(isValidMarkId) : [];
+}
+
 function createMarkPolicy() {
   let markable = new Map(); // id -> target, from the last scan only
-  let marked = new Set();
+  let marked = new Map(); // id -> every marked id for the same task, from the last scan only
   return {
     // Replace (not merge) with what the latest scan offered.
+    //
+    // One background task is often reported by more than one check, each with
+    // its own mark id. The engine lists them together (markable.ids); a
+    // sibling is kept only if this same scan offered it as markable for the
+    // same task, so one confirmation can never reach a different task.
     remember(doc) {
-      const nextMarkable = new Map();
-      const nextMarked = new Set();
+      const offered = new Map(); // id -> { target, key, ids }
+      const markedSeen = new Map(); // id -> { key, ids }
       const modules = doc && Array.isArray(doc.modules) ? doc.modules : [];
       for (const mod of modules) {
         if (!mod || !Array.isArray(mod.findings)) continue;
         for (const f of mod.findings) {
           const t = f && markTarget(f.markable);
-          if (t) nextMarkable.set(t.id, t);
+          if (t && !offered.has(t.id)) offered.set(t.id, { target: t, key: taskKey(f.markable), ids: idList(f.markable.ids) });
           const data = f && f.data;
-          if (data && data.marked_by_user === true && isValidMarkId(data.known_item_id)) {
-            nextMarked.add(data.known_item_id);
+          if (data && data.marked_by_user === true && isValidMarkId(data.known_item_id) && !markedSeen.has(data.known_item_id)) {
+            markedSeen.set(data.known_item_id, { key: markedKey(data), ids: idList(f.marked_ids) });
           }
         }
+      }
+      const nextMarkable = new Map();
+      for (const [id, o] of offered) {
+        const group = [id, ...o.ids.filter((other) => other !== id
+          && offered.has(other) && offered.get(other).key === o.key)];
+        const marks = [...new Set(group)]
+          .map((gid) => ({ code: offered.get(gid).target.code, id: gid }))
+          .sort((a, b) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0));
+        // Two ids for one code would mean two different tasks: keep only this one.
+        const codes = new Set(marks.map((m) => m.code));
+        nextMarkable.set(id, { ...o.target, marks: codes.size === marks.length ? marks : [{ code: o.target.code, id }] });
+      }
+      const nextMarked = new Map();
+      for (const [id, m] of markedSeen) {
+        const group = [id, ...m.ids.filter((other) => other !== id
+          && markedSeen.has(other) && markedSeen.get(other).key === m.key)];
+        nextMarked.set(id, [...new Set(group)].sort());
       }
       markable = nextMarkable;
       marked = nextMarked;
     },
-    // The stored target for an id the last scan offered, or null.
+    // The stored target for an id the last scan offered, or null. Its `marks`
+    // are every {code, id} the same task was offered under in that scan.
     targetFor(id) {
       return isValidMarkId(id) && markable.has(id) ? markable.get(id) : null;
     },
     isUnmarkAllowed(id) {
       return isValidMarkId(id) && marked.has(id);
+    },
+    // Every marked id for the same task as `id` in the last scan ([] if none).
+    unmarkIdsFor(id) {
+      return isValidMarkId(id) && marked.has(id) ? [...marked.get(id)] : [];
     },
   };
 }
@@ -94,7 +141,9 @@ async function handleUnmark(id, { policy, runUnmark }) {
     return refusal('not_allowed', 'That item isn’t marked as yours in this checkup. Nothing was changed.');
   }
   try {
-    return await runUnmark(id);
+    // Every mark the scan showed for the same task, so the task's warnings all come back.
+    const ids = typeof policy.unmarkIdsFor === 'function' ? policy.unmarkIdsFor(id) : [id];
+    return await runUnmark(ids.length ? ids : [id]);
   } catch (err) {
     return refusal('engine_error', `We could not save that: ${err && err.message ? err.message : err}`);
   }

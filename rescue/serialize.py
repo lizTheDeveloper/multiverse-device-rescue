@@ -84,6 +84,16 @@ def _markable(finding, module_name):
         return None
 
 
+def _link_task_marks(modules) -> None:
+    """One background task reported by several checks is marked (and unmarked) as one."""
+    from rescue.known_items import link_task_marks
+
+    try:
+        link_task_marks([f for m in modules for f in m["findings"]])
+    except Exception:
+        pass
+
+
 def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=None, markable=None) -> dict:
     out = _plain(finding)
     if markable is not None:
@@ -123,7 +133,9 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
             attached to each finding as "made_by".
 
     A warning about a background task the person could mark as theirs gets a
-    "markable" object (see rescue.known_items.markable).
+    "markable" object (see rescue.known_items.markable), whose "ids" name every
+    markable finding about the same task in this scan; a finding already marked
+    gets "marked_ids" the same way (rescue.known_items.link_task_marks).
 
     Returns:
         JSON string with schema_version, platform, and modules array
@@ -148,6 +160,7 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
                 for f in check.findings
             ],
         })
+    _link_task_marks(modules)
     return json.dumps(
         {"schema_version": 1, "platform": platform, "modules": modules},
         indent=2,

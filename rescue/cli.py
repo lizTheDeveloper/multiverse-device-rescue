@@ -652,8 +652,11 @@ def known_list(as_json):
 @click.option("--program", required=True, help="The exact program path the finding shows.")
 @click.option("--plist", default=None, help="The task's settings file (found automatically if left out).")
 @click.option(
-    "--expect-id", "expect_id", default=None,
-    help="Refuse unless the task on disk still matches this mark id (the app passes the id it showed).",
+    "--expect-id", "expect_id", multiple=True,
+    help=(
+        "Refuse unless the task on disk still matches this mark id (the app passes the id it showed). "
+        "Give one per --code, in the same order; if any does not match, nothing is saved."
+    ),
 )
 @click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
 @click.option(
@@ -674,10 +677,22 @@ def known_add(codes, label, program, plist, expect_id, as_json, acknowledged):
         item_id,
     )
 
+    expect_ids = list(expect_id or ())
+    if expect_ids:
+        # Each --expect-id pairs with the --code at the same position.
+        if (
+            len(expect_ids) != len(codes)
+            or len(set(codes)) != len(codes)
+            or len(set(expect_ids)) != len(expect_ids)
+            or not all(re.fullmatch(r"[0-9a-f]{12}", e) for e in expect_ids)
+        ):
+            _emit_known(_known_doc(
+                "refused",
+                "Give one --expect-id for each --code, in the same order. Nothing was marked.",
+                label=label,
+            ), as_json, 2)
+            return
     codes = list(dict.fromkeys(codes))
-    if expect_id is not None and (len(codes) != 1 or not re.fullmatch(r"[0-9a-f]{12}", expect_id)):
-        _emit_known(_known_doc("refused", "--expect-id needs exactly one --code and an id. Nothing was marked.", label=label), as_json, 2)
-        return
     # Re-read the task from disk now, at write time; never trust what a scan
     # (or the app) said earlier.
     try:
@@ -685,7 +700,10 @@ def known_add(codes, label, program, plist, expect_id, as_json, acknowledged):
     except KnownItemsError as exc:
         _emit_known(_known_doc("refused", str(exc), label=label), as_json, 2)
         return
-    if expect_id is not None and item_id(BACKGROUND_TASK, identities[0]) != expect_id:
+    # Every mark must still match what the checkup showed, or none is saved.
+    if expect_ids and any(
+        item_id(BACKGROUND_TASK, identity) != expected for identity, expected in zip(identities, expect_ids)
+    ):
         _emit_known(_known_doc(
             "refused",
             f"The background task '{label}' changed since the checkup (its program, settings "
@@ -714,10 +732,9 @@ def known_add(codes, label, program, plist, expect_id, as_json, acknowledged):
             return
         via = "confirmed in the terminal"
     store = KnownItemsStore()
-    saved = []
     try:
-        for identity in identities:
-            saved.append(store.add(BACKGROUND_TASK, identity, via=via))
+        # One write for every code: all of them are saved, or none.
+        saved = store.add_many(BACKGROUND_TASK, identities, via=via)
     except (KnownItemsError, OSError) as exc:
         _emit_known(_known_doc("failed", f"Could not save the mark: {exc}", label=label), as_json, 1)
         return
@@ -735,27 +752,37 @@ def known_add(codes, label, program, plist, expect_id, as_json, acknowledged):
 
 
 @known.command("remove")
-@click.argument("item_id")
+@click.argument("item_ids", nargs=-1, required=True)
 @click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
-def known_remove(item_id, as_json):
-    """Stop treating an item as yours; its warning comes back on the next checkup."""
+def known_remove(item_ids, as_json):
+    """Stop treating an item as yours; its warning comes back on the next checkup.
+
+    Give several ids to remove them in one go (the app does this for a task
+    that was marked under more than one check).
+    """
     from rescue.known_items import KnownItemsError, KnownItemsStore
 
-    if not re.fullmatch(r"[0-9a-f]{12}", item_id or ""):
-        _emit_known(_known_doc("refused", "That is not an id from `rescue known list`.", id=item_id), as_json, 2)
+    item_ids = list(dict.fromkeys(item_ids))
+    first = item_ids[0] if item_ids else None
+    if not item_ids or not all(re.fullmatch(r"[0-9a-f]{12}", i or "") for i in item_ids):
+        _emit_known(_known_doc("refused", "That is not an id from `rescue known list`.", id=first), as_json, 2)
         return
     try:
-        removed = KnownItemsStore().remove(item_id)
+        removed = KnownItemsStore().remove_many(item_ids)
     except (KnownItemsError, OSError) as exc:
-        _emit_known(_known_doc("failed", f"Could not update the list: {exc}", id=item_id), as_json, 1)
+        _emit_known(_known_doc("failed", f"Could not update the list: {exc}", id=first), as_json, 1)
         return
-    if removed is None:
-        _emit_known(_known_doc("not_found", f"Nothing marked as yours has the id {item_id}.", id=item_id), as_json, 1)
+    if not removed:
+        _emit_known(_known_doc(
+            "not_found", f"Nothing marked as yours has the id {', '.join(item_ids)}.", id=first,
+        ), as_json, 1)
         return
-    label = removed.identity.get("label")
+    labels = list(dict.fromkeys(str(i.identity.get("label")) for i in removed))
+    ids = [i.id for i in removed]
+    named = "', '".join(labels)
     _emit_known(_known_doc(
-        "removed", f"'{label}' is no longer marked as yours. Its warning comes back on the next checkup.",
-        id=item_id, label=label,
+        "removed", f"'{named}' is no longer marked as yours. Its warning comes back on the next checkup.",
+        id=ids[0], ids=ids, label=labels[0],
     ), as_json)
 
 

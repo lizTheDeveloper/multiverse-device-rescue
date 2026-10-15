@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { describeMadeBy, madeByHtml } = require('../renderer/app.js');
+const fs = require('node:fs');
+const path = require('node:path');
+const { describeMadeBy, madeByHtml, MADE_BY_REASON, MADE_BY_VERIFIED_LABEL } = require('../renderer/app.js');
 
 const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -80,4 +82,80 @@ test('the description is escaped', () => {
 test('entries without a description render as before', () => {
   const html = madeByHtml([{ name: 'Google LLC', verified: true, how: 'Developer ID signature' }], esc);
   assert.ok(!html.includes('made-by__what'));
+});
+
+// --- no line says the same thing twice --------------------------------------------
+
+// Every literal `how` and every note the engine can send, read from its source
+// so a new one is covered without editing this test.
+const ATTRIBUTION = fs.readFileSync(path.join(__dirname, '..', '..', 'rescue', 'attribution.py'), 'utf8');
+
+function engineHows() {
+  const hows = new Set();
+  for (const m of ATTRIBUTION.matchAll(/MadeBy\((?:[^,()]|\([^()]*\))+,\s*(?:True|False),\s*"([^"]+)"/g)) hows.add(m[1]);
+  for (const m of ATTRIBUTION.matchAll(/how="([^"]+)"/g)) hows.add(m[1]);
+  return [...hows];
+}
+
+function engineNotes() {
+  const notes = [];
+  for (const m of ATTRIBUTION.matchAll(/^_[A-Z]+_NOTE = \(?((?:\s*"[^"]*"\s*)+)\)?$/gm)) {
+    notes.push([...m[1].matchAll(/"([^"]*)"/g)].map((s) => s[1]).join(''));
+  }
+  for (const m of ATTRIBUTION.matchAll(/return "(Runs from [^"]+)"/g)) notes.push(m[1]);
+  notes.push('This file can be changed by any program on the computer.');
+  return notes;
+}
+
+function sentences(text) {
+  return text
+    .replace(/^[⚠✓]\s*/, '')
+    .split(/(?<=[.:;])\s+|,\s+/)
+    .map((s) => s.toLowerCase().replace(/[’]/g, "'").replace(/[.:;,]+$/, '').trim())
+    .filter((s) => s.length > 12);
+}
+
+test('the engine source yields the hows and notes this test relies on', () => {
+  const hows = engineHows();
+  for (const how of ['unsigned', 'script', 'inline command', 'settings change how the program loads code',
+    'program not named by full path', 'unreadable settings', 'started with extra instructions', 'Developer ID signature']) {
+    assert.ok(hows.includes(how), how);
+  }
+  assert.ok(engineNotes().some((n) => n.startsWith('Its settings change how or where the program runs')));
+  assert.ok(engineNotes().length >= 5);
+});
+
+test('the settings-change line says its sentence once', () => {
+  const note = engineNotes().find((n) => n.startsWith('Its settings change how or where'));
+  const d = describeMadeBy({ name: 'Unknown maker', verified: false, how: 'settings change how the program loads code', location_note: note });
+  assert.strictEqual(d.text, `⚠ Unknown maker: ${note}`);
+  assert.strictEqual(d.text.toLowerCase().split('how or where the program runs').length, 2);
+});
+
+test('no describeMadeBy line repeats a sentence, for any how and note', () => {
+  const hows = new Set([...engineHows(), ...Object.keys(MADE_BY_REASON), ...Object.keys(MADE_BY_VERIFIED_LABEL)]);
+  const notes = engineNotes();
+  const location = notes.filter((n) => n.startsWith('Runs from') || n.startsWith('This file'));
+  // A location note is added after the engine's own note (Attributor._identify_program), at most one.
+  const own = notes.filter((n) => !location.includes(n));
+  const noteChoices = ['', ...notes, ...own.flatMap((n) => location.map((l) => `${n} ${l}`))];
+  let checked = 0;
+  for (const how of hows) {
+    for (const verified of [true, false]) {
+      for (const name of ['Unknown maker', 'Example Co']) {
+        for (const note of noteChoices) {
+          const { text } = describeMadeBy({ name, verified, how, location_note: note });
+          const parts = sentences(text);
+          for (let i = 0; i < parts.length; i++) {
+            for (let j = 0; j < parts.length; j++) {
+              if (i === j) continue;
+              assert.ok(!parts[j].startsWith(parts[i]), `repeats "${parts[i]}" in: ${text}`);
+            }
+          }
+          checked++;
+        }
+      }
+    }
+  }
+  assert.ok(checked > 100);
 });

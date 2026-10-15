@@ -77,6 +77,11 @@ MARK_WILL_CHANGE = (
     "program, the script it runs, or its settings file ever changes, the "
     "warning comes back."
 )
+# The app's confirmation: one "Yes, it's mine" marks the task under every
+# check that warned about it in that checkup (see link_task_marks).
+MARK_COVERS_TASK = (
+    "This covers every warning about this task on this checkup."
+)
 MARK_HOW_TO_UNDO = [
     "Choose \"Stop treating this as mine\" on the item in Device Rescue",
     "Or run: rescue known remove <id> (rescue known list shows the id)",
@@ -268,26 +273,51 @@ class KnownItemsStore:
             raise
 
     def add(self, kind: str, identity: dict, via: str = "") -> tuple[KnownItem, bool]:
-        # load() refuses an untrusted or damaged list, so nothing is written on top of one.
         """(item, created). Adding the same identity twice is a no-op."""
-        item = KnownItem(kind=kind, identity=dict(identity), marked_at=_now(), marked_via=via)
-        if KnownItem.from_dict(item.to_dict()) is None:
-            raise KnownItemsError("That item is missing part of what identifies it.")
+        return self.add_many(kind, [identity], via=via)[0]
+
+    def add_many(self, kind: str, identities: list[dict], via: str = "") -> list[tuple[KnownItem, bool]]:
+        """[(item, created)] for each identity, written in one save: all or none.
+
+        load() refuses an untrusted or damaged list, so nothing is written on top of one.
+        """
+        now = _now()
+        wanted = []
+        for identity in identities:
+            item = KnownItem(kind=kind, identity=dict(identity), marked_at=now, marked_via=via)
+            if KnownItem.from_dict(item.to_dict()) is None:
+                raise KnownItemsError("That item is missing part of what identifies it.")
+            wanted.append(item)
+        if not wanted:
+            raise KnownItemsError("Nothing to mark.")
         items = self.load()
-        for existing in items:
-            if existing.id == item.id:
-                return existing, False
-        items.append(item)
-        self._save(items)
-        return item, True
+        by_id = {i.id: i for i in items}
+        out = []
+        for item in wanted:
+            existing = by_id.get(item.id)
+            if existing is not None:
+                out.append((existing, False))
+                continue
+            items.append(item)
+            by_id[item.id] = item
+            out.append((item, True))
+        if any(created for _, created in out):
+            self._save(items)
+        return out
 
     def remove(self, wanted_id: str) -> KnownItem | None:
+        removed = self.remove_many([wanted_id])
+        return removed[0] if removed else None
+
+    def remove_many(self, wanted_ids: Iterable[str]) -> list[KnownItem]:
+        """Remove every listed id that is marked, in one save. Returns what was removed."""
+        wanted = set(wanted_ids)
         items = self.load()
-        keep = [i for i in items if i.id != wanted_id]
+        keep = [i for i in items if i.id not in wanted]
         if len(keep) == len(items):
-            return None
+            return []
         self._save(keep)
-        return next(i for i in items if i.id == wanted_id)
+        return [i for i in items if i.id in wanted]
 
 
 # --- background tasks ---------------------------------------------------------
@@ -699,7 +729,9 @@ def markable(finding: Finding, module_name: str) -> dict | None:
         "id": item_id(BACKGROUND_TASK, identity),
         "code": code,
         **fields,
-        "will_change": MARK_WILL_CHANGE.replace("{label}", fields["label"]),
+        "will_change": MARK_WILL_CHANGE.replace(
+            "'{label}'. ", "'{label}'. " + MARK_COVERS_TASK + " ", 1
+        ).replace("{label}", fields["label"]),
         "how_to_undo": list(MARK_HOW_TO_UNDO),
     }
 
@@ -734,4 +766,54 @@ def apply_background_task_marks(findings: list[Finding], tasks: dict) -> list[Fi
             content = content_of(f)
             if content:
                 f.data["content_sha256"] = content
+    return findings
+
+
+# --- one task, several findings ------------------------------------------------
+
+_TASK_FIELDS = ("label", "plist", "program", "arguments_sha256")
+
+
+def link_task_marks(findings: list[dict]) -> list[dict]:
+    """Group the scan's output by background task, after every module ran.
+
+    The same task is often reported by more than one check (one finding code
+    each). A person who says "this is mine" means the task, so:
+
+    * every `markable` block gets ``ids``: the mark ids of every markable
+      finding about the same task in this scan (same label, plist, program,
+      arguments and content), its own included, ordered by code. One
+      confirmation saves all of them, and the engine re-checks each.
+    * every finding already marked as yours gets ``marked_ids``: the marks
+      about the same task shown in this scan, so "Stop treating this as mine"
+      removes them all.
+
+    Works on the serialized finding dicts; changes them in place.
+    """
+    offers: dict[tuple, list[dict]] = {}
+    marked: dict[tuple, list[dict]] = {}
+    for f in findings:
+        m = f.get("markable")
+        if isinstance(m, dict) and m.get("kind") == BACKGROUND_TASK:
+            key = tuple(m.get(k) for k in (*_TASK_FIELDS, "content_sha256"))
+            if all(isinstance(v, str) and v for v in key) and isinstance(m.get("id"), str):
+                offers.setdefault(key, []).append(m)
+        data = f.get("data")
+        if (
+            isinstance(data, dict)
+            and data.get("marked_by_user") is True
+            and isinstance(data.get("known_item_id"), str)
+        ):
+            key = tuple(data.get(k) for k in _TASK_FIELDS)
+            if all(isinstance(v, str) and v for v in key):
+                marked.setdefault(key, []).append(f)
+    for group in offers.values():
+        ordered = sorted(group, key=lambda m: (str(m.get("code") or ""), m["id"]))
+        ids = list(dict.fromkeys(m["id"] for m in ordered))
+        for m in group:
+            m["ids"] = list(ids)
+    for group in marked.values():
+        ids = sorted({f["data"]["known_item_id"] for f in group})
+        for f in group:
+            f["marked_ids"] = list(ids)
     return findings
