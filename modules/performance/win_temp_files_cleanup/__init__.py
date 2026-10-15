@@ -138,7 +138,7 @@ class Module(ModuleBase):
             # Always add INFO finding with breakdown
             findings.append(
                 Finding(
-                    title="Temp file accumulation report",
+                    title="Your temporary files report",
                     description=(
                         f"Total reclaimable space: {_fmt_bytes(total_reclaimable)}. "
                         f"Found {old_files_count} files older than 30 days in temp directories."
@@ -156,7 +156,7 @@ class Module(ModuleBase):
         except Exception as e:
             findings.append(
                 Finding(
-                    title="Error auditing temp files",
+                    title="Could not check temporary files",
                     description=f"Failed to audit temp file accumulation: {str(e)}",
                     severity=Severity.INFO,
                     category=self.category,

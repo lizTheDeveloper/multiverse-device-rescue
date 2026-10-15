@@ -126,7 +126,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title=f"{len(entries)} startup entries inventoried",
+                title=f"{len(entries)} items set to start automatically",
                 description=(
                     "Every place something can arrange to run again on this machine, "
                     "listed so you can look for the one you do not recognise. Most "

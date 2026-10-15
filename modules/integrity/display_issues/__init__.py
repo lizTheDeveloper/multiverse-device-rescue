@@ -186,7 +186,7 @@ class Module(ModuleBase):
                 refresh_rate = ext_display.get("refresh_rate", "Unknown")
                 findings.append(
                     Finding(
-                        title=f"External monitor detected: {ext_display['name']}",
+                        title=f"External monitor: {ext_display['name']}",
                         description=(
                             f"External monitor connected via {ext_display.get('connection', 'Unknown')}. "
                             f"Resolution: {ext_display['resolution']}, Refresh rate: {refresh_rate}. "

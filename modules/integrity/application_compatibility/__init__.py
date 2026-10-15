@@ -36,7 +36,7 @@ class Module(ModuleBase):
         if not apps_info.get("apps"):
             findings.append(
                 Finding(
-                    title="Unable to analyze applications",
+                    title="App check skipped",
                     description=(
                         "Could not retrieve application data from system_profiler. "
                         "Application compatibility checks were skipped."
@@ -101,7 +101,7 @@ class Module(ModuleBase):
                 app_names = [app.get("name", "Unknown") for app in intel_apps]
                 findings.append(
                     Finding(
-                        title=f"Found {len(intel_apps)} Intel app(s) on Apple Silicon",
+                        title=f"{len(intel_apps)} Intel apps on Apple Silicon",
                         description=(
                             f"This Apple Silicon Mac has {len(intel_apps)} Intel-only application(s). "
                             f"These apps run via Rosetta 2 translation, which may impact performance. "
@@ -129,7 +129,7 @@ class Module(ModuleBase):
             app_names = [app["name"] for app in outdated_apps[:5]]
             findings.append(
                 Finding(
-                    title=f"Found {len(outdated_apps)} application(s) not updated in >2 years",
+                    title=f"{len(outdated_apps)} apps not updated in 2+ years",
                     description=(
                         f"These {len(outdated_apps)} application(s) haven't been updated in over 2 years: "
                         f"{', '.join(app_names)}{'...' if len(outdated_apps) > 5 else ''}. "
@@ -145,7 +145,7 @@ class Module(ModuleBase):
         # Provide architecture breakdown as INFO
         findings.append(
             Finding(
-                title="Application architecture breakdown",
+                title="Your app types",
                 description=(
                     f"Installed applications: {len(apps_list)} total. "
                     f"Architecture breakdown: {len(universal_apps)} Universal, "

@@ -325,8 +325,8 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=(
-                        "Installed libraries mention download-and-run commands "
-                        f"({len(library_mentions)} files)"
+                        f"Software packages with install instructions ({len(library_mentions)} "
+                        "files)"
                     ),
                     description=(
                         "Some installed software packages contain text like "

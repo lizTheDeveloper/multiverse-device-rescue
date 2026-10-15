@@ -90,7 +90,7 @@ class Module(ModuleBase):
             apps = services["kTCCServiceSystemPolicyAllFiles"]
             findings.append(
                 Finding(
-                    title=f"Full Disk Access: {len(apps)} app(s)",
+                    title=f"Apps with full disk access: {len(apps)}",
                     description=(
                         f"{len(apps)} app(s) have been granted Full Disk Access: "
                         f"{', '.join(sorted(apps))}. "
@@ -108,7 +108,7 @@ class Module(ModuleBase):
             apps = services["kTCCServiceScreenCapture"]
             findings.append(
                 Finding(
-                    title=f"Screen Recording: {len(apps)} app(s)",
+                    title=f"Apps with screen recording access: {len(apps)}",
                     description=(
                         f"{len(apps)} app(s) have been granted Screen Recording permission: "
                         f"{', '.join(sorted(apps))}. "
@@ -126,7 +126,7 @@ class Module(ModuleBase):
             apps = services["kTCCServiceCamera"]
             findings.append(
                 Finding(
-                    title=f"Camera access: {len(apps)} app(s)",
+                    title=f"Apps with camera access: {len(apps)}",
                     description=(
                         f"{len(apps)} app(s) have been granted Camera access: "
                         f"{', '.join(sorted(apps))}. "
@@ -143,7 +143,7 @@ class Module(ModuleBase):
             apps = services["kTCCServiceMicrophone"]
             findings.append(
                 Finding(
-                    title=f"Microphone access: {len(apps)} app(s)",
+                    title=f"Apps with microphone access: {len(apps)}",
                     description=(
                         f"{len(apps)} app(s) have been granted Microphone access: "
                         f"{', '.join(sorted(apps))}. "

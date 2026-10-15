@@ -139,7 +139,7 @@ class Module(ModuleBase):
         login_message = "Name and password" if show_full_name == "0" else "User list"
         findings.append(
             Finding(
-                title=f"Login window display: {login_message}",
+                title=f"Login window shows: {login_message}",
                 description=(
                     f"Login window is configured to show {login_message.lower()}. "
                     "For better security, disable 'Show the Sleep, Restart, and Shut Down buttons' "
@@ -204,7 +204,7 @@ class Module(ModuleBase):
         if remote_login == "On":
             findings.append(
                 Finding(
-                    title="Remote login (SSH) is enabled",
+                    title="Remote login is on",
                     description=(
                         "SSH remote login is enabled, allowing remote command execution. "
                         "Disable this in System Settings > General > Sharing > Remote Login if not needed."

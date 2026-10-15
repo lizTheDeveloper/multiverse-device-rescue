@@ -96,7 +96,7 @@ class Module(ModuleBase):
             swap_usage_pct = (swap_used_bytes / swap_total_bytes) * 100
             findings.append(
                 Finding(
-                    title="Swap usage status",
+                    title="Your swap space usage",
                     description=(
                         f"Swap: {_fmt_bytes(swap_used_bytes)} used of "
                         f"{_fmt_bytes(swap_total_bytes)} total ({swap_usage_pct:.1f}% full). "
@@ -118,7 +118,7 @@ class Module(ModuleBase):
         if compressor_mode is not None:
             findings.append(
                 Finding(
-                    title="Memory compression status",
+                    title="Your memory compression setting",
                     description=(
                         f"Memory compression (WKdm) is {'enabled' if compressor_mode == 1 else 'disabled'}. "
                         "This is a macOS feature that compresses inactive memory to reduce swap usage."
@@ -142,7 +142,7 @@ class Module(ModuleBase):
             pressure_name = pressure_names.get(memory_pressure, "Unknown")
             findings.append(
                 Finding(
-                    title="Memory pressure level",
+                    title="Your current memory pressure",
                     description=(
                         f"Current memory pressure: {pressure_name} (level {memory_pressure}). "
                         "Higher levels indicate the system is under memory stress."

@@ -50,7 +50,7 @@ class Module(ModuleBase):
         elif startup_disk:
             findings.append(
                 Finding(
-                    title="Startup disk information",
+                    title="Your startup disk",
                     description=f"Boot device: {startup_disk}",
                     severity=Severity.INFO,
                     category=self.category,
@@ -85,7 +85,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Boot arguments normal",
+                        title="Your startup settings look normal",
                         description=f"Boot args: {boot_args if boot_args.strip() else '(none)'}",
                         severity=Severity.INFO,
                         category=self.category,
@@ -98,7 +98,7 @@ class Module(ModuleBase):
         if audio_volume is not None:
             findings.append(
                 Finding(
-                    title="System audio volume setting",
+                    title="Your system audio volume",
                     description=f"NVRAM SystemAudioVolume: {audio_volume}",
                     severity=Severity.INFO,
                     category=self.category,
@@ -111,7 +111,7 @@ class Module(ModuleBase):
         if crash_indicators:
             findings.append(
                 Finding(
-                    title="Previous system crashes detected",
+                    title="Signs of previous system crashes",
                     description=f"NVRAM contains indicators of previous crashes: {', '.join(crash_indicators)}. Review system logs for details.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -124,7 +124,7 @@ class Module(ModuleBase):
         if key_settings:
             findings.append(
                 Finding(
-                    title="Key NVRAM settings",
+                    title="Key startup memory (NVRAM) settings",
                     description=f"Important NVRAM variables: {', '.join(f'{k}={v}' for k, v in key_settings.items())}",
                     severity=Severity.INFO,
                     category=self.category,

@@ -146,7 +146,7 @@ class Module(ModuleBase):
             entries_info = ", ".join(boot_entries.get("entries", [])[:5])
             findings.append(
                 Finding(
-                    title=f"Multiple boot entries found ({boot_entries['entry_count']})",
+                    title=f"Boot options: {boot_entries['entry_count']} found",
                     description=(
                         f"Found {boot_entries['entry_count']} boot entries. "
                         f"Entries: {entries_info}. "
@@ -166,7 +166,7 @@ class Module(ModuleBase):
         if boot_entries.get("default_boot_entry"):
             findings.append(
                 Finding(
-                    title=f"Default boot entry: {boot_entries['default_boot_entry']}",
+                    title=f"Default boot option: {boot_entries['default_boot_entry']}",
                     description=(
                         f"Default boot entry is set to: {boot_entries['default_boot_entry']}. "
                         "This is the entry that will boot on next restart."
@@ -201,7 +201,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Windows Recovery Environment (RE) is enabled",
+                        title="Windows recovery tools are enabled",
                         description=(
                             "Windows RE is enabled and can be used for troubleshooting boot issues."
                         ),

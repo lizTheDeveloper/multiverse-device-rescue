@@ -127,7 +127,7 @@ class Module(ModuleBase):
         if boot_entries > 1:
             findings.append(
                 Finding(
-                    title=f"Multiple boot entries detected ({boot_entries})",
+                    title=f"Boot options: {boot_entries} found",
                     description=(
                         f"System has {boot_entries} boot entries. "
                         "This may indicate dual boot setup or orphaned boot entries."
@@ -147,7 +147,7 @@ class Module(ModuleBase):
             boot_device = boot_config.get("boot_device", "unknown")
             findings.append(
                 Finding(
-                    title="Boot configuration status",
+                    title="Your boot settings",
                     description=(
                         f"Boot configuration: {boot_entries} entries, "
                         f"timeout={boot_timeout}s, "

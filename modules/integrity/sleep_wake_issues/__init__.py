@@ -101,7 +101,7 @@ class Module(ModuleBase):
         if scheduled_events:
             findings.append(
                 Finding(
-                    title="Scheduled wake events found",
+                    title=f"Planned wake-ups: {len(scheduled_events)}",
                     description=(
                         f"The system has {len(scheduled_events)} scheduled wake event(s). "
                         f"Details: {', '.join(scheduled_events[:3])}{'...' if len(scheduled_events) > 3 else ''}. "
@@ -122,7 +122,7 @@ class Module(ModuleBase):
             wake_summary = self._format_wake_summary(wake_reasons)
             findings.append(
                 Finding(
-                    title="Recent wake reasons summary",
+                    title="Why your Mac woke up recently",
                     description=wake_summary,
                     severity=Severity.INFO,
                     category=self.category,

@@ -54,7 +54,9 @@ class Module(ModuleBase):
         if downloads_old["size"] > 0:
             findings.append(
                 Finding(
-                    title=f"Old files in Downloads: {_fmt_bytes(downloads_old['size'])}",
+                    title=(
+                        f"Old files in your Downloads folder: {_fmt_bytes(downloads_old['size'])}"
+                    ),
                     description=(
                         f"~/Downloads contains {downloads_old['count']} files older than {OLD_FILES_DAYS} days "
                         f"using {_fmt_bytes(downloads_old['size'])}. These are likely forgotten."
@@ -73,7 +75,9 @@ class Module(ModuleBase):
         if large_caches["size"] > 0:
             findings.append(
                 Finding(
-                    title=f"Large cache directories: {_fmt_bytes(large_caches['size'])}",
+                    title=(
+                        f"Large temporary storage folders: {_fmt_bytes(large_caches['size'])}"
+                    ),
                     description=(
                         f"Found {large_caches['count']} cache directories larger than {_fmt_bytes(LARGE_CACHE_SIZE)} "
                         f"using a total of {_fmt_bytes(large_caches['size'])}. "
@@ -93,7 +97,7 @@ class Module(ModuleBase):
         if trash_size > 0:
             findings.append(
                 Finding(
-                    title=f"Trash: {_fmt_bytes(trash_size)}",
+                    title=f"Trash folder size: {_fmt_bytes(trash_size)}",
                     description=(
                         f"Trash (~/.Trash) contains {_fmt_bytes(trash_size)} of deleted files. "
                         f"These can be permanently removed."
@@ -111,7 +115,7 @@ class Module(ModuleBase):
         if dmg_files["size"] > 0:
             findings.append(
                 Finding(
-                    title=f"Large .dmg installer files: {_fmt_bytes(dmg_files['size'])}",
+                    title=f"Old installer files: {_fmt_bytes(dmg_files['size'])}",
                     description=(
                         f"Found {dmg_files['count']} .dmg installer files in ~/Downloads "
                         f"using {_fmt_bytes(dmg_files['size'])}. "
@@ -131,7 +135,7 @@ class Module(ModuleBase):
         if app_support["size"] > 0:
             findings.append(
                 Finding(
-                    title=f"Unused application data: {_fmt_bytes(app_support['size'])}",
+                    title=f"Data from uninstalled apps: {_fmt_bytes(app_support['size'])}",
                     description=(
                         f"Found {app_support['count']} directories in ~/Library/Application Support "
                         f"for applications that may no longer be installed, using {_fmt_bytes(app_support['size'])}. "

@@ -96,7 +96,7 @@ class Module(ModuleBase):
         if not dep_enrolled and not supervised:
             findings.append(
                 Finding(
-                    title="No MDM enrollment detected",
+                    title="No work or school management found",
                     description=(
                         "This device does not appear to be enrolled in Mobile Device "
                         "Management. It is a personal device with no organizational "
@@ -119,7 +119,9 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Found {len(profiles_info['profiles'])} installed configuration profile(s)",
+                    title=(
+                        f"Found {len(profiles_info['profiles'])} installed settings profile(s)"
+                    ),
                     description=(
                         f"The following configuration profiles are installed:\n{profile_list}\n\n"
                         "These profiles may control device settings, security policies, "

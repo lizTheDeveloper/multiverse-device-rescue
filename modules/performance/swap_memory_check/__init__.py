@@ -125,7 +125,7 @@ class Module(ModuleBase):
             swap_usage_pct = (swap_used_bytes / swap_total_bytes) * 100
             findings.append(
                 Finding(
-                    title="Swap memory status",
+                    title="Your swap memory usage",
                     description=(
                         f"Swap: {_fmt_bytes(swap_used_bytes)} used of "
                         f"{_fmt_bytes(swap_total_bytes)} total ({swap_usage_pct:.1f}% full). "
@@ -150,7 +150,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Memory allocation status",
+                title="How your memory is being used",
                 description=(
                     f"Active: {_fmt_bytes(active_bytes)}, "
                     f"Inactive: {_fmt_bytes(inactive_bytes)}, "
@@ -174,7 +174,7 @@ class Module(ModuleBase):
         # INFO: Report page activity
         findings.append(
             Finding(
-                title="Page activity metrics",
+                title="Memory movement activity",
                 description=(
                     f"Page-ins: {page_ins:,}, Page-outs: {page_outs:,}. "
                     f"High page-out activity indicates memory pressure."

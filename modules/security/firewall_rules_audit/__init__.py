@@ -135,7 +135,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Firewall configuration summary",
+                title="Your firewall settings",
                 description="\n".join(config_items),
                 severity=Severity.INFO,
                 category=self.category,

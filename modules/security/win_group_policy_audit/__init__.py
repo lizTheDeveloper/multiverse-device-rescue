@@ -86,7 +86,7 @@ class Module(ModuleBase):
         if computer_gpos or user_gpos or is_domain_joined:
             findings.append(
                 Finding(
-                    title="Group Policy status report",
+                    title="Your computer's policy settings",
                     description=(
                         f"Domain status: {'joined' if is_domain_joined else 'not joined'}. "
                         f"Computer GPOs: {len(computer_gpos)}. "
@@ -338,7 +338,7 @@ class Module(ModuleBase):
             if result.stdout.strip() and int(result.stdout.strip()) > 0:
                 findings.append(
                     Finding(
-                        title="AppLocker policies configured",
+                        title="AppLocker rules are active",
                         description=(
                             "This system has AppLocker policies configured. These may restrict "
                             "which applications can run. Check AppLocker event logs if issues arise."

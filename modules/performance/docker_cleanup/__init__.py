@@ -84,7 +84,7 @@ class Module(ModuleBase):
             # Report INFO with breakdown
             findings.append(
                 Finding(
-                    title=f"Docker disk usage: {_fmt_bytes(docker_usage['total_bytes'])}",
+                    title=f"Space used by Docker: {_fmt_bytes(docker_usage['total_bytes'])}",
                     description=(
                         f"Docker disk breakdown: Images: {_fmt_bytes(docker_usage['images_bytes'])}, "
                         f"Containers: {_fmt_bytes(docker_usage['containers_bytes'])}, "
@@ -149,7 +149,7 @@ class Module(ModuleBase):
         if vm_disk_size is not None:
             findings.append(
                 Finding(
-                    title=f"Docker VM disk image size: {_fmt_bytes(vm_disk_size)}",
+                    title=f"Docker's virtual disk size: {_fmt_bytes(vm_disk_size)}",
                     description=(
                         f"Docker's VM disk image (Docker.raw or Docker.qcow2) is {_fmt_bytes(vm_disk_size)}. "
                         f"This file can grow over time as Docker containers and images consume space."

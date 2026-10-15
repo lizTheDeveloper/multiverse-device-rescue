@@ -92,7 +92,7 @@ class Module(ModuleBase):
             if not program_path:
                 findings.append(
                     Finding(
-                        title=f"Launchd item with no readable program: {label}",
+                        title=f"Background item with a missing file: {label}",
                         description=(
                             f"The launchd item '{label}' has no program this tool could read "
                             "(the file may be damaged, in an unusual format, or have an "
@@ -184,7 +184,7 @@ class Module(ModuleBase):
                 # place to hide, so it stays listed rather than being dropped.
                 findings.append(
                     Finding(
-                        title=f"Background program from a developer tool folder: {label}",
+                        title=f"Background item from a developer tool folder: {label}",
                         description=(
                             f"The launchd item '{label}' runs a program from a folder "
                             f"used by developer tools: {program_path}\n"
@@ -273,7 +273,7 @@ class Module(ModuleBase):
                 )
                 findings.append(
                     Finding(
-                        title=f"Non-Apple launchd item: {label}",
+                        title=f"Background item not from Apple: {label}",
                         description=(
                             f"Found non-Apple launchd item: {label}\n"
                             f"Program: {program_path}\n"

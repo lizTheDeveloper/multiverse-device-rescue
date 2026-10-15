@@ -41,7 +41,7 @@ class Module(ModuleBase):
             if is_ssd is True:
                 findings.append(
                     Finding(
-                        title="SSD detected - fragmentation not a concern",
+                        title="Your SSD doesn't need defragmentation",
                         description=(
                             "This Mac has a Solid State Drive (SSD). SSDs do not suffer from fragmentation "
                             "like traditional hard drives, and macOS automatically optimizes SSD performance. "
@@ -61,7 +61,7 @@ class Module(ModuleBase):
             elif is_ssd is False:
                 findings.append(
                     Finding(
-                        title=f"HDD detected - monitoring fragmentation ({filesystem})",
+                        title=f"Your hard drive ({filesystem}) can slow down as it fills",
                         description=(
                             f"This Mac has a traditional hard drive (HDD). Currently using {usage_percent}% of "
                             f"disk space with {_fmt_bytes(free_bytes)} free. Filesystem: {filesystem}. "
@@ -140,7 +140,7 @@ class Module(ModuleBase):
                 # Unknown disk type
                 findings.append(
                     Finding(
-                        title="Unable to determine disk type",
+                        title="Could not identify your disk type",
                         description=(
                             "Could not determine whether this disk is an SSD or HDD. "
                             "Fragmentation risk cannot be assessed."
@@ -158,7 +158,7 @@ class Module(ModuleBase):
         except Exception as e:
             findings.append(
                 Finding(
-                    title="Error checking disk fragmentation status",
+                    title="Could not check disk fragmentation",
                     description=f"Failed to check disk type and fragmentation: {str(e)}",
                     severity=Severity.INFO,
                     category=self.category,

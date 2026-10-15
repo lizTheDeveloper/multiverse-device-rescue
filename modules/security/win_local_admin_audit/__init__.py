@@ -189,7 +189,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"Local administrator accounts found",
+                    title="Your administrator accounts",
                     description=(
                         f"Found {len(admin_users)} administrator account(s):\n"
                         + "\n".join(f"  {detail}" for detail in status_details) +

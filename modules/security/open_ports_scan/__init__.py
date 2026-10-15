@@ -113,7 +113,7 @@ class Module(ModuleBase):
         if all_ports_info:
             findings.append(
                 Finding(
-                    title=f"Listening ports: {len(all_ports_info)}",
+                    title=f"Open ports: {len(all_ports_info)}",
                     description=(
                         f"Found {len(all_ports_info)} listening port(s):\n"
                         f"{chr(10).join(all_ports_info)}"

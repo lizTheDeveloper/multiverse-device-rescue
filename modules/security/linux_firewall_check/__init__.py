@@ -107,7 +107,7 @@ class Module(ModuleBase):
             names = ", ".join(s["tool"] for s in unknown)
             findings.append(
                 Finding(
-                    title="Firewall state could not be determined",
+                    title=f"Firewall status: {names} needs admin access to check",
                     description=(
                         f"{names} is installed, but its ruleset could not be read — "
                         "this usually means the check needs root. Re-run with sudo to "

@@ -397,7 +397,7 @@ class Module(ModuleBase):
                                 )
                                 findings.append(
                                     Finding(
-                                        title=f"Background item mentions an AI tool: {plist_file.name}",
+                                        title=f"Background item that mentions an AI tool: {plist_file.name}",
                                         description=(
                                             f"{plist_file} mentions an AI tool or vendor "
                                             f"(\"{tool}\"). Updaters and helpers for AI "
@@ -456,7 +456,7 @@ class Module(ModuleBase):
                             process_cmd = " ".join(parts[10:])[:100]
                             findings.append(
                                 Finding(
-                                    title=f"Unexpected Python/Node process with AI indicator",
+                                    title=f"AI-related program running: {process_cmd}",
                                     description=(
                                         f"Found process with AI reference: {process_cmd}"
                                     ),
@@ -506,7 +506,7 @@ class Module(ModuleBase):
                     continue
             findings.append(
                 Finding(
-                    title=f"AI-related configuration file detected: {item.name}",
+                    title=f"AI settings file: {item.name}",
                     description=(
                         f"Found an AI-related configuration at {item}. Review it to confirm "
                         "that it belongs to software you intentionally installed."

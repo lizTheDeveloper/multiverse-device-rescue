@@ -52,7 +52,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title=f"Mail data directory size: {mail_dir_gb:.2f} GB",
+                        title=f"Mail data size: {mail_dir_gb:.2f} GB",
                         description=f"~/Library/Mail/ is {mail_dir_gb:.2f} GB.",
                         severity=Severity.INFO,
                         category=self.category,
@@ -65,7 +65,7 @@ class Module(ModuleBase):
         if accounts_info is None:
             findings.append(
                 Finding(
-                    title="Could not determine Mail accounts",
+                    title="Could not read your Mail account list",
                     description="Unable to read Mail account configuration from defaults.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -78,7 +78,7 @@ class Module(ModuleBase):
             # Report total accounts
             findings.append(
                 Finding(
-                    title=f"Mail accounts configured: {total_accounts}",
+                    title=f"Mail accounts set up: {total_accounts}",
                     description=f"Total mail accounts configured: {total_accounts}.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -136,7 +136,7 @@ class Module(ModuleBase):
         if check_frequency is not None:
             findings.append(
                 Finding(
-                    title=f"Mail check frequency: {check_frequency}",
+                    title=f"Mail checks for new messages: {check_frequency}",
                     description=f"Mail is set to check for new messages {check_frequency}.",
                     severity=Severity.INFO,
                     category=self.category,

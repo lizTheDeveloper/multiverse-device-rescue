@@ -141,7 +141,7 @@ class Module(ModuleBase):
         )
         findings.append(
             Finding(
-                title=f"BSOD history ({event_count} events)",
+                title=f"Crash history: {event_count} events",
                 description=(
                     f"Found {event_count} Blue Screen of Death event(s) in event log. "
                     f"Stop codes: {stop_code_summary}. "

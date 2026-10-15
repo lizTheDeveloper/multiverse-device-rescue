@@ -136,7 +136,7 @@ class Module(ModuleBase):
                 elif "READ" in access_right:
                     findings.append(
                         Finding(
-                            title=f"Share '{share_name}' accessible to Everyone with read access",
+                            title=f"Shared folder '{share_name}' open to all users",
                             description=(
                                 f"The share '{share_name}' (path: {share_path}) is accessible "
                                 "to Everyone with read-only permissions. While read-only is safer "
@@ -199,7 +199,7 @@ class Module(ModuleBase):
         # Add INFO finding with all shares
         findings.append(
             Finding(
-                title="Network shares enumerated",
+                title=f"Shared folders found: {len(shares)}",
                 description=(
                     f"Found {len(shares)} total shares on system. {len(non_default_shares)} "
                     "non-default shares detected. Review share permissions and purposes regularly."

@@ -57,7 +57,7 @@ class Module(ModuleBase):
         # Report filesystem type
         findings.append(
             Finding(
-                title=f"Filesystem type: {fs_type}",
+                title=f"Your storage type: {fs_type}",
                 description=f"Root volume is formatted as {fs_type}.",
                 severity=Severity.INFO,
                 category=self.category,
@@ -89,7 +89,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title=f"FileVault encryption: {encryption_status}",
+                title=f"Disk encryption status: {encryption_status}",
                 description=f"FileVault encryption status: {encryption_status}",
                 severity=Severity.INFO,
                 category=self.category,
@@ -344,7 +344,7 @@ class Module(ModuleBase):
             if "Fusion Drive" in container_info:
                 findings.append(
                     Finding(
-                        title="APFS Fusion Drive detected",
+                        title="You have a Fusion Drive",
                         description="Your Mac is using an APFS Fusion Drive with combined SSD/HDD storage.",
                         severity=Severity.INFO,
                         category=self.category,
@@ -436,7 +436,7 @@ class Module(ModuleBase):
         elif "appears to be OK" in output or "is OK" in output:
             findings.append(
                 Finding(
-                    title="Filesystem verification passed",
+                    title="Disk health check passed",
                     description="Filesystem verification completed successfully with no errors detected.",
                     severity=Severity.INFO,
                     category=self.category,

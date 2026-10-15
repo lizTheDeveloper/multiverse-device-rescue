@@ -116,7 +116,7 @@ class Module(ModuleBase):
             uptime_str = uptime_info.get("uptime_str", "unknown") if uptime_info else "unknown"
             findings.append(
                 Finding(
-                    title=f"Boot status info - Uptime: {uptime_str}",
+                    title=f"System uptime: {uptime_str}",
                     description=(
                         f"Current system uptime: {uptime_str}. "
                         "Review warnings above for boot configuration issues."

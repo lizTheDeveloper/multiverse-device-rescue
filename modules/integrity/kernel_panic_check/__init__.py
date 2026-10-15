@@ -89,7 +89,7 @@ class Module(ModuleBase):
             # No recent panics - healthy
             findings.append(
                 Finding(
-                    title="No kernel panics detected in last 30 days",
+                    title="No system crashes in the last 30 days",
                     description="Your system has not experienced any kernel panics in the last 30 days. This is a good sign of system stability.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -153,7 +153,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title="Identified potential panic causes",
+                    title="Possible reasons for system crashes",
                     description=(
                         f"Analysis of panic logs suggests these potential causes: {causes_str}. "
                         f"Common causes include GPU drivers, memory issues, Thunderbolt devices, "

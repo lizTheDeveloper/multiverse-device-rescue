@@ -174,7 +174,7 @@ class Module(ModuleBase):
                 )
 
             return Finding(
-                title=f"Winsock catalog has {provider_count} providers (normal)",
+                title=f"Network components: {provider_count} found (normal)",
                 description=(
                     f"The Winsock catalog contains {provider_count} providers. "
                     "This is a normal count for a healthy network stack."
@@ -236,7 +236,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="TCP/IP parameters appear normal",
+                        title="Network settings appear normal",
                         description=(
                             "TCP/IP parameters are at their default values, indicating a healthy configuration."
                         ),
@@ -319,7 +319,7 @@ class Module(ModuleBase):
                     )
                 else:
                     return Finding(
-                        title="DNS Client service is running",
+                        title="Address lookup service is running",
                         description="The DNS Client (Dnscache) service is running normally.",
                         severity=Severity.INFO,
                         category=self.category,
@@ -358,7 +358,7 @@ class Module(ModuleBase):
                     )
                 else:
                     return Finding(
-                        title="DHCP Client service is running",
+                        title="Address assignment service is running",
                         description="The DHCP Client service is running normally.",
                         severity=Severity.INFO,
                         category=self.category,
@@ -377,7 +377,7 @@ class Module(ModuleBase):
             # In a real scenario, we'd track warnings vs info
             # For now, just provide summary
             return Finding(
-                title="Network stack health check complete",
+                title="Network health check complete",
                 description=(
                     f"Network stack integrity check found {issue_count} item(s) to review. "
                     "A healthy network stack is essential for internet connectivity. "

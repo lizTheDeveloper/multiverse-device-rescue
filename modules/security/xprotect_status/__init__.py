@@ -74,7 +74,7 @@ class Module(ModuleBase):
         elif gatekeeper_status:
             findings.append(
                 Finding(
-                    title=f"Gatekeeper status: {gatekeeper_status}",
+                    title=f"App security check: {gatekeeper_status}",
                     description=(
                         f"Gatekeeper is {gatekeeper_status}. Gatekeeper verifies that apps "
                         "are signed and notarized before running them."
@@ -110,7 +110,7 @@ class Module(ModuleBase):
             # XProtect bundle is readable - report current version
             findings.append(
                 Finding(
-                    title=f"XProtect definitions are installed (version {xprotect_version})",
+                    title=f"Built-in malware protection: version {xprotect_version}",
                     description=(
                         f"XProtect malware definitions are at version {xprotect_version}. "
                         "This provides built-in protection against known macOS malware."
@@ -169,7 +169,7 @@ class Module(ModuleBase):
         if mrt_version:
             findings.append(
                 Finding(
-                    title=f"MRT (Malware Removal Tool) version: {mrt_version}",
+                    title=f"Malware removal tool: version {mrt_version}",
                     description=(
                         f"Malware Removal Tool version is {mrt_version}. "
                         f"Last update: {mrt_last_update or 'unknown'}"

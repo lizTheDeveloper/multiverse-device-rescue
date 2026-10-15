@@ -112,7 +112,7 @@ class Module(ModuleBase):
         if other:
             findings.append(
                 Finding(
-                    title=f"{len(other)} package update(s) available",
+                    title=f"{len(other)} software updates available",
                     description=(
                         "Ordinary updates — bug fixes and new versions. Worth applying, but "
                         "not urgent in the way security updates are.\n\n"
@@ -265,7 +265,7 @@ class Module(ModuleBase):
             return None
 
         return Finding(
-            title=f"Confirm {pretty} is still receiving security updates",
+            title=f"Check if {pretty} is still supported",
             description=(
                 f"This machine reports {pretty}"
                 + (f" (version {version})" if version else "")

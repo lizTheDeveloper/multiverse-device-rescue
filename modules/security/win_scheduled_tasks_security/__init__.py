@@ -45,7 +45,7 @@ class Module(ModuleBase):
         if not tasks:
             findings.append(
                 Finding(
-                    title="Unable to enumerate scheduled tasks",
+                    title="Could not list your scheduled tasks",
                     description="Could not retrieve scheduled tasks. This may be a permission issue.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -215,7 +215,7 @@ class Module(ModuleBase):
             if self._is_hidden_task(attributes):
                 findings.append(
                     Finding(
-                        title=f"Scheduled task with hidden attributes",
+                        title=f"Hidden scheduled task: {task_name}",
                         description=(
                             f"Scheduled task '{task_name}' has hidden attributes. "
                             f"Hidden tasks are often used to conceal malware. "
@@ -235,7 +235,7 @@ class Module(ModuleBase):
         # Summary findings
         findings.append(
             Finding(
-                title=f"Scheduled tasks inventory ({total_count} total)",
+                title=f"Your scheduled tasks ({total_count} total)",
                 description=(
                     f"Found {total_count} total scheduled tasks. "
                     f"Identified {len(suspicious_tasks)} potentially suspicious tasks. "

@@ -181,7 +181,7 @@ class Module(ModuleBase):
         )
         findings.append(
             Finding(
-                title="Windows Firewall Rules Audit Summary",
+                title="Your Windows firewall rules",
                 description=f"{profile_summary}\n\n{rule_summary}",
                 severity=Severity.INFO,
                 category=self.category,

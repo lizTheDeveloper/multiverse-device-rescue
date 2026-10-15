@@ -130,7 +130,7 @@ def test_accessibility_check_all_disabled():
 
     # Should suggest enabling features
     titles = [f.title for f in info_findings]
-    assert any("Accessibility settings summary" in t for t in titles)
+    assert any("Your accessibility settings" in t for t in titles)
 
 
 def test_accessibility_check_zoom_enabled():
@@ -144,7 +144,7 @@ def test_accessibility_check_zoom_enabled():
     assert result.has_issues
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
     # Should still report settings and suggest other features
-    assert any("summary" in f.title.lower() for f in info_findings)
+    assert any("your accessibility settings" in f.title.lower() for f in info_findings)
 
 
 def test_accessibility_check_voiceover_enabled():
@@ -157,7 +157,7 @@ def test_accessibility_check_voiceover_enabled():
 
     assert result.has_issues
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
-    assert any("summary" in f.title.lower() for f in info_findings)
+    assert any("your accessibility settings" in f.title.lower() for f in info_findings)
 
 
 def test_accessibility_check_reduce_motion_enabled():
@@ -258,7 +258,7 @@ def test_accessibility_check_all_enabled():
     assert result.has_issues
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
     # Should report summary
-    assert any("summary" in f.title.lower() for f in info_findings)
+    assert any("your accessibility settings" in f.title.lower() for f in info_findings)
 
 
 def test_accessibility_check_fix_is_informational():

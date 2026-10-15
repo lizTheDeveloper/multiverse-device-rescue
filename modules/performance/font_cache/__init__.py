@@ -78,7 +78,9 @@ class Module(ModuleBase):
         atsutil_running = self._is_atsutil_running()
         findings.append(
             Finding(
-                title=f"Font server (atsutil) is {'running' if atsutil_running else 'not running'}",
+                title=(
+                    f"Font service status: {'running' if atsutil_running else 'not running'}"
+                ),
                 description=(
                     f"The Apple Type Services (atsutil) server is responsible for "
                     f"font caching and management. "

@@ -141,7 +141,7 @@ class Module(ModuleBase):
             if is_encrypted:
                 findings.append(
                     Finding(
-                        title=f"BitLocker status: {mount_point}",
+                        title=f"Encryption status: {mount_point}",
                         description=(
                             f"{mount_point} is encrypted using {encryption_method}. "
                             f"Protection: {protection}. "

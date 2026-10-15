@@ -212,9 +212,7 @@ class Module(ModuleBase):
         capped = total > examined
         findings.append(
             Finding(
-                title=(
-                    f"Signature audit covered {examined} of {total} application(s)"
-                ),
+                title=f"Checked {examined} of {total} app signatures",
                 description=(
                     f"Examined: {examined}\nPresent in the scanned locations: {total}\n"
                     f"Valid signatures: {len(results) - len(tampered) - len(unsigned) - len(rejected)}\n"

@@ -285,7 +285,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Accessibility settings summary",
+                title="Your accessibility settings",
                 description=description,
                 severity=Severity.INFO,
                 category=self.category,
@@ -304,7 +304,7 @@ class Module(ModuleBase):
             suggestions.append("suggest_zoom")
             findings.append(
                 Finding(
-                    title="Display Zoom not enabled",
+                    title="Display Zoom is off",
                     description=(
                         "Display Zoom enlarges UI elements throughout the system. "
                         "This can be helpful for users with vision difficulties."
@@ -320,7 +320,7 @@ class Module(ModuleBase):
             suggestions.append("suggest_voiceover")
             findings.append(
                 Finding(
-                    title="VoiceOver not enabled",
+                    title="VoiceOver is off",
                     description=(
                         "VoiceOver is a powerful screen reader that describes everything on screen. "
                         "This can help users with vision impairments navigate the system."
@@ -336,7 +336,7 @@ class Module(ModuleBase):
             suggestions.append("suggest_reduce_motion")
             findings.append(
                 Finding(
-                    title="Reduce Motion not enabled",
+                    title="Reduce Motion is off",
                     description=(
                         "Reduce Motion minimizes animations that can be distracting or cause motion sickness. "
                         "This may be helpful for users sensitive to motion or with vestibular disorders."
@@ -352,7 +352,7 @@ class Module(ModuleBase):
             suggestions.append("suggest_increase_contrast")
             findings.append(
                 Finding(
-                    title="Increase Contrast not enabled",
+                    title="Increase Contrast is off",
                     description=(
                         "Increase Contrast enhances color contrast for better visibility. "
                         "This can help users with low vision or color blindness."

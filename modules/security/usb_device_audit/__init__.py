@@ -55,7 +55,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"USB devices detected: {device_count} device(s) connected",
+                    title=f"USB devices: {device_count} connected",
                     description=(
                         f"Connected USB devices: {device_list}. "
                         "Review the list to ensure you recognize all connected devices."
@@ -112,7 +112,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"USB storage device(s) detected: {len(storage_devices)} device(s)",
+                    title=f"USB storage: {len(storage_devices)} found",
                     description=(
                         f"External storage devices: {storage_list}. "
                         "Ensure these devices are from trusted sources."
@@ -133,7 +133,7 @@ class Module(ModuleBase):
             hub_list = ", ".join(d.get("name", "Unknown Hub") for d in hubs)
             findings.append(
                 Finding(
-                    title=f"USB hub(s) detected: {hub_count} hub(s)",
+                    title=f"USB hubs: {hub_count} found",
                     description=(
                         f"USB hubs detected: {hub_list}. "
                         "Multiple daisy-chained hubs can cause power and stability issues on older Macs. "

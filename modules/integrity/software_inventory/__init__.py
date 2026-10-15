@@ -142,7 +142,7 @@ class Module(ModuleBase):
         # Add info finding with summary
         findings.append(
             Finding(
-                title=f"Software inventory: {len(apps_data)} application(s) installed",
+                title=f"Apps on your Mac: {len(apps_data)} installed",
                 description=f"Total: {len(apps_data)} apps. Old (2+ years): {len(old_2year_apps)}. "
                 f"Old (1+ year): {len(old_1year_apps)}. 32-bit: {len(apps_32bit)}.",
                 severity=Severity.INFO,

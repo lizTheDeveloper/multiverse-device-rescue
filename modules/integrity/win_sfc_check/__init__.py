@@ -166,7 +166,7 @@ class Module(ModuleBase):
             if cbs_results.get("scan_found", False):
                 findings.append(
                     Finding(
-                        title="SFC scan shows no integrity violations",
+                        title="System file check: no problems found",
                         description=(
                             "The most recent SFC scan found no integrity violations. "
                             "Windows system files are intact and healthy."
@@ -183,7 +183,7 @@ class Module(ModuleBase):
                 # No issues found, add status info
                 findings.append(
                     Finding(
-                        title="SFC status check complete",
+                        title="System file check finished",
                         description="System File Checker scan results reviewed.",
                         severity=Severity.INFO,
                         category=self.category,

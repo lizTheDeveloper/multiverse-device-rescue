@@ -177,7 +177,7 @@ class Module(ModuleBase):
         # Always add INFO status summary
         findings.append(
             Finding(
-                title="FileVault disk encryption recovery status",
+                title="FileVault disk encryption status",
                 description=(
                     f"FileVault is enabled. "
                     f"Personal recovery key: {'present' if has_personal_key else 'not found'}. "

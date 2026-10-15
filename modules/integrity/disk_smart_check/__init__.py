@@ -89,7 +89,7 @@ class Module(ModuleBase):
             # Healthy SMART status - report as INFO
             findings.append(
                 Finding(
-                    title="Drive SMART status: Verified",
+                    title="Your drive health check: Good",
                     description=(
                         f"Drive {smart_info.get('drive_model', 'Unknown')} ({smart_info.get('disk_type', 'Unknown')}) "
                         "reports SMART status 'Verified'. Drive appears to be in good health."
@@ -135,7 +135,7 @@ class Module(ModuleBase):
                 elif wear_percent > 60:
                     findings.append(
                         Finding(
-                            title=f"SSD wear level elevated ({wear_percent}%)",
+                            title=f"Your SSD wear level: {wear_percent}%",
                             description=(
                                 f"SSD {smart_info.get('drive_model', 'Unknown')} "
                                 f"reports wear level of {wear_percent}%. "

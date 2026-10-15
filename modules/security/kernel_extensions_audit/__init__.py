@@ -62,7 +62,7 @@ class Module(ModuleBase):
             # If we can't get kexts, flag it as informational
             findings.append(
                 Finding(
-                    title="Unable to audit kernel extensions",
+                    title="Couldn't check low-level system drivers",
                     description=(
                         "Could not retrieve kernel extensions. This may occur on "
                         "newer macOS versions (Monterey+) with restricted permissions "
@@ -145,7 +145,7 @@ class Module(ModuleBase):
                 kext_list = "\n".join(f"  - {bid}" for bid in sorted(non_problematic))
                 findings.append(
                     Finding(
-                        title=f"Third-party kernel extensions: {len(non_problematic)}",
+                        title=f"Extra system drivers: {len(non_problematic)}",
                         description=(
                             f"Found {len(non_problematic)} non-Apple kernel extension(s):\n{kext_list}\n\n"
                             "Third-party kexts can impact system stability and security. "

@@ -134,7 +134,7 @@ class Module(ModuleBase):
         if storage_info:
             findings.append(
                 Finding(
-                    title="System Restore disk allocation",
+                    title="System Restore storage usage",
                     description=(
                         f"System Restore uses {storage_info.get('used_space', 'unknown')} "
                         f"({storage_info.get('used_percent', 'unknown')}%) of "
@@ -157,7 +157,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"System Restore is enabled with {len(restore_points)} restore point(s)",
+                    title=f"System Restore is on ({len(restore_points)} points)",
                     description=(
                         f"System Restore is active and protecting your system. "
                         f"Recent restore points: {point_list}. "

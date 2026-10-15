@@ -111,7 +111,7 @@ class Module(ModuleBase):
         if netsh_proxy:
             findings.append(
                 Finding(
-                    title="System-wide proxy detected",
+                    title="Your system-wide proxy settings",
                     description=(
                         f"System-wide HTTP proxy is configured: {netsh_proxy}. "
                         "Verify this is intentional."

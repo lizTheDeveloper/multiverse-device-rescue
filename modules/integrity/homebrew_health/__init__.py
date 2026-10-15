@@ -114,7 +114,7 @@ class Module(ModuleBase):
         # Add info finding with summary
         findings.append(
             Finding(
-                title=f"Homebrew status: {package_count} package(s) installed",
+                title=f"Homebrew: {package_count} package(s) installed",
                 description=f"Installed packages: {package_count}. "
                 f"Outdated: {len(outdated_packages)}. "
                 f"Cache size: {cache_size_gb:.1f}GB. "

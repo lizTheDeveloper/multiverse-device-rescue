@@ -53,7 +53,7 @@ class Module(ModuleBase):
         )
         findings.append(
             Finding(
-                title="Display configuration detected",
+                title="Your connected displays",
                 description=f"Connected displays: {display_summary}. Display types: "
                 f"{', '.join([d.get('connection', 'Unknown') for d in displays])}.",
                 severity=Severity.INFO,
@@ -95,7 +95,7 @@ class Module(ModuleBase):
         if night_shift_info.get("night_shift_enabled"):
             findings.append(
                 Finding(
-                    title="Night Shift is enabled",
+                    title="Night Shift is on",
                     description=(
                         f"Night Shift is currently enabled with schedule: "
                         f"{night_shift_info.get('schedule', 'Unknown')}. "
@@ -116,7 +116,7 @@ class Module(ModuleBase):
         if night_shift_info.get("true_tone_enabled"):
             findings.append(
                 Finding(
-                    title="True Tone is enabled",
+                    title="True Tone is on",
                     description=(
                         "True Tone automatically adjusts display colors based on "
                         "ambient light. This feature is available on newer Macs."

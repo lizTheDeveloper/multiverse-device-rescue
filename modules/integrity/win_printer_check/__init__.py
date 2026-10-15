@@ -36,7 +36,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title="Print Spooler service status",
+                    title="Your print service status",
                     description=(
                         f"Print Spooler service status: {status}. "
                         f"Startup type: {startup_type}"

@@ -176,7 +176,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"Paired Bluetooth devices ({paired_count})",
+                    title=f"Your paired Bluetooth devices ({paired_count})",
                     description=(
                         f"Current Bluetooth status:\n" + "\n".join(device_summaries)
                     ),
@@ -193,7 +193,7 @@ class Module(ModuleBase):
         if bt_info.get("firmware_version"):
             findings.append(
                 Finding(
-                    title=f"Bluetooth firmware: {bt_info['firmware_version']}",
+                    title=f"Bluetooth firmware version: {bt_info['firmware_version']}",
                     description=(
                         f"Bluetooth controller firmware version: {bt_info['firmware_version']}"
                     ),

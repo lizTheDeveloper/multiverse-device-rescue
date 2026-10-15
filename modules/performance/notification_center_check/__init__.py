@@ -126,7 +126,7 @@ class Module(ModuleBase):
             # Add info summary
             findings.append(
                 Finding(
-                    title="Notification Center configuration summary",
+                    title="Your notification settings",
                     description=(
                         f"Apps with permissions: {apps_count}\n"
                         f"Apps using Alerts style: {alert_count}\n"

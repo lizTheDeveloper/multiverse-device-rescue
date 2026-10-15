@@ -171,7 +171,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Pagefile configuration summary",
+                title="Your virtual memory settings",
                 description=(
                     f"Location: {pagefile_location}\n"
                     f"Configured size: {pagefile_config}\n"

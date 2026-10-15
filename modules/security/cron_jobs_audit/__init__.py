@@ -63,7 +63,7 @@ class Module(ModuleBase):
         if cron_entries:
             findings.append(
                 Finding(
-                    title=f"User and system cron jobs found: {len(cron_entries)} entries",
+                    title=f"Your scheduled tasks: {len(cron_entries)} found",
                     description=(
                         f"Found {len(cron_entries)} total cron job entries from user crontab, "
                         "system crontabs, periodic scripts, and at jobs. "

@@ -232,7 +232,10 @@ class Module(ModuleBase):
             names = sorted({i["process"] for i in items})
             findings.append(
                 Finding(
-                    title=f"{len(items)} connection(s) from familiar-looking programs on uncommon ports",
+                    title=(
+                        f"{len(items)} connection(s) from familiar-looking programs on "
+                        "uncommon ports"
+                    ),
                     description=(
                         "These programs use a familiar name or a port used for push "
                         f"notifications: {', '.join(names)}. That is normal for browsers, "

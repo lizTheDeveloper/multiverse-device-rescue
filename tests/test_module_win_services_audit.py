@@ -172,7 +172,7 @@ def test_win_services_audit_detects_bloatware():
     with patch("subprocess.run", side_effect=_fake_powershell_run(BLOATWARE_SERVICES)):
         result = mod.check(_make_profile())
     assert result.has_issues
-    assert any("bloatware" in f.title.lower() for f in result.findings)
+    assert any(f.code == "security.win_services_audit.bloatware_detected" for f in result.findings)
     assert any(f.severity == Severity.INFO for f in result.findings)
 
 

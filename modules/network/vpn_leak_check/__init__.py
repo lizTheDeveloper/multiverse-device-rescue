@@ -34,7 +34,7 @@ class Module(ModuleBase):
             # No VPNs configured - this is normal for most users
             findings.append(
                 Finding(
-                    title="No VPN configurations detected",
+                    title="No VPN settings found",
                     description="No VPN services are configured on this system.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -67,7 +67,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="VPN configurations detected",
+                title="Your VPN settings",
                 description=(
                     "The following VPN configurations are available:\n" +
                     "\n".join(vpn_summary)

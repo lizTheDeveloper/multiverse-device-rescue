@@ -164,7 +164,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"User accounts summary ({len(all_user_details)} users found)",
+                    title=f"Your user accounts ({len(all_user_details)} found)",
                     description=(
                         f"Found {len(all_user_details)} user accounts on the system:\n{user_details}"
                     ),

@@ -62,7 +62,7 @@ class Module(ModuleBase):
         if app_extensions:
             findings.append(
                 Finding(
-                    title=f"Safari extensions installed: {len(app_extensions)}",
+                    title=f"Safari add-ons installed: {len(app_extensions)}",
                     description=(
                         f"Found {len(app_extensions)} Safari extension(s): "
                         f"{', '.join(sorted(app_extensions))}. "

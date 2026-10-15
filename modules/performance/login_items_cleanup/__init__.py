@@ -64,7 +64,7 @@ class Module(ModuleBase):
         if all_items_list:
             findings.append(
                 Finding(
-                    title=f"Login items count: {item_count}",
+                    title=f"Programs that start at login: {item_count}",
                     description=(
                         f"System has {item_count} login item(s): {', '.join(all_items_list)}. "
                         f"Each item adds to boot time and memory usage."

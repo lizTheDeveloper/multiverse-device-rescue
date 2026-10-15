@@ -101,7 +101,7 @@ class Module(ModuleBase):
         if input_monitoring_apps:
             findings.append(
                 Finding(
-                    title=f"Input Monitoring access: {len(input_monitoring_apps)} app(s)",
+                    title=f"Keyboard access: {len(input_monitoring_apps)} app(s)",
                     description=(
                         f"{len(input_monitoring_apps)} app(s) have been granted Input Monitoring "
                         f"access: {', '.join(sorted(input_monitoring_apps))}. "
@@ -163,7 +163,9 @@ class Module(ModuleBase):
         if claimed_known_apps:
             findings.append(
                 Finding(
-                    title=f"Input Monitoring for {len(claimed_known_apps)} app(s) with familiar names",
+                    title=(
+                        f"Keyboard access: {len(claimed_known_apps)} app(s) with familiar names"
+                    ),
                     description=(
                         f"These app(s) have Input Monitoring access and use the name of a "
                         f"familiar company or app: {', '.join(sorted(claimed_known_apps))}. "

@@ -256,7 +256,10 @@ class Module(ModuleBase):
         if bloatware_services:
             findings.append(
                 Finding(
-                    title=f"Detected {len(bloatware_services)} bloatware service(s)",
+                    title=(
+                        f"{len(bloatware_services)} pre-installed app service(s) start "
+                        "automatically"
+                    ),
                     description=(
                         f"Found {len(bloatware_services)} known bloatware or pre-installed manufacturer service(s) "
                         "set to auto-start. These services consume resources and may not be necessary."
@@ -277,7 +280,10 @@ class Module(ModuleBase):
             # Only report if we didn't already report bloatware
             findings.append(
                 Finding(
-                    title=f"Found {len(non_microsoft_auto_start)} non-Microsoft auto-start service(s)",
+                    title=(
+                        f"{len(non_microsoft_auto_start)} third-party service(s) start "
+                        "automatically"
+                    ),
                     description=(
                         f"Detected {len(non_microsoft_auto_start)} third-party services set to auto-start. "
                         "Review these to ensure they are necessary."

@@ -161,7 +161,7 @@ def test_kernel_panic_check_panics_older_than_30_days(tmp_path):
 
     # Should show no recent panics
     assert result.has_issues
-    assert any("no kernel panics" in f.title.lower() for f in result.findings)
+    assert any("no system crashes" in f.title.lower() for f in result.findings)
 
 
 def test_kernel_panic_check_mixed_old_and_recent(tmp_path):
@@ -241,7 +241,7 @@ def test_kernel_panic_check_identifies_gpu_causes(tmp_path):
             result = mod.check(_make_profile())
 
     causes_findings = [
-        f for f in result.findings if "identified potential panic causes" in f.title.lower()
+        f for f in result.findings if "possible reasons for system crashes" in f.title.lower()
     ]
     assert len(causes_findings) > 0
     assert "Graphics/GPU issue" in str(causes_findings[0].data.get("identified_causes", {})) or \
@@ -264,7 +264,7 @@ def test_kernel_panic_check_identifies_memory_causes(tmp_path):
             result = mod.check(_make_profile())
 
     causes_findings = [
-        f for f in result.findings if "identified potential panic causes" in f.title.lower()
+        f for f in result.findings if "possible reasons for system crashes" in f.title.lower()
     ]
     assert len(causes_findings) > 0
     assert "Memory/RAM issue" in str(causes_findings[0].data.get("identified_causes", {}))
@@ -286,7 +286,7 @@ def test_kernel_panic_check_identifies_kext_causes(tmp_path):
             result = mod.check(_make_profile())
 
     causes_findings = [
-        f for f in result.findings if "identified potential panic causes" in f.title.lower()
+        f for f in result.findings if "possible reasons for system crashes" in f.title.lower()
     ]
     assert len(causes_findings) > 0
 

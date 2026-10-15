@@ -113,7 +113,7 @@ class Module(ModuleBase):
         if total_cert_count > 0:
             findings.append(
                 Finding(
-                    title=f"System keychain contains {total_cert_count} certificate(s)",
+                    title=f"Certificates in your system: {total_cert_count}",
                     description=(
                         f"The System keychain has {total_cert_count} total certificates. "
                         "Regularly audit certificates to remove expired or untrusted ones."

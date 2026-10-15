@@ -33,7 +33,7 @@ class Module(ModuleBase):
         if not interfaces:
             findings.append(
                 Finding(
-                    title="No Ethernet interfaces found",
+                    title="No Ethernet ports found",
                     description="No Ethernet adapters detected on this system.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -498,7 +498,7 @@ class Module(ModuleBase):
         description = "\n".join(summary_parts)
 
         return Finding(
-            title="Ethernet configuration summary",
+            title="Your Ethernet settings",
             description=description,
             severity=Severity.INFO,
             category=self.category,

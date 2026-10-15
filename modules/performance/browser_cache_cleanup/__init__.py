@@ -54,7 +54,7 @@ class Module(ModuleBase):
             if size > 0:
                 findings.append(
                     Finding(
-                        title=f"{browser_name} cache: {_fmt_bytes(size)}",
+                        title=f"{browser_name} cache size: {_fmt_bytes(size)}",
                         description=(
                             f"{browser_name} cache is using {_fmt_bytes(size)}. "
                             f"Browser caches can be safely cleared and will be regenerated as needed."

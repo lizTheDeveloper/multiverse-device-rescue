@@ -192,7 +192,7 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title="Suspicious process activity detected",
+                    title=f"Processes that need a look: {summary_count}",
                     description=(
                         f"Found {summary_count} suspicious process(es) during scan. "
                         "Review findings and investigate or remove suspicious processes."

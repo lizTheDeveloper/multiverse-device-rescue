@@ -68,7 +68,7 @@ class Module(ModuleBase):
         if version:
             findings.append(
                 Finding(
-                    title=f"ClamAV antivirus is installed (version {version})",
+                    title=f"Antivirus software installed: ClamAV {version}",
                     description=(
                         f"ClamAV version {version} is installed. "
                         "This provides free, open-source antivirus scanning capability."
@@ -105,7 +105,7 @@ class Module(ModuleBase):
         if def_version:
             findings.append(
                 Finding(
-                    title=f"ClamAV virus definitions (version {def_version})",
+                    title=f"ClamAV virus definitions: {def_version}",
                     description=(
                         f"Virus definition version {def_version} is installed. "
                         f"Definition database age: {def_age} days."
@@ -163,7 +163,7 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="clamd daemon is running",
+                    title="ClamAV background scanner is running",
                     description="The ClamAV daemon (clamd) is running and provides on-access scanning.",
                     severity=Severity.INFO,
                     category=self.category,

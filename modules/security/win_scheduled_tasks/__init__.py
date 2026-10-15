@@ -41,7 +41,7 @@ class Module(ModuleBase):
         if tasks:
             findings.append(
                 Finding(
-                    title=f"Found {len(tasks)} non-Microsoft scheduled tasks",
+                    title=f"Non-Microsoft scheduled tasks: {len(tasks)}",
                     description=(
                         "The system has non-Microsoft scheduled tasks. "
                         "Review them for unauthorized or suspicious activity."

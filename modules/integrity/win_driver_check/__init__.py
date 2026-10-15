@@ -116,7 +116,7 @@ class Module(ModuleBase):
         if recent_drivers:
             findings.append(
                 Finding(
-                    title=f"Recently updated drivers ({len(recent_drivers)})",
+                    title=f"Drivers updated in the last 30 days: {len(recent_drivers)}",
                     description=(
                         f"Found {len(recent_drivers)} driver(s) updated in the last 30 days. "
                         "These are typically recent updates. Monitor system stability if "
@@ -165,7 +165,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"Driver summary: {status_msg}",
+                    title=f"Driver status: {status_msg}",
                     description=description,
                     severity=Severity.INFO,
                     category=self.category,

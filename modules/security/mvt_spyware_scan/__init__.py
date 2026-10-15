@@ -88,7 +88,7 @@ class Module(ModuleBase):
         if profile.platform == Platform.WIN32:
             findings.append(
                 Finding(
-                    title="MVT spyware scan requires WSL on Windows",
+                    title="Spyware scan needs a Linux setup on Windows",
                     description=(
                         "Amnesty International's Mobile Verification Toolkit (MVT) "
                         "does not run natively on Windows. Install the Windows "
@@ -130,7 +130,7 @@ class Module(ModuleBase):
         if not mvt_bin:
             findings.append(
                 Finding(
-                    title="MVT (Mobile Verification Toolkit) is not installed",
+                    title=f"Spyware scanner not installed ({len(backups)} backup(s) found)",
                     description=(
                         f"Found {len(backups)} device backup(s) but MVT is not "
                         "installed, so they could not be scanned for spyware "
@@ -156,10 +156,7 @@ class Module(ModuleBase):
             # backups exist and a scan is available to run explicitly.
             findings.append(
                 Finding(
-                    title=(
-                        f"{len(backups)} device backup(s) found — spyware scan "
-                        "available (not run automatically)"
-                    ),
+                    title=f"{len(backups)} device backup(s) found (scan available)",
                     description=(
                         f"Found {len(backups)} device backup(s) and MVT is "
                         "installed, but the backup spyware scan was NOT run "

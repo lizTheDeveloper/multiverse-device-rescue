@@ -68,7 +68,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Top 10 largest files: {_fmt_bytes(total_size)}",
+                    title=f"Your 10 biggest files: {_fmt_bytes(total_size)}",
                     description=(
                         f"Found {len(large_files)} files larger than {_fmt_bytes(LARGE_FILE_SIZE)}:\n"
                         f"{top_files_desc}"
@@ -114,7 +114,7 @@ class Module(ModuleBase):
             desktop_size = sum(f["size"] for f in desktop_files)
             findings.append(
                 Finding(
-                    title=f"Large files on Desktop: {_fmt_bytes(desktop_size)}",
+                    title=f"Big files on your Desktop: {_fmt_bytes(desktop_size)}",
                     description=(
                         f"Found {len(desktop_files)} large files on ~/Desktop using {_fmt_bytes(desktop_size)}. "
                         f"Consider organizing or moving these files."

@@ -54,7 +54,9 @@ class Module(ModuleBase):
         xprotect_remediator_version = self._get_xprotect_remediator_version()
         findings.append(
             Finding(
-                title=f"XProtect Remediator: {'Present' if xprotect_remediator_version else 'Not found'}",
+                title=(
+                    f"Apple's malware cleanup tool: {'found' if xprotect_remediator_version else 'not found'}"
+                ),
                 description=(
                     f"XProtect Remediator (malware remediation tool) is "
                     f"{'installed' if xprotect_remediator_version else 'not detected'}. "
@@ -71,7 +73,9 @@ class Module(ModuleBase):
         mrt_version = self._get_mrt_version()
         findings.append(
             Finding(
-                title=f"MRT (Malware Removal Tool): {'Present' if mrt_version else 'Not found'}",
+                title=(
+                    f"Apple's malware removal tool: {'found' if mrt_version else 'not found'}"
+                ),
                 description=(
                     f"MRT is Apple's Malware Removal Tool, a background process that "
                     f"{'is installed' if mrt_version else 'was not detected'}. "
@@ -90,7 +94,7 @@ class Module(ModuleBase):
             av_list = ", ".join(detected_av.keys())
             findings.append(
                 Finding(
-                    title=f"Third-party antivirus detected: {av_list}",
+                    title=f"Extra antivirus software installed: {av_list}",
                     description=(
                         f"The following third-party antivirus/anti-malware applications are installed: "
                         f"{av_list}. These provide additional protection beyond macOS built-in tools."
@@ -126,7 +130,7 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="No third-party antivirus detected",
+                    title="No extra antivirus software found",
                     description=(
                         "No common third-party antivirus applications were detected. "
                         "macOS built-in protections (XProtect, MRT) are active."

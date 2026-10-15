@@ -281,7 +281,7 @@ class Module(ModuleBase):
         if managed_accounts:
             findings.append(
                 Finding(
-                    title=f"Managed child account(s) detected: {len(managed_accounts)}",
+                    title=f"Child accounts on this device: {len(managed_accounts)}",
                     description=(
                         f"This device has {len(managed_accounts)} managed/child account(s): "
                         f"{', '.join(managed_accounts)}. Ensure Screen Time is enabled and "

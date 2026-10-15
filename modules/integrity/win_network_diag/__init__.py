@@ -294,7 +294,7 @@ class Module(ModuleBase):
                     # Likely has a proxy configured
                     findings.append(
                         Finding(
-                            title="Proxy settings detected",
+                            title="Your proxy settings",
                             description=(
                                 "A proxy is configured on this system via WinHTTP settings. "
                                 "This may affect network connectivity if not properly configured."

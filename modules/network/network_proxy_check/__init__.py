@@ -32,7 +32,7 @@ class Module(ModuleBase):
         if not interfaces:
             return CheckResult(module_name=self.name, findings=[
                 Finding(
-                    title="Unable to retrieve network services",
+                    title="Couldn't check network settings",
                     description="Could not query network services using networksetup.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -190,7 +190,7 @@ class Module(ModuleBase):
                 if bypass_domains:
                     findings.append(
                         Finding(
-                            title=f"Proxy bypass domains configured on {interface}",
+                            title=f"Proxy exceptions on {interface}",
                             description=(
                                 f"Proxy bypass domains are configured on {interface}: {', '.join(bypass_domains)}. "
                                 f"This defines which domains bypass the proxy configuration."
@@ -216,7 +216,7 @@ class Module(ModuleBase):
             if config_summary:
                 findings.append(
                     Finding(
-                        title="Network proxy configuration summary",
+                        title="Your proxy settings",
                         description=(
                             f"Proxy configuration found on the following interfaces:\n" +
                             "\n".join(config_summary)

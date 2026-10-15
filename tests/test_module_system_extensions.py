@@ -134,7 +134,7 @@ def test_system_extensions_single_active():
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.severity == Severity.INFO for f in result.findings)
-    assert any("activated" in f.title.lower() for f in result.findings)
+    assert any("active system extension" in f.title.lower() for f in result.findings)
 
 
 def test_system_extensions_multiple_extensions():

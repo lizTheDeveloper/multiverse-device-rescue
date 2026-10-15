@@ -179,7 +179,7 @@ class Module(ModuleBase):
         if suspicious_char_procs:
             findings.append(
                 Finding(
-                    title=f"Processes with suspicious names: {len(suspicious_char_procs)}",
+                    title=f"Apps with unusual names: {len(suspicious_char_procs)}",
                     description=(
                         f"Found {len(suspicious_char_procs)} process(es) with suspicious characteristics "
                         f"(hidden names or random-looking): "
@@ -225,7 +225,7 @@ class Module(ModuleBase):
         if unsigned_app_procs:
             findings.append(
                 Finding(
-                    title=f"Unsigned apps in /Applications: {len(unsigned_app_procs)}",
+                    title=f"Apps without a signature: {len(unsigned_app_procs)}",
                     description=(
                         f"Found {len(unsigned_app_procs)} app(s) in /Applications without a bundle ID "
                         f"(unsigned or suspicious): "

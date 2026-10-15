@@ -214,7 +214,7 @@ def test_win_autoruns_audit_lists_all_entries():
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
     assert len(info_findings) > 0
     # Should have an inventory listing
-    inventory = next((f for f in info_findings if "inventory" in f.title.lower()), None)
+    inventory = next((f for f in info_findings if f.code == "security.win_autoruns_audit.inventory"), None)
     assert inventory is not None
 
 

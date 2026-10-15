@@ -145,7 +145,7 @@ class Module(ModuleBase):
         if not findings:
             findings.append(
                 Finding(
-                    title="No security-relevant changes since the last baseline",
+                    title="No security changes since the last check",
                     description=(
                         "Nothing was added to the persistence surface, no new port "
                         "started listening, no new browser extension appeared, and no "

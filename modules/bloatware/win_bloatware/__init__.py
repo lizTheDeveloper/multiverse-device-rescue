@@ -67,7 +67,7 @@ class Module(ModuleBase):
         bloatware_count = len(bloatware_found)
         findings.append(
             Finding(
-                title=f"Installed apps summary: {total_count} total, {bloatware_count} bloatware",
+                title=f"Your apps: {total_count} installed, {bloatware_count} known extra software",
                 description=(
                     f"Your system has {total_count} installed UWP/Store apps. "
                     f"Found {bloatware_count} bloatware apps. "

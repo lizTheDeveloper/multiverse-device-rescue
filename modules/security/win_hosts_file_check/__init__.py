@@ -187,7 +187,7 @@ class Module(ModuleBase):
         if entries:
             findings.append(
                 Finding(
-                    title=f"Hosts file contains {len(entries)} entries",
+                    title=f"Your hosts file has {len(entries)} entries",
                     description=(
                         f"The hosts file has {len(entries)} non-comment, non-empty entries. "
                         f"Review custom entries to ensure they are intentional."

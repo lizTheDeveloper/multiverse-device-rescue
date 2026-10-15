@@ -104,7 +104,9 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"Crash report summary: {total_recent_crashes} recent, {total_all_crashes} total",
+                    title=(
+                        f"Crash reports: {total_recent_crashes} recent, {total_all_crashes} total"
+                    ),
                     description=(
                         f"Found {total_recent_crashes} crash reports in the last 7 days "
                         f"(total: {total_all_crashes}). "

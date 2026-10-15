@@ -180,7 +180,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Print Spooler status summary",
+                title="Your printer status",
                 description=info_msg,
                 severity=Severity.INFO,
                 category=self.category,

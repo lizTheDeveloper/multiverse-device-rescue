@@ -139,7 +139,7 @@ class Module(ModuleBase):
         if not findings:  # Only add summary if no warnings yet
             findings.append(
                 Finding(
-                    title=f"System log summary: {error_count} errors in 1 hour",
+                    title=f"System log: {error_count} errors in the last hour",
                     description=(
                         f"The system log contains {error_count} error(s) across "
                         f"{unique_sources} different source(s) in the last hour. "

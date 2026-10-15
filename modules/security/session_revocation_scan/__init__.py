@@ -189,7 +189,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Session revocation surface inventory",
+                title="Where you are signed in on this device",
                 description=(
                     f"Browser profiles: {sum(b['profiles'] for b in browsers)}\n"
                     f"System accounts: {len(accounts)}\n"

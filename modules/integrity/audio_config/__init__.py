@@ -54,7 +54,7 @@ class Module(ModuleBase):
         device_list = _format_device_list(devices)
         findings.append(
             Finding(
-                title=f"Audio devices detected ({len(devices)} total)",
+                title=f"Your audio devices ({len(devices)} total)",
                 description=f"Available audio input/output devices:\n{device_list}",
                 severity=Severity.INFO,
                 category=self.category,

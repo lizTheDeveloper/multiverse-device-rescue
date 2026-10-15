@@ -129,7 +129,7 @@ class Module(ModuleBase):
             compressed_mb = (compressed_pages * page_size) / (1024 * 1024)
             findings.append(
                 Finding(
-                    title="Compressed memory detected",
+                    title=f"Memory compression: {compressed_mb:.1f} MB",
                     description=(
                         f"The system is using {compressed_mb:.1f} MB of compressed memory. "
                         "This is a normal macOS memory optimization, but high compression "

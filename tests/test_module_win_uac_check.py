@@ -107,7 +107,7 @@ def test_win_uac_check_healthy():
     assert result.has_issues
     assert len(result.findings) == 1
     assert result.findings[0].severity == Severity.INFO
-    assert "properly configured" in result.findings[0].title.lower()
+    assert "set up correctly" in result.findings[0].title.lower()
 
 
 def test_win_uac_check_uac_disabled_is_critical():

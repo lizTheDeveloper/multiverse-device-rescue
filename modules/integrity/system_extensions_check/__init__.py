@@ -101,7 +101,7 @@ class Module(ModuleBase):
         )
         findings.append(
             Finding(
-                title=f"System extensions installed ({total_count} total, {active_count} active)",
+                title=f"Installed system add-ons: {total_count} total, {active_count} active",
                 description=(
                     f"Found {total_count} system extension(s):\n"
                     f"  Active (activated_enabled): {active_count}\n"

@@ -50,7 +50,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"MDM enrollment detected: {mdm_server}",
+                    title=f"Managed by: {mdm_server}",
                     description=(
                         f"Device is enrolled in Mobile Device Management (MDM). "
                         f"MDM Server: {mdm_server}\n"

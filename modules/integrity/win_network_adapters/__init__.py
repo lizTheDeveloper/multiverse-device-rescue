@@ -69,7 +69,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"Network adapter: {adapter_name}",
+                    title=f"Network connection: {adapter_name}",
                     description=(
                         f"Status: {status}. Link Speed: {link_speed}. MAC Address: {mac_address}"
                     ),
@@ -151,7 +151,7 @@ class Module(ModuleBase):
                 if ipv4_addr or ipv6_addr:
                     findings.append(
                         Finding(
-                            title=f"IP configuration for {iface_name}",
+                            title=f"Network address for {iface_name}",
                             description=(
                                 f"IPv4: {ipv4_addr or 'None'}. "
                                 f"Gateway: {ipv4_gateway or 'None'}. "
@@ -200,7 +200,7 @@ class Module(ModuleBase):
             if dns_servers:
                 findings.append(
                     Finding(
-                        title="DNS servers configured",
+                        title="Your internet name lookup settings",
                         description=(
                             f"Configured DNS servers: {', '.join(dns_servers)}"
                         ),

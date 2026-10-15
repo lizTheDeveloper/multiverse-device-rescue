@@ -262,7 +262,7 @@ class Module(ModuleBase):
         if ed25519_keys:
             findings.append(
                 Finding(
-                    title=f"Ed25519 keys found: {len(ed25519_keys)}",
+                    title=f"Modern SSH keys: {len(ed25519_keys)}",
                     description=(
                         f"You have {len(ed25519_keys)} Ed25519 SSH key(s): {', '.join(ed25519_keys)}. "
                         f"Ed25519 keys are modern and recommended."
@@ -277,7 +277,7 @@ class Module(ModuleBase):
         if rsa_keys:
             findings.append(
                 Finding(
-                    title=f"RSA keys found: {len(rsa_keys)}",
+                    title=f"Standard SSH keys: {len(rsa_keys)}",
                     description=(
                         f"You have {len(rsa_keys)} strong RSA SSH key(s): {', '.join(rsa_keys)}. "
                         f"RSA keys with 2048+ bits are acceptable."
@@ -415,7 +415,7 @@ class Module(ModuleBase):
             if lines:
                 findings.append(
                     Finding(
-                        title=f"Authorized keys found: {len(lines)} entry(ies)",
+                        title=f"Remote access keys: {len(lines)}",
                         description=(
                             f"You have {len(lines)} authorized key(s) in authorized_keys. "
                             f"These allow remote systems to authenticate to your account. "
@@ -450,7 +450,7 @@ class Module(ModuleBase):
                 key_count = len(lines)
                 findings.append(
                     Finding(
-                        title=f"SSH agent is running with {key_count} key(s) loaded",
+                        title=f"SSH helper is active ({key_count} keys)",
                         description=(
                             f"SSH agent is active with {key_count} key(s) loaded. "
                             f"This allows applications to use your SSH keys without passwords."
@@ -571,7 +571,7 @@ class Module(ModuleBase):
             if lines:
                 findings.append(
                     Finding(
-                        title=f"Known hosts found: {len(lines)} entry(ies)",
+                        title=f"Saved server records: {len(lines)}",
                         description=(
                             f"You have {len(lines)} host(s) in known_hosts. "
                             f"These are SSH server fingerprints that have been verified. "

@@ -76,7 +76,7 @@ class Module(ModuleBase):
             elif "activated" in state:
                 findings.append(
                     Finding(
-                        title=f"Activated system extension: {name}",
+                        title=f"Active system extension: {name}",
                         description=(
                             f"The system extension '{name}' (Team ID: {team_id}) "
                             f"is activated. Version: {version}. "

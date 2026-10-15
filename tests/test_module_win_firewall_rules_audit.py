@@ -205,7 +205,7 @@ def test_few_restricted_rules_summary():
     # Should have at least one INFO summary finding
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
     assert len(info_findings) >= 1
-    assert "summary" in info_findings[0].title.lower()
+    assert "windows firewall rules" in info_findings[0].title.lower()
 
 
 def test_fix_critical_issue():

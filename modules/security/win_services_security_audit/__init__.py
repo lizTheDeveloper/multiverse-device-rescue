@@ -383,7 +383,7 @@ class Module(ModuleBase):
         start_str = ", ".join(f"{k}: {v}" for k, v in sorted(by_start_mode.items()))
 
         return Finding(
-            title="Windows services audit summary",
+            title=f"Your Windows services: {total} total",
             description=(
                 f"Total services: {total}\n"
                 f"By state: {state_str}\n"

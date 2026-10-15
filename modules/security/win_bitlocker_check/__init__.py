@@ -171,7 +171,7 @@ class Module(ModuleBase):
                 protector_list = ", ".join(key_protectors) if key_protectors else "None"
                 findings.append(
                     Finding(
-                        title=f"BitLocker status: {mount_point}",
+                        title=f"Disk encryption: {mount_point}",
                         description=(
                             f"{mount_point} is encrypted using {encryption_method}. "
                             f"Protection: {protection}. "

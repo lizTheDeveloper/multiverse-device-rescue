@@ -95,7 +95,7 @@ class Module(ModuleBase):
             # RDP is disabled - this is secure
             findings.append(
                 Finding(
-                    title="RDP is disabled",
+                    title="Remote desktop access is turned off",
                     description=(
                         "Remote Desktop Protocol (RDP) is disabled. "
                         "This is the secure default configuration."

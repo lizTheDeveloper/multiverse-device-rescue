@@ -57,7 +57,7 @@ class Module(ModuleBase):
         if user_agent_count > 20:
             findings.append(
                 Finding(
-                    title=f"{user_agent_count} launch agents are set up for your user",
+                    title=f"{user_agent_count} background items set up for your user",
                     description=(
                         f"Found {user_agent_count} user-level launch agents. "
                         "Apps, updaters and developer tools (such as Homebrew services) "
@@ -222,7 +222,7 @@ class Module(ModuleBase):
                 if disabled:
                     findings.append(
                         Finding(
-                            title=f"Disabled launch {noun}: {label}",
+                            title=f"Turned-off background item: {label}",
                             description=(
                                 f"Launch {noun} is disabled but still on disk: {label}\n"
                                 f"Location: {plist_path}\n"
@@ -272,7 +272,7 @@ class Module(ModuleBase):
                     # Log legitimate agents as INFO
                     findings.append(
                         Finding(
-                            title=f"Launch {noun}: {label}",
+                            title=f"Background item: {label}",
                             description=(
                                 f"Launch {noun} found: {label}\n"
                                 f"Command: {command}\n"
@@ -297,7 +297,7 @@ class Module(ModuleBase):
                 # folder, so list it rather than hiding it from the report.
                 findings.append(
                     Finding(
-                        title=f"Launch {noun} file could not be read: {plist_path.name}",
+                        title=f"Background item file unreadable: {plist_path.name}",
                         description=(
                             f"This tool could not read {plist_path}. It may be damaged or "
                             "in an unusual format. If you do not recognize it, "

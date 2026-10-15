@@ -34,7 +34,7 @@ class Module(ModuleBase):
         if not gpu_info:
             findings.append(
                 Finding(
-                    title="GPU information unavailable",
+                    title="Graphics card info not available",
                     description=(
                         "Unable to retrieve GPU configuration information from "
                         "system_profiler. GPU checks cannot be completed."
@@ -52,7 +52,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="GPU configuration detected",
+                title="Your graphics card details",
                 description=(
                     f"GPU Model: {gpu_info.get('model', 'Unknown')}. "
                     f"VRAM: {gpu_info.get('vram', 'Unknown')}. "

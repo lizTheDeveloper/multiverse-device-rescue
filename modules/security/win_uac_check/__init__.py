@@ -115,7 +115,7 @@ class Module(ModuleBase):
         if not findings:
             findings.append(
                 Finding(
-                    title="User Account Control (UAC) is properly configured",
+                    title="User Account Control (UAC) is set up correctly",
                     description=(
                         "UAC is enabled with secure prompts configured. The system "
                         "has good protection against unauthorized changes."

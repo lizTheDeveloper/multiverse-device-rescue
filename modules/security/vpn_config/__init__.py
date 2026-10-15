@@ -97,7 +97,7 @@ class Module(ModuleBase):
             # Add informational finding with all VPN configurations
             findings.append(
                 Finding(
-                    title=f"VPN configuration found ({len(vpn_configs)} configured)",
+                    title=f"Your VPN settings ({len(vpn_configs)} found)",
                     description=(
                         f"Found {len(vpn_configs)} VPN configuration(s) on this Mac:\n" +
                         "\n".join([
@@ -121,7 +121,7 @@ class Module(ModuleBase):
         if third_party_vpns:
             findings.append(
                 Finding(
-                    title=f"Third-party VPN app(s) detected ({len(third_party_vpns)})",
+                    title=f"Third-party VPN apps ({len(third_party_vpns)} found)",
                     description=(
                         f"Found {len(third_party_vpns)} third-party VPN application(s) with "
                         f"network extensions installed:\n" +

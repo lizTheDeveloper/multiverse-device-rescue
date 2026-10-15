@@ -180,7 +180,7 @@ class Module(ModuleBase):
             mtu_text = ", ".join([f"{s}: {m}" for s, m in non_standard_mtu])
             findings.append(
                 Finding(
-                    title="Non-standard MTU settings detected",
+                    title="Unusual network packet size (MTU) settings",
                     description=(
                         f"The following services have non-standard MTU settings: {mtu_text}. "
                         f"Standard MTU is 1500 bytes. Non-standard values may cause connectivity issues."
@@ -198,7 +198,7 @@ class Module(ModuleBase):
         if ipv6_disabled:
             findings.append(
                 Finding(
-                    title="IPv6 disabled on some interfaces",
+                    title="IPv6 is turned off on some connections",
                     description=(
                         f"IPv6 is disabled on the following services: {', '.join(ipv6_disabled)}. "
                         f"This is informational; IPv6 may be intentionally disabled."
@@ -214,7 +214,7 @@ class Module(ModuleBase):
             interface_summary = self._format_interface_summary(all_interfaces_info)
             findings.append(
                 Finding(
-                    title="Network interfaces configuration summary",
+                    title="Your network connection settings",
                     description=interface_summary,
                     severity=Severity.INFO,
                     category=self.category,
@@ -230,7 +230,7 @@ class Module(ModuleBase):
             interface_summary = self._format_interface_summary(all_interfaces_info)
             findings.append(
                 Finding(
-                    title="All network interfaces are properly configured",
+                    title="Your network connections are set up correctly",
                     description=interface_summary,
                     severity=Severity.INFO,
                     category=self.category,

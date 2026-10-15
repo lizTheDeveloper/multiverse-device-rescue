@@ -69,7 +69,7 @@ class Module(ModuleBase):
         if not startup_items:
             findings.append(
                 Finding(
-                    title="Could not enumerate startup programs",
+                    title="Could not list startup programs",
                     description="Unable to query startup programs from registry, PowerShell, or Task Scheduler.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -181,7 +181,7 @@ class Module(ModuleBase):
         # Flag INFO listing all startup programs
         findings.append(
             Finding(
-                title=f"Startup programs audit: {total_items} item(s) found",
+                title=f"Startup programs: {total_items} found",
                 description=(
                     f"Total startup programs detected: {total_items}\n"
                     f"  From Win32_StartupCommand: {len([i for i in startup_items if i.get('source') == 'Win32_StartupCommand'])}\n"

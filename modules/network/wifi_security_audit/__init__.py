@@ -315,7 +315,7 @@ class Module(ModuleBase):
         if current_network.get("is_hidden"):
             findings.append(
                 Finding(
-                    title="INFO: Connected to hidden network",
+                    title=f"Connected to hidden network: {network_name}",
                     description=(
                         f"'{network_name}' is a hidden network (SSID not broadcast). "
                         "Hidden networks offer only marginal additional security and may complicate troubleshooting."
@@ -415,7 +415,7 @@ class Module(ModuleBase):
         description = "\n".join(summary_parts)
 
         return Finding(
-            title="Wi-Fi security configuration summary",
+            title="Your Wi-Fi security settings",
             description=description,
             severity=Severity.INFO,
             category=self.category,

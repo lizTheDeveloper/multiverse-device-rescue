@@ -146,7 +146,7 @@ class Module(ModuleBase):
         if platform_2fa is None:
             findings.append(
                 Finding(
-                    title="Platform two-factor status could not be determined",
+                    title="Two-factor status: Unknown",
                     description=(
                         f"{platform_detail}\n\n"
                         "This is reported as unknown rather than guessed. A security "
@@ -165,9 +165,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title=(
-                    f"Two-factor capability: {len(authenticators)} authenticator app(s)"
-                ),
+                title=f"Two-factor apps on this device: {len(authenticators)}",
                 description=(
                     "Authenticator apps found on this device: "
                     + (", ".join(authenticators) if authenticators else "none")

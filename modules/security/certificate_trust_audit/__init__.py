@@ -205,7 +205,7 @@ class Module(ModuleBase):
         if user_added_certs:
             findings.append(
                 Finding(
-                    title=f"User-added root certificates: {len(user_added_certs)}",
+                    title=f"Root certificates added to this Mac: {len(user_added_certs)}",
                     description=(
                         f"{len(user_added_certs)} user-added root certificate(s) in system keychain:\n"
                         f"{', '.join(sorted(user_added_certs))}\n"

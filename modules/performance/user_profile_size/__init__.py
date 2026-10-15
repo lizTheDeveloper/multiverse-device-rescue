@@ -146,7 +146,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"User directory sizes ({len(all_users_sizes)} users found)",
+                    title=f"Storage used by {len(all_users_sizes)} user accounts",
                     description=(
                         f"Found {len(all_users_sizes)} user directories:\n{user_details}"
                     ),
@@ -173,7 +173,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Current user '{current_user_name}' subdirectory breakdown",
+                    title=f"Storage breakdown for {current_user_name}",
                     description=(
                         f"Directory sizes for {current_user_name}:\n{subdir_details}"
                     ),

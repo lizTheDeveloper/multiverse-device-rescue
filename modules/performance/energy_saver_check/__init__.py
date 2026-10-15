@@ -90,7 +90,7 @@ class Module(ModuleBase):
         if disk_sleep == 0:
             findings.append(
                 Finding(
-                    title="Disk sleep disabled",
+                    title="Hard drive sleep is turned off",
                     description=(
                         "Disk sleep is disabled, so the hard drive will not spin down "
                         "during idle periods, increasing energy consumption."
@@ -132,7 +132,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Power Nap enabled on AC power",
+                        title="Background tasks run while plugged in",
                         description=(
                             "Power Nap is enabled. While on AC power this is fine, "
                             "it allows background tasks during sleep."
@@ -175,7 +175,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Wake for network access enabled",
+                        title="Mac wakes up for network activity",
                         description=(
                             "Wake for network access is enabled. This allows the Mac to wake "
                             "from sleep when receiving network traffic."
@@ -196,7 +196,7 @@ class Module(ModuleBase):
         if prevent_sleep_display_off == 1:
             findings.append(
                 Finding(
-                    title="Prevent sleep when display is off enabled",
+                    title="Mac stays awake when screen is off",
                     description=(
                         "The Mac is configured to prevent sleep when the display is off. "
                         "This is typically used for servers/kiosks and will increase energy consumption."
@@ -216,7 +216,7 @@ class Module(ModuleBase):
         if hibernation_mode is not None:
             findings.append(
                 Finding(
-                    title=f"Hibernation mode: {hibernation_mode}",
+                    title=f"Sleep (hibernation) mode: {hibernation_mode}",
                     description=(
                         f"Hibernation mode is set to {hibernation_mode}. "
                         f"Mode 0: Sleep only. Mode 3: Sleep + hibernation (default). Mode 25: Hibernate only."
@@ -235,7 +235,7 @@ class Module(ModuleBase):
         if scheduled_events:
             findings.append(
                 Finding(
-                    title=f"Scheduled wake/sleep events ({len(scheduled_events)})",
+                    title=f"Scheduled wake/sleep times: {len(scheduled_events)}",
                     description=(
                         f"Found {len(scheduled_events)} scheduled wake or sleep events. "
                         f"These can prevent the Mac from sleeping or wake it unexpectedly. "
@@ -255,7 +255,7 @@ class Module(ModuleBase):
         if not any(f.severity == Severity.WARNING for f in findings):
             findings.append(
                 Finding(
-                    title="Power management configuration normal",
+                    title="Power settings look normal",
                     description=(
                         "Power management settings appear to be properly configured. "
                         "Your Mac should sleep correctly and manage energy efficiently."

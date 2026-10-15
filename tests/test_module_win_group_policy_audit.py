@@ -177,7 +177,7 @@ def test_win_group_policy_audit_domain_joined_no_gpos():
     # Should have info finding about GPO status
     assert result.has_issues
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
-    assert any("Group Policy status report" in f.title for f in info_findings)
+    assert any("policy settings" in f.title for f in info_findings)
 
 
 def test_win_group_policy_audit_stale_gpos_warning():

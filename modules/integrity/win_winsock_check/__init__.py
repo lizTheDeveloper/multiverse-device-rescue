@@ -108,7 +108,7 @@ class Module(ModuleBase):
             if entry_count <= 30 and not lsps:
                 findings.append(
                     Finding(
-                        title="Winsock catalog healthy",
+                        title=f"Network settings: {entry_count} entries, all normal",
                         description=(
                             f"Winsock catalog is healthy with {entry_count} entries. "
                             "No excessive entries or suspicious LSPs detected."
@@ -202,7 +202,7 @@ class Module(ModuleBase):
                 )
                 findings.append(
                     Finding(
-                        title="TCP/IP configuration normal",
+                        title="Your network settings look normal",
                         description=(
                             f"TCP/IP stack appears healthy. Configuration: {config_summary}. "
                             "No unusual parameters detected."

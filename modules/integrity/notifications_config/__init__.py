@@ -233,7 +233,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Notification configuration summary",
+                title="Your notification settings",
                 description=description,
                 severity=Severity.INFO,
                 category=self.category,

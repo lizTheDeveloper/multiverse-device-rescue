@@ -65,7 +65,7 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="Could not determine iCloud storage usage",
+                    title="Could not check iCloud storage usage",
                     description="Unable to read iCloud storage information from system settings.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -92,7 +92,7 @@ class Module(ModuleBase):
                 cache_size_gb = cache_size_bytes / (1024**3)
                 findings.append(
                     Finding(
-                        title=f"Local iCloud cache: {cache_size_gb:.2f} GB",
+                        title=f"iCloud files stored on this Mac: {cache_size_gb:.2f} GB",
                         description=(
                             f"Total size of ~/Library/Mobile Documents/ (iCloud local cache): {cache_size_gb:.2f} GB. "
                             "This is a local cache of your iCloud files."

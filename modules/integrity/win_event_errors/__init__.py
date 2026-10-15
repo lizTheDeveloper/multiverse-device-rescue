@@ -153,7 +153,7 @@ class Module(ModuleBase):
         if not findings:
             findings.append(
                 Finding(
-                    title=f"Event Log summary: {total_errors} recent errors",
+                    title=f"Recent errors: {total_errors}",
                     description=(
                         f"The Windows Event Logs contain {system_error_count} System errors "
                         f"and {app_error_count} Application errors across {unique_sources} different sources. "

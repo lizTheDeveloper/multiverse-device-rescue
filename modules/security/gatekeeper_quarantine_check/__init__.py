@@ -113,7 +113,10 @@ class Module(ModuleBase):
         if apps_without_quarantine:
             findings.append(
                 Finding(
-                    title=f"{len(apps_without_quarantine)} app(s) have no download-quarantine marker",
+                    title=(
+                        f"{len(apps_without_quarantine)} app(s) have no 'downloaded from "
+                        "internet' tag"
+                    ),
                     description=(
                         f"{len(apps_without_quarantine)} app(s) do not carry macOS's "
                         "'downloaded from the internet' (quarantine) marker: "
@@ -156,7 +159,7 @@ class Module(ModuleBase):
         elif gatekeeper_works is True:
             findings.append(
                 Finding(
-                    title="Gatekeeper assessment working",
+                    title="Gatekeeper is working correctly",
                     description="Gatekeeper assessment verification completed successfully.",
                     severity=Severity.INFO,
                     category=self.category,

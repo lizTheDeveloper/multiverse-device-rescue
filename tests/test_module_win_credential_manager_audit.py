@@ -227,7 +227,7 @@ def test_info_inventory_summary():
 
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
     assert len(info_findings) == 1
-    assert "inventory" in info_findings[0].title.lower()
+    assert "saved windows passwords" in info_findings[0].title.lower()
     assert info_findings[0].data["total_credentials"] == 2
     assert "Domain Password" in info_findings[0].data["by_type"]
     assert "Generic" in info_findings[0].data["by_type"]

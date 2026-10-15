@@ -39,7 +39,7 @@ class Module(ModuleBase):
             if not credential_guard_enabled:
                 findings.append(
                     Finding(
-                        title="Credential Guard is not enabled",
+                        title="Credential Guard is not turned on",
                         description=(
                             "Credential Guard provides hardware-based isolation for sensitive "
                             "credentials, protecting against pass-the-hash attacks. Consider enabling it "

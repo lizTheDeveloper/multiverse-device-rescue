@@ -136,7 +136,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Autorun entries inventory ({total_count} total)",
+                    title=f"Startup programs: {total_count} found",
                     description=(
                         f"Found {total_count} autorun entries across all locations:\n{entry_list}"
                     ),

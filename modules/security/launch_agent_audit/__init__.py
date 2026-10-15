@@ -103,7 +103,7 @@ class Module(ModuleBase):
             # Flag INFO for each found agent
             findings.append(
                 Finding(
-                    title=f"Launch agent found: {label}",
+                    title=f"Background item: {label}",
                     description=(
                         f"Program path: {program_path}"
                         if program_path
@@ -381,7 +381,7 @@ class Module(ModuleBase):
             # to hide, so keep it listed (info) instead of dropping it.
             findings.append(
                 Finding(
-                    title=f"Background program from a developer tool folder: {label}",
+                    title=f"Background item from a developer tool folder: {label}",
                     description=(
                         f"The launch agent '{label}' runs a program from a folder used by "
                         f"developer tools: {program_path}\n"

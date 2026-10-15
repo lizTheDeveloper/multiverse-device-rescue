@@ -146,7 +146,9 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"Application crash summary: {total_recent_crashes} total crashes in {DAYS_TO_CHECK} days",
+                    title=(
+                        f"App crashes in the last {DAYS_TO_CHECK} days: {total_recent_crashes}"
+                    ),
                     description=(
                         f"Total application crashes in the last {DAYS_TO_CHECK} days: {total_recent_crashes}. "
                         f"Top crashing apps: {top_5_str}. "

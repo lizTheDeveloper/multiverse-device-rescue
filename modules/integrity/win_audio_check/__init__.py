@@ -120,7 +120,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title="Windows Audio service (Audiosrv) status",
+                    title="Windows Audio service status",
                     description=(
                         f"Windows Audio service status: {status}. "
                         f"Startup type: {startup_type}"

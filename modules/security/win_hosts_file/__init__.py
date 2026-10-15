@@ -111,7 +111,7 @@ class Module(ModuleBase):
         if custom_entries or entries:
             findings.append(
                 Finding(
-                    title=f"Hosts file contains {len(entries)} entries",
+                    title=f"Your hosts file has {len(entries)} entries",
                     description=(
                         f"The hosts file has {len(entries)} total entries. "
                         f"Review any custom entries to ensure they are intentional."

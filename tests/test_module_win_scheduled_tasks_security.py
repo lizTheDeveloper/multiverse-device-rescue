@@ -400,7 +400,7 @@ def test_win_scheduled_tasks_security_handles_subprocess_error():
     # Should still complete without crashing
     assert isinstance(result.findings, list)
     # Should have an informational message about inability to enumerate
-    assert any("Unable" in f.title for f in result.findings)
+    assert any("Could not list" in f.title for f in result.findings)
 
 
 def test_win_scheduled_tasks_security_inventory_finding():
@@ -433,9 +433,9 @@ def test_win_scheduled_tasks_security_inventory_finding():
         result = mod.check(_make_profile())
     # Should have inventory info finding
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
-    assert any("inventory" in f.title.lower() for f in info_findings)
+    assert any("your scheduled tasks" in f.title.lower() for f in info_findings)
     # Inventory should have total_count data
-    inventory = [f for f in info_findings if "inventory" in f.title.lower()]
+    inventory = [f for f in info_findings if "your scheduled tasks" in f.title.lower()]
     assert inventory[0].data.get("total_count") >= 2
 
 

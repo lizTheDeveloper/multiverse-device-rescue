@@ -178,7 +178,7 @@ class Module(ModuleBase):
         for hit in self._check_npm_publish_history():
             findings.append(
                 Finding(
-                    title="Active npm publish credentials detected",
+                    title="npm login session is active",
                     description=(
                         f"npm CLI is currently authenticated as "
                         f"'{hit.get('user')}'. This is informational — if this "

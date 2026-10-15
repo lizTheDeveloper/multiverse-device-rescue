@@ -228,7 +228,9 @@ class Module(ModuleBase):
                 if hint_retries_int > 0:
                     findings.append(
                         Finding(
-                            title=f"Password hint shown after {hint_retries_int} failed attempts",
+                            title=(
+                                f"Password hint shown after {hint_retries_int} failed attempts"
+                            ),
                             description=(
                                 f"A password hint is shown after {hint_retries_int} failed login attempts. "
                                 "While this can be helpful for the legitimate user, it may leak information "

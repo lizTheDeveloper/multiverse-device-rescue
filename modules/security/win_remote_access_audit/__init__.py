@@ -223,7 +223,7 @@ class Module(ModuleBase):
         if found_tools:
             findings.append(
                 Finding(
-                    title=f"Remote access audit complete: {len(found_tools)} tool(s) found",
+                    title=f"Remote access tools found: {len(found_tools)}",
                     description=(
                         f"Found the following remote access tools: {', '.join(found_tools.keys())}. "
                         "Review each installation and uninstall any you did not explicitly authorize."
@@ -237,7 +237,7 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="No unauthorized remote access tools detected",
+                    title="No remote access tools found",
                     description=(
                         "No common remote access tools (TeamViewer, AnyDesk, VNC, LogMeIn, "
                         "Chrome Remote Desktop) were found on this system."

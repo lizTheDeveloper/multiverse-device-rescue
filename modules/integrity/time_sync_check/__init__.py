@@ -51,7 +51,7 @@ class Module(ModuleBase):
         if ntp_server is not None:
             findings.append(
                 Finding(
-                    title="NTP server configured",
+                    title="Your time server setting",
                     description=f"Network time server: {ntp_server}",
                     severity=Severity.INFO,
                     category=self.category,
@@ -64,7 +64,7 @@ class Module(ModuleBase):
         if timezone_auto is False:
             findings.append(
                 Finding(
-                    title="Automatic timezone detection disabled",
+                    title="Automatic timezone setting is off",
                     description="System is not set to automatically detect timezone.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -77,7 +77,7 @@ class Module(ModuleBase):
         if current_time is not None:
             findings.append(
                 Finding(
-                    title="Current system time",
+                    title="Your current system time",
                     description=f"System time: {current_time}",
                     severity=Severity.INFO,
                     category=self.category,

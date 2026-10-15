@@ -196,7 +196,7 @@ class Module(ModuleBase):
             summary = f"Enabled sharing services: {', '.join(enabled_services)}"
             findings.append(
                 Finding(
-                    title="Sharing configuration summary",
+                    title="Your sharing settings",
                     description=(
                         f"{summary}. "
                         "Review these services and disable any that are not needed. "

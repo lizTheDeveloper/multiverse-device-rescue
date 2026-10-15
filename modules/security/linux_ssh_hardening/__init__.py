@@ -92,7 +92,7 @@ class Module(ModuleBase):
                 module_name=self.name,
                 findings=[
                     Finding(
-                        title="SSH server configuration could not be read",
+                        title="Could not read the SSH settings file",
                         description=(
                             "An sshd configuration exists but neither `sshd -T` nor the "
                             "config file could be read, so the server's real settings are "
@@ -138,7 +138,7 @@ class Module(ModuleBase):
         elif root_login in _ROOT_LOGIN_KEYS_ONLY:
             findings.append(
                 Finding(
-                    title=f"Root SSH login is allowed with a key (PermitRootLogin {root_login})",
+                    title=f"Admin login via key is allowed ({root_login})",
                     description=(
                         "Key-only root login is a normal server configuration and is far "
                         "safer than password root login. It is listed here so you know it "
@@ -202,7 +202,7 @@ class Module(ModuleBase):
         if running and listen in ("0.0.0.0", "::", "0.0.0.0 ::", ""):
             findings.append(
                 Finding(
-                    title="SSH is listening on every network interface",
+                    title="SSH is open to all connected networks",
                     description=(
                         "sshd is bound to all interfaces, so it answers on whatever network "
                         "this machine joins next — hotel wifi, a conference network, a "

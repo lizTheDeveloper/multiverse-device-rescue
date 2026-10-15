@@ -87,7 +87,7 @@ def test_win_antivirus_status_healthy():
     assert result.has_issues
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
     assert len(info_findings) == 1
-    assert "registered antivirus products" in info_findings[0].title.lower()
+    assert "antivirus programs on your computer" in info_findings[0].title.lower()
 
 
 def test_win_antivirus_status_no_av_product():

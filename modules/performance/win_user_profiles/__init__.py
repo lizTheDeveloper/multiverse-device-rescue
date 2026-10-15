@@ -116,7 +116,7 @@ class Module(ModuleBase):
             ])
             findings.append(
                 Finding(
-                    title=f"Found {len(profile_details)} user profile(s)",
+                    title=f"User profiles on your computer: {len(profile_details)}",
                     description=(
                         f"User profiles on system:\n{profile_list}\n\n"
                         f"Total space used by user profiles: {_fmt_bytes(total_size)}"

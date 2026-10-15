@@ -170,7 +170,9 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title=f"Font server status: {'responsive' if font_server_responsive else 'unresponsive'}",
+                title=(
+                    f"Font server status: {'responsive' if font_server_responsive else 'unresponsive'}"
+                ),
                 description=(
                     f"The atsutil font server is {'responding normally' if font_server_responsive else 'not responding'}. "
                     f"A responsive font server is needed for proper font management and rendering."

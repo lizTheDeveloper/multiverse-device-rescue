@@ -93,7 +93,7 @@ class Module(ModuleBase):
         if archives_size > 0:
             findings.append(
                 Finding(
-                    title=f"Xcode Archives: {_fmt_bytes(archives_size)}",
+                    title=f"Xcode archives (old app builds): {_fmt_bytes(archives_size)}",
                     description=(
                         f"Xcode Archives at ~/Library/Developer/Xcode/Archives "
                         f"uses {_fmt_bytes(archives_size)}. These are old build archives that can be "
@@ -112,7 +112,7 @@ class Module(ModuleBase):
         if device_support_size > 0:
             findings.append(
                 Finding(
-                    title=f"iOS DeviceSupport: {_fmt_bytes(device_support_size)}",
+                    title=f"iOS device support files: {_fmt_bytes(device_support_size)}",
                     description=(
                         f"iOS DeviceSupport files at ~/Library/Developer/Xcode/iOS DeviceSupport "
                         f"use {_fmt_bytes(device_support_size)}. These are downloaded for specific iOS versions "
@@ -161,7 +161,7 @@ class Module(ModuleBase):
         if xcode_caches_size > 0:
             findings.append(
                 Finding(
-                    title=f"Xcode Caches: {_fmt_bytes(xcode_caches_size)}",
+                    title=f"Xcode temporary files: {_fmt_bytes(xcode_caches_size)}",
                     description=(
                         f"Xcode caches at ~/Library/Caches/com.apple.dt.Xcode "
                         f"use {_fmt_bytes(xcode_caches_size)}. Cache files can be safely removed and will be "

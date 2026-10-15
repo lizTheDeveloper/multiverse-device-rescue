@@ -85,7 +85,7 @@ class Module(ModuleBase):
         if installer_cache_size > 0:
             findings.append(
                 Finding(
-                    title=f"Windows Installer cache: {_fmt_bytes(installer_cache_size)}",
+                    title=f"Old installer files: {_fmt_bytes(installer_cache_size)}",
                     description=(
                         f"Windows Installer cache ($env:windir\\Installer) contains "
                         f"{_fmt_bytes(installer_cache_size)} of orphaned or old .msp/.msi files "
@@ -104,7 +104,7 @@ class Module(ModuleBase):
         if prefetch_size > 0:
             findings.append(
                 Finding(
-                    title=f"Prefetch directory: {_fmt_bytes(prefetch_size)}",
+                    title=f"App startup data: {_fmt_bytes(prefetch_size)}",
                     description=(
                         f"Prefetch directory ($env:windir\\Prefetch) contains "
                         f"{_fmt_bytes(prefetch_size)} of application prefetch data. "
@@ -123,7 +123,7 @@ class Module(ModuleBase):
         if user_temp_size > 0:
             findings.append(
                 Finding(
-                    title=f"User TEMP directory: {_fmt_bytes(user_temp_size)}",
+                    title=f"Your temporary files: {_fmt_bytes(user_temp_size)}",
                     description=(
                         f"User temporary files ($env:APPDATA\\..\\Local\\Temp) contain "
                         f"{_fmt_bytes(user_temp_size)} of files that can typically be safely removed."

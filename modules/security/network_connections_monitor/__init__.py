@@ -163,7 +163,7 @@ class Module(ModuleBase):
         if familiar_many:
             findings.append(
                 Finding(
-                    title=f"Programs with many connections: {len(familiar_many)}",
+                    title=f"Programs with many network connections: {len(familiar_many)}",
                     description=(
                         "These programs have many open connections, which is normal for "
                         "web browsers and developer tools:\n"
@@ -227,7 +227,7 @@ class Module(ModuleBase):
         if push_port_connections:
             findings.append(
                 Finding(
-                    title=f"Connections on push-notification ports: {len(push_port_connections)}",
+                    title=f"Connections for push notifications: {len(push_port_connections)}",
                     description=(
                         "Ports 5223 and 5228 are used for Apple and Google push notifications, "
                         "so this is normal for chat and mail apps:\n"
@@ -284,7 +284,9 @@ class Module(ModuleBase):
         if private_ip_connections:
             findings.append(
                 Finding(
-                    title=f"INFO: Connections to private IP ranges: {len(private_ip_connections)}",
+                    title=(
+                        f"Connections to local network addresses: {len(private_ip_connections)}"
+                    ),
                     description=(
                         f"Found {len(private_ip_connections)} connection(s) to private IP ranges:\n"
                         f"{chr(10).join(private_ip_connections[:15])}"
@@ -302,7 +304,7 @@ class Module(ModuleBase):
         if connections:
             findings.append(
                 Finding(
-                    title=f"Connection summary: {len(connections)} active connection(s)",
+                    title=f"Current network connections: {len(connections)}",
                     description=(
                         f"System has {len(connections)} active network connection(s). "
                         f"Review above findings for any suspicious activity."

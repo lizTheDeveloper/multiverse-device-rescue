@@ -96,7 +96,7 @@ class Module(ModuleBase):
         app_list = ", ".join(sorted(all_apps))
         findings.append(
             Finding(
-                title=f"Accessibility access: {len(all_apps)} app(s)",
+                title=f"Apps with accessibility access: {len(all_apps)}",
                 description=(
                     f"{len(all_apps)} app(s) have been granted Accessibility access: "
                     f"{app_list}. "

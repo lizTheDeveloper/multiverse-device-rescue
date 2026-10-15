@@ -41,7 +41,7 @@ class Module(ModuleBase):
         if not csstore_files:
             findings.append(
                 Finding(
-                    title="Launch Services cache not found",
+                    title="App registration cache: not found",
                     description=(
                         "The Launch Services cache directory does not contain the "
                         "expected .csstore files. This may indicate a clean system or "
@@ -114,7 +114,10 @@ class Module(ModuleBase):
             # Always report status as INFO
             findings.append(
                 Finding(
-                    title="Launch Services database status",
+                    title=(
+                        f"App registration database: {duplicate_count} entries, {total_size_mb:.1f} "
+                        "MB"
+                    ),
                     description=(
                         f"Launch Services database contains {duplicate_count} "
                         f"registrations and occupies {total_size_mb:.1f}MB. "

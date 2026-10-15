@@ -113,7 +113,7 @@ def test_kernel_extensions_audit_no_kexts():
     assert result.has_issues
     assert len(result.findings) == 1
     assert result.findings[0].severity == Severity.INFO
-    assert "Unable to audit" in result.findings[0].title
+    assert "Couldn't check" in result.findings[0].title
 
 
 def test_kernel_extensions_audit_only_apple_kexts():
@@ -132,7 +132,7 @@ def test_kernel_extensions_audit_mixed_kexts():
         result = mod.check(_make_profile())
     assert result.has_issues
     # Should have one finding for third-party kexts
-    third_party_findings = [f for f in result.findings if "third-party" in f.title.lower()]
+    third_party_findings = [f for f in result.findings if "extra system drivers" in f.title.lower()]
     assert len(third_party_findings) == 1
     assert third_party_findings[0].severity == Severity.INFO
     # Should list the third-party kexts
@@ -164,7 +164,7 @@ def test_kernel_extensions_audit_problematic_not_in_third_party():
     with patch("subprocess.run", side_effect=_fake_run_problematic_kexts()):
         result = mod.check(_make_profile())
     # Get the third-party finding if it exists
-    third_party_findings = [f for f in result.findings if "third-party" in f.title.lower()]
+    third_party_findings = [f for f in result.findings if "extra system drivers" in f.title.lower()]
     # Should not list problematic kexts in third-party list
     if third_party_findings:
         kexts = third_party_findings[0].data.get("kexts", [])
@@ -180,7 +180,7 @@ def test_kernel_extensions_audit_kmutil_fallback():
     # Should have findings for both problematic and third-party kexts
     assert result.has_issues
     problematic_findings = [f for f in result.findings if "older system plug-ins" in f.title.lower()]
-    third_party_findings = [f for f in result.findings if "third-party" in f.title.lower()]
+    third_party_findings = [f for f in result.findings if "extra system drivers" in f.title.lower()]
     # Should find Kaspersky as problematic
     assert len(problematic_findings) == 1
     assert "com.kaspersky.kext.av" in problematic_findings[0].data.get("kexts", [])

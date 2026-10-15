@@ -40,7 +40,7 @@ class Module(ModuleBase):
             # Add finding about DNS servers and encryption status
             findings.append(
                 Finding(
-                    title="DNS server configuration detected",
+                    title="Your DNS server settings",
                     description=(
                         f"System DNS servers: {', '.join(dns_servers)}\n"
                         f"Encryption status: {encryption_info['status']}\n"
@@ -85,7 +85,7 @@ class Module(ModuleBase):
                 # Using known encrypted provider
                 findings.append(
                     Finding(
-                        title="Known encrypted DNS provider in use",
+                        title="Using encrypted DNS provider",
                         description=(
                             f"Detected use of {encryption_info['provider_name']} DNS. "
                             "This provider supports encryption, but system-level DNS-over-HTTPS "
@@ -103,7 +103,7 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="Unable to determine DNS configuration",
+                    title="Could not read your DNS settings",
                     description="Could not read system DNS settings.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -133,7 +133,7 @@ class Module(ModuleBase):
         if local_resolver["running"]:
             findings.append(
                 Finding(
-                    title="Local DNS resolver detected",
+                    title="Local DNS resolver running",
                     description=(
                         f"Local DNS resolver '{local_resolver['process']}' is running. "
                         "This can provide encryption for DNS queries if properly configured."
@@ -151,7 +151,7 @@ class Module(ModuleBase):
         if doh_status["configured"]:
             findings.append(
                 Finding(
-                    title="DNS-over-HTTPS/TLS configuration found",
+                    title="Encrypted DNS settings found",
                     description=(
                         "System has DNS-over-HTTPS or DNS-over-TLS configuration. "
                         f"Details: {doh_status.get('details', 'Unknown')}"

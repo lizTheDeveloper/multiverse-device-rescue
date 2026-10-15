@@ -179,7 +179,7 @@ class Module(ModuleBase):
         )
         findings.append(
             Finding(
-                title="Windows Credential Manager Inventory Summary",
+                title="Your saved Windows passwords",
                 description=inventory_summary,
                 severity=Severity.INFO,
                 category=self.category,

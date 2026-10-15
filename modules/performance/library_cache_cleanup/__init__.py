@@ -123,7 +123,7 @@ class Module(ModuleBase):
         if known_apps_info:
             findings.append(
                 Finding(
-                    title=f"Known cache-heavy apps detected: {len(known_apps_info)} apps",
+                    title=f"Apps with large caches: {len(known_apps_info)} apps",
                     description=(
                         f"Detected caches for {len(known_apps_info)} known cache-heavy applications: "
                         f"{', '.join(known_apps_info.keys())}. "
@@ -144,7 +144,9 @@ class Module(ModuleBase):
         if top_caches:
             findings.append(
                 Finding(
-                    title=f"Top 10 cache directories: {_fmt_bytes(sum(size for _, size in top_caches))}",
+                    title=(
+                        f"Top 10 cache folders: {_fmt_bytes(sum(size for _, size in top_caches))}"
+                    ),
                     description=(
                         f"Largest cache directories:\n" +
                         "\n".join(

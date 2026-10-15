@@ -262,7 +262,7 @@ class Module(ModuleBase):
                 if nopasswd_lines:
                     findings.append(
                         Finding(
-                            title="NOPASSWD entries in sudoers",
+                            title="Password-free admin commands",
                             description=(
                                 "Your sudoers configuration has NOPASSWD entries that allow certain commands "
                                 "to run without a password. Review these to ensure they're necessary."

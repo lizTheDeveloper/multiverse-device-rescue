@@ -149,7 +149,7 @@ class Module(ModuleBase):
             product_list = ", ".join(av["name"] for av in av_products)
             findings.append(
                 Finding(
-                    title=f"Registered antivirus products: {product_list}",
+                    title=f"Antivirus programs on your computer: {product_list}",
                     description=(
                         "The following antivirus products are registered in Windows Security Center: "
                         + ", ".join(

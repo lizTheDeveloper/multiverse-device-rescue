@@ -159,7 +159,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"Shadow copies available: {count} restore point(s)",
+                    title=f"Backup snapshots: {count} restore point(s)",
                     description=info_msg,
                     severity=Severity.INFO,
                     category=self.category,
@@ -177,7 +177,7 @@ class Module(ModuleBase):
         if not findings:
             findings.append(
                 Finding(
-                    title="VSS and System Restore healthy",
+                    title="System recovery tools are working",
                     description=(
                         "Volume Shadow Copy Service is running and System Restore is enabled. "
                         "Your system has recovery capability configured."

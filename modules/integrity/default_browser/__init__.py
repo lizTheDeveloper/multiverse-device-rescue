@@ -49,7 +49,7 @@ class Module(ModuleBase):
             browser_display = self.KNOWN_BROWSERS.get(browser_id, browser_name)
             findings.append(
                 Finding(
-                    title="Default browser configuration",
+                    title="Your default web browser",
                     description=f"Default browser: {browser_display} ({browser_id})",
                     severity=Severity.INFO,
                     category=self.category,
@@ -65,7 +65,7 @@ class Module(ModuleBase):
             if browser_id in self.KNOWN_BROWSERS:
                 findings.append(
                     Finding(
-                        title="Default browser is well-known",
+                        title="Your default web browser is a standard app",
                         description=f"Using {self.KNOWN_BROWSERS[browser_id]}, a well-known browser.",
                         severity=Severity.INFO,
                         category=self.category,
@@ -105,7 +105,7 @@ class Module(ModuleBase):
             email_display = self.KNOWN_BROWSERS.get(mailto_handler, email_name)
             findings.append(
                 Finding(
-                    title="Default email client configuration",
+                    title="Your default email app",
                     description=f"Default email client: {email_display} ({mailto_handler})",
                     severity=Severity.INFO,
                     category=self.category,

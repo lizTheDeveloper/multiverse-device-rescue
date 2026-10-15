@@ -71,7 +71,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Windows Recovery Environment (WinRE) is enabled",
+                        title="Windows recovery tool is ready",
                         description=(
                             f"WinRE is enabled and ready. Location: {winre_status.get('location', 'Unknown')}. "
                             "Your system can recover if it fails to boot."
@@ -123,7 +123,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="System Restore is enabled",
+                        title="System restore is on",
                         description=(
                             "System Restore is enabled and monitoring system changes. "
                             "You can roll back to previous system states if needed."
@@ -190,7 +190,7 @@ class Module(ModuleBase):
 
                 findings.append(
                     Finding(
-                        title="Restore points available",
+                        title="Restore points are available",
                         description=(
                             f"{summary}"
                             "You can roll back to a previous system state if needed."
@@ -208,7 +208,7 @@ class Module(ModuleBase):
         # Summary
         findings.append(
             Finding(
-                title="Recovery Configuration Summary",
+                title="Your recovery settings",
                 description=self._build_recovery_summary(findings),
                 severity=Severity.INFO,
                 category=self.category,

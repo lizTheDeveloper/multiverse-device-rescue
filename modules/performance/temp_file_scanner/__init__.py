@@ -62,7 +62,7 @@ class Module(ModuleBase):
         if total_caches > 100 * 1024 * 1024:  # > 100 MB
             findings.append(
                 Finding(
-                    title=f"System caches using {_fmt_bytes(total_caches)}",
+                    title=f"App caches taking up {_fmt_bytes(total_caches)}",
                     description=(
                         f"System and user caches (/Library/Caches, ~/Library/Caches) "
                         f"are using {_fmt_bytes(total_caches)}. These can usually be safely removed."
@@ -80,7 +80,7 @@ class Module(ModuleBase):
         if total_logs > 100 * 1024 * 1024:  # > 100 MB
             findings.append(
                 Finding(
-                    title=f"System logs using {_fmt_bytes(total_logs)}",
+                    title=f"System logs taking up {_fmt_bytes(total_logs)}",
                     description=(
                         f"System and user logs (/var/log, ~/Library/Logs) "
                         f"are using {_fmt_bytes(total_logs)}. "
@@ -100,7 +100,7 @@ class Module(ModuleBase):
         if total_temps > 100 * 1024 * 1024:  # > 100 MB
             findings.append(
                 Finding(
-                    title=f"Temporary files using {_fmt_bytes(total_temps)}",
+                    title=f"Temporary files taking up {_fmt_bytes(total_temps)}",
                     description=(
                         f"Temporary files (/tmp, /var/folders) "
                         f"are using {_fmt_bytes(total_temps)}. These can usually be safely removed."
@@ -118,7 +118,7 @@ class Module(ModuleBase):
         if xcode_derived > 0:
             findings.append(
                 Finding(
-                    title=f"Xcode derived data using {_fmt_bytes(xcode_derived)}",
+                    title=f"Xcode build files taking up {_fmt_bytes(xcode_derived)}",
                     description=(
                         f"Xcode derived data (~/Library/Developer/Xcode/DerivedData) "
                         f"is using {_fmt_bytes(xcode_derived)}. "
@@ -137,7 +137,7 @@ class Module(ModuleBase):
         if homebrew_cache > 0:
             findings.append(
                 Finding(
-                    title=f"Homebrew cache using {_fmt_bytes(homebrew_cache)}",
+                    title=f"Homebrew download files taking up {_fmt_bytes(homebrew_cache)}",
                     description=(
                         f"Homebrew cache (~/Library/Caches/Homebrew) "
                         f"is using {_fmt_bytes(homebrew_cache)}. "

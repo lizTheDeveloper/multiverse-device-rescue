@@ -133,7 +133,7 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="DNS configuration check",
+                    title="Your DNS settings",
                     description="Could not retrieve DNS configuration from system.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -390,7 +390,7 @@ class Module(ModuleBase):
         if not malicious and not suspicious:
             findings.append(
                 Finding(
-                    title="DNS servers configuration",
+                    title="Your DNS servers",
                     description=(
                         f"Configured DNS servers: {', '.join(dns_servers)}. "
                         "All servers appear to be from known-good public DNS providers or legitimate ISP DNS."
@@ -482,7 +482,7 @@ class Module(ModuleBase):
             )
             if result.returncode == 0 and "doh" in result.stdout.lower():
                 return Finding(
-                    title="DNS-over-HTTPS (DoH) is configured",
+                    title="Encrypted DNS is turned on",
                     description=(
                         "Your system has DNS-over-HTTPS enabled. "
                         "This adds an extra layer of privacy/security by encrypting DNS queries. "

@@ -157,7 +157,7 @@ class TestDiskFragmentationHDDDetection:
             result = mod.check(_make_profile())
 
         assert result.has_issues
-        hdd_finding = next((f for f in result.findings if "HDD" in f.title), None)
+        hdd_finding = next((f for f in result.findings if "hard drive" in f.title), None)
         assert hdd_finding is not None
         assert hdd_finding.data["disk_type"] == "HDD"
         assert hdd_finding.data["filesystem"] == "HFS+"
@@ -307,7 +307,7 @@ class TestDiskFragmentationError:
 
         # Should have error finding
         assert len(result.findings) == 1
-        assert "Error" in result.findings[0].title
+        assert "Could not check" in result.findings[0].title
 
 
 class TestDiskFragmentationFix:

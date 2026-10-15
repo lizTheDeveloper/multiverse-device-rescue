@@ -125,7 +125,7 @@ class Module(ModuleBase):
             admin_list = ", ".join(admin_users)
             findings.append(
                 Finding(
-                    title=f"Multiple admin accounts found",
+                    title=f"Admin accounts on this computer: {admin_list}",
                     description=(
                         f"The following accounts have admin privileges: {admin_list}. "
                         "Review to ensure only necessary users have elevated access."

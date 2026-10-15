@@ -46,7 +46,7 @@ def test_core_services_reset_cache_not_found():
 
     assert result.has_issues
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
-    assert any("cache not found" in f.title.lower() for f in info_findings)
+    assert any("cache: not found" in f.title.lower() for f in info_findings)
 
 
 def test_core_services_reset_normal_database_size():
@@ -74,7 +74,7 @@ def test_core_services_reset_normal_database_size():
     assert len(size_warnings) == 0
 
     # Should have INFO status
-    assert any("status" in f.title.lower() for f in result.findings)
+    assert any("app registration database" in f.title.lower() for f in result.findings)
 
 
 def test_core_services_reset_bloated_database():
@@ -153,7 +153,7 @@ def test_core_services_reset_normal_registration_count():
 
     # Should have INFO status
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
-    assert any("status" in f.title.lower() for f in info_findings)
+    assert any("app registration database" in f.title.lower() for f in info_findings)
 
 
 def test_core_services_reset_multiple_csstore_files():

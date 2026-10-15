@@ -84,7 +84,7 @@ class Module(ModuleBase):
             # Could not determine; provide INFO
             findings.append(
                 Finding(
-                    title="Activation Lock status could not be determined",
+                    title="Activation Lock status is unknown",
                     description=(
                         "Could not verify Activation Lock status. This feature helps "
                         "prevent unauthorized access if Find My is enabled."

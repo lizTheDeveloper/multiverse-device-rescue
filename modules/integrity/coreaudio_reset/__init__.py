@@ -100,7 +100,7 @@ class Module(ModuleBase):
         if coreaudio_plist:
             findings.append(
                 Finding(
-                    title="CoreAudio preferences found",
+                    title="Your audio settings file",
                     description=(
                         "CoreAudio preferences file exists at ~/Library/Preferences/com.apple.coreaudio.plist. "
                         "This file can be corrupted and cause audio issues."
@@ -115,7 +115,7 @@ class Module(ModuleBase):
         if len(output_devices) > 2:
             findings.append(
                 Finding(
-                    title=f"Multiple audio output devices detected ({len(output_devices)})",
+                    title=f"Multiple audio outputs found ({len(output_devices)})",
                     description=(
                         f"The system has {len(output_devices)} audio output devices connected. "
                         "Multiple devices can sometimes cause routing confusion. Verify that the "
@@ -136,7 +136,7 @@ class Module(ModuleBase):
             device_list = _format_device_list(devices)
             findings.append(
                 Finding(
-                    title=f"Audio devices detected ({len(devices)} total)",
+                    title=f"Audio devices found ({len(devices)} total)",
                     description=f"Available audio devices:\n{device_list}",
                     severity=Severity.INFO,
                     category=self.category,
