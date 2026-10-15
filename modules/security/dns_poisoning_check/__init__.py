@@ -345,12 +345,19 @@ class Module(ModuleBase):
         if malicious:
             findings.append(
                 Finding(
-                    title=f"CRITICAL: Malicious DNS server(s) detected",
+                    title="Your computer looks up websites through a known bad server",
                     description=(
-                        f"The following malicious/sinkhole DNS servers are configured: {', '.join(malicious)}. "
-                        "This is a strong indicator of DNS poisoning/hijacking. "
-                        "Your traffic may be being redirected through attacker-controlled servers. "
-                        "Reset DNS to automatic or use a known-good public DNS immediately."
+                        "Your computer is set to use a DNS server that's on a list of "
+                        f"malicious or blocked servers: {', '.join(malicious)}. DNS turns "
+                        "website names into addresses, so whoever runs it can send you "
+                        "to fake copies of real sites, including your bank.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "changing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Don't sign in to anything important on this computer "
+                        "until it's fixed. Then follow the steps below to set DNS back "
+                        "to automatic."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -362,13 +369,16 @@ class Module(ModuleBase):
         if suspicious:
             findings.append(
                 Finding(
-                    title=f"WARNING: Non-standard DNS server(s) configured",
+                    title="Your computer uses a DNS server we don't recognize",
                     description=(
-                        f"Your computer is set to use DNS servers we do not recognize: {', '.join(suspicious)}. "
-                        "DNS is the phone book your computer uses to find websites. Some people "
-                        "choose a custom one on purpose (for privacy, ad blocking, or work), and "
-                        "some ISPs and routers set one for you. If you do not remember choosing "
-                        "this, check System Settings > Network > DNS, or ask whoever set up your network."
+                        "Your computer is set to use DNS servers we don't recognize: "
+                        f"{', '.join(suspicious)}. DNS is the phone book your computer "
+                        "uses to find websites. Some people choose a custom one on purpose "
+                        "(for privacy, ad blocking or work), and some internet providers "
+                        "and routers set one for you.\n\n"
+                        "What to do: If you don't remember choosing this, check System "
+                        "Settings > Network, choose your connection, click Details > "
+                        "DNS, or ask whoever set up your network."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -407,13 +417,16 @@ class Module(ModuleBase):
                 if _is_bogon(ip):
                     findings.append(
                         Finding(
-                            title=f"WARNING: Unexpected DNS resolution for {domain}",
+                            title=f"{domain} pointed somewhere it shouldn't",
                             description=(
-                                f"The public website {domain} resolved to {ip}, which is a "
-                                "private or non-internet address. Real public sites never "
-                                "resolve there, so this can mean DNS redirection/poisoning "
-                                "(or a filtering tool or captive portal on your network). "
-                                "Check your DNS settings."
+                                f"When we looked up {domain}, the answer was {ip}, a private "
+                                "address that real public websites never use. That can "
+                                "mean something is redirecting your web traffic, or just "
+                                "a filtering tool or a hotel or café sign-in page on "
+                                "your network.\n\n"
+                                "What to do: If you're on public Wi-Fi with a sign-in "
+                                "page, sign in and run the checkup again. Otherwise, "
+                                "follow the steps below to check your DNS settings."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

@@ -89,12 +89,13 @@ class Module(ModuleBase):
             # No recovery key at all - CRITICAL data loss risk
             findings.append(
                 Finding(
-                    title="FileVault enabled but no recovery key found",
+                    title="Your Mac is encrypted, but there's no recovery key",
                     description=(
-                        "FileVault is enabled, but no recovery key (personal or "
-                        "institutional) was found. If the encryption password is "
-                        "lost, the data is unrecoverable. This is a critical risk "
-                        "on family devices."
+                        "FileVault is protecting your files, but there's no recovery key. "
+                        "If the Mac's login password is ever forgotten, nobody, not even "
+                        "Apple, can get the files back.\n\n"
+                        "What to do: Follow the steps below to make a recovery key, then "
+                        "write it down or save it in a password manager."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
