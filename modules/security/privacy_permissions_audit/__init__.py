@@ -130,12 +130,15 @@ class Module(ModuleBase):
         if len(camera_apps) > 10:
             findings.append(
                 Finding(
-                    title=f"Excessive camera access: {len(camera_apps)} app(s)",
+                    title=f"Many apps can use your camera ({len(camera_apps)})",
                     description=(
-                        f"{len(camera_apps)} app(s) have camera access, which exceeds "
-                        "the recommended limit of 10. Having too many apps with camera access "
-                        "increases surveillance risk. Review and revoke access for apps that "
-                        "don't strictly need it."
+                        f"Your Mac allows {len(camera_apps)} apps to use your camera. "
+                        "This is more than usual, but it doesn't mean someone is spying "
+                        "on you right now. It just means many apps have permission to "
+                        "turn on the camera if they want to.\n\n"
+                        "What to do: Open System Settings > Privacy & Security > Camera. "
+                        "Look at the list and turn off the switch for any app you don't "
+                        "use or don't recognize."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -152,12 +155,15 @@ class Module(ModuleBase):
         if len(microphone_apps) > 10:
             findings.append(
                 Finding(
-                    title=f"Excessive microphone access: {len(microphone_apps)} app(s)",
+                    title=f"Many apps can use your microphone ({len(microphone_apps)})",
                     description=(
-                        f"{len(microphone_apps)} app(s) have microphone access, which exceeds "
-                        "the recommended limit of 10. Having too many apps with microphone access "
-                        "increases privacy risk. Review and revoke access for apps that "
-                        "don't strictly need it."
+                        f"Your Mac allows {len(microphone_apps)} apps to use your microphone. "
+                        "This is more than usual, but it doesn't mean someone is listening "
+                        "to you right now. It just means many apps have permission to "
+                        "turn on the microphone if they want to.\n\n"
+                        "What to do: Open System Settings > Privacy & Security > Microphone. "
+                        "Look at the list and turn off the switch for any app you don't "
+                        "use or don't recognize."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -175,13 +181,21 @@ class Module(ModuleBase):
         if both_cam_mic:
             findings.append(
                 Finding(
-                    title=f"Surveillance risk: {len(both_cam_mic)} app(s) with camera + microphone",
+                    title=(
+                        f"Apps with both camera and microphone access ({len(both_cam_mic)})"
+                    ),
                     description=(
-                        f"{len(both_cam_mic)} app(s) have both camera and microphone access: "
-                        f"{', '.join(sorted(both_cam_mic))}. "
-                        "Apps with both camera and microphone access pose a higher surveillance risk. "
-                        "Verify these apps are legitimate and necessary, and consider revoking access "
-                        "for apps you don't fully trust."
+                        f"These apps can use both your camera and microphone: {', '.join(sorted(both_cam_mic))}. "
+                        "This is common for video call apps like Zoom or FaceTime, but "
+                        "it is a powerful combination. If you see an app here that you "
+                        "don't recognize, it could be used to watch or listen to you.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Open System Settings > Privacy & Security. Check "
+                        "the Camera and Microphone lists. Turn off access for any app "
+                        "you don't trust."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -198,14 +212,22 @@ class Module(ModuleBase):
         if screen_and_accessibility:
             findings.append(
                 Finding(
-                    title=f"High control risk: {len(screen_and_accessibility)} app(s) with screen recording + accessibility",
+                    title=(
+                        f"Apps with screen recording and control access ({len(screen_and_accessibility)})"
+                    ),
                     description=(
-                        f"{len(screen_and_accessibility)} app(s) have both screen recording and accessibility access: "
-                        f"{', '.join(sorted(screen_and_accessibility))}. "
-                        "Apps with both screen recording and accessibility access have complete control over your system, "
-                        "including the ability to see everything on screen and simulate all user interactions. "
-                        "This poses severe risk. These should only be trusted applications like security software or "
-                        "legitimate system tools. Investigate immediately and revoke access for any unknown apps."
+                        "These apps can record your screen and control your mouse and "
+                        f"keyboard: {', '.join(sorted(screen_and_accessibility))}. This "
+                        "is a very high level of access. It is normal for remote support "
+                        "tools, but dangerous if you don't trust the app. An app with "
+                        "these permissions can see everything you type and do.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Open System Settings > Privacy & Security. Check "
+                        "the Screen Recording and Accessibility lists. Turn off access "
+                        "for any app you don't recognize or trust."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

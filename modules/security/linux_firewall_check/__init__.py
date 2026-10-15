@@ -67,15 +67,15 @@ class Module(ModuleBase):
         if not present:
             findings.append(
                 Finding(
-                    title="No firewall front-end is installed",
+                    title="Your computer has no firewall installed",
                     description=(
-                        "None of ufw, firewalld, nft, or iptables could be found on this "
-                        "system. On a laptop or desktop that usually means nothing is "
-                        "filtering inbound connections, so any service you start is "
-                        "reachable by anything on the same network — a cafe wifi, a "
-                        "hotel network, a shared office LAN.\n\n"
-                        "What to do: install and turn on a firewall such as ufw "
-                        "(GUFW has a simple window)."
+                        "We could not find a firewall program on your system. A firewall "
+                        "is a tool that decides which outside connections are allowed "
+                        "to reach your computer. Without one, any program you run can "
+                        "be reached by other devices on the same network, like a cafe "
+                        "or hotel wifi.\n\n"
+                        "What to do: Install a firewall. If you use Ubuntu, you can install "
+                        "'ufw' and use the 'GUFW' app for a simple window to turn it on."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -88,13 +88,13 @@ class Module(ModuleBase):
             names = ", ".join(s["tool"] for s in present)
             findings.append(
                 Finding(
-                    title="A firewall is installed but not active",
+                    title=f"Your firewall ({names}) is installed but turned off",
                     description=(
-                        f"Found {names}, but none of them is currently filtering. "
-                        "Installed and running are different things; an inactive "
-                        "firewall protects nothing.\n\n"
-                        "What to do: turn it on, for example with GUFW or "
-                        "'sudo ufw enable'."
+                        f"We found {names} on your computer, but it is not currently running. "
+                        "An installed firewall that is turned off does not protect you "
+                        "from outside connections.\n\n"
+                        "What to do: Turn it on. If you use 'ufw', you can open the 'GUFW' "
+                        "app and click 'Enable', or run 'sudo ufw enable' in a terminal."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -107,7 +107,7 @@ class Module(ModuleBase):
             names = ", ".join(s["tool"] for s in unknown)
             findings.append(
                 Finding(
-                    title="Firewall state could not be determined",
+                    title=f"Firewall status: {names} needs admin access to check",
                     description=(
                         f"{names} is installed, but its ruleset could not be read — "
                         "this usually means the check needs root. Re-run with sudo to "
@@ -126,13 +126,18 @@ class Module(ModuleBase):
             if state.get("default_allow_inbound"):
                 findings.append(
                     Finding(
-                        title=f"{state['tool']} is active but allows inbound by default",
+                        title=(
+                            f"Your firewall ({state['tool']}) allows all incoming connections "
+                            "by default"
+                        ),
                         description=(
-                            "The firewall is running, but its default policy for incoming "
-                            "traffic is ACCEPT. Unless every port is covered by a specific "
-                            "deny rule, that is close to having no inbound filtering.\n\n"
-                            "What to do: set incoming connections to Deny, then allow only "
-                            "the services you use on purpose."
+                            f"Your firewall {state['tool']} is running, but it is set "
+                            "to accept all incoming connections by default. This means "
+                            "that unless you have manually blocked specific ports, your "
+                            "computer is open to anyone on your network.\n\n"
+                            "What to do: Change the default for incoming connections to deny "
+                            "(with ufw: sudo ufw default deny incoming), then allow only "
+                            "the apps or ports you know you need."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

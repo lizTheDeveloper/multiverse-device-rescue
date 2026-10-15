@@ -469,12 +469,17 @@ class Module(ModuleBase):
         if extra:
             data.update(extra)
         return Finding(
-            title=f"Mining startup entry found in {location}",
+            title=f"Software is set to start a crypto-miner ({location})",
             description=(
-                f"This {mechanism} {hit['detail']}. It runs automatically, so the "
-                "miner restarts after every reboot even if you kill the process. "
-                "Symptoms are a machine that runs hot, loud, and slow while doing "
-                "nothing, and a higher electricity bill."
+                f"We found a {mechanism} in {location} that automatically starts a program "
+                f"called {hit['indicator']}. This is a sign of a crypto-miner, which uses "
+                "your computer's power to earn money for someone else. Because it is "
+                "set to start automatically, it will come back on every time you restart "
+                "your computer, even if you close it. This often makes your computer "
+                "run hot, loud, and slow, and increases your electricity bill.\n\n"
+                "What to do: Do not delete the file yet. Instead, move the file to a "
+                "safe folder so it cannot run, then search for the name of the program "
+                "in your computer's startup settings and turn it off."
             ),
             severity=hit["severity"],
             category=self.category,

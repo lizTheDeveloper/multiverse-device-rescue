@@ -33,10 +33,13 @@ class Module(ModuleBase):
         if not scheduler_running:
             findings.append(
                 Finding(
-                    title="CUPS scheduler is not running",
+                    title="Your Mac's printing service is off",
                     description=(
-                        "The CUPS (Common Unix Printing System) scheduler is not running. "
-                        "Printing will not work until the CUPS service is restarted."
+                        "The background service that handles printing on your Mac (called "
+                        "CUPS) is not running. This means you cannot send documents to "
+                        "a printer right now.\n\n"
+                        "What to do: If you don't print, ignore this. Otherwise restart "
+                        "your Mac; printing starts again by itself."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -57,10 +60,14 @@ class Module(ModuleBase):
         if queued_jobs > 0:
             findings.append(
                 Finding(
-                    title=f"Print queue has {queued_jobs} stuck job(s)",
+                    title=f"{queued_jobs} print job(s) are waiting in the queue",
                     description=(
-                        f"There are {queued_jobs} job(s) in the print queue that may be stuck. "
-                        "These jobs can be cleared by restarting CUPS or manually removing them."
+                        f"Your Mac is holding onto {queued_jobs} document(s) that haven't "
+                        "printed yet. This usually happens if a printer was turned off "
+                        "or ran out of paper.\n\n"
+                        "What to do: Open System Settings > Printers & Scanners, select "
+                        "your printer, click Printer Queue, and delete the stuck jobs. "
+                        "Then try printing again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -76,10 +83,13 @@ class Module(ModuleBase):
                 for printer in error_printers:
                     findings.append(
                         Finding(
-                            title=f"Printer '{printer['name']}' is disabled",
+                            title=f"Printer '{printer['name']}' is turned off or paused",
                             description=(
-                                f"Printer '{printer['name']}' is currently disabled or in error state. "
-                                "Check the printer's physical status and CUPS configuration."
+                                f"The printer named '{printer['name']}' is currently disabled. "
+                                "This means your Mac is not sending jobs to it.\n\n"
+                                "What to do: Open System Settings > Printers & Scanners, "
+                                f"select '{printer['name']}', click Printer Queue, and click "
+                                "Resume. If the printer itself is off, turn it on."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -133,9 +143,9 @@ class Module(ModuleBase):
                     Action(
                         title="Clear stuck print jobs",
                         description=(
-                            "To clear stuck print jobs from the queue, run: \n"
-                            "lpstat -o | awk '{print $1}' | xargs -I {} lprm {}\n\n"
-                            "Or remove all jobs: sudo rm -rf /var/spool/cups/d*\n\n"
+                            "To clear stuck print jobs, open System Settings > Printers & "
+                            "Scanners, select the printer, click Printer Queue and delete "
+                            "them. Or in Terminal: cancel -a\n\n"
                             "Then restart CUPS: sudo launchctl stop org.cups.cupsd && "
                             "sudo launchctl start org.cups.cupsd"
                         ),

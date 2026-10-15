@@ -123,10 +123,16 @@ class Module(ModuleBase):
             return None  # DNS works
         except (socket.gaierror, OSError):
             return Finding(
-                title="DNS resolution failed",
+                title="Your Mac can't translate website names to addresses",
                 description=(
-                    "Cannot resolve google.com. DNS resolution is not working. "
-                    "This prevents access to any domain-based services."
+                    "We tried to look up the address for google.com, but your Mac couldn't "
+                    "find it. "
+                    "This usually means your internet connection is having trouble. "
+                    "It prevents you from opening websites until it's fixed.\n\n"
+                    "What to do: Restart your router (unplug it for 30 seconds, then plug "
+                    "it back in). "
+                    "If that doesn't work, check System Settings > Network to make sure "
+                    "you're connected."
                 ),
                 severity=Severity.CRITICAL,
                 category=self.category,
@@ -162,10 +168,14 @@ class Module(ModuleBase):
             if not dns_servers:
                 findings.append(
                     Finding(
-                        title="No DNS servers configured",
+                        title="No internet address book is set up",
                         description=(
-                            "No DNS servers are configured on this system. "
-                            "This prevents DNS resolution from working."
+                            "Your Mac doesn't have any instructions for translating website "
+                            "names into numbers. "
+                                                        "It means you probably can't load websites right now.\n\n"
+                            "What to do: Make sure you're connected to Wi-Fi or a network "
+                            "cable. If you are and websites still won't load, restart "
+                            "your router."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -206,10 +216,17 @@ class Module(ModuleBase):
                     if current_interface and not interface_up:
                         findings.append(
                             Finding(
-                                title=f"Network interface {current_interface} is down",
+                                title=f"Your {current_interface} connection is off",
                                 description=(
-                                    f"Interface {current_interface} is not active. "
-                                    f"This may prevent network connectivity."
+                                    f"The {current_interface} port on your Mac is currently "
+                                    "turned off. "
+                                    "This is normal if you aren't using that connection "
+                                    "right now. "
+                                    "It isn't a security risk, but it means that specific "
+                                    "connection won't work.\n\n"
+                                    f"What to do: Nothing to fix if you aren't using {current_interface}. "
+                                    "If you expected it to be on, check System Settings "
+                                    "> Network to turn it back on."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
@@ -228,10 +245,15 @@ class Module(ModuleBase):
             if current_interface and not interface_up:
                 findings.append(
                     Finding(
-                        title=f"Network interface {current_interface} is down",
+                        title=f"Your {current_interface} connection is off",
                         description=(
-                            f"Interface {current_interface} is not active. "
-                            f"This may prevent network connectivity."
+                            f"The {current_interface} port on your Mac is currently turned off. "
+                            "This is normal if you aren't using that connection right now. "
+                            "It isn't a security risk, but it means that specific connection "
+                            "won't work.\n\n"
+                            f"What to do: Nothing to fix if you aren't using {current_interface}. "
+                            "If you expected it to be on, check System Settings > Network "
+                            "to turn it back on."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -276,10 +298,15 @@ class Module(ModuleBase):
             )
             if result.returncode != 0:
                 return Finding(
-                    title="Default gateway is unreachable",
+                    title="Your Mac can't reach your router",
                     description=(
-                        "The system cannot reach the default gateway or external networks. "
-                        "This indicates a network connectivity issue."
+                        "We tried to contact your home router, but it didn't respond. "
+                        "This usually means your Wi-Fi or internet connection is down, "
+                        "not that your Mac is compromised. "
+                        "You likely won't be able to browse the web until this is fixed.\n\n"
+                        "What to do: Check that your router is powered on and that your "
+                        "Mac is connected to Wi-Fi. "
+                        "Try restarting your router and your Mac."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,

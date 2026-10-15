@@ -6,8 +6,13 @@ remediates:
   - security.user_account_audit.guest_enabled
   - security.user_account_audit.auto_login
   - security.user_account_audit.admin_accounts
+steps_for:
+  security.user_account_audit.guest_enabled: [1]
+  security.user_account_audit.auto_login: [2]
+  security.user_account_audit.admin_accounts: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers what `user_account_audit` flags: the Guest account
@@ -17,16 +22,16 @@ current usage before touching anything — removing admin rights from an
 account someone actively relies on will break their ability to install
 software or change system settings until it's restored.
 
-## Step 1: Review and disable the Guest account if unused
+## Step 1: Turn off the Guest account if nobody uses it
 
 1. Confirm nobody uses Guest login on this Mac before disabling it.
-2. Disable via System Settings > General > Users & Groups > unlock > select
+2. Disable via System Settings > Users & Groups > unlock > select
    Guest User > turn off "Allow guests to log in to this computer", or run
    `sudo defaults write /Library/Preferences/com.apple.loginwindow
    GuestEnabled -bool false`.
 3. Re-run the scan to confirm the finding clears.
 
-## Step 2: Review and disable automatic login if unused
+## Step 2: Stop the Mac from logging in automatically
 
 1. Confirm the reported auto-login user (`user` field on the finding) is
    expected — if this Mac is intentionally set up as a kiosk or single-user
@@ -37,7 +42,7 @@ software or change system settings until it's restored.
    defaults delete /Library/Preferences/com.apple.loginwindow autoLoginUser`.
 3. Restart and confirm the login screen now requires a password.
 
-## Step 3: Review accounts with admin privileges
+## Step 3: Check who has admin rights and remove extras
 
 Multiple admin accounts aren't automatically wrong, but every admin account
 is a full privilege-escalation path if compromised, so it's worth

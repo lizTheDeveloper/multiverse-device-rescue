@@ -52,11 +52,13 @@ class Module(ModuleBase):
         if airdrop_mode == "Everyone":
             findings.append(
                 Finding(
-                    title="AirDrop set to Everyone",
+                    title="AirDrop is set to receive files from anyone nearby",
                     description=(
-                        "AirDrop is set to 'Everyone', which allows anyone nearby to send files to your device. "
-                        "This is a privacy risk and has been used for harassment. "
-                        "Consider setting AirDrop to 'Contacts Only' or 'No One'."
+                        "Your Mac is currently set to accept AirDrop files from any Apple "
+                        "device in the area, not just your saved contacts. This is a common "
+                        "way for strangers to send unwanted or harassing messages.\n\n"
+                        "What to do: Open System Settings > General > AirDrop & Handoff. "
+                        "Change 'AirDrop Can Receive' to 'Contacts Only' or 'No One'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -69,10 +71,13 @@ class Module(ModuleBase):
         if bluetooth_sharing_enabled:
             findings.append(
                 Finding(
-                    title="Bluetooth sharing is enabled",
+                    title="Bluetooth file sharing is turned on",
                     description=(
-                        "Bluetooth sharing is enabled, which allows files to be received via Bluetooth. "
-                        "Consider disabling it if not actively used, as it may allow unauthorized file transfers."
+                        "Your Mac is allowing files to be sent to it over Bluetooth. Most "
+                        "people do not use this feature, and leaving it on can allow strangers "
+                        "nearby to attempt file transfers.\n\n"
+                        "What to do: Open System Settings > General > AirDrop & Handoff. "
+                        "Turn off the 'Bluetooth Sharing' switch."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

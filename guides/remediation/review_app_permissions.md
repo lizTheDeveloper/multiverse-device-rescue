@@ -8,8 +8,15 @@ remediates:
   - security.app_permissions.screen_recording
   - security.app_permissions.camera_access
   - security.app_permissions.microphone_access
+steps_for:
+  security.app_permissions.accessibility_access: [1]
+  security.app_permissions.full_disk_access: [2]
+  security.app_permissions.screen_recording: [3]
+  security.app_permissions.camera_access: [4]
+  security.app_permissions.microphone_access: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
+monitoring_risk: true
 ---
 
 This walkthrough covers every macOS privacy permission (TCC) grant the
@@ -21,7 +28,7 @@ deliberately at some point. The value here is periodic review: confirm you
 still recognize and need every app on each list, and revoke anything you
 don't.
 
-## Step 1: Review Accessibility access
+## Step 1: Check which apps can control your Mac
 
 Accessibility lets an app observe and control other apps' UI and simulate
 input — the same capability legitimate automation tools and malicious
@@ -36,7 +43,7 @@ keyloggers/RATs both rely on.
    off, or select it and click the minus button to remove the entry
    entirely.
 
-## Step 2: Review Full Disk Access
+## Step 2: Check which apps can read all your files
 
 Full Disk Access lets an app read (and often write) any file on the
 system, including other apps' data, Mail, Messages, and Time Machine
@@ -52,7 +59,7 @@ backups — one of the broadest grants macOS offers.
    re-prompt for the permission next time it needs it — that's expected and
    fine; only re-grant if you decide you do want it after all.
 
-## Step 3: Review Screen Recording access
+## Step 3: Check which apps can record your screen
 
 Screen Recording lets an app capture the contents of your screen —
 malware uses this for surveillance; legitimate uses include screen-share
@@ -69,7 +76,7 @@ tools, recording software, and some accessibility aids.
    common spyware/stalkerware capability sets) — check when and how the app
    was installed before deciding whether to remove it entirely.
 
-## Step 4: Review Camera access
+## Step 4: Check which apps can use your camera
 
 1. Read the listed apps and confirm each is something you've deliberately
    used for video (video call apps, camera utilities, browsers that
@@ -77,7 +84,7 @@ tools, recording software, and some accessibility aids.
 2. Revoke anything unrecognized: System Settings > Privacy & Security >
    Camera, find the app, toggle off.
 
-## Step 5: Review Microphone access
+## Step 5: Check which apps can use your microphone
 
 1. Read the listed apps and confirm each is something you've deliberately
    used for audio input (call apps, voice recorders, dictation/transcription

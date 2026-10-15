@@ -8,8 +8,15 @@ remediates:
   - security.dns_poisoning_check.dns_resolution_issue
   - security.dns_poisoning_check.dns_config
   - security.dns_poisoning_check.dns_over_https
+steps_for:
+  security.dns_poisoning_check.malicious_dns: [1]
+  security.dns_poisoning_check.suspicious_dns: [2]
+  security.dns_poisoning_check.dns_resolution_issue: [3]
+  security.dns_poisoning_check.dns_config: [4]
+  security.dns_poisoning_check.dns_over_https: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `dns_poisoning_check` module can
@@ -22,7 +29,7 @@ treated urgently, while a suspicious-DNS or resolution-mismatch finding
 should be investigated before you assume the worst — VPNs, corporate
 networks, and some privacy tools legitimately set custom DNS.
 
-## Step 1: Respond to malicious DNS servers (CRITICAL)
+## Step 1: Reset your DNS settings to automatic
 
 If a configured DNS server matches a known null-route/sinkhole address
 (`0.0.0.0`, `127.0.0.1` used as the *system's* DNS server rather than a
@@ -50,7 +57,7 @@ router/network is redirecting you.
    have made the change, since resetting DNS without removing the cause
    means it may return.
 
-## Step 2: Review non-standard DNS servers (WARNING)
+## Step 2: Check if your custom DNS server is safe
 
 A DNS server that isn't one of the well-known public resolvers (Google,
 Cloudflare, Quad9, OpenDNS) and doesn't look like a typical ISP/router
@@ -66,7 +73,7 @@ networks, and privacy-focused resolvers, so it is not automatically bad.
 4. If it's unexplained, reset to automatic/known-good DNS the same way as
    Step 1 (System Settings → Network → DNS tab), then flush the cache.
 
-## Step 3: Investigate unexpected domain resolution (WARNING)
+## Step 3: Verify if websites are loading the wrong address
 
 The module resolves a handful of major domains (apple.com, google.com,
 microsoft.com) and flags it if the result falls outside that domain's
@@ -83,7 +90,7 @@ known IP ranges — a possible sign of DNS redirection.
 4. If they genuinely differ, follow Step 1's remediation (reset DNS to
    automatic, flush cache, check the router) and re-test.
 
-## Step 4: Review general DNS configuration and DoH status (INFO)
+## Step 4: Review your current DNS and privacy settings
 
 These are informational findings — a summary of currently configured DNS
 servers when they all look legitimate, a note that configuration couldn't

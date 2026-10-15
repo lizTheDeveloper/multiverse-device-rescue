@@ -33,10 +33,13 @@ class Module(ModuleBase):
         if not physical_memory:
             findings.append(
                 Finding(
-                    title="Could not retrieve physical memory information",
+                    title="We could not check your memory health",
                     description=(
-                        "Failed to run Get-WmiObject Win32_PhysicalMemory. "
-                        "Memory health cannot be assessed."
+                        "The check to look at your physical memory (RAM) did not run. "
+                        "This is not the same as saying everything is fine; it just means "
+                        "we could not see the data. \n\n"
+                        "What to do: Run the checkup again. If it fails again, try running "
+                        "the app as an administrator."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -50,10 +53,17 @@ class Module(ModuleBase):
         if memory_errors and memory_errors.get("has_errors"):
             findings.append(
                 Finding(
-                    title="Memory diagnostic errors found",
+                    title=(
+                        f"Windows found {memory_errors.get('error_count', 'unknown')} "
+                        "memory errors"
+                    ),
                     description=(
-                        f"Windows Memory Diagnostic found {memory_errors.get('error_count', 'unknown')} error(s). "
-                        "Bad RAM detected. Replace faulty memory modules immediately to prevent data corruption and system instability."
+                        f"Windows Memory Diagnostic reported {memory_errors.get('error_count', 'unknown')} "
+                        "error(s). This suggests a physical memory stick (RAM) may be "
+                        "failing. Failing RAM can cause files to corrupt or your computer "
+                        "to crash unexpectedly. \n\n"
+                        "What to do: Back up your important files. Then, take the computer "
+                        "to a repair shop to have the RAM tested or replaced."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -80,10 +90,18 @@ class Module(ModuleBase):
                 missing_percent = ((physical_capacity - usable_bytes) / physical_capacity) * 100
                 findings.append(
                     Finding(
-                        title=f"Usable RAM less than installed ({missing_percent:.1f}% missing)",
+                        title=(
+                            f"Less usable memory than installed ({missing_percent:.1f}% missing)"
+                        ),
                         description=(
-                            f"Only {_format_bytes(usable_bytes)} of {_format_bytes(physical_capacity)} is usable. "
-                            f"Missing {missing_percent:.1f}%. This indicates possible bad RAM or BIOS configuration issue."
+                            f"Your computer has {_format_bytes(physical_capacity)} of "
+                            f"memory, but only {_format_bytes(usable_bytes)} is available "
+                            "to use. This often happens if a memory stick is failing "
+                            "or if the computer's settings (BIOS) are not configured "
+                            "correctly. \n\n"
+                            "What to do: Restart your computer. If the problem persists, "
+                            "check your BIOS settings or have a technician check the "
+                            "memory."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -101,11 +119,14 @@ class Module(ModuleBase):
             if total_gb < 4:
                 findings.append(
                     Finding(
-                        title=f"Low RAM ({total_gb:.1f} GB)",
+                        title=f"Low memory ({total_gb:.1f} GB)",
                         description=(
-                            f"System has only {total_gb:.1f} GB of RAM installed. "
-                            "This is below the recommended minimum for modern Windows systems (4 GB or more). "
-                            "Consider upgrading RAM for better performance."
+                            f"Your computer has {total_gb:.1f} GB of memory (RAM). This "
+                            "is below the recommended 4 GB for modern Windows systems. "
+                            "You may notice the computer slowing down when running many "
+                            "programs. \n\n"
+                            "What to do: Nothing urgent. If performance is a concern, "
+                            "consider upgrading your memory in the future."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -121,10 +142,13 @@ class Module(ModuleBase):
         if mismatched:
             findings.append(
                 Finding(
-                    title="Mismatched RAM modules detected",
+                    title="Your memory sticks don't match",
                     description=(
-                        "RAM modules with different speeds or capacities are installed. "
-                        "All modules will run at the speed of the slowest module, impacting performance."
+                        "Your computer has memory (RAM) modules that are not all the same "
+                        "speed or size. When this happens, the computer runs all of them "
+                        "at the speed of the slowest one. \n\n"
+                        "What to do: Nothing urgent. If your computer feels slow, you "
+                        "can upgrade to matching memory sticks later."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

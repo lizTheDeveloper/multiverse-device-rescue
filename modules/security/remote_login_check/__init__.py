@@ -38,11 +38,19 @@ class Module(ModuleBase):
         if self._is_ssh_enabled():
             findings.append(
                 Finding(
-                    title="Remote Login (SSH) is enabled",
+                    title="Remote Login is turned on",
                     description=(
-                        "Remote Login (SSH) is enabled on this Mac. "
-                        "Most home users don't need this service. "
-                        "It allows remote users to log in and execute commands."
+                        "Your Mac allows people to connect to it from another computer "
+                        "using a program called SSH. This is a powerful tool that lets "
+                        "someone type commands into your computer from a distance. Most "
+                        "people do not use this for everyday tasks. If you did not turn "
+                        "this on yourself, it is a good idea to check who has access to "
+                        "your Mac.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings, click General, then Sharing. "
+                        "Turn off the switch next to Remote Login."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -55,11 +63,18 @@ class Module(ModuleBase):
         if self._is_screen_sharing_enabled():
             findings.append(
                 Finding(
-                    title="Screen Sharing (VNC) is enabled",
+                    title="Screen Sharing is turned on",
                     description=(
-                        "Screen Sharing (VNC) is enabled on this Mac. "
-                        "Most home users don't need this service. "
-                        "It allows remote users to see and control your display."
+                        "Your Mac is set up to let other people see your screen and control "
+                        "your mouse and keyboard from another computer. This is often "
+                        "used for tech support, but it is not needed for normal use. If "
+                        "you did not enable this, it is a good idea to check who has access "
+                        "to your Mac.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings, click General, then Sharing. "
+                        "Turn off the switch next to Screen Sharing."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -72,11 +87,17 @@ class Module(ModuleBase):
         if self._is_remote_management_enabled():
             findings.append(
                 Finding(
-                    title="Remote Management (ARD) is enabled",
+                    title="Remote Management is turned on",
                     description=(
-                        "Remote Management (Apple Remote Desktop) is enabled. "
-                        "Most home users don't need this service. "
-                        "It allows remote users to manage your Mac."
+                        "Your Mac is set up to let other people manage your computer from "
+                        "a distance. This is a feature usually used by IT departments "
+                        "in offices, not by people at home. If you did not enable this, "
+                        "it is a good idea to check who has access to your Mac.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings, click General, then Sharing. "
+                        "Turn off the switch next to Remote Management."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -89,11 +110,17 @@ class Module(ModuleBase):
         if self._is_remote_apple_events_enabled():
             findings.append(
                 Finding(
-                    title="Remote Apple Events is enabled",
+                    title="Remote Apple Events is turned on",
                     description=(
-                        "Remote Apple Events is enabled on this Mac. "
-                        "Most home users don't need this service. "
-                        "It allows remote applications to control your Mac via Apple Events."
+                        "Your Mac is set up to let other computers send commands to your "
+                        "apps from a distance. This is a technical feature that most people "
+                        "do not use. If you did not enable this, it is a good idea to "
+                        "check who has access to your Mac.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings, click General, then Sharing. "
+                        "Turn off the switch next to Remote Apple Events."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

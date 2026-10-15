@@ -91,7 +91,7 @@ def test_win_autorun_enabled_for_removable_drives():
     assert result.has_issues
     # Should have 1 WARNING (AutoRun enabled) + 1 INFO (AutoPlay disabled)
     assert len(result.findings) == 2
-    autorun_findings = [f for f in result.findings if "AutoRun is enabled" in f.title]
+    autorun_findings = [f for f in result.findings if f.code == "security.win_autorun.autorun_enabled"]
     assert len(autorun_findings) == 1
     assert autorun_findings[0].severity == Severity.WARNING
 
@@ -107,7 +107,7 @@ def test_win_autorun_not_found():
 
     assert result.has_issues
     # Should have 1 WARNING (AutoRun not found = enabled by default) + 1 INFO
-    autorun_findings = [f for f in result.findings if "AutoRun is enabled" in f.title]
+    autorun_findings = [f for f in result.findings if f.code == "security.win_autorun.autorun_enabled"]
     assert len(autorun_findings) == 1
     assert autorun_findings[0].severity == Severity.WARNING
 
@@ -124,7 +124,7 @@ def test_win_autoplay_enabled():
     assert result.has_issues
     # Should have 1 INFO (AutoRun disabled) + 1 WARNING (AutoPlay enabled)
     assert len(result.findings) == 2
-    autoplay_findings = [f for f in result.findings if "AutoPlay is enabled" in f.title]
+    autoplay_findings = [f for f in result.findings if f.code == "security.win_autorun.autoplay_enabled"]
     assert len(autoplay_findings) == 1
     assert autoplay_findings[0].severity == Severity.WARNING
 
@@ -140,7 +140,7 @@ def test_win_autoplay_not_found():
 
     assert result.has_issues
     # Should have 1 INFO (AutoRun disabled) + 1 WARNING (AutoPlay not found = enabled)
-    autoplay_findings = [f for f in result.findings if "AutoPlay is enabled" in f.title]
+    autoplay_findings = [f for f in result.findings if f.code == "security.win_autorun.autoplay_enabled"]
     assert len(autoplay_findings) == 1
     assert autoplay_findings[0].severity == Severity.WARNING
 

@@ -7,8 +7,14 @@ remediates:
   - security.win_user_accounts.auto_login_enabled
   - security.win_user_accounts.no_min_password_length
   - security.win_user_accounts.multiple_admin_accounts
+steps_for:
+  security.win_user_accounts.guest_account_enabled: [1]
+  security.win_user_accounts.auto_login_enabled: [2]
+  security.win_user_accounts.no_min_password_length: [3]
+  security.win_user_accounts.multiple_admin_accounts: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 `win_user_accounts` looks at account-level settings that affect who can get
@@ -17,7 +23,7 @@ whoever uses this device) don't rely on the flagged behavior — auto-login in
 particular is sometimes set up deliberately for convenience on a home PC and
 disabling it changes daily behavior.
 
-## Step 1: Disable the Guest account if enabled
+## Step 1: Turn off the Guest account
 
 The Guest account allows sign-in without a password, which is a broad
 exposure for any machine that isn't strictly kiosk-mode.
@@ -28,7 +34,7 @@ exposure for any machine that isn't strictly kiosk-mode.
    /active:no`.
 3. Re-run the scan to confirm.
 
-## Step 2: Review automatic login
+## Step 2: Decide if you want to skip the password
 
 Auto-login skips the password prompt entirely on boot — convenient, but it
 means anyone who can power on the machine gets full access to that user's
@@ -44,7 +50,7 @@ account without a password.
    trade-off — just be aware physical access equals full account access.
 4. Re-run the scan to confirm the current state matches your decision.
 
-## Step 3: Set a minimum password length policy
+## Step 3: Require longer passwords
 
 1. Confirm current policy: `net accounts` (look for "Minimum password
    length" — 0 means unset).
@@ -53,7 +59,7 @@ account without a password.
    "Minimum password length" > at least 8 characters.
 3. Re-run `net accounts` to confirm the new value applied.
 
-## Step 4: Review accounts with admin privileges
+## Step 4: Check who has admin rights
 
 Multiple admin accounts isn't inherently wrong (e.g. a household with
 several members who each need to install software), but each one is an

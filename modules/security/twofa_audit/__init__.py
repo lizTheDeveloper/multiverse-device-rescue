@@ -118,16 +118,17 @@ class Module(ModuleBase):
         if not authenticators and platform_2fa is not True:
             findings.append(
                 Finding(
-                    title="No second-factor capability found on this device",
+                    title="No two-step sign-in tools found on this device",
                     description=(
-                        "No authenticator app is installed and no platform two-factor "
-                        "signal was found on this machine.\n\n"
-                        "That does not prove your accounts are unprotected — you may use "
-                        "an authenticator on your phone, or a hardware key. But if you "
-                        "do not, a stolen password is enough to take over an account, and "
-                        "that is the single most common way accounts are lost.\n\n"
-                        + "What to do: turn on two-step sign-in for your email first, "
-                        "then banking and social media, using an authenticator app or a "
+                        "We did not find an app that generates security codes, nor any "
+                        "sign that your computer is set up for two-step sign-in.\n\n"
+                        "This does not mean your accounts are unsafe. You might use an "
+                        "app on your phone or a physical security key. However, if you "
+                        "do not use a second step, anyone who guesses your password can "
+                        "take over your account. This is the most common way accounts "
+                        "are lost.\n\n"
+                        "What to do: Turn on two-step sign-in for your email first, then "
+                        "your banking and social media. Use an app on your phone or a "
                         "security key.\n\n"
                         + _ACCOUNT_SCOPE_CAVEAT
                     ),
@@ -145,7 +146,7 @@ class Module(ModuleBase):
         if platform_2fa is None:
             findings.append(
                 Finding(
-                    title="Platform two-factor status could not be determined",
+                    title="Two-factor status: Unknown",
                     description=(
                         f"{platform_detail}\n\n"
                         "This is reported as unknown rather than guessed. A security "
@@ -164,9 +165,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title=(
-                    f"Two-factor capability: {len(authenticators)} authenticator app(s)"
-                ),
+                title=f"Two-factor apps on this device: {len(authenticators)}",
                 description=(
                     "Authenticator apps found on this device: "
                     + (", ".join(authenticators) if authenticators else "none")

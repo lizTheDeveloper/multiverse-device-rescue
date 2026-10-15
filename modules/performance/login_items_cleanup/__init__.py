@@ -64,7 +64,7 @@ class Module(ModuleBase):
         if all_items_list:
             findings.append(
                 Finding(
-                    title=f"Login items count: {item_count}",
+                    title=f"Programs that start at login: {item_count}",
                     description=(
                         f"System has {item_count} login item(s): {', '.join(all_items_list)}. "
                         f"Each item adds to boot time and memory usage."
@@ -84,11 +84,14 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"Excessive login items ({item_count})",
+                    title=f"Many apps start automatically ({item_count})",
                     description=(
-                        f"System has {item_count} login items (recommended: 8 or fewer). "
-                        f"Excessive login items significantly slow down boot time and consume resources. "
-                        f"Review and disable unnecessary items."
+                        f"Your Mac is set to launch {item_count} apps every time you turn "
+                        "it on. Having this many apps start at once can make your computer "
+                        "feel slower while it boots up.\n\n"
+                        "What to do: Open System Settings > General > Login Items & Extensions. Look "
+                        "for apps you don't use every day and click the minus button "
+                        "to stop them from starting automatically."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -104,11 +107,15 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"Resource-heavy login items detected ({len(resource_heavy)})",
+                    title=f"Some startup apps use a lot of power ({len(resource_heavy)})",
                     description=(
-                        f"Found {len(resource_heavy)} known resource-intensive app(s) in login items: "
-                        f"{', '.join(resource_heavy)}. These consume significant RAM and CPU at startup. "
-                        f"Consider disabling them if not needed at boot."
+                        f"Apps like {', '.join(resource_heavy)} are set to run when your "
+                        "Mac turns on. These specific apps use a lot of your computer's "
+                        "memory and processing power, which can slow down your Mac when "
+                        "you first start using it.\n\n"
+                        "What to do: Open System Settings > General > Login Items & Extensions. If "
+                        "you don't need these apps to start immediately, click the minus "
+                        "button to disable them. You can still open them manually later."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -125,10 +132,15 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"Broken login items ({len(broken_items)})",
+                    title=f"Old startup entries for missing apps ({len(broken_items)})",
                     description=(
-                        f"Found {len(broken_items)} login item(s) for applications that are no longer installed: "
-                        f"{', '.join(broken_items)}. These should be removed."
+                        f"Your Mac is trying to start {', '.join(broken_items)}, but those "
+                        "apps are no longer installed. These leftover entries don't cause "
+                        "harm, but they can clutter your startup list and occasionally "
+                        "cause minor delays.\n\n"
+                        "What to do: Open System Settings > General > Login Items & Extensions. Find "
+                        "these names in the list and click the minus button to remove "
+                        "them. This is safe and cleans up your settings."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

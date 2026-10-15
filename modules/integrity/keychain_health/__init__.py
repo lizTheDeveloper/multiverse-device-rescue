@@ -32,11 +32,17 @@ class Module(ModuleBase):
         if not login_keychain_path.exists():
             findings.append(
                 Finding(
-                    title="Login keychain not found",
+                    title=(
+                        f"Your main password storage file is missing ({login_keychain_path})"
+                    ),
                     description=(
-                        f"Expected login keychain at {login_keychain_path} does not exist. "
-                        "This may cause password prompts and app crashes. "
-                        "The keychain may be corrupted or in an unexpected location."
+                        f"We could not find your main password storage file at {login_keychain_path}. "
+                        "This file usually holds your saved passwords and Wi-Fi settings. "
+                        "It may have been moved, renamed, or damaged.\n\n"
+                        "What to do: Open Keychain Access (search for it in Spotlight). "
+                        "If it opens, check if your passwords are still there. If the "
+                        "app is empty or errors, back up your data and ask a trusted "
+                        "tech for help to rebuild it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -51,11 +57,18 @@ class Module(ModuleBase):
                 if size_mb > 100:
                     findings.append(
                         Finding(
-                            title=f"Login keychain is very large ({size_mb:.1f} MB)",
+                            title=(
+                                f"Your main password storage file is unusually large ({size_mb:.1f} "
+                                "MB)"
+                            ),
                             description=(
-                                f"The login keychain is {size_mb:.1f} MB, which is larger than 100 MB. "
-                                "Large keychains can be slow and may indicate corruption. "
-                                "Consider rebuilding the keychain."
+                                f"Your main password storage file is {size_mb:.1f} MB, "
+                                "which is much larger than normal. It usually happens "
+                                "if old passwords or certificates were not cleaned up.\n\n"
+                                "What to do: Open Keychain Access (search for it in Spotlight). "
+                                "Look for duplicate or old entries and delete them to "
+                                "reduce the size. If the file is corrupted, back up your "
+                                "data and ask for help to rebuild it."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -73,11 +86,14 @@ class Module(ModuleBase):
         if lock_status == "locked":
             findings.append(
                 Finding(
-                    title="Login keychain is locked",
+                    title="Your main password storage is locked",
                     description=(
-                        "The login keychain is locked. "
-                        "A locked keychain may cause repeated password prompts and app crashes. "
-                        "Unlock the keychain in Keychain Access or via the security command."
+                        "Your main password storage file is currently locked. This is "
+                        "a normal security feature, but if it stays locked, apps may keep "
+                        "asking for your password or fail to connect to Wi-Fi.\n\n"
+                        "What to do: Open Keychain Access (search for it in Spotlight). "
+                        "If it asks for a password, enter your Mac login password to unlock "
+                        "it. If it unlocks, the issue should resolve."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -90,10 +106,14 @@ class Module(ModuleBase):
         if login_keychain_path.name not in keychains:
             findings.append(
                 Finding(
-                    title="Login keychain not listed in system keychains",
+                    title="Your main password storage is not registered with the system",
                     description=(
-                        f"The login keychain is not listed in 'security list-keychains'. "
-                        "This may indicate a configuration issue or corruption."
+                        "Your main password storage file exists, but the system does not "
+                        "see it in its list of active password files. It can cause apps "
+                        "to fail to find your saved passwords.\n\n"
+                        "What to do: Open Keychain Access (search for it in Spotlight). "
+                        "Look for your login keychain in the left sidebar. If it is missing, "
+                        "restart your Mac; it's usually added back when you log in."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -106,11 +126,15 @@ class Module(ModuleBase):
         if default_keychain and "login" not in default_keychain.lower():
             findings.append(
                 Finding(
-                    title=f"Default keychain is not login keychain",
+                    title=f"Your default password storage is set to {default_keychain}",
                     description=(
-                        f"Default keychain is set to: {default_keychain}. "
-                        "It is recommended to set the default keychain to login.keychain-db "
-                        "to avoid authentication issues."
+                        f"Your Mac is set to use {default_keychain} as its main password "
+                        "storage, instead of your standard login keychain. It can cause "
+                        "apps to look in the wrong place for passwords, leading to prompts "
+                        "or errors.\n\n"
+                        "What to do: Open Keychain Access (search for it in Spotlight). "
+                        "In the sidebar, right-click 'login' and choose Make Keychain "
+                        "\"login\" Default."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

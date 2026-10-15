@@ -68,11 +68,15 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"Large Trash: {_fmt_bytes(total_size)}",
+                    title=(
+                        f"Your Trash is taking up a lot of space ({_fmt_bytes(total_size)})"
+                    ),
                     description=(
-                        f"Trash is consuming {_fmt_bytes(total_size)}, "
-                        f"which exceeds the 5GB threshold. "
-                        f"Consider emptying Trash to free disk space."
+                        f"Your Trash currently holds {_fmt_bytes(total_size)} of files. "
+                        "That's storage you get back once it's emptied.\n\n"
+                        "What to do: Click the Trash icon in your Dock, then choose 'Empty "
+                        "Trash' from the right-click menu. Only do this if you are sure "
+                        "you don't need the files inside."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -89,12 +93,13 @@ class Module(ModuleBase):
             findings.insert(
                 0 if total_size < TRASH_SIZE_WARNING else 1,
                 Finding(
-                    title=f"Too many items in Trash: {total_items}",
+                    title=f"Your Trash has a lot of items ({total_items})",
                     description=(
-                        f"Trash contains {total_items} items, "
-                        f"which exceeds the 1000 item threshold. "
-                        f"This can cause the Trash UI to become sluggish. "
-                        f"Consider emptying Trash."
+                        f"Your Trash contains {total_items} files. Having too many files "
+                        "in the Trash can make your Mac feel slow when you open it.\n\n"
+                        "What to do: Click the Trash icon in your Dock, then choose 'Empty "
+                        "Trash' from the right-click menu. Only do this if you are sure "
+                        "you don't need the files inside."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -121,8 +126,8 @@ class Module(ModuleBase):
                         title=f"Trash status: {size_str} ({item_count} items)",
                         description=(
                             f"Current Trash contents: {size_str} with {item_count} items. "
-                            f"To empty Trash via Finder, select Finder > Empty Trash. "
-                            f"Alternatively, use: rm -rf ~/.Trash/* && rm -rf /Volumes/*/.Trashes/*"
+                            "To empty it, choose Finder > Empty Trash. Look through it first: "
+                            "emptied files can't be brought back."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -136,8 +141,8 @@ class Module(ModuleBase):
                         description=(
                             f"Trash is consuming {size_str} of disk space. "
                             f"Empty Trash to reclaim this space. "
-                            f"Open Finder and select Empty Trash from the menu bar, "
-                            f"or run: rm -rf ~/.Trash/* && rm -rf /Volumes/*/.Trashes/*"
+                            "Look through it first, then choose Finder > Empty Trash. "
+                            "Emptied files can't be brought back."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

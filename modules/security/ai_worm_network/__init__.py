@@ -74,14 +74,18 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=(
-                        f"Connection to known malicious "
-                        f"{hit.get('match_type', 'host')}: {hit.get('match_value', hit.get('dest'))}"
+                        f"Your computer is talking to a known malware address: {hit.get('match_value', hit.get('dest'))}"
                     ),
                     description=(
-                        f"Process {hit.get('process')} (pid {hit.get('pid')}) has an "
-                        f"active connection to {hit.get('dest')}, which matches a known "
-                        f"AI worm C2/exfiltration indicator of compromise "
-                        f"(threat: {hit.get('threat', 'unknown')})."
+                        f"The program {hit.get('process')} is connected right now to {hit.get('dest')}. "
+                        "That address is on a list of servers that worm-style malware aimed at "
+                        "developers uses to send stolen data out or take orders "
+                        f"(threat: {hit.get('threat', 'unknown')}).\n\n"
+                        "What to do: Disconnect this computer from the internet. Then, from a "
+                        "different computer or your phone, change the passwords and revoke the "
+                        "access tokens (GitHub, npm, cloud) that were saved on this one. "
+                        "The steps "
+                        "below go through it in order."
                     ),
                     severity=severity,
                     category=self.category,
@@ -101,11 +105,15 @@ class Module(ModuleBase):
         for hit in self._check_stepsecurity_bypass():
             findings.append(
                 Finding(
-                    title="StepSecurity agent bypass in hosts file",
+                    title="Your hosts file was changed to switch off a security service",
                     description=(
-                        "The hosts file contains an entry redirecting "
-                        "agent.stepsecurity.io, which can disable StepSecurity's "
-                        f"CI/CD security monitoring: {hit.get('line')}"
+                        "Your hosts file, which tells your computer where to find websites, has a "
+                        "line that sends agent.stepsecurity.io nowhere. StepSecurity watches "
+                        "software builds for attacks, and worm-style malware adds this line to "
+                        f"blind it: {hit.get('line')}\n\n"
+                        "What to do: Disconnect from the internet, then follow the steps below to "
+                        "remove the line and change the passwords and tokens saved on "
+                        "this computer."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -132,13 +140,27 @@ class Module(ModuleBase):
             if strong:
                 findings.append(
                     Finding(
-                        title=f"Beaconing pattern detected: {hit.get('process')}",
+                        title=(
+                            f"{hit.get('process')} keeps checking in with an unknown server"
+                        ),
                         description=(
-                            f"Process {hit.get('process')} (pid {hit.get('pid')}) maintained "
-                            f"an identical connection to {hit.get('dest')} across repeated "
-                            f"samples ~{hit.get('interval_seconds')}s apart, and its program "
-                            f"runs from an unusual location ({hit.get('binary') or 'unknown'}). "
-                            f"That combination can indicate periodic C2 polling."
+                            f"The program {hit.get('process')} connects to {hit.get('dest')} "
+                            "again and "
+                            "again at regular intervals, and it runs from an unusual folder "
+                            f"({hit.get('binary') or 'unknown'}). Malware often 'checks "
+                            "in' like this to "
+                            "get instructions, but some ordinary apps do too, so this "
+                            "needs a look rather "
+                            "than panic.\n\n"
+                            "If you think someone close to you may have put monitoring "
+                            "software on this "
+                            "computer, removing it can alert them. Talk to an advocate "
+                            "first (US National "
+                            "Domestic Violence Hotline: 1-800-799-7233, or text START "
+                            "to 88788).\n\n"
+                            "What to do: Look up the program's name. If you don't recognize "
+                            "it, follow "
+                            "the steps below before removing anything."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -206,11 +228,15 @@ class Module(ModuleBase):
         for hit in self._check_token_harvesting_subprocess():
             findings.append(
                 Finding(
-                    title=f"Token harvesting subprocess detected: {hit.get('process')}",
+                    title=f"A program read your saved GitHub sign-in: {hit.get('process')}",
                     description=(
-                        f"Process {hit.get('process')} (pid {hit.get('pid')}) executed "
-                        f"'gh auth token' — a known technique for harvesting GitHub "
-                        f"credentials used by AI worm malware: {hit.get('command')}"
+                        f"The program {hit.get('process')} ran 'gh auth token', which prints the "
+                        "GitHub access token saved on this computer. Worm-style malware does this "
+                        "to take over GitHub accounts and spread through their projects. "
+                        f"The command was: {hit.get('command')}\n\n"
+                        "What to do: From a different computer or your phone, go to GitHub > "
+                        "Settings > Applications and revoke this computer's tokens, then change "
+                        "your GitHub password. The steps below cover the rest."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,

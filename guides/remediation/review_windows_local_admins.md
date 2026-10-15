@@ -9,8 +9,15 @@ remediates:
   - security.win_local_admin_audit.admin_blank_password
   - security.win_local_admin_audit.admin_password_never_expires
   - security.win_local_admin_audit.admin_accounts_summary
+steps_for:
+  security.win_local_admin_audit.guest_account_enabled: [1]
+  security.win_local_admin_audit.builtin_admin_enabled: [2]
+  security.win_local_admin_audit.excessive_admin_accounts: [3]
+  security.win_local_admin_audit.admin_blank_password: [4]
+  security.win_local_admin_audit.admin_password_never_expires: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
+monitoring_risk: true
 ---
 
 `win_local_admin_audit` focuses specifically on accounts with administrator
@@ -20,7 +27,7 @@ removing, or changing it** — an admin account you don't recognize might
 still be one you (or another household/IT member) actually use; when in
 doubt, ask before acting.
 
-## Step 1: Disable the Guest account (critical)
+## Step 1: Turn off the Guest account
 
 Same underlying check as `win_user_accounts`, but flagged at CRITICAL here
 because this module treats it in the context of privileged access exposure.
@@ -29,7 +36,7 @@ because this module treats it in the context of privileged access exposure.
 2. Disable it from an elevated prompt: `net user Guest /active:no`.
 3. Re-run the scan to confirm.
 
-## Step 2: Disable the built-in Administrator account
+## Step 2: Turn off the built-in Administrator account
 
 The built-in Administrator account is a well-known target (fixed name, often
 has broad rights) and Microsoft recommends keeping it disabled, using a
@@ -44,7 +51,7 @@ named administrator account instead for day-to-day elevated tasks.
    entirely.
 4. Re-run the scan to confirm.
 
-## Step 3: Review accounts if more than 3 have admin rights
+## Step 3: Check who has admin rights
 
 1. List them: `net localgroup Administrators`.
 2. For each account beyond what's actually needed, confirm with whoever owns
@@ -56,7 +63,7 @@ named administrator account instead for day-to-day elevated tasks.
 4. Re-run the scan to confirm the admin count is back to a reasonable
    number.
 
-## Step 4: Set a password for any admin account with no password (critical)
+## Step 4: Set a password for passwordless admin accounts
 
 An administrator account with no password is trivially exploitable by
 anyone with local or network access to the login screen.
@@ -67,7 +74,7 @@ anyone with local or network access to the login screen.
    strong password (12+ characters, mixed case, numbers, symbols).
 3. Re-run the scan to confirm the finding clears.
 
-## Step 5: Enable password expiration for admin accounts
+## Step 5: Make admin passwords expire
 
 1. Confirm which accounts are flagged.
 2. Via the same Local Users and Groups panel, double-click the account and

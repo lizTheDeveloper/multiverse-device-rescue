@@ -6,8 +6,12 @@ remediates:
   - security.location_services.location_services_enabled
   - security.location_services.location_system_services
   - security.location_services.location_desktop_find_my_only
+steps_for:
+  security.location_services.location_system_services: [1, 2]
+  security.location_services.location_desktop_find_my_only: [1, 3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers what the `location_services` module inventories:
@@ -18,7 +22,7 @@ Mac. Location Services has clear legitimate uses — Find My Mac, Maps,
 weather, automatic time zone — so nothing here is auto-applied; the value
 is confirming the services using it are ones you actually want.
 
-## Step 1: Decide whether Location Services should be on at all
+## Step 1: Decide if you need location tracking
 
 1. Open System Settings > Privacy & Security > Location Services.
 2. If you don't use any location-dependent feature (Find My Mac, Maps,
@@ -27,7 +31,7 @@ is confirming the services using it are ones you actually want.
 3. If you're not sure, move to Step 2 and review what's actually using it
    before deciding.
 
-## Step 2: Review which system services use location
+## Step 2: Check which system tools use your location
 
 1. In the same Location Services pane, scroll to "System Services" at the
    bottom of the list.
@@ -37,7 +41,7 @@ is confirming the services using it are ones you actually want.
    that travel; Find My Mac is worth keeping if you rely on it to locate a
    lost or stolen device.
 
-## Step 3: Reconsider Location Services on desktops used only for Find My Mac
+## Step 3: Review location settings on your desktop
 
 If the scan flagged this: Location Services is enabled on a desktop
 computer (Mac mini, iMac, Mac Studio, Mac Pro) solely for Find My Mac.

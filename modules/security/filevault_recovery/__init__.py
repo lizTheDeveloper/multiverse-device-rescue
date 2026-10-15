@@ -64,11 +64,16 @@ class Module(ModuleBase):
             # Unknown state - could be error or unparseable
             findings.append(
                 Finding(
-                    title="FileVault recovery key status unknown",
+                    title="We could not check your FileVault recovery key",
                     description=(
-                        "Unable to determine if a FileVault recovery key exists. "
-                        "Run `fdesetup hasinstitutionalrecoverykey` and "
-                        "`fdesetup haspersonalrecoverykey` in Terminal to verify."
+                        "Your Mac has full-disk encryption (FileVault) turned on, but "
+                        "we could not tell if a recovery key is saved. A recovery key "
+                        "is a backup code that lets you unlock your Mac if you forget "
+                        "your password. It does not mean everything is fine, but it does "
+                        "not mean you are in danger.\n\n"
+                        "What to do: Make sure your recovery key is written down or saved "
+                        "somewhere safe. If you can't find it, the steps below show how "
+                        "to make a new one."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -84,12 +89,13 @@ class Module(ModuleBase):
             # No recovery key at all - CRITICAL data loss risk
             findings.append(
                 Finding(
-                    title="FileVault enabled but no recovery key found",
+                    title="Your Mac is encrypted, but there's no recovery key",
                     description=(
-                        "FileVault is enabled, but no recovery key (personal or "
-                        "institutional) was found. If the encryption password is "
-                        "lost, the data is unrecoverable. This is a critical risk "
-                        "on family devices."
+                        "FileVault is protecting your files, but there's no recovery key. "
+                        "If the Mac's login password is ever forgotten, nobody, not even "
+                        "Apple, can get the files back.\n\n"
+                        "What to do: Follow the steps below to make a recovery key, then "
+                        "write it down or save it in a password manager."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -118,11 +124,22 @@ class Module(ModuleBase):
                 disabled_users = real_all_users - enabled_set
                 findings.append(
                     Finding(
-                        title="Not all user accounts are FileVault-enabled",
+                        title=(
+                            f"Some user accounts are not encrypted: {', '.join(sorted(disabled_users))}"
+                        ),
                         description=(
-                            f"The following user account(s) are not FileVault-enabled: "
-                            f"{', '.join(sorted(disabled_users))}. All regular user accounts "
-                            f"should be protected by FileVault encryption."
+                            "Your Mac has full-disk encryption (FileVault) turned on, "
+                            f"but the account(s) {', '.join(sorted(disabled_users))} are "
+                            "not protected by it. This means files in those specific "
+                            "accounts are not encrypted when the Mac is off. It usually "
+                            "happens if an account was created before encryption was "
+                            "turned on.\n\n"
+                            "What to do: Go to System Settings > Privacy & Security > "
+                            "FileVault. Ensure FileVault is turned on. Then, log in to "
+                            "the account(s) listed above and check if they appear in "
+                            "the list of protected users. If they do not, you may need "
+                            "to restart the Mac and log in to that account to trigger "
+                            "protection."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

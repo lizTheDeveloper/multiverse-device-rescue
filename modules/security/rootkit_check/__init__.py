@@ -40,11 +40,18 @@ class Module(ModuleBase):
         if sip_enabled is False:
             findings.append(
                 Finding(
-                    title="System Integrity Protection (SIP) is disabled",
+                    title="System Integrity Protection (SIP) is turned off",
                     description=(
-                        "SIP is disabled on this machine, which enables rootkit installation. "
-                        "Rootkits require SIP to be disabled to modify system files. "
-                        "This is a significant security risk."
+                        "System Integrity Protection (SIP) stops any app, even one with "
+                        "your password, from changing the core parts of macOS. It's switched "
+                        "off. People sometimes turn it off for specialist software, but "
+                        "if you didn't, something or someone else did, and hidden software "
+                        "can dig in deeper while it's off.\n\n"
+                        "What to do: Shut down your Mac. On a Mac with Apple silicon, "
+                        "hold the power button until you see startup options, then choose "
+                        "Options. On an Intel Mac, hold Command-R while it starts. Choose "
+                        "Utilities > Terminal, type csrutil enable, press Return, and "
+                        "restart."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -231,11 +238,19 @@ class Module(ModuleBase):
                 if result.returncode != 0:
                     findings.append(
                         Finding(
-                            title=f"System binary code signature verification failed: {binary}",
+                            title=(
+                                "A core system file on your Mac looks changed or broken "
+                                f"({binary})"
+                            ),
                             description=(
-                                f"The system binary {binary} failed code signature verification. "
-                                f"This indicates the binary may have been modified or is corrupted. "
-                                f"This is a strong indicator of rootkit infection or system compromise."
+                                f"The system file {binary} failed Apple's signature check, "
+                                "so it may have been changed or damaged. Malware that "
+                                "hides itself sometimes replaces system files like this, "
+                                "but disk damage can also cause it.\n\n"
+                                "What to do: Back up your personal files, then reinstall "
+                                "macOS from Recovery; this replaces system files and "
+                                "keeps your own. Run the checkup again afterwards. The "
+                                "steps below go through it."
                             ),
                             severity=Severity.CRITICAL,
                             category=self.category,
@@ -295,12 +310,19 @@ class Module(ModuleBase):
             if non_apple_kexts:
                 findings.append(
                     Finding(
-                        title="Non-Apple kernel extensions detected",
+                        title=(
+                            f"Kernel extensions from outside Apple are loaded ({len(non_apple_kexts)})"
+                        ),
                         description=(
-                            f"Found {len(non_apple_kexts)} non-Apple kernel extension(s) loaded: "
-                            f"{', '.join(set(non_apple_kexts))}. "
-                            "While not always malicious, kernel extensions are a common vector "
-                            "for rootkit installation. Ensure all loaded extensions are from trusted sources."
+                            f"Your Mac has {len(non_apple_kexts)} kernel extension(s) "
+                            f"from companies other than Apple: {', '.join(set(non_apple_kexts))}. "
+                            "Kernel extensions run at the deepest level of the system. "
+                            "Drivers for printers, audio gear, VPNs and security tools "
+                            "use them; so does some malware.\n\n"
+                            "What to do: Check whether each name belongs to hardware "
+                            "or software you use. If one doesn't, uninstall the app it "
+                            "came with, or look in System Settings > General > Login "
+                            "Items & Extensions."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -348,12 +370,24 @@ class Module(ModuleBase):
                         if abs(ps_count - sysctl_count) > 10:
                             findings.append(
                                 Finding(
-                                    title="Process count discrepancy detected",
+                                    title=(
+                                        f"Your Mac is hiding processes from view ({ps_count} "
+                                        f"vs {sysctl_count})"
+                                    ),
                                     description=(
-                                        f"Process count mismatch: ps reports {ps_count} processes, "
-                                        f"but sysctl reports {sysctl_count}. "
-                                        "This discrepancy may indicate hidden processes, "
-                                        "which is a characteristic of rootkit activity."
+                                        "Two ways of counting running programs disagree: "
+                                        f"{ps_count} versus {sysctl_count}. Programs start "
+                                        "and stop all the time, so a small gap can be "
+                                        "a coincidence of timing. A gap that stays can "
+                                        "mean something is hiding itself, which is what "
+                                        "some monitoring tools do.\n\n"
+                                        "If you think someone close to you may have put "
+                                        "monitoring software on this Mac, removing it "
+                                        "can alert them. Talk to an advocate first (US "
+                                        "National Domestic Violence Hotline: 1-800-799-7233, "
+                                        "or text START to 88788).\n\n"
+                                        "What to do: Run the checkup again. If the gap "
+                                        "is still there, follow the steps below."
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,
@@ -437,12 +471,18 @@ class Module(ModuleBase):
             hidden_items.sort()
             findings.append(
                 Finding(
-                    title="Suspicious hidden files in root directory",
+                    title=(
+                        f"Unusual hidden files found in your Mac's main folder ({len(hidden_items)})"
+                    ),
                     description=(
-                        f"Found {len(hidden_items)} non-standard hidden file(s) in /: "
-                        f"{', '.join(hidden_items)}. "
-                        "Rootkits often hide files using dot-prefix naming in the root directory. "
-                        "Verify these files are legitimate system files."
+                        f"We found {len(hidden_items)} hidden item(s) at the top level "
+                        f"of your disk that aren't standard macOS files: {', '.join(hidden_items)}. "
+                        "Apps sometimes leave things there, but it's also a hiding place "
+                        "for unwanted software.\n\n"
+                        "What to do: Look each name up. In Finder, press Command-Shift-G, "
+                        "type /, then press Command-Shift-. (period) to show hidden files. "
+                        "Don't delete anything you can't identify; ask someone you trust "
+                        "to help."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

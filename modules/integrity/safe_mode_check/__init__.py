@@ -59,12 +59,16 @@ class Module(ModuleBase):
         if in_safe_mode:
             findings.append(
                 Finding(
-                    title="Currently booted in Safe Mode",
+                    title="Your Mac is currently in Safe Mode",
                     description=(
-                        "This Mac is currently running in Safe Mode. Safe Mode is a "
-                        "diagnostic mode that disables third-party kernel extensions and "
-                        "startup items. Something may have forced this boot mode, indicating "
-                        "a potential system issue."
+                        "Your Mac is currently running in Safe Mode. This is a special "
+                        "diagnostic mode that turns off extra software and startup items "
+                        "to help fix problems. It starts when someone holds Shift while "
+                        "the Mac starts up, or when macOS runs into trouble starting "
+                        "normally.\n\n"
+                        "What to do: Restart your Mac normally. If it boots up and stays "
+                        "on, you are likely fine. If it keeps returning to Safe Mode, "
+                        "you may need to update your software or check for hardware issues."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -76,11 +80,16 @@ class Module(ModuleBase):
         if recent_panics > 1:
             findings.append(
                 Finding(
-                    title=f"Multiple kernel panics detected ({recent_panics} in last 7 days)",
+                    title=f"Your Mac crashed {recent_panics} times in the last week",
                     description=(
-                        f"Found {recent_panics} kernel panic log files in the last 7 days. "
-                        "Multiple panics may indicate a hardware issue, faulty driver, or "
-                        "serious software problem that needs investigation."
+                        f"Your Mac has crashed {recent_panics} times in the last 7 days. "
+                        "A crash, or 'kernel panic,' happens when the system hits a serious "
+                        "error and restarts to protect itself. It usually points to a "
+                        "faulty app or driver, a bad update, or a hardware problem.\n\n"
+                        "What to do: Restart your Mac normally. If it crashes again, "
+                        "check for software updates in System Settings > General > Software "
+                        "Update. If the crashes continue, back up your data and consider "
+                        "contacting Apple Support."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,

@@ -109,12 +109,17 @@ class Module(ModuleBase):
         if lockscreen_siri == "1":
             findings.append(
                 Finding(
-                    title="Siri is accessible from lock screen",
+                    title="Siri works on the lock screen, without unlocking your Mac",
                     description=(
-                        "Siri can be accessed from the lock screen without authentication. "
-                        "This is a security risk as it allows anyone with physical access to "
-                        "interact with Siri, potentially bypassing security measures, accessing "
-                        "personal information, or sending messages without unlocking the device."
+                        "Right now, you can ask Siri questions or send messages even when "
+                        "your Mac is locked. This is a normal setting, but it means anyone "
+                        "who physically has your Mac could use Siri to read your messages, "
+                        "check your calendar, or send texts without entering your password. "
+                        "If you are worried about someone close to you using your Mac "
+                        "while it is locked, turning this off is a safe way to add a layer "
+                        "of protection.\n\n"
+                        "What to do: Open System Settings > Siri (called Apple Intelligence "
+                        "& Siri on newer Macs) and turn off 'Allow Siri when locked'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

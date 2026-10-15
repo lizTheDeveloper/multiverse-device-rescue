@@ -28,12 +28,25 @@ def _plain(value: Any) -> Any:
     return str(value)
 
 
-def _remediation(guide) -> dict:
-    return {
+SAFETY_NOTE = (
+    "Before you remove or turn anything off: if you think someone close to you "
+    "set this up to watch you, removing it can alert them. Talk to an advocate "
+    "first. In the US: National Domestic Violence Hotline, 1-800-799-7233, or "
+    "text START to 88788."
+)
+
+
+def _remediation(guide, code=None) -> dict:
+    steps = guide.steps_for_code(code)
+    out = {
         "title": guide.title,
         "estimated_time": guide.estimated_time,
-        "steps": [{"number": s.number, "title": s.title, "body": s.body} for s in guide.steps],
+        "steps": [{"number": s.number, "title": s.title, "body": s.body} for s in steps],
+        "all_steps": len(steps) == len(guide.steps),
     }
+    if getattr(guide, "monitoring_risk", False):
+        out["safety_note"] = SAFETY_NOTE
+    return out
 
 
 def _fixable(entry) -> dict:
@@ -72,7 +85,11 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
         out["made_by"] = _plain(entries)
     guide = walkthroughs.get(getattr(finding, "code", None)) if walkthroughs else None
     if guide is not None:
-        out["remediation"] = _remediation(guide)
+        out["remediation"] = _remediation(guide, getattr(finding, "code", None))
+        # The safety note is for things worth acting on; informational
+        # inventories would repeat it on every card.
+        if getattr(getattr(finding, "severity", None), "value", None) == "info":
+            out["remediation"].pop("safety_note", None)
     return out
 
 

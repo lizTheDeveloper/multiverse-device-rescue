@@ -145,7 +145,7 @@ def test_win_event_errors_many_errors():
     assert result.has_issues
     # Should have a warning about high error volume
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("High error volume" in f.title for f in result.findings)
+    assert any("system errors" in f.title for f in result.findings)
 
 
 def test_win_event_errors_known_bad_sources():
@@ -156,7 +156,7 @@ def test_win_event_errors_known_bad_sources():
     assert result.has_issues
     # Should have a warning about known-issue errors
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("Known-issue errors" in f.title for f in result.findings)
+    assert any("hardware or crash errors" in f.title for f in result.findings)
 
 
 def test_win_event_errors_powershell_failure():

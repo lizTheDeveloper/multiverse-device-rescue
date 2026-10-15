@@ -65,13 +65,19 @@ class Module(ModuleBase):
             severity = Severity.WARNING if count > 10 else Severity.INFO
             findings.append(
                 Finding(
-                    title=f"Accessibility access: {count} app(s)",
+                    title=f"{count} app(s) can control your Mac",
                     description=(
-                        f"{count} app(s) have been granted Accessibility access: "
-                        f"{', '.join(sorted(apps))}. "
-                        "Accessibility access is a powerful permission that allows "
-                        "apps to control your system. Review to ensure only trusted "
-                        "apps have this access."
+                        f"These apps are allowed to control your Mac: {', '.join(sorted(apps))}. "
+                        "This permission lets them move your cursor, type, and click "
+                        "buttons on your behalf. It is very powerful. If you do not recognize "
+                        "any of these names, or if you think someone close to you installed "
+                        "them to watch what you do, please talk to an advocate before "
+                        "removing them, as deleting the app might alert them. US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788.\n\n"
+                        "What to do: Open System Settings > Privacy & Security > Accessibility. "
+                        "Turn off the switch for any app you do not trust or no longer "
+                        "use."
                     ),
                     severity=severity,
                     category=self.category,
@@ -84,7 +90,7 @@ class Module(ModuleBase):
             apps = services["kTCCServiceSystemPolicyAllFiles"]
             findings.append(
                 Finding(
-                    title=f"Full Disk Access: {len(apps)} app(s)",
+                    title=f"Apps with full disk access: {len(apps)}",
                     description=(
                         f"{len(apps)} app(s) have been granted Full Disk Access: "
                         f"{', '.join(sorted(apps))}. "
@@ -102,7 +108,7 @@ class Module(ModuleBase):
             apps = services["kTCCServiceScreenCapture"]
             findings.append(
                 Finding(
-                    title=f"Screen Recording: {len(apps)} app(s)",
+                    title=f"Apps with screen recording access: {len(apps)}",
                     description=(
                         f"{len(apps)} app(s) have been granted Screen Recording permission: "
                         f"{', '.join(sorted(apps))}. "
@@ -120,7 +126,7 @@ class Module(ModuleBase):
             apps = services["kTCCServiceCamera"]
             findings.append(
                 Finding(
-                    title=f"Camera access: {len(apps)} app(s)",
+                    title=f"Apps with camera access: {len(apps)}",
                     description=(
                         f"{len(apps)} app(s) have been granted Camera access: "
                         f"{', '.join(sorted(apps))}. "
@@ -137,7 +143,7 @@ class Module(ModuleBase):
             apps = services["kTCCServiceMicrophone"]
             findings.append(
                 Finding(
-                    title=f"Microphone access: {len(apps)} app(s)",
+                    title=f"Apps with microphone access: {len(apps)}",
                     description=(
                         f"{len(apps)} app(s) have been granted Microphone access: "
                         f"{', '.join(sorted(apps))}. "

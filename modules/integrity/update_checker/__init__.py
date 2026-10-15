@@ -31,7 +31,15 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=f"{len(os_updates)} macOS update(s) available",
-                    description="Pending updates: " + ", ".join(os_updates),
+                    description=(
+                        f"Your Mac has {len(os_updates)} updates waiting to be installed. "
+                        "These are official updates from Apple that fix security holes "
+                        "and bugs: "
+                        + ", ".join(os_updates)
+                        + "\n\n"
+                        "What to do: Open System Settings > General > Software Update "
+                        "and install them."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "os_updates", "updates": os_updates},
@@ -45,7 +53,14 @@ class Module(ModuleBase):
                 findings.append(
                     Finding(
                         title=f"{len(outdated_packages)} outdated Homebrew package(s)",
-                        description="Outdated packages: " + ", ".join(outdated_packages),
+                        description=(
+                            f"Homebrew (a tool for installing extra software) has {len(outdated_packages)} "
+                            "apps that are older than the latest version: "
+                            + ", ".join(outdated_packages)
+                            + "\n\n"
+                            "What to do: Open Terminal and type `brew upgrade` to update "
+                            "them, or ignore this if you don't use Homebrew."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={"check": "brew_outdated", "packages": outdated_packages},

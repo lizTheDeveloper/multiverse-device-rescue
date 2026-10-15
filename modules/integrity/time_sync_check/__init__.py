@@ -32,8 +32,14 @@ class Module(ModuleBase):
         if ntp_enabled is False:
             findings.append(
                 Finding(
-                    title="NTP disabled",
-                    description="Network Time Protocol (NTP) is disabled. This can cause SSL certificate validation failures on older systems.",
+                    title="Your Mac is not syncing its clock automatically",
+                    description=(
+                        "Your Mac is not using Network Time Protocol (NTP) to keep its "
+                        "clock accurate. If the clock drifts, websites may show security "
+                        "warnings because they can't check their certificates.\n\n"
+                        "What to do: Open System Settings, click General, then Date & "
+                        "Time. Make sure 'Set time and date automatically' is turned on."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "ntp_enabled", "enabled": False},
@@ -45,7 +51,7 @@ class Module(ModuleBase):
         if ntp_server is not None:
             findings.append(
                 Finding(
-                    title="NTP server configured",
+                    title="Your time server setting",
                     description=f"Network time server: {ntp_server}",
                     severity=Severity.INFO,
                     category=self.category,
@@ -58,7 +64,7 @@ class Module(ModuleBase):
         if timezone_auto is False:
             findings.append(
                 Finding(
-                    title="Automatic timezone detection disabled",
+                    title="Automatic timezone setting is off",
                     description="System is not set to automatically detect timezone.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -71,7 +77,7 @@ class Module(ModuleBase):
         if current_time is not None:
             findings.append(
                 Finding(
-                    title="Current system time",
+                    title="Your current system time",
                     description=f"System time: {current_time}",
                     severity=Severity.INFO,
                     category=self.category,

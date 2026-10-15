@@ -177,7 +177,7 @@ def test_win_group_policy_audit_domain_joined_no_gpos():
     # Should have info finding about GPO status
     assert result.has_issues
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
-    assert any("Group Policy status report" in f.title for f in info_findings)
+    assert any("policy settings" in f.title for f in info_findings)
 
 
 def test_win_group_policy_audit_stale_gpos_warning():
@@ -192,7 +192,7 @@ def test_win_group_policy_audit_stale_gpos_warning():
         result = mod.check(_make_profile())
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("Stale domain Group Policies" in f.title for f in warning_findings)
+    assert any("old work rules" in f.title.lower() for f in warning_findings)
 
 
 def test_win_group_policy_audit_weak_password_policy():
@@ -207,7 +207,7 @@ def test_win_group_policy_audit_weak_password_policy():
         result = mod.check(_make_profile())
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("minimum length" in f.title.lower() for f in warning_findings)
+    assert any("password rule is too short" in f.title.lower() for f in warning_findings)
 
 
 def test_win_group_policy_audit_restrictive_policy():

@@ -8,8 +8,14 @@ remediates:
   - security.win_proxy_detect.pac_configured
   - security.win_proxy_detect.system_proxy
   - security.win_proxy_detect.no_proxies
+steps_for:
+  security.win_proxy_detect.localhost_suspicious: [1]
+  security.win_proxy_detect.ie_proxy_enabled: [2]
+  security.win_proxy_detect.pac_configured: [3]
+  security.win_proxy_detect.system_proxy: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 A configured proxy is not automatically malicious — corporate networks, VPN
@@ -23,7 +29,7 @@ to be there** — check if you're on a work network, connected to a VPN, or
 recently installed software that legitimately proxies traffic (some
 ad-blockers and parental-control tools do this by design).
 
-## Step 1: Proxy points to localhost on an unusual port (critical)
+## Step 1: Find what's intercepting your web traffic
 
 This is the strongest indicator of malicious interception: a proxy pointing
 at `127.0.0.1`/`localhost` on a port outside the common legitimate proxy
@@ -45,7 +51,7 @@ locally-running process — not your browser or OS — is intercepting traffic.
    `enable_windows_antivirus.md` for re-enabling Defender if it's also been
    disabled).
 
-## Step 2: Browser proxy enabled (not localhost)
+## Step 2: Check if your browser uses a proxy
 
 A manual proxy is configured and enabled, pointing at a non-localhost
 address.
@@ -59,7 +65,7 @@ address.
    network, disable it: Settings → Network & Internet → Proxy → toggle off
    "Use a proxy server" under Manual proxy setup.
 
-## Step 3: PAC (auto-config) URL configured
+## Step 3: Check for automatic proxy scripts
 
 An automatic proxy configuration script URL is set. PAC files can route
 specific traffic through a proxy selectively, which is both a legitimate
@@ -82,7 +88,7 @@ system-wide proxy.
    with `clean_windows_hosts_file.md` for similarly suspicious redirection
    entries.
 
-## Step 4: System-wide proxy detected (informational)
+## Step 4: Check for system-wide proxy settings
 
 `netsh winhttp show proxy` reports a system-wide WinHTTP proxy — this is
 separate from the per-user browser proxy setting and is used by some system

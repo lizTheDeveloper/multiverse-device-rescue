@@ -60,9 +60,10 @@ class Module(ModuleBase):
                 Finding(
                     title="Apple ID not signed in",
                     description=(
-                        "No Apple ID account is currently signed in on this Mac. "
-                        "This means iCloud backup, Find My, and other Apple services are not active. "
-                        "Consider signing in to protect your device and data."
+                        "No Apple ID is currently signed in on this Mac. This means iCloud "
+                        "backup, Find My, and other Apple services are not active.\n\n"
+                        "What to do: Open System Settings, click your name at the top, "
+                        "and sign in with your Apple ID."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -77,9 +78,16 @@ class Module(ModuleBase):
                 Finding(
                     title="iCloud Keychain is disabled",
                     description=(
-                        "iCloud Keychain is not enabled. Your passwords and payment information "
-                        "are not being synced and backed up to iCloud. "
-                        "This reduces security and makes recovery difficult if your passwords are lost."
+                        "iCloud Keychain is turned off. This means your saved passwords "
+                        "and payment details are not being backed up to Apple's servers. "
+                        "If you forget a password or lose your device, you may not be "
+                        "able to recover them.\n\n"
+                        "If someone else knows your Apple Account password, they would "
+                        "see these passwords too, so change it first if that worries "
+                        "you.\n\n"
+                        "What to do: Open System Settings, click your name, choose "
+                        "iCloud, and turn on Passwords (called Passwords & Keychain on "
+                        "some versions)."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -92,11 +100,13 @@ class Module(ModuleBase):
         if not autoupdate_enabled:
             findings.append(
                 Finding(
-                    title="Automatic software updates are disabled",
+                    title="Your Mac doesn't install updates automatically",
                     description=(
-                        "Automatic software updates are not enabled on this Mac. "
-                        "Security patches are critical for protecting against vulnerabilities. "
-                        "Enable automatic updates to ensure your system stays secure."
+                        "Automatic updates are off, so security fixes only arrive when "
+                        "you go and get them.\n\n"
+                        "What to do: Open System Settings > General > Software Update, "
+                        "click the info button next to Automatic Updates, and turn the "
+                        "options on."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

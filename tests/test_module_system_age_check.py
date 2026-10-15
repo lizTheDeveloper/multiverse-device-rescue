@@ -174,7 +174,7 @@ def test_system_age_check_vintage_hardware():
     vintage_findings = [f for f in result.findings if f.data.get("status") == "vintage"]
     assert len(vintage_findings) > 0
     assert vintage_findings[0].severity == Severity.WARNING
-    assert "vintage" in vintage_findings[0].title.lower()
+    assert "end of support" in vintage_findings[0].title.lower()
     assert "2017" in str(vintage_findings[0].data.get("year"))
 
 
@@ -190,7 +190,7 @@ def test_system_age_check_obsolete_hardware():
     obsolete_findings = [f for f in result.findings if f.data.get("status") == "obsolete"]
     assert len(obsolete_findings) > 0
     assert obsolete_findings[0].severity == Severity.CRITICAL
-    assert "obsolete" in obsolete_findings[0].title.lower()
+    assert "too old for security updates" in obsolete_findings[0].title.lower()
     assert "2011" in str(obsolete_findings[0].data.get("year"))
 
 
@@ -203,7 +203,7 @@ def test_system_age_check_old_macos_version():
     assert result.has_issues
 
     # Should detect version lag
-    lag_findings = [f for f in result.findings if "major version" in f.title.lower()]
+    lag_findings = [f for f in result.findings if "versions behind" in f.title.lower()]
     assert len(lag_findings) > 0
     assert lag_findings[0].severity == Severity.WARNING
     assert any("12" in str(lag_findings[0].data.get("current_version")) for _ in [1])
@@ -311,4 +311,4 @@ def test_system_age_check_subprocess_error_handling():
 
     # Should have error finding
     assert result.has_issues
-    assert any("Unable to determine hardware" in f.title for f in result.findings)
+    assert any("check your Mac's age" in f.title for f in result.findings)

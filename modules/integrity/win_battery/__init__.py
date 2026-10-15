@@ -58,10 +58,16 @@ class Module(ModuleBase):
             if capacity_percent < 50:
                 findings.append(
                     Finding(
-                        title=f"Battery capacity critical ({capacity_percent:.1f}%)",
+                        title=(
+                            f"Your battery holds much less charge than when new ({capacity_percent:.1f}%)"
+                        ),
                         description=(
-                            f"Battery capacity has degraded to {capacity_percent:.1f}% of "
-                            "design capacity. Battery service is strongly recommended."
+                            f"Your battery can currently hold {capacity_percent:.1f}% "
+                            "of its original capacity. This is a significant drop, meaning "
+                            "your computer will run out of power much faster than it "
+                            "used to.\n\n"
+                            "What to do: Consider having the battery replaced by a professional "
+                            "to restore your battery life."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -77,11 +83,13 @@ class Module(ModuleBase):
             elif capacity_percent < 80:
                 findings.append(
                     Finding(
-                        title=f"Battery capacity degraded ({capacity_percent:.1f}%)",
+                        title=f"Your battery is aging ({capacity_percent:.1f}% capacity)",
                         description=(
-                            f"Battery maximum capacity is {capacity_percent:.1f}% of "
-                            "design capacity. This is normal aging; if it falls below "
-                            "50%, service is recommended."
+                            f"Your battery currently holds {capacity_percent:.1f}% of "
+                            "its original capacity. It just means the battery will last "
+                            "a bit shorter than it did when new.\n\n"
+                            "What to do: Nothing right now. Keep an eye on it, but no "
+                            "action is needed unless it drops below 50%."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -101,10 +109,14 @@ class Module(ModuleBase):
             # Other values indicate charging issues
             findings.append(
                 Finding(
-                    title=f"Battery charging issue detected",
+                    title="Your battery is not charging as expected",
                     description=(
-                        f"Battery status is {_get_battery_status_text(battery_status)}. "
-                        "Check power adapter connection and battery health."
+                        f"Your battery status is currently {_get_battery_status_text(battery_status)}. "
+                        "This usually means the power adapter is not connected properly "
+                        "or the battery needs attention.\n\n"
+                        "What to do: Unplug and replug your power adapter to ensure it "
+                        "is secure. If it still does not charge, try restarting your "
+                        "computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

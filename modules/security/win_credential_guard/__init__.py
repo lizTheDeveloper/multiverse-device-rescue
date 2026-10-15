@@ -39,7 +39,7 @@ class Module(ModuleBase):
             if not credential_guard_enabled:
                 findings.append(
                     Finding(
-                        title="Credential Guard is not enabled",
+                        title="Credential Guard is not turned on",
                         description=(
                             "Credential Guard provides hardware-based isolation for sensitive "
                             "credentials, protecting against pass-the-hash attacks. Consider enabling it "
@@ -80,10 +80,17 @@ class Module(ModuleBase):
             if password_policy and password_policy.get("min_length", 0) < 8:
                 findings.append(
                     Finding(
-                        title="Minimum password length policy is below recommended threshold",
+                        title=(
+                            f"Your password rules allow very short passwords ({password_policy.get('min_length', 0)} "
+                            "chars)"
+                        ),
                         description=(
-                            f"Current minimum password length is {password_policy.get('min_length', 0)} characters. "
-                            "A minimum of 8 characters is recommended for adequate security."
+                            "Your computer is currently set to accept passwords that "
+                            f"are only {password_policy.get('min_length', 0)} characters "
+                            "long. Short passwords are much easier for attackers to guess "
+                            "or crack.\n\n"
+                            "What to do: Open Command Prompt as administrator and run: net "
+                            "accounts /minpwlen:12"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -101,10 +108,19 @@ class Module(ModuleBase):
                 user_list = ", ".join(password_never_expires)
                 findings.append(
                     Finding(
-                        title="User accounts with passwords set to never expire",
+                        title=(
+                            "Some accounts on your computer are set to never change their "
+                            f"password ({user_list})"
+                        ),
                         description=(
-                            f"The following accounts have passwords set to never expire: {user_list}. "
-                            "Passwords that never expire pose a security risk. Configure password expiration policies."
+                            "The following accounts are set to keep the same password "
+                            f"forever: {user_list}. While this is convenient, it means "
+                            "that if that password is ever guessed or stolen, the attacker "
+                            "can keep using it indefinitely.\n\n"
+                            "What to do: Make sure these accounts have long, unique "
+                            "passwords; that matters more than changing them often. If "
+                            "your workplace requires expiry, a technical helper can turn "
+                            "it on in Local Users and Groups (Windows Pro)."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

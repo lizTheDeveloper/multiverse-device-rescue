@@ -92,11 +92,20 @@ class Module(ModuleBase):
             if size_bytes > UNUSED_ACCOUNT_DIR_WARNING_THRESHOLD:
                 findings.append(
                     Finding(
-                        title=f"User '{username}' home directory is {_fmt_bytes(size_bytes)} (>{_fmt_bytes(UNUSED_ACCOUNT_DIR_WARNING_THRESHOLD)})",
+                        title=(
+                            f"User '{username}' home directory is {_fmt_bytes(size_bytes)} "
+                            f"(>{_fmt_bytes(UNUSED_ACCOUNT_DIR_WARNING_THRESHOLD)})"
+                        ),
                         description=(
-                            f"/Users/{username} is using {_fmt_bytes(size_bytes)}, which is consuming significant disk space. "
-                            f"Last login: {last_login_str}. "
-                            f"Consider archiving or removing this account's data if it is no longer in use."
+                            f"The files for user '{username}' are taking up {_fmt_bytes(size_bytes)} "
+                            "of space, which is quite large. The last time this account "
+                            f"was used was {last_login_str}.\n\n"
+                            "It just means your disk is filling up with old files.\n\n"
+                            "What to do: If this is an account you no longer use, you "
+                            "can delete it to free up space. Go to System Settings > "
+                            "Users & Groups, select the user, and click the minus button. "
+                            "If you still need the files, move them to an external drive "
+                            "first."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -116,11 +125,20 @@ class Module(ModuleBase):
         for account in old_unused_accounts:
             findings.append(
                 Finding(
-                    title=f"User '{account['username']}' has not logged in for {account['days_since_login']} days",
+                    title=(
+                        f"User '{account['username']}' has not logged in for {account['days_since_login']} "
+                        "days"
+                    ),
                     description=(
-                        f"/Users/{account['username']} has not been logged into since {account['last_login']} ({account['days_since_login']} days). "
-                        f"Home directory is {_fmt_bytes(account['size_bytes'])}. "
-                        f"This account may be safe to archive or remove if the user has permanently moved out or is no longer active."
+                        f"The account '{account['username']}' has not been used since "
+                        f"{account['last_login']} ({account['days_since_login']} days "
+                        f"ago). Its files are taking up {_fmt_bytes(account['size_bytes'])} "
+                        "of space.\n\n"
+                        "This is usually just an old account that is no longer active.\n\n"
+                        "What to do: If you recognize this person and they are no longer "
+                        "using your Mac, you can delete the account to free up space. "
+                        "Go to System Settings > Users & Groups, select the user, and "
+                        "click the minus button. If you are unsure, leave it as is."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -146,7 +164,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"User accounts summary ({len(all_user_details)} users found)",
+                    title=f"Your user accounts ({len(all_user_details)} found)",
                     description=(
                         f"Found {len(all_user_details)} user accounts on the system:\n{user_details}"
                     ),

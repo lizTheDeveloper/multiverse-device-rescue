@@ -8,6 +8,11 @@ remediates:
   - security.sudo_touchid.sudo_not_enabled
   - security.sudo_touchid.applepay_enabled
   - security.sudo_touchid.no_hardware
+steps_for:
+  security.sudo_touchid.touchid_status: [3]
+  security.sudo_touchid.no_fingerprints: [1, 3]
+  security.sudo_touchid.applepay_enabled: [3]
+  security.sudo_touchid.no_hardware: [3]
 automatable_steps: []
 human_only_steps: [1, 2]
 ---
@@ -18,7 +23,7 @@ for `sudo`. Enabling Touch ID for sudo means editing a PAM configuration
 file (`/etc/pam.d/sudo`) — back it up first and test in the same terminal
 session before closing it, exactly as with any other sudo-adjacent change.
 
-## Step 1: Enroll fingerprints (if hardware exists but none enrolled)
+## Step 1: Add your fingerprints to Touch ID
 
 Only relevant if `no_fingerprints` was flagged — this means Touch ID
 hardware is present but nothing is enrolled yet.
@@ -29,7 +34,7 @@ hardware is present but nothing is enrolled yet.
 3. Re-run the scan to confirm `touchid_status` now reports at least one
    fingerprint enrolled.
 
-## Step 2: Enable Touch ID for sudo
+## Step 2: Turn on Touch ID for admin commands
 
 Only relevant if `sudo_not_enabled` was flagged. This is optional — sudo
 already works fine with a password; Touch ID just adds a biometric option.
@@ -48,7 +53,7 @@ already works fine with a password; Touch ID just adds a biometric option.
    physical/recovery access if sudo itself is broken — this is why testing
    in the same session before closing it matters).
 
-## Step 3: Review informational findings
+## Step 3: Check if any action is needed
 
 `touchid_status`, `applepay_enabled`, and `no_hardware` are purely
 informational — no action is needed. `no_hardware` in particular means this

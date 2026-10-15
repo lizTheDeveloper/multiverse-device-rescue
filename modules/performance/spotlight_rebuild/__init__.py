@@ -109,9 +109,13 @@ class Module(ModuleBase):
                 Finding(
                     title="Spotlight indexing appears to be stuck",
                     description=(
-                        "Spotlight is enabled but not actively indexing (waiting). "
-                        "This can cause performance issues. Consider rebuilding the index: "
-                        "mdutil -E -i on / && mdutil -i on /"
+                        "Your Mac's Spotlight search is turned on, but the background "
+                        "process that updates the search index seems to be paused or waiting. "
+                        "It can make your Mac feel slower "
+                        "or cause searches to fail.\n\n"
+                        "What to do: To rebuild it, open System Settings > Siri & "
+                        "Spotlight > Spotlight Privacy, add your Macintosh HD, then "
+                        "remove it again. Spotlight starts a fresh index."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -126,11 +130,18 @@ class Module(ModuleBase):
         if high_cpu_mds:
             findings.append(
                 Finding(
-                    title="mds process consuming excessive CPU",
+                    title=(
+                        f"Spotlight search is using a lot of computer power ({mds_cpu_percent:.1f}%)"
+                    ),
                     description=(
-                        f"Spotlight indexing (mds) is using {mds_cpu_percent:.1f}% CPU. "
-                        "High CPU usage can slow down your Mac. Consider rebuilding the index: "
-                        "mdutil -E -i on / && mdutil -i on /"
+                        "Spotlight, the tool that helps you find files, is currently "
+                        f"using {mds_cpu_percent:.1f}% of your Mac's processing power. "
+                        "This is normal when your Mac is first setting up a new index "
+                        "or after a major update, but if it stays high, it can slow down "
+                        "other apps.\n\n"
+                        "What to do: If it stays high for a day, rebuild the index: open "
+                        "System Settings > Siri & Spotlight > Spotlight Privacy, add your "
+                        "Macintosh HD, then remove it again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -145,11 +156,18 @@ class Module(ModuleBase):
         if very_large_index:
             findings.append(
                 Finding(
-                    title="Spotlight index is very large",
+                    title=(
+                        f"Spotlight search index is very large ({_fmt_bytes(index_size_bytes)})"
+                    ),
                     description=(
-                        f"Spotlight index is {_fmt_bytes(index_size_bytes)} - larger than 5GB. "
-                        "A large index can degrade performance. Consider rebuilding it: "
-                        "mdutil -E -i on / && mdutil -i on /"
+                        f"Your Mac's Spotlight search index is {_fmt_bytes(index_size_bytes)}, "
+                        "which is larger than the typical 5GB limit. This usually happens "
+                        "if you have a lot of files or if the index has grown over time. "
+                        "A very large index can sometimes "
+                        "slow down your Mac.\n\n"
+                        "What to do: To rebuild it, open System Settings > Siri & "
+                        "Spotlight > Spotlight Privacy, add your Macintosh HD, then "
+                        "remove it again. Spotlight starts a fresh index."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

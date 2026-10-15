@@ -229,7 +229,7 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 | `spotlight_rebuild` | macOS | safe | 5s | — |
 | `spotlight_repair` | macOS | safe | 5s | — |
 | `spotlight_status` | macOS | safe | 3s | — |
-| `startup_optimizer` | macOS | safe | 5s | — |
+| `startup_optimizer` | macOS | safe | 5s | Trace every third-party launchd job that starts by itself. |
 | `storage_cleanup` | macOS | safe | 15s | — |
 | `swap_memory_check` | macOS | safe | 3s | — |
 | `swap_usage` | macOS | safe | 3s | — |

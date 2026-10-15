@@ -32,9 +32,14 @@ class Module(ModuleBase):
         if not boot_config:
             findings.append(
                 Finding(
-                    title="Could not retrieve boot configuration",
+                    title="We could not check your Windows startup settings",
                     description=(
-                        "Failed to run bcdedit. Boot configuration cannot be assessed."
+                        "We tried to read your computer's startup instructions (called "
+                        "the boot configuration) but the tool needed to do that didn't "
+                        "work. This means we can't confirm if your startup settings are "
+                        "normal.\n\n"
+                        "What to do: Nothing right now. If you are worried, try running "
+                        "the checkup again. If it fails again, you can ignore it for now."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -48,10 +53,14 @@ class Module(ModuleBase):
         if not recovery_status:
             findings.append(
                 Finding(
-                    title="Recovery mode not available",
+                    title="Windows recovery mode is turned off",
                     description=(
-                        "The Windows recovery sequence is missing or disabled. "
-                        "This may prevent system recovery in case of boot issues."
+                        "Your computer's built-in repair mode (Windows Recovery) is currently "
+                        "disabled. This is a safety net that helps fix your computer if "
+                        "it fails to start. If it is off, you might have a harder time "
+                        "fixing a serious startup problem later.\n\n"
+                        "What to do: Open Command Prompt as administrator and run: "
+                        "reagentc /enable"
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -64,11 +73,19 @@ class Module(ModuleBase):
         if unusual_entries:
             findings.append(
                 Finding(
-                    title="Unusual boot configuration entries detected",
+                    title=(
+                        f"Unusual items found in your startup list ({len(unusual_entries)})"
+                    ),
                     description=(
-                        f"Found {len(unusual_entries)} unusual entries in boot configuration: "
-                        f"{', '.join(unusual_entries[:3])}{'...' if len(unusual_entries) > 3 else ''}. "
-                        "This may indicate boot configuration tampering or corruption."
+                        f"We found {len(unusual_entries)} entries in your startup settings "
+                        f"that look unusual: {', '.join(unusual_entries[:3])}{'...' if len(unusual_entries) > 3 else ''}. "
+                        "These are instructions your computer follows when it turns on. "
+                        "Sometimes these appear due to software updates or errors, but "
+                        "they can also be signs that someone changed your settings. This "
+                        "is not a confirmed hack, but it is worth a closer look.\n\n"
+                        "What to do: Check if you recently installed new software. If "
+                        "you don't recognize these items, take a screenshot for a tech "
+                        "support professional to review."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -84,10 +101,17 @@ class Module(ModuleBase):
         if boot_degradation:
             findings.append(
                 Finding(
-                    title="Boot performance degradation detected",
+                    title=(
+                        f"Your computer is taking longer to start up ({boot_degradation['event_count']} "
+                        "events)"
+                    ),
                     description=(
-                        f"Found {boot_degradation['event_count']} boot performance degradation events. "
-                        "This may indicate slow boot components or driver issues."
+                        f"We noticed {boot_degradation['event_count']} instances where "
+                        "your computer started up slower than usual. This often happens "
+                        "when a program or driver is taking too long to load.\n\n"
+                        "What to do: Open the Task Manager (press Ctrl+Shift+Esc) and "
+                        "open Startup apps to see which apps are slowing you "
+                        "down."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -103,7 +127,7 @@ class Module(ModuleBase):
         if boot_entries > 1:
             findings.append(
                 Finding(
-                    title=f"Multiple boot entries detected ({boot_entries})",
+                    title=f"Boot options: {boot_entries} found",
                     description=(
                         f"System has {boot_entries} boot entries. "
                         "This may indicate dual boot setup or orphaned boot entries."
@@ -123,7 +147,7 @@ class Module(ModuleBase):
             boot_device = boot_config.get("boot_device", "unknown")
             findings.append(
                 Finding(
-                    title="Boot configuration status",
+                    title="Your boot settings",
                     description=(
                         f"Boot configuration: {boot_entries} entries, "
                         f"timeout={boot_timeout}s, "

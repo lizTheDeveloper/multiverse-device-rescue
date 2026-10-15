@@ -35,10 +35,14 @@ class Module(ModuleBase):
             if mail_dir_gb > 10:
                 findings.append(
                     Finding(
-                        title=f"Mail data directory is large: {mail_dir_gb:.2f} GB",
+                        title=f"Your Mail data folder is large: {mail_dir_gb:.2f} GB",
                         description=(
-                            f"~/Library/Mail/ is {mail_dir_gb:.2f} GB. Large mail directories can slow down "
-                            "Mail.app and system performance. Consider archiving or deleting old emails."
+                            f"Your Mail data folder is currently {mail_dir_gb:.2f} GB.\n\n"
+                            "A large folder can make Mail.app feel slow when opening "
+                            "or searching. It is safe to clean up, but do not delete "
+                            "the folder itself.\n\n"
+                            "What to do: In Mail, delete old messages and attachments you "
+                            "don't need, then choose Mailbox > Erase Deleted Items."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -48,7 +52,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title=f"Mail data directory size: {mail_dir_gb:.2f} GB",
+                        title=f"Mail data size: {mail_dir_gb:.2f} GB",
                         description=f"~/Library/Mail/ is {mail_dir_gb:.2f} GB.",
                         severity=Severity.INFO,
                         category=self.category,
@@ -61,7 +65,7 @@ class Module(ModuleBase):
         if accounts_info is None:
             findings.append(
                 Finding(
-                    title="Could not determine Mail accounts",
+                    title="Could not read your Mail account list",
                     description="Unable to read Mail account configuration from defaults.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -74,7 +78,7 @@ class Module(ModuleBase):
             # Report total accounts
             findings.append(
                 Finding(
-                    title=f"Mail accounts configured: {total_accounts}",
+                    title=f"Mail accounts set up: {total_accounts}",
                     description=f"Total mail accounts configured: {total_accounts}.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -91,10 +95,16 @@ class Module(ModuleBase):
             if disabled_accounts > 0:
                 findings.append(
                     Finding(
-                        title=f"Disabled mail accounts detected: {disabled_accounts}",
+                        title=f"Mail has {disabled_accounts} account(s) turned off",
                         description=(
-                            f"Found {disabled_accounts} disabled mail account(s). "
-                            "Disabled accounts may not sync emails. Check Mail settings to re-enable if needed."
+                            f"We found {disabled_accounts} mail account(s) that are currently "
+                            "disabled.\n\n"
+                            "Disabled accounts do not download new emails. If you expect "
+                            "mail from these accounts, you may want to turn them back "
+                            "on.\n\n"
+                            "What to do: Open Mail, go to Settings > Accounts, and look "
+                            "for accounts with a checkmark or switch off. If you don't "
+                            "recognize an account, you can leave it disabled."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -106,10 +116,14 @@ class Module(ModuleBase):
             if pop_accounts > 0:
                 findings.append(
                     Finding(
-                        title=f"POP mail account(s) detected: {pop_accounts}",
+                        title=f"Your Mail app uses POP for {pop_accounts} account(s)",
                         description=(
-                            f"Found {pop_accounts} POP account(s). POP has limitations and synchronization issues. "
-                            "Consider switching to IMAP for better reliability."
+                            f"Your Mail app is set up with {pop_accounts} account(s) using "
+                            "a protocol called POP. POP downloads emails to your device "
+                            "but doesn't keep them in sync across all your devices.\n\n"
+                            "What to do: If you only use this computer, you can leave "
+                            "it as is. If you use multiple devices, consider asking your "
+                            "email provider about switching to IMAP for better synchronization."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -122,7 +136,7 @@ class Module(ModuleBase):
         if check_frequency is not None:
             findings.append(
                 Finding(
-                    title=f"Mail check frequency: {check_frequency}",
+                    title=f"Mail checks for new messages: {check_frequency}",
                     description=f"Mail is set to check for new messages {check_frequency}.",
                     severity=Severity.INFO,
                     category=self.category,

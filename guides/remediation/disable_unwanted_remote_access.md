@@ -11,8 +11,16 @@ remediates:
   - security.win_rdp_check.rdp_enabled_no_nla
   - security.win_rdp_check.rdp_enabled_with_nla
   - security.win_rdp_check.rdp_disabled
+steps_for:
+  security.remote_login_check.ssh_enabled: [1]
+  security.remote_login_check.screen_sharing_enabled: [2]
+  security.remote_login_check.remote_management_enabled: [2]
+  security.remote_login_check.remote_apple_events_enabled: [2]
+  security.win_rdp_check.rdp_enabled_no_nla: [3]
+  security.win_rdp_check.rdp_enabled_with_nla: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 Every remote-access service covered here — SSH (Remote Login), Screen
@@ -25,7 +33,7 @@ from elsewhere, whether a family member/IT admin manages it remotely, or
 whether a screen-sharing/remote-support session is scheduled. If in doubt,
 leave it enabled and just note it for later review rather than disabling it.
 
-## Step 1: macOS — Remote Login (SSH)
+## Step 1: Turn off Remote Login on your Mac
 
 If flagged, SSH is currently enabled, allowing remote command-line access.
 
@@ -38,7 +46,7 @@ If flagged, SSH is currently enabled, allowing remote command-line access.
    `PermitRootLogin`, `PasswordAuthentication`) is tightened rather than
    disabling the service outright.
 
-## Step 2: macOS — Screen Sharing, Remote Management, Remote Apple Events
+## Step 2: Turn off Screen Sharing and Remote Management
 
 These three are independent toggles; handle each on its own merits.
 
@@ -58,7 +66,7 @@ These three are independent toggles; handle each on its own merits.
    intentionally kept still show up (as an informational reminder, not a
    secure/insecure judgment).
 
-## Step 3: Windows — RDP without Network Level Authentication (critical)
+## Step 3: Make Remote Desktop ask for a sign-in before connecting
 
 If RDP is enabled but NLA is off, this is the highest-priority item here:
 RDP without NLA is directly exploitable by brute-force/credential-stuffing
@@ -75,7 +83,7 @@ attacks against the login screen before any authentication happens.
 3. If you don't need RDP at all, disable it entirely instead (see Step 4) —
    that's a stronger fix than just adding NLA.
 
-## Step 4: Windows — RDP enabled (with NLA) but not needed
+## Step 4: Turn off Windows Remote Desktop
 
 RDP enabled with NLA is not urgent, but it's still attack surface most home
 PCs don't need.

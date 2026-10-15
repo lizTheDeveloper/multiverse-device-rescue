@@ -34,10 +34,12 @@ class Module(ModuleBase):
         if not dscl_users:
             findings.append(
                 Finding(
-                    title="Could not list user accounts",
+                    title="Could not check your user accounts",
                     description=(
-                        "Failed to read user accounts from directory service. "
-                        "This may indicate a system configuration issue."
+                        "We couldn't read the list of people who have accounts on this Mac. "
+                        "Because we couldn't look, we can't confirm everything "
+                        "is normal.\n\n"
+                        "What to do: Restart your Mac and run the checkup again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -51,11 +53,14 @@ class Module(ModuleBase):
         for uid, accounts in uid_duplicates.items():
             findings.append(
                 Finding(
-                    title=f"Duplicate UID {uid} for multiple accounts",
+                    title=f"Two accounts share the same ID number ({uid})",
                     description=(
-                        f"UID {uid} is assigned to multiple accounts: {', '.join(accounts)}. "
-                        "This can cause file ownership confusion and security issues. "
-                        "Contact Apple Support or use dscl to reassign UIDs."
+                        f"Accounts {', '.join(accounts)} are using the same unique ID "
+                        f"number ({uid}). "
+                        "This is a technical error that can confuse the Mac about who "
+                        "owns which files.\n\n"
+                        "What to do: Contact Apple Support to fix the ID numbers. Do not "
+                        "try to edit this manually."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -74,11 +79,16 @@ class Module(ModuleBase):
         for orphaned_path in orphaned_dirs:
             findings.append(
                 Finding(
-                    title=f"Orphaned home directory: {orphaned_path}",
+                    title=f"Leftover folder for a deleted user: {orphaned_path}",
                     description=(
-                        f"Directory {orphaned_path} exists in /Users but no matching user account found. "
-                        "This is typically a leftover from a deleted user account. "
-                        "Safe to delete if not in use."
+                        f"The folder {orphaned_path} exists, but there is no matching "
+                        "user account on your Mac. "
+                        "This is usually just a leftover from an account that was removed "
+                        "in the past. "
+                        "\n\n"
+                        "What to do: If you recognize the name and know that person no "
+                        "longer uses this Mac, you can safely delete the folder. Otherwise, "
+                        "leave it alone."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -284,11 +294,16 @@ class Module(ModuleBase):
         if username not in dscl_users:
             findings.append(
                 Finding(
-                    title=f"Current user {username} not found in directory service",
+                    title=f"Your account ({username}) is missing from the system list",
                     description=(
-                        f"User {username} is logged in but has no dscl record. "
-                        "This indicates a corrupted user account. "
-                        "Login may fail on next attempt."
+                        f"You are logged in as {username}, but the system's internal list "
+                        "of users doesn't show this account. "
+                        "This is a serious technical error that might prevent you from "
+                        "logging in next time. "
+                        "\n\n"
+                        "What to do: Do not log out or restart until you have saved your "
+                        "work. Contact Apple Support immediately to repair your account "
+                        "record."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -302,10 +317,15 @@ class Module(ModuleBase):
         if not dscl_home:
             findings.append(
                 Finding(
-                    title=f"Could not read home directory for user {username}",
+                    title=f"Could not check the home folder for {username}",
                     description=(
-                        f"Failed to read home directory record for {username}. "
-                        "User account may be corrupted."
+                        "We couldn't read the location of the home folder for the account "
+                        f"{username}. "
+                        "This might mean the account record is damaged. "
+                        "\n\n"
+                        "What to do: If this is your account, contact Apple Support. If "
+                        "it is an old account you don't use, you can ignore this or delete "
+                        "the account."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -318,10 +338,15 @@ class Module(ModuleBase):
         if not os.path.exists(dscl_home):
             findings.append(
                 Finding(
-                    title=f"Home directory missing for user {username}",
+                    title=f"Home folder missing for {username}",
                     description=(
-                        f"dscl record shows home directory at {dscl_home}, but it does not exist. "
-                        "User cannot log in or access files."
+                        f"The system says the home folder for {username} should be at "
+                        f"{dscl_home}, but that folder doesn't exist. "
+                        "This means that user cannot log in or access their files. "
+                        "\n\n"
+                        "What to do: If this is your account, contact Apple Support to "
+                        "restore the folder. If it is an old account, you can delete the "
+                        "account to clean up the error."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -338,10 +363,14 @@ class Module(ModuleBase):
         if actual_home != dscl_home:
             findings.append(
                 Finding(
-                    title=f"Home directory mismatch for user {username}",
+                    title=f"Home folder path mismatch for {username}",
                     description=(
-                        f"dscl record shows {dscl_home}, but actual home directory is {actual_home}. "
-                        "This can cause file access issues."
+                        f"The system record points to {dscl_home}, but the actual folder "
+                        f"is at {actual_home}. "
+                        "This mismatch can cause file access problems. "
+                        "\n\n"
+                        "What to do: Contact Apple Support to correct the path in the "
+                        "system settings. Do not move folders manually."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -359,10 +388,14 @@ class Module(ModuleBase):
         if shell and not os.path.exists(shell):
             findings.append(
                 Finding(
-                    title=f"Invalid login shell for user {username}",
+                    title=f"Invalid login shell for {username}",
                     description=(
-                        f"User {username} has login shell {shell} which does not exist. "
-                        "User may not be able to log in."
+                        f"The account {username} is set to use a command-line tool ({shell}) "
+                        "that doesn't exist on this Mac. "
+                        "This can prevent the user from logging in properly. "
+                        "\n\n"
+                        "What to do: Contact Apple Support to reset the login shell to "
+                        "the standard default. Do not try to fix this manually."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -386,10 +419,14 @@ class Module(ModuleBase):
                     if result.returncode != 0:
                         findings.append(
                             Finding(
-                                title=f"User preferences corrupted for {username}",
+                                title=f"Corrupted settings file for {username}",
                                 description=(
-                                    f"Preference file {prefs_file} is corrupted or unreadable. "
-                                    "This can cause application crashes and preference resets."
+                                    f"The settings file {prefs_file} for {username} is "
+                                    "damaged or unreadable. "
+                                    "This might cause apps to crash or reset their preferences.\n\n"
+                                    "What to do: If this is your account, back up your "
+                                    "data and contact Apple Support. If it is an old account, "
+                                    "you can ignore this."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,

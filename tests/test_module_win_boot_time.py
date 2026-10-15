@@ -205,7 +205,7 @@ def test_win_boot_time_slow_boot():
     assert any(f.severity == Severity.WARNING for f in result.findings)
     # Should have warning about boot time
     assert any(
-        "slow boot" in f.title.lower() and f.severity == Severity.WARNING
+        f.data.get("check") == "slow_boot" and f.severity == Severity.WARNING
         for f in result.findings
     )
     # Verify boot duration is recorded

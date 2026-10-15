@@ -8,6 +8,12 @@ remediates:
   - security.firewall_rules_audit.too_many_apps
   - security.firewall_rules_audit.allow_signed_enabled
   - security.firewall_rules_audit.firewall_summary
+steps_for:
+  security.firewall_rules_audit.alf_disabled: [1, 5]
+  security.firewall_rules_audit.stealth_disabled: [2, 5]
+  security.firewall_rules_audit.too_many_apps: [3, 5]
+  security.firewall_rules_audit.allow_signed_enabled: [4, 5]
+  security.firewall_rules_audit.firewall_summary: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -22,7 +28,7 @@ policy. As with any firewall change, confirm you're not mid-way through
 something that relies on inbound connections (file sharing, a local server
 reachable from your phone, screen sharing) before tightening settings.
 
-## Step 1: Enable the firewall if disabled (CRITICAL)
+## Step 1: Turn on your Mac's firewall
 
 With ALF off, nothing on this Mac is filtering unsolicited inbound
 connections.
@@ -37,7 +43,7 @@ connections.
    allow those individually rather than disabling the firewall again.
 4. Re-run the scan to confirm ALF now reports as enabled.
 
-## Step 2: Enable stealth mode (WARNING)
+## Step 2: Turn on stealth mode
 
 With stealth mode off, this Mac responds to network probes like `ping`,
 making it easier for something scanning the network to notice it exists.
@@ -50,7 +56,7 @@ making it easier for something scanning the network to notice it exists.
    /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on`.
 3. Re-run the scan to confirm.
 
-## Step 3: Review an excessive number of firewall exceptions (WARNING)
+## Step 3: Remove apps you don't use from the firewall list
 
 More than 30 applications allowed through the firewall widens the attack
 surface — each exception is a potential accepted inbound connection path,
@@ -69,7 +75,7 @@ be there.
 4. Re-run the scan to confirm the count has dropped, and periodically
    re-review as you install new software.
 
-## Step 4: Disable "automatically allow signed software" (WARNING)
+## Step 4: Stop signed apps getting through automatically
 
 This setting lets any validly code-signed application accept inbound
 connections without asking you first. It's convenient, but it means a
@@ -89,7 +95,7 @@ built it, not that it's behaving as expected.
    as worth investigating before allowing.
 4. Re-run the scan to confirm.
 
-## Step 5: Review the configuration summary (INFO)
+## Step 5: Check your firewall settings summary
 
 The summary finding is informational — a snapshot of ALF status, stealth
 mode, block-all-incoming, allow-signed-software, and the current app

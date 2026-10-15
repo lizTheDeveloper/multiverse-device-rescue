@@ -6,6 +6,10 @@ remediates:
   - security.lock_screen_check.screensaver_password
   - security.lock_screen_check.screensaver_delay
   - security.lock_screen_check.display_sleep
+steps_for:
+  security.lock_screen_check.screensaver_password: [1]
+  security.lock_screen_check.screensaver_delay: [2]
+  security.lock_screen_check.display_sleep: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -19,7 +23,7 @@ screen-lock behavior. All changes are made through System Settings, so
 there's no file to back up, but confirm you won't be inconvenienced (e.g. on
 a Mac used for unattended presentations) before tightening these.
 
-## Step 1: Require a password after the screen saver/lock screen
+## Step 1: Require a password when the screen locks
 
 1. Confirm this Mac isn't intentionally left unlocked for a specific reason
    (e.g. a dedicated kiosk display) before changing this.
@@ -28,7 +32,7 @@ a Mac used for unattended presentations) before tightening these.
 3. Lock the screen (Control+Command+Q) and confirm a password prompt
    appears.
 
-## Step 2: Shorten the password delay
+## Step 2: Make the password prompt appear immediately
 
 A delay over 60 seconds after the screen locks before a password is
 actually required gives a real window for unauthorized access during a
@@ -38,7 +42,7 @@ brief absence.
    shortest available option.
 2. Re-run the scan to confirm `screensaver_delay` no longer appears.
 
-## Step 3: Enable display auto-sleep
+## Step 3: Turn on automatic screen sleep
 
 A display that never sleeps (`displaysleep` set to 0 via `pmset`) leaves
 content visible indefinitely to anyone nearby, and also means the

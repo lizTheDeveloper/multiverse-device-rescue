@@ -157,7 +157,7 @@ class TestDiskFragmentationHDDDetection:
             result = mod.check(_make_profile())
 
         assert result.has_issues
-        hdd_finding = next((f for f in result.findings if "HDD" in f.title), None)
+        hdd_finding = next((f for f in result.findings if "hard drive" in f.title), None)
         assert hdd_finding is not None
         assert hdd_finding.data["disk_type"] == "HDD"
         assert hdd_finding.data["filesystem"] == "HFS+"
@@ -183,7 +183,7 @@ class TestDiskFragmentationHDDDetection:
         # Should have warning for 90% full (HFS+ high usage triggers at >70%)
         warnings = [f for f in result.findings if f.severity == Severity.WARNING]
         assert len(warnings) == 1
-        assert "high usage" in warnings[0].title.lower()
+        assert "older hfs+ file system" in warnings[0].title.lower()
         assert warnings[0].data["usage_percent"] == 90
 
     def test_hdd_warning_above_90_percent(self):
@@ -229,7 +229,7 @@ class TestDiskFragmentationHDDDetection:
         warnings = [f for f in result.findings if f.severity == Severity.WARNING]
         assert len(warnings) == 1
         assert "HFS+" in warnings[0].title
-        assert "high usage" in warnings[0].title.lower()
+        assert "older hfs+ file system" in warnings[0].title.lower()
 
     def test_apfs_hdd_no_extra_warning(self):
         mod = _get_module()
@@ -307,7 +307,7 @@ class TestDiskFragmentationError:
 
         # Should have error finding
         assert len(result.findings) == 1
-        assert "Error" in result.findings[0].title
+        assert "Could not check" in result.findings[0].title
 
 
 class TestDiskFragmentationFix:

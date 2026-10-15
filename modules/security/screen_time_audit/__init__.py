@@ -70,12 +70,14 @@ class Module(ModuleBase):
             if not passcode_set:
                 findings.append(
                     Finding(
-                        title="Screen Time enabled but no passcode is set",
+                        title="Screen Time is on, but there is no passcode to protect it",
                         description=(
-                            "Screen Time is enabled but no passcode is configured. Without a "
-                            "passcode, anyone (including children) can disable Screen Time, "
-                            "bypass Downtime, or modify App Limits. Set a passcode to enforce "
-                            "parental controls."
+                            "Your device has Screen Time turned on, but it doesn't have "
+                            "a passcode. Right now, anyone using this Mac can turn these "
+                            "limits off or change them.\n\n"
+                            "What to do: Open System Settings > Screen Time and turn on "
+                            "'Lock Screen Time Settings', then choose a passcode only you "
+                            "know."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

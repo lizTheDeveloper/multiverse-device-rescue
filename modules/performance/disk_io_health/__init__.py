@@ -33,10 +33,13 @@ class Module(ModuleBase):
         if not disk_info:
             findings.append(
                 Finding(
-                    title="Could not retrieve disk I/O information",
+                    title="We could not check your disk's health",
                     description=(
-                        "Failed to run system_profiler or iostat commands. "
-                        "Disk I/O health cannot be assessed."
+                        "We tried to look at your storage drive but the system commands "
+                        "didn't work. This means we don't know if your disk is healthy "
+                        "or what type it is.\n\n"
+                        "What to do: Nothing is broken, but we couldn't see the details. "
+                        "You can try running the checkup again later."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -54,12 +57,14 @@ class Module(ModuleBase):
         if is_ssd is False:
             findings.append(
                 Finding(
-                    title="Spinning hard drive detected",
+                    title="Your Mac uses a slower spinning hard drive",
                     description=(
-                        "Your Mac is using a spinning hard drive (HDD), which is a significant "
-                        "performance bottleneck on modern macOS. Consider upgrading to an SSD "
-                        "for major performance improvements in system responsiveness, app launch "
-                        "times, and file operations."
+                        "Your Mac starts up and runs from a spinning hard drive (HDD). "
+                        "Modern macOS expects a solid-state drive (SSD), so apps open "
+                        "slowly and the Mac can feel sluggish.\n\n"
+                        "What to do: Nothing is wrong with it. If the slowness bothers "
+                        "you, a repair shop can usually swap in an SSD, or consider it "
+                        "when you next replace the Mac."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -75,11 +80,14 @@ class Module(ModuleBase):
         if is_ssd is True and trim_enabled is False:
             findings.append(
                 Finding(
-                    title="TRIM not enabled on SSD",
+                    title="TRIM is off on your solid-state drive",
                     description=(
-                        "Your SSD does not have TRIM enabled. TRIM helps maintain SSD performance "
-                        "and longevity by allowing the OS to inform the drive when blocks are no "
-                        "longer needed. Consider enabling TRIM or contacting Apple support."
+                        "TRIM lets macOS tell the SSD which space is free, which keeps "
+                        "it fast and helps it last. Apple's own drives always have it "
+                        "on; this is usually a drive someone added later.\n\n"
+                        "What to do: If the drive came from another maker, a technical "
+                        "helper can turn TRIM on with: sudo trimforce enable (the Mac "
+                        "restarts afterwards)."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

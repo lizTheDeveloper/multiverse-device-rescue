@@ -34,7 +34,7 @@ class Module(ModuleBase):
             # No VPNs configured - this is normal for most users
             findings.append(
                 Finding(
-                    title="No VPN configurations detected",
+                    title="No VPN settings found",
                     description="No VPN services are configured on this system.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -67,7 +67,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="VPN configurations detected",
+                title="Your VPN settings",
                 description=(
                     "The following VPN configurations are available:\n" +
                     "\n".join(vpn_summary)
@@ -89,12 +89,18 @@ class Module(ModuleBase):
             if dns_leak_status["has_leak"]:
                 findings.append(
                     Finding(
-                        title="Potential DNS leak detected while VPN is connected",
+                        title=(
+                            f"Your VPN '{vpn_connected}' may not be hiding your web searches"
+                        ),
                         description=(
-                            f"While VPN '{vpn_connected}' is connected, the system DNS configuration "
-                            f"includes non-VPN DNS servers: {', '.join(dns_leak_status['non_vpn_servers'])}. "
-                            f"This indicates a DNS leak where DNS queries may bypass the VPN tunnel. "
-                            f"DNS leaks compromise privacy. Ensure your VPN has DNS leak protection enabled."
+                            f"Your VPN '{vpn_connected}' is connected, but your device "
+                            "is still sending some web lookups (DNS) to servers outside "
+                            f"the VPN: {', '.join(dns_leak_status['non_vpn_servers'])}. "
+                            "This means the websites you visit might be visible to your "
+                            "internet provider, even though the rest of your traffic "
+                            "is hidden.\n\n"
+                            "What to do: Open your VPN app and look for a setting called "
+                            "'DNS Leak Protection' or 'Kill Switch' and turn it on."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -112,13 +118,15 @@ class Module(ModuleBase):
             if split_tunnel_status["has_split_tunnel"]:
                 findings.append(
                     Finding(
-                        title="Potential split tunneling leak detected",
+                        title=f"Your VPN '{vpn_connected}' is not routing all traffic",
                         description=(
-                            f"While VPN '{vpn_connected}' is connected, multiple default routes exist: "
-                            f"{', '.join(split_tunnel_status['default_routes'])}. "
-                            f"This indicates split tunneling where some traffic bypasses the VPN tunnel. "
-                            f"If unintended, disable split tunneling in your VPN settings to ensure all traffic "
-                            f"is encrypted through the VPN."
+                            f"Your VPN '{vpn_connected}' is connected, but your device "
+                            f"has multiple default network routes: {', '.join(split_tunnel_status['default_routes'])}. "
+                            "This suggests 'split tunneling' is active, meaning some "
+                            "of your internet traffic bypasses the VPN and goes out unencrypted.\n\n"
+                            "What to do: Open your VPN app and check for a 'Split Tunneling' "
+                            "or 'Bypass' setting. If you want full privacy, turn this "
+                            "off."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -133,10 +141,14 @@ class Module(ModuleBase):
             # VPN is configured but not connected
             findings.append(
                 Finding(
-                    title="VPN configured but not connected",
+                    title="Your VPN is set up but not currently connected",
                     description=(
-                        "One or more VPN configurations are available but currently not connected. "
-                        "If privacy is a concern, consider connecting to a VPN."
+                        "We found a VPN profile on your device, but it is not currently "
+                        "active. This is usually normal if you only use it sometimes. "
+                        "However, if you expected it to be running, your internet traffic "
+                        "is not currently encrypted by the VPN.\n\n"
+                        "What to do: Open your VPN app and check if it is turned on. If "
+                        "you meant for it to be active, connect to it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

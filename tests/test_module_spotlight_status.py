@@ -119,7 +119,7 @@ def test_spotlight_active():
     assert len(result.findings) == 1
     finding = result.findings[0]
     assert finding.severity == Severity.WARNING
-    assert "currently active" in finding.title
+    assert "currently scanning" in finding.title
     assert finding.data["indexing_active"] is True
 
 

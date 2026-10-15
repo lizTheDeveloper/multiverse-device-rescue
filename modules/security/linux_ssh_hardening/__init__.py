@@ -92,7 +92,7 @@ class Module(ModuleBase):
                 module_name=self.name,
                 findings=[
                     Finding(
-                        title="SSH server configuration could not be read",
+                        title="Could not read the SSH settings file",
                         description=(
                             "An sshd configuration exists but neither `sshd -T` nor the "
                             "config file could be read, so the server's real settings are "
@@ -115,18 +115,18 @@ class Module(ModuleBase):
         if root_login in _ROOT_LOGIN_OPEN:
             findings.append(
                 Finding(
-                    title="Root can log in over SSH",
+                    title="Your computer allows direct root logins over the network",
                     description=(
-                        "PermitRootLogin is 'yes', so the root account can be logged into "
-                        "directly over the network — including with a password if password "
-                        "authentication is on. Automated scanners try exactly this "
-                        "combination, continuously, on every machine reachable from the "
-                        "internet."
-                        + (" sshd is running right now." if running else
-                           " sshd does not appear to be running, so this is latent rather"
-                           " than currently exposed.")
-                        + "\n\nWhat to do: set PermitRootLogin to no in the SSH settings "
-                        "and restart SSH, or switch SSH off if you do not use it."
+                        "Your computer is set up to let the main administrator account "
+                        "(called 'root') log in directly from the internet. "
+                        + ("This is currently active because the service is running." if running else
+                        "This is not currently active because the service is off, but it will turn on if the service starts.")
+                        + "\n\nThis is a major security risk. Automated bots constantly try to break into computers using this exact method. "
+                        "If you do not use remote access, you should turn this off.\n\n"
+                        "What to do: Open your terminal and type `sudo nano /etc/ssh/sshd_config`. "
+                        "Find the line starting with `PermitRootLogin` and change it to "
+                        "`no`. Save the file, then restart the service by typing `sudo "
+                        "systemctl restart sshd`."
                     ),
                     severity=Severity.CRITICAL if running else Severity.WARNING,
                     category=self.category,
@@ -138,7 +138,7 @@ class Module(ModuleBase):
         elif root_login in _ROOT_LOGIN_KEYS_ONLY:
             findings.append(
                 Finding(
-                    title=f"Root SSH login is allowed with a key (PermitRootLogin {root_login})",
+                    title=f"Admin login via key is allowed ({root_login})",
                     description=(
                         "Key-only root login is a normal server configuration and is far "
                         "safer than password root login. It is listed here so you know it "
@@ -155,15 +155,18 @@ class Module(ModuleBase):
         if config.get("passwordauthentication") == "yes" or config.get("kbdinteractiveauthentication") == "yes":
             findings.append(
                 Finding(
-                    title="SSH accepts password authentication",
+                    title="Your computer allows password logins over the network",
                     description=(
-                        "Anyone who can reach this machine's SSH port can attempt to guess "
-                        "a password, indefinitely. Key-based authentication removes that "
-                        "entire class of attack."
-                        + (" sshd is running right now." if running else
-                           " sshd does not appear to be running.")
-                        + "\n\nWhat to do: set up key login, then set "
-                        "PasswordAuthentication to no and restart SSH."
+                        "Your computer is set up to accept logins using a password if "
+                        "someone connects to it remotely. "
+                        + ("This is currently active because the service is running." if running else
+                        "This is not currently active because the service is off.")
+                        + "\n\nThis makes it easier for automated bots to guess your password and get in. "
+                        "Using a digital key instead of a password is much safer.\n\n"
+                        "What to do: If you use remote access, set up key-based login. "
+                        "Then, open your terminal, type `sudo nano /etc/ssh/sshd_config`, "
+                        "find `PasswordAuthentication` and change it to `no`. Save and "
+                        "restart the service with `sudo systemctl restart sshd`."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -176,14 +179,16 @@ class Module(ModuleBase):
         if config.get("permitemptypasswords") == "yes":
             findings.append(
                 Finding(
-                    title="SSH permits accounts with empty passwords",
+                    title="Your computer allows logins with no password",
                     description=(
-                        "PermitEmptyPasswords is 'yes'. Any account on this machine with no "
-                        "password set can be logged into over the network with no "
-                        "credential at all. There is no configuration in which this is the "
-                        "intended outcome on a personal machine.\n\n"
-                        "What to do: set PermitEmptyPasswords to no, restart SSH, and "
-                        "give every account a password."
+                        "Your computer is set up to let anyone log in if they use an account "
+                        "that has no password set. This is a critical security flaw because "
+                        "it allows access without any credentials at all.\n\n"
+                        "What to do: Open your terminal and type `sudo nano /etc/ssh/sshd_config`. "
+                        "Find the line starting with `PermitEmptyPasswords` and change "
+                        "it to `no`. Save the file, then restart the service by typing "
+                        "`sudo systemctl restart sshd`. Also, make sure every user account "
+                        "on your computer has a strong password."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -197,7 +202,7 @@ class Module(ModuleBase):
         if running and listen in ("0.0.0.0", "::", "0.0.0.0 ::", ""):
             findings.append(
                 Finding(
-                    title="SSH is listening on every network interface",
+                    title="SSH is open to all connected networks",
                     description=(
                         "sshd is bound to all interfaces, so it answers on whatever network "
                         "this machine joins next — hotel wifi, a conference network, a "

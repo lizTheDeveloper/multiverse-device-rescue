@@ -40,12 +40,15 @@ class Module(ModuleBase):
         if legacy_extensions:
             findings.append(
                 Finding(
-                    title=f"Legacy Safari extensions found: {len(legacy_extensions)}",
+                    title=f"Old-style Safari extensions found: {len(legacy_extensions)}",
                     description=(
-                        f"Found {len(legacy_extensions)} legacy .safariextz extension(s): "
-                        f"{', '.join(sorted(legacy_extensions))}. "
-                        "Legacy .safariextz extensions are deprecated and pose a security risk. "
-                        "Safari no longer supports them. Remove them and install modern Safari app extensions instead."
+                        f"We found {len(legacy_extensions)} old-style Safari extension(s): "
+                        f"{', '.join(sorted(legacy_extensions))}. These are an outdated "
+                        "format that Safari no longer supports. They can be a security "
+                        "risk because they are no longer updated or checked by Apple.\n\n"
+                        "What to do: Open Safari, go to Settings > Extensions, and remove "
+                        "any extensions listed there that you do not recognize or no "
+                        "longer use."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -59,7 +62,7 @@ class Module(ModuleBase):
         if app_extensions:
             findings.append(
                 Finding(
-                    title=f"Safari extensions installed: {len(app_extensions)}",
+                    title=f"Safari add-ons installed: {len(app_extensions)}",
                     description=(
                         f"Found {len(app_extensions)} Safari extension(s): "
                         f"{', '.join(sorted(app_extensions))}. "
@@ -77,11 +80,13 @@ class Module(ModuleBase):
             if len(app_extensions) > 5:
                 findings.append(
                     Finding(
-                        title=f"High number of Safari extensions: {len(app_extensions)}",
+                        title=f"Many Safari extensions installed: {len(app_extensions)}",
                         description=(
-                            f"You have {len(app_extensions)} Safari extension(s) installed, which exceeds the "
-                            "recommended limit of 5. Too many extensions can degrade browsing performance "
-                            "and increase security risks. Review and uninstall any unused or untrusted extensions."
+                            f"You have {len(app_extensions)} Safari extensions installed. "
+                            "Having many extensions can slow down your browser and increase "
+                            "the chance that one of them is causing problems.\n\n"
+                            "What to do: Open Safari, go to Settings > Extensions, and "
+                            "turn off or remove any extensions you do not use regularly."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -109,11 +114,15 @@ class Module(ModuleBase):
         elif content_blockers_enabled is False:
             findings.append(
                 Finding(
-                    title="Safari content blockers are not enabled",
+                    title="Safari content blockers are off",
                     description=(
-                        "Safari content blockers are not enabled. Content blockers help improve "
-                        "privacy and performance by blocking ads, tracking, and malicious content. "
-                        "Enable them in Safari Settings > Extensions > Content Blockers."
+                        "Safari's built-in content blockers are currently turned off. "
+                        "These blockers help protect your privacy by stopping ads and "
+                        "tracking scripts, and they can also make pages load faster. Turning "
+                        "them on is a simple way to improve your browsing experience.\n\n"
+                        "What to do: Open Safari, go to Settings > Extensions, and look "
+                        "for a content blocker app. If you have one installed, turn it "
+                        "on. If not, you can ignore this."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -75,7 +75,7 @@ def test_font_cache_excessive_count(tmp_path):
     # Should have a warning about excessive fonts
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warnings) == 1
-    assert "excessive" in warnings[0].title.lower()
+    assert "a lot of fonts" in warnings[0].title.lower()
     assert warnings[0].data.get("font_count") == 750
 
 
@@ -92,7 +92,7 @@ def test_font_cache_no_cache_found(tmp_path):
     cache_findings = [f for f in result.findings if "cache" in f.title.lower()]
     assert len(cache_findings) == 0
 
-    atsutil_findings = [f for f in result.findings if "atsutil" in f.title.lower()]
+    atsutil_findings = [f for f in result.findings if "font service" in f.title.lower()]
     assert len(atsutil_findings) == 1
 
 
@@ -105,7 +105,7 @@ def test_font_cache_atsutil_not_running(tmp_path):
             with patch.object(mod, "_is_atsutil_running", return_value=False):
                 result = mod.check(_make_profile())
 
-    atsutil_findings = [f for f in result.findings if "Font server" in f.title and "atsutil" in f.title]
+    atsutil_findings = [f for f in result.findings if "font service" in f.title.lower()]
     assert len(atsutil_findings) == 1
     assert "not running" in atsutil_findings[0].title.lower()
     assert atsutil_findings[0].data.get("atsutil_running") is False

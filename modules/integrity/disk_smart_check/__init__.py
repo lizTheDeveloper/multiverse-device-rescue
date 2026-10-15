@@ -40,11 +40,16 @@ class Module(ModuleBase):
         if smart_info.get("smart_status") == "Failing":
             findings.append(
                 Finding(
-                    title="CRITICAL: Drive SMART status is Failing",
+                    title=(
+                        f"Your main drive is failing ({smart_info.get('drive_model', 'Unknown')})"
+                    ),
                     description=(
-                        f"Drive {smart_info.get('drive_model', 'Unknown')} ({smart_info.get('disk_type', 'Unknown')}) "
-                        "reports SMART status 'Failing'. Drive failure is imminent. "
-                        "Back up your data immediately!"
+                        f"Your drive, {smart_info.get('drive_model', 'Unknown')}, is reporting "
+                        "that it is failing. This means the physical hardware is breaking "
+                        "down and may stop working soon.\n\n"
+                        "What to do: Back up your important files immediately to an external "
+                        "drive or cloud storage. After backing up, you will need to replace "
+                        "the drive."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -59,11 +64,16 @@ class Module(ModuleBase):
         elif smart_info.get("smart_status") and smart_info.get("smart_status") != "Verified":
             findings.append(
                 Finding(
-                    title=f"Drive SMART status: {smart_info.get('smart_status')}",
+                    title=(
+                        f"Your drive health is uncertain ({smart_info.get('smart_status')})"
+                    ),
                     description=(
-                        f"Drive {smart_info.get('drive_model', 'Unknown')} ({smart_info.get('disk_type', 'Unknown')}) "
-                        f"reports SMART status '{smart_info.get('smart_status')}'. Status is not verified. "
-                        "Monitor drive health and back up data as a precaution."
+                        f"Your drive, {smart_info.get('drive_model', 'Unknown')}, reports "
+                        f"a status of '{smart_info.get('smart_status')}'. This is not "
+                        "a confirmed failure, but it is not fully verified either.\n\n"
+                        "What to do: Keep backing up your data regularly. If you notice "
+                        "your Mac slowing down or freezing, it may be time to replace "
+                        "the drive."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -79,7 +89,7 @@ class Module(ModuleBase):
             # Healthy SMART status - report as INFO
             findings.append(
                 Finding(
-                    title="Drive SMART status: Verified",
+                    title="Your drive health check: Good",
                     description=(
                         f"Drive {smart_info.get('drive_model', 'Unknown')} ({smart_info.get('disk_type', 'Unknown')}) "
                         "reports SMART status 'Verified'. Drive appears to be in good health."
@@ -105,11 +115,13 @@ class Module(ModuleBase):
                 if wear_percent > 80:
                     findings.append(
                         Finding(
-                            title=f"SSD wear level high ({wear_percent}%)",
+                            title=f"Your SSD is wearing out ({wear_percent}% used)",
                             description=(
-                                f"SSD {smart_info.get('drive_model', 'Unknown')} "
-                                f"reports wear level of {wear_percent}%. "
-                                "Plan for drive replacement soon to avoid data loss."
+                                f"Your solid-state drive, {smart_info.get('drive_model', 'Unknown')}, "
+                                f"is at {wear_percent}% wear. SSDs have a limited lifespan, "
+                                "and this level of wear means it may fail in the future.\n\n"
+                                "What to do: Continue backing up your data regularly. "
+                                "You should plan to replace this drive soon."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -123,7 +135,7 @@ class Module(ModuleBase):
                 elif wear_percent > 60:
                     findings.append(
                         Finding(
-                            title=f"SSD wear level elevated ({wear_percent}%)",
+                            title=f"Your SSD wear level: {wear_percent}%",
                             description=(
                                 f"SSD {smart_info.get('drive_model', 'Unknown')} "
                                 f"reports wear level of {wear_percent}%. "
@@ -145,11 +157,14 @@ class Module(ModuleBase):
             if free_percent < 10:
                 findings.append(
                     Finding(
-                        title=f"Low disk space ({free_percent:.1f}% free)",
+                        title=f"Your Mac is almost out of storage ({free_percent:.1f}% free)",
                         description=(
-                            f"Only {space_info.get('free_gb'):.1f}GB of {space_info.get('total_gb'):.1f}GB "
-                            f"is free ({free_percent:.1f}%). "
-                            "Delete unnecessary files or back up data to external storage."
+                            f"You only have {space_info.get('free_gb'):.1f}GB of {space_info.get('total_gb'):.1f}GB "
+                            "free. When storage is this full, your Mac can slow down "
+                            "or stop saving new files.\n\n"
+                            "What to do: Go to System Settings > General > Storage and "
+                            "look for large files or apps you can delete. You can also "
+                            "move photos or videos to an external drive."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -166,10 +181,15 @@ class Module(ModuleBase):
         if apfs_info.get("container_issues"):
             findings.append(
                 Finding(
-                    title="APFS container issues detected",
+                    title=(
+                        f"Your file system has minor errors ({apfs_info.get('container_issues')})"
+                    ),
                     description=(
-                        f"APFS container health check found issues: {apfs_info.get('container_issues')}. "
-                        "Consider running First Aid in Disk Utility."
+                        f"Your Mac's file system (APFS) has some minor errors: {apfs_info.get('container_issues')}. "
+                        "They're usually minor and First Aid can fix them.\n\n"
+                        "What to do: Open Disk Utility from your Applications folder, "
+                        "select your main drive, and click 'First Aid' to fix these errors "
+                        "automatically."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

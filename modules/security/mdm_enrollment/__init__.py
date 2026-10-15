@@ -42,12 +42,21 @@ class Module(ModuleBase):
         if dep_enrolled:
             findings.append(
                 Finding(
-                    title="Device is MDM-enrolled",
+                    title="Your Mac is managed by an organization",
                     description=(
-                        "This device is enrolled in Mobile Device Management (MDM). "
-                        "It may have restrictions on installing apps, modifying settings, "
-                        "or other device behaviors depending on the MDM policies configured. "
-                        "This is common on corporate or school-issued devices."
+                        "Your Mac is enrolled in Mobile Device Management (MDM). This "
+                        "is a system used by companies and schools to control devices. "
+                        "It can restrict which apps you install or change certain settings. "
+                        "If this is a work or school computer, this is normal. If this "
+                        "is your personal device and you did not set this up, it is a "
+                        "sign that someone else has administrative control over it.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: If this is a work or school device, ask your IT department "
+                        "to confirm the enrollment is expected. If it is a personal device, "
+                        "look in System Settings > General > Device Management (Privacy & Security > Profiles on older macOS) "
+                        "to see who manages it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -60,13 +69,21 @@ class Module(ModuleBase):
         if supervised:
             findings.append(
                 Finding(
-                    title="Device is supervised",
+                    title="Your Mac is in 'supervised' mode",
                     description=(
-                        "This device is in supervised mode, meaning it is fully managed "
-                        "by Mobile Device Management (MDM). Supervised devices have "
-                        "extensive restrictions on functionality, app installation, "
-                        "and system modifications. This is typical for corporate or "
-                        "school-managed devices."
+                        "Your Mac is in 'supervised' mode. This is a stricter level of "
+                        "management than standard enrollment, usually used by schools "
+                        "or businesses to lock down devices completely. It prevents you "
+                        "from changing many system settings or installing certain apps. "
+                        "If this is a personal device, you should not be in this mode "
+                        "unless you specifically set it up for testing.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: If this is a personal device, look in "
+                        "System Settings > General > Device Management (Privacy & Security > Profiles on older macOS). "
+                        "If you don't recognize the organization, get help before "
+                        "removing anything."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -79,7 +96,7 @@ class Module(ModuleBase):
         if not dep_enrolled and not supervised:
             findings.append(
                 Finding(
-                    title="No MDM enrollment detected",
+                    title="No work or school management found",
                     description=(
                         "This device does not appear to be enrolled in Mobile Device "
                         "Management. It is a personal device with no organizational "
@@ -102,7 +119,9 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Found {len(profiles_info['profiles'])} installed configuration profile(s)",
+                    title=(
+                        f"Found {len(profiles_info['profiles'])} installed settings profile(s)"
+                    ),
                     description=(
                         f"The following configuration profiles are installed:\n{profile_list}\n\n"
                         "These profiles may control device settings, security policies, "

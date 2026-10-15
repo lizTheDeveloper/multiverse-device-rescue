@@ -8,6 +8,12 @@ remediates:
   - security.screen_lock_check.screen_lock_delay
   - security.screen_lock_check.screensaver_idle_time
   - security.screen_lock_check.password_hint
+steps_for:
+  security.screen_lock_check.screen_lock_required: [1, 3]
+  security.screen_lock_check.automatic_login: [2]
+  security.screen_lock_check.screen_lock_delay: [3]
+  security.screen_lock_check.screensaver_idle_time: [4]
+  security.screen_lock_check.password_hint: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -20,7 +26,7 @@ after failed attempts. All of these are System Settings toggles — nothing
 here is auto-applied, since getting the timing wrong on a machine you use
 regularly is mostly an annoyance you should decide on yourself.
 
-## Step 1: Require a password immediately after sleep or screen saver
+## Step 1: Lock your Mac right after sleep
 
 1. Open System Settings > Lock Screen.
 2. Set "Require password after screen saver begins or display is turned
@@ -28,7 +34,7 @@ regularly is mostly an annoyance you should decide on yourself.
 3. If the finding reported this as already enabled, no action is needed —
    confirm the setting still shows "Immediately" and move on.
 
-## Step 2: Disable automatic login (critical)
+## Step 2: Turn off automatic login
 
 Automatic login skips the password prompt entirely at boot — physical
 access to the machine is equivalent to being logged in as that user.
@@ -40,7 +46,7 @@ access to the machine is equivalent to being logged in as that user.
 3. Confirm you know the account password before disabling this — you'll
    need to type it at every subsequent boot.
 
-## Step 3: Reduce the screen lock delay
+## Step 3: Shorten the time before the lock screen appears
 
 A delay longer than a few seconds means someone with brief physical access
 after the display sleeps can still get in before the lock engages.
@@ -51,7 +57,7 @@ after the display sleeps can still get in before the lock engages.
    it — Immediately is safest; up to 5 seconds is a reasonable compromise
    if you find "Immediately" too aggressive for normal use.
 
-## Step 4: Set a reasonable screen saver / display-off idle time
+## Step 4: Set a timer to turn off the screen when idle
 
 An idle time of 0 (disabled) or longer than 10 minutes leaves an unattended
 Mac unlocked for longer than necessary.
@@ -63,7 +69,7 @@ Mac unlocked for longer than necessary.
 3. If the finding reported idle time as "not configured," set an explicit
    value rather than leaving it at the system default.
 
-## Step 5: Review password hint visibility
+## Step 5: Check if a password hint is visible
 
 This is informational, not urgent — a password hint shown after repeated
 failed attempts can leak information about your password to anyone

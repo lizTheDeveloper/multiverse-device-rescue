@@ -50,11 +50,14 @@ class Module(ModuleBase):
             if "Power Saver" in active_plan_name:
                 findings.append(
                     Finding(
-                        title="Power Saver plan active",
+                        title="Power Saver mode is on",
                         description=(
-                            "Power Saver mode restricts CPU and memory speeds to reduce power consumption. "
-                            "This can cause noticeable performance degradation. Consider switching to "
-                            "Balanced or High Performance mode."
+                            "Your computer is currently in Power Saver mode. This setting "
+                            "lowers the speed of your processor and memory to save battery "
+                            "life.\n\n"
+                            "What to do: If you want more speed, you can switch to 'Balanced' "
+                            "or 'High Performance' mode by clicking the battery icon in "
+                            "the taskbar."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -85,11 +88,15 @@ class Module(ModuleBase):
             if proc_max < 100:
                 findings.append(
                     Finding(
-                        title="Processor artificially limited",
+                        title=f"Processor speed is limited to {proc_max}%",
                         description=(
-                            f"Maximum processor state is set to {proc_max}%, which artificially limits "
-                            "CPU performance. This can cause slowdowns. Set maximum processor state to 100% "
-                            "for full performance."
+                            f"Your computer is set to limit the processor to {proc_max}% "
+                            "of its maximum speed. This is a power-saving setting that "
+                            "can make the computer feel slower.\n\n"
+                            "What to do: If you want full speed, you can change this "
+                            "in the Start menu: type 'Edit power plan', choose Change "
+                            "advanced power settings, open Processor power management, "
+                            "and set Maximum processor state to 100%."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -115,8 +122,16 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"Hard disk idle timeout: {timeout_minutes} min",
-                    description=description,
+                    title=f"Hard disk turns off after {timeout_minutes} minutes",
+                    description=(
+                        f"Your computer is set to turn off the hard disk after {timeout_minutes} "
+                        "minutes of inactivity. This is a normal power-saving setting. "
+                        "It helps save energy but can cause a brief pause when you next "
+                        "use the computer, as the disk needs to spin back up.\n\n"
+                        "What to do: Nothing right now. This is a standard setting. If "
+                        "you notice frequent pauses, type 'Edit power plan' in the Start "
+                        "menu and choose Change advanced power settings."
+                    ),
                     severity=severity,
                     category=self.category,
                     data={
@@ -131,11 +146,16 @@ class Module(ModuleBase):
             if 0 < timeout_seconds < 300:  # Less than 5 minutes
                 findings.append(
                     Finding(
-                        title="Hard disk timeout too short",
+                        title=f"Hard disk turns off after only {timeout_minutes} minutes",
                         description=(
-                            f"Hard disk is set to turn off after only {timeout_minutes} minute(s). "
-                            "This can cause disk I/O lag when the disk needs to spin back up. "
-                            "Consider increasing to at least 5-10 minutes."
+                            "Your computer is set to turn off the hard disk after just "
+                            f"{timeout_minutes} minutes of inactivity. This is very short. "
+                            "It can cause noticeable delays when you start using the "
+                            "computer again, because the disk has to spin up from a stopped "
+                            "state.\n\n"
+                            "What to do: Type 'Edit power plan' in the Start menu, choose "
+                            "Change advanced power settings, and set Hard disk > Turn off "
+                            "hard disk after to 10 minutes or more."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -189,8 +209,20 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"USB Selective Suspend: {'enabled' if usb_suspend else 'disabled'}",
-                    description=usb_desc,
+                    title=f"USB power saving is {'on' if usb_suspend else 'off'}",
+                    description=(
+                        (
+                            "Your computer switches off idle USB devices to save power. If "
+                            "a mouse, keyboard or drive keeps dropping out, this is the "
+                            "likely cause.\n\n"
+                            if usb_suspend
+                            else "Your computer keeps USB devices powered even when idle, "
+                            "which uses a little more battery.\n\n"
+                        )
+                        + "What to do: Nothing right now. To change it, type 'Edit power "
+                        "plan' in the Start menu, choose Change advanced power settings, "
+                        "and open USB settings."
+                    ),
                     severity=severity,
                     category=self.category,
                     data={

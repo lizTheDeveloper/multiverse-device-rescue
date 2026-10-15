@@ -22,8 +22,29 @@ remediates:
   - security.screen_time_parental.screen_time_disabled_with_children
   - security.screen_time_parental.screen_time_disabled
   - security.screen_time_parental.managed_accounts
+steps_for:
+  security.screen_time_audit.screen_time_enabled: [1, 2, 3]
+  security.screen_time_audit.screen_time_no_passcode: [1]
+  security.screen_time_audit.content_privacy_restrictions: [2]
+  security.screen_time_audit.downtime_enabled: [3]
+  security.screen_time_audit.app_limits_configured: [3]
+  security.screen_time_audit.communication_limits_configured: [3]
+  security.screen_time_audit.screen_time_disabled: [4]
+  security.screen_time_parental.screen_time_enabled: [1, 2, 3]
+  security.screen_time_parental.screen_time_no_passcode: [1]
+  security.screen_time_parental.content_privacy_restrictions: [2]
+  security.screen_time_parental.content_privacy_disabled_with_children: [2, 5]
+  security.screen_time_parental.app_limits_configured: [3]
+  security.screen_time_parental.downtime_enabled: [3]
+  security.screen_time_parental.communication_limits_configured: [3]
+  security.screen_time_parental.adult_content_filtering: [6]
+  security.screen_time_parental.ask_to_buy_enabled: [6]
+  security.screen_time_parental.screen_time_disabled_with_children: [4, 5]
+  security.screen_time_parental.screen_time_disabled: [4]
+  security.screen_time_parental.managed_accounts: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
+monitoring_risk: true
 ---
 
 This walkthrough covers what the `screen_time_audit` and `screen_time_parental`
@@ -37,7 +58,7 @@ so nothing here is auto-applied. The goal is to confirm the configuration
 matches what you actually intend, not to assume any particular state is
 wrong.
 
-## Step 1: Set a Screen Time passcode if Screen Time is enabled (important)
+## Step 1: Set a private passcode for Screen Time
 
 Screen Time without a passcode can be turned off, or have its limits
 changed, by anyone using the account — including the exact person the
@@ -50,7 +71,7 @@ controls are meant to apply to.
 3. Enter a passcode that's different from the account login password and
    not shared with the person Screen Time is meant to restrict.
 
-## Step 2: Review Content & Privacy Restrictions
+## Step 2: Check your content and privacy rules
 
 1. Open System Settings > Screen Time > Content & Privacy.
 2. Confirm the current restrictions (app ratings, explicit content, web
@@ -59,7 +80,7 @@ controls are meant to apply to.
    specific rules rather than assuming the defaults are right.
 3. If restrictions are disabled and you expected them on, enable them here.
 
-## Step 3: Review Downtime, App Limits, and Communication Limits
+## Step 3: Review your usage and contact limits
 
 These three features work together to shape when and how the device can be
 used.
@@ -73,7 +94,7 @@ used.
    current — remove anyone who shouldn't have unrestricted contact access
    during Downtime.
 
-## Step 4: Decide whether Screen Time should be enabled at all
+## Step 4: Decide if you want Screen Time on
 
 If the scan reported Screen Time as disabled, that's not inherently a
 problem — it's only useful if you actually want usage monitoring or limits
@@ -85,7 +106,7 @@ on this device.
    member's device), enable it: System Settings > Screen Time > Turn On,
    then set a passcode (Step 1) and configure the features in Step 3.
 
-## Step 5: Review managed/child accounts and protections that depend on them
+## Step 5: Check settings for child accounts
 
 The `screen_time_parental` scan additionally flags cases where this device
 has managed/child accounts but the protections meant for them are missing
@@ -104,7 +125,7 @@ or disabled.
    Screen Time state on a child account means none of the intended controls
    are active.
 
-## Step 6: Review adult content filtering and purchase approval
+## Step 6: Review adult content and purchase rules
 
 1. Open System Settings > Screen Time > [child account] > Content &
    Privacy > Content Restrictions and confirm adult content / web filtering

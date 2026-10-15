@@ -33,8 +33,15 @@ class Module(ModuleBase):
         if is_enabled is False:
             findings.append(
                 Finding(
-                    title="Time Machine is disabled",
-                    description="Automatic backups are not running. Enable Time Machine to protect against data loss.",
+                    title="Your Mac is not making automatic backups",
+                    description=(
+                        "Time Machine, the built-in backup tool, is currently turned off. "
+                        "This means your files are not being saved automatically. If something "
+                        "happens to your Mac, you could lose your photos, documents, and "
+                        "other work.\n\n"
+                        "What to do: Plug in an external drive, open System Settings > "
+                        "General > Time Machine, click Add Backup Disk, and choose it."
+                    ),
                     severity=Severity.CRITICAL,
                     category=self.category,
                     data={"check": "timemachine_disabled"},
@@ -43,8 +50,14 @@ class Module(ModuleBase):
         elif is_enabled is None:
             findings.append(
                 Finding(
-                    title="Could not determine Time Machine status",
-                    description="Unable to read Time Machine configuration.",
+                    title="We couldn't check your backup status",
+                    description=(
+                        "The checkup couldn't read your Time Machine settings, so we don't "
+                        "know if backups are running. This is not the same as everything "
+                        "being fine.\n\n"
+                        "What to do: Run the checkup again. If it still fails, open System "
+                        "Settings > General > Time Machine to check the status manually."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "timemachine_status_unknown"},
@@ -56,8 +69,14 @@ class Module(ModuleBase):
         if destination_info is None:
             findings.append(
                 Finding(
-                    title="No Time Machine backup destination configured",
-                    description="Set up a backup destination in Time Machine settings.",
+                    title="No backup drive is set up for Time Machine",
+                    description=(
+                        "Time Machine is on, but it doesn't know where to save your backups. "
+                        "You need to connect an external drive and tell your Mac to use "
+                        "it.\n\n"
+                        "What to do: Plug in an external drive, open System Settings > "
+                        "General > Time Machine, click Add Backup Disk, and choose it."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "no_destination"},
@@ -66,8 +85,17 @@ class Module(ModuleBase):
         elif not destination_info.get("connected", False):
             findings.append(
                 Finding(
-                    title="Time Machine backup disk is not connected",
-                    description=f"Backup destination '{destination_info.get('name', 'Unknown')}' is disconnected.",
+                    title=(
+                        f"Your backup drive '{destination_info.get('name', 'Unknown')}' "
+                        "is not connected"
+                    ),
+                    description=(
+                        f"Your Mac is set to back up to '{destination_info.get('name', 'Unknown')}', "
+                        "but that drive is not currently plugged in. Backups will not "
+                        "run until you connect it.\n\n"
+                        "What to do: Plug in your backup drive. Once connected, Time "
+                        "Machine should start backing up automatically."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "destination_disconnected", "destination": destination_info},
@@ -81,8 +109,15 @@ class Module(ModuleBase):
             if days_since > 7:
                 findings.append(
                     Finding(
-                        title=f"Last backup is {days_since} days old",
-                        description=f"Last backup: {last_backup.strftime('%Y-%m-%d %H:%M:%S')}. Backups should run regularly.",
+                        title=f"Your last backup is {days_since} days old",
+                        description=(
+                            f"Your most recent backup was on {last_backup.strftime('%Y-%m-%d %H:%M:%S')}. "
+                            "Backups should happen regularly to keep your files safe. "
+                            "If your backup drive is connected, it may just need time "
+                            "to catch up.\n\n"
+                            "What to do: Connect your backup drive, then click the Time "
+                            "Machine icon in the menu bar and choose Back Up Now."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={

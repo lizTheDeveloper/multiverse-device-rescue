@@ -34,11 +34,14 @@ class Module(ModuleBase):
         if service_status is False:
             findings.append(
                 Finding(
-                    title="Windows Update service is stopped",
+                    title="Windows Update is turned off",
                     description=(
-                        "The Windows Update service (wuauserv) is not running. "
-                        "Your system cannot check for or install updates. "
-                        "This is a security risk."
+                        "The background service that checks for Windows updates is currently "
+                        "stopped. This means your computer is not automatically downloading "
+                        "security fixes, which leaves you open to known problems.\n\n"
+                        "What to do: Open Start, type 'Services', and press Enter. Find "
+                        "'Windows Update' in the list, right-click it, and select 'Start'. "
+                        "If it stops again, check if a program is blocking it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -48,10 +51,14 @@ class Module(ModuleBase):
         elif service_status is None:
             findings.append(
                 Finding(
-                    title="Could not determine Windows Update service status",
+                    title="Could not check Windows Update status",
                     description=(
-                        "Failed to check if the Windows Update service is running. "
-                        "Ensure you have Administrator privileges."
+                        "The checkup could not verify if your Windows Update service is "
+                        "running because it lacked the necessary permissions. This is "
+                        "not the same as everything being fine; we simply couldn't see "
+                        "the status.\n\n"
+                        "What to do: Run the checkup again as an administrator. On Windows, "
+                        "right-click the app icon and select 'Run as administrator'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -114,10 +121,15 @@ class Module(ModuleBase):
                 if days_since_update >= 90:
                     findings.append(
                         Finding(
-                            title=f"No updates in {days_since_update} days (CRITICAL)",
+                            title=f"No Windows updates in {days_since_update} days",
                             description=(
-                                f"Last Windows update was {days_since_update} days ago ({last_update_date}). "
-                                "This is a significant security risk. Your system is missing critical security patches."
+                                f"Your last Windows update was {days_since_update} days "
+                                f"ago ({last_update_date}). Updates often fix security "
+                                "holes that other software can exploit. Going this long "
+                                "without updates is risky.\n\n"
+                                "What to do: Open Start, type 'Windows Update', and select "
+                                "'Check for updates'. Install any available updates and "
+                                "restart your computer if prompted."
                             ),
                             severity=Severity.CRITICAL,
                             category=self.category,
@@ -131,10 +143,14 @@ class Module(ModuleBase):
                 elif days_since_update >= 30:
                     findings.append(
                         Finding(
-                            title=f"Last update was {days_since_update} days ago",
+                            title=f"Last Windows update was {days_since_update} days ago",
                             description=(
-                                f"Last Windows update was {days_since_update} days ago ({last_update_date}). "
-                                "Consider checking for available updates soon."
+                                f"Your last Windows update was {days_since_update} days "
+                                f"ago ({last_update_date}). While not an emergency, it "
+                                "is a good idea to stay current to ensure you have the "
+                                "latest security patches.\n\n"
+                                "What to do: Open Start, type 'Windows Update', and select "
+                                "'Check for updates' to see if anything new is available."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -174,11 +190,15 @@ class Module(ModuleBase):
         if failed_updates and failed_updates.get("count", 0) > 0:
             findings.append(
                 Finding(
-                    title=f"{failed_updates['count']} failed update(s) detected",
+                    title=f"{failed_updates['count']} Windows updates failed to install",
                     description=(
-                        f"Found {failed_updates['count']} failed update installation(s). "
-                        "Failed updates may prevent successful installation of future updates. "
-                        "System may have been retrying the same failed update."
+                        f"Windows tried to install {failed_updates['count']} updates but "
+                        "ran into errors. These updates often contain important security "
+                        "fixes, so the failures matter.\n\n"
+                        "What to do: Open Start, type 'Windows Update', and select 'Check "
+                        "for updates'. If they fail again, restart your computer and "
+                        "try again. If problems persist, search for 'Troubleshoot' in "
+                        "Settings and run the Windows Update troubleshooter."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

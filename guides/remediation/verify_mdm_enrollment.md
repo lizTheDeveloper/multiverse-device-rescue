@@ -11,8 +11,18 @@ remediates:
   - security.mdm_enrollment_check.restrictions_profiles
   - security.mdm_enrollment_check.all_profiles
   - security.mdm_enrollment_check.dep_status
+steps_for:
+  security.mdm_enrollment.mdm_enrolled: [1, 2, 4]
+  security.mdm_enrollment.supervised: [1, 2, 4]
+  security.mdm_enrollment.no_mdm: [4]
+  security.mdm_enrollment.profiles_installed: [2, 3]
+  security.mdm_enrollment_check.mdm_enrollment: [1, 2, 4]
+  security.mdm_enrollment_check.restrictions_profiles: [3]
+  security.mdm_enrollment_check.all_profiles: [2, 3]
+  security.mdm_enrollment_check.dep_status: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 `mdm_enrollment` and `mdm_enrollment_check` both scan Mobile Device
@@ -26,7 +36,7 @@ case leave the device unable to boot correctly into a usable state
 ("bricking" it from a usability standpoint until IT re-provisions it). The
 goal here is verification and awareness, not removal.
 
-## Step 1: Determine whether this MDM enrollment is expected
+## Step 1: Check if your device is managed by a work or school
 
 Both modules may report MDM enrollment, supervision, or a specific MDM
 server name.
@@ -45,7 +55,7 @@ server name.
    alone — verify with the organization first, since removal on a
    supervised device can require a full factory reset and re-provisioning.
 
-## Step 2: Review installed configuration profiles
+## Step 2: List and check the settings installed on your device
 
 This is inventory information — profiles can come from MDM, manual
 installation, or enterprise software, and often provide legitimate
@@ -65,7 +75,7 @@ functionality (VPN, Wi-Fi, email, restrictions).
    compliance and removal could violate organizational policy or break
    required functionality.
 
-## Step 3: Review restriction profiles specifically
+## Step 3: Review any rules limiting what you can do
 
 `mdm_enrollment_check` separately flags profiles whose names suggest they
 impose restrictions (parental controls, content filtering, managed app
@@ -78,7 +88,7 @@ restrictions).
    policy — contact IT if a restriction seems wrong or is blocking
    something you need, rather than removing the profile.
 
-## Step 4: No-MDM / DEP status (informational)
+## Step 4: Note your device's management status
 
 If the scan reports no MDM enrollment, or reports Device Enrollment
 Program (DEP) status, these are informational and require no action —

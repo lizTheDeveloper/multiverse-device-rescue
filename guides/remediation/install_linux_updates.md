@@ -7,6 +7,11 @@ remediates:
   - integrity.linux_package_updates.reboot_required
   - integrity.linux_package_updates.updates_pending
   - integrity.linux_package_updates.release_end_of_life
+steps_for:
+  integrity.linux_package_updates.security_updates_pending: [1, 2]
+  integrity.linux_package_updates.reboot_required: [2]
+  integrity.linux_package_updates.updates_pending: [1, 2]
+  integrity.linux_package_updates.release_end_of_life: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -16,7 +21,7 @@ writes attack software knows about them. Until you install the updates, your
 computer has holes that people know how to use. Updates that are installed but
 waiting for a restart aren't protecting you yet either.
 
-## Step 1: Install the updates
+## Step 1: Install all available software updates
 
 Open **Software Updater** (Ubuntu and Mint), or **Software** or **Discover**
 (Fedora, KDE and others), and install everything it offers. Security updates
@@ -27,11 +32,11 @@ Optional, from a terminal:
 - Ubuntu, Debian, Mint: `sudo apt update && sudo apt upgrade`
 - Fedora: `sudo dnf upgrade`
 
-## Step 2: Restart the computer
+## Step 2: Restart your computer to apply changes
 
 Restart so the new versions are actually in use. Save your work first.
 
-## Step 3: Check that your Linux version is still supported
+## Step 3: Check if your Linux version is still supported
 
 Every release stops receiving security updates on a set date. Look up your
 version on your distribution's website (for Ubuntu, search "Ubuntu release

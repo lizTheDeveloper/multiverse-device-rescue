@@ -159,7 +159,7 @@ def test_catalina_unsupported():
     unsupported_findings = [f for f in result.findings if f.data.get("check") == "unsupported_version"]
     assert len(unsupported_findings) == 1
     assert unsupported_findings[0].severity == Severity.CRITICAL
-    assert "no longer receiving security updates" in unsupported_findings[0].description.lower()
+    assert "no longer provides security updates" in unsupported_findings[0].description.lower()
 
 
 def test_version_unavailable():

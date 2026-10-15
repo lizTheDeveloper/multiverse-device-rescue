@@ -140,8 +140,7 @@ class Module(ModuleBase):
         findings.append(
             Finding(
                 title=(
-                    f"Evidence preservation: {len(collectable)} category(ies) "
-                    f"collectable, {len(existing)} bundle(s) already captured"
+                    f"Records: {len(collectable)} types available, {len(existing)} already saved"
                 ),
                 description=(
                     "Collectable right now:\n"

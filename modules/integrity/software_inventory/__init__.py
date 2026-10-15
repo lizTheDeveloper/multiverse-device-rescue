@@ -68,9 +68,18 @@ class Module(ModuleBase):
             app_names = [f"{name} ({version})" for name, version, _ in old_2year_apps]
             findings.append(
                 Finding(
-                    title=f"{len(old_2year_apps)} app(s) not updated in 2+ years",
-                    description="These apps may have unpatched vulnerabilities: "
-                    + ", ".join(app_names),
+                    title=(
+                        f"{len(old_2year_apps)} app(s) haven't been updated in over 2 years"
+                    ),
+                    description=(
+                        f"We found {len(old_2year_apps)} apps that haven't been updated "
+                        "in more than two years. Older apps often miss important security "
+                        f"fixes that protect your device. These are the apps: {', '.join(app_names)}.\n\n"
+                        "What to do: Open each app listed above and check for updates. "
+                        "If an app has an update available, install it. If an app is "
+                        "no longer supported by its developer, consider replacing it "
+                        "with a current alternative."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
@@ -86,9 +95,16 @@ class Module(ModuleBase):
             app_names = [f"{name} ({version})" for name, version, _ in old_1year_apps]
             findings.append(
                 Finding(
-                    title=f"{len(old_1year_apps)} app(s) not updated in 1+ year",
-                    description="These apps should be updated for security: "
-                    + ", ".join(app_names),
+                    title=f"{len(old_1year_apps)} app(s) haven't been updated in over a year",
+                    description=(
+                        f"We found {len(old_1year_apps)} apps that haven't been updated "
+                        "in more than a year. Keeping apps current helps ensure they "
+                        "work properly and include the latest security protections. These "
+                        f"are the apps: {', '.join(app_names)}.\n\n"
+                        "What to do: Open each app listed above and check for updates. "
+                        "If an update is available, install it to keep your software "
+                        "secure."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
@@ -104,8 +120,15 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=f"{len(apps_32bit)} 32-bit app(s) installed",
-                    description="These apps won't run on macOS Catalina (10.15) or later: "
-                    + ", ".join(apps_32bit),
+                    description=(
+                        f"We found {len(apps_32bit)} apps that use older 32-bit technology. "
+                        "Newer versions of macOS no longer support 32-bit apps, so these "
+                        "may stop working after a system update. These are the apps: "
+                        f"{', '.join(apps_32bit)}.\n\n"
+                        "What to do: Check if the developers of these apps offer newer, "
+                        "64-bit versions. If not, look for alternative apps that do support "
+                        "modern macOS versions."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
@@ -119,7 +142,7 @@ class Module(ModuleBase):
         # Add info finding with summary
         findings.append(
             Finding(
-                title=f"Software inventory: {len(apps_data)} application(s) installed",
+                title=f"Apps on your Mac: {len(apps_data)} installed",
                 description=f"Total: {len(apps_data)} apps. Old (2+ years): {len(old_2year_apps)}. "
                 f"Old (1+ year): {len(old_1year_apps)}. 32-bit: {len(apps_32bit)}.",
                 severity=Severity.INFO,

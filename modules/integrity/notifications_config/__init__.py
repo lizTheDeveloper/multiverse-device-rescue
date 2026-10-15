@@ -233,7 +233,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Notification configuration summary",
+                title="Your notification settings",
                 description=description,
                 severity=Severity.INFO,
                 category=self.category,
@@ -252,11 +252,14 @@ class Module(ModuleBase):
         ):
             findings.append(
                 Finding(
-                    title="Do Not Disturb is permanently enabled",
+                    title="Do Not Disturb is on all the time",
                     description=(
-                        "Do Not Disturb or Focus mode is permanently enabled without a schedule. "
-                        "You may be missing important notifications. Consider enabling a schedule "
-                        "to automatically manage when notifications are suppressed."
+                        "Your Mac is set to silence notifications permanently, without "
+                        "a schedule. The main risk is that you might miss important calls "
+                        "or messages because they are silenced.\n\n"
+                        "What to do: Open System Settings > Focus. Turn off the current "
+                        "Focus mode, or set a schedule so it only turns on at specific "
+                        "times (like during sleep)."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -268,12 +271,13 @@ class Module(ModuleBase):
         if settings.get("preview_on_lock") == "always":
             findings.append(
                 Finding(
-                    title="Notification previews visible on lock screen",
+                    title="Message previews show on your lock screen",
                     description=(
-                        "Your notification settings allow full previews to display on the lock screen. "
-                        "This could expose sensitive information (messages, email content, etc.) "
-                        "to anyone with physical access to your device. Consider setting previews "
-                        "to 'When Unlocked' or 'Never' for better privacy."
+                        "Your Mac is set to show the full text of messages and emails "
+                        "on the lock screen, so anyone who can see the screen can read "
+                        "them without unlocking it.\n\n"
+                        "What to do: Open System Settings > Notifications and set 'Show "
+                        "previews' to 'When Unlocked' or 'Never'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

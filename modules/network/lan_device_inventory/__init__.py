@@ -227,13 +227,20 @@ class Module(ModuleBase):
             vendor = device["vendor"] or "an unidentified vendor"
             findings.append(
                 Finding(
-                    title=f"Unrecognised device on the network: {device['ips'][0]}",
+                    title=f"Unrecognized device on your network: {device['ips'][0]}",
                     description=(
-                        f"The device at {device['ips'][0]} ({device['mac']}, {vendor}) "
-                        "is not in the list of devices this household has accounted "
-                        "for. Identify it before assuming the worst — a new phone, a "
-                        "guest, or a smart plug all look like this — but do not leave "
-                        "it unexplained."
+                        f"We found a device at {device['ips'][0]} (made by {vendor}) that "
+                        "is not in your list of known devices. This is often just a new "
+                        "phone, a guest's laptop, or a smart home gadget, but it is good "
+                        "to identify it.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Check the device list in your router's settings "
+                        "(usually by typing your router's IP address into a web browser) "
+                        "to see if you recognize the name. If you don't, ask household "
+                        "members if they added a new device."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -255,15 +262,17 @@ class Module(ModuleBase):
         return [
             Finding(
                 title=(
-                    f"More devices on the network than expected "
-                    f"({len(devices)} seen, {expected} expected)"
+                    f"More devices on the network than you expected ({len(devices)} seen, "
+                    f"{expected} expected)"
                 ),
                 description=(
-                    f"{len(devices)} devices are visible but only {expected} were "
-                    "expected. Work through the inventory above and identify the "
-                    "extras. Remember that phones, tablets, TVs, speakers, and smart "
-                    "home gadgets each count as one device, so the real number is "
-                    "usually higher than people guess."
+                    f"We see {len(devices)} devices connected to your Wi-Fi, but you expected "
+                    f"{expected}. This often happens because we count every small gadget—like "
+                    "smart plugs, TVs, and speakers—as a separate device.\n\n"
+                    "What to do: Look at the list of devices above. If you see a name "
+                    "you don't recognize, ask who is in the house if they brought a new "
+                    "phone or gadget. If you truly don't know what a device is, change "
+                    "your Wi-Fi password to disconnect unknown devices."
                 ),
                 severity=Severity.WARNING,
                 category=self.category,

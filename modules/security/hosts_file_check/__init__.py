@@ -105,11 +105,19 @@ class Module(ModuleBase):
         if len(entries) > 20:
             findings.append(
                 Finding(
-                    title=f"Large number of custom hosts entries ({len(entries)})",
+                    title=f"Your computer has {len(entries)} extra website address overrides",
                     description=(
-                        f"The /etc/hosts file contains {len(entries)} custom entries. "
-                        f"While this could be an ad-blocker configuration, a large number of entries "
-                        f"could indicate malware or system compromise."
+                        "Your computer's address book (a file called /etc/hosts) has "
+                        f"{len(entries)} extra entries. This file usually only has a few "
+                        "lines. A large number of entries often comes from ad-blocking "
+                        "apps, but it can also be a sign that something is blocking or "
+                        "redirecting your internet traffic. This is not proof of a problem, "
+                        "but it is worth checking.\n\n"
+                        "What to do: Open the file in a text editor to see what is listed. "
+                        "On Mac, open Terminal and type: cat /etc/hosts. If you see names "
+                        "of apps you installed (like ad blockers), it is likely fine. "
+                        "If you see names you don't recognize, especially for banking "
+                        "or email, ask for help."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -125,21 +133,22 @@ class Module(ModuleBase):
         if suspicious_entries:
             findings.append(
                 Finding(
-                    title=f"Found {len(suspicious_entries)} entries redirecting to non-standard IPs",
+                    title=(
+                        f"{len(suspicious_entries)} website names are being redirected "
+                        "to unusual addresses"
+                    ),
                     description=(
-                        "Your hosts file (/etc/hosts) is a short list that overrides the "
-                        "internet's address book: for each name listed, your computer goes "
-                        "to the address written there instead of asking DNS. "
-                        f"{len(suspicious_entries)} entr{'y sends' if len(suspicious_entries) == 1 else 'ies send'} "
-                        "a website name to an address other than your own computer "
-                        "(127.0.0.1 or 0.0.0.0), which is how a site can be silently redirected. "
-                        "Some apps add entries like this themselves (Adobe, VPN, "
-                        "development and ad-blocking tools), so this is not proof of a "
-                        "problem. Check whether you recognize each one: "
-                        f"{', '.join(e['ip'] + ' ' + e['hostname'] for e in suspicious_entries[:5])}"
-                        f"{'...' if len(suspicious_entries) > 5 else ''}. "
-                        "If you do not recognize an entry, especially for a bank, email, or "
-                        "software-update site, treat it as a warning sign."
+                        "Your computer's address book (/etc/hosts) has entries that send "
+                        "website names to addresses other than your own computer. Here "
+                        f"are {len(suspicious_entries)} of them: {', '.join(e['ip'] + ' ' + e['hostname'] for e in suspicious_entries[:5])}{'...' if len(suspicious_entries) > 5 else ''}. "
+                        "Many apps (like VPNs, Adobe, or ad blockers) do this automatically, "
+                        "so this is not proof of spying or malware. However, if you see "
+                        "a bank, email, or software update site here that you did not "
+                        "add, it is a warning sign.\n\n"
+                        "What to do: Check the list above. If you recognize the apps, "
+                        "you can ignore this. If you see a site you don't recognize, "
+                        "especially for banking or email, back up your data and ask a "
+                        "trusted tech person to help you remove the entry."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -164,12 +173,21 @@ class Module(ModuleBase):
         if wellknown_redirects:
             findings.append(
                 Finding(
-                    title=f"Well-known domains redirected to suspicious IPs",
+                    title=(
+                        f"Major websites like {', '.join([e['hostname'] for e in wellknown_redirects[:3]])} "
+                        "are being redirected"
+                    ),
                     description=(
-                        f"Found {len(wellknown_redirects)} well-known domains "
-                        f"(e.g., google.com, facebook.com) redirected to non-standard IPs. "
-                        f"This could indicate malware: {', '.join([e['hostname'] for e in wellknown_redirects[:3]])}"
-                        f"{'...' if len(wellknown_redirects) > 3 else ''}"
+                        f"We found {len(wellknown_redirects)} entries in your address "
+                        f"book that redirect major websites (like {', '.join([e['hostname'] for e in wellknown_redirects[:3]])}{'...' if len(wellknown_redirects) > 3 else ''}) "
+                        "to unusual addresses. This is more concerning than a simple "
+                        "ad-blocker. It could mean an app is trying to block these sites, "
+                        "or it could be a sign of malware. It is not proof of a hack, "
+                        "but you should check it.\n\n"
+                        "What to do: Open the file /etc/hosts in a text editor. Look "
+                        "for the names listed above. If you don't recognize why they "
+                        "are there, back up your data and ask a trusted tech person to "
+                        "help you remove those specific lines."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -194,10 +212,21 @@ class Module(ModuleBase):
         if bank_redirects:
             findings.append(
                 Finding(
-                    title="Banking websites redirected to suspicious IPs",
+                    title=(
+                        f"Banking sites like {', '.join([e['hostname'] for e in bank_redirects])} "
+                        "are being redirected"
+                    ),
                     description=(
-                        f"Found {len(bank_redirects)} banking domain(s) redirected to non-standard IPs. "
-                        f"This is a critical security issue: {', '.join([e['hostname'] for e in bank_redirects])}"
+                        f"We found {len(bank_redirects)} entries in your address book "
+                        f"that redirect banking websites ({', '.join([e['hostname'] for e in bank_redirects])}) "
+                        "to unusual addresses. This is a serious warning sign. It could "
+                        "mean an app is blocking your bank, or it could be malware trying "
+                        "to trick you into entering your password on a fake site. Do "
+                        "not ignore this.\n\n"
+                        "What to do: Stop using your bank website on this computer until "
+                        "you check it. Open the file /etc/hosts in a text editor and "
+                        "look for these names. If you did not add them, back up your "
+                        "data and ask a trusted tech person to help you remove them immediately."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,

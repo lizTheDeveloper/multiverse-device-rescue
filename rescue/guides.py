@@ -25,6 +25,19 @@ class Guide:
     automatable_steps: list[int] = field(default_factory=list)
     human_only_steps: list[int] = field(default_factory=list)
     remediates: list[str] = field(default_factory=list)
+    # Optional {finding code: [step numbers]}: which steps matter for that
+    # finding. A code with no entry gets every step.
+    steps_for: dict[str, list[int]] = field(default_factory=dict)
+    # True for walkthroughs about things someone close could use to watch a
+    # person (remote access, monitoring apps, accounts, permissions). The app
+    # then shows the advocate safety note above the steps.
+    monitoring_risk: bool = False
+
+    def steps_for_code(self, code: str | None) -> list[GuideStep]:
+        wanted = self.steps_for.get(code) if code else None
+        if not wanted:
+            return list(self.steps)
+        return [s for s in self.steps if s.number in wanted]
 
 
 def parse_guide_markdown(text: str) -> Guide:
@@ -53,7 +66,19 @@ def parse_guide_markdown(text: str) -> Guide:
         automatable_steps=automatable_steps,
         human_only_steps=human_only_steps,
         remediates=list(meta.get("remediates", []) or []),
+        steps_for=_steps_for(meta.get("steps_for")),
+        monitoring_risk=meta.get("monitoring_risk") is True,
     )
+
+
+def _steps_for(raw) -> dict[str, list[int]]:
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(code): [n for n in numbers if isinstance(n, int)]
+        for code, numbers in raw.items()
+        if isinstance(numbers, list)
+    }
 
 
 def load_guide(path: Path) -> Guide:

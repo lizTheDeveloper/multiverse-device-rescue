@@ -148,7 +148,7 @@ def test_airport_wifi_scan_congested_channel():
     assert result.has_issues
     # Should have warning about congestion
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("congestion" in f.title.lower() for f in warning_findings)
+    assert any("channel is busy" in f.title.lower() for f in warning_findings)
 
     # Check the data contains congestion info
     congestion_finding = next(

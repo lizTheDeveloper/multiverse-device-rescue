@@ -33,12 +33,18 @@ class Module(ModuleBase):
         if not service_running:
             findings.append(
                 Finding(
-                    title="Event Log service is not running",
+                    title="Windows is not recording its activity logs",
                     description=(
-                        "The Windows Event Log service (EventLog) is not running. "
-                        "This is critical as it indicates the service may have been disabled or crashed. "
-                        "Event logs are essential for diagnosing crashes and security incidents. "
-                        "This could indicate tampering or system instability."
+                        "The background service that keeps a record of what your computer "
+                        "is doing (called the Event Log) is currently stopped. This usually "
+                        "happens if the computer crashed or if someone turned it off. "
+                        "Without this service, Windows cannot keep a history of errors "
+                        "or security events, which makes it harder to fix problems later. "
+                        "\n\n"
+                        "What to do: Open the Start menu, type 'Services', and press Enter. "
+                        "Find 'Windows Event Log' in the list, right-click it, and select "
+                        "'Start'. If it won't start, right-click again and select 'Properties', "
+                        "then set 'Startup type' to 'Automatic' and click 'Start'."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -52,10 +58,17 @@ class Module(ModuleBase):
         if system_errors and system_errors.get("error_count", 0) > 0:
             findings.append(
                 Finding(
-                    title=f"Critical/error events in System log ({system_errors['error_count']} found)",
+                    title=f"Windows recorded {system_errors['error_count']} system errors",
                     description=(
-                        f"Found {system_errors['error_count']} critical or error events in the System event log. "
-                        "These may indicate hardware failures, driver issues, or system crashes."
+                        f"Your computer's activity log shows {system_errors['error_count']} "
+                        "recent errors. These are usually caused by a driver glitch, "
+                        "a piece of hardware acting up, or a program crashing. A few "
+                        "errors are normal and often fix themselves, but a large number "
+                        "might mean a part of your computer is failing.\n\n"
+                        "What to do: Open the Start menu, type 'Event Viewer', and press "
+                        "Enter. Click 'Windows Logs' then 'System' to see the specific "
+                        "errors. If you see the same error repeating, search for that "
+                        "specific error code online to see if a driver update is needed."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -71,10 +84,16 @@ class Module(ModuleBase):
         if bsod_events and bsod_events.get("count", 0) > 0:
             findings.append(
                 Finding(
-                    title=f"Recent BSOD/BugCheck events ({bsod_events['count']} found)",
+                    title=f"Your computer crashed {bsod_events['count']} times recently",
                     description=(
-                        f"Found {bsod_events['count']} recent Blue Screen of Death (BSOD) or BugCheck events (Event ID 1001) "
-                        "in the System event log. These indicate system crashes that require investigation."
+                        f"We found {bsod_events['count']} records of your computer crashing "
+                        "with a 'Blue Screen of Death'. This happens when Windows hits "
+                        "a problem it can't fix and shuts down to protect your data. "
+                        "\n\n"
+                        "What to do: Check if your computer is running hot or if any "
+                        "fans are loud. If crashes are frequent, back up your important "
+                        "files and consider taking the computer to a technician to check "
+                        "for failing hardware."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -90,10 +109,17 @@ class Module(ModuleBase):
         if shutdown_events and shutdown_events.get("count", 0) > 0:
             findings.append(
                 Finding(
-                    title=f"Unexpected shutdown/power loss events ({shutdown_events['count']} found)",
+                    title=(
+                        f"Your computer shut down unexpectedly {shutdown_events['count']} times"
+                    ),
                     description=(
-                        f"Found {shutdown_events['count']} unexpected shutdown or power loss events (Event ID 41). "
-                        "The system may have lost power, been forcibly shut down, or had other critical failures."
+                        f"Your computer recorded {shutdown_events['count']} times when "
+                        "it lost power or was turned off without a proper shutdown. This "
+                        "often happens if you have a loose power cable, a failing power "
+                        "supply, or if you are using a power strip that turned off.\n\n"
+                        "What to do: Make sure your power cable is plugged in firmly "
+                        "at both ends. If you use a power strip, try plugging the computer "
+                        "directly into a wall outlet to see if the issue stops."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -109,10 +135,16 @@ class Module(ModuleBase):
         if service_crashes and service_crashes.get("count", 0) > 0:
             findings.append(
                 Finding(
-                    title=f"Service crash events ({service_crashes['count']} found)",
+                    title=f"{service_crashes['count']} background programs stopped working",
                     description=(
-                        f"Found {service_crashes['count']} service crash or timeout events (Event ID 7031/7034). "
-                        "Critical services are crashing or not responding, which impacts system stability."
+                        f"Windows noticed that {service_crashes['count']} background programs "
+                        "stopped responding or crashed. These are usually small helper "
+                        "programs that run quietly in the background. If they crash, "
+                        "some features might not work until you restart the computer, "
+                        "but this is rarely a security risk.\n\n"
+                        "What to do: Try restarting your computer. If the problem keeps "
+                        "happening, check if any recently installed apps are causing "
+                        "issues and consider uninstalling them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -128,10 +160,17 @@ class Module(ModuleBase):
         if security_failures and security_failures.get("count", 0) > 0:
             findings.append(
                 Finding(
-                    title=f"Security audit failure events ({security_failures['count']} found)",
+                    title=f"Windows recorded {security_failures['count']} security warnings",
                     description=(
-                        f"Found {security_failures['count']} security audit failure or critical security events "
-                        "in the Security event log. Investigate for potential security incidents."
+                        f"Your computer's security log shows {security_failures['count']} "
+                        "warnings. These often appear when a password is typed incorrectly "
+                        "or when a program tries to access a protected area. A few of "
+                        "these are normal, but a sudden large increase could mean someone "
+                        "is trying to guess passwords.\n\n"
+                        "What to do: If you are not seeing a sudden spike in these warnings, "
+                        "you can ignore them. If you are worried, change your account "
+                        "password to a strong, unique one and make sure your antivirus "
+                        "is up to date."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -150,11 +189,16 @@ class Module(ModuleBase):
                 if capacity_pct > 90:
                     findings.append(
                         Finding(
-                            title=f"{log_name} log is {capacity_pct}% full",
+                            title=f"Your {log_name} activity log is almost full",
                             description=(
-                                f"The {log_name} event log is at {capacity_pct}% of maximum capacity. "
-                                "When full, the oldest events will be automatically overwritten. "
-                                "Consider archiving logs or increasing log retention settings."
+                                f"The {log_name} log is {capacity_pct}% full. When this "
+                                "log fills up, Windows automatically deletes the oldest "
+                                "records to make room for new ones. This is normal maintenance, "
+                                "but it means you might lose history of past events.\n\n"
+                                "What to do: Nothing urgent is needed. If you want to "
+                                "keep a longer history, you can increase the log size "
+                                "in Event Viewer, but for most people, letting Windows "
+                                "manage it is fine."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

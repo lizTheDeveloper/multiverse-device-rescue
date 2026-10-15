@@ -260,6 +260,20 @@ automatable until it resolves to a registered module.
 carries a matching code. A walkthrough whose codes no module emits is dead
 content, and `rescue validate` warns about it.
 
+A walkthrough that covers several codes can say which steps belong to which
+finding with `steps_for: {<finding code>: [<step numbers>]}`. A finding then
+shows only those steps, and `"all_steps": false` in the scan JSON says the list
+was narrowed. A code without an entry gets every step. `rescue validate`
+rejects a `steps_for` entry for a code the walkthrough doesn't remediate, or a
+step number that doesn't exist.
+
+`monitoring_risk: true` marks a walkthrough about something a person close to
+the user could use to watch them (remote access, monitoring apps, accounts,
+permissions, startup items). The scan JSON then carries a `safety_note` in that
+finding's `remediation`, and the app and the terminal walkthrough show it above
+the steps: removing such things can alert whoever set them up, so talk to an
+advocate first.
+
 ## Testing conventions
 
 The suite mirrors the tree: `tests/test_module_<module_name>.py` per module,

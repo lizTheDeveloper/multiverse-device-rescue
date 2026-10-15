@@ -40,8 +40,14 @@ class Module(ModuleBase):
         if not services:
             findings.append(
                 Finding(
-                    title="Could not retrieve network services",
-                    description="Unable to list network services. Network configuration may be inaccessible.",
+                    title="We couldn't check your network settings",
+                    description=(
+                        "This check needs to read your network list, but it couldn't access "
+                        "it, so this part of the checkup didn't run.\n\n"
+                        "What to do: Nothing right now. If your internet is working normally, "
+                        "you can ignore this. If you want to double-check, try running "
+                        "the checkup again."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "services_retrieval"},
@@ -107,11 +113,14 @@ class Module(ModuleBase):
         if self_assigned_ips:
             findings.append(
                 Finding(
-                    title="Self-assigned IP address detected (DHCP failure)",
+                    title=f"Your network connection failed ({', '.join(self_assigned_ips)})",
                     description=(
-                        f"The following network services have self-assigned IP addresses (169.254.x.x), "
-                        f"indicating DHCP has failed: {', '.join(self_assigned_ips)}. "
-                        f"This means the device could not obtain an IP address from the DHCP server."
+                        "Your Mac couldn't get a proper address from your router for: "
+                        f"{', '.join(self_assigned_ips)}. This usually means the router "
+                        "is offline or the cable is unplugged.\n\n"
+                        "What to do: Check that your router is powered on and your cable "
+                        "is plugged in. If you use Wi-Fi, try moving closer to the router "
+                        "or restarting it."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -124,10 +133,18 @@ class Module(ModuleBase):
             dns_text = ", ".join([f"{s}: {d}" for s, d in problematic_dns_found])
             findings.append(
                 Finding(
-                    title="Potentially problematic DNS servers configured",
+                    title="Website lookups are sent to this computer itself or nowhere",
                     description=(
-                        f"The following services have potentially problematic DNS servers configured: {dns_text}. "
-                        f"This may block internet access or indicate a network misconfiguration."
+                        "These connections use an unusual DNS server, the service that "
+                        f"turns website names into addresses: {dns_text}. 127.0.0.1 means "
+                        "a program on this computer answers the lookups; 0.0.0.0 means "
+                        "nothing does. Ad blockers, VPNs and privacy apps often set this "
+                        "up, but unwanted software can use it to watch or redirect where "
+                        "you go online.\n\n"
+                        "What to do: If you use an ad blocker, VPN or privacy app, this "
+                        "is probably it. If not, open System Settings > Network, choose "
+                        "the connection, click Details > DNS, and remove the entry so "
+                        "your router's DNS is used."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -142,11 +159,15 @@ class Module(ModuleBase):
         if vpn_interfaces:
             findings.append(
                 Finding(
-                    title=f"VPN interface(s) detected: {', '.join(vpn_interfaces)}",
+                    title=f"VPN interfaces found: {', '.join(vpn_interfaces)}",
                     description=(
-                        f"The following VPN interfaces are present: {', '.join(vpn_interfaces)}. "
-                        f"If the VPN is down but configured to route all traffic, "
-                        f"internet access may be blocked."
+                        f"We found VPN interfaces on your Mac: {', '.join(vpn_interfaces)}. "
+                        "This is normal if you use a work or school VPN. If you don't "
+                        "use a VPN, check if an app installed it, but this is rarely "
+                        "a security risk.\n\n"
+                        "What to do: If you don't recognize these, check if you have "
+                        "any work or school apps installed. If you do use a VPN, no action "
+                        "is needed."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -159,7 +180,7 @@ class Module(ModuleBase):
             mtu_text = ", ".join([f"{s}: {m}" for s, m in non_standard_mtu])
             findings.append(
                 Finding(
-                    title="Non-standard MTU settings detected",
+                    title="Unusual network packet size (MTU) settings",
                     description=(
                         f"The following services have non-standard MTU settings: {mtu_text}. "
                         f"Standard MTU is 1500 bytes. Non-standard values may cause connectivity issues."
@@ -177,7 +198,7 @@ class Module(ModuleBase):
         if ipv6_disabled:
             findings.append(
                 Finding(
-                    title="IPv6 disabled on some interfaces",
+                    title="IPv6 is turned off on some connections",
                     description=(
                         f"IPv6 is disabled on the following services: {', '.join(ipv6_disabled)}. "
                         f"This is informational; IPv6 may be intentionally disabled."
@@ -193,7 +214,7 @@ class Module(ModuleBase):
             interface_summary = self._format_interface_summary(all_interfaces_info)
             findings.append(
                 Finding(
-                    title="Network interfaces configuration summary",
+                    title="Your network connection settings",
                     description=interface_summary,
                     severity=Severity.INFO,
                     category=self.category,
@@ -209,7 +230,7 @@ class Module(ModuleBase):
             interface_summary = self._format_interface_summary(all_interfaces_info)
             findings.append(
                 Finding(
-                    title="All network interfaces are properly configured",
+                    title="Your network connections are set up correctly",
                     description=interface_summary,
                     severity=Severity.INFO,
                     category=self.category,

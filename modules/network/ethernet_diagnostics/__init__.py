@@ -33,7 +33,7 @@ class Module(ModuleBase):
         if not interfaces:
             findings.append(
                 Finding(
-                    title="No Ethernet interfaces found",
+                    title="No Ethernet ports found",
                     description="No Ethernet adapters detected on this system.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -208,10 +208,15 @@ class Module(ModuleBase):
         if not is_active:
             findings.append(
                 Finding(
-                    title=f"Ethernet interface {interface} is inactive",
+                    title=f"Your Ethernet connection ({interface}) is not active",
                     description=(
-                        f"Interface {interface} has no active link. "
-                        "This means the physical connection is not established."
+                        f"Your computer sees the Ethernet port {interface}, but it is "
+                        "not currently connected to a network. This usually means the "
+                        "cable is unplugged, or the other end (like your router) is off.\n\n"
+                        "What to do: Check that your Ethernet cable is firmly plugged "
+                        "into both your computer and your router or wall port. If it "
+                        "is plugged in, try unplugging and replugging it, or try a different "
+                        "cable."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -230,11 +235,15 @@ class Module(ModuleBase):
         if ip_addr.startswith("169.254."):
             findings.append(
                 Finding(
-                    title=f"Ethernet {interface}: Self-assigned IP detected",
+                    title=f"Ethernet {interface} could not get a network address",
                     description=(
-                        f"Interface {interface} has self-assigned IP {ip_addr}. "
-                        "DHCP failed to assign a valid address. "
-                        "No network connectivity available."
+                        f"Your Ethernet port {interface} is connected, but it could not "
+                        "get a proper network address from your router. Instead, it assigned "
+                        f"itself a temporary address ({ip_addr}), which means you likely "
+                        "have no internet access.\n\n"
+                        "What to do: Restart your router and wait a minute, then check "
+                        "if your connection returns. If it does not, try unplugging and "
+                        "replugging the Ethernet cable."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -257,11 +266,15 @@ class Module(ModuleBase):
         if mtu > 0 and mtu != 1500:
             findings.append(
                 Finding(
-                    title=f"Ethernet {interface}: Non-standard MTU ({mtu})",
+                    title=f"Ethernet {interface} has an unusual data size setting",
                     description=(
-                        f"Interface {interface} has MTU of {mtu}. "
-                        "Standard Ethernet MTU is 1500. "
-                        "Non-standard MTU may cause compatibility issues."
+                        f"Your Ethernet port {interface} is set to handle data chunks "
+                        f"of size {mtu}. The standard size is 1500. This setting is usually "
+                        "chosen by your network equipment, not by a person. It is unlikely "
+                        "to cause problems, but it can sometimes make certain websites "
+                        "or apps load slowly.\n\n"
+                        "What to do: Nothing right now. If you notice slow internet speeds, "
+                        "try restarting your router."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -359,11 +372,14 @@ class Module(ModuleBase):
             # This might be a speed mismatch (gigabit adapter running at 100)
             findings.append(
                 Finding(
-                    title=f"Ethernet {interface}: Link speed is 100 Mbps (possible degradation)",
+                    title=f"Ethernet {interface} is running slower than it should",
                     description=(
-                        f"Interface {interface} is negotiated at {speed}. "
-                        "If this is a gigabit adapter, it should be 1000 Mbps. "
-                        "This indicates a bad cable, bad switch port, or poor connection quality."
+                        f"Your Ethernet port {interface} is connected at {speed}. If your "
+                        "computer and router support faster speeds (like 1000 Mbps), "
+                        "this suggests a physical issue. Common causes include a damaged "
+                        "cable, a loose connection, or a faulty port.\n\n"
+                        "What to do: Try a different Ethernet cable. If that does not "
+                        "help, try plugging into a different port on your router."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -437,12 +453,15 @@ class Module(ModuleBase):
         if ierr_rate > 1.0 or oerr_rate > 1.0:
             findings.append(
                 Finding(
-                    title=f"Ethernet {interface}: High packet error rate",
+                    title=f"Ethernet {interface} is dropping data",
                     description=(
-                        f"Interface {interface} reports high error rate: "
-                        f"Input errors: {ierrs} ({ierr_rate:.2f}%), "
-                        f"Output errors: {oerrs} ({oerr_rate:.2f}%). "
-                        "This indicates a hardware or cable problem."
+                        f"Your Ethernet port {interface} is making errors while sending "
+                        f"or receiving data. We found {ierrs} errors on incoming data "
+                        f"({ierr_rate:.2f}%) and {oerrs} on outgoing data ({oerr_rate:.2f}%). "
+                        "This usually points to a physical problem, like a bad cable "
+                        "or a loose connection.\n\n"
+                        "What to do: Try a different Ethernet cable. If the problem continues, "
+                        "try a different port on your router."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -479,7 +498,7 @@ class Module(ModuleBase):
         description = "\n".join(summary_parts)
 
         return Finding(
-            title="Ethernet configuration summary",
+            title="Your Ethernet settings",
             description=description,
             severity=Severity.INFO,
             category=self.category,

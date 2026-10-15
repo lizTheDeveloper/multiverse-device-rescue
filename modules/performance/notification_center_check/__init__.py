@@ -76,11 +76,17 @@ class Module(ModuleBase):
             if apps_count > APPS_WARNING_THRESHOLD:
                 findings.append(
                     Finding(
-                        title="Notification overload: too many apps have permissions",
+                        title=(
+                            f"Many apps are allowed to send you notifications ({apps_count})"
+                        ),
                         description=(
-                            f"{apps_count} apps have notification permissions. "
-                            f"This can cause UI lag and battery drain. "
-                            f"Consider disabling notifications for apps you don't use."
+                            f"Your Mac allows {apps_count} different apps to send you "
+                            "pop-up messages. Having this many active notifications can "
+                            "slow down your computer and drain your battery.\n\n"
+                            "What to do: Open System Settings > Notifications. Scroll "
+                            "through the list and turn off notifications for apps you "
+                            "rarely use or don't need to see immediately. You can leave "
+                            "them on for important ones like Messages or Mail."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -95,10 +101,18 @@ class Module(ModuleBase):
             if alert_count > ALERT_APPS_WARNING_THRESHOLD:
                 findings.append(
                     Finding(
-                        title="Too many apps using Alerts notification style",
+                        title=(
+                            f"Many apps use the 'Alerts' style that stays on screen ({alert_count})"
+                        ),
                         description=(
-                            f"{alert_count} apps are set to 'Alerts' style, which interrupt workflow "
-                            f"and stay on screen. Consider changing non-critical apps to 'Banners' style."
+                            f"{alert_count} apps are set to show notifications as 'Alerts'. "
+                            "Unlike 'Banners' which disappear after a few seconds, Alerts "
+                            "stay on your screen until you close them. This can be distracting "
+                            "and clutter your view.\n\n"
+                            "What to do: Open System Settings > Notifications. For apps "
+                            "that aren't urgent (like social media or games), change "
+                            "the style from 'Alerts' to 'Banners' so they fade away on "
+                            "their own."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -112,7 +126,7 @@ class Module(ModuleBase):
             # Add info summary
             findings.append(
                 Finding(
-                    title="Notification Center configuration summary",
+                    title="Your notification settings",
                     description=(
                         f"Apps with permissions: {apps_count}\n"
                         f"Apps using Alerts style: {alert_count}\n"
@@ -216,10 +230,15 @@ class Module(ModuleBase):
 
             if total_size > DB_SIZE_WARNING_BYTES:
                 return Finding(
-                    title="Notification database is bloated",
+                    title=(
+                        f"Your notification storage is taking up a lot of space ({_fmt_bytes(total_size)})"
+                    ),
                     description=(
-                        f"Notification Center database is {_fmt_bytes(total_size)}, "
-                        f"exceeding the 500MB threshold. This can cause UI lag."
+                        "Your Mac stores past notifications in a file that is currently "
+                        f"{_fmt_bytes(total_size)}. This is larger than usual and can "
+                        "make your screen feel slow when you open the notification panel.\n\n"
+                        "What to do: Click the date and time in the menu bar to open "
+                        "Notification Center and clear old notifications."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

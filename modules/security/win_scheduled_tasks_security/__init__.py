@@ -45,7 +45,7 @@ class Module(ModuleBase):
         if not tasks:
             findings.append(
                 Finding(
-                    title="Unable to enumerate scheduled tasks",
+                    title="Could not list your scheduled tasks",
                     description="Could not retrieve scheduled tasks. This may be a permission issue.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -79,11 +79,17 @@ class Module(ModuleBase):
                 suspicious_tasks.append(task)
                 findings.append(
                     Finding(
-                        title=f"Scheduled task with encoded PowerShell command",
+                        title=f"A scheduled task runs a scrambled (encoded) command: {task_name}",
                         description=(
-                            f"Scheduled task '{task_name}' runs an encoded PowerShell command. "
-                            f"This is a strong indicator of malware persistence. "
-                            f"Command: {command[:100]}..."
+                            f"A task named '{task_name}' is set to run a command that "
+                            "is scrambled (encoded) so it is hard to read. Legitimate "
+                            "software rarely does this. It is a common way for unwanted "
+                            "software to hide what it is doing. The command starts with: "
+                            f"{command[:100]}...\n\n"
+                            "What to do: Open Task Scheduler (search for it in the Start "
+                            "menu), find this task, right-click it and choose Disable. If you are unsure, "
+                            "take a screenshot and ask a trusted tech-savvy friend or "
+                            "a professional to review it."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -102,11 +108,16 @@ class Module(ModuleBase):
                 suspicious_tasks.append(task)
                 findings.append(
                     Finding(
-                        title=f"Scheduled task executing from temp directory as SYSTEM",
+                        title=f"A task runs a file from a temp folder as SYSTEM: {task_name}",
                         description=(
-                            f"Scheduled task '{task_name}' executes from a temporary directory with SYSTEM privileges. "
-                            f"This is a strong indicator of malware persistence. "
-                            f"Command: {command}"
+                            f"The task '{task_name}' is running a file from a temporary "
+                            "folder using the highest level of computer access (SYSTEM). "
+                            "Normal programs usually install in specific folders and "
+                            "do not run from temporary locations with maximum power. "
+                            f"This is a strong sign of unwanted software. Command: {command}\n\n"
+                            "What to do: Open Task Scheduler, find this task, right-click it "
+                            "and choose Disable. Then run a Microsoft Defender Offline scan "
+                            "(Windows Security > Virus & threat protection > Scan options)."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -124,11 +135,16 @@ class Module(ModuleBase):
                 suspicious_tasks.append(task)
                 findings.append(
                     Finding(
-                        title=f"Non-Microsoft scheduled task running as SYSTEM",
+                        title=f"A non-Microsoft task runs with full SYSTEM access: {task_name}",
                         description=(
-                            f"Scheduled task '{task_name}' runs with SYSTEM privileges. "
-                            f"This is unusual and may indicate persistence or privilege escalation. "
-                            f"Command: {command[:100]}..."
+                            f"The task '{task_name}' is running with the highest level "
+                            "of computer access (SYSTEM), but it is not a standard Microsoft "
+                            "task. While some third-party software does this, it is unusual "
+                            "and can be a sign of unwanted software trying to gain control. "
+                            f"Command: {command[:100]}...\n\n"
+                            "What to do: Open Task Scheduler, find this task, and check "
+                            "if you recognize the software. If you do not, right-click it "
+                            "and choose Disable."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -146,11 +162,15 @@ class Module(ModuleBase):
                 suspicious_tasks.append(task)
                 findings.append(
                     Finding(
-                        title=f"Scheduled task with suspicious frequency",
+                        title=f"A task runs very frequently: {task_name}",
                         description=(
-                            f"Scheduled task '{task_name}' executes very frequently (every 1-5 minutes). "
-                            f"This may indicate a malware beaconing pattern. "
-                            f"Schedule: {schedule}"
+                            f"The task '{task_name}' is set to run every 1-5 minutes. "
+                            "Most normal apps do not need to run this often. Unwanted "
+                            "software sometimes uses frequent, quiet runs to check in "
+                            f"with a remote server. Current schedule: {schedule}\n\n"
+                            "What to do: Open Task Scheduler, locate this task, and check "
+                            "if you recognize the software. If you do not, right-click it "
+                            "and choose Disable."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -168,11 +188,16 @@ class Module(ModuleBase):
                 recent_tasks.append(task)
                 findings.append(
                     Finding(
-                        title=f"Recently created scheduled task with boot/logon trigger",
+                        title=f"A recently added task starts automatically: {task_name}",
                         description=(
-                            f"Scheduled task '{task_name}' was created recently (within last 7 days) "
-                            f"and executes at boot or logon. This may indicate malware persistence. "
-                            f"Created: {created_date_str}, Schedule: {schedule}"
+                            f"The task '{task_name}' was created recently (on {created_date_str}) "
+                            "and is set to run every time your computer starts or you "
+                            "log in. New tasks that start automatically can be a sign "
+                            "of unwanted software trying to stay on your computer. Schedule: "
+                            f"{schedule}\n\n"
+                            "What to do: Open Task Scheduler, find this task, and check "
+                            "if you installed the software recently. If you do not recognize "
+                            "it, right-click the task and choose Disable."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -190,7 +215,7 @@ class Module(ModuleBase):
             if self._is_hidden_task(attributes):
                 findings.append(
                     Finding(
-                        title=f"Scheduled task with hidden attributes",
+                        title=f"Hidden scheduled task: {task_name}",
                         description=(
                             f"Scheduled task '{task_name}' has hidden attributes. "
                             f"Hidden tasks are often used to conceal malware. "
@@ -210,7 +235,7 @@ class Module(ModuleBase):
         # Summary findings
         findings.append(
             Finding(
-                title=f"Scheduled tasks inventory ({total_count} total)",
+                title=f"Your scheduled tasks ({total_count} total)",
                 description=(
                     f"Found {total_count} total scheduled tasks. "
                     f"Identified {len(suspicious_tasks)} potentially suspicious tasks. "
@@ -239,10 +264,9 @@ class Module(ModuleBase):
                         title=f"Remove malicious scheduled task: {task_name}",
                         description=(
                             f"To remove the malicious scheduled task '{task_name}':\n"
-                            f"1. Press Ctrl+Shift+Esc to open Task Manager\n"
-                            f"2. Go to the 'Services' tab or use Task Scheduler\n"
-                            f"3. Find the task '{task_name}' and right-click to delete\n"
-                            f"Alternatively, run: schtasks /delete /tn \"{task_name}\" /f\n"
+                            "1. Open Task Scheduler (type Task Scheduler in the Start menu)\n"
+                            "2. Open Task Scheduler Library and find the task by name\n"
+                            "3. Right-click it and choose Disable (or Delete)\n"
                             f"WARNING: Only delete tasks you are certain are malicious. "
                             f"Deleting legitimate system tasks can break Windows functionality."
                         ),

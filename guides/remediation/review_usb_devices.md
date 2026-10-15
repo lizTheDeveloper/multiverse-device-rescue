@@ -7,6 +7,11 @@ remediates:
   - security.usb_device_audit.no_vendor_devices
   - security.usb_device_audit.storage_devices
   - security.usb_device_audit.usb_hubs
+steps_for:
+  security.usb_device_audit.usb_devices: [1]
+  security.usb_device_audit.no_vendor_devices: [1, 2]
+  security.usb_device_audit.storage_devices: [1, 3]
+  security.usb_device_audit.usb_hubs: [1, 4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -18,7 +23,7 @@ hub topology. This is a physical-inspection task — the fix is
 recognizing and, where appropriate, physically disconnecting hardware,
 not editing any file or setting.
 
-## Step 1: Review the full USB device inventory
+## Step 1: Check if you recognize all connected USB devices
 
 `usb_devices` lists everything currently connected.
 
@@ -28,7 +33,7 @@ not editing any file or setting.
    everything here is familiar, the rest of this guide may not require
    any action.
 
-## Step 2: Confirm devices with unknown vendor before restricting anything
+## Step 2: Identify devices with missing manufacturer info
 
 `no_vendor_devices` flags devices where `system_profiler` couldn't
 report vendor/manufacturer information. This is often benign (some
@@ -52,7 +57,7 @@ as flash drives).
    `keylogger_indicators`-related findings if you suspect input
    injection.
 
-## Step 3: Verify USB storage devices are from trusted sources
+## Step 3: Verify external drives are from trusted sources
 
 `storage_devices` lists connected external storage.
 
@@ -65,7 +70,7 @@ as flash drives).
    an untrusted drive is ever mistakenly trusted, your own data stays
    protected at rest.
 
-## Step 4: Review USB hub topology
+## Step 4: Check your USB hub setup for stability issues
 
 `usb_hubs` is informational — it reports how many hubs are in the chain.
 

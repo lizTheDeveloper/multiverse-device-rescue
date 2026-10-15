@@ -43,11 +43,17 @@ class Module(ModuleBase):
             enabled_services.append("Screen Sharing")
             findings.append(
                 Finding(
-                    title="Screen Sharing is enabled",
+                    title="Screen Sharing is enabled on your Mac",
                     description=(
-                        "Screen Sharing (VNC) allows remote users to view and control your display. "
-                        "This is a significant security risk, especially on public networks. "
-                        "Most users don't need this service."
+                        "Screen Sharing allows someone to see your screen and control "
+                        "your mouse and keyboard from another device. If this is on, anyone "
+                        "with the right password or access to your network could take "
+                        "over your Mac. Most people do not need this feature turned on.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings > General > Sharing and turn "
+                        "off the Screen Sharing switch."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -61,11 +67,14 @@ class Module(ModuleBase):
             enabled_services.append("File Sharing")
             findings.append(
                 Finding(
-                    title="File Sharing is enabled",
+                    title="File Sharing is enabled on your Mac",
                     description=(
-                        "File Sharing (SMB) allows remote users to access files on your Mac. "
-                        "This is a security risk if not properly secured. "
-                        "Ensure firewall rules restrict access appropriately."
+                        "File Sharing lets other devices on your network see and access "
+                        "folders on your Mac. This is useful for sharing files with family, "
+                        "but if left on, it can expose your personal documents to others "
+                        "on the same Wi-Fi.\n\n"
+                        "What to do: Open System Settings > General > Sharing and turn "
+                        "off the File Sharing switch."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -79,10 +88,17 @@ class Module(ModuleBase):
             enabled_services.append("Remote Login (SSH)")
             findings.append(
                 Finding(
-                    title="Remote Login (SSH) is enabled",
+                    title="Remote Login is enabled on your Mac",
                     description=(
-                        "Remote Login allows remote users to log in via SSH and execute commands. "
-                        "This is a high-risk setting on machines accessible from untrusted networks."
+                        "Remote Login lets people connect to your Mac from anywhere to "
+                        "run commands and manage files. This is a powerful tool for IT "
+                        "support, but if enabled, it can be a major security risk if your "
+                        "password is weak or your network is public.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings > General > Sharing and turn "
+                        "off the Remote Login switch."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -96,10 +112,17 @@ class Module(ModuleBase):
             enabled_services.append("Remote Management (ARD)")
             findings.append(
                 Finding(
-                    title="Remote Management is enabled",
+                    title="Remote Management is enabled on your Mac",
                     description=(
-                        "Remote Management (Apple Remote Desktop) allows remote administration. "
-                        "This is a security risk if the Mac is on an untrusted network."
+                        "Remote Management allows a remote user to fully control your "
+                        "Mac, including installing software and changing settings. This "
+                        "is often used by IT departments, but if you don't work for a "
+                        "company that manages your device, it should be off.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings > General > Sharing and turn "
+                        "off the Remote Management switch."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -113,10 +136,14 @@ class Module(ModuleBase):
             enabled_services.append("Printer Sharing")
             findings.append(
                 Finding(
-                    title="Printer Sharing is enabled",
+                    title="Printer Sharing is enabled on your Mac",
                     description=(
-                        "Printer Sharing allows network access to your printers. "
-                        "This could expose your network to unauthorized access."
+                        "Printer Sharing allows other devices on your network to print "
+                        "to your printer. While usually harmless, it can sometimes be "
+                        "used to probe your network for other vulnerabilities.\n\n"
+                        "What to do: If you don't share your printer with others, open "
+                        "System Settings > General > Sharing and turn off the Printer "
+                        "Sharing switch."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -131,11 +158,13 @@ class Module(ModuleBase):
             enabled_services.append("AirDrop (Everyone)")
             findings.append(
                 Finding(
-                    title="AirDrop is discoverable by Everyone",
+                    title="AirDrop is set to accept files from Everyone",
                     description=(
-                        "AirDrop is set to accept files from 'Everyone'. "
-                        "This allows strangers to send files to your Mac. "
-                        "Consider limiting AirDrop to 'Contacts Only' or 'No One'."
+                        "Your AirDrop is currently set to 'Everyone,' which means strangers "
+                        "nearby can send you files. This is a common way for unwanted "
+                        "files or malware to reach your device in public places.\n\n"
+                        "What to do: Open System Settings > General > AirDrop & Handoff and change "
+                        "the setting to 'Contacts Only' or 'No One'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -167,7 +196,7 @@ class Module(ModuleBase):
             summary = f"Enabled sharing services: {', '.join(enabled_services)}"
             findings.append(
                 Finding(
-                    title="Sharing configuration summary",
+                    title="Your sharing settings",
                     description=(
                         f"{summary}. "
                         "Review these services and disable any that are not needed. "

@@ -88,11 +88,20 @@ class Module(ModuleBase):
                 if name in self.MALICIOUS_EXTENSIONS or ext_id.lower() in self.MALICIOUS_EXTENSIONS:
                     findings.append(
                         Finding(
-                            title=f"MALICIOUS extension detected: {ext_data.get('name', ext_id)}",
+                            title=(
+                                f"A browser extension is known to be malicious: {ext_data.get('name', ext_id)}"
+                            ),
                             description=(
-                                f"Detected known malicious extension '{ext_data.get('name', ext_id)}' "
-                                f"in {browser}. This extension is known to be malware. "
-                                "Remove it immediately from your browser settings."
+                                f"We found an extension named '{ext_data.get('name', ext_id)}' "
+                                f"in {browser} that matches a list of known malicious "
+                                "software. This means it is designed to harm your device "
+                                "or steal information. It is not a normal tool.\n\n"
+                                "If you think someone close to you installed this to "
+                                "monitor you, removing it can alert them. Talk to an "
+                                "advocate first (US National Domestic Violence Hotline: "
+                                "1-800-799-7233, or text START to 88788).\n\n"
+                                "What to do: Open your browser settings, go to Extensions, "
+                                "and remove this specific extension immediately."
                             ),
                             severity=Severity.CRITICAL,
                             category=self.category,
@@ -113,11 +122,13 @@ class Module(ModuleBase):
                 if name in self.ADWARE_EXTENSIONS or ext_id.lower() in self.ADWARE_EXTENSIONS:
                     findings.append(
                         Finding(
-                            title=f"Known adware extension: {ext_data.get('name', ext_id)}",
+                            title=f"Adware extension found: {ext_data.get('name', ext_id)}",
                             description=(
-                                f"Extension '{ext_data.get('name', ext_id)}' in {browser} is known adware/PUP. "
-                                "This extension may display unwanted ads, inject content, or track your browsing. "
-                                "Remove it via your browser settings."
+                                f"The extension '{ext_data.get('name', ext_id)}' in {browser} "
+                                "is known to be adware. This means it likely shows unwanted "
+                                "ads or tracks your browsing habits.\n\n"
+                                "What to do: Open your browser settings, go to Extensions, "
+                                "and remove this extension to stop the ads and tracking."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -141,12 +152,23 @@ class Module(ModuleBase):
                 if len(dangerous_perms) >= 3:
                     findings.append(
                         Finding(
-                            title=f"Extension with excessive permissions: {ext_data.get('name', ext_id)}",
+                            title=(
+                                f"Extension with broad access: {ext_data.get('name', ext_id)}"
+                            ),
                             description=(
-                                f"'{ext_data.get('name', ext_id)}' in {browser} requests excessive permissions: "
-                                f"{', '.join(sorted(dangerous_perms))}. "
-                                "This extension can access all websites, monitor tabs, and intercept requests. "
-                                "Review whether you trust this extension with such broad access."
+                                f"The extension '{ext_data.get('name', ext_id)}' in {browser} "
+                                f"has permissions for: {', '.join(sorted(dangerous_perms))}. "
+                                "This allows it to see everything you do on the web, "
+                                "including passwords and private data. While some tools "
+                                "need this, it is a high risk if you don't fully trust "
+                                "the developer.\n\n"
+                                "If you think someone close to you installed this to "
+                                "monitor you, removing it can alert them. Talk to an "
+                                "advocate first (US National Domestic Violence Hotline: "
+                                "1-800-799-7233, or text START to 88788).\n\n"
+                                "What to do: Check if you actually use this extension. "
+                                "If not, remove it. If you do, consider if you trust "
+                                "it with all your web activity."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -164,12 +186,14 @@ class Module(ModuleBase):
         if total_count > 15:
             findings.append(
                 Finding(
-                    title=f"High number of browser extensions: {total_count}",
+                    title=f"You have a lot of browser extensions ({total_count})",
                     description=(
-                        f"You have {total_count} browser extension(s) installed across all browsers, "
-                        "which exceeds the recommended limit of 15. Too many extensions can degrade "
-                        "performance, increase memory usage, and expand the attack surface. "
-                        "Review and uninstall any unused or untrusted extensions."
+                        f"You have {total_count} extensions installed across your browsers. "
+                        "This is more than the recommended 15. Having many extensions "
+                        "can slow down your computer and use more memory. It also gives "
+                        "more software a chance to cause problems.\n\n"
+                        "What to do: Open your browser settings, go to the Extensions "
+                        "section, and turn off or remove any you don't use or don't recognize."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

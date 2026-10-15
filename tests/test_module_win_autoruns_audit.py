@@ -199,9 +199,9 @@ def test_win_autoruns_audit_detects_excessive_entries():
         result = mod.check(_make_profile())
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("excessive" in f.title.lower() for f in warning_findings)
+    assert any(f.code == "security.win_autoruns_audit.excessive_entries" for f in warning_findings)
     # Verify the count is correct (21 entries)
-    excessive = next(f for f in warning_findings if "excessive" in f.title.lower())
+    excessive = next(f for f in warning_findings if f.code == "security.win_autoruns_audit.excessive_entries")
     assert "21" in excessive.title
 
 
@@ -214,7 +214,7 @@ def test_win_autoruns_audit_lists_all_entries():
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
     assert len(info_findings) > 0
     # Should have an inventory listing
-    inventory = next((f for f in info_findings if "inventory" in f.title.lower()), None)
+    inventory = next((f for f in info_findings if f.code == "security.win_autoruns_audit.inventory"), None)
     assert inventory is not None
 
 

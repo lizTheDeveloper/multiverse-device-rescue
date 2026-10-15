@@ -44,11 +44,18 @@ class Module(ModuleBase):
         if enable_lua == "0":
             findings.append(
                 Finding(
-                    title="User Account Control (UAC) is disabled",
+                    title="Your computer's safety check (UAC) is turned off",
                     description=(
-                        "UAC is completely disabled (EnableLUA=0). This is a critical "
-                        "security risk as it removes a key defense against malware and "
-                        "unauthorized system changes. Re-enable UAC immediately."
+                        "Windows has a built-in safety check called User Account Control "
+                        "(UAC). It asks for your permission before any program makes big "
+                        "changes to your computer. Right now, this check is completely "
+                        "off.\n\n"
+                        "This means any program can change your system settings without "
+                        "asking you. It makes it easier for unwanted software to install "
+                        "itself or hide.\n\n"
+                        "What to do: Type 'User Account Control' in the Windows Start "
+                        "menu and select the result. Drag the slider to the top position "
+                        "(the default) and click 'OK'. You may need to restart your computer."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -60,11 +67,18 @@ class Module(ModuleBase):
         if consent_prompt == "0":
             findings.append(
                 Finding(
-                    title="UAC is set to 'Never notify' mode",
+                    title="Your computer won't ask permission for big changes",
                     description=(
-                        "ConsentPromptBehaviorAdmin is set to 0 (never notify). This "
-                        "disables UAC prompts for administrative actions, reducing "
-                        "protection against unauthorized changes."
+                        "Your computer is set to a mode where it never asks for your permission "
+                        "when a program tries to make important changes. Normally, Windows "
+                        "pops up a window asking, 'Do you allow this?' to keep you in "
+                        "control.\n\n"
+                        "With this setting, programs can make changes silently. This reduces "
+                        "your protection against unauthorized changes.\n\n"
+                        "What to do: Type 'User Account Control' in the Windows Start "
+                        "menu and select the result. Move the slider to the second position "
+                        "from the top (the default) and click 'OK'. You may need to restart "
+                        "your computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -77,11 +91,18 @@ class Module(ModuleBase):
         if secure_desktop == "0":
             findings.append(
                 Finding(
-                    title="Secure Desktop for UAC prompts is disabled",
+                    title="Security prompts appear on your normal screen",
                     description=(
-                        "PromptOnSecureDesktop is disabled. UAC prompts will display "
-                        "on the normal desktop instead of a secure desktop, increasing "
-                        "the risk of phishing attacks that mimic UAC dialogs."
+                        "When Windows asks for permission to make a change, it usually "
+                        "switches to a blank, secure screen first. This prevents fake "
+                        "pop-up windows from hiding behind your real apps and tricking "
+                        "you into clicking 'Yes'.\n\n"
+                        "Right now, these prompts appear on your normal desktop. This "
+                        "makes it easier for a fake window to look like a real security "
+                        "prompt.\n\n"
+                        "What to do: Type 'User Account Control' in the Start menu, move "
+                        "the slider to the second position from the top (the default), "
+                        "and click OK. That setting uses the secure screen again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -94,7 +115,7 @@ class Module(ModuleBase):
         if not findings:
             findings.append(
                 Finding(
-                    title="User Account Control (UAC) is properly configured",
+                    title="User Account Control (UAC) is set up correctly",
                     description=(
                         "UAC is enabled with secure prompts configured. The system "
                         "has good protection against unauthorized changes."

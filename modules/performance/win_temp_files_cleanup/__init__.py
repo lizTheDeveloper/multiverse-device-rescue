@@ -71,15 +71,23 @@ class Module(ModuleBase):
             if total_reclaimable > TEMP_SIZE_WARNING_GB * (1024**3):
                 findings.append(
                     Finding(
-                        title="Excessive temp file accumulation",
+                        title=(
+                            f"Your computer has a lot of unused temporary files ({_fmt_bytes(total_reclaimable)})"
+                        ),
                         description=(
-                            f"Total temp files consume {_fmt_bytes(total_reclaimable)}, "
-                            f"exceeding {TEMP_SIZE_WARNING_GB}GB threshold. "
-                            "Clearing these files can reclaim significant disk space."
+                            f"Your computer is holding onto {_fmt_bytes(total_reclaimable)} "
+                            f"of temporary files. This is more than the usual {TEMP_SIZE_WARNING_GB}GB "
+                            "limit. These are leftovers from apps and updates that are "
+                            "no longer needed.\n\n"
+                            "What to do: Open the Start menu, type 'Disk Cleanup', and "
+                            "select your main drive. Check the boxes for 'Temporary files' "
+                            "and 'Windows Update Cleanup', then click 'Clean up system "
+                            "files'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
+                            "check": "temp_files",
                             "total_size": total_reclaimable,
                             "breakdown": temp_breakdown,
                             "old_files_count": old_files_count,
@@ -90,15 +98,20 @@ class Module(ModuleBase):
             if update_cache_size and update_cache_size > WINDOWS_UPDATE_CACHE_WARNING_GB * (1024**3):
                 findings.append(
                     Finding(
-                        title="Large Windows Update cache detected",
+                        title=(
+                            f"Windows Update files are using {_fmt_bytes(update_cache_size)}"
+                        ),
                         description=(
-                            f"Windows Update cache at {_fmt_bytes(update_cache_size)} "
-                            f"exceeds {WINDOWS_UPDATE_CACHE_WARNING_GB}GB. "
-                            "Stale updates should be cleaned to free space."
+                            f"Old Windows Update downloads are using {_fmt_bytes(update_cache_size)}, "
+                            f"over {WINDOWS_UPDATE_CACHE_WARNING_GB}GB. Once updates are "
+                            "installed they aren't needed.\n\n"
+                            "What to do: Open Settings > System > Storage > Temporary "
+                            "files, tick Windows Update Cleanup, and click Remove files."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
+                            "check": "update_cache",
                             "cache_size": update_cache_size,
                             "location": "C:\\Windows\\SoftwareDistribution\\Download",
                         },
@@ -108,22 +121,24 @@ class Module(ModuleBase):
             if recycle_bin_size and recycle_bin_size > RECYCLE_BIN_WARNING_GB * (1024**3):
                 findings.append(
                     Finding(
-                        title="Large Recycle Bin",
+                        title=f"Your Recycle Bin is using {_fmt_bytes(recycle_bin_size)}",
                         description=(
-                            f"Recycle Bin contains {_fmt_bytes(recycle_bin_size)}, "
-                            f"exceeding {RECYCLE_BIN_WARNING_GB}GB. "
-                            "These are forgotten deletions that can be permanently removed."
+                            f"Your Recycle Bin holds {_fmt_bytes(recycle_bin_size)}, over "
+                            f"{RECYCLE_BIN_WARNING_GB}GB of files you've already deleted.\n\n"
+                            "What to do: Look through it, then right-click the Recycle "
+                            "Bin and choose Empty Recycle Bin. Emptied files can't be "
+                            "brought back."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
-                        data={"recycle_bin_size": recycle_bin_size},
+                        data={"check": "recycle_bin", "recycle_bin_size": recycle_bin_size},
                     )
                 )
 
             # Always add INFO finding with breakdown
             findings.append(
                 Finding(
-                    title="Temp file accumulation report",
+                    title="Your temporary files report",
                     description=(
                         f"Total reclaimable space: {_fmt_bytes(total_reclaimable)}. "
                         f"Found {old_files_count} files older than 30 days in temp directories."
@@ -141,7 +156,7 @@ class Module(ModuleBase):
         except Exception as e:
             findings.append(
                 Finding(
-                    title="Error auditing temp files",
+                    title="Could not check temporary files",
                     description=f"Failed to audit temp file accumulation: {str(e)}",
                     severity=Severity.INFO,
                     category=self.category,
@@ -161,7 +176,7 @@ class Module(ModuleBase):
         actions = []
 
         for finding in findings.findings:
-            if finding.title == "Excessive temp file accumulation":
+            if finding.data.get("check") == "temp_files":
                 total_size = finding.data.get("total_size", 0)
                 breakdown = finding.data.get("breakdown", {})
 
@@ -189,7 +204,7 @@ class Module(ModuleBase):
                     )
                 )
 
-            elif finding.title == "Large Windows Update cache detected":
+            elif finding.data.get("check") == "update_cache":
                 cache_size = finding.data.get("cache_size", 0)
                 actions.append(
                     Action(
@@ -205,7 +220,7 @@ class Module(ModuleBase):
                     )
                 )
 
-            elif finding.title == "Large Recycle Bin":
+            elif finding.data.get("check") == "recycle_bin":
                 recycle_size = finding.data.get("recycle_bin_size", 0)
                 actions.append(
                     Action(

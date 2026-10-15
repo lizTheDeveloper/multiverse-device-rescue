@@ -1,3 +1,4 @@
+import re
 import subprocess
 from pathlib import Path
 
@@ -100,7 +101,7 @@ class Module(ModuleBase):
         if input_monitoring_apps:
             findings.append(
                 Finding(
-                    title=f"Input Monitoring access: {len(input_monitoring_apps)} app(s)",
+                    title=f"Keyboard access: {len(input_monitoring_apps)} app(s)",
                     description=(
                         f"{len(input_monitoring_apps)} app(s) have been granted Input Monitoring "
                         f"access: {', '.join(sorted(input_monitoring_apps))}. "
@@ -125,12 +126,21 @@ class Module(ModuleBase):
         if known_keyloggers_found:
             findings.append(
                 Finding(
-                    title=f"CRITICAL: Known keylogger(s) detected: {len(known_keyloggers_found)}",
+                    title=f"Known keylogger app found: {', '.join(known_keyloggers_found)}",
                     description=(
-                        f"One or more known keylogger applications have Input Monitoring access: "
-                        f"{', '.join(known_keyloggers_found)}. "
-                        "These are malicious applications that steal passwords, credit cards, and "
-                        "private messages. Immediately remove these apps and revoke their permissions."
+                        f"We found {len(known_keyloggers_found)} app(s) with keyboard "
+                        f"access that match known spyware: {', '.join(known_keyloggers_found)}. "
+                        "These apps can secretly record everything you type, including "
+                        "passwords and private messages. This is a serious sign that "
+                        "someone may be spying on you.\n\n"
+                        "If you think a partner, ex, or family member set this up to "
+                        "monitor you, removing it can alert them. Talk to an advocate "
+                        "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                        "or text START to 88788).\n\n"
+                        "What to do: If you are safe to proceed, go to System Settings "
+                        "> Privacy & Security > Input Monitoring and turn off access "
+                        "for these apps. Then, move the app folders to a safe location "
+                        "to keep as evidence."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -153,7 +163,9 @@ class Module(ModuleBase):
         if claimed_known_apps:
             findings.append(
                 Finding(
-                    title=f"Input Monitoring for {len(claimed_known_apps)} app(s) with familiar names",
+                    title=(
+                        f"Keyboard access: {len(claimed_known_apps)} app(s) with familiar names"
+                    ),
                     description=(
                         f"These app(s) have Input Monitoring access and use the name of a "
                         f"familiar company or app: {', '.join(sorted(claimed_known_apps))}. "
@@ -174,14 +186,22 @@ class Module(ModuleBase):
         if suspicious_apps:
             findings.append(
                 Finding(
-                    title=f"Input Monitoring access for {len(suspicious_apps)} unrecognized app(s)",
+                    title=(
+                        f"Unrecognized apps have keyboard access: {', '.join(sorted(suspicious_apps))}"
+                    ),
                     description=(
-                        f"{len(suspicious_apps)} app(s) that this tool does not recognize have Input "
-                        f"Monitoring access: {', '.join(sorted(suspicious_apps))}. "
-                        "Many ordinary apps (remappers, game launchers, screen tools) request this, "
-                        "so this is not by itself a sign of spying. If you don't recognize an app "
-                        "or didn't install it, turn its access off in System Settings > Privacy & "
-                        "Security > Input Monitoring."
+                        f"{len(suspicious_apps)} app(s) have permission to see your keyboard "
+                        f"input, but we don't recognize them: {', '.join(sorted(suspicious_apps))}. "
+                        "Many normal tools (like keyboard remappers or game launchers) "
+                        "ask for this, so it is not automatically a sign of spying. However, "
+                        "if you do not remember installing one, it is worth checking.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Go to System Settings > Privacy & Security > Input "
+                        "Monitoring. Turn off access for any app you don't recognize "
+                        "or didn't install yourself."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -195,13 +215,22 @@ class Module(ModuleBase):
         if cgeventtap_processes:
             findings.append(
                 Finding(
-                    title=f"CGEventTap usage detected: {len(cgeventtap_processes)} process(es)",
+                    title=(
+                        f"Apps are actively capturing your keystrokes: {', '.join(sorted(cgeventtap_processes))}"
+                    ),
                     description=(
-                        f"Detected {len(cgeventtap_processes)} process(es) using CGEventTap for "
-                        "programmatic keyboard/mouse capture: "
-                        f"{', '.join(sorted(cgeventtap_processes))}. "
-                        "CGEventTap allows capturing system input events. Investigate processes "
-                        "using this API to ensure they are legitimate."
+                        f"{len(cgeventtap_processes)} running process(es) are currently "
+                        f"using a system tool to capture your keyboard and mouse: {', '.join(sorted(cgeventtap_processes))}. "
+                        "This means these programs are actively listening to your input "
+                        "right now. While some legitimate tools do this, it is a common "
+                        "method for spyware to steal passwords.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Check if you recognize these names. If not, go to "
+                        "System Settings > Privacy & Security > Input Monitoring and "
+                        "turn off access for the corresponding apps to stop the capture."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -350,7 +379,10 @@ class Module(ModuleBase):
                     "--last",
                     "1h",
                     "--predicate",
-                    "eventMessage CONTAINS 'CGEventTap'",
+                    # Leave out the system log tool's record of this very query,
+                    # by path so that a process merely named "log" still counts.
+                    "eventMessage CONTAINS 'CGEventTap' "
+                    "AND processImagePath != '/usr/bin/log'",
                     "--style",
                     "compact",
                 ],
@@ -361,15 +393,23 @@ class Module(ModuleBase):
             if result.returncode != 0:
                 return []
 
-            processes = set()
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
-                if line:
-                    # Extract process name from log line (first field or whole line if short)
-                    parts = line.split()
-                    if parts:
-                        processes.add(parts[0])
-
-            return list(processes)
+            return _cgeventtap_processes(result.stdout)
         except Exception:
             return []
+
+
+# `log show --style compact` lines look like
+#   2026-10-15 04:10:01.123 Df loginwindow[123:456] message ...
+# after a "Timestamp  Ty  Process[PID:TID]" header. The process name sits
+# between the type column and "[pid", and may contain spaces.
+_COMPACT_LOG_LINE = re.compile(r"^\d{4}-\d{2}-\d{2}\s+\S+\s+\S+\s+(.+?)\[\d+")
+
+
+def _cgeventtap_processes(output: str) -> list[str]:
+    """Process names from compact log lines; headers and noise are skipped."""
+    names = set()
+    for line in (output or "").splitlines():
+        m = _COMPACT_LOG_LINE.match(line.strip())
+        if m:
+            names.add(m.group(1).strip())
+    return sorted(names)

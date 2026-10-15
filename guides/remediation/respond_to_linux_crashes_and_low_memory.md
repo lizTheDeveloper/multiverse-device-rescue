@@ -10,6 +10,9 @@ remediates:
   - performance.linux_memory_pressure.heavy_swap_use
   - performance.linux_memory_pressure.no_swap_configured
   - performance.linux_memory_pressure.memory_hog
+steps_for:
+  integrity.linux_journal_errors.segfault: [1, 2, 4]
+  performance.linux_memory_pressure.heavy_swap_use: [1, 2]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -20,13 +23,13 @@ program that crashes over and over is either broken or running on faulty
 memory. None of this means someone has broken in. It means the computer is
 short of something.
 
-## Step 1: Close what you aren't using
+## Step 1: Close programs you aren't using
 
 Open **System Monitor** (or "Task Manager") and sort the list by **Memory**.
 Close the programs at the top that you don't need right now. Web browsers with
 many tabs are the most common cause, followed by virtual machines and chat apps.
 
-## Step 2: Restart the computer
+## Step 2: Restart your computer
 
 A restart clears memory that has built up. If the problem comes back within a
 day or two, carry on with the steps below.
@@ -38,7 +41,7 @@ closing programs. If your system has none, many distributions offer **zram**
 (compressed memory) as a setting or a small package; search for your
 distribution's guide to "enable zram" or "add a swap file". Both are safe to do.
 
-## Step 4: Fix repeat crashes
+## Step 4: Fix programs that keep crashing
 
 - If it is always the same program: update it, and if it keeps crashing,
   switch to an alternative.

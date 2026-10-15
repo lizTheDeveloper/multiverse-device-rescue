@@ -119,12 +119,20 @@ class Module(ModuleBase):
         if backdoor_connections:
             findings.append(
                 Finding(
-                    title=f"CRITICAL: Connections on backdoor ports: {len(backdoor_connections)}",
+                    title=(
+                        f"Connections found on ports often used by malware ({len(backdoor_connections)})"
+                    ),
                     description=(
-                        f"Found {len(backdoor_connections)} connection(s) on known backdoor ports:\n"
-                        f"{chr(10).join(backdoor_connections)}\n\n"
-                        "These ports are commonly used by malware/C2 servers. "
-                        "Investigate immediately."
+                        f"We found {len(backdoor_connections)} active connection(s) using "
+                        "port numbers that are frequently used by malicious software "
+                        f"to control a computer from a distance:\n{chr(10).join(backdoor_connections)}\n\n"
+                        "This is a serious sign that something on your computer may be "
+                        "communicating with a bad actor. It is not normal for everyday "
+                        "apps to use these specific ports.\n\n"
+                        "What to do: Do not delete files yet. First, restart your computer "
+                        "and run this check again to see if the connections return. If "
+                        "they do, or if you suspect someone is spying on you, please "
+                        "contact a professional for help before making changes."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -155,7 +163,7 @@ class Module(ModuleBase):
         if familiar_many:
             findings.append(
                 Finding(
-                    title=f"Programs with many connections: {len(familiar_many)}",
+                    title=f"Programs with many network connections: {len(familiar_many)}",
                     description=(
                         "These programs have many open connections, which is normal for "
                         "web browsers and developer tools:\n"
@@ -173,13 +181,20 @@ class Module(ModuleBase):
         if high_conn_processes:
             findings.append(
                 Finding(
-                    title=f"WARNING: Processes with high connection count: {len(high_conn_processes)}",
+                    title=(
+                        f"Programs with many open network connections ({len(high_conn_processes)})"
+                    ),
                     description=(
-                        f"Found {len(high_conn_processes)} process(es) holding an unusually "
-                        f"large number of network connections:\n"
-                        f"{chr(10).join(high_conn_processes)}\n\n"
-                        "Web browsers, sync tools and servers often do this on purpose. "
-                        "If you do not recognize the program, look it up before worrying."
+                        "These programs are currently holding a large number of open "
+                        f"network connections:\n{chr(10).join(high_conn_processes)}\n\n"
+                        "This is often normal for web browsers, cloud sync tools, or "
+                        "developer software that talk to many servers at once. However, "
+                        "if you do not recognize a program name, it is worth checking "
+                        "what it is.\n\n"
+                        "What to do: Look up the program names listed above. If you recognize "
+                        "them (like Safari, Chrome, or Dropbox), no action is needed. "
+                        "If you do not recognize a name, search for it online to see "
+                        "if it is a known app or something suspicious."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -212,7 +227,7 @@ class Module(ModuleBase):
         if push_port_connections:
             findings.append(
                 Finding(
-                    title=f"Connections on push-notification ports: {len(push_port_connections)}",
+                    title=f"Connections for push notifications: {len(push_port_connections)}",
                     description=(
                         "Ports 5223 and 5228 are used for Apple and Google push notifications, "
                         "so this is normal for chat and mail apps:\n"
@@ -233,13 +248,16 @@ class Module(ModuleBase):
         if unusual_port_connections:
             findings.append(
                 Finding(
-                    title=f"WARNING: Connections on unusual ports: {len(unusual_port_connections)}",
+                    title=f"Connections on uncommon ports ({len(unusual_port_connections)})",
                     description=(
-                        f"Found {len(unusual_port_connections)} connection(s) on unusual ports:\n"
-                        f"{chr(10).join(unusual_port_connections[:20])}"
-                        f"{chr(10) + '... and more' if len(unusual_port_connections) > 20 else ''}\n\n"
-                        "Many apps use uncommon ports for normal reasons. Check that you "
-                        "recognize the programs listed."
+                        f"We found {len(unusual_port_connections)} connection(s) using "
+                        f"port numbers that are not typically used by standard apps:\n{chr(10).join(unusual_port_connections[:20])}{chr(10) + '... and more' if len(unusual_port_connections) > 20 else ''}\n\n"
+                        "Many legitimate apps use unusual ports for specific features, "
+                        "so this is not automatically a sign of a problem. However, it "
+                        "is good to verify that you recognize the programs listed.\n\n"
+                        "What to do: Check the program names in the list. If you recognize "
+                        "them, you can ignore this. If you see a program you do not know, "
+                        "look it up to confirm it is safe."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -266,7 +284,9 @@ class Module(ModuleBase):
         if private_ip_connections:
             findings.append(
                 Finding(
-                    title=f"INFO: Connections to private IP ranges: {len(private_ip_connections)}",
+                    title=(
+                        f"Connections to local network addresses: {len(private_ip_connections)}"
+                    ),
                     description=(
                         f"Found {len(private_ip_connections)} connection(s) to private IP ranges:\n"
                         f"{chr(10).join(private_ip_connections[:15])}"
@@ -284,7 +304,7 @@ class Module(ModuleBase):
         if connections:
             findings.append(
                 Finding(
-                    title=f"Connection summary: {len(connections)} active connection(s)",
+                    title=f"Current network connections: {len(connections)}",
                     description=(
                         f"System has {len(connections)} active network connection(s). "
                         f"Review above findings for any suspicious activity."

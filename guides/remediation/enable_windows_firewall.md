@@ -5,6 +5,9 @@ platforms: [windows]
 remediates:
   - security.win_firewall.public_profile_disabled
   - security.win_firewall.private_domain_profile_disabled
+steps_for:
+  security.win_firewall.public_profile_disabled: [1]
+  security.win_firewall.private_domain_profile_disabled: [2]
 automatable_steps: []
 human_only_steps: [1, 2]
 ---
@@ -18,7 +21,7 @@ LAN game server, a local dev server reached from your phone). Before
 enabling, have a rough idea of what you use this machine for on that network
 so you're not surprised by a prompt afterward.
 
-## Step 1: Public profile disabled (CRITICAL)
+## Step 1: Turn on firewall for public networks
 
 The Public profile applies whenever this machine is on an untrusted network
 (coffee shop Wi-Fi, airport, a network you don't control). With it off, the
@@ -38,7 +41,7 @@ other devices there.
 4. Re-run the scan (`win_firewall`) to confirm the Public profile now
    reports as enabled.
 
-## Step 2: Private/Domain profile disabled (WARNING)
+## Step 2: Turn on firewall for home networks
 
 The Private profile applies to networks you've marked as trusted (home,
 a friend's house); Domain applies when joined to a Windows domain. Less

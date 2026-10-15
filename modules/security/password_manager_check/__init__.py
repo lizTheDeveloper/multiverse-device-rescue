@@ -208,8 +208,8 @@ class Module(ModuleBase):
         findings.append(
             Finding(
                 title=(
-                    f"Password storage inventory: {len(managers)} manager(s), "
-                    f"{len(browsers)} browser profile(s)"
+                    f"Password apps: {len(managers)} manager(s), {len(browsers)} browser "
+                    "profile(s)"
                 ),
                 description=(
                     "Password managers found: "

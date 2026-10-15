@@ -129,13 +129,23 @@ class Module(ModuleBase):
         if suspicious_certs:
             findings.append(
                 Finding(
-                    title=f"Suspicious root certificates detected: {len(suspicious_certs)}",
+                    title=(
+                        f"Certificates named for debugging or interception: {len(suspicious_certs)}"
+                    ),
                     description=(
-                        f"Found {len(suspicious_certs)} root certificate(s) with names suggesting "
-                        f"traffic interception or debugging:\n"
-                        f"{', '.join(suspicious_certs)}\n"
-                        "These certificates could be used to intercept HTTPS traffic. "
-                        "Review their source and purpose in Keychain Access."
+                        f"We found {len(suspicious_certs)} trusted certificates with names "
+                        f"like {', '.join(suspicious_certs)}. These names are often used "
+                        "by tools that secretly read or change your internet traffic.\n\n"
+                        "If you did not install these yourself, they could allow someone "
+                        "else to see your private messages. This is a serious sign that "
+                        "your device may be monitored.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Open Keychain Access, find these certificates, and "
+                        "check who added them. If you don't recognize them, ask a trusted "
+                        "expert for help removing them safely."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -148,12 +158,21 @@ class Module(ModuleBase):
         if self_signed_certs:
             findings.append(
                 Finding(
-                    title=f"Self-signed root certificates: {len(self_signed_certs)}",
+                    title=f"Self-signed certificates were added to this Mac: {len(self_signed_certs)}",
                     description=(
-                        f"{len(self_signed_certs)} self-signed root certificate(s) added by user:\n"
-                        f"{', '.join(self_signed_certs)}\n"
-                        "Self-signed certificates in the root store can allow HTTPS interception. "
-                        "Verify these are from trusted sources and are necessary for your workflow."
+                        f"{len(self_signed_certs)} self-signed certificate(s) were added to "
+                        f"this Mac: {', '.join(self_signed_certs)}. These "
+                        "are not from major companies like Apple or Google.\n\n"
+                        "Sometimes these are needed for work or school tools. However, "
+                        "if you don't remember adding them, they could be used to trick "
+                        "your Mac into trusting fake websites.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Open Keychain Access and look for these names. If "
+                        "you don't know why they are there, ask a trusted tech friend "
+                        "to help you identify them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -166,11 +185,14 @@ class Module(ModuleBase):
         if expired_certs:
             findings.append(
                 Finding(
-                    title=f"Expired root certificates: {len(expired_certs)}",
+                    title=f"Old certificates that no longer work: {len(expired_certs)}",
                     description=(
-                        f"{len(expired_certs)} expired root certificate(s) in keychain:\n"
-                        f"{', '.join(expired_certs)}\n"
-                        "Remove expired certificates to prevent potential security issues."
+                        f"We found {len(expired_certs)} certificates that have passed "
+                        f"their expiration date: {', '.join(expired_certs)}.\n\n"
+                        "Expired certificates aren't trusted for anything any more, so "
+                        "this is just clutter.\n\n"
+                        "What to do: Nothing. You can leave them, or delete them in "
+                        "Keychain Access if you like a tidy list."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -183,7 +205,7 @@ class Module(ModuleBase):
         if user_added_certs:
             findings.append(
                 Finding(
-                    title=f"User-added root certificates: {len(user_added_certs)}",
+                    title=f"Root certificates added to this Mac: {len(user_added_certs)}",
                     description=(
                         f"{len(user_added_certs)} user-added root certificate(s) in system keychain:\n"
                         f"{', '.join(sorted(user_added_certs))}\n"

@@ -101,7 +101,7 @@ class TestMacOSEOLCheck:
         assert len(result.findings) == 1
         assert result.findings[0].severity == Severity.WARNING
         assert "Monterey" in result.findings[0].title or "12" in result.findings[0].title
-        assert "EOL" in result.findings[0].description
+        assert "stopped sending security" in result.findings[0].description
 
     @patch("modules.integrity.macos_eol_check.Module._run_sw_vers")
     @patch("modules.integrity.macos_eol_check.Module._run_sysctl")
@@ -128,7 +128,7 @@ class TestMacOSEOLCheck:
         assert len(result.findings) == 1
         assert result.findings[0].severity == Severity.CRITICAL
         assert "Catalina" in result.findings[0].title
-        assert "CRITICAL" in result.findings[0].description
+        assert "more than two years" in result.findings[0].description
 
     @patch("modules.integrity.macos_eol_check.Module._run_sw_vers")
     @patch("modules.integrity.macos_eol_check.Module._run_sysctl")

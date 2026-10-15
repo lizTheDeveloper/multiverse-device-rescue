@@ -63,7 +63,7 @@ class TestDnsServersConfiguration:
         dns_findings = [f for f in result.findings if f.data.get("check_type") == "isp_dns"]
         assert len(dns_findings) == 1
         assert dns_findings[0].severity == Severity.WARNING
-        assert "ISP" in dns_findings[0].title
+        assert "internet provider" in dns_findings[0].title
 
     def test_cloudflare_dns_servers(self):
         mod = _get_module()
@@ -178,7 +178,7 @@ class TestDnsResolution:
 
         resolution_findings = [f for f in result.findings if f.data.get("check_type") == "dns_resolution"]
         assert len(resolution_findings) == 1
-        assert "failed" in resolution_findings[0].title.lower()
+        assert "could not test" in resolution_findings[0].title.lower()
 
     def test_dns_resolution_timeout(self):
         mod = _get_module()
@@ -196,7 +196,7 @@ class TestDnsResolution:
 
         resolution_findings = [f for f in result.findings if f.data.get("check_type") == "dns_resolution"]
         assert len(resolution_findings) == 1
-        assert "timed out" in resolution_findings[0].title.lower()
+        assert "took too long" in resolution_findings[0].title.lower()
 
 
 class TestDnsCache:

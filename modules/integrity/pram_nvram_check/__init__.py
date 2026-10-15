@@ -32,8 +32,16 @@ class Module(ModuleBase):
         if startup_disk is None:
             findings.append(
                 Finding(
-                    title="Startup disk not set",
-                    description="No startup disk is currently selected. This can cause slow boot times and unexpected behavior.",
+                    title="Your Mac does not have a startup disk selected",
+                    description=(
+                        "Your Mac does not currently have a startup disk selected. This "
+                        "is a basic setting that tells your computer which drive to use "
+                        "when it turns on. Without it, your Mac may take longer to start "
+                        "up or behave unexpectedly.\n\n"
+                        "What to do: Open System Settings, click General in the sidebar, "
+                        "then select Startup Disk. Choose your main drive (usually named "
+                        "'Macintosh HD') and click Restart."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "startup_disk_not_set"},
@@ -42,7 +50,7 @@ class Module(ModuleBase):
         elif startup_disk:
             findings.append(
                 Finding(
-                    title="Startup disk information",
+                    title="Your startup disk",
                     description=f"Boot device: {startup_disk}",
                     severity=Severity.INFO,
                     category=self.category,
@@ -58,8 +66,17 @@ class Module(ModuleBase):
             if unusual_flags:
                 findings.append(
                     Finding(
-                        title="Unusual boot arguments detected",
-                        description=f"Kernel flags detected: {', '.join(unusual_flags)}. These are typically used for debugging and should not be present on a normal system.",
+                        title=f"Unusual startup settings found: {', '.join(unusual_flags)}",
+                        description=(
+                            "We found some unusual settings in your Mac's startup instructions: "
+                            f"{', '.join(unusual_flags)}. These are special codes usually "
+                            "used by developers for testing. They are not part of a normal "
+                            "setup and can sometimes slow down your Mac or change how "
+                            "it boots.\n\n"
+                            "What to do: If you didn't add these yourself, ask a technical "
+                            "helper to remove them with 'sudo nvram -d boot-args', which "
+                            "clears only these startup settings, then restart."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={"check": "unusual_boot_args", "flags": unusual_flags},
@@ -68,7 +85,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Boot arguments normal",
+                        title="Your startup settings look normal",
                         description=f"Boot args: {boot_args if boot_args.strip() else '(none)'}",
                         severity=Severity.INFO,
                         category=self.category,
@@ -81,7 +98,7 @@ class Module(ModuleBase):
         if audio_volume is not None:
             findings.append(
                 Finding(
-                    title="System audio volume setting",
+                    title="Your system audio volume",
                     description=f"NVRAM SystemAudioVolume: {audio_volume}",
                     severity=Severity.INFO,
                     category=self.category,
@@ -94,7 +111,7 @@ class Module(ModuleBase):
         if crash_indicators:
             findings.append(
                 Finding(
-                    title="Previous system crashes detected",
+                    title="Signs of previous system crashes",
                     description=f"NVRAM contains indicators of previous crashes: {', '.join(crash_indicators)}. Review system logs for details.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -107,7 +124,7 @@ class Module(ModuleBase):
         if key_settings:
             findings.append(
                 Finding(
-                    title="Key NVRAM settings",
+                    title="Key startup memory (NVRAM) settings",
                     description=f"Important NVRAM variables: {', '.join(f'{k}={v}' for k, v in key_settings.items())}",
                     severity=Severity.INFO,
                     category=self.category,

@@ -6,8 +6,13 @@ remediates:
   - security.accessibility_permissions.accessibility_access
   - security.accessibility_permissions.suspicious_accessibility
   - security.accessibility_permissions.excessive_accessibility
+steps_for:
+  security.accessibility_permissions.accessibility_access: [1]
+  security.accessibility_permissions.suspicious_accessibility: [1, 2]
+  security.accessibility_permissions.excessive_accessibility: [1, 3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `accessibility_permissions` module
@@ -21,7 +26,7 @@ want. Confirm the app before revoking, and confirm it's actually unwanted
 before revoking — some of these are tools you rely on daily (window
 managers, automation scripts, remote-control software).
 
-## Step 1: Review the full Accessibility access inventory
+## Step 1: Check which apps can control your screen
 
 Informational — lists every app with this permission currently granted,
 combining both the system and per-user TCC databases.
@@ -36,7 +41,7 @@ combining both the system and per-user TCC databases.
 3. For anything you don't recognize, move to Step 2 rather than acting
    immediately here.
 
-## Step 2: Investigate suspicious Accessibility grants
+## Step 2: Investigate apps you don't recognize
 
 Flagged for apps that aren't Apple system components and aren't on the
 built-in list of well-known developer tools, terminals, and automation
@@ -63,7 +68,7 @@ treat it as "worth checking," not "confirmed bad."
    `~/Library/LaunchAgents` and `/Library/LaunchAgents` for a persistence
    mechanism tied to that app before removing the app itself.
 
-## Step 3: Reduce excessive Accessibility grants
+## Step 3: Remove access for apps you no longer use
 
 Flagged when more than 10 apps hold this permission. Even if every single
 one is legitimate, a large Accessibility allowlist is a larger attack

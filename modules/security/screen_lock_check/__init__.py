@@ -42,12 +42,15 @@ class Module(ModuleBase):
         if ask_for_password == "0":
             findings.append(
                 Finding(
-                    title="Screen lock not required after sleep",
+                    title="Your Mac does not lock after sleeping",
                     description=(
-                        "Screen lock is not required after sleep or screensaver. "
-                        "This is a critical security risk - an unattended Mac can be "
-                        "accessed without authentication. Enable screen lock in "
-                        "System Settings > Lock Screen > Require password."
+                        "Your Mac is set to stay unlocked after it goes to sleep or the "
+                        "screensaver starts. This means anyone who picks up your Mac can "
+                        "use it without entering a password. This is a significant risk "
+                        "if you leave your Mac unattended.\n\n"
+                        "What to do: Open System Settings > Lock Screen and set 'Require "
+                        "password after screen saver begins or display is turned off' "
+                        "to Immediately."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -78,12 +81,14 @@ class Module(ModuleBase):
         if auto_login and auto_login.strip():
             findings.append(
                 Finding(
-                    title="Automatic login enabled",
+                    title=f"Your Mac logs in automatically as {auto_login.strip()}",
                     description=(
-                        f"Automatic login is enabled for user '{auto_login.strip()}'. "
-                        "This is a critical security vulnerability - anyone with physical "
-                        "access to your Mac can log in without a password. Disable automatic "
-                        "login in System Settings > General > Login Items > Allow guests to connect."
+                        f"Your Mac is set to automatically log in as '{auto_login.strip()}' "
+                        "when it starts up. This means anyone with physical access to "
+                        "your Mac can use your account without a password. This is a "
+                        "major security risk.\n\n"
+                        "What to do: Open System Settings > Users & Groups and set "
+                        "'Automatically log in as' to Off."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -102,12 +107,15 @@ class Module(ModuleBase):
                 if delay_seconds > 5:
                     findings.append(
                         Finding(
-                            title=f"Screen lock delay is {delay_seconds} seconds",
+                            title=f"Your Mac waits {delay_seconds} seconds before locking",
                             description=(
-                                f"The delay before screen lock requires a password is {delay_seconds} seconds. "
-                                "A delay longer than 5 seconds increases the risk that someone could "
-                                "access your Mac before it locks. Consider reducing this delay in "
-                                "System Settings > Lock Screen."
+                                f"Your Mac waits {delay_seconds} seconds after the screensaver "
+                                "starts before asking for a password. A longer wait time "
+                                "gives someone more time to use your Mac while it is "
+                                "unattended. A shorter delay is safer.\n\n"
+                                "What to do: Open System Settings > Lock Screen and set 'Require "
+                                "password after screen saver begins or display is turned "
+                                "off' to Immediately."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -144,12 +152,14 @@ class Module(ModuleBase):
                 if idle_seconds == 0:
                     findings.append(
                         Finding(
-                            title="Screensaver is disabled",
+                            title="Your screensaver is turned off",
                             description=(
-                                "The screensaver is disabled (idle time is 0). "
-                                "While this is not a critical issue if screen lock is enabled, "
-                                "it's good practice to enable the screensaver as a visual indicator "
-                                "and to lock the screen after inactivity."
+                                "Your Mac's screensaver is disabled. This is not a major "
+                                "security risk if your screen lock is working, but having "
+                                "a screensaver helps show that your Mac is unattended "
+                                "and can help lock the screen sooner.\n\n"
+                                "What to do: Open System Settings > Lock Screen and choose a time "
+                                "for 'Start Screen Saver when inactive'."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -160,11 +170,14 @@ class Module(ModuleBase):
                 elif idle_minutes > 10:
                     findings.append(
                         Finding(
-                            title=f"Screensaver idle time is {idle_minutes} minutes",
+                            title=f"Your screensaver waits {idle_minutes} minutes to start",
                             description=(
-                                f"The screensaver will not activate for {idle_minutes} minutes. "
-                                "Consider setting it to 10 minutes or less for better security. "
-                                "A longer idle time means your unattended Mac is vulnerable for longer."
+                                f"Your Mac waits {idle_minutes} minutes of inactivity "
+                                "before starting the screensaver. A longer wait time "
+                                "means your Mac stays unlocked for longer if you step "
+                                "away. Setting it to 10 minutes or less is safer.\n\n"
+                                "What to do: Open System Settings > Lock Screen and set 'Start "
+                                "Screen Saver when inactive' to 10 minutes or less."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -215,7 +228,9 @@ class Module(ModuleBase):
                 if hint_retries_int > 0:
                     findings.append(
                         Finding(
-                            title=f"Password hint shown after {hint_retries_int} failed attempts",
+                            title=(
+                                f"Password hint shown after {hint_retries_int} failed attempts"
+                            ),
                             description=(
                                 f"A password hint is shown after {hint_retries_int} failed login attempts. "
                                 "While this can be helpful for the legitimate user, it may leak information "

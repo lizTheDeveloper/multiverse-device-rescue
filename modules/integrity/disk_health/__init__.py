@@ -32,9 +32,15 @@ class Module(ModuleBase):
         if not disk_info:
             findings.append(
                 Finding(
-                    title="Could not retrieve disk information",
+                    title="We could not check your disk health",
                     description=(
-                        "Failed to run diskutil info /. Disk health cannot be assessed."
+                        "The check tried to read basic information about your main storage "
+                        "drive, but the command failed. This means we don't know if the "
+                        "drive is healthy or not. It is not the same as saying everything "
+                        "is fine.\n\n"
+                        "What to do: Run the checkup again. If it fails again, open Disk "
+                        "Utility (Applications > Utilities) and run First Aid on your "
+                        "startup disk."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -49,10 +55,15 @@ class Module(ModuleBase):
             severity = Severity.CRITICAL if smart_status == "Failing" else Severity.WARNING
             findings.append(
                 Finding(
-                    title=f"Disk SMART status: {smart_status}",
+                    title=f"Your disk is reporting a problem ({smart_status})",
                     description=(
-                        f"Disk SMART status is '{smart_status}'. "
-                        "This may indicate imminent disk failure. Back up your data immediately."
+                        f"Your computer's storage drive is reporting a status of '{smart_status}'. "
+                        "This is a warning sign that the drive may be wearing out or "
+                        "failing. It does not mean your data is lost right now, but it "
+                        "is a good idea to protect your files.\n\n"
+                        "What to do: Back up your important files to an external drive "
+                        "or cloud storage as soon as possible. If the status says 'Failing', "
+                        "treat this as urgent."
                     ),
                     severity=severity,
                     category=self.category,

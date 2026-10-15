@@ -54,7 +54,7 @@ class Module(ModuleBase):
             if size > 0:
                 findings.append(
                     Finding(
-                        title=f"{browser_name} cache: {_fmt_bytes(size)}",
+                        title=f"{browser_name} cache size: {_fmt_bytes(size)}",
                         description=(
                             f"{browser_name} cache is using {_fmt_bytes(size)}. "
                             f"Browser caches can be safely cleared and will be regenerated as needed."
@@ -75,10 +75,19 @@ class Module(ModuleBase):
                     findings.insert(
                         0,
                         Finding(
-                            title=f"Large {browser_name} cache: {_fmt_bytes(size)}",
+                            title=(
+                                f"{browser_name} is storing a large amount of temporary "
+                                f"files ({_fmt_bytes(size)})"
+                            ),
                             description=(
-                                f"{browser_name} cache is using {_fmt_bytes(size)}, which exceeds 2GB. "
-                                f"Consider clearing this cache to free up significant disk space."
+                                f"Your {browser_name} browser is using {_fmt_bytes(size)} "
+                                "of disk space for temporary files. This is likely just "
+                                "normal browsing history, but it is large enough that "
+                                "clearing it will free up noticeable space on your computer.\n\n"
+                                f"What to do: Open {browser_name}, go to Settings, and "
+                                "find the option to 'Clear browsing data'. Check the "
+                                "box for 'Cached images and files' and clear them. This "
+                                "is safe and will not delete your bookmarks or passwords."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -96,10 +105,19 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"High total browser cache: {_fmt_bytes(total_cache_size)}",
+                    title=(
+                        f"Your browser caches are taking up a lot of space ({_fmt_bytes(total_cache_size)})"
+                    ),
                     description=(
-                        f"Total browser cache across all browsers is {_fmt_bytes(total_cache_size)}, "
-                        f"which exceeds 5GB. Clearing browser caches can significantly free up disk space."
+                        f"All your web browsers are currently storing {_fmt_bytes(total_cache_size)} "
+                        "of temporary files. This is a normal part of how browsers work "
+                        "to make pages load faster, but it can fill up your hard drive "
+                        "over time.\n\n"
+                        "What to do: You can safely clear these files to free up space. "
+                        "Open your browser, go to Settings, and look for 'Clear browsing "
+                        "data' or 'Privacy'. Select 'Cached images and files' and clear "
+                        "them. Your browsers will just rebuild this storage as you use "
+                        "them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -32,9 +32,16 @@ class Module(ModuleBase):
         if service_status is None:
             findings.append(
                 Finding(
-                    title="Could not check WMI service status",
+                    title="We could not check your WMI service status",
                     description=(
-                        "Failed to query WMI service status. Unable to determine if WMI service is running."
+                        "We tried to check if your WMI service is running, but the check "
+                        "could not complete. "
+                        "This is not the same as saying everything is fine; it just means "
+                        "we could not verify it. "
+                        "This often happens if the app is not running with administrator "
+                        "rights.\n\n"
+                        "What to do: Close the app, right-click its icon, and choose 'Run "
+                        "as administrator', then run the checkup again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -47,9 +54,16 @@ class Module(ModuleBase):
             if repo_status is None:
                 findings.append(
                     Finding(
-                        title="Could not verify WMI repository",
+                        title="We could not verify your WMI repository",
                         description=(
-                            "Failed to run winmgmt /verifyrepository. WMI repository health cannot be verified."
+                            "We tried to check the health of your WMI data store, but "
+                            "the check could not complete. "
+                            "This is not the same as saying everything is fine; it just "
+                            "means we could not verify it. "
+                            "This often happens if the app is not running with administrator "
+                            "rights.\n\n"
+                            "What to do: Close the app, right-click its icon, and choose "
+                            "'Run as administrator', then run the checkup again."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -59,11 +73,15 @@ class Module(ModuleBase):
             elif not repo_status["valid"]:
                 findings.append(
                     Finding(
-                        title="WMI repository is corrupted",
+                        title="Your WMI data store appears damaged",
                         description=(
-                            "WMI repository verification failed. The repository may be corrupted, "
-                            "which can cause scripts to fail, SCCM/Intune issues, and system management breakdowns. "
-                            "The WMI service needs to be stopped and the repository rebuilt."
+                            "WMI is a built-in Windows tool that helps manage your computer. "
+                            "Its data store appears to be corrupted. "
+                            "It can cause system tools to fail or slow down.\n\n"
+                            "What to do: This usually requires a specific repair command. "
+                            "If you are comfortable with advanced settings, search online "
+                            "for 'repair WMI repository Windows' and follow the official "
+                            "Microsoft instructions."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -76,11 +94,19 @@ class Module(ModuleBase):
                 if repo_size is not None and repo_size["size_mb"] > 500:
                     findings.append(
                         Finding(
-                            title=f"WMI repository is bloated ({repo_size['size_mb']} MB)",
+                            title=(
+                                f"Your WMI data store is larger than usual ({repo_size['size_mb']} "
+                                "MB)"
+                            ),
                             description=(
-                                f"WMI repository size is {repo_size['size_mb']} MB, exceeding the 500 MB threshold. "
-                                "A bloated repository can cause performance issues and management tool slowdowns. "
-                                "The repository may need to be rebuilt."
+                                f"Your WMI data store is {repo_size['size_mb']} MB, which "
+                                "is larger than the typical 500 MB limit. "
+                                "WMI is a built-in Windows tool. A larger store can sometimes "
+                                "make system management tools slower, "
+                                "but it is rarely a security risk.\n\n"
+                                "What to do: Nothing urgent. If your computer is running "
+                                "smoothly, you can ignore this. If you are experiencing "
+                                "slowdowns, try restarting your computer."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -96,10 +122,17 @@ class Module(ModuleBase):
             if wmi_errors is not None and wmi_errors["error_count"] > 0:
                 findings.append(
                     Finding(
-                        title=f"WMI errors found in event log ({wmi_errors['error_count']} events)",
+                        title=f"Your WMI log has {wmi_errors['error_count']} recent errors",
                         description=(
-                            f"Found {wmi_errors['error_count']} WMI-related errors in the event log. "
-                            "This may indicate WMI health issues affecting system management tools."
+                            f"We found {wmi_errors['error_count']} errors in your WMI "
+                            "activity log. "
+                            "WMI is a built-in Windows tool. These errors are usually "
+                            "minor and often resolve on their own, "
+                            "but if you are seeing other system issues, it might be worth "
+                            "a look.\n\n"
+                            "What to do: Nothing urgent. If your computer is running smoothly, "
+                            "you can ignore this. If you are having trouble, try restarting "
+                            "your computer."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -142,11 +175,14 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="WMI service is not running",
+                    title="Your WMI service is not running",
                     description=(
-                        "The Windows Management Instrumentation service (winmgmt) is not running. "
-                        "This will cause scripts to fail, SCCM/Intune issues, and system management breakdowns. "
-                        "The service must be restarted."
+                        "WMI is a built-in Windows tool that helps manage your computer. "
+                        "Right now, its service is stopped. "
+                        "That can cause other system tools to fail or slow down.\n\n"
+                        "What to do: Open the Start menu, type 'services', and open the "
+                        "Services app. Find 'Windows Management Instrumentation', right-click "
+                        "it, and select 'Start'."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,

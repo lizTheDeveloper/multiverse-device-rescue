@@ -88,7 +88,7 @@ class Module(ModuleBase):
                 module_name=self.name,
                 findings=[
                     Finding(
-                        title="Disk encryption status could not be determined",
+                        title="Could not check disk encryption status",
                         description=(
                             "Neither lsblk nor /dev/mapper could be inspected, so this run "
                             "cannot say whether the disks are encrypted. Re-run with sudo. "
@@ -122,7 +122,7 @@ class Module(ModuleBase):
             if mount_point == "/":
                 findings.append(
                     Finding(
-                        title=f"{mount_point} is not encrypted",
+                        title=f"Your main drive ({mount_point}) is not encrypted",
                         description=(
                             preamble
                             + "Everything on this machine — saved passwords, browser "
@@ -146,7 +146,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title=f"{mount_point} is not encrypted",
+                        title=f"Your personal folder ({mount_point}) is not encrypted",
                         description=(
                             preamble
                             + "Your personal files are stored unencrypted, so they can be "
@@ -170,7 +170,7 @@ class Module(ModuleBase):
         if protected:
             findings.append(
                 Finding(
-                    title=f"Encryption is active on {', '.join(protected)}",
+                    title=f"Disk encryption is on: {', '.join(protected)}",
                     description=(
                         "These mount points sit on encrypted storage, so their contents "
                         "are unreadable without the passphrase if the machine is lost or "

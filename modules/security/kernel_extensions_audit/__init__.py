@@ -62,7 +62,7 @@ class Module(ModuleBase):
             # If we can't get kexts, flag it as informational
             findings.append(
                 Finding(
-                    title="Unable to audit kernel extensions",
+                    title="Couldn't check low-level system drivers",
                     description=(
                         "Could not retrieve kernel extensions. This may occur on "
                         "newer macOS versions (Monterey+) with restricted permissions "
@@ -106,12 +106,19 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Known problematic kernel extensions: {len(problematic_kexts)}",
+                    title=(
+                        f"{len(problematic_kexts)} older system plug-ins are causing issues"
+                    ),
                     description=(
-                        f"Found {len(problematic_kexts)} kernel extension(s) known to cause "
-                        f"stability or security issues:\n{kext_list}\n\n"
-                        "These are typically legacy kexts that should be updated to use "
-                        "System Extensions or removed entirely."
+                        f"We found {len(problematic_kexts)} older system plug-ins (called "
+                        "kernel extensions) that are known to cause crashes or security "
+                        f"problems. Here is the list:\n{kext_list}\n\n"
+                        "They aren't malware, just outdated technology Apple has asked "
+                        "developers to replace, and they can make your Mac unstable.\n\n"
+                        "What to do: Check the developer's website for an updated version "
+                        "of the software that uses the new 'System Extensions' format. "
+                        "If no update exists, consider uninstalling the software. Do "
+                        "not delete files manually."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -138,7 +145,7 @@ class Module(ModuleBase):
                 kext_list = "\n".join(f"  - {bid}" for bid in sorted(non_problematic))
                 findings.append(
                     Finding(
-                        title=f"Third-party kernel extensions: {len(non_problematic)}",
+                        title=f"Extra system drivers: {len(non_problematic)}",
                         description=(
                             f"Found {len(non_problematic)} non-Apple kernel extension(s):\n{kext_list}\n\n"
                             "Third-party kexts can impact system stability and security. "

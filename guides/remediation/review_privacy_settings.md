@@ -18,8 +18,25 @@ remediates:
   - security.privacy_permissions_audit.excessive_microphone
   - security.privacy_permissions_audit.camera_microphone_combo
   - security.privacy_permissions_audit.screen_accessibility_combo
+steps_for:
+  security.privacy_audit.location_services: [1]
+  security.privacy_audit.personalized_ads: [2]
+  security.privacy_audit.analytics: [3]
+  security.privacy_audit.significant_locations: [4]
+  security.privacy_audit.siri_suggestions: [5]
+  security.privacy_permissions_audit.camera_access: [6]
+  security.privacy_permissions_audit.microphone_access: [6]
+  security.privacy_permissions_audit.screen_recording_access: [6]
+  security.privacy_permissions_audit.accessibility_access: [6]
+  security.privacy_permissions_audit.full_disk_access: [6]
+  security.privacy_permissions_audit.contacts_access: [6]
+  security.privacy_permissions_audit.excessive_camera: [6, 7]
+  security.privacy_permissions_audit.excessive_microphone: [6, 7]
+  security.privacy_permissions_audit.camera_microphone_combo: [6, 7]
+  security.privacy_permissions_audit.screen_accessibility_combo: [6, 7]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6, 7]
+monitoring_risk: true
 ---
 
 This walkthrough covers what the `privacy_audit` and `privacy_permissions_audit`
@@ -46,7 +63,7 @@ doesn't flag. If both modules are enabled you may see two findings for the
 same underlying grant; follow either walkthrough's steps, they lead to the
 same System Settings panes.)
 
-## Step 1: Review Location Services
+## Step 1: Check which apps can use your location
 
 1. Open System Settings > Privacy & Security > Location Services.
 2. If you don't use location-dependent features (Find My Mac, Maps,
@@ -56,14 +73,14 @@ same System Settings panes.)
    access for individual apps that don't need it — this is often a better
    middle ground than an all-or-nothing toggle.
 
-## Step 2: Review Personalized Ads
+## Step 2: Turn off personalized ads
 
 1. Open System Settings > Privacy & Security > Apple Advertising.
 2. Toggle "Personalized Ads" off if you don't want your App Store/Apple
    News/Stocks activity used to target ads to you. This doesn't reduce the
    number of ads shown, only how targeted they are.
 
-## Step 3: Review Analytics & Improvements (diagnostics/usage sharing)
+## Step 3: Stop sharing usage data with Apple
 
 1. Open System Settings > Privacy & Security > Analytics & Improvements.
 2. Uncheck "Share Mac Analytics" (and related app-developer sharing
@@ -71,7 +88,7 @@ same System Settings panes.)
    third-party developers. This has no functional impact on the device —
    it only affects what gets reported.
 
-## Step 4: Review Significant Locations
+## Step 4: Review and disable location history
 
 Significant Locations builds a private, on-device history of places you
 visit frequently, used for Maps/Calendar suggestions and time-based
@@ -83,14 +100,14 @@ reminders.
    collected, then disable the toggle if you don't want this on-device
    location history kept.
 
-## Step 5: Review Siri Suggestions data collection
+## Step 5: Turn off Siri learning from your Mac
 
 1. Open System Settings > Siri & Spotlight.
 2. Review "Learn from this Mac" (or the app-specific suggestion sources)
    and disable it if you don't want Apple analyzing app/activity usage to
    power Spotlight and Siri suggestions.
 
-## Step 6: Review per-app TCC permission grants
+## Step 6: Review which apps have special access
 
 For each category the scan reported apps under (Camera, Microphone, Screen
 Recording, Accessibility, Full Disk Access, Contacts):
@@ -110,7 +127,7 @@ Recording, Accessibility, Full Disk Access, Contacts):
    still worth confirming: it's an easy way for a rogue app to exfiltrate
    your address book.
 
-## Step 7: Investigate flagged high-risk combinations
+## Step 7: Check for risky app permission combos
 
 The scan separately flags apps holding more than one sensitive permission
 at once, and cases where more than 10 apps hold camera or microphone

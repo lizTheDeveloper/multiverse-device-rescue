@@ -3,6 +3,7 @@ import plistlib
 import posixpath
 import re
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -102,7 +103,7 @@ class Module(ModuleBase):
             # Flag INFO for each found agent
             findings.append(
                 Finding(
-                    title=f"Launch agent found: {label}",
+                    title=f"Background item: {label}",
                     description=(
                         f"Program path: {program_path}"
                         if program_path
@@ -159,8 +160,8 @@ class Module(ModuleBase):
                             f"The launch agent '{agent_label}' points to a suspicious "
                             f"location: {program_path}\n\n"
                             "To remove this agent:\n"
-                            f"1. launchctl unload ~/Library/LaunchAgents/{agent_label}.plist\n"
-                            f"2. rm ~/Library/LaunchAgents/{agent_label}.plist\n"
+                            f"1. launchctl unload ~/Library/LaunchAgents/{quote(str(agent_label) + '.plist')}\n"
+                            f"2. rm ~/Library/LaunchAgents/{quote(str(agent_label) + '.plist')}\n"
                             "3. Restart your Mac"
                         ),
                         risk_level=RiskLevel.SAFE,
@@ -179,8 +180,8 @@ class Module(ModuleBase):
                             f"that does not exist: {program_path}\n\n"
                             "This is usually left over from an uninstalled app. "
                             "If you do not recognize it, to remove this agent:\n"
-                            f"1. launchctl unload ~/Library/LaunchAgents/{agent_label}.plist\n"
-                            f"2. rm ~/Library/LaunchAgents/{agent_label}.plist\n"
+                            f"1. launchctl unload ~/Library/LaunchAgents/{quote(str(agent_label) + '.plist')}\n"
+                            f"2. rm ~/Library/LaunchAgents/{quote(str(agent_label) + '.plist')}\n"
                             "3. Restart your Mac"
                         ),
                         risk_level=RiskLevel.SAFE,
@@ -349,12 +350,21 @@ class Module(ModuleBase):
         if writable:
             findings.append(
                 Finding(
-                    title=f"Launch agent runs from a world-writable folder: {label}",
+                    title=f"Background task '{label}' runs from a folder anyone can change",
                     description=(
-                        f"The launch agent '{label}' runs {writable}, which is in a "
-                        "folder (such as /tmp) that any program on this Mac can write "
-                        "to. Whatever is placed there will run automatically as you, "
-                        "even if the file does not exist right now."
+                        f"A background task named '{label}' is set to run a program from "
+                        f"{writable}. This location is a shared folder where any program on "
+                        "your Mac can save or replace files. If someone or something "
+                        "puts a malicious file there, it will run automatically with "
+                        "your permissions, even if the file isn't there right now.\n\n"
+                        "This is a serious security risk because it allows hidden software "
+                        "to take control of your Mac.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings > General > Login Items & Extensions. "
+                        f"If it's safe for you, turn off '{label}' under Allow in the "
+                        "Background."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -371,7 +381,7 @@ class Module(ModuleBase):
             # to hide, so keep it listed (info) instead of dropping it.
             findings.append(
                 Finding(
-                    title=f"Background program from a developer tool folder: {label}",
+                    title=f"Background item from a developer tool folder: {label}",
                     description=(
                         f"The launch agent '{label}' runs a program from a folder used by "
                         f"developer tools: {program_path}\n"
@@ -391,11 +401,19 @@ class Module(ModuleBase):
         elif hidden_kind == "unusual":
             findings.append(
                 Finding(
-                    title=f"Launch agent runs from a hidden folder: {label}",
+                    title=f"Background task '{label}' runs from a hidden folder",
                     description=(
-                        f"The launch agent '{label}' runs a program inside a hidden "
-                        f"folder: {program_path}\n"
-                        "Some apps do this legitimately, but check that you recognize it."
+                        f"The background task '{label}' runs a program from {program_path}, "
+                        "which is inside a hidden folder. Hidden folders are often used "
+                        "by developers, but they can also be used to hide unwanted software.\n\n"
+                        "This is not automatically dangerous, but you should verify that "
+                        "you installed this app.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings > General > Login Items & Extensions. "
+                        f"Check if you recognize the app associated with '{label}'. If "
+                        "you don't recognize it, turn it off under Allow in the Background."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -418,12 +436,18 @@ class Module(ModuleBase):
         ):
             findings.append(
                 Finding(
-                    title=f"Launch agent with obfuscated name: {label}",
+                    title=f"Background task '{label}' has a confusingly short name",
                     description=(
-                        f"The launch agent '{label}' points to a program with a "
-                        f"very short name: {program_name}\n"
-                        "Very short, meaningless names are sometimes used to hide "
-                        "unwanted software. Check that you recognize it."
+                        f"The background task '{label}' points to a file named '{program_name}'. "
+                        "Legitimate apps usually have clear, descriptive names. Very "
+                        "short or random names are sometimes used by unwanted software "
+                        "to hide in plain sight.\n\n"
+                        "This might be a false alarm, but it is worth checking to be "
+                        "sure.\n\n"
+                        "What to do: Open System Settings > General > Login Items & Extensions. "
+                        f"Find the entry for '{label}' and check if you recognize the "
+                        "app it belongs to. If you don't, turn it off under Allow in the "
+                        "Background."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -445,12 +469,16 @@ class Module(ModuleBase):
             if is_abs and not program_path_obj.exists():
                 findings.append(
                     Finding(
-                        title=f"Launch agent program does not exist: {label}",
+                        title=f"Background task '{label}' points to a missing file",
                         description=(
-                            f"The launch agent '{label}' points to a program that "
-                            f"cannot be found: {program_path}\n"
-                            "This is usually left over from an app that was uninstalled. "
-                            "If you do not recognize the name, it is worth a closer look."
+                            f"A background task named '{label}' is set to run a program "
+                            f"at {program_path}, but that file does not exist on your "
+                            "Mac.\n\n"
+                            "This is usually harmless leftover clutter from an app you "
+                            "uninstalled.\n\n"
+                            "What to do: Open System Settings > General > Login Items "
+                            f"& Extensions and turn off '{label}' under Allow in the "
+                            "Background, or leave it; it can't run without its program."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

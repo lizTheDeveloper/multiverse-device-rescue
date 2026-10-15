@@ -8,8 +8,15 @@ remediates:
   - security.browser_extension_audit.excessive_permissions
   - security.browser_extension_audit.extension_bloat
   - security.browser_extension_audit.installed_extensions
+steps_for:
+  security.browser_extension_audit.malicious_extension: [1]
+  security.browser_extension_audit.adware_extension: [2]
+  security.browser_extension_audit.excessive_permissions: [3]
+  security.browser_extension_audit.extension_bloat: [4]
+  security.browser_extension_audit.installed_extensions: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
+monitoring_risk: true
 ---
 
 This walkthrough covers `browser_extension_audit` findings across Chrome,
@@ -20,7 +27,7 @@ installed. Review before removing anything — the "excessive permissions"
 and "installed extensions" findings are not proof of a problem by
 themselves, just a prompt to look.
 
-## Step 1: Remove a known-malicious extension (critical)
+## Step 1: Remove the dangerous extension
 
 The scan matched an installed extension's name against a documented list of
 malicious extensions (Superfish, Babylon, Conduit, and similar).
@@ -37,7 +44,7 @@ malicious extensions (Superfish, Babylon, Conduit, and similar).
 4. Clear the browser's cache and restart it to ensure no leftover injected
    content persists in open tabs.
 
-## Step 2: Remove a known adware/PUP extension
+## Step 2: Remove the adware extension
 
 The scan matched an extension name against known adware/potentially-unwanted
 program names (Hola VPN, Web of Trust, Stylish, toolbar/coupon-injector
@@ -50,7 +57,7 @@ extensions, and similar).
    and accept that tradeoff, no action is required.
 3. If unwanted, remove it via the same per-browser steps as Step 1.
 
-## Step 3: Review an extension with excessive dangerous permissions
+## Step 3: Check if the extension is safe
 
 Flagged when an extension requests 3+ permissions from a high-risk set
 (`<all_urls>`, `webRequest`, `webRequestBlocking`, `cookies`, `tabs`). Many
@@ -69,7 +76,7 @@ verify, not a verdict.
 4. If it doesn't check out, remove it via the per-browser steps in Step 1.
    If it does, no action is needed.
 
-## Step 4: Reduce extension bloat
+## Step 4: Remove unused extensions
 
 Flagged when the total extension count across all browsers exceeds 15.
 More installed extensions means a larger attack surface and more code
@@ -83,7 +90,7 @@ benign.
 3. Prefer consolidating overlapping functionality (e.g. multiple ad
    blockers) down to one trusted extension.
 
-## Step 5: Review the full extension inventory
+## Step 5: Review your installed extensions
 
 Informational — lists every detected extension per browser along with its
 permissions.

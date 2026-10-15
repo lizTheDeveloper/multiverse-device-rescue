@@ -95,6 +95,7 @@ class Module(ModuleBase):
     priority = 82
     depends_on = []
     estimated_duration = "20s"
+    emits_codes = ["security.stalkerware_scan.monitoring_software_found"]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         entries = _load_known_stalkerware()
@@ -328,21 +329,35 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"{entry['name']} found as {where}",
+                    title=f"{entry['name']} is on this computer ({where})",
                     description=(
                         f"{entry['description']}\n\n"
-                        f"Found as {where}: {location}."
+                        f"Found as {where}: {location}.\n\n"
                         + (
-                            "\n\nThis product is sold for monitoring another person "
-                            "without their knowledge. If nobody told you it was here, "
-                            "someone installed it to watch what you do on this "
-                            "computer."
+                            "This product is sold for watching another person without their "
+                            "knowledge. If nobody told you it was here, someone installed "
+                            "it to watch what you do on this computer.\n\n"
                             if category == "stalkerware"
-                            else ""
+                            else "Apps like this have honest uses, such as IT support, parental "
+                            "controls or work monitoring, but they also let someone see or "
+                            "control this computer.\n\n"
+                        )
+                        + "Removing it can alert whoever installed it. If you think that's someone "
+                        "close to you, talk to an advocate before you touch it (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        + (
+                            "What to do: Don't remove it yet. Write down what you see here "
+                            "and make a safety plan first; the steps below cover removal for "
+                            "when it's safe."
+                            if category == "stalkerware"
+                            else "What to do: If you installed it and use it, there's nothing to "
+                            "do. If not, make a safety plan before removing it; the steps "
+                            "below cover how."
                         )
                     ),
                     severity=severity,
                     category=self.category,
+                    code="security.stalkerware_scan.monitoring_software_found",
                     data={
                         "check": "monitoring_software_found",
                         "stalkerware_name": entry["name"],

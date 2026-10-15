@@ -38,12 +38,15 @@ class Module(ModuleBase):
         if guest_enabled:
             findings.append(
                 Finding(
-                    title="Guest account is enabled",
+                    title="Your Mac allows anyone to log in as 'Guest'",
                     description=(
-                        "The Guest account is enabled on this Mac. "
-                        "This is a security risk, especially on family or shared devices. "
-                        "Anyone can log in as Guest without a password. "
-                        "Disable it if you don't need it."
+                        "Your Mac has a 'Guest' account turned on. This lets anyone sitting "
+                        "at your computer log in without a password. This is a common "
+                        "setting, but it can be risky if you are worried about someone "
+                        "else using your device.\n\n"
+                        "What to do: Open System Settings > Users & Groups, click the "
+                        "info button next to Guest User, and turn off 'Allow guests to "
+                        "log in to this computer'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -57,11 +60,16 @@ class Module(ModuleBase):
         if guest_afp_access:
             findings.append(
                 Finding(
-                    title="Guest can access shared folders via AFP",
+                    title="Guest users can open your shared folders",
                     description=(
-                        "Guest account has access to shared folders via AFP (Apple File Server). "
-                        "This allows anyone to access your files without authentication. "
-                        "Disable this setting if you don't need Guest access to shared folders."
+                        "Your Mac allows the 'Guest' account to access files you have "
+                        "shared over the network. This means anyone on your home network "
+                        "can open these folders without a password. If you share files "
+                        "with family, this might be intentional, but if you are worried "
+                        "about privacy, it is safer to turn it off.\n\n"
+                        "What to do: Open System Settings > Users & Groups, click the "
+                        "info button next to Guest User, and turn off 'Allow guest users "
+                        "to connect to shared folders'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -75,11 +83,16 @@ class Module(ModuleBase):
         if guest_smb_access:
             findings.append(
                 Finding(
-                    title="Guest can access shared folders via SMB",
+                    title="Guest users can open your shared folders",
                     description=(
-                        "Guest account has access to shared folders via SMB (Windows file sharing). "
-                        "This allows anyone to access your files without authentication. "
-                        "Disable this setting if you don't need Guest access to shared folders."
+                        "Your Mac allows the 'Guest' account to access files you have "
+                        "shared using Windows file sharing. This means anyone on your "
+                        "home network can open these folders without a password. If you "
+                        "share files with family, this might be intentional, but if you "
+                        "are worried about privacy, it is safer to turn it off.\n\n"
+                        "What to do: Open System Settings > Users & Groups, click the "
+                        "info button next to Guest User, and turn off 'Allow guest users "
+                        "to connect to shared folders'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -9,6 +9,12 @@ remediates:
   - security.win_rootkit_check.hidden_services
   - security.win_rootkit_check.boot_tampering
   - security.win_rootkit_check.all_passed
+steps_for:
+  security.win_rootkit_check.unsigned_drivers: [1]
+  security.win_rootkit_check.alternate_data_streams: [2]
+  security.win_rootkit_check.secure_boot_disabled: [3]
+  security.win_rootkit_check.hidden_services: [4]
+  security.win_rootkit_check.boot_tampering: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -21,7 +27,7 @@ reinstalling Windows, and treat "unsigned driver" + "Secure Boot disabled" +
 "hidden service" appearing together as a much stronger signal than any one
 alone.
 
-## Step 1: Unsigned drivers in System32\drivers (critical)
+## Step 1: Investigate and remove suspicious drivers
 
 A driver running without a valid signature can operate at kernel level,
 which is the classic rootkit foothold — this is the highest-confidence
@@ -54,7 +60,7 @@ signal in this scan.
    continued live remediation — rootkits are specifically built to survive
    partial cleanup.
 
-## Step 2: Alternate Data Streams on system executables (warning)
+## Step 2: Check for hidden files inside system programs
 
 An ADS attached to a file in `C:\Windows\System32` can hide a secondary
 payload inside what looks like a normal system file.
@@ -79,7 +85,7 @@ payload inside what looks like a normal system file.
    '<path>' -Stream '<streamname>'` — never do this before you've
    identified what the stream contains.
 
-## Step 3: Secure Boot disabled (critical)
+## Step 3: Turn on Secure Boot if it was turned off
 
 Secure Boot disabled on a UEFI system removes a key protection against
 bootkits (malware that loads before Windows itself, surviving reinstalls).
@@ -102,7 +108,7 @@ bootkits (malware that loads before Windows itself, surviving reinstalls).
 4. After re-enabling and rebooting, re-run the scan to confirm Secure Boot
    now reports enabled.
 
-## Step 4: Hidden services (warning)
+## Step 4: Check for hidden background programs
 
 A service visible to `sc query` but missing from `Get-Service` is unusual —
 it can mean a service is actively being hidden, but can also reflect
@@ -123,7 +129,7 @@ timing/permission quirks in how each tool enumerates services.
    you suspect active compromise, and run an offline malware scan before
    disabling (`sc config <servicename> start= disabled`) or removing it.
 
-## Step 5: Boot configuration tampering (warning)
+## Step 5: Fix unsafe startup settings
 
 Unusual `bcdedit` entries (unexpected safe-mode boot counts, debug/test
 signing mode, disabled integrity checks, suspicious load options) can

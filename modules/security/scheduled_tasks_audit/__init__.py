@@ -1,6 +1,7 @@
 import plistlib
 import re
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -56,7 +57,7 @@ class Module(ModuleBase):
         if user_agent_count > 20:
             findings.append(
                 Finding(
-                    title=f"{user_agent_count} launch agents are set up for your user",
+                    title=f"{user_agent_count} background items set up for your user",
                     description=(
                         f"Found {user_agent_count} user-level launch agents. "
                         "Apps, updaters and developer tools (such as Homebrew services) "
@@ -97,8 +98,8 @@ class Module(ModuleBase):
                             "3. Review its contents in a text editor\n"
                             "4. Delete if confirmed as malicious\n\n"
                             "Or from terminal:\n"
-                            f"  launchctl unload ~/Library/LaunchAgents/{label}.plist\n"
-                            f"  rm ~/Library/LaunchAgents/{label}.plist"
+                            f"  launchctl unload ~/Library/LaunchAgents/{quote(str(label) + '.plist')}\n"
+                            f"  rm ~/Library/LaunchAgents/{quote(str(label) + '.plist')}"
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -221,7 +222,7 @@ class Module(ModuleBase):
                 if disabled:
                     findings.append(
                         Finding(
-                            title=f"Disabled launch {noun}: {label}",
+                            title=f"Turned-off background item: {label}",
                             description=(
                                 f"Launch {noun} is disabled but still on disk: {label}\n"
                                 f"Location: {plist_path}\n"
@@ -241,14 +242,18 @@ class Module(ModuleBase):
                 elif is_suspicious:
                     findings.append(
                         Finding(
-                            title=f"Launch {noun} to check: {label}",
+                            title=f"Check this startup item: {label}",
                             description=(
-                                f"Launch {noun} with a warning sign: {label}\n"
-                                f"Command: {command}\n"
-                                f"Location: {plist_path}\n"
-                                f"Reason: {reason}\n\n"
-                                "Check that you recognize this item. If you do not, "
-                                "it can be removed."
+                                f"We found a startup item named {label} that runs automatically. "
+                                f"It looks unusual because: {reason}.\n\n"
+                                f"Details: {command} (Location: {plist_path})\n\n"
+                                "This is not proof of a hack, but it is worth checking. "
+                                "If you do not recognize this name, it may be leftover "
+                                "clutter or a tool you forgot about.\n\n"
+                                "What to do: Open Finder, press Command+Shift+G, and "
+                                "paste the location path above. If you do not recognize "
+                                "the file, move it to a new folder on your Desktop to "
+                                "disable it safely. Do not delete it yet."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -267,7 +272,7 @@ class Module(ModuleBase):
                     # Log legitimate agents as INFO
                     findings.append(
                         Finding(
-                            title=f"Launch {noun}: {label}",
+                            title=f"Background item: {label}",
                             description=(
                                 f"Launch {noun} found: {label}\n"
                                 f"Command: {command}\n"
@@ -292,7 +297,7 @@ class Module(ModuleBase):
                 # folder, so list it rather than hiding it from the report.
                 findings.append(
                     Finding(
-                        title=f"Launch {noun} file could not be read: {plist_path.name}",
+                        title=f"Background item file unreadable: {plist_path.name}",
                         description=(
                             f"This tool could not read {plist_path}. It may be damaged or "
                             "in an unusual format. If you do not recognize it, "

@@ -62,11 +62,15 @@ class Module(ModuleBase):
         if wu_cache_size > 0:
             findings.append(
                 Finding(
-                    title=f"Windows Update cache: {_fmt_bytes(wu_cache_size)}",
+                    title=f"Windows Update files are taking up {_fmt_bytes(wu_cache_size)}",
                     description=(
-                        f"Windows Update cache ($env:windir\\SoftwareDistribution\\Download) "
-                        f"contains {_fmt_bytes(wu_cache_size)} that can be removed after "
-                        f"updates are installed."
+                        "Your computer keeps a copy of Windows Update files in the folder "
+                        "$env:windir\\SoftwareDistribution\\Download. Right now, these "
+                        f"files take up {_fmt_bytes(wu_cache_size)}. This is normal, but "
+                        "if the number is large, it can slow down your disk.\n\n"
+                        "What to do: You can safely remove these files. Open Settings, "
+                        "go to System > Storage, and click on 'Temporary files'. Check "
+                        "the box for 'Windows Update Cleanup' and click 'Remove files'."
                     ),
                     severity=Severity.WARNING if wu_cache_size > WU_CACHE_WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,
@@ -81,7 +85,7 @@ class Module(ModuleBase):
         if installer_cache_size > 0:
             findings.append(
                 Finding(
-                    title=f"Windows Installer cache: {_fmt_bytes(installer_cache_size)}",
+                    title=f"Old installer files: {_fmt_bytes(installer_cache_size)}",
                     description=(
                         f"Windows Installer cache ($env:windir\\Installer) contains "
                         f"{_fmt_bytes(installer_cache_size)} of orphaned or old .msp/.msi files "
@@ -100,7 +104,7 @@ class Module(ModuleBase):
         if prefetch_size > 0:
             findings.append(
                 Finding(
-                    title=f"Prefetch directory: {_fmt_bytes(prefetch_size)}",
+                    title=f"App startup data: {_fmt_bytes(prefetch_size)}",
                     description=(
                         f"Prefetch directory ($env:windir\\Prefetch) contains "
                         f"{_fmt_bytes(prefetch_size)} of application prefetch data. "
@@ -119,7 +123,7 @@ class Module(ModuleBase):
         if user_temp_size > 0:
             findings.append(
                 Finding(
-                    title=f"User TEMP directory: {_fmt_bytes(user_temp_size)}",
+                    title=f"Your temporary files: {_fmt_bytes(user_temp_size)}",
                     description=(
                         f"User temporary files ($env:APPDATA\\..\\Local\\Temp) contain "
                         f"{_fmt_bytes(user_temp_size)} of files that can typically be safely removed."
@@ -157,11 +161,15 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"Found {_fmt_bytes(total_reclaimable)} of recoverable space",
+                    title=f"You can free up {_fmt_bytes(total_reclaimable)} of space",
                     description=(
-                        f"Deep scan of temp and cache locations found "
-                        f"{_fmt_bytes(total_reclaimable)} total. Removing these items may improve "
-                        f"disk performance and free up space on older systems."
+                        "We checked several folders where your computer stores temporary "
+                        f"files and found {_fmt_bytes(total_reclaimable)} of space that "
+                        "is not being used. Cleaning these up can help your computer "
+                        "run smoother, especially if your hard drive is getting full.\n\n"
+                        "What to do: Open Settings, go to System > Storage, and click "
+                        "on 'Temporary files'. Review the list and click 'Remove files' "
+                        "to clear them."
                     ),
                     severity=Severity.WARNING if total_reclaimable > TOTAL_RECLAIMABLE_WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,

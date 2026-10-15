@@ -8,6 +8,12 @@ remediates:
   - security.win_services_audit.stopped_autostart
   - security.win_services_audit.bloatware_detected
   - security.win_services_audit.non_microsoft_autostart
+steps_for:
+  security.win_services_audit.suspicious_path: [1]
+  security.win_services_audit.excessive_autostart: [2]
+  security.win_services_audit.stopped_autostart: [3]
+  security.win_services_audit.bloatware_detected: [4]
+  security.win_services_audit.non_microsoft_autostart: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -22,7 +28,7 @@ break networking, audio, printing, or Windows Update. Use `services.msc`
 to check a service's dependencies (right-click → Properties → Dependencies
 tab) before changing its startup type.
 
-## Step 1: Service running from a suspicious path (WARNING)
+## Step 1: Check if the service file is safe
 
 An auto-start service points to an executable in a temp, AppData, Downloads,
 or user profile directory — locations malware commonly uses because they're
@@ -45,7 +51,7 @@ writable without admin rights, unlike `C:\Windows\System32` or
    Disabled — don't delete the underlying file until you've confirmed the
    service disable didn't cause other issues.
 
-## Step 2: Excessive auto-start services (WARNING)
+## Step 2: Reduce the number of startup programs
 
 More than 40 services set to auto-start slows boot time and makes it harder
 to notice one that shouldn't be there.
@@ -63,7 +69,7 @@ to notice one that shouldn't be there.
    boot.
 5. Re-run the scan to confirm the count has dropped.
 
-## Step 3: Stopped services set to auto-start (WARNING)
+## Step 3: Investigate services that won't start
 
 A service configured to start automatically but currently stopped may
 indicate a crash, missing dependency, or corrupted install — not
@@ -84,7 +90,7 @@ services can point to a bigger problem.
 5. If it's a core Windows service failing to start, investigate further
    (System File Checker: `sfc /scannow`) rather than just disabling it.
 
-## Step 4: Known bloatware service detected (INFO)
+## Step 4: Turn off unnecessary manufacturer tools
 
 The service matches a known manufacturer or third-party bloatware pattern
 (HP/Dell/Lenovo utility services, some AV vendor helper services) — low
@@ -100,7 +106,7 @@ functionality most users need.
 3. This doesn't uninstall the parent software — if you want it fully gone,
    uninstall the manufacturer utility from Settings → Apps instead.
 
-## Step 5: Non-Microsoft auto-start service (INFO)
+## Step 5: Review third-party startup services
 
 A general inventory of third-party services set to auto-start, reported
 when no bloatware match was found. This is informational — most machines

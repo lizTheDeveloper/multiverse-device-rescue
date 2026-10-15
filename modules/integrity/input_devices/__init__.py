@@ -416,10 +416,13 @@ class Module(ModuleBase):
             if key_repeat > 60:
                 findings.append(
                     Finding(
-                        title="Keyboard repeat rate is very slow",
+                        title="Your keyboard repeats keys very slowly",
                         description=(
-                            f"Keyboard repeat rate is set to {key_repeat}ms, which is slower than typical. "
-                            "This might be an accidental change. Normal fast setting is 2ms."
+                            f"Your keyboard repeat rate is set to {key_repeat}ms, which "
+                            "is much slower than usual. This means if you "
+                            "hold down a key, it takes a long time before it starts repeating.\n\n"
+                            "What to do: Open System Settings > Keyboard and adjust the "
+                            "'Key Repeat' slider to a faster speed."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -429,11 +432,14 @@ class Module(ModuleBase):
             elif key_repeat < 2:
                 findings.append(
                     Finding(
-                        title="Keyboard repeat rate is very fast",
+                        title="Your keyboard repeats keys very fast",
                         description=(
-                            f"Keyboard repeat rate is set to {key_repeat}ms. "
-                            "This is faster than the standard fastest setting of 2ms, "
-                            "which may cause unintended key repeats."
+                            f"Your keyboard repeat rate is set to {key_repeat}ms, which "
+                            "is faster than the fastest normal setting. This "
+                            "may cause keys to repeat unintentionally when you hold them "
+                            "down.\n\n"
+                            "What to do: Open System Settings > Keyboard and adjust the "
+                            "'Key Repeat' slider to a slower speed."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -446,10 +452,13 @@ class Module(ModuleBase):
         if mouse_scaling is not None and mouse_scaling <= 0:
             findings.append(
                 Finding(
-                    title="Mouse tracking speed at minimum",
+                    title="Your mouse moves very slowly",
                     description=(
-                        f"Mouse tracking speed is set to {mouse_scaling}, which is the minimum. "
-                        "This causes very slow cursor movement and may be an accidental change."
+                        f"Your mouse tracking speed is set to {mouse_scaling}, which is "
+                        "the slowest possible setting. This makes the cursor move much "
+                        "slower than normal.\n\n"
+                        "What to do: Open System Settings > Mouse and drag the 'Tracking "
+                        "Speed' slider to a comfortable position."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -462,10 +471,13 @@ class Module(ModuleBase):
         if trackpad_speed is not None and trackpad_speed <= 0:
             findings.append(
                 Finding(
-                    title="Trackpad tracking speed at minimum",
+                    title="Your trackpad moves very slowly",
                     description=(
-                        f"Trackpad tracking speed is set to {trackpad_speed}, which is the minimum. "
-                        "This causes very slow cursor movement and may be an accidental change."
+                        f"Your trackpad tracking speed is set to {trackpad_speed}, which "
+                        "is the slowest possible setting. This makes the cursor move "
+                        "much slower than normal.\n\n"
+                        "What to do: Open System Settings > Trackpad > Point & Click "
+                        "and drag the 'Tracking Speed' slider to a comfortable position."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

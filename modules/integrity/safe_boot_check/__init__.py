@@ -76,8 +76,15 @@ class Module(ModuleBase):
             if uptime_days > 30:
                 findings.append(
                     Finding(
-                        title="System has not been restarted in over 30 days",
-                        description=f"Uptime: {uptime_days} days. Long uptime may indicate pending system updates or accumulated memory issues.",
+                        title=f"Your Mac hasn't restarted in {uptime_days} days",
+                        description=(
+                            f"Your Mac has been running for {uptime_days} days without "
+                            "a restart. Over time, small memory leaks can build up, and "
+                            "your Mac may not have installed recent system updates that "
+                            "require a restart to take effect.\n\n"
+                            "What to do: Restart your Mac when it is convenient. Click "
+                            "the Apple menu in the top-left corner and choose 'Restart'."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={"check": "uptime_exceeds_30days", "uptime_days": uptime_days},

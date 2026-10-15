@@ -379,6 +379,17 @@ def _validate_remediation_guides(directory: Path, known_codes: set[str]) -> list
                         f"remediates '{code}', which no module declares in emits_codes",
                     )
                 )
+        numbers = {s.number for s in guide.steps}
+        for code, wanted in guide.steps_for.items():
+            if code not in guide.remediates:
+                problems.append(
+                    _error("walkthrough", path.name, f"steps_for names '{code}', which it does not remediate")
+                )
+            missing = sorted(set(wanted) - numbers)
+            if missing or not wanted:
+                problems.append(
+                    _error("walkthrough", path.name, f"steps_for '{code}' lists steps {missing or wanted} that don't exist")
+                )
     return problems
 
 

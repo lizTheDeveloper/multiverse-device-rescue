@@ -43,11 +43,19 @@ class Module(ModuleBase):
             if settings.get("DefaultInboundAction") == "Allow":
                 findings.append(
                     Finding(
-                        title=f"{profile_name}: DefaultInboundAction set to Allow",
+                        title=f"Your firewall is letting all traffic in ({profile_name})",
                         description=(
-                            f"The {profile_name} has DefaultInboundAction set to Allow. "
-                            "This is extremely dangerous and allows all unsolicited "
-                            "inbound connections by default."
+                            f"Your firewall setting for '{profile_name}' is set to 'Allow' "
+                            "by default. "
+                            "This means your computer accepts connections from anywhere "
+                            "on the internet unless a specific rule says 'no.' "
+                            "This is very unsafe because it leaves your computer open "
+                            "to strangers and bad software.\n\n"
+                            "What to do: Open Windows Defender Firewall with Advanced Security "
+                            "(search for 'wf.msc' in Start). "
+                            f"Click on 'Firewall Properties' on the left. Select the '{profile_name}' "
+                            "tab. "
+                            "Change 'Inbound connections' to 'Block (default)' and click OK."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -78,11 +86,20 @@ class Module(ModuleBase):
                 allow_all_program_rules.append(rule_name)
                 findings.append(
                     Finding(
-                        title=f"Firewall rule allows all programs: {rule_name}",
+                        title=f"A firewall rule lets any app receive data: {rule_name}",
                         description=(
-                            f"The rule '{rule_name}' allows inbound traffic from any program. "
-                            "This is overly permissive and could allow malware or unauthorized "
-                            "applications to accept inbound connections."
+                            f"A rule named '{rule_name}' allows incoming connections for "
+                            "any program on your computer. "
+                            "Normally, rules are tied to a specific app. This one is open "
+                            "to everything, which means if a bad program is installed, "
+                            "it could use this rule to talk to the internet without you "
+                            "knowing.\n\n"
+                            "What to do: Open Windows Defender Firewall with Advanced Security "
+                            "(search for 'wf.msc' in Start). "
+                            f"Find the rule '{rule_name}' in the 'Inbound Rules' list. "
+                            "Right-click it and choose 'Edit Rule...' to restrict it "
+                            "to a specific app, or disable it if you don't recognize "
+                            "it."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -101,11 +118,21 @@ class Module(ModuleBase):
                 if rule_name not in allow_all_program_rules:  # Avoid duplicate if both are "any"
                     findings.append(
                         Finding(
-                            title=f"Firewall rule allows all ports: {rule_name}",
+                            title=f"A firewall rule accepts connections on every port: {rule_name}",
                             description=(
-                                f"The rule '{rule_name}' allows inbound traffic on any port. "
-                                "This is overly permissive and could expose multiple services "
-                                "to unsolicited access."
+                                f"A rule named '{rule_name}' allows incoming connections "
+                                "on any port. "
+                                "Ports are like specific doors for different types of "
+                                "data. Opening 'any' port means your computer is accepting "
+                                "all kinds of traffic, "
+                                "which is much riskier than opening only the doors an "
+                                "app actually needs.\n\n"
+                                "What to do: Open Windows Defender Firewall with Advanced Security "
+                                "(search for 'wf.msc' in Start). "
+                                f"Find the rule '{rule_name}' in the 'Inbound Rules' list. "
+                                "Right-click it and choose 'Edit Rule...' to limit it "
+                                "to specific ports, or disable it if you don't recognize "
+                                "it."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -122,11 +149,18 @@ class Module(ModuleBase):
         if total_enabled_rules > 100:
             findings.append(
                 Finding(
-                    title=f"Excessive enabled inbound allow rules ({total_enabled_rules})",
+                    title=f"Your firewall has a lot of open rules ({total_enabled_rules})",
                     description=(
-                        f"Found {total_enabled_rules} enabled inbound allow rules. "
-                        "This is excessive and makes it difficult to audit which rules are necessary. "
-                        "Review and consolidate rules where possible."
+                        f"Your Windows Firewall has {total_enabled_rules} rules that allow "
+                        "incoming connections. "
+                        "That is a lot. It makes it hard to know which rules are actually "
+                        "needed and which might be leftovers from old software.\n\n"
+                        "This is usually not an immediate danger, but it can hide problems. "
+                        "A smaller, cleaner list is safer.\n\n"
+                        "What to do: Open Windows Defender Firewall with Advanced Security (search "
+                        "for 'wf.msc' in Start). "
+                        "Look at the 'Inbound Rules' list. If you see rules for apps you "
+                        "no longer use, you can right-click them and choose 'Disable Rule'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -147,7 +181,7 @@ class Module(ModuleBase):
         )
         findings.append(
             Finding(
-                title="Windows Firewall Rules Audit Summary",
+                title="Your Windows firewall rules",
                 description=f"{profile_summary}\n\n{rule_summary}",
                 severity=Severity.INFO,
                 category=self.category,
@@ -171,7 +205,7 @@ class Module(ModuleBase):
                     Action(
                         title=f"Review dangerous firewall setting: {finding.title}",
                         description=(
-                            "Open Windows Firewall with Advanced Security (wf.msc) and review "
+                            "Open Windows Defender Firewall with Advanced Security (wf.msc) and review "
                             "the firewall profile settings. Change DefaultInboundAction to Block "
                             "to prevent unsolicited inbound connections."
                         ),
@@ -187,7 +221,7 @@ class Module(ModuleBase):
                         Action(
                             title=f"Review and restrict rule: {finding.data.get('rule_name')}",
                             description=(
-                                "Open Windows Firewall with Advanced Security (wf.msc). "
+                                "Open Windows Defender Firewall with Advanced Security (wf.msc). "
                                 "Edit this rule to restrict it to specific programs or remove it "
                                 "if no longer needed."
                             ),
@@ -201,7 +235,7 @@ class Module(ModuleBase):
                         Action(
                             title=f"Review and restrict ports for rule: {finding.data.get('rule_name')}",
                             description=(
-                                "Open Windows Firewall with Advanced Security (wf.msc). "
+                                "Open Windows Defender Firewall with Advanced Security (wf.msc). "
                                 "Edit this rule to restrict it to specific ports or remove it "
                                 "if no longer needed."
                             ),
@@ -216,7 +250,7 @@ class Module(ModuleBase):
                             title="Review and consolidate excessive inbound allow rules",
                             description=(
                                 f"Found {finding.data.get('rule_count')} enabled inbound allow rules. "
-                                "Open Windows Firewall with Advanced Security (wf.msc) and review "
+                                "Open Windows Defender Firewall with Advanced Security (wf.msc) and review "
                                 "all rules. Consolidate or remove rules that are no longer needed. "
                                 "Keep only rules that are actively in use."
                             ),

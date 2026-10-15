@@ -11,6 +11,15 @@ remediates:
   - security.win_hosts_file_check.large_file_size
   - security.win_hosts_file_check.file_permissions
   - security.win_hosts_file_check.entry_count_summary
+steps_for:
+  security.win_hosts_file.security_domain_redirect: [1]
+  security.win_hosts_file.excessive_entries: [4]
+  security.win_hosts_file.entries_summary: [4]
+  security.win_hosts_file_check.blocked_security_domains: [2]
+  security.win_hosts_file_check.redirected_legitimate: [3]
+  security.win_hosts_file_check.large_file_size: [4]
+  security.win_hosts_file_check.file_permissions: [5]
+  security.win_hosts_file_check.entry_count_summary: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
 ---
@@ -30,7 +39,7 @@ safe first (`copy
 C:\Windows\System32\drivers\etc\hosts %USERPROFILE%\Desktop\hosts.backup`)
 so you can compare or revert if you remove something you needed.
 
-## Step 1: Security/banking domains redirected (critical)
+## Step 1: Remove suspicious banking and security redirects
 
 A banking, payment, or major platform domain (e.g. a bank, PayPal, Microsoft,
 Google, GitHub) is redirected to a non-localhost IP. This is a classic
@@ -49,7 +58,7 @@ domain to an attacker-controlled server that mimics the real site.
    `enable_windows_antivirus.md`) and check for other compromise signs via
    `respond_to_windows_malware_indicators.md`.
 
-## Step 2: Antivirus/security update domains blocked (critical)
+## Step 2: Unblock antivirus and Windows update sites
 
 An antivirus vendor or Windows Update domain is blocked or redirected. This
 specifically prevents your machine from receiving security updates or virus
@@ -67,7 +76,7 @@ detected or removed.
    redirected — is a strong signal of active malware, not a one-off
    misconfiguration; prioritize a full malware scan after cleaning the file.
 
-## Step 3: Legitimate domains redirected to suspicious IPs
+## Step 3: Check if normal websites are being redirected
 
 A well-known domain (social media, shopping, dev platforms) is redirected
 to a non-localhost IP, without being on the higher-priority
@@ -81,7 +90,7 @@ security/banking list from Step 1.
    positive for those specific entries — the flag is best treated as "worth
    a second look," not automatically malicious, when it's a known tool.
 
-## Step 4: Excessive or oversized hosts file
+## Step 4: Check if your hosts file is too large
 
 Either a very high entry count (`win_hosts_file`, over 50 entries) or a file
 size over 1MB (`win_hosts_file_check`) was detected. This is most often a
@@ -101,7 +110,7 @@ domains) rather than malware, but it's worth confirming.
    the default Windows hosts file (which contains only comments and no
    active entries) rather than trying to hand-edit thousands of lines.
 
-## Step 5: Incorrect hosts file permissions
+## Step 5: Fix file permissions to prevent tampering
 
 The hosts file's ACL indicates non-Administrator accounts have write
 access. By default only Administrators and SYSTEM should be able to modify

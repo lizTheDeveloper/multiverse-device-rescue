@@ -70,12 +70,15 @@ class Module(ModuleBase):
             level_name = "Enhanced" if telemetry_level == "2" else "Full"
             findings.append(
                 Finding(
-                    title=f"Telemetry level set to {level_name}",
+                    title=(
+                        f"Windows is sending detailed usage data to Microsoft ({level_name})"
+                    ),
                     description=(
-                        f"Windows telemetry is set to {level_name} level, "
-                        "which sends detailed usage data to Microsoft. This may impact "
-                        "privacy and consume system resources. Consider reducing to Basic "
-                        "or Minimal level for privacy-conscious systems."
+                        f"Your Windows privacy setting is currently set to {level_name}. "
+                        "This means your computer sends detailed information about how "
+                        "you use it to Microsoft.\n\n"
+                        "What to do: Open Settings > Privacy & Security > Diagnostics "
+                        "& feedback and turn off 'Send optional diagnostic data'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -105,11 +108,13 @@ class Module(ModuleBase):
         if advertising_id == "1":
             findings.append(
                 Finding(
-                    title="Advertising ID is enabled",
+                    title="Windows is tracking your app usage for ads",
                     description=(
-                        "Windows Advertising ID is enabled, allowing apps to track "
-                        "advertising preferences and behavior. Disable it in Settings > "
-                        "Privacy & Security > General > Advertising ID for better privacy."
+                        "Your Windows Advertising ID is turned on. This allows apps to "
+                        "track how you use them to show you personalized ads.\n\n"
+                        "What to do: Open Settings > Privacy & Security > General. Turn "
+                        "off the switch for 'Let apps use my advertising ID for in-app "
+                        "experiences'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -1,6 +1,7 @@
 import os
 import stat
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -72,8 +73,16 @@ class Module(ModuleBase):
                 if not os.access(usr_local, os.R_OK | os.X_OK):
                     findings.append(
                         Finding(
-                            title="/usr/local not readable",
-                            description="/usr/local exists but is not readable. This may cause Homebrew or other package managers to fail.",
+                            title="Your /usr/local folder is blocked",
+                            description=(
+                                "The folder /usr/local exists, but your system cannot "
+                                "read it. This folder is often used by software like Homebrew "
+                                "to store updates. If it is blocked, some apps might fail "
+                                "to update or run correctly.\n\n"
+                                "What to do: Try restarting your Mac. If the problem persists, "
+                                "you may need to adjust the folder's permissions in Terminal, "
+                                "but it is safer to ask a tech-savvy friend for help first."
+                            ),
                             severity=Severity.WARNING,
                             category=self.category,
                             data={
@@ -86,8 +95,16 @@ class Module(ModuleBase):
                 # If we can't even stat it, it's a problem
                 findings.append(
                     Finding(
-                        title="/usr/local not accessible",
-                        description="/usr/local exists but cannot be accessed. This may cause permission issues.",
+                        title="Your /usr/local folder is inaccessible",
+                        description=(
+                            "The folder /usr/local exists, but your system cannot access "
+                            "it at all. This often happens if a previous installation "
+                            "was interrupted or if permissions were changed incorrectly.\n\n"
+                            "What to do: Restart your Mac. If the issue remains, you can "
+                            "try to fix the permissions in Terminal, but it is best to "
+                            "consult a professional if you are not comfortable with command-line "
+                            "tools."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
@@ -108,11 +125,11 @@ class Module(ModuleBase):
             if issue == "ownership_mismatch":
                 expected = finding.data.get("expected_owner", "current_user")
                 if expected == "root":
-                    cmd = f"sudo chown root:admin {path}"
+                    cmd = f"sudo chown root:admin {quote(str(path))}"
                 elif expected == "root_only":
-                    cmd = f"sudo chown root:root {path}"
+                    cmd = f"sudo chown root:root {quote(str(path))}"
                 else:
-                    cmd = f"chown $USER {path}"
+                    cmd = f"chown \"$USER\" {quote(str(path))}"
 
                 actions.append(
                     Action(
@@ -128,7 +145,7 @@ class Module(ModuleBase):
 
             elif issue == "permissions_mismatch":
                 expected_mode = finding.data.get("expected_mode", "755")
-                cmd = f"sudo chmod {expected_mode} {path}"
+                cmd = f"sudo chmod {quote(str(expected_mode))} {quote(str(path))}"
                 actions.append(
                     Action(
                         title=f"Fix permissions of {Path(path).name}",
@@ -142,7 +159,7 @@ class Module(ModuleBase):
                 )
 
             elif issue == "sticky_bit_missing":
-                cmd = f"sudo chmod 1777 {path}"
+                cmd = f"sudo chmod 1777 {quote(str(path))}"
                 actions.append(
                     Action(
                         title=f"Fix sticky bit on {Path(path).name}",
@@ -181,10 +198,16 @@ class Module(ModuleBase):
                 expected_name = "root" if expected_uid == 0 else "current user"
                 actual_name = Path(path).owner() if expected_uid != 0 else "root"
                 return Finding(
-                    title=f"{label} has incorrect ownership",
+                    title=f"{label} is owned by the wrong account",
                     description=(
-                        f"{label} ({path}) is owned by {actual_name} "
-                        f"but should be owned by {expected_name}."
+                        f"We found that {label} ({path}) is owned by {actual_name}, but "
+                        f"it should be owned by {expected_name}. Ownership determines "
+                        "who has the highest level of control over a folder. If this "
+                        "is a system folder, having the wrong owner can sometimes allow "
+                        "apps to modify files they shouldn't be able to touch.\n\n"
+                        "What to do: If you didn't change this yourself, ask a technical "
+                        "helper to reset the owner. To look first, run in Terminal: "
+                        f"ls -ld {quote(str(path))}"
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -218,11 +241,18 @@ class Module(ModuleBase):
                 # For /tmp, we need both the mode (777) and sticky bit
                 if not has_sticky:
                     return Finding(
-                        title=f"{label} sticky bit not set",
+                        title=f"{label} is missing a safety setting",
                         description=(
-                            f"{label} ({path}) is missing the sticky bit. "
-                            f"The sticky bit (mode 1777) is required to prevent users from deleting other users' files. "
-                            f"Current mode: {oct(current_mode)}"
+                            f"The folder {label} ({path}, mode {oct(current_mode)}) is "
+                            "missing a setting called "
+                            "the 'sticky bit.' This setting prevents users from deleting "
+                            "files created by other users. Without it, anyone with access "
+                            "to this folder could potentially delete temporary files "
+                            "belonging to other people or processes.\n\n"
+                            "What to do: This is a system setting that usually doesn't "
+                            "need manual fixing unless you are running a multi-user server. "
+                            "For a personal Mac, this is likely harmless, but you can "
+                            f"check the setting in Terminal with: ls -ld {quote(str(path))}"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -237,10 +267,16 @@ class Module(ModuleBase):
                 base_mode = current_mode & ~stat.S_ISVTX
                 if base_mode != expected_mode:
                     return Finding(
-                        title=f"{label} has incorrect permissions",
+                        title=f"{label} has unusual access rights",
                         description=(
-                            f"{label} ({path}) has mode {oct(current_mode)} "
-                            f"but should have mode {oct(expected_mode | stat.S_ISVTX)}."
+                            f"The folder {label} ({path}) has access rights set to {oct(current_mode)}, "
+                            f"but they should be {oct(expected_mode | stat.S_ISVTX)}. "
+                            "Access rights control who can read, write, or execute files "
+                            "in a folder. If these are too open, it might allow other "
+                            "apps to modify files they shouldn't.\n\n"
+                            "What to do: This is often a minor configuration issue. You "
+                            "can check the current settings in Terminal by typing: "
+                            f"ls -ld {quote(str(path))}"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -255,10 +291,16 @@ class Module(ModuleBase):
                 # Just check the mode without sticky bit
                 if current_mode != expected_mode:
                     return Finding(
-                        title=f"{label} has incorrect permissions",
+                        title=f"{label} has unusual access rights",
                         description=(
-                            f"{label} ({path}) has mode {oct(current_mode)} "
-                            f"but should have mode {oct(expected_mode)}."
+                            f"The folder {label} ({path}) has access rights set to {oct(current_mode)}, "
+                            f"but they should be {oct(expected_mode)}. Access rights control "
+                            "who can read, write, or execute files in a folder. If these "
+                            "are too open, it might allow other apps to modify files "
+                            "they shouldn't.\n\n"
+                            "What to do: This is often a minor configuration issue. You "
+                            "can check the current settings in Terminal by typing: "
+                            f"ls -ld {quote(str(path))}"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

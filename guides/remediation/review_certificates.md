@@ -6,8 +6,13 @@ remediates:
   - security.certificate_audit.expired_certificates
   - security.certificate_audit.user_root_cas
   - security.certificate_audit.total_certificates
+steps_for:
+  security.certificate_audit.expired_certificates: [1, 2, 4]
+  security.certificate_audit.user_root_cas: [1, 3, 4]
+  security.certificate_audit.total_certificates: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `certificate_audit` module can
@@ -18,7 +23,7 @@ legitimate services (corporate VPNs, MDM, internal tools) if you remove
 the wrong one — **verify what a certificate is for before removing it**,
 and back up the keychain first.
 
-## Step 1: Back up before touching any keychain
+## Step 1: Back up your keychain first
 
 1. Before deleting anything, export a backup of the keychain(s) you're
    about to edit: open Keychain Access.app, select the keychain (System
@@ -26,7 +31,7 @@ and back up the keychain first.
    somewhere safe. This lets you re-import a certificate if you remove
    something you needed.
 
-## Step 2: Review and remove expired certificates
+## Step 2: Remove expired certificates
 
 `expired_certificates` lists certificates past their expiry date.
 
@@ -42,7 +47,7 @@ and back up the keychain first.
    still in use, until that config is also updated.
 3. Delete only the ones you've confirmed are stale and unreferenced.
 
-## Step 3: Verify provenance of user-installed root CAs before removing
+## Step 3: Check who added trusted root certificates
 
 `user_root_cas` lists root certificate authorities installed in the
 login keychain (as opposed to Apple's built-in trusted roots). A root CA
@@ -71,7 +76,7 @@ malware or adware wanting to intercept traffic.
    right-click > Delete, then confirm you want to remove it from the
    login keychain.
 
-## Step 4: Review certificate inventory
+## Step 4: Review your certificate list
 
 `total_certificates` is informational — the overall System keychain
 count. No action is required; it's provided as context for the findings

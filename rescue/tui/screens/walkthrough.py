@@ -14,6 +14,11 @@ def _walkthrough_markdown(guide: Guide) -> str:
     if guide.estimated_time:
         lines.append(f"*Estimated time: {guide.estimated_time}*")
     lines.append("")
+    if guide.monitoring_risk:
+        from rescue.serialize import SAFETY_NOTE
+
+        lines.append(f"> {SAFETY_NOTE}")
+        lines.append("")
     for step in guide.steps:
         marker = " _(automatable)_" if step.automatable else ""
         lines.append(f"## Step {step.number}: {step.title}{marker}")

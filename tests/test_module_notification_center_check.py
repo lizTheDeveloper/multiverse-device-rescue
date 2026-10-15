@@ -128,7 +128,7 @@ def test_notification_center_check_too_many_apps(tmp_path):
     assert len(warnings) > 0
     app_warnings = [f for f in warnings if f.data.get("check") == "app_permission_count"]
     assert len(app_warnings) > 0
-    assert "overload" in app_warnings[0].title.lower()
+    assert "many apps" in app_warnings[0].title.lower()
 
 
 def test_notification_center_check_too_many_alerts(tmp_path):
@@ -267,7 +267,7 @@ def test_notification_center_check_fix_app_permissions(tmp_path):
 
     # Should have actions for app permission issues
     app_actions = [
-        a for a in fix.actions if "permission" in a.title.lower() or "overload" in a.title.lower()
+        a for a in fix.actions if "permission" in a.title.lower() or "many apps" in a.title.lower()
     ]
     assert len(app_actions) > 0
     assert all(a.risk_level == RiskLevel.SAFE for a in app_actions)

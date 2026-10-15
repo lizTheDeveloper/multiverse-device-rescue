@@ -77,7 +77,7 @@ def test_check_with_normal_profiles(module, system_profile):
                 # Should have 1 INFO finding (profiles list)
                 assert len(result.findings) == 1
                 assert result.findings[0].severity == Severity.INFO
-                assert "Found 2 user profile(s)" in result.findings[0].title
+                assert "User profiles on your computer: 2" in result.findings[0].title
 
 
 def test_check_with_orphaned_profiles(module, system_profile):
@@ -101,7 +101,7 @@ def test_check_with_orphaned_profiles(module, system_profile):
                 # Should have 2 findings: profiles list + orphaned profiles warning
                 assert len(result.findings) == 2
                 warning_finding = [f for f in result.findings if f.severity == Severity.WARNING][0]
-                assert "orphaned" in warning_finding.title.lower()
+                assert "leftover" in warning_finding.title.lower()
                 assert warning_finding.data["type"] == "orphaned_profiles"
 
 
@@ -209,7 +209,7 @@ def test_check_skips_special_profiles(module, system_profile):
                 result = module.check(system_profile)
                 # Should only count the normal profile, not the special one
                 info_finding = [f for f in result.findings if f.severity == Severity.INFO][0]
-                assert "1 user profile" in info_finding.title
+                assert "User profiles on your computer: 1" in info_finding.title
 
 
 def test_fix_with_orphaned_profiles(module):

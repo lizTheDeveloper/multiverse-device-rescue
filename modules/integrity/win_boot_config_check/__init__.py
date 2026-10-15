@@ -33,9 +33,14 @@ class Module(ModuleBase):
         if not boot_entries:
             findings.append(
                 Finding(
-                    title="Could not retrieve boot configuration",
+                    title="We couldn't check your boot settings",
                     description=(
-                        "Failed to run bcdedit /enum. Boot configuration cannot be assessed."
+                        "We tried to look at your computer's startup instructions but "
+                        "the command failed. This means we don't know if your boot settings "
+                        "are normal or if they've been changed.\n\n"
+                        "What to do: Try running the checkup again as an administrator. "
+                        "If it still fails, your system might need a repair, so consider "
+                        "asking a trusted tech for help."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -67,11 +72,17 @@ class Module(ModuleBase):
             if not secure_boot_info["enabled"]:
                 findings.append(
                     Finding(
-                        title="Secure Boot is disabled",
+                        title="Secure Boot is turned off",
                         description=(
-                            "Secure Boot is currently disabled. This is a security risk "
-                            "and is required for Windows 11. "
-                            "Consider enabling Secure Boot in BIOS/UEFI settings."
+                            "Secure Boot is a security feature that helps ensure only "
+                            "trusted software starts your computer. It is currently off. "
+                            "This is common on older computers or if you've changed settings, "
+                            "but it does make it slightly easier for malicious software "
+                            "to hide at startup.\n\n"
+                            "What to do: Go to Settings > System > Recovery > Advanced "
+                            "startup > Restart now, then Troubleshoot > Advanced options > "
+                            "UEFI Firmware Settings, and turn Secure Boot on. If that feels "
+                            "like too much, it's safe to leave it for now."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -97,11 +108,16 @@ class Module(ModuleBase):
             if timeout_info["timeout"] == 0:
                 findings.append(
                     Finding(
-                        title="Boot timeout is 0 seconds",
+                        title="Your boot menu disappears too quickly",
                         description=(
-                            "Boot timeout is set to 0 seconds, which means you cannot select "
-                            "recovery options or alternative boot entries. "
-                            "Consider setting timeout to at least 5 seconds."
+                            "Your computer is set to skip the boot menu entirely. This "
+                            "means if you need to choose a recovery option or a different "
+                            "operating system at startup, you won't have time to press "
+                            "a key. This is a common setting, but it can make troubleshooting "
+                            "harder if your computer won't start.\n\n"
+                            "What to do: You can change this in your BIOS/UEFI settings "
+                            "if you are comfortable. If you are not, this is a low-risk "
+                            "setting and you can leave it alone until you need to troubleshoot."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -130,7 +146,7 @@ class Module(ModuleBase):
             entries_info = ", ".join(boot_entries.get("entries", [])[:5])
             findings.append(
                 Finding(
-                    title=f"Multiple boot entries found ({boot_entries['entry_count']})",
+                    title=f"Boot options: {boot_entries['entry_count']} found",
                     description=(
                         f"Found {boot_entries['entry_count']} boot entries. "
                         f"Entries: {entries_info}. "
@@ -150,7 +166,7 @@ class Module(ModuleBase):
         if boot_entries.get("default_boot_entry"):
             findings.append(
                 Finding(
-                    title=f"Default boot entry: {boot_entries['default_boot_entry']}",
+                    title=f"Default boot option: {boot_entries['default_boot_entry']}",
                     description=(
                         f"Default boot entry is set to: {boot_entries['default_boot_entry']}. "
                         "This is the entry that will boot on next restart."
@@ -170,10 +186,12 @@ class Module(ModuleBase):
             if not recovery_info["enabled"]:
                 findings.append(
                     Finding(
-                        title="Windows Recovery Environment (RE) is disabled",
+                        title="Windows Recovery Mode is turned off",
                         description=(
-                            "Windows RE is disabled. This means you cannot boot into recovery "
-                            "to troubleshoot boot failures. Consider enabling Windows RE."
+                            "Windows has a built-in repair mode that helps fix problems "
+                            "if your computer won't start. It is currently disabled.\n\n"
+                            "What to do: Open Command Prompt as administrator and run: "
+                            "reagentc /enable"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -183,7 +201,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Windows Recovery Environment (RE) is enabled",
+                        title="Windows recovery tools are enabled",
                         description=(
                             "Windows RE is enabled and can be used for troubleshooting boot issues."
                         ),
@@ -199,11 +217,17 @@ class Module(ModuleBase):
             if fast_startup_info["enabled"]:
                 findings.append(
                     Finding(
-                        title="Fast Startup is enabled",
+                        title="Fast Startup is turned on",
                         description=(
-                            "Fast Startup is enabled, which speeds up boot time but may cause "
-                            "issues with dual-boot configurations and external drives. "
-                            "If you experience boot problems, consider disabling Fast Startup."
+                            "Fast Startup makes your computer boot up faster by saving "
+                            "a snapshot of your system. However, it can sometimes cause "
+                            "issues with external drives or if you have multiple operating "
+                            "systems.\n\n"
+                            "What to do: If you are having trouble with external drives "
+                            "or booting, you can turn this off by searching for 'Power "
+                            "Options' in the Start menu, then clicking 'Choose what the "
+                            "power buttons do' and 'Change settings that are currently "
+                            "unavailable'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

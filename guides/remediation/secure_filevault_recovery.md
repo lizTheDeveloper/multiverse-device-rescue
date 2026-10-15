@@ -8,6 +8,12 @@ remediates:
   - security.filevault_recovery.no_recovery_key
   - security.filevault_recovery.users_not_all_enabled
   - security.filevault_recovery.fv_status
+steps_for:
+  security.filevault_recovery.fv_disabled: [1, 4]
+  security.filevault_recovery.recovery_key_unknown: [2, 4]
+  security.filevault_recovery.no_recovery_key: [2, 4]
+  security.filevault_recovery.users_not_all_enabled: [3, 4]
+  security.filevault_recovery.fv_status: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -18,7 +24,7 @@ aren't FileVault-enabled, and the informational status finding. All of it is
 human-only: generating a recovery key is a credential operation and the key
 itself must never be pasted into this tool or any other automation.
 
-## Step 1: Enable FileVault if it's off
+## Step 1: Turn on disk encryption if it is off
 
 If `fv_disabled` was reported, encryption isn't active yet.
 
@@ -26,7 +32,7 @@ If `fv_disabled` was reported, encryption isn't active yet.
 2. See `enable_disk_encryption.md` for the full walkthrough on turning
    FileVault on and safely capturing the recovery key during setup.
 
-## Step 2: Resolve unknown or missing recovery key status
+## Step 2: Check for a recovery key, and make one if missing
 
 If `recovery_key_unknown` was reported, verify directly by running
 `fdesetup hasinstitutionalrecoverykey` and `fdesetup
@@ -46,7 +52,7 @@ a key if the password is lost):
    "Yes".
 4. Re-run the scan to confirm the finding clears.
 
-## Step 3: Enable FileVault for accounts that are missing it
+## Step 3: Protect all user accounts with encryption
 
 If `users_not_all_enabled` was reported:
 
@@ -57,7 +63,7 @@ If `users_not_all_enabled` was reported:
    prompted.
 3. Re-run the scan to confirm all accounts now show as enabled.
 
-## Step 4: Review the status summary
+## Step 4: Check the current security status
 
 The `fv_status` finding is informational — it reports current FileVault
 state, which recovery key types are present, and which users are enabled.

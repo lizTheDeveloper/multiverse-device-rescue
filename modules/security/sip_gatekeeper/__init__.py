@@ -36,11 +36,15 @@ class Module(ModuleBase):
         if sip_enabled is False:
             findings.append(
                 Finding(
-                    title="System Integrity Protection (SIP) is disabled",
+                    title="System Integrity Protection (SIP) is turned off",
                     description=(
-                        "SIP is disabled on this machine. This is common on older "
-                        "hackintosh or development machines, but leaves the system "
-                        "vulnerable to unauthorized modifications to critical system files."
+                        "A safety feature called System Integrity Protection (SIP) is "
+                        "currently off. This is common on development machines or older "
+                        "Macs, but it means the system is more open to changes that could "
+                        "affect core files.\n\n"
+                        "What to do: If you turned it off for development work, nothing "
+                        "to do. If you didn't, follow the steps below to turn it back on "
+                        "from Recovery."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -54,11 +58,15 @@ class Module(ModuleBase):
         if gatekeeper_enabled is False:
             findings.append(
                 Finding(
-                    title="Gatekeeper is disabled",
+                    title="Gatekeeper is off, so your Mac isn't checking new apps",
                     description=(
-                        "Gatekeeper assessments are disabled. This is common on "
-                        "machines running unsigned or self-signed applications, but "
-                        "reduces protection against running malicious code."
+                        "Gatekeeper, the feature that checks apps from the internet for "
+                        "safety, is turned off. This is common if you install custom or "
+                        "unsigned software, but it means your Mac won't warn you before "
+                        "running new apps.\n\n"
+                        "What to do: Open System Settings > Privacy & Security and, under "
+                        "Security, set 'Allow applications from' to App Store & Known "
+                        "Developers."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

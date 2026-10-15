@@ -58,12 +58,23 @@ class Module(ModuleBase):
             # AutoRun is enabled for removable drives
             findings.append(
                 Finding(
-                    title="AutoRun is enabled for removable drives",
+                    title=(
+                        "Your computer runs programs automatically when you plug in a USB drive"
+                    ),
                     description=(
-                        "Windows AutoRun for removable drives (USB) is enabled. This is a "
-                        "classic malware vector that allows automatic execution of code when "
-                        "an infected USB device is connected to the system. This poses a "
-                        "significant security risk, especially for older Windows versions."
+                        "A Windows setting called AutoRun is currently on. This means "
+                        "that if you plug in a USB drive that has malicious software on "
+                        "it, your computer might start that software automatically without "
+                        "asking you first.\n\n"
+                        "This is a common way for viruses to spread, so it is safer to "
+                        "turn it off.\n\n"
+                        "What to do: Open the Start menu, type 'Local Group Policy Editor' "
+                        "and press Enter. Go to Computer Configuration > Administrative "
+                        "Templates > Windows Components > AutoPlay Policies, open 'Set "
+                        "the default behavior for AutoRun', choose Enabled and 'Do not "
+                        "execute any autorun commands'. "
+                        "If you don't have that tool, you can usually change this in the "
+                        "Registry, but it is safer to ask a tech-savvy friend for help."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -113,12 +124,20 @@ class Module(ModuleBase):
             # AutoPlay is enabled
             findings.append(
                 Finding(
-                    title="AutoPlay is enabled for removable media",
+                    title=(
+                        "Your computer opens apps automatically when you plug in a USB drive"
+                    ),
                     description=(
-                        "Windows AutoPlay for removable media is enabled. This allows "
-                        "automatic execution of handlers (like opening file explorer or "
-                        "launching applications) when USB devices are connected. "
-                        "Consider disabling this feature to reduce attack surface."
+                        "A Windows feature called AutoPlay is currently on. This makes "
+                        "your computer automatically open folders or start apps when you "
+                        "plug in a USB drive or memory card.\n\n"
+                        "While this is convenient, it can sometimes be used by malicious "
+                        "software to trick your computer into running bad programs. It "
+                        "is safer to turn this off so you can choose what to open each "
+                        "time.\n\n"
+                        "What to do: Open the Start menu and type 'AutoPlay'. In the settings "
+                        "that appear, turn off the switch for 'Use AutoPlay for all devices "
+                        "and removable media'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -149,10 +168,10 @@ class Module(ModuleBase):
 
         # This fix is INFORMATIONAL - we provide guidance but don't modify the system
         has_autorun_warning = any(
-            "AutoRun is enabled" in f.title for f in findings.findings
+            f.code == "security.win_autorun.autorun_enabled" for f in findings.findings
         )
         has_autoplay_warning = any(
-            "AutoPlay is enabled" in f.title for f in findings.findings
+            f.code == "security.win_autorun.autoplay_enabled" for f in findings.findings
         )
 
         if has_autorun_warning:

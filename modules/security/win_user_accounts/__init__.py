@@ -51,11 +51,14 @@ class Module(ModuleBase):
             if guest_enabled:
                 findings.append(
                     Finding(
-                        title="Guest account is enabled",
+                        title="Your computer's Guest account is turned on",
                         description=(
-                            "The Guest account is enabled. This allows "
-                            "anyone with physical access to log in without "
-                            "a password. Consider disabling it."
+                            "Your computer has a built-in 'Guest' account that is currently "
+                            "active. This account does not require a password. If someone "
+                            "has physical access to your device, they could use this account "
+                            "to log in and see what is on your screen.\n\n"
+                            "What to do: Open Command Prompt as administrator and run: "
+                            "net user Guest /active:no"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -72,11 +75,15 @@ class Module(ModuleBase):
             if auto_login_user:
                 findings.append(
                     Finding(
-                        title=f"Automatic login is enabled for {auto_login_user}",
+                        title=f"Your computer logs in automatically as {auto_login_user}",
                         description=(
-                            f"The system will automatically log in as '{auto_login_user}' "
-                            "on startup. This bypasses the login screen and password "
-                            "protection. Consider disabling it."
+                            "Your computer is set to skip the password screen and log "
+                            f"in directly as '{auto_login_user}' every time it starts "
+                            "up. This means anyone who picks up your unlocked computer "
+                            "can access your files and apps without entering a password.\n\n"
+                            "What to do: Press Windows+R, type netplwiz, press Enter, and "
+                            "tick 'Users must enter a user name and password to use this "
+                            "computer'. If that box isn't there, ask a technical helper."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -93,10 +100,16 @@ class Module(ModuleBase):
             if password_policy and password_policy.get("min_length") == 0:
                 findings.append(
                     Finding(
-                        title="No minimum password length policy set",
+                        title="Your computer allows passwords of any length",
                         description=(
-                            "The password policy does not enforce a minimum password length. "
-                            "Set a minimum password length requirement to strengthen security."
+                            "Your computer is not currently requiring a minimum length "
+                            "for user passwords. This means a user could set a very short, "
+                            "easy-to-guess password, which makes it simpler for someone "
+                            "else to break in if they have access to the device.\n\n"
+                            "What to do: This is a system-wide setting. If you are the "
+                            "only user, ensure your own password is long and complex. "
+                            "If you manage multiple users, ask an IT professional to enforce "
+                            "a minimum password length policy."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -112,7 +125,7 @@ class Module(ModuleBase):
             admin_list = ", ".join(admin_users)
             findings.append(
                 Finding(
-                    title=f"Multiple admin accounts found",
+                    title=f"Admin accounts on this computer: {admin_list}",
                     description=(
                         f"The following accounts have admin privileges: {admin_list}. "
                         "Review to ensure only necessary users have elevated access."

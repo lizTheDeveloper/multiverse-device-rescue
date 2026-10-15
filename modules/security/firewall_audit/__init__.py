@@ -38,11 +38,14 @@ class Module(ModuleBase):
         if "disabled" in global_state.lower():
             findings.append(
                 Finding(
-                    title="Firewall is disabled",
+                    title="Your Mac's firewall is turned off",
                     description=(
-                        "The macOS Application Firewall is currently disabled. "
-                        "This leaves the system open to unsolicited incoming "
-                        "connections."
+                        "Your Mac's built-in firewall is currently off. This means the "
+                        "computer will accept unsolicited connection requests from other "
+                        "devices on your network. Turning it on blocks unwanted "
+                        "traffic.\n\n"
+                        "What to do: Open System Settings > Network > Firewall and turn "
+                        "it on."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -55,11 +58,14 @@ class Module(ModuleBase):
         if "disabled" in stealth_state.lower():
             findings.append(
                 Finding(
-                    title="Stealth mode is disabled",
+                    title="Your Mac responds to network pings",
                     description=(
-                        "Stealth mode is off, so this Mac responds to network "
-                        "probes (e.g. ping) that could reveal it to attackers "
-                        "scanning the network."
+                        "Your Mac's 'stealth mode' is off. This means if other devices "
+                        "on your network send a basic 'ping' request, your Mac replies, "
+                        "letting them know it is online. It simply makes your Mac easier "
+                        "to find on a local network.\n\n"
+                        "What to do: Open System Settings > Network > Firewall, click "
+                        "Options, and turn on 'Enable stealth mode'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

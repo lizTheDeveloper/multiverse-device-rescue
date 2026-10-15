@@ -89,7 +89,7 @@ class Module(ModuleBase):
             # No recent panics - healthy
             findings.append(
                 Finding(
-                    title="No kernel panics detected in last 30 days",
+                    title="No system crashes in the last 30 days",
                     description="Your system has not experienced any kernel panics in the last 30 days. This is a good sign of system stability.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -118,13 +118,15 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title=f"Kernel panics detected: {panic_count} in last 30 days",
+                title=f"Your Mac crashed {panic_count} times in the last 30 days",
                 description=(
-                    f"Your system has experienced {panic_count} kernel panics in the last 30 days. "
-                    f"Most recent: {most_recent_date}. "
-                    f"Kernel panics indicate serious hardware or system software issues. "
-                    f"This may be caused by faulty hardware (GPU, RAM, storage), "
-                    f"incompatible third-party kernel extensions (kexts), or system software bugs."
+                    f"Your Mac has crashed and restarted {panic_count} times in the last "
+                    f"30 days. The most recent crash happened on {most_recent_date}. A "
+                    "crash usually means a problem with a part of your computer (like "
+                    "memory or storage) or a piece of software that doesn't play well "
+                    "with your system.\n\n"
+                    "What to do: If this is happening often, back up your files and visit "
+                    "an Apple Store or authorized technician to check your hardware."
                 ),
                 severity=severity,
                 category=self.category,
@@ -151,7 +153,7 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title="Identified potential panic causes",
+                    title="Possible reasons for system crashes",
                     description=(
                         f"Analysis of panic logs suggests these potential causes: {causes_str}. "
                         f"Common causes include GPU drivers, memory issues, Thunderbolt devices, "

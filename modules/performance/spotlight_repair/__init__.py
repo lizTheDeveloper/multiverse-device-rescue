@@ -56,11 +56,14 @@ class Module(ModuleBase):
         if not indexing_enabled:
             findings.append(
                 Finding(
-                    title="Spotlight indexing is disabled on boot volume",
+                    title="Spotlight search is turned off on your main drive",
                     description=(
-                        "Spotlight is disabled on your boot volume (/). "
-                        "This means Spotlight search and system features that depend on it won't work. "
-                        "To enable: sudo mdutil -i on /"
+                        "Spotlight is the search tool on your Mac. Right now, it is turned "
+                        "off for your main drive. This means you can't use the search "
+                        "bar to find files, and some system features that rely on it won't "
+                        "work.\n\n"
+                        "What to do: Indexing has to be turned back on from Terminal; ask "
+                        "a technical helper to run: sudo mdutil -i on /"
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -104,11 +107,17 @@ class Module(ModuleBase):
         if high_cpu_mds:
             findings.append(
                 Finding(
-                    title="Spotlight indexing (mds) consuming excessive CPU",
+                    title=(
+                        f"Spotlight search is using a lot of power ({mds_cpu_percent:.1f}% CPU)"
+                    ),
                     description=(
-                        f"The Spotlight indexing process (mds) is using {mds_cpu_percent:.1f}% CPU. "
-                        "This indicates runaway indexing which can cause high CPU usage and slow performance. "
-                        "Consider rebuilding the index: sudo mdutil -E /"
+                        "The background process that updates Spotlight search is using "
+                        f"{mds_cpu_percent:.1f}% of your computer's power. This is likely "
+                        "because Spotlight is trying to scan a lot of files at once. "
+                        "It can make your Mac feel slow or hot.\n\n"
+                        "What to do: Give it time to finish. If it stays high for a day, "
+                        "rebuild the index: open System Settings > Siri & Spotlight > "
+                        "Spotlight Privacy, add your Macintosh HD, then remove it again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -145,11 +154,17 @@ class Module(ModuleBase):
         if very_large_index:
             findings.append(
                 Finding(
-                    title="Spotlight index is very large",
+                    title=(
+                        f"Spotlight search data is taking up a lot of space ({_fmt_bytes(index_size_bytes)})"
+                    ),
                     description=(
-                        f"Spotlight index is {_fmt_bytes(index_size_bytes)} - exceeding 5GB. "
-                        "A bloated index can cause performance degradation, high CPU usage, and battery drain. "
-                        "Consider rebuilding: sudo mdutil -E /"
+                        "Spotlight keeps a list of your files to help you find them quickly. "
+                        f"This list is currently {_fmt_bytes(index_size_bytes)}. That "
+                        "is larger than usual and can slow down your Mac or drain your "
+                        "battery.\n\n"
+                        "What to do: To rebuild it, open System Settings > Siri & "
+                        "Spotlight > Spotlight Privacy, add your Macintosh HD, then "
+                        "remove it again. Spotlight starts a fresh index."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

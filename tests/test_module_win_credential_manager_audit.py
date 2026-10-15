@@ -171,7 +171,7 @@ def test_credential_sprawl_warning():
         f
         for f in result.findings
         if f.severity == Severity.WARNING
-        and "sprawl" in f.title.lower()
+        and f.code == "security.win_credential_manager_audit.credential_sprawl"
     ]
     assert len(sprawl_warnings) == 1
     assert sprawl_warnings[0].data["credential_count"] == 52
@@ -191,7 +191,7 @@ def test_domain_credentials_on_non_domain_joined():
         f
         for f in result.findings
         if f.severity == Severity.WARNING
-        and "domain credentials" in f.title.lower()
+        and f.code == "security.win_credential_manager_audit.domain_credentials_non_domain_joined"
     ]
     assert len(domain_warnings) == 1
     assert domain_warnings[0].data["domain_credential_count"] == 2
@@ -211,7 +211,7 @@ def test_generic_sensitive_credentials_warning():
         f
         for f in result.findings
         if f.severity == Severity.WARNING
-        and "generic" in f.title.lower()
+        and f.code == "security.win_credential_manager_audit.generic_credentials_sensitive_services"
     ]
     assert len(generic_warnings) == 1
     assert generic_warnings[0].data["generic_sensitive_count"] == 3
@@ -227,7 +227,7 @@ def test_info_inventory_summary():
 
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
     assert len(info_findings) == 1
-    assert "inventory" in info_findings[0].title.lower()
+    assert "saved windows passwords" in info_findings[0].title.lower()
     assert info_findings[0].data["total_credentials"] == 2
     assert "Domain Password" in info_findings[0].data["by_type"]
     assert "Generic" in info_findings[0].data["by_type"]

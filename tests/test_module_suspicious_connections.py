@@ -77,7 +77,7 @@ BadApp    12348     user   13u  IPv4 0x1234567890123459      0t0  TCP *:8888 (LI
 
     assert result.has_issues
     assert len(result.findings) == 1
-    assert "unusual listening port" in result.findings[0].title.lower()
+    assert "waiting for connections" in result.findings[0].title.lower()
     assert result.findings[0].severity == Severity.WARNING
     assert result.findings[0].data["port"] == 8888
 

@@ -76,7 +76,7 @@ def test_hostname_check_inconsistent_names():
         result = mod.check(_make_profile())
     assert result.has_issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("inconsistent" in f.title.lower() for f in warnings)
+    assert any("don't match" in f.title.lower() for f in warnings)
 
 
 def test_hostname_check_hostname_with_spaces():
@@ -116,7 +116,7 @@ def test_hostname_check_special_characters():
         result = mod.check(_make_profile())
     assert result.has_issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("special" in f.title.lower() or "character" in f.title.lower() for f in warnings)
+    assert any("unusual symbols" in f.title.lower() for f in warnings)
 
 
 def test_hostname_check_hostname_not_set():

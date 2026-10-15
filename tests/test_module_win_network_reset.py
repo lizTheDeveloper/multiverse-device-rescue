@@ -261,7 +261,7 @@ def test_win_network_reset_winsock_contaminated():
         and f.severity == Severity.WARNING
     ]
     assert len(winsock_warnings) > 0
-    assert "unusual" in winsock_warnings[0].title.lower() or "35" in winsock_warnings[0].title
+    assert "changed manually" in winsock_warnings[0].title.lower() or "35" in winsock_warnings[0].title
 
 
 def test_win_network_reset_dns_stopped():
@@ -281,7 +281,7 @@ def test_win_network_reset_dns_stopped():
         and f.severity == Severity.WARNING
     ]
     assert len(dns_warnings) > 0
-    assert "not running" in dns_warnings[0].title.lower()
+    assert "is off" in dns_warnings[0].title.lower()
 
 
 def test_win_network_reset_dhcp_stopped():
@@ -301,7 +301,7 @@ def test_win_network_reset_dhcp_stopped():
         and f.severity == Severity.WARNING
     ]
     assert len(dhcp_warnings) > 0
-    assert "not running" in dhcp_warnings[0].title.lower()
+    assert "is off" in dhcp_warnings[0].title.lower()
 
 
 def test_win_network_reset_tcp_params_modified():
@@ -321,7 +321,7 @@ def test_win_network_reset_tcp_params_modified():
         and f.severity == Severity.WARNING
     ]
     assert len(tcp_warnings) > 0
-    assert "unusual" in tcp_warnings[0].title.lower() or "modified" in tcp_warnings[0].title.lower()
+    assert "changed manually" in tcp_warnings[0].title.lower() or "modified" in tcp_warnings[0].title.lower()
 
 
 def test_win_network_reset_fix_is_informational():

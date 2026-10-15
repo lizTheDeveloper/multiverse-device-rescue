@@ -43,8 +43,14 @@ class Module(ModuleBase):
         if not version_info:
             findings.append(
                 Finding(
-                    title="Unable to determine macOS version",
-                    description="Could not retrieve macOS version information.",
+                    title="We couldn't check your macOS version",
+                    description=(
+                        "The checkup couldn't read your Mac's operating system version, "
+                        "so we can't confirm it's still supported. That isn't the same as "
+                        "everything being fine.\n\n"
+                        "What to do: See your version in the Apple menu > About This Mac, "
+                        "and check System Settings > General > Software Update."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "version_unavailable"},
@@ -100,11 +106,20 @@ class Module(ModuleBase):
         if not support_info.get("security_updates", False):
             findings.append(
                 Finding(
-                    title=f"macOS version no longer receiving security updates",
+                    title=(
+                        f"Your Mac ({support_info.get('name', f'macOS {major_version}')}) "
+                        "no longer gets security fixes"
+                    ),
                     description=(
-                        f"This Mac is running {support_info.get('name', f'macOS {major_version}')}, "
-                        "which is no longer receiving security updates from Apple. "
-                        "This poses a security risk. Consider upgrading to a supported macOS version."
+                        f"Your Mac is running {support_info.get('name', f'macOS {major_version}')}. "
+                        "Apple no longer provides security updates for this version. "
+                        "This means new vulnerabilities won't be patched, which can make "
+                        "your Mac easier for bad actors to exploit.\n\n"
+                        "What to do: Open System Preferences > Software Update (System "
+                        "Settings > General > Software Update on newer Macs) and install "
+                        "the newest version offered. If none is offered, this Mac is too "
+                        "old for newer versions: avoid banking and other sensitive "
+                        "accounts on it, and plan to replace it."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -120,11 +135,12 @@ class Module(ModuleBase):
         elif major_version == "12":
             findings.append(
                 Finding(
-                    title="macOS Monterey receiving extended security updates only",
+                    title="Your Mac (Monterey) only gets security updates",
                     description=(
-                        "This Mac is running macOS 12 (Monterey), which is receiving "
-                        "extended security-only updates but no major feature updates. "
-                        "Consider upgrading to macOS 13 (Ventura) or later for full support."
+                        "Your Mac is running macOS 12 (Monterey). Apple is only sending "
+                        "security fixes, not new features, and those will stop soon.\n\n"
+                        "What to do: Open System Preferences > Software Update and install "
+                        "the newest macOS offered for your Mac."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -139,11 +155,15 @@ class Module(ModuleBase):
         if architecture == "x86_64":
             findings.append(
                 Finding(
-                    title="Intel Mac approaching end of Apple support lifecycle",
+                    title="Your Mac uses older Intel hardware",
                     description=(
-                        "This is an Intel-based Mac. Apple has transitioned to Apple Silicon, "
-                        "and Intel Mac support will eventually end. Ensure this Mac is running "
-                        "the latest macOS version compatible with your hardware."
+                        "Your Mac uses an Intel chip. Apple has moved to its own chips "
+                        "(Apple Silicon) and will eventually stop supporting Intel Macs. "
+                        "That means your Mac may stop receiving updates sooner than newer "
+                        "models.\n\n"
+                        "What to do: Nothing urgent. Just keep your Mac updated to the "
+                        "latest version it supports via System Settings > General > Software "
+                        "Update."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -46,7 +46,7 @@ def test_core_services_reset_cache_not_found():
 
     assert result.has_issues
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
-    assert any("cache not found" in f.title.lower() for f in info_findings)
+    assert any("cache: not found" in f.title.lower() for f in info_findings)
 
 
 def test_core_services_reset_normal_database_size():
@@ -69,12 +69,12 @@ def test_core_services_reset_normal_database_size():
     # Should not have WARNING for database size
     size_warnings = [
         f for f in result.findings
-        if f.severity == Severity.WARNING and "bloated" in f.title.lower()
+        if f.severity == Severity.WARNING and "larger than usual" in f.title.lower()
     ]
     assert len(size_warnings) == 0
 
     # Should have INFO status
-    assert any("status" in f.title.lower() for f in result.findings)
+    assert any("app registration database" in f.title.lower() for f in result.findings)
 
 
 def test_core_services_reset_bloated_database():
@@ -98,7 +98,7 @@ def test_core_services_reset_bloated_database():
     assert result.has_issues
     size_warnings = [
         f for f in result.findings
-        if f.severity == Severity.WARNING and "bloated" in f.title.lower()
+        if f.severity == Severity.WARNING and "larger than usual" in f.title.lower()
     ]
     assert len(size_warnings) == 1
     assert "75" in size_warnings[0].title  # Should mention size
@@ -123,7 +123,7 @@ def test_core_services_reset_high_registration_count():
     assert result.has_issues
     reg_warnings = [
         f for f in result.findings
-        if f.severity == Severity.WARNING and "registration" in f.title.lower()
+        if f.severity == Severity.WARNING and "many entries" in f.title.lower()
     ]
     assert len(reg_warnings) == 1
     assert "150" in reg_warnings[0].title
@@ -147,13 +147,13 @@ def test_core_services_reset_normal_registration_count():
     # Should not have WARNING for registration count
     reg_warnings = [
         f for f in result.findings
-        if f.severity == Severity.WARNING and "registration" in f.title.lower()
+        if f.severity == Severity.WARNING and "many entries" in f.title.lower()
     ]
     assert len(reg_warnings) == 0
 
     # Should have INFO status
     info_findings = [f for f in result.findings if f.severity == Severity.INFO]
-    assert any("status" in f.title.lower() for f in info_findings)
+    assert any("app registration database" in f.title.lower() for f in info_findings)
 
 
 def test_core_services_reset_multiple_csstore_files():
@@ -177,7 +177,7 @@ def test_core_services_reset_multiple_csstore_files():
     # Should have WARNING for bloated database
     size_warnings = [
         f for f in result.findings
-        if f.severity == Severity.WARNING and "bloated" in f.title.lower()
+        if f.severity == Severity.WARNING and "larger than usual" in f.title.lower()
     ]
     assert len(size_warnings) == 1
     # Total should be 55MB

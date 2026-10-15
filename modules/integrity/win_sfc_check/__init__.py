@@ -35,11 +35,16 @@ class Module(ModuleBase):
         if cbs_results is None:
             findings.append(
                 Finding(
-                    title="Could not read CBS.log",
+                    title="We couldn't read your system file log",
                     description=(
-                        "Failed to read C:\\Windows\\Logs\\CBS\\CBS.log. "
-                        "SFC scan results cannot be assessed. "
-                        "Ensure you have Administrator privileges."
+                        "We tried to check a Windows log file (C:\\Windows\\Logs\\CBS\\CBS.log) "
+                        "to see if your system files are healthy, but we didn't have permission "
+                        "to open it. This usually means the checkup wasn't run with Administrator "
+                        "rights. Because we couldn't read the log, we don't know if your "
+                        "system files are okay or not. This is not the same as everything "
+                        "being fine.\n\n"
+                        "What to do: Run the checkup again as an administrator. On Windows, "
+                        "right-click the app and select 'Run as administrator'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -58,14 +63,19 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"SFC found {cannot_repair} corrupted file(s) that cannot be repaired",
+                    title=(
+                        f"Windows found {cannot_repair} broken system files it couldn't fix"
+                    ),
                     description=(
-                        f"Windows System File Checker detected {cannot_repair} corrupted system files "
-                        f"that it could NOT repair. This indicates system integrity is compromised. "
-                        f"Corrupted files: {file_list}. "
-                        "This may cause crashes, blue screens, and broken Windows features. "
-                        "Attempt to repair by running 'sfc /scannow' from an elevated Command Prompt or "
-                        "use 'DISM /RestoreHealth' to restore from Windows Update."
+                        f"Windows checked its own files and found {cannot_repair} that "
+                        "were damaged, but it wasn't able to repair them automatically. "
+                        f"The affected files include: {file_list}. This can cause your "
+                        "computer to crash, show blue screens, or have features stop "
+                        "working.\n\n"
+                        "What to do: Open an elevated Command Prompt (search 'cmd', right-click, "
+                        "'Run as administrator') and type: sfc /scannow. If that doesn't "
+                        "fix it, type: DISM /Online /Cleanup-Image /RestoreHealth and "
+                        "restart your computer."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -82,11 +92,15 @@ class Module(ModuleBase):
             repaired = cbs_results.get("repaired_count", 0)
             findings.append(
                 Finding(
-                    title=f"SFC found and repaired {repaired} corrupted file(s)",
+                    title=f"Windows fixed {repaired} broken system files",
                     description=(
-                        f"Windows System File Checker found {repaired} corrupted system files "
-                        f"and successfully repaired them. This indicates the system was previously "
-                        f"broken but is now fixed. Continue monitoring for any recurring issues."
+                        f"Windows checked its own files and found {repaired} that were "
+                        "damaged. It successfully repaired them automatically. This is "
+                        "good news: your system was a little broken, but it is fixed "
+                        "now.\n\n"
+                        "What to do: Nothing right now. Just keep using your computer "
+                        "normally. If you start seeing crashes or errors, run the checkup "
+                        "again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -102,11 +116,16 @@ class Module(ModuleBase):
         if pending_ops and pending_ops.get("pending_count", 0) > 0:
             findings.append(
                 Finding(
-                    title="Pending file rename operations detected",
+                    title=(
+                        f"Windows is waiting to finish an update ({pending_ops['pending_count']} "
+                        "files)"
+                    ),
                     description=(
-                        f"Found {pending_ops['pending_count']} file(s) scheduled for replacement on next reboot. "
-                        "These are typically files being updated by Windows Update or repaired by SFC. "
-                        "A system reboot is required to complete these operations."
+                        f"Windows has {pending_ops['pending_count']} files ready to be "
+                        "replaced, but it needs a restart to finish the job. This usually "
+                        "happens after Windows Update or a system repair.\n\n"
+                        "What to do: Restart your computer when it is convenient. This "
+                        "will let Windows finish the update."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -123,11 +142,14 @@ class Module(ModuleBase):
             if last_scan_age > 90:
                 findings.append(
                     Finding(
-                        title=f"SFC has not been run recently ({last_scan_age} days ago)",
+                        title=f"Your last system file check was {last_scan_age} days ago",
                         description=(
-                            f"The last SFC scan was {last_scan_age} days ago. "
-                            "It is recommended to run SFC periodically to detect and repair corrupted "
-                            "system files. Run 'sfc /scannow' from an elevated Command Prompt."
+                            f"Windows hasn't checked its own files for damage in {last_scan_age} "
+                            "days. It's a good habit to run this check every few months "
+                            "to catch problems early.\n\n"
+                            "What to do: Open an elevated Command Prompt (search 'cmd', "
+                            "right-click, 'Run as administrator') and type: sfc /scannow. "
+                            "Then restart your computer."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -144,7 +166,7 @@ class Module(ModuleBase):
             if cbs_results.get("scan_found", False):
                 findings.append(
                     Finding(
-                        title="SFC scan shows no integrity violations",
+                        title="System file check: no problems found",
                         description=(
                             "The most recent SFC scan found no integrity violations. "
                             "Windows system files are intact and healthy."
@@ -161,7 +183,7 @@ class Module(ModuleBase):
                 # No issues found, add status info
                 findings.append(
                     Finding(
-                        title="SFC status check complete",
+                        title="System file check finished",
                         description="System File Checker scan results reviewed.",
                         severity=Severity.INFO,
                         category=self.category,

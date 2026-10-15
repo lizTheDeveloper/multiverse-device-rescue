@@ -6,6 +6,9 @@ remediates:
   - security.linux_firewall_check.no_firewall
   - security.linux_firewall_check.firewall_inactive
   - security.linux_firewall_check.default_allow_inbound
+steps_for:
+  security.linux_firewall_check.firewall_inactive: [2, 3]
+  security.linux_firewall_check.default_allow_inbound: [2, 3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -15,13 +18,13 @@ to yours. Without one, any program you start can be reached by anyone on the
 same network: cafe wifi, a hotel, a shared office. Turning it on is a safe,
 common change and will not break normal browsing, email or video calls.
 
-## Step 1: Install a simple firewall if there isn't one
+## Step 1: Install a simple firewall tool
 
 Open **Software** (or your package manager) and install **ufw**. Many
 systems already include it. The graphical version is called **GUFW**; installing
 it gives you a window instead of commands.
 
-## Step 2: Turn it on and block incoming connections
+## Step 2: Turn on the firewall and block incoming traffic
 
 - With **GUFW**: open it, switch **Status** to **On**, and set **Incoming** to
   **Deny**.
@@ -31,7 +34,7 @@ it gives you a window instead of commands.
 Leave **Outgoing** on **Allow**. If you use sharing, remote desktop or SSH to
 reach this computer on purpose, add an allow rule for that one service.
 
-## Step 3: Check it is running
+## Step 3: Check that the firewall is running
 
 In GUFW the status should say **On**. Optional, from a terminal:
 `sudo ufw status verbose` should show **Status: active** and

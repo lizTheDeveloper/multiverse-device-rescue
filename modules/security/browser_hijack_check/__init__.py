@@ -242,11 +242,17 @@ class Module(ModuleBase):
             if is_suspicious:
                 findings.append(
                     Finding(
-                        title="Safari homepage appears suspicious",
+                        title=(
+                            f"Safari is opening to a website you may not recognize ({homepage})"
+                        ),
                         description=(
-                            f"Safari homepage is set to: {homepage}\n"
-                            "This does not match a known legitimate homepage. "
-                            "This could indicate browser hijacking or malware."
+                            f"Your Safari browser is set to open to {homepage} when you "
+                            "start it. This website is not one of the standard, well-known "
+                            "homepages. This often happens when a piece of software changes "
+                            "your browser settings without asking.\n\n"
+                            "What to do: Open Safari, go to Settings (or Preferences) "
+                            "> General, and change the 'Homepage' back to a site you "
+                            "trust, like apple.com or your preferred search engine."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -262,11 +268,17 @@ class Module(ModuleBase):
             if is_suspicious:
                 findings.append(
                     Finding(
-                        title="Safari search engine appears suspicious",
+                        title=(
+                            f"Safari is using a search engine you may not recognize ({search_engine})"
+                        ),
                         description=(
-                            f"Safari search engine is set to: {search_engine}\n"
-                            "This does not match a known legitimate search engine. "
-                            "This could indicate browser hijacking or malware."
+                            f"Your Safari browser is set to use {search_engine} for your "
+                            "searches. This is not one of the standard search engines. "
+                            "This often happens when a piece of software changes your "
+                            "browser settings without asking.\n\n"
+                            "What to do: Open Safari, go to Settings (or Preferences) "
+                            "> Search, and select a search engine you trust, like Google, "
+                            "Bing, or DuckDuckGo."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -286,11 +298,18 @@ class Module(ModuleBase):
         if is_managed:
             findings.append(
                 Finding(
-                    title="Chrome is managed by enterprise policy",
+                    title="Chrome is controlled by an organization policy",
                     description=(
-                        "Chrome is managed by enterprise policy settings. "
-                        "Verify that these policies are from your organization and trusted. "
-                        "Malware can sometimes use policy settings to hijack browser behavior."
+                        "Your Chrome browser is managed by 'enterprise policy' settings. "
+                        "This usually happens if you use a work or school computer. If "
+                        "this is your personal device, it is unusual. Sometimes, unwanted "
+                        "software uses these settings to force your browser to visit certain "
+                        "sites or block your changes, so something is controlling your "
+                        "browser.\n\n"
+                        "What to do: If this is a work or school device, ask your IT team "
+                        "if this is normal. If it is your personal device, check if you "
+                        "recently installed any new software or extensions that might "
+                        "have added this."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -306,11 +325,17 @@ class Module(ModuleBase):
             if is_suspicious:
                 findings.append(
                     Finding(
-                        title="Chrome homepage appears suspicious",
+                        title=(
+                            f"Chrome is opening to a website you may not recognize ({homepage})"
+                        ),
                         description=(
-                            f"Chrome homepage is set to: {homepage}\n"
-                            "This does not match a known legitimate homepage. "
-                            "This could indicate browser hijacking or malware."
+                            f"Your Chrome browser is set to open to {homepage} when you "
+                            "start it. This website is not one of the standard, well-known "
+                            "homepages. This often happens when a piece of software changes "
+                            "your browser settings without asking.\n\n"
+                            "What to do: Open Chrome, go to Settings > On startup, and "
+                            "change the setting to 'Open a specific page or set of pages' "
+                            "and enter a site you trust."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -326,11 +351,17 @@ class Module(ModuleBase):
             if is_suspicious:
                 findings.append(
                     Finding(
-                        title="Chrome search engine appears suspicious",
+                        title=(
+                            f"Chrome is using a search engine you may not recognize ({search_engine})"
+                        ),
                         description=(
-                            f"Chrome search engine is set to: {search_engine}\n"
-                            "This does not match a known legitimate search engine. "
-                            "This could indicate browser hijacking or malware."
+                            f"Your Chrome browser is set to use {search_engine} for your "
+                            "searches. This is not one of the standard search engines. "
+                            "This often happens when a piece of software changes your "
+                            "browser settings without asking.\n\n"
+                            "What to do: Open Chrome, go to Settings > Search engine "
+                            "> Search engine used in the address bar, and select a search "
+                            "engine you trust."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -352,11 +383,17 @@ class Module(ModuleBase):
             if is_suspicious:
                 findings.append(
                     Finding(
-                        title="Firefox homepage appears suspicious",
+                        title=(
+                            f"Firefox is opening to a website you may not recognize ({homepage})"
+                        ),
                         description=(
-                            f"Firefox homepage is set to: {homepage}\n"
-                            "This does not match a known legitimate homepage. "
-                            "This could indicate browser hijacking or malware."
+                            f"Your Firefox browser is set to open to {homepage} when you "
+                            "start it. This website is not one of the standard, well-known "
+                            "homepages. This often happens when a piece of software changes "
+                            "your browser settings without asking.\n\n"
+                            "What to do: Open Firefox, go to Settings > Home, and change "
+                            "the 'Homepage and new windows' option back to a site you "
+                            "trust."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -372,11 +409,17 @@ class Module(ModuleBase):
             if is_suspicious:
                 findings.append(
                     Finding(
-                        title="Firefox search engine appears suspicious",
+                        title=(
+                            f"Firefox is using a search engine you may not recognize ({search_engine})"
+                        ),
                         description=(
-                            f"Firefox search engine is set to: {search_engine}\n"
-                            "This does not match a known legitimate search engine. "
-                            "This could indicate browser hijacking or malware."
+                            f"Your Firefox browser is set to use {search_engine} for your "
+                            "searches. This is not one of the standard search engines. "
+                            "This often happens when a piece of software changes your "
+                            "browser settings without asking.\n\n"
+                            "What to do: Open Firefox, go to Settings > Search, and select "
+                            "a search engine you trust from the 'Default Search Engine' "
+                            "dropdown."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

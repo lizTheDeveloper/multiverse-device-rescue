@@ -26,6 +26,7 @@ import os
 import re
 import stat
 from pathlib import Path
+from shlex import quote
 
 from rescue.command import run
 from rescue.fsbounds import WalkLimits, bounded_walk, is_dir_nofollow
@@ -125,7 +126,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title=f"{len(entries)} startup entries inventoried",
+                title=f"{len(entries)} items set to start automatically",
                 description=(
                     "Every place something can arrange to run again on this machine, "
                     "listed so you can look for the one you do not recognise. Most "
@@ -219,15 +220,18 @@ class Module(ModuleBase):
                     title=f"A startup entry {explanation}",
                     description=(
                         f"{entry['kind']}: {path}\n\n"
-                        f"Matched: {match.group(0)[:200]}\n\n"
-                        "Running code fetched from the network at every login or boot is "
-                        "how a compromise stays alive across reboots. Some developer "
-                        "tooling does install itself this way, so check whether you "
-                        "recognise it before acting — but do check.\n\n"
-                        "What to do: if you do not recognise it, do not delete it. Write "
-                        "down the file path, take a photo, and ask an advocate or a "
-                        "trusted technical person for help (removing it can alert "
-                        "whoever set it up)."
+                        f"Found: {match.group(0)[:200]}\n\n"
+                        "This entry runs code downloaded from the internet every time "
+                        "you log in or restart. While some developer tools do this, it "
+                        "is also a common way for malicious software to stay active across "
+                        "restarts. Please check if you recognize this entry.\n\n"
+                        "If you think someone close to you may have installed this to "
+                        "monitor you, talk to an advocate first (US National Domestic "
+                        "Violence Hotline: 1-800-799-7233, or text START to 88788). Removing "
+                        "it can alert the person who installed it.\n\n"
+                        "What to do: If you do not recognize this, do not delete it yet. "
+                        "Write down the file path, take a photo, and ask an advocate "
+                        "or trusted technical person for help."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -250,17 +254,22 @@ class Module(ModuleBase):
             ):
                 findings.append(
                     Finding(
-                        title="A startup entry runs a program from a temporary directory",
+                        title="A startup entry runs a program from a temporary folder",
                         description=(
                             f"{entry['kind']}: {path}\n\n"
                             f"Line: {line.strip()[:200]}\n\n"
-                            "/tmp, /var/tmp, and /dev/shm are cleared on reboot and are "
-                            "writable by every local account. Software that expects to "
-                            "persist does not install itself there; malware does, because "
-                            "it can write there without privileges.\n\n"
-                            "What to do: if you do not recognise this entry, do not delete "
-                            "it. Note the file path and ask a trusted technical person or "
-                            "an advocate to help."
+                            "This entry runs a program from a temporary folder (like "
+                            "/tmp). These folders are cleared when you restart and can "
+                            "be written to by any user. Legitimate software does not "
+                            "install itself here; malicious software often does because "
+                            "it can hide in these folders without needing special permissions.\n\n"
+                            "If you think someone close to you may have installed this "
+                            "to monitor you, talk to an advocate first (US National Domestic "
+                            "Violence Hotline: 1-800-799-7233, or text START to 88788). "
+                            "Removing it can alert the person who installed it.\n\n"
+                            "What to do: If you do not recognize this entry, do not delete "
+                            "it. Note the file path and ask a trusted technical person "
+                            "or advocate to help."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -280,15 +289,17 @@ class Module(ModuleBase):
         if mode is not None and mode & stat.S_IWOTH:
             findings.append(
                 Finding(
-                    title="A startup file is writable by any local account",
+                    title="A startup file can be changed by any user on this computer",
                     description=(
-                        f"{entry['kind']}: {path} (mode {oct(mode)})\n\n"
-                        "Anything running on this machine — including software you ran "
-                        "once and forgot — can rewrite this file and have its own code run "
-                        "at the next boot or login. This is a privilege-escalation path "
-                        "whether or not anything has used it yet.\n\n"
-                        "What to do: have the file's permissions tightened so only the "
-                        "administrator can change it ('sudo chmod go-w' on that path)."
+                        f"{entry['kind']}: {path} (permissions: {oct(mode)})\n\n"
+                        "This file is set up so that any account on this computer can "
+                        "change it. This means that if you run any software that is not "
+                        "safe, it could secretly add its own code to this file to run "
+                        "every time you log in. This is a security risk because it allows "
+                        "programs to gain more power than they should.\n\n"
+                        "What to do: Make the file writable only by its owner: in a "
+                        "terminal, run sudo chmod go-w followed by the file path shown "
+                        "above. Type the path yourself rather than pasting it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -323,18 +334,21 @@ class Module(ModuleBase):
             return []
         return [
             Finding(
-                title="A library is being preloaded into every process on this system",
+                title="A file is forcing extra code into every program on your computer",
                 description=(
-                    f"{self.ld_preload_path} lists:\n{content[:500]}\n\n"
-                    "This file forces a library into every dynamically linked program that "
-                    "starts. Legitimate uses exist (some sandboxes and compatibility "
-                    "shims), but it is also the classic userland rootkit mechanism, used "
-                    "to hide files and processes from the tools you would check with. If "
-                    "you did not put this here, treat this machine as compromised and stop "
-                    "using it for anything sensitive until it is investigated.\n\n"
-                    "What to do: do not sign in to email or banking on this computer. "
-                    "Use a different device for that, and ask an advocate or trusted "
-                    "technical person to help you reinstall."
+                    f"Your system file {self.ld_preload_path} lists:\n{content[:500]}\n\n"
+                    "This file tells your computer to load a specific piece of software "
+                    "into every program that starts. While some technical tools use this, "
+                    "it is also a common way for hidden malicious software to stay active "
+                    "and hide from standard security checks. If you did not intentionally "
+                    "set this up, it is a serious sign that your computer may be compromised.\n\n"
+                    "If you think someone close to you may have installed this to monitor "
+                    "you, talk to an advocate first (US National Domestic Violence Hotline: "
+                    "1-800-799-7233, or text START to 88788). Removing it can alert the "
+                    "person who installed it.\n\n"
+                    "What to do: Stop using this computer for email or banking immediately. "
+                    "Use a different device for those tasks and ask a trusted technical "
+                    "person or advocate to help you safely reinstall your system."
                 ),
                 severity=Severity.CRITICAL,
                 category=self.category,
@@ -385,7 +399,7 @@ class Module(ModuleBase):
             elif check == "volatile_path_execution":
                 actions.append(self._guidance(
                     f"Check what {path} runs out of a temporary directory",
-                    f"    cat '{path}'\n\n"
+                    f"    cat {quote(str(path))}\n\n"
                     "Then look at the target it points into /tmp or /dev/shm. If the "
                     "target does not exist, this entry is broken leftovers and can be "
                     "removed. If it does exist, find out what wrote it before deleting "
@@ -395,8 +409,8 @@ class Module(ModuleBase):
             elif check == "world_writable_unit":
                 actions.append(self._guidance(
                     f"Remove world-write permission from {path}",
-                    f"    sudo chmod o-w '{path}'\n"
-                    f"    ls -l '{path}'\n\n"
+                    f"    sudo chmod o-w {quote(str(path))}\n"
+                    f"    ls -l {quote(str(path))}\n\n"
                     "Startup files should be writable only by root (or by you, for files "
                     "under your own home directory).",
                     check, path,

@@ -35,10 +35,15 @@ class Module(ModuleBase):
             if service_status.get("is_disabled"):
                 findings.append(
                     Finding(
-                        title="Windows Update service is disabled",
+                        title="Windows Update is turned off",
                         description=(
-                            "The Windows Update service (wuauserv) is disabled. "
-                            "No security updates will be installed. This is a critical security risk."
+                            "The background service that installs security updates is disabled. "
+                            "This means your computer is not receiving important security "
+                            "patches, which can leave it vulnerable to known threats. "
+                            "This is a critical issue that needs attention.\n\n"
+                            "What to do: Go to Settings > Windows Update and ensure updates "
+                            "are enabled. If you recently changed this setting, turn it "
+                            "back on."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -48,10 +53,15 @@ class Module(ModuleBase):
             elif not service_status.get("is_running"):
                 findings.append(
                     Finding(
-                        title="Windows Update service is not running",
+                        title="Windows Update service is stopped",
                         description=(
-                            "The Windows Update service (wuauserv) is not currently running. "
-                            "Updates may not be installed. Ensure the service is enabled and running."
+                            "The background service that handles updates is not currently "
+                            "running. "
+                            "This is often temporary and may resolve itself, but it means "
+                            "updates aren't being installed right now.\n\n"
+                            "What to do: Restart your computer. If updates still don't "
+                            "install, go to Settings > Windows Update and check for updates "
+                            "manually."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -66,8 +76,12 @@ class Module(ModuleBase):
                 Finding(
                     title="Windows Update is paused",
                     description=(
-                        f"Windows Update is paused until {pause_status.get('pause_expiry', 'unknown date')}. "
-                        "No updates will be installed while paused. Resume updates in Settings."
+                        f"Windows Update is currently paused until {pause_status.get('pause_expiry', 'unknown date')}. "
+                        "While paused, your computer will not download or install security fixes. "
+                        "This is a common setting, but it leaves you vulnerable if left "
+                        "on for a long time.\n\n"
+                        "What to do: Go to Settings > Windows Update and turn off the "
+                        "pause to resume updates."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -82,11 +96,15 @@ class Module(ModuleBase):
             if days_since_update > 90:
                 findings.append(
                     Finding(
-                        title=f"No updates installed in {days_since_update} days",
+                        title=f"No security updates in {days_since_update} days",
                         description=(
-                            f"The last Windows Update was installed {days_since_update} days ago ({last_update.date()}). "
-                            "This is beyond the recommended 90-day interval for security updates. "
-                            "Run Windows Update immediately to install critical security patches."
+                            f"Your last security update was installed {days_since_update} "
+                            f"days ago ({last_update.date()}). "
+                            "This is a long time without protection against new threats. "
+                            "Your computer may be missing important fixes that protect "
+                            "your data.\n\n"
+                            "What to do: Go to Settings > Windows Update and click 'Check "
+                            "for updates' to install the missing patches."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -100,10 +118,15 @@ class Module(ModuleBase):
             elif days_since_update > 30:
                 findings.append(
                     Finding(
-                        title=f"No updates installed in {days_since_update} days",
+                        title=f"No security updates in {days_since_update} days",
                         description=(
-                            f"The last Windows Update was installed {days_since_update} days ago ({last_update.date()}). "
-                            "Ensure updates are enabled and run Windows Update soon."
+                            f"Your last security update was installed {days_since_update} "
+                            f"days ago ({last_update.date()}). "
+                            "While not as urgent as a longer gap, it is a good idea to "
+                            "update soon to stay protected. "
+                            "This is a routine maintenance reminder.\n\n"
+                            "What to do: Go to Settings > Windows Update and click 'Check "
+                            "for updates' to get your computer up to date."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -140,11 +163,15 @@ class Module(ModuleBase):
             if mandatory_count > 0:
                 findings.append(
                     Finding(
-                        title=f"{mandatory_count} mandatory update(s) pending",
+                        title=f"{mandatory_count} important updates are waiting",
                         description=(
-                            f"There are {mandatory_count} mandatory update(s) and {total_count - mandatory_count} "
-                            f"optional update(s) waiting to be installed. "
-                            "Run Windows Update to install these security patches immediately."
+                            f"There are {mandatory_count} security update(s) and {total_count - mandatory_count} "
+                            "other update(s) waiting to be installed. "
+                            "These are not installed yet, so your computer is missing "
+                            "the latest protections. "
+                            "Installing them is a standard maintenance task.\n\n"
+                            "What to do: Go to Settings > Windows Update and click 'Download "
+                            "and install' to apply these updates."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -179,11 +206,15 @@ class Module(ModuleBase):
         if failed_updates and failed_updates.get("failure_count", 0) > 0:
             findings.append(
                 Finding(
-                    title=f"{failed_updates['failure_count']} failed update(s) detected",
+                    title=f"{failed_updates['failure_count']} recent update attempts failed",
                     description=(
-                        f"Windows Update has failed {failed_updates['failure_count']} time(s) recently. "
-                        "These failed installations may be blocking current updates. "
-                        "Try running Windows Update again or check Settings > System > Troubleshoot > Reset this PC."
+                        f"Windows Update tried to install updates {failed_updates['failure_count']} "
+                        "time(s) recently but failed. "
+                        "This is usually a temporary glitch. "
+                        "However, failed updates can sometimes block newer, important "
+                        "security fixes.\n\n"
+                        "What to do: Restart your computer and try checking for updates "
+                        "again in Settings > Windows Update."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -8,6 +8,12 @@ remediates:
   - security.cron_jobs_audit.suspicious_path
   - security.cron_jobs_audit.every_minute
   - security.cron_jobs_audit.obfuscated_command
+steps_for:
+  security.cron_jobs_audit.cron_entries_found: [4]
+  security.cron_jobs_audit.rce_in_cron: [1]
+  security.cron_jobs_audit.suspicious_path: [1]
+  security.cron_jobs_audit.every_minute: [2]
+  security.cron_jobs_audit.obfuscated_command: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -19,7 +25,7 @@ persistence and beaconing patterns. All steps are human-only: cron entries
 can be legitimate maintenance jobs you rely on, so nothing is edited
 automatically — you inspect and remove entries yourself.
 
-## Step 1: Remove remote-code-execution and suspicious-path entries first
+## Step 1: Remove dangerous scheduled tasks
 
 These are the highest-confidence findings: a cron entry piping `curl`/`wget`
 output into a shell (`rce_in_cron`), or a cron entry executing from `/tmp`,
@@ -47,7 +53,7 @@ For each flagged entry:
 5. Confirm removal: `crontab -l` / `cat /etc/crontab` should no longer show
    the entry.
 
-## Step 2: Review "every minute" schedules
+## Step 2: Check tasks that run every minute
 
 A `* * * * *` schedule (`every_minute`, WARNING) runs every single minute —
 unusual for legitimate maintenance and a common pattern for C2 beaconing or
@@ -59,7 +65,7 @@ persistence re-installation.
 3. If unfamiliar, treat it as suspicious and follow the Step 1
    inspect → quarantine → remove sequence.
 
-## Step 3: Review obfuscated commands
+## Step 3: Look into scrambled commands
 
 Entries containing `base64`, `eval`, `decode`, or `uuencode`
 (`obfuscated_command`, WARNING) are trying to hide what they actually run.
@@ -73,7 +79,7 @@ Legitimate cron jobs rarely need obfuscation.
 3. If it fetches or executes remote content, treat it as malicious: quarantine
    and remove using the Step 1 sequence.
 
-## Step 4: Review the general cron/periodic/at inventory
+## Step 4: Review all scheduled tasks
 
 `cron_entries_found` (INFO) lists every cron/periodic/at entry discovered so
 you have full visibility into what's scheduled on this machine.

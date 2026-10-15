@@ -127,10 +127,15 @@ class Module(ModuleBase):
                 return None  # DNS works
             else:
                 return Finding(
-                    title="DNS resolution failed",
+                    title="Your computer can't look up website addresses",
                     description=(
-                        "Cannot resolve google.com via nslookup. DNS resolution is not working. "
-                        "This prevents access to any domain-based services."
+                        "We tried to translate a website name (google.com) into a computer "
+                        "address, but it failed. This usually means your internet connection "
+                        "is having trouble. It prevents "
+                        "you from opening websites by name.\n\n"
+                        "What to do: Restart your router and computer. If that doesn't "
+                        "work, check your internet connection in Settings > Network & "
+                        "Internet."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -138,9 +143,13 @@ class Module(ModuleBase):
                 )
         except (subprocess.TimeoutExpired, OSError):
             return Finding(
-                title="DNS resolution check failed",
+                title="We couldn't check your internet name lookup",
                 description=(
-                    "Could not run nslookup command. DNS resolution check could not complete."
+                    "The tool needed to check your internet connection wasn't available, "
+                    "so we couldn't finish this test. This is not the same as saying everything "
+                    "is fine; it just means we couldn't verify this specific part.\n\n"
+                    "What to do: Nothing specific right now. If you are having internet "
+                    "issues, try restarting your router."
                 ),
                 severity=Severity.WARNING,
                 category=self.category,
@@ -184,10 +193,14 @@ class Module(ModuleBase):
             if not has_ipv4:
                 findings.append(
                     Finding(
-                        title="No IPv4 address configured",
+                        title="Your computer has no internet address",
                         description=(
-                            "No IPv4 address is configured on this system. "
-                            "This prevents network connectivity."
+                            "Your computer doesn't have an IP address, which is like a "
+                            "home address for computers. Without it, you can't connect "
+                            "to the internet.\n\n"
+                            "What to do: Restart your computer and router. If it persists, "
+                            "check your network adapter settings in Settings > Network "
+                            "& Internet."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -202,10 +215,13 @@ class Module(ModuleBase):
             if not has_dns_servers:
                 findings.append(
                     Finding(
-                        title="No DNS servers configured",
+                        title="Your computer has no address book for websites",
                         description=(
-                            "No DNS servers are configured on this system. "
-                            "This prevents DNS resolution from working."
+                            "Your computer doesn't have DNS servers configured. DNS servers "
+                            "are like the phone book for the internet. Without them, you "
+                            "can't turn website names into addresses.\n\n"
+                            "What to do: Restart your router. If that doesn't work, check "
+                            "your network settings in Settings > Network & Internet."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -234,10 +250,13 @@ class Module(ModuleBase):
                 return None  # Network is reachable
             else:
                 return Finding(
-                    title="No network connectivity",
+                    title="Your computer can't reach the internet",
                     description=(
-                        "Cannot ping external server (8.8.8.8). "
-                        "This indicates a network connectivity issue."
+                        "We tried to send a signal to a known internet server, but it "
+                        "didn't come back. This usually means your Wi-Fi or cable connection "
+                        "is down or unstable.\n\n"
+                        "What to do: Check if your Wi-Fi is connected. If not, restart "
+                        "your router and computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -245,9 +264,13 @@ class Module(ModuleBase):
                 )
         except (subprocess.TimeoutExpired, OSError):
             return Finding(
-                title="Network connectivity check failed",
+                title="We couldn't check your internet connection",
                 description=(
-                    "Could not run ping command. Network connectivity check could not complete."
+                    "The tool needed to test your internet connection wasn't available, "
+                    "so we couldn't finish this test. This is not the same as saying everything "
+                    "is fine; it just means we couldn't verify this specific part.\n\n"
+                    "What to do: Nothing specific right now. If you are having internet "
+                    "issues, try restarting your router."
                 ),
                 severity=Severity.WARNING,
                 category=self.category,
@@ -271,7 +294,7 @@ class Module(ModuleBase):
                     # Likely has a proxy configured
                     findings.append(
                         Finding(
-                            title="Proxy settings detected",
+                            title="Your proxy settings",
                             description=(
                                 "A proxy is configured on this system via WinHTTP settings. "
                                 "This may affect network connectivity if not properly configured."

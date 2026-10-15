@@ -70,12 +70,15 @@ class Module(ModuleBase):
             if display.get("is_scaled") and not display.get("is_retina"):
                 findings.append(
                     Finding(
-                        title=f"Display '{display['name']}' using scaled resolution (blurry text)",
+                        title=f"Display '{display['name']}' is set to a blurry resolution",
                         description=(
-                            f"Display is running at {display['resolution']} (scaled) on a "
-                            "non-Retina display. Scaled resolution on non-Retina displays "
-                            "causes blurry text because pixels are being enlarged. "
-                            "Switch to native resolution for crisp text."
+                            f"Your screen '{display['name']}' is running at {display['resolution']}, "
+                            "which is a 'scaled' setting. On screens that aren't Retina, "
+                            "this stretches the pixels to fit, which makes text look "
+                            "fuzzy.\n\n"
+                            "What to do: Open System Settings, click Displays, and select "
+                            "the 'Default' or 'Native' resolution for this screen to "
+                            "make the text sharp again."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -91,12 +94,15 @@ class Module(ModuleBase):
             if display.get("is_non_native"):
                 findings.append(
                     Finding(
-                        title=f"Display '{display['name']}' using non-native resolution",
+                        title=f"Display '{display['name']}' is not using its best resolution",
                         description=(
-                            f"Display is running at {display['resolution']} which is not "
-                            "the native/recommended resolution. Non-native resolutions use "
-                            "software scaling and can reduce performance and image quality. "
-                            "Switch to native resolution for optimal performance."
+                            f"Your screen '{display['name']}' is set to {display['resolution']}, "
+                            "which isn't the size it was built for. Your computer has "
+                            "to do extra work to stretch the picture, which can make "
+                            "it feel a bit slower.\n\n"
+                            "What to do: Open System Settings, click Displays, and choose "
+                            "the resolution marked as 'Default' or 'Recommended' for "
+                            "this screen."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -113,11 +119,14 @@ class Module(ModuleBase):
         if mirroring_info.get("mirroring_enabled"):
             findings.append(
                 Finding(
-                    title="Display mirroring is enabled",
+                    title="Your screen is mirroring to another display",
                     description=(
-                        "Display mirroring is currently enabled. If this was unintentional, "
-                        "it may have been accidentally turned on and could reduce display "
-                        "performance. Check System Settings > Displays to disable if not needed."
+                        "Your Mac is currently showing the same picture on two screens. "
+                        "It usually happens by accident when plugging in a monitor or "
+                        "TV, and it can make your computer work a little slower.\n\n"
+                        "What to do: Open System Settings, click Displays, and look for "
+                        "a 'Mirror for' option. If you don't need the second screen, turn "
+                        "it off."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -177,7 +186,7 @@ class Module(ModuleBase):
                 refresh_rate = ext_display.get("refresh_rate", "Unknown")
                 findings.append(
                     Finding(
-                        title=f"External monitor detected: {ext_display['name']}",
+                        title=f"External monitor: {ext_display['name']}",
                         description=(
                             f"External monitor connected via {ext_display.get('connection', 'Unknown')}. "
                             f"Resolution: {ext_display['resolution']}, Refresh rate: {refresh_rate}. "

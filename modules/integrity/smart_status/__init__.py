@@ -62,10 +62,14 @@ class Module(ModuleBase):
         if not smart_status:
             findings.append(
                 Finding(
-                    title="Could not retrieve SMART status",
+                    title="We couldn't check your drive's health",
                     description=(
-                        "Failed to retrieve disk SMART status from diskutil or system_profiler. "
-                        "Disk health cannot be assessed."
+                        "We tried to read your hard drive's built-in health sensor, but "
+                        "the system didn't give us the information. This means we don't "
+                        "know if the drive is healthy or failing.\n\n"
+                        "What to do: Try running the checkup again. If it still fails, "
+                        "back up your files to be safe, as we cannot verify the drive's "
+                        "condition."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -93,18 +97,24 @@ class Module(ModuleBase):
 
         if severity == Severity.CRITICAL:
             description += (
-                " WARNING: Your drive is failing! Back up your data immediately!"
+                " The drive reports that it is failing, so it may stop working "
+                "without more warning.\n\n"
+                "What to do: Copy your important files to another drive or cloud "
+                "storage today, then plan to replace this drive."
             )
         elif severity == Severity.WARNING:
             description += (
-                " CAUTION: SMART status is not verified. Back up your data as a precaution."
+                " The drive's own health check couldn't be confirmed, which isn't "
+                "the same as failing.\n\n"
+                "What to do: Make sure you have a recent backup, and run the "
+                "checkup again later."
             )
         elif severity == Severity.INFO:
             description += " Your drive appears to be in good health."
 
         findings.append(
             Finding(
-                title=f"Disk SMART Status: {smart_status}",
+                title=f"Your hard drive health is: {smart_status}",
                 description=description,
                 severity=severity,
                 category=self.category,

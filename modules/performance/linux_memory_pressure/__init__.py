@@ -108,16 +108,20 @@ class Module(ModuleBase):
             if severity is not None:
                 findings.append(
                     Finding(
-                        title=f"Processes spent {psi:.0f}% of the last minute waiting for memory",
+                        title=(
+                            "Your computer is lagging because it is waiting for memory "
+                            f"({psi:.0f}%)"
+                        ),
                         description=(
-                            "This is the kernel's own measure of memory stall, and it maps "
-                            "directly onto what you feel: windows that take a moment to "
-                            "redraw, typing that lags, a machine that seems busy doing "
-                            "nothing.\n\n"
-                            "Anything above 10% is noticeable; above 25% the machine is "
-                            "spending more time waiting than working.\n\n"
-                            "What to do: close programs you are not using, starting with "
-                            "web browser tabs, and restart the computer."
+                            f"Your computer spent {psi:.0f}% of the last minute waiting "
+                            "for memory to become available. "
+                            "This is why things feel slow, like typing lagging or windows "
+                            "taking a moment to open. "
+                            "This is a performance issue, not a security problem, but "
+                            "it makes the computer hard to use.\n\n"
+                            "What to do: Close programs you are not using, especially "
+                            "web browsers with many tabs. "
+                            "If the lag continues, restart your computer."
                         ),
                         severity=severity,
                         category=self.category,
@@ -131,17 +135,20 @@ class Module(ModuleBase):
         if available_fraction <= _AVAILABLE_CRITICAL or available_fraction <= _AVAILABLE_WARNING:
             findings.append(
                 Finding(
-                    title=f"Only {_fmt(available)} of {_fmt(total)} memory is available",
+                    title=(
+                        f"Your computer is running out of usable memory ({_fmt(available)} left)"
+                    ),
                     description=(
-                        "MemAvailable is the kernel's estimate of how much memory a new "
-                        "program could actually get without swapping. It is not the same "
-                        "as 'free' — a healthy Linux machine has almost no free memory, "
-                        "because the kernel uses the rest as cache and hands it back on "
-                        "demand. This number being low is the one that matters.\n\n"
-                        "Once it reaches zero the kernel starts killing processes to "
-                        "recover, which is what 'applications close by themselves' means.\n\n"
-                        "What to do: close programs you are not using and restart the "
-                        "computer. If it keeps happening, add more memory."
+                        f"Your computer has {_fmt(available)} of its {_fmt(total)} memory left that it can "
+                        "use right now. "
+                        "This is not the same as 'free' memory, which is usually low on "
+                        "healthy computers. "
+                        "However, when this number gets very low, your computer may start "
+                        "closing apps on its own "
+                        "to make room, which can cause you to lose unsaved work.\n\n"
+                        "What to do: Close any programs or browser tabs you are not using. "
+                        "If this happens often, "
+                        "restarting your computer will clear this memory."
                     ),
                     severity=(
                         Severity.CRITICAL if available_fraction <= _AVAILABLE_CRITICAL
@@ -164,15 +171,20 @@ class Module(ModuleBase):
             if swap_used_fraction >= _SWAP_WARNING:
                 findings.append(
                     Finding(
-                        title=f"{swap_used_fraction:.0%} of swap is in use",
+                        title=(
+                            f"Your computer is leaning hard on swap ({swap_used_fraction:.0%})"
+                        ),
                         description=(
-                            f"{_fmt(swap_total - swap_free)} of {_fmt(swap_total)} swap is "
-                            "occupied. Some swap use is normal and good — the kernel moves "
-                            "genuinely idle pages out to make room for cache. Heavy use "
-                            "means active memory is being paged to disk, and every touch "
-                            "of that memory now costs a disk read.\n\n"
-                            "What to do: close programs you are not using and restart "
-                            "the computer to clear it."
+                            f"Your computer is using {swap_used_fraction:.0%} ({_fmt(swap_total - swap_free)} of "
+                            f"{_fmt(swap_total)}) of its 'swap' "
+                            "space. Swap is overflow space "
+                            "on your disk used when your main memory is full. Using "
+                            "a little is normal, but using "
+                            "this much means your computer is working very hard to keep "
+                            "up, which makes it feel slow.\n\n"
+                            "What to do: Close programs you are not using to free up main "
+                            "memory. This should reduce the "
+                            "use of swap and speed up your computer."
                         ),
                         severity=(
                             Severity.CRITICAL if swap_used_fraction >= _SWAP_CRITICAL
@@ -195,13 +207,16 @@ class Module(ModuleBase):
             # option between "slow" and "kill something".
             findings.append(
                 Finding(
-                    title="No swap is configured, and memory is already tight",
+                    title="Memory is running low and there's no swap to fall back on",
                     description=(
-                        "With no swap, the kernel has nowhere to put idle pages when "
-                        "memory runs short. Instead of getting slow, the machine jumps "
-                        "straight to killing processes. A small swap file or zram gives it "
-                        "a gentler option.\n\n"
-                        "What to do: turn on zram or add a small swap file."
+                        "Your computer does not have 'swap' (overflow space on disk) set "
+                        "up, and it is running low on "
+                        "main memory. Without swap, the computer cannot slow "
+                        "down gracefully; instead, "
+                        "it may suddenly close your apps to prevent a crash.\n\n"
+                        "What to do: Adding a swap file is a technical fix. If you are not "
+                        "comfortable doing this, close unused programs to free up main "
+                        "memory for now."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

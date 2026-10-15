@@ -172,7 +172,7 @@ def test_win_services_audit_detects_bloatware():
     with patch("subprocess.run", side_effect=_fake_powershell_run(BLOATWARE_SERVICES)):
         result = mod.check(_make_profile())
     assert result.has_issues
-    assert any("bloatware" in f.title.lower() for f in result.findings)
+    assert any(f.code == "security.win_services_audit.bloatware_detected" for f in result.findings)
     assert any(f.severity == Severity.INFO for f in result.findings)
 
 
@@ -181,7 +181,7 @@ def test_win_services_audit_detects_suspicious_paths():
     with patch("subprocess.run", side_effect=_fake_powershell_run(SUSPICIOUS_PATH_SERVICES)):
         result = mod.check(_make_profile())
     assert result.has_issues
-    assert any("suspicious path" in f.title.lower() for f in result.findings)
+    assert any("unusual location" in f.title.lower() for f in result.findings)
     assert any(f.severity == Severity.WARNING for f in result.findings)
 
 
@@ -190,7 +190,7 @@ def test_win_services_audit_detects_stopped_autostart():
     with patch("subprocess.run", side_effect=_fake_powershell_run(STOPPED_AUTOSTART_SERVICES)):
         result = mod.check(_make_profile())
     assert result.has_issues
-    assert any("stopped" in f.title.lower() for f in result.findings)
+    assert any("currently off" in f.title.lower() for f in result.findings)
     assert any(f.severity == Severity.WARNING for f in result.findings)
 
 
@@ -199,10 +199,10 @@ def test_win_services_audit_detects_excessive_autostart():
     with patch("subprocess.run", side_effect=_fake_powershell_run(EXCESSIVE_AUTOSTART)):
         result = mod.check(_make_profile())
     assert result.has_issues
-    assert any("excessive" in f.title.lower() for f in result.findings)
+    assert any("start automatically" in f.title.lower() for f in result.findings)
     assert any(f.severity == Severity.WARNING for f in result.findings)
     excessive_finding = next(
-        f for f in result.findings if "excessive" in f.title.lower()
+        f for f in result.findings if f.code == "security.win_services_audit.excessive_autostart"
     )
     assert excessive_finding.data["count"] == 45
 

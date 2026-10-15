@@ -40,9 +40,14 @@ class Module(ModuleBase):
                     Finding(
                         title="Windows Update service is not running",
                         description=(
-                            f"The Windows Update service (wuauserv) is "
-                            f"currently '{status}'. Updates cannot be checked "
-                            "or installed while this service is stopped."
+                            "Your computer's automatic update system (the Windows Update "
+                            f"service) is currently set to '{status}'. This means your "
+                            "computer is not checking for or installing new security "
+                            "patches.\n\n"
+                            "What to do: Open the Start menu, type 'Services', and press "
+                            "Enter. Scroll down to 'Windows Update', right-click it, "
+                            "and select 'Start'. If it says Disabled, open Properties and set "
+                            "'Startup type' to Manual (the Windows default)."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

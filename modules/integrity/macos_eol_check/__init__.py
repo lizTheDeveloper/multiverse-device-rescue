@@ -31,8 +31,14 @@ class Module(ModuleBase):
         except subprocess.CalledProcessError as e:
             findings.append(
                 Finding(
-                    title="Unable to determine macOS version",
-                    description=f"Failed to run sw_vers: {e}",
+                    title="We could not check your macOS version",
+                    description=(
+                        f"We tried to check your system version but the command failed: {e}.\n\n"
+                        "This is not the same as everything being fine. It just means "
+                        "we could not read the version number.\n\n"
+                        "What to do: Nothing urgent. You can see your version yourself in "
+                        "the Apple menu > About This Mac."
+                    ),
                     severity=Severity.CRITICAL,
                     category=self.category,
                     data={"error": str(e)},
@@ -86,8 +92,16 @@ class Module(ModuleBase):
         elif status == "eol":
             findings.append(
                 Finding(
-                    title=f"macOS {version_name} is end-of-life",
-                    description=f"Version {major_version} is EOL and no longer receives security updates. Consider upgrading.",
+                    title=f"Your macOS {version_name} no longer gets security updates",
+                    description=(
+                        f"Your computer is running version {major_version}. Apple has "
+                        "stopped sending security fixes for this version.\n\n"
+                        "This means new vulnerabilities will not be patched, which can "
+                        "make your computer less safe over time.\n\n"
+                        "What to do: Open System Preferences > Software Update (System "
+                        "Settings > General > Software Update on newer Macs) and install "
+                        "the newest version offered."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
@@ -101,8 +115,19 @@ class Module(ModuleBase):
         else:  # critical_eol
             findings.append(
                 Finding(
-                    title=f"macOS {version_name} is critically end-of-life",
-                    description=f"Version {major_version} is CRITICAL EOL with no security updates for over 2 years. Immediate upgrade required.",
+                    title=f"Your macOS {version_name} is very old and unsafe",
+                    description=(
+                        f"Your computer is running version {major_version}. Apple stopped "
+                        "sending security updates for this version more than two years "
+                        "ago.\n\n"
+                        "Without updates, your computer is much more likely to be affected "
+                        "by new security problems. This is a serious risk.\n\n"
+                        "What to do: Open System Preferences > Software Update (System "
+                        "Settings > General > Software Update on newer Macs) and install "
+                        "the newest version offered. If none is offered, this Mac is too "
+                        "old for newer versions: avoid banking and other sensitive "
+                        "accounts on it, and plan to replace it."
+                    ),
                     severity=Severity.CRITICAL,
                     category=self.category,
                     data={
@@ -121,7 +146,7 @@ class Module(ModuleBase):
 
         for finding in findings.findings:
             status = finding.data.get("status")
-            version_name = finding.title.split("macOS ")[1].split(" ")[0] if "macOS" in finding.title else "macOS"
+            version_name = finding.data.get("version") or "macOS"
 
             if status == "supported":
                 actions.append(

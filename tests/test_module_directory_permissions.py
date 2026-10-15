@@ -75,7 +75,7 @@ def test_ownership_mismatch_warning(tmp_path):
     finding = mod._check_ownership(test_dir, wrong_uid, "test_dir")
     assert finding is not None
     assert finding.severity == Severity.WARNING
-    assert "ownership" in finding.title.lower()
+    assert "owned by the wrong account" in finding.title.lower()
 
 
 def test_permissions_mismatch_warning(tmp_path):
@@ -93,7 +93,7 @@ def test_permissions_mismatch_warning(tmp_path):
     finding = mod._check_permissions(test_dir, 0o777, "test_dir", check_sticky=False)
     assert finding is not None
     assert finding.severity == Severity.WARNING
-    assert "permissions" in finding.title.lower()
+    assert "unusual access rights" in finding.title.lower()
 
 
 def test_sticky_bit_check(tmp_path):

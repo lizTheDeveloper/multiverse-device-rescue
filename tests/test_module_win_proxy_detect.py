@@ -204,7 +204,7 @@ def test_win_proxy_detect_localhost_suspicious_is_critical():
     assert result.has_issues
     assert any(f.severity == Severity.CRITICAL for f in result.findings)
     critical = [f for f in result.findings if f.severity == Severity.CRITICAL]
-    assert any("localhost" in f.title.lower() or "malware" in f.description.lower() for f in critical)
+    assert any("your own computer" in f.title.lower() or "malicious" in f.description.lower() for f in critical)
 
 
 def test_win_proxy_detect_fix_localhost_suspicious():

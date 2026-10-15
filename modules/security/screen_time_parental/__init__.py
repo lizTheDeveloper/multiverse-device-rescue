@@ -81,12 +81,16 @@ class Module(ModuleBase):
             if not passcode_set:
                 findings.append(
                     Finding(
-                        title="Screen Time enabled but no passcode is set",
+                        title="Screen Time is on, but there is no passcode to protect it",
                         description=(
-                            "Screen Time is enabled but no passcode is configured. Without a "
-                            "passcode, children can disable Screen Time, bypass Downtime, "
-                            "modify App Limits, and remove all parental restrictions. "
-                            "A passcode is essential to enforce parental controls."
+                            "Your device has Screen Time turned on, but it is not protected "
+                            "by a passcode. This means anyone using the device can easily "
+                            "turn off these controls or change the rules. If this is a "
+                            "shared or family device, a child could remove the safety "
+                            "limits without you knowing.\n\n"
+                            "What to do: Open System Settings > Screen Time and turn on "
+                            "'Lock Screen Time Settings', then choose a passcode only you "
+                            "know."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -120,12 +124,17 @@ class Module(ModuleBase):
                 if managed_accounts:
                     findings.append(
                         Finding(
-                            title="Content & Privacy Restrictions are disabled with managed child accounts",
+                            title=(
+                                f"Content restrictions are off for child accounts: {', '.join(managed_accounts)}"
+                            ),
                             description=(
-                                f"Content & Privacy Restrictions are disabled, but this device has "
-                                f"managed/child accounts: {', '.join(managed_accounts)}. "
-                                f"Enable Content & Privacy Restrictions to control what these accounts "
-                                f"can access on the device."
+                                "Content & Privacy Restrictions are disabled, but this "
+                                f"device has managed child accounts: {', '.join(managed_accounts)}. "
+                                "This means these accounts can currently access apps "
+                                "and content that you might not want them to see.\n\n"
+                                "What to do: Go to System Settings > Screen Time > Content "
+                                "& Privacy Restrictions and turn it on. Then, set the "
+                                "content filters to match your family's needs."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -230,13 +239,16 @@ class Module(ModuleBase):
             if managed_accounts:
                 findings.append(
                     Finding(
-                        title="Screen Time is disabled with managed child accounts",
+                        title=(
+                            f"Screen Time is off, but child accounts exist: {', '.join(managed_accounts)}"
+                        ),
                         description=(
-                            f"Screen Time is not enabled, but this device has managed/child accounts: "
-                            f"{', '.join(managed_accounts)}. Screen Time provides essential parental "
-                            f"controls including app limits, Downtime, content restrictions, "
-                            f"communication limits, and purchase approval. Enable Screen Time to "
-                            f"protect child accounts."
+                            "Screen Time is currently turned off, but this device has "
+                            f"managed child accounts: {', '.join(managed_accounts)}. Without "
+                            "Screen Time, these accounts have no built-in limits on app "
+                            "usage, screen time, or content access.\n\n"
+                            "What to do: Go to System Settings > Screen Time and turn "
+                            "it on. You can then set specific limits for each child account."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -269,7 +281,7 @@ class Module(ModuleBase):
         if managed_accounts:
             findings.append(
                 Finding(
-                    title=f"Managed child account(s) detected: {len(managed_accounts)}",
+                    title=f"Child accounts on this device: {len(managed_accounts)}",
                     description=(
                         f"This device has {len(managed_accounts)} managed/child account(s): "
                         f"{', '.join(managed_accounts)}. Ensure Screen Time is enabled and "

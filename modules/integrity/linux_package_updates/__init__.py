@@ -90,15 +90,15 @@ class Module(ModuleBase):
         if security:
             findings.append(
                 Finding(
-                    title=f"{len(security)} security update(s) are waiting to be installed",
+                    title=f"{len(security)} security updates are waiting to be installed",
                     description=(
-                        "These are fixes for known vulnerabilities that have already been "
-                        "published — which means they have also been published to everyone "
-                        "who writes exploits.\n\n"
+                        f"Your computer has {len(security)} updates that fix known security "
+                        "holes. These fixes are public, which means bad actors know about "
+                        "them too. Installing them is the best way to keep your system "
+                        "safe.\n\n"
                         + "\n".join(f"  {name}" for name in security[:20])
                         + (f"\n  ... and {len(security) - 20} more" if len(security) > 20 else "")
-                        + "\n\nWhat to do: open your Software Updater, install these "
-                        "updates, then restart the computer."
+                        + "\n\nWhat to do: Open your Software Updater, install these updates, and restart your computer."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -112,7 +112,7 @@ class Module(ModuleBase):
         if other:
             findings.append(
                 Finding(
-                    title=f"{len(other)} package update(s) available",
+                    title=f"{len(other)} software updates available",
                     description=(
                         "Ordinary updates — bug fixes and new versions. Worth applying, but "
                         "not urgent in the way security updates are.\n\n"
@@ -130,13 +130,13 @@ class Module(ModuleBase):
         if Path(self.reboot_required_path).exists():
             findings.append(
                 Finding(
-                    title="A reboot is required to finish applying updates",
+                    title="You need to restart to finish installing updates",
                     description=(
-                        "Updates have been installed but the running kernel or libraries "
-                        "are still the old ones. Until this machine restarts, the "
-                        "vulnerabilities those updates fixed are still present in memory — "
-                        "the fix is on disk and not in use.\n\n"
-                        "What to do: save your work and restart the computer."
+                        "You have installed updates, but your computer is still running "
+                        "the old software in memory. The new, safer versions are saved "
+                        "on disk but not active yet. Until you restart, your computer "
+                        "is still vulnerable to the issues those updates fixed.\n\n"
+                        "What to do: Save your work and restart your computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -265,7 +265,7 @@ class Module(ModuleBase):
             return None
 
         return Finding(
-            title=f"Confirm {pretty} is still receiving security updates",
+            title=f"Check if {pretty} is still supported",
             description=(
                 f"This machine reports {pretty}"
                 + (f" (version {version})" if version else "")

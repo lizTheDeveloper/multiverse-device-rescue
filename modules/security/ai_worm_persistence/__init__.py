@@ -270,10 +270,14 @@ class Module(ModuleBase):
         is_deadman = bool(raw.get("is_deadman_switch", False))
 
         if confidence == "high":
-            title = f"Malicious LaunchAgent detected: {label}"
+            title = f"A known malware startup item is installed: {label}"
             description = (
-                f"LaunchAgent '{label}' at {plist} matches a known {threat} "
-                "persistence mechanism."
+                f"The startup item '{label}' ({plist}) matches known {threat} "
+                "malware, which keeps itself running on developers' computers."
+            )
+            what_to_do = (
+                "What to do: Disconnect from the internet, then follow the steps "
+                "below in order. Don't revoke tokens or delete files first."
             )
         else:
             # Heuristic match only: no named threat. Never call this malicious.
@@ -282,17 +286,25 @@ class Module(ModuleBase):
                 f"The background item '{label}' ({plist}) looks like an AI agent "
                 "or runs a tool often used by them (it calls an AI service or "
                 "runs the bun runtime). Many people install these on purpose, "
-                "for example OpenClaw or Claude tools. Verify you installed it. "
-                "If you do not recognize it, it is worth a closer look."
+                "for example OpenClaw or Claude tools."
+            )
+            what_to_do = (
+                "What to do: If you installed it, there's nothing to do. If you "
+                "don't recognize it, follow the steps below."
             )
         if is_deadman:
-            title = f"Dead-man switch LaunchAgent detected: {label}"
+            title = f"Dead-man switch startup item: {label}"
             description += (
-                " WARNING: this is a dead-man switch — it is designed to "
-                "trigger destructive action (e.g. rm -rf ~/) if its "
-                "monitored credential is revoked or it is tampered with. "
-                "Disable it before removing any other persistence."
+                "\n\nWarning: this is a dead-man switch. It is built to wipe "
+                "files (for example your whole home folder) if its stolen token "
+                "is revoked or it is tampered with."
             )
+            what_to_do = (
+                "What to do: Disconnect from the internet and disable this item "
+                "first, following the steps below, before you revoke any token or "
+                "remove anything else."
+            )
+        description += "\n\n" + what_to_do
 
         if is_deadman:
             code = "security.ai_worm_persistence.deadman_switch_launchagent"
@@ -402,17 +414,27 @@ class Module(ModuleBase):
         threat = raw.get("threat", "unknown")
         is_deadman = bool(raw.get("is_deadman_switch", False))
 
-        title = f"Malicious systemd unit detected: {unit_name}"
+        title = f"A known malware service is installed: {unit_name}"
         description = (
-            f"systemd --user unit '{unit_name}' at {unit} matches a known "
-            f"{threat} persistence mechanism."
+            f"The systemd user service '{unit_name}' ({unit}) matches known "
+            f"{threat} malware, which keeps itself running on developers' computers."
+        )
+        what_to_do = (
+            "What to do: Disconnect from the internet, then follow the steps below "
+            "in order. Don't revoke tokens or delete files first."
         )
         if is_deadman:
-            title = f"Dead-man switch systemd unit detected: {unit_name}"
+            title = f"Dead-man switch service: {unit_name}"
             description += (
-                " WARNING: this is a dead-man switch — disable it before "
-                "removing any other persistence."
+                "\n\nWarning: this is a dead-man switch. It is built to wipe files "
+                "if its stolen token is revoked or it is tampered with."
             )
+            what_to_do = (
+                "What to do: Disconnect from the internet and disable this service "
+                "first, following the steps below, before you revoke any token or "
+                "remove anything else."
+            )
+        description += "\n\n" + what_to_do
 
         if is_deadman:
             code = "security.ai_worm_persistence.deadman_switch_systemd_unit"
@@ -486,11 +508,16 @@ class Module(ModuleBase):
         task_name = raw.get("task_name") or "unknown"
 
         return Finding(
-            title=f"Suspicious scheduled task: {task_name}",
+            title=f"Scheduled task '{task_name}' runs from a temporary folder",
             description=(
-                f"Scheduled task '{task_name}' runs "
-                f"'{raw.get('command')}' from a temp/appdata location — a "
-                "common persistence technique."
+                f"Your computer has a scheduled task named '{task_name}' that runs the "
+                f"command '{raw.get('command')}'. This command is located in a temporary "
+                "or app data folder. Legitimate software usually installs in the main "
+                "Program Files folder. Running commands from temporary folders is a common "
+                "trick used by malware to hide itself.\n\n"
+                "What to do: Open Task Scheduler (search 'Task Scheduler' in the Start "
+                "menu), find this task, and check its properties. If you do not recognize "
+                "it, disable it."
             ),
             severity=severity,
             category=self.category,
@@ -547,10 +574,14 @@ class Module(ModuleBase):
         line_number = raw.get("line_number")
 
         return Finding(
-            title=f"Suspicious shell profile injection in {file_}",
+            title=f"Unusual command found in your shell profile {file_}",
             description=(
-                f"Line {line_number} of {file_} contains a pattern "
-                f"associated with worm persistence: {line}"
+                f"Line {line_number} of your configuration file {file_} contains: {line}. "
+                "This file runs every time you open a terminal. This specific line looks "
+                "like a pattern used by malware to keep running in the background.\n\n"
+                f"What to do: Open {file_} in a text editor, look at line {line_number}, "
+                "and remove that specific line if you do not recognize it. Do not delete "
+                "the whole file."
             ),
             severity=severity,
             category=self.category,
@@ -644,8 +675,13 @@ class Module(ModuleBase):
         return Finding(
             title=title,
             description=(
-                f"SessionStart hook command in {raw.get('path')}: "
-                f"{raw.get('command')}"
+                f"We found a hook in your Claude settings file ({raw.get('path')}) that "
+                f"runs: {raw.get('command')}. Hooks run automatically when you start a "
+                "Claude session. This specific command is associated with malicious software "
+                "that tries to persist on your system.\n\n"
+                f"What to do: Open {raw.get('path')} in a text editor and remove the entry "
+                "for this command. If you are not comfortable editing JSON files, back "
+                "up the file and ask a trusted tech-savvy friend for help."
             ),
             severity=severity,
             category=self.category,

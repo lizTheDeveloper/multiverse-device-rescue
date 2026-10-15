@@ -62,7 +62,7 @@ class Module(ModuleBase):
         if total_caches > 100 * 1024 * 1024:  # > 100 MB
             findings.append(
                 Finding(
-                    title=f"System caches using {_fmt_bytes(total_caches)}",
+                    title=f"App caches taking up {_fmt_bytes(total_caches)}",
                     description=(
                         f"System and user caches (/Library/Caches, ~/Library/Caches) "
                         f"are using {_fmt_bytes(total_caches)}. These can usually be safely removed."
@@ -80,7 +80,7 @@ class Module(ModuleBase):
         if total_logs > 100 * 1024 * 1024:  # > 100 MB
             findings.append(
                 Finding(
-                    title=f"System logs using {_fmt_bytes(total_logs)}",
+                    title=f"System logs taking up {_fmt_bytes(total_logs)}",
                     description=(
                         f"System and user logs (/var/log, ~/Library/Logs) "
                         f"are using {_fmt_bytes(total_logs)}. "
@@ -100,7 +100,7 @@ class Module(ModuleBase):
         if total_temps > 100 * 1024 * 1024:  # > 100 MB
             findings.append(
                 Finding(
-                    title=f"Temporary files using {_fmt_bytes(total_temps)}",
+                    title=f"Temporary files taking up {_fmt_bytes(total_temps)}",
                     description=(
                         f"Temporary files (/tmp, /var/folders) "
                         f"are using {_fmt_bytes(total_temps)}. These can usually be safely removed."
@@ -118,7 +118,7 @@ class Module(ModuleBase):
         if xcode_derived > 0:
             findings.append(
                 Finding(
-                    title=f"Xcode derived data using {_fmt_bytes(xcode_derived)}",
+                    title=f"Xcode build files taking up {_fmt_bytes(xcode_derived)}",
                     description=(
                         f"Xcode derived data (~/Library/Developer/Xcode/DerivedData) "
                         f"is using {_fmt_bytes(xcode_derived)}. "
@@ -137,7 +137,7 @@ class Module(ModuleBase):
         if homebrew_cache > 0:
             findings.append(
                 Finding(
-                    title=f"Homebrew cache using {_fmt_bytes(homebrew_cache)}",
+                    title=f"Homebrew download files taking up {_fmt_bytes(homebrew_cache)}",
                     description=(
                         f"Homebrew cache (~/Library/Caches/Homebrew) "
                         f"is using {_fmt_bytes(homebrew_cache)}. "
@@ -159,8 +159,13 @@ class Module(ModuleBase):
                 Finding(
                     title=f"Found {_fmt_bytes(total_waste)} of reclaimable disk space",
                     description=(
-                        f"Total space used by caches, logs, and temp files: {_fmt_bytes(total_waste)}. "
-                        f"Removing these items may improve disk performance and free up space."
+                        f"Your Mac has {_fmt_bytes(total_waste)} of space taken up by "
+                        "temporary files, logs, and caches. These are leftover data from "
+                        "apps and system processes that are no longer needed. Cleaning "
+                        "them up can free up space and help your Mac run smoothly.\n\n"
+                        "What to do: Open System Settings > General > Storage, then click "
+                        "the 'Optimize Storage' or 'Manage' button to review and remove "
+                        "these files safely."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -200,7 +205,9 @@ class Module(ModuleBase):
                         description=(
                             f"These caches ({size_str}) can typically be safely removed. "
                             f"They will be regenerated as needed. "
-                            f"To clean: rm -rf /Library/Caches ~/Library/Caches"
+                            "To clean: quit your apps, open Finder > Go > Go to Folder, type "
+                            "~/Library/Caches, and move the folders of apps you recognize to "
+                            "the Trash. Leave /Library/Caches to macOS."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

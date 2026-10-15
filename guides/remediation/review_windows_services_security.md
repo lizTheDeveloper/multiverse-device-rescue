@@ -8,6 +8,12 @@ remediates:
   - security.win_services_security_audit.overprivileged
   - security.win_services_security_audit.stopped_auto_start
   - security.win_services_security_audit.summary
+steps_for:
+  security.win_services_security_audit.unquoted_path: [1, 5]
+  security.win_services_security_audit.user_writable_dir: [2, 5]
+  security.win_services_security_audit.overprivileged: [3, 5]
+  security.win_services_security_audit.stopped_auto_start: [4, 5]
+  security.win_services_security_audit.summary: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -21,7 +27,7 @@ stopped auto-start services. Verify a service's real purpose with
 some of these findings (like LocalSystem) describe patterns that are
 correct and necessary for legitimate core services too.
 
-## Step 1: Unquoted service path with spaces (CRITICAL)
+## Step 1: Fix service paths with spaces
 
 A service's binary path contains spaces and isn't wrapped in quotes — a
 classic Windows privilege-escalation bug. Windows tries each
@@ -48,7 +54,7 @@ real binary.
    confirm it starts normally with the corrected path.
 6. Re-run the scan to confirm.
 
-## Step 2: Service running from a user-writable directory (WARNING)
+## Step 2: Check if service files are in safe folders
 
 The service binary lives under AppData, Temp, Downloads, or Documents —
 directories a standard (non-admin) user account can write to. If the
@@ -74,7 +80,7 @@ can plant a replacement that runs with the service's privilege level.
    service's ImagePath — this typically requires reinstalling the
    software rather than manually moving files.
 
-## Step 3: Third-party service running as LocalSystem (WARNING)
+## Step 3: Verify high-privilege services are trusted
 
 A non-Microsoft service runs with LocalSystem privileges — the highest
 local privilege level. This is legitimate for some software (backup
@@ -99,7 +105,7 @@ attacks against the service itself.
    resources — test in a way you can revert, and don't do this for a
    service you can't fully account for.
 
-## Step 4: Auto-start service stopped (WARNING)
+## Step 4: Check why a required service is stopped
 
 An Automatic or Automatic (Delayed Start) service is currently not
 running — could indicate a crash, missing dependency, corrupted install, or
@@ -118,7 +124,7 @@ running — could indicate a crash, missing dependency, corrupted install, or
    since disabling security services is a common step in an active
    compromise.
 
-## Step 5: Services audit summary (INFO)
+## Step 5: Review the final service report
 
 The summary finding reports total service count grouped by state and start
 mode — use it as a baseline snapshot and to confirm changes from Steps 1-4

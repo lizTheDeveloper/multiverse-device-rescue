@@ -64,10 +64,10 @@ def test_font_issues_excessive_count(tmp_path):
 
     # Should have a warning about excessive fonts
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("excessive" in w.title.lower() for w in warnings)
+    assert any("a lot of fonts" in w.title.lower() for w in warnings)
 
     # Find the excessive font warning
-    font_count_warning = [w for w in warnings if "excessive" in w.title.lower()]
+    font_count_warning = [w for w in warnings if "a lot of fonts" in w.title.lower()]
     assert len(font_count_warning) == 1
     assert font_count_warning[0].data.get("font_count") == 750
 
@@ -105,7 +105,7 @@ def test_font_issues_duplicate_fonts(tmp_path):
 
     # Should have a warning about duplicate fonts
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    dup_warnings = [w for w in warnings if "duplicate" in w.title.lower()]
+    dup_warnings = [w for w in warnings if "more than one place" in w.title.lower()]
     assert len(dup_warnings) >= 1
     assert dup_warnings[0].data.get("duplicates") == duplicates
 

@@ -33,11 +33,17 @@ class Module(ModuleBase):
         if current_safeboot:
             findings.append(
                 Finding(
-                    title=f"System currently running in Safe Mode ({current_safeboot})",
+                    title=(
+                        f"Your computer is currently running in Safe Mode ({current_safeboot})"
+                    ),
                     description=(
-                        f"Windows is currently running in Safe Mode ({current_safeboot}). "
-                        "This mode has limited functionality and driver support. "
-                        "System booted with reduced drivers and services for troubleshooting."
+                        f"Windows is currently in Safe Mode ({current_safeboot}). This "
+                        "is a special startup mode that loads fewer drivers and services "
+                        "to help fix problems. It just means your computer is running "
+                        "with limited features right now.\n\n"
+                        "What to do: Restart your computer normally. If it boots into "
+                        "Safe Mode again, you may need to change the boot settings (see "
+                        "the next finding)."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -50,12 +56,14 @@ class Module(ModuleBase):
         if safeboot_default:
             findings.append(
                 Finding(
-                    title="Safe Mode is set as default boot configuration",
+                    title="Your computer is set to always start in Safe Mode",
                     description=(
-                        "The boot configuration is set to use Safe Mode by default. "
-                        "This is a common issue when users boot into Safe Mode for troubleshooting "
-                        "and forget to change it back to normal boot. "
-                        "System will continue to boot in Safe Mode until configuration is changed."
+                        "Your computer is configured to start in Safe Mode every time "
+                        "you turn it on. This often happens if you entered Safe Mode to "
+                        "fix a problem and forgot to switch it back.\n\n"
+                        "What to do: Open the Start menu, type 'msconfig', and press Enter. "
+                        "In the window that opens, go to the 'Boot' tab, uncheck 'Safe "
+                        "boot', click Apply, then OK. Restart your computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -72,11 +80,13 @@ class Module(ModuleBase):
             if days > 30:
                 findings.append(
                     Finding(
-                        title=f"System uptime exceeds 30 days ({uptime_str})",
+                        title=f"Your computer hasn't restarted in a while ({uptime_str})",
                         description=(
-                            f"System has been running for {uptime_str} without restart. "
-                            "Long uptime may prevent critical Windows updates from being applied. "
-                            "Regular restarts are recommended to ensure security patches are installed."
+                            f"Your computer has been running for {uptime_str} without "
+                            "a restart. Windows often needs a restart to install important "
+                            "security updates.\n\n"
+                            "What to do: Restart your computer when it is convenient "
+                            "to ensure recent updates are installed."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -106,7 +116,7 @@ class Module(ModuleBase):
             uptime_str = uptime_info.get("uptime_str", "unknown") if uptime_info else "unknown"
             findings.append(
                 Finding(
-                    title=f"Boot status info - Uptime: {uptime_str}",
+                    title=f"System uptime: {uptime_str}",
                     description=(
                         f"Current system uptime: {uptime_str}. "
                         "Review warnings above for boot configuration issues."

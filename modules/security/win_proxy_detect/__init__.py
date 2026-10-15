@@ -46,11 +46,16 @@ class Module(ModuleBase):
             if is_localhost_suspicious:
                 findings.append(
                     Finding(
-                        title="Proxy points to localhost on unusual port (potential malware)",
+                        title=f"Proxy points to your own computer ({ie_proxy_server})",
                         description=(
-                            f"The proxy server is set to {ie_proxy_server}, which points to localhost "
-                            "on an unusual port. This is a common malware/adware tactic to intercept "
-                            "traffic. Verify this is intentional immediately."
+                            f"Your browser is set to send traffic to {ie_proxy_server}, "
+                            "which is your own computer. This is a common sign of malicious "
+                            "software trying to intercept your web traffic. Unless you "
+                            "are a developer testing specific software, this is not normal "
+                            "and should be fixed.\n\n"
+                            "What to do: Open Settings > Network & internet > Proxies. "
+                            "Turn off 'Use a proxy server'. If it turns back on, run "
+                            "a full antivirus scan."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -63,11 +68,17 @@ class Module(ModuleBase):
         if ie_proxy_enabled and ie_proxy_server:
             findings.append(
                 Finding(
-                    title="Internet Explorer/Edge proxy is enabled",
+                    title=f"A web proxy is set to {ie_proxy_server}",
                     description=(
-                        f"Proxy server is enabled and set to {ie_proxy_server}. "
-                        "Most home PCs do not require proxy settings. Verify this is "
-                        "intentional (common in corporate environments or with VPN)."
+                        "Your browser is set to route traffic through a proxy server "
+                        f"at {ie_proxy_server}. A proxy is a middleman that forwards your "
+                        "web requests. Most home computers do not need this. If you use "
+                        "a corporate network or a specific VPN, this is likely normal. "
+                        "If you do not, it is worth checking to make sure no software "
+                        "is redirecting your traffic.\n\n"
+                        "What to do: Open Settings > Network & internet > Proxies. If "
+                        "you do not recognize the address, turn off 'Use a proxy server' "
+                        "and restart your browser."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -80,10 +91,14 @@ class Module(ModuleBase):
         if ie_pac_url:
             findings.append(
                 Finding(
-                    title="Auto-config (PAC) URL is configured",
+                    title=f"An auto-config script is set to {ie_pac_url}",
                     description=(
-                        f"Proxy auto-config URL is set to {ie_pac_url}. "
-                        "Verify this is intentional. Malware may use PAC files to redirect traffic."
+                        f"Your browser is using a script at {ie_pac_url} to decide how "
+                        "to connect to the internet. This is called a PAC file. It is "
+                        "common in offices, but unusual at home. If you did not set this "
+                        "up, it could be used to redirect your browsing.\n\n"
+                        "What to do: Open Settings > Network & internet > Proxies. Turn "
+                        "off 'Use automatic configuration script' and restart your browser."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -96,7 +111,7 @@ class Module(ModuleBase):
         if netsh_proxy:
             findings.append(
                 Finding(
-                    title="System-wide proxy detected",
+                    title="Your system-wide proxy settings",
                     description=(
                         f"System-wide HTTP proxy is configured: {netsh_proxy}. "
                         "Verify this is intentional."

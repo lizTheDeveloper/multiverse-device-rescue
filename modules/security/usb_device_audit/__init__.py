@@ -55,7 +55,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"USB devices detected: {device_count} device(s) connected",
+                    title=f"USB devices: {device_count} connected",
                     description=(
                         f"Connected USB devices: {device_list}. "
                         "Review the list to ensure you recognize all connected devices."
@@ -78,11 +78,20 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"USB device(s) with unknown vendor: {len(no_vendor_devices)} device(s)",
+                    title=(
+                        f"USB device(s) with unknown maker: {len(no_vendor_devices)} device(s)"
+                    ),
                     description=(
-                        f"Devices with missing vendor/manufacturer information: {no_vendor_list}. "
-                        "This could indicate rogue devices, corrupted device info, or uncommon hardware. "
-                        "Verify these devices are legitimate and recognize them."
+                        f"Your computer sees {len(no_vendor_devices)} USB device(s) that "
+                        f"don't list a maker: {no_vendor_list}. This usually means the "
+                        "device is cheap, broken, or from a small company, but it can "
+                        "also happen if a device is trying to hide its identity. If you "
+                        "recognize these items (like a cheap charger or a USB stick you "
+                        "bought), they are likely fine. If you do not recognize them, "
+                        "unplug them and do not use them again.\n\n"
+                        "What to do: Unplug any USB devices you do not recognize. If "
+                        "you are unsure, leave them unplugged and ask a trusted tech-savvy "
+                        "friend to check them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -103,7 +112,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"USB storage device(s) detected: {len(storage_devices)} device(s)",
+                    title=f"USB storage: {len(storage_devices)} found",
                     description=(
                         f"External storage devices: {storage_list}. "
                         "Ensure these devices are from trusted sources."
@@ -124,7 +133,7 @@ class Module(ModuleBase):
             hub_list = ", ".join(d.get("name", "Unknown Hub") for d in hubs)
             findings.append(
                 Finding(
-                    title=f"USB hub(s) detected: {hub_count} hub(s)",
+                    title=f"USB hubs: {hub_count} found",
                     description=(
                         f"USB hubs detected: {hub_list}. "
                         "Multiple daisy-chained hubs can cause power and stability issues on older Macs. "

@@ -65,10 +65,19 @@ class Module(ModuleBase):
         if has_total_warning:
             findings.append(
                 Finding(
-                    title=f"High total cache size: {_fmt_bytes(total_size)}",
+                    title=(
+                        f"Your app cache folders are using a lot of space ({_fmt_bytes(total_size)})"
+                    ),
                     description=(
-                        f"~/Library/Caches contains {_fmt_bytes(total_size)}, exceeding the 10GB threshold. "
-                        f"This may impact disk space and system performance. Review the cache directories below."
+                        "Your computer stores temporary files from apps in a folder called "
+                        f"~/Library/Caches. Right now, these folders are using {_fmt_bytes(total_size)} "
+                        "of space. This is a lot, and it can make your computer feel "
+                        "slower or run out of storage.\n\n"
+                        "What to do: You can safely delete these files. Open Finder, "
+                        "press Command+Shift+G, type ~/Library/Caches, and press Enter. "
+                        "You can drag the folders of apps you don't use into the Trash. "
+                        "If you aren't sure which ones to delete, you can leave them "
+                        "for now."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -85,10 +94,20 @@ class Module(ModuleBase):
                 if size >= SINGLE_CACHE_WARNING:
                     findings.append(
                         Finding(
-                            title=f"Large cache directory: {app_name} ({_fmt_bytes(size)})",
+                            title=(
+                                f"Your {app_name} cache is taking up a lot of space ({_fmt_bytes(size)})"
+                            ),
                             description=(
-                                f"The cache for {app_name} is {_fmt_bytes(size)}, exceeding the 3GB threshold. "
-                                f"This cache can be safely removed and will be regenerated when the app runs."
+                                f"The app {app_name} has saved {_fmt_bytes(size)} of temporary "
+                                "files. These are just leftovers from using the app, "
+                                "not important data. Having this much space used by one "
+                                "app is normal if you use it often, but it does take "
+                                "up room on your disk.\n\n"
+                                "What to do: You can safely delete this folder to free "
+                                "up space. Open Finder, press Command+Shift+G, type ~/Library/Caches, "
+                                f"find the folder for {app_name}, and move it to the Trash. "
+                                "The app will create a new, smaller cache the next time "
+                                "you use it."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -104,7 +123,7 @@ class Module(ModuleBase):
         if known_apps_info:
             findings.append(
                 Finding(
-                    title=f"Known cache-heavy apps detected: {len(known_apps_info)} apps",
+                    title=f"Apps with large caches: {len(known_apps_info)} apps",
                     description=(
                         f"Detected caches for {len(known_apps_info)} known cache-heavy applications: "
                         f"{', '.join(known_apps_info.keys())}. "
@@ -125,7 +144,9 @@ class Module(ModuleBase):
         if top_caches:
             findings.append(
                 Finding(
-                    title=f"Top 10 cache directories: {_fmt_bytes(sum(size for _, size in top_caches))}",
+                    title=(
+                        f"Top 10 cache folders: {_fmt_bytes(sum(size for _, size in top_caches))}"
+                    ),
                     description=(
                         f"Largest cache directories:\n" +
                         "\n".join(
@@ -197,7 +218,8 @@ class Module(ModuleBase):
                         description=(
                             f"The {app_name} cache uses {size_str}. This is safe to remove. "
                             f"Restart {app_name} after deletion to regenerate the cache. "
-                            f"To remove: rm -rf ~/Library/Caches/*{app_name}*"
+                            "To remove it, quit the app, then in Finder choose Go > Go to Folder, "
+                            "type ~/Library/Caches, and move its folder to the Trash."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

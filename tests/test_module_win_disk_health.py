@@ -289,7 +289,7 @@ def test_win_disk_health_powershell_error():
     # Should have warning about failed disk info
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert "Could not retrieve" in warning_findings[0].title
+    assert "could not check" in warning_findings[0].title
 
 
 def test_win_disk_health_fix_critical():

@@ -32,11 +32,23 @@ class Module(ModuleBase):
         if env_proxies:
             findings.append(
                 Finding(
-                    title="Proxy environment variables detected",
+                    title=(
+                        f"Proxy settings found in your system environment ({', '.join(env_proxies)})"
+                    ),
                     description=(
-                        f"The following proxy environment variables are set: {', '.join(env_proxies)}. "
-                        f"Environment variable proxies can override system settings and break connectivity. "
-                        f"This is unexpected on home machines and may indicate malware or leftover corporate settings."
+                        "We found proxy instructions in your system's environment variables: "
+                        f"{', '.join(env_proxies)}. Proxies route your internet traffic "
+                        "through a different computer. This is common for work computers "
+                        "but unusual for home use. It can cause connection issues or, "
+                        "in rare cases, be used to intercept your traffic. If you don't "
+                        "use a work laptop or a specific proxy service, this is likely "
+                        "a leftover setting.\n\n"
+                        "What to do: Open Terminal and type `env | grep -i proxy` to "
+                        "see the current values. If you don't recognize them, you can "
+                        "remove them by editing your shell configuration file (like `~/.zshrc`) "
+                        "to delete the lines starting with `export http_proxy` or similar. "
+                        "If you are unsure, leave them for now and check your internet "
+                        "connection."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -54,11 +66,25 @@ class Module(ModuleBase):
             if proxy_config.get("pac_url"):
                 findings.append(
                     Finding(
-                        title="Proxy Auto-Configuration (PAC) URL detected on Wi-Fi",
+                        title=(
+                            f"Wi-Fi is set to use a remote configuration file ({proxy_config['pac_url']})"
+                        ),
                         description=(
-                            f"A Proxy Auto-Configuration (PAC) file URL is configured on Wi-Fi: "
-                            f"{proxy_config['pac_url']}. PAC files can intercept and modify traffic, "
-                            f"making them a malware vector. This is very suspicious on home machines."
+                            "Your Wi-Fi is set to download a configuration file from "
+                            f"{proxy_config['pac_url']} to decide how to route your traffic. "
+                            "This is called a PAC file. Legitimate companies use this, "
+                            "but on a home computer, it is a strong sign that someone "
+                            "or something is trying to control your internet connection. "
+                            "This could be a leftover from a previous job or a sign of "
+                            "malicious software.\n\n"
+                            "If you think someone close to you set this up to monitor "
+                            "you, removing it can alert them. Talk to an advocate first "
+                            "(US National Domestic Violence Hotline: 1-800-799-7233, "
+                            "or text START to 88788).\n\n"
+                            "What to do: Open System Settings > Network > Wi-Fi > Details "
+                            "> Proxies. Uncheck 'Automatic Proxy Configuration' and click "
+                            "Apply. If the setting returns, your Mac may be managed by "
+                            "a profile; check System Settings > General > Device Management."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -81,11 +107,24 @@ class Module(ModuleBase):
             if enabled_proxies:
                 findings.append(
                     Finding(
-                        title=f"Proxy server(s) configured on Wi-Fi: {', '.join(enabled_proxies)}",
+                        title=(
+                            f"Wi-Fi is routing traffic through a proxy ({', '.join(enabled_proxies)})"
+                        ),
                         description=(
-                            f"The following proxy server(s) are enabled on Wi-Fi: {', '.join(enabled_proxies)}. "
-                            f"Unexpected proxies on home machines can break connectivity and may be a malware vector. "
-                            f"Corporate machines may legitimately use proxies, but home machines should typically not."
+                            "Your Wi-Fi is set to send internet traffic through a proxy "
+                            f"server for {', '.join(enabled_proxies)}. A proxy is a middleman "
+                            "computer that handles your connections. This is normal for "
+                            "work or school networks, but on a home computer, it is unusual "
+                            "and can slow down your internet or break certain sites. "
+                            "If you don't remember setting this, it might be a leftover "
+                            "setting or a sign of interference.\n\n"
+                            "If you think someone close to you set this up to monitor "
+                            "you, removing it can alert them. Talk to an advocate first "
+                            "(US National Domestic Violence Hotline: 1-800-799-7233, "
+                            "or text START to 88788).\n\n"
+                            "What to do: Open System Settings > Network > Wi-Fi > Details "
+                            "> Proxies. Turn off the switches for the listed protocols "
+                            "(HTTP, HTTPS, or SOCKS) and click Apply."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

@@ -262,7 +262,7 @@ def test_smart_status_all_sources_fail():
         result = mod.check(_make_profile())
     assert len(result.findings) > 0
     assert result.findings[0].severity == Severity.WARNING
-    assert "Could not retrieve" in result.findings[0].title
+    assert "couldn't check" in result.findings[0].title
 
 
 def test_smart_status_fix_critical():

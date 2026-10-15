@@ -61,10 +61,14 @@ class Module(ModuleBase):
     def _make_finding(self, items: list[dict[str, str]], severity: Severity) -> Finding:
         names = [item.get("Name", "") for item in items]
         return Finding(
-            title=f"{len(items)} startup programs detected",
+            title=f"{len(items)} programs start automatically when you sign in",
             description=(
-                f"{len(items)} program(s) are configured to launch "
-                "automatically at sign-in, which can slow down boot time."
+                f"We found {len(items)} programs set to run automatically every time you "
+                "sign in to your computer. This is normal, but if there are many, they "
+                "can make your computer take longer to start up.\n\n"
+                "What to do: Open Task Manager (right-click the taskbar and select Task "
+                "Manager), then click the Startup apps tab. Look for programs you don't "
+                "need running all the time and select 'Disable'."
             ),
             severity=severity,
             category=self.category,

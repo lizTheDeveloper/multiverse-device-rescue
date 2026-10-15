@@ -32,8 +32,16 @@ class Module(ModuleBase):
         if not fs_info:
             findings.append(
                 Finding(
-                    title="Could not retrieve filesystem information",
-                    description="Failed to run diskutil commands to check filesystem health.",
+                    title="We couldn't check your disk's health",
+                    description=(
+                        "The check that looks for disk problems didn't finish, so we don't "
+                        "know if your storage is healthy. "
+                        "This is not the same as saying everything is fine; it just means "
+                        "we couldn't see.\n\n"
+                        "What to do: Try running the checkup again. If it fails again, "
+                        "check that your Mac is updated and restart it, then try once "
+                        "more."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "fs_info_retrieval"},
@@ -49,7 +57,7 @@ class Module(ModuleBase):
         # Report filesystem type
         findings.append(
             Finding(
-                title=f"Filesystem type: {fs_type}",
+                title=f"Your storage type: {fs_type}",
                 description=f"Root volume is formatted as {fs_type}.",
                 severity=Severity.INFO,
                 category=self.category,
@@ -61,11 +69,13 @@ class Module(ModuleBase):
         if is_hfs_plus:
             findings.append(
                 Finding(
-                    title="HFS+ filesystem detected (should upgrade to APFS)",
+                    title="Your Mac is using an older file system",
                     description=(
-                        "Your Mac is using HFS+ (Mac OS Extended) filesystem. "
-                        "Apple recommends upgrading to APFS for modern macOS versions. "
-                        "APFS provides better performance, security, and space efficiency."
+                        "Your main drive uses HFS+, an older file system. Modern Macs "
+                        "use APFS, which is faster and more secure. "
+                        "This isn't dangerous, but upgrading gives you better performance.\n\n"
+                        "What to do: Nothing urgent. If you want to upgrade, back up your "
+                        "data first, then use Disk Utility to convert your drive to APFS."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -79,7 +89,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title=f"FileVault encryption: {encryption_status}",
+                title=f"Disk encryption status: {encryption_status}",
                 description=f"FileVault encryption status: {encryption_status}",
                 severity=Severity.INFO,
                 category=self.category,
@@ -91,10 +101,14 @@ class Module(ModuleBase):
         if not is_encrypted and self._is_laptop(profile):
             findings.append(
                 Finding(
-                    title="FileVault disabled on laptop",
+                    title="Your laptop's data isn't encrypted",
                     description=(
-                        "Your Mac appears to be a laptop with FileVault encryption disabled. "
-                        "Enable FileVault to protect your data if the device is lost or stolen."
+                        "FileVault, which scrambles your files so they can't be read if "
+                        "the Mac is lost or stolen, is turned off. "
+                        "Since this is a laptop, it's a good idea to turn it on for protection.\n\n"
+                        "What to do: Go to System Settings > Privacy & Security > FileVault "
+                        "and turn it on. You'll be asked to save a recovery key; keep "
+                        "it somewhere safe."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -330,7 +344,7 @@ class Module(ModuleBase):
             if "Fusion Drive" in container_info:
                 findings.append(
                     Finding(
-                        title="APFS Fusion Drive detected",
+                        title="You have a Fusion Drive",
                         description="Your Mac is using an APFS Fusion Drive with combined SSD/HDD storage.",
                         severity=Severity.INFO,
                         category=self.category,
@@ -367,10 +381,13 @@ class Module(ModuleBase):
         if snapshot_count > 50:
             findings.append(
                 Finding(
-                    title=f"High APFS snapshot count ({snapshot_count})",
+                    title=f"Many automatic backups are taking up space ({snapshot_count})",
                     description=(
-                        f"You have {snapshot_count} APFS snapshots consuming disk space. "
-                        "This is higher than recommended. Consider removing old snapshots."
+                        f"Your Mac has {snapshot_count} automatic snapshots, which are "
+                        "hidden copies of your files made during updates or backups. "
+                        "This is higher than usual and may be using extra disk space.\n\n"
+                        "What to do: Nothing urgent. macOS removes these by itself when it "
+                        "needs the space, and Time Machine keeps some on purpose."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -403,10 +420,13 @@ class Module(ModuleBase):
         if "error" in output.lower() or "appears to be corrupt" in output.lower():
             findings.append(
                 Finding(
-                    title="Filesystem verification error",
+                    title="Your disk might have errors",
                     description=(
-                        "Filesystem verification detected errors indicating potential data corruption. "
-                        "Immediate action is recommended to prevent data loss."
+                        "A check of your main drive found signs of possible damage. This "
+                        "doesn't mean your files are gone, but it's a warning to act quickly.\n\n"
+                        "What to do: Back up your important files right away. Then open "
+                        "Disk Utility (Applications > Utilities), select your drive, and "
+                        "click First Aid. If it can't repair the drive, ask Apple Support."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -416,7 +436,7 @@ class Module(ModuleBase):
         elif "appears to be OK" in output or "is OK" in output:
             findings.append(
                 Finding(
-                    title="Filesystem verification passed",
+                    title="Disk health check passed",
                     description="Filesystem verification completed successfully with no errors detected.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -449,10 +469,18 @@ class Module(ModuleBase):
                             inode_percent = float(inode_percent_str)
                             if inode_percent > 85:
                                 return Finding(
-                                    title=f"High inode usage ({inode_percent:.1f}%)",
+                                    title=(
+                                        f"Your disk is running out of file slots ({inode_percent:.1f}%)"
+                                    ),
                                     description=(
-                                        f"Your filesystem is using {inode_percent:.1f}% of available inodes. "
-                                        "When inodes are exhausted, you cannot create new files even with free space."
+                                        f"Your file system is {inode_percent:.1f}% full "
+                                        "of file slots (inodes). When these run out, "
+                                        "you can't create new files even if you have "
+                                        "free space.\n\n"
+                                        "What to do: Look for folders with thousands of "
+                                        "small files, like hidden cache folders, and delete "
+                                        "them. If this keeps happening, consider backing "
+                                        "up and resetting your drive."
                                     ),
                                     severity=Severity.WARNING if inode_percent < 95 else Severity.CRITICAL,
                                     category=self.category,

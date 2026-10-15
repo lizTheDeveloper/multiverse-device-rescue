@@ -36,10 +36,13 @@ class Module(ModuleBase):
         if restore_points_result is None:
             findings.append(
                 Finding(
-                    title="Could not determine System Restore status",
+                    title="We could not check your System Restore status",
                     description=(
-                        "Failed to query System Restore configuration. "
-                        "Unable to verify if System Restore is enabled."
+                        "We tried to look at your System Restore settings, but the check "
+                        "didn't finish, so we can't say whether you have restore points. "
+                        "That isn't the same as everything being fine.\n\n"
+                        "What to do: Type 'Create a restore point' in the Start menu to "
+                        "see the settings yourself."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -54,11 +57,15 @@ class Module(ModuleBase):
         if not is_enabled:
             findings.append(
                 Finding(
-                    title="System Restore is disabled",
+                    title="System Restore is turned off",
                     description=(
-                        "System Restore is not enabled on this system. "
-                        "This means you have no safety net for recovering from bad updates or malware. "
-                        "Enable System Restore to protect your system."
+                        "System Restore is currently disabled. This is a built-in Windows "
+                        "safety net that saves snapshots of your system. Without it, if "
+                        "a bad update or a virus breaks something, you won't have a backup "
+                        "to roll back to.\n\n"
+                        "What to do: Search for 'Create a restore point' in the Start "
+                        "menu. Click 'Configure' next to your main drive and select 'Turn "
+                        "on system protection'."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -71,11 +78,14 @@ class Module(ModuleBase):
         if is_enabled and not restore_points:
             findings.append(
                 Finding(
-                    title="No restore points found",
+                    title="System Restore is on, but no snapshots exist yet",
                     description=(
-                        "System Restore is enabled but no restore points exist. "
-                        "The system may create automatic restore points soon, "
-                        "but you currently have no recovery points available."
+                        "System Restore is enabled, but there are no saved snapshots (restore "
+                        "points) available right now. Windows usually creates these automatically, "
+                        "but you currently have no backup to roll back to if something "
+                        "goes wrong.\n\n"
+                        "What to do: Search for 'Create a restore point' in the Start "
+                        "menu, click 'Create', and name it 'Checkup' to make a fresh snapshot."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -94,11 +104,18 @@ class Module(ModuleBase):
                     if age_days > 30:
                         findings.append(
                             Finding(
-                                title=f"Latest restore point is {age_days} days old",
+                                title=(
+                                    f"Your latest System Restore snapshot is {age_days} days old"
+                                ),
                                 description=(
-                                    f"The most recent restore point was created {age_days} days ago. "
-                                    "While System Restore is enabled, you may want to create a fresh restore point "
-                                    "after installing updates or making significant system changes."
+                                    "Your most recent System Restore snapshot is from "
+                                    f"{age_days} days ago. If you have installed updates "
+                                    "or changed settings since then, this snapshot might "
+                                    "not help you recover if something breaks today. "
+                                    "\n\n"
+                                    "What to do: Search for 'Create a restore point' "
+                                    "in the Start menu, click 'Create', and name it 'Checkup' "
+                                    "to make a fresh snapshot."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
@@ -117,7 +134,7 @@ class Module(ModuleBase):
         if storage_info:
             findings.append(
                 Finding(
-                    title="System Restore disk allocation",
+                    title="System Restore storage usage",
                     description=(
                         f"System Restore uses {storage_info.get('used_space', 'unknown')} "
                         f"({storage_info.get('used_percent', 'unknown')}%) of "
@@ -140,7 +157,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"System Restore is enabled with {len(restore_points)} restore point(s)",
+                    title=f"System Restore is on ({len(restore_points)} points)",
                     description=(
                         f"System Restore is active and protecting your system. "
                         f"Recent restore points: {point_list}. "

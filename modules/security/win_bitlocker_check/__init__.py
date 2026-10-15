@@ -61,11 +61,18 @@ class Module(ModuleBase):
                 os_drive_encrypted = False
                 findings.append(
                     Finding(
-                        title="Windows OS drive (C:) is not encrypted with BitLocker",
+                        title="Your main Windows drive (C:) is not encrypted",
                         description=(
-                            "The C: drive is not protected by BitLocker encryption. "
-                            "If this device is lost or stolen, its contents can be "
-                            "read by anyone with physical access to the disk."
+                            "Your main drive (C:) is not protected by BitLocker, Windows' "
+                            "built-in encryption. This means that if your computer is "
+                            "lost or stolen, anyone who has physical access to the disk "
+                            "can read your files.\n\n"
+                            "What to do: Search for 'BitLocker' in the Start menu and "
+                            "select 'Turn on BitLocker' (on Windows Home, turn on Device "
+                            "encryption in Settings > Privacy & security instead). Follow the prompts to encrypt "
+                            "your drive. You will be asked to save a recovery key; keep "
+                            "it in a safe place, like a password manager or a printed "
+                            "copy, but do not store it on the same computer."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -84,10 +91,16 @@ class Module(ModuleBase):
             if status == "encryptionsuspended":
                 findings.append(
                     Finding(
-                        title=f"BitLocker encryption is suspended on {mount_point}",
+                        title=f"BitLocker encryption is paused on {mount_point}",
                         description=(
-                            f"BitLocker on {mount_point} is not actively protecting data. "
-                            "Resume encryption to restore protection."
+                            f"BitLocker on {mount_point} is currently paused, so your "
+                            "data is not actively protected by encryption. This usually "
+                            "happens temporarily during updates or maintenance, but if "
+                            "it stays paused, your files are vulnerable if the device "
+                            "is lost.\n\n"
+                            "What to do: Search for 'BitLocker' in the Start menu, find "
+                            f"the entry for {mount_point}, and select 'Resume BitLocker'. "
+                            "This will turn the protection back on."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -107,11 +120,17 @@ class Module(ModuleBase):
             if is_encrypted and not has_recovery_key:
                 findings.append(
                     Finding(
-                        title=f"No recovery key protector on {mount_point}",
+                        title=f"Missing recovery key for encrypted drive {mount_point}",
                         description=(
-                            f"{mount_point} is encrypted but has no recovery key protector. "
-                            "If the password is lost or TPM fails, data cannot be recovered. "
-                            "Add a recovery key protector."
+                            f"Your drive {mount_point} is encrypted, but there is no backup "
+                            "recovery key saved. A recovery key is a long number that "
+                            "can unlock your drive if your password is forgotten or your "
+                            "computer's security chip fails. Without it, you could lose "
+                            "access to your files permanently.\n\n"
+                            "What to do: Search for 'BitLocker' in the Start menu, select "
+                            "'Manage BitLocker', and look for an option to 'Back up recovery "
+                            "key' or 'Save recovery key'. Save it to a USB drive or a "
+                            "secure cloud account that only you can access."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -127,10 +146,15 @@ class Module(ModuleBase):
             if not is_os_drive and not is_encrypted:
                 findings.append(
                     Finding(
-                        title=f"Fixed drive {mount_point} is not encrypted",
+                        title=f"Secondary drive {mount_point} is not encrypted",
                         description=(
-                            f"The fixed drive {mount_point} is not encrypted with BitLocker. "
-                            "Consider enabling encryption to protect data on this volume."
+                            f"Your additional drive {mount_point} is not protected by "
+                            "BitLocker encryption. If this drive is removed from the "
+                            "computer or the computer is stolen, the files on it can "
+                            "be read by anyone. This is less critical than your main "
+                            "drive, but still worth fixing for better security.\n\n"
+                            "What to do: Search for 'BitLocker' in the Start menu, find "
+                            f"{mount_point} in the list, and select 'Turn on BitLocker'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -147,7 +171,7 @@ class Module(ModuleBase):
                 protector_list = ", ".join(key_protectors) if key_protectors else "None"
                 findings.append(
                     Finding(
-                        title=f"BitLocker status: {mount_point}",
+                        title=f"Disk encryption: {mount_point}",
                         description=(
                             f"{mount_point} is encrypted using {encryption_method}. "
                             f"Protection: {protection}. "
@@ -188,7 +212,7 @@ class Module(ModuleBase):
                     )
                 )
             elif finding.severity == Severity.WARNING:
-                if "suspended" in finding.title.lower():
+                if finding.code == "security.win_bitlocker_check.encryption_suspended":
                     actions.append(
                         Action(
                             title=f"Resume BitLocker protection on {mount_point}",
@@ -201,7 +225,7 @@ class Module(ModuleBase):
                             success=True,
                         )
                     )
-                elif "recovery key" in finding.title.lower():
+                elif finding.code == "security.win_bitlocker_check.no_recovery_key":
                     actions.append(
                         Action(
                             title=f"Add recovery key protector to {mount_point}",
@@ -214,7 +238,7 @@ class Module(ModuleBase):
                             success=True,
                         )
                     )
-                elif "not encrypted" in finding.title.lower():
+                elif finding.code in ("security.win_bitlocker_check.os_drive_not_encrypted", "security.win_bitlocker_check.fixed_drive_not_encrypted"):
                     actions.append(
                         Action(
                             title=f"Enable BitLocker on {mount_point}",

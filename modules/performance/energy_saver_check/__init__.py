@@ -43,10 +43,13 @@ class Module(ModuleBase):
         if display_sleep == 0:
             findings.append(
                 Finding(
-                    title="Display sleep disabled",
+                    title="Your screen is set to never turn off",
                     description=(
-                        "Display sleep is set to never sleep. This will cause the screen "
-                        "to stay on continuously, draining battery quickly on laptops."
+                        "Your Mac is set to keep the screen on even when you are not using "
+                        "it. This is a common setting, but it uses a lot of battery power "
+                        "on laptops.\n\n"
+                        "What to do: Open System Settings > Lock Screen and set 'Turn "
+                        "display off when inactive' to a few minutes."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -63,10 +66,14 @@ class Module(ModuleBase):
         if computer_sleep == 0:
             findings.append(
                 Finding(
-                    title="Computer sleep disabled",
+                    title="Your Mac is set to never sleep",
                     description=(
-                        "Computer/system sleep is set to never sleep. This will prevent "
-                        "the Mac from entering low-power mode, increasing energy consumption."
+                        "Your Mac is set to stay fully awake even when you are not using "
+                        "it. This prevents it from entering low-power mode, which drains "
+                        "the battery faster on laptops.\n\n"
+                        "What to do: Open System Settings > Battery > Options and turn off "
+                        "'Prevent automatic sleeping on power adapter when the display is "
+                        "off'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -83,7 +90,7 @@ class Module(ModuleBase):
         if disk_sleep == 0:
             findings.append(
                 Finding(
-                    title="Disk sleep disabled",
+                    title="Hard drive sleep is turned off",
                     description=(
                         "Disk sleep is disabled, so the hard drive will not spin down "
                         "during idle periods, increasing energy consumption."
@@ -104,11 +111,13 @@ class Module(ModuleBase):
             if is_on_battery:
                 findings.append(
                     Finding(
-                        title="Power Nap enabled on battery",
+                        title="Power Nap is on while using battery",
                         description=(
-                            "Power Nap is enabled while on battery power. This allows the Mac "
-                            "to perform background tasks even in sleep mode, which can unnecessarily "
-                            "drain your battery."
+                            "Power Nap lets your Mac do background tasks (like checking "
+                            "email) while it is asleep. This is fine when plugged in, "
+                            "but it drains the battery when you are using battery power.\n\n"
+                            "What to do: Open System Settings > Battery > Options and "
+                            "turn off 'Enable Power Nap' if you want to save battery life."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -123,7 +132,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Power Nap enabled on AC power",
+                        title="Background tasks run while plugged in",
                         description=(
                             "Power Nap is enabled. While on AC power this is fine, "
                             "it allows background tasks during sleep."
@@ -145,11 +154,13 @@ class Module(ModuleBase):
             if is_on_battery:
                 findings.append(
                     Finding(
-                        title="Wake for network access enabled on battery",
+                        title="Wake for network access is on on battery",
                         description=(
-                            "Wake for network access is enabled while on battery power. "
-                            "This allows the Mac to wake from sleep when receiving network traffic, "
-                            "which can drain battery on laptops."
+                            "This setting lets your Mac wake up from sleep if it receives "
+                            "a network signal. It can drain the battery on laptops.\n\n"
+                            "What to do: Open System Settings > Battery > Options and "
+                            "turn off 'Wake for network access' if you want to save battery "
+                            "life."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -164,7 +175,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Wake for network access enabled",
+                        title="Mac wakes up for network activity",
                         description=(
                             "Wake for network access is enabled. This allows the Mac to wake "
                             "from sleep when receiving network traffic."
@@ -185,7 +196,7 @@ class Module(ModuleBase):
         if prevent_sleep_display_off == 1:
             findings.append(
                 Finding(
-                    title="Prevent sleep when display is off enabled",
+                    title="Mac stays awake when screen is off",
                     description=(
                         "The Mac is configured to prevent sleep when the display is off. "
                         "This is typically used for servers/kiosks and will increase energy consumption."
@@ -205,7 +216,7 @@ class Module(ModuleBase):
         if hibernation_mode is not None:
             findings.append(
                 Finding(
-                    title=f"Hibernation mode: {hibernation_mode}",
+                    title=f"Sleep (hibernation) mode: {hibernation_mode}",
                     description=(
                         f"Hibernation mode is set to {hibernation_mode}. "
                         f"Mode 0: Sleep only. Mode 3: Sleep + hibernation (default). Mode 25: Hibernate only."
@@ -224,7 +235,7 @@ class Module(ModuleBase):
         if scheduled_events:
             findings.append(
                 Finding(
-                    title=f"Scheduled wake/sleep events ({len(scheduled_events)})",
+                    title=f"Scheduled wake/sleep times: {len(scheduled_events)}",
                     description=(
                         f"Found {len(scheduled_events)} scheduled wake or sleep events. "
                         f"These can prevent the Mac from sleeping or wake it unexpectedly. "
@@ -244,7 +255,7 @@ class Module(ModuleBase):
         if not any(f.severity == Severity.WARNING for f in findings):
             findings.append(
                 Finding(
-                    title="Power management configuration normal",
+                    title="Power settings look normal",
                     description=(
                         "Power management settings appear to be properly configured. "
                         "Your Mac should sleep correctly and manage energy efficiently."

@@ -196,7 +196,7 @@ def test_check_unstable_app():
     # Check for unstable app warning
     unstable_findings = [
         f for f in result.findings
-        if f.severity == Severity.WARNING and "Unstable app" in f.title
+        if f.severity == Severity.WARNING and "keeps crashing" in f.title
     ]
     assert len(unstable_findings) > 0
     assert "BadApp" in unstable_findings[0].title
@@ -234,7 +234,7 @@ def test_check_system_crashes():
     # Check for system crash warning
     system_findings = [
         f for f in result.findings
-        if f.severity == Severity.WARNING and "System process crashes" in f.title
+        if f.severity == Severity.WARNING and "System processes are crashing" in f.title
     ]
     assert len(system_findings) > 0
 
@@ -274,10 +274,10 @@ def test_check_memory_crashes():
     # Check for memory crash warning
     memory_findings = [
         f for f in result.findings
-        if f.severity == Severity.WARNING and "Memory-related crashes" in f.title
+        if f.severity == Severity.WARNING and "memory errors" in f.title
     ]
     assert len(memory_findings) > 0
-    assert "EXC_BAD_ACCESS" in memory_findings[0].title
+    assert "EXC_BAD_ACCESS" in memory_findings[0].description
 
 
 def test_extract_crash_reason_exc_bad_access():

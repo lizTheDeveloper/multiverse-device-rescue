@@ -54,7 +54,9 @@ class Module(ModuleBase):
         if downloads_old["size"] > 0:
             findings.append(
                 Finding(
-                    title=f"Old files in Downloads: {_fmt_bytes(downloads_old['size'])}",
+                    title=(
+                        f"Old files in your Downloads folder: {_fmt_bytes(downloads_old['size'])}"
+                    ),
                     description=(
                         f"~/Downloads contains {downloads_old['count']} files older than {OLD_FILES_DAYS} days "
                         f"using {_fmt_bytes(downloads_old['size'])}. These are likely forgotten."
@@ -73,7 +75,9 @@ class Module(ModuleBase):
         if large_caches["size"] > 0:
             findings.append(
                 Finding(
-                    title=f"Large cache directories: {_fmt_bytes(large_caches['size'])}",
+                    title=(
+                        f"Large temporary storage folders: {_fmt_bytes(large_caches['size'])}"
+                    ),
                     description=(
                         f"Found {large_caches['count']} cache directories larger than {_fmt_bytes(LARGE_CACHE_SIZE)} "
                         f"using a total of {_fmt_bytes(large_caches['size'])}. "
@@ -93,7 +97,7 @@ class Module(ModuleBase):
         if trash_size > 0:
             findings.append(
                 Finding(
-                    title=f"Trash: {_fmt_bytes(trash_size)}",
+                    title=f"Trash folder size: {_fmt_bytes(trash_size)}",
                     description=(
                         f"Trash (~/.Trash) contains {_fmt_bytes(trash_size)} of deleted files. "
                         f"These can be permanently removed."
@@ -111,7 +115,7 @@ class Module(ModuleBase):
         if dmg_files["size"] > 0:
             findings.append(
                 Finding(
-                    title=f"Large .dmg installer files: {_fmt_bytes(dmg_files['size'])}",
+                    title=f"Old installer files: {_fmt_bytes(dmg_files['size'])}",
                     description=(
                         f"Found {dmg_files['count']} .dmg installer files in ~/Downloads "
                         f"using {_fmt_bytes(dmg_files['size'])}. "
@@ -131,7 +135,7 @@ class Module(ModuleBase):
         if app_support["size"] > 0:
             findings.append(
                 Finding(
-                    title=f"Unused application data: {_fmt_bytes(app_support['size'])}",
+                    title=f"Data from uninstalled apps: {_fmt_bytes(app_support['size'])}",
                     description=(
                         f"Found {app_support['count']} directories in ~/Library/Application Support "
                         f"for applications that may no longer be installed, using {_fmt_bytes(app_support['size'])}. "
@@ -153,10 +157,17 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"High reclaimable storage: {_fmt_bytes(total_reclaimable)}",
+                    title=f"Your Mac has {_fmt_bytes(total_reclaimable)} of unused space",
                     description=(
-                        f"Total reclaimable space across all categories: {_fmt_bytes(total_reclaimable)}. "
-                        f"Review the findings below for specific cleanup opportunities."
+                        f"Your Mac has {_fmt_bytes(total_reclaimable)} of space that is "
+                        "currently taking up room but not actively being used. It simply "
+                        "means you have files, caches, or old data that can be removed "
+                        "to free up storage. Please look at the other findings in this "
+                        "report to see exactly what is using that space.\n\n"
+                        "What to do: Review the other findings below to identify specific "
+                        "items you can safely remove. If you are unsure about a specific "
+                        "file or folder, it is safer to leave it alone than to delete "
+                        "it by mistake."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -47,13 +47,16 @@ class Module(ModuleBase):
         if auto_login_user:
             findings.append(
                 Finding(
-                    title="Auto-login is enabled",
+                    title=f"Your Mac logs in automatically as {auto_login_user}",
                     description=(
-                        f"The Mac is configured to automatically log in as '{auto_login_user}'. "
-                        "This is a critical security risk on shared or family Macs, as anyone with "
-                        "physical access can access the account without a password. Disable auto-login "
-                        "in System Settings > General > Login Items > Allow guests to log in > OFF, "
-                        "or disable auto-login via System Preferences."
+                        f"Your Mac is set to automatically sign you in as '{auto_login_user}' "
+                        "when it wakes up or restarts. This means anyone who physically "
+                        "touches the computer can open your account without a password. "
+                        "This is a significant risk if you share your Mac with family "
+                        "or friends, or if you are worried someone close to you might "
+                        "use this to get into your files or messages.\n\n"
+                        "What to do: Open System Settings > Users & Groups and set "
+                        "'Automatically log in as' to Off."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -77,13 +80,15 @@ class Module(ModuleBase):
         if show_full_name == "0":
             findings.append(
                 Finding(
-                    title="Login window displays user list",
+                    title="Your login screen shows a list of user names",
                     description=(
-                        "The login window is configured to show a list of users. This reveals "
-                        "which user accounts exist on the system to anyone with physical access. "
-                        "For better security, configure the login window to show name and password "
-                        "fields instead. Go to System Settings > General > Login Options > "
-                        "Display login window as > 'Name and password' or 'Account name and password'."
+                        "When you turn on your Mac, the login screen currently displays "
+                        "a list of all user names on the computer. This tells anyone who "
+                        "can see the screen exactly who has an account on the device. "
+                        "For better privacy, you can change the screen to ask for a name "
+                        "and password instead of showing a list.\n\n"
+                        "What to do: Open System Settings > Lock Screen and set 'Login "
+                        "window shows' to Name and password."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -109,12 +114,17 @@ class Module(ModuleBase):
                 if retries > 0:
                     findings.append(
                         Finding(
-                            title="Password hints are enabled at login",
+                            title=(
+                                f"Your Mac shows password hints after {retries} failed logins"
+                            ),
                             description=(
-                                f"The login window is configured to show password hints after "
-                                f"{retries} failed login attempts. This can assist attackers in "
-                                "guessing passwords. Disable password hints by setting RetriesUntilHint "
-                                "to 0 or -1."
+                                f"Your Mac is set to display a password hint after {retries} "
+                                "incorrect login attempts. Hints are often easy to guess, "
+                                "which can make it simpler for someone to break into "
+                                "your account. This is a common setting, but turning "
+                                "it off adds a layer of protection.\n\n"
+                                "What to do: Open System Settings > Lock Screen and turn off "
+                                "'Show password hints'."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

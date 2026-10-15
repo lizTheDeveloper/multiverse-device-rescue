@@ -47,11 +47,15 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="iCloud account not signed in",
+                    title="Your Mac is not signed in to iCloud",
                     description=(
-                        "iCloud account appears to be not signed in. This will prevent "
-                        "iCloud backup, photo sync, and document cloud storage from working. "
-                        "Sign in to your iCloud account in System Settings to restore these features."
+                        "Your Mac is not currently signed in to an Apple ID. This means "
+                        "your device is not backing up to iCloud, and your photos and "
+                        "documents are not syncing to the cloud.\n\n"
+                        "If your Mac were lost or broken, you might lose data that was "
+                        "not saved elsewhere.\n\n"
+                        "What to do: Open System Settings, click your name at the top, "
+                        "and sign in with your Apple ID to restore backups and sync."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -76,11 +80,17 @@ class Module(ModuleBase):
             if drive_info.get("has_errors"):
                 findings.append(
                     Finding(
-                        title="iCloud Drive sync errors detected",
+                        title="iCloud Drive is having trouble syncing",
                         description=(
-                            "iCloud Drive has encountered sync errors. This may prevent "
-                            "files from being properly backed up to the cloud. Check "
-                            "System Settings > [Your Name] > iCloud > iCloud Drive for details."
+                            "iCloud Drive is reporting errors while trying to sync your "
+                            "files. This usually means some of your documents or photos "
+                            "are not being uploaded to the cloud, so they may not be backed "
+                            "up.\n\n"
+                            "It often happens if your internet connection is unstable "
+                            "or if a specific file is causing a problem.\n\n"
+                            "What to do: Open System Settings, click your name, then iCloud "
+                            "> iCloud Drive to see which files are stuck. You can try "
+                            "restarting your Mac or checking your internet connection."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

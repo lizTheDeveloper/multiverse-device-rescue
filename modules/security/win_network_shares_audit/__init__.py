@@ -48,12 +48,16 @@ class Module(ModuleBase):
         if smb1_enabled:
             findings.append(
                 Finding(
-                    title="SMBv1 protocol is enabled",
+                    title="Your computer is using an old, unsafe file-sharing protocol",
                     description=(
-                        "SMBv1 is enabled on this system. SMBv1 is vulnerable to "
-                        "WannaCry (CVE-2017-0144) and other critical exploits. "
-                        "SMBv1 should be disabled as it is deprecated and poses "
-                        "a severe security risk."
+                        "Your computer has a very old file-sharing protocol called SMBv1 "
+                        "turned on. This protocol is no longer supported by Microsoft "
+                        "and has known weaknesses that criminals can exploit to steal "
+                        "data or install harmful software.\n\n"
+                        "What to do: Open the Start menu, type 'Turn Windows features "
+                        "on or off', and click the result. In the list, find 'SMB 1.0/CIFS "
+                        "File Sharing Support', uncheck the box next to it, and click "
+                        "OK. You may need to restart your computer."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -68,10 +72,11 @@ class Module(ModuleBase):
         if not shares:
             findings.append(
                 Finding(
-                    title="Unable to retrieve network shares",
+                    title="We couldn't list your shared folders",
                     description=(
-                        "Could not enumerate network shares. This may indicate "
-                        "a system issue or lack of permissions."
+                        "The check that lists folders this PC shares on the network didn't "
+                        "run, often because the app wasn't running as an administrator. "
+                        "That isn't the same as everything being fine."
                     ),
                     severity=Severity.INFO,
                     category=self.category,
@@ -104,11 +109,20 @@ class Module(ModuleBase):
                 if "FULL" in access_right or "CHANGE" in access_right:
                     findings.append(
                         Finding(
-                            title=f"Share '{share_name}' accessible to Everyone with write access",
+                            title=(
+                                f"Share '{share_name}' lets anyone on your network change files"
+                            ),
                             description=(
-                                f"The share '{share_name}' (path: {share_path}) is accessible "
-                                "to Everyone with write permissions. This allows any user on the "
-                                "network to read and modify files, posing a significant data security risk."
+                                f"A folder on your computer, named '{share_name}' (located "
+                                f"at {share_path}), is set up so that any computer on "
+                                "your local network can read and change the files inside "
+                                "it. This is risky because a guest, a neighbor, or a "
+                                "compromised device on your Wi-Fi could accidentally "
+                                "or intentionally modify your documents.\n\n"
+                                "What to do: Open File Explorer, right-click the folder, "
+                                "select 'Properties', go to the 'Sharing' tab, and click "
+                                "'Advanced Sharing'. Uncheck 'Share this folder' or remove "
+                                "'Everyone' from the permissions list to stop this."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -123,7 +137,7 @@ class Module(ModuleBase):
                 elif "READ" in access_right:
                     findings.append(
                         Finding(
-                            title=f"Share '{share_name}' accessible to Everyone with read access",
+                            title=f"Shared folder '{share_name}' open to all users",
                             description=(
                                 f"The share '{share_name}' (path: {share_path}) is accessible "
                                 "to Everyone with read-only permissions. While read-only is safer "
@@ -146,11 +160,19 @@ class Module(ModuleBase):
                     if sensitive_dir.lower() in share_path.lower():
                         findings.append(
                             Finding(
-                                title=f"Share '{share_name}' points to sensitive directory",
+                                title=f"Share '{share_name}' exposes your personal files",
                                 description=(
-                                    f"The share '{share_name}' (path: {share_path}) points to a "
-                                    f"sensitive user directory. Sharing {sensitive_dir} can expose "
-                                    "personal files, documents, and potentially sensitive data."
+                                    f"A shared folder named '{share_name}' (located at "
+                                    f"{share_path}) points to a directory like {sensitive_dir}. "
+                                    "This means your personal documents, photos, or downloads "
+                                    "are visible to other devices on your network. While "
+                                    "this is likely just a setting error, it can expose "
+                                    "private information to anyone connected to your "
+                                    "Wi-Fi.\n\n"
+                                    "What to do: Open File Explorer, right-click the "
+                                    "folder, select 'Properties', go to the 'Sharing' "
+                                    "tab, and uncheck 'Share this folder' to stop sharing "
+                                    "it."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
@@ -178,7 +200,7 @@ class Module(ModuleBase):
         # Add INFO finding with all shares
         findings.append(
             Finding(
-                title="Network shares enumerated",
+                title=f"Shared folders found: {len(shares)}",
                 description=(
                     f"Found {len(shares)} total shares on system. {len(non_default_shares)} "
                     "non-default shares detected. Review share permissions and purposes regularly."
@@ -257,8 +279,9 @@ class Module(ModuleBase):
                         title=f"Remove or secure sensitive share '{share_name}'",
                         description=(
                             f"Share '{share_name}' points to a sensitive directory. "
-                            "Consider if this share is necessary. If not needed, use "
-                            f"'net share {share_name} /delete' to remove it. "
+                            "Consider if this share is necessary. If not needed, open "
+                            "Computer Management > Shared Folders > Shares, right-click "
+                            "it and choose Stop Sharing. "
                             "If it must remain, restrict access to authorized users only."
                         ),
                         risk_level=RiskLevel.SAFE,

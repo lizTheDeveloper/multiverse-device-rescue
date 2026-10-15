@@ -6,8 +6,13 @@ remediates:
   - security.win_scheduled_tasks.non_microsoft_tasks
   - security.win_scheduled_tasks.suspicious_path
   - security.win_scheduled_tasks.encoded_command
+steps_for:
+  security.win_scheduled_tasks.non_microsoft_tasks: [1]
+  security.win_scheduled_tasks.suspicious_path: [1, 2]
+  security.win_scheduled_tasks.encoded_command: [1, 3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 `win_scheduled_tasks` is a lighter-weight scan than
@@ -21,7 +26,7 @@ constantly by legitimate software (backup tools, update checkers, sync
 clients) — **inspect each task individually before disabling or deleting**
 rather than clearing everything non-Microsoft.
 
-## Step 1: Non-Microsoft scheduled tasks found (INFO)
+## Step 1: Check your list of non-Microsoft scheduled tasks
 
 A general inventory of tasks not under the `\Microsoft\` path — expected on
 most machines, since installed software routinely adds its own scheduled
@@ -37,7 +42,7 @@ tasks (update checkers, cloud sync, hardware utilities).
    checklist while checking Steps 2-3 for any tasks that get flagged more
    specifically.
 
-## Step 2: Task executes from a suspicious location (WARNING)
+## Step 2: Inspect tasks running from unusual folders
 
 A task's action points to an executable in a temp, AppData, Downloads, or
 user-profile directory — a common pattern for malware persistence, since
@@ -60,7 +65,7 @@ these directories don't require admin rights to write to.
    `respond_to_windows_malware_indicators.md` — suspicious-path scheduled
    tasks are often paired with other persistence mechanisms.
 
-## Step 3: Encoded/obfuscated command in a task (WARNING)
+## Step 3: Look into tasks with scrambled commands
 
 A task runs a PowerShell command with `-enc`/`-encodedcommand` or other
 Base64/obfuscation patterns — a common technique to hide the actual command

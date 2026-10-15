@@ -320,4 +320,4 @@ class TestWiFiSecurityAudit:
             # Should have an info summary finding
             info_findings = [f for f in result.findings if f.severity == Severity.INFO]
             assert len(info_findings) > 0
-            assert any("summary" in f.title.lower() for f in info_findings)
+            assert any("wi-fi security settings" in f.title.lower() for f in info_findings)

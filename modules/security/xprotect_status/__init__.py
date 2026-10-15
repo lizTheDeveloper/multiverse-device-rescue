@@ -56,11 +56,14 @@ class Module(ModuleBase):
         if gatekeeper_status == "disabled":
             findings.append(
                 Finding(
-                    title="Gatekeeper is disabled",
+                    title="Your Mac's app safety check is turned off",
                     description=(
-                        "Gatekeeper is disabled. This means macOS is not verifying that apps "
-                        "are signed and notarized before running them. This is a significant "
-                        "security risk. Re-enable Gatekeeper in System Settings > Privacy & Security."
+                        "Your Mac has a safety feature called Gatekeeper that checks if "
+                        "new apps are safe before they run. Right now, this check is off, "
+                        "so your Mac might let in unsafe software without warning you.\n\n"
+                        "What to do: Open System Settings > Privacy & Security and, "
+                        "under Security, set 'Allow applications from' to App Store & "
+                        "Known Developers."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -71,7 +74,7 @@ class Module(ModuleBase):
         elif gatekeeper_status:
             findings.append(
                 Finding(
-                    title=f"Gatekeeper status: {gatekeeper_status}",
+                    title=f"App security check: {gatekeeper_status}",
                     description=(
                         f"Gatekeeper is {gatekeeper_status}. Gatekeeper verifies that apps "
                         "are signed and notarized before running them."
@@ -89,10 +92,13 @@ class Module(ModuleBase):
             # XProtect bundle is missing or unreadable
             findings.append(
                 Finding(
-                    title="XProtect definitions bundle is missing or unreadable",
+                    title="Your Mac's built-in virus list is missing",
                     description=(
-                        "The XProtect malware definitions bundle could not be read. "
-                        "This may indicate a corrupted installation or system issue."
+                        "Your Mac uses a built-in list of known bad software to protect "
+                        "you. We couldn't read this list, which usually means your system "
+                        "files are damaged or the installation is incomplete.\n\n"
+                        "What to do: Open System Settings, go to General > Software Update, "
+                        "and install any available updates to repair the system."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -104,7 +110,7 @@ class Module(ModuleBase):
             # XProtect bundle is readable - report current version
             findings.append(
                 Finding(
-                    title=f"XProtect definitions are installed (version {xprotect_version})",
+                    title=f"Built-in malware protection: version {xprotect_version}",
                     description=(
                         f"XProtect malware definitions are at version {xprotect_version}. "
                         "This provides built-in protection against known macOS malware."
@@ -120,11 +126,14 @@ class Module(ModuleBase):
             if xprotect_version < MINIMUM_XPROTECT_VERSION:
                 findings.append(
                     Finding(
-                        title="XProtect definitions are outdated",
+                        title="Your Mac's virus protection list is old",
                         description=(
-                            f"XProtect definitions (version {xprotect_version}) are below "
-                            f"the recommended minimum (version {MINIMUM_XPROTECT_VERSION}). "
-                            "Run Software Update to get the latest malware definitions."
+                            "Your Mac's built-in protection against known bad software "
+                            f"is using an old list (version {xprotect_version}). The recommended "
+                            f"minimum is version {MINIMUM_XPROTECT_VERSION}. This means "
+                            "your Mac might not recognize newer types of bad software.\n\n"
+                            "What to do: Open System Settings, go to General > Software "
+                            "Update, and install the latest updates."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -139,11 +148,14 @@ class Module(ModuleBase):
                 if not self._is_recent(last_update):
                     findings.append(
                         Finding(
-                            title="XProtect definitions are old",
+                            title="Your Mac's virus protection list is old",
                             description=(
-                                f"XProtect definitions were last updated on {last_update}, "
-                                f"which is more than {DEFINITIONS_MAX_AGE_DAYS} days ago. "
-                                "Run Software Update to get the latest definitions."
+                                "Your Mac's built-in protection against known bad software "
+                                f"was last updated on {last_update}. That was more than "
+                                f"{DEFINITIONS_MAX_AGE_DAYS} days ago, so it may not recognize "
+                                "newer threats.\n\n"
+                                "What to do: Open System Settings, go to General > Software "
+                                "Update, and install the latest updates."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -157,7 +169,7 @@ class Module(ModuleBase):
         if mrt_version:
             findings.append(
                 Finding(
-                    title=f"MRT (Malware Removal Tool) version: {mrt_version}",
+                    title=f"Malware removal tool: version {mrt_version}",
                     description=(
                         f"Malware Removal Tool version is {mrt_version}. "
                         f"Last update: {mrt_last_update or 'unknown'}"
@@ -173,11 +185,13 @@ class Module(ModuleBase):
             if mrt_last_update and not self._is_recent(mrt_last_update):
                 findings.append(
                     Finding(
-                        title="MRT (Malware Removal Tool) is outdated",
+                        title="Your Mac's malware cleaner is out of date",
                         description=(
-                            f"MRT was last updated on {mrt_last_update}, "
-                            f"which is more than {DEFINITIONS_MAX_AGE_DAYS} days ago. "
-                            "Run Software Update to get the latest version."
+                            "Your Mac has a tool that removes bad software, but its last "
+                            f"update was on {mrt_last_update}. That was more than {DEFINITIONS_MAX_AGE_DAYS} "
+                            "days ago, so it may not catch the newest threats.\n\n"
+                            "What to do: Open System Settings, go to General > Software "
+                            "Update, and install the latest updates."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

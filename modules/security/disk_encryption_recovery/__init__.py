@@ -65,11 +65,14 @@ class Module(ModuleBase):
             # Unknown state - could be error or unparseable
             findings.append(
                 Finding(
-                    title="FileVault recovery key status unknown",
+                    title="We couldn't check if your Mac has a disk recovery key",
                     description=(
-                        "Unable to determine if a FileVault recovery key exists. "
-                        "Run `fdesetup hasinstitutionalrecoverykey` and "
-                        "`fdesetup haspersonalrecoverykey` in Terminal to verify."
+                        "Your Mac uses disk encryption, but we couldn't tell if a backup "
+                        "recovery key is saved. A recovery key is a backup password that "
+                        "lets you access your files if you forget your login password.\n\n"
+                        "What to do: Make sure your recovery key is written down or saved "
+                        "somewhere safe. If you can't find it, the steps below show how "
+                        "to make a new one."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -85,11 +88,13 @@ class Module(ModuleBase):
             # No recovery key at all - CRITICAL data loss risk
             findings.append(
                 Finding(
-                    title="FileVault enabled but no recovery key found",
+                    title="Your Mac is encrypted, but there is no backup recovery key",
                     description=(
-                        "FileVault is enabled, but no recovery key (personal or "
-                        "institutional) was found. If the encryption password is "
-                        "lost, the data is unrecoverable. This is a critical risk."
+                        "Your Mac's disk is encrypted to keep your files safe. However, "
+                        "we found no backup recovery key. It means if you ever forget "
+                        "your login password, you cannot get your files back.\n\n"
+                        "What to do: Follow the steps below to make a personal recovery "
+                        "key, then write it down or store it in a password manager."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -105,12 +110,16 @@ class Module(ModuleBase):
             # Only institutional key exists - might be old MDM setup
             findings.append(
                 Finding(
-                    title="FileVault has only institutional recovery key",
+                    title="Your Mac uses a work or school recovery key, not a personal one",
                     description=(
-                        "FileVault is enabled with only an institutional recovery key "
-                        "(likely from a Mobile Device Management system). Consider "
-                        "generating a personal recovery key as a backup in case the "
-                        "institutional key becomes unavailable."
+                        "Your Mac is encrypted, but the backup recovery key is managed "
+                        "by a work or school system, not you. It means if that organization "
+                        "loses access or changes policies, you might not be able to recover "
+                        "your files. It is safer to have your own backup key.\n\n"
+                        "What to do: Go to System Settings > Privacy & Security > FileVault. "
+                        "Look for an option to generate a personal recovery key. If you "
+                        "see a 'managed by' message, contact your IT department to ask "
+                        "if you can add a personal key."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -140,11 +149,19 @@ class Module(ModuleBase):
                 disabled_users = real_all_users - enabled_set
                 findings.append(
                     Finding(
-                        title="Not all user accounts are FileVault-enabled",
+                        title=(
+                            f"Some user accounts on your Mac are not encrypted ({', '.join(sorted(disabled_users))})"
+                        ),
                         description=(
-                            f"The following user account(s) are not FileVault-enabled: "
-                            f"{', '.join(sorted(disabled_users))}. All regular user accounts "
-                            f"should be protected by FileVault encryption."
+                            "Your Mac encrypts your main account, but the account(s) "
+                            f"{', '.join(sorted(disabled_users))} are not protected by "
+                            "disk encryption. It just means files in those specific accounts "
+                            "are not protected if the Mac is lost or stolen. If you don't "
+                            "use these accounts, you can ignore this.\n\n"
+                            "What to do: If you use these accounts, go to System Settings "
+                            "> Privacy & Security > FileVault and ensure all user accounts "
+                            "are listed as protected. If you don't use them, you can "
+                            "leave them as is."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -160,7 +177,7 @@ class Module(ModuleBase):
         # Always add INFO status summary
         findings.append(
             Finding(
-                title="FileVault disk encryption recovery status",
+                title="FileVault disk encryption status",
                 description=(
                     f"FileVault is enabled. "
                     f"Personal recovery key: {'present' if has_personal_key else 'not found'}. "

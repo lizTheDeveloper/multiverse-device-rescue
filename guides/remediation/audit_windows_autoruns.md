@@ -7,8 +7,14 @@ remediates:
   - security.win_autoruns_audit.obfuscated_command
   - security.win_autoruns_audit.excessive_entries
   - security.win_autoruns_audit.inventory
+steps_for:
+  security.win_autoruns_audit.temp_path_execution: [1]
+  security.win_autoruns_audit.obfuscated_command: [2]
+  security.win_autoruns_audit.excessive_entries: [3]
+  security.win_autoruns_audit.inventory: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
+monitoring_risk: true
 ---
 
 This walkthrough covers the `win_autoruns_audit` module, which inventories
@@ -20,7 +26,7 @@ when the total entry count is unusually high. This is distinct from the
 removable media rather than the actual startup entries themselves — see
 `review_windows_autoruns.md` for that.
 
-## Step 1: Autorun entry executing from a temp directory (critical)
+## Step 1: Check for apps running from temporary folders
 
 An entry in a Run key or Startup folder points to a program in `Temp`,
 `AppData\Local\Temp`, or `Downloads` — a strong persistence indicator, since
@@ -52,7 +58,7 @@ install directory, not a scratch/download location.
 8. Run Microsoft Safety Scanner or Windows Defender Offline for a full
    sweep, then re-run this scan to confirm the entry no longer appears.
 
-## Step 2: Autorun entry with an obfuscated command (warning)
+## Step 2: Look into startup entries with hidden commands
 
 An entry's command line uses an obfuscation/encoding technique — a
 PowerShell `-enc`/`-e` encoded command, `Invoke-Expression`/`IEX`, a pipe
@@ -79,7 +85,7 @@ Base64-encodes arguments to avoid quoting issues.
    key/Startup folder as in Step 1 but keep your evidence copy, and monitor
    whether anything breaks before considering the investigation closed.
 
-## Step 3: Excessive number of autorun entries (warning)
+## Step 3: Reduce the number of apps starting automatically
 
 More than 20 combined entries were found across Run keys and Startup
 folders. This is usually accumulated legitimate bloat (browser updaters,
@@ -106,7 +112,7 @@ entry to hide unnoticed.
    hit — the goal is fewer entries you can't account for, not a specific
    number.
 
-## Step 4: Autorun entries inventory (informational)
+## Step 4: Review the full list of startup entries
 
 This INFO finding lists every entry found across all locations
 (`HKLM\Run`, `HKCU\Run`, `HKLM\RunOnce`, and both Startup folders) as a

@@ -54,10 +54,18 @@ class Module(ModuleBase):
         if prefs and prefs.get("DisableRealtimeMonitoring") is True:
             findings.append(
                 Finding(
-                    title="Real-time protection is disabled",
+                    title="Your computer's main security shield is turned off",
                     description=(
-                        "Windows Defender real-time protection is disabled. "
-                        "Files are not scanned as they are accessed, leaving the system vulnerable."
+                        "Windows Defender's real-time protection is currently disabled. "
+                        "This feature scans files the moment they are opened or downloaded "
+                        "to catch threats immediately. Without it, your computer is not "
+                        "actively checking for new dangers as you use it.\n\n"
+                        "This is a significant gap in your security. It does not mean "
+                        "you are currently hacked, but it means new threats can enter "
+                        "without being stopped.\n\n"
+                        "What to do: Open Windows Security (search for it in the Start "
+                        "menu), go to 'Virus & threat protection,' and turn on 'Real-time "
+                        "protection'."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -70,10 +78,16 @@ class Module(ModuleBase):
         if prefs and prefs.get("MAPSReporting") == 0:
             findings.append(
                 Finding(
-                    title="Cloud protection is disabled",
+                    title="Windows Defender's cloud help is turned off",
                     description=(
-                        "Windows Defender cloud protection (MAPS) is off. "
-                        "This reduces detection of new and emerging threats."
+                        "Windows Defender uses a cloud service to check if a file is a "
+                        "known threat. This feature is currently off. It helps catch very "
+                        "new viruses that your computer might not have seen before.\n\n"
+                        "This is a minor gap. Your computer is still protected by its "
+                        "local rules, but it may miss brand-new threats that the cloud "
+                        "would have caught.\n\n"
+                        "What to do: Open Windows Security, go to 'Virus & threat protection' "
+                        "> 'Manage settings,' and turn on 'Cloud-based protection'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -86,10 +100,17 @@ class Module(ModuleBase):
         if prefs and prefs.get("DisableTamperProtection") is True:
             findings.append(
                 Finding(
-                    title="Tamper protection is disabled",
+                    title="Windows Defender's self-defense is turned off",
                     description=(
-                        "Windows Defender tamper protection is disabled. "
-                        "Malware could disable Defender protections."
+                        "Tamper protection is a feature that stops other programs from "
+                        "changing Windows Defender's settings. It is currently disabled. "
+                        "This means a malicious program could potentially turn off your "
+                        "security protections without you knowing.\n\n"
+                        "This is a warning sign. It doesn't mean something is wrong right "
+                        "now, but it makes it easier for bad software to disable your "
+                        "defenses.\n\n"
+                        "What to do: Open Windows Security, go to 'Virus & threat protection' "
+                        "> 'Manage settings,' and turn on 'Tamper protection'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -103,10 +124,18 @@ class Module(ModuleBase):
         if exclusion_count > 10:
             findings.append(
                 Finding(
-                    title=f"High number of scan exclusions ({exclusion_count})",
+                    title=f"Defender is ignoring {exclusion_count} folders",
                     description=(
-                        "Many exclusions from Defender scans increase risk. "
-                        "Malware often hides in excluded paths to avoid detection."
+                        f"Windows Defender has {exclusion_count} specific folders or files "
+                        "that it is told to ignore. When Defender ignores a folder, it "
+                        "does not scan anything inside it.\n\n"
+                        "Having many exclusions is risky because malware often tries "
+                        "to hide in these ignored spots to avoid being detected. If you "
+                        "did not add these exclusions yourself, they could be a sign "
+                        "of a problem.\n\n"
+                        "What to do: Open Windows Security, go to 'Virus & threat protection' "
+                        "> 'Manage settings' > 'Exclusions.' Review the list and remove "
+                        "any folders you do not recognize or did not add intentionally."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -122,10 +151,16 @@ class Module(ModuleBase):
         if prefs and prefs.get("PUAProtection") == 0:
             findings.append(
                 Finding(
-                    title="PUA (Potentially Unwanted App) protection is disabled",
+                    title="Protection against unwanted apps is off",
                     description=(
-                        "Windows Defender PUA protection is off. "
-                        "Unwanted applications like adware may not be detected."
+                        "Windows Defender has a setting to block 'Potentially Unwanted "
+                        "Applications' (PUAs). These are not viruses, but they can be "
+                        "annoying, like adware that shows pop-ups or software that tracks "
+                        "your browsing. This setting is currently off.\n\n"
+                        "This is a minor issue. Your computer is still protected from "
+                        "serious viruses, but you might see more unwanted ads or software.\n\n"
+                        "What to do: Open Windows Security, go to 'Virus & threat protection' "
+                        "> 'Manage settings,' and turn on 'PUA protection'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -142,10 +177,17 @@ class Module(ModuleBase):
                 if days_since > 30:
                     findings.append(
                         Finding(
-                            title=f"Last full scan was {days_since} days ago",
+                            title=f"Your last full security scan was {days_since} days ago",
                             description=(
-                                "Full system scans should run regularly (at least monthly). "
-                                "A stale last scan means threats could have accumulated."
+                                "Windows Defender last did a full scan of your entire "
+                                f"computer {days_since} days ago. A full scan checks every "
+                                "file, which is more thorough than the quick checks it "
+                                "does while you work.\n\n"
+                                "This is a reminder, not an alarm. It just means your "
+                                "computer hasn't had a deep check in a while.\n\n"
+                                "What to do: Open Windows Security, go to 'Virus & threat "
+                                "protection' > 'Scan options,' select 'Full scan,' and "
+                                "click 'Scan now'."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -161,10 +203,16 @@ class Module(ModuleBase):
         if prefs and prefs.get("EnableControlledFolderAccess") == 0:
             findings.append(
                 Finding(
-                    title="Controlled folder access is disabled",
+                    title="Windows Defender's ransomware shield is off",
                     description=(
-                        "Windows Defender controlled folder access is off. "
-                        "Ransomware could modify files in protected folders."
+                        "Controlled folder access is a feature that stops programs from "
+                        "changing your important files (like photos and documents) unless "
+                        "you allow it. It is currently disabled. This is a key defense "
+                        "against ransomware, which tries to lock your files.\n\n"
+                        "This is a warning. It does not mean ransomware is on your computer, "
+                        "but it means your files are less protected if a threat appears.\n\n"
+                        "What to do: Open Windows Security, go to 'Virus & threat protection' "
+                        "> 'Ransomware protection,' and turn on 'Controlled folder access'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

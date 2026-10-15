@@ -87,7 +87,7 @@ class TestSwapMemoryCheckSwapUsage:
             (f for f in result.findings if f.severity == Severity.CRITICAL), None
         )
         assert critical_finding is not None
-        assert "exceeds physical ram" in critical_finding.title.lower()
+        assert "larger than your memory" in critical_finding.title.lower()
 
 
 class TestSwapMemoryCheckPageOuts:

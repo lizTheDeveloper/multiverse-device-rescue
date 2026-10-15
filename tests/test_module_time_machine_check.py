@@ -185,7 +185,7 @@ def test_time_machine_not_configured():
     assert result.has_issues
     assert len(result.findings) == 1
     assert result.findings[0].severity == Severity.CRITICAL
-    assert "not configured" in result.findings[0].title.lower()
+    assert "not automatically backing up" in result.findings[0].title.lower()
     assert result.findings[0].data.get("check") == "not_configured"
 
 
@@ -210,7 +210,7 @@ def test_time_machine_aging_backup():
     with patch("subprocess.run", side_effect=_fake_run_aging_backup()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    aging_findings = [f for f in result.findings if "aging" in f.title.lower()]
+    aging_findings = [f for f in result.findings if f.data.get("check") == "aging_backup"]
     assert len(aging_findings) > 0
     assert aging_findings[0].severity == Severity.WARNING
     assert "10 day" in aging_findings[0].title.lower()
@@ -224,7 +224,7 @@ def test_time_machine_stale_backup():
     with patch("subprocess.run", side_effect=_fake_run_stale_backup()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    stale_findings = [f for f in result.findings if "stale" in f.title.lower()]
+    stale_findings = [f for f in result.findings if f.data.get("check") == "stale_backup"]
     assert len(stale_findings) > 0
     assert stale_findings[0].severity == Severity.CRITICAL
     assert "40 day" in stale_findings[0].title.lower()
@@ -238,7 +238,7 @@ def test_time_machine_backups_disabled():
     with patch("subprocess.run", side_effect=_fake_run_backups_disabled()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    disabled_findings = [f for f in result.findings if "disabled" in f.title.lower()]
+    disabled_findings = [f for f in result.findings if "turned off" in f.title.lower()]
     assert len(disabled_findings) > 0
     assert disabled_findings[0].severity == Severity.WARNING
     assert disabled_findings[0].data.get("check") == "backups_disabled"

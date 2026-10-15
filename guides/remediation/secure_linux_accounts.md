@@ -7,6 +7,11 @@ remediates:
   - security.linux_account_audit.extra_uid0_account
   - security.linux_account_audit.passwordless_sudo
   - security.linux_account_audit.admin_inventory
+steps_for:
+  security.linux_account_audit.empty_password: [1, 2]
+  security.linux_account_audit.extra_uid0_account: [1, 3]
+  security.linux_account_audit.passwordless_sudo: [1, 4]
+  security.linux_account_audit.admin_inventory: [1]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -22,7 +27,7 @@ you, removing an account they set up can alert that person. Talk to an advocate
 first (US National DV Hotline: 1-800-799-7233, or text START to 88788). Don't
 delete anything yet. Write down the account name and when you noticed it.
 
-## Step 1: Work out which accounts are yours
+## Step 1: List all user accounts on your computer
 
 Open **Settings > Users** (or **System Settings > Users & Groups**) and look at
 the list. Optional, from a terminal: `cut -d: -f1 /etc/passwd` lists every
@@ -30,13 +35,13 @@ account name. Accounts you or your family set up are normal. Names you don't
 recognise are worth a closer look, but many system names (like `daemon` or
 `nobody`) are normal too.
 
-## Step 2: Give every account you keep a password
+## Step 2: Set a password for every account you keep
 
 Open **Settings > Users**, select the account, and set a password only you know.
 For an account nobody should log in to, lock it instead. Optional, from a
 terminal: `sudo passwd -l NAME`.
 
-## Step 3: Deal with an extra administrator account
+## Step 3: Handle an unexplained administrator account
 
 If a second account has root power (user ID 0) and you didn't create it, don't
 log in as it and don't delete it. Talk to an advocate or someone you trust who
@@ -44,7 +49,7 @@ knows Linux, as the note above says. A computer with an unexplained root
 account has been changed by someone with full access, so the safest course is
 to back up your files and reinstall.
 
-## Step 4: Remove "no password needed" administrator rules
+## Step 4: Remove rules that skip password checks
 
 If the finding names a rule that lets a user run commands as administrator
 without a password: unless you know a program needs it, ask a trusted

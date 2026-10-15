@@ -53,11 +53,22 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title="Slow boot time detected",
-                    description=f"System boot takes {boot_duration_seconds} seconds, which exceeds the recommended 60-second threshold.",
+                    title=(
+                        f"Your computer takes a while to start up ({boot_duration_seconds} "
+                        "seconds)"
+                    ),
+                    description=(
+                        f"Your computer takes {boot_duration_seconds} seconds to start "
+                        "up. This is longer than the usual 60 seconds, which can make "
+                        "using your device feel sluggish.\n\n"
+                        "What to do: Restart your computer to clear out temporary files. "
+                        "If it is still slow, check if your hard drive is running out "
+                        "of space."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
+                        "check": "slow_boot",
                         "boot_duration_seconds": boot_duration_seconds,
                         "uptime_days": uptime_days,
                         "fast_startup_enabled": fast_startup_enabled,
@@ -73,11 +84,16 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title="System overdue for restart",
-                    description=f"System uptime is {uptime_str}. Microsoft recommends restarting at least every 30 days for updates and memory cleanup.",
+                    title=f"Your computer hasn't restarted in a while ({uptime_str})",
+                    description=(
+                        f"Your computer has been on for {uptime_str} without a restart. "
+                        "Many Windows updates only finish installing when you restart.\n\n"
+                        "What to do: Save your work and restart when it suits you."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
+                        "check": "overdue_restart",
                         "uptime_days": uptime_days,
                         "uptime_hours": uptime_hours,
                         "boot_duration_seconds": boot_duration_seconds,
@@ -116,7 +132,7 @@ class Module(ModuleBase):
         actions = []
         for finding in findings.findings:
             if finding.severity == Severity.WARNING:
-                if "boot" in finding.title.lower():
+                if finding.data.get("check") == "slow_boot":
                     actions.append(
                         Action(
                             title="Enable Fast Startup",
@@ -142,7 +158,7 @@ class Module(ModuleBase):
                             success=True,
                         )
                     )
-                elif "uptime" in finding.title.lower():
+                elif finding.data.get("check") == "overdue_restart":
                     actions.append(
                         Action(
                             title="Restart system",

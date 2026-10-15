@@ -8,6 +8,12 @@ remediates:
   - security.antivirus_status.third_party_av
   - security.antivirus_status.av_not_running
   - security.antivirus_status.no_third_party_av
+steps_for:
+  security.antivirus_status.xprotect_remediator: [1]
+  security.antivirus_status.mrt: [1]
+  security.antivirus_status.third_party_av: [3]
+  security.antivirus_status.av_not_running: [2]
+  security.antivirus_status.no_third_party_av: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -19,7 +25,7 @@ third-party software is actually running. All of these findings are
 informational inventory or require enabling protection through the
 respective vendor's app or System Settings — nothing here is auto-applied.
 
-## Step 1: Confirm Apple's built-in malware protection is present
+## Step 1: Check if Apple's built-in security tools are working
 
 `xprotect_remediator` and `mrt` findings report on Apple's built-in tools.
 
@@ -31,7 +37,7 @@ respective vendor's app or System Settings — nothing here is auto-applied.
 3. For a deeper, versioned check of XProtect specifically (including
    staleness), see `update_xprotect.md`.
 
-## Step 2: Start a detected but non-running third-party AV (warning)
+## Step 2: Start your antivirus app if it is not running
 
 A `av_not_running` finding means the module found an installed third-party
 antivirus (Malwarebytes, Norton, Avast, Sophos, CrowdStrike, or
@@ -48,7 +54,7 @@ have no real-time protection from it despite believing you do.
    automatically at boot.
 4. Re-run the scan to confirm the process is now detected as running.
 
-## Step 3: Review installed third-party AV inventory
+## Step 3: Review the antivirus apps installed on your Mac
 
 `third_party_av` and `no_third_party_av` are informational inventory
 findings.

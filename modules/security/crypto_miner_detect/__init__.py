@@ -197,11 +197,18 @@ class Module(ModuleBase):
                     if miner_name.lower() in process_name.lower():
                         findings.append(
                             Finding(
-                                title=f"Known cryptocurrency miner detected: {process_name}",
+                                title=f"A known crypto miner is running: {process_name}",
                                 description=(
-                                    f"Process {process_name} (PID {pid}) is a known cryptocurrency miner. "
-                                    f"This malware mines digital currency using your system resources. "
-                                    f"Command: {command}"
+                                    f"We found a program named {process_name} running "
+                                    "on your Mac. This is a known type of software that "
+                                    "secretly uses your computer's power to mine cryptocurrency. "
+                                    "It will slow down your Mac "
+                                    "and drain your battery. The full command running "
+                                    f"is: {command}.\n\n"
+                                    f"What to do: Open Activity Monitor, find {process_name}, "
+                                    "select it, and click the 'X' button to quit it. "
+                                    "If it keeps coming back, you may need to remove "
+                                    "the app from your Applications folder."
                                 ),
                                 severity=Severity.CRITICAL,
                                 category=self.category,
@@ -298,11 +305,18 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title=f"Suspicious high CPU usage by {process_name}",
+                        title=f"A program called {process_name} is using a lot of power",
                         description=(
-                            f"Process {process_name} (PID {proc['pid']}) is using {proc['cpu_percent']}% CPU, "
-                            f"which is unusually high. This could indicate a cryptocurrency miner or other "
-                            f"resource-intensive malware consuming system resources. Your computer may feel slow or hot."
+                            f"A program named {process_name} is currently using {proc['cpu_percent']}% "
+                            "of your computer's processing power. High usage like this "
+                            "can make your Mac feel hot, slow, or drain your battery "
+                            "quickly. This is often a sign of a hidden program (like "
+                            "a crypto miner) running in the background, though it can "
+                            "sometimes be a legitimate app working hard.\n\n"
+                            "What to do: Open Activity Monitor (search for it in Spotlight) "
+                            f"and look for {process_name}. If you don't recognize it, "
+                            "select it and click the 'X' button to quit it. If you do "
+                            "recognize it, check if it's supposed to be busy right now."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -362,11 +376,18 @@ class Module(ModuleBase):
                 if local_port and local_port in MINING_POOL_PORTS:
                     findings.append(
                         Finding(
-                            title=f"Connection on mining pool port {local_port} from {process}",
+                            title=f"{process} is using a port often used by crypto miners",
                             description=(
-                                f"Process {process} (PID {pid}) has a connection on port {local_port}, "
-                                f"which is commonly used by cryptocurrency mining pools. "
-                                f"This could indicate cryptocurrency mining activity."
+                                f"A program called {process} is connected using port {local_port}. "
+                                "This specific port number is commonly used by software "
+                                "that mines cryptocurrency. Seeing this connection suggests "
+                                "a hidden mining program might be running on your Mac. "
+                                f"Details: PID {pid}.\n\n"
+                                f"What to do: Open Activity Monitor, find {process}, and "
+                                "check if you installed it. If you don't recognize it, "
+                                "select it and click the 'X' button to stop it. If you "
+                                "do recognize it, verify if it is currently supposed "
+                                "to be active."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -385,11 +406,18 @@ class Module(ModuleBase):
                 if remote_addr and self._is_mining_pool_domain(remote_addr):
                     findings.append(
                         Finding(
-                            title=f"Connection to mining pool domain from {process}",
+                            title=f"{process} is connecting to a known crypto mining site",
                             description=(
-                                f"Process {process} (PID {pid}) is connected to {remote_addr}, "
-                                f"which matches a mining pool domain pattern. "
-                                f"This indicates cryptocurrency mining activity."
+                                f"A program called {process} is communicating with {remote_addr}. "
+                                "This address matches a pattern used by cryptocurrency "
+                                "mining networks. This strongly suggests that a hidden "
+                                "mining program is running on your Mac and sending data "
+                                f"to that site. Details: PID {pid}.\n\n"
+                                f"What to do: Open Activity Monitor, find {process}, and "
+                                "check if you installed it. If you don't recognize it, "
+                                "select it and click the 'X' button to stop it. If you "
+                                "do recognize it, verify if it is currently supposed "
+                                "to be active."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

@@ -269,10 +269,20 @@ class Module(ModuleBase):
                 continue
             findings.append(
                 Finding(
-                    title=f"Router offers {entry['service']} to every device on the network",
+                    title=f"Your router's {entry['service']} is open to all devices",
                     description=(
-                        f"The router at {gateway_ip} accepts connections on port "
-                        f"{entry['port']} ({entry['service']}). {entry['why']}"
+                        f"Your router at {gateway_ip} is currently accepting connections "
+                        f"on port {entry['port']} for {entry['service']}. This means any "
+                        "device on your home network can access this router function "
+                        f"directly. {entry['why']}\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Log in to your router's settings and look for the "
+                        "section that controls remote access or administration. If you "
+                        "do not use remote management, disable it. If you do, ensure "
+                        "it is protected by a strong, unique password."
                     ),
                     severity=entry["severity"],
                     category=self.category,
@@ -293,15 +303,17 @@ class Module(ModuleBase):
             return []
         return [
             Finding(
-                title="UPnP is enabled on the router",
+                title="Your router allows apps to open doors to the internet (UPnP)",
                 description=(
-                    "The router answered a UPnP discovery request, which means any "
-                    "program on this network can ask it to open a port to the "
-                    "internet without a password and without telling anyone. That is "
-                    "convenient for games consoles and a well-used route for malware "
-                    "to make an infected machine reachable from outside.\n\n"
-                    "Check the router's port-forwarding list for rules you did not "
-                    "create."
+                    "Your router has a feature called UPnP turned on. This lets any app "
+                    "on your home network ask the router to open a connection to the internet "
+                    "without asking for a password. While this helps gaming consoles, "
+                    "it also allows malicious software to secretly expose your computer "
+                    "to the outside world.\n\n"
+                    "What to do: Log in to your router's settings (usually by typing 192.168.1.1 "
+                    "or 192.168.0.1 into a web browser) and look for a setting named UPnP "
+                    "or Universal Plug and Play. Turn it off. Then, check the 'Port Forwarding' "
+                    "or 'NAT' section for any rules you did not create."
                 ),
                 severity=Severity.WARNING,
                 category=self.category,

@@ -2,6 +2,7 @@ import subprocess
 import os
 import stat
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -126,7 +127,7 @@ class Module(ModuleBase):
                             f"Private key {finding.data.get('key_file')} has incorrect permissions "
                             f"({finding.data.get('current_perms')}). "
                             "Should be 600 (rw-------). "
-                            f"Fix with: chmod 600 {finding.data.get('key_file')}"
+                            f"Fix with: chmod 600 {quote(str(finding.data.get('key_file')))}"
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -215,10 +216,16 @@ class Module(ModuleBase):
         for key_name in dsa_keys:
             findings.append(
                 Finding(
-                    title="DSA key detected (cryptographically broken)",
+                    title=f"Your SSH key {key_name} uses an outdated, broken format",
                     description=(
-                        f"SSH key {key_name} is DSA-based. DSA is cryptographically broken and should not be used. "
-                        f"Regenerate the key using Ed25519 or RSA (2048+ bits)."
+                        f"We found an SSH key named {key_name} that uses a format called "
+                        "DSA. This type of key is no longer considered secure because "
+                        "it can be easily broken by modern computers.\n\n"
+                        "What to do: Create a new, stronger key to replace it. Open Terminal "
+                        "and type: ssh-keygen -t ed25519. Follow the prompts to save "
+                        f"it. Then, you can move the old {key_name} file into a folder "
+                        "of your own to keep it safe, or delete it if you are sure you "
+                        "no longer need it."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -231,11 +238,18 @@ class Module(ModuleBase):
         for key_name, bits in weak_rsa_keys:
             findings.append(
                 Finding(
-                    title=f"Weak RSA key: {bits} bits (should be 2048+)",
+                    title=f"Your SSH key {key_name} is too short to be secure",
                     description=(
-                        f"SSH key {key_name} is RSA with {bits} bits. "
-                        f"RSA keys should be at least 2048 bits for adequate security. "
-                        f"Regenerate with at least 2048 bits (4096 recommended)."
+                        f"We found an SSH key named {key_name} that is {bits} bits long. "
+                        "For a key to be considered secure today, it needs to be at least "
+                        "2048 bits long. A shorter key is easier for attackers to guess, "
+                        "which could let them access your computer or accounts if they "
+                        "have the right tools.\n\n"
+                        "What to do: Create a new, stronger key to replace it. Open Terminal "
+                        "and type: ssh-keygen -t ed25519. Follow the prompts to save "
+                        f"it. Then, you can move the old {key_name} file into a folder "
+                        "of your own to keep it safe, or delete it if you are sure you "
+                        "no longer need it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -248,7 +262,7 @@ class Module(ModuleBase):
         if ed25519_keys:
             findings.append(
                 Finding(
-                    title=f"Ed25519 keys found: {len(ed25519_keys)}",
+                    title=f"Modern SSH keys: {len(ed25519_keys)}",
                     description=(
                         f"You have {len(ed25519_keys)} Ed25519 SSH key(s): {', '.join(ed25519_keys)}. "
                         f"Ed25519 keys are modern and recommended."
@@ -263,7 +277,7 @@ class Module(ModuleBase):
         if rsa_keys:
             findings.append(
                 Finding(
-                    title=f"RSA keys found: {len(rsa_keys)}",
+                    title=f"Standard SSH keys: {len(rsa_keys)}",
                     description=(
                         f"You have {len(rsa_keys)} strong RSA SSH key(s): {', '.join(rsa_keys)}. "
                         f"RSA keys with 2048+ bits are acceptable."
@@ -314,10 +328,16 @@ class Module(ModuleBase):
             if ssh_mode & 0o077:
                 findings.append(
                     Finding(
-                        title=f"SSH directory has incorrect permissions ({ssh_perms})",
+                        title="Your SSH folder is open to other users on your Mac",
                         description=(
-                            f"~/.ssh directory has permissions {ssh_perms}. "
-                            f"Should be 700 (rwx------) for security."
+                            "Your SSH folder (where your secure keys live) has permissions "
+                            f"set to {ssh_perms}. This means other people or programs "
+                            "on your Mac might be able to see or copy your private keys. "
+                            "Private keys are like master keys to your digital identity, "
+                            "so they should only be visible to you.\n\n"
+                            "What to do: Open Terminal and type: chmod 700 ~/.ssh. This "
+                            "locks the folder so only you can access it. You do not need "
+                            "to delete anything."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -339,10 +359,20 @@ class Module(ModuleBase):
                         if key_mode & 0o077:
                             findings.append(
                                 Finding(
-                                    title=f"Private key has incorrect permissions ({key_perms})",
+                                    title=(
+                                        f"Your private key {key_file.name} is open to other users"
+                                    ),
                                     description=(
-                                        f"Private key {key_file.name} has permissions {key_perms}. "
-                                        f"Should not be accessible by group or others (600 recommended)."
+                                        f"Your private key file {key_file.name} has permissions "
+                                        f"set to {key_perms}. This means other people "
+                                        "or programs on your Mac might be able to read "
+                                        "your private key. A private key is a secret "
+                                        "code that proves your identity, so it should "
+                                        "only be readable by you.\n\n"
+                                        "What to do: Open Terminal and type: chmod 600 "
+                                        f"~/.ssh/{quote(key_file.name)}. This locks the file "
+                                        "so only you can read it. You do not need to "
+                                        "delete anything."
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,
@@ -385,7 +415,7 @@ class Module(ModuleBase):
             if lines:
                 findings.append(
                     Finding(
-                        title=f"Authorized keys found: {len(lines)} entry(ies)",
+                        title=f"Remote access keys: {len(lines)}",
                         description=(
                             f"You have {len(lines)} authorized key(s) in authorized_keys. "
                             f"These allow remote systems to authenticate to your account. "
@@ -420,7 +450,7 @@ class Module(ModuleBase):
                 key_count = len(lines)
                 findings.append(
                     Finding(
-                        title=f"SSH agent is running with {key_count} key(s) loaded",
+                        title=f"SSH helper is active ({key_count} keys)",
                         description=(
                             f"SSH agent is active with {key_count} key(s) loaded. "
                             f"This allows applications to use your SSH keys without passwords."
@@ -480,11 +510,18 @@ class Module(ModuleBase):
             if permit_root:
                 findings.append(
                     Finding(
-                        title="sshd allows root login",
+                        title="Your Mac allows direct login as the main administrator",
                         description=(
-                            "sshd_config has PermitRootLogin enabled. "
-                            "This allows direct SSH access to the root account, which is a security risk. "
-                            "Disable by setting 'PermitRootLogin no' in /etc/ssh/sshd_config."
+                            "Your Mac is set up to allow people to log in directly as "
+                            "'root' (the main administrator account) over a secure network "
+                            "connection. This is risky because if an attacker guesses "
+                            "the password, they get full control of your computer. Most "
+                            "people do not use this feature, so it is likely a leftover "
+                            "setting.\n\n"
+                            "What to do: Open Terminal and type: sudo nano /etc/ssh/sshd_config. "
+                            "Find the line that says PermitRootLogin and change it to "
+                            "PermitRootLogin no. Save the file (Control+O, Enter, Control+X) "
+                            "and restart your Mac."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -496,11 +533,17 @@ class Module(ModuleBase):
             if password_auth:
                 findings.append(
                     Finding(
-                        title="sshd allows password authentication",
+                        title="Your Mac allows login with just a password over SSH",
                         description=(
-                            "sshd_config has PasswordAuthentication enabled. "
-                            "Use key-based authentication instead to reduce brute-force attack risk. "
-                            "Disable by setting 'PasswordAuthentication no' in /etc/ssh/sshd_config."
+                            "Your Mac is set up to allow people to log in over a secure "
+                            "network connection using only a password. This makes it easier "
+                            "for attackers to try guessing your password until they get "
+                            "it right. It is safer to use a special key file for login, "
+                            "which is much harder to guess.\n\n"
+                            "What to do: Open Terminal and type: sudo nano /etc/ssh/sshd_config. "
+                            "Find the line that says PasswordAuthentication and change "
+                            "it to PasswordAuthentication no. Save the file (Control+O, "
+                            "Enter, Control+X) and restart your Mac."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -528,7 +571,7 @@ class Module(ModuleBase):
             if lines:
                 findings.append(
                     Finding(
-                        title=f"Known hosts found: {len(lines)} entry(ies)",
+                        title=f"Saved server records: {len(lines)}",
                         description=(
                             f"You have {len(lines)} host(s) in known_hosts. "
                             f"These are SSH server fingerprints that have been verified. "

@@ -79,11 +79,16 @@ class Module(ModuleBase):
         if download_mbps > 0 and download_mbps < 10:
             findings.append(
                 Finding(
-                    title="Poor download speed",
+                    title="Your internet download speed is slow",
                     description=(
-                        f"Download speed is {download_mbps:.1f} Mbps, which is below the "
-                        "recommended 10 Mbps for modern internet use. This may cause slow "
-                        "browsing, video buffering, and application updates to be slow."
+                        f"Your download speed is {download_mbps:.1f} Mbps. For smooth "
+                        "video calls and quick updates, most people need at least 10 "
+                        "Mbps.\n\n"
+                        "It just means your internet connection is slower than usual, "
+                        "which might make videos buffer or files take longer to download.\n\n"
+                        "What to do: Try restarting your router. If the speed stays low, "
+                        "contact your internet provider to check if there is a problem "
+                        "with your plan or local lines."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -98,12 +103,16 @@ class Module(ModuleBase):
         if rpm > 0 and rpm < 50:
             findings.append(
                 Finding(
-                    title="Poor network responsiveness",
+                    title="Your internet connection feels laggy",
                     description=(
-                        f"Responsiveness (RPM) is {rpm:.0f}, which is low. "
-                        "High RPM (closer to 100) indicates good responsiveness. "
-                        "Poor responsiveness may cause lag in real-time applications, "
-                        "video calls, and interactive services."
+                        f"Your network responsiveness score is {rpm:.0f} (higher is "
+                        "better; a few hundred or less feels laggy). It measures how quickly "
+                        "your connection answers while it's busy.\n\n"
+                        "It usually means your connection is busy or unstable. You might "
+                        "notice delays in video calls or online games.\n\n"
+                        "What to do: Restart your router. If the lag continues, try connecting "
+                        "to a different Wi-Fi network or using a wired connection if "
+                        "possible to see if the speed improves."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -118,11 +127,17 @@ class Module(ModuleBase):
         if latency_ms > 0 and latency_ms > 100:
             findings.append(
                 Finding(
-                    title="High network latency",
+                    title="Your internet connection has high delay",
                     description=(
-                        f"Network latency is {latency_ms:.0f}ms, which is high. "
-                        "Latency under 50ms is ideal for most applications. "
-                        "High latency may cause delays in interactive applications and gaming."
+                        f"Your network latency is {latency_ms:.0f} milliseconds. Latency "
+                        "is the time it takes for data to travel between your device "
+                        "and the internet. Under 50ms is ideal.\n\n"
+                        "It just means your connection is slow to react. You might notice "
+                        "delays when typing in chat apps, playing online games, or using "
+                        "video calls.\n\n"
+                        "What to do: Restart your router. If the delay stays high, check "
+                        "if other devices on your Wi-Fi are using a lot of data, or contact "
+                        "your internet provider."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

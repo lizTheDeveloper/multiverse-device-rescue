@@ -43,10 +43,15 @@ class Module(ModuleBase):
         if chip_type is None:
             findings.append(
                 Finding(
-                    title="Unable to determine CPU architecture",
+                    title="We could not tell if your Mac uses Intel or Apple Silicon",
                     description=(
-                        "Could not detect whether this is an Intel or Apple Silicon Mac. "
-                        "Firmware password/Startup Security status could not be checked."
+                        "We tried to check your Mac's startup security settings, but first "
+                        "we need to know what kind of chip it has. We couldn't detect "
+                        "that, so we couldn't finish this specific check. This does not "
+                        "mean your Mac is unsafe; it just means we couldn't verify this "
+                        "one detail.\n\n"
+                        "What to do: Nothing right now. You can see your chip in the "
+                        "Apple menu > About This Mac."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -59,7 +64,7 @@ class Module(ModuleBase):
         # Add info about chip type
         findings.append(
             Finding(
-                title=f"System architecture: {chip_type}",
+                title=f"Your chip type: {chip_type}",
                 description=f"This Mac uses {chip_type} processor.",
                 severity=Severity.INFO,
                 category=self.category,
@@ -195,7 +200,7 @@ class Module(ModuleBase):
             if "yes" in output:
                 findings.append(
                     Finding(
-                        title="Firmware Password: Protected",
+                        title="Firmware password: Set",
                         description=(
                             "A firmware password is set on this Intel Mac. "
                             "This provides protection against unauthorized startup from "
@@ -212,13 +217,17 @@ class Module(ModuleBase):
             elif "no" in output:
                 findings.append(
                     Finding(
-                        title="Firmware Password: Not Set",
+                        title="Your Mac's startup security is not locked",
                         description=(
-                            "No firmware password is configured on this Intel Mac. "
-                            "Without a firmware password, anyone with physical access can boot from "
-                            "an external drive or access Recovery Mode, potentially compromising "
-                            "the device. This is a significant security gap for stolen device "
-                            "protection and IT asset management."
+                            "Your Mac does not have a startup security password set. This "
+                            "means that if someone has physical access to your Mac, they "
+                            "could potentially restart it and access a special recovery "
+                            "mode to reset your password or install software. It is a "
+                            "precaution for if your device is lost or stolen.\n\n"
+                            "What to do: On an Intel Mac, restart while holding Command-R, "
+                            "then choose Utilities > Startup Security Utility and set a "
+                            "firmware password. Write it down somewhere safe: if it's lost, "
+                            "only Apple can remove it."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -230,7 +239,7 @@ class Module(ModuleBase):
                 # Unable to determine status
                 findings.append(
                     Finding(
-                        title="Firmware Password: Unable to determine status",
+                        title="Firmware password: Status unknown",
                         description=(
                             "The firmware password status could not be determined. "
                             "This check may require administrator privileges to run properly."
@@ -245,7 +254,7 @@ class Module(ModuleBase):
         except PermissionError:
             findings.append(
                 Finding(
-                    title="Firmware Password: Permission denied",
+                    title="Firmware password: Needs admin access",
                     description=(
                         "The firmware password check requires administrator (sudo) privileges. "
                         "Run this check with elevated privileges to determine the status."
@@ -259,7 +268,7 @@ class Module(ModuleBase):
         except (OSError, subprocess.SubprocessError):
             findings.append(
                 Finding(
-                    title="Firmware Password: Check unavailable",
+                    title="Firmware password: Check not possible",
                     description=(
                         "Unable to check firmware password status. "
                         "The firmwarepasswd utility may not be available on this system."
@@ -280,7 +289,7 @@ class Module(ModuleBase):
         # The Startup Security Utility is only accessible from Recovery Mode
         findings.append(
             Finding(
-                title="Startup Security Utility: Apple Silicon",
+                title="Startup security settings (Apple Silicon)",
                 description=(
                     "This Apple Silicon Mac uses the Startup Security Utility to manage "
                     "firmware security. The startup security settings control allowed boot "

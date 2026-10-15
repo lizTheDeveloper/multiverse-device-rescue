@@ -34,10 +34,15 @@ class Module(ModuleBase):
             if gateway_latency["latency_ms"] > 10:
                 findings.append(
                     Finding(
-                        title="High local network latency",
+                        title="Your local network connection is slow",
                         description=(
-                            f"Gateway latency is {gateway_latency['latency_ms']:.1f}ms (threshold: 10ms). "
-                            "This indicates a problem with your local network connection."
+                            f"Your Mac takes {gateway_latency['latency_ms']:.1f} milliseconds "
+                            "to talk to your router. This is slower than usual (under "
+                            "10ms is normal). This usually means your Wi-Fi signal is "
+                            "weak or your router is struggling.\n\n"
+                            "What to do: Move closer to your router or restart it by "
+                            "unplugging it for 30 seconds. If the problem continues, "
+                            "check your internet service provider's status."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -70,10 +75,14 @@ class Module(ModuleBase):
             if internet_latency["latency_ms"] > 100:
                 findings.append(
                     Finding(
-                        title="High internet latency",
+                        title="Your internet connection is slow",
                         description=(
-                            f"Internet latency is {internet_latency['latency_ms']:.1f}ms (threshold: 100ms). "
-                            "Your internet connection quality may be degraded."
+                            f"Your internet connection is taking {internet_latency['latency_ms']:.1f} "
+                            "milliseconds to respond. This is high (under 100ms is normal). "
+                            "This often happens when your internet service is congested "
+                            "or your router is overloaded.\n\n"
+                            "What to do: Restart your router. If it persists, contact "
+                            "your internet provider to check for outages."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -105,10 +114,15 @@ class Module(ModuleBase):
             if dns_time["time_ms"] > 500:
                 findings.append(
                     Finding(
-                        title="Slow DNS resolution",
+                        title="Your Mac is slow to find websites",
                         description=(
-                            f"DNS resolution time: {dns_time['time_ms']:.1f}ms (threshold: 500ms). "
-                            "Your DNS servers may be slow or unresponsive."
+                            f"Your Mac takes {dns_time['time_ms']:.1f} milliseconds to "
+                            "translate website names into addresses. This is slow (under "
+                            "500ms is normal). This usually means your DNS servers are "
+                            "busy or unreachable.\n\n"
+                            "What to do: Restart your router. If the problem continues, "
+                            "you can switch to a public DNS service like 1.1.1.1 in System "
+                            "Settings > Network."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -140,11 +154,13 @@ class Module(ModuleBase):
             if wifi_speed["speed_mbps"] < 50:
                 findings.append(
                     Finding(
-                        title="Low Wi-Fi link speed",
+                        title="Your Wi-Fi signal is weak",
                         description=(
-                            f"Wi-Fi link speed: {wifi_speed['speed_mbps']:.0f} Mbps (threshold: 50 Mbps). "
-                            "Your Wi-Fi connection speed is very low. "
-                            "This may be due to signal strength, interference, or router issues."
+                            f"Your Wi-Fi connection is running at {wifi_speed['speed_mbps']:.0f} "
+                            "Mbps. This is low (50 Mbps or higher is expected). This "
+                            "usually means you are far from your router or there is interference.\n\n"
+                            "What to do: Move closer to your router or restart it. If "
+                            "you have a mesh system, try connecting to a different node."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

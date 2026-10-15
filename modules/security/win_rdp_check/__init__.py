@@ -43,12 +43,17 @@ class Module(ModuleBase):
                 # RDP enabled without NLA is a critical security risk (brute force vulnerable)
                 findings.append(
                     Finding(
-                        title="RDP enabled without Network Level Authentication (NLA)",
+                        title="Remote Desktop is open and easy to attack",
                         description=(
-                            "Remote Desktop Protocol (RDP) is enabled but Network Level "
-                            "Authentication is not required. This allows attackers to attempt "
-                            "brute force attacks on the RDP port. NLA should be enabled to "
-                            "require authentication before a full RDP session is established."
+                            "Your computer allows Remote Desktop connections, but it is "
+                            "not requiring a login check before connecting. This makes "
+                            "it much easier for strangers on the internet to try to guess "
+                            "your password and break in. This is a serious risk if your "
+                            "computer is connected to the internet.\n\n"
+                            "What to do: Open Settings > System > Remote Desktop. If you "
+                            "don't use it, turn it off. If you do, expand it and turn on "
+                            "'Require devices to use Network Level Authentication to "
+                            "connect'."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -64,13 +69,17 @@ class Module(ModuleBase):
                 # RDP is enabled with NLA - still warn since it's usually unnecessary on home PCs
                 findings.append(
                     Finding(
-                        title="RDP is enabled",
+                        title="Remote Desktop is turned on",
                         description=(
-                            "Remote Desktop Protocol (RDP) is enabled on this system. "
-                            "While RDP is secured with Network Level Authentication, "
-                            "RDP is often unnecessary on personal computers and increases "
-                            "the attack surface. Consider disabling RDP if remote access "
-                            "is not required."
+                            "Your computer is set up to allow Remote Desktop connections. "
+                            "This lets someone control your computer from another device. "
+                            "While it is currently protected by a login check, most people "
+                            "don't need this feature on a personal computer. Leaving it "
+                            "on can sometimes be a target for unwanted attention, though "
+                            "it is less risky than if it were unprotected.\n\n"
+                            "What to do: If you don't use Remote Desktop, open Settings "
+                            "> System > Remote Desktop and turn it off. If you do use "
+                            "it, you can leave it on, but keep your password strong."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -86,7 +95,7 @@ class Module(ModuleBase):
             # RDP is disabled - this is secure
             findings.append(
                 Finding(
-                    title="RDP is disabled",
+                    title="Remote desktop access is turned off",
                     description=(
                         "Remote Desktop Protocol (RDP) is disabled. "
                         "This is the secure default configuration."

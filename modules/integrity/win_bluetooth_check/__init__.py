@@ -33,10 +33,14 @@ class Module(ModuleBase):
         if not adapter_info:
             findings.append(
                 Finding(
-                    title="Could not retrieve Bluetooth adapter information",
+                    title="Could not check your Bluetooth adapter",
                     description=(
-                        "Failed to query Bluetooth devices. Bluetooth drivers may not be installed "
-                        "or you may not have Administrator privileges."
+                        "We couldn't get information about your Bluetooth hardware. This "
+                        "usually happens if the Bluetooth drivers are missing or if the "
+                        "check didn't have enough permission to look.\n\n"
+                        "It just means this specific check couldn't finish.\n\n"
+                        "What to do: Run the checkup again as an administrator. If it "
+                        "still fails, check if Bluetooth is turned on in Windows Settings."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -75,8 +79,14 @@ class Module(ModuleBase):
                         Finding(
                             title=f"Bluetooth adapter error: {adapter['name']}",
                             description=(
-                                f"Bluetooth adapter '{adapter['name']}' is reporting error status: {adapter['status']}. "
-                                "The adapter may need to be restarted or reinstalled."
+                                f"Your Bluetooth adapter '{adapter['name']}' is reporting "
+                                f"a problem: {adapter['status']}. This means the hardware "
+                                "might be malfunctioning or needs a reset.\n\n"
+                                "What to do: Turn Bluetooth off and then back on in Windows "
+                                "Settings. If it still shows an error, search for 'Device "
+                                "Manager' in the Start menu, find your Bluetooth adapter, "
+                                "right-click it, and select 'Disable device' then 'Enable "
+                                "device'."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -114,8 +124,14 @@ class Module(ModuleBase):
                         Finding(
                             title=f"Paired device error: {device['name']}",
                             description=(
-                                f"Paired device '{device['name']}' is reporting error status: {device['status']}. "
-                                "Try removing and re-pairing the device."
+                                f"The paired device '{device['name']}' is reporting a "
+                                f"problem: {device['status']}. This usually means the "
+                                "connection is unstable or the device needs to be reconnected.\n\n"
+                                "If you don't recognize this device name, check whether you "
+                                "paired it yourself.\n\n"
+                                "What to do: Go to Windows Settings > Bluetooth & devices, "
+                                "find the device, and select 'Remove device'. Then pair "
+                                "it again if you still want to use it."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -155,9 +171,12 @@ class Module(ModuleBase):
                     Finding(
                         title="Bluetooth Support Service is not running",
                         description=(
-                            f"Bluetooth Support Service (bthserv) is not running (status: {status}). "
-                            "The service may need to be started. Try restarting Windows or manually "
-                            "starting the service."
+                            "The background service that helps Bluetooth work (bthserv) "
+                            f"is currently {status}. This usually means Bluetooth features "
+                            "won't work until it starts.\n\n"
+                            "What to do: Restart your computer. If that doesn't fix it, "
+                            "search for 'Services' in the Start menu, find 'Bluetooth "
+                            "Support Service', right-click it, and choose 'Start'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

@@ -33,9 +33,16 @@ class Module(ModuleBase):
         if not disk_info:
             findings.append(
                 Finding(
-                    title="Could not retrieve disk information",
+                    title="We could not check your disk health",
                     description=(
-                        "Failed to run Get-PhysicalDisk. Disk health cannot be assessed."
+                        "The check for your disk health could not run because the system "
+                        "command failed. This does not mean your disk is broken; it just "
+                        "means we could not see its status. This is not the same as everything "
+                        "being fine.\n\n"
+                        "What to do: Try running the checkup again. If it fails again, "
+                        "you can check disk health manually by opening the Start menu, "
+                        "typing 'Disk Management', and looking for any drives with warning "
+                        "icons."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -50,11 +57,16 @@ class Module(ModuleBase):
             for disk in unhealthy_disks:
                 findings.append(
                     Finding(
-                        title=f"Disk unhealthy: {disk['type']} ({disk['size']})",
+                        title=f"Your {disk['type']} drive is reporting it is unhealthy",
                         description=(
-                            f"Physical disk with {disk['type']} media type is reporting "
-                            f"unhealthy status: {disk['health_status']} ({disk['operational_status']}). "
-                            "This may indicate disk failure. Back up your data immediately."
+                            f"Your computer's {disk['type']} drive ({disk['size']}) is "
+                            f"reporting a health status of {disk['health_status']} ({disk['operational_status']}). "
+                            "This often means the physical drive is failing or has bad "
+                            "sectors. \n\n"
+                            "What to do: Back up your important files to a cloud service "
+                            "or an external drive as soon as possible. If you have a "
+                            "warranty, contact the manufacturer. If not, plan to replace "
+                            "the drive."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -73,10 +85,15 @@ class Module(ModuleBase):
         if disk_errors:
             findings.append(
                 Finding(
-                    title=f"Disk errors found in event log",
+                    title=f"Windows reported {disk_errors['error_count']} disk errors",
                     description=(
-                        f"Found {disk_errors['error_count']} disk-related errors in the System event log. "
-                        "This may indicate hardware issues or data corruption."
+                        f"Windows logged {disk_errors['error_count']} errors related to "
+                        "your storage drive. These are usually minor glitches, but if "
+                        "they keep happening, it can mean the drive is wearing out. \n\n"
+                        "What to do: If you see this often, back up your important files. "
+                        "You can check for more details by opening the Start menu, typing "
+                        "'Event Viewer', and looking under 'Windows Logs' > 'System' "
+                        "for disk-related entries."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

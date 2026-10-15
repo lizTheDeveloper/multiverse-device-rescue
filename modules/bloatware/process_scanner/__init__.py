@@ -71,8 +71,15 @@ class Module(ModuleBase):
         self, proc: ProcessInfo, entry: dict, severity: Severity
     ) -> Finding:
         return Finding(
-            title=f"{entry['name']} detected running",
-            description=entry["description"],
+            title=f"{entry['name']} is running in the background",
+            description=(
+                f"We found {entry['name']} running on your device. This is a known program "
+                "that often uses system resources for no good reason.\n\n"
+                f"Here is what we know about it: {entry['description']}\n\n"
+                "What to do: You can usually ignore this. If you want to stop it, search "
+                "for 'Task Manager' (Windows) or 'Activity Monitor' (Mac), find the name "
+                "above, and choose 'End Task' or 'Quit'. Do not delete any files."
+            ),
             severity=severity,
             category=self.category,
             data={

@@ -56,11 +56,17 @@ class Module(ModuleBase):
         if cycle_count is not None and cycle_count > 1000:
             findings.append(
                 Finding(
-                    title=f"High battery cycle count ({cycle_count})",
+                    title=f"Your battery has been charged {cycle_count} times",
                     description=(
-                        f"Battery cycle count is {cycle_count}, exceeding Apple's "
-                        "rated limit of ~1000 cycles. Battery capacity will degrade "
-                        "over time. Consider battery service if capacity is low."
+                        f"Your battery has gone through {cycle_count} full charge cycles. "
+                        "Apple designs Mac batteries to last about 1,000 cycles before "
+                        "they start losing power faster.\n\n"
+                        "It just means your battery is getting older and may not hold "
+                        "a charge as long as it used to.\n\n"
+                        "What to do: Nothing needs to be done right now. If you notice "
+                        "your Mac dying much faster than before, you can check the battery "
+                        "health in System Settings > Battery, or visit an Apple Store "
+                        "for a replacement."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -74,10 +80,14 @@ class Module(ModuleBase):
             severity = Severity.CRITICAL if condition == "Replace Now" else Severity.WARNING
             findings.append(
                 Finding(
-                    title=f"Battery condition: {condition}",
+                    title=f"Your battery needs attention ({condition})",
                     description=(
-                        f"System reports battery condition as '{condition}'. "
-                        "Battery service or replacement may be needed."
+                        f"Your Mac's system reports the battery condition as '{condition}'. "
+                        "It means the battery is aging and may not perform as well as "
+                        "it did when new.\n\n"
+                        "What to do: You can check the details in System Settings > Battery. "
+                        "If the battery is draining quickly or shutting down unexpectedly, "
+                        "consider having it serviced by Apple."
                     ),
                     severity=severity,
                     category=self.category,
@@ -93,11 +103,16 @@ class Module(ModuleBase):
             if capacity_percent < 80:
                 findings.append(
                     Finding(
-                        title=f"Battery capacity degraded ({capacity_percent:.1f}%)",
+                        title=(
+                            f"Your battery holds {capacity_percent:.1f}% of its original power"
+                        ),
                         description=(
-                            f"Battery maximum capacity is {capacity_percent:.1f}% of "
-                            "design capacity. This is normal aging; if it falls below "
-                            "50%, service is recommended."
+                            f"Your battery can currently hold {capacity_percent:.1f}% "
+                            "of the power it had when it was new. Batteries naturally "
+                            "lose some capacity over time.\n\n"
+                            "What to do: Nothing needs to be done unless you are frustrated "
+                            "with how quickly your Mac runs out of power. If it is a "
+                            "major issue, you can replace the battery at an Apple Store."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

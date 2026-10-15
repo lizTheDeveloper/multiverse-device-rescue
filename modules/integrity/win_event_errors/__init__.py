@@ -103,12 +103,15 @@ class Module(ModuleBase):
         if system_error_count > ERROR_COUNT_THRESHOLD:
             findings.append(
                 Finding(
-                    title=f"High error volume in System log: {system_error_count} errors",
+                    title=f"Your computer is reporting {system_error_count} system errors",
                     description=(
-                        f"The System Event Log contains {system_error_count} recent errors. "
-                        f"This suggests something is spamming errors and may indicate "
-                        f"system instability or a malfunctioning service. "
-                        f"Top error sources: {', '.join(top_sources.keys())}."
+                        f"Your computer's internal log shows {system_error_count} recent "
+                        "errors. This usually means a specific program or part of Windows "
+                        "is struggling. The most common sources are: "
+                        f"{', '.join(top_sources.keys())}.\n\n"
+                        "What to do: Check if your computer is running slowly or freezing. "
+                        "If it feels normal, you can ignore this for now. If it feels "
+                        "unstable, try restarting your computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -125,11 +128,17 @@ class Module(ModuleBase):
         if known_bad_errors:
             findings.append(
                 Finding(
-                    title=f"Known-issue errors detected: {len(known_bad_errors)} occurrence(s)",
+                    title=(
+                        f"Your computer logged {len(known_bad_errors)} hardware or crash errors"
+                    ),
                     description=(
-                        f"Detected {len(known_bad_errors)} error(s) from known-problematic sources "
-                        f"(Disk, WHEA, BugCheck). This may indicate hardware issues, driver problems, "
-                        f"or system crashes. Sample error: {known_bad_errors[0] if known_bad_errors else 'None'}."
+                        f"We found {len(known_bad_errors)} errors related to your computer's "
+                        "physical parts (like the hard drive) or sudden crashes. Example: "
+                        f"{known_bad_errors[0] if known_bad_errors else 'None'}.\n\n"
+                        "What to do: If your computer is working fine, no action is needed "
+                        "right now. If you notice random shutdowns or blue screens, back "
+                        "up your files and consider having a professional check your "
+                        "hardware."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -144,7 +153,7 @@ class Module(ModuleBase):
         if not findings:
             findings.append(
                 Finding(
-                    title=f"Event Log summary: {total_errors} recent errors",
+                    title=f"Recent errors: {total_errors}",
                     description=(
                         f"The Windows Event Logs contain {system_error_count} System errors "
                         f"and {app_error_count} Application errors across {unique_sources} different sources. "

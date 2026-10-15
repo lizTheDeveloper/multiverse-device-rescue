@@ -40,7 +40,7 @@ class Module(ModuleBase):
             # Add finding about DNS servers and encryption status
             findings.append(
                 Finding(
-                    title="DNS server configuration detected",
+                    title="Your DNS server settings",
                     description=(
                         f"System DNS servers: {', '.join(dns_servers)}\n"
                         f"Encryption status: {encryption_info['status']}\n"
@@ -63,12 +63,15 @@ class Module(ModuleBase):
             if not encryption_info["is_encrypted"]:
                 findings.append(
                     Finding(
-                        title="Unencrypted DNS detected - ISP can monitor queries",
+                        title="Your internet requests are not encrypted",
                         description=(
-                            "Your system is using unencrypted DNS (likely ISP-provided). "
-                            "This exposes all your browsing activity to your ISP and network attackers. "
-                            "Anyone on the network can see which websites you visit. "
-                            "Consider switching to encrypted DNS (DoH/DoT) or a privacy-focused provider."
+                            "Your computer is sending web address lookups in plain text. "
+                            "This means your internet provider, or anyone else on your "
+                            "local network, can see which websites you visit.\n\n"
+                            "What to do: Open System Settings, go to Network, select your "
+                            "active connection, and look for a 'DNS' section. You can "
+                            "add a privacy-focused provider there, or search for 'DNS' "
+                            "in System Settings to find the option."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -82,7 +85,7 @@ class Module(ModuleBase):
                 # Using known encrypted provider
                 findings.append(
                     Finding(
-                        title="Known encrypted DNS provider in use",
+                        title="Using encrypted DNS provider",
                         description=(
                             f"Detected use of {encryption_info['provider_name']} DNS. "
                             "This provider supports encryption, but system-level DNS-over-HTTPS "
@@ -100,7 +103,7 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="Unable to determine DNS configuration",
+                    title="Could not read your DNS settings",
                     description="Could not read system DNS settings.",
                     severity=Severity.INFO,
                     category=self.category,
@@ -130,7 +133,7 @@ class Module(ModuleBase):
         if local_resolver["running"]:
             findings.append(
                 Finding(
-                    title="Local DNS resolver detected",
+                    title="Local DNS resolver running",
                     description=(
                         f"Local DNS resolver '{local_resolver['process']}' is running. "
                         "This can provide encryption for DNS queries if properly configured."
@@ -148,7 +151,7 @@ class Module(ModuleBase):
         if doh_status["configured"]:
             findings.append(
                 Finding(
-                    title="DNS-over-HTTPS/TLS configuration found",
+                    title="Encrypted DNS settings found",
                     description=(
                         "System has DNS-over-HTTPS or DNS-over-TLS configuration. "
                         f"Details: {doh_status.get('details', 'Unknown')}"
@@ -172,11 +175,14 @@ class Module(ModuleBase):
             if not self._is_known_encrypted_provider(dns_servers):
                 findings.append(
                     Finding(
-                        title="No DNS encryption configuration detected",
+                        title="Your web address lookups are not encrypted",
                         description=(
-                            "No encrypted DNS (DoH/DoT) profiles, local resolvers, or "
-                            "known encrypted DNS providers are configured. "
-                            "Your DNS queries may be exposed to monitoring."
+                            "We could not find any settings that encrypt the requests "
+                            "your computer makes to find websites. It simply means your "
+                            "internet provider can see which sites you visit.\n\n"
+                            "What to do: Nothing urgent. If you want more privacy, you "
+                            "can set up encrypted DNS in System Settings > Network, or "
+                            "use a browser that supports it."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

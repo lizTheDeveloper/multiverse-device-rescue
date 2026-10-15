@@ -237,7 +237,7 @@ def test_energy_settings_never_sleeps():
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("never sleeps" in f.description.lower() for f in result.findings)
+    assert any("never sleep" in f.title.lower() for f in result.findings)
 
 
 def test_energy_settings_womp_enabled():

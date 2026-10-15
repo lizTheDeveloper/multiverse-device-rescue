@@ -33,8 +33,14 @@ class Module(ModuleBase):
         if destination_info is None:
             findings.append(
                 Finding(
-                    title="No Time Machine backup destination configured",
-                    description="Data is at risk! Set up a backup destination in Time Machine settings.",
+                    title="No Time Machine backup destination is set up",
+                    description=(
+                        "Your Mac is not currently set up to make automatic backups. This "
+                        "means that if your computer breaks or you accidentally delete "
+                        "files, you may not be able to get them back.\n\n"
+                        "What to do: Plug in an external drive, open System Settings > "
+                        "General > Time Machine, click Add Backup Disk, and choose it."
+                    ),
                     severity=Severity.CRITICAL,
                     category=self.category,
                     data={"check": "no_destination_configured"},
@@ -46,8 +52,17 @@ class Module(ModuleBase):
         if not destination_info.get("connected", False):
             findings.append(
                 Finding(
-                    title=f"Time Machine backup destination '{destination_info.get('name', 'Unknown')}' is disconnected",
-                    description="Connect the backup drive to resume automatic backups.",
+                    title=(
+                        f"Your backup drive '{destination_info.get('name', 'Unknown')}' "
+                        "is not connected"
+                    ),
+                    description=(
+                        "Time Machine is set up to use this drive, but it is currently "
+                        "unplugged or not powered on. Your computer is not making backups "
+                        "right now.\n\n"
+                        "What to do: Plug your backup drive back in. Backups will resume "
+                        "automatically once it is connected."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "destination_disconnected", "destination": destination_info},
@@ -62,8 +77,14 @@ class Module(ModuleBase):
             if percent_free < 10:
                 findings.append(
                     Finding(
-                        title=f"Backup destination has only {percent_free:.1f}% free space",
-                        description="The Time Machine destination is nearly full. Add more space or remove old backups.",
+                        title=f"Your backup drive is almost full ({percent_free:.1f}% free)",
+                        description=(
+                            "Your backup drive is nearly full. Time Machine makes room "
+                            "by deleting your oldest backups, so you keep less history "
+                            "the fuller it gets.\n\n"
+                            "What to do: Nothing urgent. If you want to keep older versions "
+                            "of your files, move to a larger backup drive."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
@@ -98,8 +119,14 @@ class Module(ModuleBase):
             if days_since > 7:
                 findings.append(
                     Finding(
-                        title=f"Last backup is {days_since} days old",
-                        description=f"Last backup: {last_backup.strftime('%Y-%m-%d %H:%M:%S')}. Backups should run regularly.",
+                        title=f"It has been {days_since} days since your last backup",
+                        description=(
+                            f"Your last backup was on {last_backup.strftime('%Y-%m-%d %H:%M:%S')}. "
+                            "Backups should happen regularly to keep your data safe. "
+                            "If your drive is connected, check why it is not running.\n\n"
+                            "What to do: Open System Settings > General > Time Machine to ensure "
+                            "backups are turned on and the drive is selected."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
@@ -127,8 +154,13 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="Could not determine last backup date",
-                    description="Unable to retrieve Time Machine backup history.",
+                    title="We could not check your last backup date",
+                    description=(
+                        "We could not read the history of your backups, so we do not know "
+                        "when the last one happened. \n\n"
+                        "What to do: Try running the checkup again. If it still fails, "
+                        "open System Settings > General > Time Machine to check the status manually."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "backup_date_unknown"},
@@ -153,8 +185,13 @@ class Module(ModuleBase):
         if has_errors:
             findings.append(
                 Finding(
-                    title="Recent Time Machine backup errors detected",
-                    description="Check system logs for Time Machine error details.",
+                    title="Time Machine reported recent backup errors",
+                    description=(
+                        "Your Mac's backup system has reported errors recently. This usually "
+                        "means a backup did not finish completely. \n\n"
+                        "What to do: Open System Settings > General > Time Machine to see if there "
+                        "are any specific messages about the backup drive."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "recent_errors"},

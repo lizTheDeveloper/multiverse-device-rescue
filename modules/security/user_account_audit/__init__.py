@@ -50,11 +50,14 @@ class Module(ModuleBase):
             if guest_enabled:
                 findings.append(
                     Finding(
-                        title="Guest account is enabled",
+                        title="Your Mac allows anyone to log in without a password",
                         description=(
-                            "The Guest account is enabled. This allows "
-                            "anyone with physical access to log in without "
-                            "a password. Consider disabling it."
+                            "The 'Guest' account is turned on. This lets anyone who picks "
+                            "up your Mac log in and use it without needing a password. "
+                            "\n\n"
+                            "What to do: Open System Settings > Users & Groups, click the "
+                            "info button next to Guest User, and turn off 'Allow guests to "
+                            "log in to this computer'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -71,11 +74,14 @@ class Module(ModuleBase):
             if auto_login_user:
                 findings.append(
                     Finding(
-                        title=f"Automatic login is enabled for {auto_login_user}",
+                        title=f"Your Mac skips the password screen for {auto_login_user}",
                         description=(
-                            f"The system will automatically log in as '{auto_login_user}' "
-                            "on startup. This bypasses the login screen and password "
-                            "protection. Consider disabling it."
+                            f"When your Mac starts up, it automatically logs in as '{auto_login_user}' "
+                            "without asking for a password. This means anyone who has "
+                            "physical access to your computer can open it and see your "
+                            "screen immediately.\n\n"
+                            "What to do: Open System Settings > Users & Groups and set "
+                            "'Automatically log in as' to Off."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

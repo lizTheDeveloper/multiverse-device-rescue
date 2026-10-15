@@ -88,7 +88,7 @@ class Module(ModuleBase):
         if profile.platform == Platform.WIN32:
             findings.append(
                 Finding(
-                    title="MVT spyware scan requires WSL on Windows",
+                    title="Spyware scan needs a Linux setup on Windows",
                     description=(
                         "Amnesty International's Mobile Verification Toolkit (MVT) "
                         "does not run natively on Windows. Install the Windows "
@@ -130,7 +130,7 @@ class Module(ModuleBase):
         if not mvt_bin:
             findings.append(
                 Finding(
-                    title="MVT (Mobile Verification Toolkit) is not installed",
+                    title=f"Spyware scanner not installed ({len(backups)} backup(s) found)",
                     description=(
                         f"Found {len(backups)} device backup(s) but MVT is not "
                         "installed, so they could not be scanned for spyware "
@@ -156,10 +156,7 @@ class Module(ModuleBase):
             # backups exist and a scan is available to run explicitly.
             findings.append(
                 Finding(
-                    title=(
-                        f"{len(backups)} device backup(s) found — spyware scan "
-                        "available (not run automatically)"
-                    ),
+                    title=f"{len(backups)} device backup(s) found (scan available)",
                     description=(
                         f"Found {len(backups)} device backup(s) and MVT is "
                         "installed, but the backup spyware scan was NOT run "
@@ -190,16 +187,20 @@ class Module(ModuleBase):
             if size is not None and size > self.max_backup_bytes:
                 findings.append(
                     Finding(
-                        title=f"Backup too large to scan safely: {backup.name}",
+                        title=(
+                            f"A backup file is too big to check automatically: {backup.name}"
+                        ),
                         description=(
-                            f"Backup {backup} is larger than the "
-                            f"{self.max_backup_bytes // 1024**3} GiB safety limit "
-                            "for automatic scanning. Scanning it in-process could "
-                            "exhaust memory and freeze the machine, so it was "
-                            "skipped. Scan it manually on a machine with adequate "
-                            f"free memory:\n  {mvt_bin} check-backup "
-                            "--output <dir> "
-                            f"{backup}"
+                            f"We found a backup file named {backup.name}, but it is larger "
+                            f"than the {self.max_backup_bytes // 1024**3} GiB safety limit. "
+                            "Checking such a large file can use up all your computer's "
+                            "memory and freeze it, so we skipped it. This means we could "
+                            "not verify if this specific backup is safe, but it is not "
+                            "a sign that something is wrong with your current device.\n\n"
+                            "What to do: Nothing needs to be done on this computer right "
+                            "now. To check it anyway, run this on a computer with more "
+                            f"free memory:\n  {mvt_bin} check-backup --output <dir> "
+                            "<backup-path>"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -221,12 +222,19 @@ class Module(ModuleBase):
                 indicator = detection.get("indicator", "unknown")
                 findings.append(
                     Finding(
-                        title=f"Spyware indicator detected: {module_name}",
+                        title=f"Signs of spyware found in backup: {module_name}",
                         description=(
-                            f"MVT detected a known spyware indicator ('{indicator}') "
-                            f"while scanning the '{module_name}' module of backup "
-                            f"{backup}. This is consistent with mercenary spyware "
-                            "such as Pegasus or Predator."
+                            f"We found a known sign of spyware ('{indicator}') inside "
+                            f"the '{module_name}' part of the backup file {backup}. This "
+                            "suggests the phone that was backed up may have been targeted "
+                            "by sophisticated spyware, such as Pegasus or Predator.\n\n"
+                            "If you think someone close to you set this up to monitor "
+                            "you, removing it can alert them. Talk to an advocate first "
+                            "(US National Domestic Violence Hotline: 1-800-799-7233, "
+                            "or text START to 88788).\n\n"
+                            "What to do: Do not restore this backup to any phone. Keep "
+                            "the backup file safe as evidence and contact a security "
+                            "expert or the hotline above for guidance on next steps."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,

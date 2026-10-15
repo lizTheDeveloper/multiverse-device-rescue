@@ -49,7 +49,7 @@ class Module(ModuleBase):
             browser_display = self.KNOWN_BROWSERS.get(browser_id, browser_name)
             findings.append(
                 Finding(
-                    title="Default browser configuration",
+                    title="Your default web browser",
                     description=f"Default browser: {browser_display} ({browser_id})",
                     severity=Severity.INFO,
                     category=self.category,
@@ -65,7 +65,7 @@ class Module(ModuleBase):
             if browser_id in self.KNOWN_BROWSERS:
                 findings.append(
                     Finding(
-                        title="Default browser is well-known",
+                        title="Your default web browser is a standard app",
                         description=f"Using {self.KNOWN_BROWSERS[browser_id]}, a well-known browser.",
                         severity=Severity.INFO,
                         category=self.category,
@@ -80,10 +80,15 @@ class Module(ModuleBase):
                 if not self._app_exists(browser_id):
                     findings.append(
                         Finding(
-                            title="Default browser app may not be installed",
+                            title=f"Your default browser '{browser_id}' might be missing",
                             description=(
-                                f"The app '{browser_id}' is set as the default browser, but it may not be installed. "
-                                "This could cause issues when opening links."
+                                f"Your computer is set to open web links in '{browser_id}', "
+                                "but we can't find that app installed. This usually means "
+                                "the app was removed or moved, so clicking links might "
+                                "not work or could open the wrong program.\n\n"
+                                "What to do: Open System Settings > Desktop & Dock > "
+                                "Default web browser and choose a browser you actually "
+                                "have, like Safari or Chrome."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -100,7 +105,7 @@ class Module(ModuleBase):
             email_display = self.KNOWN_BROWSERS.get(mailto_handler, email_name)
             findings.append(
                 Finding(
-                    title="Default email client configuration",
+                    title="Your default email app",
                     description=f"Default email client: {email_display} ({mailto_handler})",
                     severity=Severity.INFO,
                     category=self.category,

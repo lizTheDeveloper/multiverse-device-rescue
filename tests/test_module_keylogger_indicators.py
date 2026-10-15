@@ -59,7 +59,12 @@ def _make_run_result(
         # log command for CGEventTap
         elif "log" in cmd_str and "CGEventTap" in cmd_str:
             if cgeventtap_processes and not expect_clean:
-                result.stdout = "\n".join(cgeventtap_processes) + "\n"
+                # Real `log show --style compact` output: a header, then
+                # "date time type process[pid:tid] message" lines.
+                result.stdout = "Timestamp               Ty Process[PID:TID]\n" + "".join(
+                    f"2026-10-15 04:10:0{i}.123 Df {name} CGEventTapCreate\n"
+                    for i, name in enumerate(cgeventtap_processes)
+                )
             else:
                 result.stdout = ""
 
@@ -161,6 +166,26 @@ def test_keylogger_indicators_cgeventtap():
     cgeventtap_findings = [f for f in result.findings if f.data.get("check") == "cgeventtap_usage"]
     assert len(cgeventtap_findings) > 0
     assert cgeventtap_findings[0].severity == Severity.WARNING
+    # The process names, never the date column or the header.
+    assert cgeventtap_findings[0].data["processes"] == ["com.suspicious.app", "malware_process"]
+
+
+def test_cgeventtap_query_excludes_only_the_system_log_tool():
+    """Our own query is filtered by path; a process merely named "log" still counts."""
+    mod = _get_module()
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = "2026-10-15 04:10:01.123 Df log[1:2] CGEventTapCreate\n"
+        return result
+
+    with patch("subprocess.run", side_effect=fake_run):
+        names = mod._check_cgeventtap_usage()
+    assert "processImagePath != '/usr/bin/log'" in " ".join(seen["cmd"])
+    assert names == ["log"]
 
 
 def test_keylogger_indicators_multiple_issues():

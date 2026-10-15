@@ -344,7 +344,7 @@ def test_win_windows_update_status_service_disabled():
     assert result.has_issues
     critical = [f for f in result.findings if f.severity == Severity.CRITICAL]
     assert len(critical) > 0
-    assert "disabled" in critical[0].title.lower()
+    assert "turned off" in critical[0].title.lower()
 
 
 def test_win_windows_update_status_service_not_running():
@@ -355,7 +355,7 @@ def test_win_windows_update_status_service_not_running():
     assert result.has_issues
     warning = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning) > 0
-    assert "not running" in warning[0].title.lower()
+    assert "stopped" in warning[0].title.lower()
 
 
 def test_win_windows_update_status_no_recent_updates_critical():
@@ -366,7 +366,7 @@ def test_win_windows_update_status_no_recent_updates_critical():
     assert result.has_issues
     critical = [f for f in result.findings if f.severity == Severity.CRITICAL]
     assert len(critical) > 0
-    assert "no updates" in critical[0].title.lower() or "critical" in critical[0].description.lower()
+    assert "no security updates" in critical[0].title.lower() or "critical" in critical[0].description.lower()
 
 
 def test_win_windows_update_status_stale_updates_warning():
@@ -390,7 +390,7 @@ def test_win_windows_update_status_mandatory_updates():
     assert result.has_issues
     warning = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning) > 0
-    assert "mandatory" in warning[0].title.lower()
+    assert "important updates" in warning[0].title.lower()
 
 
 def test_win_windows_update_status_failed_updates():

@@ -145,7 +145,7 @@ def test_find_my_mac_check_find_my_mac_disabled():
     # Should have CRITICAL finding for disabled Find My Mac
     critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
     assert len(critical_findings) > 0
-    assert any("disabled" in f.title.lower() for f in critical_findings)
+    assert any("turned off" in f.title.lower() for f in critical_findings)
 
 
 def test_find_my_mac_check_location_services_disabled():

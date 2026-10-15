@@ -79,10 +79,13 @@ class Module(ModuleBase):
         if indexing_active:
             findings.append(
                 Finding(
-                    title="Spotlight indexing is currently active",
+                    title="Spotlight is currently scanning your files",
                     description=(
-                        "Spotlight is currently indexing your disk. This can cause CPU and "
-                        "disk I/O spikes. Wait for indexing to complete or disable it temporarily."
+                        "Spotlight is the search tool on your Mac. It is currently scanning "
+                        "your files to update its index. It may make your computer feel "
+                        "slower or the fan louder for a while.\n\n"
+                        "What to do: Nothing. Let it finish; your Mac speeds up again "
+                        "once it's done."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -61,7 +61,7 @@ class TestDNSResolution:
         dns_findings = [f for f in result.findings if f.data.get("check_type") == "dns_resolution"]
         assert len(dns_findings) == 1
         assert dns_findings[0].severity == Severity.WARNING
-        assert "DNS resolution failed" in dns_findings[0].title
+        assert "look up website addresses" in dns_findings[0].title
 
     def test_dns_resolution_timeout(self):
         mod = _get_module()
@@ -209,7 +209,7 @@ class TestNetworkConnectivity:
         connectivity_findings = [f for f in result.findings if f.data.get("check_type") == "network_connectivity"]
         assert len(connectivity_findings) == 1
         assert connectivity_findings[0].severity == Severity.WARNING
-        assert "No network connectivity" in connectivity_findings[0].title
+        assert "can't reach the internet" in connectivity_findings[0].title
 
     def test_ping_timeout(self):
         mod = _get_module()

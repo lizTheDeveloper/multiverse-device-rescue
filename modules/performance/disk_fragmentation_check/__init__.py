@@ -41,7 +41,7 @@ class Module(ModuleBase):
             if is_ssd is True:
                 findings.append(
                     Finding(
-                        title="SSD detected - fragmentation not a concern",
+                        title="Your SSD doesn't need defragmentation",
                         description=(
                             "This Mac has a Solid State Drive (SSD). SSDs do not suffer from fragmentation "
                             "like traditional hard drives, and macOS automatically optimizes SSD performance. "
@@ -61,7 +61,7 @@ class Module(ModuleBase):
             elif is_ssd is False:
                 findings.append(
                     Finding(
-                        title=f"HDD detected - monitoring fragmentation ({filesystem})",
+                        title=f"Your hard drive ({filesystem}) can slow down as it fills",
                         description=(
                             f"This Mac has a traditional hard drive (HDD). Currently using {usage_percent}% of "
                             f"disk space with {_fmt_bytes(free_bytes)} free. Filesystem: {filesystem}. "
@@ -84,11 +84,15 @@ class Module(ModuleBase):
                 if usage_percent > 90:
                     findings.append(
                         Finding(
-                            title=f"HDD critically full - fragmentation risk ({usage_percent}%)",
+                            title=f"Your hard drive is nearly full ({usage_percent}%)",
                             description=(
-                                f"Your HDD is {usage_percent}% full with only {_fmt_bytes(free_bytes)} free space. "
-                                f"At this capacity, disk fragmentation will significantly impact performance. "
-                                f"Free up space as soon as possible to restore normal operation."
+                                f"Your traditional hard drive is {usage_percent}% full, "
+                                f"leaving only {_fmt_bytes(free_bytes)} of space. When "
+                                "a hard drive gets this full, files get scattered across "
+                                "the disk, which makes your Mac feel slower.\n\n"
+                                "What to do: Open System Settings > General > Storage. "
+                                "Look for large files or apps you no longer use and remove "
+                                "them to free up space."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -106,11 +110,20 @@ class Module(ModuleBase):
                 elif filesystem == "HFS+" and usage_percent > 70:
                     findings.append(
                         Finding(
-                            title=f"HFS+ HDD with high usage - fragmentation likely ({usage_percent}%)",
+                            title=(
+                                f"Your hard drive uses the older HFS+ file system ({usage_percent}% "
+                                "full)"
+                            ),
                             description=(
-                                f"You have an HFS+ filesystem on an HDD with {usage_percent}% capacity used. "
-                                f"HFS+ is more prone to fragmentation than APFS. At this usage level, "
-                                f"you may notice performance degradation. Consider freeing space or upgrading to APFS."
+                                "Your hard drive uses a file system called HFS+ and is "
+                                f"{usage_percent}% full. Older file systems like HFS+ "
+                                "are more likely to slow down when the drive is getting "
+                                "full compared to the newer APFS. You might notice your "
+                                "Mac taking longer to open apps.\n\n"
+                                "What to do: Free up some disk space by deleting files "
+                                "you don't need. If you have macOS 10.12 or later, you "
+                                "can also convert the drive to APFS in Disk Utility for "
+                                "better performance."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -127,7 +140,7 @@ class Module(ModuleBase):
                 # Unknown disk type
                 findings.append(
                     Finding(
-                        title="Unable to determine disk type",
+                        title="Could not identify your disk type",
                         description=(
                             "Could not determine whether this disk is an SSD or HDD. "
                             "Fragmentation risk cannot be assessed."
@@ -145,7 +158,7 @@ class Module(ModuleBase):
         except Exception as e:
             findings.append(
                 Finding(
-                    title="Error checking disk fragmentation status",
+                    title="Could not check disk fragmentation",
                     description=f"Failed to check disk type and fragmentation: {str(e)}",
                     severity=Severity.INFO,
                     category=self.category,

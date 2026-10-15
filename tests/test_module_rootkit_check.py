@@ -141,7 +141,7 @@ def test_binary_signature_failure():
         result = mod.check(_make_profile())
 
     assert result.has_issues
-    assert any(f.severity == Severity.CRITICAL and "code signature" in f.title.lower() for f in result.findings)
+    assert any(f.severity == Severity.CRITICAL and "looks changed" in f.title.lower() for f in result.findings)
 
 
 def test_suspicious_kernel_extensions():

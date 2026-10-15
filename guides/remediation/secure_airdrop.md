@@ -11,6 +11,15 @@ remediates:
   - security.airdrop_security_check.airdrop_mode_everyone
   - security.airdrop_security_check.bluetooth_sharing_enabled
   - security.airdrop_security_check.sharing_config
+steps_for:
+  security.airdrop_config.airdrop_everyone: [1]
+  security.airdrop_config.airdrop_contacts_only: [1]
+  security.airdrop_config.airdrop_off: [1]
+  security.airdrop_config.bluetooth_disabled: [3]
+  security.airdrop_config.wifi_disabled: [3]
+  security.airdrop_security_check.airdrop_mode_everyone: [1]
+  security.airdrop_security_check.bluetooth_sharing_enabled: [2]
+  security.airdrop_security_check.sharing_config: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -23,20 +32,20 @@ control from System Settings — nothing destructive — but they can affect
 whether you can share files with people nearby, so confirm you don't rely on
 the current setting before changing it.
 
-## Step 1: Set AirDrop discoverability to Contacts Only
+## Step 1: Limit AirDrop to your contacts
 
 If either module flagged AirDrop as set to "Everyone", that means anyone
 nearby (not just people in your contacts) can send you unsolicited files —
 this has been used for harassment ("cyberflashing") in public places.
 
-1. Open System Settings > General > AirDrop.
+1. Open System Settings > General > AirDrop & Handoff.
 2. Set "Allow me to be discovered by" to **Contacts Only**.
 3. If you don't use AirDrop at all, you can instead choose **Receiving Off**
    (also called "No One") — this is safe and simply disables the feature.
 4. If the scan reports AirDrop already set to Contacts Only or Off, no
    action is needed — that's the secure baseline.
 
-## Step 2: Review Bluetooth sharing
+## Step 2: Check Bluetooth file sharing settings
 
 If `airdrop_security_check` flagged Bluetooth sharing as enabled, files can
 be pushed to this Mac over Bluetooth outside of AirDrop.
@@ -48,7 +57,7 @@ be pushed to this Mac over Bluetooth outside of AirDrop.
    device), leave it enabled but periodically review which devices are
    paired — see `review_bluetooth.md`.
 
-## Step 3: Review Bluetooth/Wi-Fi radio status and the sharing summary
+## Step 3: Review wireless and sharing status
 
 These are informational findings — they tell you the current state of the
 radios AirDrop needs, and a general summary of your sharing configuration.

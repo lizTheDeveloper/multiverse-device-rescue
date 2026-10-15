@@ -58,8 +58,15 @@ class Module(ModuleBase):
         if nearby_networks is None:
             findings.append(
                 Finding(
-                    title="Could not scan Wi-Fi networks",
-                    description="Failed to scan nearby Wi-Fi networks. Airport command may not be available.",
+                    title="Could not scan nearby Wi-Fi networks",
+                    description=(
+                        "We tried to look at the Wi-Fi networks around you, but the tool "
+                        "needed to do that wasn't available on this Mac, so this part of "
+                        "the checkup didn't run.\n\n"
+                        "What to do: Nothing right now. If your internet is working normally, "
+                        "you can ignore this. If you are having Wi-Fi problems, try restarting "
+                        "your router."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "scan_failed"},
@@ -97,10 +104,18 @@ class Module(ModuleBase):
         if other_networks_count > self.CONGESTION_THRESHOLD:
             findings.append(
                 Finding(
-                    title=f"Channel congestion detected",
+                    title=(
+                        f"Your Wi-Fi channel is busy ({other_networks_count} other networks)"
+                    ),
                     description=(
-                        f"Your current Wi-Fi channel ({current_channel}) has {other_networks_count} other networks nearby. "
-                        f"This may cause interference and reduced speeds. Consider switching to a less congested channel."
+                        f"Your Wi-Fi is on channel {current_channel}, and there are {other_networks_count} "
+                        "other networks using that same channel nearby. When too many "
+                        "networks share a channel, they can interfere with each other, "
+                        "which might make your internet feel slower or less stable.\n\n"
+                        "What to do: If your internet is slow, ask the person who manages "
+                        "your home Wi-Fi router to change it to a less crowded channel. "
+                        "You can usually do this by logging into your router's settings "
+                        "page."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -116,10 +131,14 @@ class Module(ModuleBase):
         if snr is not None and snr < self.SNR_POOR_THRESHOLD:
             findings.append(
                 Finding(
-                    title=f"Poor signal-to-noise ratio",
+                    title=f"Weak Wi-Fi signal ({snr} dB)",
                     description=(
-                        f"Your signal-to-noise ratio is poor ({snr} dB). This indicates weak signal relative to noise. "
-                        f"This may cause slow speeds or intermittent connectivity."
+                        f"Your Wi-Fi signal strength is low ({snr} dB). This usually means "
+                        "you are far from your router or there are walls in the way. "
+                        "This can cause slow speeds or dropped connections.\n\n"
+                        "What to do: Move closer to your Wi-Fi router, or remove obstacles "
+                        "between your device and the router. If that doesn't help, you "
+                        "might consider adding a Wi-Fi extender."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

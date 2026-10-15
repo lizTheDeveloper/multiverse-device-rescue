@@ -7,11 +7,16 @@ remediates:
   - security.ai_worm_network.stepsecurity_bypass
   - security.ai_worm_network.beaconing_detected
   - security.ai_worm_network.token_harvesting_subprocess
+steps_for:
+  security.ai_worm_network.known_malicious_connection: [1]
+  security.ai_worm_network.stepsecurity_bypass: [2]
+  security.ai_worm_network.beaconing_detected: [3]
+  security.ai_worm_network.token_harvesting_subprocess: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
 
-## Step 1: Terminate processes with known-malicious connections
+## Step 1: Stop the program making bad network calls
 
 A high-confidence finding here means an active network connection was
 matched against a known AI worm C2/exfiltration domain or IP in the shared
@@ -30,7 +35,7 @@ IOC database.
    the process itself is the compromise; the network connection is only the
    symptom you happened to observe.
 
-## Step 2: Remove the StepSecurity hosts-file bypass
+## Step 2: Undo the hosts-file change that blocks a security service
 
 The worm can add an `/etc/hosts` (or Windows `hosts`) entry that redirects
 `agent.stepsecurity.io`, disabling CI/CD security monitoring for
@@ -49,7 +54,7 @@ StepSecurity-protected pipelines.
    pipeline runs for gaps in monitoring coverage while the bypass was
    active.
 
-## Step 3: Investigate beaconing patterns (medium confidence — inspect first)
+## Step 3: Check if the repeating connection is safe
 
 A beaconing finding means a process maintained an identical connection to
 the same destination across two samples taken ~5 seconds apart — a pattern
@@ -69,7 +74,7 @@ updates).
    needed — false positives here are expected and are why this finding is
    medium, not high, confidence.
 
-## Step 4: Respond to GitHub token harvesting, then rotate from a clean device
+## Step 4: Revoke your GitHub tokens from a different, safe device
 
 A high-confidence finding means a process executed `gh auth token` — a
 known technique AI worms use to steal a GitHub personal access token

@@ -218,7 +218,7 @@ def test_thermal_throttle_active():
     throttle_findings = [f for f in result.findings if f.data.get("check") == "thermal_throttle_state"]
     assert len(throttle_findings) > 0
     assert throttle_findings[0].severity == Severity.WARNING
-    assert "Thermal throttling is active" in throttle_findings[0].title
+    assert "slowing itself down" in throttle_findings[0].title
 
 
 def test_thermal_throttle_inactive():
@@ -255,7 +255,7 @@ def test_thermal_fans_at_max():
     fan_findings = [f for f in result.findings if f.data.get("check") == "fan_speed"]
     assert len(fan_findings) > 0
     assert fan_findings[0].severity == Severity.WARNING
-    assert "high speed" in fan_findings[0].title.lower()
+    assert "spinning very fast" in fan_findings[0].title.lower()
 
 
 def test_thermal_fans_normal():

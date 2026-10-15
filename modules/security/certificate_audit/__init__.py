@@ -45,11 +45,16 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Found {len(expired_certs)} expired certificate(s)",
+                    title=(
+                        f"Your Mac has {len(expired_certs)} expired security certificate(s)"
+                    ),
                     description=(
-                        f"Expired certificates: {cert_names}. "
-                        "Expired certificates can cause SSL/TLS errors, app crashes, and "
-                        "connection failures. Review and remove them from the keychain."
+                        f"We found {len(expired_certs)} expired certificates: {cert_names}. "
+                        "A certificate is a digital ID that proves a website or app is "
+                        "who it says it is. Expired ones aren't trusted for anything any "
+                        "more, so this is just clutter.\n\n"
+                        "What to do: Nothing. You can leave them, or delete them in "
+                        "Keychain Access if you like a tidy list."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -73,11 +78,25 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Found {len(user_root_cas)} user-installed root CA(s)",
+                    title=(
+                        f"Found {len(user_root_cas)} custom security certificates in your account"
+                    ),
                     description=(
-                        f"User-installed root CAs: {ca_names}. "
-                        "User-installed root certificates can be a security risk if they "
-                        "were added by corporate MDM, compromised, or unknown. Review them carefully."
+                        f"We found {len(user_root_cas)} custom certificates in your personal "
+                        f"account: {ca_names}. These are 'root' certificates that tell "
+                        "your Mac to trust specific websites or apps. If you work for "
+                        "a company that manages your Mac, these are likely normal. However, "
+                        "if you don't work for a company, or you don't recognize these "
+                        "names, they could be used to secretly intercept your secure "
+                        "connections.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Open Keychain Access, go to the 'login' keychain, "
+                        "and check the 'Certificates' section. If you don't recognize "
+                        "a name, you can right-click it and choose 'Delete' to stop trusting "
+                        "it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -94,7 +113,7 @@ class Module(ModuleBase):
         if total_cert_count > 0:
             findings.append(
                 Finding(
-                    title=f"System keychain contains {total_cert_count} certificate(s)",
+                    title=f"Certificates in your system: {total_cert_count}",
                     description=(
                         f"The System keychain has {total_cert_count} total certificates. "
                         "Regularly audit certificates to remove expired or untrusted ones."

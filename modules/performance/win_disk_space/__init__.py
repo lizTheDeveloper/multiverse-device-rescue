@@ -79,8 +79,13 @@ class Module(ModuleBase):
         return Finding(
             title=f"Drive {caption} is {used_pct:.0%} full",
             description=(
-                f"{caption} : {_fmt_bytes(used)} used of {_fmt_bytes(size)} "
-                f"({_fmt_bytes(free)} free)"
+                f"Your {caption} drive is {used_pct:.0%} full, with {_fmt_bytes(free)} "
+                f"of space left. Currently, {_fmt_bytes(used)} of {_fmt_bytes(size)} is "
+                "being used.\n\n"
+                "When a drive gets very full, your computer may slow down or stop saving "
+                "new files.\n\n"
+                "What to do: Open the Start menu, type 'Disk Cleanup', and select the "
+                "drive to remove temporary files safely."
             ),
             severity=severity,
             category=self.category,

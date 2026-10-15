@@ -32,9 +32,15 @@ class Module(ModuleBase):
         if not fs_type:
             findings.append(
                 Finding(
-                    title="Could not determine filesystem type",
+                    title="We couldn't check your drive's health",
                     description=(
-                        "Failed to run diskutil info /. Filesystem verification cannot be completed."
+                        "We tried to identify your main drive's file system type but the "
+                        "command failed. This means we couldn't run the full health check. "
+                        "This is not the same as saying everything is fine; it just means "
+                        "we couldn't verify it.\n\n"
+                        "What to do: Try running the checkup again. If it fails again, "
+                        "open the Disk Utility app manually to see if your drive is visible "
+                        "and healthy."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -48,9 +54,12 @@ class Module(ModuleBase):
         if verify_result is None:
             findings.append(
                 Finding(
-                    title="Could not run filesystem verification",
+                    title="We couldn't run the drive health check",
                     description=(
-                        "Failed to run diskutil verifyVolume /. Filesystem integrity check cannot be completed."
+                        "We tried to run Disk Utility's check on your startup disk, but "
+                        "it didn't run. That isn't the same as everything being fine.\n\n"
+                        "What to do: Open Disk Utility (Applications > Utilities), select "
+                        "your startup disk, and click First Aid."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -68,11 +77,11 @@ class Module(ModuleBase):
         # Determine severity based on verification result
         if has_errors or error_output:
             severity = Severity.CRITICAL
-            title = "Filesystem integrity errors detected"
+            title = "Your startup disk has errors"
             check_type = "fs_errors"
         elif needs_repair:
             severity = Severity.WARNING
-            title = "Filesystem needs repair"
+            title = "Your startup disk needs a repair"
             check_type = "fs_needs_repair"
         else:
             severity = Severity.INFO
@@ -227,16 +236,20 @@ class Module(ModuleBase):
         """Build a human-readable description of the verification result."""
         if severity == Severity.CRITICAL:
             return (
-                f"Filesystem ({fs_type}) verification detected errors. "
-                f"Status: {status}. "
-                f"Error details: {error_output[:200]}... "
-                "Run Disk Utility First Aid from Recovery Mode to repair."
+                f"Disk Utility's check of your startup disk ({fs_type}) found "
+                f"errors. Status: {status}. Details: {error_output[:200]}\n\n"
+                "What to do: Back up your important files first. Then open Disk "
+                "Utility (Applications > Utilities), select the startup disk and "
+                "click First Aid. If it can't repair the disk, run First Aid again "
+                "from Recovery."
             )
         elif severity == Severity.WARNING:
             return (
-                f"Filesystem ({fs_type}) verification indicates repairs may be needed. "
-                f"Status: {status}. "
-                "Run Disk Utility First Aid from Recovery Mode to repair."
+                f"Disk Utility's check of your startup disk ({fs_type}) says it "
+                f"needs repair. Status: {status}.\n\n"
+                "What to do: Back up your important files, then open Disk Utility "
+                "(Applications > Utilities), select the startup disk and click "
+                "First Aid."
             )
         else:
             return (

@@ -11,6 +11,12 @@ remediates:
   - security.find_my_mac_check.location_services_disabled
   - security.find_my_mac_check.icloud_not_signed_in
   - security.find_my_mac_check.configured_ok
+steps_for:
+  security.find_my_mac.find_my_mac_disabled: [3, 4]
+  security.find_my_mac.send_last_location_disabled: [3, 4]
+  security.find_my_mac.activation_lock_unknown: [4]
+  security.find_my_mac.configured_ok: [4]
+  security.find_my_mac_check.configured_ok: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -22,7 +28,7 @@ iCloud sign-in as prerequisites). All changes here go through System
 Settings and require entering your Apple ID credentials, so nothing is
 auto-applied.
 
-## Step 1: Sign in to iCloud, if not already
+## Step 1: Sign in to your Apple ID
 
 If `icloud_not_signed_in` was reported, Find My Mac cannot function without
 an active Apple ID.
@@ -34,7 +40,7 @@ an active Apple ID.
 3. Use an Apple ID you personally control and trust — Find My ties device
    recovery/lock/erase capability to whoever owns that account.
 
-## Step 2: Enable Location Services
+## Step 2: Turn on Location Services
 
 If `location_services_disabled` was reported, Find My Mac cannot determine
 or report the device's location even if the feature itself is turned on.
@@ -44,7 +50,7 @@ or report the device's location even if the feature itself is turned on.
 3. Scroll down and confirm **Find My** has location access enabled in the
    per-app list below.
 
-## Step 3: Enable Find My Mac and Send Last Location
+## Step 3: Turn on Find My Mac
 
 If `find_my_mac_disabled` was reported (critical — a lost/stolen device
 cannot be located, locked, or wiped without this):
@@ -62,7 +68,7 @@ cannot be located, locked, or wiped without this):
    Activation Lock through the same iCloud settings, or a future owner
    (including you, after a factory reset) may get locked out.
 
-## Step 4: Review informational findings
+## Step 4: Check your Find My Mac status
 
 `activation_lock_unknown` and `configured_ok` are informational.
 

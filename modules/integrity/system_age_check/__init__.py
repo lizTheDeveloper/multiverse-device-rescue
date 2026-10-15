@@ -33,8 +33,16 @@ class Module(ModuleBase):
         if not hardware_info:
             findings.append(
                 Finding(
-                    title="Unable to determine hardware information",
-                    description="Failed to run system_profiler to retrieve hardware data",
+                    title="We couldn't check your Mac's age",
+                    description=(
+                        "We tried to look up your Mac's model and year, but the system "
+                        "tool didn't return any information. "
+                        "This means we can't tell if your Mac is too old to get security updates. "
+                        "This is not the same as everything being fine; it just means "
+                        "we couldn't verify it.\n\n"
+                        "What to do: Nothing urgent. You can see your Mac's model and year "
+                        "in the Apple menu > About This Mac."
+                    ),
                     severity=Severity.CRITICAL,
                     category=self.category,
                     data={"error": "No hardware info available"},
@@ -85,11 +93,18 @@ class Module(ModuleBase):
         if is_obsolete:
             findings.append(
                 Finding(
-                    title=f"{model} is obsolete (over 10 years old)",
+                    title=f"Your {model} is too old for security updates",
                     description=(
-                        f"This {model} ({model_year}) is over 10 years old and is classified as obsolete "
-                        "by Apple. It may no longer receive security updates and cannot run the latest "
-                        "macOS. Consider whether repair is cost-effective compared to replacement."
+                        f"Your {model} from {model_year} is over 10 years old. Apple classifies "
+                        "this as 'obsolete,' "
+                        "which means it no longer receives security updates. This makes "
+                        "your Mac more vulnerable to "
+                        "malware and data theft, especially if you use it for banking "
+                        "or email.\n\n"
+                        "What to do: If you must keep using it, avoid entering passwords "
+                        "or financial information on this "
+                        "device. Consider replacing it with a newer Mac that still receives "
+                        "updates."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -107,11 +122,17 @@ class Module(ModuleBase):
         elif is_vintage:
             findings.append(
                 Finding(
-                    title=f"{model} is vintage (7-10 years old)",
+                    title=f"Your {model} is approaching end of support",
                     description=(
-                        f"This {model} ({model_year}) is 7-10 years old and is classified as vintage "
-                        "by Apple. It may have limited security update support. Verify with Apple's "
-                        "vintage and obsolete products list for your region."
+                        f"Your {model} from {model_year} is 7-10 years old. Apple classifies "
+                        "this as 'vintage,' "
+                        "meaning it may stop receiving security updates soon. While it "
+                        "is still supported today, "
+                        "you should plan for an upgrade soon to stay safe.\n\n"
+                        "What to do: Check Apple's support page for your specific model "
+                        "to see if it can run the latest "
+                        "macOS. If it can, upgrade via System Settings > General > Software "
+                        "Update."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -152,10 +173,17 @@ class Module(ModuleBase):
         if version_lag > 2:
             findings.append(
                 Finding(
-                    title=f"macOS is {version_lag} major versions behind current",
+                    title=f"Your macOS is {version_lag} versions behind",
                     description=(
-                        f"Your macOS version {major_version} is {version_lag} major versions behind "
-                        f"the current macOS {current_major}. Consider upgrading if your hardware supports it."
+                        f"You are running macOS {major_version}, but the current version "
+                        f"is {current_major}. "
+                        "Being this far behind means you are missing important security "
+                        "fixes that protect your data. "
+                        "Older versions can be easier for attackers to exploit.\n\n"
+                        "What to do: Open System Settings > General > Software Update "
+                        "to see if you can upgrade. "
+                        "If your Mac is too old to support the latest version, see the "
+                        "finding above about your hardware age."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

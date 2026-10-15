@@ -42,12 +42,18 @@ class Module(ModuleBase):
         if gatekeeper_enabled is False:
             findings.append(
                 Finding(
-                    title="Gatekeeper is disabled",
+                    title="Your Mac's app safety check is turned off",
                     description=(
-                        "Gatekeeper is completely disabled, removing the first line of "
-                        "defense against malware. This allows any unsigned or untrusted "
-                        "applications to run without verification. CRITICAL: Re-enable "
-                        "Gatekeeper immediately."
+                        "Your Mac has a built-in safety check called Gatekeeper that looks "
+                        "at apps to make sure they are safe before they run. Right now, "
+                        "this check is turned off. "
+                        "This means your Mac will not warn you if you try to open an app "
+                        "that might be unsafe. It does not mean someone has hacked your "
+                        "Mac, but it makes it easier for bad software to get in if you "
+                        "download it.\n\n"
+                        "What to do: Open System Settings, click on Privacy & Security, "
+                        "and look for the 'Allow apps downloaded from' setting. Make sure "
+                        "it is set to 'App Store and identified developers'."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -72,11 +78,17 @@ class Module(ModuleBase):
         if sip_enabled is False:
             findings.append(
                 Finding(
-                    title="System Integrity Protection (SIP) is disabled",
+                    title="Your Mac's core system protection is off",
                     description=(
-                        "SIP is disabled, which means system files and processes are not "
-                        "protected from modification by unauthorized parties. This is a "
-                        "CRITICAL security issue. Re-enable SIP immediately."
+                        "System Integrity Protection (SIP) stops any app, even one with "
+                        "your password, from changing the core parts of macOS. It's switched "
+                        "off. People sometimes turn it off for specialist software, but "
+                        "if you didn't, something or someone else did.\n\n"
+                        "What to do: Shut down your Mac. On a Mac with Apple silicon, "
+                        "hold the power button until you see startup options, then choose "
+                        "Options. On an Intel Mac, hold Command-R while it starts. Choose "
+                        "Utilities > Terminal, type csrutil enable, press Return, and "
+                        "restart."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -101,7 +113,10 @@ class Module(ModuleBase):
         if apps_without_quarantine:
             findings.append(
                 Finding(
-                    title=f"{len(apps_without_quarantine)} app(s) have no download-quarantine marker",
+                    title=(
+                        f"{len(apps_without_quarantine)} app(s) have no 'downloaded from "
+                        "internet' tag"
+                    ),
                     description=(
                         f"{len(apps_without_quarantine)} app(s) do not carry macOS's "
                         "'downloaded from the internet' (quarantine) marker: "
@@ -125,11 +140,15 @@ class Module(ModuleBase):
         if gatekeeper_works is False:
             findings.append(
                 Finding(
-                    title="Gatekeeper assessment failed or unavailable",
+                    title="Your Mac's app safety check might not be working",
                     description=(
-                        "Gatekeeper assessment test on a known system app returned an error "
-                        "or unexpected result. This may indicate Gatekeeper is not functioning "
-                        "properly."
+                        "We tried to test your Mac's built-in safety check (Gatekeeper) "
+                        "to see if it is working properly, but the test did not give a "
+                        "clear answer. This might be a temporary glitch, or it could mean "
+                        "the safety check is not running as it should.\n\n"
+                        "What to do: Try restarting your Mac. If you see this message "
+                        "again after a restart, check your System Settings > Privacy & "
+                        "Security to make sure the app safety settings are still enabled."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -140,7 +159,7 @@ class Module(ModuleBase):
         elif gatekeeper_works is True:
             findings.append(
                 Finding(
-                    title="Gatekeeper assessment working",
+                    title="Gatekeeper is working correctly",
                     description="Gatekeeper assessment verification completed successfully.",
                     severity=Severity.INFO,
                     category=self.category,

@@ -68,11 +68,17 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Xcode DerivedData: {_fmt_bytes(derived_data_size)}",
+                    title=(
+                        f"Xcode build files are taking up space ({_fmt_bytes(derived_data_size)})"
+                    ),
                     description=(
-                        f"Xcode DerivedData at ~/Library/Developer/Xcode/DerivedData "
-                        f"uses {_fmt_bytes(derived_data_size)}. This directory contains build artifacts "
-                        f"and can be safely deleted to reclaim space."
+                        f"Your Mac is storing {_fmt_bytes(derived_data_size)} of temporary "
+                        "files created when you build apps with Xcode. These are located "
+                        "in ~/Library/Developer/Xcode/DerivedData. They are safe to remove "
+                        "and will be recreated if you build again.\n\n"
+                        "What to do: Quit Xcode. In Finder, choose Go > Go to Folder, type "
+                        "~/Library/Developer/Xcode/DerivedData, and move its contents to "
+                        "the Trash. Xcode rebuilds what it needs."
                     ),
                     severity=severity,
                     category=self.category,
@@ -87,7 +93,7 @@ class Module(ModuleBase):
         if archives_size > 0:
             findings.append(
                 Finding(
-                    title=f"Xcode Archives: {_fmt_bytes(archives_size)}",
+                    title=f"Xcode archives (old app builds): {_fmt_bytes(archives_size)}",
                     description=(
                         f"Xcode Archives at ~/Library/Developer/Xcode/Archives "
                         f"uses {_fmt_bytes(archives_size)}. These are old build archives that can be "
@@ -106,7 +112,7 @@ class Module(ModuleBase):
         if device_support_size > 0:
             findings.append(
                 Finding(
-                    title=f"iOS DeviceSupport: {_fmt_bytes(device_support_size)}",
+                    title=f"iOS device support files: {_fmt_bytes(device_support_size)}",
                     description=(
                         f"iOS DeviceSupport files at ~/Library/Developer/Xcode/iOS DeviceSupport "
                         f"use {_fmt_bytes(device_support_size)}. These are downloaded for specific iOS versions "
@@ -130,11 +136,17 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"CoreSimulator Devices: {_fmt_bytes(core_simulator_size)}",
+                    title=(
+                        f"Unused phone simulators are using space ({_fmt_bytes(core_simulator_size)})"
+                    ),
                     description=(
-                        f"CoreSimulator devices at ~/Library/Developer/CoreSimulator/Devices "
-                        f"use {_fmt_bytes(core_simulator_size)}. These are simulator instances and their associated "
-                        f"files. You can delete unused simulators."
+                        f"Your Mac is holding {_fmt_bytes(core_simulator_size)} of data "
+                        "for virtual iPhone and iPad devices used for testing apps. These "
+                        "are stored in ~/Library/Developer/CoreSimulator/Devices. If "
+                        "you don't use these virtual devices, they are safe to remove.\n\n"
+                        "What to do: Open Xcode, go to Window > Devices and Simulators. "
+                        "Select any simulators you don't need and click the minus (-) "
+                        "button to delete them."
                     ),
                     severity=severity,
                     category=self.category,
@@ -149,7 +161,7 @@ class Module(ModuleBase):
         if xcode_caches_size > 0:
             findings.append(
                 Finding(
-                    title=f"Xcode Caches: {_fmt_bytes(xcode_caches_size)}",
+                    title=f"Xcode temporary files: {_fmt_bytes(xcode_caches_size)}",
                     description=(
                         f"Xcode caches at ~/Library/Caches/com.apple.dt.Xcode "
                         f"use {_fmt_bytes(xcode_caches_size)}. Cache files can be safely removed and will be "
@@ -170,10 +182,13 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"High Xcode storage usage: {_fmt_bytes(total_xcode_size)}",
+                    title=f"Xcode is using a lot of storage ({_fmt_bytes(total_xcode_size)})",
                     description=(
-                        f"Total Xcode-related files use {_fmt_bytes(total_xcode_size)}. "
-                        f"Review the findings below for specific cleanup opportunities."
+                        f"Files related to Xcode are currently using {_fmt_bytes(total_xcode_size)} "
+                        "of your Mac's storage. This is usually made up of temporary "
+                        "build files, old archives, and virtual devices.\n\n"
+                        "What to do: Look at the other findings in this report. They "
+                        "list specific folders you can clean up to free up space."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

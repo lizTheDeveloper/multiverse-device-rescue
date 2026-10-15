@@ -47,8 +47,15 @@ class Module(ModuleBase):
             if printers_info["disabled"] > 0:
                 findings.append(
                     Finding(
-                        title=f"{printers_info['disabled']} printer(s) disabled/paused",
-                        description="Some printers are paused or disabled. They may need to be re-enabled.",
+                        title=f"{printers_info['disabled']} printer(s) are paused",
+                        description=(
+                            f"Your Mac has {printers_info['disabled']} printer(s) that "
+                            "are currently paused. This usually happens if a printer "
+                            "ran out of paper, has a paper jam, or was turned off.\n\n"
+                            "What to do: Open System Settings > Printers & Scanners. "
+                            "Select the paused printer, click Printer Queue, then click "
+                            "Resume."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={"check": "disabled_printers", "disabled_count": printers_info["disabled"]},
@@ -74,8 +81,17 @@ class Module(ModuleBase):
             if jobs_info["stuck_count"] > 0:
                 findings.append(
                     Finding(
-                        title=f"{jobs_info['stuck_count']} stuck/stopped print job(s)",
-                        description="Print jobs are stuck or stopped. Clear the queue or investigate the printer.",
+                        title=f"{jobs_info['stuck_count']} print job(s) are stuck",
+                        description=(
+                            f"Your Mac is holding {jobs_info['stuck_count']} document(s) "
+                            "that it cannot send to the printer. This often happens if "
+                            "the printer is off, out of ink, or disconnected. These jobs "
+                            "are just waiting and do not harm your computer.\n\n"
+                            "What to do: Open System Settings > Printers & Scanners. "
+                            "Select the printer and click Printer Queue to see the "
+                            "stuck documents. You can cancel them if you no longer need "
+                            "them."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={"check": "stuck_jobs", "stuck_count": jobs_info["stuck_count"]},
@@ -86,8 +102,18 @@ class Module(ModuleBase):
             if jobs_info["old_pending_count"] > 0:
                 findings.append(
                     Finding(
-                        title=f"{jobs_info['old_pending_count']} print job(s) pending for over 1 hour",
-                        description="Jobs have been in the queue for a long time. They may be stuck or the printer may be offline.",
+                        title=(
+                            f"{jobs_info['old_pending_count']} print job(s) have been "
+                            "waiting over an hour"
+                        ),
+                        description=(
+                            f"Your Mac has {jobs_info['old_pending_count']} document(s) "
+                            "that have been waiting to print for more than an hour. This "
+                            "usually means the printer is offline or having a problem.\n\n"
+                            "What to do: Check that your printer is turned on and connected. "
+                            "If you don't need these documents, you can cancel them in "
+                            "the Print Queue to clear the list."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={"check": "old_jobs", "old_job_count": jobs_info["old_pending_count"]},

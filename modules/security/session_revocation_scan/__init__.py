@@ -118,18 +118,17 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"{total} browser profile(s) hold their own sign-in sessions",
+                    title=f"{total} browser profiles are signed in to your accounts",
                     description=(
-                        "Each browser profile keeps its own cookies, so each one can stay "
-                        "signed in to your accounts independently — and stays signed in "
-                        "after you change the password, until you explicitly sign out "
-                        "everywhere.\n\n"
+                        f"Your browser has {total} separate profiles. Each one keeps its "
+                        "own login information, meaning they stay signed in to your accounts "
+                        "even if you change your password.\n\n"
                         f"{detail}\n\n"
-                        "Only the profile directories were counted. No cookie database, "
-                        "saved password, or session token was opened or read.\n\n"
-                        "What to do: on your email, banking and social accounts, open "
-                        "Security settings and choose 'Sign out of all devices'. Then "
-                        "sign in again here."
+                        "We only counted the folders. We did not read any passwords or "
+                        "login details.\n\n"
+                        "What to do: For your email, banking, and social media, go to "
+                        "their security settings and choose 'Sign out of all devices'. "
+                        "Then sign back in on this computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -145,16 +144,18 @@ class Module(ModuleBase):
         if accounts:
             findings.append(
                 Finding(
-                    title=f"{len(accounts)} system account(s) signed in on this device",
+                    title=f"{len(accounts)} account(s) saved on this computer",
                     description=(
-                        "These accounts are configured on the device itself and keep "
-                        "their own tokens, independent of any browser session:\n\n"
+                        "These accounts are saved directly on your device. They keep their "
+                        "own login access, separate from your web browser.\n\n"
                         + "\n".join(f"  {a}" for a in accounts)
-                        + "\n\nAccount names are listed to identify them. No token or "
-                        "credential value was read.\n\n"
-                        "What to do: open System Settings > Internet Accounts (Mac) or "
-                        "Settings > Accounts (Windows) and remove any account you do "
-                        "not recognise or use."
+                        + "\n\nWe only listed the names. We did not read any passwords.\n\n"
+                        "If you think someone close to you added these to monitor you, "
+                        "removing them can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings > Internet Accounts (on Mac) "
+                        "or Settings > Accounts (on Windows). Remove any account you do "
+                        "not recognize or use."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -166,17 +167,18 @@ class Module(ModuleBase):
         if ssh_keys > 0:
             findings.append(
                 Finding(
-                    title=f"{ssh_keys} SSH key(s) authorised for remote login to this machine",
+                    title=f"{ssh_keys} key(s) can be used to log in to this computer remotely",
                     description=(
-                        f"~/.ssh/authorized_keys grants {ssh_keys} key(s) the ability to "
-                        "log in to this machine remotely. An authorised key is unaffected "
-                        "by changing your account password — it is a separate credential, "
-                        "and it is a common way access is retained after a compromise.\n\n"
-                        "Only the number of authorised entries was counted. No key "
-                        "material was read or reported.\n\n"
-                        "What to do: unless you set these up yourself, ask a trusted "
-                        "technical person to review them with you. If someone you know "
-                        "may be monitoring you, talk to an advocate before removing any."
+                        f"Your computer has {ssh_keys} key(s) that let someone log "
+                        "in remotely. These keys work even if you change your password, "
+                        "so they are a common way for unauthorized access to persist.\n\n"
+                        "We only counted the keys. We did not read the key data.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: If you did not set these up, ask a trusted technical "
+                        "person to review them with you."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -187,7 +189,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Session revocation surface inventory",
+                title="Where you are signed in on this device",
                 description=(
                     f"Browser profiles: {sum(b['profiles'] for b in browsers)}\n"
                     f"System accounts: {len(accounts)}\n"

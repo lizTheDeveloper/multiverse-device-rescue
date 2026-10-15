@@ -226,11 +226,20 @@ class Module(ModuleBase):
             if nopasswd_all_lines:
                 findings.append(
                     Finding(
-                        title="NOPASSWD ALL in sudoers",
+                        title="Your computer allows running any command without a password",
                         description=(
-                            "Your sudoers configuration allows running ALL commands without a password. "
-                            "This is a critical security weakness—anyone with access to your user account "
-                            "can run any command as root without authentication."
+                            "We found a setting that lets anyone using your account run "
+                            "powerful system commands without typing your password. This "
+                            "is a serious security gap. If a malicious program or a person "
+                            "with access to your account tries to change your system, "
+                            "they can do so without you knowing.\n\n"
+                            "If you think someone close to you set this up to monitor "
+                            "you, removing it can alert them. Talk to an advocate first "
+                            "(US National Domestic Violence Hotline: 1-800-799-7233, or "
+                            "text START to 88788).\n\n"
+                            "What to do: Don't edit this file by hand; a mistake can lock "
+                            "you out of admin access. Ask a technical helper to remove the "
+                            "NOPASSWD rule using visudo, following the steps below."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -253,7 +262,7 @@ class Module(ModuleBase):
                 if nopasswd_lines:
                     findings.append(
                         Finding(
-                            title="NOPASSWD entries in sudoers",
+                            title="Password-free admin commands",
                             description=(
                                 "Your sudoers configuration has NOPASSWD entries that allow certain commands "
                                 "to run without a password. Review these to ensure they're necessary."
@@ -296,12 +305,24 @@ class Module(ModuleBase):
                             timeout = int(part)
                             if timeout > 30:
                                 return Finding(
-                                    title=f"Long sudo timestamp timeout ({timeout} minutes)",
+                                    title=(
+                                        f"Your admin password stays valid for {timeout} minutes"
+                                    ),
                                     description=(
-                                        f"Your sudo timestamp timeout is {timeout} minutes. "
-                                        "This means once you authenticate with sudo, you won't need to "
-                                        "re-authenticate for {timeout} minutes. The default is often too long "
-                                        "for security; consider reducing it to 5-15 minutes."
+                                        "When you use your admin password to install "
+                                        "updates or change settings, your Mac remembers "
+                                        f"that you are an admin for {timeout} minutes. "
+                                        "This is longer than the recommended 5-15 minutes. "
+                                        "If you step away from your computer during this "
+                                        "window, anyone who sits down can run admin commands "
+                                        "without needing your password.\n\n"
+                                        "What to do: You can leave this as is if you "
+                                        "are careful, but it is safer to reduce it. This "
+                                        "setting is hidden in the system files and cannot "
+                                        "be changed in the standard Settings menu. If "
+                                        "you are comfortable with advanced settings, "
+                                        "you can ask a tech-savvy friend to help you "
+                                        "adjust it."
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,
@@ -427,11 +448,15 @@ class Module(ModuleBase):
                 and output.startswith("AuthenticationAuthority")
             ):
                 return Finding(
-                    title="Root account is enabled",
+                    title="Your Mac's main administrator account is turned on",
                     description=(
-                        "The root account is currently enabled on this macOS system. "
-                        "On macOS, the root account is generally unnecessary and can be a security risk. "
-                        "It's recommended to use sudo for administrative tasks instead."
+                        "Your Mac has a special, hidden administrator account called 'root' "
+                        "that is currently active. On Macs, this account is usually turned "
+                        "off by default. Leaving it on is a security risk because it can "
+                        "be used to bypass normal login protections.\n\n"
+                        "What to do: Open Directory Utility (search for it in Spotlight), "
+                        "click the lock and enter your password, then choose Edit > "
+                        "Disable Root User."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

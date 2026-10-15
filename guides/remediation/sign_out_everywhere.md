@@ -6,6 +6,10 @@ remediates:
   - security.session_revocation_scan.browser_sessions
   - security.session_revocation_scan.system_accounts
   - security.session_revocation_scan.ssh_authorized_keys
+steps_for:
+  security.session_revocation_scan.browser_sessions: [1, 3]
+  security.session_revocation_scan.system_accounts: [2]
+  security.session_revocation_scan.ssh_authorized_keys: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -21,7 +25,7 @@ monitoring you, removing access they use can alert that person. Talk to an
 advocate first (US National DV Hotline: 1-800-799-7233, or text START to 88788).
 Change passwords from a device they have never had access to.
 
-## Step 1: Sign out everywhere on your important accounts
+## Step 1: Sign out of all devices on your main accounts
 
 Do this on your email first, then banking, then social media. On each site,
 open its **Security** or **Account** settings and look for **Sign out of all
@@ -38,7 +42,7 @@ have this.
 Remove any account you don't recognise or no longer use. Read the note above
 first.
 
-## Step 3: Tidy browser profiles
+## Step 3: Clean up unused browser profiles
 
 Each browser profile keeps its own sign-ins. Remove profiles you don't use from
 your browser's profile menu (the picture near the top right in Chrome, or

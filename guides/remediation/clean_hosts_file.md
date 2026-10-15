@@ -9,6 +9,13 @@ remediates:
   - security.hosts_file_check.wellknown_domain_redirect
   - security.hosts_file_check.bank_domain_redirect
   - security.hosts_file_check.custom_entries_list
+steps_for:
+  security.hosts_file_check.clean_hosts: [0, 4]
+  security.hosts_file_check.large_hosts_count: [0, 4]
+  security.hosts_file_check.suspicious_ip_redirect: [0, 3]
+  security.hosts_file_check.wellknown_domain_redirect: [0, 2]
+  security.hosts_file_check.bank_domain_redirect: [0, 1]
+  security.hosts_file_check.custom_entries_list: [0, 4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -25,13 +32,13 @@ Legitimate ad-blockers also use large hosts files (usually redirecting to
 large *count* alone is not damning — it's the redirect *targets* that
 matter most.
 
-## Step 0: Back up before editing
+## Step 0: Save a backup of your hosts file
 
 Before making any change, back up the current file so you can restore it
 if you remove something you needed:
 `sudo cp /etc/hosts /etc/hosts.bak-$(date +%Y%m%d)`.
 
-## Step 1: Respond to banking domain redirects (CRITICAL)
+## Step 1: Remove dangerous bank website redirects
 
 A banking or payment domain (PayPal, Chase, Bank of America, etc.) pointed
 at anything other than `127.0.0.1`/`0.0.0.0` is very likely a phishing
@@ -53,7 +60,7 @@ instead of being blocked or resolved normally.
    device — if the redirect was live, credentials entered on the fake page
    may already be compromised.
 
-## Step 2: Review well-known domain redirects (WARNING)
+## Step 2: Check for suspicious popular site redirects
 
 A well-known non-financial domain (Google, Facebook, GitHub, etc.)
 redirected to a non-loopback IP is also a strong signal of interference,
@@ -69,7 +76,7 @@ though lower stakes than a banking redirect.
 4. Treat repeated unexplained redirects across multiple domains as a signal
    to check for malware/persistence as described in Step 1.
 
-## Step 3: Review other non-loopback redirects (WARNING)
+## Step 3: Review other unusual website redirects
 
 Any entry pointing a hostname at an IP other than `127.0.0.1`, `0.0.0.0`,
 or `::1` is worth a look even if the domain isn't on the well-known or bank
@@ -82,7 +89,7 @@ unfamiliar redirect.
    entry from a VPN/corporate tool), no action needed.
 3. If you don't recognize it, remove the line and re-scan.
 
-## Step 4: Review the large-entry-count and general inventory findings (INFO/WARNING)
+## Step 4: Check your list of custom website entries
 
 A large number of custom entries, or just the general list of what's in the
 file, is informational unless the individual entries above raised flags.

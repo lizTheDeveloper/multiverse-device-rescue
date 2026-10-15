@@ -8,6 +8,12 @@ remediates:
   - security.kernel_extensions_audit.third_party_kexts
   - security.kext_audit.loaded_third_party_kext
   - security.kext_audit.kext_file
+steps_for:
+  security.kernel_extensions_audit.kext_retrieval_failed: [4]
+  security.kernel_extensions_audit.problematic_kexts: [1]
+  security.kernel_extensions_audit.third_party_kexts: [2]
+  security.kext_audit.loaded_third_party_kext: [2]
+  security.kext_audit.kext_file: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -33,7 +39,7 @@ human-only — inspect the vendor and purpose before removing anything, and
 always reboot after making changes rather than assuming the change took
 effect live.
 
-## Step 1: Address known-problematic kexts
+## Step 1: Update or remove drivers known to cause problems
 
 `problematic_kexts` (WARNING) flags kexts from vendors (legacy Kaspersky,
 McAfee, Norton, Symantec, Avast, AVG, Bitdefender, VirtualBox, Parallels,
@@ -63,7 +69,7 @@ and security bugs.
    <bundle_id>` (or `kextstat | grep <bundle_id>` on older macOS) should
    return nothing.
 
-## Step 2: Review the general third-party kext inventory
+## Step 2: Check which extra drivers are running
 
 `third_party_kexts` (INFO) lists every non-Apple kext currently loaded that
 isn't already flagged as known-problematic, so you have full visibility.
@@ -77,7 +83,7 @@ isn't already flagged as known-problematic, so you have full visibility.
 3. For kexts you no longer need, follow the Step 1 uninstall-first, then
    unload → quarantine sequence.
 
-## Step 3: Remove stale kext files left on disk
+## Step 3: Remove leftover driver files from disk
 
 `kext_audit` also scans `/Library/Extensions/` directly for `.kext`
 bundles (`kext_file`, WARNING) — these may or may not currently be loaded,
@@ -100,7 +106,7 @@ installer) even if `kextstat`/`kmutil` shows nothing right now.
    long-uninstalled app, it's then safe to delete the quarantined copy.
 6. Reboot and re-run the audit to confirm the finding no longer appears.
 
-## Step 4: If kext auditing itself failed
+## Step 4: Check driver settings if the scan failed
 
 `kext_retrieval_failed` (INFO) means neither `kmutil showloaded` nor
 `kextstat` returned usable output — common on newer macOS releases with

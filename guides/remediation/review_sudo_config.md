@@ -11,6 +11,15 @@ remediates:
   - security.sudo_config_audit.touchid_disabled
   - security.sudo_config_audit.root_enabled
   - security.sudo_config_audit.root_disabled
+steps_for:
+  security.sudo_config_audit.nopasswd_all: [1]
+  security.sudo_config_audit.nopasswd_partial: [2]
+  security.sudo_config_audit.timestamp_long: [3]
+  security.sudo_config_audit.timestamp_ok: [3]
+  security.sudo_config_audit.touchid_enabled: [4]
+  security.sudo_config_audit.touchid_disabled: [4]
+  security.sudo_config_audit.root_enabled: [4]
+  security.sudo_config_audit.root_disabled: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -27,7 +36,7 @@ mistyped `/etc/sudoers` edit can lock every account out of `sudo`, so:
   while you make the change, so you can recover if something goes wrong.
 - Never remove your own admin access without a tested fallback.
 
-## Step 1: Remove `NOPASSWD ALL` (critical)
+## Step 1: Remove the no-password admin rule
 
 `NOPASSWD ALL` lets any user who can reach that sudoers rule run any command
 as root with no password check at all.
@@ -46,7 +55,7 @@ as root with no password check at all.
 6. From your second terminal, run a simple `sudo` command to confirm access
    still works as expected.
 
-## Step 2: Review partial NOPASSWD entries
+## Step 2: Check which commands skip the password
 
 These allow specific commands to run without a password — narrower than
 `NOPASSWD ALL`, but still worth reviewing.
@@ -57,7 +66,7 @@ These allow specific commands to run without a password — narrower than
 3. Remove entries covering commands that don't need frequent unattended
    use, again via `sudo visudo`.
 
-## Step 3: Review the sudo timestamp timeout
+## Step 3: Shorten the admin session timeout
 
 A long timeout (over 30 minutes, per this module's threshold) means once you
 authenticate with sudo, no further password prompt is needed for that
@@ -72,7 +81,7 @@ compromised during that time.
 3. Verify with `sudo -v` after the timeout period lapses that a fresh sudo
    command prompts for a password again.
 
-## Step 4: Touch ID for sudo, and the root account
+## Step 4: Review fingerprint login and root access
 
 Both are informational/optional — review and decide based on your own setup
 rather than blindly enabling or disabling.

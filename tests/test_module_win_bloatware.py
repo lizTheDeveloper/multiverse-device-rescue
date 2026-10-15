@@ -134,7 +134,7 @@ def test_win_bloatware_system_apps_only():
 
     assert result.has_issues
     # Summary should be the only finding
-    summary = [f for f in result.findings if "summary" in f.title.lower()]
+    summary = [f for f in result.findings if "your apps:" in f.title.lower()]
     assert len(summary) == 1
     assert summary[0].data["bloatware_count"] == 0
     assert summary[0].data["total_apps"] == 3
@@ -236,7 +236,7 @@ def test_win_bloatware_powershell_failure():
 
     # Should not crash, should return findings with empty app list
     assert result.has_issues
-    summary = [f for f in result.findings if "summary" in f.title.lower()]
+    summary = [f for f in result.findings if "your apps:" in f.title.lower()]
     assert len(summary) >= 1
     assert summary[0].data["total_apps"] == 0
 
@@ -325,7 +325,7 @@ def test_win_bloatware_csv_parsing():
 
     # Should parse without crashing
     assert result.has_issues
-    summary = [f for f in result.findings if "summary" in f.title.lower()]
+    summary = [f for f in result.findings if "your apps:" in f.title.lower()]
     assert len(summary) >= 1
     assert summary[0].data["total_apps"] == 2
 
@@ -342,7 +342,7 @@ def test_win_bloatware_resource_savings_in_findings():
     # Each bloatware finding should have resource savings data
     for finding in warnings:
         assert "resource_savings" in finding.data
-        assert "Estimated resource savings" in finding.description
+        assert "could free up" in finding.description
 
 
 def test_win_bloatware_empty_output():

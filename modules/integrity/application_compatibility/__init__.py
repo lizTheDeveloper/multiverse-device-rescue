@@ -36,7 +36,7 @@ class Module(ModuleBase):
         if not apps_info.get("apps"):
             findings.append(
                 Finding(
-                    title="Unable to analyze applications",
+                    title="App check skipped",
                     description=(
                         "Could not retrieve application data from system_profiler. "
                         "Application compatibility checks were skipped."
@@ -63,10 +63,12 @@ class Module(ModuleBase):
                 Finding(
                     title=f"Found {len(bit_32_apps)} 32-bit application(s)",
                     description=(
-                        f"32-bit applications are no longer supported on macOS Catalina and later. "
-                        f"These {len(bit_32_apps)} app(s) will not run on modern macOS versions: "
-                        f"{', '.join(app_names[:5])}{'...' if len(app_names) > 5 else ''}. "
-                        f"Update or replace these applications with 64-bit versions."
+                        f"Your Mac has {len(bit_32_apps)} older apps that won't run on "
+                        f"modern macOS versions: {', '.join(app_names[:5])}{'...' if len(app_names) > 5 else ''}. "
+                        "These apps simply cannot open.\n\n"
+                        "What to do: Look for updated versions of these apps in the App "
+                        "Store or on the developer's website. If no update exists, you "
+                        "may need to find a replacement."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -81,12 +83,13 @@ class Module(ModuleBase):
                 app_names = [app.get("name", "Unknown") for app in intel_apps]
                 findings.append(
                     Finding(
-                        title=f"Intel-only apps found without Rosetta 2",
+                        title="Intel-only apps found without Rosetta 2",
                         description=(
-                            f"This is an Apple Silicon Mac with {len(intel_apps)} Intel-only application(s) "
-                            f"installed, but Rosetta 2 is not installed. These apps will not run. "
-                            f"Install Rosetta 2 to enable compatibility: "
-                            f"Run 'softwareupdate -i -a -R -k -x -b -g' in Terminal, or install via App Store."
+                            f"Your Mac has {len(intel_apps)} apps designed for older Intel "
+                            "chips, but the translator needed to run them (Rosetta 2) "
+                            "is missing. These apps will not open.\n\n"
+                            "What to do: Open one of these apps. macOS offers to install "
+                            "Rosetta; click Install."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -98,7 +101,7 @@ class Module(ModuleBase):
                 app_names = [app.get("name", "Unknown") for app in intel_apps]
                 findings.append(
                     Finding(
-                        title=f"Found {len(intel_apps)} Intel app(s) on Apple Silicon",
+                        title=f"{len(intel_apps)} Intel apps on Apple Silicon",
                         description=(
                             f"This Apple Silicon Mac has {len(intel_apps)} Intel-only application(s). "
                             f"These apps run via Rosetta 2 translation, which may impact performance. "
@@ -126,7 +129,7 @@ class Module(ModuleBase):
             app_names = [app["name"] for app in outdated_apps[:5]]
             findings.append(
                 Finding(
-                    title=f"Found {len(outdated_apps)} application(s) not updated in >2 years",
+                    title=f"{len(outdated_apps)} apps not updated in 2+ years",
                     description=(
                         f"These {len(outdated_apps)} application(s) haven't been updated in over 2 years: "
                         f"{', '.join(app_names)}{'...' if len(outdated_apps) > 5 else ''}. "
@@ -142,7 +145,7 @@ class Module(ModuleBase):
         # Provide architecture breakdown as INFO
         findings.append(
             Finding(
-                title="Application architecture breakdown",
+                title="Your app types",
                 description=(
                     f"Installed applications: {len(apps_list)} total. "
                     f"Architecture breakdown: {len(universal_apps)} Universal, "

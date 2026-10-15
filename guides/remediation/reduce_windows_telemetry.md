@@ -9,6 +9,12 @@ remediates:
   - security.win_cortana_telemetry.activity_feed
   - security.win_cortana_telemetry.location_services
   - security.win_cortana_telemetry.optimized
+steps_for:
+  security.win_cortana_telemetry.telemetry_level: [1]
+  security.win_cortana_telemetry.cortana_enabled: [2]
+  security.win_cortana_telemetry.advertising_id: [3]
+  security.win_cortana_telemetry.activity_feed: [4]
+  security.win_cortana_telemetry.location_services: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -24,7 +30,7 @@ Settings (GUI) rather than deleting or editing files, so there's no
 destructive-edit risk, but confirm you don't rely on a feature before
 turning it off.
 
-## Step 1: Telemetry level (Enhanced or Full)
+## Step 1: Reduce Windows diagnostic data sharing
 
 Windows telemetry sends diagnostic data to Microsoft. Enhanced/Full levels
 send more detailed usage data than Basic/Minimal.
@@ -41,7 +47,7 @@ send more detailed usage data than Basic/Minimal.
    still be "Required diagnostic data" — this is a Microsoft-imposed floor,
    not a bug in this check.
 
-## Step 2: Cortana enabled
+## Step 2: Turn off Cortana voice assistant
 
 Cortana enabled means voice, search, and activity data may be collected to
 power its features.
@@ -52,7 +58,7 @@ power its features.
 2. If you do use voice activation features, it's fine to leave this
    enabled — this is an informational finding, not a security risk.
 
-## Step 3: Advertising ID enabled
+## Step 3: Disable personalized ads tracking
 
 The Advertising ID lets apps show personalized ads by correlating your
 activity across apps.
@@ -62,7 +68,7 @@ activity across apps.
 2. This has no functional downside for most users beyond seeing less
    targeted ads — safe to disable if you have no reason to keep it.
 
-## Step 4: Activity History enabled
+## Step 4: Stop tracking your recent activity
 
 Activity History tracks recently used apps, documents, and websites,
 optionally syncing them via your Microsoft account for Timeline/handoff
@@ -76,7 +82,7 @@ features.
    the same Microsoft account, you can leave this on — again informational,
    not a vulnerability.
 
-## Step 5: Location services enabled
+## Step 5: Review and limit app location access
 
 Location services let apps request the device's physical location.
 

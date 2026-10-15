@@ -11,8 +11,18 @@ remediates:
   - security.win_scheduled_tasks_security.recent_boot_logon
   - security.win_scheduled_tasks_security.hidden_attributes
   - security.win_scheduled_tasks_security.inventory
+steps_for:
+  security.win_scheduled_tasks_security.enumeration_failed: [1]
+  security.win_scheduled_tasks_security.encoded_powershell: [2]
+  security.win_scheduled_tasks_security.temp_path_system: [3]
+  security.win_scheduled_tasks_security.non_microsoft_system: [4]
+  security.win_scheduled_tasks_security.frequent_schedule: [5]
+  security.win_scheduled_tasks_security.recent_boot_logon: [6]
+  security.win_scheduled_tasks_security.hidden_attributes: [7]
+  security.win_scheduled_tasks_security.inventory: [8]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6, 7]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `win_scheduled_tasks_security`
@@ -25,7 +35,7 @@ Windows persistence mechanisms — go through each flagged task individually
 rather than mass-deleting, since legitimate software (backup tools, cloud
 sync clients, license checkers) also uses scheduled tasks.
 
-## Step 1: Unable to enumerate scheduled tasks
+## Step 1: Re-run the scan with administrator rights
 
 The scan couldn't retrieve the task list, most likely because it wasn't run
 with sufficient privileges.
@@ -40,7 +50,7 @@ with sufficient privileges.
    a benign service state issue; start it with `Start-Service Schedule` and
    re-scan.
 
-## Step 2: Encoded PowerShell command in a scheduled task (critical)
+## Step 2: Look into and disable the scrambled PowerShell task
 
 A task runs a PowerShell command using `-EncodedCommand`/`-enc`/`-e` with
 Base64-encoded content — one of the most common malware persistence
@@ -72,7 +82,7 @@ obfuscated payload is a durable, hard-to-casually-inspect foothold.
 8. Run an offline malware scan (Microsoft Safety Scanner or Windows
    Defender Offline) afterward.
 
-## Step 3: Temp-directory execution as SYSTEM (critical)
+## Step 3: Remove the high-risk task running from temp files
 
 A task runs a command from a temp/Downloads path *with SYSTEM privileges*
 — the combination of untrusted-location + highest-privilege execution
@@ -95,7 +105,7 @@ every trigger.
    consider whether a clean reinstall is warranted given SYSTEM-level
    access may have already been used for further compromise.
 
-## Step 4: Non-Microsoft task running as SYSTEM (warning)
+## Step 4: Check if the system task belongs to known software
 
 A task not attributable to Microsoft runs with SYSTEM privileges. This is
 unusual but not inherently malicious — some legitimate software (backup
@@ -117,7 +127,7 @@ legitimately need SYSTEM for its scheduled maintenance tasks.
 6. If confirmed unwanted, disable then delete as in Step 2, preserving
    evidence first.
 
-## Step 5: Suspiciously frequent schedule (warning)
+## Step 5: Check if the frequent task is a legitimate sync tool
 
 A task is configured to run every 1-5 minutes — a pattern consistent with
 malware beaconing (checking in with a C2 server) or periodic re-injection,
@@ -138,7 +148,7 @@ but also used by some legitimate sync/monitoring tools.
    `triage_suspicious_connections.md` if that scan is also available for
    this platform.
 
-## Step 6: Recently created task with boot/logon trigger (warning)
+## Step 6: Check if the new startup task matches recent installs
 
 A task created within the last 7 days triggers at system boot or user
 logon — a combination that's common for newly-installed legitimate
@@ -156,7 +166,7 @@ the standard pattern for freshly-established persistence.
    procedures depending on what you find (encoded command → Step 2, SYSTEM
    + temp path → Step 3, otherwise → Step 4's investigation approach).
 
-## Step 7: Hidden task attributes (informational)
+## Step 7: Show hidden tasks and check for other issues
 
 A task has hidden attributes set (not shown by default in the Task
 Scheduler GUI) — used by some legitimate maintenance tasks (several
@@ -174,7 +184,7 @@ uses to avoid casual discovery.
 4. If unrecognized, investigate its action the same way as Step 4 before
    deciding whether to disable/remove it.
 
-## Step 8: Scheduled tasks inventory (informational)
+## Step 8: Review the full list of scheduled tasks
 
 This INFO finding summarizes the total task count and how many were
 flagged as suspicious — use it as your checklist while working through

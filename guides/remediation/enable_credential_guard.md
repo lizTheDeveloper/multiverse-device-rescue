@@ -7,6 +7,11 @@ remediates:
   - security.win_credential_guard.windows_hello_configured
   - security.win_credential_guard.password_min_length_below_threshold
   - security.win_credential_guard.passwords_never_expire
+steps_for:
+  security.win_credential_guard.credential_guard_disabled: [1]
+  security.win_credential_guard.windows_hello_configured: [2]
+  security.win_credential_guard.password_min_length_below_threshold: [3]
+  security.win_credential_guard.passwords_never_expire: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -18,7 +23,7 @@ reboot, so confirm compatibility before enabling it — it can affect certain
 legacy authentication scenarios (some older VPN clients, NTLM-only tools) on
 domain-joined machines.
 
-## Step 1: Enable Credential Guard (if flagged as disabled)
+## Step 1: Turn on Credential Guard protection
 
 Credential Guard isolates credential material (NTLM hashes, Kerberos tickets)
 in a hardware-protected virtualized container, defending against
@@ -37,13 +42,13 @@ pass-the-hash and similar credential-theft attacks.
    enabled. If this is a work/managed machine, check with IT before making
    this change, since some managed environments configure it centrally.
 
-## Step 2: Windows Hello (informational, no action needed)
+## Step 2: Keep Windows Hello sign-in enabled
 
 If the scan reports Windows Hello as configured, this is already a secure
 state and needs no action — biometric/PIN sign-in is a strong credential
 protection. Nothing to do here beyond leaving it enabled.
 
-## Step 3: Raise the minimum password length policy
+## Step 3: Make your passwords longer
 
 1. Confirm the current policy: `net accounts` (look for "Minimum password
    length").
@@ -53,7 +58,7 @@ protection. Nothing to do here beyond leaving it enabled.
 3. Click Apply, then re-run `net accounts` to confirm the new value took
    effect.
 
-## Step 4: Set password expiration for accounts flagged "never expires"
+## Step 4: Force passwords to expire regularly
 
 Passwords that never expire widen the window during which a stolen or
 guessed credential stays valid indefinitely.

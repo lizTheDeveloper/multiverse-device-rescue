@@ -5,6 +5,9 @@ platforms: [macos]
 remediates:
   - security.open_ports_scan.exposed_risky_ports
   - security.open_ports_scan.listening_ports
+steps_for:
+  security.open_ports_scan.exposed_risky_ports: [1]
+  security.open_ports_scan.listening_ports: [2]
 automatable_steps: []
 human_only_steps: [1, 2]
 ---
@@ -19,7 +22,7 @@ or a misconfigured cloud instance get in. This is an investigate-and-confirm
 walkthrough: don't stop or reconfigure a service until you've confirmed you
 don't need it exposed the way it currently is.
 
-## Step 1: Investigate exposed risky ports (WARNING)
+## Step 1: Check if risky apps are open to your network
 
 A database or service port (MySQL, PostgreSQL, MongoDB, Elasticsearch,
 Redis, CouchDB, InfluxDB) listening on `0.0.0.0` instead of `127.0.0.1`
@@ -51,7 +54,7 @@ network, not just processes on the same Mac.
    default/blank credential — an exposed port with a default password is
    effectively an exposed port with no password.
 
-## Step 2: Review the full listening-port inventory (INFO)
+## Step 2: Review all apps listening for connections
 
 The module also reports every listening port it finds, regardless of risk
 level, so you have a full picture of what's reachable.

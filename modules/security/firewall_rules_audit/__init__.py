@@ -44,11 +44,15 @@ class Module(ModuleBase):
         if not alf_enabled:
             findings.append(
                 Finding(
-                    title="Application Layer Firewall is disabled",
+                    title="Your Mac's firewall is turned off",
                     description=(
-                        "The macOS Application Layer Firewall (ALF) is not enabled. "
-                        "The firewall provides basic protection against unwanted network access. "
-                        "Enable it in System Settings > Network > Firewall."
+                        "Your Mac's built-in firewall is currently off. This means your "
+                        "computer is not blocking unwanted connections from other devices "
+                        "on your network. "
+                        "This is a significant gap in your security, though it does not "
+                        "mean someone is currently spying on you.\n\n"
+                        "What to do: Open System Settings, go to Network, then click Firewall. "
+                        "Turn it on. This is a safe and important step."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -61,11 +65,15 @@ class Module(ModuleBase):
         if alf_enabled and not stealth_enabled:
             findings.append(
                 Finding(
-                    title="Stealth mode is disabled",
+                    title="Your Mac responds to network pings",
                     description=(
-                        "Stealth mode is disabled. Your Mac will respond to ping requests, "
-                        "revealing its presence on the network. Enable stealth mode in "
-                        "System Settings > Network > Firewall > Firewall Options."
+                        "Your firewall is on, but 'stealth mode' is off. This means your "
+                        "Mac answers when other devices on your network check if it is "
+                        "there. "
+                        "This is usually a minor issue, but it makes your computer easier "
+                        "to find on the network.\n\n"
+                        "What to do: Open System Settings > Network > Firewall > Firewall "
+                        "Options. Check the box for 'Enable Stealth Mode'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -79,13 +87,16 @@ class Module(ModuleBase):
         if app_count > 30:
             findings.append(
                 Finding(
-                    title=f"Too many apps allowed through firewall ({app_count})",
+                    title=f"Many apps are allowed through your firewall ({app_count})",
                     description=(
-                        f"{app_count} applications are allowed through the firewall. "
-                        "Excessive exceptions weaken the firewall's protection. "
-                        "Review and remove access for apps that don't need network access. "
-                        f"Allowed apps: {', '.join(sorted(allowed_apps)[:10])}..."
-                        if len(allowed_apps) > 10 else f"Allowed apps: {', '.join(sorted(allowed_apps))}"
+                        f"Your firewall has exceptions for {app_count} different apps. "
+                        "Having many exceptions can weaken your protection because each "
+                        "app is allowed to receive connections without you checking every "
+                        "time.\n\n"
+                        f"Here are a few of the allowed apps: {', '.join(sorted(allowed_apps)[:10])}...\n\n"
+                        "What to do: Open System Settings > Network > Firewall > Firewall "
+                        "Options. Review the list and remove apps you don't use or don't "
+                        "need to connect to the internet."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -98,12 +109,14 @@ class Module(ModuleBase):
         if allow_signed:
             findings.append(
                 Finding(
-                    title="Automatically allow signed software is enabled",
+                    title="Firewall automatically allows signed apps",
                     description=(
-                        "The firewall is set to automatically allow signed software. "
-                        "This is overly permissive and allows any validly signed app through "
-                        "without user review. Disable this in System Settings > Network > "
-                        "Firewall > Firewall Options."
+                        "Your firewall is set to automatically allow any app that has "
+                        "a valid digital signature. This is a very permissive setting "
+                        "that bypasses your manual review for many apps.\n\n"
+                        "What to do: Open System Settings > Network > Firewall > Firewall "
+                        "Options. Uncheck 'Automatically allow signed software to receive "
+                        "incoming connections'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -122,7 +135,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title="Firewall configuration summary",
+                title="Your firewall settings",
                 description="\n".join(config_items),
                 severity=Severity.INFO,
                 category=self.category,

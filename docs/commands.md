@@ -802,6 +802,7 @@ reg query 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager' /v Pending
 
 ```text
 reg query 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SystemRestore' /v RPSessionInterval
+sc qc VSS
 sc query VSS
 vssadmin list shadows
 vssadmin list shadowstorage
@@ -1582,7 +1583,7 @@ kextstat
 ### `keylogger_indicators`
 
 ```text
-log show --last 1h --predicate "eventMessage CONTAINS 'CGEventTap'" --style compact
+log show --last 1h --predicate "eventMessage CONTAINS 'CGEventTap' AND processImagePath != '/usr/bin/log'" --style compact
 sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceListenEvent' AND auth_value=2"
 ```
 

@@ -197,17 +197,20 @@ class Module(ModuleBase):
                 continue
             findings.append(
                 Finding(
-                    title="Your router's hardware address is answering for other devices",
+                    title="Your router's ID is being used by other devices",
                     description=(
-                        f"The hardware address {mac} belongs to your router "
-                        f"({', '.join(gateway_matches)}) but is also claiming to be "
-                        f"{', '.join(others[:8])}. On a healthy network each device has "
-                        "its own address. This pattern is what traffic interception "
-                        "looks like: one machine has positioned itself between you and "
-                        "everything else so it can read what you send.\n\n"
-                        "A Wi-Fi extender or mesh node repeating the network can produce "
-                        "the same pattern legitimately — confirm which it is before "
-                        "acting."
+                        f"The hardware address {mac} belongs to your router ({', '.join(gateway_matches)}) "
+                        f"but is also claiming to be {', '.join(others[:8])}. Normally, "
+                        "every device has a unique ID. When one ID appears for multiple "
+                        "devices, it can mean a Wi-Fi extender is working as intended, "
+                        "or it can mean a device is hiding behind your router's identity "
+                        "to read your internet traffic.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Check if you have a Wi-Fi extender or mesh system. "
+                        "If not, restart your router and run this check again."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -233,14 +236,19 @@ class Module(ModuleBase):
                 continue
             findings.append(
                 Finding(
-                    title=f"One device is answering for {len(ips)} addresses",
+                    title=f"One device is pretending to be {len(ips)} different computers",
                     description=(
                         f"The hardware address {mac} is claiming {len(ips)} different "
-                        f"IP addresses ({', '.join(ips[:8])}). A single device "
-                        "answering for many addresses is how an interceptor makes "
-                        "other devices' traffic come to it. Virtual machines, "
-                        "container hosts, and some network gear do this legitimately, "
-                        "so identify the device before concluding anything."
+                        f"IP addresses ({', '.join(ips[:8])}). A single device answering "
+                        "for many addresses is a common trick used to intercept traffic "
+                        "from other devices on your network. However, virtual machines "
+                        "and some network gear do this legitimately.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Identify which device this is. If you don't recognize "
+                        "it, unplug it from your network."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -268,17 +276,18 @@ class Module(ModuleBase):
             reported.add(entry.mac)
             findings.append(
                 Finding(
-                    title="The router's hardware address looks software-generated",
+                    title="Your router's ID looks fake",
                     description=(
-                        f"The gateway at {entry.ip} reports the hardware address "
-                        f"{entry.mac}. That address is marked as locally administered, "
-                        "meaning it was chosen by software rather than assigned to the "
-                        "hardware by its manufacturer. Real routers use a "
-                        "manufacturer-assigned address; a made-up one suggests "
-                        "something is impersonating the router.\n\n"
-                        "Virtual networks, some corporate equipment, and a few mesh "
-                        "systems also use locally administered addresses, so check the "
-                        "address on the router's label before acting."
+                        f"The router at {entry.ip} reports the hardware address {entry.mac}. "
+                        "This address is marked as 'locally administered,' meaning software "
+                        "chose it rather than the manufacturer. Real routers usually "
+                        "have a permanent ID assigned by the factory. A fake ID suggests "
+                        "something is impersonating your router.\n\n"
+                        "Virtual networks and some mesh systems also use these addresses, "
+                        "so this might be normal for your setup.\n\n"
+                        "What to do: Check the label on your physical router. If the "
+                        f"address on the label doesn't match {entry.mac}, investigate "
+                        "further."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -298,14 +307,18 @@ class Module(ModuleBase):
             return []
         return [
             Finding(
-                title=f"This machine has {len(unique)} default gateways configured",
+                title=f"Your computer is set to send traffic through {len(unique)} routers",
                 description=(
-                    "More than one default route is configured: "
-                    f"{', '.join(sorted(unique))}. Traffic can leave through either, "
-                    "so a rogue router or a rogue DHCP server on the network can take "
-                    "over part of your traffic without anything appearing to break. "
-                    "A VPN client or a virtual machine bridge can also add a second "
-                    "gateway legitimately."
+                    f"Your computer has {len(unique)} default routes configured: {', '.join(sorted(unique))}. "
+                    "This means your internet traffic can leave through either path. "
+                    "While a VPN or virtual machine often causes this, it can also happen "
+                    "if a stranger on your Wi-Fi tricks your computer into sending data "
+                    "to their device instead of your real router.\n\n"
+                    "If you are not using a VPN or virtual machine, this is a sign that "
+                    "someone might be trying to intercept your traffic.\n\n"
+                    "What to do: If you are not using a VPN, restart your router and "
+                    "your computer. If this persists, check your Wi-Fi password to ensure "
+                    "it hasn't been shared."
                 ),
                 severity=Severity.WARNING,
                 category=self.category,

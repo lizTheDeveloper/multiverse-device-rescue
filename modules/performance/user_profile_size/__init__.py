@@ -93,11 +93,16 @@ class Module(ModuleBase):
         for user_name, size_bytes in large_users:
             findings.append(
                 Finding(
-                    title=f"User '{user_name}' profile is {_fmt_bytes(size_bytes)} (>{_fmt_bytes(USER_DIR_WARNING_THRESHOLD)})",
+                    title=(
+                        f"Your account folder is taking up {_fmt_bytes(size_bytes)} of space"
+                    ),
                     description=(
-                        f"/Users/{user_name} is using {_fmt_bytes(size_bytes)}. "
-                        f"This is unusually large and may indicate accumulated cache or old data. "
-                        f"Consider reviewing the user's Downloads, Documents, and Library directories."
+                        f"Your personal folder at /Users/{user_name} is using {_fmt_bytes(size_bytes)}. "
+                        "This is larger than usual and is likely filled with old downloads, "
+                        "documents, or app data that has built up over time.\n\n"
+                        "What to do: Open Finder, go to your home folder, and check the "
+                        "Downloads and Documents folders for files you no longer need. "
+                        "You can also check the Library folder for large app caches."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -114,12 +119,15 @@ class Module(ModuleBase):
         if library_bloat:
             findings.append(
                 Finding(
-                    title=f"Library directory is {_fmt_bytes(library_size)} (>{_fmt_bytes(LIBRARY_WARNING_THRESHOLD)})",
+                    title=f"Your hidden Library folder is using {_fmt_bytes(library_size)}",
                     description=(
-                        f"~/.Library is using {_fmt_bytes(library_size)}, which is unusually large. "
-                        f"This often contains application caches, saved state, and other hidden data. "
-                        f"Consider reviewing: ~/Library/Caches, ~/Library/Application Support, "
-                        f"~/Library/Saved Application State"
+                        f"Your hidden Library folder is using {_fmt_bytes(library_size)}. "
+                        "This folder stores temporary files and settings for your apps. "
+                        "It can grow large over time, but this is normal and not a sign "
+                        "of a problem.\n\n"
+                        "What to do: Nothing urgent. If you are running low on disk space, "
+                        "you can open Finder, press Command+Shift+G, type ~/Library/Caches, "
+                        "and delete folders for apps you no longer use."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -138,7 +146,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"User directory sizes ({len(all_users_sizes)} users found)",
+                    title=f"Storage used by {len(all_users_sizes)} user accounts",
                     description=(
                         f"Found {len(all_users_sizes)} user directories:\n{user_details}"
                     ),
@@ -165,7 +173,7 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Current user '{current_user_name}' subdirectory breakdown",
+                    title=f"Storage breakdown for {current_user_name}",
                     description=(
                         f"Directory sizes for {current_user_name}:\n{subdir_details}"
                     ),

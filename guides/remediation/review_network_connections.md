@@ -8,8 +8,15 @@ remediates:
   - security.network_connections_monitor.unusual_ports
   - security.network_connections_monitor.private_ip_connections
   - security.network_connections_monitor.connection_summary
+steps_for:
+  security.network_connections_monitor.backdoor_ports: [1]
+  security.network_connections_monitor.high_connection_count: [2]
+  security.network_connections_monitor.unusual_ports: [3]
+  security.network_connections_monitor.private_ip_connections: [4]
+  security.network_connections_monitor.connection_summary: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
+monitoring_risk: true
 ---
 
 This walkthrough covers everything the `network_connections_monitor`
@@ -21,7 +28,7 @@ ranges, and the general connection-count summary. Most legitimate software
 here, so this is an investigate-and-confirm walkthrough — don't kill
 processes on sight, confirm first.
 
-## Step 1: Investigate backdoor-port connections (CRITICAL)
+## Step 1: Check for dangerous remote access connections
 
 A connection on a port commonly associated with backdoor/remote-access
 tools (4444, 5555, 8080, 8888, 1337, 31337) is the highest-priority finding
@@ -48,7 +55,7 @@ HTTP-alternate ports, so confirm before assuming compromise.
    passwords for accounts accessed from this machine from a separate,
    known-clean device.
 
-## Step 2: Investigate high connection counts (WARNING)
+## Step 2: Check if an app is connecting to too many places
 
 More than 20 simultaneous established connections from a single process
 can be entirely normal for a browser, sync client, or download manager —
@@ -65,7 +72,7 @@ attack other hosts.
 4. If unexplained, follow Step 1's investigation-then-quarantine approach
    before terminating anything.
 
-## Step 3: Review unusual-port connections (WARNING)
+## Step 3: Check connections on unusual ports
 
 A connection on a port outside the small "well-known" list (80, 443, 53,
 22, 993, 587) is common for legitimate apps (games, custom APIs, media
@@ -79,7 +86,7 @@ servers) and is not inherently suspicious.
 4. If the process is clearly legitimate and well-known, no action needed —
    this is usually a false positive from the finite well-known-port list.
 
-## Step 4: Review private-IP connections and the connection summary (INFO)
+## Step 4: Check connections to devices on your local network
 
 Connections to private IP ranges (your LAN) and the overall connection
 count are informational — most home/office networks have plenty of
