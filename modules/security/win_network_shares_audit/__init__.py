@@ -72,10 +72,11 @@ class Module(ModuleBase):
         if not shares:
             findings.append(
                 Finding(
-                    title="Unable to retrieve network shares",
+                    title="We couldn't list your shared folders",
                     description=(
-                        "Could not enumerate network shares. This may indicate "
-                        "a system issue or lack of permissions."
+                        "The check that lists folders this PC shares on the network didn't "
+                        "run, often because the app wasn't running as an administrator. "
+                        "That isn't the same as everything being fine."
                     ),
                     severity=Severity.INFO,
                     category=self.category,

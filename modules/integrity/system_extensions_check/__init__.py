@@ -32,10 +32,11 @@ class Module(ModuleBase):
         if not output:
             findings.append(
                 Finding(
-                    title="Unable to retrieve system extensions",
+                    title="We couldn't list your system extensions",
                     description=(
-                        "Could not run systemextensionsctl list. "
-                        "This command requires macOS 10.15+."
+                        "The check that lists system extensions (add-ons such as security "
+                        "and networking tools) didn't run, so they weren't checked. That "
+                        "isn't the same as everything being fine."
                     ),
                     severity=Severity.INFO,
                     category=self.category,

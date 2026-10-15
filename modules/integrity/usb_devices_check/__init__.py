@@ -33,10 +33,10 @@ class Module(ModuleBase):
         if not system_profiler_output:
             findings.append(
                 Finding(
-                    title="Could not retrieve USB device information",
+                    title="We couldn't list your USB devices",
                     description=(
-                        "Failed to run system_profiler SPUSBDataType. "
-                        "USB device diagnostics are unavailable."
+                        "The check that lists USB devices didn't run, so they weren't "
+                        "checked. That isn't the same as everything being fine."
                     ),
                     severity=Severity.INFO,
                     category=self.category,
