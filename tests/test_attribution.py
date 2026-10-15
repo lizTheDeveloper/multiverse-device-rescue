@@ -15,6 +15,7 @@ from click.testing import CliRunner
 
 from rescue.attribution import (
     Attributor,
+    ident_is_interpreter,
     is_interpreter,
     MadeBy,
     parse_codesign,
@@ -670,3 +671,53 @@ def test_versioned_interpreter_with_inline_code_is_never_credited(tmp_path, prog
     with open(plist, "wb") as fh:
         plistlib.dump({"Label": "x", "ProgramArguments": [program, "/nowhere/job.py"]}, fh)
     assert Attributor("darwin")._identify_plist(str(plist), lambda p: p != "/nowhere/job.py") is None
+
+
+ZSH_SIG = """Executable=/x
+Identifier=com.apple.zsh
+Authority=Software Signing
+Authority=Apple Code Signing Certification Authority
+Authority=Apple Root CA
+"""
+
+
+@pytest.mark.parametrize("ident", ["com.apple.zsh", "org.python.python", "node-5555494433c828d283f63c65b1bc2e1e6d208040", "com.apple.python3"])
+def test_signing_identifier_names_an_interpreter(ident):
+    assert ident_is_interpreter(ident)
+
+
+@pytest.mark.parametrize("ident", ["", "us.zoom.ZoomUpdater", "com.apple.Safari", "thing"])
+def test_signing_identifier_of_ordinary_programs(ident):
+    assert not ident_is_interpreter(ident)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths")
+def test_renamed_copy_of_an_interpreter_is_not_credited(tmp_path):
+    # cp /bin/zsh ~/updater, then run "updater -c evil": the name says nothing,
+    # but the Apple signature still says zsh, so Apple is not credited.
+    fake = tmp_path / "updater"
+    fake.write_bytes(b"\xcf\xfa\xed\xfe" + b"\0" * 64)
+    plist = tmp_path / "x.plist"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [str(fake), "-c", "evil"]}, fh)
+    a = mac({("codesign", "-dv"): ZSH_SIG, ("codesign", "--verify"): ""})
+    made = a._identify_plist(str(plist), os.path.exists)
+    assert made is not None and made.verified is False and made.how == "inline command"
+    # With no arguments it is just the program, and it is credited normally.
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [str(fake)]}, fh)
+    made = a._identify_plist(str(plist), os.path.exists)
+    assert made is not None and made.name == "Apple"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlinks")
+def test_link_to_an_interpreter_is_followed(tmp_path):
+    real = tmp_path / "python3.12"
+    real.write_text("")
+    link = tmp_path / "helper"
+    link.symlink_to(real)
+    plist = tmp_path / "x.plist"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [str(link), "-c", "evil"]}, fh)
+    made = mac({})._identify_plist(str(plist), os.path.exists)
+    assert made is not None and made.how == "inline command"

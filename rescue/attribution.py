@@ -24,6 +24,7 @@ they are never "verified".
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import plistlib
@@ -61,6 +62,21 @@ _INTERPRETERS = {
 # "python3.12", "node22", "perl5.30", "Python3", "bash-5.2", "ruby.exe": the same
 # runner under another spelling. Mac disks ignore case by default.
 _VERSION_SUFFIX = re.compile(r"(?:[-_.]?\d+)*(?:\.exe)?$", re.I)
+
+
+_IDENT_HASH = re.compile(r"-[0-9a-f]{16,}$", re.I)
+
+
+def ident_is_interpreter(ident: str) -> bool:
+    """True when a code-signing Identifier names an interpreter.
+
+    The identifier is sealed into the signature, so renaming or copying the
+    file (``cp /bin/zsh ~/updater``) doesn't change it.
+    """
+    if not ident:
+        return False
+    last = _IDENT_HASH.sub("", ident.rsplit(".", 1)[-1])
+    return is_interpreter(last)
 
 
 def is_interpreter(program) -> bool:
@@ -136,6 +152,9 @@ class MadeBy:
     location_note: str = ""
     # Team ID named by the (still unverified) certificate; never serialised.
     team: str = ""
+    # The signature says this program is an interpreter (com.apple.zsh,
+    # org.python.python, node-<hash>...), whatever the file is called. Never serialised.
+    runner: bool = False
 
     def to_dict(self, subject: str) -> dict:
         return {
@@ -339,26 +358,40 @@ class Attributor:
             args = []
         if not program and args:
             program = args[0]
-        if program and is_interpreter(program):
-            # With both keys set, launchd runs Program and passes ProgramArguments
-            # as argv, so argv[1:] is what the interpreter is told to run.
-            argv = [str(program)] + [str(a) for a in args[1:]]
-            target = _interpreter_target(argv)
-            if target is _INLINE:
-                return MadeBy(_UNKNOWN, False, "inline command", _INLINE_NOTE)
-            target = os.path.expanduser(target) if target else None
-            if target and os.path.isabs(target) and exists(target):
-                program = target
-            else:
-                # Never credit the interpreter's maker (Apple, Python, Node...)
-                # for a script or command we could not find.
-                return None
         if not program:
             return None
         program = os.path.expanduser(str(program))
+        # With both keys set, launchd runs Program and passes ProgramArguments
+        # as argv, so argv[1:] is what the program is told to do.
+        extra = [str(a) for a in args[1:]]
+        # By name, by the file a link points to, or (below) by signature.
+        if is_interpreter(program) or (exists(program) and is_interpreter(os.path.realpath(program))):
+            return self._through_interpreter(program, extra, exists)
         if not exists(program):
             return None
-        return self._identify_program(program)
+        made = self._identify_program(program)
+        if made is not None and made.runner and extra:
+            # A renamed copy of an interpreter: its signature still says so.
+            return self._through_interpreter(program, extra, exists)
+        return made
+
+    def _through_interpreter(self, program: str, extra: list[str], exists) -> MadeBy | None:
+        """Credit what an interpreter is told to run, never the interpreter itself."""
+        # Treat the program as its real interpreter name so env/open rules apply.
+        real = os.path.basename(os.path.realpath(program)) if exists(program) else os.path.basename(program)
+        target = _interpreter_target([real] + extra)
+        if target is _INLINE:
+            return MadeBy(_UNKNOWN, False, "inline command", _INLINE_NOTE)
+        target = os.path.expanduser(target) if target else None
+        if target and os.path.isabs(target) and exists(target):
+            made = self._identify_program(target)
+            if made is not None and made.runner:
+                # "zsh /bin/bash -c ..." style chains: don't follow, don't credit.
+                return MadeBy(_UNKNOWN, False, "inline command", _INLINE_NOTE)
+            return made
+        # Never credit the interpreter's maker (Apple, Python, Node...) for a
+        # script or command we could not find.
+        return None
 
     def _identify_program(self, path: str) -> MadeBy | None:
         note = location_note(path, self.platform)
@@ -369,7 +402,7 @@ class Attributor:
             return None
         if note:
             joined = f"{made.location_note} {note}".strip()
-            made = MadeBy(made.name, made.verified, made.how, joined)
+            made = dataclasses.replace(made, location_note=joined)
         return made
 
     def _signature_for(self, path: str) -> MadeBy | None:
@@ -401,10 +434,14 @@ class Attributor:
         res = self._exec(["codesign", "-dv", "--verbose=2", "--", target])
         if res is None:
             return None
-        claimed = parse_codesign((res.stderr or "") + "\n" + (res.stdout or ""))
-        if claimed is None or not claimed.verified:
-            return claimed
-        return self._verify_signature(claimed, target)
+        text = (res.stderr or "") + "\n" + (res.stdout or "")
+        claimed = parse_codesign(text)
+        if claimed is not None and claimed.verified:
+            claimed = self._verify_signature(claimed, target)
+        ident_m = re.search(r"^Identifier=(\S+)", text, re.M)
+        if claimed is not None and ident_m and ident_is_interpreter(ident_m.group(1)):
+            claimed = dataclasses.replace(claimed, runner=True)
+        return claimed
 
     def _verify_signature(self, claimed: MadeBy, target: str) -> MadeBy:
         """Upgrade a claimed signature to verified only if codesign validates it."""
