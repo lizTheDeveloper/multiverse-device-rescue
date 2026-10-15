@@ -211,8 +211,18 @@ class Module(ModuleBase):
             if temp > TEMP_CRITICAL_THRESHOLD:
                 findings.append(
                     Finding(
-                        title="CPU temperature critical",
-                        description=f"CPU die temperature is {temp:.1f}°C (CRITICAL - above {TEMP_CRITICAL_THRESHOLD}°C)",
+                        title=f"Your Mac's processor is dangerously hot ({temp:.1f}°C)",
+                        description=(
+                            f"Your Mac's main processor is running at {temp:.1f}°C, which "
+                            f"is above the safe limit of {TEMP_CRITICAL_THRESHOLD}°C.\n\n"
+                            "When it gets this hot, your Mac will automatically slow "
+                            "down to protect itself. If it gets too hot, it may shut "
+                            "off.\n\n"
+                            "What to do: Stop using the Mac for a few minutes to let "
+                            "it cool down. Ensure it is on a hard, flat surface with "
+                            "good airflow. If this happens often, the internal fans may "
+                            "need cleaning."
+                        ),
                         severity=Severity.CRITICAL,
                         category=self.category,
                         data={
@@ -225,8 +235,16 @@ class Module(ModuleBase):
             elif temp > TEMP_WARNING_THRESHOLD:
                 findings.append(
                     Finding(
-                        title="CPU temperature elevated",
-                        description=f"CPU die temperature is {temp:.1f}°C (WARNING - above {TEMP_WARNING_THRESHOLD}°C). Thermal throttling is likely active.",
+                        title=f"Your Mac's processor is running warm ({temp:.1f}°C)",
+                        description=(
+                            f"Your Mac's processor is at {temp:.1f}°C, which is higher "
+                            f"than usual (above {TEMP_WARNING_THRESHOLD}°C). It is not "
+                            "in immediate danger, but it is working hard to stay cool.\n\n"
+                            "You might notice your Mac feels warm or the fans are louder.\n\n"
+                            "What to do: Check that your Mac is not sitting on soft surfaces "
+                            "like a blanket or pillow, which block airflow. If it stays "
+                            "warm, try closing heavy apps or letting it rest."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
@@ -274,8 +292,19 @@ class Module(ModuleBase):
                 if freq_percent < 80:
                     findings.append(
                         Finding(
-                            title="CPU running at reduced frequency",
-                            description=f"Current CPU frequency: {current_ghz:.2f} GHz (max: {max_ghz:.2f} GHz, {freq_percent:.0f}% of max). CPU is throttled.",
+                            title=(
+                                f"Your Mac is running slower than it should ({freq_percent:.0f}% "
+                                "of max speed)"
+                            ),
+                            description=(
+                                f"Your Mac's processor is running at {current_ghz:.2f} "
+                                f"GHz, which is only {freq_percent:.0f}% of its maximum "
+                                f"speed ({max_ghz:.2f} GHz). This is likely because the "
+                                "Mac is slowing itself down to manage heat.\n\n"
+                                "What to do: Ensure your Mac is in a cool room with good "
+                                "airflow. If it stays slow, try restarting it or closing "
+                                "background apps to reduce the workload."
+                            ),
                             severity=Severity.WARNING,
                             category=self.category,
                             data={
@@ -316,8 +345,17 @@ class Module(ModuleBase):
         if "throttled" in output or "true" in output:
             findings.append(
                 Finding(
-                    title="Thermal throttling is active",
-                    description="System is currently applying thermal throttling to reduce CPU temperature. Performance is being reduced.",
+                    title="Your Mac is slowing itself down to stay cool",
+                    description=(
+                        "Your Mac is currently running its processor slower than usual "
+                        "to keep it from getting too hot.\n\n"
+                        "This usually happens when the computer is working hard or if "
+                        "dust has built up inside, blocking airflow. You might notice "
+                        "apps taking longer to open.\n\n"
+                        "What to do: Move your Mac to a cooler, well-ventilated spot (avoid "
+                        "beds or sofas). If it stays loud or hot, consider having the "
+                        "dust cleaned out by a professional."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "thermal_throttle_state"},
@@ -356,8 +394,20 @@ class Module(ModuleBase):
                 if max_nominal > 0 and max_actual > (max_nominal * 0.95):
                     findings.append(
                         Finding(
-                            title="Fans running at high speed",
-                            description=f"Maximum fan speed: {max_actual} RPM (nominal: {max_nominal} RPM, {(max_actual/max_nominal)*100:.0f}% of max). Fans are working hard to cool the system.",
+                            title=(
+                                f"Your Mac's fans are spinning very fast ({max_actual} RPM)"
+                            ),
+                            description=(
+                                f"Your Mac's fans are running at {max_actual} RPM, which "
+                                f"is very close to their maximum speed of {max_nominal} "
+                                "RPM. This means the computer is working hard to cool "
+                                "itself down.\n\n"
+                                "This often happens when the computer is under heavy load "
+                                "or if dust is blocking the vents.\n\n"
+                                "What to do: Make sure your Mac is on a hard, flat surface "
+                                "with space around it for air to flow. If the fans are "
+                                "always loud, the inside may need a professional cleaning."
+                            ),
                             severity=Severity.WARNING,
                             category=self.category,
                             data={
