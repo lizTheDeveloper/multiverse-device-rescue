@@ -16,6 +16,20 @@ remediates:
   - security.sharing_services.remote_login
   - security.sharing_services.remote_management
   - security.sharing_services.printer_sharing
+steps_for:
+  security.sharing_preferences_audit.screen_sharing: [1, 6]
+  security.sharing_preferences_audit.file_sharing: [2, 6]
+  security.sharing_preferences_audit.remote_login: [3, 6]
+  security.sharing_preferences_audit.remote_management: [4, 6]
+  security.sharing_preferences_audit.printer_sharing: [4, 6]
+  security.sharing_preferences_audit.airdrop_everyone: [5, 6]
+  security.sharing_preferences_audit.config_secure: [6]
+  security.sharing_preferences_audit.config_summary: [6]
+  security.sharing_services.screen_sharing: [1]
+  security.sharing_services.file_sharing: [2]
+  security.sharing_services.remote_login: [3]
+  security.sharing_services.remote_management: [4]
+  security.sharing_services.printer_sharing: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
 ---
@@ -29,7 +43,7 @@ flagged service before disabling it.** If this is a managed device, Remote
 Management in particular may be required by an MDM profile; check with your
 IT admin first (see `verify_mdm_enrollment.md`).
 
-## Step 1: Screen Sharing
+## Step 1: Check if you use Screen Sharing
 
 1. Confirm you don't use Screen Sharing (VNC) to access this Mac remotely,
    and no one else does (e.g. a family member helping you troubleshoot).
@@ -39,7 +53,7 @@ IT admin first (see `verify_mdm_enrollment.md`).
    from untrusted networks (e.g. it's behind a firewall/NAT, not
    port-forwarded to the internet).
 
-## Step 2: File Sharing (SMB)
+## Step 2: Check if you use File Sharing
 
 1. Confirm you don't rely on File Sharing to access files on this Mac from
    another device on your network.
@@ -49,7 +63,7 @@ IT admin first (see `verify_mdm_enrollment.md`).
    General > Sharing > File Sharing > Options) and remove any you no longer
    need to share.
 
-## Step 3: Remote Login (SSH)
+## Step 3: Check if you use Remote Login
 
 1. Confirm you don't SSH into this Mac from elsewhere.
 2. If unused, open System Settings > General > Sharing and toggle "Remote
@@ -58,7 +72,7 @@ IT admin first (see `verify_mdm_enrollment.md`).
    make sure the configuration is tightened (key permissions,
    `PermitRootLogin`, `PasswordAuthentication`).
 
-## Step 4: Remote Management (ARD) and Printer Sharing
+## Step 4: Check Remote Management and Printer Sharing
 
 1. Remote Management is often turned on by MDM enrollment on managed
    devices — if this Mac is enrolled in an MDM, verify with IT before
@@ -71,14 +85,14 @@ IT admin first (see `verify_mdm_enrollment.md`).
    this Mac's shared printers; if unused, toggle "Printer Sharing" off (or
    run `cupsctl --no-share-printers`).
 
-## Step 5: AirDrop discoverability
+## Step 5: Limit AirDrop to your contacts
 
 If `sharing_preferences_audit` flagged AirDrop as set to "Everyone", see
 `secure_airdrop.md` for the full walkthrough — in short, change it to
 "Contacts Only" in System Settings > General > AirDrop unless you have a
 specific reason to accept files from anyone nearby.
 
-## Step 6: Review the summary/secure-baseline findings
+## Step 6: Verify your final sharing settings
 
 The `config_secure` and `config_summary` findings from
 `sharing_preferences_audit` are informational — they report either "nothing

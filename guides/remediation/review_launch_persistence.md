@@ -12,6 +12,16 @@ remediates:
   - security.launch_agent_audit.suspicious_path
   - security.launch_agent_audit.missing_program
   - security.launch_agent_audit.obfuscated_name
+steps_for:
+  security.launchd_persistence_audit.known_malware: [1]
+  security.launchd_persistence_audit.suspicious_path: [1]
+  security.launchd_persistence_audit.keepalive_runatload: [2]
+  security.launchd_persistence_audit.non_apple_info: [4]
+  security.launch_agent_audit.too_many_agents: [4]
+  security.launch_agent_audit.agent_info: [4]
+  security.launch_agent_audit.suspicious_path: [1]
+  security.launch_agent_audit.missing_program: [3]
+  security.launch_agent_audit.obfuscated_name: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -28,7 +38,7 @@ runs, and some of what's flagged (INFO-level non-Apple items, agent
 inventory) may be software you deliberately installed, so nothing is
 auto-applied.
 
-## Step 1: Remove known-malware and suspicious-path items first
+## Step 1: Remove high-risk background tasks
 
 These are the highest-confidence findings from `launchd_persistence_audit`
 (known malware label prefixes, or a program path in `/tmp`, `/var/tmp`, or a
@@ -52,7 +62,7 @@ For each flagged label:
    removing it separately.
 5. Confirm removal: `launchctl list | grep <label>` should return nothing.
 
-## Step 2: Review non-Apple KeepAlive+RunAtLoad persistence
+## Step 2: Check auto-restarting background tasks
 
 A non-Apple `launchd` item with both `KeepAlive=true` and `RunAtLoad=true`
 restarts itself automatically and starts on every login — a legitimate
@@ -67,7 +77,7 @@ common persistence technique for unwanted software.
 3. If it's unfamiliar, follow the same inspect → unload → quarantine
    sequence as Step 1.
 
-## Step 3: Investigate obfuscated names and missing-program agents
+## Step 3: Investigate odd or broken background tasks
 
 `launch_agent_audit` flags two additional suspicious patterns:
 
@@ -87,7 +97,7 @@ For each:
    by default — there's no executable left to inspect, so err on the side
    of removing the persistence entry using the Step 1 procedure.
 
-## Step 4: Review the overall agent count and non-Apple inventory
+## Step 4: Review all background tasks on your Mac
 
 Informational findings: `launch_agent_audit` flags when you have more than
 20 user-level LaunchAgents (unusual and worth a general review), and

@@ -8,6 +8,12 @@ remediates:
   - security.safari_extensions.extension_bloat
   - security.safari_extensions.content_blockers_enabled
   - security.safari_extensions.content_blockers_disabled
+steps_for:
+  security.safari_extensions.legacy_extensions: [1]
+  security.safari_extensions.app_extensions: [2]
+  security.safari_extensions.extension_bloat: [3]
+  security.safari_extensions.content_blockers_enabled: [4]
+  security.safari_extensions.content_blockers_disabled: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -19,7 +25,7 @@ enabled. For extensions matching known malware/adware names or excessive
 permission grants, see `review_browser_extensions.md` (the
 `browser_extension_audit` module covers that cross-browser).
 
-## Step 1: Remove legacy .safariextz extensions
+## Step 1: Delete old, unsupported Safari extensions
 
 Safari dropped support for the old `.safariextz` extension format; anything
 still present is not just unsupported, it's a known abuse vector from the
@@ -36,7 +42,7 @@ era before Apple locked extensions down to the App Store/notarized model.
 5. If you relied on that extension's functionality, look for a modern App
    Store replacement rather than trying to re-enable the legacy format.
 
-## Step 2: Review the installed Safari extension inventory
+## Step 2: Check which Safari extensions are installed
 
 Informational — lists all detected Safari app extensions.
 
@@ -46,7 +52,7 @@ Informational — lists all detected Safari app extensions.
 3. Remove anything you don't recognize or no longer need via Safari >
    Settings > Extensions > select > Uninstall.
 
-## Step 3: Reduce Safari extension bloat
+## Step 3: Remove Safari extensions you don't use
 
 Flagged when more than 5 Safari extensions are installed. Each extension
 runs code on pages you visit, so more installed extensions is a larger
@@ -58,7 +64,7 @@ overall attack surface even if none individually is malicious.
 3. Prefer keeping one tool per category (one ad blocker, one password
    manager) rather than several overlapping ones.
 
-## Step 4: Content blockers
+## Step 4: Turn on Safari content blockers
 
 Two different findings, both informational-to-low-severity:
 

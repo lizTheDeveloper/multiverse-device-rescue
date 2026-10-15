@@ -8,6 +8,9 @@ remediates:
   - security.linux_persistence_audit.volatile_path_execution
   - security.linux_persistence_audit.world_writable_unit
   - security.linux_persistence_audit.inventory
+steps_for:
+  security.linux_persistence_audit.world_writable_unit: [1, 2, 4]
+  security.linux_persistence_audit.inventory: [1, 2]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -28,21 +31,21 @@ the entry or the files it points to. They are evidence of what happened.
 Copy the file path shown in the finding and a few words about what it said.
 Take a photo of the screen as well.
 
-## Step 2: Decide whether you recognise it
+## Step 2: Check if you installed this program
 
 Developer tools, sync apps and desktop helpers do add startup entries. Open the
 file in a text editor (read only) and see if the name and the commands match
 something you installed on purpose. If you do recognise it, you're done with
 that entry.
 
-## Step 3: Do not trust the computer if you don't recognise it
+## Step 3: Stop using this computer for important accounts
 
 If the finding is about a preloaded library (`/etc/ld.so.preload`) or a startup
 entry you can't explain, treat the computer as no longer private. Stop signing
 in to email, banking and other important accounts on it. Use a different,
 clean device for that, and change those passwords from there.
 
-## Step 4: Get help to clean it properly
+## Step 4: Back up files and get help to fix the system
 
 Back up your documents (not programs) to an external drive, then ask a
 trusted technical person, a local computer-repair shop, or an advocate to help

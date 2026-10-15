@@ -5,6 +5,9 @@ platforms: [macos]
 remediates:
   - security.system_extensions.unusual_state
   - security.system_extensions.active_extension
+steps_for:
+  security.system_extensions.unusual_state: [2]
+  security.system_extensions.active_extension: [1]
 automatable_steps: []
 human_only_steps: [1, 2]
 ---
@@ -18,7 +21,7 @@ still often control security tools (VPNs, firewalls, EDR agents), so
 disabling one can leave a gap in your protection rather than close one.
 All steps are human-only.
 
-## Step 1: Investigate activated extensions
+## Step 1: Check which security tools are running
 
 `active_extension` (INFO) lists every extension currently activated and
 running with system-level privileges — informational, but worth a full
@@ -41,7 +44,7 @@ review since these run continuously.
    before disabling, since some legitimate low-level tools use
    non-obvious names.
 
-## Step 2: Investigate extensions stuck in an unusual state
+## Step 2: Approve or remove stuck system tools
 
 `unusual_state` (WARNING) means the extension is not in a normal
 `activated` state — for example stuck `waiting for user approval`. This

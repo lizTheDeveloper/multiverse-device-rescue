@@ -7,6 +7,11 @@ remediates:
   - security.scheduled_tasks_audit.disabled_launch_agent
   - security.scheduled_tasks_audit.launch_agent_info
   - security.scheduled_tasks_audit.excessive_user_agents
+steps_for:
+  security.scheduled_tasks_audit.suspicious_launch_agent: [1]
+  security.scheduled_tasks_audit.disabled_launch_agent: [2]
+  security.scheduled_tasks_audit.launch_agent_info: [3]
+  security.scheduled_tasks_audit.excessive_user_agents: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -20,7 +25,7 @@ unknown publisher. All steps are human-only: a launch agent might be tied
 to software you use daily, so removal is always your call after
 inspection.
 
-## Step 1: Investigate suspicious launch agents/daemons
+## Step 1: Inspect and safely remove suspicious background tasks
 
 For each `suspicious_launch_agent` (WARNING) finding:
 
@@ -44,7 +49,7 @@ For each `suspicious_launch_agent` (WARNING) finding:
 6. Confirm it's gone: `launchctl list | grep <label>` should return
    nothing.
 
-## Step 2: Clean up disabled agents left on disk
+## Step 2: Delete inactive background task files
 
 `disabled_launch_agent` (INFO) findings mean the plist has `Disabled=true`
 but is still sitting on disk — not a security risk by itself, just clutter
@@ -58,7 +63,7 @@ from a past uninstall.
 3. If unsure which app it belongs to, leave it — being disabled means it
    poses no active risk.
 
-## Step 3: Review the general agent/daemon inventory and count
+## Step 3: Review your list of background tasks
 
 `launch_agent_info` (INFO) lists every launch agent/daemon found so you
 have full visibility, and `excessive_user_agents` (WARNING) fires when you
