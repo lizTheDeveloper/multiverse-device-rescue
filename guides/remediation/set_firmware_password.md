@@ -11,6 +11,15 @@ remediates:
   - security.firmware_password.firmware_password_permission_denied
   - security.firmware_password.firmware_password_unavailable
   - security.firmware_password.startup_security_info
+steps_for:
+  security.firmware_password.chip_type_detection_failed: [3]
+  security.firmware_password.chip_type: [4]
+  security.firmware_password.firmware_password_set: [4]
+  security.firmware_password.firmware_password_not_set: [1]
+  security.firmware_password.firmware_password_unknown: [3]
+  security.firmware_password.firmware_password_permission_denied: [3]
+  security.firmware_password.firmware_password_unavailable: [3]
+  security.firmware_password.startup_security_info: [2]
 automatable_steps: []
 human_only_steps: [1, 2]
 ---
@@ -24,7 +33,7 @@ requires booting into Recovery Mode, and — critically — a forgotten firmware
 password can only be reset by Apple, with proof of ownership. Record it
 somewhere safe, never in this tool.
 
-## Step 1: Set a firmware password on an Intel Mac (`firmware_password_not_set`)
+## Step 1: Set a password to protect your Mac's startup
 
 No firmware password means anyone with physical access can boot from
 external media or reach Recovery Mode and potentially bypass the login
@@ -45,7 +54,7 @@ password.
 6. Restart normally and re-run the scan to confirm the password is now
    detected as set.
 
-## Step 2: Review Startup Security Utility settings (Apple Silicon)
+## Step 2: Check your Mac's startup security settings
 
 On Apple Silicon Macs, `startup_security_info` is informational — there is
 no separate firmware password; instead, Secure Boot and allowed-OS policy
@@ -64,7 +73,7 @@ can block booting older/external OS installs you may still need.
 4. Leave settings unchanged unless you have a specific reason to adjust
    them; this step is about verification, not automatic hardening.
 
-## Step 3: Resolve check failures (unknown / permission denied / unavailable / chip detection failed)
+## Step 3: Fix errors that blocked the security check
 
 These findings mean the module couldn't get a definitive answer, not that
 anything is necessarily wrong.
@@ -80,7 +89,7 @@ anything is necessarily wrong.
    `firmwarepasswd -check` wasn't recognized; run it manually and read the
    result directly.
 
-## Step 4: Informational findings
+## Step 4: No action needed for these findings
 
 `chip_type` and `firmware_password_set` are informational confirmations —
 no action needed. If `firmware_password_set` is present, no further steps

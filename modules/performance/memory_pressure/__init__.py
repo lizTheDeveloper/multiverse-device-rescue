@@ -48,12 +48,17 @@ class Module(ModuleBase):
             if swap_pct_of_ram > 0.50:
                 findings.append(
                     Finding(
-                        title="Critical: Extreme memory pressure detected",
+                        title="Your Mac is struggling to keep up with memory demand",
                         description=(
-                            f"Swap usage ({_fmt_bytes(swap_used_bytes)}) exceeds 50% of "
-                            f"physical RAM ({_fmt_bytes(total_bytes)}). The system is "
-                            "severely memory-constrained and performance is likely critical. "
-                            "Close applications or add RAM."
+                            f"Your Mac is using {_fmt_bytes(swap_used_bytes)} of your "
+                            "hard drive as extra memory, which is more than half of your "
+                            f"total physical memory ({_fmt_bytes(total_bytes)}). This "
+                            "is a heavy load. This usually happens when too many heavy "
+                            "apps are open at once.\n\n"
+                            "What to do: Close apps you are not using, starting with "
+                            "the heaviest ones like web browsers or video editors. If "
+                            "this happens often, it may be time for a Mac with more "
+                            "memory."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -69,11 +74,18 @@ class Module(ModuleBase):
         if swap_used_mb > 2048:
             findings.append(
                 Finding(
-                    title="High swap usage",
+                    title=(
+                        f"Your Mac is leaning on swap, disk space used as memory ({_fmt_bytes(swap_used_mb * 1024 * 1024)})"
+                    ),
                     description=(
-                        f"Swap is using {_fmt_bytes(swap_used_mb * 1024 * 1024)} "
-                        f"(>{_fmt_bytes(2048 * 1024 * 1024)}). This indicates memory pressure. "
-                        "Consider closing large applications or checking Activity Monitor."
+                        f"Your Mac is using {_fmt_bytes(swap_used_mb * 1024 * 1024)} of "
+                        "your hard drive to pretend it is extra memory. This happens "
+                        "when your physical memory is full. Performance may feel slower "
+                        "because the hard drive is slower than real memory.\n\n"
+                        "What to do: Close apps you are not using, especially web browsers "
+                        "with many tabs or video editing software. You can check what "
+                        "is using memory by opening Activity Monitor from your Applications "
+                        "folder."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -91,12 +103,16 @@ class Module(ModuleBase):
             if available_pct < 0.10:
                 findings.append(
                     Finding(
-                        title="Low available memory",
+                        title="Your Mac has very little free memory left",
                         description=(
-                            f"Free and inactive memory is only {available_pct:.1%} of total "
-                            f"({_fmt_bytes(available_pages * page_size)} of "
-                            f"{_fmt_bytes(total_bytes)}). The system has limited memory "
-                            "available for new applications."
+                            f"Only {available_pct:.1%} of your Mac's memory is currently "
+                            f"free or ready to use ({_fmt_bytes(available_pages * page_size)} "
+                            f"of {_fmt_bytes(total_bytes)}). This is a normal state when "
+                            "you have many apps open, but it means opening new apps might "
+                            "be slow.\n\n"
+                            "What to do: Close apps you are not using to free up space. "
+                            "If your Mac feels slow, restarting it will clear this memory "
+                            "and let it start fresh."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

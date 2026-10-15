@@ -202,10 +202,19 @@ class Module(ModuleBase):
                         process = parts[0]
                         findings.append(
                             Finding(
-                                title=f"Outbound connection to AI API endpoint from {process}",
+                                title=f"App {process} is connecting to an AI service",
                                 description=(
-                                    f"Process {process} is connecting to {endpoint}. "
-                                    f"This may indicate a rogue AI agent or unauthorized AI usage."
+                                    f"The program {process} is currently sending data "
+                                    f"to an AI service at {endpoint}. Most apps do not "
+                                    "connect to AI services unless you are actively using "
+                                    "an AI feature. If you are not using an AI app right "
+                                    "now, this connection might be from a hidden program "
+                                    "or a bug.\n\n"
+                                    "What to do: Check if you have an AI-related app "
+                                    f"open. If not, quit the program {process} from your "
+                                    "Dock or Activity Monitor to stop the connection. "
+                                    "If it keeps happening, ask a trusted technical friend "
+                                    "to investigate."
                                 ),
                                 severity=Severity.CRITICAL,
                                 category=self.category,
@@ -229,10 +238,20 @@ class Module(ModuleBase):
             if key_name in os.environ:
                 findings.append(
                     Finding(
-                        title=f"AI API key found in environment: {key_name}",
+                        title=f"AI key stored in your system settings: {key_name}",
                         description=(
-                            f"Found {key_name} in environment variables. "
-                            f"Verify you intentionally set this, as it could indicate a rogue AI agent."
+                            f"We found a key named {key_name} saved in your computer's "
+                            "environment. Keys like this are usually set by developers "
+                            "or specific apps to connect to AI services. If you do not "
+                            "recognize this key or did not set it up, it could be a sign "
+                            "that a program is using your computer to access AI services "
+                            "without your permission.\n\n"
+                            f"Here is the key we found: {key_name}\n\n"
+                            "What to do: If you do not recognize this key, check your "
+                            "shell configuration files (like .zshrc or .bash_profile) "
+                            "to see if you added it. If you did not, remove it from those "
+                            "files. If you are unsure, ask a trusted technical friend "
+                            "for help."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -271,9 +290,15 @@ class Module(ModuleBase):
             if any(endpoint in line_lower for endpoint in AI_API_ENDPOINTS):
                 findings.append(
                     Finding(
-                        title="Suspicious cron job calling AI endpoint",
+                        title="A scheduled task is calling an AI service",
                         description=(
-                            f"Cron job found that calls an AI API endpoint: {line[:100]}"
+                            "Your computer is set to automatically run a command that "
+                            "connects to an AI service. This is unusual for standard "
+                            "system tasks and could be a sign of a hidden program trying "
+                            "to use AI features.\n\n"
+                            f"The task details are: {line[:100]}\n\n"
+                            "What to do: If you don't recognize it, follow the steps below "
+                            "to remove it, or ask a trusted technical friend to help."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -289,9 +314,14 @@ class Module(ModuleBase):
                 if any(cmd in line_lower for cmd in ["curl", "wget", "python", "node"]):
                     findings.append(
                         Finding(
-                            title="Suspicious cron job with AI tool reference",
+                            title="A scheduled task mentions an AI tool",
                             description=(
-                                f"Cron job found that references AI tools: {line[:100]}"
+                                "Your computer has a scheduled task that refers to an "
+                                "AI tool. This is not normal for standard system maintenance "
+                                "and could indicate a hidden program.\n\n"
+                                f"The task details are: {line[:100]}\n\n"
+                                "What to do: If you don't recognize it, follow the steps below "
+                                "to remove it, or ask a trusted technical friend to help."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -331,10 +361,23 @@ class Module(ModuleBase):
                             ):
                                 findings.append(
                                     Finding(
-                                        title=f"LaunchAgent/Daemon with AI endpoint reference: {plist_file.name}",
+                                        title=(
+                                            f"Background item {plist_file.name} references "
+                                            "an AI service"
+                                        ),
                                         description=(
-                                            f"Found AI API endpoint reference in {plist_file}. "
-                                            f"This may indicate a rogue AI agent."
+                                            f"A background file on your Mac, named {plist_file.name}, "
+                                            "contains a reference to an AI service. Background "
+                                            "items usually handle system tasks, so this "
+                                            "is unusual and could be a sign of a hidden "
+                                            "program.\n\n"
+                                            f"The file is located at: {plist_file}\n\n"
+                                            "What to do: Do not delete the file yet. "
+                                            "Instead, move it to a folder on your Desktop "
+                                            "so it stops running but stays as evidence. "
+                                            "Then, ask a trusted technical friend to "
+                                            "inspect the file to see what it is trying "
+                                            "to do."
                                         ),
                                         severity=Severity.WARNING,
                                         category=self.category,

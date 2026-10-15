@@ -63,10 +63,12 @@ class Module(ModuleBase):
         if pressure_level == "critical":
             findings.append(
                 Finding(
-                    title="CRITICAL: System memory pressure at critical level",
+                    title="Your computer is running out of memory",
                     description=(
-                        "The system is experiencing critical memory pressure and may be thrashing. "
-                        "Performance is severely degraded. Close applications immediately or add RAM."
+                        "Your computer is working very hard to manage its memory right "
+                        "now. This often makes apps slow or unresponsive.\n\n"
+                        "What to do: Close any apps you are not using. If this happens "
+                        "often, your computer may need more memory."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -81,12 +83,17 @@ class Module(ModuleBase):
         if swap_total_mb > 0 and swap_used_pct > 50:
             findings.append(
                 Finding(
-                    title="WARNING: Heavy swap usage detected",
+                    title=(
+                        f"Your computer is using {swap_used_pct:.1f}% of its swap (overflow memory on disk)"
+                    ),
                     description=(
-                        f"Swap is using {swap_used_pct:.1f}% of total swap "
-                        f"({_fmt_bytes(swap_used_mb * 1024 * 1024)} of "
-                        f"{_fmt_bytes(swap_total_mb * 1024 * 1024)}). "
-                        "Heavy swapping indicates memory pressure and significantly impacts performance."
+                        f"Your computer is using {swap_used_pct:.1f}% of its overflow memory on disk "
+                        f"({_fmt_bytes(swap_used_mb * 1024 * 1024)} of {_fmt_bytes(swap_total_mb * 1024 * 1024)}). "
+                        "This means your main memory is full, so the computer is using "
+                        "the slower disk space to help. This can make your computer feel "
+                        "sluggish.\n\n"
+                        "What to do: Close some apps to free up space. If this happens "
+                        "often, consider restarting your computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -102,11 +109,14 @@ class Module(ModuleBase):
         if pageouts > 1000:
             findings.append(
                 Finding(
-                    title="WARNING: High memory page-out rate",
+                    title=f"Your computer is moving a lot of data to disk ({pageouts} times)",
                     description=(
-                        f"System has written {pageouts} pages to disk. "
-                        "This indicates memory pressure is causing pages to be swapped out, "
-                        "which significantly degrades performance."
+                        f"Your computer has moved {pageouts} chunks of data from its fast "
+                        "memory to the slower disk. This happens when your computer is "
+                        "running out of fast memory. It can cause lag, but it is a normal "
+                        "way for the computer to cope with heavy use.\n\n"
+                        "What to do: Close some apps to give your computer more room "
+                        "to work."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -121,11 +131,14 @@ class Module(ModuleBase):
         if wired_pct > 60:
             findings.append(
                 Finding(
-                    title="WARNING: High kernel/driver memory usage",
+                    title=f"System software is using a lot of your memory ({wired_pct:.1f}%)",
                     description=(
-                        f"Wired memory (kernel and drivers) is {wired_pct:.1f}% of total RAM "
-                        f"({_fmt_bytes(wired_bytes)} of {_fmt_bytes(total_bytes)}). "
-                        "This leaves limited memory for applications. Consider restarting or checking Activity Monitor."
+                        f"Your computer's core system software is using {wired_pct:.1f}% "
+                        f"of your total memory ({_fmt_bytes(wired_bytes)} of {_fmt_bytes(total_bytes)}). "
+                        "This leaves less room for your apps.\n\n"
+                        "What to do: Restart your computer to clear this memory. If it "
+                        "happens often, check Activity Monitor to see which apps are "
+                        "using the most."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

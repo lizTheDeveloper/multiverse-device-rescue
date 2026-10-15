@@ -9,11 +9,18 @@ remediates:
   - security.ai_worm_git_ssh.rogue_mcp_server
   - security.ai_worm_git_ssh.repo_hook_file
   - security.ai_worm_git_ssh.ssh_authorized_keys_recent
+steps_for:
+  security.ai_worm_git_ssh.git_hookspath_hijack: [1, 5]
+  security.ai_worm_git_ssh.git_templatedir_hijack: [1, 5]
+  security.ai_worm_git_ssh.npmrc_git_override: [2, 5]
+  security.ai_worm_git_ssh.rogue_mcp_server: [3, 5]
+  security.ai_worm_git_ssh.repo_hook_file: [4, 5]
+  security.ai_worm_git_ssh.ssh_authorized_keys_recent: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
 
-## Step 1: Reset hijacked git global config (core.hooksPath / init.templateDir)
+## Step 1: Check and reset global git settings
 
 AI worms (e.g. Shai-Hulud-style supply-chain attacks) commonly set
 `core.hooksPath` or `init.templateDir` globally so that every `git clone` or
@@ -34,7 +41,7 @@ operations.
    them) to understand what they were doing — this may inform which
    credentials to rotate in Step 5.
 
-## Step 2: Remove the npm `git=node` override
+## Step 2: Remove the git=node line from npm config
 
 `.npmrc` files (global `~/.npmrc`, or a project-local one) can contain
 `git=node`, which replaces the `git` binary npm invokes with `node` — a
@@ -46,7 +53,7 @@ known technique to slip past `npm install --ignore-scripts` protections.
 3. Run `git --version` after editing to confirm npm now resolves the real
    git binary again.
 
-## Step 3: Remove rogue MCP server entries
+## Step 3: Delete the bad AI server entry
 
 MCP client configs (`~/.claude/settings.json`, `~/.claude.json`,
 `~/.cursor/mcp.json`, `~/.continue/config.json`) can have a malicious MCP
@@ -62,7 +69,7 @@ name in the shared IOC database.
    effect, and confirm the rogue server no longer appears in the client's
    server list.
 
-## Step 4: Quarantine suspicious repo hook files
+## Step 4: Move suspicious project files to a safe folder
 
 Findings here are either IOC-confirmed dropper/hook files at known paths
 (`.claude/setup.mjs`, `.cursor/rules/setup.mdc`, `.github/setup.js`) or a
@@ -81,7 +88,7 @@ auto-run on folder open).
    happened to scan) — the same hook file may be present in multiple
    working copies.
 
-## Step 5: Review recently modified SSH authorized_keys, then rotate credentials
+## Step 5: Review SSH keys and update your passwords
 
 A low-confidence finding fires whenever `~/.ssh/authorized_keys` was
 modified in the last 7 days — this is not proof of compromise (you may have

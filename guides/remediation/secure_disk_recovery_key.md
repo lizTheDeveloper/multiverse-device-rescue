@@ -9,6 +9,13 @@ remediates:
   - security.disk_encryption_recovery.institutional_key_only
   - security.disk_encryption_recovery.users_not_all_enabled
   - security.disk_encryption_recovery.disk_encryption_status
+steps_for:
+  security.disk_encryption_recovery.fv_disabled: [1, 6]
+  security.disk_encryption_recovery.recovery_key_unknown: [2, 6]
+  security.disk_encryption_recovery.no_recovery_key: [3, 6]
+  security.disk_encryption_recovery.institutional_key_only: [4, 6]
+  security.disk_encryption_recovery.users_not_all_enabled: [5, 6]
+  security.disk_encryption_recovery.disk_encryption_status: [6]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -21,7 +28,7 @@ human-only: generating or rotating a recovery key is a credential operation,
 and the key itself must never be pasted into this tool or any other
 automation.
 
-## Step 1: Enable FileVault if it's off
+## Step 1: Turn on disk encryption if it is off
 
 If `fv_disabled` was reported, FileVault encryption isn't active yet, so
 recovery-key checks don't apply.
@@ -30,7 +37,7 @@ recovery-key checks don't apply.
 2. See `enable_disk_encryption.md` for the full walkthrough on turning
    FileVault on and safely capturing the recovery key during setup.
 
-## Step 2: Resolve unknown recovery key status
+## Step 2: Check if a recovery key exists
 
 If `recovery_key_unknown` was reported, the scan couldn't determine whether
 a recovery key exists.
@@ -43,7 +50,7 @@ a recovery key exists.
    you're covered by a personal key (only you know it) or an institutional
    one (your organization's MDM can use it).
 
-## Step 3: Generate and securely store a missing recovery key (critical)
+## Step 3: Create and save a new recovery key
 
 If `no_recovery_key` was reported, FileVault is on but there is no way to
 recover the data if the login password is lost — this is a critical,
@@ -59,7 +66,7 @@ unrecoverable data-loss risk.
    report "Yes".
 4. Re-run the scan to confirm the finding clears.
 
-## Step 4: Add a personal backup key alongside an institutional-only key
+## Step 4: Add a personal backup key
 
 If `institutional_key_only` was reported, an MDM-issued key exists but there
 is no personal backup — if the institutional key becomes unavailable
@@ -71,7 +78,7 @@ is no personal backup — if the institutional key becomes unavailable
 2. If allowed, run `sudo fdesetup changerecovery -personal` and store the
    printed key exactly as described in Step 3.
 
-## Step 5: Enable FileVault for accounts that are missing it
+## Step 5: Protect all user accounts with encryption
 
 If `users_not_all_enabled` was reported, one or more local accounts are not
 FileVault-enabled — their data would not benefit from disk encryption even
@@ -84,7 +91,7 @@ though the volume itself is encrypted for enrolled users.
    prompted.
 3. Re-run the scan to confirm all real user accounts now show as enabled.
 
-## Step 6: Review the status summary
+## Step 6: Review your disk encryption status
 
 The `disk_encryption_status` finding is informational — it reports current
 FileVault state, which recovery key types are present, and which users are

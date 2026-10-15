@@ -50,12 +50,18 @@ class Module(ModuleBase):
         if swap_used_bytes > total_ram_bytes:
             findings.append(
                 Finding(
-                    title="Critical: Swap usage exceeds physical RAM",
+                    title=(
+                        f"Swap use is larger than your memory ({_fmt_bytes(swap_used_bytes)})"
+                    ),
                     description=(
-                        f"Swap usage ({_fmt_bytes(swap_used_bytes)}) exceeds physical RAM "
-                        f"({_fmt_bytes(total_ram_bytes)}). The system is experiencing severe "
-                        "memory pressure. Performance is critically impacted. "
-                        "Close large applications or add RAM immediately."
+                        "Your computer has run out of physical memory and is using your "
+                        f"hard drive as temporary storage. It is currently using {_fmt_bytes(swap_used_bytes)} "
+                        "of this temporary storage, which is more than your total physical "
+                        f"memory ({_fmt_bytes(total_ram_bytes)}). This makes your computer "
+                        "feel very slow because the hard drive is much slower than memory.\n\n"
+                        "What to do: Close large applications you are not using right "
+                        "now. If this happens often, your computer may need more physical "
+                        "memory."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -71,12 +77,17 @@ class Module(ModuleBase):
         if page_outs > 1_000_000:
             findings.append(
                 Finding(
-                    title="Warning: High page-out activity detected",
+                    title=(
+                        f"Your computer is constantly moving data to the hard drive ({page_outs:,} "
+                        "times)"
+                    ),
                     description=(
-                        f"System has paged out {page_outs:,} pages (over 1 million). "
-                        f"This indicates memory pressure and system thrashing. "
-                        f"The system is writing memory to disk excessively, which severely "
-                        "degrades performance. Close large applications or add RAM."
+                        "Your computer has moved data from fast memory to your hard drive "
+                        f"{page_outs:,} times. This usually happens when you have too "
+                        "many heavy programs open at once. It makes the computer feel "
+                        "sluggish because it is working hard to swap data back and forth.\n\n"
+                        "What to do: Close applications you are not using. If your computer "
+                        "feels slow often, consider adding more physical memory."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -91,11 +102,14 @@ class Module(ModuleBase):
         if memory_pressure == 2:  # Critical level is 2
             findings.append(
                 Finding(
-                    title="Warning: Critical memory pressure detected",
+                    title="Your computer is running out of memory",
                     description=(
-                        "The system is reporting critical memory pressure. "
-                        "Memory is severely constrained and performance is impacted. "
-                        "Close applications or consider adding RAM."
+                        "Your computer is telling us it is struggling to keep up with "
+                        "the amount of memory in use. This is a sign that you have too "
+                        "many things open at once.\n\n"
+                        "What to do: Close some of the applications you have open. If "
+                        "this happens frequently, you may need to add more physical memory "
+                        "to your computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

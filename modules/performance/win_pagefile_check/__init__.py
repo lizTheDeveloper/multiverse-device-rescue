@@ -42,11 +42,16 @@ class Module(ModuleBase):
         if not pagefile_settings and not pagefile_usage:
             findings.append(
                 Finding(
-                    title="No pagefile found",
+                    title="Your computer has no overflow memory file (pagefile)",
                     description=(
-                        "Pagefile (virtual memory) is not detected on this system. "
-                        "Without a pagefile, the system will crash when physical RAM is exhausted. "
-                        "This is critical for stability, especially on machines with limited RAM."
+                        "We couldn't find a pagefile on your system. A pagefile is a file "
+                        "on your hard drive that acts as extra memory when your physical "
+                        "RAM runs out. Without it, your computer will likely crash or "
+                        "freeze if you open too many programs at once.\n\n"
+                        "What to do: Type 'Adjust the appearance and performance of "
+                        "Windows' in the Start menu, choose Advanced > Virtual memory > "
+                        "Change, and tick 'Automatically manage paging file size for all "
+                        "drives'."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -65,12 +70,16 @@ class Module(ModuleBase):
             if pagefile_max_mb > 0 and pagefile_max_mb < total_ram_mb:
                 findings.append(
                     Finding(
-                        title="Pagefile max size is smaller than physical RAM",
+                        title=f"Your overflow memory file (pagefile) is too small ({pagefile_max_mb}MB)",
                         description=(
-                            f"Pagefile maximum size is {pagefile_max_mb}MB but system has {total_ram_mb}MB RAM. "
-                            f"If RAM is fully consumed, pagefile can only provide {pagefile_max_mb}MB of virtual memory, "
-                            f"leaving {total_ram_mb - pagefile_max_mb}MB of memory requests unmet. "
-                            f"Pagefile max should be at least equal to RAM size."
+                            f"Your pagefile is limited to {pagefile_max_mb}MB, but your "
+                            f"computer has {total_ram_mb}MB of physical RAM. If you use "
+                            "a lot of memory, the pagefile won't have enough room to "
+                            "help, which can cause programs to crash.\n\n"
+                            "What to do: Type 'Adjust the appearance and performance of "
+                            "Windows' in the Start menu, choose Advanced > Virtual memory > "
+                            "Change, and tick 'Automatically manage paging file size for "
+                            "all drives'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -88,11 +97,18 @@ class Module(ModuleBase):
             if drive_free_percent is not None and drive_free_percent < LOW_DISK_THRESHOLD_PERCENT:
                 findings.append(
                     Finding(
-                        title="Pagefile drive is nearly full",
+                        title=(
+                            f"Your overflow memory file (pagefile) is on a nearly full drive ({pagefile_location})"
+                        ),
                         description=(
-                            f"The drive containing pagefile ({pagefile_location}) has only {drive_free_percent}% free space. "
-                            f"Pagefile needs free disk space to expand under memory pressure. "
-                            f"Free up at least 10% of the drive."
+                            f"The drive where your pagefile lives ({pagefile_location}) "
+                            f"has only {drive_free_percent}% free space. The pagefile "
+                            "needs room to grow when your computer is busy. If the drive "
+                            "is too full, your computer may slow down or crash.\n\n"
+                            "What to do: Delete large files you don't need from that "
+                            "drive, or move the pagefile to a drive with more free space "
+                            "(Start menu: 'Adjust the appearance and performance of "
+                            "Windows' > Advanced > Virtual memory)."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -115,11 +131,18 @@ class Module(ModuleBase):
                 if usage_percent > PAGEFILE_USAGE_THRESHOLD_PERCENT:
                     findings.append(
                         Finding(
-                            title="Pagefile usage is high",
+                            title=(
+                                f"Your overflow memory file (pagefile) is almost full ({usage_percent:.1f}%)"
+                            ),
                             description=(
-                                f"Pagefile usage is {usage_percent:.1f}% ({current_usage_mb}MB of {allocated_size_mb}MB allocated). "
-                                f"System is under significant memory pressure. "
-                                f"Consider increasing pagefile size or adding more RAM."
+                                f"Your pagefile is currently {usage_percent:.1f}% full "
+                                f"({current_usage_mb}MB of {allocated_size_mb}MB). This "
+                                "means your computer is running out of physical RAM and "
+                                "relying heavily on the pagefile. You might notice slow "
+                                "performance or freezing.\n\n"
+                                "What to do: Close programs you aren't using to free "
+                                "up memory. If this happens often, consider adding more "
+                                "RAM to your computer."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

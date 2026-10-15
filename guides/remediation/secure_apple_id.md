@@ -7,6 +7,11 @@ remediates:
   - security.appleid_security_check.icloud_keychain
   - security.appleid_security_check.autoupdate_disabled
   - security.appleid_security_check.appleid_summary
+steps_for:
+  security.appleid_security_check.appleid_signin: [1, 4]
+  security.appleid_security_check.icloud_keychain: [2, 4]
+  security.appleid_security_check.autoupdate_disabled: [3, 4]
+  security.appleid_security_check.appleid_summary: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -18,7 +23,7 @@ Apple ID and enabling Keychain both require entering account credentials and
 completing two-factor authentication, so these are human-only steps —
 nothing here is auto-applied.
 
-## Step 1: Sign in to Apple ID, if not already
+## Step 1: Sign in to your Apple ID
 
 If `appleid_signin` was reported, iCloud services (backup, Find My,
 Keychain) are inactive on this Mac.
@@ -32,7 +37,7 @@ Keychain) are inactive on this Mac.
    iCloud Drive, Photos, Keychain, etc.) rather than turning everything on
    by default.
 
-## Step 2: Enable iCloud Keychain
+## Step 2: Turn on iCloud Keychain
 
 If `icloud_keychain` was reported, saved passwords and payment info aren't
 being synced/backed up via iCloud, so they're at greater risk of being lost
@@ -47,7 +52,7 @@ if this device is lost, stolen, or wiped.
    Apple devices — verify on another device (if you have one) that sync is
    working as expected.
 
-## Step 3: Enable automatic software updates
+## Step 3: Turn on automatic software updates
 
 If `autoupdate_disabled` was reported, this Mac isn't automatically
 receiving security patches, which increases exposure time for known
@@ -55,7 +60,7 @@ vulnerabilities. See `enable_automatic_updates.md` for the full walkthrough
 on turning this on and choosing which update categories to automate — this
 finding overlaps with checks that module also performs.
 
-## Step 4: Review the full Apple ID security summary
+## Step 4: Review your Apple ID security settings
 
 `appleid_summary` is an informational finding — it reports sign-in status,
 two-factor authentication, Keychain, Private Relay, Mail Privacy

@@ -44,12 +44,17 @@ class Module(ModuleBase):
         if swap_used_bytes > total_ram_bytes:
             findings.append(
                 Finding(
-                    title="Critical: Swap usage exceeds physical RAM",
+                    title=(
+                        f"Your Mac is running out of memory ({_fmt_bytes(swap_used_bytes)} in use)"
+                    ),
                     description=(
-                        f"Swap usage ({_fmt_bytes(swap_used_bytes)}) exceeds physical RAM "
-                        f"({_fmt_bytes(total_ram_bytes)}). The system is experiencing severe "
-                        "memory pressure and performance is critically impacted. "
-                        "Close applications or add RAM immediately."
+                        f"Your Mac is using {_fmt_bytes(swap_used_bytes)} of its virtual "
+                        f"memory, which is more than its physical RAM ({_fmt_bytes(total_ram_bytes)}). "
+                        "This means your computer is struggling to keep up with what "
+                        "you are doing, which can make it feel very slow or unresponsive.\n\n"
+                        "What to do: Close any large apps you aren't using (like video "
+                        "editors or many browser tabs). If this happens often, your Mac "
+                        "may need more physical memory."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -65,11 +70,15 @@ class Module(ModuleBase):
             swap_pct = (swap_used_bytes / total_ram_bytes) * 100
             findings.append(
                 Finding(
-                    title="Warning: High swap usage",
+                    title=f"High memory usage ({_fmt_bytes(swap_used_bytes)} in use)",
                     description=(
-                        f"Swap usage ({_fmt_bytes(swap_used_bytes)}) exceeds 50% of physical RAM "
-                        f"({_fmt_bytes(total_ram_bytes)}). The system is memory-starved and "
-                        "performance is degraded. Close large applications or add RAM."
+                        f"Your Mac is using {_fmt_bytes(swap_used_bytes)} of its virtual "
+                        f"memory, which is more than half of its physical RAM ({_fmt_bytes(total_ram_bytes)}). "
+                        "This is a sign that your computer is working hard to manage "
+                        "its memory, which might cause some slowdowns.\n\n"
+                        "What to do: Close a few large applications you aren't using "
+                        "right now to free up space. If your Mac feels slow regularly, "
+                        "consider closing fewer apps at once."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

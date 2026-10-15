@@ -142,7 +142,7 @@ def test_memory_pressure_check_critical_pressure():
     assert result.has_issues
     critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
     assert len(critical_findings) >= 1
-    assert "critical" in critical_findings[0].title.lower()
+    assert "running out of memory" in critical_findings[0].title.lower()
 
 
 def test_memory_pressure_check_high_swap_usage():
@@ -185,7 +185,7 @@ def test_memory_pressure_check_high_pageouts():
     # Should have WARNING for high pageouts + INFO
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("page" in f.title.lower() for f in warning_findings)
+    assert any("to disk" in f.title.lower() for f in warning_findings)
 
 
 def test_memory_pressure_check_high_wired_memory():
@@ -228,7 +228,7 @@ def test_memory_pressure_check_high_wired_memory():
     # Should have WARNING for high wired memory + INFO
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("wired" in f.title.lower() or "kernel" in f.title.lower() for f in warning_findings)
+    assert any("system software" in f.title.lower() for f in warning_findings)
 
 
 def test_memory_pressure_check_fix_is_informational():
