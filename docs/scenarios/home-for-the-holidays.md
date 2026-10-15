@@ -90,6 +90,13 @@ to happen.
 and is the difference between a stolen laptop being an expensive inconvenience
 and being an identity-theft event.
 
+## Learn it properly
+
+If they want to keep going after the visit, [Reclaim City](https://play.multiversegames.ai/reclaim-city/)
+is a free game from the same team that walks them through passwords, two-step
+sign-in, data broker opt-outs and spotting scams, one small mission at a time.
+They don't need an account, and their progress stays in their browser.
+
 ## What it will never ask you for
 
 Nothing here needs a credential from them or from you. The tool does not want

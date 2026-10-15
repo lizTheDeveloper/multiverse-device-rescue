@@ -27,11 +27,18 @@ Change passwords from a device they have never had access to.
 
 ## Step 1: Sign out of all devices on your main accounts
 
-Do this on your email first, then banking, then social media. On each site,
+If you think someone got in, change your email password first, from a device
+you trust. Then sign out of all devices. Do this on your email first, then
+banking, then social media. On each site,
 open its **Security** or **Account** settings and look for **Sign out of all
 devices**, **Where you're signed in**, or **Your devices**. Sign out of anything you don't
 recognise or no longer use. Google, Apple, Microsoft, Facebook and most banks
 have this.
+
+When you're ready, and only if you want to: Reclaim City, a free game from the
+same team, walks you through new passwords and two-step sign-in for your email.
+Open play.multiversegames.ai/reclaim-city and pick the "My email got hacked"
+Quick Quest.
 
 ## Step 2: Check the accounts saved on this computer
 

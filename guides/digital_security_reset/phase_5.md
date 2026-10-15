@@ -21,5 +21,5 @@ makes this easier to carry. You don't have to handle this alone.
 ## Step 3: Schedule a one-week check-in
 
 Put a reminder on your calendar for one week from now to re-check your
-accounts: sign-in activity, connected apps, and 2FA status. A quick
+accounts: sign-in activity, connected apps, and two-step sign-in. A quick
 follow-up catches anything that slipped through.

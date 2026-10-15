@@ -5,8 +5,7 @@ description: >
   their accounts or device have been compromised. Runs read-only device
   checks (evidence preservation readiness, malware indicators, suspicious
   processes, remote logins, network connections, browser extensions, app
-  permissions, sharing services, code-signature integrity), plus a
-  device-side review of password storage, two-factor capability, and the
+  permissions, sharing services, code-signature integrity), plus the
   sign-in sessions that survive a password change. Then guides through the
   six-phase recovery process: grounding, reality check, immediate protective
   actions, systematic cleanup, rebuilding security, and mental health
@@ -34,11 +33,9 @@ modules:
     - scheduled_tasks_audit
     - keylogger_indicators
     - privacy_permissions_audit
-    # The device-side half of the account-recovery phases. These answer
-    # "is this device leaking credentials, and what is still logged in";
-    # the account-side work remains human-led in the guide.
-    - password_manager_check
-    - twofa_audit
+    # The device-side half of the account-recovery phases: what is still
+    # logged in. The account-side work remains human-led in the guide;
+    # teaching passwords and two-step sign-in is left to Reclaim City.
     - session_revocation_scan
   exclude: []
 module_config:

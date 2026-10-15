@@ -9,13 +9,16 @@ estimated_time: "30 minutes"
 
 ## Step 1: Change your primary email password
 
-Do this first — your email is the recovery path for almost every other
-account. Use a long, unique passphrase you haven't used anywhere else.
+Do this first, from a device you trust: your email is the recovery path for
+almost every other account. Use a long password you haven't used anywhere else.
 
-## Step 2: Turn on two-factor authentication for your email
+## Step 2: Turn on two-step sign-in for your email
 
-If it isn't already on, enable it now, preferably with an authenticator
-app rather than SMS.
+If it isn't already on, turn it on in your email's security settings. When
+you're ready for the rest of your accounts, Reclaim City, a free game from the
+same team, walks you through passwords and two-step sign-in one account at a
+time: open play.multiversegames.ai/reclaim-city and pick the "My email got
+hacked" Quick Quest.
 
 ## Step 3: Revoke sessions and connected apps you don't recognize
 

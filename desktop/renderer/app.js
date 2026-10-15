@@ -182,6 +182,46 @@ function wantsSafetyNote(situation, finding) {
   return ALWAYS_SAFETY_MODULES.has(finding && finding.module);
 }
 
+const RECLAIM_CITY_URL = 'https://play.multiversegames.ai/reclaim-city/';
+
+/**
+ * Reclaim City, the same team's free privacy game, as a "learn this properly"
+ * link at the end of the results. Device Rescue doesn't teach passwords or
+ * two-step sign-in itself; the game does, so the worries where that matters
+ * point there. Each points at the district that teaches it: the game routes
+ * #/district/<id>, and its Quick Quests are links to those same districts.
+ * Worries with no real match get nothing.
+ */
+const GAME_INTRO = 'Reclaim City is a free game from the same team.';
+const LEARN_MORE = {
+  hacked: { path: '#/district/master-keys',
+    text: 'Its “My email got hacked” Quick Quest opens The Master Keys, which walks you through checking who has signed in, setting new passwords and turning on two-step sign-in for your email, one account at a time.' },
+  identity: { path: '#/district/reclamation',
+    text: 'Its chapter The Reclamation walks you through freezing your credit and asking data brokers to remove your details, one small mission at a time.' },
+  helping: { path: '',
+    text: 'It walks you through passwords, two-step sign-in, data brokers and spotting scams, one small mission at a time.' },
+  unsure: { path: '',
+    text: 'It walks you through passwords, two-step sign-in, data brokers and spotting scams, one small mission at a time.' },
+};
+
+/**
+ * The Reclaim City suggestion for these results, or null. Never offered to
+ * someone who may be watched (the "watching me" worry, or monitoring software
+ * found): a game is the wrong tone there, and its missions change account
+ * settings, which can alert the person doing the watching. The iPhone
+ * spyware worry is left out for the same reason.
+ */
+function learnMoreFor(situation, doc) {
+  if (!situation || situation.safety) return null;
+  const entry = LEARN_MORE[situation.id];
+  if (!entry) return null;
+  const modules = (doc && doc.modules) || [];
+  const monitoringFound = modules.some((mod) => mod && ALWAYS_SAFETY_MODULES.has(mod.name)
+    && (mod.findings || []).some((f) => f && (f.severity === 'critical' || f.severity === 'warning')));
+  if (monitoringFound) return null;
+  return { text: `${GAME_INTRO} ${entry.text}`, url: RECLAIM_CITY_URL + entry.path };
+}
+
 /** Drop the paragraphs of a description that give the hotline. */
 function withoutSafetyParagraphs(text) {
   return String(text || '')
@@ -318,6 +358,8 @@ if (typeof module !== 'undefined' && module.exports) {
     stepTitle,
     safetyNoteHtml,
     wantsSafetyNote,
+    learnMoreFor,
+    RECLAIM_CITY_URL,
     withoutSafetyParagraphs,
     descriptionHtml,
     describeMadeBy,
@@ -442,6 +484,16 @@ if (typeof document !== 'undefined') {
       }
       box.hidden = false;
       document.getElementById('results-next-safety').hidden = !situation.safety;
+    }
+
+    let learnMoreUrl = null;
+    function renderLearnMore(doc) {
+      const box = document.getElementById('results-learn');
+      const learn = learnMoreFor(situation, doc);
+      learnMoreUrl = learn ? learn.url : null;
+      box.hidden = !learn;
+      if (!learn) return;
+      document.getElementById('results-learn-text').textContent = learn.text;
     }
 
     function renderSeverityGroup(severity, findings) {
@@ -624,6 +676,7 @@ if (typeof document !== 'undefined') {
         lastScanDoc = doc;
         renderResults(doc);
         renderNextStep();
+        renderLearnMore(doc);
         setScanBusy(false);
         showScreen('results');
       } catch (err) {
@@ -675,6 +728,10 @@ if (typeof document !== 'undefined') {
 
     document.getElementById('btn-open-guide').addEventListener('click', () => {
       if (situation && situation.guide) window.rescue.openGuide(situation.guide);
+    });
+
+    document.getElementById('btn-open-game').addEventListener('click', () => {
+      if (learnMoreUrl) window.rescue.openGuide(learnMoreUrl);
     });
 
     document.getElementById('btn-run-scan').addEventListener('click', runCheckup);

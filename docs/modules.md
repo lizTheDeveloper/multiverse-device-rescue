@@ -32,12 +32,12 @@ $ rescue run <module_name>
 
 ## Coverage at a glance
 
-**287 modules** ship in the tree.
+**285 modules** ship in the tree.
 
 | Platform | Modules that run there |
 | --- | ---: |
-| macOS | 199 |
-| Windows | 100 |
+| macOS | 197 |
+| Windows | 98 |
 | Linux | 26 |
 
 A module can support more than one platform, so these numbers add up to more than the total.
@@ -48,7 +48,7 @@ A module can support more than one platform, so these numbers add up to more tha
 | [integrity](#integrity) | 106 |
 | [network](#network) | 8 |
 | [performance](#performance) | 51 |
-| [security](#security) | 118 |
+| [security](#security) | 116 |
 
 ## bloatware
 
@@ -259,7 +259,7 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 
 Malware and spyware indicators, persistence, remote access, credential exposure, and system hardening posture.
 
-118 modules — macOS 83, Windows 45, Linux 16.
+116 modules — macOS 81, Windows 43, Linux 16.
 
 | Module | Platforms | Risk | Duration | What it checks |
 | --- | --- | --- | --- | --- |
@@ -323,7 +323,6 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `network_connections_monitor` | macOS | safe | 5s | — |
 | `network_proxy` | macOS | safe | 2s | — |
 | `open_ports_scan` | macOS | safe | 3s | — |
-| `password_manager_check` | macOS, Windows | safe | 10s | Check whether this machine has a password manager, and where passwords live. |
 | `privacy_audit` | macOS | safe | 5s | — |
 | `privacy_permissions_audit` | macOS | safe | 5s | — |
 | `remote_login_check` | macOS | safe | 10s | — |
@@ -346,7 +345,6 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `suspicious_connections` | macOS | safe | 3s | — |
 | `suspicious_processes` | macOS | safe | 3s | — |
 | `system_extensions` | macOS | safe | 5s | — |
-| `twofa_audit` | macOS, Windows | safe | 10s | Check what two-factor authentication capability exists on this device. |
 | `usb_device_audit` | macOS | safe | 5s | — |
 | `user_account_audit` | macOS | safe | 5s | — |
 | `vpn_config` | macOS | safe | 3s | — |
