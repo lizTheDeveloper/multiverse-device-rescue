@@ -41,11 +41,16 @@ class Module(ModuleBase):
             if powernap == 1 and external_display_connected:
                 findings.append(
                     Finding(
-                        title="Power Nap enabled with external display",
+                        title="Power Nap is on while your Mac is in clamshell mode",
                         description=(
-                            "Power Nap is enabled while using an external display in clamshell mode. "
-                            "This can cause significant battery drain as the Mac may wake periodically. "
-                            "Consider disabling on battery: sudo pmset -b powernap 0"
+                            "Power Nap lets your Mac do background tasks (like checking "
+                            "email) even when it looks asleep. Because your Mac is connected "
+                            "to an external display, Power Nap is currently active. This "
+                            "can drain your battery faster than expected.\n\n"
+                            "What to do: Open System Settings > Battery > Options and "
+                            "turn off Power Nap. Alternatively, if you prefer to keep "
+                            "it on for plugged-in use, you can disable it specifically "
+                            "for battery power in Terminal: sudo pmset -b powernap 0"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -62,11 +67,15 @@ class Module(ModuleBase):
             if proximitywake == 1:
                 findings.append(
                     Finding(
-                        title="Proximity wake is enabled",
+                        title="Your Mac wakes up when your iPhone is nearby",
                         description=(
-                            "Proximity wake (proximitywake) is enabled, which may cause your Mac "
-                            "to wake unexpectedly when your iPhone is nearby. "
-                            "Consider disabling: sudo pmset -a proximitywake 0"
+                            "A setting called 'Proximity Wake' is turned on. This means "
+                            "your Mac will wake up from sleep whenever your iPhone or "
+                            "Apple Watch gets close. If you are not using these devices, "
+                            "your Mac might wake up unexpectedly, which uses battery and "
+                            "can be confusing.\n\n"
+                            "What to do: There's no switch for this in System Settings. If it "
+                            "bothers you, run this in Terminal: sudo pmset -a proximitywake 0"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

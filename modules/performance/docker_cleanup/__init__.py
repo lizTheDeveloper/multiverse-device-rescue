@@ -57,11 +57,16 @@ class Module(ModuleBase):
         if total_usage_gb > DOCKER_DISK_WARNING_GB:
             findings.append(
                 Finding(
-                    title=f"High Docker disk usage: {_fmt_bytes(docker_usage['total_bytes'])}",
+                    title=(
+                        f"Docker is using a lot of disk space ({_fmt_bytes(docker_usage['total_bytes'])})"
+                    ),
                     description=(
-                        f"Docker is using {_fmt_bytes(docker_usage['total_bytes'])} of disk space, "
-                        f"exceeding the {DOCKER_DISK_WARNING_GB}GB warning threshold. "
-                        f"Consider cleaning up unused images and containers."
+                        f"Docker is currently taking up {_fmt_bytes(docker_usage['total_bytes'])} "
+                        f"of your storage, which is more than the {DOCKER_DISK_WARNING_GB}GB "
+                        "limit we usually flag.\n\n"
+                        "What to do: Open Docker Desktop's Images, Containers and Volumes "
+                        "tabs and delete what you no longer need. Avoid 'Clean / Purge "
+                        "data', which deletes everything."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -102,10 +107,13 @@ class Module(ModuleBase):
         if dangling_images > 0:
             findings.append(
                 Finding(
-                    title=f"Dangling Docker images: {dangling_images}",
+                    title=f"Old Docker files are taking up space ({dangling_images})",
                     description=(
-                        f"Found {dangling_images} dangling Docker image(s) that are not tagged or used. "
-                        f"These waste disk space and can be safely removed."
+                        f"We found {dangling_images} unused Docker images. These are leftovers "
+                        "from previous projects that are no longer in use. They don't "
+                        "affect your security, but they do use up storage space.\n\n"
+                        "What to do: Open Docker Desktop, go to the Images tab, and delete "
+                        "the ones you don't need."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -120,10 +128,13 @@ class Module(ModuleBase):
         if stopped_containers > STOPPED_CONTAINERS_WARNING:
             findings.append(
                 Finding(
-                    title=f"Many stopped containers: {stopped_containers}",
+                    title=f"Many stopped Docker containers ({stopped_containers})",
                     description=(
-                        f"Found {stopped_containers} stopped Docker container(s). "
-                        f"These are no longer running but still use disk space. Consider removing them."
+                        f"You have {stopped_containers} Docker containers that are stopped "
+                        "but still saved on your disk. They are not running, so they "
+                        "aren't using your computer's power, but they do take up space.\n\n"
+                        "What to do: Open Docker Desktop, go to the Containers tab, and "
+                        "remove the ones you no longer need."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

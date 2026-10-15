@@ -58,11 +58,15 @@ class Module(ModuleBase):
         self, disk: DiskInfo, used_pct: float, severity: Severity
     ) -> Finding:
         return Finding(
-            title=f"Disk {disk.mount_point} is {used_pct:.0%} full",
+            title=f"Your disk {disk.mount_point} is {used_pct:.0%} full",
             description=(
-                f"{disk.device} mounted at {disk.mount_point}: "
-                f"{_fmt_bytes(disk.used_bytes)} used of {_fmt_bytes(disk.total_bytes)} "
-                f"({_fmt_bytes(disk.free_bytes)} free)"
+                f"Your drive {disk.mount_point} is running low on space. Currently, {_fmt_bytes(disk.used_bytes)} "
+                f"of {_fmt_bytes(disk.total_bytes)} is used, leaving only {_fmt_bytes(disk.free_bytes)} "
+                "free. Running out of space can slow down your computer and stop apps "
+                "from saving new files.\n\n"
+                "What to do: Open the Finder, go to your main folder, and look for large "
+                "files or folders you no longer need. You can move them to an external "
+                "drive or delete them to free up space."
             ),
             severity=severity,
             category=self.category,

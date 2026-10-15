@@ -183,7 +183,7 @@ class TestDiskFragmentationHDDDetection:
         # Should have warning for 90% full (HFS+ high usage triggers at >70%)
         warnings = [f for f in result.findings if f.severity == Severity.WARNING]
         assert len(warnings) == 1
-        assert "high usage" in warnings[0].title.lower()
+        assert "older hfs+ file system" in warnings[0].title.lower()
         assert warnings[0].data["usage_percent"] == 90
 
     def test_hdd_warning_above_90_percent(self):
@@ -229,7 +229,7 @@ class TestDiskFragmentationHDDDetection:
         warnings = [f for f in result.findings if f.severity == Severity.WARNING]
         assert len(warnings) == 1
         assert "HFS+" in warnings[0].title
-        assert "high usage" in warnings[0].title.lower()
+        assert "older hfs+ file system" in warnings[0].title.lower()
 
     def test_apfs_hdd_no_extra_warning(self):
         mod = _get_module()

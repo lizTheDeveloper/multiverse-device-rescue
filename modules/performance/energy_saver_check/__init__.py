@@ -43,10 +43,13 @@ class Module(ModuleBase):
         if display_sleep == 0:
             findings.append(
                 Finding(
-                    title="Display sleep disabled",
+                    title="Your screen is set to never turn off",
                     description=(
-                        "Display sleep is set to never sleep. This will cause the screen "
-                        "to stay on continuously, draining battery quickly on laptops."
+                        "Your Mac is set to keep the screen on even when you are not using "
+                        "it. This is a common setting, but it uses a lot of battery power "
+                        "on laptops.\n\n"
+                        "What to do: Open System Settings > Lock Screen and set 'Turn "
+                        "display off when inactive' to a few minutes."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -63,10 +66,14 @@ class Module(ModuleBase):
         if computer_sleep == 0:
             findings.append(
                 Finding(
-                    title="Computer sleep disabled",
+                    title="Your Mac is set to never sleep",
                     description=(
-                        "Computer/system sleep is set to never sleep. This will prevent "
-                        "the Mac from entering low-power mode, increasing energy consumption."
+                        "Your Mac is set to stay fully awake even when you are not using "
+                        "it. This prevents it from entering low-power mode, which drains "
+                        "the battery faster on laptops.\n\n"
+                        "What to do: Open System Settings > Battery > Options and turn off "
+                        "'Prevent automatic sleeping on power adapter when the display is "
+                        "off'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -104,11 +111,13 @@ class Module(ModuleBase):
             if is_on_battery:
                 findings.append(
                     Finding(
-                        title="Power Nap enabled on battery",
+                        title="Power Nap is on while using battery",
                         description=(
-                            "Power Nap is enabled while on battery power. This allows the Mac "
-                            "to perform background tasks even in sleep mode, which can unnecessarily "
-                            "drain your battery."
+                            "Power Nap lets your Mac do background tasks (like checking "
+                            "email) while it is asleep. This is fine when plugged in, "
+                            "but it drains the battery when you are using battery power.\n\n"
+                            "What to do: Open System Settings > Battery > Options and "
+                            "turn off 'Enable Power Nap' if you want to save battery life."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -145,11 +154,13 @@ class Module(ModuleBase):
             if is_on_battery:
                 findings.append(
                     Finding(
-                        title="Wake for network access enabled on battery",
+                        title="Wake for network access is on on battery",
                         description=(
-                            "Wake for network access is enabled while on battery power. "
-                            "This allows the Mac to wake from sleep when receiving network traffic, "
-                            "which can drain battery on laptops."
+                            "This setting lets your Mac wake up from sleep if it receives "
+                            "a network signal. It can drain the battery on laptops.\n\n"
+                            "What to do: Open System Settings > Battery > Options and "
+                            "turn off 'Wake for network access' if you want to save battery "
+                            "life."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

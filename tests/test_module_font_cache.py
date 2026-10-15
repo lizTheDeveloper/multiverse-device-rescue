@@ -75,7 +75,7 @@ def test_font_cache_excessive_count(tmp_path):
     # Should have a warning about excessive fonts
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warnings) == 1
-    assert "excessive" in warnings[0].title.lower()
+    assert "a lot of fonts" in warnings[0].title.lower()
     assert warnings[0].data.get("font_count") == 750
 
 

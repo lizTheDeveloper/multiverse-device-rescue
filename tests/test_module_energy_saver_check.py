@@ -126,7 +126,7 @@ def test_energy_saver_check_display_sleep_disabled():
     assert any(f.data.get("check") == "display_sleep_disabled" for f in result.findings)
     assert any(
         f.severity == Severity.WARNING
-        and "Display sleep disabled" in f.title
+        and "never turn off" in f.title
         for f in result.findings
     )
 

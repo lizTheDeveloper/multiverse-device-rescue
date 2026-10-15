@@ -44,8 +44,11 @@ class Module(ModuleBase):
                 Finding(
                     title="Power Nap is enabled",
                     description=(
-                        "Power Nap can cause battery drain overnight on laptops. "
-                        "Consider disabling it on battery: sudo pmset -b powernap 0"
+                        "Power Nap lets your Mac wake up briefly while it is plugged in "
+                        "to check email and sync data. This is a normal feature, but it "
+                        "can use a small amount of battery or keep the fan running.\n\n"
+                        "What to do: If you want to save battery, open System Settings "
+                        "> Battery, then turn off Power Nap."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -61,10 +64,14 @@ class Module(ModuleBase):
         if sleep_value == 0:
             findings.append(
                 Finding(
-                    title="System never sleeps",
+                    title="Your Mac is set to never sleep",
                     description=(
-                        "System never sleeps (sleep=0), which causes battery drain on laptops. "
-                        "Consider enabling sleep: sudo pmset -b sleep 10"
+                        "Your Mac is set to stay awake even when you close the lid or "
+                        "are idle. It is likely just a setting that was changed at some "
+                        "point.\n\n"
+                        "What to do: Open System Settings > Battery > Options and turn off "
+                        "'Prevent automatic sleeping on power adapter when the display is "
+                        "off'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

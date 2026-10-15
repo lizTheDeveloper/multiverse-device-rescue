@@ -136,11 +136,18 @@ class Module(ModuleBase):
             old_downloads_size = sum(f["size"] for f in old_downloads)
             findings.append(
                 Finding(
-                    title=f"Old large downloads: {_fmt_bytes(old_downloads_size)} (older than {OLD_FILES_DAYS} days)",
+                    title=(
+                        f"Old files in Downloads are taking up space ({_fmt_bytes(old_downloads_size)})"
+                    ),
                     description=(
-                        f"Found {len(old_downloads)} old files in ~/Downloads (>500MB, older than {OLD_FILES_DAYS} days) "
-                        f"using {_fmt_bytes(old_downloads_size)}. "
-                        f"These files may be safe to delete if you no longer need them."
+                        f"We found {len(old_downloads)} files in your Downloads folder "
+                        f"that are over 500MB and older than {OLD_FILES_DAYS} days. Together, "
+                        f"they use {_fmt_bytes(old_downloads_size)} of storage.\n\n"
+                        "This is a common source of clutter. These files are likely things "
+                        "you downloaded a while ago and forgot about.\n\n"
+                        "What to do: Open your Downloads folder, look for the large files "
+                        "listed, and move any you no longer need to a separate folder "
+                        "or the Trash."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -159,11 +166,16 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"Critical: {_fmt_bytes(total_size)} in large files",
+                    title=f"Large files are using a lot of space ({_fmt_bytes(total_size)})",
                     description=(
-                        f"Total large files (>1GB) consume {_fmt_bytes(total_size)}, "
-                        f"exceeding the {_fmt_bytes(CRITICAL_TOTAL_SIZE)} threshold. "
-                        f"Review the findings below to identify candidates for deletion or relocation."
+                        f"Files over 1GB on your computer are using {_fmt_bytes(total_size)} "
+                        "of storage in total. This is higher than the usual limit of "
+                        f"{_fmt_bytes(CRITICAL_TOTAL_SIZE)}.\n\n"
+                        "This means your storage is getting full, which can slow down "
+                        "your device.\n\n"
+                        "What to do: Look at the other findings below to see which specific "
+                        "files are the largest, and move the ones you don't need to an "
+                        "external drive or the Trash."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -158,11 +158,15 @@ class Module(ModuleBase):
                     if "SendDoNotTrackHTTPHeader" in line and "= 0" in line:
                         findings.append(
                             Finding(
-                                title="Do Not Track disabled in Safari",
+                                title="Safari is not asking websites to stop tracking you",
                                 description=(
-                                    "Do Not Track (DNT) is disabled in Safari. "
-                                    "Enabling DNT requests that websites not track your browsing. "
-                                    "This is a privacy best practice."
+                                    "Your Safari browser is not sending a 'Do Not Track' "
+                                    "signal to websites. This signal asks websites to "
+                                    "stop following your browsing habits. Turning this "
+                                    "on is a simple way to protect your privacy, though "
+                                    "some websites may ignore it.\n\n"
+                                    "What to do: Open Safari, go to Settings (or Preferences) "
+                                    "> Privacy, and turn on 'Prevent cross-site tracking'."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
@@ -178,11 +182,15 @@ class Module(ModuleBase):
                     if "WarnAboutFraudulentWebsites" in line and "= 0" in line:
                         findings.append(
                             Finding(
-                                title="Fraudulent website warnings disabled in Safari",
+                                title="Safari will not warn you about scam websites",
                                 description=(
-                                    "Safari's fraud warning system is disabled. "
-                                    "This feature helps protect against phishing and malicious sites. "
-                                    "Re-enabling it is strongly recommended."
+                                    "Safari is currently set to not warn you when you "
+                                    "visit a site that looks like a scam or tries to steal "
+                                    "your information. This is a safety feature, so it "
+                                    "is better to have it on.\n\n"
+                                    "What to do: Open Safari, go to Settings (or Preferences) "
+                                    "> Privacy, and make sure 'Fraudulent Website Warning' "
+                                    "is turned on."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
@@ -198,11 +206,14 @@ class Module(ModuleBase):
                     if "BlockStoragePolicy" in line and ("Always Allow" in line or "= 0" in line):
                         findings.append(
                             Finding(
-                                title="Cookies are always allowed in Safari",
+                                title="Safari allows all tracking cookies",
                                 description=(
-                                    "Safari is configured to allow all cookies, which increases tracking risk. "
-                                    "Consider changing the cookie blocking policy to block third-party and advertiser cookies. "
-                                    "This reduces your exposure to tracking and advertising networks."
+                                    "Your Safari browser is set to accept all cookies, "
+                                    "including those used by advertisers to track you "
+                                    "across different websites. This makes it easier for "
+                                    "companies to build a profile of your interests.\n\n"
+                                    "What to do: Open Safari, go to Settings > Privacy, and "
+                                    "turn on 'Prevent cross-site tracking'."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,

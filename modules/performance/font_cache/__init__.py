@@ -35,12 +35,15 @@ class Module(ModuleBase):
         if font_count > FONT_COUNT_WARNING_THRESHOLD:
             findings.append(
                 Finding(
-                    title=f"Found {font_count} installed fonts (excessive)",
+                    title=f"You have a lot of fonts installed ({font_count})",
                     description=(
-                        f"The system has {font_count} installed fonts. "
-                        f"Excessive fonts ({FONT_COUNT_WARNING_THRESHOLD}+) can slow down "
-                        f"font rendering and cause display issues. "
-                        f"Consider removing unused fonts to improve performance."
+                        f"Your Mac has {font_count} fonts installed. Having more than "
+                        f"{FONT_COUNT_WARNING_THRESHOLD} fonts can slow down how text "
+                        "appears in apps and sometimes cause display glitches.\n\n"
+                        "What to do: If your Mac feels slow, you can remove fonts you "
+                        "don't use. Open the 'Font Book' app (search for it in Spotlight) "
+                        "to see your list and delete unused ones. If everything looks "
+                        "normal, you can ignore this."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
