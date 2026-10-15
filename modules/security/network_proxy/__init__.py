@@ -119,6 +119,14 @@ class Module(ModuleBase):
                             "http_server": proxy_config.get("http_server"),
                             "https_server": proxy_config.get("https_server"),
                             "socks_server": proxy_config.get("socks_server"),
+                            # Exactly where traffic goes ("HTTP host:port"), so
+                            # "this is mine" covers this proxy and no other.
+                            "proxy_servers": [
+                                f"{kind.upper()} {proxy_config.get(kind + '_server') or '(no server)'}"
+                                f":{proxy_config.get(kind + '_port') or '(no port)'}"
+                                for kind in ("http", "https", "socks")
+                                if proxy_config.get(kind + "_enabled")
+                            ] + (["Auto Proxy Discovery"] if proxy_config.get("auto_discovery_enabled") else []),
                         },
                     )
                 )
@@ -218,6 +226,7 @@ class Module(ModuleBase):
                 server = self._extract_server(http_output)
                 if server:
                     config["http_server"] = server
+                config["http_port"] = self._extract_port(http_output)
 
             # Check HTTPS proxy
             https_output = self._run_networksetup(["networksetup", "-getsecurewebproxy", interface])
@@ -226,6 +235,7 @@ class Module(ModuleBase):
                 server = self._extract_server(https_output)
                 if server:
                     config["https_server"] = server
+                config["https_port"] = self._extract_port(https_output)
 
             # Check SOCKS proxy
             socks_output = self._run_networksetup(["networksetup", "-getsocksfirewallproxy", interface])
@@ -234,6 +244,7 @@ class Module(ModuleBase):
                 server = self._extract_server(socks_output)
                 if server:
                     config["socks_server"] = server
+                config["socks_port"] = self._extract_port(socks_output)
 
             # Check Auto Proxy Discovery
             autodiscovery_output = self._run_networksetup(
@@ -268,6 +279,14 @@ class Module(ModuleBase):
                 parts = line.split("Server:", 1)
                 if len(parts) > 1:
                     return parts[1].strip()
+        return None
+
+    def _extract_port(self, output: str) -> str | None:
+        """Extract the port from networksetup output ("Port: 8080")."""
+        for line in output.split("\n"):
+            if line.strip().startswith("Port:"):
+                port = line.split("Port:", 1)[1].strip()
+                return port or None
         return None
 
     def _extract_pac_url(self, output: str) -> str | None:

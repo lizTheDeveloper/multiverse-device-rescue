@@ -39,7 +39,7 @@ history or page contents, or opens your documents and photos. The
 | --- | --- |
 | `~/.rescue/sessions/<profile>.json` | `rescue guide` recording your progress |
 | `~/.rescue/cases/case-<timestamp>.{json,md}` | `rescue export` |
-| `~/.rescue/known_items.json` | `rescue known add` / `remove`, or "This is mine" in the app |
+| `~/.rescue/known_items.json` | `rescue known add` / `remove`, or "It's mine" in the app ("I did this" writes nothing) |
 | `~/.config/rescue/revoked_signers.json` | `rescue trust revoke` |
 | `~/.local/share/rescue/content/` | `rescue update`, after signature verification |
 
@@ -378,8 +378,11 @@ Stated plainly, because you should know before you rely on them.
     professional incident response for a real, active compromise.
 
 !!! warning "Marking something as yours can be misused by whoever installed it"
-    `rescue known add` (and "This is mine" in the app) lets the person at the
-    keyboard quiet a warning about a background task they recognise. Someone
+    `rescue known add` (and "It's mine" in the app) lets the person at the
+    keyboard quiet a warning about something they set up themselves: a
+    background task, a sharing setting, a proxy, a system or browser
+    extension, a list of apps with powerful permissions, the list of
+    remote-login keys, or an AI tool setting. Someone
     who installed stalkerware and has the computer in their hands could use it
     the same way. What limits that:
 
@@ -388,8 +391,21 @@ Stated plainly, because you should know before you rely on them.
       `marked_by_user`, `marked_at` and the original title and severity in its
       data. An advocate or helper reviewing a scan should read every one of
       these and ask the person whether they marked it.
-    - Critical findings (known viruses, programs in folders anyone can change)
-      are never downgraded.
+    - Critical findings (known viruses, programs in folders anyone can change,
+      a proxy file loaded from elsewhere) are never downgraded, and only
+      warnings are ever offered.
+    - Nothing from the monitoring-software checks (`stalkerware_scan`,
+      `mvt_spyware_scan`, `keylogger_indicators`) can be marked at all. The
+      engine refuses it, and the app never offers it, whatever the code. The
+      only answer on those cards is "I did this", which lasts for that
+      checkup only.
+    - For anything that could be used to watch someone (screen sharing,
+      remote login and management, proxies, system and browser extensions,
+      apps with accessibility, screen, camera or microphone access,
+      remote-login keys, background tasks), and for every mark when the
+      person chose "I think someone is watching me", the app's confirmation
+      says "Only do this if you set this up yourself. If you're not sure,
+      leave it as it is." and why it asks.
     - A mark pins the finding code, label, plist path, program path and a hash
       of the full program arguments, and the content of the program and the
       script it runs (see below), not just a name. Changing any of them
@@ -399,6 +415,30 @@ Stated plainly, because you should know before you rely on them.
       task and refuses if it no longer matches that id.
     - Marking needs a typed confirmation in a terminal, or the app's own
       confirmation; a script with no terminal is refused.
+
+    Settings and installed items pin the concrete evidence the check saw
+    (see `docs/cli.md` for the table): a proxy's host and port, an
+    extension's id and team, a SHA-256 of the list of apps or keys. When the
+    evidence changes, the finding comes back at its normal severity with
+    `mark_stale` and "has changed since you marked it". When a mark is saved,
+    the engine runs the check again and refuses unless it still reports the
+    same item. One known gap: a sharing service is pinned as "on". If the
+    person turns it off and someone later turns it back on, the old mark
+    still covers it. It stays listed as "marked as yours", so a helper
+    should ask about every such item.
+
+    Some things are deliberately not markable: VPN configurations (the checks
+    record no server address, and the only warning is about an insecure
+    protocol), certificates (no check records a fingerprint per
+    certificate), kernel extensions (no team ID), MDM enrollment (the
+    warnings name no server, so a mark would cover enrollment by anyone), and
+    remote-access apps such as TeamViewer or AnyDesk (on macOS only the
+    monitoring-software check reports them; on Windows only by name).
+
+    "I did this" in the app is different: it moves a card into "Cleared" for
+    that checkup only. Nothing is written anywhere, and the next checkup
+    checks again for real. "Copy for any AI" and the technical details say
+    "the person said they did this", never that it was confirmed.
 
     What it does not stop: software already running as the person can rewrite
     `~/.rescue/known_items.json` itself, just as it can rewrite the plist. The

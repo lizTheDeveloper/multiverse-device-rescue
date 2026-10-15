@@ -1016,3 +1016,143 @@ h3 {
   background: var(--warning-bg);
   color: var(--warning-text);
 }
+
+/* ---------- Clearing the list ---------- */
+
+.results-progress {
+  margin: -0.5rem 0 1.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.results-progress[hidden] {
+  display: none;
+}
+
+.results-progress__headline {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.results-progress__headline--clear {
+  color: var(--brand-strong);
+}
+
+.results-progress__bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.results-progress__fill {
+  height: 100%;
+  background: var(--brand);
+  transition: width 0.3s ease;
+}
+
+.results-progress__detail {
+  margin: 0.5rem 0 0;
+}
+
+.results-group__empty[hidden],
+.results-cleared[hidden],
+.cleared-note[hidden],
+.did-this[hidden] {
+  display: none;
+}
+
+.card-answers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 0.75rem;
+}
+
+.card-answers > .fix-it,
+.card-answers > .mark-mine,
+.card-answers > .did-this {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+/* An open confirmation or a result takes the whole row. */
+.card-answers > .fix-it:has(.fix-panel:not([hidden])),
+.card-answers > .fix-it:has(.fix-status:not([hidden])),
+.card-answers > .mark-mine:has(.fix-panel:not([hidden])),
+.card-answers > .mark-mine:has(.fix-status:not([hidden])) {
+  flex-basis: 100%;
+}
+
+.did-this {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.did-this__hint {
+  font-size: 0.85rem;
+}
+
+.mark-shows {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 0.75rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+}
+
+.mark-shows dt {
+  color: var(--text-muted);
+}
+
+.mark-shows dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.cleared-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+  margin: 0.2rem 0 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.cleared-note__text {
+  margin: 0;
+}
+
+.cleared-note__tick {
+  color: var(--brand-strong);
+  font-weight: 700;
+}
+
+.results-cleared {
+  margin-bottom: 1.75rem;
+}
+
+.results-cleared summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.results-cleared__title {
+  color: var(--brand-strong);
+}
+
+/* In "Cleared", the card's Undo is the one in the note at its top. */
+.results-cleared .finding-card [data-unmark] {
+  display: none;
+}

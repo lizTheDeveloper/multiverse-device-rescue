@@ -75,7 +75,7 @@ def _action_fixable(finding, module_name, app_actions):
 
 
 def _markable(finding, module_name):
-    """A `markable` block ("This is mine") for an eligible finding, or None."""
+    """A `markable` block ("It's mine") for an eligible finding, or None."""
     from rescue.known_items import markable
 
     try:

@@ -33,9 +33,23 @@ The rules that keep it from becoming a way to hide stalkerware:
 Storage: ``~/.rescue/known_items.json`` (override with ``$RESCUE_KNOWN_ITEMS``,
 which the test suite always sets).
 
-Only background tasks are wired up today. Another module adopts this by
-building an identity for each item it reports (a dict of strings, under a new
-kind in KINDS), and calling :func:`apply_marks` on its findings.
+Two families of kinds:
+
+* Background tasks (``background_task``): the checks call
+  :func:`apply_background_task_marks` themselves, because the identity needs a
+  hash of files on disk.
+* Settings and installed items (``ITEM_KINDS``: a sharing service, a proxy, a
+  VPN, a certificate, an extension...): the identity is read from the
+  finding's own evidence (``data``), every pinned field is a non-empty string,
+  and the orchestrator applies marks to every module's findings after its
+  check ran (:func:`apply_item_marks`). Each kind names "evidence" fields: if
+  the item is the same (same code and the same base fields) but its evidence
+  differs, the mark is stale and the finding comes back with a sentence
+  saying it changed. When a mark is saved the engine runs the check again and
+  refuses unless the item still hashes to the id the person saw.
+
+Findings from checks for monitoring software (stalkerware, iPhone spyware,
+keyloggers) can never be marked: see NEVER_MARKABLE_MODULES.
 """
 
 from __future__ import annotations
@@ -103,10 +117,19 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _evidence_keys(kind: str) -> set:
+    spec = KINDS.get(kind, {})
+    keys = set(spec.get("evidence_keys", ()))
+    if spec.get("content_key"):
+        keys.add(spec["content_key"])
+    return keys
+
+
 def base_identity(kind: str, identity: dict) -> dict:
-    """The identity without its content hash (used only to say "it changed")."""
-    key = KINDS.get(kind, {}).get("content_key")
-    return {k: v for k, v in identity.items() if k != key}
+    """The identity without the fields that may change while it is still the
+    same item (a content hash, a proxy's server...). Used only to say "it changed"."""
+    drop = _evidence_keys(kind)
+    return {k: v for k, v in identity.items() if k not in drop}
 
 
 def item_id(kind: str, identity: dict) -> str:
@@ -570,6 +593,447 @@ def find_background_task(label: str, program: str, plist: str | None = None, cod
     return ident
 
 
+# --- settings and installed items (ITEM_KINDS) ---------------------------------
+
+# Checks whose findings are themselves monitoring software. Nothing they report
+# can ever be marked as "mine": for someone being watched, a mark is exactly
+# what the person doing the watching would want.
+NEVER_MARKABLE_MODULES = frozenset({"stalkerware_scan", "mvt_spyware_scan", "keylogger_indicators"})
+
+
+def _text(value, limit: int = 512) -> str | None:
+    """A pinned field: a non-empty string without NUL, or None."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        value = str(value)
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if not value or "\0" in value or len(value) > limit:
+        return None
+    return value
+
+
+def list_sha256(values) -> str | None:
+    """SHA-256 of a list of strings, order and repeats ignored. None if it is not one."""
+    if not isinstance(values, (list, tuple)) or not values:
+        return None
+    if not all(isinstance(v, str) and v and "\0" not in v for v in values):
+        return None
+    blob = json.dumps(sorted(set(values)), separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+# remote_login_check calls Remote Login "ssh"; the other checks say remote_login.
+_SERVICE_ALIASES = {"ssh": "remote_login"}
+_SERVICE_NAMES = {
+    "screen_sharing": "Screen Sharing",
+    "file_sharing": "File Sharing",
+    "remote_login": "Remote Login",
+    "remote_management": "Remote Management",
+    "remote_apple_events": "Remote Apple Events",
+    "printer_sharing": "Printer Sharing",
+    "airdrop": "AirDrop open to everyone",
+}
+# Sharing services that let someone else see, control or log in to this Mac.
+_MONITORING_SERVICES = {"screen_sharing", "remote_login", "remote_management", "remote_apple_events"}
+
+
+def _sharing_identity(finding) -> dict | None:
+    data = finding.data
+    service = _text(data.get("service"), 64)
+    if service is None and str(finding.code or "").endswith(".airdrop_everyone"):
+        service = "airdrop"
+    service = _SERVICE_ALIASES.get(service, service)
+    if service not in _SERVICE_NAMES:
+        return None
+    # The finding exists only while the service is on.
+    return {"service": service, "state": "on"}
+
+
+def _proxy_identity(finding) -> dict | None:
+    data = finding.data
+    interface = _text(data.get("interface"), 64)
+    servers = data.get("proxy_servers")
+    if interface is None or not isinstance(servers, list) or not servers:
+        return None
+    if not all(_text(s, 300) for s in servers):
+        return None
+    return {"interface": interface, "proxies": ", ".join(sorted(set(servers)))}
+
+
+def _system_extension_identity(finding) -> dict | None:
+    data = finding.data
+    bundle_id = _text(data.get("name"), 256)
+    team_id = _text(data.get("team_id"), 64)
+    state = _text(data.get("state"), 128)
+    if not (bundle_id and team_id and state) or "unknown" in (bundle_id.lower(), team_id.lower()):
+        return None
+    return {"bundle_id": bundle_id, "team_id": team_id, "state": state}
+
+
+def _browser_extension_identity(finding) -> dict | None:
+    data = finding.data
+    browser = _text(data.get("browser"), 64)
+    ext_id = _text(data.get("extension_id"), 256)
+    name = _text(data.get("extension"), 256)
+    perms = data.get("permissions")
+    if not (browser and ext_id and name) or not isinstance(perms, list) or not perms:
+        return None
+    if not all(isinstance(p, str) and p and "\0" not in p for p in perms):
+        return None
+    return {"browser": browser, "extension_id": ext_id, "name": name,
+            "permissions": ", ".join(sorted(set(perms)))}
+
+
+def _app_list_identity(finding) -> dict | None:
+    apps = finding.data.get("apps")
+    digest = list_sha256(apps)
+    if digest is None:
+        return None
+    return {"apps_sha256": digest, "app_count": str(len(set(apps)))}
+
+
+def _ssh_keys_identity(finding) -> dict | None:
+    data = finding.data
+    digest = _text(data.get("list_sha256"), 64)
+    count = data.get("key_count")
+    if digest is None or len(digest) != 64 or isinstance(count, bool) or not isinstance(count, int) or count < 1:
+        return None
+    return {"list_sha256": digest, "key_count": str(count)}
+
+
+def _ai_tooling_identity(finding) -> dict | None:
+    data = finding.data
+    if data.get("check") == "ai_api_key_found":
+        name = _text(data.get("key_name"), 128)
+        return {"what": "key_name", "value": name} if name else None
+    if data.get("check") == "cron_ai_call":
+        digest = _text(data.get("entry_sha256"), 64)
+        return {"what": "cron_entry_sha256", "value": digest} if digest and len(digest) == 64 else None
+    return None
+
+
+def _show_sharing(ident, finding):
+    return [["Setting", _SERVICE_NAMES.get(ident["service"], ident["service"])], ["Now", "On"]]
+
+
+def _show_proxy(ident, finding):
+    return [["Connection", ident["interface"]], ["Proxy", ident["proxies"]]]
+
+
+def _show_sysext(ident, finding):
+    return [["Extension", ident["bundle_id"]], ["Developer (team ID)", ident["team_id"]], ["State", ident["state"]]]
+
+
+def _show_browser_ext(ident, finding):
+    return [["Extension", ident["name"]], ["Browser", ident["browser"]], ["Extension ID", ident["extension_id"]],
+            ["Access it has", ident["permissions"]]]
+
+
+def _show_apps(ident, finding):
+    apps = finding.data.get("apps") or []
+    return [["Apps", ", ".join(sorted(set(apps)))], ["How many", ident["app_count"]]]
+
+
+def _show_ssh(ident, finding):
+    return [["Saved keys", ident["key_count"]], ["Fingerprint of the list", ident["list_sha256"][:16] + "…"]]
+
+
+def _show_ai(ident, finding):
+    if ident["what"] == "key_name":
+        return [["Key name", ident["value"]]]
+    entry = finding.data.get("cron_entry") or ""
+    return [["Scheduled task", str(entry)[:120]]]
+
+
+# kind -> spec. "keys" are what a mark pins (with "code"); "evidence_keys" may
+# change while it is still the same item, and a change makes the mark stale
+# (the warning comes back, saying so) rather than silently matching.
+# "monitoring": could this be used to watch someone (True, False, or a
+# callable on the identity)? The app then asks for the stronger confirmation.
+ITEM_KINDS: dict[str, dict] = {
+    "sharing_service": {
+        "keys": ("code", "service", "state"),
+        "evidence_keys": ("state",),
+        "modules": ("sharing_services", "sharing_preferences_audit", "remote_login_check", "airdrop_config"),
+        "identify": _sharing_identity,
+        "label_of": lambda i: _SERVICE_NAMES.get(i.get("service", ""), i.get("service", "")),
+        "title": "Sharing setting you marked as yours: {label}",
+        "noun": "sharing setting",
+        "what": "{label} being on",
+        "changed": "this setting",
+        "monitoring": lambda i: i.get("service") in _MONITORING_SERVICES,
+        "show": _show_sharing,
+    },
+    "network_proxy": {
+        "keys": ("code", "interface", "proxies"),
+        "evidence_keys": ("proxies",),
+        "modules": ("network_proxy",),
+        "identify": _proxy_identity,
+        "label_of": lambda i: f"{i.get('interface', '')} through {i.get('proxies', '')}",
+        "title": "Proxy you marked as yours: {label}",
+        "noun": "proxy setting",
+        "what": "your {label} proxy setting",
+        "changed": "the proxy server",
+        "monitoring": True,
+        "show": _show_proxy,
+    },
+    "system_extension": {
+        "keys": ("code", "bundle_id", "team_id", "state"),
+        "evidence_keys": ("team_id", "state"),
+        "modules": ("system_extensions",),
+        "identify": _system_extension_identity,
+        "label_of": lambda i: i.get("bundle_id", ""),
+        "title": "System extension you marked as yours: {label}",
+        "noun": "system extension",
+        "what": "the system extension {label}",
+        "changed": "its developer or its state",
+        "monitoring": True,
+        "show": _show_sysext,
+    },
+    "browser_extension": {
+        "keys": ("code", "browser", "extension_id", "name", "permissions"),
+        "evidence_keys": ("name", "permissions"),
+        "modules": ("browser_extension_audit",),
+        "identify": _browser_extension_identity,
+        "label_of": lambda i: f"{i.get('name', '')} ({i.get('browser', '')})",
+        "title": "Browser extension you marked as yours: {label}",
+        "noun": "browser extension",
+        "what": "the extension {label}",
+        "changed": "its name or the access it has",
+        "monitoring": True,
+        "show": _show_browser_ext,
+    },
+    "app_permissions": {
+        "keys": ("code", "apps_sha256", "app_count"),
+        "evidence_keys": ("apps_sha256", "app_count"),
+        "modules": ("app_permissions", "privacy_permissions_audit", "accessibility_permissions"),
+        "identify": _app_list_identity,
+        "label_of": lambda i: f"{i.get('app_count', '')} apps",
+        "title": "Apps you marked as yours: {label}",
+        "noun": "list of apps",
+        "what": "this list of {label}",
+        "changed": "the list of apps",
+        "monitoring": True,
+        "show": _show_apps,
+    },
+    "ssh_authorized_keys": {
+        "keys": ("code", "list_sha256", "key_count"),
+        "evidence_keys": ("list_sha256", "key_count"),
+        "modules": ("session_revocation_scan",),
+        "identify": _ssh_keys_identity,
+        "label_of": lambda i: f"{i.get('key_count', '')} saved remote-login key(s)",
+        "title": "Remote-login keys you marked as yours: {label}",
+        "noun": "list of remote-login keys",
+        "what": "these {label}",
+        "changed": "the list of keys",
+        "monitoring": True,
+        "show": _show_ssh,
+    },
+    "ai_tooling": {
+        "keys": ("code", "what", "value"),
+        "evidence_keys": (),
+        "modules": ("ai_threat_indicators",),
+        "identify": _ai_tooling_identity,
+        "label_of": lambda i: i.get("value", "") if i.get("what") == "key_name" else "a scheduled AI task",
+        "title": "AI tool setting you marked as yours: {label}",
+        "noun": "AI tool setting",
+        "what": "{label}",
+        "changed": "it",
+        "monitoring": False,
+        "show": _show_ai,
+    },
+}
+# Only these codes are offered: warnings about one thing the person may have set up.
+ITEM_CODES: dict[str, str] = {
+    "security.sharing_services.screen_sharing": "sharing_service",
+    "security.sharing_services.file_sharing": "sharing_service",
+    "security.sharing_services.remote_login": "sharing_service",
+    "security.sharing_services.remote_management": "sharing_service",
+    "security.sharing_services.printer_sharing": "sharing_service",
+    "security.sharing_preferences_audit.screen_sharing": "sharing_service",
+    "security.sharing_preferences_audit.file_sharing": "sharing_service",
+    "security.sharing_preferences_audit.remote_login": "sharing_service",
+    "security.sharing_preferences_audit.remote_management": "sharing_service",
+    "security.sharing_preferences_audit.printer_sharing": "sharing_service",
+    "security.sharing_preferences_audit.airdrop_everyone": "sharing_service",
+    "security.remote_login_check.ssh_enabled": "sharing_service",
+    "security.remote_login_check.screen_sharing_enabled": "sharing_service",
+    "security.remote_login_check.remote_management_enabled": "sharing_service",
+    "security.remote_login_check.remote_apple_events_enabled": "sharing_service",
+    "security.airdrop_config.airdrop_everyone": "sharing_service",
+    "security.network_proxy.proxy_enabled": "network_proxy",
+    "security.system_extensions.unusual_state": "system_extension",
+    "security.browser_extension_audit.excessive_permissions": "browser_extension",
+    "security.app_permissions.accessibility_access": "app_permissions",
+    "security.privacy_permissions_audit.excessive_camera": "app_permissions",
+    "security.privacy_permissions_audit.excessive_microphone": "app_permissions",
+    "security.privacy_permissions_audit.camera_microphone_combo": "app_permissions",
+    "security.privacy_permissions_audit.screen_accessibility_combo": "app_permissions",
+    "security.accessibility_permissions.suspicious_accessibility": "app_permissions",
+    "security.session_revocation_scan.ssh_authorized_keys": "ssh_authorized_keys",
+    "security.ai_threat_indicators.ai_api_key_found": "ai_tooling",
+    "security.ai_threat_indicators.cron_ai_call": "ai_tooling",
+}
+for _kind, _spec in ITEM_KINDS.items():
+    assert not set(_spec["modules"]) & NEVER_MARKABLE_MODULES, _kind
+    KINDS[_kind] = _spec
+del _kind, _spec
+
+
+def item_kind_for(code) -> str | None:
+    """The ITEM_KINDS kind a finding code can be marked under, or None."""
+    if not isinstance(code, str):
+        return None
+    kind = ITEM_CODES.get(code)
+    if kind is None or not code_is_markable(kind, code):
+        return None
+    if code.split(".")[1] in NEVER_MARKABLE_MODULES:
+        return None
+    return kind
+
+
+def item_identity(finding) -> tuple[str, dict] | None:
+    """(kind, identity including the code) of a finding about one item, or None."""
+    kind = item_kind_for(getattr(finding, "code", None))
+    if kind is None or not isinstance(getattr(finding, "data", None), dict):
+        return None
+    try:
+        ident = ITEM_KINDS[kind]["identify"](finding)
+    except Exception:
+        return None
+    if not isinstance(ident, dict):
+        return None
+    ident = dict(ident, code=finding.code)
+    keys = ITEM_KINDS[kind]["keys"]
+    if set(ident) != set(keys) or not all(isinstance(ident[k], str) and ident[k] for k in keys):
+        return None
+    return kind, ident
+
+
+def group_key(kind: str, identity: dict) -> str:
+    """Same item, whichever check reported it: a hash of the identity without the code."""
+    return item_id(kind, {k: v for k, v in identity.items() if k != "code"})
+
+
+def is_monitoring(kind: str, identity: dict) -> bool:
+    flag = KINDS.get(kind, {}).get("monitoring", True)
+    try:
+        return bool(flag(identity)) if callable(flag) else bool(flag)
+    except Exception:
+        return True
+
+
+def apply_item_marks(module_name: str, findings: list[Finding], items: list[KnownItem] | None = None,
+                     problem: str | None = None) -> list[Finding]:
+    """Apply settings/installed-item marks to one module's findings (in place).
+
+    Called by the orchestrator after each check. `items`/`problem` come from
+    one load_for_scan() per scan; without them the list is read here.
+    """
+    if module_name in NEVER_MARKABLE_MODULES or not findings:
+        return findings
+    kinds = sorted({k for f in findings if (k := item_kind_for(getattr(f, "code", None)))})
+    if not kinds:
+        return findings
+    if items is None:
+        items, problem = KnownItemsStore().load_for_scan()
+    if problem:
+        findings.append(Finding(
+            title="Your \"marked as yours\" list was not used",
+            description=(
+                f"{problem}\n\nNothing on this checkup was treated as marked, so "
+                "everything is shown as it normally would be. If you did not "
+                "change this file, someone or something else may have."
+            ),
+            severity=Severity.INFO,
+            category=findings[0].category,
+            data={"check": "known_items_ignored", "path": str(default_path())},
+        ))
+        return findings
+    for kind in kinds:
+        def identify(f, kind=kind):
+            hit = item_identity(f)
+            return hit[1] if hit and hit[0] == kind else None
+        apply_marks(findings, kind, identify, items=items)
+    return findings
+
+
+def item_will_change(kind: str, identity: dict) -> str:
+    spec = KINDS[kind]
+    label = (spec.get("label_of") or (lambda i: ""))(identity)
+    what = spec["what"].replace("{label}", label)
+    return (
+        f"Device Rescue will stop warning you about {what}. It will still be listed, as "
+        "\"marked as yours\", on every checkup and in anything you export, so anyone "
+        f"helping you can see it. If {spec['changed']} changes, the warning comes back."
+    )
+
+
+def item_markable(finding: Finding, module_name: str) -> dict | None:
+    """The `markable` block for a warning about one setting or installed item, or None."""
+    if module_name in NEVER_MARKABLE_MODULES:
+        return None
+    if getattr(finding, "severity", None) != Severity.WARNING:
+        return None
+    data = getattr(finding, "data", None)
+    if not isinstance(data, dict) or data.get("marked_by_user"):
+        return None
+    hit = item_identity(finding)
+    if hit is None:
+        return None
+    kind, identity = hit
+    if identity["code"].split(".")[1] != module_name:
+        return None
+    spec = KINDS[kind]
+    try:
+        shows = [[str(a), str(b)] for a, b in spec["show"](identity, finding)]
+    except Exception:
+        shows = []
+    return {
+        "kind": kind,
+        # The engine refuses to save unless a fresh check still gives this id.
+        "id": item_id(kind, identity),
+        "code": identity["code"],
+        "label": (spec.get("label_of") or (lambda i: ""))(identity),
+        # The same item on another card has the same kind and group.
+        "group": group_key(kind, identity),
+        "monitoring": is_monitoring(kind, identity),
+        "shows": shows,
+        "will_change": item_will_change(kind, identity),
+        "how_to_undo": list(MARK_HOW_TO_UNDO),
+    }
+
+
+def find_item(code: str, expect_id: str, run_check: Callable[[str], list]) -> tuple[str, dict]:
+    """(kind, identity) of the item a fresh check reports under `code` whose
+    mark id is `expect_id`. Raises KnownItemsError otherwise.
+
+    run_check(module_name) runs that check now and returns its findings, so a
+    mark is only ever saved for what is on the computer at the moment of saving.
+    """
+    kind = item_kind_for(code)
+    if kind is None:
+        raise KnownItemsError(f"'{code}' is not a finding that can be marked as yours.")
+    module_name = code.split(".")[1]
+    try:
+        findings = run_check(module_name)
+    except Exception as exc:
+        raise KnownItemsError(f"The check could not run again to confirm it ({exc}). Nothing was marked.") from exc
+    for f in findings or []:
+        if getattr(f, "code", None) != code or getattr(f, "severity", None) != Severity.WARNING:
+            continue
+        hit = item_identity(f)
+        if hit and hit[0] == kind and item_id(kind, hit[1]) == expect_id:
+            return hit
+    raise KnownItemsError(
+        "This has changed since the checkup, or is no longer there, so nothing was marked. "
+        "Run the checkup again."
+    )
+
+
 # --- applying marks to findings ----------------------------------------------
 
 
@@ -586,11 +1050,17 @@ def marked_description(finding: Finding, item: KnownItem, noun: str) -> str:
     )
 
 
-def stale_sentence(item: KnownItem) -> str:
+def stale_sentence(item: KnownItem, kind: str = BACKGROUND_TASK) -> str:
     when = item.marked_at or "an unknown date"
+    if kind == BACKGROUND_TASK:
+        return (
+            f"You marked this as yours on {when}, but the program it runs has changed since "
+            "then, so it's shown again. If you updated it yourself, you can mark it again."
+        )
+    changed = KINDS.get(kind, {}).get("changed", "it")
     return (
-        f"You marked this as yours on {when}, but the program it runs has changed since "
-        "then, so it's shown again. If you updated it yourself, you can mark it again."
+        f"You marked this as yours on {when}, but {changed} has changed since you marked it, "
+        "so it's shown again. If you changed it yourself, you can mark it again."
     )
 
 
@@ -620,6 +1090,7 @@ def apply_marks(
     writable by others), an info finding says so.
     """
     spec = KINDS[kind]
+    label_of = spec.get("label_of") or (lambda ident: ident.get("label", ""))
     if items is None:
         items, problem = KnownItemsStore().load_for_scan()
         if problem and findings:
@@ -646,6 +1117,8 @@ def apply_marks(
         code = getattr(finding, "code", None)
         if not code_is_markable(kind, code):
             continue
+        if not isinstance(getattr(finding, "data", None), dict):
+            continue
         try:
             identity = identify(finding)
         except Exception:
@@ -658,7 +1131,7 @@ def apply_marks(
             isinstance(identity[k], str) and identity[k] for k in base_keys
         ):
             continue
-        near = by_base.get(item_id(kind, identity))
+        near = by_base.get(item_id(kind, base_identity(kind, identity)))
         if near is None:
             continue
         item = None
@@ -672,10 +1145,10 @@ def apply_marks(
         else:
             item = by_id.get(item_id(kind, identity))
         if item is None:
-            # Same task, but what it runs changed (or cannot be checked).
+            # Same item, but what it runs (or its evidence) changed, or cannot be checked.
             finding.data["mark_stale"] = True
             finding.data["known_item_id"] = near.id
-            finding.description = f"{finding.description}\n\n{stale_sentence(near)}"
+            finding.description = f"{finding.description}\n\n{stale_sentence(near, kind)}"
             continue
         if finding.severity == Severity.CRITICAL:
             finding.data["user_mark_ignored"] = True
@@ -694,8 +1167,12 @@ def apply_marks(
                 "original_title": finding.title,
             }
         )
+        if kind != BACKGROUND_TASK:
+            # Groups the marks for one item reported by several checks (link_task_marks).
+            finding.data["marked_kind"] = kind
+            finding.data["marked_key"] = group_key(kind, identity)
         finding.description = marked_description(finding, item, spec["noun"])
-        finding.title = spec["title"].format(label=identity.get("label", ""))
+        finding.title = spec["title"].format(label=label_of(identity))
         finding.severity = Severity.INFO
     return findings
 
@@ -708,7 +1185,7 @@ def markable(finding: Finding, module_name: str) -> dict | None:
     """
     spec = KINDS[BACKGROUND_TASK]
     if module_name not in spec["modules"]:
-        return None
+        return item_markable(finding, module_name)
     if getattr(finding, "severity", None) != Severity.WARNING:
         return None
     data = getattr(finding, "data", None)
@@ -742,7 +1219,7 @@ def apply_background_task_marks(findings: list[Finding], tasks: dict) -> list[Fi
     tasks: {plist path: (label, program, arguments)} for every item the check
     read. Each finding names its item with data["plist"]. Applies marks, then
     records the content hash on warnings that could be marked, so the app can
-    offer "This is mine" with an id covering exactly what runs now.
+    offer "It's mine" with an id covering exactly what runs now.
     """
     def item_of(f):
         return tasks.get(f.data.get("plist")) if isinstance(f.data, dict) else None
@@ -775,7 +1252,7 @@ _TASK_FIELDS = ("label", "plist", "program", "arguments_sha256")
 
 
 def link_task_marks(findings: list[dict]) -> list[dict]:
-    """Group the scan's output by background task, after every module ran.
+    """Group the scan's output by background task (or by setting/item), after every module ran.
 
     The same task is often reported by more than one check (one finding code
     each). A person who says "this is mine" means the task, so:
@@ -798,13 +1275,21 @@ def link_task_marks(findings: list[dict]) -> list[dict]:
             key = tuple(m.get(k) for k in (*_TASK_FIELDS, "content_sha256"))
             if all(isinstance(v, str) and v for v in key) and isinstance(m.get("id"), str):
                 offers.setdefault(key, []).append(m)
+        elif isinstance(m, dict) and m.get("kind") in ITEM_KINDS:
+            # A setting or item: the same one on several cards has the same group.
+            key = (m["kind"], m.get("group"))
+            if isinstance(key[1], str) and key[1] and isinstance(m.get("id"), str):
+                offers.setdefault(key, []).append(m)
         data = f.get("data")
         if (
             isinstance(data, dict)
             and data.get("marked_by_user") is True
             and isinstance(data.get("known_item_id"), str)
         ):
-            key = tuple(data.get(k) for k in _TASK_FIELDS)
+            if data.get("marked_kind") in ITEM_KINDS:
+                key = (data["marked_kind"], data.get("marked_key"))
+            else:
+                key = tuple(data.get(k) for k in _TASK_FIELDS)
             if all(isinstance(v, str) and v for v in key):
                 marked.setdefault(key, []).append(f)
     for group in offers.values():

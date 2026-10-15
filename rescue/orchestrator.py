@@ -19,6 +19,24 @@ DEFAULT_MODULE_TIMEOUT = 60.0
 _T = TypeVar("_T")
 
 
+def _apply_item_marks(module_name: str, findings: list, marks):
+    """Apply "marked as yours" for settings and installed items to one check's
+    findings. `marks` is (items, problem) from one read of the list per scan,
+    or None until first needed. Returns it for the next module. Never raises:
+    a problem with the list must not break a check."""
+    try:
+        from rescue import known_items
+
+        if not any(known_items.item_kind_for(getattr(f, "code", None)) for f in findings):
+            return marks
+        if marks is None:
+            marks = known_items.KnownItemsStore().load_for_scan()
+        known_items.apply_item_marks(module_name, findings, marks[0], marks[1])
+    except Exception:
+        logger.exception("Could not apply marked items to %s", module_name)
+    return marks
+
+
 class _Timeout(Exception):
     """A module check exceeded its per-module time budget."""
 
@@ -85,6 +103,7 @@ class Orchestrator:
         modules = topological_sort(modules)
 
         results = []
+        marks = None  # the "marked as yours" list, read once when first needed
         start = time.monotonic()
         budget_exhausted = False
         total = len(modules)
@@ -117,6 +136,8 @@ class Orchestrator:
             except Exception as exc:
                 logger.exception("Module check failed: %s", mod.name)
                 check = CheckResult(module_name=mod.name, error=str(exc))
+            if not check.error:
+                marks = _apply_item_marks(mod.name, check.findings, marks)
             results.append((mod, check))
             report("done", index, total, mod, check)
         return results

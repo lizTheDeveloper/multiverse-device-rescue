@@ -110,18 +110,29 @@ function runUndo(quarantineId, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
 // main process; it is checked again here because it is passed to the engine.
 const MARK_ID = /^[0-9a-f]{12}$/;
 const MARK_CODE = /^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$/;
-const MARK_TIMEOUT_MS = 30000;
+// Long enough for the engine to run one check again before it saves.
+const MARK_TIMEOUT_MS = 90000;
 
 function clean(s, max = 1024) {
   return typeof s === 'string' && s.length > 0 && s.length < max && !s.includes('\0');
 }
 
+// Settings and installed items: the engine runs the check again and matches the id.
+const ITEM_KINDS = new Set([
+  'sharing_service', 'network_proxy', 'system_extension', 'browser_extension',
+  'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
+]);
+const NEVER_MARKABLE_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+
 function markArgs(target) {
   const t = target || {};
-  if (t.kind !== 'background_task') throw new Error('invalid kind');
-  if (!clean(t.label, 256) || t.label.startsWith('-')) throw new Error('invalid label');
-  if (!clean(t.program) || !(t.program.startsWith('/') || t.program.startsWith('~'))) throw new Error('invalid program');
-  if (!clean(t.plist) || !t.plist.startsWith('/')) throw new Error('invalid plist');
+  const item = ITEM_KINDS.has(t.kind);
+  if (!item) {
+    if (t.kind !== 'background_task') throw new Error('invalid kind');
+    if (!clean(t.label, 256) || t.label.startsWith('-')) throw new Error('invalid label');
+    if (!clean(t.program) || !(t.program.startsWith('/') || t.program.startsWith('~'))) throw new Error('invalid program');
+    if (!clean(t.plist) || !t.plist.startsWith('/')) throw new Error('invalid plist');
+  }
   const marks = Array.isArray(t.marks) && t.marks.length ? t.marks : [{ code: t.code, id: t.id }];
   if (!marks.some((m) => m && m.id === t.id)) throw new Error('invalid marks');
   const codes = new Set();
@@ -131,13 +142,15 @@ function markArgs(target) {
     if (!m || typeof m.code !== 'string' || !MARK_CODE.test(m.code)) throw new Error('invalid code');
     if (typeof m.id !== 'string' || !MARK_ID.test(m.id)) throw new Error('invalid id');
     if (codes.has(m.code) || ids.has(m.id)) throw new Error('duplicate mark');
+    if (NEVER_MARKABLE_MODULES.has(m.code.split('.')[1])) throw new Error('not markable');
     codes.add(m.code);
     ids.add(m.id);
     pairs.push('--code', m.code, '--expect-id', m.id);
   }
   // The person has already confirmed in the app, hence --i-understand. The
-  // engine re-reads the task and refuses all of them unless each code still
-  // hashes to its --expect-id.
+  // engine re-reads the task (or runs the check again) and refuses all of
+  // them unless each code still hashes to its --expect-id.
+  if (item) return ['known', 'add', ...pairs, '--json', '--i-understand'];
   return ['known', 'add', ...pairs, '--label', t.label, '--program', t.program,
     '--plist', t.plist, '--json', '--i-understand'];
 }

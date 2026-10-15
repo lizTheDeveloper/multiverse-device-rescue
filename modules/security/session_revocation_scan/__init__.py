@@ -22,6 +22,7 @@ answers "what must I revoke", and orders the guidance so the password change
 happens *before* the sign-out, which is the part people get backwards.
 """
 
+import hashlib
 from pathlib import Path
 
 from rescue.models import (
@@ -243,7 +244,7 @@ class Module(ModuleBase):
                         )
                         + "Most people never set this up. People who write software or "
                         "look after computers often do, for their own other machines.\n\n"
-                        "We only counted the keys. We did not read them.\n\n"
+                        "We only counted the keys. We did not show or copy them.\n\n"
                         "If you think someone close to you set this up to monitor you, "
                         "removing it can alert them. Talk to an advocate first (US National "
                         "Domestic Violence Hotline: 1-800-799-7233, or text START to "
@@ -261,7 +262,7 @@ class Module(ModuleBase):
                     severity=Severity.WARNING,
                     category=self.category,
                     code="security.session_revocation_scan.ssh_authorized_keys",
-                    data={"check": "ssh_authorized_keys", "key_count": ssh_keys},
+                    data=self._authorized_keys_data(ssh_keys),
                 )
             )
 
@@ -462,6 +463,36 @@ class Module(ModuleBase):
         if self.authorized_keys_path is not None:
             return Path(self.authorized_keys_path)
         return Path(_SSH_AUTHORIZED_KEYS).expanduser()
+
+    def _authorized_keys_data(self, count: int) -> dict:
+        data = {"check": "ssh_authorized_keys", "key_count": count}
+        digest = self._authorized_keys_sha256()
+        if digest:
+            data["list_sha256"] = digest
+        return data
+
+    def _authorized_keys_sha256(self) -> str | None:
+        """A one-way fingerprint of the list of keys, so a key added or changed
+        later can be told apart from the list the person said was theirs. The
+        keys themselves are never returned or shown."""
+        path = self._authorized_keys_path()
+        if not is_file_nofollow(path):
+            return None
+        entries = []
+        try:
+            with open(path, "r", errors="replace") as handle:
+                for index, line in enumerate(handle):
+                    if index >= _MAX_AUTHORIZED_KEYS_LINES:
+                        return None  # too long to pin: never markable
+                    stripped = line.strip()
+                    if stripped and not stripped.startswith("#"):
+                        entries.append(stripped)
+        except OSError:
+            return None
+        if not entries:
+            return None
+        blob = "\n".join(sorted(entries)).encode("utf-8", "replace")
+        return hashlib.sha256(blob).hexdigest()
 
     def _authorized_keys_count(self) -> int:
         """Count authorised entries without reading key material.

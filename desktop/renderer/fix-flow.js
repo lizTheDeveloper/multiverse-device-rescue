@@ -164,9 +164,12 @@ const FixFlow = (function () {
   const CLICK_TARGETS = '[data-fix-open],[data-fix-confirm],[data-fix-cancel],[data-fix-undo]';
 
   // Delegated handlers on a container that survives re-renders. `api.runFix(name)`
-  // is the preload bridge to the 'run-fix' IPC channel.
-  function attach(root, api) {
+  // is the preload bridge to the 'run-fix' IPC channel. `hooks` (optional):
+  // onFixed(cards) after a fix the engine confirmed by checking again, and
+  // onRestored(cards) after Undo put it back, with every card it covered.
+  function attach(root, api, hooks) {
     const state = new WeakMap(); // card element -> 'confirming' | 'running'
+    const on = hooks || {};
 
     function cardOf(el) {
       return el && el.closest ? el.closest('[data-fix-module]') : null;
@@ -187,6 +190,7 @@ const FixFlow = (function () {
     }
 
     function markHandledElsewhere(card) {
+      const touched = [];
       for (const other of sameTargetCards(card)) {
         if (state.get(other) === 'running') continue;
         closePanel(other);
@@ -195,18 +199,23 @@ const FixFlow = (function () {
         if (open) open.hidden = true;
         if (status) { status.hidden = false; status.innerHTML = handledElsewhereHtml(); }
         other.setAttribute('data-fix-handled-by-other', '');
+        touched.push(other);
       }
+      return touched;
     }
 
     function unmarkHandledElsewhere(card) {
+      const touched = [];
       for (const other of sameTargetCards(card)) {
         if (!other.hasAttribute('data-fix-handled-by-other')) continue;
+        touched.push(other);
         other.removeAttribute('data-fix-handled-by-other');
         const open = other.querySelector('[data-fix-open]');
         const status = other.querySelector('[data-fix-status]');
         if (open) open.hidden = false;
         if (status) { status.hidden = true; status.innerHTML = ''; }
       }
+      return touched;
     }
 
     function closePanel(card) {
@@ -233,7 +242,8 @@ const FixFlow = (function () {
         status.innerHTML = resultHtml(result);
         const d = describeFixResult(result);
         state.delete(card);
-        if (action && (d.tone === 'success' || d.tone === 'info')) markHandledElsewhere(card);
+        const others = action && (d.tone === 'success' || d.tone === 'info') ? markHandledElsewhere(card) : [];
+        if (d.tone === 'success' && typeof on.onFixed === 'function') on.onFixed([card, ...others]);
         // After a real success there is nothing left to offer; otherwise allow a retry.
         if (open && d.tone !== 'success' && d.tone !== 'info') open.hidden = false;
       } catch (_) {
@@ -255,7 +265,8 @@ const FixFlow = (function () {
         status.innerHTML = resultHtml(result);
         if (describeFixResult(result).restored === true) {
           if (open) open.hidden = false;
-          unmarkHandledElsewhere(card);
+          const others = unmarkHandledElsewhere(card);
+          if (typeof on.onRestored === 'function') on.onRestored([card, ...others]);
         }
       } catch (_) {
         status.innerHTML = errorHtml();

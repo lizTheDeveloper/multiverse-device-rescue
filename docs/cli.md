@@ -494,6 +494,7 @@ the approval threshold means updates stop applying — which is the safe failure
 
 ```console
 $ rescue known add --code <finding code> [--expect-id <id>] [--code ... [--expect-id ...]] --label <label> --program <program path> [--plist <path>] [--json]
+$ rescue known add --code <finding code> --expect-id <id> [--code ... --expect-id ...] [--json]
 $ rescue known list [--json]
 $ rescue known remove <id> [<id> ...] [--json]
 ```
@@ -504,27 +505,48 @@ mark it. A marked item is **not hidden**: on every scan it is still listed, as
 an `info` finding titled "Background task you marked as yours: <label>", with
 `data["marked_by_user"] = true`, `known_item_id`, `marked_at`,
 `original_severity` and `original_title`, so a helper reading the scan or an
-export can see what was marked and when. Only background tasks (the
-`launch_agent_audit` and `launchd_persistence_audit` checks) honour marks today.
+export can see what was marked and when.
+
+Two families of things can be marked:
+
+* **Background tasks** (`launch_agent_audit`, `launchd_persistence_audit`):
+  named with `--label` and `--program`, as below.
+* **Settings and installed items**: named by the finding `--code` and the mark
+  id the checkup offered (`--expect-id`, from `markable.id` in
+  `rescue scan --json`). `add` runs that check again right then and refuses
+  unless it still reports exactly that item. What each kind pins:
+
+| Kind | Checks and codes | Pinned (all must match) | "Changed since you marked it" when |
+| --- | --- | --- | --- |
+| `sharing_service` | `sharing_services`, `sharing_preferences_audit`, `remote_login_check`, `airdrop_config` warnings about one service | code, service, state (`on`) | never: the finding only exists while it is on |
+| `network_proxy` | `security.network_proxy.proxy_enabled` | code, interface, every enabled proxy as `TYPE host:port` | a proxy server or port changes |
+| `system_extension` | `security.system_extensions.unusual_state` | code, bundle id, team ID, state | the team ID or state changes (an unknown team ID can't be marked) |
+| `browser_extension` | `security.browser_extension_audit.excessive_permissions` | code, browser, extension id, name, the risky permissions | the name or permissions change |
+| `app_permissions` | `app_permissions.accessibility_access`, `privacy_permissions_audit` camera/microphone/combination warnings, `accessibility_permissions.suspicious_accessibility` | code, SHA-256 of the sorted app list, how many | any app is added or removed |
+| `ssh_authorized_keys` | `security.session_revocation_scan.ssh_authorized_keys` | code, SHA-256 of the key lines, how many | any key is added, removed or changed |
+| `ai_tooling` | `ai_threat_indicators.ai_api_key_found`, `ai_threat_indicators.cron_ai_call` | code, the key's name, or a SHA-256 of the whole scheduled line | (a different line is a different item) |
+
+Nothing from `stalkerware_scan`, `mvt_spyware_scan` or `keylogger_indicators`
+can ever be marked, whatever the code.
 
 Both checks often report the same task. In `rescue scan --json`, each
 markable warning's `markable.ids` lists the mark ids of every markable warning
 about that same task in that scan (same label, plist, program, arguments and
 content), and each marked finding's `marked_ids` lists that task's marks. The
-app's "This is mine" uses them, so one confirmation marks the task under every
+app's "It's mine" uses them, so one confirmation marks the task under every
 check that warned about it, and "Stop treating this as mine" removes them all.
 A critical finding is never part of the group.
 
 | Command | Flag | Effect |
 | --- | --- | --- |
 | `known add` | `--code` (**required**, repeatable) | The finding code to stop flagging, e.g. `security.launch_agent_audit.suspicious_path`. A mark covers only that code; both background-task checks can report the same task, so give one `--code` for each. |
-| | `--label` (**required**) | The task's label, as the finding shows it. |
-| | `--program` (**required**) | The exact program path the finding shows. |
+| | `--label` | Background tasks (required for them): the task's label, as the finding shows it. Leave out `--label`, `--program` and `--plist` for a setting or installed item. |
+| | `--program` | Background tasks (required for them): the exact program path the finding shows. |
 | | `--plist` | The task's settings file. Found automatically in `~/Library/LaunchAgents`, `/Library/LaunchAgents` and `/Library/LaunchDaemons` if left out. |
-| | `--expect-id` (repeatable) | Refuse unless the task, re-read from disk now, still matches this mark id. Give one per `--code`, in the same order. The app passes the ids the scan offered, so a task that changed after the checkup is never marked. If any one does not match, nothing is saved; all the marks are written together or not at all. |
-| | `--json` | Print one JSON document: `status` (`marked`, `already_marked`, `refused`, `cancelled`, `failed`), `id`, `ids`, `label`, `message`, `how_to_undo`. |
+| | `--expect-id` (repeatable; required for settings and items) | Refuse unless the task, re-read from disk now (or, for a setting or item, the check run again now), still matches this mark id. Several codes for a setting or item must all be about the same one. Give one per `--code`, in the same order. The app passes the ids the scan offered, so a task that changed after the checkup is never marked. If any one does not match, nothing is saved; all the marks are written together or not at all. |
+| | `--json` | Print one JSON document: `status` (`marked`, `already_marked`, `refused`, `cancelled`, `failed`), `id`, `ids`, `label`, `message`, `how_to_undo` (and `kind` for a setting or item). |
 | | `--i-understand` | Skip the typed confirmation. Used by the desktop app after its own confirmation. Never pass it on someone's behalf. |
-| `known list` | `--json` | Print every mark: id, kind, label, program, settings file, when and how it was marked. |
+| `known list` | `--json` | Print every mark: id, kind, label, what it pins (program and settings file, or the setting's fields), when and how it was marked. |
 | `known remove <id> [<id> ...]` | `--json` | Remove one or more marks in a single write. The warnings come back on the next scan. `--json` adds `ids`: what was removed. |
 
 What a mark pins: the finding code (which names the check), the label, the

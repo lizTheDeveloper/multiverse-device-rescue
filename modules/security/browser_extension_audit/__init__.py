@@ -183,6 +183,7 @@ class Module(ModuleBase):
                                 "check": "excessive_permissions",
                                 "browser": browser,
                                 "extension": ext_data.get("name", ext_id),
+                                "extension_id": ext_id,
                                 "permissions": dangerous_perms,
                             },
                         )

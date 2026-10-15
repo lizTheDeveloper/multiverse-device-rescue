@@ -518,20 +518,63 @@ if (typeof document !== 'undefined') {
       document.getElementById('results-learn-text').textContent = learn.text;
     }
 
+    // Per card, for the session answers: what "Copy for any AI" and the
+    // technical details say about it. Reset on every render.
+    let cardPicks = new Map(); // card key -> copy-ai pick
+    let cardTech = new Map(); // card key -> technical-details object
+    let nextCardKey = 0;
+
+    function techText(key, how) {
+      const base = cardTech.get(key) || {};
+      const said = ClearList.personSaid(how);
+      return JSON.stringify(said ? Object.assign({}, base, { person_said: said }) : base, null, 2);
+    }
+
+    // A card was cleared (how) or put back (null): keep the AI text and the
+    // technical details honest about it.
+    function onCardChange(card, how) {
+      const key = card.getAttribute('data-card-key');
+      const pick = cardPicks.get(key);
+      if (pick) {
+        const said = ClearList.personSaid(how);
+        if (said) pick.person_said = said; else delete pick.person_said;
+      }
+      const pre = card.querySelector('[data-tech-log]');
+      if (pre) pre.textContent = techText(key, how);
+    }
+
     function renderSeverityGroup(severity, findings) {
       if (findings.length === 0) return '';
+      const watched = !!(situation && situation.id === 'watched');
       const items = findings
-        .map(
-          (finding) => `
-            <li class="finding-card finding-card--${severity}">
+        .map((finding) => {
+          const key = String(nextCardKey++);
+          const pick = copyAiPick(finding);
+          cardPicks.set(key, pick);
+          cardTech.set(key, {
+            check: finding.module,
+            code: finding.code || null,
+            category: finding.category,
+            confidence: finding.confidence == null ? null : finding.confidence,
+            evidence: finding.data || {},
+          });
+          const marked = !!(finding.data && finding.data.marked_by_user === true);
+          // On the list: everything worth acting on, plus what was marked as yours.
+          const counts = severity === 'critical' || severity === 'warning' || marked;
+          return `
+            <li class="finding-card finding-card--${severity}" data-card-key="${key}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}>
               <div class="finding-card__header">
                 <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
+              <div class="cleared-note" data-cleared-note role="status" aria-live="polite" hidden></div>
               ${descriptionHtml(wantsSafetyNote(situation, finding) ? finding.description : withoutSafetyParagraphs(finding.description), escapeHtml)}
               ${madeByHtml(finding.made_by, escapeHtml)}
-              ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
-              ${MarkFlow.markControlsHtml(finding)}
+              <div class="card-answers">
+              ${FixFlow.fixControlsHtml(finding, { watched })}
+              ${MarkFlow.markControlsHtml(finding, { watched })}
+              ${marked ? '' : ClearList.didControlsHtml(finding, severity, escapeHtml)}
+              </div>
               ${wantsSafetyNote(situation, finding) ? safetyNoteHtml(finding, escapeHtml) : ''}
               ${finding.remediation && (finding.remediation.steps || []).length ? `
               <div class="next-steps">
@@ -550,30 +593,25 @@ if (typeof document !== 'undefined') {
                 </ol>
               </details>` : ''}
               ${askButtonHtml(finding)}
-              ${copyAiButtonHtml(finding)}
+              ${copyAiButtonHtml(finding, pick)}
               <details class="tech-details">
                 <summary>Technical details</summary>
-                <pre class="tech-log">${escapeHtml(JSON.stringify({
-                  check: finding.module,
-                  code: finding.code || null,
-                  category: finding.category,
-                  confidence: finding.confidence == null ? null : finding.confidence,
-                  evidence: finding.data || {},
-                }, null, 2))}</pre>
+                <pre class="tech-log" data-tech-log>${escapeHtml(techText(key, null))}</pre>
               </details>
             </li>
-          `
-        )
+          `;
+        })
         .join('');
 
       return `
-        <section class="results-group results-group--${severity}">
+        <section class="results-group results-group--${severity}" data-results-group="${severity}">
           <h2>
             <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
             <span class="results-group__count">${findings.length}</span>
           </h2>
           <p class="muted">${escapeHtml(SEVERITY_DESCRIPTIONS[severity])}</p>
-          <ul class="findings-list">${items}</ul>
+          <p class="muted results-group__empty" data-group-empty hidden>Nothing left here. Everything in this group is in “Cleared” below.</p>
+          <ul class="findings-list" data-group-list>${items}</ul>
         </section>
       `;
     }
@@ -593,15 +631,27 @@ if (typeof document !== 'undefined') {
         summaryEl.innerHTML = `<p>We found <strong>${total}</strong> thing${total === 1 ? '' : 's'} worth a look, grouped by how important they are.</p>`;
       }
 
-      // Before the cards render: it resets the per-finding copy registry.
+      // Before the cards render: it resets the per-finding copy registry. The
+      // whole-report copy uses the same per-card objects, so an answer given
+      // on a card ("I did this", "It's mine") shows in both.
+      const reportFindings = [];
       setCopyAiReport({
-        findings: SEVERITY_ORDER.flatMap((sev) => groups[sev].map(copyAiPick)),
+        findings: reportFindings,
         situation: situation ? situation.title : undefined,
         platform: doc && doc.platform,
         couldNotCheck: erroredModules.map((m) => m.name),
       });
+      cardPicks = new Map();
+      cardTech = new Map();
+      nextCardKey = 0;
       const groupsEl = document.getElementById('results-groups');
-      groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev])).join('');
+      groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev])).join('')
+        + ClearList.sectionHtml();
+      reportFindings.push(...cardPicks.values());
+
+      // Items marked as yours on an earlier checkup start out cleared.
+      clearList.reset({ couldNotCheck: erroredModules.length });
+      groupsEl.querySelectorAll('[data-marked-before]').forEach((card) => clearList.clear(card, 'marked_before'));
 
       const errorsSection = document.getElementById('results-errors');
       const errorsList = document.getElementById('results-errors-list');
@@ -720,10 +770,26 @@ if (typeof document !== 'undefined') {
       showScreen('welcome');
     }
 
+    // Clearing the list: answered cards move to "Cleared" at the bottom.
+    const resultsRoot = document.getElementById('results-groups');
+    let markControl = null;
+    const clearList = ClearList.attach(resultsRoot, {
+      progressEl: document.getElementById('results-progress'),
+      esc: escapeHtml,
+      onChange: onCardChange,
+      undoMark: (markCard) => markControl && markControl.unmark(markCard),
+    });
+    const cardsOf = (els) => els.map((el) => clearList.cardOf(el)).filter(Boolean);
     // "Fix it for me": delegated, so it keeps working when results are re-rendered.
-    FixFlow.attach(document.getElementById('results-groups'), window.rescue);
-    // "This is mine": same delegation; the engine keeps marked items listed.
-    MarkFlow.attach(document.getElementById('results-groups'), window.rescue);
+    FixFlow.attach(resultsRoot, window.rescue, {
+      onFixed: (els) => cardsOf(els).forEach((card) => clearList.clear(card, 'fixed')),
+      onRestored: (els) => cardsOf(els).forEach((card) => clearList.restore(card)),
+    });
+    // "It's mine": same delegation; the engine keeps marked items listed.
+    markControl = MarkFlow.attach(resultsRoot, window.rescue, {
+      onMarked: (els) => cardsOf(els).forEach((card) => clearList.clear(card, 'marked')),
+      onUnmarked: (els) => cardsOf(els).forEach((card) => clearList.restore(card)),
+    });
 
     document.getElementById('btn-get-started').addEventListener('click', () => {
       showScreen('worry');
