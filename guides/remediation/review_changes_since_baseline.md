@@ -7,6 +7,11 @@ remediates:
   - security.security_baseline_diff.new_listening_port
   - security.security_baseline_diff.new_browser_extension
   - security.security_baseline_diff.protection_disabled
+steps_for:
+  security.security_baseline_diff.new_persistence: [2]
+  security.security_baseline_diff.new_listening_port: [4]
+  security.security_baseline_diff.new_browser_extension: [3]
+  security.security_baseline_diff.protection_disabled: [1]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -22,7 +27,7 @@ removing what they installed can alert that person. Talk to an advocate first
 (US National DV Hotline: 1-800-799-7233, or text START to 88788). Take a photo
 of the finding so you have a record.
 
-## Step 1: Turn protections back on if any were switched off
+## Step 1: Turn on any security protections that were turned off
 
 If a protection was turned off and you didn't do it, treat it as the most
 important item here.
@@ -33,7 +38,7 @@ important item here.
   marked with a red or yellow icon.
 - **Linux:** turn your firewall back on (see "Turn on your firewall").
 
-## Step 2: Check new startup items
+## Step 2: Check for new apps that start when you turn on your computer
 
 - **Mac:** **System Settings > General > Login Items & Extensions**.
 - **Windows:** **Settings > Apps > Startup**.
@@ -41,13 +46,13 @@ important item here.
 Look for names you don't recognise. Switching an item off is gentler than
 deleting it and can be undone. Read the note above first.
 
-## Step 3: Check new browser extensions
+## Step 3: Check for new browser extensions you don't remember adding
 
 Open your browser's extensions page: in Chrome, the three-dot menu > **Extensions >
 Manage Extensions**; in Safari, **Safari > Settings > Extensions**; in Firefox,
 the menu > **Add-ons and themes**. Switch off any you don't remember adding.
 
-## Step 4: Check for new network listeners
+## Step 4: Check for new programs waiting for internet connections
 
 A new "listening port" means a program is waiting for incoming connections. If
 you recently installed something that shares files, plays media or lets you

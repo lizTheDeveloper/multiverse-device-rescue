@@ -11,6 +11,14 @@ remediates:
   - security.win_defender_deep_check.stale_full_scan
   - security.win_defender_deep_check.controlled_folder_access_disabled
   - security.win_defender_deep_check.all_passed
+steps_for:
+  security.win_defender_deep_check.realtime_disabled: [1]
+  security.win_defender_deep_check.cloud_protection_off: [2]
+  security.win_defender_deep_check.tamper_protection_disabled: [3]
+  security.win_defender_deep_check.excessive_exclusions: [4]
+  security.win_defender_deep_check.pua_protection_disabled: [5]
+  security.win_defender_deep_check.stale_full_scan: [6]
+  security.win_defender_deep_check.controlled_folder_access_disabled: [7]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6, 7]
 ---
@@ -25,7 +33,7 @@ protection disabled and you didn't disable it yourself, treat that as a
 possible sign of active malware (many families specifically disable
 Defender as a first step) rather than a routine misconfiguration.
 
-## Step 1: Real-time protection disabled (critical)
+## Step 1: Turn on real-time virus protection
 
 Real-time protection scans files as they're accessed; without it, malware
 can execute without being caught at the point of access.
@@ -52,7 +60,7 @@ can execute without being caught at the point of access.
    a running process) instead of continuing to fight the toggle.
 5. Once it holds, run a Quick Scan to confirm Defender is functioning.
 
-## Step 2: Cloud protection disabled
+## Step 2: Turn on cloud-based threat detection
 
 Cloud-delivered protection (MAPS) improves detection of new/emerging
 threats by checking suspicious files against Microsoft's cloud database.
@@ -64,7 +72,7 @@ threats by checking suspicious files against Microsoft's cloud database.
    fully automatic, via the same settings page — this is a reasonable
    middle ground, not a finding you need to fully resolve to zero risk.
 
-## Step 3: Tamper protection disabled
+## Step 3: Turn on tamper protection
 
 Tamper protection prevents other processes (including malware) from
 changing Defender settings, such as disabling real-time protection.
@@ -80,7 +88,7 @@ changing Defender settings, such as disabling real-time protection.
    and confirms tamper protection is actually holding before you rely on
    it.
 
-## Step 4: Excessive scan exclusions
+## Step 4: Review and remove unknown scan exclusions
 
 More than 10 combined path/extension/process exclusions were found.
 Exclusions are sometimes legitimately needed (development tool caches, VM
@@ -100,7 +108,7 @@ can hide in.
 4. After removing unrecognized exclusions, run a full scan (see Step 6) so
    Defender checks the paths that were previously excluded.
 
-## Step 5: PUA protection disabled
+## Step 5: Turn on unwanted app blocking
 
 Potentially Unwanted Application protection catches adware, bundled
 toolbars, and similarly unwanted-but-not-quite-malware software.
@@ -111,7 +119,7 @@ toolbars, and similarly unwanted-but-not-quite-malware software.
 2. This is a low-risk toggle to re-enable — it has no destructive effect,
    it just adds detection coverage.
 
-## Step 6: Stale full scan
+## Step 6: Run a full system scan
 
 More than 30 days have passed since the last full system scan. Quick scans
 (which run more frequently by default) only check common malware
@@ -130,7 +138,7 @@ locations; a full scan checks all files.
    though a monthly cadence via the default Windows Update maintenance
    window is usually sufficient for most home use.
 
-## Step 7: Controlled folder access disabled
+## Step 7: Turn on ransomware folder protection
 
 Controlled folder access blocks unrecognized applications from modifying
 files in protected folders (Documents, Pictures, Desktop, etc. by default)

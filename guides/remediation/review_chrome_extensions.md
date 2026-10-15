@@ -6,6 +6,10 @@ remediates:
   - security.chrome_extensions.broad_permissions
   - security.chrome_extensions.extension_bloat
   - security.chrome_extensions.installed_extensions
+steps_for:
+  security.chrome_extensions.broad_permissions: [1]
+  security.chrome_extensions.extension_bloat: [2]
+  security.chrome_extensions.installed_extensions: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -18,7 +22,7 @@ known malware/adware names, see `review_browser_extensions.md` (the
 `browser_extension_audit` module covers name-based detection across all
 browsers).
 
-## Step 1: Review an extension with broad permissions
+## Step 1: Check if a powerful extension is safe
 
 Broad permissions like `<all_urls>` or `webRequest` let an extension read
 and modify traffic on every site you visit. Many legitimate categories of
@@ -40,7 +44,7 @@ specific extension, not evidence of a problem.
    its site access to specific sites instead of all sites via "Details" >
    "Site access" if you want to reduce scope without removing it entirely.
 
-## Step 2: Reduce Chrome extension bloat
+## Step 2: Remove extensions you no longer use
 
 Flagged when more than 10 extensions are installed. More installed
 extensions means more background code and a larger attack surface, even
@@ -52,7 +56,7 @@ when each one is individually trustworthy.
 3. Consolidate overlapping tools (e.g. multiple screenshot/clipping
    extensions) down to one you trust.
 
-## Step 3: Review the full extension inventory
+## Step 3: Review your full list of browser add-ons
 
 Informational — lists every detected Chrome extension with its requested
 permissions.

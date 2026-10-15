@@ -8,6 +8,12 @@ remediates:
   - security.win_group_policy_audit.weak_password_policy
   - security.win_group_policy_audit.applocker_configured
   - security.win_group_policy_audit.status_report
+steps_for:
+  security.win_group_policy_audit.stale_domain_policies: [1]
+  security.win_group_policy_audit.restrictive_policy: [2]
+  security.win_group_policy_audit.weak_password_policy: [3]
+  security.win_group_policy_audit.applocker_configured: [4]
+  security.win_group_policy_audit.status_report: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -21,7 +27,7 @@ on, or IT-managed configurations you don't want to break. There is no
 automatable fix here; every step requires you to look at the actual policy
 source before acting.
 
-## Step 1: Stale domain Group Policies on a non-domain machine (WARNING)
+## Step 1: Remove leftover work or school settings
 
 Group Policies from a domain are still applied even though this machine is
 no longer domain-joined — common after leaving a job, replacing a work
@@ -39,7 +45,7 @@ laptop's domain membership, or an incomplete unenrollment.
    incorrect edits here can affect policy processing generally.
 5. Re-run the scan to confirm the stale policies are gone.
 
-## Step 2: Feature disabled by policy (WARNING)
+## Step 2: Check why a system tool is blocked
 
 Command Prompt, Task Manager, Registry Editor, or Control Panel is disabled
 via policy. This is a legitimate parental-control or corporate-lockdown
@@ -68,7 +74,7 @@ them.
    `respond_to_windows_malware_indicators.md` before assuming it's benign.
 6. Run `gpupdate /force` and re-run the scan to confirm.
 
-## Step 3: Weak minimum password length policy (WARNING)
+## Step 3: Make your password rules stronger
 
 The local password policy allows passwords shorter than 8 characters —
 weaker than Microsoft's recommended baseline, making accounts on this
@@ -86,7 +92,7 @@ local logins.
    password.
 4. Re-run the scan to confirm.
 
-## Step 4: AppLocker policies configured (INFO)
+## Step 4: Review app blocking rules
 
 AppLocker or software restriction policies are active, which can restrict
 which applications are allowed to run. This is informational — it may be
@@ -104,7 +110,7 @@ previous configuration.
 4. No action is required unless AppLocker is causing problems you can't
    explain — this finding exists to make you aware it's active.
 
-## Step 5: Group Policy status report (INFO)
+## Step 5: Read the Group Policy summary
 
 Summarizes domain-join status and applied GPO counts — use it as a
 baseline while working through Steps 1-4 and to confirm changes took

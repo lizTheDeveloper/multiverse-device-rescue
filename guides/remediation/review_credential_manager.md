@@ -7,6 +7,10 @@ remediates:
   - security.win_credential_manager_audit.domain_credentials_non_domain_joined
   - security.win_credential_manager_audit.generic_credentials_sensitive_services
   - security.win_credential_manager_audit.inventory_summary
+steps_for:
+  security.win_credential_manager_audit.credential_sprawl: [1]
+  security.win_credential_manager_audit.domain_credentials_non_domain_joined: [2]
+  security.win_credential_manager_audit.generic_credentials_sensitive_services: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -19,7 +23,7 @@ are frequently relied on by apps, mapped network drives, and saved Remote
 Desktop connections, and removing the wrong one can break something you use
 daily.
 
-## Step 1: Review for credential sprawl (excessive stored credentials)
+## Step 1: Remove old and unused saved passwords
 
 1. Open Credential Manager: Win+R, `control /name Microsoft.CredentialManager`.
 2. Go through the "Windows Credentials" and "Generic Credentials" lists. For
@@ -32,7 +36,7 @@ daily.
 4. Re-run the scan afterward — the credential count finding clears once the
    total drops below the threshold.
 
-## Step 2: Review cached domain credentials on a non-domain-joined machine
+## Step 2: Check if you still need your work login
 
 Cached domain credentials on a machine that isn't currently part of that
 domain are usually leftovers from a previous domain membership or a past
@@ -47,7 +51,7 @@ needing those credentials later.
 3. If you're not sure whether this device will rejoin a domain, leave the
    credentials in place and re-check later instead of guessing.
 
-## Step 3: Review generic credentials for sensitive services
+## Step 3: Review saved logins for important services
 
 Generic-type credentials for services like cloud consoles, source control,
 or password managers are functionally just stored secrets — worth a closer

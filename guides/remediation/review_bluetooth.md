@@ -5,6 +5,9 @@ platforms: [macos]
 remediates:
   - security.bluetooth_audit.paired_devices
   - security.bluetooth_audit.discoverable_state
+steps_for:
+  security.bluetooth_audit.paired_devices: [2]
+  security.bluetooth_audit.discoverable_state: [1]
 automatable_steps: []
 human_only_steps: [1, 2]
 ---
@@ -14,7 +17,7 @@ or other accessories. Nothing here should be disabled outright without
 confirming you don't need it — this walkthrough is about tightening
 discoverability and pruning stale pairings, not turning Bluetooth off.
 
-## Step 1: Disable Bluetooth discoverability if flagged
+## Step 1: Stop your Mac being discoverable over Bluetooth
 
 If the scan reports this Mac as discoverable, nearby devices can see and
 attempt to pair with it without you initiating the connection.
@@ -29,7 +32,7 @@ attempt to pair with it without you initiating the connection.
    DiscoverableState`.
 4. Re-run the scan to confirm the finding clears once the pane is closed.
 
-## Step 2: Review paired devices
+## Step 2: Remove Bluetooth devices you don't recognize
 
 This is an inventory finding — it lists every device currently paired with
 this Mac so you can confirm you recognize all of them.

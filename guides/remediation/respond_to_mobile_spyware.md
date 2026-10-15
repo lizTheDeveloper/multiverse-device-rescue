@@ -10,6 +10,14 @@ remediates:
   - security.mvt_spyware_scan.mvt_clean_scan
   - security.mvt_spyware_scan.mvt_backup_too_large
   - security.mvt_spyware_scan.mvt_scan_available
+steps_for:
+  security.mvt_spyware_scan.mvt_requires_wsl: [1]
+  security.mvt_spyware_scan.no_backups_found: [2]
+  security.mvt_spyware_scan.mvt_not_installed: [3]
+  security.mvt_spyware_scan.mvt_spyware_detected: [4]
+  security.mvt_spyware_scan.mvt_clean_scan: [5]
+  security.mvt_spyware_scan.mvt_backup_too_large: [2]
+  security.mvt_spyware_scan.mvt_scan_available: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -21,7 +29,7 @@ below is human-guided — none of it is automatable, because it involves your
 phone, an external CLI tool, and (in the worst case) irreversible actions
 like a factory reset.
 
-## Step 1: Set up MVT on Windows via WSL
+## Step 1: Install the spyware scanner on Windows
 
 MVT does not run natively on Windows.
 
@@ -35,7 +43,7 @@ MVT does not run natively on Windows.
 4. Re-run the `mvt_spyware_scan` module from inside WSL once MVT is
    installed.
 
-## Step 2: Create a device backup if none was found
+## Step 2: Make a backup of your phone
 
 This module can only scan backups it can find — it does not connect to a
 phone directly.
@@ -55,7 +63,7 @@ phone directly.
    guidance on Lockdown Mode and contacting Amnesty International's
    Security Lab immediately rather than waiting for scan results.
 
-## Step 3: Install MVT
+## Step 3: Install the spyware scanner
 
 1. Install MVT: `pip install mvt` (a Python virtual environment is
    recommended: `python3 -m venv mvt-env && source mvt-env/bin/activate &&
@@ -66,7 +74,7 @@ phone directly.
 3. Re-run the scan once installed; it will use `mvt-ios` or `mvt-android`
    automatically depending on what's found.
 
-## Step 4: Respond to a confirmed spyware detection — this is the critical path
+## Step 4: Clean your phone if spyware is found
 
 A `mvt_spyware_detected` finding means MVT matched a known indicator from
 Amnesty International's published spyware IOC feeds against your backup —
@@ -99,7 +107,7 @@ heuristic.
    clean* device — an infected phone may have exposed session tokens,
    2FA secrets, or credentials to the spyware operator.
 
-## Step 5: Clean-scan hygiene (no detection found)
+## Step 5: Keep your phone safe after a clean scan
 
 An `mvt_clean_scan` finding means MVT found no known indicators. This is
 **not** proof the device is clean — MVT can only detect indicators that
