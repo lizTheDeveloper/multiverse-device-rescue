@@ -35,10 +35,14 @@ class Module(ModuleBase):
             if mail_dir_gb > 10:
                 findings.append(
                     Finding(
-                        title=f"Mail data directory is large: {mail_dir_gb:.2f} GB",
+                        title=f"Your Mail data folder is large: {mail_dir_gb:.2f} GB",
                         description=(
-                            f"~/Library/Mail/ is {mail_dir_gb:.2f} GB. Large mail directories can slow down "
-                            "Mail.app and system performance. Consider archiving or deleting old emails."
+                            f"Your Mail data folder is currently {mail_dir_gb:.2f} GB.\n\n"
+                            "A large folder can make Mail.app feel slow when opening "
+                            "or searching. It is safe to clean up, but do not delete "
+                            "the folder itself.\n\n"
+                            "What to do: In Mail, delete old messages and attachments you "
+                            "don't need, then choose Mailbox > Erase Deleted Items."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -91,10 +95,16 @@ class Module(ModuleBase):
             if disabled_accounts > 0:
                 findings.append(
                     Finding(
-                        title=f"Disabled mail accounts detected: {disabled_accounts}",
+                        title=f"Mail has {disabled_accounts} account(s) turned off",
                         description=(
-                            f"Found {disabled_accounts} disabled mail account(s). "
-                            "Disabled accounts may not sync emails. Check Mail settings to re-enable if needed."
+                            f"We found {disabled_accounts} mail account(s) that are currently "
+                            "disabled.\n\n"
+                            "Disabled accounts do not download new emails. If you expect "
+                            "mail from these accounts, you may want to turn them back "
+                            "on.\n\n"
+                            "What to do: Open Mail, go to Settings > Accounts, and look "
+                            "for accounts with a checkmark or switch off. If you don't "
+                            "recognize an account, you can leave it disabled."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

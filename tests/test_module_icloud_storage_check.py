@@ -128,7 +128,7 @@ def test_icloud_storage_check_drive_sync_errors():
 
     assert any(f.data.get("check") == "drive_errors" and f.data.get("has_errors")
                for f in result.findings)
-    assert any(f.severity == Severity.WARNING and "sync errors" in f.title.lower()
+    assert any(f.severity == Severity.WARNING and "trouble syncing" in f.title.lower()
                for f in result.findings)
 
 

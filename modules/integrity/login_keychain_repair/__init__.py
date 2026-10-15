@@ -32,11 +32,16 @@ class Module(ModuleBase):
         if not login_keychain_path.exists():
             findings.append(
                 Finding(
-                    title="Login keychain file is missing",
+                    title="Your Mac's password storage file is missing",
                     description=(
-                        f"The login keychain file at {login_keychain_path} does not exist. "
-                        "This is a common cause of repeated password prompts. "
-                        "The keychain may be corrupted or in an unexpected location."
+                        "We couldn't find the file that stores your saved passwords at "
+                        f"{login_keychain_path}. "
+                        "It usually means the file was moved, renamed, or corrupted. "
+                        "The main effect is that your Mac will ask you to re-enter passwords "
+                        "more often than usual.\n\n"
+                        "What to do: Restart your Mac. If it's still missing, ask Apple "
+                        "Support for help before making a new one, so saved passwords "
+                        "aren't lost."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -49,11 +54,14 @@ class Module(ModuleBase):
             if lock_status == "locked":
                 findings.append(
                     Finding(
-                        title="Login keychain is locked",
+                        title="Your Mac's password storage is currently locked",
                         description=(
-                            "The login keychain is locked. "
-                            "A locked keychain is a common cause of repeated password prompts and app crashes. "
-                            "Unlock it in Keychain Access or via the security command."
+                            "Your Mac's password storage (called the login keychain) is "
+                            "currently locked. This is a normal security feature, but "
+                            "if it stays locked, apps will keep asking for your password.\n\n"
+                            "What to do: Restart your Mac and log in; that unlocks it. If "
+                            "apps keep asking, open Keychain Access and unlock 'login' in "
+                            "the sidebar."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -70,11 +78,14 @@ class Module(ModuleBase):
             if not is_default:
                 findings.append(
                     Finding(
-                        title="Login keychain is not set as the default",
+                        title="Your Mac is using the wrong password storage file",
                         description=(
-                            f"Default keychain is: {default_keychain or 'unknown'}. "
-                            "When the login keychain is not the default, macOS asks for passwords repeatedly. "
-                            "Set login.keychain-db as the default to fix authentication issues."
+                            f"Your Mac is set to use {default_keychain or 'unknown'} as "
+                            "its main password storage, instead of your standard login "
+                            "keychain. This causes your Mac to ask for passwords repeatedly "
+                            "because it's looking in the wrong place.\n\n"
+                            "What to do: Open Keychain Access, right-click 'login' in the "
+                            "sidebar, and choose Make Keychain \"login\" Default."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -90,11 +101,17 @@ class Module(ModuleBase):
             if lock_timeout is not None and lock_timeout < 300:  # 5 minutes = 300 seconds
                 findings.append(
                     Finding(
-                        title=f"Login keychain has a very short lock timeout ({lock_timeout}s)",
+                        title=(
+                            f"Your Mac locks its password storage too quickly ({lock_timeout}s)"
+                        ),
                         description=(
-                            f"The login keychain will auto-lock after {lock_timeout} seconds ({lock_timeout/60:.1f} minutes). "
-                            "Short timeouts cause repeated password prompts throughout the day. "
-                            "Increase the lock timeout to at least 5 minutes (300 seconds) or disable auto-lock."
+                            "Your Mac automatically locks its password storage after "
+                            f"{lock_timeout} seconds ({lock_timeout/60:.1f} minutes). "
+                            "This is a very short time. It means you will be asked to "
+                            "re-enter your password constantly, which is annoying.\n\n"
+                            "What to do: Open Keychain Access, select 'login' in the sidebar, "
+                            "choose Edit > Change Settings for Keychain \"login\", and "
+                            "set a longer time, or turn off 'Lock after'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

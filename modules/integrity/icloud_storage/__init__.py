@@ -40,10 +40,14 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"iCloud storage: {usage_gb:.2f} GB / {quota_gb:.2f} GB used ({usage_percent:.1f}%)",
+                    title=f"iCloud storage is {usage_percent:.1f}% full",
                     description=(
-                        f"iCloud storage usage: {usage_gb:.2f} GB out of {quota_gb:.2f} GB quota. "
-                        f"Available: {available_gb:.2f} GB."
+                        f"You are using {usage_gb:.2f} GB of your {quota_gb:.2f} GB iCloud "
+                        f"plan. That leaves {available_gb:.2f} GB free. If your storage "
+                        "gets too full, new photos and backups may stop syncing.\n\n"
+                        "What to do: If you are low on space, go to System Settings > "
+                        "Apple Account > iCloud > Manage Storage to see what is taking "
+                        "up room."
                     ),
                     severity=Severity.WARNING if usage_percent > 90 else Severity.INFO,
                     category=self.category,
@@ -134,11 +138,15 @@ class Module(ModuleBase):
                 severity = Severity.WARNING if size_gb > 5 else Severity.INFO
                 findings.append(
                     Finding(
-                        title=f"Desktop & Documents local size: {size_gb:.2f} GB",
+                        title=f"Desktop & Documents folders take up {size_gb:.2f} GB",
                         description=(
-                            f"Your local Desktop and Documents folders total {size_gb:.2f} GB. "
-                            "With Desktop & Documents sync enabled, these files consume iCloud quota. "
-                            "Ensure you have enough iCloud storage to accommodate this."
+                            f"Your local Desktop and Documents folders total {size_gb:.2f} "
+                            "GB. Because iCloud sync is on, these files count against "
+                            "your iCloud storage limit. Just make sure you have enough "
+                            "iCloud space so your files keep syncing.\n\n"
+                            "What to do: Nothing is required right now. If you run out "
+                            "of iCloud space, you can turn off Desktop & Documents sync "
+                            "in System Settings > Apple Account > iCloud."
                         ),
                         severity=severity,
                         category=self.category,

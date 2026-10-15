@@ -189,12 +189,18 @@ class Module(ModuleBase):
             if ip and ip.startswith("169.254."):
                 findings.append(
                     Finding(
-                        title=f"Interface {service} has self-assigned IP {ip}",
+                        title=(
+                            f"Your {service} connection is using a temporary address ({ip})"
+                        ),
                         description=(
-                            f"Network interface '{service}' is using a self-assigned IP address "
-                            f"({ip}). This indicates that DHCP configuration failed or the DHCP server "
-                            f"is unreachable. The interface has automatically assigned itself a non-routable "
-                            f"address, which prevents proper network communication."
+                            f"Your {service} connection is using a temporary address ({ip}) "
+                            "instead of a normal one. This usually happens when your "
+                            "computer can't reach the router to get a proper address. "
+                            "You likely won't be able to use the internet on this connection "
+                            "until it is fixed.\n\n"
+                            "What to do: Restart your Wi-Fi or Ethernet connection, or "
+                            "restart your router. If it persists, check that your router "
+                            "is working."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -224,12 +230,16 @@ class Module(ModuleBase):
             if len(services) > 1:
                 findings.append(
                     Finding(
-                        title=f"Duplicate IP address {ip} detected",
+                        title=f"Two connections are using the same address ({ip})",
                         description=(
-                            f"Multiple network interfaces are assigned the same IP address {ip}: "
-                            f"{', '.join(services)}. This creates IP address conflicts and can cause "
-                            f"network confusion, where packets intended for one interface may be "
-                            f"routed to another."
+                            f"Your computer has two connections ({', '.join(services)}) "
+                            f"using the same address ({ip}). This can cause your internet "
+                            "to be slow or unstable because the computer gets confused "
+                            "about which connection to use.\n\n"
+                            "What to do: Turn off the connection you don't need (like "
+                            "Bluetooth or a USB network adapter) in System Settings > "
+                            "Network. If you need both, a network professional can help "
+                            "assign them different addresses."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -264,11 +274,14 @@ class Module(ModuleBase):
                 elif "Wi-Fi" in line:
                     # Wi-Fi exists but is not first
                     return Finding(
-                        title="Wi-Fi is not the top priority network service",
+                        title="Wi-Fi is not your top priority connection",
                         description=(
-                            "Wi-Fi is not ranked as the highest priority network service. "
-                            "This can cause the system to prefer other network interfaces (like Ethernet, "
-                            "Bluetooth, or VPN) over Wi-Fi, potentially leading to unexpected connectivity behavior."
+                            "Your computer is set to use other connections (like Ethernet "
+                            "or Bluetooth) before Wi-Fi. This might cause unexpected behavior "
+                            "if you have multiple connections active at once.\n\n"
+                            "What to do: If you mostly use Wi-Fi, you can change the order "
+                            "in System Settings > Network: click the ... button below the "
+                            "list, choose Set Service Order, and drag Wi-Fi to the top."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

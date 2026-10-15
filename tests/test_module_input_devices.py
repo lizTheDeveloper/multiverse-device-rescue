@@ -187,7 +187,7 @@ def test_input_devices_minimum_mouse_tracking_speed_warning():
 
     assert result.has_issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("minimum" in f.title.lower() and "tracking" in f.title.lower() for f in warnings)
+    assert any("moves very slowly" in f.title.lower() for f in warnings)
 
 
 def test_input_devices_minimum_trackpad_tracking_speed_warning():
@@ -198,7 +198,7 @@ def test_input_devices_minimum_trackpad_tracking_speed_warning():
 
     assert result.has_issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("minimum" in f.title.lower() and "tracking" in f.title.lower() for f in warnings)
+    assert any("moves very slowly" in f.title.lower() for f in warnings)
 
 
 def test_input_devices_usb_devices():
