@@ -961,6 +961,84 @@ def apply_item_marks(module_name: str, findings: list[Finding], items: list[Know
     return findings
 
 
+# --- retiring marks for items that are gone -----------------------------------
+#
+# A mark on a setting or item covers it only while it stays. If a check that
+# reports it runs cleanly and no longer sees it (the service was turned off,
+# the proxy, extension, key list or app list is gone), the mark is removed.
+# If the thing comes back later, it is flagged again and the person decides
+# again. Without this, a mark on "Screen Sharing is on" would also quietly
+# cover someone turning Screen Sharing back on after the person turned it off.
+#
+# This is the one thing a scan writes: it only ever REMOVES entries from
+# Device Rescue's own list, through the same trusted read and atomic write as
+# `rescue known remove`. If the list is untrusted or damaged nothing is
+# written (and no mark applied anyway). A check that wrongly reports nothing
+# can only make a warning come back, never hide one.
+
+ITEM_MODULES = frozenset(m for spec in ITEM_KINDS.values() for m in spec["modules"])
+
+
+def marks_gone(module_name: str, findings: list, items: list[KnownItem]) -> list[KnownItem]:
+    """Marks on items this module reports that its findings no longer show.
+
+    "Still there" means some finding (any severity) with the mark's code is
+    about the same item: the same base identity, even if its evidence
+    changed (that is a stale mark, not a gone one).
+    """
+    if module_name in NEVER_MARKABLE_MODULES:
+        return []
+    mine = [
+        i for i in items
+        if i.kind in ITEM_KINDS and str(i.identity.get("code", "")).split(".")[1:2] == [module_name]
+    ]
+    if not mine:
+        return []
+    present = set()
+    for f in findings:
+        hit = item_identity(f)
+        if hit:
+            present.add(item_id(hit[0], base_identity(hit[0], hit[1])))
+    return [i for i in mine if i.base_id not in present]
+
+
+def retire_marks(gone: list[KnownItem], store: "KnownItemsStore | None" = None) -> list[KnownItem]:
+    """Remove these marks from the list. Returns what was removed ([] if the
+    list could not be trusted or written: nothing is changed then)."""
+    if not gone:
+        return []
+    try:
+        return (store or KnownItemsStore()).remove_many(i.id for i in gone)
+    except (KnownItemsError, OSError):
+        return []
+
+
+def retired_notice(item: KnownItem) -> Finding:
+    spec = KINDS.get(item.kind, {})
+    try:
+        label = str(spec["label_of"](item.identity))
+    except Exception:
+        label = item.kind
+    when = item.marked_at or "an earlier checkup"
+    return Finding(
+        title=f"No longer marked as yours: {label}",
+        description=(
+            f"On {when} you marked {label} as yours. This checkup didn't find it any more "
+            "(it is turned off, or gone), so Device Rescue removed that mark. If it comes "
+            "back, you'll be warned about it again and can decide again."
+        ),
+        severity=Severity.INFO,
+        category="security",
+        data={
+            "check": "known_item_retired",
+            "known_item_id": item.id,
+            "kind": item.kind,
+            "marked_at": item.marked_at,
+            "finding_code": item.identity.get("code"),
+        },
+    )
+
+
 def item_will_change(kind: str, identity: dict) -> str:
     spec = KINDS[kind]
     label = (spec.get("label_of") or (lambda i: ""))(identity)

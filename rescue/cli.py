@@ -347,7 +347,7 @@ def run(module_names, yes, copilot):
         except Exception as exc:
             check = CheckResult(module_name=mod.name, error=str(exc))
         if not check.error:
-            marks = _apply_item_marks(mod.name, check.findings, marks)
+            marks = _apply_item_marks(mod.name, check.findings, marks, getattr(check, "supported", True))
         checked.append((mod, check))
         click.echo(mod.report(check))
         if check.error:

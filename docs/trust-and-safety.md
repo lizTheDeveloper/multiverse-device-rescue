@@ -39,7 +39,7 @@ history or page contents, or opens your documents and photos. The
 | --- | --- |
 | `~/.rescue/sessions/<profile>.json` | `rescue guide` recording your progress |
 | `~/.rescue/cases/case-<timestamp>.{json,md}` | `rescue export` |
-| `~/.rescue/known_items.json` | `rescue known add` / `remove`, or "It's mine" in the app ("I did this" writes nothing) |
+| `~/.rescue/known_items.json` | `rescue known add` / `remove`, or "It's mine" in the app ("I did this" writes nothing). A scan may also **remove** a mark from this file when the check that reported the item no longer sees it (see below); it never adds one and never touches anything else on the system. |
 | `~/.config/rescue/revoked_signers.json` | `rescue trust revoke` |
 | `~/.local/share/rescue/content/` | `rescue update`, after signature verification |
 
@@ -422,10 +422,28 @@ Stated plainly, because you should know before you rely on them.
     evidence changes, the finding comes back at its normal severity with
     `mark_stale` and "has changed since you marked it". When a mark is saved,
     the engine runs the check again and refuses unless it still reports the
-    same item. One known gap: a sharing service is pinned as "on". If the
-    person turns it off and someone later turns it back on, the old mark
-    still covers it. It stays listed as "marked as yours", so a helper
-    should ask about every such item.
+    same item.
+
+    A mark on a setting or item only lasts while the item does. When a check
+    that reports it runs cleanly and no longer sees it (Screen Sharing turned
+    off, the proxy or extension removed, the key list emptied, the app list
+    back under the warning threshold), the scan removes that mark and says so
+    in an info finding ("No longer marked as yours: ..."). If the thing comes
+    back later, someone turning Screen Sharing on again for example, it is
+    flagged like any new warning. We chose to retire the mark rather than pin
+    something that changes on re-enable: macOS keeps no reliable "when was
+    this turned on" for these services, and anything like a process id would
+    also change on every restart, bringing the warning back for no reason.
+
+    That removal is the one write a scan makes, and only to Device Rescue's
+    own list: it goes through the same checks as `rescue known remove` (no
+    symlinks, owned by you, not writable by others, valid JSON) and an atomic
+    replace. If the list is not trusted, nothing is written and no mark
+    applies. It only ever removes; a check that wrongly reports nothing can
+    only bring a warning back, never hide one. A check that could not run
+    (an error, a timeout, or not supported here) retires nothing. Background
+    task marks are not retired this way; they pin the content of what runs
+    instead.
 
     Some things are deliberately not markable: VPN configurations (the checks
     record no server address, and the only warning is about an insecure

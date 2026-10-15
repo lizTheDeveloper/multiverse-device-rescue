@@ -620,16 +620,6 @@ if (typeof document !== 'undefined') {
       const { groups, erroredModules } = groupFindingsBySeverity(doc);
       const total = SEVERITY_ORDER.reduce((sum, sev) => sum + groups[sev].length, 0);
 
-      const summaryEl = document.getElementById('results-summary');
-      if (total === 0 && erroredModules.length > 0) {
-        summaryEl.innerHTML =
-          '<p class="results-summary__all-clear">Nothing stood out in the checks that ran. Some checks couldn\'t run on this computer &mdash; they\'re listed at the bottom.</p>';
-      } else if (total === 0) {
-        summaryEl.innerHTML =
-          '<p class="results-summary__all-clear">Nothing stood out during this checkup. Nice and tidy.</p>';
-      } else {
-        summaryEl.innerHTML = `<p>We found <strong>${total}</strong> thing${total === 1 ? '' : 's'} worth a look, grouped by how important they are.</p>`;
-      }
 
       // Before the cards render: it resets the per-finding copy registry. The
       // whole-report copy uses the same per-card objects, so an answer given
@@ -652,6 +642,20 @@ if (typeof document !== 'undefined') {
       // Items marked as yours on an earlier checkup start out cleared.
       clearList.reset({ couldNotCheck: erroredModules.length });
       groupsEl.querySelectorAll('[data-marked-before]').forEach((card) => clearList.clear(card, 'marked_before'));
+
+      // The sentence at the top counts what the progress bar counts.
+      const summaryEl = document.getElementById('results-summary');
+      const listCount = clearList.progress().total;
+      const said = ClearList.summaryText(listCount, total - listCount);
+      if (total === 0 && erroredModules.length > 0) {
+        summaryEl.innerHTML =
+          '<p class="results-summary__all-clear">Nothing stood out in the checks that ran. Some checks couldn\'t run on this computer &mdash; they\'re listed at the bottom.</p>';
+      } else if (total === 0 || !said) {
+        summaryEl.innerHTML =
+          '<p class="results-summary__all-clear">Nothing stood out during this checkup. Nice and tidy.</p>';
+      } else {
+        summaryEl.innerHTML = `<p>${escapeHtml(said)}</p>`;
+      }
 
       const errorsSection = document.getElementById('results-errors');
       const errorsList = document.getElementById('results-errors-list');

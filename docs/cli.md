@@ -529,6 +529,11 @@ Two families of things can be marked:
 Nothing from `stalkerware_scan`, `mvt_spyware_scan` or `keylogger_indicators`
 can ever be marked, whatever the code.
 
+A mark on a setting or item is removed by the scan itself when the check that
+reports it runs cleanly and no longer sees it (turned off, or gone). The scan
+adds an info finding with `data["check"] = "known_item_retired"` and the old
+`known_item_id`. If the item comes back, it is flagged again.
+
 Both checks often report the same task. In `rescue scan --json`, each
 markable warning's `markable.ids` lists the mark ids of every markable warning
 about that same task in that scan (same label, plist, program, arguments and

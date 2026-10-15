@@ -1156,3 +1156,19 @@ h3 {
 .results-cleared .finding-card [data-unmark] {
   display: none;
 }
+
+/* A cleared card is short: its title and the note, until "Show details". */
+.results-cleared .finding-card[data-cleared]:not([data-show-details]) > :not(.finding-card__header):not(.cleared-note) {
+  display: none;
+}
+
+.results-cleared .finding-card[data-cleared]:not([data-show-details]) {
+  padding-bottom: 0.6rem;
+}
+
+.cleared-note__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}

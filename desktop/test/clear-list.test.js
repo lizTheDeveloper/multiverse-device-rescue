@@ -288,3 +288,62 @@ test('monitoring-software findings never offer “It’s mine”, only the sessi
   // Even with an innocent module name, a code from one of those checks is refused.
   assert.strictEqual(MarkFlow.markControlsHtml({ module: 'sharing_services', markable }), '');
 });
+
+// --- the summary sentence and short cleared cards ------------------------------
+
+test('the summary counts what the progress bar counts, and reads well at 0 and 1', () => {
+  assert.strictEqual(ClearList.summaryText(12, 165), '12 things on your list, and 165 good-to-know notes further down.');
+  assert.strictEqual(ClearList.summaryText(1, 1), '1 thing on your list, and 1 good-to-know note further down.');
+  assert.strictEqual(ClearList.summaryText(3, 0), '3 things on your list, grouped by how important they are.');
+  assert.strictEqual(ClearList.summaryText(1, 0), '1 thing on your list, grouped by how important it is.');
+  assert.strictEqual(ClearList.summaryText(0, 1), 'Nothing on your list. There is 1 good-to-know note further down.');
+  assert.strictEqual(ClearList.summaryText(0, 7), 'Nothing on your list. There are 7 good-to-know notes further down.');
+  assert.strictEqual(ClearList.summaryText(0, 0), null);
+  // Same source: the controller's total is what the summary is given.
+  const p = page();
+  p.card('warning'); p.card('warning'); p.card('info'); p.card('info'); p.card('info');
+  const { ctl } = wire(p);
+  ctl.reset({});
+  assert.strictEqual(ctl.progress().total, 2);
+  assert.match(p.progressEl.innerHTML, /0 of 2 cleared/);
+});
+
+test('a cleared card is short until "Show details", and Undo opens it back up', async () => {
+  const p = page();
+  const a = p.card('warning');
+  const { ctl } = wire(p);
+  ctl.reset({});
+  await btn(a, '[data-clear-did]').click();
+  const note = btn(a, '[data-cleared-note]');
+  assert.match(note.innerHTML, /data-clear-details aria-expanded="false">Show details/);
+  assert.strictEqual(a.hasAttribute('data-show-details'), false, 'collapsed by default');
+  const toggle = note.add('button', { 'data-clear-details': '' });
+  await toggle.click();
+  assert.strictEqual(a.hasAttribute('data-show-details'), true);
+  assert.strictEqual(toggle.textContent, 'Hide details');
+  assert.strictEqual(toggle.getAttribute('aria-expanded'), 'true');
+  await toggle.click();
+  assert.strictEqual(a.hasAttribute('data-show-details'), false);
+  await toggle.click();
+  const undo = note.add('button', { 'data-clear-undo': '' });
+  await undo.click();
+  assert.strictEqual(a.parentNode, p.groups.warning);
+  assert.strictEqual(a.hasAttribute('data-show-details'), false, 'back in the list it is a normal card');
+});
+
+test('earlier marks start short too; Undo on a mark opens the card so the answer can be read', async () => {
+  const p = page();
+  const m = p.card('info', { unmark: { id: ID_A, group: [ID_A] }, markedBefore: true, counts: true, did: false });
+  let release;
+  const { ctl } = wire(p, { unmarkMine: () => new Promise((r) => { release = r; }) });
+  ctl.reset({});
+  ctl.clear(m, 'marked_before');
+  assert.strictEqual(m.hasAttribute('data-show-details'), false);
+  const undo = btn(m, '[data-cleared-note]').add('button', { 'data-clear-undo': '' });
+  const done = undo.click();
+  assert.strictEqual(m.hasAttribute('data-show-details'), true, 'opened while the engine answers');
+  release({ status: 'refused', message: 'Could not update the list.' });
+  await done;
+  assert.strictEqual(m.parentNode, p.clearedList, 'a refused unmark keeps it cleared');
+  assert.match(btn(m, '[data-mark-status]').innerHTML, /couldn’t mark|didn’t go through|Nothing was changed/);
+});

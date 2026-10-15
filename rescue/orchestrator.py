@@ -19,19 +19,33 @@ DEFAULT_MODULE_TIMEOUT = 60.0
 _T = TypeVar("_T")
 
 
-def _apply_item_marks(module_name: str, findings: list, marks):
+def _apply_item_marks(module_name: str, findings: list, marks, supported: bool = True):
     """Apply "marked as yours" for settings and installed items to one check's
-    findings. `marks` is (items, problem) from one read of the list per scan,
-    or None until first needed. Returns it for the next module. Never raises:
-    a problem with the list must not break a check."""
+    findings, and retire marks for items the check no longer sees.
+
+    `marks` is (items, problem) from one read of the list per scan, or None
+    until first needed. Returns it for the next module (without any marks
+    this check retired). `supported` False means the check could not look,
+    so nothing it did not report counts as gone. Never raises: a problem with
+    the list must not break a check.
+    """
     try:
         from rescue import known_items
 
-        if not any(known_items.item_kind_for(getattr(f, "code", None)) for f in findings):
+        if module_name not in known_items.ITEM_MODULES:
             return marks
         if marks is None:
             marks = known_items.KnownItemsStore().load_for_scan()
-        known_items.apply_item_marks(module_name, findings, marks[0], marks[1])
+        items, problem = marks
+        if any(known_items.item_kind_for(getattr(f, "code", None)) for f in findings):
+            known_items.apply_item_marks(module_name, findings, items, problem)
+        if supported and not problem:
+            gone = known_items.marks_gone(module_name, findings, items)
+            if gone:
+                retired = known_items.retire_marks(gone)
+                findings.extend(known_items.retired_notice(i) for i in retired)
+                retired_ids = {i.id for i in retired}
+                marks = ([i for i in items if i.id not in retired_ids], problem)
     except Exception:
         logger.exception("Could not apply marked items to %s", module_name)
     return marks
@@ -137,7 +151,7 @@ class Orchestrator:
                 logger.exception("Module check failed: %s", mod.name)
                 check = CheckResult(module_name=mod.name, error=str(exc))
             if not check.error:
-                marks = _apply_item_marks(mod.name, check.findings, marks)
+                marks = _apply_item_marks(mod.name, check.findings, marks, getattr(check, "supported", True))
             results.append((mod, check))
             report("done", index, total, mod, check)
         return results

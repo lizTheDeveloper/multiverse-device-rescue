@@ -422,3 +422,94 @@ def test_session_scan_fingerprints_the_key_list_without_returning_keys(tmp_path)
     assert len(data["list_sha256"]) == 64 and "secret-comment" not in json.dumps(data)
     keys.write_text("ssh-ed25519 AAAAC3Nza secret-comment@host\nssh-rsa BBBB other@host\n")
     assert mod._authorized_keys_data(2)["list_sha256"] != data["list_sha256"]
+
+
+# --- retiring a mark when the item is gone ----------------------------------------
+
+
+def _scan(module, findings, supported=True):
+    """What the orchestrator does after one check: returns the findings it ends with."""
+    findings = list(findings)
+    _apply_item_marks(module, findings, None, supported)
+    return findings
+
+
+@pytest.mark.parametrize("kind", sorted(CASES))
+def test_a_mark_is_retired_when_the_check_no_longer_sees_the_item(kind):
+    code, data, _, _ = CASES[kind]
+    item = _mark(kind, code, data)
+    out = _scan(_module_of(code), [])  # the check ran cleanly and found nothing
+    assert KnownItemsStore().load() == []
+    notice = [f for f in out if f.data.get("check") == "known_item_retired"]
+    assert len(notice) == 1 and notice[0].data["known_item_id"] == item.id
+    assert notice[0].severity == Severity.INFO and "No longer marked as yours" in notice[0].title
+    # It comes back: flagged again, not covered.
+    f = _f(code, data)
+    _scan(_module_of(code), [f])
+    assert f.severity == Severity.WARNING and "marked_by_user" not in f.data
+
+
+def test_sharing_service_off_then_on_is_flagged_again():
+    code = "security.sharing_services.screen_sharing"
+    _mark("sharing_service", code, {"service": "screen_sharing"})
+    on = _f(code, {"service": "screen_sharing"})
+    _scan("sharing_services", [on])
+    assert on.data.get("marked_by_user") is True  # still on: still covered
+    _scan("sharing_services", [_f("security.sharing_services.file_sharing", {"service": "file_sharing"})])  # off
+    again = _f(code, {"service": "screen_sharing"})
+    _scan("sharing_services", [again])  # someone turned it back on
+    assert again.severity == Severity.WARNING and "marked_by_user" not in again.data
+
+
+@pytest.mark.parametrize("kind", sorted(CASES))
+def test_changed_evidence_is_stale_not_retired(kind):
+    code, data, changed, _ = CASES[kind]
+    if changed is None:
+        pytest.skip("no evidence that can change")
+    _mark(kind, code, data)
+    out = _scan(_module_of(code), [_f(code, changed)])
+    assert len(KnownItemsStore().load()) == 1
+    assert out[0].data.get("mark_stale") is True
+
+
+def test_nothing_is_retired_when_the_check_could_not_look_or_for_other_checks():
+    code, data, _, _ = CASES["network_proxy"]
+    _mark("network_proxy", code, data)
+    _scan("network_proxy", [], supported=False)
+    _scan("sharing_services", [])  # a different check knows nothing about proxies
+    _scan("launch_agent_audit", [])  # not an item check at all
+    assert len(KnownItemsStore().load()) == 1
+
+
+def test_background_task_marks_are_never_retired_this_way():
+    item, _ = KnownItemsStore().add("background_task", {
+        "code": "security.launch_agent_audit.suspicious_path", "label": "x", "plist": "/p/x.plist",
+        "program": "/a/python", "arguments_sha256": SHA, "content_sha256": SHA2,
+    }, via="test")
+    assert known_items.marks_gone("launch_agent_audit", [], KnownItemsStore().load()) == []
+    assert KnownItemsStore().load()[0].id == item.id
+
+
+def test_an_untrusted_list_is_never_written(_isolated_known_items):
+    code, data, _, _ = CASES["sharing_service"]
+    _mark("sharing_service", code, data)
+    before = _isolated_known_items.read_text()
+    os.chmod(_isolated_known_items, 0o666)
+    out = _scan("sharing_services", [])
+    assert _isolated_known_items.read_text() == before
+    assert not any(f.data.get("check") == "known_item_retired" for f in out)
+    # And if the list turns untrusted between reading and writing, nothing is removed.
+    os.chmod(_isolated_known_items, 0o600)
+    items = KnownItemsStore().load()
+    os.chmod(_isolated_known_items, 0o666)
+    assert known_items.retire_marks(items) == []
+    assert _isolated_known_items.read_text() == before
+
+
+def test_only_the_gone_item_is_retired():
+    a = ("security.sharing_services.screen_sharing", {"service": "screen_sharing"})
+    b = ("security.sharing_services.printer_sharing", {"service": "printer_sharing"})
+    _mark("sharing_service", *a)
+    kept = _mark("sharing_service", *b)
+    _scan("sharing_services", [_f(*b)])
+    assert [i.id for i in KnownItemsStore().load()] == [kept.id]

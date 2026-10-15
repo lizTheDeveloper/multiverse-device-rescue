@@ -85,6 +85,20 @@ const ClearList = (function () {
     };
   }
 
+  // The sentence above the progress line, from the same counts: the list
+  // (what the progress bar counts) and the good-to-know notes below it.
+  // null when there is nothing at all (the page has its own words for that).
+  function summaryText(listCount, infoCount) {
+    const list = Math.max(0, listCount | 0);
+    const info = Math.max(0, infoCount | 0);
+    const notes = info === 1 ? '1 good-to-know note' : `${info} good-to-know notes`;
+    if (!list && !info) return null;
+    if (!list) return `Nothing on your list. There ${info === 1 ? 'is' : 'are'} ${notes} further down.`;
+    const things = list === 1 ? '1 thing on your list' : `${list} things on your list`;
+    if (!info) return `${things}, grouped by how important ${list === 1 ? 'it is' : 'they are'}.`;
+    return `${things}, and ${notes} further down.`;
+  }
+
   // The note on a cleared card.
   function noteText(how) {
     if (how === 'did') return 'You said you did this. This checkup only: nothing is saved, and your next checkup checks it again.';
@@ -198,8 +212,22 @@ const ClearList = (function () {
       if (!how) { note.hidden = true; note.innerHTML = ''; return; }
       const undo = undoLabel(how);
       note.hidden = false;
+      const open = card.hasAttribute('data-show-details');
       note.innerHTML = `<p class="cleared-note__text"><span class="cleared-note__tick" aria-hidden="true">✓</span> ${esc(noteText(how))}</p>
-        ${undo ? `<button type="button" class="btn btn--secondary btn--small" data-clear-undo>${esc(undo)}</button>` : ''}`;
+        <span class="cleared-note__actions">
+        ${undo ? `<button type="button" class="btn btn--secondary btn--small" data-clear-undo>${esc(undo)}</button>` : ''}
+        <button type="button" class="btn btn--secondary btn--small" data-clear-details aria-expanded="${open ? 'true' : 'false'}">${open ? 'Hide details' : 'Show details'}</button>
+        </span>`;
+    }
+
+    // A cleared card shows only its title and the note until asked.
+    function showDetails(card, open) {
+      if (open) card.setAttribute('data-show-details', ''); else card.removeAttribute('data-show-details');
+      const btn = card.querySelector('[data-clear-details]');
+      if (btn) {
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.textContent = open ? 'Hide details' : 'Show details';
+      }
     }
 
     function clear(card, how) {
@@ -233,6 +261,7 @@ const ClearList = (function () {
       }
       slots.delete(key);
       card.removeAttribute('data-cleared');
+      card.removeAttribute('data-show-details');
       if (card.hasAttribute('data-marked-before')) state.uncount(key);
       const did = card.querySelector('[data-did-wrap]');
       if (did) did.hidden = false;
@@ -242,13 +271,20 @@ const ClearList = (function () {
     }
 
     root.addEventListener('click', (event) => {
-      const target = event.target && event.target.closest ? event.target.closest('[data-clear-did],[data-clear-undo]') : null;
+      const target = event.target && event.target.closest
+        ? event.target.closest('[data-clear-did],[data-clear-undo],[data-clear-details]') : null;
       const card = cardOf(target);
       if (!target || !card) return;
       if (target.hasAttribute('data-clear-did')) { clear(card, 'did'); return; }
+      if (target.hasAttribute('data-clear-details')) {
+        showDetails(card, !card.hasAttribute('data-show-details'));
+        return;
+      }
       const how = state.how(keyOf(card));
       if (how === 'did' || how === 'fixed') { restore(card); return; }
       if ((how === 'marked' || how === 'marked_before') && typeof o.undoMark === 'function') {
+        // Open it, so the engine's answer (or a refusal) can be read.
+        showDetails(card, true);
         o.undoMark(card.querySelector('[data-mark-card]'));
       }
     });
@@ -275,7 +311,7 @@ const ClearList = (function () {
   }
 
   return {
-    createState, progressText, noteText, undoLabel, personSaid, didLabel, didControlsHtml, sectionHtml, attach,
+    createState, progressText, summaryText, noteText, undoLabel, personSaid, didLabel, didControlsHtml, sectionHtml, attach,
   };
 })();
 
