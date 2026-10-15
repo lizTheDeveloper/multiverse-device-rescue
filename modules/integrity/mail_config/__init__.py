@@ -116,10 +116,14 @@ class Module(ModuleBase):
             if pop_accounts > 0:
                 findings.append(
                     Finding(
-                        title=f"POP mail account(s) detected: {pop_accounts}",
+                        title=f"Your Mail app uses POP for {pop_accounts} account(s)",
                         description=(
-                            f"Found {pop_accounts} POP account(s). POP has limitations and synchronization issues. "
-                            "Consider switching to IMAP for better reliability."
+                            f"Your Mail app is set up with {pop_accounts} account(s) using "
+                            "a protocol called POP. POP downloads emails to your device "
+                            "but doesn't keep them in sync across all your devices.\n\n"
+                            "What to do: If you only use this computer, you can leave "
+                            "it as is. If you use multiple devices, consider asking your "
+                            "email provider about switching to IMAP for better synchronization."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

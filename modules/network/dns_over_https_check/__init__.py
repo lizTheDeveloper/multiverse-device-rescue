@@ -63,12 +63,15 @@ class Module(ModuleBase):
             if not encryption_info["is_encrypted"]:
                 findings.append(
                     Finding(
-                        title="Unencrypted DNS detected - ISP can monitor queries",
+                        title="Your internet requests are not encrypted",
                         description=(
-                            "Your system is using unencrypted DNS (likely ISP-provided). "
-                            "This exposes all your browsing activity to your ISP and network attackers. "
-                            "Anyone on the network can see which websites you visit. "
-                            "Consider switching to encrypted DNS (DoH/DoT) or a privacy-focused provider."
+                            "Your computer is sending web address lookups in plain text. "
+                            "This means your internet provider, or anyone else on your "
+                            "local network, can see which websites you visit.\n\n"
+                            "What to do: Open System Settings, go to Network, select your "
+                            "active connection, and look for a 'DNS' section. You can "
+                            "add a privacy-focused provider there, or search for 'DNS' "
+                            "in System Settings to find the option."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -172,11 +175,14 @@ class Module(ModuleBase):
             if not self._is_known_encrypted_provider(dns_servers):
                 findings.append(
                     Finding(
-                        title="No DNS encryption configuration detected",
+                        title="Your web address lookups are not encrypted",
                         description=(
-                            "No encrypted DNS (DoH/DoT) profiles, local resolvers, or "
-                            "known encrypted DNS providers are configured. "
-                            "Your DNS queries may be exposed to monitoring."
+                            "We could not find any settings that encrypt the requests "
+                            "your computer makes to find websites. It simply means your "
+                            "internet provider can see which sites you visit.\n\n"
+                            "What to do: Nothing urgent. If you want more privacy, you "
+                            "can set up encrypted DNS in System Settings > Network, or "
+                            "use a browser that supports it."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

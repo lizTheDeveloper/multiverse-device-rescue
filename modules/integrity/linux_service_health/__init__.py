@@ -114,13 +114,14 @@ class Module(ModuleBase):
             if any(hint in unit.lower() for hint in _BACKUP_HINTS):
                 findings.append(
                     Finding(
-                        title=f"Backup unit '{unit}' has failed",
+                        title=f"Backup service '{unit}' has stopped working",
                         description=(
-                            "This unit runs backups, and systemd has given up on it. A "
-                            "backup that stopped working is indistinguishable from a backup "
-                            "that is working, right up until the moment you need it.\n\n"
-                            "What to do: find out why it failed and fix that, then start it "
-                            "again and confirm a new backup appears.\n\n"
+                            f"The service '{unit}' is responsible for backups, but it "
+                            "has failed and stopped running. This means your backups "
+                            "may not be happening. You might not notice until you need "
+                            "to restore a file.\n\n"
+                            "What to do: Find out why it failed, fix the problem, then "
+                            "start it again and confirm a new backup appears.\n\n"
                             + how_to_look
                         ),
                         severity=Severity.CRITICAL,
@@ -133,11 +134,13 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title=f"Service '{unit}' has failed",
+                        title=f"Service '{unit}' has stopped working",
                         description=(
-                            "systemd started this unit, it failed, and systemd has stopped "
-                            "trying. Whatever it provides is not running.\n\n"
-                            "What to do: read why it failed, fix that, then restart it.\n\n"
+                            f"The service '{unit}' failed to start or crashed, and the "
+                            "system has stopped trying to run it. Whatever feature this "
+                            "service provides is currently not working.\n\n"
+                            "What to do: Read the error logs to see why it failed, fix "
+                            "the issue, then restart it.\n\n"
                             + how_to_look
                         ),
                         severity=Severity.WARNING,
@@ -184,14 +187,14 @@ class Module(ModuleBase):
                 continue
             findings.append(
                 Finding(
-                    title=f"Service '{unit}' has restarted {restarts} times",
+                    title=f"Service '{unit}' keeps crashing and restarting",
                     description=(
-                        "systemd restarts a crashing service automatically, so a service "
-                        "stuck in a crash loop looks 'running' while doing nothing but "
-                        "starting and dying. It burns CPU, fills the journal, and hides "
-                        "the original error under thousands of identical ones.\n\n"
-                        "What to do: read the log to see what keeps going wrong, fix that, "
-                        "then restart the service.\n\n"
+                        f"The service '{unit}' has crashed and restarted {restarts} times. "
+                        "It appears to be running, but it is actually stuck in a loop "
+                        "of failing and restarting. This wastes computer power and hides "
+                        "the real error.\n\n"
+                        "What to do: Check the logs to see why it is failing, fix the "
+                        "issue, then restart the service.\n\n"
                         f"    journalctl -u {quote(unit)} --since '1 hour ago' --no-pager"
                     ),
                     severity=Severity.WARNING,
@@ -211,13 +214,14 @@ class Module(ModuleBase):
         # Nothing answered "active". That is only meaningful if systemctl worked
         # at all, which the caller has already established.
         return Finding(
-            title="No time-synchronisation service appears to be running",
+            title="Your computer's clock is not syncing automatically",
             description=(
-                "Nothing on this machine is keeping the clock correct. A drifted clock "
-                "breaks HTTPS certificate validation, two-factor codes, and scheduled "
-                "jobs — and it does it in ways that look like a network fault rather than "
-                "a clock fault, so people chase the wrong problem for hours.\n\n"
-                "What to do: in Settings > Date & Time, turn on automatic time.\n\n"
+                "Your computer is not automatically keeping its clock accurate. If the "
+                "time is wrong, secure websites (HTTPS) and two-factor login codes may "
+                "stop working. This often looks like a network error, but it is just a "
+                "time issue.\n\n"
+                "What to do: Turn on automatic time in your desktop's Date & Time "
+                "settings, or run: sudo timedatectl set-ntp true\n\n"
                 "Checked for: " + ", ".join(_TIME_HINTS)
             ),
             severity=Severity.WARNING,

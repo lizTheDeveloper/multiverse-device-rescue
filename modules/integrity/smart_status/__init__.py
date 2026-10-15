@@ -108,7 +108,7 @@ class Module(ModuleBase):
 
         findings.append(
             Finding(
-                title=f"Disk SMART Status: {smart_status}",
+                title=f"Your hard drive health is: {smart_status}",
                 description=description,
                 severity=severity,
                 category=self.category,

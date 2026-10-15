@@ -63,11 +63,14 @@ class Module(ModuleBase):
             if computer_name.lower() != local_hostname.lower():
                 findings.append(
                     Finding(
-                        title="Inconsistent ComputerName and LocalHostName",
+                        title="Your computer's two names don't match",
                         description=(
-                            f"ComputerName ({computer_name}) and LocalHostName ({local_hostname}) "
-                            "are inconsistent. This can cause network discovery issues and confuse "
-                            "file sharing. Consider setting them to match."
+                            f"Your Mac has two internal names: the 'Computer Name' ({computer_name}) "
+                            f"and the 'Local Host Name' ({local_hostname}). They are currently "
+                            "different.\n\n"
+                            "What to do: Open System Settings > General > "
+                            "About > Computer Name to review the names. If you use file "
+                            "sharing, consider making them match."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -84,10 +87,13 @@ class Module(ModuleBase):
             if name and " " in name:
                 findings.append(
                     Finding(
-                        title=f"{label} contains spaces",
+                        title="Your computer's name has a space in it",
                         description=(
-                            f"The {label} '{name}' contains spaces, which can cause network "
-                            "issues and make the device harder to find on the network."
+                            f"The {label} '{name}' includes a space.\n\n"
+                            "What to do: Open "
+                            "System Settings > General > About > Computer Name and rename "
+                            "your Mac to a name without spaces (for example, 'MyMac' "
+                            "instead of 'My Mac')."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -105,10 +111,14 @@ class Module(ModuleBase):
             if name and not re.match(r"^[a-zA-Z0-9\-]*$", name):
                 findings.append(
                     Finding(
-                        title=f"{label} contains special characters",
+                        title="Your computer's name has unusual symbols",
                         description=(
-                            f"The {label} '{name}' contains special characters. Hostnames should "
-                            "only contain letters, numbers, and hyphens."
+                            f"The {label} '{name}' uses symbols that can cause connection "
+                            "problems. Computer names should only use letters, numbers, "
+                            "and hyphens.\n\n"
+                            "What to do: Open System Settings > General "
+                            "> About > Computer Name and change the name to use only "
+                            "standard characters."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -127,11 +137,13 @@ class Module(ModuleBase):
             if name in default_names:
                 findings.append(
                     Finding(
-                        title=f"{label} is still default '{name}'",
+                        title=f"Your Mac is still using the default name '{name}'",
                         description=(
-                            f"The {label} is '{name}', which is the default macOS name. "
-                            "Devices with default names are hard to identify on a network. "
-                            "Consider setting a more descriptive name."
+                            f"Your {label} is still set to '{name}', which is the factory "
+                            "default.\n\n"
+                            "What to do: Open System Settings > General > About "
+                            "> Computer Name and give your Mac a unique name that you "
+                            "will recognize."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

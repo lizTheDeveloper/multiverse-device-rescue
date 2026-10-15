@@ -125,11 +125,17 @@ class Module(ModuleBase):
         if malware_procs:
             findings.append(
                 Finding(
-                    title=f"Known malware detected: {len(malware_procs)} process(es)",
+                    title=f"Known malware is running: {len(malware_procs)} process(es)",
                     description=(
-                        f"Found {len(malware_procs)} process(es) with known malware names: "
-                        f"{', '.join(p['name'] for p in malware_procs)}. "
-                        "These should be removed immediately."
+                        f"We found {len(malware_procs)} program(s) running on your Mac "
+                        f"that match known malware names: {', '.join(p['name'] for p in malware_procs)}. "
+                        "This is a serious sign that your computer is compromised. These "
+                        "programs can steal passwords, watch your activity, or damage "
+                        "your files.\n\n"
+                        "What to do: Do not use this computer for banking or sensitive "
+                        "accounts until it is cleaned. Connect a different, safe device "
+                        "to a trusted antivirus website to download a removal tool, or "
+                        "take your Mac to a professional for a full clean."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -144,12 +150,21 @@ class Module(ModuleBase):
         if suspicious_path_procs:
             findings.append(
                 Finding(
-                    title=f"Processes from suspicious locations: {len(suspicious_path_procs)}",
+                    title=(
+                        f"Programs running from unusual folders: {len(suspicious_path_procs)}"
+                    ),
                     description=(
-                        f"Found {len(suspicious_path_procs)} process(es) running from suspicious paths "
-                        f"(temp directories, Downloads, Desktop): "
-                        f"{', '.join(p['name'] for p in suspicious_path_procs)}. "
-                        "Review and consider removing these."
+                        f"We found {len(suspicious_path_procs)} program(s) running from "
+                        "folders where they usually don't belong (like Downloads or Desktop): "
+                        f"{', '.join(p['name'] for p in suspicious_path_procs)}. Legitimate "
+                        "apps usually live in the Applications folder. Running from other "
+                        "spots can be a sign of a hidden or unauthorized program.\n\n"
+                        "What to do: Check if you recognize these names. If you don't, "
+                        "quit them in Activity Monitor (search 'Activity Monitor' in "
+                        "Spotlight, select the process, and click the X button). Then, "
+                        "move the original files to a safe folder on your desktop so "
+                        "they can't run, but don't delete them yet in case you need to "
+                        "show them to a professional."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -185,12 +200,17 @@ class Module(ModuleBase):
             proc_info = ", ".join(f"{p['name']} ({p['cpu']:.1f}%)" for p in high_cpu_procs)
             findings.append(
                 Finding(
-                    title=f"High-CPU processes detected: {len(high_cpu_procs)}",
+                    title=f"Programs using a lot of power: {len(high_cpu_procs)}",
                     description=(
-                        f"Found {len(high_cpu_procs)} process(es) consuming >80% CPU. "
-                        f"These may be crypto miners or other resource-intensive malware: "
-                        f"{proc_info}. "
-                        "Review and consider terminating."
+                        f"We found {len(high_cpu_procs)} program(s) using over 80% of "
+                        f"your processor: {proc_info}. This can make your Mac hot, slow, "
+                        "and drain your battery. While this might just be a heavy task, "
+                        "it can also be a sign of a hidden 'crypto miner' using your "
+                        "computer for someone else's benefit.\n\n"
+                        "What to do: Open Activity Monitor (search 'Activity Monitor' "
+                        "in Spotlight) and look for these names. If you don't recognize "
+                        "them, select the process and click the X button to quit it. "
+                        "If they keep coming back, your Mac may need a professional check."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

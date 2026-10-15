@@ -90,8 +90,16 @@ class Module(ModuleBase):
                 severity = Severity.CRITICAL if is_unsigned else Severity.WARNING
                 findings.append(
                     Finding(
-                        title=f"{problem_info['name']} kext loaded",
-                        description=f"{problem_info['description']} Bundle ID: {bundle_id}, Version: {version}",
+                        title=f"Old driver active: {problem_info['name']}",
+                        description=(
+                            "Your Mac is currently running an old-style driver called "
+                            f"{problem_info['name']}. {problem_info['description']} These "
+                            "drivers are no longer supported by Apple and can cause your "
+                            "Mac to crash or become unstable.\n\n"
+                            "What to do: Find the app that installed this driver and "
+                            "check for updates. If no update is available, you may need "
+                            "to uninstall that app to stop the driver from running."
+                        ),
                         severity=severity,
                         category=self.category,
                         code="security.kext_audit.loaded_third_party_kext",
@@ -110,8 +118,15 @@ class Module(ModuleBase):
                 severity = Severity.CRITICAL if is_unsigned else Severity.WARNING
                 findings.append(
                     Finding(
-                        title=f"Third-party kext loaded: {name}",
-                        description=f"Third-party kernel extension '{name}' is loaded. Bundle ID: {bundle_id}, Version: {version}. Third-party kexts are deprecated and may cause stability issues.",
+                        title=f"Old driver active: {name}",
+                        description=(
+                            "Your Mac is currently running an old-style driver called "
+                            f"'{name}'. Apple has stopped supporting these drivers, so "
+                            "they can cause your Mac to crash or slow down.\n\n"
+                            "What to do: Check if the app that installed this driver "
+                            "has an update. If not, consider uninstalling the app to "
+                            "remove the old driver."
+                        ),
                         severity=severity,
                         category=self.category,
                         code="security.kext_audit.loaded_third_party_kext",
@@ -132,8 +147,16 @@ class Module(ModuleBase):
             kext_name = Path(kext_path).stem
             findings.append(
                 Finding(
-                    title=f"Kext file found in /Library/Extensions/: {kext_name}",
-                    description=f"Kernel extension file '{kext_name}.kext' is present in /Library/Extensions/. This is deprecated on modern macOS. Consider removing it.",
+                    title=f"Old-style driver file found: {kext_name}",
+                    description=(
+                        f"Your Mac has a file named '{kext_name}.kext' in its system folders. "
+                        "These are old-style drivers that Apple no longer supports on "
+                        "modern Macs. However, old drivers can sometimes cause your Mac "
+                        "to crash or slow down.\n\n"
+                        "What to do: Check if you still use the software that installed "
+                        "this. If you don't, uninstall that software; its uninstaller "
+                        "removes the driver properly."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     code="security.kext_audit.kext_file",

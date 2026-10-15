@@ -242,14 +242,18 @@ class Module(ModuleBase):
                 elif is_suspicious:
                     findings.append(
                         Finding(
-                            title=f"Launch {noun} to check: {label}",
+                            title=f"Check this startup item: {label}",
                             description=(
-                                f"Launch {noun} with a warning sign: {label}\n"
-                                f"Command: {command}\n"
-                                f"Location: {plist_path}\n"
-                                f"Reason: {reason}\n\n"
-                                "Check that you recognize this item. If you do not, "
-                                "it can be removed."
+                                f"We found a startup item named {label} that runs automatically. "
+                                f"It looks unusual because: {reason}.\n\n"
+                                f"Details: {command} (Location: {plist_path})\n\n"
+                                "This is not proof of a hack, but it is worth checking. "
+                                "If you do not recognize this name, it may be leftover "
+                                "clutter or a tool you forgot about.\n\n"
+                                "What to do: Open Finder, press Command+Shift+G, and "
+                                "paste the location path above. If you do not recognize "
+                                "the file, move it to a new folder on your Desktop to "
+                                "disable it safely. Do not delete it yet."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

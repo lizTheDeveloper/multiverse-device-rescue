@@ -38,11 +38,13 @@ class Module(ModuleBase):
         if home_owner and home_owner != current_user:
             findings.append(
                 Finding(
-                    title="Home directory owned by wrong user",
+                    title=f"Your home folder is owned by {home_owner}, not you",
                     description=(
-                        f"Home directory ({home}) is owned by {home_owner} "
-                        f"but should be owned by {current_user}. "
-                        f"This can cause issues with file access and system functionality."
+                        f"Your main folder ({home}) is currently owned by {home_owner}, "
+                        f"but it should be owned by {current_user}. This usually happens "
+                        "after a system update or a repair.\n\n"
+                        "What to do: Ask a technical helper or Apple Support to restore "
+                        "your ownership of the folder."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -206,10 +208,13 @@ class Module(ModuleBase):
                 except (KeyError, OSError):
                     actual_name = f"UID {stat_result.st_uid}"
                 return Finding(
-                    title=f"{label} has incorrect ownership",
+                    title=f"Your {label} folder has the wrong owner",
                     description=(
-                        f"{label} ({path}) is owned by {actual_name} "
-                        f"but should be owned by {expected_name}."
+                        f"Your {label} folder ({path}) is owned by {actual_name}, but "
+                        f"it should be owned by {expected_name}. It might cause apps to "
+                        "struggle to save or open files in that folder.\n\n"
+                        "What to do: Ask a technical helper or Apple Support to restore "
+                        "your ownership of the folder."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -240,11 +245,13 @@ class Module(ModuleBase):
             # /tmp should have 1777: rwxrwxrwt (sticky bit + 777)
             if not has_sticky or (current_mode & 0o777) != 0o777:
                 return Finding(
-                    title="/tmp has incorrect permissions",
+                    title="Your temporary folder has unusual settings",
                     description=(
-                        f"/tmp has mode {oct(current_mode)} "
-                        f"but should have mode 1777 (rwxrwxrwt with sticky bit). "
-                        f"This can allow users to interfere with other users' temporary files."
+                        f"Your /tmp folder has permissions set to {oct(current_mode)}, "
+                        "but they should be 1777. This is a standard system setting.\n\n"
+                        "What to do: Nothing right now if you are the only person using "
+                        "this Mac. If you share this computer, ask a technician to reset "
+                        "the permissions to 1777."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -274,11 +281,13 @@ class Module(ModuleBase):
             # /var/tmp should have 1777: rwxrwxrwt (sticky bit + 777)
             if not has_sticky or (current_mode & 0o777) != 0o777:
                 return Finding(
-                    title="/var/tmp has incorrect permissions",
+                    title="Your /var/tmp folder has unusual settings",
                     description=(
-                        f"/var/tmp has mode {oct(current_mode)} "
-                        f"but should have mode 1777 (rwxrwxrwt with sticky bit). "
-                        f"This can allow users to interfere with other users' temporary files."
+                        f"Your /var/tmp folder has permissions set to {oct(current_mode)}, "
+                        "but they should be 1777. This is a standard system setting.\n\n"
+                        "What to do: Nothing right now if you are the only person using "
+                        "this Mac. If you share this computer, ask a technician to reset "
+                        "the permissions to 1777."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -305,11 +314,14 @@ class Module(ModuleBase):
             # Check if owned by root (UID 0)
             if stat_result.st_uid == 0:
                 return Finding(
-                    title="/usr/local owned by root",
+                    title="Your /usr/local folder is locked by the system",
                     description=(
-                        "/usr/local is owned by root, which prevents non-root users "
-                        "from installing packages via Homebrew and other package managers. "
-                        "This is a common issue that needs fixing."
+                        "Your /usr/local folder is owned by the system administrator (root). "
+                        "This is a common setting that prevents you from installing software "
+                        "like Homebrew without extra permission.\n\n"
+                        "What to do: If you use Homebrew or other developer tools, you "
+                        "may need to ask a technician to change the ownership so you can "
+                        "install updates. Otherwise, you can ignore this."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -321,10 +333,14 @@ class Module(ModuleBase):
             # Check if it's readable and executable
             if not os.access(usr_local, os.R_OK | os.X_OK):
                 return Finding(
-                    title="/usr/local not accessible",
+                    title="Your /usr/local folder is blocked",
                     description=(
-                        "/usr/local exists but is not readable or executable. "
-                        "This may cause issues with Homebrew and other package managers."
+                        "Your /usr/local folder exists, but your computer cannot read "
+                        "or run it. This often happens if permissions get mixed up during "
+                        "an update.\n\n"
+                        "What to do: If you use Homebrew or other developer tools, ask "
+                        "a technician to fix the folder permissions. Otherwise, you can "
+                        "ignore this."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -335,10 +351,13 @@ class Module(ModuleBase):
                 )
         except (OSError, PermissionError):
             return Finding(
-                title="/usr/local not accessible",
+                title="Your /usr/local folder is blocked",
                 description=(
-                    "/usr/local exists but cannot be accessed. "
-                    "This may cause issues with Homebrew and other package managers."
+                    "Your /usr/local folder exists, but your computer cannot access it "
+                    "at all. This often happens if permissions get mixed up during an "
+                    "update.\n\n"
+                    "What to do: If you use Homebrew or other developer tools, ask a technician "
+                    "to fix the folder permissions. Otherwise, you can ignore this."
                 ),
                 severity=Severity.WARNING,
                 category=self.category,
