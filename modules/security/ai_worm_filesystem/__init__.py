@@ -180,8 +180,16 @@ class Module(ModuleBase):
                 if expanded.is_file():
                     findings.append(
                         Finding(
-                            title=f"Known {entry.threat} artifact: {expanded.name}",
-                            description=entry.description,
+                            title=f"Known {entry.threat} file found: {expanded.name}",
+                            description=(
+                                f"We found a file at {expanded} that matches a known {entry.threat} "
+                                f"file. {entry.description}\n\n"
+                                "What to do: Don't delete it; move it into a folder of "
+                                "its own so it can't run and you still have it as evidence. "
+                                "Then, from a different computer or your phone, change "
+                                "the passwords and revoke the tokens saved on this one. "
+                                "The steps below go through it in order."
+                            ),
                             severity=Severity.CRITICAL,
                             category=self.category,
                             code="security.ai_worm_filesystem.known_payload_path",
@@ -223,8 +231,19 @@ class Module(ModuleBase):
                         h = iocs.hashes[sha]
                         findings.append(
                             Finding(
-                                title=f"Known malicious file: {h.name or expanded.name}",
-                                description=h.description,
+                                title=(
+                                    f"Known malicious file found: {h.name or expanded.name}"
+                                ),
+                                description=(
+                                    f"We found a file at {expanded} that is an exact copy "
+                                    f"of known {h.threat} malware. {h.description}\n\n"
+                                    "What to do: Don't delete it; move it into a folder "
+                                    "of its own so it can't run and you still have it "
+                                    "as evidence. Then, from a different computer or "
+                                    "your phone, change the passwords and revoke the "
+                                    "tokens saved on this one. The steps below go through "
+                                    "it in order."
+                                ),
                                 severity=Severity.CRITICAL,
                                 category=self.category,
                                 code="security.ai_worm_filesystem.known_hash_match",
@@ -256,11 +275,14 @@ class Module(ModuleBase):
                     Finding(
                         title=f"Script downloads and runs code: {Path(path).name}",
                         description=(
-                            f"The script at {path} contains a command that downloads "
-                            f"something and runs it immediately ({result['pattern'][:80]}). "
-                            "Installers and setup scripts often do this on purpose. If you "
-                            "did not write or install this script yourself, check where it "
-                            "came from."
+                            f"The script at {path} downloads something from the internet "
+                            f"and runs it straight away: {result['pattern'][:80]}\n\n"
+                            "Lots of real installers work this way, so this is often "
+                            "harmless. It's worth a look if you don't know where the "
+                            "script came from.\n\n"
+                            "What to do: If you recognize the script, there's nothing "
+                            "to do. If you don't, move it into a folder of its own instead "
+                            "of deleting it, and follow the steps below."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -277,10 +299,15 @@ class Module(ModuleBase):
                 continue
             findings.append(
                 Finding(
-                    title=f"Obfuscated script: {Path(path).name}",
+                    title=f"Hard-to-read script found: {Path(path).name}",
                     description=(
-                        f"Script at {path} contains suspicious pattern: "
-                        f"{result['pattern'][:80]}"
+                        f"The script at {path} is written in a scrambled way that's hard "
+                        f"for people to read: {result['pattern'][:80]}\n\n"
+                        "Some real software does this, but malware also hides what it "
+                        "does this way.\n\n"
+                        "What to do: If you don't recognize the script, move it into "
+                        "a folder of its own instead of deleting it, and follow the steps "
+                        "below."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

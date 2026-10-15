@@ -92,15 +92,18 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=(
-                        f"Stolen credential storage detected: "
-                        f"{Path(path).name if path else 'unknown'}"
+                        f"A file named {Path(path).name if path else 'unknown'} looks "
+                        "like it stores stolen passwords"
                     ),
                     description=(
-                        f"Found file at {path} matching a known "
-                        f"{hit.get('threat', 'unknown')} credential-harvesting "
-                        f"storage location. Rotate and revoke any GitHub PATs, "
-                        f"SSH keys, npm tokens, or other credentials that may "
-                        f"have been stored or exfiltrated via this file."
+                        f"We found a file at {path} in a place where {hit.get('threat', 'known')} "
+                        "malware keeps the passwords and access tokens it steals before "
+                        "sending them out. Anything saved on this computer (GitHub and "
+                        "npm tokens, SSH keys, cloud keys) may have been taken.\n\n"
+                        "What to do: Don't delete the file yet; it shows what was taken. "
+                        "From a different computer or your phone, revoke those tokens "
+                        "and keys and make new ones. The steps below go through it in "
+                        "order."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -119,15 +122,18 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=(
-                        f"Supply chain artifact detected: "
-                        f"{Path(path).name if path else 'unknown'}"
+                        f"A file named {Path(path).name if path else 'unknown'} looks "
+                        "like malicious code"
                     ),
                     description=(
-                        f"Found {hit.get('type', 'artifact')} at {path} matching "
-                        f"a known {hit.get('threat', 'unknown')} supply-chain "
-                        f"compromise indicator. This may have run with your "
-                        f"credentials — rotate and revoke any tokens (GitHub "
-                        f"PAT, npm, cloud IAM) accessible from this project."
+                        f"We found {hit.get('type', 'a file')} at {path} that matches "
+                        f"a known {hit.get('threat', 'malicious')} package attack. Code "
+                        "like this runs when a project is installed or built, with your "
+                        "access to GitHub, npm and cloud accounts.\n\n"
+                        "What to do: Don't build or install this project again until "
+                        "it's cleaned. From a different computer or your phone, revoke "
+                        "the tokens this project could reach (GitHub, npm, cloud) and "
+                        "make new ones. The steps below go through it in order."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -145,17 +151,16 @@ class Module(ModuleBase):
         for hit in self._check_imds_access():
             findings.append(
                 Finding(
-                    title=(
-                        f"Possible IMDS access from non-cloud-CLI process: "
-                        f"{hit.get('process')}"
-                    ),
+                    title=f"{hit.get('process')} is asking for this machine's cloud keys",
                     description=(
-                        f"Process {hit.get('process')} (pid {hit.get('pid')}) has "
-                        f"a connection to the cloud instance metadata service "
-                        f"({_IMDS_HOST}) but is not a recognized cloud CLI tool. "
-                        f"This may indicate credential harvesting via IMDS. "
-                        f"Rotate any cloud IAM credentials/roles reachable from "
-                        f"this host."
+                        f"The program {hit.get('process')} is talking to the cloud metadata "
+                        "service, which hands out temporary keys for the cloud server "
+                        "this is running on. Normally only the cloud provider's own tools "
+                        "ask for these, so a program that isn't one of them could be "
+                        "trying to steal access.\n\n"
+                        "What to do: If this computer isn't a cloud server, or you don't "
+                        "recognize the program, follow the steps below and replace the "
+                        "cloud access keys this machine can use."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

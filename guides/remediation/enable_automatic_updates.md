@@ -23,14 +23,14 @@ together, but confirm your intent for each before flipping it — some
 users deliberately disable auto-install on machines where they want to
 control update timing (e.g. before a demo or a long build).
 
-## Step 1: Open Software Update automation settings
+## Step 1: Open your Mac's software update settings
 
 1. Open System Settings > General > Software Update.
 2. Click the "i" (info) button next to "Automatic updates" to see the
    individual toggles — this expanded view maps directly to the findings
    below.
 
-## Step 2: Enable the flagged toggles
+## Step 2: Turn on the update options that are off
 
 Match each finding to its toggle and enable it, unless you have a
 specific reason not to:
@@ -52,7 +52,7 @@ panel after toggling — some environments (MDM-managed machines) lock
 these settings, in which case check with your IT/MDM administrator rather
 than fighting the UI.
 
-## Step 3: Confirm on managed/MDM devices
+## Step 3: Check if your work controls your updates
 
 If this Mac is enrolled in an MDM (see `mdm_enrollment` module
 findings), your organization may intentionally control update timing

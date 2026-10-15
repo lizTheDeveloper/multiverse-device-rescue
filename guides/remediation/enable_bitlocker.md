@@ -12,6 +12,16 @@ remediates:
   - security.win_bitlocker_check.no_recovery_key
   - security.win_bitlocker_check.fixed_drive_not_encrypted
   - security.win_bitlocker_check.status_info
+steps_for:
+  security.win_bitlocker.os_drive_not_encrypted: [1]
+  security.win_bitlocker.encryption_suspended: [2]
+  security.win_bitlocker.no_recovery_key: [3]
+  security.win_bitlocker.status_info: [3]
+  security.win_bitlocker_check.os_drive_not_encrypted: [1]
+  security.win_bitlocker_check.encryption_suspended: [2]
+  security.win_bitlocker_check.no_recovery_key: [3]
+  security.win_bitlocker_check.fixed_drive_not_encrypted: [4]
+  security.win_bitlocker_check.status_info: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -25,7 +35,7 @@ isn't stored safely — **never paste a recovery key into this tool, a chat, or
 any other place that isn't a dedicated password manager or printed copy kept
 somewhere secure.**
 
-## Step 1: Encrypt the OS drive (C:) if it is not encrypted
+## Step 1: Turn on encryption for your main drive
 
 This is the highest-priority finding — an unencrypted C: drive means anyone
 with physical access to the disk can read its contents.
@@ -45,7 +55,7 @@ with physical access to the disk can read its contents.
    re-run the scan (`win_bitlocker` / `win_bitlocker_check`) later to confirm
    it reports the volume as encrypted.
 
-## Step 2: Resume encryption if it shows as suspended
+## Step 2: Resume encryption if it was paused
 
 Encryption can be suspended by Windows Update, firmware changes, or manual
 action — while suspended, the drive is not actively protected even though it
@@ -57,7 +67,7 @@ was previously encrypted.
    -MountPoint <mount point>`.
 3. Re-run the scan to confirm the volume no longer reports "suspended".
 
-## Step 3: Add a recovery key protector if one is missing
+## Step 3: Add a backup key to prevent lockout
 
 Without a recovery key protector, a lost password or TPM failure means the
 data is unrecoverable — this doesn't weaken security, it just adds a safety
@@ -71,7 +81,7 @@ net.
    (see Step 1.3) — never in an unencrypted file on this machine.
 4. Re-run the scan to confirm the recovery-key finding clears.
 
-## Step 4: Encrypt other fixed drives (win_bitlocker_check only)
+## Step 4: Encrypt any other internal drives
 
 `win_bitlocker_check` additionally flags fixed (non-removable) drives other
 than C: that aren't encrypted — for example a second internal disk.

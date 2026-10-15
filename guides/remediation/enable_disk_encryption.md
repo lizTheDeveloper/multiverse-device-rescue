@@ -15,7 +15,7 @@ confirm the change and decide how the recovery key will be stored, and
 initial encryption runs in the background for a while, so nothing here is
 auto-applied.
 
-## Step 1: Enable FileVault and securely store the recovery key
+## Step 1: Turn on disk encryption and save your recovery key
 
 1. Inspect current status first: open System Settings > Privacy & Security >
    FileVault (or run `fdesetup status` in Terminal) to confirm it is

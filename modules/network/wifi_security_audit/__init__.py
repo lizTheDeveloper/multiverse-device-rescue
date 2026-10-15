@@ -244,12 +244,16 @@ class Module(ModuleBase):
         if "wep" in security:
             findings.append(
                 Finding(
-                    title="CRITICAL: Currently connected via WEP network",
+                    title=f"Your Wi-Fi '{network_name}' uses WEP, which is easy to break",
                     description=(
-                        f"Your Mac is connected to '{network_name}' which uses WEP (Wired Equivalent Privacy). "
-                        "WEP is completely broken and provides no security. "
-                        "All your network traffic can be intercepted and decrypted in seconds. "
-                        "This is a critical security risk. Immediately disconnect and connect to a secure network."
+                        f"Your Mac is connected to '{network_name}', which uses WEP. WEP "
+                        "is an old security type that is easily broken. "
+                        "This means people nearby can read your internet traffic, including "
+                        "passwords and messages.\n\n"
+                        "What to do: Open System Settings > Wi-Fi, select your current "
+                        "network, and click 'Forget This Network'. "
+                        "Connect to a different, secure network instead. Do not use this "
+                        "one for sensitive tasks."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -265,11 +269,14 @@ class Module(ModuleBase):
         elif "none" in security or "open" in security or security == "unknown":
             findings.append(
                 Finding(
-                    title="CRITICAL: Connected to open/unencrypted network",
+                    title=f"You are connected to an open Wi-Fi network: '{network_name}'",
                     description=(
-                        f"Your Mac is connected to '{network_name}' which has no encryption. "
-                        "Anyone on this network can monitor your traffic, intercept passwords, and steal data. "
-                        "If you must use this network, enable VPN before accessing any sensitive information."
+                        f"Your Mac is connected to '{network_name}', which has no encryption. "
+                        "This means anyone on the same Wi-Fi can see your internet traffic, "
+                        "including passwords and messages.\n\n"
+                        "What to do: Open System Settings > Wi-Fi and connect to a different, "
+                        "secure network. "
+                        "If you must use this one, turn on a VPN before doing anything sensitive."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -285,11 +292,14 @@ class Module(ModuleBase):
         elif "wpa2" in security and "wpa3" not in security:
             findings.append(
                 Finding(
-                    title="WARNING: Using WPA2 (consider upgrading to WPA3)",
+                    title="Your Wi-Fi uses WPA2, which is secure but older",
                     description=(
-                        f"Connected to '{network_name}' using WPA2 encryption. "
-                        "WPA2 is secure but older. WPA3 provides stronger protection against brute-force attacks. "
-                        "If your hardware supports it, ask your network administrator to enable WPA3."
+                        f"You are connected to '{network_name}' using WPA2. This is a "
+                        "secure standard, but it is older. "
+                        "Newer Wi-Fi uses WPA3, which is harder to break. This is not "
+                        "an emergency, but an upgrade is better.\n\n"
+                        "What to do: Nothing urgent. If you control the Wi-Fi router, "
+                        "you can ask your provider or IT to enable WPA3."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -340,11 +350,16 @@ class Module(ModuleBase):
         if weak_networks["wep"]:
             findings.append(
                 Finding(
-                    title=f"WARNING: {len(weak_networks['wep'])} WEP network(s) in saved list",
+                    title=(
+                        f"Your Mac remembers {len(weak_networks['wep'])} Wi-Fi networks with weak WEP"
+                    ),
                     description=(
-                        f"Your Mac has saved these WEP networks: {', '.join(weak_networks['wep'])}. "
-                        "WEP is broken encryption. Your Mac may auto-connect to these vulnerable networks. "
-                        "Remove them from your saved networks list immediately and ask the network owner to upgrade."
+                        f"Your Mac has saved {len(weak_networks['wep'])} networks that "
+                        f"use WEP: {', '.join(weak_networks['wep'])}. "
+                        "WEP is easily broken, so your Mac might automatically connect "
+                        "to these unsafe networks when it sees them.\n\n"
+                        "What to do: Open System Settings > Wi-Fi, click 'Wi-Fi Details', "
+                        "select these networks, and click the '-' button to remove them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -359,11 +374,16 @@ class Module(ModuleBase):
         if weak_networks["open"]:
             findings.append(
                 Finding(
-                    title=f"WARNING: {len(weak_networks['open'])} open/unencrypted network(s) in saved list",
+                    title=(
+                        f"Your Mac remembers {len(weak_networks['open'])} open Wi-Fi networks"
+                    ),
                     description=(
-                        f"Your Mac has saved these unencrypted networks: {', '.join(weak_networks['open'])}. "
-                        "Without encryption, anyone can monitor your traffic. "
-                        "Remove these from saved networks and prefer WPA2/WPA3-protected networks instead."
+                        f"Your Mac has saved {len(weak_networks['open'])} networks with "
+                        f"no password: {', '.join(weak_networks['open'])}. "
+                        "Because they are open, people nearby can see your internet traffic. "
+                        "Your Mac might connect to them automatically.\n\n"
+                        "What to do: Open System Settings > Wi-Fi, click 'Wi-Fi Details', "
+                        "select these networks, and click the '-' button to remove them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

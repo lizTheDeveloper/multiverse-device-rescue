@@ -229,4 +229,4 @@ def test_real_obfuscation_still_warns_even_inside_site_packages(tmp_path):
     found = _obf(_scan_dir(mod, tmp_path))
     assert len(found) == 1
     assert found[0].severity == Severity.WARNING
-    assert found[0].title.startswith("Obfuscated script")
+    assert found[0].title.startswith("Hard-to-read script")

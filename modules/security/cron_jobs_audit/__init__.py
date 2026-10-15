@@ -323,10 +323,22 @@ class Module(ModuleBase):
         if rce_entries:
             findings.append(
                 Finding(
-                    title=f"Critical: Cron jobs with RCE patterns detected: {len(rce_entries)}",
+                    title=(
+                        "Automated tasks are downloading and running code from the internet "
+                        f"({len(rce_entries)})"
+                    ),
                     description=(
-                        f"Found {len(rce_entries)} cron job(s) with remote code execution patterns "
-                        "(curl/wget piped to sh/bash). These are likely malicious and should be removed immediately."
+                        f"We found {len(rce_entries)} scheduled task(s) that download "
+                        "something from the internet and run it straight away. Malware "
+                        "uses this to keep itself installed and updated; normal system "
+                        "tasks don't work this way.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Follow the steps below to see the full task and "
+                        "remove it if you don't recognize it. If the Terminal isn't something "
+                        "you're comfortable with, ask someone you trust who is."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -338,10 +350,17 @@ class Module(ModuleBase):
         if suspicious_path_entries:
             findings.append(
                 Finding(
-                    title=f"Critical: Cron jobs executing from suspicious paths: {len(suspicious_path_entries)}",
+                    title=(
+                        f"Automated tasks are running from temporary folders ({len(suspicious_path_entries)})"
+                    ),
                     description=(
-                        f"Found {len(suspicious_path_entries)} cron job(s) executing from /tmp, /var/tmp, "
-                        "or other suspicious locations. These are likely malicious."
+                        f"We found {len(suspicious_path_entries)} scheduled task(s) that "
+                        "run a program from a temporary folder such as /tmp. Real software "
+                        "lives in permanent folders; malware often hides in temporary "
+                        "ones.\n\n"
+                        "What to do: Follow the steps below to see the full task and "
+                        "remove it if you don't recognize it. If the Terminal isn't something "
+                        "you're comfortable with, ask someone you trust who is."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -353,10 +372,15 @@ class Module(ModuleBase):
         if every_minute_entries:
             findings.append(
                 Finding(
-                    title=f"Warning: Cron jobs running every minute: {len(every_minute_entries)}",
+                    title=(
+                        f"Automated tasks are running every minute ({len(every_minute_entries)})"
+                    ),
                     description=(
-                        f"Found {len(every_minute_entries)} cron job(s) with (* * * * *) schedule, "
-                        "which could indicate beaconing behavior. Review these carefully."
+                        f"We found {len(every_minute_entries)} scheduled task(s) that "
+                        "run every minute. Some tools do this for good reasons, but it's "
+                        "also how unwanted software keeps checking in with a server.\n\n"
+                        "What to do: Follow the steps below to see what each task runs. "
+                        "If you recognize it, there's nothing to do."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -368,10 +392,15 @@ class Module(ModuleBase):
         if obfuscated_entries:
             findings.append(
                 Finding(
-                    title=f"Warning: Cron jobs with obfuscated commands: {len(obfuscated_entries)}",
+                    title=(
+                        f"Automated tasks are hiding what they do ({len(obfuscated_entries)})"
+                    ),
                     description=(
-                        f"Found {len(obfuscated_entries)} cron job(s) using obfuscation techniques "
-                        "(base64 encoding, eval statements, etc.). These should be reviewed carefully."
+                        f"We found {len(obfuscated_entries)} scheduled task(s) whose commands "
+                        "are scrambled so you can't easily read what they do. A few advanced "
+                        "tools do this, but it's a common malware trick.\n\n"
+                        "What to do: Follow the steps below to look at the full task, "
+                        "and remove it if you don't recognize it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

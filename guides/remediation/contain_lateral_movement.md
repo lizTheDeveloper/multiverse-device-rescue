@@ -7,11 +7,16 @@ remediates:
   - security.ai_worm_lateral.supply_chain_artifact
   - security.ai_worm_lateral.imds_access
   - security.ai_worm_lateral.npm_publish_credentials
+steps_for:
+  security.ai_worm_lateral.credential_harvesting: [1]
+  security.ai_worm_lateral.supply_chain_artifact: [2]
+  security.ai_worm_lateral.imds_access: [3]
+  security.ai_worm_lateral.npm_publish_credentials: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
 
-## Step 1: Quarantine credential-harvesting storage files, then rotate
+## Step 1: Move aside files of stolen logins, then change those logins
 
 This module intentionally does **not** flag standard credential files
 (`~/.aws/credentials`, `~/.ssh/id_rsa`) just for existing — only files at
@@ -36,7 +41,7 @@ here, so a hit means something actively wrote stolen credentials to disk.
    persistence mechanism and/or C2 connection elsewhere on the system that
    should be remediated in the same session.
 
-## Step 2: Remove supply-chain compromise artifacts, then rotate
+## Step 2: Remove malicious project files and reset keys
 
 High-confidence findings here matched a known dropper/workflow filename
 (e.g. `.github/workflows/shai-hulud-workflow.yml`, `setup_bun.js`,
@@ -59,7 +64,7 @@ credentials were available in that project's environment.
    Review your CI provider's run history for unauthorized executions of the
    malicious workflow.
 
-## Step 3: Investigate IMDS access from unrecognized processes (medium confidence)
+## Step 3: Stop unknown cloud access and reset server keys
 
 A finding here means a process not on the recognized cloud-CLI allowlist
 (aws, gcloud, az, terraform, kubelet, etc.) connected to the cloud instance
@@ -80,7 +85,7 @@ credentials without needing local credential files at all.
    terminating and replacing the instance from a known-good image rather
    than trying to fully clean it in place.
 
-## Step 4: Review active npm publish credentials (informational)
+## Step 4: Check and reset your npm account access
 
 This is an informational finding — the module detected that `npm whoami`
 returns an authenticated user, meaning the local npm CLI currently holds

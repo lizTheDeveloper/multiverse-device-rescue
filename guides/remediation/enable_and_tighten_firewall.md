@@ -5,6 +5,9 @@ platforms: [macos]
 remediates:
   - security.firewall_audit.global_state
   - security.firewall_audit.stealth_mode
+steps_for:
+  security.firewall_audit.global_state: [1]
+  security.firewall_audit.stealth_mode: [2]
 automatable_steps: []
 human_only_steps: [1, 2]
 ---
@@ -20,7 +23,7 @@ enabling stealth mode, since a probe-invisible Mac can be harder to
 discover from other devices on your LAN for legitimate reasons too (e.g.
 some file-sharing discovery flows).
 
-## Step 1: Enable the firewall (critical)
+## Step 1: Turn on your Mac's firewall
 
 If the scan reports the firewall as disabled, this is the higher-priority
 fix — with it off, nothing is filtering inbound connection attempts.
@@ -37,7 +40,7 @@ fix — with it off, nothing is filtering inbound connection attempts.
    individually rather than disabling the firewall again.
 5. Re-run the scan to confirm the firewall now reports as enabled.
 
-## Step 2: Enable stealth mode
+## Step 2: Turn on stealth mode
 
 Stealth mode makes the Mac not respond to unsolicited probes (like `ping`)
 from the network, making it harder for an attacker doing network

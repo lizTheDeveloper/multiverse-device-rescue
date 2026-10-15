@@ -231,11 +231,14 @@ class Module(ModuleBase):
             return None
 
         return Finding(
-            title=f"Browser extension appears to mine cryptocurrency: {name}",
+            title=f"A browser extension is secretly mining cryptocurrency: {name}",
             description=(
-                f"The {browser} extension '{name}' {hit['detail']}. An extension with "
-                "mining code runs for as long as the browser is open, which is why the "
-                "machine stays hot and slow even when it looks idle."
+                f"The extension '{name}' in {browser} contains code that mines cryptocurrency: "
+                f"{hit['detail']}. It uses your computer's power for someone else's profit "
+                "whenever the browser is open, which makes it hot and slow. Extensions "
+                "sometimes add this in an update, long after you installed them for something "
+                "else.\n\n"
+                f"What to do: Open your browser's Extensions page and remove '{name}'."
             ),
             severity=hit["severity"],
             category=self.category,
@@ -284,10 +287,18 @@ class Module(ModuleBase):
                         continue
                     findings.append(
                         Finding(
-                            title=f"Browser extension appears to mine cryptocurrency: {name}",
+                            title=(
+                                f"A Firefox add-on is secretly mining cryptocurrency: {name}"
+                            ),
                             description=(
-                                f"The Firefox add-on '{name}' {hit['detail']}. Remove it "
-                                "from about:addons."
+                                f"The Firefox add-on '{name}' contains code that mines "
+                                f"cryptocurrency: {hit['detail']}. It uses your computer's "
+                                "power for someone else's profit whenever Firefox is "
+                                "open, which makes it hot and slow. Add-ons sometimes "
+                                "add this in an update, long after you installed them "
+                                "for something else.\n\n"
+                                "What to do: Type about:addons in Firefox's address bar "
+                                f"and remove '{name}'."
                             ),
                             severity=hit["severity"],
                             category=self.category,
@@ -329,11 +340,15 @@ class Module(ModuleBase):
                         continue
                     findings.append(
                         Finding(
-                            title="Browser is set to open a cryptomining page at startup",
+                            title=f"Your browser opens a mining page automatically: {url}",
                             description=(
-                                f"{base.name} profile '{profile_dir.name}' opens {url} "
-                                "automatically. That page hosts mining code, so the "
-                                "browser starts mining as soon as it is launched."
+                                f"Your {base.name} profile '{profile_dir.name}' opens "
+                                f"{url} every time it starts, and that page mines cryptocurrency "
+                                "using your computer's power. Unwanted software often "
+                                "changes the startup page like this.\n\n"
+                                "What to do: Open your browser's settings, find On startup, "
+                                f"and remove {url}. Then check your extensions for anything "
+                                "you don't recognize."
                             ),
                             severity=Severity.CRITICAL,
                             category=self.category,
@@ -378,12 +393,16 @@ class Module(ModuleBase):
                     continue
                 findings.append(
                     Finding(
-                        title=f"Hosts file points {hostname} at {address}",
+                        title=f"Your hosts file sends {hostname} to a mining server",
                         description=(
-                            f"The hosts file redirects {hostname}, a cryptomining "
-                            f"service, to {address} instead of blocking it. Someone "
-                            "with administrator rights edited this file to keep mining "
-                            "traffic flowing even if the public service is blocked."
+                            "Your hosts file, a system list of web addresses, points "
+                            f"{hostname} (a cryptocurrency mining service) at {address}. "
+                            "Only someone or something with administrator access can "
+                            "make that change, and miners do it so their traffic gets "
+                            "through.\n\n"
+                            "What to do: Follow the steps below to remove that line from "
+                            "the hosts file and look for the mining software that added "
+                            "it."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
