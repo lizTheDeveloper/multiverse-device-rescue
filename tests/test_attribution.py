@@ -402,13 +402,31 @@ def test_subjects_cap_per_finding():
     assert len(subjects_for_finding(f)) == 6
 
 
-def test_subjects_from_item_dicts_use_program_not_plist():
+def test_subjects_from_item_dicts_prefer_the_plist():
+    # The plist says how the program is launched (an interpreter + script), so it
+    # is attributed rather than the bare program, which may just be python.
     f = _f(items=[
-        {"label": "a", "plist": "/L/a.plist", "program": "/opt/a/bin"},
+        {"label": "a", "plist": "/L/a.plist", "program": "/usr/bin/python3"},
         {"label": "b", "plist": None, "program": None},
         {"label": "c", "program": "/opt/c/bin"},
     ])
-    assert subjects_for_finding(f) == ["/opt/a/bin", "/opt/c/bin"]
+    assert subjects_for_finding(f) == ["/L/a.plist", "/opt/c/bin"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths")
+def test_plist_with_program_and_interpreter_credits_the_script_not_python(tmp_path):
+    script = tmp_path / "job.sh"
+    script.write_text("#!/bin/sh\n")
+    plist = tmp_path / "x.plist"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "Program": "/usr/bin/python3",
+                       "ProgramArguments": ["python3", "-c", "import evil"]}, fh)
+    made = Attributor("darwin")._identify_plist(str(plist), os.path.exists)
+    assert made is not None and made.verified is False and made.how == "inline command"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "Program": "/usr/bin/python3",
+                       "ProgramArguments": ["python3"]}, fh)
+    assert Attributor("darwin")._identify_plist(str(plist), os.path.exists) is None
 
 
 # --- serialization / CLI -------------------------------------------------------------

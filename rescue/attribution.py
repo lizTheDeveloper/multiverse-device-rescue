@@ -46,7 +46,9 @@ PROGRAM_KEYS = (
     "app", "apps", "bundle_id", "items",
 )
 # Inside dict items of those lists, the keys that hold the actual path.
-_ITEM_PATH_KEYS = ("path", "program", "exe", "executable", "binary", "command")
+# "plist" comes first: a job's settings file says how the program is launched,
+# so an interpreter running a script is credited to the script, not the interpreter.
+_ITEM_PATH_KEYS = ("plist", "path", "program", "exe", "executable", "binary", "command")
 
 _UNKNOWN = "Unknown maker"
 _INTERPRETERS = {
@@ -321,18 +323,23 @@ class Attributor:
             return None
         program = data.get("Program")
         args = data.get("ProgramArguments") or []
-        if not program and isinstance(args, list) and args:
+        if not isinstance(args, list):
+            args = []
+        if not program and args:
             program = args[0]
-            if os.path.basename(str(program)) in _INTERPRETERS:
-                target = _interpreter_target([str(a) for a in args])
-                if target is _INLINE:
-                    return MadeBy(_UNKNOWN, False, "inline command", _INLINE_NOTE)
-                target = os.path.expanduser(target) if target else None
-                if target and os.path.isabs(target) and exists(target):
-                    program = target
-                elif str(program).startswith(_SYSTEM_BIN):
-                    # Never credit Apple for a script/app we could not find.
-                    return None
+        if program and os.path.basename(str(program)) in _INTERPRETERS:
+            # With both keys set, launchd runs Program and passes ProgramArguments
+            # as argv, so argv[1:] is what the interpreter is told to run.
+            argv = [str(program)] + [str(a) for a in args[1:]]
+            target = _interpreter_target(argv)
+            if target is _INLINE:
+                return MadeBy(_UNKNOWN, False, "inline command", _INLINE_NOTE)
+            target = os.path.expanduser(target) if target else None
+            if target and os.path.isabs(target) and exists(target):
+                program = target
+            elif str(program).startswith(_SYSTEM_BIN):
+                # Never credit Apple for a script/app we could not find.
+                return None
         if not program:
             return None
         program = os.path.expanduser(str(program))

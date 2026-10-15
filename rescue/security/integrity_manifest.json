@@ -14,7 +14,7 @@
     "ai/providers/openai_provider.py": "1a32636cff5234bd1b684d821b80e5dc0ecfd689e8c6832e6f2c940cd5402b5a",
     "ai/recommender.py": "4427a4340f37eb8963f6f6656eaeb44647d01fc5b8a8f7b1ce1c7a0a85fd2d27",
     "app_fixes.py": "1c33c1e9982f820c01bf1cc8ba4263eda2e50cf92cfee571223734ea8d63cd76",
-    "attribution.py": "35bcda39c30fcb66b1bf654202ef7f381aacb0afdeea843d4f8a16355f2227c4",
+    "attribution.py": "bb123f8f8e7806167f7d99eed72bf4eebb342b4f890c941437324d1d86df589b",
     "case.py": "a6b9e1fd314395f97e971194f6d3a352b85e2273d986eb422b659ade3feb0e87",
     "cli.py": "13d2085478b3845e2ec15dfaa5c17b4fa71ab4ae4f8ab9ac5e38b389a913315b",
     "command.py": "fa75b1df5b3b742f81e0e3117f628030523c9442c63aac5c747e99d3c632043e",

@@ -8,6 +8,7 @@ job of launch_agent_audit / launchd_persistence_audit, not this check.
 
 import os
 import plistlib
+import re
 import shutil
 import stat
 from pathlib import Path
@@ -250,6 +251,10 @@ def _trace_item(entry: dict) -> dict:
     if path is None:
         return item
     plist = _read_plist(path)
+    if plist and plist.get("Label") != label:
+        # A file named after the job that doesn't declare it isn't its settings.
+        item.update(plist=None, scope=None)
+        return item
     program = _program_of(plist)
     item.update(
         program=program,
@@ -260,14 +265,34 @@ def _trace_item(entry: dict) -> dict:
     return item
 
 
+# Labels and program names are chosen by whoever installed the job, and the
+# description is read by people and by AI helpers. Only plain name characters
+# go into it; anything else becomes "?", and long names are cut.
+_UNSAFE_TEXT = re.compile(r"[^A-Za-z0-9._+-]")
+_MAX_NAME = 60
+_SCRIPT_RUNNERS = {
+    "sh", "bash", "zsh", "dash", "ksh", "fish", "python", "python3", "node",
+    "ruby", "perl", "osascript", "env", "php", "open",
+}
+
+
+def _safe_name(text: str) -> str:
+    text = _UNSAFE_TEXT.sub("?", str(text))
+    return text if len(text) <= _MAX_NAME else text[: _MAX_NAME - 1] + "…"
+
+
 def _describe_item(item: dict) -> str:
-    label = item["label"]
+    label = _safe_name(item["label"])
     if not item["plist"]:
         return f"{label} — {NO_PLIST_NOTE}"
     program = item["program"]
     if not program:
         return f"{label} — settings file names no program"
-    runs = f"runs {os.path.basename(program) or program}"
+    name = os.path.basename(program) or program
+    if name in _SCRIPT_RUNNERS:
+        runs = f"runs a script with {name}"
+    else:
+        runs = f"runs {_safe_name(name)}"
     if not item["program_exists"]:
         runs += " (program missing)"
     return f"{label} — {runs}, {', '.join(item['when'])}"
