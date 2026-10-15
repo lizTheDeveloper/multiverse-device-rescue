@@ -300,3 +300,14 @@ test('redaction is applied by askAbout to the exact bytes sent', async () => {
   const sent = f.calls[0].init.body;
   assert.ok(!/192\.168|maria|abc/.test(sent), sent);
 });
+
+test('the preview shows the redacted fields and the destination, escaped', () => {
+  const { renderPreviewHtml } = require('../renderer/ask.js');
+  const body = buildAskBody({ finding: { title: 'Job <b>x</b>', description: 'runs /Users/maria/a.sh token=abc123' } }, ENV);
+  const html = renderPreviewHtml({ endpoint: ASK_ENDPOINT, body });
+  assert.ok(html.includes(ASK_ENDPOINT));
+  assert.ok(html.includes('&lt;b&gt;'));
+  assert.ok(!html.includes('<b>x'));
+  assert.ok(!html.includes('maria'));
+  assert.ok(!html.includes('abc123'));
+});
