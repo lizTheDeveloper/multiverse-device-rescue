@@ -176,10 +176,15 @@ class Module(ModuleBase):
                     if signal_percent is not None and signal_percent < 50:
                         findings.append(
                             Finding(
-                                title="Low Wi-Fi signal strength",
+                                title=f"Weak Wi-Fi signal ({signal})",
                                 description=(
-                                    f"Wi-Fi signal strength is {signal}. "
-                                    "Low signal can cause connection drops and slow speeds."
+                                    f"Your connection to the Wi-Fi router is weak ({signal}). "
+                                    "This usually means you are far from the router or "
+                                    "there are walls in between. It can cause slow speeds "
+                                    "or dropped connections.\n\n"
+                                    "What to do: Try moving closer to your router. If "
+                                    "the problem persists, you may need a Wi-Fi extender "
+                                    "or a mesh system to improve coverage in that room."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
@@ -198,10 +203,17 @@ class Module(ModuleBase):
                         if channel_num in [1, 6, 11]:
                             findings.append(
                                 Finding(
-                                    title="Connected on congested Wi-Fi channel",
+                                    title=f"Connected to a busy Wi-Fi channel ({channel})",
                                     description=(
-                                        f"Connected on 2.4GHz channel {channel}, which is commonly used. "
-                                        "This can cause interference with nearby networks."
+                                        f"Your router is using channel {channel} on the "
+                                        "2.4GHz band. This is a very common channel, "
+                                        "so it might be crowded with neighbors' networks, "
+                                        "causing slower speeds.\n\n"
+                                        "What to do: If your internet feels slow, log "
+                                        "in to your router's admin page (usually 192.168.1.1 "
+                                        "or 192.168.0.1) and change the Wi-Fi channel "
+                                        "to a less crowded one, or switch to the 5GHz "
+                                        "band if your router supports it."
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,
@@ -244,10 +256,13 @@ class Module(ModuleBase):
             # Flag WARNING: Too many profiles (>30)
             if profile_count > 30:
                 return Finding(
-                    title="Too many saved Wi-Fi profiles",
+                    title=f"Many saved Wi-Fi networks ({profile_count})",
                     description=(
-                        f"Found {profile_count} saved Wi-Fi profiles. "
-                        "Having more than 30 profiles can slow down Wi-Fi network scanning."
+                        f"Your computer remembers {profile_count} Wi-Fi networks. It is "
+                        "likely just a list of places you have visited in the past.\n\n"
+                        "What to do: You can ignore this. If you want to clean up, go "
+                        "to Settings > Network & internet > Wi-Fi > Known networks and "
+                        "remove networks you no longer use."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -290,10 +305,15 @@ class Module(ModuleBase):
                 # Try to identify very old dates (before 2020)
                 if any(year in driver_date for year in ["2015", "2016", "2017", "2018", "2019"]):
                     return Finding(
-                        title="Wi-Fi driver is outdated",
+                        title=f"Your Wi-Fi driver is old (from {driver_date})",
                         description=(
-                            f"Wi-Fi driver date is {driver_date} (version {driver_version}). "
-                            "Outdated drivers can cause connection issues."
+                            "Your computer's Wi-Fi software (driver) was last updated "
+                            f"on {driver_date} (version {driver_version}). Old drivers "
+                            "can cause slow speeds or random disconnects.\n\n"
+                            "What to do: Go to Settings > Windows Update and check for "
+                            "updates. If an update is available, install it. If not, "
+                            "check your computer manufacturer's website for a newer Wi-Fi "
+                            "driver."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

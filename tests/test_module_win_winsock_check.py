@@ -80,7 +80,7 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
             result = module.check(sample_profile)
 
             warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-            assert any("excessive" in f.title.lower() for f in warning_findings)
+            assert any("unusually long" in f.title.lower() for f in warning_findings)
 
     def test_suspicious_lsps_detected(self, module, sample_profile):
         """Test detection of suspicious Layered Service Providers."""
@@ -106,7 +106,7 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
             result = module.check(sample_profile)
 
             warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-            assert any("lsp" in f.title.lower() for f in warning_findings)
+            assert any("leftover software" in f.title.lower() for f in warning_findings)
 
     def test_unusual_ttl(self, module, sample_profile):
         """Test detection of unusual TTL values."""
@@ -130,7 +130,7 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
             result = module.check(sample_profile)
 
             warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-            assert any("tcp/ip" in f.title.lower() for f in warning_findings)
+            assert any("look unusual" in f.title.lower() for f in warning_findings)
 
     def test_winsock_query_failed(self, module, sample_profile):
         """Test handling of failed Winsock query."""
@@ -140,7 +140,7 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
             result = module.check(sample_profile)
 
             warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-            assert any("could not retrieve" in f.title.lower() for f in warning_findings)
+            assert any("could not check" in f.title.lower() for f in warning_findings)
 
     def test_fix_winsock_catalog_failed(self, module, sample_profile):
         """Test fix action for failed Winsock catalog query."""

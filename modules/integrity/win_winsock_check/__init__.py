@@ -33,10 +33,16 @@ class Module(ModuleBase):
         if catalog_info is None:
             findings.append(
                 Finding(
-                    title="Could not retrieve Winsock catalog",
+                    title="We could not check your network settings (Winsock)",
                     description=(
-                        "Failed to run 'netsh winsock show catalog'. "
-                        "Winsock configuration cannot be assessed."
+                        "We tried to look at your computer's core network settings (called "
+                        "the Winsock catalog), but the check did not run. This means we "
+                        "could not verify if your network is configured correctly. This "
+                        "is not the same as saying everything is fine; it just means we "
+                        "could not see the data.\n\n"
+                        "What to do: Try running the checkup again. If it fails again, "
+                        "you may need to run the app as an administrator to allow it to "
+                        "read these system files."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -49,11 +55,15 @@ class Module(ModuleBase):
             if entry_count > 30:
                 findings.append(
                     Finding(
-                        title=f"Excessive Winsock catalog entries ({entry_count})",
+                        title=f"Your network settings list is unusually long ({entry_count})",
                         description=(
-                            f"Winsock catalog contains {entry_count} entries (normal: <30). "
-                            "This may indicate corruption or unclean software removal. "
-                            "Consider running 'netsh winsock reset' from admin command prompt."
+                            "Your computer's network settings list (Winsock catalog) "
+                            f"has {entry_count} entries. A typical list has fewer than "
+                            "30. This often happens when software is uninstalled but "
+                            "leaves behind leftover files.\n\n"
+                            "What to do: Open an Administrator Command Prompt (search "
+                            "for 'cmd', right-click, 'Run as administrator') and type: "
+                            "netsh winsock reset. Then restart your computer."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -71,13 +81,19 @@ class Module(ModuleBase):
                 if suspicious_lsps:
                     findings.append(
                         Finding(
-                            title=f"Suspicious LSP (Layered Service Provider) detected",
+                            title=(
+                                "Network traffic may be intercepted by leftover software "
+                                f"({len(suspicious_lsps)} items)"
+                            ),
                             description=(
-                                f"Found {len(suspicious_lsps)} potentially problematic LSPs: "
-                                f"{', '.join(suspicious_lsps)}. "
-                                "LSPs can intercept network traffic. "
-                                "These are often remnants of old antivirus/adware. "
-                                "Consider removing if not actively used."
+                                f"We found {len(suspicious_lsps)} leftover network components: "
+                                f"{', '.join(suspicious_lsps)}. These are often remnants "
+                                "of old antivirus or adware that were not fully removed. "
+                                "They can sit in the path of your traffic and often "
+                                "cause internet instability.\n\n"
+                                "What to do: Open an Administrator Command Prompt and "
+                                "type: netsh winsock reset. Then restart your computer "
+                                "to clear these leftover entries."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -111,10 +127,16 @@ class Module(ModuleBase):
         if tcpip_info is None:
             findings.append(
                 Finding(
-                    title="Could not retrieve TCP/IP parameters",
+                    title="We could not check your TCP/IP settings",
                     description=(
-                        "Failed to query TCP/IP registry parameters. "
-                        "TCP/IP configuration cannot be assessed."
+                        "We tried to read your computer's basic network configuration "
+                        "(TCP/IP parameters), but the check did not run. This means we "
+                        "could not verify if your network settings are standard. This "
+                        "is not the same as saying everything is fine; it just means we "
+                        "could not see the data.\n\n"
+                        "What to do: Try running the checkup again. If it fails again, "
+                        "you may need to run the app as an administrator to allow it to "
+                        "read these system files."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -127,12 +149,18 @@ class Module(ModuleBase):
             if unusual_params:
                 findings.append(
                     Finding(
-                        title="Unusual TCP/IP parameters detected",
+                        title=(
+                            f"Your network settings look unusual ({len(unusual_params)} changes)"
+                        ),
                         description=(
-                            f"Found {len(unusual_params)} unusual TCP/IP parameters: "
-                            f"{', '.join(unusual_params)}. "
-                            "These may indicate network problems, optimization attempts, "
-                            "or malware modifications."
+                            f"We found {len(unusual_params)} settings in your network "
+                            f"configuration that are not standard: {', '.join(unusual_params)}. "
+                            "These changes can sometimes be made by malware, but they "
+                            "are also often left behind by network optimization tools "
+                            "or old software. It's worth resetting them so your internet "
+                            "works reliably.\n\n"
+                            "What to do: Open an Administrator Command Prompt and type: "
+                            "netsh int ip reset. Then restart your computer."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -150,10 +178,16 @@ class Module(ModuleBase):
             if not ipv4_enabled:
                 findings.append(
                     Finding(
-                        title="IPv4 appears to be disabled",
+                        title="Your computer's main internet protocol (IPv4) is off",
                         description=(
-                            "IPv4 may be disabled in TCP/IP parameters. "
-                            "This could cause networking problems if IPv6 is not properly configured."
+                            "Your computer appears to have IPv4 disabled. IPv4 is the "
+                            "standard way most websites and apps connect to the internet. "
+                            "If this is off, you might experience slow connections or "
+                            "some websites might not load.\n\n"
+                            "What to do: Open Settings > Network & internet > Advanced "
+                            "network settings > More network adapter options, right-click "
+                            "your connection, choose Properties, and tick 'Internet "
+                            "Protocol Version 4 (TCP/IPv4)'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

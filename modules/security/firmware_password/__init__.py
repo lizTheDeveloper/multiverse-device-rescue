@@ -43,10 +43,15 @@ class Module(ModuleBase):
         if chip_type is None:
             findings.append(
                 Finding(
-                    title="Unable to determine CPU architecture",
+                    title="We could not tell if your Mac uses Intel or Apple Silicon",
                     description=(
-                        "Could not detect whether this is an Intel or Apple Silicon Mac. "
-                        "Firmware password/Startup Security status could not be checked."
+                        "We tried to check your Mac's startup security settings, but first "
+                        "we need to know what kind of chip it has. We couldn't detect "
+                        "that, so we couldn't finish this specific check. This does not "
+                        "mean your Mac is unsafe; it just means we couldn't verify this "
+                        "one detail.\n\n"
+                        "What to do: Nothing right now. You can see your chip in the "
+                        "Apple menu > About This Mac."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -212,13 +217,17 @@ class Module(ModuleBase):
             elif "no" in output:
                 findings.append(
                     Finding(
-                        title="Firmware Password: Not Set",
+                        title="Your Mac's startup security is not locked",
                         description=(
-                            "No firmware password is configured on this Intel Mac. "
-                            "Without a firmware password, anyone with physical access can boot from "
-                            "an external drive or access Recovery Mode, potentially compromising "
-                            "the device. This is a significant security gap for stolen device "
-                            "protection and IT asset management."
+                            "Your Mac does not have a startup security password set. This "
+                            "means that if someone has physical access to your Mac, they "
+                            "could potentially restart it and access a special recovery "
+                            "mode to reset your password or install software. It is a "
+                            "precaution for if your device is lost or stolen.\n\n"
+                            "What to do: On an Intel Mac, restart while holding Command-R, "
+                            "then choose Utilities > Startup Security Utility and set a "
+                            "firmware password. Write it down somewhere safe: if it's lost, "
+                            "only Apple can remove it."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

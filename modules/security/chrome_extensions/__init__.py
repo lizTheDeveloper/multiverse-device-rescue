@@ -68,11 +68,17 @@ class Module(ModuleBase):
                 Finding(
                     title=f"Extension with broad permissions: {ext_name}",
                     description=(
-                        f"The extension '{ext_name}' requests broad permissions: "
-                        f"{', '.join(sorted(broad_perms))}. "
-                        "Broad permissions like 'all_urls', 'tabs', or 'webRequest' allow "
-                        "extensions to access sensitive data across all websites. "
-                        "Review this extension carefully to ensure it is trusted and necessary."
+                        f"The extension '{ext_name}' asks for wide access to your browsing "
+                        f"data. Specifically, it requests: {', '.join(sorted(broad_perms))}. "
+                        "In plain terms, this allows the extension to see what you do "
+                        "on almost any website, not just the one it was designed for. "
+                        "This is a common feature for useful tools, but it also means "
+                        "a compromised or malicious extension could track your activity. "
+                        "If you do not recognize this extension or no longer use it, "
+                        "it is a good idea to remove it.\n\n"
+                        "What to do: Go to chrome://extensions in your browser, find "
+                        "the extension, and turn it off or remove it if you don't trust "
+                        "it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -91,10 +97,13 @@ class Module(ModuleBase):
                 Finding(
                     title=f"High number of Chrome extensions: {total_count}",
                     description=(
-                        f"You have {total_count} Chrome extension(s) installed, which exceeds the "
-                        "recommended limit of 10. Too many extensions can degrade performance, "
-                        "increase memory usage, and expand the attack surface. "
-                        "Review and uninstall any unused or untrusted extensions."
+                        f"You have {total_count} extensions installed in Chrome. Having "
+                        "many extensions can slow down your browser and use more memory. "
+                        "It also increases the chance that one of them is outdated or "
+                        "unsafe. Keeping only the extensions you actually use helps your "
+                        "browser run smoothly and securely.\n\n"
+                        "What to do: Go to chrome://extensions and remove any you don't "
+                        "use or don't recognize."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
