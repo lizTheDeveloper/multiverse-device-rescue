@@ -15,6 +15,7 @@ from click.testing import CliRunner
 
 from rescue.attribution import (
     Attributor,
+    is_interpreter,
     MadeBy,
     parse_codesign,
     subjects_for_finding,
@@ -642,3 +643,30 @@ def test_dotdot_out_of_an_app_bundle_is_not_credited_to_the_bundle(tmp_path):
     assert calls, "expected a codesign call"
     assert all(".app" not in c[-1] for c in calls)
     assert calls[0][-1] == os.path.realpath(str(evil))
+
+
+@pytest.mark.parametrize("name", [
+    "python3", "python3.12", "/opt/homebrew/bin/python3.12", "PYTHON3", "Python",
+    "node22", "nodejs", "bun", "deno", "perl5.30", "bash-5.2", "ruby.exe", "uv",
+    "pwsh", "osascript", "/usr/bin/env",
+])
+def test_interpreters_recognised_under_any_spelling(name):
+    assert is_interpreter(name)
+
+
+@pytest.mark.parametrize("name", ["/opt/a/bin", "ZoomUpdater", "python-helper-app", "nodemon2x"])
+def test_ordinary_programs_are_not_interpreters(name):
+    assert not is_interpreter(name)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths")
+@pytest.mark.parametrize("program", ["/opt/homebrew/bin/python3.12", "/usr/local/bin/NODE22"])
+def test_versioned_interpreter_with_inline_code_is_never_credited(tmp_path, program):
+    plist = tmp_path / "x.plist"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [program, "-c", "evil"]}, fh)
+    made = Attributor("darwin")._identify_plist(str(plist), lambda p: True)
+    assert made is not None and made.verified is False and made.how == "inline command"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [program, "/nowhere/job.py"]}, fh)
+    assert Attributor("darwin")._identify_plist(str(plist), lambda p: p != "/nowhere/job.py") is None

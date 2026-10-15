@@ -52,9 +52,21 @@ _ITEM_PATH_KEYS = ("plist", "path", "program", "exe", "executable", "binary", "c
 
 _UNKNOWN = "Unknown maker"
 _INTERPRETERS = {
-    "sh", "bash", "zsh", "dash", "ksh", "fish", "python", "python3", "node",
-    "ruby", "perl", "osascript", "env", "php", "open",
+    "sh", "bash", "zsh", "dash", "ksh", "csh", "tcsh", "fish", "python", "pythonw",
+    "node", "nodejs", "deno", "bun", "ruby", "perl", "osascript", "env", "php",
+    "open", "lua", "luajit", "tclsh", "wish", "awk", "gawk", "nawk", "pwsh",
+    "powershell", "java", "uv", "uvx", "npx", "npm", "pnpm", "yarn", "pipx",
+    "xargs", "nohup", "caffeinate", "arch", "sudo", "launchctl",
 }
+# "python3.12", "node22", "perl5.30", "Python3", "bash-5.2", "ruby.exe": the same
+# runner under another spelling. Mac disks ignore case by default.
+_VERSION_SUFFIX = re.compile(r"(?:[-_.]?\d+)*(?:\.exe)?$", re.I)
+
+
+def is_interpreter(program) -> bool:
+    """True when ``program`` is something that runs *other* code it is given."""
+    name = os.path.basename(str(program).rstrip("/\\")).lower()
+    return name in _INTERPRETERS or _VERSION_SUFFIX.sub("", name) in _INTERPRETERS
 # Where the OS's own interpreters live: signed by Apple, but that says nothing
 # about the script they were told to run.
 _SYSTEM_BIN = ("/bin/", "/usr/bin/", "/sbin/", "/usr/sbin/")
@@ -87,14 +99,14 @@ def _interpreter_target(argv):
     credited only as ``open [-a] /path/App.app [--args]`` with nothing after it, and
     ``env`` only as ``env [VAR=value ...] <program> ...``.
     """
-    name = os.path.basename(argv[0])
+    name = _VERSION_SUFFIX.sub("", os.path.basename(argv[0]).lower())
     rest = argv[1:]
     if name == "env":
         while rest and "=" in rest[0] and not rest[0].startswith("-"):
             rest = rest[1:]
         if not rest or rest[0].startswith("-"):
             return _INLINE
-        if os.path.basename(rest[0]) in _INTERPRETERS:
+        if is_interpreter(rest[0]):
             return _interpreter_target(rest)
         return rest[0]
     if name == "open":
@@ -327,7 +339,7 @@ class Attributor:
             args = []
         if not program and args:
             program = args[0]
-        if program and os.path.basename(str(program)) in _INTERPRETERS:
+        if program and is_interpreter(program):
             # With both keys set, launchd runs Program and passes ProgramArguments
             # as argv, so argv[1:] is what the interpreter is told to run.
             argv = [str(program)] + [str(a) for a in args[1:]]
@@ -337,8 +349,9 @@ class Attributor:
             target = os.path.expanduser(target) if target else None
             if target and os.path.isabs(target) and exists(target):
                 program = target
-            elif str(program).startswith(_SYSTEM_BIN):
-                # Never credit Apple for a script/app we could not find.
+            else:
+                # Never credit the interpreter's maker (Apple, Python, Node...)
+                # for a script or command we could not find.
                 return None
         if not program:
             return None

@@ -13,6 +13,7 @@ import shutil
 import stat
 from pathlib import Path
 
+from rescue.attribution import is_interpreter
 from rescue.command import run
 from rescue.models import (
     Action,
@@ -270,10 +271,6 @@ def _trace_item(entry: dict) -> dict:
 # go into it; anything else becomes "?", and long names are cut.
 _UNSAFE_TEXT = re.compile(r"[^A-Za-z0-9._+-]")
 _MAX_NAME = 60
-_SCRIPT_RUNNERS = {
-    "sh", "bash", "zsh", "dash", "ksh", "fish", "python", "python3", "node",
-    "ruby", "perl", "osascript", "env", "php", "open",
-}
 
 
 def _safe_name(text: str) -> str:
@@ -289,8 +286,8 @@ def _describe_item(item: dict) -> str:
     if not program:
         return f"{label} — settings file names no program"
     name = os.path.basename(program) or program
-    if name in _SCRIPT_RUNNERS:
-        runs = f"runs a script with {name}"
+    if is_interpreter(name):
+        runs = f"runs a script with {_safe_name(name)}"
     else:
         runs = f"runs {_safe_name(name)}"
     if not item["program_exists"]:
