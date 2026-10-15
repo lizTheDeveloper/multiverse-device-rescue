@@ -202,7 +202,7 @@ def test_win_services_audit_detects_excessive_autostart():
     assert any("start automatically" in f.title.lower() for f in result.findings)
     assert any(f.severity == Severity.WARNING for f in result.findings)
     excessive_finding = next(
-        f for f in result.findings if "excessive" in f.title.lower()
+        f for f in result.findings if f.code == "security.win_services_audit.excessive_autostart"
     )
     assert excessive_finding.data["count"] == 45
 
