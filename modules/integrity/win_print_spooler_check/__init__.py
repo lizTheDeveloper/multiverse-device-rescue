@@ -33,10 +33,13 @@ class Module(ModuleBase):
         if not spooler_status:
             findings.append(
                 Finding(
-                    title="Could not determine Print Spooler status",
+                    title="We couldn't check if your printer service is running",
                     description=(
-                        "Failed to query Print Spooler service status via 'sc query Spooler'. "
-                        "Ensure you have Administrator privileges."
+                        "We tried to see if your computer's Print Spooler service is on, "
+                        "but the check didn't work. This usually happens if the app isn't "
+                        "running with Administrator rights.\n\n"
+                        "What to do: Run the checkup again as an administrator to get "
+                        "a full report."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -69,12 +72,18 @@ class Module(ModuleBase):
         if spooler_running and accepts_remote:
             findings.append(
                 Finding(
-                    title="Print Spooler accepting remote connections (PrintNightmare risk)",
+                    title="Your printer service allows connections from other computers",
                     description=(
-                        "The Print Spooler service is running and accepting remote connections. "
-                        "This is a known security risk (CVE-2021-34527, PrintNightmare) that can be "
-                        "exploited for remote code execution. Disable remote connections immediately "
-                        "unless explicitly required."
+                        "Your Print Spooler service is set to accept print jobs from other "
+                        "devices on your network. This is a known weakness (PrintNightmare, "
+                        "CVE-2021-34527) that attackers can use to run harmful code on "
+                        "your computer. Unless you specifically need to print from "
+                        "other devices to this printer, it is safer to turn this off.\n\n"
+                        "What to do: If you don't print at all, open Services (type "
+                        "services.msc in the Start menu), double-click Print Spooler, "
+                        "and set Startup type to Disabled. If you print but don't share "
+                        "a printer, ask a technical helper to turn off 'Allow Print "
+                        "Spooler to accept client connections' in Group Policy."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -90,11 +99,14 @@ class Module(ModuleBase):
         if stuck_jobs and stuck_jobs.get("count", 0) > 0:
             findings.append(
                 Finding(
-                    title=f"Stuck print jobs detected ({stuck_jobs['count']})",
+                    title=f"Your printer has {stuck_jobs['count']} stuck jobs",
                     description=(
-                        f"Found {stuck_jobs['count']} print job(s) in an abnormal state. "
-                        "These jobs may be blocking new print requests or consuming resources. "
-                        "Clear the print queue to resolve this issue."
+                        f"We found {stuck_jobs['count']} print job(s) that seem to be "
+                        "stuck in your printer's queue. Stuck jobs can slow down your "
+                        "computer and prevent new documents from printing.\n\n"
+                        "What to do: Open the printer's properties in Settings > Bluetooth "
+                        "& devices > Printers & scanners, select your printer, and choose "
+                        "'Open print queue'. Cancel the stuck jobs to clear the list."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -110,11 +122,15 @@ class Module(ModuleBase):
         if queue_size_mb and queue_size_mb > 100:
             findings.append(
                 Finding(
-                    title=f"Print spooler queue folder very large ({queue_size_mb}MB)",
+                    title=f"Your printer's waiting folder is very large ({queue_size_mb}MB)",
                     description=(
-                        f"The print spooler queue folder is {queue_size_mb}MB, indicating stale or "
-                        "accumulated print jobs. This may cause performance issues or prevent printing. "
-                        "Clear the print queue and remove stale jobs."
+                        f"The folder where your computer stores print jobs is {queue_size_mb}MB, "
+                        "which is larger than usual. This usually means old print files "
+                        "have built up over time. While this isn't a security risk, it "
+                        "can slow down your system and use up disk space.\n\n"
+                        "What to do: Clear your print queue by opening the printer's "
+                        "properties in Settings > Bluetooth & devices > Printers & scanners "
+                        "and canceling any waiting jobs."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -129,11 +145,14 @@ class Module(ModuleBase):
         if not spooler_running and printer_count > 0:
             findings.append(
                 Finding(
-                    title="Print Spooler stopped but printers installed",
+                    title="Your printer service is off, so you can't print",
                     description=(
-                        f"The Print Spooler service is not running, but {printer_count} printer(s) "
-                        "are installed on this system. Users will be unable to print. "
-                        "Start the Print Spooler service to restore printing."
+                        "Your computer's Print Spooler service is currently stopped, "
+                        f"but you have {printer_count} printer(s) installed. This means "
+                        "you won't be able to send documents to your printer until the "
+                        "service is running.\n\n"
+                        "What to do: Open Services (type 'services.msc' in the Start "
+                        "menu), find 'Print Spooler', right-click it, and select 'Start'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

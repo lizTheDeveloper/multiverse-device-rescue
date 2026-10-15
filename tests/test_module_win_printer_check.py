@@ -143,7 +143,7 @@ SERVICE_NAME: Spooler
             f for f in result.findings if f.severity == Severity.CRITICAL
         ]
         assert len(critical_findings) > 0
-        assert any("not running" in f.title.lower() for f in critical_findings)
+        assert any("turned off" in f.title.lower() for f in critical_findings)
 
     @patch("subprocess.run")
     def test_check_printer_offline_warning(self, mock_run):
@@ -197,7 +197,7 @@ SERVICE_NAME: Spooler
             f for f in result.findings if f.severity == Severity.WARNING
         ]
         assert len(warning_findings) > 0
-        assert any("error or offline" in f.title.lower() for f in warning_findings)
+        assert any("having a problem" in f.title.lower() for f in warning_findings)
 
     @patch("subprocess.run")
     def test_check_stuck_print_job_warning(self, mock_run):

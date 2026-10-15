@@ -55,10 +55,16 @@ class Module(ModuleBase):
             if status not in ["running", "ok"]:
                 findings.append(
                     Finding(
-                        title="Print Spooler service is not running",
+                        title="Your computer's print helper is turned off",
                         description=(
-                            f"Print Spooler service is not running (status: {status}). "
-                            "This prevents printing. The service needs to be started."
+                            "Windows uses a background helper called the Print Spooler "
+                            f"to manage printing. Right now, it is stopped (status: {status}).\n\n"
+                            "Until it's running again you can't print. This often happens "
+                            "after a restart or a system update.\n\n"
+                            "What to do: Open the Start menu, type 'Services', and press "
+                            "Enter. Find 'Print Spooler' in the list, right-click it, "
+                            "and select 'Start'. If it stops again, check if your printer "
+                            "is connected."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -101,10 +107,14 @@ class Module(ModuleBase):
                     if printer["status"].lower() not in ["normal", "idle", "processing"]:
                         findings.append(
                             Finding(
-                                title=f"Printer '{printer['name']}' has error or offline status",
+                                title=f"Your printer '{printer['name']}' is having a problem",
                                 description=(
-                                    f"Printer '{printer['name']}' is in {printer['status']} state. "
-                                    "The printer may be offline, out of paper, or experiencing errors."
+                                    f"Your printer named '{printer['name']}' is currently "
+                                    f"reporting a status of: {printer['status']}.\n\n"
+                                    "The printer may be offline, out of paper, or jammed.\n\n"
+                                    "What to do: Check the physical printer to see if "
+                                    "it is plugged in, has paper, and is not jammed. "
+                                    "If it looks fine, try turning it off and on again."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
@@ -169,10 +179,18 @@ class Module(ModuleBase):
                 if job["status"].lower() not in ["completed", "normal", "printing"]:
                     findings.append(
                         Finding(
-                            title=f"Stuck print job: {job['name']} (ID: {job['id']})",
+                            title=f"A document is stuck waiting to print: {job['name']}",
                             description=(
-                                f"Print job '{job['name']}' is stuck with status: {job['status']}. "
-                                "This may block other print jobs."
+                                f"Your computer is holding onto a document named '{job['name']}' "
+                                f"(ID: {job['id']}) that hasn't finished printing. Its "
+                                f"current status is: {job['status']}.\n\n"
+                                "This usually happens if a printer runs out of paper, gets "
+                                "unplugged, or pauses. The stuck document might prevent "
+                                "other documents from printing.\n\n"
+                                "What to do: Open the print queue (usually by double-clicking "
+                                "your printer icon in the system tray) and cancel or "
+                                "delete the stuck job. Then check your physical printer "
+                                "for paper or jams."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
