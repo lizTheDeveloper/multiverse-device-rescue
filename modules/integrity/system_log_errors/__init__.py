@@ -94,12 +94,14 @@ class Module(ModuleBase):
         if error_count > ERROR_COUNT_THRESHOLD:
             findings.append(
                 Finding(
-                    title=f"High error volume: {error_count} errors in 1 hour",
+                    title=f"Your Mac logged {error_count} errors in the last hour",
                     description=(
-                        f"The system log contains {error_count} errors in the last hour. "
-                        f"This suggests something is spamming errors and may indicate "
-                        f"system instability or a malfunctioning service. "
-                        f"Top error sources: {', '.join(top_sources.keys())}."
+                        f"Your Mac's system log recorded {error_count} errors in the past "
+                        "hour. This usually means a specific app or service is struggling. "
+                        "The main sources "
+                        f"of these errors are: {', '.join(top_sources.keys())}.\n\n"
+                        "What to do: Restart your Mac to clear temporary glitches. If "
+                        "the errors return, check if any of the listed apps are misbehaving."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -115,11 +117,14 @@ class Module(ModuleBase):
         if known_bad_errors:
             findings.append(
                 Finding(
-                    title=f"Known-issue errors detected: {len(known_bad_errors)} occurrence(s)",
+                    title=f"Found {len(known_bad_errors)} errors from known Mac issues",
                     description=(
-                        f"Detected {len(known_bad_errors)} error(s) from known-problematic systems. "
-                        f"This may indicate kernel issues, XPC communication failures, or crashes. "
-                        f"Sample errors: {known_bad_errors[0] if known_bad_errors else 'None'}."
+                        f"We found {len(known_bad_errors)} errors that match known problems "
+                        "with macOS system components. These are often minor communication "
+                        "hiccups between system parts. "
+                        f"Example: {known_bad_errors[0] if known_bad_errors else 'None'}\n\n"
+                        "What to do: Nothing specific is needed right now. These errors "
+                        "often resolve themselves after a restart or a system update."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

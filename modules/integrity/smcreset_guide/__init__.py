@@ -57,10 +57,17 @@ class Module(ModuleBase):
             symptom_list = ", ".join(symptoms)
             findings.append(
                 Finding(
-                    title="Symptoms detected that may benefit from SMC reset",
+                    title=(
+                        f"Your Mac is showing signs that an SMC reset might help ({symptom_list})"
+                    ),
                     description=(
-                        f"Detected the following symptoms: {symptom_list}. "
-                        "These can often be resolved with an SMC reset."
+                        "We found these signs that your Mac's low-level hardware controller "
+                        f"(SMC) may be acting up: {symptom_list}. This is a common, fixable "
+                        "issue.\n\n"
+                        "What to do: Shut down your Mac, wait 30 seconds, and turn it on "
+                        "again; on Macs with Apple silicon that resets this controller. "
+                        "Intel Macs have a separate SMC reset; Apple Support's 'Reset the "
+                        "SMC of your Mac' article explains it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

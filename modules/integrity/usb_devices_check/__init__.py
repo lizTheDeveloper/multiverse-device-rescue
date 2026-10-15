@@ -78,13 +78,17 @@ class Module(ModuleBase):
             if device.get("error_state"):
                 findings.append(
                     Finding(
-                        title=f"USB device not recognized: {device.get('product', 'Unknown')}",
+                        title=(
+                            f"USB device not recognized: {device.get('product', 'Unknown')}"
+                        ),
                         description=(
-                            f"Device '{device.get('product', 'Unknown')}' is in an error state "
-                            "and not recognized by the system. Try: "
-                            "(1) Disconnect and reconnect the device, "
-                            "(2) Try a different USB port, "
-                            "(3) Try a different Mac to isolate the issue."
+                            f"Your Mac is having trouble talking to the USB device '{device.get('product', 'Unknown')}'. "
+                            "It is currently in an error state, which usually means a "
+                            "loose connection or a power issue.\n\n"
+                            "What to do: Unplug the device and plug it back in. If that "
+                            "doesn't work, try a different USB port on your Mac. If it "
+                            "still fails, try the device on another computer to see if "
+                            "the device itself is broken."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -126,13 +130,14 @@ class Module(ModuleBase):
                     Finding(
                         title=f"USB hub overloaded: {hub_name} ({device_count} devices)",
                         description=(
-                            f"'{hub_name}' has {device_count} devices connected, "
-                            "exceeding the recommended limit of 4. This may cause power "
-                            "brownout, dropped connections, or device failures. "
-                            "Devices connected: {device_list_str}. "
-                            "Try: (1) Use a powered USB hub instead, "
-                            "(2) Distribute devices across multiple hubs, "
-                            "(3) Prioritize which devices must stay connected."
+                            f"Your USB hub '{hub_name}' has {device_count} devices connected "
+                            "to it. Hubs usually work best with 4 or fewer devices. Too "
+                            "many can cause power issues, "
+                            "leading to devices disconnecting or failing. Devices connected: "
+                            f"{device_list_str}.\n\n"
+                            "What to do: Try using a powered USB hub (one with its own "
+                            "power adapter) or move some devices to a different hub or "
+                            "port."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

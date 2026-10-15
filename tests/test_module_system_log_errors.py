@@ -83,7 +83,7 @@ def test_high_error_volume_warning():
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
     warning = next(f for f in result.findings if f.severity == Severity.WARNING)
-    assert "High error volume" in warning.title
+    assert "errors in the last hour" in warning.title
     assert "60 errors" in warning.title
 
 
@@ -99,7 +99,7 @@ System[456]: ERROR: Service stopped"""
 
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    known_bad = next(f for f in result.findings if "known-issue" in f.title.lower())
+    known_bad = next(f for f in result.findings if "known mac issues" in f.title.lower())
     assert "kernel" in known_bad.data["sample_errors"][0].lower()
 
 
@@ -115,7 +115,7 @@ Safari[789]: ERROR: Timeout"""
 
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    known_bad = next(f for f in result.findings if "known-issue" in f.title.lower())
+    known_bad = next(f for f in result.findings if "known mac issues" in f.title.lower())
     assert known_bad.data["known_bad_count"] == 1
 
 
@@ -183,7 +183,7 @@ crashd[100]: ERROR: Crash detected"""
         result = mod.check(_make_profile())
 
     assert result.has_issues
-    known_bad = next(f for f in result.findings if "known-issue" in f.title.lower())
+    known_bad = next(f for f in result.findings if "known mac issues" in f.title.lower())
     # Should detect multiple known-bad errors
     assert known_bad.data["known_bad_count"] == 3
 
@@ -286,7 +286,7 @@ System[456]: ERROR: Short error"""
         result = mod.check(_make_profile())
 
     # Check if known-bad findings exist and are truncated
-    known_bad = next((f for f in result.findings if "known-issue" in f.title.lower()), None)
+    known_bad = next((f for f in result.findings if "known mac issues" in f.title.lower()), None)
     if known_bad and known_bad.data.get("sample_errors"):
         # Sample error should be truncated (max 100 chars)
         for sample in known_bad.data["sample_errors"]:

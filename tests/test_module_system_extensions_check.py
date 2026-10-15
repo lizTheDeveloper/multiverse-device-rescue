@@ -211,7 +211,7 @@ def test_system_extensions_check_terminated_extensions():
     terminated_finding = next(
         f for f in warning_findings if f.data.get("check") == "terminated_extensions"
     )
-    assert "terminated" in terminated_finding.description.lower()
+    assert "stopped running" in terminated_finding.description.lower()
 
 
 def test_system_extensions_check_no_extensions():

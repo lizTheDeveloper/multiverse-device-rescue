@@ -46,12 +46,17 @@ class Module(ModuleBase):
         if ask_for_password != "1":
             findings.append(
                 Finding(
-                    title="Screen saver password not required",
+                    title=(
+                        "Your Mac does not ask for a password after the screen saver starts"
+                    ),
                     description=(
-                        "The screen saver is not configured to require a password. "
-                        "Anyone can wake the screen and access the Mac. Enable this "
-                        "in System Settings > Lock Screen > 'Require password after "
-                        "screen saver or lock screen begins'."
+                        "Right now, if your screen saver is running, anyone can move the "
+                        "mouse to wake it up and use your Mac without a password. This "
+                        "is a common setting, but it means your files and messages are "
+                        "open to anyone who walks by.\n\n"
+                        "What to do: Open System Settings > Lock Screen and set 'Require "
+                        "password after screen saver begins or display is turned off' to "
+                        "Immediately."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -74,11 +79,18 @@ class Module(ModuleBase):
         if ask_for_password_delay is not None and ask_for_password_delay > 60:
             findings.append(
                 Finding(
-                    title="Screen saver password delay is too long",
+                    title=(
+                        f"Your Mac waits {ask_for_password_delay} seconds before asking "
+                        "for a password"
+                    ),
                     description=(
-                        f"The delay before asking for a password is {ask_for_password_delay} "
-                        "seconds. This allows unauthorized access if the screen saver activates "
-                        "during a brief absence. Set this to 0 or a very short delay (< 30 seconds)."
+                        f"Your Mac waits {ask_for_password_delay} seconds after the screen "
+                        "saver starts before it asks for a password. If you step away "
+                        "for a minute, someone could use your computer during that waiting "
+                        "time.\n\n"
+                        "What to do: Open System Settings > Lock Screen and set 'Require "
+                        "password after screen saver begins or display is turned off' to "
+                        "Immediately."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -103,12 +115,15 @@ class Module(ModuleBase):
                             if display_sleep == 0:
                                 findings.append(
                                     Finding(
-                                        title="Display never sleeps",
+                                        title="Your Mac screen never turns off automatically",
                                         description=(
-                                            "The display is configured to never sleep. "
-                                            "This leaves the system vulnerable if left unattended. "
-                                            "Set displaysleep to a reasonable value (e.g., 5-15 minutes) "
-                                            "via System Settings > Displays > Auto-lock."
+                                            "Your Mac is set to keep the screen on forever, "
+                                            "even when you are not using it. If you leave "
+                                            "the room, your open work remains visible "
+                                            "to anyone who passes by.\n\n"
+                                            "What to do: Open System Settings > Lock Screen "
+                                            "and set 'Turn display off when inactive' to "
+                                            "5 or 10 minutes."
                                         ),
                                         severity=Severity.WARNING,
                                         category=self.category,

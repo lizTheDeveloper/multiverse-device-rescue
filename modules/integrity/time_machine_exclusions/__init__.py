@@ -49,8 +49,18 @@ class Module(ModuleBase):
             if is_excluded:
                 findings.append(
                     Finding(
-                        title=f"{dir_desc} is excluded from Time Machine",
-                        description=f"{expanded_path} is excluded from backups. Important data may not be protected.",
+                        title=f"Your {dir_desc} is not backed up by Time Machine",
+                        description=(
+                            f"Your Mac is set to skip the {dir_desc} when making backups. "
+                            f"This means files in {expanded_path} are not protected. If "
+                            "your backup drive fails or you accidentally delete these "
+                            "files, they might be lost forever. This is a common setting, "
+                            "but it leaves your most important personal files unprotected.\n\n"
+                            "What to do: Open System Settings, click General, then Time "
+                            f"Machine. Click the 'Options' button. Find {dir_desc} in "
+                            "the list, click the minus (-) button to remove it, and click "
+                            f"Done. This will include your {dir_desc} in future backups."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
@@ -68,8 +78,18 @@ class Module(ModuleBase):
             if is_excluded:
                 findings.append(
                     Finding(
-                        title=f"{dir_desc} is excluded from Time Machine",
-                        description=f"{expanded_path} is excluded from backups.",
+                        title=f"Your {dir_desc} is not backed up by Time Machine",
+                        description=(
+                            f"Your Mac is set to skip the {dir_desc} when making backups. "
+                            f"This means files in {expanded_path} are not protected. If "
+                            "your backup drive fails or you accidentally delete these "
+                            "files, they might be lost forever. This is a common setting, "
+                            "but it leaves your media unprotected.\n\n"
+                            "What to do: Open System Settings, click General, then Time "
+                            f"Machine. Click the 'Options' button. Find {dir_desc} in "
+                            "the list, click the minus (-) button to remove it, and click "
+                            f"Done. This will include your {dir_desc} in future backups."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={

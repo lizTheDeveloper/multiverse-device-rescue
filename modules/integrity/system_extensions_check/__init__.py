@@ -138,13 +138,16 @@ class Module(ModuleBase):
             ext_names = ", ".join([e["name"] for e in waiting_endpoint_security])
             findings.append(
                 Finding(
-                    title="Endpoint security extensions awaiting user approval",
+                    title=f"Security software is waiting for your approval ({ext_names})",
                     description=(
-                        f"The following endpoint security extension(s) are waiting for user approval:\n"
-                        f"  {ext_names}\n\n"
-                        "These extensions provide security protection but are not yet active. "
-                        "To activate them, open System Settings > Privacy & Security > Extensions and "
-                        "approve the pending extension(s)."
+                        f"Your Mac found a security tool named {ext_names} that is ready "
+                        "to help protect you, but it is paused waiting for your approval "
+                        "to start.\n\n"
+                        "This is normal.\n\n"
+                        "What to do: Open System Settings > General > Login Items & "
+                        "Extensions and look in the Extensions section, or check for a "
+                        "message near the bottom of Privacy & Security. Click Allow "
+                        "next to the name above."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -161,13 +164,17 @@ class Module(ModuleBase):
             ext_names = ", ".join([e["name"] for e in terminated_exts])
             findings.append(
                 Finding(
-                    title=f"Terminated system extensions ({terminated_count})",
+                    title=f"Security software stopped working ({terminated_count})",
                     description=(
-                        f"Found {terminated_count} terminated extension(s):\n"
-                        f"  {ext_names}\n\n"
-                        "Terminated extensions may indicate failed installation, incompatibility, or "
-                        "crashes. If these extensions are from security software, reinstall the software "
-                        "or contact the vendor. You can remove them from System Settings > Privacy & Security > Extensions."
+                        f"Your Mac has {terminated_count} security tool(s) that have stopped "
+                        f"running: {ext_names}.\n\n"
+                        "This usually happens if an update failed or the software crashed.\n\n"
+                        "What to do: Open System Settings > General > Login Items & "
+                        "Extensions and look in the Extensions section, or check for a "
+                        "message near the bottom of Privacy & Security. If you see "
+                        "the name above, try turning it on again. If that "
+                        "doesn't work, reinstall the security software from its official "
+                        "website."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -182,13 +189,15 @@ class Module(ModuleBase):
         if not endpoint_security_exts:
             findings.append(
                 Finding(
-                    title="No endpoint security extensions installed",
+                    title="No extra security software is installed",
                     description=(
-                        "No third-party endpoint security extensions are installed. "
-                        "macOS includes built-in XProtect and Malware Removal Tool (MRT), but "
-                        "many organizations use third-party endpoint security products for enhanced protection. "
-                        "If you expect an endpoint security tool to be installed, check that it is properly installed "
-                        "and its extension is approved in System Settings > Privacy & Security > Extensions."
+                        "Your Mac does not have any third-party security tools installed. "
+                        "This is not a problem. macOS has built-in protection that works "
+                        "well for most people.\n\n"
+                        "If you work for a company or school that requires specific security "
+                        "software, check with your IT team to make sure it is installed. "
+                        "Otherwise, you are likely fine.\n\n"
+                        "What to do: Nothing right now. Just keep your Mac updated."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

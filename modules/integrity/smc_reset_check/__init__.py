@@ -57,11 +57,17 @@ class Module(ModuleBase):
         if batt_info.get("is_plugged_in") and batt_info.get("is_charging") is False:
             findings.append(
                 Finding(
-                    title="Battery not charging despite being plugged in",
+                    title="Your battery is plugged in but not charging",
                     description=(
-                        "The battery is plugged in but not charging. This may indicate "
-                        "an SMC issue. If the issue persists after restart, an SMC reset "
-                        "may be needed."
+                        "Your Mac is connected to power, but the battery isn't gaining "
+                        "charge. This often points to a glitch in the System Management "
+                        "Controller (SMC), the chip that handles power and cooling.\n\n"
+                        "It usually means the Mac is running on battery power even though "
+                        "it is plugged in.\n\n"
+                        "What to do: Shut down your Mac, wait 30 seconds, and turn it on "
+                        "again; on Macs with Apple silicon that resets this controller. "
+                        "Intel Macs have a separate SMC reset; Apple Support's 'Reset the "
+                        "SMC of your Mac' article explains it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -76,11 +82,15 @@ class Module(ModuleBase):
         if therm_info.get("thermal_throttling"):
             findings.append(
                 Finding(
-                    title="Thermal throttling detected",
+                    title="Your Mac is slowing down to cool itself",
                     description=(
-                        "CPU thermal throttling is active, meaning the CPU speed is being "
-                        "reduced to manage temperature. This may indicate an SMC issue or "
-                        "thermal sensor malfunction."
+                        "Your Mac is reducing its speed to keep from overheating. This "
+                        "is a safety feature. It usually happens "
+                        "when the cooling system isn't working as well as it should.\n\n"
+                                                "What to do: Shut down your Mac, wait 30 seconds, and turn it on "
+                        "again; on Macs with Apple silicon that resets this controller. "
+                        "Intel Macs have a separate SMC reset; Apple Support's 'Reset the "
+                        "SMC of your Mac' article explains it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -95,11 +105,16 @@ class Module(ModuleBase):
         if fan_info.get("fans_at_max"):
             findings.append(
                 Finding(
-                    title="Fans running at maximum speed constantly",
+                    title="Your fans are running at maximum speed",
                     description=(
-                        "One or more fans are running at maximum RPM constantly. This may "
-                        "indicate an SMC issue or thermal sensor malfunction. The system may "
-                        "be reporting high temperatures incorrectly."
+                        "Your Mac's fans are spinning as fast as they can. This often "
+                        "happens when the system thinks it is too hot, or when the chip "
+                        "that controls the fans (the SMC) is glitching.\n\n"
+                        "It usually means the Mac is struggling to cool down.\n\n"
+                        "What to do: Shut down your Mac, wait 30 seconds, and turn it on "
+                        "again; on Macs with Apple silicon that resets this controller. "
+                        "Intel Macs have a separate SMC reset; Apple Support's 'Reset the "
+                        "SMC of your Mac' article explains it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
