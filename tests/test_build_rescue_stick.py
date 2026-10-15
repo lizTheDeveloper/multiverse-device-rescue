@@ -9,6 +9,10 @@ from collections import namedtuple
 from pathlib import Path
 
 import pytest
+import sys
+
+# --write-to copies to a mounted macOS volume; its paths are POSIX paths.
+posix_only = pytest.mark.skipif(sys.platform == "win32", reason="--write-to is macOS-only; POSIX paths")
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "build_rescue_stick.py"
 _spec = importlib.util.spec_from_file_location("build_rescue_stick", SCRIPT)
@@ -76,34 +80,40 @@ def _check(target, *, vol_info=USB, free=8 * GB, needed=400 * 1024 ** 2, realpat
         realpath=realpath or (lambda p: p))
 
 
+@posix_only
 def test_accepts_external_usb_volume():
     dest, _ = _check("/Volumes/RESCUE")
     assert dest == Path("/Volumes/RESCUE")
 
 
+@posix_only
 @pytest.mark.parametrize("target", ["/Users/someone/Desktop", "/", "/tmp/Volumes/RESCUE", "/Volumes"])
 def test_refuses_paths_outside_volumes(target):
     with pytest.raises(stick.StickError, match="under /Volumes"):
         _check(target)
 
 
+@posix_only
 def test_refuses_relative_path():
     with pytest.raises(stick.StickError, match="full path"):
         _check("Volumes/RESCUE")
 
 
+@posix_only
 def test_refuses_macintosh_hd_symlink_to_root():
     # On macOS, /Volumes/Macintosh HD is a symlink to /.
     with pytest.raises(stick.StickError, match="under /Volumes"):
         _check("/Volumes/Macintosh HD", realpath=lambda p: "/")
 
 
+@posix_only
 def test_refuses_boot_volume_reported_by_diskutil():
     boot_under_volumes = dict(BOOT, MountPoint="/Volumes/Data")
     with pytest.raises(stick.StickError, match="startup disk"):
         _check("/Volumes/Data", vol_info=boot_under_volumes)
 
 
+@posix_only
 def test_refuses_internal_non_removable_disk():
     internal = dict(USB, Internal=True, Removable=False, RemovableMedia=False, Ejectable=False,
                     ParentWholeDisk="disk1", DeviceIdentifier="disk1s2")
@@ -111,17 +121,20 @@ def test_refuses_internal_non_removable_disk():
         _check("/Volumes/RESCUE", vol_info=internal)
 
 
+@posix_only
 def test_refuses_mounted_disk_image():
     dmg = dict(USB, BusProtocol="Disk Image")
     with pytest.raises(stick.StickError, match="disk image"):
         _check("/Volumes/RESCUE", vol_info=dmg)
 
 
+@posix_only
 def test_refuses_unmounted_path():
     with pytest.raises(stick.StickError, match="isn't a mounted drive"):
         _check("/Volumes/RESCUE", mounted=False)
 
 
+@posix_only
 def test_refuses_when_not_enough_free_space():
     with pytest.raises(stick.StickError, match="free"):
         _check("/Volumes/RESCUE", free=100 * 1024 ** 2)
