@@ -402,6 +402,15 @@ def test_subjects_cap_per_finding():
     assert len(subjects_for_finding(f)) == 6
 
 
+def test_subjects_from_item_dicts_use_program_not_plist():
+    f = _f(items=[
+        {"label": "a", "plist": "/L/a.plist", "program": "/opt/a/bin"},
+        {"label": "b", "plist": None, "program": None},
+        {"label": "c", "program": "/opt/c/bin"},
+    ])
+    assert subjects_for_finding(f) == ["/opt/a/bin", "/opt/c/bin"]
+
+
 # --- serialization / CLI -------------------------------------------------------------
 
 def test_checks_to_json_attaches_made_by():

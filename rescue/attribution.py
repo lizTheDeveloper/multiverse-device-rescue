@@ -43,7 +43,7 @@ MAX_SUBJECTS_PER_FINDING = 6
 # Finding.data keys that name a program, plist, app or bundle id.
 PROGRAM_KEYS = (
     "program", "plist", "plist_path", "path", "binary", "executable", "exe",
-    "app", "apps", "bundle_id",
+    "app", "apps", "bundle_id", "items",
 )
 # Inside dict items of those lists, the keys that hold the actual path.
 _ITEM_PATH_KEYS = ("path", "program", "exe", "executable", "binary", "command")
