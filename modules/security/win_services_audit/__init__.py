@@ -276,7 +276,7 @@ class Module(ModuleBase):
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []
         for finding in findings.findings:
-            if "bloatware" in finding.title.lower():
+            if finding.code == "security.win_services_audit.bloatware_detected":
                 services = finding.data.get("services", [])
                 for svc in services:
                     name = svc.get("name", "") if isinstance(svc, dict) else svc

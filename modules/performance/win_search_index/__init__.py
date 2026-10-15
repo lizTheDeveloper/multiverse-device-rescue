@@ -47,7 +47,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
-                    data={"service_status": service_status},
+                    data={"check": "service_stopped", "service_status": service_status},
                 )
             )
 
@@ -64,7 +64,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
-                    data={"cpu_percent": cpu_usage},
+                    data={"check": "high_cpu", "cpu_percent": cpu_usage},
                 )
             )
 
@@ -81,7 +81,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
-                    data={"index_size_gb": index_size_gb},
+                    data={"check": "index_bloated", "index_size_gb": index_size_gb},
                 )
             )
 
@@ -114,7 +114,7 @@ class Module(ModuleBase):
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []
         for finding in findings.findings:
-            if "service is stopped" in finding.title.lower():
+            if finding.data.get("check") == "service_stopped":
                 actions.append(
                     Action(
                         title="Restart Windows Search service",
@@ -126,7 +126,7 @@ class Module(ModuleBase):
                         success=True,
                     )
                 )
-            elif "high cpu" in finding.title.lower():
+            elif finding.data.get("check") == "high_cpu":
                 actions.append(
                     Action(
                         title="Allow indexing to complete or rebuild index",
@@ -139,7 +139,7 @@ class Module(ModuleBase):
                         success=True,
                     )
                 )
-            elif "bloated" in finding.title.lower():
+            elif finding.data.get("check") == "index_bloated":
                 actions.append(
                     Action(
                         title="Rebuild Search index",

@@ -58,6 +58,7 @@ class Module(ModuleBase):
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
+                        "check": "slow_boot",
                         "boot_duration_seconds": boot_duration_seconds,
                         "uptime_days": uptime_days,
                         "fast_startup_enabled": fast_startup_enabled,
@@ -78,6 +79,7 @@ class Module(ModuleBase):
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
+                        "check": "overdue_restart",
                         "uptime_days": uptime_days,
                         "uptime_hours": uptime_hours,
                         "boot_duration_seconds": boot_duration_seconds,
@@ -116,7 +118,7 @@ class Module(ModuleBase):
         actions = []
         for finding in findings.findings:
             if finding.severity == Severity.WARNING:
-                if "boot" in finding.title.lower():
+                if finding.data.get("check") == "slow_boot":
                     actions.append(
                         Action(
                             title="Enable Fast Startup",
@@ -142,7 +144,7 @@ class Module(ModuleBase):
                             success=True,
                         )
                     )
-                elif "uptime" in finding.title.lower():
+                elif finding.data.get("check") == "overdue_restart":
                     actions.append(
                         Action(
                             title="Restart system",

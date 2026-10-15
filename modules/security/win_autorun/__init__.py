@@ -149,10 +149,10 @@ class Module(ModuleBase):
 
         # This fix is INFORMATIONAL - we provide guidance but don't modify the system
         has_autorun_warning = any(
-            "AutoRun is enabled" in f.title for f in findings.findings
+            f.code == "security.win_autorun.autorun_enabled" for f in findings.findings
         )
         has_autoplay_warning = any(
-            "AutoPlay is enabled" in f.title for f in findings.findings
+            f.code == "security.win_autorun.autoplay_enabled" for f in findings.findings
         )
 
         if has_autorun_warning:

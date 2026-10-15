@@ -106,7 +106,7 @@ class Module(ModuleBase):
         actions = []
         for finding in findings.findings:
             if finding.severity == Severity.WARNING:
-                if "Stale domain Group Policies" in finding.title:
+                if finding.code == "security.win_group_policy_audit.stale_domain_policies":
                     actions.append(
                         Action(
                             title="Remove stale Group Policies",
@@ -120,7 +120,7 @@ class Module(ModuleBase):
                             data={"gpos": finding.data},
                         )
                     )
-                elif "disabled by policy" in finding.title:
+                elif finding.code == "security.win_group_policy_audit.restrictive_policy":
                     actions.append(
                         Action(
                             title=f"Review or remove restrictive policy",
@@ -135,7 +135,7 @@ class Module(ModuleBase):
                             data=finding.data,
                         )
                     )
-                elif "minimum length" in finding.title:
+                elif finding.code == "security.win_group_policy_audit.weak_password_policy":
                     actions.append(
                         Action(
                             title="Increase password minimum length",

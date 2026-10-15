@@ -80,6 +80,7 @@ class Module(ModuleBase):
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
+                            "check": "temp_files",
                             "total_size": total_reclaimable,
                             "breakdown": temp_breakdown,
                             "old_files_count": old_files_count,
@@ -99,6 +100,7 @@ class Module(ModuleBase):
                         severity=Severity.WARNING,
                         category=self.category,
                         data={
+                            "check": "update_cache",
                             "cache_size": update_cache_size,
                             "location": "C:\\Windows\\SoftwareDistribution\\Download",
                         },
@@ -116,7 +118,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
-                        data={"recycle_bin_size": recycle_bin_size},
+                        data={"check": "recycle_bin", "recycle_bin_size": recycle_bin_size},
                     )
                 )
 
@@ -161,7 +163,7 @@ class Module(ModuleBase):
         actions = []
 
         for finding in findings.findings:
-            if finding.title == "Excessive temp file accumulation":
+            if finding.data.get("check") == "temp_files":
                 total_size = finding.data.get("total_size", 0)
                 breakdown = finding.data.get("breakdown", {})
 
@@ -189,7 +191,7 @@ class Module(ModuleBase):
                     )
                 )
 
-            elif finding.title == "Large Windows Update cache detected":
+            elif finding.data.get("check") == "update_cache":
                 cache_size = finding.data.get("cache_size", 0)
                 actions.append(
                     Action(
@@ -205,7 +207,7 @@ class Module(ModuleBase):
                     )
                 )
 
-            elif finding.title == "Large Recycle Bin":
+            elif finding.data.get("check") == "recycle_bin":
                 recycle_size = finding.data.get("recycle_bin_size", 0)
                 actions.append(
                     Action(

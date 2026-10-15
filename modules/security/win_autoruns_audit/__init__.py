@@ -158,7 +158,7 @@ class Module(ModuleBase):
                         error="Manual intervention required (informational fix)",
                     )
                 )
-            elif finding.severity == Severity.WARNING and "obfuscated" in finding.title.lower():
+            elif finding.code == "security.win_autoruns_audit.obfuscated_command":
                 entry_name = finding.data.get("entry_name", "")
                 location = finding.data.get("location", "")
                 actions.append(

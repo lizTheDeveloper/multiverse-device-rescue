@@ -188,7 +188,7 @@ class Module(ModuleBase):
                     )
                 )
             elif finding.severity == Severity.WARNING:
-                if "suspended" in finding.title.lower():
+                if finding.code == "security.win_bitlocker_check.encryption_suspended":
                     actions.append(
                         Action(
                             title=f"Resume BitLocker protection on {mount_point}",
@@ -201,7 +201,7 @@ class Module(ModuleBase):
                             success=True,
                         )
                     )
-                elif "recovery key" in finding.title.lower():
+                elif finding.code == "security.win_bitlocker_check.no_recovery_key":
                     actions.append(
                         Action(
                             title=f"Add recovery key protector to {mount_point}",
@@ -214,7 +214,7 @@ class Module(ModuleBase):
                             success=True,
                         )
                     )
-                elif "not encrypted" in finding.title.lower():
+                elif finding.code in ("security.win_bitlocker_check.os_drive_not_encrypted", "security.win_bitlocker_check.fixed_drive_not_encrypted"):
                     actions.append(
                         Action(
                             title=f"Enable BitLocker on {mount_point}",

@@ -126,7 +126,7 @@ class Module(ModuleBase):
                         success=True,
                     )
                 )
-            elif "Font server" in finding.title:
+            elif "atsutil_running" in finding.data:
                 if finding.data.get("atsutil_running"):
                     actions.append(
                         Action(
