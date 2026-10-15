@@ -9,6 +9,13 @@ remediates:
   - security.ai_threat_indicators.launchagent_ai
   - security.ai_threat_indicators.python_node_ai_process
   - security.ai_threat_indicators.ai_config_file
+steps_for:
+  security.ai_threat_indicators.ai_api_connection: [1, 2]
+  security.ai_threat_indicators.ai_api_key_found: [1, 3]
+  security.ai_threat_indicators.cron_ai_call: [1, 4]
+  security.ai_threat_indicators.launchagent_ai: [1, 5]
+  security.ai_threat_indicators.python_node_ai_process: [1, 6]
+  security.ai_threat_indicators.ai_config_file: [1, 6]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
 ---
@@ -30,7 +37,7 @@ this machine" — that judgment call is yours. The goal of this guide is
 helping you make that call quickly and confidently, not treating every hit
 as an incident.
 
-## Step 1: Triage — is this your own AI tooling?
+## Step 1: Check if you use AI tools on this computer
 
 Before working through the specific findings below, answer this once for
 the whole scan: do you (or does someone with legitimate access to this
@@ -48,7 +55,7 @@ here?
    almost certainly is, that's what triggered it) — it's "did *I* put this
    here, and does it match a tool I actually chose to install."
 
-## Step 2: Investigate AI API connections (critical)
+## Step 2: Check which apps are talking to AI services
 
 A running process has an active connection to a known AI API endpoint
 (`api.openai.com`, `api.anthropic.com`, etc.). This is flagged CRITICAL
@@ -76,7 +83,7 @@ unauthorized.
    and consider whether any credentials or files it had access to should be
    rotated/reviewed.
 
-## Step 3: Review AI API keys in environment variables
+## Step 3: Check where your AI access keys are stored
 
 An `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or similar variable is set in your
 current environment.
@@ -96,7 +103,7 @@ current environment.
    (this invalidates it regardless of where it's stored) and remove the
    `export` line from whatever file defined it.
 
-## Step 4: Investigate suspicious cron jobs
+## Step 4: Check for scheduled tasks that use AI
 
 A crontab entry calls an AI API endpoint directly, or combines an AI tool
 reference (claude, gpt, langchain, etc.) with `curl`, `wget`, `python`, or
@@ -115,7 +122,7 @@ reference (claude, gpt, langchain, etc.) with `curl`, `wget`, `python`, or
    (move it, don't delete, so you can review it further) and check whether
    anything else on the system also references it.
 
-## Step 5: Investigate LaunchAgents/LaunchDaemons with AI references
+## Step 5: Check for background AI services
 
 A plist under `~/Library/LaunchAgents`, `/Library/LaunchDaemons`, or
 `/System/Library/LaunchDaemons` contains a reference to an AI API endpoint
@@ -136,7 +143,7 @@ or AI tool name.
 5. Reboot and confirm with `launchctl list | grep <label>` that it no
    longer loads.
 
-## Step 6: Review Python/Node processes and AI config files
+## Step 6: Check for AI settings and running scripts
 
 These are the lowest-severity (INFO) findings: a running Python/Node
 process whose command line mentions an AI package or tool name, or a file

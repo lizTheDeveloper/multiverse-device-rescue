@@ -16,7 +16,7 @@ record can matter later, for your own understanding, for an employer's security
 team, or for a protective order or police report. A few minutes of note-taking
 first keeps your options open.
 
-## Step 1: Write down what you've seen
+## Step 1: Write down what you noticed
 
 On paper or on another device (not this computer), write:
 
@@ -24,13 +24,13 @@ On paper or on another device (not this computer), write:
 - Any account that behaved oddly, and any charge you didn't make.
 - Anything you have already changed on this computer.
 
-## Step 2: Take photos with your phone
+## Step 2: Take photos of the screen
 
 Photograph any warning, strange message or this scan's findings on the screen.
 Photos are strong evidence, and they stay on your phone, not on the computer
 that may be watched.
 
-## Step 3: Talk to someone before you clean up
+## Step 3: Talk to someone before cleaning up
 
 - If this is a work computer, stop and call whoever handles security there.
   Don't clean it yourself.

@@ -6,6 +6,10 @@ remediates:
   - security.network_proxy.pac_url_detected
   - security.network_proxy.proxy_enabled
   - security.network_proxy.no_proxies
+steps_for:
+  security.network_proxy.pac_url_detected: [1]
+  security.network_proxy.proxy_enabled: [2]
+  security.network_proxy.no_proxies: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -21,7 +25,7 @@ anything, confirm you or your organization didn't set it up intentionally
 (corporate MDM, a legitimate ad-blocking/filtering proxy, or a VPN client
 that manages proxy settings itself).
 
-## Step 1: Remove an unexpected PAC URL (CRITICAL)
+## Step 1: Remove the automatic proxy file
 
 A PAC (Proxy Auto-Configuration) file tells the system which proxy to use
 per-destination, potentially routing only specific sites (e.g. banking)
@@ -46,7 +50,7 @@ ones, so context matters.
    entered while the proxy was active as potentially compromised and
    change them from a separate, known-clean device.
 
-## Step 2: Review an explicitly configured proxy (WARNING)
+## Step 2: Check and remove the manual proxy
 
 An HTTP, HTTPS, or SOCKS proxy explicitly enabled on an interface routes
 all matching traffic through that proxy server — legitimate on corporate
@@ -67,7 +71,7 @@ unexpected.
    or recently installed software that could have set it, and remove the
    root cause, not just the setting.
 
-## Step 3: No action needed for the clean state (INFO)
+## Step 3: No action needed for your network
 
 When no proxy is configured on either interface, the module reports this
 as informational — this is the expected, healthy state for most home

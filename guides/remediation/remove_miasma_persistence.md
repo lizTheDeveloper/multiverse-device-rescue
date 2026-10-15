@@ -11,11 +11,20 @@ remediates:
   - security.ai_worm_persistence.shell_profile_injection
   - security.ai_worm_persistence.sessionstart_hook
   - security.ai_worm_persistence.heuristic_persistence_artifact
+steps_for:
+  security.ai_worm_persistence.deadman_switch_launchagent: [1, 7]
+  security.ai_worm_persistence.deadman_switch_systemd_unit: [1, 7]
+  security.ai_worm_persistence.known_malicious_launchagent: [2, 7]
+  security.ai_worm_persistence.malicious_systemd_unit: [2, 7]
+  security.ai_worm_persistence.scheduled_task_persistence: [3, 7]
+  security.ai_worm_persistence.shell_profile_injection: [4, 7]
+  security.ai_worm_persistence.sessionstart_hook: [5, 7]
+  security.ai_worm_persistence.heuristic_persistence_artifact: [6, 7]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6, 7]
 ---
 
-## Step 1: Disconnect from the network, then neutralize the dead-man switch FIRST
+## Step 1: Go offline, then disarm the self-destruct trigger first
 
 **Do this before anything else. Read the whole step before you touch the keyboard.**
 
@@ -54,7 +63,7 @@ token or remove any other persistence yet.
 
 Only once the dead-man switch is confirmed inert should you proceed.
 
-## Step 2: Remove the remaining known-malicious agents and units
+## Step 2: Remove other confirmed malicious auto-starts
 
 These are high-confidence, known-malicious entries (e.g.
 `com.user.update-monitor` on macOS, `update-monitor.service` on Linux). They
@@ -71,7 +80,7 @@ complete.
 Re-run the scan (`rescue check`, or the `ai_worm_persistence` module) to
 confirm these no longer appear as high-confidence findings.
 
-## Step 3: Remove Windows scheduled-task persistence
+## Step 3: Delete the Windows scheduled task
 
 On Windows the worm persists via a Scheduled Task that runs a script from a
 `%temp%`, `%appdata%`, or similar location.
@@ -83,7 +92,7 @@ On Windows the worm persists via a Scheduled Task that runs a script from a
 3. Locate and remove the dropped script the task pointed at, after inspecting
    its contents.
 
-## Step 4: Clean injected shell-profile lines
+## Step 4: Clean up your shell startup files
 
 The worm may inject a self-reinfection line into shell startup files
 (`~/.bashrc`, `~/.zshrc`, `~/.bash_profile`, `~/.profile`, `~/.zprofile`) —
@@ -98,7 +107,7 @@ These are heuristic (medium-confidence) matches, so **inspect before deleting.**
 3. Remove only the injected line, leaving the rest of the file intact.
 4. Open a fresh shell and confirm no error and no re-download occurs.
 
-## Step 5: Remove malicious Claude Code SessionStart hooks
+## Step 5: Remove the AI coding tool hook
 
 The worm can add a `SessionStart` hook in `~/.claude/settings.json` that
 re-executes its payload every time an agent session starts.
@@ -111,7 +120,7 @@ re-executes its payload every time an agent session starts.
 3. Back up the file, then delete only the offending hook object, preserving
    valid JSON and any legitimate hooks.
 
-## Step 6: Investigate heuristic (bun-referencing) artifacts
+## Step 6: Check suspicious background programs
 
 Medium-confidence findings flag background agents that reference the `bun`
 runtime (Miasma's payload interpreter) or call AI API endpoints
@@ -128,7 +137,7 @@ runtime (Miasma's payload interpreter) or call AI API endpoints
 4. When in doubt, keep the file quarantined rather than deleted so it can be
    analyzed.
 
-## Step 7: Rotate credentials from a known-clean device
+## Step 7: Change passwords and tokens from a different, clean device
 
 Only now — with every persistence mechanism neutralized and the machine still
 offline — rotate anything the worm could have exfiltrated.

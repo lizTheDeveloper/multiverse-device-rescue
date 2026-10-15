@@ -6,6 +6,10 @@ remediates:
   - security.crypto_miner_detect.known_miner
   - security.crypto_miner_detect.high_cpu_process
   - security.crypto_miner_detect.mining_pool_connection
+steps_for:
+  security.crypto_miner_detect.known_miner: [1]
+  security.crypto_miner_detect.high_cpu_process: [2]
+  security.crypto_miner_detect.mining_pool_connection: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -18,7 +22,7 @@ miners are typically installed as a payload of some other compromise (a
 malicious app, a compromised installer, or a browser exploit), so removing
 the miner process alone is not enough — you also need to find how it got in.
 
-## Step 1: Remove a known cryptocurrency miner (critical)
+## Step 1: Stop and remove the known miner program
 
 The scan matched a running process against a list of known miner binaries
 (e.g. XMRig, minerd, T-Rex, NBMiner).
@@ -56,7 +60,7 @@ The scan matched a running process against a list of known miner binaries
 10. Only permanently delete the quarantined items once you're confident
     the machine is clean and you no longer need them.
 
-## Step 2: Investigate high-CPU processes
+## Step 2: Check if high CPU usage is normal
 
 A process pinned above 80% CPU that isn't a recognized system/app process
 could be a miner using an unfamiliar binary name, or could be entirely
@@ -80,7 +84,7 @@ legitimate (a video export, a compile job, a Spotlight re-index).
    reputable anti-malware scan (e.g. Malwarebytes for Mac) before deciding
    whether to remove the process.
 
-## Step 3: Investigate mining pool connections
+## Step 3: Check suspicious network connections
 
 A connection on a known mining-pool port (3333, 4444, 5555, etc.) or to a
 domain matching mining-pool naming patterns (`*.pool.*`, `*mining*`,
