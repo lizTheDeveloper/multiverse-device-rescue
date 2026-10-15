@@ -15,6 +15,8 @@ from click.testing import CliRunner
 
 from rescue.attribution import (
     Attributor,
+    ident_is_interpreter,
+    is_interpreter,
     MadeBy,
     parse_codesign,
     subjects_for_finding,
@@ -139,6 +141,7 @@ def test_script_is_not_signed(tmp_path):
     assert calls == []  # never asks codesign about a script
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="launchd plists name POSIX paths")
 def test_plist_resolves_program_arguments(tmp_path):
     exe = tmp_path / "helper"
     exe.write_bytes(b"\xcf\xfa\xed\xfe")
@@ -204,6 +207,7 @@ def test_any_option_around_the_script_makes_it_unverified(tmp_path, argv_before,
     assert m is None or (m.verified is False and m.name != "Google LLC")
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="launchd plists name POSIX paths")
 def test_plist_with_program_key(tmp_path):
     exe = tmp_path / "d"
     exe.write_bytes(b"\xcf\xfa\xed\xfe")
@@ -400,6 +404,33 @@ def test_subjects_ignore_non_path_strings():
 def test_subjects_cap_per_finding():
     f = _f(apps=[f"/Applications/{i}.app" for i in range(20)])
     assert len(subjects_for_finding(f)) == 6
+
+
+def test_subjects_from_item_dicts_prefer_the_plist():
+    # The plist says how the program is launched (an interpreter + script), so it
+    # is attributed rather than the bare program, which may just be python.
+    f = _f(items=[
+        {"label": "a", "plist": "/L/a.plist", "program": "/usr/bin/python3"},
+        {"label": "b", "plist": None, "program": None},
+        {"label": "c", "program": "/opt/c/bin"},
+    ])
+    assert subjects_for_finding(f) == ["/L/a.plist", "/opt/c/bin"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths")
+def test_plist_with_program_and_interpreter_credits_the_script_not_python(tmp_path):
+    script = tmp_path / "job.sh"
+    script.write_text("#!/bin/sh\n")
+    plist = tmp_path / "x.plist"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "Program": "/usr/bin/python3",
+                       "ProgramArguments": ["python3", "-c", "import evil"]}, fh)
+    made = Attributor("darwin")._identify_plist(str(plist), os.path.exists)
+    assert made is not None and made.verified is False and made.how == "inline command"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "Program": "/usr/bin/python3",
+                       "ProgramArguments": ["python3"]}, fh)
+    assert Attributor("darwin")._identify_plist(str(plist), os.path.exists) is None
 
 
 # --- serialization / CLI -------------------------------------------------------------
@@ -615,3 +646,129 @@ def test_dotdot_out_of_an_app_bundle_is_not_credited_to_the_bundle(tmp_path):
     assert calls, "expected a codesign call"
     assert all(".app" not in c[-1] for c in calls)
     assert calls[0][-1] == os.path.realpath(str(evil))
+
+
+@pytest.mark.parametrize("name", [
+    "python3", "python3.12", "/opt/homebrew/bin/python3.12", "PYTHON3", "Python",
+    "node22", "nodejs", "bun", "deno", "perl5.30", "bash-5.2", "ruby.exe", "uv",
+    "pwsh", "osascript", "/usr/bin/env",
+])
+def test_interpreters_recognised_under_any_spelling(name):
+    assert is_interpreter(name)
+
+
+@pytest.mark.parametrize("name", ["/opt/a/bin", "ZoomUpdater", "python-helper-app", "nodemon2x"])
+def test_ordinary_programs_are_not_interpreters(name):
+    assert not is_interpreter(name)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths")
+@pytest.mark.parametrize("program", ["/opt/homebrew/bin/python3.12", "/usr/local/bin/NODE22"])
+def test_versioned_interpreter_with_inline_code_is_never_credited(tmp_path, program):
+    plist = tmp_path / "x.plist"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [program, "-c", "evil"]}, fh)
+    made = Attributor("darwin")._identify_plist(str(plist), lambda p: True)
+    assert made is not None and made.verified is False and made.how == "inline command"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [program, "/nowhere/job.py"]}, fh)
+    assert Attributor("darwin")._identify_plist(str(plist), lambda p: p != "/nowhere/job.py") is None
+
+
+ZSH_SIG = """Executable=/x
+Identifier=com.apple.zsh
+Authority=Software Signing
+Authority=Apple Code Signing Certification Authority
+Authority=Apple Root CA
+"""
+
+
+@pytest.mark.parametrize("ident", ["com.apple.zsh", "org.python.python", "node-5555494433c828d283f63c65b1bc2e1e6d208040", "com.apple.python3"])
+def test_signing_identifier_names_an_interpreter(ident):
+    assert ident_is_interpreter(ident)
+
+
+@pytest.mark.parametrize("ident", ["", "us.zoom.ZoomUpdater", "com.apple.Safari", "thing"])
+def test_signing_identifier_of_ordinary_programs(ident):
+    assert not ident_is_interpreter(ident)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths")
+def test_renamed_copy_of_an_interpreter_is_not_credited(tmp_path):
+    # cp /bin/zsh ~/updater, then run "updater -c evil": the name says nothing,
+    # but the Apple signature still says zsh, so Apple is not credited.
+    fake = tmp_path / "updater"
+    fake.write_bytes(b"\xcf\xfa\xed\xfe" + b"\0" * 64)
+    plist = tmp_path / "x.plist"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [str(fake), "-c", "evil"]}, fh)
+    a = mac({("codesign", "-dv"): ZSH_SIG, ("codesign", "--verify"): ""})
+    made = a._identify_plist(str(plist), os.path.exists)
+    assert made is not None and made.verified is False and made.how == "inline command"
+    # Even with no arguments an interpreter can read code from rc files: never verified.
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [str(fake)]}, fh)
+    made = a._identify_plist(str(plist), os.path.exists)
+    assert made is not None and made.verified is False
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlinks")
+def test_link_to_an_interpreter_is_followed(tmp_path):
+    real = tmp_path / "python3.12"
+    real.write_text("")
+    link = tmp_path / "helper"
+    link.symlink_to(real)
+    plist = tmp_path / "x.plist"
+    with open(plist, "wb") as fh:
+        plistlib.dump({"Label": "x", "ProgramArguments": [str(link), "-c", "evil"]}, fh)
+    made = mac({})._identify_plist(str(plist), os.path.exists)
+    assert made is not None and made.how == "inline command"
+
+
+def _plist(tmp_path, body):
+    p = tmp_path / "x.plist"
+    with open(p, "wb") as fh:
+        plistlib.dump({"Label": "x", **body}, fh)
+    return str(p)
+
+
+@pytest.mark.parametrize("env", [
+    {"DYLD_INSERT_LIBRARIES": "/tmp/x.dylib"}, {"ELECTRON_RUN_AS_NODE": "1"},
+    {"NODE_OPTIONS": "--require /tmp/x.js"}, {"PYTHONSTARTUP": "/tmp/x.py"}, ["odd"],
+])
+def test_code_injecting_environment_is_never_credited(tmp_path, env):
+    path = _plist(tmp_path, {"Program": "/bin/ls", "EnvironmentVariables": env})
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
+    assert made is not None and made.verified is False
+
+
+@pytest.mark.parametrize("extra", [
+    {"EnvironmentVariables": {"SOMETHING_NEW": "1"}}, {"RootDirectory": "/tmp/r"}, {"BundleProgram": "x"},
+    {"StandardInPath": "/tmp/code.txt"}, {"WorkingDirectory": "/tmp"}, {"SomeFutureKey": True},
+])
+def test_unknown_settings_fail_closed(tmp_path, extra):
+    path = _plist(tmp_path, {"Program": "/bin/ls", **extra})
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
+    assert made is not None and made.verified is False
+
+
+def test_harmless_environment_still_credits(tmp_path):
+    path = _plist(tmp_path, {"Program": "/bin/ls", "EnvironmentVariables": {"LANG": "en_US.UTF-8", "TZ": "UTC"}})
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
+    assert made is not None and made.name == "Apple"
+
+
+@pytest.mark.parametrize("body", [
+    {"Program": "~/bin/helper"}, {"Program": "bin/helper"}, {"ProgramArguments": ["helper", "x"]},
+    {"ProgramArguments": ["/bin/ls", 5]}, {"ProgramArguments": "/bin/ls"},
+])
+def test_unclear_programs_are_never_credited(tmp_path, body):
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(_plist(tmp_path, body), lambda p: True)
+    assert made is None or made.verified is False
+
+
+def test_signed_program_with_arguments_says_what_the_signature_covers(tmp_path):
+    path = _plist(tmp_path, {"ProgramArguments": ["/bin/ls", "-la"]})
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
+    assert made.name == "Apple" and made.verified is False
+    assert made.how == "started with extra instructions"
