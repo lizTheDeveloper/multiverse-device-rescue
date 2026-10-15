@@ -24,7 +24,6 @@
 
     {"identifier": "com.anthropic.claudefordesktop", "team_id": "Q6L2SF6YDW", "name": "Claude", "what": "Anthropic's AI assistant app, for chatting with Claude."},
     {"identifier": "com.anthropic.claude-code", "team_id": "Q6L2SF6YDW", "name": "Claude Code link helper", "what": "a small helper that opens Claude Code, Anthropic's AI coding tool, when you click a Claude Code link."},
-    {"identifier": "com.openai.chat", "team_id": "2DC432GLL2", "name": "ChatGPT", "what": "OpenAI's AI assistant app, for chatting with ChatGPT."},
     {"identifier": "com.todesktop.230313mzl4w4u92", "team_id": "VDXQ22DGB9", "name": "Cursor", "what": "a code editor with AI built in, used to write software."},
     {"identifier": "com.electron.ollama", "team_id": "3MU9H2V9Y9", "name": "Ollama", "what": "runs AI chat models on this computer instead of on the internet."},
     {"identifier": "ai.elementlabs.lmstudio", "team_id": "D65G88RHWN", "name": "LM Studio", "what": "downloads AI chat models and runs them on this computer."},
