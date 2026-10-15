@@ -971,3 +971,11 @@ h3 {
   padding-left: 1.3rem;
   line-height: 1.55;
 }
+
+.finding-card__todo strong {
+  color: var(--text);
+}
+
+.finding-card > p + p {
+  margin-top: 0.55rem;
+}
