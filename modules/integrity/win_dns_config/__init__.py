@@ -153,12 +153,20 @@ class Module(ModuleBase):
             if using_isp_dns:
                 findings.append(
                     Finding(
-                        title="Using ISP default DNS servers",
+                        title=(
+                            "Your computer uses your internet provider's name lookup "
+                            f"({', '.join(dns_servers)})"
+                        ),
                         description=(
-                            f"Detected DNS servers: {', '.join(dns_servers)}. "
-                            "These appear to be ISP-provided DNS servers, which can be slow or unreliable. "
-                            "Consider switching to public DNS: 1.1.1.1 (Cloudflare), "
-                            "8.8.8.8 (Google), or 9.9.9.9 (Quad9)."
+                            "Your computer is using DNS servers provided by your internet "
+                            f"service provider: {', '.join(dns_servers)}. DNS is the system "
+                            "that turns website names into addresses. Using your provider's "
+                            "servers is normal, but they can sometimes be slower or less "
+                            "private than public options.\n\n"
+                            "What to do: If you want faster or more private browsing, "
+                            "open Settings > Network & internet > DNS settings. You can "
+                            "manually set the DNS to 1.1.1.1 (Cloudflare) or 8.8.8.8 "
+                            "(Google)."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -208,10 +216,16 @@ class Module(ModuleBase):
             )
             if result.returncode != 0:
                 return Finding(
-                    title="DNS resolution test failed",
+                    title="We could not test your internet name lookup",
                     description=(
-                        "Could not complete DNS resolution test. "
-                        "This may indicate DNS servers are unreachable or unresponsive."
+                        "We tried to check if your computer can translate website names "
+                        "into addresses, but the test failed. This usually means your "
+                        "internet connection is currently unstable or your DNS settings "
+                        "are misconfigured.\n\n"
+                        "What to do: Check that your Wi-Fi or Ethernet cable is connected. "
+                        "If you are online, restart your router. If the problem persists, "
+                        "open Settings > Network & internet > DNS settings to ensure they "
+                        "are set to 'Automatic'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -225,11 +239,15 @@ class Module(ModuleBase):
                     # Flag if resolution is slow (>500ms)
                     if time_ms > 500:
                         return Finding(
-                            title="DNS resolution is slow",
+                            title=f"Your internet name lookup is slow ({time_ms:.0f}ms)",
                             description=(
-                                f"DNS resolution took {time_ms:.0f}ms (threshold: 500ms). "
-                                "Slow DNS resolution can impact browsing and web application performance. "
-                                "Consider switching to a faster DNS provider or checking network connectivity."
+                                f"Translating website names into addresses took {time_ms:.0f} "
+                                "milliseconds. This is slower than ideal (under 500ms) "
+                                "and might make web pages load a bit slower.\n\n"
+                                "What to do: Check your internet connection stability. "
+                                "If it's consistently slow, open Settings > Network & "
+                                "internet > DNS settings and try switching to a public "
+                                "DNS like 1.1.1.1 or 8.8.8.8."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -240,10 +258,14 @@ class Module(ModuleBase):
 
         except (subprocess.TimeoutExpired, OSError):
             return Finding(
-                title="DNS resolution check timed out",
+                title="Your internet name lookup took too long",
                 description=(
-                    "DNS resolution test timed out. "
-                    "This indicates DNS servers may be unresponsive."
+                    "The test to check your internet connection took longer than expected "
+                    "to finish. This suggests your DNS servers (which translate website "
+                    "names into addresses) are slow or unresponsive right now.\n\n"
+                    "What to do: Try restarting your router. If the slowness continues, "
+                    "open Settings > Network & internet > DNS settings and consider switching "
+                    "to a public DNS provider like 1.1.1.1 or 8.8.8.8 for better speed."
                 ),
                 severity=Severity.WARNING,
                 category=self.category,

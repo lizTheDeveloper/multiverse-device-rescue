@@ -155,11 +155,15 @@ class Module(ModuleBase):
             # More than 30 providers suggests LSP contamination
             if provider_count > 30:
                 return Finding(
-                    title=f"Winsock catalog has {provider_count} providers (unusual)",
+                    title=f"Your network settings have {provider_count} extra components",
                     description=(
-                        f"The Winsock catalog contains {provider_count} providers. "
-                        "More than 30 providers typically indicates Layered Service Provider (LSP) contamination "
-                        "from old software or malware, which can cause network connectivity issues."
+                        "Your computer's network system usually has about 30 components. "
+                        f"Yours has {provider_count}. This often happens when old software "
+                        "(old VPNs, antivirus or other networking tools) leaves behind extra parts that slow down your "
+                        "internet.\n\n"
+                        "What to do: This usually fixes itself with a system reset. If "
+                        "your internet is acting up, use Settings > Network & internet > "
+                        "Advanced network settings > Network reset."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -212,10 +216,14 @@ class Module(ModuleBase):
             if unusual_params:
                 findings.append(
                     Finding(
-                        title="TCP/IP parameters have unusual modifications",
+                        title="Some network settings were changed manually",
                         description=(
-                            f"The following TCP/IP parameters have been manually modified: {', '.join(unusual_params)}. "
-                            "These modifications may cause network performance issues or stack corruption."
+                            f"We found manual changes to your network settings: {', '.join(unusual_params)}. "
+                            "People sometimes change these to try and fix slow internet, "
+                            "but it can backfire and cause errors.\n\n"
+                            "What to do: If your internet is working well, leave it alone. "
+                            "If you are having trouble, use Settings > Network & internet > "
+                            "Advanced network settings > Network reset."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -262,11 +270,15 @@ class Module(ModuleBase):
             # Large number of entries may indicate LSP remnants
             if entry_count > 20:
                 return Finding(
-                    title=f"Detected {entry_count} protocol catalog entries (possible LSP remnants)",
+                    title=f"Found {entry_count} leftover network rules",
                     description=(
-                        f"Found {entry_count} protocol catalog entries. "
-                        "An unusually high count may indicate residual Layered Service Provider (LSP) entries "
-                        "left behind by old software or malware, which can interfere with network operations."
+                        f"Your system has {entry_count} leftover rules for how it handles "
+                        "internet traffic. This is higher than normal and usually means "
+                        "old networking software didn't clean up properly. These "
+                        "leftovers can cause slow or unstable connections.\n\n"
+                        "What to do: If your internet is working fine, you can ignore "
+                        "this. If you have connection issues, use Settings > Network & "
+                        "internet > Advanced network settings > Network reset."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -293,11 +305,13 @@ class Module(ModuleBase):
                 output = result.stdout.lower()
                 if "running" not in output:
                     return Finding(
-                        title="DNS Client service is not running",
+                        title="Your computer's name-lookup service is off",
                         description=(
-                            "The DNS Client (Dnscache) service is stopped or not responding. "
-                            "This service is required for DNS name resolution. "
-                            "Without it, domain-based services cannot be reached."
+                            "A service that translates website names into addresses is "
+                            "currently stopped. Without it, your computer might struggle "
+                            "to open websites or connect to online services.\n\n"
+                            "What to do: Search for 'Services' in the Start menu, find "
+                            "'DNS Client', right-click it, and select 'Start'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -330,11 +344,13 @@ class Module(ModuleBase):
                 output = result.stdout.lower()
                 if "running" not in output:
                     return Finding(
-                        title="DHCP Client service is not running",
+                        title="Your computer's address-assignment service is off",
                         description=(
-                            "The DHCP Client service is stopped or not responding. "
-                            "This service is required for automatic IP address assignment. "
-                            "Without it, the system may not receive a valid IP address."
+                            "A service that automatically gives your computer an internet "
+                            "address is currently stopped. This can prevent you from connecting "
+                            "to Wi-Fi or the internet at all.\n\n"
+                            "What to do: Search for 'Services' in the Start menu, find "
+                            "'DHCP Client', right-click it, and select 'Start'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

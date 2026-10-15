@@ -148,7 +148,7 @@ def test_kernel_extensions_audit_problematic_kexts():
         result = mod.check(_make_profile())
     assert result.has_issues
     # Should have finding for problematic kexts
-    problematic_findings = [f for f in result.findings if "problematic" in f.title.lower()]
+    problematic_findings = [f for f in result.findings if "older system plug-ins" in f.title.lower()]
     assert len(problematic_findings) == 1
     assert problematic_findings[0].severity == Severity.WARNING
     # Should list the problematic kexts
@@ -179,7 +179,7 @@ def test_kernel_extensions_audit_kmutil_fallback():
         result = mod.check(_make_profile())
     # Should have findings for both problematic and third-party kexts
     assert result.has_issues
-    problematic_findings = [f for f in result.findings if "problematic" in f.title.lower()]
+    problematic_findings = [f for f in result.findings if "older system plug-ins" in f.title.lower()]
     third_party_findings = [f for f in result.findings if "third-party" in f.title.lower()]
     # Should find Kaspersky as problematic
     assert len(problematic_findings) == 1

@@ -106,12 +106,19 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"Known problematic kernel extensions: {len(problematic_kexts)}",
+                    title=(
+                        f"{len(problematic_kexts)} older system plug-ins are causing issues"
+                    ),
                     description=(
-                        f"Found {len(problematic_kexts)} kernel extension(s) known to cause "
-                        f"stability or security issues:\n{kext_list}\n\n"
-                        "These are typically legacy kexts that should be updated to use "
-                        "System Extensions or removed entirely."
+                        f"We found {len(problematic_kexts)} older system plug-ins (called "
+                        "kernel extensions) that are known to cause crashes or security "
+                        f"problems. Here is the list:\n{kext_list}\n\n"
+                        "They aren't malware, just outdated technology Apple has asked "
+                        "developers to replace, and they can make your Mac unstable.\n\n"
+                        "What to do: Check the developer's website for an updated version "
+                        "of the software that uses the new 'System Extensions' format. "
+                        "If no update exists, consider uninstalling the software. Do "
+                        "not delete files manually."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

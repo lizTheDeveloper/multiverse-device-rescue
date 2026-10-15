@@ -115,7 +115,7 @@ Count
         result = module.check(system_profile)
         warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
         # Should have at least one warning for offline printer
-        assert any("offline" in f.title.lower() for f in warning_findings)
+        assert any("not ready" in f.title.lower() for f in warning_findings)
 
     @patch("subprocess.run")
     def test_check_with_stopped_spooler(self, mock_run, module, system_profile):
@@ -153,7 +153,7 @@ Count
 
         result = module.check(system_profile)
         warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-        assert any("spooler" in f.title.lower() and "stopped" in f.title.lower() for f in warning_findings)
+        assert any("printing is turned off" in f.title.lower() for f in warning_findings)
 
     @patch("subprocess.run")
     def test_check_with_stuck_print_jobs(self, mock_run, module, system_profile):
@@ -191,7 +191,7 @@ Count
 
         result = module.check(system_profile)
         warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-        assert any("stuck" in f.title.lower() for f in warning_findings)
+        assert any("queue is full" in f.title.lower() for f in warning_findings)
 
     @patch("subprocess.run")
     def test_check_no_printers_installed(self, mock_run, module, system_profile):

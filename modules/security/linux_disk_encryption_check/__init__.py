@@ -122,7 +122,7 @@ class Module(ModuleBase):
             if mount_point == "/":
                 findings.append(
                     Finding(
-                        title=f"{mount_point} is not encrypted",
+                        title=f"Your main drive ({mount_point}) is not encrypted",
                         description=(
                             preamble
                             + "Everything on this machine — saved passwords, browser "
@@ -146,7 +146,7 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title=f"{mount_point} is not encrypted",
+                        title=f"Your personal folder ({mount_point}) is not encrypted",
                         description=(
                             preamble
                             + "Your personal files are stored unencrypted, so they can be "

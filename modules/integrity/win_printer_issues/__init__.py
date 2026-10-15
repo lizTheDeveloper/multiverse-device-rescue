@@ -187,10 +187,19 @@ class Module(ModuleBase):
                             if status.lower() in ["offline", "error"]:
                                 findings.append(
                                     Finding(
-                                        title=f"Printer '{printer_name}' is {status.lower()}",
+                                        title=f"Printer '{printer_name}' is not ready",
                                         description=(
-                                            f"Printer '{printer_name}' is in {status.lower()} state "
-                                            "and may not be able to print."
+                                            f"Your printer named '{printer_name}' is currently "
+                                            f"showing as {status.lower()}. This means "
+                                            "it isn't ready to accept new print jobs.\n\n"
+                                            "This often happens if the printer is out "
+                                            "of paper, has a paper jam, or is turned "
+                                            "off.\n\n"
+                                            "What to do: Check the printer itself to "
+                                            "make sure it is turned on, has paper, and "
+                                            "is connected. If it looks fine, try turning "
+                                            "it off, waiting 30 seconds, and turning "
+                                            "it back on."
                                         ),
                                         severity=Severity.WARNING,
                                         category=self.category,
@@ -220,10 +229,16 @@ class Module(ModuleBase):
                 output = result.stdout.lower()
                 if "stopped" in output or "stop" in output:
                     return Finding(
-                        title="Print Spooler service is stopped",
+                        title="The service that handles printing is turned off",
                         description=(
-                            "The Windows Print Spooler service is not running. "
-                            "This will prevent all printing from working."
+                            "Your computer has a background service called the Print Spooler "
+                            "that manages sending documents to printers. Right now, this "
+                            "service is stopped, which is why you can't print anything.\n\n"
+                            "This is a common issue that usually happens if the service "
+                            "crashed or was manually paused.\n\n"
+                            "What to do: Open the Start menu, type 'Services', and press "
+                            "Enter. Scroll down to 'Print Spooler', right-click it, and "
+                            "select 'Start'. If it stops again, try restarting your computer."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -258,10 +273,18 @@ class Module(ModuleBase):
                             count = int(stripped)
                             if count > 0:
                                 return Finding(
-                                    title=f"Stuck print jobs detected ({count})",
+                                    title=f"Your print queue is full ({count} jobs waiting)",
                                     description=(
-                                        f"There are {count} print job(s) stuck in the print queue. "
-                                        "These jobs should be cleared before attempting to print."
+                                        f"There are {count} documents waiting in your "
+                                        "print queue that haven't finished. This usually "
+                                        "happens if a printer ran out of paper, a cable "
+                                        "got unplugged, or a job got stuck.\n\n"
+                                        "These old jobs can block new ones from printing.\n\n"
+                                        "What to do: Open the Start menu, type 'Print "
+                                        "queues', and press Enter. Click on your printer, "
+                                        "then choose 'Cancel All Documents' to clear "
+                                        "the list. Try printing a new page to see if "
+                                        "it works."
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,

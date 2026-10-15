@@ -34,10 +34,14 @@ class Module(ModuleBase):
         if not display_info:
             findings.append(
                 Finding(
-                    title="Could not retrieve display information",
+                    title="We couldn't check your display settings",
                     description=(
-                        "Failed to run Get-CimInstance for display adapters. "
-                        "Display health cannot be assessed."
+                        "The checkup tried to look at your screen settings but the system "
+                        "didn't give us the information. This means we can't tell if your "
+                        "display is healthy, but it does not mean something is wrong. "
+                        "This is not the same as 'everything is fine.'\n\n"
+                        "What to do: Nothing right now. If you are seeing visual glitches, "
+                        "try running the checkup again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -60,13 +64,16 @@ class Module(ModuleBase):
             for driver in outdated_drivers:
                 findings.append(
                     Finding(
-                        title=f"Outdated display driver: {driver['name']}",
+                        title=f"Your screen driver is old: {driver['name']}",
                         description=(
-                            f"Display adapter '{driver['name']}' has a driver that is over 2 years old. "
-                            f"Driver version: {driver['driver_version']}, "
-                            f"Driver date: {driver['driver_date']}. "
-                            "Outdated drivers may cause display issues, reduced performance, or compatibility problems. "
-                            "Consider updating through Device Manager or manufacturer website."
+                            f"The software that controls your screen ({driver['name']}) "
+                            f"is from {driver['driver_date']} (version {driver['driver_version']}). "
+                            "Old drivers can cause flickering or slow performance, but "
+                            "they are usually not a security risk. This is a routine "
+                            "maintenance item.\n\n"
+                            "What to do: Open Settings > Windows Update and check for "
+                            "updates, or visit your computer manufacturer's website for "
+                            "a newer driver."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -84,13 +91,13 @@ class Module(ModuleBase):
         if dpi_info and dpi_info.get("dpi_level") and dpi_info["dpi_level"] > 120:
             findings.append(
                 Finding(
-                    title=f"High DPI scaling detected ({dpi_info['dpi_level']})",
+                    title=f"Your screen is zoomed in a lot ({dpi_info['dpi_level']}%)",
                     description=(
-                        f"Display scaling is set to {dpi_info['dpi_level']}% DPI. "
-                        "Very high DPI scaling can cause some applications to appear blurry or scaled incorrectly. "
-                        "This is especially common on high-resolution displays. "
-                        "Some older applications may not scale properly with high DPI values. "
-                        "You can adjust scaling in Display Settings if you experience visual issues."
+                        f"Your display is set to {dpi_info['dpi_level']}% scaling. This "
+                        "is normal for high-resolution screens, but it can make some "
+                        "older apps look blurry.\n\n"
+                        "What to do: If apps look fuzzy, open Settings > System > Display "
+                        "and lower the 'Scale' slider."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
