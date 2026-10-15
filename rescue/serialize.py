@@ -28,11 +28,13 @@ def _plain(value: Any) -> Any:
     return str(value)
 
 
-def _remediation(guide) -> dict:
+def _remediation(guide, code=None) -> dict:
+    steps = guide.steps_for_code(code)
     return {
         "title": guide.title,
         "estimated_time": guide.estimated_time,
-        "steps": [{"number": s.number, "title": s.title, "body": s.body} for s in guide.steps],
+        "steps": [{"number": s.number, "title": s.title, "body": s.body} for s in steps],
+        "all_steps": len(steps) == len(guide.steps),
     }
 
 
@@ -72,7 +74,7 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
         out["made_by"] = _plain(entries)
     guide = walkthroughs.get(getattr(finding, "code", None)) if walkthroughs else None
     if guide is not None:
-        out["remediation"] = _remediation(guide)
+        out["remediation"] = _remediation(guide, getattr(finding, "code", None))
     return out
 
 
