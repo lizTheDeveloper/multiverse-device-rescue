@@ -19,7 +19,7 @@
     "cli.py": "13d2085478b3845e2ec15dfaa5c17b4fa71ab4ae4f8ab9ac5e38b389a913315b",
     "command.py": "fa75b1df5b3b742f81e0e3117f628030523c9442c63aac5c747e99d3c632043e",
     "fsbounds.py": "9eae7c588b5e31a373a42bc3d0fa029e3ac7df15f9d50409b61c2c80acbacdc8",
-    "guides.py": "dc6ca9534d08f8aa6575ef76c25705dc5cf50402d5820e94c6f4cf22cd60c18d",
+    "guides.py": "8539e02784654960a238cd0c4548eeb5ac8fb30b09ac6490aaa605e53c31e8a7",
     "models.py": "386719057364450fe671c2f0f678328edead07848d676df43095f1d58a362946",
     "module_base.py": "bc57a2b3a9c7a58d66980652e549c159464cca0d781b590c792f9aa0ad649439",
     "orchestrator.py": "9ce0116344b2abf41c54279ffc6a6d8d7c6c9a724be4cf38b57726d9640e3b27",
@@ -35,7 +35,7 @@
     "security/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "security/integrity.py": "e0d9cdc38fe6abf4c6c3ec046adb0e0e2c69f56f418ab94581c2b3f5e2edb7ad",
     "security/signers.py": "b270dfe8fba3034dfe9174ea4974ae23c480c3c473f77bb3af53c7bb61677bda",
-    "serialize.py": "e0021713f416f1cdebadd72a082bfe2fbb2b256b70688e3b811ed63e41c059eb",
+    "serialize.py": "fa266f0076f159e11f03be0e925cdd4eafc4508f0331f1666f8db480b691d322",
     "session.py": "4628542f83fc4b631669c9afc589f8146b2c13f44c4f5c2254f74f4dc901eb6f",
     "threat_map.py": "d27d01a018c4645fd774dd2dfb07b01272b48ddcfcf173715a1f894bc3d6ed36",
     "trace.py": "fab600c4a20298eb1b532ced8b2ddd675d1257df9c096fa45ab44c4dda965758",
@@ -60,6 +60,6 @@
     "update/repo.py": "a58ca0061c49d4a052d65ee5be9b4ff88bd5546bf01460db067d46465511bdc5",
     "update/sideload.py": "cf94e79dbc85ebe604ce268f170d5ecc9d1ec082417b7dd6e9f42c57b6d9354e",
     "update/verify.py": "d902798e797833a54e550ca01a9d0961bfbf29614a2f831a412eed450b680f7a",
-    "validate.py": "ca1fbd6a08f39ddfa65025d8eee09afa4b94eff6aee109a10fd3a3390ce22eb7"
+    "validate.py": "ae931e943e204f95fbdf4ac47f9d9dee4ea9394e33abd1e420ae99fba39f991c"
   }
 }
