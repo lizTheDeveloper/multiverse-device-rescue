@@ -212,7 +212,7 @@ def test_win_scheduled_tasks_security_frequent_schedule():
         result = mod.check(_make_profile())
     assert result.has_issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("frequency" in f.title.lower() for f in warnings)
+    assert any("frequently" in f.title.lower() for f in warnings)
 
 
 def test_win_scheduled_tasks_security_recent_boot_task():
@@ -337,7 +337,7 @@ def test_win_scheduled_tasks_security_multiple_issues():
     assert len(critical) >= 2
     # Should have WARNING for frequent schedule
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("frequency" in f.title.lower() for f in warnings)
+    assert any("frequently" in f.title.lower() for f in warnings)
 
 
 def test_win_scheduled_tasks_security_fix_critical():

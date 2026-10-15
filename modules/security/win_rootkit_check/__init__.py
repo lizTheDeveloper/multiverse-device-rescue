@@ -41,12 +41,19 @@ class Module(ModuleBase):
         if unsigned_drivers:
             findings.append(
                 Finding(
-                    title=f"Found {len(unsigned_drivers)} unsigned driver(s) in System32",
+                    title=(
+                        f"Found {len(unsigned_drivers)} driver(s) without a security signature"
+                    ),
                     description=(
-                        "Unsigned drivers in system32\\drivers may indicate rootkit "
-                        "or driver-based malware. Found drivers: "
-                        + ", ".join(unsigned_drivers[:3])
-                        + ("..." if len(unsigned_drivers) > 3 else "")
+                        f"We found {len(unsigned_drivers)} driver(s) in your system folder "
+                        "that lack a security signature. Signatures prove a driver is "
+                        "from a trusted maker. Unsigned drivers can be legitimate (like "
+                        "older hardware) or malicious, so this needs a closer look.\n\n"
+                        "Found: " + ", ".join(unsigned_drivers[:3]) + ("..." if len(unsigned_drivers) > 3 else "") + "\n\n"
+                        "What to do: Look up each name. If it belongs to hardware or "
+                        "software you use, it's probably fine. If not, run a Microsoft "
+                        "Defender Offline scan: Windows Security > Virus & threat "
+                        "protection > Scan options."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -60,11 +67,17 @@ class Module(ModuleBase):
         if ads_found:
             findings.append(
                 Finding(
-                    title=f"Found {len(ads_found)} file(s) with Alternate Data Streams",
+                    title=f"Found {len(ads_found)} system file(s) with hidden data streams",
                     description=(
-                        "Alternate Data Streams on system executables may hide malicious "
-                        "code. Found in: " + ", ".join(ads_found[:3])
-                        + ("..." if len(ads_found) > 3 else "")
+                        f"We found {len(ads_found)} system file(s) with 'Alternate Data "
+                        "Streams.' These are hidden sections inside files that can store "
+                        "extra data. While sometimes used for legitimate purposes, they "
+                        "are often used to hide malware.\n\n"
+                        "Found in: " + ", ".join(ads_found[:3]) + ("..." if len(ads_found) > 3 else "") + "\n\n"
+                        "What to do: Look up each name. If it belongs to hardware or "
+                        "software you use, it's probably fine. If not, run a Microsoft "
+                        "Defender Offline scan: Windows Security > Virus & threat "
+                        "protection > Scan options."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -78,10 +91,15 @@ class Module(ModuleBase):
         if secure_boot_status == "disabled":
             findings.append(
                 Finding(
-                    title="Secure Boot is disabled on UEFI system",
+                    title="Your computer's Secure Boot protection is turned off",
                     description=(
-                        "Secure Boot is disabled, allowing unsigned bootloaders or kernels "
-                        "to load, increasing risk of bootkit infection."
+                        "Secure Boot is a security feature that prevents unauthorized "
+                        "software from running before Windows starts. It is currently "
+                        "disabled, which makes it easier for certain types of malware "
+                        "to hide on your computer.\n\n"
+                        "What to do: Go to Settings > System > Recovery > Advanced "
+                        "startup > Restart now, then Troubleshoot > Advanced options > "
+                        "UEFI Firmware Settings, and turn Secure Boot on."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -95,12 +113,19 @@ class Module(ModuleBase):
         if hidden_services:
             findings.append(
                 Finding(
-                    title=f"Found {len(hidden_services)} potentially hidden service(s)",
+                    title=f"Found {len(hidden_services)} service(s) that appear to be hidden",
                     description=(
-                        "Services visible via sc query but not in Get-Service may indicate "
-                        "hidden or rootkit services. Found: "
-                        + ", ".join(hidden_services[:3])
-                        + ("..." if len(hidden_services) > 3 else "")
+                        f"We found {len(hidden_services)} service(s) that are visible "
+                        "to some system tools but hidden from others. This is a common "
+                        "technique used by malware to stay out of sight.\n\n"
+                        "Found: " + ", ".join(hidden_services[:3]) + ("..." if len(hidden_services) > 3 else "") + "\n\n"
+                        "If you think someone close to you may have installed this, talk "
+                        "to an advocate first (US National Domestic Violence Hotline: "
+                        "1-800-799-7233, or text START to 88788) before removing it, as "
+                        "removal can alert them.\n\n"
+                        "What to do: Don't stop or delete anything yet. Run a Microsoft "
+                        "Defender Offline scan: Windows Security > Virus & threat "
+                        "protection > Scan options."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -114,11 +139,19 @@ class Module(ModuleBase):
         if boot_issues:
             findings.append(
                 Finding(
-                    title=f"Found {len(boot_issues)} unusual boot configuration entries",
+                    title=(
+                        f"Found {len(boot_issues)} unusual entry(ies) in your startup settings"
+                    ),
                     description=(
-                        "Boot configuration has unexpected entries that may indicate tampering. "
-                        + ", ".join(boot_issues[:2])
-                        + ("..." if len(boot_issues) > 2 else "")
+                        f"We found {len(boot_issues)} unusual entry(ies) in your computer's "
+                        "startup configuration. These settings control what loads when "
+                        "your computer turns on. Unusual entries can indicate that someone "
+                        "or something has modified your system.\n\n"
+                        "Found: " + ", ".join(boot_issues[:2]) + ("..." if len(boot_issues) > 2 else "") + "\n\n"
+                        "What to do: Run a Microsoft Defender Offline scan: Windows "
+                        "Security > Virus & threat protection > Scan options. If an "
+                        "entry still looks wrong afterwards, ask a technical helper to "
+                        "review it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
