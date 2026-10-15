@@ -97,11 +97,17 @@ class Module(ModuleBase):
 
         if severity == Severity.CRITICAL:
             description += (
-                " WARNING: Your drive is failing! Back up your data immediately!"
+                " The drive reports that it is failing, so it may stop working "
+                "without more warning.\n\n"
+                "What to do: Copy your important files to another drive or cloud "
+                "storage today, then plan to replace this drive."
             )
         elif severity == Severity.WARNING:
             description += (
-                " CAUTION: SMART status is not verified. Back up your data as a precaution."
+                " The drive's own health check couldn't be confirmed, which isn't "
+                "the same as failing.\n\n"
+                "What to do: Make sure you have a recent backup, and run the "
+                "checkup again later."
             )
         elif severity == Severity.INFO:
             description += " Your drive appears to be in good health."
