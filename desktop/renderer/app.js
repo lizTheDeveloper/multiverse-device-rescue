@@ -142,6 +142,25 @@ function madeByHtml(entries, esc) {
  * numbered and bulleted lists, `code`, **bold**, and ```fenced``` blocks.
  * Everything is HTML-escaped first, so walkthrough text can never inject markup.
  */
+/**
+ * A finding description as paragraphs (blank lines separate them), with a
+ * leading "What to do:" picked out so the action is easy to find.
+ */
+function descriptionHtml(text, esc) {
+  return String(text || '')
+    .split(/\n\s*\n/)
+    .map((para) => para.trim())
+    .filter(Boolean)
+    .map((para) => {
+      const m = para.match(/^(what to do:)\s*/i);
+      const body = esc(m ? para.slice(m[0].length) : para).replace(/\n/g, '<br>');
+      return m
+        ? `<p class="finding-card__todo"><strong>${esc(m[1])}</strong> ${body}</p>`
+        : `<p>${body}</p>`;
+    })
+    .join('');
+}
+
 /** "Step 2: Turn it off" -> "Turn it off" for the short What-to-do list. */
 function stepTitle(title) {
   return String(title || '').replace(/^\s*step\s*\d+\s*[:.)-]\s*/i, '');
@@ -253,6 +272,7 @@ if (typeof module !== 'undefined' && module.exports) {
     formatExec,
     renderMiniMarkdown,
     stepTitle,
+    descriptionHtml,
     describeMadeBy,
     madeByHtml,
     SEVERITY_ORDER,
@@ -397,7 +417,7 @@ if (typeof document !== 'undefined') {
                 <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
-              <p>${escapeHtml(finding.description || '')}</p>
+              ${descriptionHtml(finding.description, escapeHtml)}
               ${madeByHtml(finding.made_by, escapeHtml)}
               ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
               ${finding.remediation && (finding.remediation.steps || []).length ? `
