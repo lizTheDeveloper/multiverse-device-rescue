@@ -46,11 +46,15 @@ class Module(ModuleBase):
         if mail_data_size > 0:
             findings.append(
                 Finding(
-                    title=f"Mail data: {_fmt_bytes(mail_data_size)}",
+                    title=f"Your Mail app is taking up {_fmt_bytes(mail_data_size)} of space",
                     description=(
-                        f"~/Library/Mail contains {_fmt_bytes(mail_data_size)} of email data. "
-                        f"Mail downloads and caches every attachment which can grow significantly "
-                        f"on older Macs with many archived emails."
+                        f"Your Mail app is storing {_fmt_bytes(mail_data_size)} of email "
+                        "data. This is normal if you have used Mail for a long time, "
+                        "as it keeps copies of messages and attachments to load them "
+                        "quickly.\n\n"
+                        "What to do: Nothing is broken. If your Mac feels slow, you can "
+                        "delete old conversations you no longer need in the Mail app "
+                        "to free up space."
                     ),
                     severity=(
                         Severity.WARNING
@@ -70,11 +74,16 @@ class Module(ModuleBase):
         if mail_downloads_size > 0:
             findings.append(
                 Finding(
-                    title=f"Mail attachment cache: {_fmt_bytes(mail_downloads_size)}",
+                    title=(
+                        f"Mail attachment downloads are using {_fmt_bytes(mail_downloads_size)}"
+                    ),
                     description=(
-                        f"~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads "
-                        f"contains {_fmt_bytes(mail_downloads_size)} of cached attachments. "
-                        f"Mail re-downloads attachments as needed, so this cache can be safely managed."
+                        f"Your Mail app has downloaded {_fmt_bytes(mail_downloads_size)} "
+                        "of attachments to your computer. Mail does this so you can open "
+                        "files offline. It's a normal cache, but it adds up over time.\n\n"
+                        "What to do: You can safely delete attachments you no longer "
+                        "need. In Mail, select the messages and choose Message > Remove "
+                        "Attachments."
                     ),
                     severity=(
                         Severity.WARNING

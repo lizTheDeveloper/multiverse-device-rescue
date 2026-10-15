@@ -225,7 +225,7 @@ def test_power_settings_never_sleeps():
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("never sleeps" in f.title.lower() for f in result.findings)
+    assert any("never sleep" in f.title.lower() for f in result.findings)
 
 
 def test_power_settings_display_sleep_very_short():
@@ -235,8 +235,8 @@ def test_power_settings_display_sleep_very_short():
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("display sleep" in f.title.lower() for f in result.findings)
-    assert any("very short" in f.title.lower() for f in result.findings)
+    assert any("screen turns off" in f.title.lower() for f in result.findings)
+    assert any("very quickly" in f.title.lower() for f in result.findings)
 
 
 def test_power_settings_powernap_enabled():

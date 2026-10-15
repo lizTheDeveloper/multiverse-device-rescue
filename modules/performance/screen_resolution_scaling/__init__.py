@@ -48,13 +48,16 @@ class Module(ModuleBase):
             if is_scaled and has_integrated_gpu:
                 findings.append(
                     Finding(
-                        title="Display scaling may impact performance",
+                        title=f"Your display is set to a scaled resolution ({resolution})",
                         description=(
-                            f"Display is using a scaled resolution ({resolution}) "
-                            f"on a Mac with integrated graphics ({gpu_type}). "
-                            "This uses additional GPU memory and can reduce performance, "
-                            f"especially on older hardware. Native resolution is {native_resolution}. "
-                            "Consider switching to native resolution for better performance."
+                            f"Your screen is currently showing {resolution}, which is "
+                            "a scaled setting, while your Mac has integrated graphics "
+                            f"({gpu_type}). Scaling makes images look larger by using "
+                            "extra video memory, which can slow down your Mac, especially "
+                            f"if it is older. Your screen's natural size is {native_resolution}.\n\n"
+                            "What to do: Go to System Settings > Displays. Select your "
+                            "monitor, then choose the resolution labeled 'Default' or "
+                            "'Native' to stop the scaling and improve speed."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

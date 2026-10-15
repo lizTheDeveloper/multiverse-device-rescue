@@ -40,10 +40,12 @@ class Module(ModuleBase):
         if sleep_value == 0:
             findings.append(
                 Finding(
-                    title="Computer never sleeps",
+                    title="Your Mac is set to never sleep",
                     description=(
-                        "Computer sleep is disabled (sleep=0). This wastes energy and increases "
-                        "hardware wear. Recommended: sudo pmset -a sleep 10"
+                        "Your Mac is set to stay awake even when you are not using it.\n\n"
+                        "What to do: Open System Settings > Lock Screen and set 'Turn "
+                        "display off on battery when inactive' and 'Turn display off on "
+                        "power adapter when inactive' to about 10 minutes."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -59,11 +61,12 @@ class Module(ModuleBase):
         if 0 < displaysleep < 2:
             findings.append(
                 Finding(
-                    title="Display sleep is very short",
+                    title=f"Your screen turns off very quickly ({displaysleep} minute(s))",
                     description=(
-                        f"Display sleep is set to {displaysleep} minute(s), which is very short "
-                        "and may be annoying. Typical: 5-10 minutes. "
-                        "Adjust with: sudo pmset -a displaysleep 5"
+                        f"Your screen is set to turn off after only {displaysleep} minute(s) "
+                        "of inactivity. Most people prefer 5 to 10 minutes.\n\n"
+                        "What to do: Open System Settings > Lock Screen and set 'Turn "
+                        "display off on battery when inactive' to 5 or 10 minutes."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

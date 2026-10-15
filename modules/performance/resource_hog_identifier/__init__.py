@@ -76,10 +76,14 @@ class Module(ModuleBase):
 
     def _make_finding(self, proc: ProcessInfo, severity: Severity) -> Finding:
         return Finding(
-            title=f"{proc.name} is consuming excessive resources",
+            title=f"{proc.name} is using a lot of your computer's power",
             description=(
-                f"{proc.name} (pid {proc.pid}): {proc.cpu_percent:.1f}% CPU, "
-                f"{_fmt_bytes(proc.memory_bytes)} RAM"
+                f"{proc.name} is currently taking up {proc.cpu_percent:.1f}% of your CPU "
+                f"and {_fmt_bytes(proc.memory_bytes)} of your memory. This can make your "
+                "computer feel slow or hot.\n\n"
+                "What to do: If your computer feels sluggish, you can close the app. "
+                "Open Activity Monitor (search for it in Spotlight) and quit the process "
+                "if it is not essential."
             ),
             severity=severity,
             category=self.category,

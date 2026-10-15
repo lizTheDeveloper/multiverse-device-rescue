@@ -68,11 +68,15 @@ class Module(ModuleBase):
         if discoverable:
             findings.append(
                 Finding(
-                    title="Bluetooth is discoverable",
+                    title="Your Mac is discoverable by other Bluetooth devices",
                     description=(
-                        "Bluetooth discoverable is enabled, which allows other devices "
-                        "to see and connect to this Mac without authorization. "
-                        "This is a security risk."
+                        "Your Mac is currently set to be 'discoverable' over Bluetooth. "
+                        "This means other nearby devices can see your computer and attempt "
+                        "to connect to it. This is a common setting for pairing new accessories, "
+                        "but it is a security risk if left on.\n\n"
+                        "What to do: Your Mac is only discoverable while Bluetooth "
+                        "settings are open, so close System Settings when you've finished "
+                        "pairing."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

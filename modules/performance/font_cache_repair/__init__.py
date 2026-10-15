@@ -108,11 +108,16 @@ class Module(ModuleBase):
         if has_database_issues:
             findings.append(
                 Finding(
-                    title="Font database may have integrity issues",
+                    title="Your font database may need a refresh",
                     description=(
-                        "Font database validation detected potential issues. "
-                        "This can cause fonts to not load correctly and lead to rendering glitches. "
-                        "The font cache may need to be rebuilt."
+                        "We found some inconsistencies in the list of fonts your Mac is "
+                        "tracking. This can cause text to look glitchy or fail to load "
+                        "in some apps.\n\n"
+                        "It usually happens when fonts are added or removed and the system "
+                        "doesn't update its records properly.\n\n"
+                        "What to do: Restart your Mac. If text still looks wrong, start "
+                        "it once in Safe Mode (that clears the font caches), then restart "
+                        "normally."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
