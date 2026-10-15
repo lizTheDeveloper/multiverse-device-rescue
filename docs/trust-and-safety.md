@@ -391,7 +391,8 @@ Stated plainly, because you should know before you rely on them.
     - Critical findings (known viruses, programs in folders anyone can change)
       are never downgraded.
     - A mark pins the finding code, label, plist path, program path and a hash
-      of the full program arguments, not just a name. Changing any of them
+      of the full program arguments, and the content of the program and the
+      script it runs (see below), not just a name. Changing any of them
       brings the warning back. There is no shipped allowlist of names to copy.
     - In the app, only the engine's mark id travels back from the page; the
       main process uses what its own scan offered, and the engine re-reads the
@@ -404,10 +405,23 @@ Stated plainly, because you should know before you rely on them.
     scan ignores the file (and says so) if it is a symlink, damaged, or another
     user owns it or can write to it, but
     against something running as you, the protection is that marks stay
-    visible, not that they cannot be forged. The program file itself is not
-    hashed: rebuilt virtualenvs and self-updating tools would make the warning
-    return constantly, and anything able to replace the program can also edit
-    the list.
+    visible, not that they cannot be forged.
+
+    What runs is pinned too, not just where it is. A mark records a SHA-256 of
+    the program file (and its resolved path, so swapping a symlink shows), and
+    of every script file the arguments name in the home folder or a hidden
+    folder (executable files and files like `.py`, `.sh`, `.js`; logs and
+    configs are left out because they change on their own). Without this,
+    someone could mark a harmless-looking task and later replace the program or
+    the script behind it, and the warning would stay quiet. If the content
+    changes, the finding is shown again at its normal severity with
+    `data["mark_stale"] = true` and a sentence saying it changed since it was
+    marked. That is noisy for developers (rebuilding a virtualenv or updating
+    a tool brings the warning back until they mark it again), and that noise is
+    the intended trade for people who may be being watched. A program that
+    cannot be hashed (missing, unreadable, or over 200 MB) cannot be marked,
+    and never matches a mark. Code loaded indirectly, such as a module run with
+    `python -m`, is not hashed.
 
 ## Verifying what you installed
 

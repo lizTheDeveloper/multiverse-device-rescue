@@ -107,8 +107,12 @@ def _about(result, label=LABEL):
     return [f for f in result.findings if f.data.get("label") == label]
 
 
+CONTENT = "c" * 64
+
+
 def _ident(**over):
     base = known_items.background_task_identity(LABEL, "/a/python", "/p/x.plist", ["/a/python"], LAA)
+    base["content_sha256"] = CONTENT
     base.update(over)
     return base
 
@@ -238,8 +242,35 @@ def test_find_background_task_pins_code_label_program_plist_and_arguments(tmp_pa
     assert ident == {
         "code": LAA, "label": LABEL, "plist": str(plist), "program": prog,
         "arguments_sha256": known_items.arguments_sha256([prog, "-m", "gateway"]),
+        "content_sha256": known_items.content_sha256(prog, [prog, "-m", "gateway"]),
     }
+    assert ident["content_sha256"]
 
+
+def test_find_background_task_refuses_what_it_cannot_pin(tmp_path, agents_dir, monkeypatch):
+    missing = str(tmp_path / ".example" / "gone" / "python")
+    _write_task(agents_dir, missing, args=[missing])
+    with pytest.raises(KnownItemsError, match="could not be read"):
+        find_background_task(LABEL, missing, code=LAA)
+    prog = _hidden_python(tmp_path)
+    _write_task(agents_dir, prog)
+    monkeypatch.setattr(known_items, "MAX_HASH_BYTES", 3)
+    with pytest.raises(KnownItemsError, match="too large"):
+        find_background_task(LABEL, prog, code=LAA)
+
+
+def test_content_pins_scripts_but_not_logs(tmp_path):
+    prog = _hidden_python(tmp_path)
+    script = tmp_path / ".example" / "gateway.py"
+    script.write_text("print(1)\n")
+    log = tmp_path / ".example" / "gateway.error.log"
+    log.write_text("x\n")
+    args = [prog, str(script), "--error-log", str(log)]
+    first = known_items.content_sha256(prog, args)
+    log.write_text("lots more log\n")
+    assert known_items.content_sha256(prog, args) == first, "a log changing is not a program change"
+    script.write_text("print('something else')\n")
+    assert known_items.content_sha256(prog, args) != first
 
 def test_find_background_task_refuses_mismatch_bad_code_and_outside_folders(tmp_path, agents_dir):
     prog = _hidden_python(tmp_path)
@@ -263,10 +294,40 @@ def _item(**over):
     return KnownItem(kind=BACKGROUND_TASK, identity=_ident(**over), marked_at="2026-01-01T00:00:00Z")
 
 
+def _same_content(_f):
+    return CONTENT
+
+
 def test_exact_match_downgrades():
     f = _warning()
-    known_items.apply_marks([f], BACKGROUND_TASK, _item_identity, items=[_item()])
+    known_items.apply_marks([f], BACKGROUND_TASK, _item_identity, items=[_item()], content_of=_same_content)
     assert f.severity == Severity.INFO and f.data["marked_by_user"] is True
+
+
+@pytest.mark.parametrize("content", ["d" * 64, None, "", RuntimeError("unreadable")])
+def test_changed_or_unreadable_content_is_stale_not_downgraded(content):
+    f = _warning()
+
+    def content_of(_f):
+        if isinstance(content, Exception):
+            raise content
+        return content
+
+    item = _item()
+    known_items.apply_marks([f], BACKGROUND_TASK, _item_identity, items=[item], content_of=content_of)
+    assert f.severity == Severity.WARNING
+    assert "marked_by_user" not in f.data
+    assert f.data["mark_stale"] is True and f.data["known_item_id"] == item.id
+    assert (
+        "You marked this as yours on 2026-01-01T00:00:00Z, but the program it runs has changed "
+        "since then, so it's shown again. If you updated it yourself, you can mark it again."
+    ) in f.description
+
+
+def test_no_content_callback_never_downgrades():
+    f = _warning()
+    known_items.apply_marks([f], BACKGROUND_TASK, _item_identity, items=[_item()])
+    assert f.severity == Severity.WARNING and f.data.get("mark_stale") is True
 
 
 @pytest.mark.parametrize("finding", [
@@ -280,9 +341,10 @@ def test_exact_match_downgrades():
     _warning(label=""),                                                     # empty field
 ])
 def test_anything_but_an_exact_match_is_left_alone(finding):
-    known_items.apply_marks([finding], BACKGROUND_TASK, _item_identity, items=[_item()])
+    known_items.apply_marks([finding], BACKGROUND_TASK, _item_identity, items=[_item()], content_of=_same_content)
     assert finding.severity == Severity.WARNING
     assert "marked_by_user" not in finding.data
+    assert "mark_stale" not in finding.data
 
 
 def test_identify_that_raises_or_returns_junk_matches_nothing():
@@ -295,14 +357,14 @@ def test_identify_that_raises_or_returns_junk_matches_nothing():
             raise r
         return r
 
-    known_items.apply_marks(fs, BACKGROUND_TASK, identify, items=[_item()])
+    known_items.apply_marks(fs, BACKGROUND_TASK, identify, items=[_item()], content_of=_same_content)
     assert all(f.severity == Severity.WARNING for f in fs)
 
 
 def test_critical_is_tagged_never_downgraded():
     f = _warning()
     f.severity = Severity.CRITICAL
-    known_items.apply_marks([f], BACKGROUND_TASK, _item_identity, items=[_item()])
+    known_items.apply_marks([f], BACKGROUND_TASK, _item_identity, items=[_item()], content_of=_same_content)
     assert f.severity == Severity.CRITICAL
     assert f.data["user_mark_ignored"] is True and "marked_by_user" not in f.data
 
@@ -354,6 +416,66 @@ def test_mark_for_one_check_does_not_cover_the_other(tmp_path, agents_dir):
 
 
 @pytest.mark.parametrize("module_name", ["launch_agent_audit", "launchd_persistence_audit"])
+def test_replaced_program_content_is_shown_again_as_stale(tmp_path, agents_dir, module_name):
+    prog = _hidden_python(tmp_path)
+    _write_task(agents_dir, prog)
+    item = _mark(LABEL, prog, CODES[module_name])
+    Path(prog).write_text("#!/bin/sh\necho something else\n")
+    _, result = _run(module_name, agents_dir)
+    warned = [f for f in _about(result) if f.severity == Severity.WARNING]
+    assert warned
+    assert not any(f.data.get("marked_by_user") for f in result.findings)
+    stale = [f for f in warned if f.data.get("mark_stale")]
+    assert stale and stale[0].data["known_item_id"] == item.id
+    assert "has changed since then, so it's shown again" in stale[0].description
+
+
+def test_replaced_script_content_is_shown_again(tmp_path, agents_dir):
+    prog = _hidden_python(tmp_path)
+    script = tmp_path / ".example" / "gateway.py"
+    script.write_text("print(1)\n")
+    _write_task(agents_dir, prog, args=[prog, str(script)])
+    _mark(LABEL, prog)
+    _, ok = _run("launch_agent_audit", agents_dir)
+    assert any(f.data.get("marked_by_user") for f in _about(ok))
+    script.write_text("import os; os.system('evil')\n")
+    _, result = _run("launch_agent_audit", agents_dir)
+    assert any(f.severity == Severity.WARNING and f.data.get("mark_stale") for f in _about(result))
+    assert not any(f.data.get("marked_by_user") for f in result.findings)
+
+
+@posix_only
+def test_symlink_swap_of_the_program_is_not_covered(tmp_path, agents_dir):
+    real_a = Path(_hidden_python(tmp_path, folder=".a"))
+    real_b = tmp_path / ".b" / "python"
+    real_b.parent.mkdir()
+    real_b.write_text(real_a.read_text())  # identical bytes, different file
+    link = tmp_path / ".example" / "venv" / "bin" / "python"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(real_a)
+    _write_task(agents_dir, str(link))
+    _mark(LABEL, str(link))
+    _, ok = _run("launch_agent_audit", agents_dir)
+    assert any(f.data.get("marked_by_user") for f in _about(ok))
+    link.unlink()
+    link.symlink_to(real_b)
+    _, result = _run("launch_agent_audit", agents_dir)
+    assert not any(f.data.get("marked_by_user") for f in result.findings)
+    assert any(f.severity == Severity.WARNING and f.data.get("mark_stale") for f in _about(result))
+
+
+def test_unreadable_program_after_marking_is_not_downgraded(tmp_path, agents_dir, monkeypatch):
+    prog = _hidden_python(tmp_path)
+    _write_task(agents_dir, prog)
+    _mark(LABEL, prog)
+    monkeypatch.setattr(known_items, "MAX_HASH_BYTES", 3)  # now "too large to check"
+    known_items._HASH_CACHE.clear()
+    _, result = _run("launch_agent_audit", agents_dir)
+    assert any(f.severity == Severity.WARNING and f.data.get("mark_stale") for f in _about(result))
+    assert not any(f.data.get("marked_by_user") for f in result.findings)
+
+
+@pytest.mark.parametrize("module_name", ["launch_agent_audit", "launchd_persistence_audit"])
 def test_changed_program_path_brings_the_warning_back(tmp_path, agents_dir, module_name):
     prog = _hidden_python(tmp_path)
     _write_task(agents_dir, prog)
@@ -376,8 +498,11 @@ def test_same_program_running_something_else_brings_the_warning_back(tmp_path, a
 
 
 @pytest.mark.parametrize("module_name", ["launch_agent_audit", "launchd_persistence_audit"])
-def test_critical_is_never_downgraded_by_a_mark(tmp_path, agents_dir, module_name):
-    prog = "/tmp/rescue-test-not-real/agent"
+def test_critical_is_never_downgraded_by_a_mark(tmp_path, agents_dir, module_name, request):
+    tmp_dir = tempfile.mkdtemp(prefix="rescue-test-", dir="/tmp")
+    request.addfinalizer(lambda: shutil.rmtree(tmp_dir, ignore_errors=True))
+    prog = os.path.join(tmp_dir, "agent")
+    Path(prog).write_text("x")
     _write_task(agents_dir, prog, args=[prog])
     _, before = _run(module_name, agents_dir)
     assert any(f.severity == Severity.CRITICAL for f in _about(before))
@@ -416,6 +541,7 @@ def test_scan_json_offers_markable_then_shows_marked(tmp_path, agents_dir):
     assert "marked as yours" in offer["will_change"] and offer["how_to_undo"]
     # The offered id is exactly what the engine will pin from disk.
     assert offer["id"] == known_items.item_id(BACKGROUND_TASK, find_background_task(LABEL, prog, code=LAA))
+    assert offer["content_sha256"]
 
     _mark(LABEL, prog)
     mod, check = _run("launch_agent_audit", agents_dir)
@@ -426,8 +552,9 @@ def test_scan_json_offers_markable_then_shows_marked(tmp_path, agents_dir):
 
 
 def test_markable_only_for_warnings_from_background_task_modules():
-    data = {"arguments_sha256": "a" * 64}
+    data = {"arguments_sha256": "a" * 64, "content_sha256": CONTENT}
     assert known_items.markable(_warning(**data), "launch_agent_audit")
+    assert known_items.markable(_warning(arguments_sha256="a" * 64), "launch_agent_audit") is None
     assert known_items.markable(_warning(**data), "some_other_module") is None
     assert known_items.markable(_warning(), "launch_agent_audit") is None  # no arguments hash
     assert known_items.markable(_warning(code=None, **data), "launch_agent_audit") is None
@@ -527,8 +654,15 @@ def test_cli_expect_id_refuses_if_the_task_changed_since_the_scan(tmp_path, agen
     r = _invoke(args)
     assert r.exit_code == 2 and json.loads(r.stdout)["status"] == "refused"
     assert KnownItemsStore().load() == []
-    # Unchanged task: the same call saves exactly that id.
+    # Same settings file, but the program's content changed: also refused.
     _write_task(agents_dir, prog)
+    original = Path(prog).read_text()
+    Path(prog).write_text("#!/bin/sh\necho swapped\n")
+    r = _invoke(args)
+    assert r.exit_code == 2 and json.loads(r.stdout)["status"] == "refused"
+    assert KnownItemsStore().load() == []
+    # Unchanged task: the same call saves exactly that id.
+    Path(prog).write_text(original)
     r = _invoke(args)
     assert r.exit_code == 0, r.output
     assert [i.id for i in KnownItemsStore().load()] == [offer["id"]]

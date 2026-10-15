@@ -520,8 +520,13 @@ export can see what was marked and when. Only background tasks (the
 | `known remove <id>` | `--json` | Remove a mark. The warning comes back on the next scan. |
 
 What a mark pins: the finding code (which names the check), the label, the
-plist path, the program path, and a SHA-256 of the full `ProgramArguments`.
-Every field must match exactly; the mark id is a hash over all of them. The task is read from disk when you mark it;
+plist path, the program path, a SHA-256 of the full `ProgramArguments`, and a
+SHA-256 of the content of what runs: the program file (with its resolved path)
+and any script file the arguments name in your home folder or a hidden folder.
+Every field must match exactly; the mark id is a hash over all of them. If only
+the content changed, the finding shows again with `data["mark_stale"] = true`
+and a note; mark it again if you updated it yourself. A program that cannot be
+read or is over 200 MB cannot be marked. The task is read from disk when you mark it;
 `add` refuses if no task with that label and program exists, or if the plist is
 outside the three launchd folders. If any pinned part later changes (the
 program moves, or the same interpreter is pointed at a different script), the
