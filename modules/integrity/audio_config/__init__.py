@@ -34,10 +34,14 @@ class Module(ModuleBase):
         if not devices:
             findings.append(
                 Finding(
-                    title="Could not enumerate audio devices",
+                    title="We couldn't list your audio devices",
                     description=(
-                        "Unable to retrieve audio device information from system_profiler. "
-                        "This may indicate a system configuration issue."
+                        "We tried to check your sound settings, but the system didn't "
+                        "give us a list of your audio devices. It just means we can't "
+                        "verify your sound output right now.\n\n"
+                        "What to do: Nothing urgent. If your sound is working normally, "
+                        "you can ignore this. If you are having sound issues, try restarting "
+                        "your Mac to refresh the system."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -71,11 +75,13 @@ class Module(ModuleBase):
         if mute_status is not None and mute_status:
             findings.append(
                 Finding(
-                    title="System audio is muted",
+                    title="Your Mac's sound is turned off (muted)",
                     description=(
-                        "The system audio output is currently muted. This is a common reason "
-                        "why users don't hear sound. Unmute by pressing the mute key or "
-                        "adjusting volume in System Settings."
+                        "Your computer is currently muted, which is why you might not "
+                        "be hearing any audio.\n\n"
+                        "What to do: Press the mute key on your keyboard (often F6 or "
+                        "F7) or click the speaker icon in the menu bar to unmute. You "
+                        "can also check System Settings > Sound."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -87,10 +93,12 @@ class Module(ModuleBase):
         if volume_level is not None and volume_level < 10:
             findings.append(
                 Finding(
-                    title=f"System volume is very low ({volume_level}%)",
+                    title=f"Your volume is set very low ({volume_level}%)",
                     description=(
-                        f"System audio volume is set to {volume_level}%, which is very quiet. "
-                        "Increase volume via keyboard keys or System Settings > Sound."
+                        f"Your system volume is currently at {volume_level}%, which is "
+                        "quite quiet.\n\n"
+                        "What to do: Press the volume-up key on your keyboard or drag "
+                        "the volume slider up in System Settings > Sound."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -103,11 +111,15 @@ class Module(ModuleBase):
             if _is_likely_disconnected_device(current_output, devices):
                 findings.append(
                     Finding(
-                        title=f"Audio routed to potentially disconnected device: {current_output}",
+                        title=(
+                            f"Sound is playing to a device that isn't connected: {current_output}"
+                        ),
                         description=(
-                            f"System audio is routed to '{current_output}', which does not appear "
-                            "in the list of currently connected devices. Try switching to a different "
-                            "output device via System Settings > Sound."
+                            f"Your Mac is trying to play sound through '{current_output}', "
+                            "but that device isn't currently plugged in. This usually "
+                            "happens if you unplug headphones or a speaker.\n\n"
+                            "What to do: Open System Settings > Sound and select a different "
+                            "output device, like 'MacBook Speakers' or your current headphones."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

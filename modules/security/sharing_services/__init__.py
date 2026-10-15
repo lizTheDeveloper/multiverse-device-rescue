@@ -38,11 +38,17 @@ class Module(ModuleBase):
         if self._is_service_enabled("com.apple.screensharing"):
             findings.append(
                 Finding(
-                    title="Screen Sharing is enabled",
+                    title="Screen Sharing is enabled on your Mac",
                     description=(
-                        "Screen Sharing (VNC) is enabled on this Mac. "
-                        "Most home users don't need this service. "
-                        "It allows remote users to see and control your display."
+                        "Your Mac is set up to let other people see and control your screen "
+                        "from another device. This is a powerful tool that most people "
+                        "don't need for daily use. If you didn't turn this on, it could "
+                        "allow someone else to watch what you are doing.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings, go to General > Sharing, and "
+                        "turn off the switch next to 'Screen Sharing'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -55,11 +61,14 @@ class Module(ModuleBase):
         if self._is_service_enabled("com.apple.smbd"):
             findings.append(
                 Finding(
-                    title="File Sharing (SMB) is enabled",
+                    title="File Sharing is enabled on your Mac",
                     description=(
-                        "SMB file sharing is enabled on this Mac. "
-                        "Most home users don't need this service. "
-                        "It allows remote users to access files via network shares."
+                        "Your Mac is allowing other devices on your network to access "
+                        "your files. This is useful if you share folders with family, "
+                        "but most people don't need it on. If you didn't turn this on, "
+                        "it could let someone browse your documents.\n\n"
+                        "What to do: Open System Settings, go to General > Sharing, and "
+                        "turn off the switch next to 'File Sharing'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -72,11 +81,17 @@ class Module(ModuleBase):
         if self._is_ssh_enabled():
             findings.append(
                 Finding(
-                    title="Remote Login (SSH) is enabled",
+                    title="Remote Login is enabled on your Mac",
                     description=(
-                        "Remote Login (SSH) is enabled on this Mac. "
-                        "Most home users don't need this service. "
-                        "It allows remote users to log in and execute commands."
+                        "Your Mac is allowing people to log in from another computer and "
+                        "run commands. This is a technical feature that most home users "
+                        "do not need. If you didn't turn this on, it could let someone "
+                        "access your system from outside your home.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings, go to General > Sharing, and "
+                        "turn off the switch next to 'Remote Login'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -89,11 +104,17 @@ class Module(ModuleBase):
         if self._is_service_enabled("com.apple.RemoteDesktop.agent"):
             findings.append(
                 Finding(
-                    title="Remote Management (ARD) is enabled",
+                    title="Remote Management is enabled on your Mac",
                     description=(
-                        "Remote Management (Apple Remote Desktop) is enabled. "
-                        "Most home users don't need this service. "
-                        "It allows remote users to manage your Mac."
+                        "Your Mac is allowing remote administration, which lets someone "
+                        "manage your computer from afar. This is a very powerful setting "
+                        "usually reserved for IT support. If you didn't turn this on, "
+                        "it could let someone control your Mac without you knowing.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+                        "What to do: Open System Settings, go to General > Sharing, and "
+                        "turn off the switch next to 'Remote Management'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -106,11 +127,15 @@ class Module(ModuleBase):
         if self._is_printer_sharing_enabled():
             findings.append(
                 Finding(
-                    title="Printer Sharing is enabled",
+                    title="Printer Sharing is enabled on your Mac",
                     description=(
-                        "Printer Sharing is enabled on this Mac. "
-                        "Most home users don't need this service. "
-                        "It allows remote users to access shared printers."
+                        "Your Mac is allowing other devices on your network to print to "
+                        "your printers. This is usually safe, but if you didn't turn it "
+                        "on, it means your Mac is open to other devices on your Wi-Fi. "
+                        "Most people don't need this if they only print from their own "
+                        "devices.\n\n"
+                        "What to do: Open System Settings, go to General > Sharing, and "
+                        "turn off the switch next to 'Printer Sharing'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

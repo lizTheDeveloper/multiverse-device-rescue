@@ -42,7 +42,17 @@ class Module(ModuleBase):
                 findings.append(
                     Finding(
                         title=f"Startup item: {entry['name']}",
-                        description=entry["description"],
+                        description=(
+                            f"This is a program called {entry['name']} that automatically "
+                            "starts when you log in. It is known as 'bloatware'—software "
+                            "that comes bundled with other apps and that most people "
+                            "don't need. It isn't harmful, but it can slow down your "
+                            "computer and use battery life.\n\n"
+                            "What to do: You can safely turn this off. Open System Settings, "
+                            f"click General, then Login Items & Extensions. Find {entry['name']} in "
+                            "the list and click the minus (-) button to stop it from "
+                            "starting automatically."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={"label": label, "name": entry["name"]},

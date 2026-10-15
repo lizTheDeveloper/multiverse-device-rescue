@@ -45,11 +45,19 @@ class Module(ModuleBase):
             found_tools["TeamViewer"] = True
             findings.append(
                 Finding(
-                    title="TeamViewer is installed",
+                    title="TeamViewer is installed on your computer",
                     description=(
-                        "TeamViewer remote access software is installed on this system. "
-                        "Verify you authorized this installation — unauthorized remote access "
-                        "is a common vector for scammers and attackers."
+                        "We found TeamViewer, a program that lets someone else control "
+                        "your screen from another computer. If you installed this for "
+                        "work or to help a friend, that is fine. However, if you do not "
+                        "remember installing it, it may have been added by someone else "
+                        "to watch your activity.\n\n"
+                        "If you think a partner, ex, or family member installed this to "
+                        "monitor you, removing it can alert them. Talk to an advocate "
+                        "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                        "or text START to 88788).\n\n"
+                        "What to do: If you did not install TeamViewer, open Windows Settings "
+                        "> Apps > Installed apps, find TeamViewer, and select Uninstall."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -63,11 +71,17 @@ class Module(ModuleBase):
             found_tools["AnyDesk"] = True
             findings.append(
                 Finding(
-                    title="AnyDesk is installed",
+                    title="AnyDesk is installed on your computer",
                     description=(
-                        "AnyDesk remote access software is installed on this system. "
-                        "Verify you authorized this installation — unauthorized remote access "
-                        "is a common vector for scammers and attackers."
+                        "We found AnyDesk, a program that allows someone to remotely control "
+                        "your computer. This is often used for tech support, but if you "
+                        "did not install it, it could be a way for someone to spy on you.\n\n"
+                        "If you think a partner, ex, or family member installed this to "
+                        "monitor you, removing it can alert them. Talk to an advocate "
+                        "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                        "or text START to 88788).\n\n"
+                        "What to do: If you did not install AnyDesk, open Windows Settings "
+                        "> Apps > Installed apps, find AnyDesk, and select Uninstall."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -82,11 +96,18 @@ class Module(ModuleBase):
             found_tools["VNC"] = True
             findings.append(
                 Finding(
-                    title="VNC server is installed",
+                    title="A VNC remote control program is installed",
                     description=(
-                        "A VNC (Virtual Network Computing) remote access server is installed. "
-                        "Verify you authorized this installation — unauthorized remote access "
-                        "is a common vector for attackers."
+                        "We found a VNC server, which is a tool that lets someone connect "
+                        "to and control your computer from a distance. If you use this "
+                        "for work, it is expected. If not, it is a common way for attackers "
+                        "or stalkers to access your device.\n\n"
+                        "If you think a partner, ex, or family member installed this to "
+                        "monitor you, removing it can alert them. Talk to an advocate "
+                        "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                        "or text START to 88788).\n\n"
+                        "What to do: If you did not install this, open Windows Settings "
+                        "> Apps > Installed apps, find the VNC program, and select Uninstall."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -100,11 +121,18 @@ class Module(ModuleBase):
             found_tools["LogMeIn"] = True
             findings.append(
                 Finding(
-                    title="LogMeIn is installed",
+                    title="LogMeIn is installed on your computer",
                     description=(
-                        "LogMeIn remote access software is installed on this system. "
-                        "Verify you authorized this installation — unauthorized remote access "
-                        "is a common vector for scammers and attackers."
+                        "We found LogMeIn, a service that allows remote access to your "
+                        "computer. If you use this for work, it is likely fine. If you "
+                        "do not recognize it, it may have been installed to monitor your "
+                        "activity.\n\n"
+                        "If you think a partner, ex, or family member installed this to "
+                        "monitor you, removing it can alert them. Talk to an advocate "
+                        "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                        "or text START to 88788).\n\n"
+                        "What to do: If you did not install LogMeIn, open Windows Settings "
+                        "> Apps > Installed apps, find LogMeIn, and select Uninstall."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -120,9 +148,18 @@ class Module(ModuleBase):
                 Finding(
                     title="Chrome Remote Desktop is running",
                     description=(
-                        "Chrome Remote Desktop process is running on this system. "
-                        "Verify you authorized this — unauthorized remote access "
-                        "is a common vector for attackers."
+                        "We found that Chrome Remote Desktop is currently running. This "
+                        "allows someone to view and control your screen via a web link. "
+                        "If you are using it for support, that is okay. If not, it is "
+                        "a potential risk for unauthorized access.\n\n"
+                        "If you think a partner, ex, or family member set this up to monitor "
+                        "you, removing it can alert them. Talk to an advocate first (US "
+                        "National Domestic Violence Hotline: 1-800-799-7233, or text START "
+                        "to 88788).\n\n"
+                        "What to do: If you didn't set this up, open "
+                        "remotedesktop.google.com/access in Chrome and delete this computer "
+                        "from the list, then uninstall 'Chrome Remote Desktop Host' in "
+                        "Settings > Apps > Installed apps."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -136,11 +173,18 @@ class Module(ModuleBase):
         if rdp_enabled:
             findings.append(
                 Finding(
-                    title="RDP is enabled",
+                    title="Remote Desktop (RDP) is turned on",
                     description=(
-                        "Remote Desktop Protocol (RDP) is enabled on this system. "
-                        "RDP is often left enabled after support sessions and should be disabled "
-                        "if not actively needed. Disabled RDP is less exposed to brute-force attacks."
+                        "Your computer's Remote Desktop feature is enabled. This allows "
+                        "others to connect to your computer over a network. It is often "
+                        "left on after a tech support session. If you do not use it, it "
+                        "is safer to turn it off to reduce exposure.\n\n"
+                        "If you think a partner, ex, or family member enabled this to "
+                        "monitor you, removing it can alert them. Talk to an advocate "
+                        "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                        "or text START to 88788).\n\n"
+                        "What to do: Open Windows Settings > System > Remote Desktop and "
+                        "toggle it to Off."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -153,13 +197,20 @@ class Module(ModuleBase):
         if len(found_tools) >= 2:
             findings.append(
                 Finding(
-                    title="Multiple remote access tools installed (potential tech support scam)",
+                    title=(
+                        f"Multiple remote access tools found: {', '.join(found_tools.keys())}"
+                    ),
                     description=(
-                        f"This system has {len(found_tools)} remote access tools installed: "
-                        f"{', '.join(found_tools.keys())}. "
-                        "Having multiple remote access tools is a hallmark of tech support scams, "
-                        "where attackers install multiple tools to maintain persistent control. "
-                        "Review each tool and uninstall any you did not authorize."
+                        f"We found {len(found_tools)} different remote access tools installed: "
+                        f"{', '.join(found_tools.keys())}. Having multiple tools is a "
+                        "strong sign of a tech support scam or unauthorized monitoring. "
+                        "If you did not install all of these, they should be removed.\n\n"
+                        "If you think a partner, ex, or family member installed these "
+                        "to monitor you, removing them can alert them. Talk to an advocate "
+                        "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                        "or text START to 88788).\n\n"
+                        "What to do: Open Windows Settings > Apps > Installed apps and "
+                        "uninstall any tool you do not recognize or did not install."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,

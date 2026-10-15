@@ -125,12 +125,14 @@ class Module(ModuleBase):
         for app, count in unstable_apps:
             findings.append(
                 Finding(
-                    title=f"Unstable app: {app} crashed {count} times in 7 days",
+                    title=f"{app} keeps crashing ({count} times in 7 days)",
                     description=(
-                        f"Application '{app}' has crashed {count} times in the last 7 days, "
-                        "indicating instability. This may be due to bugs in the application, "
-                        "incompatibility with the current macOS version, or missing updates. "
-                        "Consider reinstalling the application or checking for updates."
+                        f"{app} has stopped working {count} times in the last week. This "
+                        "usually means the app has a bug or needs an update.\n\n"
+                        f"What to do: Check if an update is available for {app} in the "
+                        "App Store. If it’s up to date, try quitting and reopening it. "
+                        "If it keeps crashing, you can safely remove the app and reinstall "
+                        "it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -143,13 +145,17 @@ class Module(ModuleBase):
             system_apps_unique = set(app for app, _ in system_process_crashes)
             findings.append(
                 Finding(
-                    title=f"System process crashes detected: {', '.join(sorted(system_apps_unique))}",
+                    title=(
+                        f"System processes are crashing: {', '.join(sorted(system_apps_unique))}"
+                    ),
                     description=(
-                        f"System processes are crashing: {', '.join(sorted(system_apps_unique))}. "
-                        "This indicates a potential OS issue rather than just an app problem. "
-                        "System process crashes may be caused by corrupted system files, "
-                        "failed updates, or hardware issues. Consider running Disk Utility "
-                        "First Aid or reinstalling macOS if the issue persists."
+                        f"Parts of macOS itself ({', '.join(sorted(system_apps_unique))}) "
+                        "are crashing. This suggests an issue with the operating system, "
+                        "possibly from a failed update or a hardware problem.\n\n"
+                        "What to do: Open Disk Utility (search 'Disk Utility' in Spotlight) "
+                        "and run First Aid on your startup disk. If crashes continue, "
+                        "consider backing up your data and contacting Apple Support for "
+                        "a system repair."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -165,13 +171,16 @@ class Module(ModuleBase):
             memory_apps_str = ", ".join([f"{app} ({count})" for app, count in memory_crash_apps])
             findings.append(
                 Finding(
-                    title=f"Memory-related crashes (EXC_BAD_ACCESS): {memory_apps_str}",
+                    title=f"Apps are crashing due to memory errors: {memory_apps_str}",
                     description=(
-                        f"Apps with memory-related crashes: {memory_apps_str}. "
-                        "EXC_BAD_ACCESS errors typically indicate attempting to access invalid memory. "
-                        "This may indicate bad RAM, incompatible app versions, or OS issues. "
-                        "Run Memory Diagnostics and check for RAM issues. Consider updating apps "
-                        "and restarting the system."
+                        f"These apps ({memory_apps_str}) are crashing because they tried "
+                        "to use memory incorrectly (EXC_BAD_ACCESS). This often points to a bug in the "
+                        "app or a problem with your Mac’s physical memory (RAM).\n\n"
+                        "What to do: Restart your Mac to clear temporary memory issues. "
+                        "If specific apps keep crashing, update them. If many apps crash, "
+                        "run Apple Diagnostics: shut down, then on Apple silicon hold the "
+                        "power button and press Command-D at the startup options; on an "
+                        "Intel Mac hold D while it starts."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

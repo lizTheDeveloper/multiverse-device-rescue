@@ -342,7 +342,7 @@ def test_win_bloatware_resource_savings_in_findings():
     # Each bloatware finding should have resource savings data
     for finding in warnings:
         assert "resource_savings" in finding.data
-        assert "Estimated resource savings" in finding.description
+        assert "could free up" in finding.description
 
 
 def test_win_bloatware_empty_output():

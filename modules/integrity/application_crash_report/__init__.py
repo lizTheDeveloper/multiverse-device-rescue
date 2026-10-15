@@ -73,11 +73,16 @@ class Module(ModuleBase):
 
                 findings.append(
                     Finding(
-                        title=f"Critical system app '{app_name}' is crashing",
+                        title=f"Important system app '{app_name}' keeps crashing",
                         description=(
-                            f"The system application '{app_name}' has crashed {crash_count} times "
-                            f"in the last {DAYS_TO_CHECK} days (most recent: {most_recent_date}). "
-                            f"This suggests a serious system issue that requires attention."
+                            f"Your Mac's own application '{app_name}' has stopped working "
+                            f"{crash_count} times in the last {DAYS_TO_CHECK} days (most "
+                            f"recently on {most_recent_date}).\n\n"
+                            "Because this is a core part of your computer, frequent crashes "
+                            "can make your Mac feel slow or unstable.\n\n"
+                            "What to do: Restart your Mac to clear the error. If it crashes "
+                            "again, install any macOS update in System Settings > General > "
+                            "Software Update."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -107,11 +112,15 @@ class Module(ModuleBase):
 
                 findings.append(
                     Finding(
-                        title=f"Application '{app_name}' crashed {crash_count} times in {DAYS_TO_CHECK} days",
+                        title=f"App '{app_name}' crashed {crash_count} times recently",
                         description=(
-                            f"The application '{app_name}' has crashed {crash_count} times "
-                            f"in the last {DAYS_TO_CHECK} days (most recent: {most_recent_date}). "
-                            f"This may indicate a persistent problem with the application."
+                            f"The app '{app_name}' has stopped working {crash_count} times "
+                            f"in the last {DAYS_TO_CHECK} days (most recently on {most_recent_date}).\n\n"
+                            "This usually means the app is buggy or not compatible with "
+                            "your current macOS version.\n\n"
+                            f"What to do: Check the App Store for an update to '{app_name}'. "
+                            "If it is not from the App Store, consider uninstalling it "
+                            "and finding a stable alternative."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

@@ -42,10 +42,14 @@ class Module(ModuleBase):
                 bloatware_found.append(entry)
                 findings.append(
                     Finding(
-                        title=f"Bloatware detected: {entry['name']}",
+                        title=f"Pre-installed app found: {entry['name']}",
                         description=(
-                            f"Found pre-installed bloatware: {entry['name']}. {entry['description']} "
-                            f"Estimated resource savings if removed: {entry['estimated_resource_savings']}"
+                            f"Your computer comes with {entry['name']} installed. {entry['description']} "
+                            f"Removing it could free up {entry['estimated_resource_savings']}.\n\n"
+                            "It is just extra software that may slow your device down.\n\n"
+                            "What to do: If you do not use this app, you can uninstall "
+                            "it to improve performance. Go to Settings > Apps > Installed "
+                            f"apps, find {entry['name']}, and select Uninstall."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

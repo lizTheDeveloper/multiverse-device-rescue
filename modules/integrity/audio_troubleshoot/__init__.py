@@ -34,10 +34,12 @@ class Module(ModuleBase):
         if not devices:
             findings.append(
                 Finding(
-                    title="No audio devices detected",
+                    title="No audio devices were found on your Mac",
                     description=(
-                        "Unable to detect any audio input or output devices. "
-                        "This may indicate a CoreAudio configuration issue or device driver problem."
+                        "Your Mac couldn't find any speakers or microphones. This usually "
+                        "means a connection issue or a setting glitch.\n\n"
+                        "What to do: Check that your headphones or speakers are plugged "
+                        "in. If they are, restart your Mac and see if they appear again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -78,10 +80,12 @@ class Module(ModuleBase):
         if mute_status is not None and mute_status:
             findings.append(
                 Finding(
-                    title="System audio is muted",
+                    title="Your Mac's sound is turned off (muted)",
                     description=(
-                        "The system audio output is muted. This is one of the most common reasons "
-                        "why users don't hear sound. Unmute using the mute key or System Settings."
+                        "Your Mac is currently muted, so you won't hear any audio.\n\n"
+                        "What to do: Press the mute key on your keyboard (often F6 with "
+                        "a speaker icon) or click the speaker icon in the menu bar to "
+                        "unmute."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -93,9 +97,11 @@ class Module(ModuleBase):
         if volume_level is not None and volume_level <= 0:
             findings.append(
                 Finding(
-                    title="System volume is at 0%",
+                    title="Your Mac's volume is set to zero",
                     description=(
-                        "System audio volume is set to 0%. Increase volume to hear any sound."
+                        "Your system volume is at 0%, so no sound will play.\n\n"
+                        "What to do: Press the volume up key on your keyboard or drag "
+                        "the volume slider in the menu bar to a higher level."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -105,10 +111,12 @@ class Module(ModuleBase):
         elif volume_level is not None and volume_level < 10:
             findings.append(
                 Finding(
-                    title=f"System volume is very low ({volume_level}%)",
+                    title=f"Your Mac's volume is very low ({volume_level}%)",
                     description=(
-                        f"System audio volume is set to {volume_level}%, which is barely audible. "
-                        "Consider increasing volume to at least 20-30%."
+                        f"Your system volume is set to {volume_level}%, which is very "
+                        "quiet.\n\n"
+                        "What to do: Press the volume up key on your keyboard or adjust "
+                        "the slider in the menu bar to make the sound louder."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -121,11 +129,13 @@ class Module(ModuleBase):
         if not input_devices:
             findings.append(
                 Finding(
-                    title="No audio input device detected",
+                    title="No microphone was found on your Mac",
                     description=(
-                        "No microphone or audio input device was detected. This may affect "
-                        "video calls, voice recording, and voice commands. Check if microphone "
-                        "is connected, enabled, and recognized in System Settings."
+                        "Your Mac doesn't see a microphone, so it can't record your voice "
+                        "for calls or apps.\n\n"
+                        "What to do: Check that any external mic is plugged in. Then go "
+                        "to System Settings > Privacy & Security > Microphone to ensure "
+                        "apps are allowed to use it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -138,11 +148,13 @@ class Module(ModuleBase):
             if _is_device_not_connected(current_output, devices):
                 findings.append(
                     Finding(
-                        title=f"Audio output routed to potentially disconnected device: {current_output}",
+                        title=f"Sound is set to go to {current_output}",
                         description=(
-                            f"System audio is set to output through '{current_output}', but this device "
-                            "does not appear in the list of connected devices. Try switching to Internal Speakers "
-                            "or another available device in System Settings > Sound > Output tab."
+                            f"Your Mac is trying to play sound through '{current_output}', "
+                            "but that device doesn't seem to be connected right now.\n\n"
+                            "What to do: Click the speaker icon in the menu bar and select "
+                            "'Internal Speakers' or another device that is currently "
+                            "connected."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -157,11 +169,12 @@ class Module(ModuleBase):
         if current_output and _is_unexpected_device(current_output):
             findings.append(
                 Finding(
-                    title=f"Audio output may be routed to unexpected device: {current_output}",
+                    title=f"Sound is going to {current_output}",
                     description=(
-                        f"Audio is currently set to output through '{current_output}'. "
-                        "If you don't have this device connected or selected, switch to Internal Speakers "
-                        "or Headphones in System Settings > Sound > Output."
+                        f"Your Mac is sending sound to '{current_output}'. If you don't "
+                        "have that device connected, you might not hear anything.\n\n"
+                        "What to do: Click the speaker icon in the menu bar and choose "
+                        "'Internal Speakers' or your connected headphones from the list."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
