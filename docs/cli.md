@@ -21,6 +21,7 @@ Commands:
   explain              Run all diagnostic checks and print an AI...
   export               Run read-only checks and write a redacted...
   guide                Render the guide walkthrough for a profile,...
+  known                Things you have marked as yours, so checks stop...
   profiles             List available threat-model profiles.
   recommend            Answer a few questions to get a recommended...
   remediation-catalog  Regenerate docs/REMEDIATION_CATALOG.md from...
@@ -489,6 +490,77 @@ the approval threshold means updates stop applying — which is the safe failure
 
 ---
 
+## `rescue known` — things you marked as yours
+
+```console
+$ rescue known add --code <finding code> [--expect-id <id>] [--code ... [--expect-id ...]] --label <label> --program <program path> [--plist <path>] [--json]
+$ rescue known list [--json]
+$ rescue known remove <id> [<id> ...] [--json]
+```
+
+Some findings are things a check cannot tell apart from unwanted software, such
+as a background task that runs from a hidden folder. If it is yours, you can
+mark it. A marked item is **not hidden**: on every scan it is still listed, as
+an `info` finding titled "Background task you marked as yours: <label>", with
+`data["marked_by_user"] = true`, `known_item_id`, `marked_at`,
+`original_severity` and `original_title`, so a helper reading the scan or an
+export can see what was marked and when. Only background tasks (the
+`launch_agent_audit` and `launchd_persistence_audit` checks) honour marks today.
+
+Both checks often report the same task. In `rescue scan --json`, each
+markable warning's `markable.ids` lists the mark ids of every markable warning
+about that same task in that scan (same label, plist, program, arguments and
+content), and each marked finding's `marked_ids` lists that task's marks. The
+app's "This is mine" uses them, so one confirmation marks the task under every
+check that warned about it, and "Stop treating this as mine" removes them all.
+A critical finding is never part of the group.
+
+| Command | Flag | Effect |
+| --- | --- | --- |
+| `known add` | `--code` (**required**, repeatable) | The finding code to stop flagging, e.g. `security.launch_agent_audit.suspicious_path`. A mark covers only that code; both background-task checks can report the same task, so give one `--code` for each. |
+| | `--label` (**required**) | The task's label, as the finding shows it. |
+| | `--program` (**required**) | The exact program path the finding shows. |
+| | `--plist` | The task's settings file. Found automatically in `~/Library/LaunchAgents`, `/Library/LaunchAgents` and `/Library/LaunchDaemons` if left out. |
+| | `--expect-id` (repeatable) | Refuse unless the task, re-read from disk now, still matches this mark id. Give one per `--code`, in the same order. The app passes the ids the scan offered, so a task that changed after the checkup is never marked. If any one does not match, nothing is saved; all the marks are written together or not at all. |
+| | `--json` | Print one JSON document: `status` (`marked`, `already_marked`, `refused`, `cancelled`, `failed`), `id`, `ids`, `label`, `message`, `how_to_undo`. |
+| | `--i-understand` | Skip the typed confirmation. Used by the desktop app after its own confirmation. Never pass it on someone's behalf. |
+| `known list` | `--json` | Print every mark: id, kind, label, program, settings file, when and how it was marked. |
+| `known remove <id> [<id> ...]` | `--json` | Remove one or more marks in a single write. The warnings come back on the next scan. `--json` adds `ids`: what was removed. |
+
+What a mark pins: the finding code (which names the check), the label, the
+plist path, the program path, a SHA-256 of the full `ProgramArguments`, and a
+SHA-256 of the content of what runs: the program file (with its resolved path)
+and any script file the arguments name in your home folder or a hidden folder.
+Every field must match exactly; the mark id is a hash over all of them. If only
+the content changed, the finding shows again with `data["mark_stale"] = true`
+and a note; mark it again if you updated it yourself. A program that cannot be
+read or is over 200 MB cannot be marked. The task is read from disk when you mark it;
+`add` refuses if no task with that label and program exists, or if the plist is
+outside the three launchd folders. If any pinned part later changes (the
+program moves, or the same interpreter is pointed at a different script), the
+mark stops matching and the original finding returns.
+
+A **critical** finding (a known virus, or a program in a folder anyone can
+change) is never downgraded. It is tagged `data["user_mark_ignored"] = true`.
+
+Without `--i-understand`, `add` asks for confirmation and refuses (exit `2`)
+when stdin is not a terminal, so a script cannot mark things silently.
+
+```console
+$ rescue known add --code security.launch_agent_audit.suspicious_path --label ai.example.gateway --program /Users/me/.example/venv/bin/python
+Device Rescue will stop warning you about the background task 'ai.example.gateway'. ...
+Is this yours, and do you want to stop being warned about it? [y/N]: y
+Marked 'ai.example.gateway' as yours (id 3f9c0a1b2d4e). It will show as "marked as yours" from the next checkup.
+```
+
+Marks are saved to `~/.rescue/known_items.json` (mode `0600`, folder `0700`).
+The file is opened without following symlinks. If it is damaged, a symlink, or
+it or its folder is owned by someone else or writable by other users, no mark
+applies, the scan adds an info finding saying the list was not used, and
+`known add` refuses to write over it.
+
+---
+
 ## `rescue version`
 
 ```console
@@ -536,7 +608,7 @@ first: any threat referencing an unknown profile, code, or module prints
 | --- | --- |
 | `0` | Success. Also used when an AI command exits early because no provider is configured, and when `rescue update` cancels at the confirmation prompt. |
 | `1` | Unknown or invalid profile; unknown module name; `validate` found errors (or, with `--strict`, warnings); `update` was refused, failed, or had its content rejected; `update --rollback` found no previous version, found it no longer approved, or could not load the content repository; `threat-remediation` found an invalid threat map. |
-| `2` | `rescue update --rollback --use-bundled` — the two recovery flags cannot be combined. |
+| `2` | `rescue update --rollback --use-bundled` — the two recovery flags cannot be combined; `rescue known add` refused (no matching task, or no person at the keyboard); `rescue known remove` was given something that is not an id. |
 
 A failing module never fails the process: a check that raises is caught and
 reported as `Check unavailable: …`, and a `fix()` that raises is reported as
@@ -552,6 +624,7 @@ reported as `Check unavailable: …`, and a `fix()` that raises is reported as
 | `RESCUE_AI_PROVIDER` | AI layer | Force `anthropic`, `openai`, or `ollama`. Naming `ollama` explicitly also lets it default to `http://localhost:11434`. |
 | `RESCUE_CONTENT_DIR` | Runtime | Override where applied content updates are read from. |
 | `RESCUE_ASSETS_DIR` | Runtime | Override where bundled modules/profiles/guides are found. |
+| `RESCUE_KNOWN_ITEMS` | `rescue known`, background-task checks | Override where the "marked as yours" list is read and written (default `~/.rescue/known_items.json`). The test suite always sets it. |
 
 No AI provider is used unless one of the AI environment variables is set **and**
 you invoke `--copilot`, `explain`, or `recommend`.

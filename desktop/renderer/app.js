@@ -86,8 +86,9 @@ function describeProgress(ev) {
 
 /**
  * "Who made it?" One plain line per program a finding names, from the engine's
- * `made_by` entries ({subject, name, verified, how, location_note}).
- * tone 'ok' = calm green, 'warn' = amber.
+ * `made_by` entries ({subject, name, verified, how, location_note, what?}).
+ * tone 'ok' = calm green, 'warn' = amber. `what` ("Loom: records your screen…")
+ * is only ever set by the engine for a verified signature; it is shown only then.
  */
 const MADE_BY_VERIFIED_LABEL = {
   'Developer ID signature': 'verified signature',
@@ -109,6 +110,20 @@ const MADE_BY_REASON = {
   'settings change how the program loads code': 'its settings change how or where the program runs',
   'unreadable settings': 'its settings could not be read clearly',
 };
+// For these, the engine's note (rescue/attribution.py) is a whole sentence that
+// already says why, so it replaces the short reason instead of repeating it.
+const MADE_BY_NOTE_SAYS_WHY = new Set([
+  'script',
+  'inline command',
+  'program not named by full path',
+  'settings change how the program loads code',
+  'unreadable settings',
+]);
+
+function sameStart(note, reason) {
+  const norm = (s) => String(s).toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
+  return norm(note).startsWith(norm(reason));
+}
 
 function describeMadeBy(entry) {
   const e = entry || {};
@@ -119,13 +134,17 @@ function describeMadeBy(entry) {
     const label = MADE_BY_VERIFIED_LABEL[e.how] || e.how || 'verified';
     // A verified maker running from a risky folder deserves a second look.
     const mark = note ? '⚠' : '✓';
-    return { tone: note ? 'warn' : 'ok', text: `${mark} Made by ${name} (${label})${note ? '. ' + note : ''}`, subject };
+    const what = typeof e.what === 'string' ? e.what.trim() : '';
+    return { tone: note ? 'warn' : 'ok', text: `${mark} Made by ${name} (${label})${note ? '. ' + note : ''}`, subject, what };
   }
   if (e.how === 'script') {
     return { tone: 'warn', text: `⚠ Unknown maker: ${note || 'a script, not signed; check who created it.'}`, subject };
   }
   const reason = MADE_BY_REASON[e.how] || e.how || 'not verified';
   const head = name === 'Unknown maker' ? 'Unknown maker' : `Made by ${name}, but it cannot be verified`;
+  if (note && (MADE_BY_NOTE_SAYS_WHY.has(e.how) || sameStart(note, reason))) {
+    return { tone: 'warn', text: `⚠ ${head}: ${note}`, subject };
+  }
   return { tone: 'warn', text: `⚠ ${head}: ${reason}.${note ? ' ' + note : ''}`, subject };
 }
 
@@ -134,11 +153,12 @@ function madeByHtml(entries, esc) {
   const lines = entries.map((entry) => {
     const d = describeMadeBy(entry);
     const who = entries.length > 1 && d.subject ? `<span class="made-by__subject">${esc(d.subject)}</span> ` : '';
-    return `<li class="made-by__line made-by__line--${d.tone}">${who}${esc(d.text)}</li>`;
+    const what = d.what ? `<span class="made-by__what"> \u2014 ${esc(d.what)}</span>` : '';
+    return `<li class="made-by__line made-by__line--${d.tone}">${who}${esc(d.text)}${what}</li>`;
   }).join('');
   return `<div class="made-by"><ul class="made-by__list">${lines}</ul>
     <details class="made-by__explainer"><summary>What does this mean?</summary>
-      <p>Programs can be digitally signed by the company that made them, like a seal on a package. A <strong>verified signature</strong> means the seal is real and names the maker. An <strong>unknown maker</strong> is not proof of anything bad, but nobody has vouched for it, so be more careful, especially if it runs from a temporary folder or one you did not install into.</p>
+      <p>Programs can be digitally signed by the company that made them, like a seal on a package. A <strong>verified signature</strong> means the seal is real and names the maker. An <strong>unknown maker</strong> is not proof of anything bad, but nobody has vouched for it, so be more careful, especially if it runs from a temporary folder or one you did not install into. For some well-known programs we also say what they are for, but only when the signature proves which program it is.</p>
     </details></div>`;
 }
 
@@ -164,6 +184,70 @@ function descriptionHtml(text, esc) {
         : `<p>${body}</p>`;
     })
     .join('');
+}
+
+// Findings that are themselves monitoring software: these carry the advocate
+// note whatever worry the person picked.
+const ALWAYS_SAFETY_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+
+/**
+ * Whether to show the advocate/hotline note on this finding. It's for someone
+ * who may be watched by a person close to them, so it shows when they said so
+ * ("someone is watching me"), when they didn't say ("not sure"), and on
+ * findings that are monitoring software. Otherwise it's noise for, say,
+ * someone whose email was hacked.
+ */
+function wantsSafetyNote(situation, finding) {
+  if (!situation || situation.safety || situation.id === 'unsure') return true;
+  return ALWAYS_SAFETY_MODULES.has(finding && finding.module);
+}
+
+const RECLAIM_CITY_URL = 'https://play.multiversegames.ai/reclaim-city/';
+
+/**
+ * Reclaim City, the same team's free privacy game, as a "learn this properly"
+ * link at the end of the results. Device Rescue doesn't teach passwords or
+ * two-step sign-in itself; the game does, so the worries where that matters
+ * point there. Each points at the district that teaches it: the game routes
+ * #/district/<id>, and its Quick Quests are links to those same districts.
+ * Worries with no real match get nothing.
+ */
+const GAME_INTRO = 'Reclaim City is a free game from the same team.';
+const LEARN_MORE = {
+  hacked: { path: '#/district/master-keys',
+    text: 'Its “My email got hacked” Quick Quest opens The Master Keys, which walks you through checking who has signed in, setting new passwords and turning on two-step sign-in for your email, one account at a time.' },
+  identity: { path: '#/district/reclamation',
+    text: 'Its chapter The Reclamation walks you through freezing your credit and asking data brokers to remove your details, one small mission at a time.' },
+  helping: { path: '',
+    text: 'It walks you through passwords, two-step sign-in, data brokers and spotting scams, one small mission at a time.' },
+  unsure: { path: '',
+    text: 'It walks you through passwords, two-step sign-in, data brokers and spotting scams, one small mission at a time.' },
+};
+
+/**
+ * The Reclaim City suggestion for these results, or null. Never offered to
+ * someone who may be watched (the "watching me" worry, or monitoring software
+ * found): a game is the wrong tone there, and its missions change account
+ * settings, which can alert the person doing the watching. The iPhone
+ * spyware worry is left out for the same reason.
+ */
+function learnMoreFor(situation, doc) {
+  if (!situation || situation.safety) return null;
+  const entry = LEARN_MORE[situation.id];
+  if (!entry) return null;
+  const modules = (doc && doc.modules) || [];
+  const monitoringFound = modules.some((mod) => mod && ALWAYS_SAFETY_MODULES.has(mod.name)
+    && (mod.findings || []).some((f) => f && (f.severity === 'critical' || f.severity === 'warning')));
+  if (monitoringFound) return null;
+  return { text: `${GAME_INTRO} ${entry.text}`, url: RECLAIM_CITY_URL + entry.path };
+}
+
+/** Drop the paragraphs of a description that give the hotline. */
+function withoutSafetyParagraphs(text) {
+  return String(text || '')
+    .split(/\n\s*\n/)
+    .filter((para) => !para.includes('799-7233'))
+    .join('\n\n');
 }
 
 /**
@@ -220,12 +304,6 @@ function renderMiniMarkdown(text) {
   return out.join('');
 }
 
-const OS_LABELS = {
-  macos: 'macOS',
-  windows: 'Windows',
-  linux: 'Linux',
-};
-
 /**
  * Map a scan-result `platform` value (Node's process.platform strings, e.g.
  * "darwin"/"win32"/"linux") or a browser's navigator.userAgent to one of the
@@ -244,6 +322,16 @@ function detectOS(platformHint) {
 
   // Sensible default when we truly can't tell.
   return 'macos';
+}
+
+/**
+ * The permission tips worth showing beside a running checkup: everything for
+ * this OS except the install-time ones (Gatekeeper, SmartScreen), which the
+ * person has already got past by the time the app is open.
+ */
+function duringScanTips(content, osKey) {
+  const steps = (content && content[osKey]) || [];
+  return steps.filter((step) => step && step.stage !== 'install');
 }
 
 /**
@@ -281,6 +369,7 @@ function groupFindingsBySeverity(doc) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     detectOS,
+    duringScanTips,
     groupFindingsBySeverity,
     SITUATIONS,
     describeProgress,
@@ -288,8 +377,14 @@ if (typeof module !== 'undefined' && module.exports) {
     renderMiniMarkdown,
     stepTitle,
     safetyNoteHtml,
+    wantsSafetyNote,
+    learnMoreFor,
+    RECLAIM_CITY_URL,
+    withoutSafetyParagraphs,
     descriptionHtml,
     describeMadeBy,
+    MADE_BY_REASON,
+    MADE_BY_VERIFIED_LABEL,
     madeByHtml,
     SEVERITY_ORDER,
     SEVERITY_LABELS,
@@ -306,7 +401,6 @@ if (typeof document !== 'undefined') {
     const screens = {
       welcome: document.getElementById('screen-welcome'),
       worry: document.getElementById('screen-worry'),
-      permissions: document.getElementById('screen-permissions'),
       scan: document.getElementById('screen-scan'),
       results: document.getElementById('screen-results'),
     };
@@ -343,39 +437,30 @@ if (typeof document !== 'undefined') {
       return permissionsContent;
     }
 
-    function renderPermissionsSteps(content, osKey) {
-      const container = document.getElementById('permissions-steps');
-      const steps = (content && content[osKey]) || [];
-
-      if (steps.length === 0) {
-        container.innerHTML =
-          '<p class="muted">No special permission steps are needed for your system.</p>';
-        return;
-      }
-
-      const osLabel = OS_LABELS[osKey] || osKey;
-      const heading = `<p class="muted steps-list__os">Showing steps for ${escapeHtml(osLabel)}.</p>`;
+    function renderScanTips(content, osKey) {
+      const aside = document.getElementById('scan-tips');
+      const container = document.getElementById('scan-tips-list');
+      const steps = duringScanTips(content, osKey);
+      aside.hidden = steps.length === 0;
+      if (steps.length === 0) return;
 
       const stepsHtml = steps
-        .map((step, index) => {
+        .map((step) => {
           const button =
             step.setting_url && step.action_label
               ? `<button type="button" class="btn btn--secondary btn--small" data-setting-url="${escapeHtml(step.setting_url)}">${escapeHtml(step.action_label)}</button>`
               : '';
           return `
-            <li class="step-card">
-              <div class="step-card__index" aria-hidden="true">${index + 1}</div>
-              <div class="step-card__body">
-                <h3>${escapeHtml(step.title)}</h3>
-                <p>${escapeHtml(step.body)}</p>
-                ${button}
-              </div>
+            <li class="tip-card">
+              <h3>${escapeHtml(step.title)}</h3>
+              <p>${escapeHtml(step.body)}</p>
+              ${button}
             </li>
           `;
         })
         .join('');
 
-      container.innerHTML = `${heading}<ol class="steps-list__items">${stepsHtml}</ol>`;
+      container.innerHTML = `<ul class="tip-list">${stepsHtml}</ul>`;
 
       container.querySelectorAll('[data-setting-url]').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -401,7 +486,7 @@ if (typeof document !== 'undefined') {
       list.querySelectorAll('[data-situation]').forEach((btn) => {
         btn.addEventListener('click', () => {
           situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
-          goToPermissions();
+          goToScan();
         });
       });
     }
@@ -423,6 +508,16 @@ if (typeof document !== 'undefined') {
       document.getElementById('results-next-safety').hidden = !situation.safety;
     }
 
+    let learnMoreUrl = null;
+    function renderLearnMore(doc) {
+      const box = document.getElementById('results-learn');
+      const learn = learnMoreFor(situation, doc);
+      learnMoreUrl = learn ? learn.url : null;
+      box.hidden = !learn;
+      if (!learn) return;
+      document.getElementById('results-learn-text').textContent = learn.text;
+    }
+
     function renderSeverityGroup(severity, findings) {
       if (findings.length === 0) return '';
       const items = findings
@@ -433,10 +528,11 @@ if (typeof document !== 'undefined') {
                 <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
-              ${descriptionHtml(finding.description, escapeHtml)}
+              ${descriptionHtml(wantsSafetyNote(situation, finding) ? finding.description : withoutSafetyParagraphs(finding.description), escapeHtml)}
               ${madeByHtml(finding.made_by, escapeHtml)}
               ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
-              ${safetyNoteHtml(finding, escapeHtml)}
+              ${MarkFlow.markControlsHtml(finding)}
+              ${wantsSafetyNote(situation, finding) ? safetyNoteHtml(finding, escapeHtml) : ''}
               ${finding.remediation && (finding.remediation.steps || []).length ? `
               <div class="next-steps">
                 <h4>What to do</h4>
@@ -444,7 +540,7 @@ if (typeof document !== 'undefined') {
               </div>` : ''}
               ${finding.remediation ? `
               <details class="fix-steps">
-                <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}${finding.remediation.estimated_time ? ` <span class="muted">(about ${escapeHtml(finding.remediation.estimated_time)})</span>` : ''}</summary>
+                <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}</summary>
                 <ol class="fix-steps__list">
                   ${(finding.remediation.steps || []).map((step) => `
                     <li>
@@ -530,6 +626,7 @@ if (typeof document !== 'undefined') {
       runButton.disabled = isBusy;
       runButton.hidden = isBusy;
       progress.hidden = !isBusy;
+      document.getElementById('scan-intro').hidden = isBusy;
       document.getElementById('scan-title').textContent = isBusy
         ? 'Your checkup is running'
         : 'Ready for your checkup';
@@ -602,6 +699,7 @@ if (typeof document !== 'undefined') {
         lastScanDoc = doc;
         renderResults(doc);
         renderNextStep();
+        renderLearnMore(doc);
         setScanBusy(false);
         showScreen('results');
       } catch (err) {
@@ -624,28 +722,24 @@ if (typeof document !== 'undefined') {
 
     // "Fix it for me": delegated, so it keeps working when results are re-rendered.
     FixFlow.attach(document.getElementById('results-groups'), window.rescue);
+    // "This is mine": same delegation; the engine keeps marked items listed.
+    MarkFlow.attach(document.getElementById('results-groups'), window.rescue);
 
     document.getElementById('btn-get-started').addEventListener('click', () => {
       showScreen('worry');
     });
 
-    async function goToPermissions() {
-      showScreen('permissions');
-      try {
-        const content = await loadPermissionsContent();
-        renderPermissionsSteps(content, detectOS(lastKnownPlatform));
-      } catch (err) {
-        const container = document.getElementById('permissions-steps');
-        container.innerHTML = `<p class="muted">We couldn't load the permissions walkthrough (${escapeHtml(
-          err && err.message ? err.message : String(err)
-        )}). You can still continue.</p>`;
-      }
-    }
-
-    document.getElementById('btn-permissions-continue').addEventListener('click', () => {
+    async function goToScan() {
       renderScanIntro();
       showScreen('scan');
-    });
+      try {
+        const content = await loadPermissionsContent();
+        renderScanTips(content, detectOS(lastKnownPlatform));
+      } catch (err) {
+        // The tips are a convenience; the checkup runs fine without them.
+        document.getElementById('scan-tips').hidden = true;
+      }
+    }
 
     document.getElementById('btn-copy-json').addEventListener('click', async () => {
       const status = document.getElementById('copy-json-status');
@@ -659,6 +753,10 @@ if (typeof document !== 'undefined') {
 
     document.getElementById('btn-open-guide').addEventListener('click', () => {
       if (situation && situation.guide) window.rescue.openGuide(situation.guide);
+    });
+
+    document.getElementById('btn-open-game').addEventListener('click', () => {
+      if (learnMoreUrl) window.rescue.openGuide(learnMoreUrl);
     });
 
     document.getElementById('btn-run-scan').addEventListener('click', runCheckup);

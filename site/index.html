@@ -45,7 +45,7 @@
           </div>
         </div>
 
-        <div class="downloads">
+        <div class="downloads" id="download">
           <a class="btn btn-primary" id="dl-mac" href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-arm64.dmg">
             <span class="btn-icon" aria-hidden="true">⌘</span>
             <span class="btn-text">
@@ -95,46 +95,76 @@
       </div>
     </section>
 
-    <section class="situations">
+    <section class="situations" id="situations">
       <div class="wrap">
         <h2>Pick your situation</h2>
         <p class="section-lede">
-          Device Rescue includes guided walkthroughs for common scenarios. Each one
-          runs the right checks and walks you through what to do — step by step,
-          at your own pace.
+          Each choice opens a step-by-step guide you can read now, at your own pace.
+          When you open the app, pick the same situation and it runs the matching
+          checkup for you.
         </p>
-        <div class="situation-grid">
-          <div class="situation-card">
-            <span class="situation-icon" aria-hidden="true">🛡️</span>
-            <h3>Digital Security Reset</h3>
-            <p>You've been hacked, or think you have. This walks you through securing your accounts, checking your device, and recovering — in the right order.</p>
-          </div>
-          <div class="situation-card">
-            <span class="situation-icon" aria-hidden="true">🏠</span>
-            <h3>Home Network Intrusion</h3>
-            <p>Someone is on your Wi-Fi who shouldn't be. Find out what they can see, kick them off, and lock things down.</p>
-          </div>
-          <div class="situation-card">
+        <ul class="situation-grid">
+          <li class="situation-card">
+            <span class="situation-icon" aria-hidden="true">🔓</span>
+            <h3><a class="situation-link" href="https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/digital-security-reset/">I think I’ve been hacked</a></h3>
+            <p>Strange logins, passwords changed, accounts acting on their own.</p>
+            <p class="situation-extra">
+              To learn passwords and two-step sign-in properly, try
+              <a href="https://play.multiversegames.ai/reclaim-city/#/district/master-keys">Reclaim City</a>,
+              a free game from the same team.
+            </p>
+            <span class="situation-go" aria-hidden="true">Open the guide →</span>
+          </li>
+          <li class="situation-card">
+            <span class="situation-icon" aria-hidden="true">👀</span>
+            <h3><a class="situation-link" href="https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/digital-security-reset/">I think someone is watching me</a></h3>
+            <p>A partner, ex, or housemate may have put something on this computer.</p>
+            <p class="situation-safety">
+              <strong>Before you remove anything:</strong> looking is safe, but deleting
+              monitoring software can alert the person who installed it. If you’re not sure
+              that’s safe for you, talk to an advocate first. In the US: National Domestic
+              Violence Hotline, <a href="tel:+18007997233">1-800-799-7233</a>, or text START
+              to <a href="sms:88788">88788</a>.
+            </p>
+            <span class="situation-go" aria-hidden="true">Open the guide →</span>
+          </li>
+          <li class="situation-card">
+            <span class="situation-icon" aria-hidden="true">📶</span>
+            <h3><a class="situation-link" href="https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/home-network-intrusion/">Someone is on my Wi-Fi, or my computer is hot and slow</a></h3>
+            <p>Unknown devices, a hijacked router, or hidden crypto-mining.</p>
+            <span class="situation-go" aria-hidden="true">Open the guide →</span>
+          </li>
+          <li class="situation-card">
             <span class="situation-icon" aria-hidden="true">🪪</span>
-            <h3>Identity Theft Recovery</h3>
-            <p>Your identity has been stolen. A checklist that survives the next three weeks of phone calls — credit freezes, fraud reports, account recovery.</p>
-          </div>
-          <div class="situation-card">
-            <span class="situation-icon" aria-hidden="true">📱</span>
-            <h3>iPhone Spyware Check</h3>
-            <p>Scan a local iPhone backup for signs of mercenary spyware like Pegasus, using Amnesty International's Mobile Verification Toolkit.</p>
-          </div>
-          <div class="situation-card">
-            <span class="situation-icon" aria-hidden="true">🎄</span>
-            <h3>Home for the Holidays</h3>
-            <p>You're visiting family and have one afternoon to leave their laptop in a better state than you found it.</p>
-          </div>
-          <div class="situation-card">
+            <h3><a class="situation-link" href="https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/identity-theft-recovery/">Someone stole my identity</a></h3>
+            <p>Accounts opened in my name, money missing, credit alerts.</p>
+            <span class="situation-go" aria-hidden="true">Open the guide →</span>
+          </li>
+          <li class="situation-card">
             <span class="situation-icon" aria-hidden="true">🐛</span>
-            <h3>AI Worm Response</h3>
-            <p>Comprehensive scan for AI-led worm compromise, git SSH tampering, and mobile spyware.</p>
-          </div>
-        </div>
+            <h3><a class="situation-link" href="https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/ai-worm-response/">I installed something sketchy</a></h3>
+            <p>A bad npm or pip package, an AI tool, a coding extension.</p>
+            <span class="situation-go" aria-hidden="true">Open the guide →</span>
+          </li>
+          <li class="situation-card">
+            <span class="situation-icon" aria-hidden="true">📱</span>
+            <h3><a class="situation-link" href="https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/iphone-spyware-check/">I’m worried about spyware on my iPhone</a></h3>
+            <p>Needs a backup of the iPhone saved on this computer.</p>
+            <span class="situation-go" aria-hidden="true">Open the guide →</span>
+          </li>
+          <li class="situation-card">
+            <span class="situation-icon" aria-hidden="true">🎁</span>
+            <h3><a class="situation-link" href="https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/home-for-the-holidays/">I’m helping a family member</a></h3>
+            <p>A friendly tune-up and safety check on someone else’s computer.</p>
+            <span class="situation-go" aria-hidden="true">Open the guide →</span>
+          </li>
+          <li class="situation-card">
+            <span class="situation-icon" aria-hidden="true">🤷</span>
+            <h3><a class="situation-link" href="https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/">I’m not sure — check everything</a></h3>
+            <p>The full checkup. It takes longer: often 10 minutes or more.</p>
+            <span class="situation-go" aria-hidden="true">Open the guide →</span>
+          </li>
+        </ul>
       </div>
     </section>
 
@@ -159,13 +189,15 @@
               IT volunteers, librarians, community organizations.
             </p>
             <div class="stick-cta">
-              <a class="btn btn-primary" href="https://github.com/lizTheDeveloper/multiverse-device-rescue">
-                <span class="btn-text">
-                  <span class="btn-title">Coming Soon</span>
-                  <span class="btn-sub">Sign up to be notified</span>
-                </span>
-              </a>
-              <p class="stick-price">Estimated price: $29–$39</p>
+              <p class="stick-status">
+                <strong>Not available yet.</strong> There’s no waiting list to join.
+                Estimated price: $29–$39.
+              </p>
+              <p class="stick-now">
+                The same checks are in the free app today:
+                <a href="#download">download Device Rescue</a>, or
+                <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases">see every version</a>.
+              </p>
             </div>
           </div>
           <div class="stick-contents">
@@ -190,11 +222,12 @@ RESCUE-STICK/
 
     <section class="tools-section" id="tools">
       <div class="wrap">
-        <h2>Free security tools</h2>
+        <h2>More security tools</h2>
         <p class="section-lede">
           Device Rescue is one part of a larger set of tools for personal security
-          and digital self-defense. These are all free, run in your browser, and
-          don't collect your data.
+          and digital self-defense from The Multiverse School. They run in your
+          browser on the school’s website, and you’ll be asked to sign in to a
+          school account first.
         </p>
         <div class="tools-grid">
           <a class="tool-card" href="https://themultiverse.school/tools/password-health">
@@ -229,6 +262,12 @@ RESCUE-STICK/
           </a>
         </div>
         <p class="tools-more">
+          Want to learn passwords and two-step sign-in properly?
+          <a href="https://play.multiversegames.ai/reclaim-city/">Reclaim City</a> is a free game
+          from the same team that walks you through them one account at a time, along with
+          data broker opt-outs and spotting scams. You don't need an account to play.
+        </p>
+        <p class="tools-more">
           These tools are part of
           <a href="https://themultiverse.school">The Multiverse School</a> —
           a free school for AI, security, and digital self-defense.
@@ -260,7 +299,7 @@ RESCUE-STICK/
       <div class="wrap">
         <h2>Good to know</h2>
         <ul class="req-list">
-          <li>Works on Macs (Apple Silicon and Intel) and on Windows 10 and 11. Linux users can run the command-line version from <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue">GitHub</a>.</li>
+          <li>Works on Macs (Apple Silicon and Intel) and on Windows 10 and 11. Linux users can run the command-line version from <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue">GitHub</a>, with its own <a href="https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/linux-security-checkup/">Linux checkup guide</a>.</li>
           <li>The installer is currently unsigned, so macOS and Windows will show a security prompt the first time — see the walkthrough above.</li>
           <li>Nothing is uploaded anywhere. Device Rescue looks at your computer, not the other way around.</li>
           <li>The source code is on <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue">GitHub</a> — every check is a plain Python file you can read before you run it.</li>

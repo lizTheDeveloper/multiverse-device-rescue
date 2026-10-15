@@ -74,8 +74,30 @@ def _action_fixable(finding, module_name, app_actions):
     }
 
 
-def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=None) -> dict:
+def _markable(finding, module_name):
+    """A `markable` block ("This is mine") for an eligible finding, or None."""
+    from rescue.known_items import markable
+
+    try:
+        return markable(finding, module_name)
+    except Exception:
+        return None
+
+
+def _link_task_marks(modules) -> None:
+    """One background task reported by several checks is marked (and unmarked) as one."""
+    from rescue.known_items import link_task_marks
+
+    try:
+        link_task_marks([f for m in modules for f in m["findings"]])
+    except Exception:
+        pass
+
+
+def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=None, markable=None) -> dict:
     out = _plain(finding)
+    if markable is not None:
+        out["markable"] = markable
     if action_fixable is not None:
         out["fixable"] = action_fixable
     elif fixable is not None:
@@ -110,6 +132,11 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
         made_by: Optional {id(finding): [maker entry]} from rescue.attribution;
             attached to each finding as "made_by".
 
+    A warning about a background task the person could mark as theirs gets a
+    "markable" object (see rescue.known_items.markable), whose "ids" name every
+    markable finding about the same task in this scan; a finding already marked
+    gets "marked_ids" the same way (rescue.known_items.link_task_marks).
+
     Returns:
         JSON string with schema_version, platform, and modules array
     """
@@ -128,10 +155,12 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
                 _finding(
                     f, walkthroughs, offer, made_by,
                     None if check.error else _action_fixable(f, mod.name, app_actions),
+                    None if check.error else _markable(f, mod.name),
                 )
                 for f in check.findings
             ],
         })
+    _link_task_marks(modules)
     return json.dumps(
         {"schema_version": 1, "platform": platform, "modules": modules},
         indent=2,

@@ -111,8 +111,13 @@ def test_counts_each_chromium_profile_separately(mod):
     result = _check(mod)
     finding = _finding(result, "browser_sessions")
     assert finding is not None
-    assert finding.severity == Severity.WARNING
+    # Several profiles is normal; it only matters after a break-in.
+    assert finding.severity == Severity.INFO
     assert finding.data["profile_count"] == 3
+    assert finding.title == "Your browsers have 3 profile(s)"
+    assert "signed in to your accounts" not in finding.title
+    assert "Google Chrome: 3 profile(s)" in finding.description
+    assert "sign out of all devices" in finding.description.lower()
 
 
 def test_counts_profiles_across_multiple_browsers(mod):
@@ -147,6 +152,10 @@ def test_counts_authorized_ssh_keys_without_reading_key_material(mod):
     finding = _finding(result, "ssh_authorized_keys")
     assert finding is not None
     assert finding.data["key_count"] == 2
+    assert finding.severity == Severity.WARNING
+    assert "SSH" not in finding.title
+    assert "Remote Login" in finding.description
+    assert "What to do:" in finding.description
 
     # The key material must never appear in any finding text or data.
     blob = " ".join(f.title + f.description + str(f.data) for f in result.findings)
@@ -190,6 +199,40 @@ def test_macos_system_accounts_are_listed_by_id(mod):
     finding = _finding(result, "system_accounts")
     assert finding is not None
     assert set(finding.data["accounts"]) == {"user@icloud.com", "other@icloud.com"}
+    # The scan can't tell a familiar account from a strange one, so it only lists.
+    assert finding.severity == Severity.INFO
+    assert finding.title == "This Mac is signed in to 2 Apple Accounts"
+    assert "user@icloud.com" in finding.description
+    # macOS reads MobileMeAccounts (iCloud), so point at the Apple Account pane.
+    assert "click your name at the top of the" in finding.description
+    assert "Internet Accounts" not in finding.description
+
+
+def test_single_macos_account_title_reads_naturally(mod):
+    class Accounts:
+        ok = True
+        stdout = '(\n    {\n        AccountID = "me@example.com";\n    }\n)\n'
+
+    with patch.object(_module_object(mod), "run", return_value=Accounts()):
+        result = mod.check(_make_profile())
+
+    finding = _finding(result, "system_accounts")
+    assert finding.title == "This Mac is signed in to an Apple Account"
+
+
+def test_account_hotline_is_its_own_paragraph(mod):
+    class Accounts:
+        ok = True
+        stdout = '(\n    {\n        AccountID = "me@example.com";\n    }\n)\n'
+
+    with patch.object(_module_object(mod), "run", return_value=Accounts()):
+        result = mod.check(_make_profile())
+
+    paragraphs = _finding(result, "system_accounts").description.split("\n\n")
+    hotline = [p for p in paragraphs if "799-7233" in p]
+    assert len(hotline) == 1
+    assert "What to do:" not in hotline[0]
+    assert "me@example.com" not in hotline[0]
 
 
 def test_windows_credential_targets_are_listed(mod):
@@ -208,6 +251,14 @@ def test_windows_credential_targets_are_listed(mod):
     finding = _finding(result, "system_accounts")
     assert finding is not None
     assert len(finding.data["accounts"]) == 2
+    assert finding.severity == Severity.INFO
+    assert finding.title == "Windows has 2 saved sign-in(s)"
+    # cmdkey lists Credential Manager entries, so that's where to send people.
+    assert "Credential Manager" in finding.description
+    # Type prefixes are dropped from the shown name but kept in data.
+    assert "  git:https://github.com" in finding.description
+    assert "LegacyGeneric:target=" not in finding.description
+    assert "LegacyGeneric:target=git:https://github.com" in finding.data["accounts"]
 
 
 def test_failed_account_lookup_is_tolerated(mod):

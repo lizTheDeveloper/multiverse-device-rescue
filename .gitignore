@@ -128,3 +128,5 @@ dmypy.json
 *~
 .playwright-mcp/
 .claude/worktrees/
+
+uv.lock

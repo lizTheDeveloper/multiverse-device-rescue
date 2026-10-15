@@ -1713,12 +1713,6 @@ Plus 1 command(s) built at runtime.
 lsof -iTCP -sTCP:LISTEN -nP
 ```
 
-### `password_manager_check`
-
-```text
-reg query … /s /v DisplayName
-```
-
 ### `privacy_audit`
 
 ```text
@@ -1885,14 +1879,6 @@ ps aux
 
 ```text
 systemextensionsctl list
-```
-
-### `twofa_audit`
-
-```text
-reg query 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' /v EnableFirstLogonAnimation
-reg query 'HKLM\\SOFTWARE\\Policies\\Microsoft\\PassportForWork'
-reg query … /s /v DisplayName
 ```
 
 ### `usb_device_audit`

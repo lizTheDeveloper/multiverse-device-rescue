@@ -235,3 +235,85 @@ test('Undo ignores a malformed id', async () => {
   await root.click(els.undo);
   assert.strictEqual(calls, 0);
 });
+
+// --- the same background job on two cards (two checks report it) ------------------
+
+function twoCardRoot() {
+  const mkCard = (module, target) => {
+    const card = { attrs: { 'data-fix-module': module, 'data-fix-action': 'disable_launch_agent', 'data-fix-target': target } };
+    const part = (attrs = {}) => ({
+      attrs, hidden: false, innerHTML: '',
+      closest(sel) { return sel === '[data-fix-module]' ? card : null; },
+      hasAttribute(a) { return a in this.attrs; },
+      getAttribute(a) { return this.attrs[a] === undefined ? null : this.attrs[a]; },
+    });
+    Object.assign(card, {
+      hasAttribute(a) { return a in this.attrs; },
+      getAttribute(a) { return this.attrs[a] === undefined ? null : this.attrs[a]; },
+      setAttribute(a, v) { this.attrs[a] = v; },
+      removeAttribute(a) { delete this.attrs[a]; },
+      closest(sel) { return sel === '[data-fix-module]' ? card : null; },
+    });
+    card.panel = part(); card.panel.hidden = true;
+    card.status = part(); card.status.hidden = true;
+    card.open = part({ 'data-fix-open': '' });
+    card.confirm = part({ 'data-fix-confirm': '' });
+    card.undo = part({ 'data-fix-undo': '', 'data-quarantine-id': QID });
+    card.querySelector = (sel) => ({ '[data-fix-panel]': card.panel, '[data-fix-status]': card.status, '[data-fix-open]': card.open }[sel] || null);
+    return card;
+  };
+  const a = mkCard('launchd_persistence_audit', TARGET);
+  const b = mkCard('launch_agent_audit', TARGET);
+  const other = mkCard('launch_agent_audit', '/Users/x/Library/LaunchAgents/com.other.plist');
+  let click;
+  const root = {
+    addEventListener(type, fn) { if (type === 'click') click = fn; },
+    click(target) { return click({ target: { closest: () => target } }); },
+    querySelectorAll(sel) { return sel === '[data-fix-action][data-fix-target]' ? [a, b, other] : []; },
+  };
+  return { root, a, b, other };
+}
+
+test('turning a job off on one card retires the button on every card for that same file', async () => {
+  const { root, a, b, other } = twoCardRoot();
+  const log = [];
+  FixFlow.attach(root, {
+    runAction: async (act, t) => { log.push(['action', t]); return { action: act, applied: true, verified: true, status: 'fixed', quarantine_id: QID, how_to_undo: [] }; },
+    undoFix: async () => ({ action: 'undo_disable_launch_agent', applied: true, status: 'restored', message: 'Put back.' }),
+  });
+  root.click(a.open);
+  await root.click(a.confirm);
+  assert.deepStrictEqual(log, [['action', TARGET]]);
+  // The twin card no longer offers a button that could only say "nothing to do".
+  assert.strictEqual(b.open.hidden, true);
+  assert.strictEqual(b.status.hidden, false);
+  assert.match(b.status.innerHTML, /Already turned off/);
+  // A card about a different file is untouched.
+  assert.strictEqual(other.open.hidden, false);
+  assert.strictEqual(other.status.innerHTML, '');
+  // Undo brings the twin's button back.
+  await root.click(a.undo);
+  assert.strictEqual(b.open.hidden, false);
+  assert.strictEqual(b.status.hidden, true);
+});
+
+test('a failed action leaves the twin card alone', async () => {
+  const { root, a, b } = twoCardRoot();
+  FixFlow.attach(root, {
+    runAction: async (act) => ({ action: act, applied: false, verified: false, status: 'failed', error: 'stop_failed', message: 'We could not stop that background job, so we changed nothing.' }),
+  });
+  root.click(a.open);
+  await root.click(a.confirm);
+  assert.strictEqual(b.open.hidden, false);
+  assert.strictEqual(b.status.innerHTML, '');
+});
+
+test('a job that is already gone is calm information, not a refusal', () => {
+  const d = FixFlow.describeFixResult({
+    action: 'disable_launch_agent', applied: false, verified: true, status: 'nothing_to_fix', error: null,
+    message: 'This background job is already gone. Nothing was changed.',
+  });
+  assert.strictEqual(d.tone, 'info');
+  assert.strictEqual(d.headline, 'This is already turned off.');
+  assert.match(d.detail, /already gone/);
+});

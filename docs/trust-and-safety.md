@@ -39,6 +39,7 @@ history or page contents, or opens your documents and photos. The
 | --- | --- |
 | `~/.rescue/sessions/<profile>.json` | `rescue guide` recording your progress |
 | `~/.rescue/cases/case-<timestamp>.{json,md}` | `rescue export` |
+| `~/.rescue/known_items.json` | `rescue known add` / `remove`, or "This is mine" in the app |
 | `~/.config/rescue/revoked_signers.json` | `rescue trust revoke` |
 | `~/.local/share/rescue/content/` | `rescue update`, after signature verification |
 
@@ -375,6 +376,52 @@ Stated plainly, because you should know before you rely on them.
     the entry you do not recognise — that is the detection mechanism for
     anything novel, and it depends on you reading it. Nothing here replaces
     professional incident response for a real, active compromise.
+
+!!! warning "Marking something as yours can be misused by whoever installed it"
+    `rescue known add` (and "This is mine" in the app) lets the person at the
+    keyboard quiet a warning about a background task they recognise. Someone
+    who installed stalkerware and has the computer in their hands could use it
+    the same way. What limits that:
+
+    - A marked item is never removed from the results. It is listed on every
+      scan, and in exports, as "Background task you marked as yours", with
+      `marked_by_user`, `marked_at` and the original title and severity in its
+      data. An advocate or helper reviewing a scan should read every one of
+      these and ask the person whether they marked it.
+    - Critical findings (known viruses, programs in folders anyone can change)
+      are never downgraded.
+    - A mark pins the finding code, label, plist path, program path and a hash
+      of the full program arguments, and the content of the program and the
+      script it runs (see below), not just a name. Changing any of them
+      brings the warning back. There is no shipped allowlist of names to copy.
+    - In the app, only the engine's mark id travels back from the page; the
+      main process uses what its own scan offered, and the engine re-reads the
+      task and refuses if it no longer matches that id.
+    - Marking needs a typed confirmation in a terminal, or the app's own
+      confirmation; a script with no terminal is refused.
+
+    What it does not stop: software already running as the person can rewrite
+    `~/.rescue/known_items.json` itself, just as it can rewrite the plist. The
+    scan ignores the file (and says so) if it is a symlink, damaged, or another
+    user owns it or can write to it, but
+    against something running as you, the protection is that marks stay
+    visible, not that they cannot be forged.
+
+    What runs is pinned too, not just where it is. A mark records a SHA-256 of
+    the program file (and its resolved path, so swapping a symlink shows), and
+    of every script file the arguments name in the home folder or a hidden
+    folder (executable files and files like `.py`, `.sh`, `.js`; logs and
+    configs are left out because they change on their own). Without this,
+    someone could mark a harmless-looking task and later replace the program or
+    the script behind it, and the warning would stay quiet. If the content
+    changes, the finding is shown again at its normal severity with
+    `data["mark_stale"] = true` and a sentence saying it changed since it was
+    marked. That is noisy for developers (rebuilding a virtualenv or updating
+    a tool brings the warning back until they mark it again), and that noise is
+    the intended trade for people who may be being watched. A program that
+    cannot be hashed (missing, unreadable, or over 200 MB) cannot be marked,
+    and never matches a mark. Code loaded indirectly, such as a module run with
+    `python -m`, is not hashed.
 
 ## Verifying what you installed
 

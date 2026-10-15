@@ -80,3 +80,8 @@ Protection, device count, and auto-update status all in one place.
 5. If you don't recognize a device or activity in your account, change your
    Apple ID password immediately from that same page before doing anything
    else.
+
+If you'd like to learn two-step sign-in properly for your other accounts too,
+Reclaim City, a free game from the same team, walks you through it one account
+at a time, iCloud included: open play.multiversegames.ai/reclaim-city and look
+around The Master Keys.

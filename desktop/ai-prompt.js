@@ -81,7 +81,9 @@ function madeByLines(entries, env) {
     const proof = m.verified ? `verified (${cleanString(m.how || 'signature', env)})` : `NOT verified${m.how ? ` (${cleanString(m.how, env)})` : ''}`;
     const subject = m.subject ? cleanString(m.subject, env) : 'program';
     const note = m.location_note ? ` — ${cleanString(m.location_note, env)}` : '';
-    return `  - ${subject}: made by ${who}, ${proof}${note}`;
+    // "What it is" comes only with a verified signature; never repeat it otherwise.
+    const what = m.verified && typeof m.what === 'string' && m.what ? ` — what it is: ${cleanString(m.what, env)}` : '';
+    return `  - ${subject}: made by ${who}, ${proof}${note}${what}`;
   }).filter(Boolean);
 }
 

@@ -1,6 +1,6 @@
 # Digital security reset
 
-**`digital_security_reset`** — 12 modules, a 6-phase guide.
+**`digital_security_reset`** — 15 modules, a 6-phase guide.
 
 ## Who this is for
 
@@ -38,7 +38,7 @@ $ rescue guide digital_security_reset --complete 1
 
 ## What the tool does
 
-Twelve read-only checks, in a deliberate order. `evidence_bundle` runs
+Fifteen read-only checks, in a deliberate order. `evidence_bundle` runs
 first — repairs destroy the record of what happened, so evidence readiness is
 assessed before anything else reports a problem to fix.
 
@@ -53,16 +53,20 @@ assessed before anything else reports a problem to fix.
 | `app_permissions` | What has camera, microphone, screen, and accessibility access | macOS |
 | `sharing_services` | What is this machine offering to the network | macOS |
 | `code_signature_audit` | Have signed applications been tampered with | macOS, Windows |
-| `password_manager_check` | Is a password manager in use, and how are passwords stored | macOS, Windows |
-| `twofa_audit` | Which accounts can take a second factor, and of what quality | macOS, Windows |
+| `launch_agent_audit` | What starts in the background when you log in | macOS |
+| `launchd_persistence_audit` | What has set itself up to keep running | macOS |
+| `scheduled_tasks_audit` | What runs on a schedule | macOS |
+| `keylogger_indicators` | Is anything set up to record your typing | macOS |
+| `privacy_permissions_audit` | Which apps hold monitoring permissions | macOS |
 | `session_revocation_scan` | What stays logged in after a password change | macOS, Windows |
 
-The last three are the device-side half of account recovery. They answer *is
-this device leaking credentials, and what is still signed in* — nothing more.
+The last one is the device-side half of account recovery. It answers *what is
+still signed in* — nothing more. The tool doesn't check or teach passwords and
+two-step sign-in; for that, see [Learn it properly](#learn-it-properly) below.
 
 !!! info "This profile is strongest on macOS"
-    Ten of the twelve modules are macOS-only. On Windows you get five; on Linux
-    you get one. The guide is platform-independent and is the larger half of
+    Twelve of the fifteen modules are macOS-only. On Windows you get three; on
+    Linux you get one. The guide is platform-independent and is the larger half of
     the work regardless — but if you are on Linux, pair it with the
     [Linux security checkup](linux-security-checkup.md).
 
@@ -89,9 +93,9 @@ Six phases, roughly three hours of active work spread over days.
 | --- | --- | --- | --- |
 | 0 | Emergency Grounding | 10 min | Ground yourself · Check whether you can still get in · Write down what you've already noticed |
 | 1 | Reality Check | 20 min | **Run a full device scan** · List every account tied to this identity · Check recent sign-in activity |
-| 2 | Immediate Protective Actions | 30 min | Change your primary email password · Turn on 2FA for email · Revoke sessions and connected apps · **Run the stalkerware and remote-access scan** |
-| 3 | Systematic Cleanup | 45 min | Reset primary email password · Reset your top 5 accounts · Clean up saved browser passwords · Contact your bank · Run the 2FA audit · Write down your progress |
-| 4 | Rebuilding Security | 40 min | Set up a password manager · Verify unique passwords everywhere · Review phone app permissions · Set up strong 2FA on critical accounts |
+| 2 | Immediate Protective Actions | 30 min | Change your primary email password · Turn on two-step sign-in for email · Revoke sessions and connected apps · **Run the stalkerware and remote-access scan** |
+| 3 | Systematic Cleanup | 45 min | Change passwords on the accounts that matter most · Contact your bank · Write down your progress |
+| 4 | Rebuilding Security | 40 min | Make your passwords and sign-ins stronger, at your own pace · Review phone app permissions |
 | 5 | Mental Health Maintenance | ongoing | Acknowledge the effort this took · Tell someone you trust · Schedule a one-week check-in |
 
 Steps in **bold** are the automatable ones — a module does that part. Every
@@ -102,6 +106,19 @@ because your email is the recovery path for almost every other account;
 securing anything else first is building on sand. And **Phase 5 is not
 filler** — recovering from a compromise is genuinely stressful and
 time-consuming, and the guide treats finishing well as part of the job.
+
+## Learn it properly
+
+The guide keeps only the emergency steps for passwords and two-step sign-in.
+To learn the rest at your own pace, [Reclaim City](https://play.multiversegames.ai/reclaim-city/)
+is a free game from the same team. Its
+["My email got hacked" Quick Quest](https://play.multiversegames.ai/reclaim-city/#/district/master-keys)
+opens The Master Keys, which walks you through new passwords and two-step
+sign-in for your email one account at a time. You don't need an account, and
+your progress stays in your browser.
+
+If someone close to you may be monitoring you, talk to an advocate before you
+change account settings (US National DV Hotline: 1-800-799-7233).
 
 ## What it will never ask you for
 

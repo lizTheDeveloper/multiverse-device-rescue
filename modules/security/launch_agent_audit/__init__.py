@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from shlex import quote
 
+from rescue import known_items
 from rescue.models import (
     Action,
     CheckResult,
@@ -17,6 +18,20 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+
+
+def _tag_plists(findings: list, starts: list) -> None:
+    """Record the plist each finding came from as data["plist"].
+
+    The app uses it to offer "Fix it for me" on exactly that file, rather than
+    guessing a file from the label (which any plist can choose).
+    """
+    bounds = starts + [(len(findings), None)]
+    for (start, plist), (end, _) in zip(bounds, bounds[1:]):
+        if not plist:
+            continue
+        for finding in findings[start:end]:
+            finding.data.setdefault("plist", plist)
 
 
 class Module(ModuleBase):
@@ -99,7 +114,14 @@ class Module(ModuleBase):
             )
 
         # Process each agent
-        for label, program_path, arguments in all_agents:
+        # plist -> (label, program, arguments), for "marked as mine".
+        tasks: dict[str, tuple] = {}
+        starts: list[tuple[int, str | None]] = []
+        for item in all_agents:
+            label, program_path, arguments = item[:3]
+            starts.append((len(findings), item[3] if len(item) > 3 else None))
+            if starts[-1][1]:
+                tasks[starts[-1][1]] = (label, program_path, arguments)
             # Flag INFO for each found agent
             findings.append(
                 Finding(
@@ -127,6 +149,15 @@ class Module(ModuleBase):
                 suspicious_findings = self._check_suspicious_agent(label, program_path, arguments)
                 findings.extend(suspicious_findings)
 
+        _tag_plists(findings, starts)
+        for f in findings:
+            task = tasks.get(f.data.get("plist"))
+            if task:
+                f.data["arguments_sha256"] = known_items.arguments_sha256(task[2])
+        # Items the person marked as theirs are downgraded and labelled, never
+        # hidden; a changed program, plist, arguments or program content no
+        # longer matches.
+        known_items.apply_background_task_marks(findings, tasks)
         return CheckResult(module_name=self.name, findings=findings)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
@@ -213,8 +244,8 @@ class Module(ModuleBase):
 
     def _scan_launch_agents_dir(
         self, directory: Path
-    ) -> list[tuple[str, str, list[str]]]:
-        """Scan a LaunchAgents directory; return (label, program, arguments) tuples."""
+    ) -> list[tuple[str, str, list[str], str]]:
+        """Scan a LaunchAgents directory; return (label, program, arguments, plist path) tuples."""
         agents = []
 
         if not directory.exists():
@@ -227,7 +258,7 @@ class Module(ModuleBase):
 
         for plist_path in plist_paths:
             label, program, arguments = self._extract_from_plist(str(plist_path))
-            agents.append((label, program, arguments))
+            agents.append((label, program, arguments, str(plist_path)))
 
         return agents
 

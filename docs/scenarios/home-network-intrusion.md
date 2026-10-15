@@ -114,6 +114,14 @@ Phase 5's first step is worth reading even if you skip the rest: search adverts
 for "router support" and "remove virus" are bought by scammers, and calling one
 while you are already compromised is how a bad day becomes a much worse one.
 
+## Learn it properly
+
+Once the router and devices are clean, [Reclaim City](https://play.multiversegames.ai/reclaim-city/)
+is a free game from the same team. Its
+["My email got hacked" Quick Quest](https://play.multiversegames.ai/reclaim-city/#/district/master-keys)
+walks you through the passwords and two-step sign-in from Phase 4, one account
+at a time. You don't need an account to play.
+
 ## What it will never ask you for
 
 Your router's admin password, your Wi-Fi passphrase, your account passwords, or

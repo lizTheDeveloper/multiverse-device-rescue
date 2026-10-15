@@ -18,6 +18,7 @@
       "preload.js",
       "engine-runner.js",
       "fix-policy.js",
+      "mark-policy.js",
       "setting-urls.js",
       "ask-about.js",
       "ai-prompt.js",

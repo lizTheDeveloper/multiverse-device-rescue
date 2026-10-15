@@ -68,8 +68,8 @@ def test_digital_security_reset_phase_3_matches_design_spec_example():
 
     assert phase_3.title == "Systematic Cleanup"
     assert phase_3.automatable_steps == []
-    assert phase_3.human_only_steps == [1, 2, 3, 4, 5, 6]
-    assert phase_3.steps[0].title == "Reset your primary email password"
+    assert phase_3.human_only_steps == [1, 2, 3]
+    assert phase_3.steps[0].title == "Change passwords on the accounts that matter most"
 
 
 def test_home_for_the_holidays_guide_thirteen_steps():

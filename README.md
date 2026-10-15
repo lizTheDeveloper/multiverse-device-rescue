@@ -68,6 +68,11 @@ When it finds something, it explains what it means and walks you through
 fixing it, one step at a time. A check that couldn't run says so. It doesn't
 pretend everything is fine.
 
+It looks at your computer, not your online accounts. To learn passwords and
+two-step sign-in properly, [Reclaim City](https://play.multiversegames.ai/reclaim-city/)
+is a free game from the same team that walks you through them one account at a
+time. You don't need an account to play.
+
 ---
 
 ## For helpers, tech people, and AI assistants

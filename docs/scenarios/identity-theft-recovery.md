@@ -107,6 +107,17 @@ Phase 6 Step 1 is worth reading before you dial anything: search results for
 "Equifax fraud number" and "IRS help line" are bought by scammers, and someone
 mid-identity-theft is exactly who they are looking for.
 
+## Learn it properly
+
+Once the urgent calls are done, [Reclaim City](https://play.multiversegames.ai/reclaim-city/)
+is a free game from the same team that walks you through the longer work at
+your own pace. Its chapter
+[The Reclamation](https://play.multiversegames.ai/reclaim-city/#/district/reclamation)
+covers freezing your credit and asking data brokers to remove your details, and
+the ["I think someone filed taxes or claims in my name" Quick Quest](https://play.multiversegames.ai/reclaim-city/#/district/capitol)
+opens The Capitol, for claiming your government accounts. You don't need an
+account to play.
+
 ## What it will never ask you for
 
 Your Social Security number. Your date of birth. Your account numbers. Your

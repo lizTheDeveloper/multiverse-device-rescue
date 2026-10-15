@@ -20,3 +20,22 @@ test('no note without one from the walkthrough', () => {
   assert.strictEqual(safetyNoteHtml({ description: 'x', remediation: {} }, esc), '');
   assert.strictEqual(safetyNoteHtml({ description: 'x' }, esc), '');
 });
+
+const { wantsSafetyNote, withoutSafetyParagraphs } = require('../renderer/app.js');
+
+test('the note follows the worry the person picked', () => {
+  const remote = { module: 'remote_login_check' };
+  assert.strictEqual(wantsSafetyNote({ id: 'watched', safety: true }, remote), true);
+  assert.strictEqual(wantsSafetyNote({ id: 'unsure' }, remote), true);
+  assert.strictEqual(wantsSafetyNote({ id: 'hacked' }, remote), false);
+  assert.strictEqual(wantsSafetyNote(null, remote), true);
+});
+
+test('monitoring software always gets the note', () => {
+  assert.strictEqual(wantsSafetyNote({ id: 'hacked' }, { module: 'stalkerware_scan' }), true);
+});
+
+test('hotline paragraphs come out of the description, the rest stays', () => {
+  const text = 'Screen Sharing is on.\n\nIf you think someone close to you set this up, call 1-800-799-7233.\n\nWhat to do: turn it off.';
+  assert.strictEqual(withoutSafetyParagraphs(text), 'Screen Sharing is on.\n\nWhat to do: turn it off.');
+});

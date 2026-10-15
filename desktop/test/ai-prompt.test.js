@@ -75,6 +75,17 @@ test('rejects junk input', () => {
   }
 });
 
+test('a verified maker line includes what the program is', () => {
+  const what = 'Loom: records your screen and camera to make video messages you can share with a link.';
+  const f = { ...FINDING, made_by: [
+    { subject: 'com.loom.desktop', name: 'Loom, Inc', verified: true, how: 'Developer ID signature', location_note: '', what },
+    { subject: '/tmp/x', name: 'Loom, Inc', verified: false, how: 'unsigned', what: 'Loom: should not appear.' },
+  ] };
+  const t = buildAiPrompt({ findings: [f] }, ENV);
+  assert.ok(t.includes(`com.loom.desktop: made by Loom, Inc, verified (Developer ID signature) — what it is: ${what}`));
+  assert.ok(!t.includes('should not appear'));
+});
+
 test('the copy panel escapes the text', () => {
   const html = copyAiPanelHtml('</textarea><script>alert(1)</script>', 3);
   assert.ok(!html.includes('<script>'));

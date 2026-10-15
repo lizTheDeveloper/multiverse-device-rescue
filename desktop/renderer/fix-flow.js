@@ -96,6 +96,9 @@ const FixFlow = (function () {
       return { tone: 'info', restored: true, headline: 'Put back the way it was.', detail: said, undo: [] };
     }
 
+    if (r.action === 'disable_launch_agent' && r.status === 'nothing_to_fix' && !r.error) {
+      return { tone: 'info', headline: 'This is already turned off.', detail: said, undo: [] };
+    }
     if (r.status === 'nothing_to_fix' && !r.error) {
       return { tone: 'info', headline: 'There is nothing to fix. This already looks fine.', detail: '', undo: [] };
     }
@@ -137,6 +140,15 @@ const FixFlow = (function () {
       </div>`;
   }
 
+  // Shown on other cards about the same background job once one card turned it off.
+  function handledElsewhereHtml() {
+    return `
+      <div class="fix-status--info fix-status__box">
+        <p class="fix-status__headline"><strong>Already turned off.</strong></p>
+        <p class="fix-status__detail">This is the same background job you just turned off on another card. Nothing more to do here.</p>
+      </div>`;
+  }
+
   function runningHtml() {
     return '<p class="fix-status__headline fix-status--running">Fixing… this can take a moment.</p>';
   }
@@ -158,6 +170,43 @@ const FixFlow = (function () {
 
     function cardOf(el) {
       return el && el.closest ? el.closest('[data-fix-module]') : null;
+    }
+
+    // The same background job is often reported by more than one check, so it
+    // shows up on more than one card with the same action and target. Once one
+    // card has turned it off, the others must not keep offering a button that
+    // can only come back with "nothing to do".
+    function sameTargetCards(card) {
+      const action = card.getAttribute('data-fix-action');
+      const target = card.getAttribute('data-fix-target');
+      if (!action || !target || typeof root.querySelectorAll !== 'function') return [];
+      return Array.from(root.querySelectorAll('[data-fix-action][data-fix-target]')).filter((other) =>
+        other !== card
+        && other.getAttribute('data-fix-action') === action
+        && other.getAttribute('data-fix-target') === target);
+    }
+
+    function markHandledElsewhere(card) {
+      for (const other of sameTargetCards(card)) {
+        if (state.get(other) === 'running') continue;
+        closePanel(other);
+        const open = other.querySelector('[data-fix-open]');
+        const status = other.querySelector('[data-fix-status]');
+        if (open) open.hidden = true;
+        if (status) { status.hidden = false; status.innerHTML = handledElsewhereHtml(); }
+        other.setAttribute('data-fix-handled-by-other', '');
+      }
+    }
+
+    function unmarkHandledElsewhere(card) {
+      for (const other of sameTargetCards(card)) {
+        if (!other.hasAttribute('data-fix-handled-by-other')) continue;
+        other.removeAttribute('data-fix-handled-by-other');
+        const open = other.querySelector('[data-fix-open]');
+        const status = other.querySelector('[data-fix-status]');
+        if (open) open.hidden = false;
+        if (status) { status.hidden = true; status.innerHTML = ''; }
+      }
     }
 
     function closePanel(card) {
@@ -184,6 +233,7 @@ const FixFlow = (function () {
         status.innerHTML = resultHtml(result);
         const d = describeFixResult(result);
         state.delete(card);
+        if (action && (d.tone === 'success' || d.tone === 'info')) markHandledElsewhere(card);
         // After a real success there is nothing left to offer; otherwise allow a retry.
         if (open && d.tone !== 'success' && d.tone !== 'info') open.hidden = false;
       } catch (_) {
@@ -203,7 +253,10 @@ const FixFlow = (function () {
       try {
         const result = await api.undoFix(id);
         status.innerHTML = resultHtml(result);
-        if (open && describeFixResult(result).restored === true) open.hidden = false;
+        if (describeFixResult(result).restored === true) {
+          if (open) open.hidden = false;
+          unmarkHandledElsewhere(card);
+        }
       } catch (_) {
         status.innerHTML = errorHtml();
       }

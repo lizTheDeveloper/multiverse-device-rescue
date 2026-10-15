@@ -11,9 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # Findings whose "What to do:" comes from a lookup table in the same module.
-_FROM_TABLE = {
-    "modules/security/password_manager_check/__init__.py",  # _START_HERE per platform
-}
+_FROM_TABLE: set[str] = set()
 
 
 def _literal_text(node: ast.AST) -> str:
