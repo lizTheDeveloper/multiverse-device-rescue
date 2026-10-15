@@ -39,9 +39,8 @@ credential check.
    you rely on it (e.g. a kiosk or a single-user home machine you've
    deliberately configured this way). If you rely on it, weigh that
    convenience against the risk before continuing.
-2. Open System Settings > General > Login Items & Extensions > Login Options
-   (may require unlocking with your password) and uncheck "Automatically log
-   in as".
+2. Open System Settings > Users & Groups and set "Automatically log in
+   as" to Off.
 3. Restart and confirm the login screen now appears and requires a password.
 
 ## Step 2: Require password right after screensaver
@@ -69,8 +68,8 @@ credential check.
 1. `login_window_display` is informational — it reports whether the login
    screen shows a user list or a name+password field. A user list reveals
    account names to anyone with physical access; if you'd rather it not,
-   switch to "Name and password" in System Settings > General > Login Items
-   & Extensions > Login Options > "Display login window as".
+   switch to "Name and password" in System Settings > Lock Screen >
+   "Login window shows".
 2. If `screensaver_timeout` was flagged (screensaver disabled, or timeout
    over 10 minutes): System Settings > Lock Screen > set "Start Screen Saver
    when inactive" to 10 minutes or less.

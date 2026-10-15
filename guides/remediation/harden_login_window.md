@@ -27,8 +27,8 @@ how you (and anyone else with a local account) get past the lock screen.
 
 1. Confirm this Mac isn't intentionally configured as a kiosk or
    single-purpose auto-login device before changing anything.
-2. System Settings > General > Login Items & Extensions > Login Options
-   (unlock first) and uncheck "Automatically log in as".
+2. System Settings > Users & Groups, and set "Automatically log in as"
+   to Off.
 3. Restart and confirm the login screen requires a password.
 
 ## Step 2: Hide the list of user names
@@ -37,8 +37,8 @@ A visible user list discloses account names to anyone at the keyboard.
 
 1. Confirm you don't rely on the user-list picker for a specific workflow
    (e.g. quick account switching on a shared family Mac) before changing it.
-2. System Settings > General > Login Items & Extensions > Login Options >
-   "Display login window as" > select "Name and password".
+2. System Settings > Lock Screen > set "Login window shows" to "Name
+   and password".
 3. Restart or lock the screen to confirm the new prompt appears.
 
 ## Step 3: Stop showing password hints
