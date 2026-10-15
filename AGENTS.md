@@ -85,7 +85,9 @@ normal.
           "data": { },                 // module-specific evidence
           "made_by": [                 // optional: who made each program the finding names
             { "subject": "…", "name": "Google LLC", "verified": true,
-              "how": "Developer ID signature", "location_note": "" }
+              "how": "Developer ID signature", "location_note": "",
+              "what": "Google Chrome: Google's web browser, for visiting websites." }
+                                       // "what" only for known programs whose signed identity was verified
           ]                            // skip with `rescue scan --json --no-attribution`
         }
       ]

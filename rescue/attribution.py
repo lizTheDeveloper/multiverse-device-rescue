@@ -20,6 +20,13 @@ attribution_names.json are applied only after verification.  If verification
 fails or runs out of budget, the claimed name is shown as *unverified*.
 Homebrew paths and launchd label prefixes only say where something came from;
 they are never "verified".
+
+What it is: a verified maker line can also carry a short plain-language ``what``
+("Loom: records your screen and camera to make video messages.") from
+program_descriptions.json.  It is never matched by name or path: only the
+signing Identifier (sealed in the signature and pinned in the ``--verify``
+requirement) together with the verified Team ID, or Apple's own anchor for
+programs that are part of macOS, selects an entry.  See :func:`describe`.
 """
 
 from __future__ import annotations
@@ -90,6 +97,8 @@ _BUNDLE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+){2,}\Z")
 # Strict reverse-DNS check applied right before a bundle id goes into any query.
 _SAFE_BUNDLE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,254}\Z")
 _TEAM_ID_RE = re.compile(r"^[A-Z0-9]{10}\Z")
+# A signing Identifier safe to quote inside a code requirement.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,254}\Z")
 _SMALL_BUNDLE_MAX_ENTRIES = 400
 _SMALL_BUNDLE_MAX_BYTES = 100 * 1024 * 1024
 _DEVID_RE = re.compile(r"^Authority=Developer ID Application: (.+) \(([A-Z0-9]{10})\)\s*$", re.M)
@@ -185,15 +194,22 @@ class MadeBy:
     # The signature says this program is an interpreter (com.apple.zsh,
     # org.python.python, node-<hash>...), whatever the file is called. Never serialised.
     runner: bool = False
+    # Signing Identifier (bundle id) the signature claims; only set when it is
+    # plain enough to pin in a code requirement. Never serialised.
+    identifier: str = ""
 
     def to_dict(self, subject: str) -> dict:
-        return {
+        out = {
             "subject": subject,
             "name": self.name,
             "verified": self.verified,
             "how": self.how,
             "location_note": self.location_note,
         }
+        what = describe(self)
+        if what:
+            out["what"] = what
+        return out
 
 
 def _names() -> dict:
@@ -217,6 +233,83 @@ def _team_name(team: str | None, fallback: str) -> str:
     return _name_table().get("team_ids", {}).get(team or "", fallback)
 
 
+# --- what it is -------------------------------------------------------------------
+
+# program_descriptions.json team_id for Apple's own programs (parts of macOS and
+# Apple's App Store apps): they have no Team ID that --verify can pin, and
+# Apple's anchor plus the pinned identifier is what was verified.  Third-party
+# App Store apps get no description: their certificate is Apple's, so the Team
+# ID cannot be pinned the way a Developer ID one is.
+_APPLE_ANCHOR = "apple"
+_DESCRIPTIONS_CACHE: tuple[dict, list] | None = None
+
+
+def _load_descriptions() -> tuple[dict, list]:
+    """(exact {(identifier, team): text}, prefix [(identifier, team, text)])."""
+    try:
+        raw = json.loads((Path(__file__).parent / "program_descriptions.json").read_text("utf-8"))
+        programs = raw.get("programs", [])
+    except (OSError, ValueError, AttributeError):
+        return {}, []
+    exact: dict = {}
+    prefix: list = []
+    for p in programs if isinstance(programs, list) else []:
+        if not isinstance(p, dict):
+            continue
+        ident, team, name, what = (p.get(k) for k in ("identifier", "team_id", "name", "what"))
+        if not all(isinstance(v, str) and v for v in (ident, team, name, what)):
+            continue
+        if team != _APPLE_ANCHOR and not _TEAM_ID_RE.match(team):
+            continue
+        text = f"{name}: {what}"
+        if p.get("match") == "prefix":
+            prefix.append((ident, team, text))
+        else:
+            exact[(ident, team)] = text
+    prefix.sort(key=lambda e: len(e[0]), reverse=True)  # most specific first
+    return exact, prefix
+
+
+def _description_table() -> tuple[dict, list]:
+    global _DESCRIPTIONS_CACHE
+    if _DESCRIPTIONS_CACHE is None:
+        _DESCRIPTIONS_CACHE = _load_descriptions()
+    return _DESCRIPTIONS_CACHE
+
+
+def describe(made: MadeBy) -> str:
+    """Plain-language "what it is" for a *verified* program, or "".
+
+    Never by name or path: an entry matches only on the signing Identifier
+    together with the Team ID that ``codesign --verify`` pinned (or Apple's
+    anchor, for parts of macOS).  Anything unverified gets nothing.  A
+    ``"match": "prefix"`` entry also covers helpers whose Identifier continues
+    it after a dot (``com.google.Keystone`` -> ``com.google.Keystone.Agent``),
+    still only for the same team.  A table lookup; no commands run.
+    """
+    if not made.verified or not made.identifier:
+        return ""
+    if made.how == "Apple system file":
+        team = _APPLE_ANCHOR
+    elif made.how == "Mac App Store signature" and not made.team and made.identifier.startswith("com.apple."):
+        # Apple's own App Store apps (Pages, iMovie...). An App Store
+        # certificate is Apple's, so no Team ID is pinned; the Apple anchor plus
+        # the pinned identifier in Apple's namespace is what was verified.
+        team = _APPLE_ANCHOR
+    elif made.how == "Developer ID signature" and made.team:
+        team = made.team
+    else:
+        return ""
+    exact, prefix = _description_table()
+    hit = exact.get((made.identifier, team))
+    if hit:
+        return hit
+    for ident, t, text in prefix:
+        if t == team and (made.identifier == ident or made.identifier.startswith(ident + ".")):
+            return text
+    return ""
+
+
 # --- codesign parsing -------------------------------------------------------------
 
 def parse_codesign(text: str) -> MadeBy | None:
@@ -235,19 +328,23 @@ def parse_codesign(text: str) -> MadeBy | None:
     team = team_m.group(1) if team_m else None
     ident_m = re.search(r"^Identifier=(\S+)", text, re.M)
     ident = ident_m.group(1) if ident_m else ""
+    # Kept only if it can be pinned verbatim in the --verify requirement.
+    pinned = ident if _IDENTIFIER_RE.match(ident) else ""
 
     m = _DEVID_RE.search(text)
     if m:
         if team is not None and team != m.group(2):
             return MadeBy(m.group(1).strip(), False, "team ID does not match the certificate")
-        return MadeBy(m.group(1).strip(), True, "Developer ID signature", team=m.group(2))
+        return MadeBy(m.group(1).strip(), True, "Developer ID signature", team=m.group(2),
+                      identifier=pinned)
     if "Authority=Software Signing" in text:
-        return MadeBy("Apple", True, "Apple system file")
+        return MadeBy("Apple", True, "Apple system file", identifier=pinned)
     if "Authority=Apple Mac OS Application Signing" in text:
         if ident.startswith("com.apple.") or team == "74J34U3R6X":
-            return MadeBy("Apple", True, "Mac App Store signature")
+            return MadeBy("Apple", True, "Mac App Store signature", identifier=pinned)
         fallback = f"an App Store developer (team {team})" if team else "an App Store developer"
-        return MadeBy(fallback, True, "Mac App Store signature", team=team or "")
+        return MadeBy(fallback, True, "Mac App Store signature", team=team or "",
+                      identifier=pinned)
     m = _DEVCERT_RE.search(text)
     if m:
         return MadeBy(m.group(1).strip(), False, "development certificate")
@@ -502,7 +599,8 @@ class Attributor:
             args += [f"-R={requirement}", "--", target]
             res = self._exec(args)
             if res is not None and res.ok:
-                return MadeBy(_team_name(claimed.team, claimed.name), True, claimed.how)
+                return MadeBy(_team_name(claimed.team, claimed.name), True, claimed.how,
+                              team=claimed.team, identifier=claimed.identifier)
         return MadeBy(
             claimed.name, False,
             f"claims to be made by {claimed.name}; couldn't verify",
@@ -617,7 +715,21 @@ class Attributor:
 
 
 def _requirement_for(claimed: MadeBy) -> str | None:
-    """Code requirement that pins Apple's anchor (and the Team ID) for ``claimed``."""
+    """Code requirement that pins Apple's anchor (and the Team ID) for ``claimed``.
+
+    The signing Identifier is pinned too, so the identifier a description is
+    keyed on is the one this same check verified.
+    """
+    ident_clause = ""
+    if claimed.identifier:
+        if not _IDENTIFIER_RE.match(claimed.identifier):
+            return None
+        ident_clause = f'identifier "{claimed.identifier}" and '
+    req = _anchor_requirement(claimed)
+    return ident_clause + req if req else None
+
+
+def _anchor_requirement(claimed: MadeBy) -> str | None:
     if claimed.how == "Apple system file":
         return "anchor apple"
     team_clause = ""

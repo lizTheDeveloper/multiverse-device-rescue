@@ -54,3 +54,30 @@ test('with several programs each line is labelled', () => {
   assert.match(html, /made-by__subject">A\.app/);
   assert.match(html, /made-by__subject">b/);
 });
+
+test('a verified program carries its plain-language description', () => {
+  const entry = { subject: 'com.loom.desktop', name: 'Loom, Inc', verified: true, how: 'Developer ID signature', location_note: '',
+    what: 'Loom: records your screen and camera to make video messages you can share with a link.' };
+  const d = describeMadeBy(entry);
+  assert.strictEqual(d.text, '✓ Made by Loom, Inc (verified signature)');
+  assert.strictEqual(d.what, entry.what);
+  const html = madeByHtml([entry], esc);
+  assert.match(html, /verified signature\)<span class="made-by__what"> — Loom: records your screen/);
+});
+
+test('a description is never shown for an unverified program', () => {
+  const entry = { name: 'Loom, Inc', verified: false, how: 'claims to be made by Loom, Inc; couldn’t verify', what: 'Loom: records your screen.' };
+  assert.ok(!describeMadeBy(entry).what);
+  assert.ok(!madeByHtml([entry], esc).includes('made-by__what'));
+});
+
+test('the description is escaped', () => {
+  const html = madeByHtml([{ name: 'X', verified: true, how: 'Developer ID signature', what: '<img src=x onerror=alert(1)>' }], esc);
+  assert.ok(!html.includes('<img'));
+  assert.match(html, /&lt;img/);
+});
+
+test('entries without a description render as before', () => {
+  const html = madeByHtml([{ name: 'Google LLC', verified: true, how: 'Developer ID signature' }], esc);
+  assert.ok(!html.includes('made-by__what'));
+});

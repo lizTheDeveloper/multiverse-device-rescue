@@ -86,8 +86,9 @@ function describeProgress(ev) {
 
 /**
  * "Who made it?" One plain line per program a finding names, from the engine's
- * `made_by` entries ({subject, name, verified, how, location_note}).
- * tone 'ok' = calm green, 'warn' = amber.
+ * `made_by` entries ({subject, name, verified, how, location_note, what?}).
+ * tone 'ok' = calm green, 'warn' = amber. `what` ("Loom: records your screen…")
+ * is only ever set by the engine for a verified signature; it is shown only then.
  */
 const MADE_BY_VERIFIED_LABEL = {
   'Developer ID signature': 'verified signature',
@@ -119,7 +120,8 @@ function describeMadeBy(entry) {
     const label = MADE_BY_VERIFIED_LABEL[e.how] || e.how || 'verified';
     // A verified maker running from a risky folder deserves a second look.
     const mark = note ? '⚠' : '✓';
-    return { tone: note ? 'warn' : 'ok', text: `${mark} Made by ${name} (${label})${note ? '. ' + note : ''}`, subject };
+    const what = typeof e.what === 'string' ? e.what.trim() : '';
+    return { tone: note ? 'warn' : 'ok', text: `${mark} Made by ${name} (${label})${note ? '. ' + note : ''}`, subject, what };
   }
   if (e.how === 'script') {
     return { tone: 'warn', text: `⚠ Unknown maker: ${note || 'a script, not signed; check who created it.'}`, subject };
@@ -134,11 +136,12 @@ function madeByHtml(entries, esc) {
   const lines = entries.map((entry) => {
     const d = describeMadeBy(entry);
     const who = entries.length > 1 && d.subject ? `<span class="made-by__subject">${esc(d.subject)}</span> ` : '';
-    return `<li class="made-by__line made-by__line--${d.tone}">${who}${esc(d.text)}</li>`;
+    const what = d.what ? `<span class="made-by__what"> \u2014 ${esc(d.what)}</span>` : '';
+    return `<li class="made-by__line made-by__line--${d.tone}">${who}${esc(d.text)}${what}</li>`;
   }).join('');
   return `<div class="made-by"><ul class="made-by__list">${lines}</ul>
     <details class="made-by__explainer"><summary>What does this mean?</summary>
-      <p>Programs can be digitally signed by the company that made them, like a seal on a package. A <strong>verified signature</strong> means the seal is real and names the maker. An <strong>unknown maker</strong> is not proof of anything bad, but nobody has vouched for it, so be more careful, especially if it runs from a temporary folder or one you did not install into.</p>
+      <p>Programs can be digitally signed by the company that made them, like a seal on a package. A <strong>verified signature</strong> means the seal is real and names the maker. An <strong>unknown maker</strong> is not proof of anything bad, but nobody has vouched for it, so be more careful, especially if it runs from a temporary folder or one you did not install into. For some well-known programs we also say what they are for, but only when the signature proves which program it is.</p>
     </details></div>`;
 }
 
