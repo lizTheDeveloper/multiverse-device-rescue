@@ -721,3 +721,41 @@ def test_link_to_an_interpreter_is_followed(tmp_path):
         plistlib.dump({"Label": "x", "ProgramArguments": [str(link), "-c", "evil"]}, fh)
     made = mac({})._identify_plist(str(plist), os.path.exists)
     assert made is not None and made.how == "inline command"
+
+
+def _plist(tmp_path, body):
+    p = tmp_path / "x.plist"
+    with open(p, "wb") as fh:
+        plistlib.dump({"Label": "x", **body}, fh)
+    return str(p)
+
+
+@pytest.mark.parametrize("env", [
+    {"DYLD_INSERT_LIBRARIES": "/tmp/x.dylib"}, {"ELECTRON_RUN_AS_NODE": "1"},
+    {"NODE_OPTIONS": "--require /tmp/x.js"}, {"PYTHONSTARTUP": "/tmp/x.py"}, ["odd"],
+])
+def test_code_injecting_environment_is_never_credited(tmp_path, env):
+    path = _plist(tmp_path, {"Program": "/bin/ls", "EnvironmentVariables": env})
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
+    assert made is not None and made.verified is False
+
+
+def test_harmless_environment_still_credits(tmp_path):
+    path = _plist(tmp_path, {"Program": "/bin/ls", "EnvironmentVariables": {"LANG": "en_US.UTF-8"}})
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
+    assert made is not None and made.name == "Apple"
+
+
+@pytest.mark.parametrize("body", [
+    {"Program": "~/bin/helper"}, {"Program": "bin/helper"}, {"ProgramArguments": ["helper", "x"]},
+    {"ProgramArguments": ["/bin/ls", 5]}, {"ProgramArguments": "/bin/ls"},
+])
+def test_unclear_programs_are_never_credited(tmp_path, body):
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(_plist(tmp_path, body), lambda p: True)
+    assert made is None or made.verified is False
+
+
+def test_signed_program_with_arguments_says_what_the_signature_covers(tmp_path):
+    path = _plist(tmp_path, {"ProgramArguments": ["/bin/ls", "-la"]})
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
+    assert made.name == "Apple" and "not for the extra instructions" in made.location_note

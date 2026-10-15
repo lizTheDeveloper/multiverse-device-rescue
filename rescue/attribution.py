@@ -98,6 +98,27 @@ _DEVCERT_RE = re.compile(r"^Authority=Apple (?:Development|Distribution): (.+?)(
 _SCRIPT_NOTE = "A script, not signed; check who created it."
 
 
+_ARGS_NOTE = ("The maker vouches for this program file, not for the extra "
+              "instructions this background job starts it with.")
+_ENV_NOTE = ("Its settings change how the program loads code, so a signed "
+             "program could be running something else; check who created it.")
+# Environment variables that make a program load or run other code.
+_CODE_ENV = re.compile(
+    r"^(?:DYLD_\w+|LD_\w+|ELECTRON_RUN_AS_NODE|NODE_OPTIONS|NODE_PATH|PYTHON\w*|"
+    r"PERL5?\w*|RUBY\w*|BASH_ENV|ENV|ZDOTDIR|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|"
+    r"JDK_JAVA_OPTIONS|CFNETWORK_\w+|OSA\w*|LUA_\w+|GEM_\w+|BUNDLE_\w+|NPM_\w+)$",
+    re.I,
+)
+
+
+def _injects_code(env) -> bool:
+    if env is None:
+        return False
+    if not isinstance(env, dict):
+        return True  # unreadable: assume the worst
+    return any(not isinstance(k, str) or _CODE_ENV.match(k) for k in env)
+
+
 _INLINE = object()
 _INLINE_NOTE = ("Runs through an interpreter with extra options or a command "
                 "written into its settings, not a signed program on its own; "
@@ -352,18 +373,27 @@ class Attributor:
                 data = plistlib.load(fh)
         except Exception:
             return None
-        program = data.get("Program")
-        args = data.get("ProgramArguments") or []
-        if not isinstance(args, list):
-            args = []
-        if not program and args:
-            program = args[0]
-        if not program:
+        if not isinstance(data, dict):
             return None
-        program = os.path.expanduser(str(program))
+        program = data.get("Program")
+        args = data.get("ProgramArguments")
+        if args is None:
+            args = []
+        if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
+            return MadeBy(_UNKNOWN, False, "unreadable settings", _INLINE_NOTE)
+        if program is None and args:
+            program = args[0]
+        if not isinstance(program, str) or not program:
+            return None
+        # launchd neither expands "~" nor searches our working folder: a program
+        # that isn't a full path could be anything, so nothing is credited.
+        if not program.startswith("/"):
+            return MadeBy(_UNKNOWN, False, "program not named by full path", _INLINE_NOTE)
+        if _injects_code(data.get("EnvironmentVariables")):
+            return MadeBy(_UNKNOWN, False, "settings change how the program loads code", _ENV_NOTE)
         # With both keys set, launchd runs Program and passes ProgramArguments
         # as argv, so argv[1:] is what the program is told to do.
-        extra = [str(a) for a in args[1:]]
+        extra = args[1:]
         # By name, by the file a link points to, or (below) by signature.
         if is_interpreter(program) or (exists(program) and is_interpreter(os.path.realpath(program))):
             return self._through_interpreter(program, extra, exists)
@@ -373,6 +403,10 @@ class Attributor:
         if made is not None and made.runner and extra:
             # A renamed copy of an interpreter: its signature still says so.
             return self._through_interpreter(program, extra, exists)
+        if made is not None and extra:
+            # A signature vouches for the file, not for what the job tells it to do.
+            note = f"{made.location_note} {_ARGS_NOTE}".strip()
+            made = dataclasses.replace(made, location_note=note)
         return made
 
     def _through_interpreter(self, program: str, extra: list[str], exists) -> MadeBy | None:
