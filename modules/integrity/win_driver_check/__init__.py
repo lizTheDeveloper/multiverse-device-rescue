@@ -34,11 +34,16 @@ class Module(ModuleBase):
             for device in problem_devices:
                 findings.append(
                     Finding(
-                        title=f"Device problem detected: {device['friendly_name']}",
+                        title=f"Problem with: {device['friendly_name']}",
                         description=(
-                            f"Device '{device['friendly_name']}' ({device['class']}) is reporting "
-                            f"status: {device['status']}. This may indicate a driver issue or "
-                            "hardware malfunction. The device may not be functioning properly."
+                            f"Your computer is reporting a problem with the {device['friendly_name']} "
+                            f"({device['class']}). The status is: {device['status']}. "
+                            "This usually means the software that controls this hardware "
+                            "is missing, outdated, or the hardware itself is failing. "
+                            "\n\n"
+                            "What to do: Open Device Manager, find this device, and check "
+                            "for a yellow warning icon. If you see one, right-click it "
+                            "and choose 'Update driver'."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -56,13 +61,18 @@ class Module(ModuleBase):
         if unsigned_drivers:
             findings.append(
                 Finding(
-                    title=f"Unsigned drivers detected ({len(unsigned_drivers)})",
+                    title=(
+                        f"{len(unsigned_drivers)} driver(s) on your PC are not digitally signed"
+                    ),
                     description=(
-                        f"Found {len(unsigned_drivers)} unsigned system driver(s). "
-                        "Unsigned drivers are a security risk and may indicate malware or "
-                        "incompatible drivers. Examples: {}.".format(
-                            ", ".join(unsigned_drivers[:3])
-                        )
+                        f"Windows found {len(unsigned_drivers)} driver(s) that lack a "
+                        "digital signature from a verified manufacturer. Signatures help "
+                        "prove the file is safe. While this is often just an older or "
+                        "third-party driver, unsigned files can sometimes be used by "
+                        f"malicious software to hide. Examples: {', '.join(unsigned_drivers[:3])}.\n\n"
+                        "What to do: Open Device Manager, look for these names, and check "
+                        "if they have a yellow warning icon. If they do, try updating "
+                        "them via Windows Update or the manufacturer's website."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -79,11 +89,17 @@ class Module(ModuleBase):
         if stopped_drivers:
             findings.append(
                 Finding(
-                    title=f"Stopped drivers detected ({len(stopped_drivers)})",
+                    title=f"{len(stopped_drivers)} driver(s) are currently stopped",
                     description=(
-                        f"Found {len(stopped_drivers)} driver(s) in stopped state. "
-                        "These drivers may not be loaded or may have failed to start. "
-                        "Examples: {}.".format(", ".join(stopped_drivers[:3]))
+                        f"Windows lists {len(stopped_drivers)} driver(s) as 'stopped'. "
+                        "This usually means the software for a piece of hardware is not "
+                        "running right now. This is often normal for devices you don't "
+                        "use (like a USB stick that is unplugged) or after a recent update. "
+                        "\n\n"
+                        f"Examples: {', '.join(stopped_drivers[:3])}.\n\n"
+                        "What to do: Nothing right now. If a specific device (like your "
+                        "mouse or camera) isn't working, restart your computer to see "
+                        "if it comes back."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

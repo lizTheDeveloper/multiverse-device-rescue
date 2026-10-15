@@ -275,7 +275,7 @@ def test_win_memory_diagnostics_mismatched_speed():
         result = mod.check(_make_profile())
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert any("Mismatched" in f.title for f in warning_findings)
+    assert any("don't match" in f.title for f in warning_findings)
 
 
 def test_win_memory_diagnostics_mismatched_capacity():
@@ -285,7 +285,7 @@ def test_win_memory_diagnostics_mismatched_capacity():
         result = mod.check(_make_profile())
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert any("Mismatched" in f.title for f in warning_findings)
+    assert any("don't match" in f.title for f in warning_findings)
 
 
 def test_win_memory_diagnostics_low_ram():
@@ -295,7 +295,7 @@ def test_win_memory_diagnostics_low_ram():
         result = mod.check(_make_profile())
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert any("Low RAM" in f.title for f in warning_findings)
+    assert any("Low memory" in f.title for f in warning_findings)
 
 
 def test_win_memory_diagnostics_memory_errors_critical():
@@ -305,7 +305,7 @@ def test_win_memory_diagnostics_memory_errors_critical():
         result = mod.check(_make_profile())
     critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
     assert len(critical_findings) > 0
-    assert any("Memory diagnostic errors" in f.title for f in critical_findings)
+    assert any("memory errors" in f.title for f in critical_findings)
 
 
 def test_win_memory_diagnostics_degraded_ram():
@@ -315,7 +315,7 @@ def test_win_memory_diagnostics_degraded_ram():
         result = mod.check(_make_profile())
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert any("Usable RAM" in f.title for f in warning_findings)
+    assert any("usable memory" in f.title for f in warning_findings)
 
 
 def test_win_memory_diagnostics_powershell_error():

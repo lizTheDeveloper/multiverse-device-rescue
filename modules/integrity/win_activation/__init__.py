@@ -34,10 +34,14 @@ class Module(ModuleBase):
         if not activation_info:
             findings.append(
                 Finding(
-                    title="Unable to determine Windows activation status",
+                    title="We could not check your Windows activation status",
                     description=(
-                        "Failed to retrieve Windows activation information. "
-                        "This may require administrator privileges."
+                        "The check could not read your Windows license information. This "
+                        "usually happens because the app needs higher permissions to see "
+                        "that data. \n\n"
+                        "What to do: Close the app and open it again by right-clicking "
+                        "the icon and selecting 'Run as administrator'. Then run the checkup "
+                        "again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -74,10 +78,14 @@ class Module(ModuleBase):
             # In grace period (OOBGrace, OOTGrace, NonGenuineGrace)
             findings.append(
                 Finding(
-                    title=f"{product_name} is in grace period",
+                    title=f"{product_name} is in a temporary grace period",
                     description=(
-                        f"Windows is in grace period with status: {license_status_text}. "
-                        "Activation will be required within 30 days."
+                        f"Your copy of {product_name} is currently in a grace period ({license_status_text}). "
+                        "This means the software is working, but it is not fully activated "
+                        "yet. \n\n"
+                        "What to do: Activate it before the grace period ends. Go to "
+                        "Settings > System > Activation to enter your product key or "
+                        "link your account."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -95,8 +103,11 @@ class Module(ModuleBase):
                 Finding(
                     title=f"{product_name} is not activated",
                     description=(
-                        "Windows is not activated. This is a critical issue. "
-                        "Your system is not properly licensed and may have limited functionality."
+                        f"Your copy of {product_name} is not activated. This means you "
+                        "do not have a valid license for this version of Windows. However, "
+                        "some features may be limited until you activate it.\n\n"
+                        "What to do: Go to Settings > System > Activation to enter "
+                        "your product key or purchase a license."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -131,10 +142,14 @@ class Module(ModuleBase):
             # Unknown status
             findings.append(
                 Finding(
-                    title=f"{product_name} has unknown activation status",
+                    title=f"{product_name} has an unrecognized activation status",
                     description=(
-                        f"Windows activation status is unknown: {license_status}. "
-                        "Please check activation manually."
+                        f"We found an unusual activation code ({license_status}) for {product_name}. "
+                        "Your computer is probably fine, but we cannot be 100% sure of "
+                        "your license status.\n\n"
+                        "What to do: Go to Settings > System > Activation to double-check "
+                        "your status manually. If it shows as activated there, you can "
+                        "ignore this finding."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -33,10 +33,14 @@ class Module(ModuleBase):
         if not devices_info:
             findings.append(
                 Finding(
-                    title="Could not retrieve audio device information",
+                    title="We couldn't check your audio devices",
                     description=(
-                        "Failed to query audio devices. Audio drivers may not be installed "
-                        "or you may not have Administrator privileges."
+                        "We tried to look at your audio devices but couldn't get the information. "
+                        "This usually happens if audio drivers are missing or if the check "
+                        "didn't have enough permission to run.\n\n"
+                        "It just means we couldn't see your audio setup.\n\n"
+                        "What to do: Try running the checkup again as an administrator. "
+                        "If that doesn't work, check if your sound is working normally."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -71,8 +75,14 @@ class Module(ModuleBase):
                             Finding(
                                 title=f"Audio device error: {device['name']}",
                                 description=(
-                                    f"Audio device '{device['name']}' is reporting error status: {device['status']}. "
-                                    "The device may need to be restarted or reinstalled."
+                                    f"Your audio device '{device['name']}' is reporting "
+                                    f"an error: {device['status']}. This usually means "
+                                    "the device needs to be restarted or reinstalled.\n\n"
+                                    "\n\n"
+                                    "What to do: Unplug and replug the audio device, "
+                                    "or restart your computer. If it still fails, check "
+                                    "Settings > System > Sound to see if it appears in "
+                                    "the device list."
                                 ),
                                 severity=Severity.WARNING,
                                 category=self.category,
@@ -86,10 +96,15 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="No audio devices found",
+                        title="No audio devices were found",
                         description=(
-                            "No audio endpoint devices were detected on this system. "
-                            "This may indicate audio drivers are not installed."
+                            "We didn't find any audio devices on your computer. This often "
+                            "means the audio drivers are not installed or are not working "
+                            "correctly.\n\n"
+                            "\n\n"
+                            "What to do: Check if you can hear sound. If not, go to "
+                            "Settings > System > Sound to see if any devices are listed. If the "
+                            "list is empty, you may need to install audio drivers."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -124,10 +139,14 @@ class Module(ModuleBase):
             if status not in ["running", "ok"]:
                 findings.append(
                     Finding(
-                        title="Windows Audio service is not running",
+                        title="Your main sound service is stopped",
                         description=(
-                            f"Windows Audio service (Audiosrv) is not running (status: {status}). "
-                            "This is why you have no sound. Try restarting Windows or manually starting the service."
+                            f"The Windows Audio service is not running (status: {status}). "
+                            "This is likely why you have no sound.\n\n"
+                            "\n\n"
+                            "What to do: Restart your computer. If that doesn't fix it, "
+                            "open 'Services' (search for it in the Start menu), find "
+                            "'Windows Audio', right-click it, and select 'Start'."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -165,11 +184,14 @@ class Module(ModuleBase):
             if status not in ["running", "ok"]:
                 findings.append(
                     Finding(
-                        title="Audio Endpoint Builder service is not running",
+                        title="Audio setup service is stopped",
                         description=(
-                            f"Audio Endpoint Builder service is not running (status: {status}). "
-                            "This may prevent audio devices from being properly recognized. "
-                            "Try restarting Windows or manually starting the service."
+                            "The Audio Endpoint Builder service is not running (status: "
+                            f"{status}). This can stop your audio devices from being recognized.\n\n"
+                            "\n\n"
+                            "What to do: Restart your computer. If the problem continues, "
+                            "open 'Services', find 'Audio Endpoint Builder', right-click "
+                            "it, and select 'Start'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

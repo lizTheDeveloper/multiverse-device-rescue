@@ -88,11 +88,14 @@ class Module(ModuleBase):
         if recent_24h:
             findings.append(
                 Finding(
-                    title=f"BSOD occurred in last 24 hours",
+                    title="Your computer crashed in the last 24 hours",
                     description=(
-                        f"Found {len(recent_24h)} crash event(s) in the last 24 hours. "
-                        f"Stop code: {recent_24h[0].get('stop_code', 'UNKNOWN')}. "
-                        "Your system is currently unstable. Immediate action is recommended."
+                        f"Your computer stopped working and restarted {len(recent_24h)} "
+                        f"time(s) in the last day. The error code was {recent_24h[0].get('stop_code', 'UNKNOWN')}. "
+                        "This usually means a hardware part or a driver is failing. \n\n"
+                        "What to do: Restart your computer. If it crashes again, write "
+                        "down the error code and search for it online to find the specific "
+                        "fix."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -109,11 +112,15 @@ class Module(ModuleBase):
         elif recent_7d and len(recent_7d) > 1:
             findings.append(
                 Finding(
-                    title=f"Multiple BSODs detected in last 7 days",
+                    title=f"Your computer crashed {len(recent_7d)} times this week",
                     description=(
-                        f"Found {len(recent_7d)} crash event(s) in the last 7 days. "
-                        "This indicates a recurring issue that requires investigation. "
-                        f"Stop codes involved: {', '.join(set(e.get('stop_code', 'UNKNOWN') for e in recent_7d))}"
+                        f"Your computer stopped working and restarted {len(recent_7d)} "
+                        f"times in the last 7 days. The error codes were: {', '.join(set(e.get('stop_code', 'UNKNOWN') for e in recent_7d))}. "
+                        "Recurring crashes suggest a hardware issue or a bad driver. "
+                        "\n\n"
+                        "What to do: Check for updates in Settings > Windows Update. If "
+                        "crashes continue, back up your files and consider taking the "
+                        "computer to a repair shop."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

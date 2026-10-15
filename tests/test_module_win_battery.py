@@ -208,7 +208,7 @@ def test_win_battery_degraded():
     # Should have warning about degraded capacity
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) > 0
-    assert any("degraded" in f.title.lower() for f in warning_findings)
+    assert any("less charge" in f.title.lower() or "aging" in f.title.lower() for f in warning_findings)
 
 
 def test_win_battery_critical():

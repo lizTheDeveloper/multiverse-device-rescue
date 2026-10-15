@@ -270,7 +270,7 @@ def test_win_activation_no_data():
     # Should have warning about unable to check
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("unable" in f.title.lower() for f in result.findings)
+    assert any("could not check" in f.title.lower() for f in result.findings)
 
 
 def test_win_activation_single_object():

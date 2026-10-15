@@ -33,10 +33,13 @@ class Module(ModuleBase):
         if not adapters_info:
             findings.append(
                 Finding(
-                    title="Could not retrieve network adapter information",
+                    title="We couldn't check your network adapters",
                     description=(
-                        "Failed to query network adapters. You may not have Administrator privileges. "
-                        "Try running PowerShell as Administrator."
+                        "This check needs special permissions to see your network settings, "
+                        "so it didn't run. This is not the same as everything being fine; "
+                        "it just means we couldn't look.\n\n"
+                        "What to do: Run the checkup again as an administrator to let "
+                        "us see your network details."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -86,11 +89,14 @@ class Module(ModuleBase):
                 disconnected_adapters.append(adapter_name)
                 findings.append(
                     Finding(
-                        title=f"Network adapter disconnected: {adapter_name}",
+                        title=f"Your network adapter '{adapter_name}' is off",
                         description=(
-                            f"Network adapter '{adapter_name}' is disconnected. "
-                            "Check the cable connection, enable the adapter in Device Manager, "
-                            "or check if WiFi needs to be connected."
+                            f"The adapter '{adapter_name}' is currently disconnected. "
+                            "This usually means a cable is unplugged, the adapter is "
+                            "turned off in settings, or your Wi-Fi is not connected. "
+                            "\n\n"
+                            "What to do: Check if a cable is plugged in, or open Settings "
+                            "> Network & internet to see if you need to connect to Wi-Fi."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -115,12 +121,16 @@ class Module(ModuleBase):
                     self_assigned_ips.append(iface_name)
                     findings.append(
                         Finding(
-                            title=f"Self-assigned IP on {iface_name}",
+                            title=(
+                                f"Your adapter '{iface_name}' couldn't get a proper address"
+                            ),
                             description=(
-                                f"Network adapter '{iface_name}' has a self-assigned IP ({ipv4_addr}). "
-                                "This indicates DHCP configuration failed. The adapter may not be "
-                                "able to reach the gateway. Try releasing and renewing the IP address "
-                                "using 'ipconfig /release' and 'ipconfig /renew'."
+                                f"The adapter '{iface_name}' has a self-assigned IP ({ipv4_addr}). "
+                                "This means it couldn't talk to your router to get a "
+                                "real address, so it may not connect to the internet. "
+                                "\n\n"
+                                "What to do: Restart your router, then your computer. If it "
+                                "still has no connection, check the cable or Wi-Fi password."
                             ),
                             severity=Severity.CRITICAL,
                             category=self.category,
@@ -165,11 +175,15 @@ class Module(ModuleBase):
                 gateway_list = ", ".join(unique_gateways)
                 findings.append(
                     Finding(
-                        title="Multiple default gateways detected",
+                        title="Your computer has multiple network paths",
                         description=(
-                            f"Multiple network interfaces have different default gateways ({gateway_list}). "
-                            "This may cause routing conflicts. Ensure only one active network adapter "
-                            "is configured, or verify your network configuration is intentional."
+                            f"We found different default gateways ({gateway_list}) on "
+                            "your network interfaces. This can sometimes cause slow connections "
+                            "or confusion about which network to use, but it is not a "
+                            "security threat.\n\n"
+                            "What to do: If your internet is working fine, you can ignore "
+                            "this. If it's slow, try turning off unused network adapters "
+                            "in Settings > Network & internet."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -201,10 +215,14 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="No DNS servers configured",
+                        title="No DNS servers are set up",
                         description=(
-                            "No DNS servers are configured. This may prevent name resolution. "
-                            "Check your network adapter settings or DHCP configuration."
+                            "Your computer doesn't have DNS servers configured. DNS helps "
+                            "translate website names into addresses. Without it, you might "
+                            "not be able to load websites.\n\n"
+                            "What to do: Open Settings > Network & internet, select your "
+                            "active connection, and check if 'Automatic' is selected for "
+                            "IP and DNS settings."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
