@@ -188,5 +188,6 @@ def test_scan_json_attaches_the_fix_walkthrough_to_coded_findings():
         "title": "Act on ClamAV scanner findings",
         "estimated_time": "20 minutes",
         "steps": [{"number": 1, "title": "Install ClamAV", "body": "brew install clamav"}],
+        "all_steps": True,
     }
     assert "remediation" not in findings[1]
