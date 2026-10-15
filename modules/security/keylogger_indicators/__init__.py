@@ -1,3 +1,4 @@
+import re
 import subprocess
 from pathlib import Path
 
@@ -387,15 +388,23 @@ class Module(ModuleBase):
             if result.returncode != 0:
                 return []
 
-            processes = set()
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
-                if line:
-                    # Extract process name from log line (first field or whole line if short)
-                    parts = line.split()
-                    if parts:
-                        processes.add(parts[0])
-
-            return list(processes)
+            return _cgeventtap_processes(result.stdout)
         except Exception:
             return []
+
+
+# `log show --style compact` lines look like
+#   2026-10-15 04:10:01.123 Df loginwindow[123:456] message ...
+# after a "Timestamp  Ty  Process[PID:TID]" header. The process name sits
+# between the type column and "[pid", and may contain spaces.
+_COMPACT_LOG_LINE = re.compile(r"^\d{4}-\d{2}-\d{2}\s+\S+\s+\S+\s+(.+?)\[\d+")
+
+
+def _cgeventtap_processes(output: str) -> list[str]:
+    """Process names from compact log lines; headers and noise are skipped."""
+    names = set()
+    for line in (output or "").splitlines():
+        m = _COMPACT_LOG_LINE.match(line.strip())
+        if m:
+            names.add(m.group(1).strip())
+    return sorted(names)

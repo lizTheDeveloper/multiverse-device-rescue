@@ -144,7 +144,7 @@ class Module(ModuleBase):
         if accounts:
             findings.append(
                 Finding(
-                    title=f"{len(accounts)} accounts are saved on this computer",
+                    title=f"{len(accounts)} account(s) saved on this computer",
                     description=(
                         "These accounts are saved directly on your device. They keep their "
                         "own login access, separate from your web browser.\n\n"
@@ -167,9 +167,9 @@ class Module(ModuleBase):
         if ssh_keys > 0:
             findings.append(
                 Finding(
-                    title=f"{ssh_keys} keys allow remote login to this computer",
+                    title=f"{ssh_keys} key(s) can be used to log in to this computer remotely",
                     description=(
-                        f"Your computer has {ssh_keys} keys that allow someone to log "
+                        f"Your computer has {ssh_keys} key(s) that let someone log "
                         "in remotely. These keys work even if you change your password, "
                         "so they are a common way for unauthorized access to persist.\n\n"
                         "We only counted the keys. We did not read the key data.\n\n"
