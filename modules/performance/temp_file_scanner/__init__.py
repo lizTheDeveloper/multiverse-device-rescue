@@ -200,7 +200,9 @@ class Module(ModuleBase):
                         description=(
                             f"These caches ({size_str}) can typically be safely removed. "
                             f"They will be regenerated as needed. "
-                            f"To clean: rm -rf /Library/Caches ~/Library/Caches"
+                            "To clean: quit your apps, open Finder > Go > Go to Folder, type "
+                            "~/Library/Caches, and move the folders of apps you recognize to "
+                            "the Trash. Leave /Library/Caches to macOS."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

@@ -143,9 +143,9 @@ class Module(ModuleBase):
                     Action(
                         title="Clear stuck print jobs",
                         description=(
-                            "To clear stuck print jobs from the queue, run: \n"
-                            "lpstat -o | awk '{print $1}' | xargs -I {} lprm {}\n\n"
-                            "Or remove all jobs: sudo rm -rf /var/spool/cups/d*\n\n"
+                            "To clear stuck print jobs, open System Settings > Printers & "
+                            "Scanners, select the printer, click Printer Queue and delete "
+                            "them. Or in Terminal: cancel -a\n\n"
                             "Then restart CUPS: sudo launchctl stop org.cups.cupsd && "
                             "sudo launchctl start org.cups.cupsd"
                         ),

@@ -121,8 +121,8 @@ class Module(ModuleBase):
                         title=f"Trash status: {size_str} ({item_count} items)",
                         description=(
                             f"Current Trash contents: {size_str} with {item_count} items. "
-                            f"To empty Trash via Finder, select Finder > Empty Trash. "
-                            f"Alternatively, use: rm -rf ~/.Trash/* && rm -rf /Volumes/*/.Trashes/*"
+                            "To empty it, choose Finder > Empty Trash. Look through it first: "
+                            "emptied files can't be brought back."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -136,8 +136,8 @@ class Module(ModuleBase):
                         description=(
                             f"Trash is consuming {size_str} of disk space. "
                             f"Empty Trash to reclaim this space. "
-                            f"Open Finder and select Empty Trash from the menu bar, "
-                            f"or run: rm -rf ~/.Trash/* && rm -rf /Volumes/*/.Trashes/*"
+                            "Look through it first, then choose Finder > Empty Trash. "
+                            "Emptied files can't be brought back."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
