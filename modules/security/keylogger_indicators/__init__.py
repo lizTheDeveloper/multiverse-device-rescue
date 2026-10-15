@@ -379,7 +379,10 @@ class Module(ModuleBase):
                     "--last",
                     "1h",
                     "--predicate",
-                    "eventMessage CONTAINS 'CGEventTap'",
+                    # Leave out the system log tool's record of this very query,
+                    # by path so that a process merely named "log" still counts.
+                    "eventMessage CONTAINS 'CGEventTap' "
+                    "AND processImagePath != '/usr/bin/log'",
                     "--style",
                     "compact",
                 ],
@@ -407,7 +410,6 @@ def _cgeventtap_processes(output: str) -> list[str]:
     names = set()
     for line in (output or "").splitlines():
         m = _COMPACT_LOG_LINE.match(line.strip())
-        # `log` itself records the query we ran; that's us, not a keylogger.
-        if m and m.group(1).strip() != "log":
+        if m:
             names.add(m.group(1).strip())
     return sorted(names)

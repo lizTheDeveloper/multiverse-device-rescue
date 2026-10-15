@@ -1583,7 +1583,7 @@ kextstat
 ### `keylogger_indicators`
 
 ```text
-log show --last 1h --predicate "eventMessage CONTAINS 'CGEventTap'" --style compact
+log show --last 1h --predicate "eventMessage CONTAINS 'CGEventTap' AND processImagePath != '/usr/bin/log'" --style compact
 sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceListenEvent' AND auth_value=2"
 ```
 

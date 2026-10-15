@@ -158,8 +158,7 @@ def test_keylogger_indicators_steam_is_not_suspicious():
 def test_keylogger_indicators_cgeventtap():
     """Test detection of CGEventTap usage."""
     mod = _get_module()
-    # "log" is the log tool reporting our own query; it must not be listed.
-    processes = ["com.suspicious.app[12345]", "log[555]", "malware_process[67890]"]
+    processes = ["com.suspicious.app[12345]", "malware_process[67890]"]
     fake_run = _make_run_result(cgeventtap_processes=processes)
     with patch("subprocess.run", side_effect=fake_run):
         result = mod.check(_make_profile())
@@ -169,6 +168,24 @@ def test_keylogger_indicators_cgeventtap():
     assert cgeventtap_findings[0].severity == Severity.WARNING
     # The process names, never the date column or the header.
     assert cgeventtap_findings[0].data["processes"] == ["com.suspicious.app", "malware_process"]
+
+
+def test_cgeventtap_query_excludes_only_the_system_log_tool():
+    """Our own query is filtered by path; a process merely named "log" still counts."""
+    mod = _get_module()
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = "2026-10-15 04:10:01.123 Df log[1:2] CGEventTapCreate\n"
+        return result
+
+    with patch("subprocess.run", side_effect=fake_run):
+        names = mod._check_cgeventtap_usage()
+    assert "processImagePath != '/usr/bin/log'" in " ".join(seen["cmd"])
+    assert names == ["log"]
 
 
 def test_keylogger_indicators_multiple_issues():
