@@ -103,6 +103,11 @@ const MADE_BY_REASON = {
   'development certificate': "signed with a developer's test certificate, not a published one",
   'unrecognised signature': 'its signature could not be recognised',
   'not part of any installed package': 'not part of any installed package',
+  'started with extra instructions': 'the program is signed, but this background job gives it extra instructions the signature doesn\u2019t cover',
+  'inline command': 'it runs a command written into its settings',
+  'program not named by full path': 'its settings don\u2019t say exactly which program runs',
+  'settings change how the program loads code': 'its settings change how or where the program runs',
+  'unreadable settings': 'its settings could not be read clearly',
 };
 
 function describeMadeBy(entry) {
