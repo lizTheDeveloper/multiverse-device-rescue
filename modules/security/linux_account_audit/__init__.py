@@ -120,18 +120,21 @@ class Module(ModuleBase):
         uid0 = [a for a in accounts if a["uid"] == 0 and a["name"] != "root"]
         return [
             Finding(
-                title=f"Account '{account['name']}' has root privileges (UID 0)",
+                title=f"Account '{account['name']}' has the same powers as root",
                 description=(
-                    f"'{account['name']}' shares UID 0 with root, which means it *is* root: "
-                    "same powers, different name. A handful of appliance distributions ship "
-                    "an alias like 'toor' deliberately, but on a normal system a second UID "
-                    "0 account is how someone keeps access after you change the root "
-                    "password.\n\n"
-                    f"  shell: {account['shell']}\n"
-                    f"  home:  {account['home']}\n\n"
-                    "What to do: if you did not create this account, do not delete it "
-                    "yet. Write down its name, then ask a trusted technical person or an "
-                    "advocate to help (removing it can alert whoever set it up)."
+                    f"Your computer has an account named '{account['name']}' that has "
+                    "the exact same control as the main 'root' account. This is unusual. "
+                    "While some specific devices use extra names for root, on a normal "
+                    "computer, this often means someone created a hidden way to keep "
+                    "access even if you change the main password.\n\n"
+                    f"  Details: {account['shell']} (shell), {account['home']} (home folder)\n\n"
+                    "If you think someone close to you may have set this up to watch "
+                    "you, please talk to an advocate before changing anything. Removing "
+                    "it can alert the person who installed it. (US National Domestic "
+                    "Violence Hotline: 1-800-799-7233, or text START to 88788)\n\n"
+                    "What to do: If you did not create this, do not delete it yet. Write "
+                    "down the name, then ask a trusted technical person or advocate to "
+                    "help you remove it safely."
                 ),
                 severity=Severity.CRITICAL,
                 category=self.category,
@@ -177,13 +180,16 @@ class Module(ModuleBase):
                 continue
             findings.append(
                 Finding(
-                    title=f"Account '{name}' has no password set",
+                    title=f"Account '{name}' can be used without a password",
                     description=(
-                        f"'{name}' can be logged into with no credential at all, from the "
-                        "console and — if SSH permits empty passwords — over the network. "
-                        "Set a password or lock the account.\n\n"
-                        "What to do: set a password only you know in Settings > Users, or "
-                        "lock the account if nobody should use it."
+                        f"An account named '{name}' on your computer does not have a password. "
+                        "This means anyone who can reach your computer can log in as "
+                        "this user without entering anything. This is a major security "
+                        "gap because it allows easy access to your files.\n\n"
+                        "What to do: Open your system's Settings > Users (or System Settings "
+                        "> Users & Groups) and set a strong, unique password for this "
+                        "account. If you do not recognize this account or do not use "
+                        "it, lock it or delete it."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -215,17 +221,18 @@ class Module(ModuleBase):
                 principal = match.group(1)
                 findings.append(
                     Finding(
-                        title=f"{principal} can run commands as root without a password",
+                        title=f"{principal} can use admin powers without a password",
                         description=(
-                            f"{path} contains a NOPASSWD rule for {principal}.\n\n"
+                            f"{path} lets {principal} use administrator (root) powers "
+                            "without typing a password:\n\n"
                             f"  {match.group(0).strip()[:200]}\n\n"
-                            "This is convenient and it is also the difference between "
-                            "'someone got into your user session' and 'someone got root'. "
-                            "Automation on a server sometimes needs it; a desktop rarely "
-                            "does. If it is needed, scope it to specific commands rather "
-                            "than ALL.\n\n"
-                            "What to do: unless a program you know of needs this, ask a "
-                            "technical helper to remove the NOPASSWD rule."
+                            "That's convenient, but it means anything that gets into "
+                            "your account can take over the whole computer straight away. "
+                            "Servers sometimes need it for automation; a desktop rarely "
+                            "does.\n\n"
+                            "What to do: Unless a program you know of needs this, ask "
+                            "a technical helper to remove the NOPASSWD rule, or limit "
+                            "it to the specific commands that need it."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

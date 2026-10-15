@@ -7,6 +7,11 @@ remediates:
   - security.keylogger_indicators.known_keyloggers
   - security.keylogger_indicators.suspicious_input_monitoring
   - security.keylogger_indicators.cgeventtap_usage
+steps_for:
+  security.keylogger_indicators.input_monitoring_access: [1]
+  security.keylogger_indicators.known_keyloggers: [2]
+  security.keylogger_indicators.suspicious_input_monitoring: [3]
+  security.keylogger_indicators.cgeventtap_usage: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -23,7 +28,7 @@ If a **known keylogger** was flagged, treat this as an active-compromise
 scenario: assume your keystrokes (including passwords) may already have been
 captured, and jump straight to Step 2.
 
-## Step 1: Review general Input Monitoring access
+## Step 1: Review apps allowed to monitor your keyboard
 
 This is an inventory finding — it lists every app with the permission, not
 just suspicious ones.
@@ -38,7 +43,7 @@ just suspicious ones.
    to be liberal about turning things off and re-enabling later if something
    breaks.
 
-## Step 2: Remove known keyloggers immediately (critical)
+## Step 2: Remove known keylogger apps and secure your accounts
 
 The scan matched an app name against a list of known commercial/malicious
 keylogger products (e.g. Aobo, Spyrix, mSpy, Ardamax). These are built
@@ -72,7 +77,7 @@ and banking details already captured.
    found (screenshots of the finding, the app's install date and location)
    before removing it.
 
-## Step 3: Investigate suspicious (unrecognized) Input Monitoring access
+## Step 3: Check unrecognized apps with keyboard access
 
 Distinct from Step 2 — this is for apps that aren't on the known-keylogger
 list but also aren't a recognized system app or common developer tool.
@@ -90,7 +95,7 @@ list but also aren't a recognized system app or common developer tool.
    signal it may be legitimate — restore access and move on, but keep a
    note of what it was for future reference.
 
-## Step 4: Investigate keyboard event hooks
+## Step 4: Check for hidden keyboard tracking processes
 
 The scan no longer reports "keyboard hooks": ordinary `ioreg` output is not
 evidence of a hook. This step is kept only for manual follow-up. Raw `ioreg`
@@ -109,7 +114,7 @@ permissions.
    anti-malware tool (e.g. Malwarebytes for Mac) before concluding it's
    benign.
 
-## Step 5: Investigate CGEventTap usage
+## Step 5: Verify apps using keyboard capture tools
 
 `CGEventTap` is a legitimate macOS API (used by hotkey managers, remapping
 tools, accessibility software) but is also the exact mechanism a keylogger

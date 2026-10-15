@@ -10,6 +10,14 @@ remediates:
   - security.login_password_policy.login_window_display
   - security.login_password_policy.screensaver_timeout
   - security.login_password_policy.remote_login_enabled
+steps_for:
+  security.login_password_policy.auto_login: [1]
+  security.login_password_policy.ask_password: [2]
+  security.login_password_policy.password_delay: [2]
+  security.login_password_policy.guest_account_enabled: [3]
+  security.login_password_policy.login_window_display: [4]
+  security.login_password_policy.screensaver_timeout: [4]
+  security.login_password_policy.remote_login_enabled: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -22,7 +30,7 @@ this Mac, so confirm current usage before changing anything and make each
 change through System Settings where possible rather than raw `defaults`
 writes, so you can see the effect immediately.
 
-## Step 1: Disable auto-login (critical)
+## Step 1: Turn off automatic login
 
 Auto-login lets anyone who opens the lid get straight to the desktop with no
 credential check.
@@ -36,7 +44,7 @@ credential check.
    in as".
 3. Restart and confirm the login screen now appears and requires a password.
 
-## Step 2: Require a password after the screensaver, and remove any delay
+## Step 2: Require password right after screensaver
 
 1. If `ask_password` was flagged: System Settings > Lock Screen > enable
    "Require password after screen saver begins or display is turned off".
@@ -46,7 +54,7 @@ credential check.
 3. Lock the screen (Control+Command+Q) and verify a password prompt appears
    right away.
 
-## Step 3: Review the Guest account
+## Step 3: Check if you use the Guest account
 
 1. Confirm whether you or anyone else actually uses Guest login on this
    Mac — check System Settings > General > Sharing for any guest-dependent
@@ -56,7 +64,7 @@ credential check.
 3. If your organization or household intentionally uses Guest access, leave
    it and note that as an accepted risk instead of disabling it blindly.
 
-## Step 4: Review login window display and screensaver timeout
+## Step 4: Hide user names and set screensaver time
 
 1. `login_window_display` is informational — it reports whether the login
    screen shows a user list or a name+password field. A user list reveals
@@ -68,7 +76,7 @@ credential check.
    when inactive" to 10 minutes or less.
 3. Re-run the scan to confirm the new timeout is reported.
 
-## Step 5: Review Remote Login (SSH)
+## Step 5: Check if you use Remote Login
 
 This is informational — Remote Login is often intentional (e.g. you SSH into
 this Mac from another device).

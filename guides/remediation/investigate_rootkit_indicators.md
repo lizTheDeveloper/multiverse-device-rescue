@@ -9,6 +9,13 @@ remediates:
   - security.rootkit_check.hidden_processes
   - security.rootkit_check.hidden_files
   - security.rootkit_check.all_clean
+steps_for:
+  security.rootkit_check.sip_disabled: [1, 6]
+  security.rootkit_check.binary_integrity: [2, 6]
+  security.rootkit_check.kernel_extensions: [3, 6]
+  security.rootkit_check.hidden_processes: [4, 6]
+  security.rootkit_check.hidden_files: [5, 6]
+  security.rootkit_check.all_clean: [6]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
 ---
@@ -30,7 +37,7 @@ anything else, do not enter any passwords on it, and remediate from a
 separate known-clean device (e.g. use another Mac to research indicators and
 download tools, then transfer them via a freshly-verified USB drive).
 
-## Step 1: Re-enable System Integrity Protection (critical)
+## Step 1: Turn System Integrity Protection back on
 
 SIP being disabled is not, on its own, proof of compromise — some
 developers disable it intentionally — but it removes a major barrier that
@@ -50,7 +57,7 @@ rootkits rely on, so treat it as high priority to resolve or explain.
    the disable was likely benign. If SIP won't stay enabled, or other
    CRITICAL findings are present alongside it, escalate to Step 6.
 
-## Step 2: Investigate system binary signature failures (critical)
+## Step 2: Check if core system files were tampered with
 
 A failed `codesign` verification on a core binary (`/bin/sh`, `/bin/bash`,
 `/usr/bin/login`, `/usr/sbin/sshd`) means the file on disk doesn't match
@@ -75,7 +82,7 @@ Apple's signed original — it may have been tampered with.
    malware persistence often lives there — restore those from known-clean
    backups instead, or none at all.
 
-## Step 3: Review non-Apple kernel extensions
+## Step 3: Review extra software running deep in your system
 
 Third-party kernel extensions are not inherently malicious (VPN clients,
 virtualization software, and some security tools use them), but they run
@@ -96,7 +103,7 @@ installation.
 5. Only permanently delete the quarantined app once you're confident it was
    the source and you no longer need it for reference.
 
-## Step 4: Investigate process count discrepancies
+## Step 4: Check for hidden programs running in the background
 
 A mismatch between the process count from `ps` and from `sysctl
 kern.proc.all` can indicate a process actively hiding itself from
@@ -121,7 +128,7 @@ also come from processes starting/exiting during the scan.
    remediate from a clean posture, consider professional incident response
    or a full OS reinstall).
 
-## Step 5: Review suspicious hidden files at filesystem root
+## Step 5: Look for hidden files in your main system folder
 
 Rootkits sometimes drop dot-prefixed files directly under `/` to hide
 payloads or persistence data outside the directories users normally browse.
@@ -137,7 +144,7 @@ payloads or persistence data outside the directories users normally browse.
    move it back. Otherwise leave it quarantined or submit a sample to a
    malware-analysis service (e.g. VirusTotal) before final deletion.
 
-## Step 6: Escalate if multiple indicators are present, or the system checks out clean
+## Step 6: Decide if you need a full system reset
 
 1. If this scan reports **only** the `all_clean` INFO finding, no action is
    needed — the module found signed binaries, no unexpected kernel

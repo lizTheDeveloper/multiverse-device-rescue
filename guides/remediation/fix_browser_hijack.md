@@ -11,6 +11,15 @@ remediates:
   - security.browser_hijack_check.firefox_homepage_suspicious
   - security.browser_hijack_check.firefox_search_engine_suspicious
   - security.browser_hijack_check.all_browsers_clean
+steps_for:
+  security.browser_hijack_check.safari_homepage_suspicious: [1]
+  security.browser_hijack_check.safari_search_engine_suspicious: [2]
+  security.browser_hijack_check.chrome_managed_by_policy: [3]
+  security.browser_hijack_check.chrome_homepage_suspicious: [1]
+  security.browser_hijack_check.chrome_search_engine_suspicious: [2]
+  security.browser_hijack_check.firefox_homepage_suspicious: [1]
+  security.browser_hijack_check.firefox_search_engine_suspicious: [2]
+  security.browser_hijack_check.all_browsers_clean: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -23,7 +32,7 @@ homepage set to a company intranet page, or a search engine your employer's
 MDM configured, will also trigger these checks. Inspect before changing
 anything, and only reset settings you've confirmed you didn't set yourself.
 
-## Step 1: Investigate a suspicious homepage (Safari/Chrome/Firefox)
+## Step 1: Check and reset your browser homepage
 
 1. Note which browser and the flagged homepage URL from the finding.
 2. Ask yourself whether you (or a legitimate installer/IT policy) set this
@@ -45,7 +54,7 @@ anything, and only reset settings you've confirmed you didn't set yourself.
    delivered alongside a malicious extension, and resetting the homepage
    alone won't remove the underlying cause if one is present.
 
-## Step 2: Investigate a suspicious default search engine
+## Step 2: Check and reset your default search engine
 
 1. Note which browser and the flagged search engine/provider string.
 2. Confirm you didn't intentionally switch to a niche provider (Startpage,
@@ -63,7 +72,7 @@ anything, and only reset settings you've confirmed you didn't set yourself.
    - **Firefox**: Firefox > Settings > Search — pick a legitimate default
      and remove unrecognized entries from the search engine list.
 
-## Step 3: Review Chrome enterprise policy management
+## Step 3: Check if Chrome is controlled by work policy
 
 Chrome reporting itself as managed by policy is not inherently malicious —
 this is normal on a company-issued or MDM-enrolled Mac. It's worth a look
@@ -81,7 +90,7 @@ extensions or settings.
    configuration profile and remove it after confirming you don't need it,
    then reinstall Chrome cleanly if policies persist.
 
-## Step 4: No issues found
+## Step 4: No action needed, your browsers are clean
 
 If the scan reports only the `all_browsers_clean` INFO finding, no
 homepage, search engine, or policy anomalies were detected in any installed

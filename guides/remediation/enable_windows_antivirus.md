@@ -11,6 +11,15 @@ remediates:
   - security.win_defender.antivirus_enabled
   - security.win_defender.realtime_protection
   - security.win_defender.signature_age
+steps_for:
+  security.win_antivirus_status.no_av_product: [1]
+  security.win_antivirus_status.realtime_protection_disabled: [2]
+  security.win_antivirus_status.stale_definitions: [3]
+  security.win_antivirus_status.multiple_av_products: [4]
+  security.win_antivirus_status.registered_products: [5]
+  security.win_defender.antivirus_enabled: [1]
+  security.win_defender.realtime_protection: [2]
+  security.win_defender.signature_age: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 ---
@@ -25,7 +34,7 @@ disable antivirus as a first step — rather than assuming it's a routine
 misconfiguration. Nothing here requires deleting files; every fix re-enables
 a setting or updates definitions.
 
-## Step 1: No antivirus product registered (critical)
+## Step 1: Turn on your antivirus software
 
 Windows Security Center reports no antivirus product registered at all, or
 Windows Defender itself reports as disabled.
@@ -45,7 +54,7 @@ Windows Defender itself reports as disabled.
    rather than leaving the machine with neither. Don't leave the system with
    no active AV in the interim.
 
-## Step 2: Real-time protection disabled
+## Step 2: Turn on real-time protection
 
 Real-time protection scans files as they're accessed; without it, malware
 can execute without being caught at the point of access.
@@ -67,7 +76,7 @@ can execute without being caught at the point of access.
    real-time protection through that product's own settings UI — Defender's
    PowerShell cmdlets only control Defender itself.
 
-## Step 3: Stale antivirus definitions
+## Step 3: Update your virus definitions
 
 More than 7 days have passed since the last definition update. Outdated
 definitions miss newer threats.
@@ -80,7 +89,7 @@ definitions miss newer threats.
    have its own scheduled update task; confirm that task hasn't been
    disabled.
 
-## Step 4: Multiple antivirus products registered
+## Step 4: Remove extra antivirus programs
 
 More than one antivirus product is registered with Windows Security Center.
 Running two real-time scanners simultaneously commonly causes conflicts,
@@ -99,7 +108,7 @@ scans).
    AV can still interfere. Confirm the one you're keeping resumes real-time
    protection afterward (Step 2).
 
-## Step 5: Review registered products (informational)
+## Step 5: Check your installed antivirus list
 
 The `registered_products` / `antivirus_enabled` findings without an
 associated problem are informational — they list what's currently

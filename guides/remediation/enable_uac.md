@@ -7,6 +7,10 @@ remediates:
   - security.win_uac_check.uac_never_notify
   - security.win_uac_check.secure_desktop_disabled
   - security.win_uac_check.uac_configured_ok
+steps_for:
+  security.win_uac_check.uac_disabled: [1]
+  security.win_uac_check.uac_never_notify: [2]
+  security.win_uac_check.secure_desktop_disabled: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
@@ -19,7 +23,7 @@ scripts, or well-meaning-but-wrong tutorials. Confirm current state before
 changing anything, since on managed/work machines UAC policy may be
 centrally controlled.
 
-## Step 1: Re-enable UAC entirely (critical — if fully disabled)
+## Step 1: Turn on User Account Control
 
 With `EnableLUA=0`, every process runs with full administrator rights
 without any prompt — this is the highest-priority finding here.
@@ -33,7 +37,7 @@ without any prompt — this is the highest-priority finding here.
 3. Restart the system — this setting only takes effect after a reboot.
 4. Re-run the scan after restarting to confirm UAC now reports as enabled.
 
-## Step 2: Change UAC prompt behavior away from "Never notify"
+## Step 2: Set UAC to ask before changes
 
 `ConsentPromptBehaviorAdmin=0` means administrators get no prompt at all for
 privileged actions — functionally similar risk to UAC being off, just for
@@ -50,7 +54,7 @@ admin accounts specifically.
    ConsentPromptBehaviorAdmin /t REG_DWORD /d 5 /f`.
 3. Re-run the scan to confirm.
 
-## Step 3: Re-enable the secure desktop for UAC prompts
+## Step 3: Enable secure desktop for UAC prompts
 
 Without the secure desktop, UAC prompts render on the normal desktop, where
 malware can draw a convincing fake prompt (a "UAC spoofing" phishing

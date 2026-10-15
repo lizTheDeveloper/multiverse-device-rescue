@@ -15,6 +15,19 @@ remediates:
   - security.ssh_key_audit.ssh_agent_not_running
   - security.ssh_key_audit.ed25519_keys
   - security.ssh_key_audit.rsa_keys
+steps_for:
+  security.ssh_key_audit.dsa_key_found: [1]
+  security.ssh_key_audit.weak_rsa_key: [2]
+  security.ssh_key_audit.bad_ssh_dir_perms: [3]
+  security.ssh_key_audit.bad_key_perms: [3]
+  security.ssh_key_audit.permit_root_login: [4]
+  security.ssh_key_audit.password_auth_enabled: [4]
+  security.ssh_key_audit.authorized_keys: [5]
+  security.ssh_key_audit.known_hosts: [5]
+  security.ssh_key_audit.ssh_agent_running: [6]
+  security.ssh_key_audit.ssh_agent_not_running: [6]
+  security.ssh_key_audit.ed25519_keys: [6]
+  security.ssh_key_audit.rsa_keys: [6]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
 ---
@@ -27,7 +40,7 @@ Key regeneration and `sshd_config` edits are all human-only — they touch
 credentials and a service you may currently be relying on to reach this
 machine remotely, so nothing here is auto-applied.
 
-## Step 1: Regenerate DSA keys (critical)
+## Step 1: Replace broken DSA keys with new secure ones
 
 DSA is cryptographically broken and should not be used for anything.
 
@@ -44,7 +57,7 @@ DSA is cryptographically broken and should not be used for anything.
    remove the corresponding entry from `~/.ssh/config` if one references it
    by name.
 
-## Step 2: Regenerate weak RSA keys
+## Step 2: Replace weak RSA keys with stronger ones
 
 RSA keys under 2048 bits are considered weak.
 
@@ -55,7 +68,7 @@ RSA keys under 2048 bits are considered weak.
 3. Distribute the new public key to servers/services that trusted the old
    one, confirm login works, then remove the old weak key.
 
-## Step 3: Fix SSH directory and private key permissions
+## Step 3: Lock down file permissions for your keys
 
 Overly permissive modes on `~/.ssh/` or its key files let other local
 accounts (or a compromised process) read your private keys.
@@ -64,7 +77,7 @@ accounts (or a compromised process) read your private keys.
 2. For each flagged private key file: `chmod 600 <path-to-key>`.
 3. Re-run the scan to confirm both report as fixed.
 
-## Step 4: Review sshd_config for risky remote-login settings
+## Step 4: Tighten remote login settings for SSH
 
 These findings only apply if this Mac runs `sshd` (i.e. Remote Login is
 enabled — see `disable_unwanted_remote_access.md` if you don't need inbound
@@ -86,7 +99,7 @@ SSH at all). If you do need inbound SSH, tighten it:
    test a fresh SSH login before closing the original session — this way
    you can revert from `sshd_config.bak` if something is wrong.
 
-## Step 5: Review authorized_keys and known_hosts entries
+## Step 5: Clean up lists of trusted devices and hosts
 
 These are informational inventory findings — nothing is inherently wrong,
 but stale entries are worth pruning.
@@ -101,7 +114,7 @@ but stale entries are worth pruning.
    decommissioned (stale entries are low risk but bloat the file and can
    mask host-key-change warnings for reused IPs).
 
-## Step 6: Review SSH agent state and key inventory
+## Step 6: Check your SSH agent and key inventory
 
 Informational — confirms what's currently loaded and what keys you have.
 

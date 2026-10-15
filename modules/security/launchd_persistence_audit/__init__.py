@@ -110,11 +110,22 @@ class Module(ModuleBase):
             if self._is_known_malware(label):
                 findings.append(
                     Finding(
-                        title=f"Known malware persistence: {label}",
+                        title=(
+                            "Software that matches a known virus is set to start automatically: "
+                            f"{label}"
+                        ),
                         description=(
-                            f"The launchd item '{label}' is from a known malware family. "
-                            f"This is a critical indicator of compromise. "
-                            f"Program: {program_path}"
+                            f"We found a background task named '{label}' that matches "
+                            f"a known virus. It is set to run the file at {program_path}.\n\n"
+                            "This is a serious security issue. Because this could be "
+                            "software installed by someone else to spy on you or control "
+                            "your Mac, removing it may alert that person. If you suspect "
+                            "a partner or ex installed this, please talk to an advocate "
+                            "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                            "or text START to 88788) before deleting anything.\n\n"
+                            "What to do: If you are safe to proceed, use a reputable "
+                            "antivirus tool to remove this item and then restart your "
+                            "Mac."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -133,15 +144,24 @@ class Module(ModuleBase):
             if writable:
                 findings.append(
                     Finding(
-                        title=f"Launchd item runs from a world-writable location: {label}",
+                        title=(
+                            f"Background task runs from a folder anyone can change: {label}"
+                        ),
                         description=(
-                            f"The launchd item '{label}' runs {writable}, which is in a "
-                            "folder that any program on this Mac can write to "
-                            "(such as /tmp). Anything placed there will be run "
-                            "automatically as you, even if the file does not exist "
-                            "right now. Legitimate software installs itself in "
-                            "/Applications or /opt/homebrew, not /tmp. "
-                            f"Program: {program_path}"
+                            f"The background task '{label}' is set to run a file located "
+                            f"at {writable}. This is a public folder (like /tmp) where "
+                            "any program on your Mac can add or change files. Legitimate "
+                            "apps install in /Applications, not here. This setup is dangerous "
+                            "because it allows malicious software to hide or replace "
+                            "the file.\n\n"
+                            "This could be software installed by someone else to spy "
+                            "on you. Removing it may alert that person. If you suspect "
+                            "a partner or ex installed this, please talk to an advocate "
+                            "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                            "or text START to 88788) before deleting anything.\n\n"
+                            "What to do: If you don't recognize it and it's safe for you, "
+                            "turn it off in System Settings > General > Login Items & "
+                            "Extensions, under Allow in the Background."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -183,13 +203,19 @@ class Module(ModuleBase):
             elif hidden == "unusual":
                 findings.append(
                     Finding(
-                        title=f"Launchd item runs from a hidden folder: {label}",
+                        title=f"Background task runs from a hidden folder: {label}",
                         description=(
-                            f"The launchd item '{label}' runs a program inside a hidden "
-                            f"folder: {program_path}\n"
-                            "Some apps do this legitimately, but hidden folders are also "
-                            "a place where unwanted software hides. Check that you "
-                            "recognize this program."
+                            f"The background task '{label}' runs a file inside a hidden "
+                            f"folder: {program_path}. Some apps do this, but hidden folders "
+                            "are also where unwanted software hides to avoid being seen.\n\n"
+                            "This could be software installed by someone else to spy "
+                            "on you. Removing it may alert that person. If you suspect "
+                            "a partner or ex installed this, please talk to an advocate "
+                            "first (US National Domestic Violence Hotline: 1-800-799-7233, "
+                            "or text START to 88788) before deleting anything.\n\n"
+                            f"What to do: If you don't recognize '{label}' and it's safe for "
+                            "you, turn it off in System Settings > General > Login Items & "
+                            "Extensions, under Allow in the Background."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -213,12 +239,16 @@ class Module(ModuleBase):
             ):
                 findings.append(
                     Finding(
-                        title=f"Background service points to a missing program: {label}",
+                        title=f"Background task points to a file that is missing: {label}",
                         description=(
-                            f"The launchd item '{label}' is set to start at login and "
-                            "restart itself, but its program cannot be found: "
-                            f"{program_path}\n"
-                            "This is usually left over from an app that was removed."
+                            f"The background task '{label}' is set to start when you log "
+                            f"in, but the file it needs ({program_path}) cannot be found.\n\n"
+                            "This is usually just leftover clutter from an app you uninstalled. "
+                            "It is not a sign of spying or a virus, but it can cause "
+                            "minor system errors.\n\n"
+                            "What to do: You can safely ignore this, or open System Settings "
+                            "> General > Login Items & Extensions to remove the entry "
+                            "if you want to clean up."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
