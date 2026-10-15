@@ -39,11 +39,14 @@ class Module(ModuleBase):
         if service_status == "Stopped":
             findings.append(
                 Finding(
-                    title="Windows Search service is stopped",
+                    title="Your computer's search engine is turned off",
                     description=(
-                        "The Windows Search service (WSearch) is not running. "
-                        "Search functionality will not work. Restart the service via "
-                        "Services.msc or PowerShell (Start-Service WSearch)."
+                        "The background service that keeps your files searchable is currently "
+                        "stopped. This means the Windows Search bar won't find your files "
+                        "or apps.\n\n"
+                        "What to do: Open the Start menu, type 'Services', and press Enter. "
+                        "Find 'Windows Search' in the list, right-click it, and select "
+                        "'Start'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -55,12 +58,15 @@ class Module(ModuleBase):
         if cpu_usage is not None and cpu_usage > HIGH_CPU_THRESHOLD:
             findings.append(
                 Finding(
-                    title=f"SearchIndexer using high CPU ({cpu_usage:.1f}%)",
+                    title=f"Search tool is using a lot of computer power ({cpu_usage:.1f}%)",
                     description=(
-                        f"SearchIndexer.exe is consuming {cpu_usage:.1f}% CPU, "
-                        "which suggests indexing is in progress or the index is corrupted. "
-                        "Wait for indexing to complete or rebuild the index via "
-                        "Settings > Privacy > Search > Advanced > Delete index and rebuild."
+                        f"The program that indexes your files is using {cpu_usage:.1f}% "
+                        "of your computer's processing power. This usually happens when "
+                        "it is first setting up or fixing a list of your files. It can "
+                        "make your computer feel slow.\n\n"
+                        "What to do: Wait for the activity to settle down. If it stays "
+                        "high for a long time, rebuild it: Settings > Privacy & security > Searching Windows > Advanced "
+                        "indexing options, then Advanced > Rebuild."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -72,12 +78,13 @@ class Module(ModuleBase):
         if index_size_gb is not None and index_size_gb > MAX_INDEX_SIZE_GB:
             findings.append(
                 Finding(
-                    title=f"Search index is bloated ({index_size_gb:.1f} GB)",
+                    title=f"Your search list is very large ({index_size_gb:.1f} GB)",
                     description=(
-                        f"The Windows Search index has grown to {index_size_gb:.1f} GB, "
-                        "which is larger than expected and may cause performance issues. "
-                        "Consider rebuilding the index via "
-                        "Settings > Privacy > Search > Advanced > Delete index and rebuild."
+                        "The file that helps Windows find your documents has grown to "
+                        f"{index_size_gb:.1f} GB. This is larger than usual and might "
+                        "be slowing down your computer.\n\n"
+                        "What to do: Rebuild it: Settings > Privacy & security > Searching Windows > Advanced "
+                        "indexing options, then Advanced > Rebuild."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

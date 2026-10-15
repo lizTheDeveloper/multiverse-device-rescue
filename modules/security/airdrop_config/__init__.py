@@ -49,10 +49,12 @@ class Module(ModuleBase):
                 Finding(
                     title="AirDrop is set to 'Everyone'",
                     description=(
-                        "AirDrop is discoverable by everyone on nearby networks. "
-                        "This is a security risk, especially for children's devices, "
-                        "as anyone nearby can send unsolicited files. "
-                        "Recommended setting is 'Contacts Only'."
+                        "Your Mac is currently set to accept AirDrop files from any nearby "
+                        "device. This means strangers in public places could potentially "
+                        "send you unwanted files. The safer setting is 'Contacts Only,' "
+                        "which limits transfers to people you already know.\n\n"
+                        "What to do: Open System Settings > General > AirDrop & Handoff "
+                        "and set AirDrop to Contacts Only."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

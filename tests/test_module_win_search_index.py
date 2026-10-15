@@ -178,7 +178,7 @@ def test_win_search_index_service_stopped():
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("stopped" in f.title.lower() for f in result.findings)
+    assert any(f.data.get("check") == "service_stopped" for f in result.findings)
 
 
 def test_win_search_index_high_cpu():
@@ -188,9 +188,9 @@ def test_win_search_index_high_cpu():
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("high cpu" in f.title.lower() for f in result.findings)
+    assert any(f.data.get("check") == "high_cpu" for f in result.findings)
     # Check data contains CPU value
-    cpu_finding = next(f for f in result.findings if "high cpu" in f.title.lower())
+    cpu_finding = next(f for f in result.findings if f.data.get("check") == "high_cpu")
     assert cpu_finding.data.get("cpu_percent") == 42.5
 
 
@@ -201,9 +201,9 @@ def test_win_search_index_bloated():
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("bloated" in f.title.lower() for f in result.findings)
+    assert any(f.data.get("check") == "index_bloated" for f in result.findings)
     # Check data contains size
-    size_finding = next(f for f in result.findings if "bloated" in f.title.lower())
+    size_finding = next(f for f in result.findings if f.data.get("check") == "index_bloated")
     assert size_finding.data.get("index_size_gb") == 7.8
 
 

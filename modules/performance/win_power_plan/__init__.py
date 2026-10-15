@@ -42,11 +42,15 @@ class Module(ModuleBase):
             if "Power Saver" in active_name:
                 findings.append(
                     Finding(
-                        title="Power Saver mode detected",
+                        title="Your computer is in Power Saver mode",
                         description=(
-                            "The system is running on Power Saver plan, which reduces CPU, "
-                            "GPU, and memory speeds. This can cause noticeable performance degradation. "
-                            "Consider switching to Balanced or High Performance mode."
+                            "Your computer is currently set to 'Power Saver' mode. This "
+                            "setting intentionally slows down your processor and graphics "
+                            "to save battery life, which can make the computer feel sluggish "
+                            "or slow to respond.\n\n"
+                            "What to do: To restore normal speed, open the Start menu, "
+                            "type 'power plan', and select 'Choose a power plan'. Then, "
+                            "select 'Balanced' or 'High performance'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

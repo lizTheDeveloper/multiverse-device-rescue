@@ -53,8 +53,18 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title="Slow boot time detected",
-                    description=f"System boot takes {boot_duration_seconds} seconds, which exceeds the recommended 60-second threshold.",
+                    title=(
+                        f"Your computer takes a while to start up ({boot_duration_seconds} "
+                        "seconds)"
+                    ),
+                    description=(
+                        f"Your computer takes {boot_duration_seconds} seconds to start "
+                        "up. This is longer than the usual 60 seconds, which can make "
+                        "using your device feel sluggish.\n\n"
+                        "What to do: Restart your computer to clear out temporary files. "
+                        "If it is still slow, check if your hard drive is running out "
+                        "of space."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={

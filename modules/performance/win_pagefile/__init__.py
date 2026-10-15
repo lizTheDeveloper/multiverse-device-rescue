@@ -45,11 +45,17 @@ class Module(ModuleBase):
         if pagefile_settings.get("disabled", False):
             findings.append(
                 Finding(
-                    title="Pagefile is disabled",
+                    title="Your computer's extra memory (pagefile) is turned off",
                     description=(
-                        "Virtual memory (pagefile) is disabled on this system. "
-                        "This can cause out-of-memory crashes when RAM is exhausted, "
-                        "especially on machines with limited RAM."
+                        "Your computer uses a file on your hard drive as extra memory "
+                        "when your physical RAM runs out. This file is currently turned "
+                        "off.\n\n"
+                        "This means that if you open too many programs at once, your computer "
+                        "might freeze or crash because it runs out of memory.\n\n"
+                        "What to do: Type 'Advanced system settings' in the Start menu, "
+                        "then choose Performance Settings > Advanced > Virtual memory > "
+                        "Change, and tick 'Automatically manage paging file size for all "
+                        "drives'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -65,11 +71,21 @@ class Module(ModuleBase):
             if total_ram_mb < 8192 and pagefile_size_mb < total_ram_mb:
                 findings.append(
                     Finding(
-                        title="Pagefile size is smaller than RAM",
+                        title=(
+                            f"Your extra memory file is smaller than your RAM ({pagefile_size_mb}MB "
+                            f"vs {total_ram_mb}MB)"
+                        ),
                         description=(
-                            f"Pagefile is {pagefile_size_mb}MB but RAM is {total_ram_mb}MB. "
-                            f"On systems with limited RAM (<8GB), pagefile should be at least "
-                            f"equal to RAM size for stability."
+                            f"Your computer has {total_ram_mb}MB of physical memory, but "
+                            f"the file it uses for extra memory is only {pagefile_size_mb}MB.\n\n"
+                            "On computers with less than 8GB of RAM, this file should "
+                            "usually be at least as big as your physical memory. If it's "
+                            "too small, your computer might crash when you try to do "
+                            "heavy tasks.\n\n"
+                            "What to do: Type 'Advanced system settings' in the Start menu, "
+                        "then choose Performance Settings > Advanced > Virtual memory > "
+                        "Change, and tick 'Automatically manage paging file size for all "
+                        "drives'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -91,11 +107,20 @@ class Module(ModuleBase):
             ):
                 findings.append(
                     Finding(
-                        title="Pagefile drive is nearly full",
+                        title=(
+                            "The drive holding your extra memory file is almost full "
+                            f"({pagefile_location})"
+                        ),
                         description=(
-                            f"The drive containing pagefile ({pagefile_location}) has "
-                            f"only {pagefile_drive_free_percent}% free space. "
-                            f"Pagefile needs free space to grow. Free up disk space."
+                            f"The drive where your extra memory file lives ({pagefile_location}) "
+                            f"has only {pagefile_drive_free_percent}% free space.\n\n"
+                            "Your computer needs free space on this drive to expand the "
+                            "extra memory file when needed. If the drive is too full, "
+                            "the computer may crash or become very slow.\n\n"
+                            "What to do: Open File Explorer, click on the drive shown "
+                            "above, and look for large files you no longer need. You "
+                            "can also go to Settings > System > Storage to see what is "
+                            "taking up space and remove unnecessary items."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

@@ -486,11 +486,16 @@ class Module(ModuleBase):
         task_name = raw.get("task_name") or "unknown"
 
         return Finding(
-            title=f"Suspicious scheduled task: {task_name}",
+            title=f"Scheduled task '{task_name}' runs from a temporary folder",
             description=(
-                f"Scheduled task '{task_name}' runs "
-                f"'{raw.get('command')}' from a temp/appdata location — a "
-                "common persistence technique."
+                f"Your computer has a scheduled task named '{task_name}' that runs the "
+                f"command '{raw.get('command')}'. This command is located in a temporary "
+                "or app data folder. Legitimate software usually installs in the main "
+                "Program Files folder. Running commands from temporary folders is a common "
+                "trick used by malware to hide itself.\n\n"
+                "What to do: Open Task Scheduler (search 'Task Scheduler' in the Start "
+                "menu), find this task, and check its properties. If you do not recognize "
+                "it, disable it."
             ),
             severity=severity,
             category=self.category,
@@ -547,10 +552,14 @@ class Module(ModuleBase):
         line_number = raw.get("line_number")
 
         return Finding(
-            title=f"Suspicious shell profile injection in {file_}",
+            title=f"Unusual command found in your shell profile {file_}",
             description=(
-                f"Line {line_number} of {file_} contains a pattern "
-                f"associated with worm persistence: {line}"
+                f"Line {line_number} of your configuration file {file_} contains: {line}. "
+                "This file runs every time you open a terminal. This specific line looks "
+                "like a pattern used by malware to keep running in the background.\n\n"
+                f"What to do: Open {file_} in a text editor, look at line {line_number}, "
+                "and remove that specific line if you do not recognize it. Do not delete "
+                "the whole file."
             ),
             severity=severity,
             category=self.category,
@@ -644,8 +653,13 @@ class Module(ModuleBase):
         return Finding(
             title=title,
             description=(
-                f"SessionStart hook command in {raw.get('path')}: "
-                f"{raw.get('command')}"
+                f"We found a hook in your Claude settings file ({raw.get('path')}) that "
+                f"runs: {raw.get('command')}. Hooks run automatically when you start a "
+                "Claude session. This specific command is associated with malicious software "
+                "that tries to persist on your system.\n\n"
+                f"What to do: Open {raw.get('path')} in a text editor and remove the entry "
+                "for this command. If you are not comfortable editing JSON files, back "
+                "up the file and ask a trusted tech-savvy friend for help."
             ),
             severity=severity,
             category=self.category,

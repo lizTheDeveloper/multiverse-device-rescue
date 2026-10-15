@@ -69,11 +69,15 @@ class Module(ModuleBase):
         if winsxs_size > 0:
             findings.append(
                 Finding(
-                    title=f"WinSxS component store: {_fmt_bytes(winsxs_size)}",
+                    title=f"Windows component store is using {_fmt_bytes(winsxs_size)}",
                     description=(
-                        f"Windows component store (C:\\Windows\\WinSxS) contains "
-                        f"{_fmt_bytes(winsxs_size)}. Run 'Dism.exe /Online /Cleanup-Image "
-                        f"/StartComponentCleanup' to recover space from unused components."
+                        "Your computer's component store (C:\\Windows\\WinSxS) is taking "
+                        f"up {_fmt_bytes(winsxs_size)}. This folder holds old versions "
+                        "of Windows files so you can roll back updates if needed. It "
+                        "is normal for this to grow over time, but it can get quite large.\n\n"
+                        "What to do: Open Settings > System > Storage > Temporary files, "
+                        "check 'Windows Update Cleanup', and click 'Remove files'. This "
+                        "safely removes unused old components."
                     ),
                     severity=Severity.WARNING if winsxs_size > WINSXS_WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,
@@ -109,11 +113,15 @@ class Module(ModuleBase):
         if windows_old_exists:
             findings.append(
                 Finding(
-                    title=f"Windows.old folder: {_fmt_bytes(windows_old_size)}",
+                    title=f"Old Windows installation is using {_fmt_bytes(windows_old_size)}",
                     description=(
-                        f"Previous Windows installation folder (C:\\Windows.old) contains "
-                        f"{_fmt_bytes(windows_old_size)} and can be safely deleted. "
-                        f"This folder appears after a Windows upgrade and can recover 10-30GB."
+                        "Your computer has a folder called C:\\Windows.old taking up "
+                        f"{_fmt_bytes(windows_old_size)}. This is a backup of your previous "
+                        "Windows version, created when you upgraded. It is safe to remove "
+                        "if your current Windows is working well.\n\n"
+                        "What to do: Open Settings > System > Storage > Temporary files, "
+                        "check 'Previous Windows installation(s)', and click 'Remove "
+                        "files'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -187,11 +195,14 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"Found {_fmt_bytes(total_reclaimable)} of reclaimable disk space",
+                    title=f"Found {_fmt_bytes(total_reclaimable)} of freeable disk space",
                     description=(
-                        f"Comprehensive scan of WinSxS, Windows Update cache, Windows.old, "
-                        f"Recycle Bin, and temp locations found {_fmt_bytes(total_reclaimable)} total. "
-                        f"Review individual findings below for safe cleanup options."
+                        f"We found {_fmt_bytes(total_reclaimable)} of space you can free "
+                        "up safely. This comes from temporary files, old updates, and "
+                        "the Recycle Bin. None of these are needed for your computer "
+                        "to run.\n\n"
+                        "What to do: Look at the other cards in this section for specific "
+                        "steps to clean up each area."
                     ),
                     severity=Severity.WARNING if total_reclaimable > TOTAL_RECLAIMABLE_WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,
