@@ -203,3 +203,59 @@ def test_fix_never_asks_for_a_master_password(mod):
     combined = " ".join(a.description for a in fix.actions).lower()
     # The guidance must actively warn against entering it, not solicit it.
     assert "never type your master password into this tool" in combined
+
+
+# -- password managers installed only as a browser extension -----------------
+
+LASTPASS_ID = "hdokiejnpimakedhajhdlcegeplioahd"
+STORE = "https://clients2.google.com/service/update2/crx"
+
+
+def _chrome_extension(root, ext_id, update_url, profile="Default", name="LastPass"):
+    import json
+
+    version = root / profile / "Extensions" / ext_id / "4.0.0_0"
+    version.mkdir(parents=True)
+    manifest = {"name": name}
+    if update_url:
+        manifest["update_url"] = update_url
+    (version / "manifest.json").write_text(json.dumps(manifest))
+
+
+def test_store_extension_counts_as_a_password_manager(mod):
+    chrome = mod._tmp / "Chrome"
+    _chrome_extension(chrome, LASTPASS_ID, STORE, profile="Profile 3")
+    mod.browser_profiles = {"Google Chrome": str(chrome)}
+    result = mod.check(_make_profile())
+    codes = [f.code for f in result.findings]
+    assert "security.password_manager_check.no_password_manager" not in codes
+    inventory = next(f for f in result.findings if f.data["check"] == "inventory")
+    assert inventory.data["managers"] == ["LastPass"]
+
+
+def test_sideloaded_copy_with_a_store_id_does_not_count(mod):
+    chrome = mod._tmp / "Chrome"
+    _chrome_extension(chrome, LASTPASS_ID, None)
+    mod.browser_profiles = {"Google Chrome": str(chrome)}
+    result = mod.check(_make_profile())
+    codes = [f.code for f in result.findings]
+    assert "security.password_manager_check.no_password_manager" in codes
+
+
+def test_an_extension_merely_named_like_a_manager_does_not_count(mod):
+    chrome = mod._tmp / "Chrome"
+    _chrome_extension(chrome, "a" * 32, STORE, name="LastPass")
+    mod.browser_profiles = {"Google Chrome": str(chrome)}
+    result = mod.check(_make_profile())
+    codes = [f.code for f in result.findings]
+    assert "security.password_manager_check.no_password_manager" in codes
+
+
+def test_firefox_addon_counts(mod):
+    ff = mod._tmp / "Profiles"
+    (ff / "abc.default" / "extensions").mkdir(parents=True)
+    (ff / "abc.default" / "extensions" / "support@lastpass.com.xpi").write_bytes(b"")
+    mod.browser_profiles = {"Firefox": str(ff)}
+    result = mod.check(_make_profile())
+    inventory = next(f for f in result.findings if f.data["check"] == "inventory")
+    assert inventory.data["managers"] == ["LastPass"]

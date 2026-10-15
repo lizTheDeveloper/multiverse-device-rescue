@@ -118,15 +118,9 @@ class Module(ModuleBase):
                         description=(
                             f"We found a background task named '{label}' that matches "
                             f"a known virus. It is set to run the file at {program_path}.\n\n"
-                            "This is a serious security issue. Because this could be "
-                            "software installed by someone else to spy on you or control "
-                            "your Mac, removing it may alert that person. If you suspect "
-                            "a partner or ex installed this, please talk to an advocate "
-                            "first (US National Domestic Violence Hotline: 1-800-799-7233, "
-                            "or text START to 88788) before deleting anything.\n\n"
-                            "What to do: If you are safe to proceed, use a reputable "
-                            "antivirus tool to remove this item and then restart your "
-                            "Mac."
+                            "This is a serious security issue.\n\n"
+                            "What to do: use a reputable antivirus tool to remove this "
+                            "item, then restart your Mac."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,

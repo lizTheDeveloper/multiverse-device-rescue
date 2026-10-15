@@ -166,6 +166,30 @@ function descriptionHtml(text, esc) {
     .join('');
 }
 
+// Findings that are themselves monitoring software: these carry the advocate
+// note whatever worry the person picked.
+const ALWAYS_SAFETY_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+
+/**
+ * Whether to show the advocate/hotline note on this finding. It's for someone
+ * who may be watched by a person close to them, so it shows when they said so
+ * ("someone is watching me"), when they didn't say ("not sure"), and on
+ * findings that are monitoring software. Otherwise it's noise for, say,
+ * someone whose email was hacked.
+ */
+function wantsSafetyNote(situation, finding) {
+  if (!situation || situation.safety || situation.id === 'unsure') return true;
+  return ALWAYS_SAFETY_MODULES.has(finding && finding.module);
+}
+
+/** Drop the paragraphs of a description that give the hotline. */
+function withoutSafetyParagraphs(text) {
+  return String(text || '')
+    .split(/\n\s*\n/)
+    .filter((para) => !para.includes('799-7233'))
+    .join('\n\n');
+}
+
 /**
  * The advocate note from a monitoring-related walkthrough, shown above the
  * steps. Skipped when the finding's own text already gives the hotline.
@@ -293,6 +317,8 @@ if (typeof module !== 'undefined' && module.exports) {
     renderMiniMarkdown,
     stepTitle,
     safetyNoteHtml,
+    wantsSafetyNote,
+    withoutSafetyParagraphs,
     descriptionHtml,
     describeMadeBy,
     madeByHtml,
@@ -428,10 +454,10 @@ if (typeof document !== 'undefined') {
                 <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
-              ${descriptionHtml(finding.description, escapeHtml)}
+              ${descriptionHtml(wantsSafetyNote(situation, finding) ? finding.description : withoutSafetyParagraphs(finding.description), escapeHtml)}
               ${madeByHtml(finding.made_by, escapeHtml)}
               ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
-              ${safetyNoteHtml(finding, escapeHtml)}
+              ${wantsSafetyNote(situation, finding) ? safetyNoteHtml(finding, escapeHtml) : ''}
               ${finding.remediation && (finding.remediation.steps || []).length ? `
               <div class="next-steps">
                 <h4>What to do</h4>

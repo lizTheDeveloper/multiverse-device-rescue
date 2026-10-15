@@ -19,6 +19,7 @@ or audited. Presence is detected from the profile directory only; the credential
 database is never opened.
 """
 
+import json
 from pathlib import Path
 
 from rescue.models import (
@@ -35,6 +36,8 @@ from rescue.models import (
 )
 from rescue.module_base import ModuleBase
 from rescue.command import run
+from rescue.known_extensions import PASSWORD_MANAGER_CHROME_IDS as PASSWORD_MANAGER_IDS
+from rescue.known_extensions import password_manager_for
 from rescue.fsbounds import is_dir_nofollow
 
 _COMMAND_TIMEOUT = 20
@@ -143,6 +146,10 @@ class Module(ModuleBase):
             managers = self._find_darwin_managers()
         else:
             managers = self._find_windows_managers()
+
+        # Many people use a manager only as a browser extension (LastPass
+        # mostly ships that way), so an app isn't the only sign of one.
+        managers = sorted(set(managers) | set(self._find_extension_managers(profile)))
 
         browsers = self._find_browser_profiles(profile)
         builtin = _BUILTIN.get(profile.platform)
@@ -354,6 +361,66 @@ class Module(ModuleBase):
                         installed.add(manager["name"])
                         break
         return sorted(installed)
+
+    def _find_extension_managers(self, profile: SystemProfile) -> list[str]:
+        """Password-manager extensions in each browser's profiles, matched by
+        store ID (see rescue.known_extensions). Only directory names and each
+        extension's manifest are read."""
+        found: set[str] = set()
+        for browser, raw_path in self._browser_table(profile).items():
+            root = Path(raw_path).expanduser()
+            if not is_dir_nofollow(root):
+                continue
+            try:
+                profiles = [d for d in root.iterdir() if is_dir_nofollow(d)]
+            except OSError:
+                continue
+            for prof in profiles:
+                if browser == "Firefox":
+                    try:
+                        entries = list((prof / "extensions").iterdir())
+                    except OSError:
+                        continue
+                    for entry in entries:
+                        ext_id = entry.name[:-4] if entry.name.endswith(".xpi") else entry.name
+                        name = password_manager_for("firefox", ext_id)
+                        if name:
+                            found.add(name)
+                    continue
+                if prof.name != "Default" and not prof.name.startswith("Profile "):
+                    continue
+                for ext_id in PASSWORD_MANAGER_IDS:
+                    name = self._chromium_extension(browser, prof / "Extensions" / ext_id, ext_id)
+                    if name:
+                        found.add(name)
+        return sorted(found)
+
+    @staticmethod
+    def _chromium_extension(browser: str, ext_dir: Path, ext_id: str) -> str | None:
+        if not is_dir_nofollow(ext_dir):
+            return None
+        try:
+            versions = [d for d in ext_dir.iterdir() if is_dir_nofollow(d)]
+        except OSError:
+            return None
+        for version in versions:
+            try:
+                manifest = json.loads((version / "manifest.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(manifest, dict):
+                continue
+            name = password_manager_for(browser, ext_id, manifest.get("update_url"))
+            if name:
+                return name
+        return None
+
+    def _browser_table(self, profile: SystemProfile) -> dict[str, str]:
+        if self.browser_profiles is not None:
+            return self.browser_profiles
+        if profile.platform == Platform.DARWIN:
+            return _DARWIN_BROWSER_PROFILES
+        return _WIN_BROWSER_PROFILES
 
     def _find_browser_profiles(self, profile: SystemProfile) -> list[str]:
         if self.browser_profiles is not None:

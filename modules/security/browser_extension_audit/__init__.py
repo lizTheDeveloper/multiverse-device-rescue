@@ -13,6 +13,7 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue.known_extensions import password_manager_for
 from rescue.module_base import ModuleBase
 
 
@@ -147,6 +148,11 @@ class Module(ModuleBase):
             for ext_id, ext_data in exts.items():
                 permissions = ext_data.get("permissions", [])
                 dangerous_perms = [p for p in permissions if p in self.DANGEROUS_PERMISSIONS]
+
+                # A password manager needs this access to fill in passwords;
+                # it's the tool the person should be using, not a risk.
+                if password_manager_for(browser, ext_id, ext_data.get("update_url")):
+                    continue
 
                 # Flag if has 3+ dangerous permissions
                 if len(dangerous_perms) >= 3:
@@ -384,6 +390,7 @@ class Module(ModuleBase):
                         extensions[ext_id] = {
                             "name": name,
                             "permissions": permissions,
+                            "update_url": manifest.get("update_url"),
                         }
                     except (json.JSONDecodeError, IOError):
                         extensions[ext_id] = {
