@@ -139,9 +139,16 @@
             <ul id="results-errors-list" class="errors-list"></ul>
           </section>
 
+          <section class="copy-ai-all">
+            <h2>Ask your own AI</h2>
+            <p class="muted">Get everything above as one message to paste into ChatGPT, Claude, Gemini or another AI assistant. You'll see the full text before anything is copied.</p>
+            <button type="button" class="btn btn--secondary" data-copy-ai="all">Copy everything for an AI</button>
+            <div class="copy-ai__slot" data-copy-ai-slot="all" aria-live="polite"></div>
+          </section>
+
           <details class="tech-details">
             <summary>For tech helpers: full technical report</summary>
-            <p class="muted">Every check that ran, with its raw evidence, as JSON. Paste it to someone you trust who is helping you.</p>
+            <p class="muted">Every check that ran, with its raw evidence, as JSON. Nothing is blanked out here, so only paste it to someone you trust who is helping you.</p>
             <button id="btn-copy-json" class="btn btn--secondary btn--small" type="button">Copy technical report</button>
             <span id="copy-json-status" class="muted" role="status"></span>
           </details>
@@ -153,6 +160,7 @@
     </main>
   </div>
   <script src="ask.js"></script>
+  <script src="copy-ai.js"></script>
   <script src="fix-flow.js"></script>
   <script src="app.js"></script>
 </body>

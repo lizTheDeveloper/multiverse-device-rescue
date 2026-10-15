@@ -927,3 +927,26 @@ h3 {
   max-height: 16rem;
   overflow: auto;
 }
+
+/* ---------- Copy for any AI ---------- */
+
+.copy-ai {
+  margin: 0.4rem 0 0;
+}
+
+.copy-ai__text {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0.5rem 0 0.6rem;
+  padding: 0.6rem 0.75rem;
+  font: 0.85rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+
+.copy-ai-all {
+  margin: 1.5rem 0;
+}

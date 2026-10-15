@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
 const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
+const { buildAiPrompt } = require('./ai-prompt');
 const { runScan, runFix, runAction, runUndo } = require('./engine-runner');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
@@ -54,6 +55,8 @@ app.whenReady().then(() => {
     shell.openExternal(url);
     return true;
   });
+  // Redacted text for the person to paste into any AI; nothing is sent.
+  ipcMain.handle('ai-prompt', (_e, payload) => buildAiPrompt(payload));
   // The exact redacted body askAbout would send, so the person can read it first.
   ipcMain.handle('ask-preview', (_e, payload) => {
     const body = buildAskBody(payload);

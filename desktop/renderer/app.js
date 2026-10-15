@@ -406,6 +406,7 @@ if (typeof document !== 'undefined') {
                 </ol>
               </details>` : ''}
               ${askButtonHtml(finding)}
+              ${copyAiButtonHtml(finding)}
               <details class="tech-details">
                 <summary>Technical details</summary>
                 <pre class="tech-log">${escapeHtml(JSON.stringify({
@@ -448,6 +449,13 @@ if (typeof document !== 'undefined') {
         summaryEl.innerHTML = `<p>We found <strong>${total}</strong> thing${total === 1 ? '' : 's'} worth a look, grouped by how important they are.</p>`;
       }
 
+      // Before the cards render: it resets the per-finding copy registry.
+      setCopyAiReport({
+        findings: SEVERITY_ORDER.flatMap((sev) => groups[sev].map(copyAiPick)),
+        situation: situation ? situation.title : undefined,
+        platform: doc && doc.platform,
+        couldNotCheck: erroredModules.map((m) => m.name),
+      });
       const groupsEl = document.getElementById('results-groups');
       groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev])).join('');
 
