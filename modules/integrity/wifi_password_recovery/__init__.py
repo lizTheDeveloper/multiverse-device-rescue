@@ -36,10 +36,14 @@ class Module(ModuleBase):
         if saved_networks is None:
             findings.append(
                 Finding(
-                    title="Unable to retrieve saved Wi-Fi networks",
+                    title="We couldn't check your saved Wi-Fi networks",
                     description=(
-                        "Could not query saved Wi-Fi networks using networksetup. "
-                        "This may indicate a permission issue or system configuration problem."
+                        "The check for saved Wi-Fi networks didn't finish because the "
+                        "system didn't allow the tool to read that list. Because this "
+                        "check didn't run, we can't confirm your Wi-Fi settings are normal.\n\n"
+                        "What to do: Run the checkup again. If it still fails, check that "
+                        "the app has the necessary permissions in System Settings > Privacy "
+                        "& Security."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -76,12 +80,16 @@ class Module(ModuleBase):
             if len(saved_networks) > self.MAX_RECOMMENDED_NETWORKS:
                 findings.append(
                     Finding(
-                        title=f"Too many saved Wi-Fi networks ({len(saved_networks)})",
+                        title=(
+                            f"You have a lot of saved Wi-Fi networks ({len(saved_networks)})"
+                        ),
                         description=(
-                            f"This system has {len(saved_networks)} saved Wi-Fi networks, "
-                            f"which exceeds the recommended limit of {self.MAX_RECOMMENDED_NETWORKS}. "
-                            f"Having too many saved networks can slow down Wi-Fi scanning and may cause "
-                            f"connection issues. Consider removing networks you no longer use via System Settings > Wi-Fi > Known Networks."
+                            f"Your Mac remembers {len(saved_networks)} Wi-Fi networks. "
+                            f"Keeping more than {self.MAX_RECOMMENDED_NETWORKS} can slow "
+                            "down how quickly your Mac finds and connects to Wi-Fi.\n\n"
+                            "What to do: Go to System Settings > Wi-Fi > Known Networks. "
+                            "Remove networks you no longer use to help your Mac connect "
+                            "faster."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -97,11 +105,17 @@ class Module(ModuleBase):
             if current_network and current_network not in saved_networks:
                 findings.append(
                     Finding(
-                        title=f"Currently connected network '{current_network}' not in preferred list",
+                        title=(
+                            f"Connected to '{current_network}' but it isn't in your saved list"
+                        ),
                         description=(
-                            f"Your Mac is currently connected to '{current_network}', but this network "
-                            f"is not in the list of saved/preferred networks. This is unusual and may indicate "
-                            f"the network was manually connected or the preference list is out of sync."
+                            f"Your Mac is currently using '{current_network}', but this "
+                            "network isn't in your list of saved or preferred networks. "
+                            "This usually happens if you connected to a new network manually "
+                            "or if the saved list just needs a refresh.\n\n"
+                            "What to do: Nothing urgent. If you want to keep this network, "
+                            "it will usually save itself after a few connections. Otherwise, "
+                            "just ignore this."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

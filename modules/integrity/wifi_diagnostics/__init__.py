@@ -45,7 +45,11 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title="Wi-Fi is off or unavailable",
-                    description="Wi-Fi is not currently available on this system.",
+                    description=(
+                        "Your Mac's Wi-Fi is currently turned off or not working.\n\n"
+                        "What to do: Click the Wi-Fi icon in the menu bar and turn it "
+                        "on, or restart your Mac if it stays off."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "wifi_status"},
@@ -56,10 +60,12 @@ class Module(ModuleBase):
             if not wifi_info.get("connected"):
                 findings.append(
                     Finding(
-                        title="Wi-Fi is not connected",
+                        title="Wi-Fi is not connected to a network",
                         description=(
-                            f"Wi-Fi interface is not connected to any network. "
-                            f"Current state: {wifi_info.get('state', 'unknown')}."
+                            "Your Wi-Fi is on, but it is not connected to any network. "
+                            f"Current state: {wifi_info.get('state', 'unknown')}.\n\n"
+                            "What to do: Click the Wi-Fi icon in the menu bar and select "
+                            "your home network to reconnect."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -283,11 +289,13 @@ class Module(ModuleBase):
                 Severity.WARNING if rssi > self.RSSI_VERY_WEAK_THRESHOLD else Severity.CRITICAL
             )
             return Finding(
-                title=f"Weak Wi-Fi signal detected (RSSI: {rssi} dBm)",
+                title=f"Weak Wi-Fi signal ({rssi} dBm)",
                 description=(
-                    f"Your Wi-Fi signal strength is weak ({rssi} dBm). "
-                    f"This may result in slow speeds, intermittent connectivity, or frequent disconnections. "
-                    f"Ideal RSSI is above -60 dBm."
+                    f"Your Wi-Fi signal is weak right now ({rssi} dBm). A stronger signal "
+                    "is usually above -60 dBm. This often causes slow speeds or dropped "
+                    "connections.\n\n"
+                    "What to do: Try moving closer to your router or removing obstacles "
+                    "between your Mac and the router."
                 ),
                 severity=severity,
                 category=self.category,
@@ -305,11 +313,13 @@ class Module(ModuleBase):
         """
         if mcs < self.TX_RATE_LOW_THRESHOLD:
             return Finding(
-                title=f"Low Wi-Fi transmit rate (MCS index: {mcs})",
+                title=f"Low Wi-Fi speed setting (MCS {mcs})",
                 description=(
-                    f"Your Wi-Fi transmit rate is low (MCS index {mcs}). "
-                    f"This indicates either weak signal, interference, or compatibility issues. "
-                    f"Your connection speed will be significantly reduced."
+                    f"Your Mac is using a basic Wi-Fi speed setting (MCS index {mcs}). "
+                    "This usually happens when the signal is weak or there is interference. "
+                    "It makes your connection slower.\n\n"
+                    "What to do: Move closer to your router to improve the signal, or "
+                    "check if other devices are using the same network heavily."
                 ),
                 severity=Severity.WARNING,
                 category=self.category,

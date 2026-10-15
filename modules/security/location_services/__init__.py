@@ -89,11 +89,18 @@ class Module(ModuleBase):
                 ):
                     findings.append(
                         Finding(
-                            title="Location Services enabled only for Find My Mac on desktop",
+                            title="Location Services is on for Find My Mac on your desktop",
                             description=(
-                                "Location Services is enabled on this desktop computer only for "
-                                "Find My Mac. If you don't use Find My Mac or rarely move this "
-                                "desktop, consider disabling Location Services to improve privacy."
+                                "Your computer is a desktop, but Location Services is "
+                                "turned on specifically for Find My Mac. This is usually "
+                                "fine if you move the computer occasionally or want to "
+                                "locate it if it is lost. However, if the computer stays "
+                                "in one place, this feature is not needed and uses your "
+                                "location data.\n\n"
+                                "What to do: If you keep this computer in a fixed location, "
+                                "you can turn off Location Services to improve privacy. "
+                                "Go to System Settings > Privacy & Security > Location "
+                                "Services and toggle it off, or turn off Find My Mac specifically."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
