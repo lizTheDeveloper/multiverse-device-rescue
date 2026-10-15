@@ -13,7 +13,7 @@ const MAX_FINDINGS = 60;
 
 // Evidence keys whose values are dropped outright, matched anywhere in the key
 // name: they tend to hold secrets or raw text redaction can't be trusted with.
-const DROP_KEYS = /env|token|secret|passw|pwd|cookie|credential|auth|private|api[_-]?key|session|raw|stdout|stderr|output|content|body|header|history|clipboard/i;
+const DROP_KEYS = /env|token|secret|passw|pwd|cookie|credential|auth|private|api[_-]?key|session|raw|stdout|stderr|output|content|body|header|history|clipboard|user(?:name)?s?$|account|owner|email|phone|ssid|wifi|hostname|computer_name|serial|uuid|udid|mac_addr/i;
 // Command lines: keep the program, leave out the arguments (they can carry tokens).
 const COMMAND_KEYS = /arg|cmd|command/i;
 
@@ -35,7 +35,9 @@ const SEVERITY_WORDS = { critical: 'Needs attention now', warning: 'Worth checki
 
 function cleanString(s, env) {
   const out = redactText(String(s).slice(0, MAX_STRING * 4), env)
-    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/[^\s?#]+)[?#][^\s"']*/gi, '$1?[left out]');
+    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/[^\s?#]+)[?#][^\s"']*/gi, '$1?[left out]')
+    // "--password foo", "-k foo", "--api-key=foo" in free text.
+    .replace(/(^|\s)(--?[\w-]*(?:token|key|pass|secret|auth|cred|cookie|session|user|login)[\w-]*)(?:[ =]+)(?!-)("[^"]*"|'[^']*'|\S+)/gi, '$1$2 [left out]');
   return out.length > MAX_STRING ? `${out.slice(0, MAX_STRING)}…` : out;
 }
 
