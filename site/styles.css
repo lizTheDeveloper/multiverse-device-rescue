@@ -73,6 +73,12 @@ a {
   color: var(--link);
 }
 
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Header */
 
 .site-header {
@@ -418,16 +424,40 @@ a {
 
 .situation-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
+/* The whole card is the link: .situation-link's ::after covers the card, so
+   there is one tab stop per card. Links inside the card (hotline, game) sit
+   above that layer and stay clickable on their own. */
 .situation-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1.3rem;
   box-shadow: var(--card-shadow);
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.situation-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.situation-card:focus-within {
+  border-color: var(--accent);
+}
+
+.situation-card:has(.situation-link:focus-visible) {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .situation-icon {
@@ -437,14 +467,66 @@ a {
 }
 
 .situation-card h3 {
-  font-size: 1rem;
+  font-size: 1.05rem;
   margin: 0 0 0.4rem;
+}
+
+.situation-link {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.situation-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+}
+
+.situation-link:focus-visible {
+  outline: none;
 }
 
 .situation-card p {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+.situation-card .situation-safety,
+.situation-card .situation-extra {
+  margin-top: 0.75rem;
+}
+
+.situation-safety {
+  background: var(--safety-bg);
+  border: 1px solid var(--safety-border);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+}
+
+.situation-card .situation-safety {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.situation-safety a,
+.situation-extra a {
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.situation-go {
+  margin-top: auto;
+  padding-top: 0.85rem;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.situation-card:hover .situation-go {
+  text-decoration: underline;
 }
 
 /* Rescue Stick */
@@ -490,15 +572,19 @@ a {
 }
 
 .stick-cta {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.15rem;
 }
 
-.stick-price {
+.stick-status {
+  margin: 0 0 0.5rem;
+}
+
+.stick-now {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   margin: 0;
 }
 
@@ -652,7 +738,6 @@ a {
 }
 
 @media (min-width: 721px) and (max-width: 960px) {
-  .situation-grid,
   .tools-grid {
     grid-template-columns: repeat(2, 1fr);
   }
