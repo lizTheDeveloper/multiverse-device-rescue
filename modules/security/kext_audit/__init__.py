@@ -93,7 +93,8 @@ class Module(ModuleBase):
                         title=f"Old driver active: {problem_info['name']}",
                         description=(
                             "Your Mac is currently running an old-style driver called "
-                            f"{problem_info['name']}. {problem_info['description']} These "
+                            f"{problem_info['name']} ({bundle_id}, version {version}). "
+                            f"{problem_info['description']} These "
                             "drivers are no longer supported by Apple and can cause your "
                             "Mac to crash or become unstable.\n\n"
                             "What to do: Find the app that installed this driver and "
@@ -121,7 +122,8 @@ class Module(ModuleBase):
                         title=f"Old driver active: {name}",
                         description=(
                             "Your Mac is currently running an old-style driver called "
-                            f"'{name}'. Apple has stopped supporting these drivers, so "
+                            f"'{name}' ({bundle_id}, version {version}). Apple has "
+                            "stopped supporting these drivers, so "
                             "they can cause your Mac to crash or slow down.\n\n"
                             "What to do: Check if the app that installed this driver "
                             "has an update. If not, consider uninstalling the app to "

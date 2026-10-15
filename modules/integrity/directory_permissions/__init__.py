@@ -243,7 +243,8 @@ class Module(ModuleBase):
                     return Finding(
                         title=f"{label} is missing a safety setting",
                         description=(
-                            f"The folder {label} ({path}) is missing a setting called "
+                            f"The folder {label} ({path}, mode {oct(current_mode)}) is "
+                            "missing a setting called "
                             "the 'sticky bit.' This setting prevents users from deleting "
                             "files created by other users. Without it, anyone with access "
                             "to this folder could potentially delete temporary files "
