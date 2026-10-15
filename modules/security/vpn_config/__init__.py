@@ -70,11 +70,18 @@ class Module(ModuleBase):
                     has_pptp = True
                     findings.append(
                         Finding(
-                            title=f"PPTP VPN detected: {vpn_name}",
+                            title=(
+                                f"Your VPN '{vpn_name}' uses an outdated, insecure protocol"
+                            ),
                             description=(
-                                f"PPTP (Point-to-Point Tunneling Protocol) is deprecated and has known security "
-                                f"vulnerabilities. It should not be used for security-sensitive communications. "
-                                f"Consider replacing it with IKEv2, L2TP/IPSec, or a modern OpenVPN setup."
+                                f"Your Mac has a VPN named '{vpn_name}' set up to use "
+                                "PPTP. PPTP is an old technology that no longer protects "
+                                "your data well. It is easy for others to read the traffic "
+                                "sent through it, so it is not safe for banking, email, "
+                                "or any private activity.\n\n"
+                                "What to do: Ask whoever provides the VPN for an IKEv2 or "
+                                "WireGuard setup, then remove this one in System Settings "
+                                "> VPN. If you didn't set it up, someone else may have."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

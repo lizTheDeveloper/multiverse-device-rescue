@@ -168,7 +168,7 @@ def test_win_bitlocker_encryption_suspended():
     warning_finding = next(
         f for f in result.findings if f.severity == Severity.WARNING
     )
-    assert "suspended" in warning_finding.title.lower()
+    assert "paused" in warning_finding.title.lower()
 
 
 def test_win_bitlocker_no_recovery_key():

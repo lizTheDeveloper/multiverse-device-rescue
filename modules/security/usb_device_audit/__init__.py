@@ -78,11 +78,20 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title=f"USB device(s) with unknown vendor: {len(no_vendor_devices)} device(s)",
+                    title=(
+                        f"USB device(s) with unknown maker: {len(no_vendor_devices)} device(s)"
+                    ),
                     description=(
-                        f"Devices with missing vendor/manufacturer information: {no_vendor_list}. "
-                        "This could indicate rogue devices, corrupted device info, or uncommon hardware. "
-                        "Verify these devices are legitimate and recognize them."
+                        f"Your computer sees {len(no_vendor_devices)} USB device(s) that "
+                        f"don't list a maker: {no_vendor_list}. This usually means the "
+                        "device is cheap, broken, or from a small company, but it can "
+                        "also happen if a device is trying to hide its identity. If you "
+                        "recognize these items (like a cheap charger or a USB stick you "
+                        "bought), they are likely fine. If you do not recognize them, "
+                        "unplug them and do not use them again.\n\n"
+                        "What to do: Unplug any USB devices you do not recognize. If "
+                        "you are unsure, leave them unplugged and ask a trusted tech-savvy "
+                        "friend to check them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

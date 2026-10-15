@@ -199,9 +199,9 @@ def test_win_autoruns_audit_detects_excessive_entries():
         result = mod.check(_make_profile())
     assert result.has_issues
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("excessive" in f.title.lower() for f in warning_findings)
+    assert any(f.code == "security.win_autoruns_audit.excessive_entries" for f in warning_findings)
     # Verify the count is correct (21 entries)
-    excessive = next(f for f in warning_findings if "excessive" in f.title.lower())
+    excessive = next(f for f in warning_findings if f.code == "security.win_autoruns_audit.excessive_entries")
     assert "21" in excessive.title
 
 

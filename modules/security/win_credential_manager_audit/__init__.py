@@ -106,12 +106,16 @@ class Module(ModuleBase):
         if total_count > 50:
             findings.append(
                 Finding(
-                    title="Excessive stored credentials (credential sprawl)",
+                    title=(
+                        f"Many saved passwords are cluttering your computer ({total_count})"
+                    ),
                     description=(
-                        f"Found {total_count} stored credentials in Windows Credential Manager. "
-                        "This suggests credential sprawl where old credentials accumulate over time. "
-                        "Old or unused credentials should be regularly reviewed and deleted to reduce "
-                        "the attack surface."
+                        f"Your computer is holding onto {total_count} saved passwords "
+                        "and logins. This is usually just clutter from old accounts or "
+                        "websites you no longer use.\n\n"
+                        "What to do: Open the Start menu, type 'Credential Manager', "
+                        "and select it. Look through the list and remove any entries "
+                        "for accounts or websites you no longer use."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -124,12 +128,15 @@ class Module(ModuleBase):
         if domain_type_creds and not is_domain_joined:
             findings.append(
                 Finding(
-                    title="Domain credentials on non-domain-joined machine",
+                    title=f"Old work login details found ({len(domain_type_creds)})",
                     description=(
-                        f"Found {len(domain_type_creds)} cached domain credentials on a machine that is not "
-                        "currently domain-joined. These are likely stale credentials from a previous domain "
-                        "membership or cached from a remote session. They should be reviewed and removed if no "
-                        "longer needed."
+                        f"We found {len(domain_type_creds)} saved passwords for work or "
+                        "school networks. Your computer is not currently connected to "
+                        "those networks, so these are likely leftovers from a previous "
+                        "job or a remote session.\n\n"
+                        "What to do: Open the Start menu, type 'Credential Manager', "
+                        "and select it. Check the list for any work or school accounts "
+                        "you no longer need and remove them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -145,12 +152,16 @@ class Module(ModuleBase):
         if generic_sensitive_creds:
             findings.append(
                 Finding(
-                    title="Generic credentials stored for sensitive services",
+                    title=(
+                        f"Basic passwords saved for important services ({len(generic_sensitive_creds)})"
+                    ),
                     description=(
-                        f"Found {len(generic_sensitive_creds)} credentials stored as Generic type for "
-                        "sensitive services. Generic type credentials are less secure than Domain Password "
-                        "type credentials. Consider migrating to more secure credential types where possible, "
-                        "or using credential managers with better encryption."
+                        f"We found {len(generic_sensitive_creds)} passwords saved in a "
+                        "basic format for important system services. A password "
+                        "manager keeps them more safely.\n\n"
+                        "What to do: You can usually ignore this if you are not a technical "
+                        "user. If you want to be extra safe, open 'Credential Manager' "
+                        "from the Start menu and review these entries."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -188,8 +199,7 @@ class Module(ModuleBase):
         actions = []
         for finding in findings.findings:
             if finding.severity == Severity.WARNING:
-                title = finding.title
-                if "credential sprawl" in title.lower():
+                if finding.code == "security.win_credential_manager_audit.credential_sprawl":
                     actions.append(
                         Action(
                             title="Review and clean up stored credentials",
@@ -205,7 +215,7 @@ class Module(ModuleBase):
                             data={"issue_type": "credential_sprawl"},
                         )
                     )
-                elif "domain credentials" in title.lower():
+                elif finding.code == "security.win_credential_manager_audit.domain_credentials_non_domain_joined":
                     actions.append(
                         Action(
                             title="Review cached domain credentials",
@@ -220,7 +230,7 @@ class Module(ModuleBase):
                             data={"issue_type": "domain_credentials"},
                         )
                     )
-                elif "generic credentials" in title.lower():
+                elif finding.code == "security.win_credential_manager_audit.generic_credentials_sensitive_services":
                     actions.append(
                         Action(
                             title="Review and secure generic credentials",

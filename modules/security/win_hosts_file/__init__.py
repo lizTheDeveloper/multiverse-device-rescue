@@ -64,12 +64,19 @@ class Module(ModuleBase):
         if critical_redirects:
             findings.append(
                 Finding(
-                    title="Security/banking domains redirected in hosts file",
+                    title=(
+                        "Your computer is redirecting banking websites to a different address"
+                    ),
                     description=(
-                        f"The following security or banking domains are redirected "
-                        f"to non-localhost IPs in the hosts file: {', '.join(critical_redirects)}. "
-                        f"This may indicate malware attempting to redirect financial "
-                        f"transactions or security services."
+                        f"We found that your computer is set to send traffic for {', '.join(critical_redirects)} "
+                        "to a different address than the real one. This is a serious "
+                        "sign that software on your computer may be trying to steal your "
+                        "banking details or block you from using security tools.\n\n"
+                        "What to do: Don't sign in to your bank on this computer until "
+                        "this is fixed. Run a Microsoft Defender Offline scan (Windows "
+                        "Security > Virus & "
+                        "threat protection > Scan options), then follow the steps below "
+                        "to clean the hosts file."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -82,11 +89,15 @@ class Module(ModuleBase):
         if len(entries) > 50:
             findings.append(
                 Finding(
-                    title=f"Hosts file has {len(entries)} entries (possible adware)",
+                    title=f"Your hosts file has {len(entries)} entries (possible adware)",
                     description=(
-                        f"The hosts file contains {len(entries)} entries. "
-                        f"A large number of custom entries may indicate adware or "
-                        f"ad-blocking software in conflict, or a malware infection."
+                        f"Your computer's hosts file contains {len(entries)} entries. "
+                        "This file usually has very few lines. A large number like this "
+                        "often means ad-blocking software or adware is installed. It "
+                        "is not definitely malicious, but it can cause websites to load "
+                        "slowly or incorrectly.\n\n"
+                        "What to do: If you use an ad blocker, this is probably it. If "
+                        "not, follow the steps below to look through the file."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

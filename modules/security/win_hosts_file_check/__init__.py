@@ -90,12 +90,18 @@ class Module(ModuleBase):
         if blocked_security:
             findings.append(
                 Finding(
-                    title="Antivirus/security update domains blocked in hosts file",
+                    title="Security updates are being blocked on your PC",
                     description=(
-                        f"The following critical security/antivirus update domains are "
-                        f"blocked or redirected in the hosts file: {', '.join(blocked_security)}. "
-                        f"This is a strong indicator of malware attempting to prevent security updates "
-                        f"and antivirus signatures from being downloaded."
+                        "Your computer's settings are preventing your antivirus software "
+                        "from downloading its latest updates. The specific websites being "
+                        f"blocked are: {', '.join(blocked_security)}. This is a serious "
+                        "sign that malicious software may be trying to keep your security "
+                        "tools from working properly.\n\n"
+                        "What to do: Run a Microsoft Defender Offline scan (Windows "
+                        "Security > Virus & "
+                        "threat protection > Scan options), then follow the steps below "
+                        "to clean the hosts file. If the entries come back, get help from "
+                        "a professional."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -109,11 +115,16 @@ class Module(ModuleBase):
         if redirected_legit:
             findings.append(
                 Finding(
-                    title="Legitimate domains redirected to suspicious IPs in hosts file",
+                    title="Your web traffic is being redirected to unknown servers",
                     description=(
-                        f"The following legitimate domains are redirected to non-localhost IPs: "
-                        f"{', '.join(redirected_legit)}. "
-                        f"This may indicate malware or adware attempting to hijack traffic."
+                        "Your computer is sending requests for normal websites to different, "
+                        f"unknown addresses. The affected websites include: {', '.join(redirected_legit)}. "
+                        "This often happens when adware or malicious software tries to "
+                        "hijack your internet connection to show ads or steal data.\n\n"
+                        "What to do: Run a Microsoft Defender Offline scan (Windows "
+                        "Security > Virus & "
+                        "threat protection > Scan options), then follow the steps below "
+                        "to clean the hosts file."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -127,10 +138,18 @@ class Module(ModuleBase):
         if file_size is not None and file_size > FILE_SIZE_WARNING_THRESHOLD:
             findings.append(
                 Finding(
-                    title=f"Hosts file is unusually large ({file_size} bytes)",
+                    title=f"Your hosts file is unusually large ({file_size} bytes)",
                     description=(
-                        f"The hosts file is {file_size} bytes, which exceeds {FILE_SIZE_WARNING_THRESHOLD} bytes. "
-                        f"Very large hosts files may indicate ad-blocker lists or malware tampering."
+                        "Your computer's hosts file, which helps direct web traffic, "
+                        f"is much bigger than usual. It is currently {file_size} bytes, "
+                        f"which is larger than the typical limit of {FILE_SIZE_WARNING_THRESHOLD} "
+                        "bytes. This is often caused by ad-blocking tools, but it can "
+                        "also happen if malicious software adds extra entries.\n\n"
+                        "What to do: If you use an ad-blocker, this is likely normal. "
+                        "If you do not use one, check your antivirus software for any "
+                        "recent threats. The file is C:\\Windows\\System32\\drivers\\etc\\"
+                        "hosts and opens in Notepad; don't delete entries unless you're "
+                        "sure they're wrong."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -144,10 +163,18 @@ class Module(ModuleBase):
         if perm_issue:
             findings.append(
                 Finding(
-                    title="Hosts file has incorrect permissions",
+                    title="Your hosts file can be changed by any user",
                     description=(
-                        f"The hosts file has permissions that allow modification by non-administrative users. "
-                        f"Only Administrators should have write access to this file. {perm_issue}"
+                        "Your computer's hosts file is currently set to allow changes "
+                        "by users who are not administrators. Normally, only the main "
+                        "administrator account should be able to edit this file. Specific "
+                        f"issue: {perm_issue}. This makes it easier for malicious software "
+                        "to change your internet settings without you noticing.\n\n"
+                        "What to do: Open the file location in File Explorer, right-click "
+                        "the 'hosts' file, and select 'Properties'. Go to the 'Security' "
+                        "tab and ensure that only 'Administrators' and 'SYSTEM' have "
+                        "'Write' permissions. If you see other users with write access, "
+                        "remove them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

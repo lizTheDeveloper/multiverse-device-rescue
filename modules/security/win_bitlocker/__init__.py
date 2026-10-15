@@ -56,11 +56,19 @@ class Module(ModuleBase):
             if is_os_drive and not is_encrypted:
                 findings.append(
                     Finding(
-                        title="Windows OS drive (C:) is not encrypted with BitLocker",
+                        title="Your main Windows drive (C:) is not encrypted",
                         description=(
-                            "The C: drive is not protected by BitLocker encryption. "
-                            "If this device is lost or stolen, its contents can be "
-                            "read by anyone with physical access to the disk."
+                            "Your computer's main drive, C:, is not protected by BitLocker. "
+                            "BitLocker is a built-in Windows tool that scrambles your "
+                            "files so they are unreadable without a key. Without it, if "
+                            "your laptop is lost or stolen, someone with physical access "
+                            "could remove the drive and read your personal files, photos, "
+                            "and passwords.\n\n"
+                            "What to do: Search for 'BitLocker' in the Start menu and "
+                            "select 'Turn on BitLocker' (on Windows Home, turn on Device "
+                            "encryption in Settings > Privacy & security instead). Follow the prompts to save your "
+                            "recovery key to a USB drive or your Microsoft account. Do "
+                            "not skip saving the key."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -77,10 +85,16 @@ class Module(ModuleBase):
             if status == "encryptionsuspended":
                 findings.append(
                     Finding(
-                        title=f"BitLocker encryption is suspended on {mount_point}",
+                        title=f"BitLocker encryption is paused on {mount_point}",
                         description=(
-                            f"BitLocker on {mount_point} is not actively protecting data. "
-                            "Resume encryption to restore protection."
+                            f"BitLocker on your {mount_point} drive is currently paused. "
+                            "This usually happens when you are installing updates or "
+                            "making system changes. While paused, your data is not encrypted, "
+                            "so it is vulnerable if the device is lost or stolen.\n\n"
+                            "What to do: Search for 'BitLocker' in the Start menu. If "
+                            f"you see an option to 'Resume BitLocker' for {mount_point}, "
+                            "click it. If you do not see it, the drive may have already "
+                            "resumed automatically."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -100,11 +114,18 @@ class Module(ModuleBase):
             if is_encrypted and not has_recovery_key:
                 findings.append(
                     Finding(
-                        title=f"No recovery key protector on {mount_point}",
+                        title=f"No backup recovery key for {mount_point}",
                         description=(
-                            f"{mount_point} is encrypted but has no recovery key protector. "
-                            "If the password is lost, data cannot be recovered. "
-                            "Add a recovery key protector."
+                            f"Your {mount_point} drive is encrypted, but there is no backup "
+                            "recovery key saved. A recovery key is a long code that can "
+                            "unlock your drive if you forget your password or if Windows "
+                            "updates cause a lockout. Without it, if you lose access "
+                            "to your password, you may permanently lose the data on this "
+                            "drive.\n\n"
+                            "What to do: Search for 'BitLocker' in the Start menu, select "
+                            "'Manage BitLocker', and choose 'Back up your recovery key' "
+                            f"for {mount_point}. Save it to a USB drive or your Microsoft "
+                            "account."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

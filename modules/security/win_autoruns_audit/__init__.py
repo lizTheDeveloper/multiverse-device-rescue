@@ -58,11 +58,17 @@ class Module(ModuleBase):
             if self._is_temp_path(command):
                 findings.append(
                     Finding(
-                        title=f"Autorun entry executing from temp directory",
+                        title=f"Program '{entry_name}' starts from a temporary folder",
                         description=(
-                            f"Autorun entry '{entry_name}' at {location} executes from a "
-                            f"temporary directory. This is a strong indicator of malware persistence. "
-                            f"Command: {command}"
+                            f"A program named '{entry_name}' is set to run automatically, "
+                            "but it is stored in a temporary folder. Legitimate software "
+                            "is usually installed in specific folders, not temporary "
+                            "ones. This is a common sign of malicious software trying "
+                            f"to hide. Command: {command}\n\n"
+                            "What to do: Don't delete the file yet. Turn the program off in "
+                            "Task Manager (Ctrl+Shift+Esc) > Startup apps, then run a "
+                            "Microsoft Defender Offline scan (Windows Security > Virus & "
+                            "threat protection > Scan options)."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -79,11 +85,16 @@ class Module(ModuleBase):
             elif self._is_obfuscated_command(command):
                 findings.append(
                     Finding(
-                        title=f"Autorun entry with obfuscated command",
+                        title=f"Program '{entry_name}' uses a hidden command",
                         description=(
-                            f"Autorun entry '{entry_name}' at {location} uses obfuscated or "
-                            f"encoded command execution. This may indicate malware. "
-                            f"Command: {command}"
+                            f"A program named '{entry_name}' is set to start automatically, "
+                            "but its command is encoded in a way that hides what it actually "
+                            "does. Normal programs usually have clear, readable commands. "
+                            "This can sometimes be a sign of malicious software, though "
+                            f"some legitimate tools do this. Command: {command}\n\n"
+                            "What to do: Check if you recognize this program. If you "
+                            "don't, look it up online or ask a trusted tech-savvy friend "
+                            "to review it before disabling it."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -100,11 +111,15 @@ class Module(ModuleBase):
         if total_count > 20:
             findings.append(
                 Finding(
-                    title=f"Excessive number of autorun entries ({total_count})",
+                    title=f"Many programs are set to start automatically ({total_count})",
                     description=(
-                        f"The system has {total_count} autorun entries across all locations. "
-                        f"This exceeds the typical count of ~20 and may indicate bloatware or malware. "
-                        f"Review startup programs in msconfig or Task Manager."
+                        f"Your computer has {total_count} programs set to start when you "
+                        "log in. Most computers have fewer than 20. This usually means "
+                        "you have a lot of extra software installed, which can slow down "
+                        "your computer.\n\n"
+                        "What to do: Open Task Manager (press Ctrl+Shift+Esc), click "
+                        "Startup apps, and look for programs you don't recognize "
+                        "or don't need. You can right-click them to 'Disable' them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

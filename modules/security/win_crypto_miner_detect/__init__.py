@@ -204,10 +204,15 @@ class Module(ModuleBase):
                 Finding(
                     title=f"Cryptocurrency miner running: {proc['name']}",
                     description=(
-                        f"Process {proc['name']} (PID {proc['pid']}) {hit['detail']}. "
-                        "A miner uses your CPU or GPU to earn cryptocurrency for "
-                        "whoever installed it, which is why the machine is hot, loud, "
-                        "and slow."
+                        f"We found a program called {proc['name']} running on your computer. "
+                        "It matches known patterns for cryptocurrency miners (Process "
+                        f"ID: {proc['pid']}).\n\n"
+                        "Miners use your computer's power to earn money for the person "
+                        "who installed them. This is why your device might feel hot, "
+                        "loud, or slow.\n\n"
+                        f"What to do: Open Task Manager (press Ctrl+Shift+Esc), find {proc['name']}, "
+                        "right-click it, and select 'End task'. If it comes back, search "
+                        "for the program in Settings > Apps and uninstall it."
                     ),
                     severity=hit["severity"],
                     category=self.category,
@@ -259,12 +264,17 @@ class Module(ModuleBase):
             process_name = proc.get("name", f"PID {pid}")
             findings.append(
                 Finding(
-                    title=f"Connection to a mining pool port from {process_name}",
+                    title=f"Connection to a mining pool from {process_name}",
                     description=(
-                        f"{process_name} (PID {pid}) holds an established connection to "
-                        f"{remote}. Port {port} is a standard Stratum mining-pool port. "
-                        "Unless someone deliberately set up mining on this machine, "
-                        "this is a miner reporting work to someone else's wallet."
+                        f"The program {process_name} (ID: {pid}) is connected to a known "
+                        f"cryptocurrency mining server at {remote}. This connection is "
+                        f"used to send mining work to a wallet. Port {port} is a standard "
+                        "address for these servers.\n\n"
+                        "This indicates unauthorized software is using your computer's "
+                        "resources and needs to be stopped.\n\n"
+                        f"What to do: Open Task Manager (Ctrl+Shift+Esc), find {process_name}, "
+                        "and end the task. Then, check Settings > Apps to uninstall any "
+                        "software you don't recognize."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -304,13 +314,15 @@ class Module(ModuleBase):
                 continue
             findings.append(
                 Finding(
-                    title=f"Sustained high CPU usage by {name}",
+                    title=f"High CPU usage by {name}",
                     description=(
-                        f"{name} (PID {pid_str or 'unknown'}) is using {percent:.0f}% of "
-                        "processor time and is not a process Windows normally pegs the "
-                        "CPU with. Silent mining looks exactly like this. It may equally "
-                        "be legitimate heavy work, so confirm what the program is before "
-                        "removing it."
+                        f"The program {name} (ID: {pid_str or 'unknown'}) is using {percent:.0f}% "
+                        "of your processor. This is unusually high for a background process.\n\n"
+                        "This could be a hidden miner, or it could be a legitimate program "
+                        "doing heavy work (like a video render or game).\n\n"
+                        f"What to do: Open Task Manager (Ctrl+Shift+Esc) to see what {name} "
+                        "is doing. If you don't recognize it, right-click and select "
+                        "'End task'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
