@@ -41,10 +41,15 @@ class Module(ModuleBase):
         if status.get("AntivirusEnabled") is False:
             findings.append(
                 Finding(
-                    title="Windows Defender antivirus is disabled",
+                    title="Your computer's built-in antivirus is turned off",
                     description=(
-                        "Windows Defender antivirus protection is turned off, "
-                        "leaving the system without real-time malware defense."
+                        "Windows Defender, your computer's built-in antivirus, is currently "
+                        "disabled. This means your computer is not actively checking for "
+                        "malicious software. This is a significant security gap that should "
+                        "be addressed.\n\n"
+                        "What to do: Open Windows Security by searching for it in the "
+                        "Start menu, go to 'Virus & threat protection,' and ensure 'Real-time "
+                        "protection' is turned on."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -56,10 +61,14 @@ class Module(ModuleBase):
         if status.get("RealTimeProtectionEnabled") is False:
             findings.append(
                 Finding(
-                    title="Real-time protection is disabled",
+                    title="Your computer is not checking files as you use them",
                     description=(
-                        "Windows Defender real-time protection is off, so new "
-                        "threats will not be scanned as files are accessed."
+                        "Real-time protection in Windows Defender is off. This feature "
+                        "scans files the moment you open or save them to catch threats "
+                        "immediately. Without it, your computer may not detect new malware "
+                        "until you run a full scan manually.\n\n"
+                        "What to do: Open Windows Security, go to 'Virus & threat protection,' "
+                        "and turn on 'Real-time protection'."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -72,10 +81,15 @@ class Module(ModuleBase):
         if isinstance(antivirus_age, (int, float)) and antivirus_age > 7:
             findings.append(
                 Finding(
-                    title=f"Antivirus definitions are {int(antivirus_age)} days old",
+                    title=f"Your antivirus definitions are {int(antivirus_age)} days old",
                     description=(
-                        "Windows Defender virus definitions have not updated "
-                        "recently, reducing detection of newer threats."
+                        f"Windows Defender's list of known threats is {int(antivirus_age)} "
+                        "days old. These definitions update automatically to recognize "
+                        "new malware. If they are outdated, your computer might miss "
+                        "recent threats.\n\n"
+                        "What to do: Open Windows Security, go to 'Virus & threat protection,' "
+                        "and click 'Check for updates' under 'Virus & threat protection "
+                        "updates'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

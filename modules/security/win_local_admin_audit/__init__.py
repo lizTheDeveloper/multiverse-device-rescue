@@ -48,10 +48,14 @@ class Module(ModuleBase):
             if guest_enabled:
                 findings.append(
                     Finding(
-                        title="Guest account is enabled",
+                        title="The Guest account is turned on",
                         description=(
-                            "The Guest account is enabled. This is a critical security risk "
-                            "as it allows unauthorized access without a password."
+                            "Your computer has a 'Guest' account that is currently active. "
+                            "This account allows anyone to use your computer without a "
+                            "password. It is a common setting on older systems but is "
+                            "a security risk on modern ones.\n\n"
+                            "What to do: Open Command Prompt as administrator and run: "
+                            "net user Guest /active:no"
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -68,11 +72,15 @@ class Module(ModuleBase):
             if admin_enabled:
                 findings.append(
                     Finding(
-                        title="Built-in Administrator account is enabled",
+                        title="The hidden Administrator account is on",
                         description=(
-                            "The built-in Administrator account is enabled. This account should "
-                            "typically be disabled and administrative tasks performed via a "
-                            "standard user account with elevated privileges when needed."
+                            "Windows has a hidden account called 'Administrator' that "
+                            "has total control over the system. It is usually turned off "
+                            "by default. If it is on, it might be a leftover from a repair "
+                            "or a sign that someone else has access.\n\n"
+                            "What to do: Unless you turned it on for a repair, open Command "
+                            "Prompt as administrator and run: net user Administrator "
+                            "/active:no"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -87,11 +95,19 @@ class Module(ModuleBase):
         if admin_users and len(admin_users) > 3:
             findings.append(
                 Finding(
-                    title=f"Excessive administrator accounts ({len(admin_users)} found)",
+                    title=f"More admin accounts than usual ({len(admin_users)})",
                     description=(
-                        f"Found {len(admin_users)} administrator accounts: {', '.join(admin_users)}. "
-                        "Having more than 3 admin accounts increases the attack surface. "
-                        "Review and remove unnecessary administrative access."
+                        f"Your computer has {len(admin_users)} accounts with full control: "
+                        f"{', '.join(admin_users)}. Usually, only one or two people need "
+                        "this level of access. Each extra one is another way for someone "
+                        "to take over the whole computer.\n\n"
+                        "If you think someone close to you added an account to keep "
+                        "access, removing it can alert them. Talk to an advocate first "
+                        "(US National Domestic Violence Hotline: 1-800-799-7233, or "
+                        "text START to 88788).\n\n"
+                        "What to do: Open Settings > Accounts > Other users. Look for "
+                        "accounts you don't recognize or no longer use. Change them to "
+                        "Standard user, or remove them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -124,11 +140,13 @@ class Module(ModuleBase):
         if blank_password_users:
             findings.append(
                 Finding(
-                    title="Admin account(s) with no password",
+                    title="An admin account has no password",
                     description=(
-                        f"The following admin account(s) have no password requirement: "
-                        f"{', '.join(blank_password_users)}. This is a critical security risk. "
-                        f"All admin accounts must have strong passwords."
+                        f"The account {', '.join(blank_password_users)} is an administrator "
+                        "but does not require a password. This means anyone who can sit "
+                        "at your computer can take full control of it.\n\n"
+                        "What to do: Open Settings > Accounts > Other users, select that "
+                        "account, and set a strong password."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -141,12 +159,14 @@ class Module(ModuleBase):
         if no_password_expires:
             findings.append(
                 Finding(
-                    title="Admin account(s) with password never expires",
+                    title="Admin passwords never expire",
                     description=(
-                        f"The following admin account(s) have 'Password Never Expires' set: "
-                        f"{', '.join(no_password_expires)}. "
-                        f"Passwords should expire periodically to reduce the window of "
-                        f"compromise from stolen credentials."
+                        f"These admin accounts never require a password change: {', '.join(no_password_expires)}. "
+                        "This is a standard setting on many personal computers and is "
+                        "usually fine. It just means you don't have to reset your password "
+                        "every few months.\n\n"
+                        "What to do: Nothing right now. Just make sure you use a strong, "
+                        "unique password for these accounts."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

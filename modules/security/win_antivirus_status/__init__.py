@@ -45,10 +45,15 @@ class Module(ModuleBase):
         if not av_products:
             findings.append(
                 Finding(
-                    title="No antivirus product is registered",
+                    title="Your computer has no antivirus software installed",
                     description=(
-                        "Windows Security Center detected no registered antivirus products. "
-                        "The system has no real-time malware protection."
+                        "Windows does not see any antivirus program installed. This means "
+                        "your computer is not actively checking for malware as you use "
+                        "it.\n\n"
+                        "What to do: Open Windows Security (search for it in the Start "
+                        "menu) and check if it is turned on. If it is off, turn it on. "
+                        "If you use a different antivirus, make sure it is installed and "
+                        "running."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -65,10 +70,17 @@ class Module(ModuleBase):
             if not has_realtime_protection:
                 findings.append(
                     Finding(
-                        title="Real-time protection is disabled on all registered antivirus products",
+                        title="Your antivirus is installed but real-time protection is off",
                         description=(
-                            "No antivirus product has real-time protection enabled. "
-                            "New threats will not be detected as files are accessed."
+                            "You have antivirus software, but its 'real-time protection' "
+                            "feature is turned off. This means it is not checking files "
+                            "as you open or download them, leaving you vulnerable to new "
+                            "threats. Some malware switches this off, so turn it back on "
+                            "even if you don't remember changing it.\n\n"
+                            "What to do: Open your antivirus program and look for a setting "
+                            "called 'Real-time protection' or 'Active protection.' Turn "
+                            "it on. If you use Windows Security, go to Virus & threat "
+                            "protection and ensure 'Real-time protection' is toggled on."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -92,11 +104,16 @@ class Module(ModuleBase):
                 findings.append(
                     Finding(
                         title=(
-                            f"Antivirus definitions are {int(oldest_definition_age)} days old"
+                            f"Your antivirus definitions are {int(oldest_definition_age)} days old"
                         ),
                         description=(
-                            "At least one antivirus product has outdated definitions, "
-                            "reducing detection of newer threats."
+                            "Your antivirus software has not updated its list of known "
+                            "threats in over a week. This means it might not recognize "
+                            "newer viruses or malware.\n\n"
+                            "What to do: Open your antivirus program and look for an 'Update' "
+                            "or 'Check for updates' button. Click it to download the latest "
+                            "definitions. If it fails, check your internet connection "
+                            "and try again."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -109,10 +126,17 @@ class Module(ModuleBase):
             if len(av_products) > 1:
                 findings.append(
                     Finding(
-                        title=f"{len(av_products)} antivirus products are registered",
+                        title=f"You have {len(av_products)} antivirus programs installed",
                         description=(
-                            "Multiple antivirus products can conflict with each other, "
-                            "causing performance issues and reduced protection."
+                            "Windows sees multiple antivirus programs installed at once. "
+                            "This can cause them to fight each other, slowing down your "
+                            "computer and potentially creating gaps in protection. This "
+                            "is usually the result of installing new software without "
+                            "removing the old.\n\n"
+                            "What to do: Open Windows Security or your antivirus settings. "
+                            "Keep only one antivirus program active and uninstall the "
+                            "others. If you are unsure which to keep, choose the one you "
+                            "use most or the one pre-installed with your computer."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

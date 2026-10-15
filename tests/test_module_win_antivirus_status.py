@@ -133,7 +133,7 @@ def test_win_antivirus_status_multiple_products():
         result = mod.check(_make_profile())
     assert result.has_issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("antivirus products are registered" in f.title.lower() for f in warnings)
+    assert any("antivirus programs installed" in f.title.lower() for f in warnings)
 
 
 def test_win_antivirus_status_subprocess_error():
