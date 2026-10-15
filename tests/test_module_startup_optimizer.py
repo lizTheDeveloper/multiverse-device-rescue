@@ -292,7 +292,8 @@ def test_argument_contents_not_stored(dirs):
     assert _item(r, "com.x.secret")["arg_count"] == 2
 
 
-def test_description_names_first_items_in_plain_language(dirs):
+def test_description_names_first_items_in_plain_language(dirs, monkeypatch):
+    monkeypatch.setattr(_opt(), "_program_exists", lambda program: True)
     _write_plist(dirs["user"], "com.google.keystone.agent",
                  Program="/bin/ls", RunAtLoad=True, StartInterval=3600)
     rows = [("-", 0, "com.google.keystone.agent")] + _fillers(9)

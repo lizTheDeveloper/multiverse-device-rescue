@@ -141,6 +141,7 @@ def test_script_is_not_signed(tmp_path):
     assert calls == []  # never asks codesign about a script
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="launchd plists name POSIX paths")
 def test_plist_resolves_program_arguments(tmp_path):
     exe = tmp_path / "helper"
     exe.write_bytes(b"\xcf\xfa\xed\xfe")
@@ -206,6 +207,7 @@ def test_any_option_around_the_script_makes_it_unverified(tmp_path, argv_before,
     assert m is None or (m.verified is False and m.name != "Google LLC")
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="launchd plists name POSIX paths")
 def test_plist_with_program_key(tmp_path):
     exe = tmp_path / "d"
     exe.write_bytes(b"\xcf\xfa\xed\xfe")
