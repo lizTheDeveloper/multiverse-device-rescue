@@ -740,7 +740,7 @@ def known_add(codes, label, program, plist, expect_id, as_json, acknowledged):
         return
     ids = [item.id for item, _ in saved]
     created = any(c for _, c in saved)
-    undo = [s.replace("<id>", " / ".join(ids)) for s in MARK_HOW_TO_UNDO]
+    undo = [s.replace("<id>", " ".join(ids)) for s in MARK_HOW_TO_UNDO]
     message = (
         f"Marked '{label}' as yours (id {', '.join(ids)}). It will show as \"marked as yours\" from the next checkup."
         if created else f"'{label}' was already marked as yours (id {', '.join(ids)})."
