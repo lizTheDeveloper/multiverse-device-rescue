@@ -28,6 +28,7 @@ def _get_module():
 
 def _make_run_result(
     vss_running=True,
+    vss_disabled=False,
     restore_enabled=True,
     shadow_output=None,
     storage_output=None,
@@ -51,6 +52,10 @@ def _make_run_result(
 
         cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
 
+        if cmd_str == "sc qc VSS":
+            start = "4   DISABLED" if vss_disabled else "3   DEMAND_START"
+            result.stdout = f"SERVICE_NAME: VSS\n        START_TYPE         : {start}\n"
+            return result
         # sc query VSS command
         if "sc" in cmd_str and "query" in cmd_str and "VSS" in cmd_str:
             if vss_running:
@@ -182,13 +187,22 @@ def test_win_shadow_copies_check_all_pass():
 def test_win_shadow_copies_check_vss_disabled():
     """Test detection of disabled VSS service."""
     mod = _get_module()
-    fake_run = _make_run_result(vss_running=False, expect_clean=True)
+    fake_run = _make_run_result(vss_running=False, vss_disabled=True, expect_clean=True)
     with patch("subprocess.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.data.get("check") == "vss_disabled" for f in result.findings)
-    critical = [f for f in result.findings if f.data.get("check") == "vss_disabled"]
-    assert critical[0].severity == Severity.CRITICAL
+    flagged = [f for f in result.findings if f.data.get("check") == "vss_disabled"]
+    assert flagged[0].severity == Severity.WARNING
+
+
+def test_win_shadow_copies_check_vss_stopped_on_demand_is_normal():
+    """VSS is Manual and stopped on most PCs; that alone is not a finding."""
+    mod = _get_module()
+    fake_run = _make_run_result(vss_running=False, expect_clean=True)
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert not any(f.data.get("check") == "vss_disabled" for f in result.findings)
 
 
 def test_win_shadow_copies_check_restore_disabled():
@@ -258,7 +272,7 @@ def test_win_shadow_copies_check_small_storage():
 def test_win_shadow_copies_check_fix_vss_disabled():
     """Test fix recommendation for disabled VSS."""
     mod = _get_module()
-    fake_run = _make_run_result(vss_running=False, expect_clean=True)
+    fake_run = _make_run_result(vss_running=False, vss_disabled=True, expect_clean=True)
     with patch("subprocess.run", side_effect=fake_run):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
@@ -303,6 +317,7 @@ def test_win_shadow_copies_check_multiple_issues():
     mod = _get_module()
     fake_run = _make_run_result(
         vss_running=False,
+        vss_disabled=True,
         restore_enabled=False,
     )
     with patch("subprocess.run", side_effect=fake_run):

@@ -33,10 +33,16 @@ class Module(ModuleBase):
         if health_status is None:
             findings.append(
                 Finding(
-                    title="Could not check DISM component store health",
+                    title="We could not check your Windows system files",
                     description=(
-                        "Failed to run DISM /CheckHealth command. "
-                        "Ensure you have Administrator privileges and try again."
+                        "We tried to check the health of your Windows system files, but "
+                        "the check could not run. "
+                        "This usually happens if the app doesn't have permission to do "
+                        "a deep scan. "
+                        "This is not the same as saying everything is fine; it just means "
+                        "we couldn't look.\n\n"
+                        "What to do: Close the app, then right-click it and choose Run as "
+                        "administrator, and run the checkup again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -48,11 +54,16 @@ class Module(ModuleBase):
             if health_status.get("corrupted"):
                 findings.append(
                     Finding(
-                        title="CRITICAL: Component store is corrupted",
+                        title="Your Windows system files are damaged",
                         description=(
-                            "The Windows component store is corrupted and may be unrepairable. "
-                            "This will prevent Windows Update and feature updates from working. "
-                            "The component store requires professional intervention or system recovery."
+                            "We found damage in the core files that Windows uses to run. "
+                            "This can stop Windows Update from working and may cause other "
+                            "system issues. "
+                            "This is a serious problem that usually requires a system "
+                            "reset or professional help to fix."
+                            "\n\n"
+                            "What to do: Back up your important files immediately. Then, "
+                            "consider using the Windows Reset tool or contacting a technician."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -62,11 +73,16 @@ class Module(ModuleBase):
             elif health_status.get("repairable"):
                 findings.append(
                     Finding(
-                        title="CRITICAL: Component store is corrupted but repairable",
+                        title="Your Windows system files have minor damage",
                         description=(
-                            "The Windows component store has corruption that can be repaired using DISM. "
-                            "Without repair, Windows Update and feature updates will not function properly. "
-                            "Run 'DISM /Online /Cleanup-Image /RestoreHealth' from Administrator command prompt."
+                            "We found some damage in your Windows system files, but it "
+                            "is repairable. "
+                            "If left alone, this can stop Windows Update from working. "
+                            "The repair process downloads fresh copies of the damaged "
+                            "files from Microsoft."
+                            "\n\n"
+                            "What to do: Open Command Prompt as Administrator and run: "
+                            "DISM /Online /Cleanup-Image /RestoreHealth. It can take a while."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -96,10 +112,16 @@ class Module(ModuleBase):
         if store_info is None:
             findings.append(
                 Finding(
-                    title="Could not analyze component store",
+                    title="We could not check the size of your Windows files",
                     description=(
-                        "Failed to run DISM /AnalyzeComponentStore command. "
-                        "Component store size cannot be assessed."
+                        "We tried to measure the size of your Windows system files, but "
+                        "the check could not run. "
+                        "This usually happens if the app doesn't have permission to do "
+                        "a deep scan. "
+                        "This is not the same as saying everything is fine; it just means "
+                        "we couldn't look.\n\n"
+                        "What to do: Close the app, then right-click it and choose Run as "
+                        "administrator, and run the checkup again."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -111,11 +133,17 @@ class Module(ModuleBase):
             if store_info.get("cleanup_recommended"):
                 findings.append(
                     Finding(
-                        title="WARNING: Component store cleanup recommended",
+                        title=(
+                            f"Your Windows files are taking up extra space ({store_info.get('store_size', 'large')})"
+                        ),
                         description=(
-                            f"The WinSxS component store is {store_info.get('store_size', 'bloated')} "
-                            "and cleanup is recommended to free up disk space. "
-                            "Run 'DISM /Online /Cleanup-Image /StartComponentCleanup' to reduce the size."
+                            f"Your Windows system files are currently {store_info.get('store_size', 'large')}. "
+                            "Windows keeps old versions of files for safety, but this "
+                            "can use a lot of disk space. "
+                            "Cleaning this up is safe and will free up room on your drive."
+                            "\n\n"
+                            "What to do: Open Command Prompt as Administrator and run: "
+                            "DISM /Online /Cleanup-Image /StartComponentCleanup"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -130,12 +158,18 @@ class Module(ModuleBase):
             elif store_info.get("exceeds_10gb"):
                 findings.append(
                     Finding(
-                        title="WARNING: Component store is larger than 10GB",
+                        title=(
+                            f"Your Windows files are larger than usual ({store_info.get('store_size')})"
+                        ),
                         description=(
-                            f"The WinSxS component store is {store_info.get('store_size')} "
-                            "and is consuming significant disk space. "
-                            "Consider running 'DISM /Online /Cleanup-Image /StartComponentCleanup' "
-                            "to optimize the installation."
+                            f"Your Windows system files are {store_info.get('store_size')}. "
+                            "This is larger than typical, which means you might be running "
+                            "low on disk space. "
+                            "It is not dangerous, but cleaning it up can help your computer "
+                            "run smoother."
+                            "\n\n"
+                            "What to do: If you are low on space, open Command Prompt "
+                            "as Administrator and run: DISM /Online /Cleanup-Image /StartComponentCleanup"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -151,11 +185,14 @@ class Module(ModuleBase):
         if pending_repairs is not None and pending_repairs.get("has_pending"):
             findings.append(
                 Finding(
-                    title="Component store has pending repairs",
+                    title="Windows has a repair waiting to finish",
                     description=(
-                        "The component store has pending repair operations from a previous attempt. "
-                        "These repairs may need to be completed. "
-                        "Restart Windows and run DISM again if issues persist."
+                        "Windows has a repair task that started earlier but hasn't finished yet. "
+                        "This is usually harmless, but it can sometimes cause updates to pause. "
+                        "It often resolves itself after a restart."
+                        "\n\n"
+                        "What to do: Restart your computer. After it reboots, run this "
+                        "check again to see if the repair is complete."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -169,11 +206,16 @@ class Module(ModuleBase):
             if not windows_update_available.get("available"):
                 findings.append(
                     Finding(
-                        title="Windows Update source files may not be available",
+                        title="Windows Update may not be working properly",
                         description=(
-                            "Windows Update source files appear to be unavailable or inaccessible. "
-                            "This may prevent DISM repair operations from completing successfully. "
-                            "Ensure a stable internet connection and Windows Update is functioning."
+                            "We couldn't confirm that Windows Update is running correctly. "
+                            "If Windows Update is off or broken, the system cannot download "
+                            "files needed to fix other problems. "
+                            "This might be due to a temporary internet issue or a setting "
+                            "that was turned off."
+                            "\n\n"
+                            "What to do: Check your internet connection. Then go to Settings "
+                            "> Windows Update to see if it is enabled and working."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

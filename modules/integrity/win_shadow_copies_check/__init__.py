@@ -30,6 +30,9 @@ class Module(ModuleBase):
 
         # Check VSS service status
         vss_running = self._check_vss_service()
+        # Stopped is VSS's normal resting state (it starts on demand); only a
+        # Disabled start type stops restore points from being made.
+        vss_disabled = not vss_running and self._vss_start_disabled()
 
         # Check System Restore enabled status
         restore_enabled = self._check_system_restore_enabled()
@@ -41,17 +44,21 @@ class Module(ModuleBase):
         storage_info = self._get_shadow_storage()
 
         # Determine critical issues
-        if not vss_running:
+        if vss_disabled:
             findings.append(
                 Finding(
-                    title="VSS service is disabled",
+                    title="Windows' restore-point service is switched off",
                     description=(
-                        "The Volume Shadow Copy Service (VSS) is not running. "
-                        "This means Windows cannot create restore points or shadow copies. "
-                        "Ransomware often disables VSS to prevent recovery. "
-                        "Your system is vulnerable to data loss."
+                        "The Volume Shadow Copy service, which Windows uses to make "
+                        "restore points, is set to Disabled, so no new restore points "
+                        "can be made. Normally it's set to Manual and starts when it's "
+                        "needed. Someone may have switched it off on purpose, and some "
+                        "ransomware does this so you can't roll your files back.\n\n"
+                        "What to do: Open Services (type services.msc in the Start "
+                        "menu), double-click Volume Shadow Copy, set Startup type to "
+                        "Manual and click OK."
                     ),
-                    severity=Severity.CRITICAL,
+                    severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "vss_disabled"},
                 )
@@ -64,11 +71,18 @@ class Module(ModuleBase):
         ):
             findings.append(
                 Finding(
-                    title="No recovery capability available",
+                    title="Your computer has no way to undo changes",
                     description=(
-                        "VSS is disabled, System Restore is disabled, and no shadow copies exist. "
-                        "Your system has no recovery capability. "
-                        "If data is lost or corrupted, recovery will not be possible."
+                        "We found that all of your computer's backup and recovery tools "
+                        "are turned off. "
+                        "This means if a file gets corrupted or deleted, you likely won't "
+                        "be able to restore it to a previous state. "
+                        "This is a serious risk because you have no safety net if something "
+                        "goes wrong with your data.\n\n"
+                        "What to do: You need to turn on System Restore. Right-click your "
+                        "main drive (usually C:) in File Explorer, select 'Properties', "
+                        "go to the 'System Protection' tab, and click 'Configure'. Turn "
+                        "on system protection and allocate some space (5-10% is good)."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -80,11 +94,17 @@ class Module(ModuleBase):
         if not restore_enabled:
             findings.append(
                 Finding(
-                    title="System Restore is disabled",
+                    title="System Restore is turned off",
                     description=(
-                        "System Restore is disabled on this system. "
-                        "You cannot use Previous Versions or restore to an earlier point in time. "
-                        "Enabling System Restore provides a safety net against data corruption and malware."
+                        "System Restore is currently disabled. This feature allows you "
+                        "to roll back your computer to a previous state if something goes "
+                        "wrong. "
+                        "Without it, you can't easily undo accidental changes or recover "
+                        "from software issues. "
+                        "It is a helpful safety net that is usually on by default.\n\n"
+                        "What to do: Right-click your main drive (C:) in File Explorer, "
+                        "select 'Properties', go to the 'System Protection' tab, and click "
+                        "'Configure'. Select 'Turn on system protection' and click OK."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -98,11 +118,19 @@ class Module(ModuleBase):
             if 0 < percent_allocated < 5:
                 findings.append(
                     Finding(
-                        title="Shadow copy storage allocation is very small",
+                        title="Backup storage space is very low",
                         description=(
-                            f"Shadow copy storage is only {percent_allocated}% of disk capacity. "
-                            "This limits the number of restore points that can be kept. "
-                            "Consider increasing the allocation to at least 5-10% for better protection."
+                            f"Your computer is only using {percent_allocated}% of its "
+                            "disk space for backup snapshots. "
+                            "This is a very small amount. It means Windows can only keep "
+                            "a few recent restore points before it has to delete the oldest "
+                            "ones to make room. "
+                            "If a problem happened a few days ago, you might not have "
+                            "a backup from that time to restore from.\n\n"
+                            "What to do: Right-click your main drive (C:) in File Explorer, "
+                            "select 'Properties', go to the 'System Protection' tab, and "
+                            "click 'Configure'. Drag the slider to allocate at least 5-10% "
+                            "of your disk space, then click OK."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -280,6 +308,22 @@ class Module(ModuleBase):
                 )
 
         return FixResult(module_name=self.name, actions=actions)
+
+    def _vss_start_disabled(self) -> bool:
+        """True if 'sc qc VSS' reports a DISABLED start type."""
+        try:
+            result = subprocess.run(
+                ["sc", "qc", "VSS"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError, TimeoutError):
+            return False
+        return any(
+            "START_TYPE" in line and "DISABLED" in line
+            for line in (result.stdout or "").splitlines()
+        )
 
     def _check_vss_service(self) -> bool:
         """Check if VSS service is running via 'sc query VSS'."""

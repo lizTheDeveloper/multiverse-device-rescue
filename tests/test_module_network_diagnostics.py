@@ -56,7 +56,7 @@ class TestDNSResolution:
         dns_findings = [f for f in result.findings if f.data.get("check_type") == "dns_resolution"]
         assert len(dns_findings) == 1
         assert dns_findings[0].severity == Severity.CRITICAL
-        assert "DNS resolution failed" in dns_findings[0].title
+        assert "translate website names" in dns_findings[0].title
 
     def test_dns_resolution_oserror(self):
         mod = _get_module()
@@ -101,7 +101,7 @@ resolver #0
         dns_findings = [f for f in result.findings if f.data.get("check_type") == "dns_servers"]
         assert len(dns_findings) == 1
         assert dns_findings[0].severity == Severity.WARNING
-        assert "No DNS servers configured" in dns_findings[0].title
+        assert "address book" in dns_findings[0].title
 
     def test_scutil_dns_fails(self):
         mod = _get_module()
@@ -233,7 +233,7 @@ class TestGatewayReachability:
         gateway_findings = [f for f in result.findings if f.data.get("check_type") == "gateway"]
         assert len(gateway_findings) == 1
         assert gateway_findings[0].severity == Severity.CRITICAL
-        assert "Default gateway is unreachable" in gateway_findings[0].title
+        assert "reach your router" in gateway_findings[0].title
 
     def test_ping_timeout(self):
         mod = _get_module()

@@ -6,11 +6,15 @@ remediates:
   - security.ai_worm_filesystem.known_payload_path
   - security.ai_worm_filesystem.known_hash_match
   - security.ai_worm_filesystem.obfuscated_script
+steps_for:
+  security.ai_worm_filesystem.known_payload_path: [1]
+  security.ai_worm_filesystem.known_hash_match: [2]
+  security.ai_worm_filesystem.obfuscated_script: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 ---
 
-## Step 1: Quarantine known-malicious payload files
+## Step 1: Move suspicious files to a safe folder
 
 High-confidence findings here matched a path in the shared IOC database
 against a known AI worm payload location (e.g. dropped scripts under
@@ -33,7 +37,7 @@ against a known AI worm payload location (e.g. dropped scripts under
 4. Re-run the scan (`rescue check`, or the `ai_worm_filesystem` module) to
    confirm the file no longer appears as a high-confidence finding.
 
-## Step 2: Handle known-hash matches (byte-identical malware)
+## Step 2: Move exact malware matches aside without deleting them
 
 These findings matched a file's SHA-256 hash directly against the IOC
 database's known-malware hash list — the highest-confidence signal this
@@ -47,7 +51,7 @@ previously catalogued sample.
 3. If the file has appeared in multiple locations (e.g. copied into several
    project directories), quarantine every copy and note all original paths.
 
-## Step 3: Review obfuscated scripts (medium confidence — inspect first)
+## Step 3: Check if hidden scripts are safe or dangerous
 
 These findings are heuristic: a script under a scanned directory contains a
 pattern associated with obfuscation techniques used by AI worm payloads

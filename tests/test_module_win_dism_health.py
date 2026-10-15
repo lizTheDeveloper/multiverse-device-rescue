@@ -206,7 +206,7 @@ def test_win_dism_health_corrupted():
     assert result.has_issues
     critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
     assert len(critical_findings) > 0
-    assert "corrupted" in critical_findings[0].title.lower()
+    assert "damaged" in critical_findings[0].title.lower()
 
 
 def test_win_dism_health_large_store_15gb():

@@ -34,11 +34,14 @@ class Module(ModuleBase):
         if not is_configured:
             findings.append(
                 Finding(
-                    title="Time Machine not configured",
+                    title="Your Mac is not automatically backing up your files",
                     description=(
-                        "Time Machine backup is not configured on this Mac. "
-                        "This means you have no automated backup system to recover from data loss. "
-                        "Configure Time Machine in System Settings > General > Time Machine."
+                        "We could not find a backup destination set up on this Mac. "
+                        "This means if you accidentally delete a file or your drive fails, "
+                        "you might not be able to get your data back. "
+                        "\n\n"
+                        "What to do: Plug in an external drive, open System Settings > "
+                        "General > Time Machine, click Add Backup Disk, and choose it."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -54,12 +57,14 @@ class Module(ModuleBase):
             if days_ago > 30:
                 findings.append(
                     Finding(
-                        title=f"Time Machine backup is stale ({days_ago} days old)",
+                        title=f"Your last backup is {days_ago} days old",
                         description=(
-                            f"Last backup was {days_ago} days ago ({latest_backup.strftime('%Y-%m-%d %H:%M:%S')}). "
-                            "Regular backups are critical for data recovery. "
-                            "Check your Time Machine destination and ensure backups are running. "
-                            "Restore your backup destination or connect it and wait for automatic backup."
+                            f"Your most recent backup was {days_ago} days ago ({latest_backup.strftime('%Y-%m-%d %H:%M:%S')}). "
+                            "Backups this old may not include your recent files. If something "
+                            "goes wrong now, you might lose data created since that date. "
+                            "This usually happens if the backup drive was disconnected.\n\n"
+                            "What to do: Connect your backup drive, then click the Time "
+                            "Machine icon in the menu bar and choose Back Up Now."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -69,11 +74,15 @@ class Module(ModuleBase):
             elif days_ago > 7:
                 findings.append(
                     Finding(
-                        title=f"Time Machine backup is aging ({days_ago} days old)",
+                        title=f"Your last backup is {days_ago} days old",
                         description=(
-                            f"Last backup was {days_ago} days ago ({latest_backup.strftime('%Y-%m-%d %H:%M:%S')}). "
-                            "While not critical yet, regular daily backups are recommended. "
-                            "Ensure your Time Machine destination is connected."
+                            f"Your most recent backup was {days_ago} days ago ({latest_backup.strftime('%Y-%m-%d %H:%M:%S')}). "
+                            "This is not an emergency, but it is older than the recommended "
+                            "daily backup. "
+                            "You are likely safe, but you may be missing very recent changes "
+                            "if you need to restore files.\n\n"
+                            "What to do: Connect your backup drive, then click the Time "
+                            "Machine icon in the menu bar and choose Back Up Now."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -96,11 +105,17 @@ class Module(ModuleBase):
         else:
             findings.append(
                 Finding(
-                    title="Unable to determine last Time Machine backup date",
+                    title="We could not check your last backup date",
                     description=(
-                        "Could not retrieve the last backup date from Time Machine. "
-                        "This may indicate Time Machine is configured but has never completed a backup. "
-                        "Check System Settings > General > Time Machine to verify configuration."
+                        "Time Machine is set up, but we could not read the date of your "
+                        "most recent backup. "
+                        "This might mean a backup has never finished, or the backup drive "
+                        "is currently disconnected. "
+                        "This is not a security threat, but it means we cannot confirm "
+                        "your data is safe.\n\n"
+                        "What to do: Open System Settings > General > Time Machine and "
+                        "check that a backup disk is listed. If it is, connect it and "
+                        "choose Back Up Now from the Time Machine icon in the menu bar."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -113,11 +128,14 @@ class Module(ModuleBase):
         if status_info and not status_info.get("automatic_backups"):
             findings.append(
                 Finding(
-                    title="Time Machine automatic backups are disabled",
+                    title="Automatic backups are turned off",
                     description=(
-                        "Automatic Time Machine backups are disabled on this Mac. "
-                        "Without automatic backups, you must manually trigger backups via System Settings. "
-                        "Enable automatic backups to ensure data is regularly protected."
+                        "Your Mac is set to back up only when you manually ask it to. "
+                        "If you forget to start a backup, your files will not be protected. "
+                        "Turning on automatic backups ensures your data is saved regularly "
+                        "without you having to think about it.\n\n"
+                        "What to do: Open System Settings > General > Time Machine, click "
+                        "Options, and set how often to back up to Automatically every hour."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
