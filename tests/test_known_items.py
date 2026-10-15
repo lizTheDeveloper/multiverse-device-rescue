@@ -25,6 +25,10 @@ from rescue.models import Finding, Platform, Severity, SystemProfile
 from rescue.registry import discover_modules
 from rescue.serialize import checks_to_json
 
+# Marks cover macOS background tasks (launchd), and the store relies on POSIX
+# ownership and permission bits; neither exists on Windows.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS launchd marks; POSIX file permissions")
+
 MODULES_DIR = Path(__file__).parent.parent / "modules"
 LABEL = "ai.example.gateway"
 CODES = {

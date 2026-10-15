@@ -463,6 +463,7 @@ def _offers(doc):
     ]
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="both background-task audits run only on macOS")
 def test_both_missing_program_cards_offer_the_same_exact_file(env):
     p = _missing_program_plist(env)
     doc = _scan_modules(env, ["launchd_persistence_audit", "launch_agent_audit"])
