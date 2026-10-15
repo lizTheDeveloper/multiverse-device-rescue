@@ -179,10 +179,21 @@ class Module(ModuleBase):
         if suspicious:
             findings.append(
                 Finding(
-                    title="Unknown/suspicious DNS servers detected",
+                    title=(
+                        f"Your Mac is using DNS servers we don't recognize: {', '.join(suspicious)}"
+                    ),
                     description=(
-                        f"Your system is using DNS servers that are not from well-known providers: {', '.join(suspicious)}. "
-                        "This could indicate DNS hijacking, ISP-provided DNS, or misconfiguration."
+                        "DNS is the phone book for the internet, translating website "
+                        f"names into addresses. Your Mac is currently using servers ({', '.join(suspicious)}) "
+                        "that are not from major, well-known providers.\n\n"
+                        "This is often just your internet service provider's default "
+                        "setting, which is usually fine. However, if you did not set "
+                        "this up, it could mean someone changed your network settings "
+                        "to redirect your web traffic.\n\n"
+                        "What to do: Open System Settings > Network, select your active "
+                        "connection (like Wi-Fi), and check the DNS section. If you don't "
+                        "recognize the addresses, you can switch to a public provider "
+                        "like 1.1.1.1 or 8.8.8.8 to verify if the issue persists."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -238,10 +249,16 @@ class Module(ModuleBase):
         except (socket.gaierror, OSError):
             # DNS resolution failed
             return Finding(
-                title="DNS servers are unreachable",
+                title=f"Your Mac cannot reach its DNS servers: {', '.join(dns_servers)}",
                 description=(
-                    f"Cannot resolve google.com using configured DNS servers: {', '.join(dns_servers)}. "
-                    "Your DNS servers may be offline or blocking requests."
+                    f"Your Mac is trying to use DNS servers ({', '.join(dns_servers)}) "
+                    "to look up website addresses, but it can't connect to them. We tested "
+                    "this by trying to find google.com and it failed.\n\n"
+                    "This usually means your internet connection is having trouble, or "
+                    "the specific DNS servers listed are offline.\n\n"
+                    "What to do: Restart your router or modem. If that doesn't help, "
+                    "open System Settings > Network, select your connection, and try "
+                    "changing the DNS servers to a public option like 1.1.1.1 or 8.8.8.8."
                 ),
                 severity=Severity.WARNING,
                 category=self.category,

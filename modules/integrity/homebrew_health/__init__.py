@@ -38,9 +38,16 @@ class Module(ModuleBase):
         if doctor_issues:
             findings.append(
                 Finding(
-                    title="Homebrew doctor reported issues",
-                    description="Run `brew doctor` for more information: "
-                    + " ".join(doctor_issues[:3]),
+                    title=f"Homebrew reported {len(doctor_issues)} setup issue(s)",
+                    description=(
+                        "Homebrew is a tool that helps install software on your Mac. "
+                        f"Its self-check found {len(doctor_issues)} potential setup problems. "
+                        "This usually means a setting or file is misplaced.\n\n"
+                        f"Details: {', '.join(doctor_issues[:3])}\n\n"
+                        "What to do: Open the Terminal app and type `brew doctor` to "
+                        "see the full list. If the errors look confusing, you can ignore "
+                        "them for now or ask a tech-savvy friend for help."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
@@ -57,9 +64,15 @@ class Module(ModuleBase):
             package_list = [p["name"] for p in outdated_packages[:5]]
             findings.append(
                 Finding(
-                    title=f"{len(outdated_packages)} outdated package(s)",
-                    description="Many packages are outdated. Run `brew upgrade` to update them. "
-                    f"First few: {', '.join(package_list)}",
+                    title=f"{len(outdated_packages)} Homebrew apps need updating",
+                    description=(
+                        f"Homebrew has {len(outdated_packages)} apps that are older than "
+                        "the latest versions. Keeping apps updated helps fix bugs and "
+                        "security gaps.\n\n"
+                        f"Examples: {', '.join(package_list)}\n\n"
+                        "What to do: Open the Terminal app and type `brew upgrade` to "
+                        "update them all at once."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={
@@ -77,8 +90,14 @@ class Module(ModuleBase):
         if cache_size_bytes > 2 * (1024 ** 3):  # 2GB
             findings.append(
                 Finding(
-                    title=f"Homebrew cache is large ({cache_size_gb:.1f}GB)",
-                    description="Run `brew cleanup` to remove old versions and free up disk space.",
+                    title=f"Homebrew storage is taking up {cache_size_gb:.1f}GB",
+                    description=(
+                        "Homebrew keeps old versions of apps in a hidden folder to allow "
+                        f"easy rollbacks. Your folder is currently {cache_size_gb:.1f}GB, "
+                        "which is larger than usual.\n\n"
+                        "What to do: Open the Terminal app and type `brew cleanup` to "
+                        "remove the old files and free up space."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={

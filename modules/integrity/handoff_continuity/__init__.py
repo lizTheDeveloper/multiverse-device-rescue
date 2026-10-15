@@ -57,8 +57,13 @@ class Module(ModuleBase):
             Finding(
                 title=f"Bluetooth is {'on' if bluetooth_on else 'off'}",
                 description=(
-                    "Bluetooth is required for Handoff, AirDrop, Continuity Camera, and Universal Clipboard. "
-                    f"Currently: {'on' if bluetooth_on else 'off'}."
+                    f"Your Mac's Bluetooth is currently {'on' if bluetooth_on else 'off'}. "
+                    "This setting controls whether your Mac can connect to nearby devices "
+                    "for features like AirDrop or Handoff. If it is off, those features "
+                    "simply won't work until you turn it back on.\n\n"
+                    "What to do: Nothing is needed if you are happy with the current "
+                    "state. If you want to use AirDrop or Handoff, open System Settings "
+                    "> Bluetooth and turn it on."
                 ),
                 severity=Severity.INFO if bluetooth_on else Severity.WARNING,
                 category=self.category,
@@ -71,8 +76,13 @@ class Module(ModuleBase):
             Finding(
                 title=f"Wi-Fi is {'on' if wifi_on else 'off'}",
                 description=(
-                    "Wi-Fi is required for AirDrop, Continuity, and Handoff to work properly. "
-                    f"Currently: {'on' if wifi_on else 'off'}."
+                    f"Your Mac's Wi-Fi is currently {'on' if wifi_on else 'off'}. This "
+                    "setting controls whether your Mac can connect to wireless networks. "
+                    "If it is off, you won't be able to use the internet or features "
+                    "like AirDrop until you turn it back on.\n\n"
+                    "What to do: Nothing is needed if you are happy with the current "
+                    "state. If you want to connect to a network, open System Settings "
+                    "> Wi-Fi and turn it on."
                 ),
                 severity=Severity.INFO if wifi_on else Severity.WARNING,
                 category=self.category,
@@ -85,8 +95,13 @@ class Module(ModuleBase):
             Finding(
                 title=f"iCloud is {'signed in' if icloud_signed_in else 'not signed in'}",
                 description=(
-                    "iCloud sign-in is required for Handoff to work between your Apple devices. "
-                    f"Currently: {'signed in' if icloud_signed_in else 'not signed in'}."
+                    f"Your Mac is currently {'signed in' if icloud_signed_in else 'not signed in'} "
+                    "to iCloud. iCloud is Apple's service that syncs your data, like "
+                    "photos and notes, across your devices. If you are not signed in, "
+                    "features like Handoff won't work between your Apple devices.\n\n"
+                    "What to do: Nothing is needed if you are happy with the current "
+                    "state. If you want to sync your data, open System Settings > Apple "
+                    "Account and sign in."
                 ),
                 severity=Severity.INFO if icloud_signed_in else Severity.WARNING,
                 category=self.category,
@@ -98,10 +113,13 @@ class Module(ModuleBase):
         if not bluetooth_on:
             findings.append(
                 Finding(
-                    title="Bluetooth is off - Handoff and Continuity features will not work",
+                    title="Bluetooth is off, so some Apple features won't work",
                     description=(
-                        "Bluetooth must be enabled for Handoff, AirDrop, Continuity Camera, "
-                        "and Universal Clipboard to work. Without Bluetooth, you cannot use these Apple ecosystem features."
+                        "Your Mac's Bluetooth is turned off. This means features like "
+                        "AirDrop, Handoff, and Universal Clipboard will not work until "
+                        "you turn Bluetooth back on.\n\n"
+                        "What to do: If you want to use these features, open System Settings "
+                        "> Bluetooth and turn it on."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -113,10 +131,14 @@ class Module(ModuleBase):
         if not handoff_enabled and icloud_signed_in:
             findings.append(
                 Finding(
-                    title="Handoff is disabled despite iCloud being signed in",
+                    title="Handoff is turned off, even though you are signed in to iCloud",
                     description=(
-                        "Handoff is currently disabled, but you have iCloud signed in. "
-                        "If you have other Apple devices, you may want to enable Handoff to use cross-device features."
+                        "Handoff is currently disabled on your Mac. This feature lets "
+                        "you start a task on one device and finish it on another. Since "
+                        "you are signed in to iCloud, you can turn Handoff back on if "
+                        "you want to use it.\n\n"
+                        "What to do: If you want to use Handoff, open System Settings "
+                        "> General > AirDrop & Handoff and turn on Handoff."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -72,10 +72,15 @@ class Module(ModuleBase):
             if icloud_files > 0:
                 findings.append(
                     Finding(
-                        title=f"Found {icloud_files} .icloud placeholder files",
+                        title=f"Found {icloud_files} unfinished iCloud downloads",
                         description=(
-                            f"Desktop & Documents sync is enabled but found {icloud_files} .icloud files "
-                            "(incomplete downloads). This typically means files are still syncing to the local drive."
+                            f"Your Mac has {icloud_files} files that are still downloading "
+                            "from iCloud. These are temporary placeholders, not errors. "
+                            "It usually means your Mac is busy syncing your Desktop and "
+                            "Documents folders.\n\n"
+                            "What to do: Nothing right now. If you need a specific file "
+                            "immediately, wait for the download to finish or check your "
+                            "internet connection."
                         ),
                         severity=Severity.WARNING if icloud_files > 20 else Severity.INFO,
                         category=self.category,

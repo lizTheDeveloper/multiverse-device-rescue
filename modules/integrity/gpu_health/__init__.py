@@ -78,13 +78,14 @@ class Module(ModuleBase):
         if metal_support.lower() == "not supported":
             findings.append(
                 Finding(
-                    title="GPU does not support Metal",
+                    title="Your graphics card is too old for modern macOS",
                     description=(
-                        "This GPU does not support Apple Metal, which is required for "
-                        "modern macOS compatibility and proper graphics rendering. "
-                        "This limits the system's ability to run modern applications and "
-                        "may cause graphical issues. Consider GPU upgrade or using compatible "
-                        "applications for this GPU."
+                        "Your graphics card doesn't support Metal, the system Apple uses "
+                        "to draw images on your screen, so some modern apps might not run "
+                        "or could look glitchy. "
+                        "If you haven't noticed problems, you can likely ignore this.\n\n"
+                        "What to do: Nothing right now unless you are experiencing visual "
+                        "glitches or app crashes."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -98,12 +99,14 @@ class Module(ModuleBase):
         if vram_mb is not None and vram_mb < 512:
             findings.append(
                 Finding(
-                    title=f"GPU VRAM is very low ({vram_str})",
+                    title=f"Your graphics card has very little memory ({vram_str})",
                     description=(
-                        f"GPU VRAM is only {vram_str}, which is below 512MB. "
-                        "This can cause display glitches, freezing, and graphical artifacts "
-                        "especially at higher resolutions. Performance may be impacted when "
-                        "using modern applications."
+                        f"Your graphics card only has {vram_str} of video memory, which "
+                        "is quite low. The card might struggle with high-resolution displays "
+                        "or video editing, potentially causing freezing or blurry images. "
+                        "If your screen looks fine, this is likely not a problem.\n\n"
+                        "What to do: Nothing right now unless you notice screen freezing "
+                        "or visual artifacts."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -116,12 +119,14 @@ class Module(ModuleBase):
         if gpu_panics:
             findings.append(
                 Finding(
-                    title="GPU-related kernel panics detected",
+                    title="Your computer crashed due to a graphics card issue",
                     description=(
-                        f"Found {len(gpu_panics)} GPU-related kernel panic(s) in the last 7 days. "
-                        "These panics may indicate GPU driver issues, hardware problems, or "
-                        "incompatibilities. Recent GPU panics can cause system crashes and "
-                        "display freezes."
+                        f"We found {len(gpu_panics)} recent system crashes (called 'kernel "
+                        "panics') linked to your graphics card. This usually points to "
+                        "a software driver glitch or a hardware fault, and explains why your "
+                        "computer might have shut down unexpectedly.\n\n"
+                        "What to do: Restart your computer. If it crashes again, back "
+                        "up your files and contact Apple Support."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

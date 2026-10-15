@@ -39,12 +39,15 @@ class Module(ModuleBase):
         if font_count > FONT_COUNT_WARNING_THRESHOLD:
             findings.append(
                 Finding(
-                    title=f"Found {font_count} installed fonts (excessive)",
+                    title=f"You have a lot of fonts installed ({font_count})",
                     description=(
-                        f"The system has {font_count} installed fonts. "
-                        f"Excessive fonts ({FONT_COUNT_WARNING_THRESHOLD}+) can cause "
-                        f"app crashes, slow boot times, and rendering glitches on older Macs. "
-                        f"Consider removing unused fonts to improve performance."
+                        f"Your Mac has {font_count} fonts installed. Having more than "
+                        f"{FONT_COUNT_WARNING_THRESHOLD} fonts can slow down your computer, "
+                        "make it take longer to start up, or cause apps to crash when "
+                        "displaying text.\n\n"
+                        "What to do: Open the Font Book app (search for it in Spotlight). "
+                        "You can select fonts you don't use and choose 'Remove' from "
+                        "the menu to free up space and improve speed."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -60,12 +63,16 @@ class Module(ModuleBase):
         if user_fonts_size > FONT_FOLDER_SIZE_WARNING_THRESHOLD:
             findings.append(
                 Finding(
-                    title=f"User fonts folder is large ({_fmt_bytes(user_fonts_size)})",
+                    title=(
+                        f"Your personal font folder is very large ({_fmt_bytes(user_fonts_size)})"
+                    ),
                     description=(
-                        f"~/Library/Fonts is {_fmt_bytes(user_fonts_size)}, which is unusually large (> 1GB). "
-                        f"This likely indicates font packs or collections have been installed. "
-                        f"Large font collections can slow down system boot and font rendering. "
-                        f"Review installed fonts and remove unused ones."
+                        "The folder where you keep your own fonts (~/Library/Fonts) is "
+                        f"{_fmt_bytes(user_fonts_size)} big. This is usually because you "
+                        "installed large packs of fonts. While not dangerous, a folder "
+                        "this size can slow down your Mac's startup and text rendering.\n\n"
+                        "What to do: Open the Font Book app. Look for fonts you don't "
+                        "recognize or use, and remove them to clean up the folder."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -79,11 +86,16 @@ class Module(ModuleBase):
             dup_list = ", ".join(sorted(duplicates.keys()))
             findings.append(
                 Finding(
-                    title=f"Found {len(duplicates)} duplicate font names",
+                    title=(
+                        f"Several fonts are installed in more than one place ({len(duplicates)})"
+                    ),
                     description=(
-                        f"The following font names appear in multiple locations: {dup_list}. "
-                        f"Duplicate fonts can cause rendering inconsistencies and slow down font loading. "
-                        f"Use Font Book to identify and remove duplicates."
+                        f"We found {len(duplicates)} font names that exist in multiple "
+                        f"locations on your Mac: {dup_list}. This can cause text to look "
+                        "slightly different in different apps or slow down font loading.\n\n"
+                        "What to do: Open the Font Book app. It can help you identify "
+                        "and remove duplicate copies of these fonts to keep your system "
+                        "tidy."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
