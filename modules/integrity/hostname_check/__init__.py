@@ -1,5 +1,6 @@
 import subprocess
 import re
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -166,7 +167,7 @@ class Module(ModuleBase):
                         title=f"Remove spaces from {field}",
                         description=(
                             f"Replace the {field} with a version without spaces. Use hyphens instead:\n"
-                            f"  sudo scutil --set {field} 'my-device-name'"
+                            f"  sudo scutil --set {quote(str(field))} 'my-device-name'"
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -179,7 +180,7 @@ class Module(ModuleBase):
                         title=f"Remove special characters from {field}",
                         description=(
                             f"Replace the {field} with a name using only letters, numbers, and hyphens:\n"
-                            f"  sudo scutil --set {field} 'my-device-name'"
+                            f"  sudo scutil --set {quote(str(field))} 'my-device-name'"
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -192,7 +193,7 @@ class Module(ModuleBase):
                         title=f"Rename {field} from default",
                         description=(
                             f"Set {field} to a more descriptive name:\n"
-                            f"  sudo scutil --set {field} 'your-device-name'"
+                            f"  sudo scutil --set {quote(str(field))} 'your-device-name'"
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

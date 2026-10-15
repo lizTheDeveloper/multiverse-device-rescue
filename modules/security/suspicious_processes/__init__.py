@@ -1,6 +1,7 @@
 import re
 import subprocess
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -252,7 +253,7 @@ class Module(ModuleBase):
                             f"Kill processes with known malware names: {proc_names}\n"
                             "Commands to run:\n"
                             + "\n".join(
-                                f"  killall -9 {p['name']}" for p in processes
+                                f"  killall -9 {quote(str(p['name']))}" for p in processes
                             )
                             + "\n\n"
                             "Then locate and delete the application files from "

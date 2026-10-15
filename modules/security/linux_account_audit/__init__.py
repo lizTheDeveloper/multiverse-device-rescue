@@ -17,6 +17,7 @@ different statements and only one of them is true.
 import os
 import re
 from pathlib import Path
+from shlex import quote
 
 from rescue.command import run
 from rescue.fsbounds import is_dir_nofollow, is_file_nofollow
@@ -298,12 +299,12 @@ class Module(ModuleBase):
                 actions.append(self._guidance(
                     f"Decide whether '{account}' should exist at all",
                     f"  1. See when it was created and what it owns:\n"
-                    f"         sudo grep '^{account}:' /etc/passwd\n"
-                    f"         sudo lastlog -u {account}\n"
-                    f"         sudo find / -xdev -user {account} 2>/dev/null | head\n"
+                    f"         sudo grep {quote('^' + str(account) + ':')} /etc/passwd\n"
+                    f"         sudo lastlog -u {quote(str(account))}\n"
+                    f"         sudo find / -xdev -user {quote(str(account))} 2>/dev/null | head\n"
                     "  2. If you did not create it, lock it immediately (locking is "
                     "reversible; deleting destroys the evidence of how it got there):\n"
-                    f"         sudo usermod -L -s /usr/sbin/nologin {account}\n"
+                    f"         sudo usermod -L -s /usr/sbin/nologin {quote(str(account))}\n"
                     "  3. Then assume whoever created it had root, and work through the "
                     "digital_security_reset profile: `rescue guide digital_security_reset`.",
                     check, account,
@@ -311,16 +312,16 @@ class Module(ModuleBase):
             elif check == "empty_password":
                 actions.append(self._guidance(
                     f"Set or lock the password for '{account}'",
-                    f"    sudo passwd {account}        # set one\n"
-                    f"    sudo passwd -l {account}     # or lock the account\n\n"
+                    f"    sudo passwd {quote(str(account))}        # set one\n"
+                    f"    sudo passwd -l {quote(str(account))}     # or lock the account\n\n"
                     "Then confirm:\n"
-                    f"    sudo passwd -S {account}",
+                    f"    sudo passwd -S {quote(str(account))}",
                     check, account,
                 ))
             elif check == "passwordless_sudo":
                 actions.append(self._guidance(
                     f"Review the passwordless sudo rule for {finding.data.get('principal')}",
-                    f"    sudo visudo -f {finding.data.get('path')}\n\n"
+                    f"    sudo visudo -f {quote(str(finding.data.get('path')))}\n\n"
                     "Use `visudo` rather than an editor directly — it validates the file "
                     "before saving, and a broken sudoers file can leave you unable to use "
                     "sudo at all. Narrow the rule to the specific commands that need it, "

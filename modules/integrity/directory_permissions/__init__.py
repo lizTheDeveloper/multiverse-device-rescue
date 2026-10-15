@@ -1,6 +1,7 @@
 import os
 import stat
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -108,11 +109,11 @@ class Module(ModuleBase):
             if issue == "ownership_mismatch":
                 expected = finding.data.get("expected_owner", "current_user")
                 if expected == "root":
-                    cmd = f"sudo chown root:admin {path}"
+                    cmd = f"sudo chown root:admin {quote(str(path))}"
                 elif expected == "root_only":
-                    cmd = f"sudo chown root:root {path}"
+                    cmd = f"sudo chown root:root {quote(str(path))}"
                 else:
-                    cmd = f"chown $USER {path}"
+                    cmd = f"chown \"$USER\" {quote(str(path))}"
 
                 actions.append(
                     Action(
@@ -128,7 +129,7 @@ class Module(ModuleBase):
 
             elif issue == "permissions_mismatch":
                 expected_mode = finding.data.get("expected_mode", "755")
-                cmd = f"sudo chmod {expected_mode} {path}"
+                cmd = f"sudo chmod {quote(str(expected_mode))} {quote(str(path))}"
                 actions.append(
                     Action(
                         title=f"Fix permissions of {Path(path).name}",
@@ -142,7 +143,7 @@ class Module(ModuleBase):
                 )
 
             elif issue == "sticky_bit_missing":
-                cmd = f"sudo chmod 1777 {path}"
+                cmd = f"sudo chmod 1777 {quote(str(path))}"
                 actions.append(
                     Action(
                         title=f"Fix sticky bit on {Path(path).name}",

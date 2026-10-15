@@ -239,10 +239,9 @@ class Module(ModuleBase):
                         title=f"Remove malicious scheduled task: {task_name}",
                         description=(
                             f"To remove the malicious scheduled task '{task_name}':\n"
-                            f"1. Press Ctrl+Shift+Esc to open Task Manager\n"
-                            f"2. Go to the 'Services' tab or use Task Scheduler\n"
-                            f"3. Find the task '{task_name}' and right-click to delete\n"
-                            f"Alternatively, run: schtasks /delete /tn \"{task_name}\" /f\n"
+                            "1. Open Task Scheduler (type Task Scheduler in the Start menu)\n"
+                            "2. Open Task Scheduler Library and find the task by name\n"
+                            "3. Right-click it and choose Disable (or Delete)\n"
                             f"WARNING: Only delete tasks you are certain are malicious. "
                             f"Deleting legitimate system tasks can break Windows functionality."
                         ),

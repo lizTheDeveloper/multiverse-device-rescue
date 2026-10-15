@@ -197,7 +197,8 @@ class Module(ModuleBase):
                         description=(
                             f"The {app_name} cache uses {size_str}. This is safe to remove. "
                             f"Restart {app_name} after deletion to regenerate the cache. "
-                            f"To remove: rm -rf ~/Library/Caches/*{app_name}*"
+                            "To remove it, quit the app, then in Finder choose Go > Go to Folder, "
+                            "type ~/Library/Caches, and move its folder to the Trash."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

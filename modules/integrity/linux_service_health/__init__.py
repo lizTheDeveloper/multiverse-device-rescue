@@ -17,6 +17,7 @@ problem.
 """
 
 import re
+from shlex import quote
 
 from rescue.command import run
 from rescue.models import (
@@ -103,8 +104,8 @@ class Module(ModuleBase):
         findings: list[Finding] = []
         for unit in failed:
             how_to_look = (
-                f"See why:\n    systemctl status {unit}\n"
-                f"    journalctl -u {unit} -n 50 --no-pager"
+                f"See why:\n    systemctl status {quote(unit)}\n"
+                f"    journalctl -u {quote(unit)} -n 50 --no-pager"
             )
             # Two constructions rather than one with conditional arguments: the
             # code literal has to be visible at the call site, which is what
@@ -191,7 +192,7 @@ class Module(ModuleBase):
                         "the original error under thousands of identical ones.\n\n"
                         "What to do: read the log to see what keeps going wrong, fix that, "
                         "then restart the service.\n\n"
-                        f"    journalctl -u {unit} --since '1 hour ago' --no-pager"
+                        f"    journalctl -u {quote(unit)} --since '1 hour ago' --no-pager"
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -236,10 +237,10 @@ class Module(ModuleBase):
                 actions.append(self._guidance(
                     f"Find out why {unit} failed",
                     f"  1. Read the failure:\n"
-                    f"         systemctl status {unit}\n"
-                    f"         journalctl -u {unit} -n 100 --no-pager\n"
+                    f"         systemctl status {quote(str(unit))}\n"
+                    f"         journalctl -u {quote(str(unit))} -n 100 --no-pager\n"
                     "  2. Try it once by hand and watch what happens:\n"
-                    f"         sudo systemctl restart {unit}\n"
+                    f"         sudo systemctl restart {quote(str(unit))}\n"
                     "  3. If it fails again, the journal from step 1 now has the current "
                     "error rather than a stale one.\n\n"
                     + (
@@ -248,7 +249,7 @@ class Module(ModuleBase):
                         "never restored from is a hypothesis, not a backup."
                         if check == "failed_backup_unit"
                         else "If you do not recognise the unit and nothing depends on it, "
-                        f"disabling it is reasonable: sudo systemctl disable --now {unit}"
+                        f"disabling it is reasonable: sudo systemctl disable --now {quote(str(unit))}"
                     ),
                     check, unit,
                 ))
@@ -256,11 +257,11 @@ class Module(ModuleBase):
                 actions.append(self._guidance(
                     f"Break the restart loop for {unit}",
                     f"  1. Find the first failure rather than the latest:\n"
-                    f"         journalctl -u {unit} --no-pager | head -50\n"
+                    f"         journalctl -u {quote(str(unit))} --no-pager | head -50\n"
                     "  2. Stop the loop while you work:\n"
-                    f"         sudo systemctl stop {unit}\n"
+                    f"         sudo systemctl stop {quote(str(unit))}\n"
                     "  3. Fix the cause, then start it again and re-check the count:\n"
-                    f"         systemctl show {unit} --property=NRestarts",
+                    f"         systemctl show {quote(str(unit))} --property=NRestarts",
                     check, unit,
                 ))
             elif check == "time_sync_inactive":

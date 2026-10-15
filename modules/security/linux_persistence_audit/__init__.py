@@ -26,6 +26,7 @@ import os
 import re
 import stat
 from pathlib import Path
+from shlex import quote
 
 from rescue.command import run
 from rescue.fsbounds import WalkLimits, bounded_walk, is_dir_nofollow
@@ -296,9 +297,9 @@ class Module(ModuleBase):
                         "safe, it could secretly add its own code to this file to run "
                         "every time you log in. This is a security risk because it allows "
                         "programs to gain more power than they should.\n\n"
-                        "What to do: You need to change the file permissions so only "
-                        "the administrator can change it. Open a terminal and type: sudo "
-                        f"chmod go-w {path}"
+                        "What to do: Make the file writable only by its owner: in a "
+                        "terminal, run sudo chmod go-w followed by the file path shown "
+                        "above. Type the path yourself rather than pasting it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -398,7 +399,7 @@ class Module(ModuleBase):
             elif check == "volatile_path_execution":
                 actions.append(self._guidance(
                     f"Check what {path} runs out of a temporary directory",
-                    f"    cat '{path}'\n\n"
+                    f"    cat {quote(str(path))}\n\n"
                     "Then look at the target it points into /tmp or /dev/shm. If the "
                     "target does not exist, this entry is broken leftovers and can be "
                     "removed. If it does exist, find out what wrote it before deleting "
@@ -408,8 +409,8 @@ class Module(ModuleBase):
             elif check == "world_writable_unit":
                 actions.append(self._guidance(
                     f"Remove world-write permission from {path}",
-                    f"    sudo chmod o-w '{path}'\n"
-                    f"    ls -l '{path}'\n\n"
+                    f"    sudo chmod o-w {quote(str(path))}\n"
+                    f"    ls -l {quote(str(path))}\n\n"
                     "Startup files should be writable only by root (or by you, for files "
                     "under your own home directory).",
                     check, path,

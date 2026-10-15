@@ -3,6 +3,7 @@ import plistlib
 import posixpath
 import re
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -159,8 +160,8 @@ class Module(ModuleBase):
                             f"The launch agent '{agent_label}' points to a suspicious "
                             f"location: {program_path}\n\n"
                             "To remove this agent:\n"
-                            f"1. launchctl unload ~/Library/LaunchAgents/{agent_label}.plist\n"
-                            f"2. rm ~/Library/LaunchAgents/{agent_label}.plist\n"
+                            f"1. launchctl unload ~/Library/LaunchAgents/{quote(str(agent_label) + '.plist')}\n"
+                            f"2. rm ~/Library/LaunchAgents/{quote(str(agent_label) + '.plist')}\n"
                             "3. Restart your Mac"
                         ),
                         risk_level=RiskLevel.SAFE,
@@ -179,8 +180,8 @@ class Module(ModuleBase):
                             f"that does not exist: {program_path}\n\n"
                             "This is usually left over from an uninstalled app. "
                             "If you do not recognize it, to remove this agent:\n"
-                            f"1. launchctl unload ~/Library/LaunchAgents/{agent_label}.plist\n"
-                            f"2. rm ~/Library/LaunchAgents/{agent_label}.plist\n"
+                            f"1. launchctl unload ~/Library/LaunchAgents/{quote(str(agent_label) + '.plist')}\n"
+                            f"2. rm ~/Library/LaunchAgents/{quote(str(agent_label) + '.plist')}\n"
                             "3. Restart your Mac"
                         ),
                         risk_level=RiskLevel.SAFE,

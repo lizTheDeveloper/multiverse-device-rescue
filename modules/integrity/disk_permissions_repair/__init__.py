@@ -2,6 +2,7 @@ import os
 import stat
 import subprocess
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -104,7 +105,7 @@ class Module(ModuleBase):
             path = finding.data.get("path", "")
 
             if issue == "home_ownership_mismatch":
-                cmd = f"sudo chown -R $USER {path}"
+                cmd = f"sudo chown -R \"$USER\" {quote(str(path))}"
                 actions.append(
                     Action(
                         title="Fix home directory ownership",
@@ -120,7 +121,7 @@ class Module(ModuleBase):
 
             elif issue == "ownership_mismatch":
                 expected = finding.data.get("expected_owner", "current_user")
-                cmd = f"sudo chown $USER {path}"
+                cmd = f"sudo chown \"$USER\" {quote(str(path))}"
                 actions.append(
                     Action(
                         title=f"Fix ownership of {Path(path).name}",
@@ -134,7 +135,7 @@ class Module(ModuleBase):
                 )
 
             elif issue == "tmp_permissions_mismatch":
-                cmd = f"sudo chmod 1777 {path}"
+                cmd = f"sudo chmod 1777 {quote(str(path))}"
                 actions.append(
                     Action(
                         title=f"Fix {Path(path).name} permissions",

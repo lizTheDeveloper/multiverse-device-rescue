@@ -3,6 +3,7 @@ import plistlib
 import posixpath
 import re
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -315,9 +316,9 @@ class Module(ModuleBase):
                             f"To remove this malware persistence:\n"
                             "1. Identify the plist location (likely in ~/Library/LaunchAgents/, "
                             "/Library/LaunchAgents/, or /Library/LaunchDaemons/)\n"
-                            f"2. Run: launchctl unload <path>/{label}.plist\n"
-                            f"3. Run: rm <path>/{label}.plist\n"
-                            f"4. Remove the executable: rm {program}\n"
+                            f"2. Run: launchctl unload <path>/{quote(str(label) + '.plist')}\n"
+                            f"3. Run: rm <path>/{quote(str(label) + '.plist')}\n"
+                            f"4. Remove the executable: rm {quote(str(program))}\n"
                             "5. Restart your Mac"
                         ),
                         risk_level=RiskLevel.SAFE,
@@ -335,9 +336,9 @@ class Module(ModuleBase):
                             f"To remove this persistence:\n"
                             "1. Identify the plist location (likely in ~/Library/LaunchAgents/, "
                             "/Library/LaunchAgents/, or /Library/LaunchDaemons/)\n"
-                            f"2. Run: launchctl unload <path>/{label}.plist\n"
-                            f"3. Run: rm <path>/{label}.plist\n"
-                            f"4. Remove the executable: rm {program}\n"
+                            f"2. Run: launchctl unload <path>/{quote(str(label) + '.plist')}\n"
+                            f"3. Run: rm <path>/{quote(str(label) + '.plist')}\n"
+                            f"4. Remove the executable: rm {quote(str(program))}\n"
                             "5. Restart your Mac"
                         ),
                         risk_level=RiskLevel.SAFE,
@@ -356,8 +357,8 @@ class Module(ModuleBase):
                             f"Review to ensure this is leftover from an app you removed. Program: {program}\n"
                             f"If suspicious:\n"
                             "1. Identify the plist location\n"
-                            f"2. Run: launchctl unload <path>/{label}.plist\n"
-                            f"3. Run: rm <path>/{label}.plist\n"
+                            f"2. Run: launchctl unload <path>/{quote(str(label) + '.plist')}\n"
+                            f"3. Run: rm <path>/{quote(str(label) + '.plist')}\n"
                             "4. Remove the executable if needed\n"
                             "5. Restart your Mac"
                         ),

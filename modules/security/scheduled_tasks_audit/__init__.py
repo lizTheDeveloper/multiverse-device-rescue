@@ -1,6 +1,7 @@
 import plistlib
 import re
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -97,8 +98,8 @@ class Module(ModuleBase):
                             "3. Review its contents in a text editor\n"
                             "4. Delete if confirmed as malicious\n\n"
                             "Or from terminal:\n"
-                            f"  launchctl unload ~/Library/LaunchAgents/{label}.plist\n"
-                            f"  rm ~/Library/LaunchAgents/{label}.plist"
+                            f"  launchctl unload ~/Library/LaunchAgents/{quote(str(label) + '.plist')}\n"
+                            f"  rm ~/Library/LaunchAgents/{quote(str(label) + '.plist')}"
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

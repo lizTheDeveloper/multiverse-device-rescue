@@ -257,8 +257,9 @@ class Module(ModuleBase):
                         title=f"Remove or secure sensitive share '{share_name}'",
                         description=(
                             f"Share '{share_name}' points to a sensitive directory. "
-                            "Consider if this share is necessary. If not needed, use "
-                            f"'net share {share_name} /delete' to remove it. "
+                            "Consider if this share is necessary. If not needed, open "
+                            "Computer Management > Shared Folders > Shares, right-click "
+                            "it and choose Stop Sharing. "
                             "If it must remain, restrict access to authorized users only."
                         ),
                         risk_level=RiskLevel.SAFE,

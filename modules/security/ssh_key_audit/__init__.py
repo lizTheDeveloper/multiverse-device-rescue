@@ -2,6 +2,7 @@ import subprocess
 import os
 import stat
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -126,7 +127,7 @@ class Module(ModuleBase):
                             f"Private key {finding.data.get('key_file')} has incorrect permissions "
                             f"({finding.data.get('current_perms')}). "
                             "Should be 600 (rw-------). "
-                            f"Fix with: chmod 600 {finding.data.get('key_file')}"
+                            f"Fix with: chmod 600 {quote(str(finding.data.get('key_file')))}"
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

@@ -2,6 +2,7 @@ import subprocess
 import os
 import re
 from pathlib import Path
+from shlex import quote
 
 from rescue.models import (
     Action,
@@ -158,13 +159,13 @@ class Module(ModuleBase):
             if check == "loaded_third_party_kext":
                 description = (
                     f"Unload the kext '{kext_name}' (ID: {bundle_id}). "
-                    f"This requires sudo: `sudo kextunload -b {bundle_id}`. "
+                    f"This requires sudo: `sudo kextunload -b {quote(str(bundle_id))}`. "
                     f"Then reboot or disable the kext in System Preferences to prevent reload."
                 )
             elif check == "kext_file":
                 description = (
                     f"Remove the kext file '{kext_path}'. "
-                    f"This requires sudo: `sudo rm -rf '{kext_path}'`. "
+                    f"This requires sudo: `sudo rm -rf {quote(str(kext_path))}`. "
                     f"Consider backing it up first if you need it."
                 )
             else:
