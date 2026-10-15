@@ -40,8 +40,14 @@ class Module(ModuleBase):
         if not services:
             findings.append(
                 Finding(
-                    title="Could not retrieve network services",
-                    description="Unable to list network services. Network configuration may be inaccessible.",
+                    title="We couldn't check your network settings",
+                    description=(
+                        "This check needs to read your network list, but it couldn't access "
+                        "it, so this part of the checkup didn't run.\n\n"
+                        "What to do: Nothing right now. If your internet is working normally, "
+                        "you can ignore this. If you want to double-check, try running "
+                        "the checkup again."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "services_retrieval"},
@@ -107,11 +113,14 @@ class Module(ModuleBase):
         if self_assigned_ips:
             findings.append(
                 Finding(
-                    title="Self-assigned IP address detected (DHCP failure)",
+                    title=f"Your network connection failed ({', '.join(self_assigned_ips)})",
                     description=(
-                        f"The following network services have self-assigned IP addresses (169.254.x.x), "
-                        f"indicating DHCP has failed: {', '.join(self_assigned_ips)}. "
-                        f"This means the device could not obtain an IP address from the DHCP server."
+                        "Your Mac couldn't get a proper address from your router for: "
+                        f"{', '.join(self_assigned_ips)}. This usually means the router "
+                        "is offline or the cable is unplugged.\n\n"
+                        "What to do: Check that your router is powered on and your cable "
+                        "is plugged in. If you use Wi-Fi, try moving closer to the router "
+                        "or restarting it."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -142,11 +151,15 @@ class Module(ModuleBase):
         if vpn_interfaces:
             findings.append(
                 Finding(
-                    title=f"VPN interface(s) detected: {', '.join(vpn_interfaces)}",
+                    title=f"VPN interfaces found: {', '.join(vpn_interfaces)}",
                     description=(
-                        f"The following VPN interfaces are present: {', '.join(vpn_interfaces)}. "
-                        f"If the VPN is down but configured to route all traffic, "
-                        f"internet access may be blocked."
+                        f"We found VPN interfaces on your Mac: {', '.join(vpn_interfaces)}. "
+                        "This is normal if you use a work or school VPN. If you don't "
+                        "use a VPN, check if an app installed it, but this is rarely "
+                        "a security risk.\n\n"
+                        "What to do: If you don't recognize these, check if you have "
+                        "any work or school apps installed. If you do use a VPN, no action "
+                        "is needed."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

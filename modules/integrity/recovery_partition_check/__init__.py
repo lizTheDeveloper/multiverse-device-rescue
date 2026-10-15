@@ -59,11 +59,17 @@ class Module(ModuleBase):
                 # Intel Mac without recovery partition is critical
                 findings.append(
                     Finding(
-                        title="No Recovery partition found",
+                        title="Your Mac is missing its recovery partition",
                         description=(
-                            "This Intel Mac does not have a Recovery partition. Without a "
-                            "Recovery partition, you cannot reinstall macOS or use Disk Utility "
-                            "in recovery mode. You must recreate it or use Internet Recovery."
+                            "Your Mac does not have a Recovery partition. This is a special "
+                            "area on your disk that lets you reinstall macOS or fix disk "
+                            "problems if your computer won't start normally. Without it, "
+                            "you cannot use the built-in recovery tools. You can still "
+                            "use Internet Recovery, but that requires a strong internet "
+                            "connection and takes longer.\n\n"
+                            "What to do: Nothing urgent. Reinstalling macOS puts the recovery "
+                            "tools back. Until then, Internet Recovery still works if your "
+                            "Mac won't start."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -81,11 +87,17 @@ class Module(ModuleBase):
             if recovery_size < 500:
                 findings.append(
                     Finding(
-                        title=f"Recovery partition unusually small ({recovery_size}MB)",
+                        title=(
+                            f"Your recovery partition is smaller than usual ({recovery_size}MB)"
+                        ),
                         description=(
-                            f"The Recovery partition is only {recovery_size}MB, which is "
-                            "smaller than expected (typically 500MB-1GB). This may prevent "
-                            "macOS recovery operations. Consider recreating it."
+                            f"Your Mac's Recovery partition is only {recovery_size}MB. "
+                            "This section is usually 500MB to 1GB. If it is too small, "
+                            "the recovery tools might not work correctly when you need "
+                            "them.\n\n"
+                            "What to do: Nothing urgent. Reinstalling macOS puts the recovery "
+                            "tools back in full. Until then, Internet Recovery still works "
+                            "if your Mac won't start."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
