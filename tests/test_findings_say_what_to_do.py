@@ -36,7 +36,7 @@ def test_warning_and_critical_findings_say_what_to_do():
             desc = kw.get("description")
             if desc is None or isinstance(desc, (ast.Name, ast.Call)):
                 continue
-            if str(path.relative_to(ROOT)) in _FROM_TABLE:
+            if path.relative_to(ROOT).as_posix() in _FROM_TABLE:
                 continue
             if "What to do" not in _literal_text(desc) and "what_to_do" not in ast.unparse(desc):
                 missing.append(f"{path.relative_to(ROOT)}:{node.lineno}")
