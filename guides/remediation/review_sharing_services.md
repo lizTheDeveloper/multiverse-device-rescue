@@ -90,7 +90,7 @@ IT admin first (see `verify_mdm_enrollment.md`).
 
 If `sharing_preferences_audit` flagged AirDrop as set to "Everyone", see
 `secure_airdrop.md` for the full walkthrough — in short, change it to
-"Contacts Only" in System Settings > General > AirDrop unless you have a
+"Contacts Only" in System Settings > General > AirDrop & Handoff unless you have a
 specific reason to accept files from anyone nearby.
 
 ## Step 6: Verify your final sharing settings

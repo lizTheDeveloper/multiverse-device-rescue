@@ -25,7 +25,7 @@ software or change system settings until it's restored.
 ## Step 1: Turn off the Guest account if nobody uses it
 
 1. Confirm nobody uses Guest login on this Mac before disabling it.
-2. Disable via System Settings > General > Users & Groups > unlock > select
+2. Disable via System Settings > Users & Groups > unlock > select
    Guest User > turn off "Allow guests to log in to this computer", or run
    `sudo defaults write /Library/Preferences/com.apple.loginwindow
    GuestEnabled -bool false`.

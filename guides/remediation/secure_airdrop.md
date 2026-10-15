@@ -38,7 +38,7 @@ If either module flagged AirDrop as set to "Everyone", that means anyone
 nearby (not just people in your contacts) can send you unsolicited files —
 this has been used for harassment ("cyberflashing") in public places.
 
-1. Open System Settings > General > AirDrop.
+1. Open System Settings > General > AirDrop & Handoff.
 2. Set "Allow me to be discovered by" to **Contacts Only**.
 3. If you don't use AirDrop at all, you can instead choose **Receiving Off**
    (also called "No One") — this is safe and simply disables the feature.

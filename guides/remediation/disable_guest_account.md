@@ -26,7 +26,7 @@ for visitors.
 
 1. Check whether you or anyone with physical access to this Mac has used the
    Guest account recently — if you're unsure, ask before disabling.
-2. Disable it: System Settings > General > Users & Groups > click the lock
+2. Disable it: System Settings > Users & Groups > click the lock
    icon and authenticate > select "Guest User" > turn off "Allow guests to
    log in to this computer".
    Command-line alternative (requires sudo): `sudo defaults write

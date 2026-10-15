@@ -86,7 +86,7 @@ extensions or settings.
    browsing settings), no action is needed.
 3. If you don't recognize the organization/profile managing the browser, or
    this is a personal machine that shouldn't be managed at all, that's a
-   stronger signal — check System Settings > Profiles for an unexpected
+   stronger signal — check System Settings > General > Device Management (Privacy & Security > Profiles on older macOS) for an unexpected
    configuration profile and remove it after confirming you don't need it,
    then reinstall Chrome cleanly if policies persist.
 

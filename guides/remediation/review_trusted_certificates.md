@@ -41,7 +41,7 @@ interception certificates work — the name alone can't distinguish them.
 2. Open Keychain Access (Applications > Utilities > Keychain Access),
    select the "System" keychain, and locate the certificate by name.
 3. Determine provenance before touching it:
-   - Check System Settings > Profiles for a configuration profile that
+   - Check System Settings > General > Device Management (Privacy & Security > Profiles on older macOS) for a configuration profile that
      installed it (common for corporate MDM/VPN/proxy tools) — if present,
      and you recognize the organization, this is very likely a deliberate
      corporate SSL-inspection proxy and expected on a managed device.
