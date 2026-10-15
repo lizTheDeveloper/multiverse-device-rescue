@@ -1,3 +1,3 @@
 """Multiverse Device Rescue — system diagnostic and repair toolkit."""
 
-__version__ = "0.3.3"
+__version__ = "0.3.4"
