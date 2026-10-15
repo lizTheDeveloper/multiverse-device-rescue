@@ -154,7 +154,7 @@ class Module(ModuleBase):
                             "any program on your Mac can add or change files. Legitimate "
                             "apps install in /Applications, not here. This setup is dangerous "
                             "because it allows malicious software to hide or replace "
-                            "the file.\n\n"
+                            f"the file. Program: {program_path}\n\n"
                             "This could be software installed by someone else to spy "
                             "on you. Removing it may alert that person. If you suspect "
                             "a partner or ex installed this, please talk to an advocate "

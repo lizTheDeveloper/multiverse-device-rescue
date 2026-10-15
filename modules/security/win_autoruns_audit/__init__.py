@@ -60,7 +60,7 @@ class Module(ModuleBase):
                     Finding(
                         title=f"Program '{entry_name}' starts from a temporary folder",
                         description=(
-                            f"A program named '{entry_name}' is set to run automatically, "
+                            f"A program named '{entry_name}' ({location}) is set to run automatically, "
                             "but it is stored in a temporary folder. Legitimate software "
                             "is usually installed in specific folders, not temporary "
                             "ones. This is a common sign of malicious software trying "
@@ -87,7 +87,7 @@ class Module(ModuleBase):
                     Finding(
                         title=f"Program '{entry_name}' uses a hidden command",
                         description=(
-                            f"A program named '{entry_name}' is set to start automatically, "
+                            f"A program named '{entry_name}' ({location}) is set to start automatically, "
                             "but its command is encoded in a way that hides what it actually "
                             "does. Normal programs usually have clear, readable commands. "
                             "This can sometimes be a sign of malicious software, though "

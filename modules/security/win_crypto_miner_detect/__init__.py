@@ -206,7 +206,7 @@ class Module(ModuleBase):
                     description=(
                         f"We found a program called {proc['name']} running on your computer. "
                         "It matches known patterns for cryptocurrency miners (Process "
-                        f"ID: {proc['pid']}).\n\n"
+                        f"ID: {proc['pid']}): {hit['detail']}.\n\n"
                         "Miners use your computer's power to earn money for the person "
                         "who installed them. This is why your device might feel hot, "
                         "loud, or slow.\n\n"

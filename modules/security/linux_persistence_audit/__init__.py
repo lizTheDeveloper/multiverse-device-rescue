@@ -219,7 +219,7 @@ class Module(ModuleBase):
                 Finding(
                     title=f"A startup entry {explanation}",
                     description=(
-                        f"File: {path}\n\n"
+                        f"{entry['kind']}: {path}\n\n"
                         f"Found: {match.group(0)[:200]}\n\n"
                         "This entry runs code downloaded from the internet every time "
                         "you log in or restart. While some developer tools do this, it "
@@ -256,7 +256,7 @@ class Module(ModuleBase):
                     Finding(
                         title="A startup entry runs a program from a temporary folder",
                         description=(
-                            f"File: {path}\n\n"
+                            f"{entry['kind']}: {path}\n\n"
                             f"Line: {line.strip()[:200]}\n\n"
                             "This entry runs a program from a temporary folder (like "
                             "/tmp). These folders are cleared when you restart and can "
@@ -291,7 +291,7 @@ class Module(ModuleBase):
                 Finding(
                     title="A startup file can be changed by any user on this computer",
                     description=(
-                        f"File: {path} (permissions: {oct(mode)})\n\n"
+                        f"{entry['kind']}: {path} (permissions: {oct(mode)})\n\n"
                         "This file is set up so that any account on this computer can "
                         "change it. This means that if you run any software that is not "
                         "safe, it could secretly add its own code to this file to run "

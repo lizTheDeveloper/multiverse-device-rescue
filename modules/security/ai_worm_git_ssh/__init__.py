@@ -427,8 +427,13 @@ class Module(ModuleBase):
                         title=f"A suspicious file was found in your project: {rel_path}",
                         description=(
                             f"We found the file {candidate} in your project. "
-                            f"{'This file matches a known pattern used by malicious software.' if ioc else 'This filename is often used by malicious software, but we are not 100% sure.'}\n\n"
-                            "If you did not create this file, it may be part of an attack.\n\n"
+                            + (
+                                f"This file matches a known {threat} malware file.\n\n"
+                                if ioc
+                                else "This filename is often used by malicious software, but "
+                                "we are not 100% sure.\n\n"
+                            )
+                            + "If you did not create this file, it may be part of an attack.\n\n"
                             "What to do: If you don't recognize it, follow the steps below to "
                             "remove it, then change the passwords and access tokens "
                             "stored on this computer."
@@ -462,7 +467,7 @@ class Module(ModuleBase):
                 findings.append(
                     Finding(
                         title=(
-                            "A setting makes a task run automatically when you open a folder"
+                            f"A setting makes a task run automatically when you open a folder: {rel_path}"
                         ),
                         description=(
                             f"The file {candidate} is set to run a task automatically "

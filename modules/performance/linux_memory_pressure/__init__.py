@@ -139,7 +139,7 @@ class Module(ModuleBase):
                         f"Your computer is running out of usable memory ({_fmt(available)} left)"
                     ),
                     description=(
-                        f"Your computer has {_fmt(available)} of memory left that it can "
+                        f"Your computer has {_fmt(available)} of its {_fmt(total)} memory left that it can "
                         "use right now. "
                         "This is not the same as 'free' memory, which is usually low on "
                         "healthy computers. "
@@ -175,7 +175,8 @@ class Module(ModuleBase):
                             f"Your computer is leaning hard on swap ({swap_used_fraction:.0%})"
                         ),
                         description=(
-                            f"Your computer is using {swap_used_fraction:.0%} of its 'swap' "
+                            f"Your computer is using {swap_used_fraction:.0%} ({_fmt(swap_total - swap_free)} of "
+                            f"{_fmt(swap_total)}) of its 'swap' "
                             "space. Swap is overflow space "
                             "on your disk used when your main memory is full. Using "
                             "a little is normal, but using "

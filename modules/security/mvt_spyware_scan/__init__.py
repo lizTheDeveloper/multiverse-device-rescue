@@ -201,9 +201,9 @@ class Module(ModuleBase):
                             "not verify if this specific backup is safe, but it is not "
                             "a sign that something is wrong with your current device.\n\n"
                             "What to do: Nothing needs to be done on this computer right "
-                            "now. If you want to check this backup, you would need to "
-                            "do it on a different, more powerful computer using the MVT "
-                            "tool."
+                            "now. To check it anyway, run this on a computer with more "
+                            f"free memory:\n  {mvt_bin} check-backup --output <dir> "
+                            "<backup-path>"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
