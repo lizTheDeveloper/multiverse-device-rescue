@@ -155,7 +155,7 @@ def test_win_temp_files_cleanup_excessive_temp():
     assert result.has_issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warnings) > 0
-    assert any("Excessive temp file accumulation" in f.title for f in warnings)
+    assert any(f.data.get("check") == "temp_files" for f in warnings)
 
 
 def test_win_temp_files_cleanup_large_update_cache():

@@ -101,7 +101,7 @@ def test_check_with_orphaned_profiles(module, system_profile):
                 # Should have 2 findings: profiles list + orphaned profiles warning
                 assert len(result.findings) == 2
                 warning_finding = [f for f in result.findings if f.severity == Severity.WARNING][0]
-                assert "orphaned" in warning_finding.title.lower()
+                assert "leftover" in warning_finding.title.lower()
                 assert warning_finding.data["type"] == "orphaned_profiles"
 
 

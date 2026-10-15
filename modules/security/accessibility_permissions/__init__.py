@@ -115,13 +115,22 @@ class Module(ModuleBase):
         if suspicious:
             findings.append(
                 Finding(
-                    title=f"Suspicious accessibility access: {len(suspicious)} app(s)",
+                    title=(
+                        f"Apps you may not recognize can control your Mac ({len(suspicious)})"
+                    ),
                     description=(
-                        f"{len(suspicious)} unknown or suspicious app(s) have been granted "
-                        f"Accessibility access: {', '.join(suspicious)}. "
-                        "These apps may not be trusted system or well-known applications. "
-                        "Malware often abuses accessibility permissions to control your system "
-                        "without permission. Investigate and revoke access for apps you don't recognize."
+                        f"These apps have permission to control your Mac: {', '.join(suspicious)}. "
+                        "This permission lets apps see what you type and click. It is "
+                        "often used by screen readers or remote support tools, but it "
+                        "can also be used to spy on you. If you do not recognize these "
+                        "names, they might be software someone else installed.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Open System Settings > Privacy & Security > Accessibility. "
+                        "Turn off the switch for any app you do not recognize or do not "
+                        "need."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -134,12 +143,16 @@ class Module(ModuleBase):
         if len(all_apps) > 10:
             findings.append(
                 Finding(
-                    title=f"Excessive accessibility access: {len(all_apps)} app(s)",
+                    title=f"Many apps can control your Mac ({len(all_apps)})",
                     description=(
-                        f"{len(all_apps)} app(s) have accessibility access, which exceeds "
-                        "the recommended limit of 10. Having too many apps with this powerful "
-                        "permission increases the attack surface. Review and revoke access "
-                        "for apps that don't strictly need it."
+                        f"{len(all_apps)} apps have permission to control your Mac. This "
+                        "permission is very powerful because it allows apps to see what "
+                        "you type and click. Having many apps with this access makes "
+                        "your device less secure, even if the apps are trusted. It is "
+                        "best to keep this list short.\n\n"
+                        "What to do: Open System Settings > Privacy & Security > Accessibility. "
+                        "Turn off the switch for any app that does not strictly need "
+                        "to control your Mac."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

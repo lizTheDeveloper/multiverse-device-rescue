@@ -71,11 +71,18 @@ class Module(ModuleBase):
             if total_reclaimable > TEMP_SIZE_WARNING_GB * (1024**3):
                 findings.append(
                     Finding(
-                        title="Excessive temp file accumulation",
+                        title=(
+                            f"Your computer has a lot of unused temporary files ({_fmt_bytes(total_reclaimable)})"
+                        ),
                         description=(
-                            f"Total temp files consume {_fmt_bytes(total_reclaimable)}, "
-                            f"exceeding {TEMP_SIZE_WARNING_GB}GB threshold. "
-                            "Clearing these files can reclaim significant disk space."
+                            f"Your computer is holding onto {_fmt_bytes(total_reclaimable)} "
+                            f"of temporary files. This is more than the usual {TEMP_SIZE_WARNING_GB}GB "
+                            "limit. These are leftovers from apps and updates that are "
+                            "no longer needed.\n\n"
+                            "What to do: Open the Start menu, type 'Disk Cleanup', and "
+                            "select your main drive. Check the boxes for 'Temporary files' "
+                            "and 'Windows Update Cleanup', then click 'Clean up system "
+                            "files'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

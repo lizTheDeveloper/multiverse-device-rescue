@@ -54,10 +54,13 @@ class Module(ModuleBase):
         if temp_size > 0:
             findings.append(
                 Finding(
-                    title=f"User TEMP directory: {_fmt_bytes(temp_size)}",
+                    title=f"Your temporary files folder is using {_fmt_bytes(temp_size)}",
                     description=(
-                        f"The user temporary files directory (%TEMP%) contains "
-                        f"{_fmt_bytes(temp_size)} of files that can typically be safely removed."
+                        "Your personal temporary files folder (%TEMP%) is holding onto "
+                        f"{_fmt_bytes(temp_size)} of old data. These are leftovers from "
+                        "apps and are safe to remove.\n\n"
+                        "What to do: Open Settings > System > Storage, then click on "
+                        "'Temporary files' and select them to remove."
                     ),
                     severity=Severity.WARNING if temp_size > WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,
@@ -72,10 +75,13 @@ class Module(ModuleBase):
         if windows_temp_size > 0:
             findings.append(
                 Finding(
-                    title=f"Windows TEMP directory: {_fmt_bytes(windows_temp_size)}",
+                    title=f"System temporary files are using {_fmt_bytes(windows_temp_size)}",
                     description=(
-                        f"System temporary files (C:\\Windows\\Temp) contain "
-                        f"{_fmt_bytes(windows_temp_size)} that may be safely removed."
+                        "Windows keeps a system-wide temporary folder (C:\\Windows\\Temp) "
+                        f"that is currently using {_fmt_bytes(windows_temp_size)}. These "
+                        "are safe to delete and help free up space.\n\n"
+                        "What to do: Open Settings > System > Storage, then click on "
+                        "'Temporary files' and select them to remove."
                     ),
                     severity=Severity.WARNING if windows_temp_size > WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,
@@ -90,11 +96,13 @@ class Module(ModuleBase):
         if windows_update_size > 0:
             findings.append(
                 Finding(
-                    title=f"Windows Update cache: {_fmt_bytes(windows_update_size)}",
+                    title=f"Windows Update cache is using {_fmt_bytes(windows_update_size)}",
                     description=(
-                        f"Windows Update cache (C:\\Windows\\SoftwareDistribution\\Download) "
-                        f"contains {_fmt_bytes(windows_update_size)} that can be removed "
-                        f"after updates are installed."
+                        "Windows Update stores downloaded installers in a cache folder, "
+                        f"currently using {_fmt_bytes(windows_update_size)}. You can safely "
+                        "remove these files once your updates are installed.\n\n"
+                        "What to do: Open Settings > System > Storage, then click on "
+                        "'Temporary files' and select them to remove."
                     ),
                     severity=Severity.WARNING if windows_update_size > WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,
@@ -109,10 +117,13 @@ class Module(ModuleBase):
         if recycle_bin_size > 0:
             findings.append(
                 Finding(
-                    title=f"Recycle Bin: {_fmt_bytes(recycle_bin_size)}",
+                    title=f"Your Recycle Bin is using {_fmt_bytes(recycle_bin_size)}",
                     description=(
-                        f"The Recycle Bin contains {_fmt_bytes(recycle_bin_size)} "
-                        f"of deleted files. Permanently delete to reclaim space."
+                        f"Your Recycle Bin is holding {_fmt_bytes(recycle_bin_size)} of "
+                        "files you have already deleted. Emptying it will free up this "
+                        "space.\n\n"
+                        "What to do: Right-click the Recycle Bin icon on your desktop "
+                        "and select 'Empty Recycle Bin'."
                     ),
                     severity=Severity.WARNING if recycle_bin_size > WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,
@@ -127,10 +138,14 @@ class Module(ModuleBase):
         if prefetch_size > 0:
             findings.append(
                 Finding(
-                    title=f"Prefetch directory: {_fmt_bytes(prefetch_size)}",
+                    title=f"Application prefetch data is using {_fmt_bytes(prefetch_size)}",
                     description=(
-                        f"The Prefetch directory (C:\\Windows\\Prefetch) contains "
-                        f"{_fmt_bytes(prefetch_size)} of application prefetch data."
+                        "Windows keeps a folder of 'prefetch' data to help apps start "
+                        f"faster. It is currently using {_fmt_bytes(prefetch_size)}. This "
+                        "is normal system behavior. You can clear it, but Windows will "
+                        "just rebuild it over time.\n\n"
+                        "What to do: Nothing is required. If you want to clear it, open "
+                        "Settings > System > Storage and select 'Temporary files'."
                     ),
                     severity=Severity.WARNING if prefetch_size > WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,
@@ -147,11 +162,14 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"Found {_fmt_bytes(total_reclaimable)} of reclaimable disk space",
+                    title=f"You can free up {_fmt_bytes(total_reclaimable)} of disk space",
                     description=(
-                        f"Total space used by temp files, caches, and recycle bin: "
-                        f"{_fmt_bytes(total_reclaimable)}. Removing these items may improve "
-                        f"disk performance and free up space."
+                        f"Your computer has {_fmt_bytes(total_reclaimable)} of space taken "
+                        "up by temporary files, caches, and the Recycle Bin. Cleaning "
+                        "these up is a safe way to free up space and keep your computer "
+                        "running smoothly. This is routine maintenance.\n\n"
+                        "What to do: Open Settings > System > Storage and use the 'Temporary "
+                        "files' option to clean up."
                     ),
                     severity=Severity.WARNING if total_reclaimable > WARNING_THRESHOLD else Severity.INFO,
                     category=self.category,

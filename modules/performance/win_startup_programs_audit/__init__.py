@@ -103,11 +103,14 @@ class Module(ModuleBase):
         if excessive_count:
             findings.append(
                 Finding(
-                    title=f"Excessive startup programs: {total_items} items (>15)",
+                    title=f"Your computer starts {total_items} programs at login",
                     description=(
-                        f"Your system has {total_items} startup items, which is unusually high. "
-                        "Too many startup programs significantly slow down boot time and system responsiveness. "
-                        "Consider disabling unnecessary items via Task Manager (Startup tab) or Services (msconfig)."
+                        f"Your computer is set to launch {total_items} programs automatically "
+                        "when you turn it on. This is a lot, and it makes your computer "
+                        "slower to start up and can make it feel sluggish while you work.\n\n"
+                        "What to do: Open Task Manager (right-click the taskbar and select "
+                        "Task Manager), open Startup apps, and disable programs you "
+                        "don't use every day."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -123,11 +126,21 @@ class Module(ModuleBase):
         if suspicious_path_items:
             findings.append(
                 Finding(
-                    title=f"Found {len(suspicious_path_items)} startup item(s) in suspicious paths",
+                    title=(
+                        f"Found {len(suspicious_path_items)} startup item(s) in suspicious paths"
+                    ),
                     description=(
-                        "Startup items running from temporary or download directories may indicate malware or adware. "
-                        "Items: " + ", ".join([f"{i['name']}" for i in suspicious_path_items[:3]])
+                        "We found programs set to start automatically from unusual folders, "
+                        "like your Downloads or Temp folders. Legitimate software usually "
+                        "starts from its own installation folder. While this is often "
+                        "just leftover junk, it can sometimes be a sign of unwanted software: "
+                        + ", ".join([f"{i['name']}" for i in suspicious_path_items[:3]])
                         + ("..." if len(suspicious_path_items) > 3 else "")
+                        + "\n\n"
+                        "What to do: Open Task Manager (right-click the taskbar and select "
+                        "Task Manager), open Startup apps, and disable these items. "
+                        "If you don't recognize them, you can right-click them to see "
+                        "where they are located."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -142,12 +155,19 @@ class Module(ModuleBase):
         if bloatware_items:
             findings.append(
                 Finding(
-                    title=f"Found {len(bloatware_items)} potentially unnecessary startup item(s)",
+                    title=(
+                        f"Found {len(bloatware_items)} potentially unnecessary startup item(s)"
+                    ),
                     description=(
-                        "These startup items are known to impact boot/system performance: "
+                        "These programs start automatically when your computer turns on, "
+                        "but they are known to slow down your system without providing "
+                        "much value: "
                         + ", ".join([f"{i['name']}" for i in bloatware_items[:3]])
                         + ("..." if len(bloatware_items) > 3 else "")
-                        + "\nConsider disabling via Task Manager Startup tab or Services settings."
+                        + ".\n\n"
+                        "What to do: Open Task Manager (right-click the taskbar and select "
+                        "Task Manager), open Startup apps, and disable these programs "
+                        "to help your computer run faster."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

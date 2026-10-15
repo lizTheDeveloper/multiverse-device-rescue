@@ -141,11 +141,14 @@ class Module(ModuleBase):
             ])
             findings.append(
                 Finding(
-                    title=f"Found {len(orphaned_profiles)} orphaned profile(s)",
+                    title=f"Found {len(orphaned_profiles)} leftover user profile(s)",
                     description=(
-                        f"These profiles have no corresponding user account and waste disk space:\n"
-                        f"{profile_list}\n\n"
-                        f"Orphaned profiles can be safely deleted via System Properties > Advanced > User Profiles."
+                        "These folders exist on your computer but don't belong to any "
+                        f"active user account:\n{profile_list}\n\n"
+                        "They take up space but don't affect your current login.\n\n"
+                        "What to do: You can safely remove them to free up space. Go "
+                        "type 'Advanced system settings' in the Start menu, click Settings "
+                        "under User Profiles, select the profile and click Delete."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -165,11 +168,15 @@ class Module(ModuleBase):
             ])
             findings.append(
                 Finding(
-                    title=f"Found {len(temp_profiles)} temporary profile(s)",
+                    title=f"Found {len(temp_profiles)} temporary user profile(s)",
                     description=(
-                        f"These profiles contain TEMP in path, indicating possible corruption:\n"
-                        f"{profile_list}\n\n"
-                        f"Temporary profiles should be reviewed and deleted to prevent login issues."
+                        "Windows created these temporary folders because it couldn't "
+                        f"load your normal profile correctly:\n{profile_list}\n\n"
+                        "This usually means your main profile has a problem. If you see "
+                        "this, your settings or files might not be saving properly.\n\n"
+                        "What to do: Log out and back in to see if the issue resolves. "
+                        "If it persists, back up your important files and contact a tech "
+                        "support professional to repair your main profile."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -189,11 +196,14 @@ class Module(ModuleBase):
             ])
             findings.append(
                 Finding(
-                    title=f"Found {len(large_profiles)} large profile(s) (>10 GB)",
+                    title=f"Found {len(large_profiles)} very large user profile(s)",
                     description=(
-                        f"These profiles exceed 10 GB and may slow login times:\n"
-                        f"{profile_list}\n\n"
-                        f"Consider reviewing and cleaning up profile contents."
+                        f"These user folders are over 10 GB, which is larger than typical:\n{profile_list}\n\n"
+                        "Large profiles can slow down your computer when you log in or "
+                        "shut down.\n\n"
+                        "What to do: Check your Downloads or Documents folders for large "
+                        "files you no longer need and move them to an external drive "
+                        "or cloud storage."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -213,11 +223,15 @@ class Module(ModuleBase):
             ])
             findings.append(
                 Finding(
-                    title=f"Found {len(unused_profiles)} unused profile(s) (>180 days)",
+                    title=f"Found {len(unused_profiles)} unused user profile(s)",
                     description=(
-                        f"These profiles have not been used in over 180 days:\n"
-                        f"{profile_list}\n\n"
-                        f"Old profiles can be safely deleted via System Properties > Advanced > User Profiles."
+                        f"These profiles haven't been logged into for over 180 days:\n{profile_list}\n\n"
+                        "Old profiles just take up disk space. They don't pose a security "
+                        "risk, but they can clutter your system.\n\n"
+                        "What to do: If you are sure you will never use these accounts "
+                        "again, you can delete them: type 'Advanced system settings' in "
+                        "the Start menu, click Settings under User Profiles, select the "
+                        "profile and click Delete."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

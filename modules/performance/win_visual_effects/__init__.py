@@ -59,11 +59,18 @@ class Module(ModuleBase):
         if visual_fx_setting == 3 and has_low_ram:
             findings.append(
                 Finding(
-                    title="Visual Effects may impact performance",
+                    title=(
+                        f"Visual effects are set to 'Best Appearance' on a {ram_gb:.1f} GB system"
+                    ),
                     description=(
-                        f"Visual effects are set to 'Best Appearance' (highest quality) "
-                        f"on a system with only {ram_gb:.1f} GB RAM. This can slow down "
-                        f"older systems. Consider reducing visual effects for better performance."
+                        "Your computer is set to use the highest quality visual effects, "
+                        f"but it only has {ram_gb:.1f} GB of memory (RAM). High-quality "
+                        "effects use extra memory, which can make the computer feel slower "
+                        "or laggy, especially if it is older.\n\n"
+                        "What to do: Open Settings, search for 'Adjust the appearance "
+                        "and performance of Windows', and select 'Adjust for best performance'. "
+                        "You can then check the boxes for specific effects you like (like "
+                        "smooth scrolling) to keep them while improving speed."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -78,10 +85,15 @@ class Module(ModuleBase):
         if transparency_enabled and has_low_ram:
             findings.append(
                 Finding(
-                    title="Transparency effects enabled on low RAM system",
+                    title=f"Transparency effects are on a {ram_gb:.1f} GB system",
                     description=(
-                        f"Transparency effects are enabled on a system with {ram_gb:.1f} GB RAM. "
-                        f"Disabling transparency can improve performance on older hardware."
+                        "Transparency effects (like the see-through start menu) are turned "
+                        f"on. On a computer with {ram_gb:.1f} GB of memory, this can use "
+                        "extra resources and make the system feel sluggish.\n\n"
+                        "What to do: Open Settings, go to Personalization, then Colors, "
+                        "and turn off the toggle for 'Transparency effects'. This is "
+                        "a safe, reversible change that often makes older computers feel "
+                        "snappier."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
