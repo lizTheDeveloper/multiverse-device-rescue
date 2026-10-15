@@ -587,6 +587,178 @@ def undo_cmd(quarantine_id, as_json):
         raise SystemExit(code)
 
 
+def _stdin_is_tty() -> bool:
+    try:
+        return sys.stdin.isatty()
+    except Exception:
+        return False
+
+
+def _known_doc(status: str, message: str, **fields) -> dict:
+    doc = {"status": status, "message": message, "id": None, "label": None, "how_to_undo": []}
+    doc.update(fields)
+    return doc
+
+
+def _emit_known(doc: dict, as_json: bool, code: int = 0) -> None:
+    if as_json:
+        click.echo(json.dumps(doc, indent=2))
+    else:
+        click.echo(doc["message"], err=code != 0)
+        for step in doc.get("how_to_undo") or []:
+            click.echo(f"  To undo: {step}")
+    if code:
+        raise SystemExit(code)
+
+
+@main.group(name="known")
+def known():
+    """Things you have marked as yours, so checks stop flagging them."""
+
+
+@known.command("list")
+@click.option("--json", "as_json", is_flag=True, help="Emit the list as JSON on stdout.")
+def known_list(as_json):
+    """List everything marked as yours on this computer."""
+    from rescue.known_items import KnownItemsError, KnownItemsStore
+
+    store = KnownItemsStore()
+    try:
+        items = store.load()
+    except KnownItemsError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    if as_json:
+        click.echo(json.dumps({"path": str(store.path), "items": [i.to_dict() for i in items]}, indent=2))
+        return
+    if not items:
+        click.echo("Nothing is marked as yours.")
+        return
+    for item in items:
+        ident = item.identity
+        click.echo(f"{item.id}  {item.kind}  {ident.get('label', '')}")
+        click.echo(f"    finding: {ident.get('code', '')}")
+        click.echo(f"    program: {ident.get('program', '')}")
+        click.echo(f"    settings file: {ident.get('plist', '')}")
+        click.echo(f"    marked: {item.marked_at or 'unknown'}" + (f" ({item.marked_via})" if item.marked_via else ""))
+
+
+@known.command("add")
+@click.option(
+    "--code", "codes", multiple=True, required=True,
+    help="The finding code to stop flagging, e.g. security.launch_agent_audit.suspicious_path. Repeat for several.",
+)
+@click.option("--label", required=True, help="The background task's label, as the finding shows it.")
+@click.option("--program", required=True, help="The exact program path the finding shows.")
+@click.option("--plist", default=None, help="The task's settings file (found automatically if left out).")
+@click.option(
+    "--expect-id", "expect_id", default=None,
+    help="Refuse unless the task on disk still matches this mark id (the app passes the id it showed).",
+)
+@click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
+@click.option(
+    "--i-understand",
+    "acknowledged",
+    is_flag=True,
+    help="Skip the typed confirmation. Only for the desktop app, after its own confirmation.",
+)
+def known_add(codes, label, program, plist, expect_id, as_json, acknowledged):
+    """Mark a background task as yours: it is still listed, but no longer flagged."""
+    from rescue.known_items import (
+        BACKGROUND_TASK,
+        MARK_HOW_TO_UNDO,
+        MARK_WILL_CHANGE,
+        KnownItemsError,
+        KnownItemsStore,
+        find_background_task,
+        item_id,
+    )
+
+    codes = list(dict.fromkeys(codes))
+    if expect_id is not None and (len(codes) != 1 or not re.fullmatch(r"[0-9a-f]{12}", expect_id)):
+        _emit_known(_known_doc("refused", "--expect-id needs exactly one --code and an id. Nothing was marked.", label=label), as_json, 2)
+        return
+    # Re-read the task from disk now, at write time; never trust what a scan
+    # (or the app) said earlier.
+    try:
+        identities = [find_background_task(label, program, plist, code) for code in codes]
+    except KnownItemsError as exc:
+        _emit_known(_known_doc("refused", str(exc), label=label), as_json, 2)
+        return
+    if expect_id is not None and item_id(BACKGROUND_TASK, identities[0]) != expect_id:
+        _emit_known(_known_doc(
+            "refused",
+            f"The background task '{label}' changed since the checkup (its program, settings "
+            "file or what it runs is different now). Nothing was marked. Run the checkup again.",
+            label=label,
+        ), as_json, 2)
+        return
+    if acknowledged:
+        via = "confirmed in the app (--i-understand)"
+    else:
+        if not _stdin_is_tty():
+            _emit_known(_known_doc(
+                "refused",
+                "Marking something as yours needs the person at the keyboard. Run this in a "
+                "terminal and answer the question. Nothing was marked.",
+                label=label,
+            ), as_json, 2)
+            return
+        click.echo(MARK_WILL_CHANGE.replace("{label}", label), err=True)
+        click.echo(f"  Program: {identities[0]['program']}", err=True)
+        click.echo(f"  Settings file: {identities[0]['plist']}", err=True)
+        for code in codes:
+            click.echo(f"  Finding: {code}", err=True)
+        if not click.confirm("Is this yours, and do you want to stop being warned about it?", default=False, err=True):
+            _emit_known(_known_doc("cancelled", "Nothing was marked.", label=label), as_json, 1)
+            return
+        via = "confirmed in the terminal"
+    store = KnownItemsStore()
+    saved = []
+    try:
+        for identity in identities:
+            saved.append(store.add(BACKGROUND_TASK, identity, via=via))
+    except (KnownItemsError, OSError) as exc:
+        _emit_known(_known_doc("failed", f"Could not save the mark: {exc}", label=label), as_json, 1)
+        return
+    ids = [item.id for item, _ in saved]
+    created = any(c for _, c in saved)
+    undo = [s.replace("<id>", " / ".join(ids)) for s in MARK_HOW_TO_UNDO]
+    message = (
+        f"Marked '{label}' as yours (id {', '.join(ids)}). It will show as \"marked as yours\" from the next checkup."
+        if created else f"'{label}' was already marked as yours (id {', '.join(ids)})."
+    )
+    _emit_known(_known_doc(
+        "marked" if created else "already_marked", message,
+        id=ids[0], ids=ids, label=label, how_to_undo=undo,
+    ), as_json)
+
+
+@known.command("remove")
+@click.argument("item_id")
+@click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
+def known_remove(item_id, as_json):
+    """Stop treating an item as yours; its warning comes back on the next checkup."""
+    from rescue.known_items import KnownItemsError, KnownItemsStore
+
+    if not re.fullmatch(r"[0-9a-f]{12}", item_id or ""):
+        _emit_known(_known_doc("refused", "That is not an id from `rescue known list`.", id=item_id), as_json, 2)
+        return
+    try:
+        removed = KnownItemsStore().remove(item_id)
+    except (KnownItemsError, OSError) as exc:
+        _emit_known(_known_doc("failed", f"Could not update the list: {exc}", id=item_id), as_json, 1)
+        return
+    if removed is None:
+        _emit_known(_known_doc("not_found", f"Nothing marked as yours has the id {item_id}.", id=item_id), as_json, 1)
+        return
+    label = removed.identity.get("label")
+    _emit_known(_known_doc(
+        "removed", f"'{label}' is no longer marked as yours. Its warning comes back on the next checkup.",
+        id=item_id, label=label,
+    ), as_json)
+
+
 @main.command(name="profiles")
 def list_profiles_cmd():
     """List available threat-model profiles."""

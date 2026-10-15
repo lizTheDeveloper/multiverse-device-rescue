@@ -833,7 +833,8 @@ h3 {
   color: var(--warning-text);
 }
 /* "Fix it for me" button, confirmation and result */
-.fix-it {
+.fix-it,
+.mark-mine {
   margin-top: 0.75rem;
 }
 

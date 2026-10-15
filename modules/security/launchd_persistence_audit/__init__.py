@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from shlex import quote
 
+from rescue import known_items
 from rescue.models import (
     Action,
     CheckResult,
@@ -104,10 +105,14 @@ class Module(ModuleBase):
 
         # (index of the item's first finding, the plist it came from), so each
         # finding can say which file it is about.
+        # plist -> (label, program, arguments), for "marked as mine".
+        tasks: dict[str, tuple] = {}
         starts: list[tuple[int, str | None]] = []
         for item in all_items:
             label, program_path, keep_alive, run_at_load, arguments = item[:5]
             starts.append((len(findings), item[5] if len(item) > 5 else None))
+            if starts[-1][1]:
+                tasks[starts[-1][1]] = (label, program_path, arguments)
             if not program_path:
                 findings.append(
                     Finding(
@@ -305,6 +310,20 @@ class Module(ModuleBase):
                 )
 
         _tag_plists(findings, starts)
+        # Items the person marked as theirs are downgraded and labelled, never
+        # hidden; a changed program, plist or arguments no longer matches.
+        for f in findings:
+            task = tasks.get(f.data.get("plist"))
+            if task:
+                f.data["arguments_sha256"] = known_items.arguments_sha256(task[2])
+
+        def identify(f):
+            task = tasks.get(f.data.get("plist"))
+            if not task:
+                return None
+            return known_items.background_task_identity(task[0], task[1], f.data["plist"], task[2])
+
+        known_items.apply_marks(findings, known_items.BACKGROUND_TASK, identify)
         return CheckResult(module_name=self.name, findings=findings)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:

@@ -2,7 +2,8 @@ const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
 const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
-const { runScan, runFix, runAction, runUndo } = require('./engine-runner');
+const { runScan, runFix, runAction, runUndo, runMark, runUnmark } = require('./engine-runner');
+const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 
@@ -28,11 +29,14 @@ function createWindow() {
 app.whenReady().then(() => {
   // Modules the engine itself marked fixable in the scans this process ran.
   const fixPolicy = createFixPolicy();
+  // Findings the engine offered as "This is mine" in the scans this process ran.
+  const markPolicy = createMarkPolicy();
   ipcMain.handle('run-scan', async (e, profile) => {
     const doc = await runScan(undefined, profile, (ev) => {
       if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
     });
     fixPolicy.remember(doc);
+    markPolicy.remember(doc);
     return doc;
   });
   ipcMain.handle('run-fix', (_e, moduleName) =>
@@ -41,6 +45,11 @@ app.whenReady().then(() => {
     handleRunAction(action, target, { policy: fixPolicy, runAction }));
   ipcMain.handle('undo-fix', (_e, quarantineId) =>
     handleRunUndo(quarantineId, { policy: fixPolicy, runUndo }));
+  // Only an id crosses IPC; the main process uses the target it stored from its own scan.
+  ipcMain.handle('mark-mine', (_e, id) =>
+    handleMark(id, { policy: markPolicy, runMark }));
+  ipcMain.handle('unmark-mine', (_e, id) =>
+    handleUnmark(id, { policy: markPolicy, runUnmark }));
   ipcMain.handle('open-guide', (_e, url) => {
     if (!isAllowedGuideUrl(url)) {
       return false;

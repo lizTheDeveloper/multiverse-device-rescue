@@ -106,34 +106,75 @@ function runUndo(quarantineId, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
   return runEngineJson(() => undoArgs(quarantineId), 'undo', spawnFn, timeoutMs);
 }
 
-function runEngineJson(buildArgs, moduleName, spawnFn, timeoutMs) {
+// "This is mine". The target was already checked against the last scan by the
+// main process; it is checked again here because it is passed to the engine.
+const MARK_ID = /^[0-9a-f]{12}$/;
+const MARK_TIMEOUT_MS = 30000;
+
+function clean(s, max = 1024) {
+  return typeof s === 'string' && s.length > 0 && s.length < max && !s.includes('\0');
+}
+
+function markArgs(target) {
+  const t = target || {};
+  if (t.kind !== 'background_task') throw new Error('invalid kind');
+  if (!clean(t.label, 256) || t.label.startsWith('-')) throw new Error('invalid label');
+  if (!clean(t.program) || !(t.program.startsWith('/') || t.program.startsWith('~'))) throw new Error('invalid program');
+  if (!clean(t.plist) || !t.plist.startsWith('/')) throw new Error('invalid plist');
+  if (typeof t.code !== 'string' || !/^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$/.test(t.code)) throw new Error('invalid code');
+  if (typeof t.id !== 'string' || !MARK_ID.test(t.id)) throw new Error('invalid id');
+  // The person has already confirmed in the app, hence --i-understand. The
+  // engine re-reads the task and refuses unless it still hashes to --expect-id.
+  return ['known', 'add', '--code', t.code, '--label', t.label, '--program', t.program,
+    '--plist', t.plist, '--expect-id', t.id, '--json', '--i-understand'];
+}
+
+function unmarkArgs(id) {
+  if (typeof id !== 'string' || !MARK_ID.test(id)) throw new Error('invalid id');
+  return ['known', 'remove', id, '--json'];
+}
+
+function markFailure(error, message) {
+  const said = error === 'timeout' ? 'That took too long, so we stopped waiting. Run the checkup again to see where things stand.' : message;
+  return { status: 'failed', error, message: said, id: null, label: null, how_to_undo: [] };
+}
+
+function runMark(target, spawnFn = spawn, timeoutMs = MARK_TIMEOUT_MS) {
+  return runEngineJson(() => markArgs(target), 'known', spawnFn, timeoutMs, markFailure);
+}
+
+function runUnmark(id, spawnFn = spawn, timeoutMs = MARK_TIMEOUT_MS) {
+  return runEngineJson(() => unmarkArgs(id), 'known', spawnFn, timeoutMs, markFailure);
+}
+
+function runEngineJson(buildArgs, moduleName, spawnFn, timeoutMs, fail = (error, message) => failure(moduleName, error, message)) {
   return new Promise((resolve) => {
     let p;
     try {
       p = spawnFn(resolveEnginePath(), buildArgs());
     } catch (e) {
-      return resolve(failure(moduleName, 'engine_error', e.message));
+      return resolve(fail('engine_error', e.message));
     }
     let out = '', err = '', finished = false;
     const finish = (value) => { if (!finished) { finished = true; clearTimeout(timer); resolve(value); } };
     const timer = setTimeout(() => {
       // Answer first: killing the process makes 'close' fire, which must not win.
-      const timedOut = failure(moduleName, 'timeout', 'The fix took too long, so we stopped waiting. Run the checkup again to see where things stand.');
+      const timedOut = fail('timeout', 'The fix took too long, so we stopped waiting. Run the checkup again to see where things stand.');
       finish(timedOut);
       try { p.kill(); } catch (_) { /* already gone */ }
     }, timeoutMs);
     p.stdout.on('data', d => (out += d));
     p.stderr.on('data', d => (err += d));
-    p.on('error', e => finish(failure(moduleName, 'engine_error', e.message)));
+    p.on('error', e => finish(fail('engine_error', e.message)));
     p.on('close', code => {
       try {
         finish(parseEngineOutput(out));
       } catch (_) {
         const tail = err.trim().split('\n').slice(-3).join(' ');
-        finish(failure(moduleName, 'engine_error', `The checkup engine gave an unexpected answer (exit ${code}). ${tail}`.trim()));
+        finish(fail('engine_error', `The checkup engine gave an unexpected answer (exit ${code}). ${tail}`.trim()));
       }
     });
   });
 }
 
-module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo };
+module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, markArgs, unmarkArgs, runMark, runUnmark };

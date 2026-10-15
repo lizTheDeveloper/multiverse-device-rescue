@@ -512,6 +512,7 @@ if (typeof document !== 'undefined') {
               ${descriptionHtml(wantsSafetyNote(situation, finding) ? finding.description : withoutSafetyParagraphs(finding.description), escapeHtml)}
               ${madeByHtml(finding.made_by, escapeHtml)}
               ${FixFlow.fixControlsHtml(finding, { watched: !!(situation && situation.id === 'watched') })}
+              ${MarkFlow.markControlsHtml(finding)}
               ${wantsSafetyNote(situation, finding) ? safetyNoteHtml(finding, escapeHtml) : ''}
               ${finding.remediation && (finding.remediation.steps || []).length ? `
               <div class="next-steps">
@@ -702,6 +703,8 @@ if (typeof document !== 'undefined') {
 
     // "Fix it for me": delegated, so it keeps working when results are re-rendered.
     FixFlow.attach(document.getElementById('results-groups'), window.rescue);
+    // "This is mine": same delegation; the engine keeps marked items listed.
+    MarkFlow.attach(document.getElementById('results-groups'), window.rescue);
 
     document.getElementById('btn-get-started').addEventListener('click', () => {
       showScreen('worry');

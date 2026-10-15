@@ -12,7 +12,11 @@ If the person just wants the app, send them to the download buttons in the
 1. **Look, don't touch.** Use `rescue scan --json`, `rescue export`, and
    `rescue run <module> < /dev/null`. All of these are read-only. Don't pass
    `--auto` or `--yes`, because both apply fixes. A fix needs the person to
-   agree to that specific change after you've explained it.
+   agree to that specific change after you've explained it. `rescue known add`
+   (marking a finding as "mine") counts as a change too: the person runs it
+   and answers its question themselves; never pass `--i-understand` for them.
+   In scan output, a finding with `data.marked_by_user: true` is something
+   someone marked on this computer. Mention it; don't treat it as cleared.
 2. **Never ask for a password, a one-time code, or a recovery code.** The tool
    never needs one, so don't ask the person to paste one into the chat.
 3. **"Couldn't run" doesn't mean "clean."** A module with `"supported": false`
