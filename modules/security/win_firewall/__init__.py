@@ -50,11 +50,15 @@ class Module(ModuleBase):
                     code = "security.win_firewall.private_domain_profile_disabled"
                 findings.append(
                     Finding(
-                        title=f"{profile_name} firewall is disabled",
+                        title=f"Your {profile_name} firewall is off",
                         description=(
-                            f"The Windows Firewall {profile_name} is currently "
-                            "off. This leaves the system open to unsolicited "
-                            "inbound connections while using that network profile."
+                            f"Your computer's firewall is turned off for the {profile_name} "
+                            "network. This means other computers on that network can "
+                            "try to connect to your device without your permission.\n\n"
+                            "What to do: Open Windows Settings, go to Privacy & security "
+                            "> Windows Security, and select Firewall & network protection. "
+                            f"Find the {profile_name} section and turn the firewall back "
+                            "on."
                         ),
                         severity=severity,
                         category=self.category,

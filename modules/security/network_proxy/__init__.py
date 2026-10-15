@@ -56,12 +56,24 @@ class Module(ModuleBase):
             if proxy_config.get("pac_url"):
                 findings.append(
                     Finding(
-                        title=f"Proxy Auto-Configuration (PAC) URL detected on {interface}",
+                        title=(
+                            f"Your {interface} connection uses an automatic proxy file"
+                        ),
                         description=(
-                            f"A Proxy Auto-Configuration (PAC) file URL is configured on {interface}: "
-                            f"{proxy_config['pac_url']}. This is very suspicious on home machines and may "
-                            f"indicate malware attempting to hijack network traffic. PAC files are typically "
-                            f"used in corporate environments. On home machines, this is a malware red flag."
+                            "Your computer is set to use a special file (called a PAC "
+                            "file) to decide where to send your internet traffic. The "
+                            f"file is located at: {proxy_config['pac_url']}. Workplaces, some "
+                            "VPNs and some security apps use these. If you didn't set one "
+                            "up, something may be watching or redirecting your web "
+                            "traffic.\n\n"
+                            "If you think someone close to you set this up to monitor "
+                            "you, removing it can alert them. Talk to an advocate first "
+                            "(US National Domestic Violence Hotline: 1-800-799-7233, "
+                            "or text START to 88788).\n\n"
+                            "What to do: Open System Settings, click Network, select "
+                            f"your {interface} connection, then click Details. Select "
+                            "Proxies on the left, and make sure 'Automatic Proxy Configuration' "
+                            "is unchecked. Click OK to save."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -78,12 +90,24 @@ class Module(ModuleBase):
             if enabled_proxies:
                 findings.append(
                     Finding(
-                        title=f"Proxy server(s) configured on {interface}",
+                        title=(
+                            f"Your {interface} connection is sending traffic through a proxy"
+                        ),
                         description=(
-                            f"The following proxy server(s) are enabled on {interface}: {', '.join(enabled_proxies)}. "
-                            f"Unexpected proxies can be a malware vector used to hijack traffic. "
-                            f"Corporate machines legitimately use proxies, but home machines should typically not. "
-                            f"Review and disable if unexpected."
+                            "Your computer is set to route your internet traffic through "
+                            f"a proxy server for {', '.join(enabled_proxies)} connections. "
+                            "A proxy is a middleman that handles your data. This is normal "
+                            "for work computers, but unusual for home use. If you don't "
+                            "recognize this setting, it could mean someone is trying "
+                            "to intercept your internet activity.\n\n"
+                            "If you think someone close to you set this up to monitor "
+                            "you, removing it can alert them. Talk to an advocate first "
+                            "(US National Domestic Violence Hotline: 1-800-799-7233, "
+                            "or text START to 88788).\n\n"
+                            "What to do: Open System Settings, click Network, select "
+                            f"your {interface} connection, then click Details. Select "
+                            "Proxies on the left, and turn off the switches for the listed "
+                            "types. Click OK to save."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
