@@ -133,10 +133,18 @@ class Module(ModuleBase):
             dns_text = ", ".join([f"{s}: {d}" for s, d in problematic_dns_found])
             findings.append(
                 Finding(
-                    title="Potentially problematic DNS servers configured",
+                    title="Website lookups are sent to this computer itself or nowhere",
                     description=(
-                        f"The following services have potentially problematic DNS servers configured: {dns_text}. "
-                        f"This may block internet access or indicate a network misconfiguration."
+                        "These connections use an unusual DNS server, the service that "
+                        f"turns website names into addresses: {dns_text}. 127.0.0.1 means "
+                        "a program on this computer answers the lookups; 0.0.0.0 means "
+                        "nothing does. Ad blockers, VPNs and privacy apps often set this "
+                        "up, but unwanted software can use it to watch or redirect where "
+                        "you go online.\n\n"
+                        "What to do: If you use an ad blocker, VPN or privacy app, this "
+                        "is probably it. If not, open System Settings > Network, choose "
+                        "the connection, click Details > DNS, and remove the entry so "
+                        "your router's DNS is used."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
