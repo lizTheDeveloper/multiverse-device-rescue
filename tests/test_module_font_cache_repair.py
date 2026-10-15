@@ -68,7 +68,7 @@ def test_font_cache_repair_bloated_cache():
                         result = mod.check(_make_profile())
 
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("bloated" in f.title.lower() for f in warnings)
+    assert any(f.data.get("type") == "bloated_cache" for f in warnings)
 
 
 def test_font_cache_repair_excessive_fonts():
@@ -83,7 +83,7 @@ def test_font_cache_repair_excessive_fonts():
                         result = mod.check(_make_profile())
 
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("excessive" in f.title.lower() for f in warnings)
+    assert any(f.data.get("type") == "excessive_fonts" for f in warnings)
 
 
 def test_font_cache_repair_unresponsive_font_server():
@@ -98,7 +98,7 @@ def test_font_cache_repair_unresponsive_font_server():
                         result = mod.check(_make_profile())
 
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any("not responding" in f.title.lower() for f in warnings)
+    assert any(f.data.get("type") == "font_server_unresponsive" for f in warnings)
 
 
 def test_font_cache_repair_database_issues():

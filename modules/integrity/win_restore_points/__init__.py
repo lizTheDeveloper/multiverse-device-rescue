@@ -39,9 +39,10 @@ class Module(ModuleBase):
                     title="We could not check your System Restore status",
                     description=(
                         "We tried to look at your System Restore settings, but the check "
-                        "didn't finish. This doesn't mean anything is wrong; it just means "
-                        "we couldn't see the status. Please run the checkup again to get "
-                        "a clear answer."
+                        "didn't finish, so we can't say whether you have restore points. "
+                        "That isn't the same as everything being fine.\n\n"
+                        "What to do: Type 'Create a restore point' in the Start menu to "
+                        "see the settings yourself."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -32,10 +32,13 @@ class Module(ModuleBase):
         if not activation_info:
             findings.append(
                 Finding(
-                    title="Could not retrieve Windows activation status",
+                    title="We couldn't check whether Windows is activated",
                     description=(
-                        "Failed to run slmgr.vbs. Activation status cannot be assessed. "
-                        "Ensure you have Administrator privileges."
+                        "The activation check didn't run, usually because the app wasn't "
+                        "running as an administrator. That isn't the same as everything "
+                        "being fine.\n\n"
+                        "What to do: Look in Settings > System > Activation to see the "
+                        "status yourself."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -55,11 +58,13 @@ class Module(ModuleBase):
         if in_grace_period:
             findings.append(
                 Finding(
-                    title="Windows is in grace period",
+                    title="Windows is in its activation grace period",
                     description=(
-                        f"Windows is in the initial grace period. "
-                        f"The grace period will expire soon and Windows will need to be activated. "
-                        f"License type: {license_type}."
+                        "Windows works fully for now, but it needs to be activated before "
+                        f"the grace period ends. License type: {license_type}.\n\n"
+                        "What to do: Open Settings > System > Activation and enter your "
+                        "product key or sign in with the Microsoft account the license "
+                        "belongs to."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -75,9 +80,13 @@ class Module(ModuleBase):
                 Finding(
                     title="Windows is not activated",
                     description=(
-                        f"Windows activation status: {license_status}. "
-                        "This may result in a watermark on your screen and restrictions on "
-                        "Windows features. Activation is required for full functionality."
+                        f"Windows reports its activation status as {license_status}. You "
+                        "may see a watermark, and some personalization settings are locked. "
+                        "It doesn't make the computer less safe on its own, but an unlicensed "
+                        "copy may not be genuine.\n\n"
+                        "What to do: Open Settings > System > Activation and enter your "
+                        "product key or sign in with the Microsoft account the license "
+                        "belongs to."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,

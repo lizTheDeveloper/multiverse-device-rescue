@@ -98,11 +98,15 @@ class Module(ModuleBase):
             if update_cache_size and update_cache_size > WINDOWS_UPDATE_CACHE_WARNING_GB * (1024**3):
                 findings.append(
                     Finding(
-                        title="Large Windows Update cache detected",
+                        title=(
+                            f"Windows Update files are using {_fmt_bytes(update_cache_size)}"
+                        ),
                         description=(
-                            f"Windows Update cache at {_fmt_bytes(update_cache_size)} "
-                            f"exceeds {WINDOWS_UPDATE_CACHE_WARNING_GB}GB. "
-                            "Stale updates should be cleaned to free space."
+                            f"Old Windows Update downloads are using {_fmt_bytes(update_cache_size)}, "
+                            f"over {WINDOWS_UPDATE_CACHE_WARNING_GB}GB. Once updates are "
+                            "installed they aren't needed.\n\n"
+                            "What to do: Open Settings > System > Storage > Temporary "
+                            "files, tick Windows Update Cleanup, and click Remove files."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -117,11 +121,13 @@ class Module(ModuleBase):
             if recycle_bin_size and recycle_bin_size > RECYCLE_BIN_WARNING_GB * (1024**3):
                 findings.append(
                     Finding(
-                        title="Large Recycle Bin",
+                        title=f"Your Recycle Bin is using {_fmt_bytes(recycle_bin_size)}",
                         description=(
-                            f"Recycle Bin contains {_fmt_bytes(recycle_bin_size)}, "
-                            f"exceeding {RECYCLE_BIN_WARNING_GB}GB. "
-                            "These are forgotten deletions that can be permanently removed."
+                            f"Your Recycle Bin holds {_fmt_bytes(recycle_bin_size)}, over "
+                            f"{RECYCLE_BIN_WARNING_GB}GB of files you've already deleted.\n\n"
+                            "What to do: Look through it, then right-click the Recycle "
+                            "Bin and choose Empty Recycle Bin. Emptied files can't be "
+                            "brought back."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

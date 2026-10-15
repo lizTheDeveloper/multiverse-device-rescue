@@ -243,7 +243,7 @@ def test_running_bun_is_heuristic_match_without_malicious_wording(tmp_path):
     finding = mod._finding_from_launchagent(raw[0])
     assert "malicious" not in finding.title.lower()
     assert "malicious" not in finding.description.lower()
-    assert "verify you installed" in finding.description.lower()
+    assert "if you installed it" in finding.description.lower()
     assert finding.severity in (Severity.INFO, Severity.WARNING)
 
 
@@ -279,4 +279,4 @@ def test_known_bad_label_still_critical_and_named(tmp_path):
     )
     finding = mod._finding_from_launchagent(raw[0])
     assert finding.severity == Severity.CRITICAL
-    assert "Malicious" in finding.title and "miasma" in finding.description
+    assert "known malware" in finding.title and "miasma" in finding.description

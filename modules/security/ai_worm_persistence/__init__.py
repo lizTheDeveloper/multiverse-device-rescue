@@ -270,10 +270,14 @@ class Module(ModuleBase):
         is_deadman = bool(raw.get("is_deadman_switch", False))
 
         if confidence == "high":
-            title = f"Malicious LaunchAgent detected: {label}"
+            title = f"A known malware startup item is installed: {label}"
             description = (
-                f"LaunchAgent '{label}' at {plist} matches a known {threat} "
-                "persistence mechanism."
+                f"The startup item '{label}' ({plist}) matches known {threat} "
+                "malware, which keeps itself running on developers' computers."
+            )
+            what_to_do = (
+                "What to do: Disconnect from the internet, then follow the steps "
+                "below in order. Don't revoke tokens or delete files first."
             )
         else:
             # Heuristic match only: no named threat. Never call this malicious.
@@ -282,17 +286,25 @@ class Module(ModuleBase):
                 f"The background item '{label}' ({plist}) looks like an AI agent "
                 "or runs a tool often used by them (it calls an AI service or "
                 "runs the bun runtime). Many people install these on purpose, "
-                "for example OpenClaw or Claude tools. Verify you installed it. "
-                "If you do not recognize it, it is worth a closer look."
+                "for example OpenClaw or Claude tools."
+            )
+            what_to_do = (
+                "What to do: If you installed it, there's nothing to do. If you "
+                "don't recognize it, follow the steps below."
             )
         if is_deadman:
-            title = f"Dead-man switch LaunchAgent detected: {label}"
+            title = f"Dead-man switch startup item: {label}"
             description += (
-                " WARNING: this is a dead-man switch — it is designed to "
-                "trigger destructive action (e.g. rm -rf ~/) if its "
-                "monitored credential is revoked or it is tampered with. "
-                "Disable it before removing any other persistence."
+                "\n\nWarning: this is a dead-man switch. It is built to wipe "
+                "files (for example your whole home folder) if its stolen token "
+                "is revoked or it is tampered with."
             )
+            what_to_do = (
+                "What to do: Disconnect from the internet and disable this item "
+                "first, following the steps below, before you revoke any token or "
+                "remove anything else."
+            )
+        description += "\n\n" + what_to_do
 
         if is_deadman:
             code = "security.ai_worm_persistence.deadman_switch_launchagent"
@@ -402,17 +414,27 @@ class Module(ModuleBase):
         threat = raw.get("threat", "unknown")
         is_deadman = bool(raw.get("is_deadman_switch", False))
 
-        title = f"Malicious systemd unit detected: {unit_name}"
+        title = f"A known malware service is installed: {unit_name}"
         description = (
-            f"systemd --user unit '{unit_name}' at {unit} matches a known "
-            f"{threat} persistence mechanism."
+            f"The systemd user service '{unit_name}' ({unit}) matches known "
+            f"{threat} malware, which keeps itself running on developers' computers."
+        )
+        what_to_do = (
+            "What to do: Disconnect from the internet, then follow the steps below "
+            "in order. Don't revoke tokens or delete files first."
         )
         if is_deadman:
-            title = f"Dead-man switch systemd unit detected: {unit_name}"
+            title = f"Dead-man switch service: {unit_name}"
             description += (
-                " WARNING: this is a dead-man switch — disable it before "
-                "removing any other persistence."
+                "\n\nWarning: this is a dead-man switch. It is built to wipe files "
+                "if its stolen token is revoked or it is tampered with."
             )
+            what_to_do = (
+                "What to do: Disconnect from the internet and disable this service "
+                "first, following the steps below, before you revoke any token or "
+                "remove anything else."
+            )
+        description += "\n\n" + what_to_do
 
         if is_deadman:
             code = "security.ai_worm_persistence.deadman_switch_systemd_unit"

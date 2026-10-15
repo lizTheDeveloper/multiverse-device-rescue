@@ -111,6 +111,11 @@ class Module(ModuleBase):
                 f" {stale} of them point to a program that is no longer "
                 "there (left over from something that was removed)."
             )
+        description += (
+            "\n\nWhat to do: Open System Settings > General > Login Items & "
+            "Extensions and, under Allow in the Background, turn off anything you "
+            "don't use. Turning one off doesn't uninstall the app."
+        )
         return Finding(
             title=f"{n} apps start automatically in the background",
             description=description,

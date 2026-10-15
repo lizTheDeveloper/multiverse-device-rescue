@@ -84,8 +84,12 @@ class Module(ModuleBase):
             )
             findings.append(
                 Finding(
-                    title="System overdue for restart",
-                    description=f"System uptime is {uptime_str}. Microsoft recommends restarting at least every 30 days for updates and memory cleanup.",
+                    title=f"Your computer hasn't restarted in a while ({uptime_str})",
+                    description=(
+                        f"Your computer has been on for {uptime_str} without a restart. "
+                        "Many Windows updates only finish installing when you restart.\n\n"
+                        "What to do: Save your work and restart when it suits you."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={

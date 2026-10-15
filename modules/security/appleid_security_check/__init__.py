@@ -100,11 +100,13 @@ class Module(ModuleBase):
         if not autoupdate_enabled:
             findings.append(
                 Finding(
-                    title="Automatic software updates are disabled",
+                    title="Your Mac doesn't install updates automatically",
                     description=(
-                        "Automatic software updates are not enabled on this Mac. "
-                        "Security patches are critical for protecting against vulnerabilities. "
-                        "Enable automatic updates to ensure your system stays secure."
+                        "Automatic updates are off, so security fixes only arrive when "
+                        "you go and get them.\n\n"
+                        "What to do: Open System Settings > General > Software Update, "
+                        "click the info button next to Automatic Updates, and turn the "
+                        "options on."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

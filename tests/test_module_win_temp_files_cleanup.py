@@ -176,7 +176,7 @@ def test_win_temp_files_cleanup_large_update_cache():
     assert result.has_issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warnings) > 0
-    assert any("Large Windows Update cache" in f.title for f in warnings)
+    assert any(f.data.get("check") == "update_cache" for f in warnings)
 
 
 def test_win_temp_files_cleanup_large_recycle_bin():
@@ -197,7 +197,7 @@ def test_win_temp_files_cleanup_large_recycle_bin():
     assert result.has_issues
     warnings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warnings) > 0
-    assert any("Large Recycle Bin" in f.title for f in warnings)
+    assert any(f.data.get("check") == "recycle_bin" for f in warnings)
 
 
 def test_win_temp_files_cleanup_breakdown_reported():

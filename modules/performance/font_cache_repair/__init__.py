@@ -54,11 +54,13 @@ class Module(ModuleBase):
         if total_cache_size > FONT_CACHE_SIZE_WARNING:
             findings.append(
                 Finding(
-                    title=f"Font cache is bloated: {_fmt_bytes(total_cache_size)}",
+                    title=f"Your font cache is very large ({_fmt_bytes(total_cache_size)})",
                     description=(
-                        f"The font cache exceeds 500 MB ({_fmt_bytes(total_cache_size)}). "
-                        f"A bloated font cache can cause slowdowns, app crashes, and rendering glitches. "
-                        f"This often indicates cache corruption on older Macs."
+                        f"The font cache is {_fmt_bytes(total_cache_size)}, over the usual "
+                        "500 MB. A cache this big can make text look wrong, slow apps "
+                        "down, or make them crash.\n\n"
+                        "What to do: Start your Mac once in Safe Mode (that clears the "
+                        "font caches), then restart normally."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -73,11 +75,12 @@ class Module(ModuleBase):
         if not font_server_responsive:
             findings.append(
                 Finding(
-                    title="Font server is not responding",
+                    title="The font service isn't responding",
                     description=(
-                        "The atsutil font server is not responding to ping requests. "
-                        "This indicates the font server may be in an unstable state and could cause "
-                        "font rendering issues and application crashes."
+                        "The part of macOS that serves fonts to apps didn't answer. That "
+                        "can make text look wrong or apps crash.\n\n"
+                        "What to do: Restart your Mac. If it keeps happening, start once "
+                        "in Safe Mode to clear the font caches, then restart normally."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -90,11 +93,12 @@ class Module(ModuleBase):
         if font_count > FONT_COUNT_WARNING:
             findings.append(
                 Finding(
-                    title=f"Excessive fonts installed: {font_count}",
+                    title=f"You have a lot of fonts installed ({font_count})",
                     description=(
-                        f"The system has {font_count} installed fonts, exceeding the {FONT_COUNT_WARNING} threshold. "
-                        f"Excessive fonts slow down system performance, increase boot time, and can cause rendering issues. "
-                        f"Consider disabling or removing unused fonts."
+                        f"Your Mac has {font_count} fonts, more than {FONT_COUNT_WARNING}. "
+                        "A very long font list can slow startup and apps.\n\n"
+                        "What to do: Open Font Book and turn off or remove fonts you "
+                        "don't use."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

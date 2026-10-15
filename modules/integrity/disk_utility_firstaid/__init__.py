@@ -77,11 +77,11 @@ class Module(ModuleBase):
         # Determine severity based on verification result
         if has_errors or error_output:
             severity = Severity.CRITICAL
-            title = "Filesystem integrity errors detected"
+            title = "Your startup disk has errors"
             check_type = "fs_errors"
         elif needs_repair:
             severity = Severity.WARNING
-            title = "Filesystem needs repair"
+            title = "Your startup disk needs a repair"
             check_type = "fs_needs_repair"
         else:
             severity = Severity.INFO
@@ -236,16 +236,20 @@ class Module(ModuleBase):
         """Build a human-readable description of the verification result."""
         if severity == Severity.CRITICAL:
             return (
-                f"Filesystem ({fs_type}) verification detected errors. "
-                f"Status: {status}. "
-                f"Error details: {error_output[:200]}... "
-                "Run Disk Utility First Aid from Recovery Mode to repair."
+                f"Disk Utility's check of your startup disk ({fs_type}) found "
+                f"errors. Status: {status}. Details: {error_output[:200]}\n\n"
+                "What to do: Back up your important files first. Then open Disk "
+                "Utility (Applications > Utilities), select the startup disk and "
+                "click First Aid. If it can't repair the disk, run First Aid again "
+                "from Recovery."
             )
         elif severity == Severity.WARNING:
             return (
-                f"Filesystem ({fs_type}) verification indicates repairs may be needed. "
-                f"Status: {status}. "
-                "Run Disk Utility First Aid from Recovery Mode to repair."
+                f"Disk Utility's check of your startup disk ({fs_type}) says it "
+                f"needs repair. Status: {status}.\n\n"
+                "What to do: Back up your important files, then open Disk Utility "
+                "(Applications > Utilities), select the startup disk and click "
+                "First Aid."
             )
         else:
             return (
