@@ -220,12 +220,6 @@ function renderMiniMarkdown(text) {
   return out.join('');
 }
 
-const OS_LABELS = {
-  macos: 'macOS',
-  windows: 'Windows',
-  linux: 'Linux',
-};
-
 /**
  * Map a scan-result `platform` value (Node's process.platform strings, e.g.
  * "darwin"/"win32"/"linux") or a browser's navigator.userAgent to one of the
@@ -244,6 +238,16 @@ function detectOS(platformHint) {
 
   // Sensible default when we truly can't tell.
   return 'macos';
+}
+
+/**
+ * The permission tips worth showing beside a running checkup: everything for
+ * this OS except the install-time ones (Gatekeeper, SmartScreen), which the
+ * person has already got past by the time the app is open.
+ */
+function duringScanTips(content, osKey) {
+  const steps = (content && content[osKey]) || [];
+  return steps.filter((step) => step && step.stage !== 'install');
 }
 
 /**
@@ -281,6 +285,7 @@ function groupFindingsBySeverity(doc) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     detectOS,
+    duringScanTips,
     groupFindingsBySeverity,
     SITUATIONS,
     describeProgress,
@@ -306,7 +311,6 @@ if (typeof document !== 'undefined') {
     const screens = {
       welcome: document.getElementById('screen-welcome'),
       worry: document.getElementById('screen-worry'),
-      permissions: document.getElementById('screen-permissions'),
       scan: document.getElementById('screen-scan'),
       results: document.getElementById('screen-results'),
     };
@@ -343,39 +347,30 @@ if (typeof document !== 'undefined') {
       return permissionsContent;
     }
 
-    function renderPermissionsSteps(content, osKey) {
-      const container = document.getElementById('permissions-steps');
-      const steps = (content && content[osKey]) || [];
-
-      if (steps.length === 0) {
-        container.innerHTML =
-          '<p class="muted">No special permission steps are needed for your system.</p>';
-        return;
-      }
-
-      const osLabel = OS_LABELS[osKey] || osKey;
-      const heading = `<p class="muted steps-list__os">Showing steps for ${escapeHtml(osLabel)}.</p>`;
+    function renderScanTips(content, osKey) {
+      const aside = document.getElementById('scan-tips');
+      const container = document.getElementById('scan-tips-list');
+      const steps = duringScanTips(content, osKey);
+      aside.hidden = steps.length === 0;
+      if (steps.length === 0) return;
 
       const stepsHtml = steps
-        .map((step, index) => {
+        .map((step) => {
           const button =
             step.setting_url && step.action_label
               ? `<button type="button" class="btn btn--secondary btn--small" data-setting-url="${escapeHtml(step.setting_url)}">${escapeHtml(step.action_label)}</button>`
               : '';
           return `
-            <li class="step-card">
-              <div class="step-card__index" aria-hidden="true">${index + 1}</div>
-              <div class="step-card__body">
-                <h3>${escapeHtml(step.title)}</h3>
-                <p>${escapeHtml(step.body)}</p>
-                ${button}
-              </div>
+            <li class="tip-card">
+              <h3>${escapeHtml(step.title)}</h3>
+              <p>${escapeHtml(step.body)}</p>
+              ${button}
             </li>
           `;
         })
         .join('');
 
-      container.innerHTML = `${heading}<ol class="steps-list__items">${stepsHtml}</ol>`;
+      container.innerHTML = `<ul class="tip-list">${stepsHtml}</ul>`;
 
       container.querySelectorAll('[data-setting-url]').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -401,7 +396,7 @@ if (typeof document !== 'undefined') {
       list.querySelectorAll('[data-situation]').forEach((btn) => {
         btn.addEventListener('click', () => {
           situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
-          goToPermissions();
+          goToScan();
         });
       });
     }
@@ -530,6 +525,7 @@ if (typeof document !== 'undefined') {
       runButton.disabled = isBusy;
       runButton.hidden = isBusy;
       progress.hidden = !isBusy;
+      document.getElementById('scan-intro').hidden = isBusy;
       document.getElementById('scan-title').textContent = isBusy
         ? 'Your checkup is running'
         : 'Ready for your checkup';
@@ -629,23 +625,17 @@ if (typeof document !== 'undefined') {
       showScreen('worry');
     });
 
-    async function goToPermissions() {
-      showScreen('permissions');
-      try {
-        const content = await loadPermissionsContent();
-        renderPermissionsSteps(content, detectOS(lastKnownPlatform));
-      } catch (err) {
-        const container = document.getElementById('permissions-steps');
-        container.innerHTML = `<p class="muted">We couldn't load the permissions walkthrough (${escapeHtml(
-          err && err.message ? err.message : String(err)
-        )}). You can still continue.</p>`;
-      }
-    }
-
-    document.getElementById('btn-permissions-continue').addEventListener('click', () => {
+    async function goToScan() {
       renderScanIntro();
       showScreen('scan');
-    });
+      try {
+        const content = await loadPermissionsContent();
+        renderScanTips(content, detectOS(lastKnownPlatform));
+      } catch (err) {
+        // The tips are a convenience; the checkup runs fine without them.
+        document.getElementById('scan-tips').hidden = true;
+      }
+    }
 
     document.getElementById('btn-copy-json').addEventListener('click', async () => {
       const status = document.getElementById('copy-json-status');
