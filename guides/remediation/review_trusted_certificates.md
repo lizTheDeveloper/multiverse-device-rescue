@@ -7,6 +7,11 @@ remediates:
   - security.certificate_trust_audit.self_signed_root_certs
   - security.certificate_trust_audit.expired_certificates
   - security.certificate_trust_audit.user_added_certs
+steps_for:
+  security.certificate_trust_audit.suspicious_certificates: [1]
+  security.certificate_trust_audit.self_signed_root_certs: [2]
+  security.certificate_trust_audit.expired_certificates: [3]
+  security.certificate_trust_audit.user_added_certs: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -23,7 +28,7 @@ entries here. **Verify a certificate's provenance before deleting it from
 the keychain** — removing a certificate a corporate MDM profile or VPN
 client depends on can break connectivity to internal resources.
 
-## Step 1: Investigate a suspicious certificate (critical)
+## Step 1: Check if a suspicious certificate is safe to remove
 
 Flagged because the certificate's subject name contains a keyword
 suggesting traffic interception or debugging (`proxy`, `inspect`, `mitm`,
@@ -54,7 +59,7 @@ interception certificates work — the name alone can't distinguish them.
    didn't set, since interception certificates are commonly paired with a
    forced proxy.
 
-## Step 2: Review self-signed root certificates
+## Step 2: Review self-signed certificates for safety
 
 Flagged for non-Apple root certificates whose issuer matches their own
 subject (self-signed) — again, this covers both legitimate dev-proxy tools
@@ -69,7 +74,7 @@ and potential interception certificates.
    removing it may break access to internal sites your organization
    proxies.
 
-## Step 3: Remove expired certificates
+## Step 3: Delete expired certificates from your Mac
 
 An expired root certificate can't be used for interception (clients should
 reject it), but keeping stale entries around adds clutter and can mask a
@@ -80,7 +85,7 @@ newer, more relevant finding.
    matches, and delete it — this is low-risk cleanup since an expired root
    cert isn't providing any active function.
 
-## Step 4: Review the full user-added certificate inventory
+## Step 4: Check your list of added certificates
 
 Informational — lists every non-Apple root certificate present.
 

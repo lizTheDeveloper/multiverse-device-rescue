@@ -36,7 +36,13 @@ class Module(ModuleBase):
                 Finding(
                     title="Could not check Windows Recovery Environment",
                     description=(
-                        "Failed to run reagentc /info. WinRE status cannot be assessed."
+                        "We tried to check if your computer's built-in repair tool (WinRE) "
+                        "is working, but the check failed. This does not mean your computer "
+                        "is broken; it just means we couldn't confirm "
+                        "its status. This is not the same as saying everything is fine.\n\n"
+                        "What to do: Try running the checkup again as an administrator. "
+                        "If it still fails, you can manually check by searching for 'Create "
+                        "a recovery drive' in the Start menu."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -47,11 +53,15 @@ class Module(ModuleBase):
             if not winre_status.get("enabled"):
                 findings.append(
                     Finding(
-                        title="Windows Recovery Environment (WinRE) is disabled",
+                        title="Windows Recovery Environment is disabled",
                         description=(
-                            "WinRE is disabled. If Windows fails to boot, you may not be able to "
-                            "access recovery options. This is a critical issue that should be "
-                            "addressed."
+                            "Your computer's built-in repair tool (WinRE) is currently "
+                            "turned off. This matters because if Windows fails to start, "
+                            "you might not be able to access the tools needed to fix it. "
+                            "\n\n"
+                            "What to do: Search for 'Create a recovery drive' in the Start "
+                            "menu and follow the prompts to ensure recovery options are "
+                            "enabled."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -79,8 +89,13 @@ class Module(ModuleBase):
                 Finding(
                     title="Could not check System Restore status",
                     description=(
-                        "Failed to check System Restore configuration via vssadmin. "
-                        "Status cannot be assessed."
+                        "We tried to check if your computer's System Restore feature is "
+                        "on, but the check failed. This does not mean your computer is "
+                        "broken; it just means we couldn't confirm "
+                        "its status. This is not the same as saying everything is fine.\n\n"
+                        "What to do: Try running the checkup again as an administrator. "
+                        "If it still fails, you can manually check by searching for 'Create "
+                        "a restore point' in the Start menu."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -93,9 +108,12 @@ class Module(ModuleBase):
                     Finding(
                         title="System Restore is disabled",
                         description=(
-                            "System Restore is disabled. You cannot roll back to a previous system state. "
-                            "If a bad update or software installation breaks your system, you may have "
-                            "no way to recover."
+                            "Your computer's System Restore feature is turned off. This "
+                            "means you cannot roll back to a previous working state if "
+                            "a bad update or new app breaks your system.\n\n"
+                            "What to do: Search for 'Create a restore point' in the Start "
+                            "menu, select your main drive, and click 'Configure' to turn "
+                            "on System Restore."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -124,8 +142,12 @@ class Module(ModuleBase):
                     Finding(
                         title="No restore points available",
                         description=(
-                            "No restore points exist on this system. Even though System Restore is enabled, "
-                            "you have no previous state to roll back to. Create a restore point manually."
+                            "System Restore is on, but there are no saved snapshots of "
+                            "your system to roll back to. If something goes wrong, you "
+                            "won't have a previous state to return to.\n\n"
+                            "What to do: Search for 'Create a restore point' in the Start "
+                            "menu, click 'Create', and name the point to save a current "
+                            "snapshot."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -142,10 +164,13 @@ class Module(ModuleBase):
                         Finding(
                             title=f"Latest restore point is {point_age} days old",
                             description=(
-                                f"Your most recent restore point was created {point_age} days ago "
-                                f"({oldest_point.get('creation_time', 'unknown')}). "
-                                "It may not reflect your current system state. Consider creating a new "
-                                "restore point regularly."
+                                f"Your most recent system snapshot is {point_age} days "
+                                f"old (created {oldest_point.get('creation_time', 'unknown')}). "
+                                "If your system breaks now, rolling back would undo changes "
+                                "made in the last month, which might be too much.\n\n"
+                                "What to do: Search for 'Create a restore point' in the "
+                                "Start menu and create a new point to have a more recent "
+                                "backup state."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

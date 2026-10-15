@@ -58,12 +58,18 @@ class Module(ModuleBase):
                 if is_remote:
                     findings.append(
                         Finding(
-                            title=f"Remote PAC URL configured on {interface} (CRITICAL)",
+                            title=f"Remote PAC URL configured on {interface}",
                             description=(
-                                f"A remote Proxy Auto-Configuration (PAC) file URL is configured on {interface}: "
-                                f"{pac_url}. Remote PAC files are a major malware indicator and commonly used "
-                                f"by adware/malware to intercept network traffic. This is highly suspicious "
-                                f"and should be removed immediately."
+                                "Your computer is downloading instructions from a remote "
+                                f"website ({pac_url}) to decide how to route your traffic "
+                                f"on {interface}. This is a common way for malware to "
+                                "secretly redirect your connections. Unless you work "
+                                "for a company that requires this, it is very suspicious "
+                                "and should be turned off.\n\n"
+                                f"What to do: Open System Settings > Network, select {interface}, "
+                                "click 'Details' (or 'Advanced'), and go to the 'Proxies' "
+                                "tab. Uncheck 'Automatic Proxy Configuration' and click "
+                                "OK to save."
                             ),
                             severity=Severity.CRITICAL,
                             category=self.category,
@@ -80,9 +86,15 @@ class Module(ModuleBase):
                         Finding(
                             title=f"PAC URL configured on {interface}",
                             description=(
-                                f"A Proxy Auto-Configuration (PAC) file URL is configured on {interface}: "
-                                f"{pac_url}. PAC files are typically used in corporate environments. "
-                                f"On home machines, this may indicate misconfiguration or malware."
+                                f"Your computer is using a local file ({pac_url}) to manage "
+                                f"how traffic is routed on {interface}. This is usually "
+                                "set up by corporate IT or specific security software. "
+                                "If you are at home and don't use this, it might be a "
+                                "leftover setting that is no longer needed.\n\n"
+                                f"What to do: Open System Settings > Network, select {interface}, "
+                                "click 'Details' (or 'Advanced'), and go to the 'Proxies' "
+                                "tab. Uncheck 'Automatic Proxy Configuration' and click "
+                                "OK to save."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -122,9 +134,17 @@ class Module(ModuleBase):
                     Finding(
                         title=f"Local proxy server(s) configured on {interface}",
                         description=(
-                            f"Proxy server(s) pointing to localhost with unusual port(s) are configured on {interface}: "
-                            f"{', '.join(suspicious_localhost_proxies)}. This is often used by local proxy malware "
-                            f"to intercept traffic while remaining hidden. Review and remove if unexpected."
+                            "Your computer is set to route traffic through a local proxy "
+                            f"on {interface}: {', '.join(suspicious_localhost_proxies)}. "
+                            "This means an app on your Mac is intercepting your internet "
+                            "traffic. This is often done by malware or adware, but it "
+                            "can also be a leftover from a security tool. If you don't "
+                            "recognize this, it is a strong sign something is wrong.\n\n"
+                            f"What to do: Open System Settings > Network, select {interface}, "
+                            "click 'Details' (or 'Advanced'), and go to the 'Proxies' "
+                            "tab. Uncheck the boxes for HTTP, HTTPS, or SOCKS to turn "
+                            "them off. If you see a specific app name, check if you installed "
+                            "it recently."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -141,10 +161,15 @@ class Module(ModuleBase):
                     Finding(
                         title=f"Proxy server(s) configured on {interface}",
                         description=(
-                            f"The following proxy server(s) are enabled on {interface}: {', '.join(enabled_proxies)}. "
-                            f"Proxies can be a malware vector. Corporate machines legitimately use proxies, "
-                            f"but home machines should typically not have proxies configured. "
-                            f"Review and disable if unexpected."
+                            "Your computer is sending internet traffic through a proxy "
+                            f"server on {interface}: {', '.join(enabled_proxies)}. Proxies "
+                            "are common in workplaces, but on a home computer, they are "
+                            "rarely needed. If you don't know why this is on, it could "
+                            "be a leftover setting or a sign of unwanted software.\n\n"
+                            f"What to do: Open System Settings > Network, select {interface}, "
+                            "click 'Details' (or 'Advanced'), and go to the 'Proxies' "
+                            "tab. Uncheck the boxes for any enabled proxies (HTTP, HTTPS, "
+                            "SOCKS) and click OK to save."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

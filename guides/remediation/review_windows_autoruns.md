@@ -8,6 +8,10 @@ remediates:
   - security.win_autorun.autorun_partial
   - security.win_autorun.autoplay_enabled
   - security.win_autorun.autoplay_disabled
+steps_for:
+  security.win_autorun.autorun_enabled: [1]
+  security.win_autorun.autorun_partial: [1]
+  security.win_autorun.autoplay_enabled: [2]
 automatable_steps: []
 human_only_steps: [1, 2]
 ---
@@ -19,7 +23,7 @@ that executes automatically when removable media is connected. Both
 settings are simple registry toggles; there's nothing to inspect-before-
 delete here since no files are touched, just policy values.
 
-## Step 1: AutoRun enabled or only partially disabled for removable drives
+## Step 1: Turn off automatic program execution from USB drives
 
 If the finding reports AutoRun is enabled, or only partially disabled
 (a `NoDriveTypeAutoRun` value other than `0x91`), removable USB drives can
@@ -41,7 +45,7 @@ USB-drop attacks.
 4. Re-run the scan to confirm the policy now reports as fully disabled
    (`0x91`).
 
-## Step 2: AutoPlay enabled for removable media
+## Step 2: Stop Windows from automatically opening new devices
 
 AutoPlay (distinct from AutoRun) controls whether Windows automatically
 offers to open a handler — like File Explorer or a media app — when

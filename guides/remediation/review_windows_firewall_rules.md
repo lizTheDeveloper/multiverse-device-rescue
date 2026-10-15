@@ -8,6 +8,12 @@ remediates:
   - security.win_firewall_rules_audit.rule_allows_all_ports
   - security.win_firewall_rules_audit.excessive_rules
   - security.win_firewall_rules_audit.summary
+steps_for:
+  security.win_firewall_rules_audit.default_inbound_allow: [1]
+  security.win_firewall_rules_audit.rule_allows_all_programs: [2]
+  security.win_firewall_rules_audit.rule_allows_all_ports: [3]
+  security.win_firewall_rules_audit.excessive_rules: [4]
+  security.win_firewall_rules_audit.summary: [5]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -21,7 +27,7 @@ Firewall with Advanced Security (`wf.msc`) shows a rule's program, ports, and
 profile scope, and many rules are created automatically by installed
 software for legitimate reasons.
 
-## Step 1: DefaultInboundAction set to Allow (CRITICAL)
+## Step 1: Block all incoming connections by default
 
 A firewall profile with `DefaultInboundAction: Allow` accepts any inbound
 connection that isn't explicitly blocked by a rule — the opposite of the
@@ -41,7 +47,7 @@ permissive rule since it affects everything not otherwise covered.
    allow-by-default.
 4. Re-run the scan (`win_firewall_rules_audit`) to confirm.
 
-## Step 2: Rule allows all programs (WARNING)
+## Step 2: Limit rules to specific apps only
 
 A rule with `Program: Any` lets *any* executable on the system accept
 inbound traffic matching that rule's ports/profile — if a program you didn't
@@ -59,7 +65,7 @@ intend is running, it can use this rule too.
    unneeded.
 5. Re-run the scan to confirm.
 
-## Step 3: Rule allows all ports (WARNING)
+## Step 3: Limit rules to specific ports only
 
 A rule with `LocalPort: Any` accepts inbound traffic on any port for the
 matched program/profile — wider exposure than necessary for almost any
@@ -75,7 +81,7 @@ legitimate use case.
    nothing breaks, then delete it.
 5. Re-run the scan to confirm.
 
-## Step 4: Excessive enabled inbound allow rules (WARNING)
+## Step 4: Clean up unused firewall rules
 
 More than 100 enabled inbound allow rules makes it impractical to keep
 track of what's actually needed, increasing the odds that a stale or
@@ -92,7 +98,7 @@ unwanted rule goes unnoticed.
 4. Re-run the scan to confirm the count has dropped meaningfully; getting to
    zero excess isn't the goal, just an auditable, recognizable list.
 
-## Step 5: Rule audit summary (INFO)
+## Step 5: Review your firewall security summary
 
 The summary finding reports profile status, total enabled inbound allow
 rule count, and how many were flagged for allowing all programs or all

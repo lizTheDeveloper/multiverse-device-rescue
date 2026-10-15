@@ -12,6 +12,14 @@ remediates:
   - security.win_remote_access_audit.multiple_tools
   - security.win_remote_access_audit.tools_summary
   - security.win_remote_access_audit.no_tools_found
+steps_for:
+  security.win_remote_access_audit.teamviewer_installed: [2]
+  security.win_remote_access_audit.anydesk_installed: [3]
+  security.win_remote_access_audit.vnc_installed: [4]
+  security.win_remote_access_audit.logmein_installed: [5]
+  security.win_remote_access_audit.chrome_remote_desktop: [6]
+  security.win_remote_access_audit.rdp_enabled: [7]
+  security.win_remote_access_audit.tools_summary: [2, 3, 4, 5, 6, 7]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6]
 ---
@@ -31,7 +39,7 @@ recognize why a tool is installed, or if you recently received an
 unsolicited call/pop-up telling you to install remote-access software,
 treat this as a likely active-scam situation rather than routine cleanup.
 
-## Step 1: Multiple remote-access tools installed (critical — likely scam)
+## Step 1: Stop and disconnect if you suspect a scam
 
 Two or more remote-access tools were found installed simultaneously.
 
@@ -50,7 +58,7 @@ Two or more remote-access tools were found installed simultaneously.
    that may have been accessed during a scam session (banking, email),
    from a different, trusted device.
 
-## Step 2: TeamViewer installed
+## Step 2: Check if you use TeamViewer
 
 1. Confirm: does anyone with legitimate reason to remotely support this
    machine (family IT help, a business you work with) use TeamViewer? If
@@ -58,13 +66,13 @@ Two or more remote-access tools were found installed simultaneously.
 2. If unrecognized or no longer needed, uninstall via Settings → Apps →
    Apps and features → search "TeamViewer" → Uninstall, then restart.
 
-## Step 3: AnyDesk installed
+## Step 3: Check if you use AnyDesk
 
 1. Same check as Step 2 — confirm intentional use before removing.
 2. If unrecognized, uninstall via Settings → Apps → Apps and features →
    search "AnyDesk" → Uninstall, then restart.
 
-## Step 4: VNC server installed
+## Step 4: Check if you use VNC software
 
 A VNC server process was detected (WinVNC, UltraVNC, TightVNC, or similar).
 Unlike the commercial tools above, a VNC server usually requires more
@@ -81,13 +89,13 @@ confirming.
    possible, only reachable over a VPN rather than directly exposed to the
    internet — an unauthenticated VNC server is a serious exposure.
 
-## Step 5: LogMeIn installed
+## Step 5: Check if you use LogMeIn
 
 1. Confirm intentional use (common in small-business IT support contexts).
 2. If unrecognized, uninstall via Settings → Apps → Apps and features →
    search "LogMeIn" → Uninstall, then restart.
 
-## Step 6: Chrome Remote Desktop running
+## Step 6: Check if you use Chrome Remote Desktop
 
 1. Confirm you set this up yourself (a common legitimate use is accessing
    your own home PC from elsewhere) or that whoever manages your Google
@@ -96,7 +104,7 @@ confirming.
    `chrome://apps`, find "Chrome Remote Desktop", right-click and remove
    it, or uninstall the Chrome extension from the Extensions page.
 
-## Step 7: RDP enabled
+## Step 7: Check if you use Remote Desktop
 
 RDP was found enabled during this scan. This module's RDP check overlaps
 with the dedicated `win_rdp_check` module (see

@@ -7,6 +7,11 @@ remediates:
   - security.vpn_config.pptp_detected
   - security.vpn_config.vpn_list
   - security.vpn_config.third_party_vpns
+steps_for:
+  security.vpn_config.no_vpn: [4]
+  security.vpn_config.pptp_detected: [1]
+  security.vpn_config.vpn_list: [2]
+  security.vpn_config.third_party_vpns: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -20,7 +25,7 @@ that's fine for typical use — but a PPTP profile or an unrecognized
 third-party VPN app is worth a deliberate look, since a VPN sees and can
 redirect all of your traffic.
 
-## Step 1: Replace a PPTP VPN profile (WARNING)
+## Step 1: Remove or replace your old PPTP VPN
 
 PPTP has known, practically exploitable cryptographic weaknesses (weak
 MS-CHAPv2 authentication, no longer considered secure) and should not be
@@ -38,7 +43,7 @@ provides much less protection than it appears to.
 4. Re-run the scan to confirm the PPTP profile is gone (or replaced) from
    the configuration list.
 
-## Step 2: Review the general VPN inventory (INFO)
+## Step 2: Check your list of saved VPNs
 
 The module lists every VPN service configured via `scutil`, along with its
 protocol and connection status, regardless of whether it's flagged as
@@ -54,7 +59,7 @@ insecure.
 4. For VPNs you keep, prefer modern protocols (IKEv2, WireGuard, current
    OpenVPN) over legacy ones.
 
-## Step 3: Review third-party VPN apps (INFO)
+## Step 3: Review third-party VPN apps
 
 Third-party VPN apps (Mullvad, Proton VPN, ExpressVPN, WireGuard clients,
 etc.) install network extensions to route traffic, which this module
@@ -73,7 +78,7 @@ detects via `systemextensionsctl list`.
    app, and change passwords for accounts used while connected from a
    separate, known-clean device.
 
-## Step 4: No VPN configured (INFO)
+## Step 4: Consider setting up a VPN
 
 If no VPN is configured at all, this is simply informational — most
 day-to-day use doesn't require one. Consider setting one up if you

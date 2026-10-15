@@ -9,6 +9,13 @@ remediates:
   - security.win_network_shares_audit.everyone_read_access
   - security.win_network_shares_audit.sensitive_directory
   - security.win_network_shares_audit.shares_enumerated
+steps_for:
+  security.win_network_shares_audit.smb1_enabled: [1]
+  security.win_network_shares_audit.enumeration_failed: [2]
+  security.win_network_shares_audit.everyone_write_access: [3]
+  security.win_network_shares_audit.everyone_read_access: [4]
+  security.win_network_shares_audit.sensitive_directory: [5]
+  security.win_network_shares_audit.shares_enumerated: [6]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
@@ -21,7 +28,7 @@ you own) actually use a share before removing or restricting it** — check
 whether another computer, a media player/smart TV, a NAS backup job, or a
 family member's device connects to it before changing permissions.
 
-## Step 1: SMBv1 protocol enabled (CRITICAL)
+## Step 1: Turn off the old SMBv1 file sharing protocol
 
 SMBv1 is a deprecated, decades-old protocol version with severe known
 vulnerabilities — most notably EternalBlue/WannaCry (CVE-2017-0144), which
@@ -46,7 +53,7 @@ early-2000s NAS or printer) that only speaks SMBv1.
    class.
 5. Re-run the scan after rebooting to confirm SMBv1 now reports disabled.
 
-## Step 2: Unable to enumerate network shares (INFO)
+## Step 2: Check if the file sharing service is running
 
 The scan couldn't retrieve the share list — usually a permissions issue
 running `net share`/`Get-SmbShare`, not itself a security problem.
@@ -57,7 +64,7 @@ running `net share`/`Get-SmbShare`, not itself a security problem.
    stopped and you don't use file sharing, that's actually fine (no shares
    exist to audit).
 
-## Step 3: Share accessible to Everyone with write access (WARNING)
+## Step 3: Stop letting any device change your shared files
 
 A share grants the built-in "Everyone" group Change or Full Control
 permissions — any device that can reach this machine on the network,
@@ -77,7 +84,7 @@ misconfiguration.
    need.
 5. Re-run the scan to confirm.
 
-## Step 4: Share accessible to Everyone with read access (INFO)
+## Step 4: Stop letting any device read your shared files
 
 Lower risk than write access, but still exposes the share's contents to
 any device that can reach it, which may include devices you don't fully
@@ -90,7 +97,7 @@ the same subnet).
 3. If not, restrict via Computer Management as in Step 3, but grant Read
    access to specific accounts instead of Everyone.
 
-## Step 5: Share points to a sensitive directory (WARNING)
+## Step 5: Remove shares that expose personal folders
 
 A non-default share exposes a directory like Documents, Desktop, Downloads,
 or a user's profile folder — sharing these can expose personal files,
@@ -109,7 +116,7 @@ most file-sharing use cases need.
    permissions to specific accounts as in Step 3.
 5. Re-run the scan to confirm.
 
-## Step 6: Network shares enumerated (INFO)
+## Step 6: Review the total list of your shared folders
 
 Summarizes total share count and non-default share count — use it as a
 baseline while working through Steps 3-5 and to confirm changes took
