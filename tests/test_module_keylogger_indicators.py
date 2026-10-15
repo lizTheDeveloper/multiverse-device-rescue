@@ -158,7 +158,8 @@ def test_keylogger_indicators_steam_is_not_suspicious():
 def test_keylogger_indicators_cgeventtap():
     """Test detection of CGEventTap usage."""
     mod = _get_module()
-    processes = ["com.suspicious.app[12345]", "malware_process[67890]"]
+    # "log" is the log tool reporting our own query; it must not be listed.
+    processes = ["com.suspicious.app[12345]", "log[555]", "malware_process[67890]"]
     fake_run = _make_run_result(cgeventtap_processes=processes)
     with patch("subprocess.run", side_effect=fake_run):
         result = mod.check(_make_profile())

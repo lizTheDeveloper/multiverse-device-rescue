@@ -407,6 +407,7 @@ def _cgeventtap_processes(output: str) -> list[str]:
     names = set()
     for line in (output or "").splitlines():
         m = _COMPACT_LOG_LINE.match(line.strip())
-        if m:
+        # `log` itself records the query we ran; that's us, not a keylogger.
+        if m and m.group(1).strip() != "log":
             names.add(m.group(1).strip())
     return sorted(names)

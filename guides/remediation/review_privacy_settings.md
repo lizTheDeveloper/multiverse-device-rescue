@@ -36,6 +36,7 @@ steps_for:
   security.privacy_permissions_audit.screen_accessibility_combo: [6, 7]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6, 7]
+monitoring_risk: true
 ---
 
 This walkthrough covers what the `privacy_audit` and `privacy_permissions_audit`
