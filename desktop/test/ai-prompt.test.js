@@ -22,6 +22,10 @@ const FINDING = {
     lan_ip: '192.168.1.20',
     env: { API_TOKEN: 'sk-abcdefghijklmnopqrstuvwxyz' },
     args: ['--token', 'hunter2'],
+    ProgramArguments: ['/usr/bin/curl', '-H', 'X-Key: hunter2'],
+    command: '/usr/local/bin/sync --key hunter2',
+    api_token: 'plainsecretvalue',
+    url: 'https://example.com/hook?sig=plainsecretvalue',
     note: 'contact jane@example.com password=hunter2',
     nested: { a: { b: { c: { d: { e: 'deep' } } } } },
   },
@@ -39,10 +43,13 @@ test('includes the useful detail', () => {
 
 test('removes personal and secret data', () => {
   const t = buildAiPrompt({ findings: [FINDING] }, ENV);
-  for (const s of ['jsmith', 'Janes', '192.168.1.20', 'jane@example.com', 'hunter2', 'sk-abc']) {
+  for (const s of ['jsmith', 'Janes', '192.168.1.20', 'jane@example.com', 'hunter2', 'sk-abc', 'plainsecretvalue']) {
     assert.ok(!t.includes(s), `leaked: ${s}`);
   }
   assert.ok(t.includes('[left out: may contain private data]'));
+  assert.ok(t.includes('/usr/bin/curl [2 argument(s) left out]'));
+  assert.ok(t.includes('/usr/local/bin/sync [2 argument(s) left out]'));
+  assert.ok(t.includes('https://example.com/hook?[left out]'));
 });
 
 test('caps depth, list length and total size', () => {

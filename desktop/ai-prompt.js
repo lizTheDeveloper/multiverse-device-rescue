@@ -11,9 +11,11 @@ const MAX_ITEMS = 40;
 const MAX_DEPTH = 5;
 const MAX_FINDINGS = 60;
 
-// Evidence keys whose values are dropped outright: they tend to hold secrets
-// or raw text that redaction can't be trusted to clean.
-const DROP_KEYS = /^(?:env|environment|arguments|args|argv|cmdline|command_line|raw|raw_output|stdout|stderr|output|content|contents|body|cookies?|headers?|password|passwd|secret|token|key|private_key|history)$/i;
+// Evidence keys whose values are dropped outright, matched anywhere in the key
+// name: they tend to hold secrets or raw text redaction can't be trusted with.
+const DROP_KEYS = /env|token|secret|passw|pwd|cookie|credential|auth|private|api[_-]?key|session|raw|stdout|stderr|output|content|body|header|history|clipboard/i;
+// Command lines: keep the program, leave out the arguments (they can carry tokens).
+const COMMAND_KEYS = /arg|cmd|command/i;
 
 const PREAMBLE = [
   'I ran a security checkup app called Device Rescue on my computer. It only looks; it changed nothing.',
@@ -32,8 +34,18 @@ const PREAMBLE = [
 const SEVERITY_WORDS = { critical: 'Needs attention now', warning: 'Worth checking', info: 'For your information' };
 
 function cleanString(s, env) {
-  const out = redactText(String(s).slice(0, MAX_STRING * 4), env);
+  const out = redactText(String(s).slice(0, MAX_STRING * 4), env)
+    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/[^\s?#]+)[?#][^\s"']*/gi, '$1?[left out]');
   return out.length > MAX_STRING ? `${out.slice(0, MAX_STRING)}…` : out;
+}
+
+/** "prog --token abc" or ["prog", "--token", "abc"] -> the program and an argument count. */
+function programOnly(v, env) {
+  const parts = Array.isArray(v) ? v.filter((x) => typeof x === 'string')
+    : typeof v === 'string' ? v.trim().split(/\s+/) : [];
+  if (!parts.length) return v == null || typeof v === 'number' || typeof v === 'boolean' ? v : '[left out]';
+  const rest = parts.length - 1;
+  return cleanString(parts[0], env) + (rest ? ` [${rest} argument(s) left out]` : '');
 }
 
 /** Redact every string in an evidence value; drop risky keys; cap size and depth. */
@@ -50,7 +62,9 @@ function cleanEvidence(value, env, depth = 0) {
     const out = {};
     for (const [k, v] of Object.entries(value).slice(0, MAX_ITEMS)) {
       const key = cleanString(k, env);
-      out[key] = DROP_KEYS.test(k) ? '[left out: may contain private data]' : cleanEvidence(v, env, depth + 1);
+      if (DROP_KEYS.test(k)) out[key] = '[left out: may contain private data]';
+      else if (COMMAND_KEYS.test(k)) out[key] = programOnly(v, env);
+      else out[key] = cleanEvidence(v, env, depth + 1);
     }
     return out;
   }
