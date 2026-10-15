@@ -98,17 +98,13 @@ _DEVCERT_RE = re.compile(r"^Authority=Apple (?:Development|Distribution): (.+?)(
 _SCRIPT_NOTE = "A script, not signed; check who created it."
 
 
-_ARGS_NOTE = ("The maker vouches for this program file, not for the extra "
-              "instructions this background job starts it with.")
-_ENV_NOTE = ("Its settings change how the program loads code, so a signed "
+_ENV_NOTE = ("Its settings change how or where the program runs, so a signed "
              "program could be running something else; check who created it.")
-# Environment variables that make a program load or run other code.
-_CODE_ENV = re.compile(
-    r"^(?:DYLD_\w+|LD_\w+|ELECTRON_RUN_AS_NODE|NODE_OPTIONS|NODE_PATH|PYTHON\w*|"
-    r"PERL5?\w*|RUBY\w*|BASH_ENV|ENV|ZDOTDIR|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|"
-    r"JDK_JAVA_OPTIONS|CFNETWORK_\w+|OSA\w*|LUA_\w+|GEM_\w+|BUNDLE_\w+|NPM_\w+)$",
-    re.I,
-)
+# The only environment settings a verified job may carry: they change language
+# and time display, never which code runs. Anything else fails closed.
+_SAFE_ENV = re.compile(r"^(?:LANG|LANGUAGE|LC_[A-Z]+|TZ)$")
+# launchd keys that change what actually runs; a job using them is never verified.
+_RUN_CHANGING_KEYS = ("RootDirectory", "BundleProgram", "inetdCompatibility", "SessionCreate")
 
 
 def _injects_code(env) -> bool:
@@ -116,7 +112,7 @@ def _injects_code(env) -> bool:
         return False
     if not isinstance(env, dict):
         return True  # unreadable: assume the worst
-    return any(not isinstance(k, str) or _CODE_ENV.match(k) for k in env)
+    return any(not isinstance(k, str) or not _SAFE_ENV.match(k) for k in env)
 
 
 _INLINE = object()
@@ -389,7 +385,7 @@ class Attributor:
         # that isn't a full path could be anything, so nothing is credited.
         if not program.startswith("/"):
             return MadeBy(_UNKNOWN, False, "program not named by full path", _INLINE_NOTE)
-        if _injects_code(data.get("EnvironmentVariables")):
+        if _injects_code(data.get("EnvironmentVariables")) or any(k in data for k in _RUN_CHANGING_KEYS):
             return MadeBy(_UNKNOWN, False, "settings change how the program loads code", _ENV_NOTE)
         # With both keys set, launchd runs Program and passes ProgramArguments
         # as argv, so argv[1:] is what the program is told to do.
@@ -403,10 +399,10 @@ class Attributor:
         if made is not None and made.runner and extra:
             # A renamed copy of an interpreter: its signature still says so.
             return self._through_interpreter(program, extra, exists)
-        if made is not None and extra:
-            # A signature vouches for the file, not for what the job tells it to do.
-            note = f"{made.location_note} {_ARGS_NOTE}".strip()
-            made = dataclasses.replace(made, location_note=note)
+        if made is not None and extra and made.verified:
+            # A signature vouches for the file, not for what the job tells it to
+            # do: arguments can steer even an ordinary program, so fail closed.
+            made = dataclasses.replace(made, verified=False, how="started with extra instructions")
         return made
 
     def _through_interpreter(self, program: str, extra: list[str], exists) -> MadeBy | None:

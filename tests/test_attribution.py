@@ -740,8 +740,15 @@ def test_code_injecting_environment_is_never_credited(tmp_path, env):
     assert made is not None and made.verified is False
 
 
+@pytest.mark.parametrize("extra", [{"EnvironmentVariables": {"SOMETHING_NEW": "1"}}, {"RootDirectory": "/tmp/r"}, {"BundleProgram": "x"}])
+def test_unknown_settings_fail_closed(tmp_path, extra):
+    path = _plist(tmp_path, {"Program": "/bin/ls", **extra})
+    made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
+    assert made is not None and made.verified is False
+
+
 def test_harmless_environment_still_credits(tmp_path):
-    path = _plist(tmp_path, {"Program": "/bin/ls", "EnvironmentVariables": {"LANG": "en_US.UTF-8"}})
+    path = _plist(tmp_path, {"Program": "/bin/ls", "EnvironmentVariables": {"LANG": "en_US.UTF-8", "TZ": "UTC"}})
     made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
     assert made is not None and made.name == "Apple"
 
@@ -758,4 +765,5 @@ def test_unclear_programs_are_never_credited(tmp_path, body):
 def test_signed_program_with_arguments_says_what_the_signature_covers(tmp_path):
     path = _plist(tmp_path, {"ProgramArguments": ["/bin/ls", "-la"]})
     made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
-    assert made.name == "Apple" and "not for the extra instructions" in made.location_note
+    assert made.name == "Apple" and made.verified is False
+    assert made.how == "started with extra instructions"
