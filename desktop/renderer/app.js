@@ -439,7 +439,7 @@ if (typeof document !== 'undefined') {
               </div>` : ''}
               ${finding.remediation ? `
               <details class="fix-steps">
-                <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}${finding.remediation.estimated_time ? ` <span class="muted">(about ${escapeHtml(finding.remediation.estimated_time)})</span>` : ''}</summary>
+                <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}</summary>
                 <ol class="fix-steps__list">
                   ${(finding.remediation.steps || []).map((step) => `
                     <li>
