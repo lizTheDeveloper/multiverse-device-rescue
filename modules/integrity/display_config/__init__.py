@@ -71,11 +71,14 @@ class Module(ModuleBase):
             if display.get("is_scaled"):
                 findings.append(
                     Finding(
-                        title=f"Display '{display['name']}' running at scaled resolution",
+                        title=f"Display '{display['name']}' is blurry because it is scaled",
                         description=(
-                            f"Display is running at {display['resolution']} (scaled). "
-                            "Scaled resolution can cause blurriness and reduced performance. "
-                            "Consider using native resolution for better clarity."
+                            f"Your screen '{display['name']}' is set to a resolution of "
+                            f"{display['resolution']}, which is not its natural size. "
+                            "This makes text and images look soft or fuzzy.\n\n"
+                            "What to do: Open System Settings > Displays. Look for a "
+                            "'Resolution' section. Select 'Default for display' or the "
+                            "option marked as 'Sharp' to restore clarity."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

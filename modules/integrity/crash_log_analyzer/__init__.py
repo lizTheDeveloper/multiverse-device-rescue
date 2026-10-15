@@ -81,11 +81,14 @@ class Module(ModuleBase):
 
             findings.append(
                 Finding(
-                    title=f"{app_name} crashed {crash_count} times in 7 days",
+                    title=f"{app_name} has crashed {crash_count} times in the last 7 days",
                     description=(
-                        f"The application '{app_name}' has crashed {crash_count} times "
-                        f"in the last 7 days. Most recent crash: {most_recent_date}. "
-                        f"This may indicate a serious problem with the application."
+                        f"Your Mac recorded {crash_count} crashes for {app_name} in the "
+                        f"past week. The most recent one happened on {most_recent_date}. "
+                        "Crashes usually mean the app is buggy or incompatible with your "
+                        "system.\n\n"
+                        "What to do: Try updating the app to the latest version. If it "
+                        "keeps crashing, you can uninstall it to stop the interruptions."
                     ),
                     severity=severity,
                     category=self.category,

@@ -62,12 +62,15 @@ class Module(ModuleBase):
         if total_size > 50 * 1024 * 1024:
             findings.append(
                 Finding(
-                    title=f"Launch Services database bloated ({total_size_mb:.1f}MB)",
+                    title=f"Your app list file is larger than usual ({total_size_mb:.1f}MB)",
                     description=(
-                        f"The Launch Services cache is {total_size_mb:.1f}MB, exceeding "
-                        "the normal size of ~5-20MB. A bloated database can cause "
-                        "performance issues and incorrect app associations. Consider "
-                        "rebuilding the Launch Services database."
+                        "Your Mac keeps a list of all installed apps in a file called "
+                        f"the Launch Services database. Yours is {total_size_mb:.1f}MB, "
+                        "while a typical one is 5-20MB. A large file can make your Mac "
+                        "feel slower when opening apps or choosing file types.\n\n"
+                        "What to do: Nothing urgent. If apps open the wrong files or "
+                        "your Mac feels sluggish, a technical helper can rebuild the "
+                        "list with the lsregister tool."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -89,12 +92,15 @@ class Module(ModuleBase):
             if duplicate_count > 100:
                 findings.append(
                     Finding(
-                        title=f"High number of app registrations ({duplicate_count})",
+                        title=f"Your app list has many entries ({duplicate_count})",
                         description=(
-                            f"Launch Services has {duplicate_count} app registrations, "
-                            "indicating potential duplicate entries. This can cause "
-                            "performance degradation and incorrect file associations. "
-                            "Rebuilding the database is recommended."
+                            f"Your Mac's app list contains {duplicate_count} entries. "
+                            "A healthy list usually has 50-100 entries. Extra entries "
+                            "can happen when apps are installed, updated, or removed "
+                            "over time. It may cause slight slowness or wrong file associations.\n\n"
+                            "What to do: Nothing urgent. If apps open the wrong files, a "
+                            "technical helper can rebuild the list with the lsregister "
+                            "tool."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

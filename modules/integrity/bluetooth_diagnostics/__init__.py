@@ -32,10 +32,13 @@ class Module(ModuleBase):
         if not system_profiler_output:
             findings.append(
                 Finding(
-                    title="Unable to retrieve Bluetooth information",
+                    title="We couldn't check your Bluetooth settings",
                     description=(
-                        "Could not run system_profiler SPBluetoothDataType. "
-                        "Bluetooth diagnostics are unavailable."
+                        "The check that looks at your Bluetooth status didn't run, so "
+                        "we don't know if it's on or off. This is not the same as everything "
+                        "being fine; it just means we couldn't see.\n\n"
+                        "What to do: Try running the checkup again. If it still fails, "
+                        "check that your Mac is updated."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -51,11 +54,13 @@ class Module(ModuleBase):
             if bt_info.get("paired_devices", []):
                 findings.append(
                     Finding(
-                        title="Bluetooth is off with paired devices",
+                        title="Bluetooth is off, but you have saved devices",
                         description=(
-                            "Bluetooth is currently powered off, but you have "
-                            f"{len(bt_info['paired_devices'])} paired device(s). "
-                            "Re-enable Bluetooth in System Settings to use these devices."
+                            f"Your Bluetooth is turned off, but you have {len(bt_info['paired_devices'])} "
+                            "devices saved to it. They won't work until you turn Bluetooth "
+                            "back on.\n\n"
+                            "What to do: Open System Settings > Bluetooth and toggle "
+                            "it on."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -84,11 +89,12 @@ class Module(ModuleBase):
         if paired_count > 15:
             findings.append(
                 Finding(
-                    title=f"High number of paired devices ({paired_count})",
+                    title=f"You have a lot of paired Bluetooth devices ({paired_count})",
                     description=(
-                        f"You have {paired_count} paired Bluetooth devices. "
-                        "Having more than 15 paired devices can cause connection issues "
-                        "and performance degradation. Consider removing unused devices."
+                        f"Your Mac remembers {paired_count} Bluetooth devices. Having "
+                        "too many saved devices can make connections slower or flaky.\n\n"
+                        "What to do: Open System Settings > Bluetooth. Look for devices "
+                        "you don't use and click the 'i' icon to remove them."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -120,8 +126,9 @@ class Module(ModuleBase):
                     Finding(
                         title=f"Low battery: {device_name} ({battery_level}%)",
                         description=(
-                            f"The Bluetooth device '{device_name}' has a battery level "
-                            f"of {battery_level}%. Consider charging or replacing the battery soon."
+                            f"Your Bluetooth device '{device_name}' is running low on "
+                            f"power ({battery_level}%). It may disconnect soon.\n\n"
+                            "What to do: Charge or replace the battery for this device."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -137,12 +144,15 @@ class Module(ModuleBase):
             if stale_devices:
                 findings.append(
                     Finding(
-                        title=f"Stale paired devices ({len(stale_devices)})",
+                        title=(
+                            f"Old Bluetooth devices you haven't used ({len(stale_devices)})"
+                        ),
                         description=(
-                            f"You have {len(stale_devices)} device(s) that are paired but "
-                            "have never been connected or have not been used recently: "
-                            f"{', '.join(stale_devices)}. "
-                            "These can be safely removed to improve connection stability."
+                            "These devices are saved but haven't been used recently: "
+                            f"{', '.join(stale_devices)}. Cleaning them up can help your "
+                            "Mac connect faster.\n\n"
+                            "What to do: Open System Settings > Bluetooth and remove "
+                            "any devices you no longer use."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

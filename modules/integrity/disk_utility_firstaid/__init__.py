@@ -32,9 +32,15 @@ class Module(ModuleBase):
         if not fs_type:
             findings.append(
                 Finding(
-                    title="Could not determine filesystem type",
+                    title="We couldn't check your drive's health",
                     description=(
-                        "Failed to run diskutil info /. Filesystem verification cannot be completed."
+                        "We tried to identify your main drive's file system type but the "
+                        "command failed. This means we couldn't run the full health check. "
+                        "This is not the same as saying everything is fine; it just means "
+                        "we couldn't verify it.\n\n"
+                        "What to do: Try running the checkup again. If it fails again, "
+                        "open the Disk Utility app manually to see if your drive is visible "
+                        "and healthy."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -48,9 +54,12 @@ class Module(ModuleBase):
         if verify_result is None:
             findings.append(
                 Finding(
-                    title="Could not run filesystem verification",
+                    title="We couldn't run the drive health check",
                     description=(
-                        "Failed to run diskutil verifyVolume /. Filesystem integrity check cannot be completed."
+                        "We tried to run Disk Utility's check on your startup disk, but "
+                        "it didn't run. That isn't the same as everything being fine.\n\n"
+                        "What to do: Open Disk Utility (Applications > Utilities), select "
+                        "your startup disk, and click First Aid."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

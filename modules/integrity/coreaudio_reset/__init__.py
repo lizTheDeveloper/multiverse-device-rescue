@@ -34,10 +34,12 @@ class Module(ModuleBase):
         if not coreaudiod_running:
             findings.append(
                 Finding(
-                    title="CoreAudio daemon (coreaudiod) is not running",
+                    title="Your Mac's background audio process is not running",
                     description=(
-                        "The CoreAudio daemon process is not running. This means the audio subsystem "
-                        "may have crashed. This is a critical issue that prevents audio from working."
+                        "The background process that manages your Mac's sound is not running. "
+                        "This usually means the audio system crashed or froze.\n\n"
+                        "What to do: Restart your Mac. This is the safest and most effective "
+                        "way to restart the audio system."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -54,10 +56,12 @@ class Module(ModuleBase):
         if not output_devices:
             findings.append(
                 Finding(
-                    title="No audio output devices detected",
+                    title="Your Mac does not see any speakers or headphones",
                     description=(
-                        "The system could not detect any audio output devices. This may indicate "
-                        "a CoreAudio configuration issue or missing audio drivers."
+                        "Your Mac is not detecting any devices to play sound through, "
+                        "such as built-in speakers or connected headphones.\n\n"
+                        "What to do: Check that your headphones or speakers are plugged "
+                        "in securely. If they are, try restarting your Mac."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -71,11 +75,16 @@ class Module(ModuleBase):
             if _is_likely_disconnected_device(current_output, devices):
                 findings.append(
                     Finding(
-                        title=f"Audio output routed to unexpected device: {current_output}",
+                        title=(
+                            f"Your Mac is sending sound to a disconnected device: {current_output}"
+                        ),
                         description=(
-                            f"Audio is routed to '{current_output}', which is not in the list of "
-                            "connected devices. This might indicate CoreAudio has retained stale "
-                            "device preferences after unplugging audio hardware."
+                            f"Your Mac is trying to play sound through '{current_output}', "
+                            "but that device is not currently connected. This happens "
+                            "when you unplug headphones or speakers, and the Mac forgets "
+                            "to switch back to the built-in speakers.\n\n"
+                            "What to do: Click the volume icon in the menu bar (top right) "
+                            "and select a connected device, like 'MacBook Pro Speakers'."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
