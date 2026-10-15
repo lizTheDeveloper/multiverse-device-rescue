@@ -187,7 +187,9 @@ about it.
 
   * It only looks. It doesn't change or delete anything unless you say yes.
   * It never asks for your passwords.
-  * Nothing leaves your computer. It doesn't upload your files or results.
+  * Your results stay on your computer. Nothing is sent anywhere unless you
+    choose "Ask about this" on an item, and it shows you exactly what it
+    will send first.
 
 (Version {tag}. If you'd rather read this with pictures and bigger text,
 double-click START-HERE.html instead. It opens in your web browser.)
@@ -362,7 +364,7 @@ in plain words, what it found and what to do about it.</p>
 <ul class="promises">
   <li><b>It only looks.</b> It doesn't change or delete anything unless you say yes.</li>
   <li><b>It never asks for your passwords.</b></li>
-  <li><b>Nothing leaves your computer.</b> It doesn't upload your files or results.</li>
+  <li><b>Your results stay on your computer.</b> Nothing is sent anywhere unless you choose &ldquo;Ask about this&rdquo; on an item, and it shows you exactly what it will send first.</li>
 </ul>
 
 <section class="safety">
