@@ -1,5 +1,12 @@
+import importlib.util
+from pathlib import Path
+
 from rescue.module_base import ModuleBase
-from rescue.remediation import build_catalog, render_catalog_markdown
+from rescue.remediation import (
+    build_catalog,
+    load_remediation_walkthroughs,
+    render_catalog_markdown,
+)
 
 
 class _Mod(ModuleBase):
@@ -26,3 +33,47 @@ def test_render_markdown_has_table_and_summary():
     assert "| Code | Module | Walkthrough |" in md
     assert "**gap**" in md
     assert "1 with walkthroughs" in md
+
+
+# --- Every serious finding must have a walkthrough --------------------------
+
+# Codes that may be emitted at WARNING or CRITICAL but deliberately have no
+# walkthrough. Each entry needs a reason. Keep this list short: the default
+# answer to "this finding has no walkthrough" is to write one.
+_NO_WALKTHROUGH_NEEDED: dict[str, str] = {
+    # (none at present)
+}
+
+
+def _scan_script():
+    repo = Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location(
+        "uncovered_codes", repo / "scripts" / "uncovered_codes.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return repo, mod.scan()
+
+
+def test_every_warning_or_critical_code_has_a_walkthrough():
+    repo, found = _scan_script()
+    index = load_remediation_walkthroughs(repo / "guides" / "remediation")
+    # "?" means the severity is computed at runtime, so assume it can be serious.
+    serious = {
+        code for code, (sevs, _files) in found.items()
+        if sevs & {"WARNING", "CRITICAL", "?"}
+    }
+    missing = sorted(
+        c for c in serious if c not in index and c not in _NO_WALKTHROUGH_NEEDED)
+    assert not missing, (
+        "These WARNING/CRITICAL finding codes have no walkthrough in "
+        "guides/remediation/ (add the code to a walkthrough's `remediates`, or "
+        "list it in _NO_WALKTHROUGH_NEEDED with a reason):\n  " + "\n  ".join(missing)
+    )
+
+
+def test_allowlist_entries_are_still_needed():
+    repo, found = _scan_script()
+    index = load_remediation_walkthroughs(repo / "guides" / "remediation")
+    for code in _NO_WALKTHROUGH_NEEDED:
+        assert code in found, f"{code} is no longer emitted; remove it from the allowlist"
+        assert code not in index, f"{code} now has a walkthrough; remove it from the allowlist"

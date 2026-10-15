@@ -236,6 +236,31 @@ class Module(ModuleBase):
                 "program is broken; if they are different programs, suspect memory."
             ),
         }[signal.key]
+        what_to_do = {
+            "storage_io_error": (
+                "What to do: copy your important files to an external drive or cloud "
+                "storage now, before anything else, then plan to replace the drive."
+            ),
+            "smart_failure": (
+                "What to do: back up your important files now, then replace the drive."
+            ),
+            "memory_error": (
+                "What to do: back up your important files, then restart and run the "
+                "Memory Test from the boot menu. Replace any memory that reports errors."
+            ),
+            "filesystem_error": (
+                "What to do: copy your important files to another drive now, then have "
+                "the drive and its filesystem checked before you keep using it."
+            ),
+            "oom_kill": (
+                "What to do: close programs you are not using and restart the computer. "
+                "If it keeps happening, turn on swap or add more memory."
+            ),
+            "segfault": (
+                "What to do: update the program that keeps crashing. If many different "
+                "programs crash, test the memory."
+            ),
+        }[signal.key]
 
         counts = Counter(self._normalise(line) for line in lines)
         top = counts.most_common(5)
@@ -244,7 +269,7 @@ class Module(ModuleBase):
         return Finding(
             title=f"{len(lines)} journal entries indicating {signal.label}",
             description=(
-                f"{explanation}\n\nIn the last {self.since}:\n{sample}"
+                f"{explanation}\n\n{what_to_do}\n\nIn the last {self.since}:\n{sample}"
             ),
             severity=signal.severity,
             category=self.category,

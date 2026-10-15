@@ -126,6 +126,9 @@ class Module(ModuleBase):
                         "an authenticator on your phone, or a hardware key. But if you "
                         "do not, a stolen password is enough to take over an account, and "
                         "that is the single most common way accounts are lost.\n\n"
+                        + "What to do: turn on two-step sign-in for your email first, "
+                        "then banking and social media, using an authenticator app or a "
+                        "security key.\n\n"
                         + _ACCOUNT_SCOPE_CAVEAT
                     ),
                     severity=Severity.WARNING,

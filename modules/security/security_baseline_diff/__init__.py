@@ -479,6 +479,10 @@ class Module(ModuleBase):
                         "adds them. It is worth checking because you can now ask a much "
                         "sharper question than 'does this look suspicious': did you "
                         "install something around this time?\n\n"
+                        "What to do: if you did not install it, switch it off rather "
+                        "than deleting it, and note it down. If someone you know may be "
+                        "monitoring you, talk to an advocate first, because removing it "
+                        "can alert them.\n\n"
                         + _TOFU_CAVEAT
                     ),
                     severity=severity,
@@ -512,6 +516,9 @@ class Module(ModuleBase):
                         "most serious item in this report. Disabling protection is an "
                         "early step for both malware and a person with access to the "
                         "machine.\n\n"
+                        "What to do: turn the protection back on in System Settings "
+                        "(Mac), Windows Security (Windows) or your firewall settings "
+                        "(Linux).\n\n"
                         + _TOFU_CAVEAT
                     ),
                     severity=Severity.CRITICAL,

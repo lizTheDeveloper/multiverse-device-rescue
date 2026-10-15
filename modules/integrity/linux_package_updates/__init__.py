@@ -97,6 +97,8 @@ class Module(ModuleBase):
                         "who writes exploits.\n\n"
                         + "\n".join(f"  {name}" for name in security[:20])
                         + (f"\n  ... and {len(security) - 20} more" if len(security) > 20 else "")
+                        + "\n\nWhat to do: open your Software Updater, install these "
+                        "updates, then restart the computer."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -133,7 +135,8 @@ class Module(ModuleBase):
                         "Updates have been installed but the running kernel or libraries "
                         "are still the old ones. Until this machine restarts, the "
                         "vulnerabilities those updates fixed are still present in memory — "
-                        "the fix is on disk and not in use."
+                        "the fix is on disk and not in use.\n\n"
+                        "What to do: save your work and restart the computer."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
