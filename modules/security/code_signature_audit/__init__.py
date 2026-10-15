@@ -128,6 +128,10 @@ class Module(ModuleBase):
                         "for this: legitimate updates are re-signed by the vendor. Treat "
                         "this application as untrusted until you have reinstalled it "
                         "from the vendor.\n\n"
+                        "What to do: download a fresh copy from the maker's own website "
+                        "or the app store and replace this one. If you do not recognise "
+                        "the app, do not open it, and talk to an advocate first if "
+                        "someone you know may be monitoring you.\n\n"
                         f"Reported by: {entry['detail']}"
                     ),
                     severity=Severity.CRITICAL,
@@ -154,6 +158,8 @@ class Module(ModuleBase):
                         "legitimately unsigned. What matters is whether you can account "
                         "for this one: if you did not install it deliberately, or you do "
                         "not recognise it, that is worth following up.\n\n"
+                        "What to do: if you did not install it, note its name and ask an "
+                        "advocate or trusted technical person before removing it.\n\n"
                         f"Reported by: {entry['detail']}"
                     ),
                     severity=Severity.WARNING,
@@ -179,6 +185,8 @@ class Module(ModuleBase):
                         "Common and often benign for software distributed outside the App "
                         "Store, or installed before notarisation was required. Worth "
                         "checking against where you got it from.\n\n"
+                        "What to do: if you trust where you got it, you can leave it. "
+                        "If not, replace it with the maker's current version.\n\n"
                         f"Reported by: {entry['detail']}"
                     ),
                     severity=Severity.WARNING,

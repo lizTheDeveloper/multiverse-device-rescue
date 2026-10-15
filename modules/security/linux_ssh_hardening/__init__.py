@@ -125,6 +125,8 @@ class Module(ModuleBase):
                         + (" sshd is running right now." if running else
                            " sshd does not appear to be running, so this is latent rather"
                            " than currently exposed.")
+                        + "\n\nWhat to do: set PermitRootLogin to no in the SSH settings "
+                        "and restart SSH, or switch SSH off if you do not use it."
                     ),
                     severity=Severity.CRITICAL if running else Severity.WARNING,
                     category=self.category,
@@ -160,6 +162,8 @@ class Module(ModuleBase):
                         "entire class of attack."
                         + (" sshd is running right now." if running else
                            " sshd does not appear to be running.")
+                        + "\n\nWhat to do: set up key login, then set "
+                        "PasswordAuthentication to no and restart SSH."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -177,7 +181,9 @@ class Module(ModuleBase):
                         "PermitEmptyPasswords is 'yes'. Any account on this machine with no "
                         "password set can be logged into over the network with no "
                         "credential at all. There is no configuration in which this is the "
-                        "intended outcome on a personal machine."
+                        "intended outcome on a personal machine.\n\n"
+                        "What to do: set PermitEmptyPasswords to no, restart SSH, and "
+                        "give every account a password."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,

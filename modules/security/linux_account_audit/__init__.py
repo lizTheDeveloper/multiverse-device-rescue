@@ -128,7 +128,10 @@ class Module(ModuleBase):
                     "0 account is how someone keeps access after you change the root "
                     "password.\n\n"
                     f"  shell: {account['shell']}\n"
-                    f"  home:  {account['home']}"
+                    f"  home:  {account['home']}\n\n"
+                    "What to do: if you did not create this account, do not delete it "
+                    "yet. Write down its name, then ask a trusted technical person or an "
+                    "advocate to help (removing it can alert whoever set it up)."
                 ),
                 severity=Severity.CRITICAL,
                 category=self.category,
@@ -178,7 +181,9 @@ class Module(ModuleBase):
                     description=(
                         f"'{name}' can be logged into with no credential at all, from the "
                         "console and — if SSH permits empty passwords — over the network. "
-                        "Set a password or lock the account."
+                        "Set a password or lock the account.\n\n"
+                        "What to do: set a password only you know in Settings > Users, or "
+                        "lock the account if nobody should use it."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -218,7 +223,9 @@ class Module(ModuleBase):
                             "'someone got into your user session' and 'someone got root'. "
                             "Automation on a server sometimes needs it; a desktop rarely "
                             "does. If it is needed, scope it to specific commands rather "
-                            "than ALL."
+                            "than ALL.\n\n"
+                            "What to do: unless a program you know of needs this, ask a "
+                            "technical helper to remove the NOPASSWD rule."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

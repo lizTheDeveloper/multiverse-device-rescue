@@ -126,7 +126,10 @@ class Module(ModuleBase):
                         "everywhere.\n\n"
                         f"{detail}\n\n"
                         "Only the profile directories were counted. No cookie database, "
-                        "saved password, or session token was opened or read."
+                        "saved password, or session token was opened or read.\n\n"
+                        "What to do: on your email, banking and social accounts, open "
+                        "Security settings and choose 'Sign out of all devices'. Then "
+                        "sign in again here."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -148,7 +151,10 @@ class Module(ModuleBase):
                         "their own tokens, independent of any browser session:\n\n"
                         + "\n".join(f"  {a}" for a in accounts)
                         + "\n\nAccount names are listed to identify them. No token or "
-                        "credential value was read."
+                        "credential value was read.\n\n"
+                        "What to do: open System Settings > Internet Accounts (Mac) or "
+                        "Settings > Accounts (Windows) and remove any account you do "
+                        "not recognise or use."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -167,7 +173,10 @@ class Module(ModuleBase):
                         "by changing your account password — it is a separate credential, "
                         "and it is a common way access is retained after a compromise.\n\n"
                         "Only the number of authorised entries was counted. No key "
-                        "material was read or reported."
+                        "material was read or reported.\n\n"
+                        "What to do: unless you set these up yourself, ask a trusted "
+                        "technical person to review them with you. If someone you know "
+                        "may be monitoring you, talk to an advocate before removing any."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

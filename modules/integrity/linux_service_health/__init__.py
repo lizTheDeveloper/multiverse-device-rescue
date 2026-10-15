@@ -118,6 +118,8 @@ class Module(ModuleBase):
                             "This unit runs backups, and systemd has given up on it. A "
                             "backup that stopped working is indistinguishable from a backup "
                             "that is working, right up until the moment you need it.\n\n"
+                            "What to do: find out why it failed and fix that, then start it "
+                            "again and confirm a new backup appears.\n\n"
                             + how_to_look
                         ),
                         severity=Severity.CRITICAL,
@@ -133,7 +135,9 @@ class Module(ModuleBase):
                         title=f"Service '{unit}' has failed",
                         description=(
                             "systemd started this unit, it failed, and systemd has stopped "
-                            "trying. Whatever it provides is not running.\n\n" + how_to_look
+                            "trying. Whatever it provides is not running.\n\n"
+                            "What to do: read why it failed, fix that, then restart it.\n\n"
+                            + how_to_look
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -185,6 +189,8 @@ class Module(ModuleBase):
                         "stuck in a crash loop looks 'running' while doing nothing but "
                         "starting and dying. It burns CPU, fills the journal, and hides "
                         "the original error under thousands of identical ones.\n\n"
+                        "What to do: read the log to see what keeps going wrong, fix that, "
+                        "then restart the service.\n\n"
                         f"    journalctl -u {unit} --since '1 hour ago' --no-pager"
                     ),
                     severity=Severity.WARNING,
@@ -210,6 +216,7 @@ class Module(ModuleBase):
                 "breaks HTTPS certificate validation, two-factor codes, and scheduled "
                 "jobs — and it does it in ways that look like a network fault rather than "
                 "a clock fault, so people chase the wrong problem for hours.\n\n"
+                "What to do: in Settings > Date & Time, turn on automatic time.\n\n"
                 "Checked for: " + ", ".join(_TIME_HINTS)
             ),
             severity=Severity.WARNING,

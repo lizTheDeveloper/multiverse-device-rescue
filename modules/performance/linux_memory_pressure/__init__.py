@@ -115,7 +115,9 @@ class Module(ModuleBase):
                             "redraw, typing that lags, a machine that seems busy doing "
                             "nothing.\n\n"
                             "Anything above 10% is noticeable; above 25% the machine is "
-                            "spending more time waiting than working."
+                            "spending more time waiting than working.\n\n"
+                            "What to do: close programs you are not using, starting with "
+                            "web browser tabs, and restart the computer."
                         ),
                         severity=severity,
                         category=self.category,
@@ -137,7 +139,9 @@ class Module(ModuleBase):
                         "because the kernel uses the rest as cache and hands it back on "
                         "demand. This number being low is the one that matters.\n\n"
                         "Once it reaches zero the kernel starts killing processes to "
-                        "recover, which is what 'applications close by themselves' means."
+                        "recover, which is what 'applications close by themselves' means.\n\n"
+                        "What to do: close programs you are not using and restart the "
+                        "computer. If it keeps happening, add more memory."
                     ),
                     severity=(
                         Severity.CRITICAL if available_fraction <= _AVAILABLE_CRITICAL
@@ -166,7 +170,9 @@ class Module(ModuleBase):
                             "occupied. Some swap use is normal and good — the kernel moves "
                             "genuinely idle pages out to make room for cache. Heavy use "
                             "means active memory is being paged to disk, and every touch "
-                            "of that memory now costs a disk read."
+                            "of that memory now costs a disk read.\n\n"
+                            "What to do: close programs you are not using and restart "
+                            "the computer to clear it."
                         ),
                         severity=(
                             Severity.CRITICAL if swap_used_fraction >= _SWAP_CRITICAL
@@ -194,7 +200,8 @@ class Module(ModuleBase):
                         "With no swap, the kernel has nowhere to put idle pages when "
                         "memory runs short. Instead of getting slow, the machine jumps "
                         "straight to killing processes. A small swap file or zram gives it "
-                        "a gentler option."
+                        "a gentler option.\n\n"
+                        "What to do: turn on zram or add a small swap file."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

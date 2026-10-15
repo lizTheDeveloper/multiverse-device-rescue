@@ -123,7 +123,9 @@ class Module(ModuleBase):
                         "preserved here even if you asked for it.\n\n"
                         "If this machine may be compromised, capture what you need "
                         "another way — photograph the screen, write down what you saw and "
-                        "when — before running any repair."
+                        "when — before running any repair.\n\n"
+                        "What to do: use your phone to photograph the screen, and write "
+                        "down the date, time and what you noticed."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -201,6 +203,8 @@ class Module(ModuleBase):
                         "happened — which processes were running, what was set to start "
                         "automatically, what was listening on the network — will be "
                         "destroyed along with the problem.\n\n"
+                        "What to do: photograph the screen with your phone and write "
+                        "down what you saw and when, before you change anything.\n\n"
                         + _ORDER_OF_OPERATIONS
                     ),
                     severity=Severity.WARNING,

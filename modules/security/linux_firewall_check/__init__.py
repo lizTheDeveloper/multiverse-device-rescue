@@ -73,7 +73,9 @@ class Module(ModuleBase):
                         "system. On a laptop or desktop that usually means nothing is "
                         "filtering inbound connections, so any service you start is "
                         "reachable by anything on the same network — a cafe wifi, a "
-                        "hotel network, a shared office LAN."
+                        "hotel network, a shared office LAN.\n\n"
+                        "What to do: install and turn on a firewall such as ufw "
+                        "(GUFW has a simple window)."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -90,7 +92,9 @@ class Module(ModuleBase):
                     description=(
                         f"Found {names}, but none of them is currently filtering. "
                         "Installed and running are different things; an inactive "
-                        "firewall protects nothing."
+                        "firewall protects nothing.\n\n"
+                        "What to do: turn it on, for example with GUFW or "
+                        "'sudo ufw enable'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -126,7 +130,9 @@ class Module(ModuleBase):
                         description=(
                             "The firewall is running, but its default policy for incoming "
                             "traffic is ACCEPT. Unless every port is covered by a specific "
-                            "deny rule, that is close to having no inbound filtering."
+                            "deny rule, that is close to having no inbound filtering.\n\n"
+                            "What to do: set incoming connections to Deny, then allow only "
+                            "the services you use on purpose."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

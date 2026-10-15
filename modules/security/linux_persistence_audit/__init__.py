@@ -223,7 +223,11 @@ class Module(ModuleBase):
                         "Running code fetched from the network at every login or boot is "
                         "how a compromise stays alive across reboots. Some developer "
                         "tooling does install itself this way, so check whether you "
-                        "recognise it before acting — but do check."
+                        "recognise it before acting — but do check.\n\n"
+                        "What to do: if you do not recognise it, do not delete it. Write "
+                        "down the file path, take a photo, and ask an advocate or a "
+                        "trusted technical person for help (removing it can alert "
+                        "whoever set it up)."
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
@@ -253,7 +257,10 @@ class Module(ModuleBase):
                             "/tmp, /var/tmp, and /dev/shm are cleared on reboot and are "
                             "writable by every local account. Software that expects to "
                             "persist does not install itself there; malware does, because "
-                            "it can write there without privileges."
+                            "it can write there without privileges.\n\n"
+                            "What to do: if you do not recognise this entry, do not delete "
+                            "it. Note the file path and ask a trusted technical person or "
+                            "an advocate to help."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -279,7 +286,9 @@ class Module(ModuleBase):
                         "Anything running on this machine — including software you ran "
                         "once and forgot — can rewrite this file and have its own code run "
                         "at the next boot or login. This is a privilege-escalation path "
-                        "whether or not anything has used it yet."
+                        "whether or not anything has used it yet.\n\n"
+                        "What to do: have the file's permissions tightened so only the "
+                        "administrator can change it ('sudo chmod go-w' on that path)."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -322,7 +331,10 @@ class Module(ModuleBase):
                     "shims), but it is also the classic userland rootkit mechanism, used "
                     "to hide files and processes from the tools you would check with. If "
                     "you did not put this here, treat this machine as compromised and stop "
-                    "using it for anything sensitive until it is investigated."
+                    "using it for anything sensitive until it is investigated.\n\n"
+                    "What to do: do not sign in to email or banking on this computer. "
+                    "Use a different device for that, and ask an advocate or trusted "
+                    "technical person to help you reinstall."
                 ),
                 severity=Severity.CRITICAL,
                 category=self.category,

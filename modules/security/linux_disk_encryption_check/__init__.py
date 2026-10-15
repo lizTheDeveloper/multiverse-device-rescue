@@ -128,7 +128,9 @@ class Module(ModuleBase):
                             + "Everything on this machine — saved passwords, browser "
                             "sessions, SSH keys, documents — can be read by anyone who gets "
                             "the drive out of it. That takes a screwdriver and a few "
-                            "minutes; your login password is not involved."
+                            "minutes; your login password is not involved.\n\n"
+                            "What to do: back up your files, then reinstall with "
+                            "'Encrypt the new installation' ticked."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -149,7 +151,9 @@ class Module(ModuleBase):
                             preamble
                             + "Your personal files are stored unencrypted, so they can be "
                             "read directly off the drive by anyone who has it, regardless "
-                            "of your login password."
+                            "of your login password.\n\n"
+                            "What to do: back up your files, then set up an encrypted "
+                            "home folder or reinstall with encryption."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
