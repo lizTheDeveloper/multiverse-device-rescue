@@ -103,8 +103,21 @@ _ENV_NOTE = ("Its settings change how or where the program runs, so a signed "
 # The only environment settings a verified job may carry: they change language
 # and time display, never which code runs. Anything else fails closed.
 _SAFE_ENV = re.compile(r"^(?:LANG|LANGUAGE|LC_[A-Z]+|TZ)$")
-# launchd keys that change what actually runs; a job using them is never verified.
-_RUN_CHANGING_KEYS = ("RootDirectory", "BundleProgram", "inetdCompatibility", "SessionCreate")
+# launchd keys that only say *when* or *how often* the program runs, or where
+# its log goes. Any other key (StandardInPath, WorkingDirectory, RootDirectory,
+# BundleProgram, inetdCompatibility, ...) could change what actually runs, so a
+# job using one is never verified. An allowlist: unknown keys fail closed.
+_SAFE_KEYS = frozenset({
+    "Label", "Program", "ProgramArguments", "RunAtLoad", "KeepAlive",
+    "StartInterval", "StartCalendarInterval", "WatchPaths", "QueueDirectories",
+    "StartOnMount", "EnvironmentVariables", "LimitLoadToSessionType",
+    "LimitLoadToHardware", "LimitLoadFromHardware", "ProcessType",
+    "ThrottleInterval", "ExitTimeOut", "StandardOutPath", "StandardErrorPath",
+    "Disabled", "Nice", "LowPriorityIO", "LowPriorityBackgroundIO",
+    "AssociatedBundleIdentifiers", "AbandonProcessGroup", "EnableTransactions",
+    "EnablePressuredExit", "POSIXSpawnType", "MachServices", "Sockets",
+    "LaunchEvents", "LegacyTimers", "SoftResourceLimits", "HardResourceLimits",
+})
 
 
 def _injects_code(env) -> bool:
@@ -385,7 +398,9 @@ class Attributor:
         # that isn't a full path could be anything, so nothing is credited.
         if not program.startswith("/"):
             return MadeBy(_UNKNOWN, False, "program not named by full path", _INLINE_NOTE)
-        if _injects_code(data.get("EnvironmentVariables")) or any(k in data for k in _RUN_CHANGING_KEYS):
+        if _injects_code(data.get("EnvironmentVariables")) or any(
+            not isinstance(k, str) or k not in _SAFE_KEYS for k in data
+        ):
             return MadeBy(_UNKNOWN, False, "settings change how the program loads code", _ENV_NOTE)
         # With both keys set, launchd runs Program and passes ProgramArguments
         # as argv, so argv[1:] is what the program is told to do.
@@ -396,9 +411,13 @@ class Attributor:
         if not exists(program):
             return None
         made = self._identify_program(program)
-        if made is not None and made.runner and extra:
+        if made is not None and made.runner:
             # A renamed copy of an interpreter: its signature still says so.
-            return self._through_interpreter(program, extra, exists)
+            # Even with no arguments it can read code from rc files, so never verified.
+            if extra:
+                return self._through_interpreter(program, extra, exists)
+            return dataclasses.replace(made, verified=False, how="inline command",
+                                       location_note=_INLINE_NOTE)
         if made is not None and extra and made.verified:
             # A signature vouches for the file, not for what the job tells it to
             # do: arguments can steer even an ordinary program, so fail closed.

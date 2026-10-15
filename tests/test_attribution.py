@@ -705,11 +705,11 @@ def test_renamed_copy_of_an_interpreter_is_not_credited(tmp_path):
     a = mac({("codesign", "-dv"): ZSH_SIG, ("codesign", "--verify"): ""})
     made = a._identify_plist(str(plist), os.path.exists)
     assert made is not None and made.verified is False and made.how == "inline command"
-    # With no arguments it is just the program, and it is credited normally.
+    # Even with no arguments an interpreter can read code from rc files: never verified.
     with open(plist, "wb") as fh:
         plistlib.dump({"Label": "x", "ProgramArguments": [str(fake)]}, fh)
     made = a._identify_plist(str(plist), os.path.exists)
-    assert made is not None and made.name == "Apple"
+    assert made is not None and made.verified is False
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlinks")
@@ -742,7 +742,10 @@ def test_code_injecting_environment_is_never_credited(tmp_path, env):
     assert made is not None and made.verified is False
 
 
-@pytest.mark.parametrize("extra", [{"EnvironmentVariables": {"SOMETHING_NEW": "1"}}, {"RootDirectory": "/tmp/r"}, {"BundleProgram": "x"}])
+@pytest.mark.parametrize("extra", [
+    {"EnvironmentVariables": {"SOMETHING_NEW": "1"}}, {"RootDirectory": "/tmp/r"}, {"BundleProgram": "x"},
+    {"StandardInPath": "/tmp/code.txt"}, {"WorkingDirectory": "/tmp"}, {"SomeFutureKey": True},
+])
 def test_unknown_settings_fail_closed(tmp_path, extra):
     path = _plist(tmp_path, {"Program": "/bin/ls", **extra})
     made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
