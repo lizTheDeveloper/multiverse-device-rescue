@@ -155,7 +155,7 @@ def test_siri_privacy_lockscreen_enabled_warning():
     assert len(warning_findings) > 0
     # Should specifically warn about lock screen security risk
     assert any("lock screen" in f.title.lower() for f in warning_findings)
-    assert any("security risk" in f.description.lower() for f in warning_findings)
+    assert any("without entering your password" in f.description.lower() for f in warning_findings)
 
 
 def test_siri_privacy_all_enabled():
@@ -239,7 +239,7 @@ def test_siri_privacy_lockscreen_finding_details():
     warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
     assert len(warning_findings) == 1
     finding = warning_findings[0]
-    assert "bypass" in finding.description.lower() or "security" in finding.description.lower()
+    assert "password" in finding.description.lower()
 
 
 def test_emitted_codes_are_declared():

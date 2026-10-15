@@ -112,7 +112,7 @@ def test_login_items_many_items_warning():
             result = mod.check(_make_profile())
     assert result.has_issues
     # Should have individual items plus a "too many" warning
-    too_many = [f for f in result.findings if "Too many" in f.title]
+    too_many = [f for f in result.findings if "start automatically" in f.title]
     assert len(too_many) == 1
     assert too_many[0].severity == Severity.WARNING
     assert too_many[0].data["count"] == 13

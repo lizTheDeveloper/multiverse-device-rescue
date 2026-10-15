@@ -48,14 +48,17 @@ class Module(ModuleBase):
             if "waiting" in state or "approved" not in state and "activated" not in state:
                 findings.append(
                     Finding(
-                        title=f"System extension awaiting approval: {name}",
+                        title=(
+                            f"A piece of software called {name} is waiting for your approval"
+                        ),
                         description=(
-                            f"The system extension '{name}' (Team ID: {team_id}) "
-                            f"is in state '{state}'. "
-                            f"Category: {category}. Version: {version}. "
-                            "This extension is not fully activated and may require user action. "
-                            "Check System Settings > General > Login Items > Allow in the More Secure "
-                            "Enclave to approve the extension."
+                            f"A background tool named '{name}' (developer ID: {team_id}) "
+                            f"is installed but paused. It is currently in a '{state}' "
+                            f"state. Type: {category}. Version: {version}. It just means "
+                            "the software is waiting for you to allow it to run.\n\n"
+                            "What to do: If you don't recognize the name, don't approve "
+                            "it; look it up first. If you do, open System Settings > "
+                            "Privacy & Security and click Allow next to its message."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

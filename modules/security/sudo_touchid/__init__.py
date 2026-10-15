@@ -74,11 +74,14 @@ class Module(ModuleBase):
             if fingerprint_count == 0:
                 findings.append(
                     Finding(
-                        title="No fingerprints enrolled",
+                        title="No fingerprints are set up on your Mac",
                         description=(
-                            "This Mac has Touch ID hardware but no fingerprints are enrolled. "
-                            "Enroll fingerprints in System Settings > Face ID & Passcode "
-                            "to use Touch ID for sudo and other authentication."
+                            "Your Mac has a Touch ID sensor, but no fingerprints are currently "
+                            "saved. Without a fingerprint, you will need to type your "
+                            "password to approve system changes.\n\n"
+                            "What to do: If you want to use your finger instead of typing "
+                            "a password, go to System Settings > Touch ID & Passwords "
+                            "and follow the prompts to enroll your fingerprint."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

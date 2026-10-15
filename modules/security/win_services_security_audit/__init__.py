@@ -212,12 +212,24 @@ class Module(ModuleBase):
                 display_name = svc.get("DisplayName", name)
                 findings.append(
                     Finding(
-                        title=f"Service with unquoted path containing spaces: {display_name}",
+                        title=(
+                            f"Service '{display_name}' has a path with spaces that is "
+                            "not protected"
+                        ),
                         description=(
-                            f"Service '{display_name}' ({name}) has an unquoted path with spaces: {path}\n"
-                            f"This is a privilege escalation vulnerability (CVE classic). "
-                            f"A lower-privileged user could place a malicious executable "
-                            f"in an earlier directory in the path to hijack the service."
+                            f"The background program '{display_name}' ({name}) is saved "
+                            "in a folder with spaces in its name, but the path is not "
+                            f"enclosed in quotes: {path}. This is a technical gap that "
+                            "can be dangerous. Because the path is not properly protected, "
+                            "a malicious program could potentially trick your computer "
+                            "into running a fake version of this service instead of the "
+                            "real one.\n\n"
+                            "What to do: This usually requires a system administrator "
+                            "to fix. Search for 'Services' in the Start menu, right-click "
+                            f"'{display_name}', select 'Properties', and check the 'Path "
+                            "to service executable' field. If you are not comfortable "
+                            "editing this, please ask a trusted IT professional to help "
+                            "you add quotes around the path."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -247,12 +259,22 @@ class Module(ModuleBase):
                     display_name = svc.get("DisplayName", name)
                     findings.append(
                         Finding(
-                            title=f"Service running from user-writable directory: {display_name}",
+                            title=(
+                                f"Service '{display_name}' is stored in a folder anyone can change"
+                            ),
                             description=(
-                                f"Service '{display_name}' ({name}) binary is located in a "
-                                f"user-writable directory: {clean_path}\n"
-                                f"This allows an unprivileged user to potentially modify the "
-                                f"service binary and achieve privilege escalation."
+                                f"The program '{display_name}' ({name}) is saved in a "
+                                "location where regular users can easily modify files: "
+                                f"{clean_path}. Normally, important system programs are "
+                                "stored in protected folders. Because this one is in "
+                                "an open folder, a malicious program could potentially "
+                                "replace it with a fake version to gain more power on "
+                                "your computer.\n\n"
+                                "What to do: Check if this is a standard Windows service "
+                                "or a third-party app. If it is a third-party app, look "
+                                "for an official installer to reinstall it, which usually "
+                                "moves it to a safer, protected folder. Do not delete "
+                                "the file manually, as this might break the app."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
@@ -282,12 +304,16 @@ class Module(ModuleBase):
             # Flag suspicious third-party services running as LocalSystem
             findings.append(
                 Finding(
-                    title=f"Third-party service running as LocalSystem: {display_name}",
+                    title=f"Service '{display_name}' runs with full system privileges",
                     description=(
-                        f"Service '{display_name}' ({name}) is running as LocalSystem. "
-                        f"This grants the service full system privileges. "
-                        f"Verify that this service actually requires LocalSystem privileges, "
-                        f"and consider running it under a dedicated low-privileged service account."
+                        f"Your computer runs a background program called '{display_name}' "
+                        f"({name}) with the highest level of access, known as LocalSystem. "
+                        "This is common for system tools, but less common for third-party "
+                        "apps. Running with full access is risky because if this app "
+                        "has a flaw, a bad actor could use it to control your whole computer.\n\n"
+                        "What to do: If you recognize the app, keep it updated; that's "
+                        "the main protection. If you don't, look it up before changing "
+                        "anything, since changing a service's account can break it."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -313,11 +339,18 @@ class Module(ModuleBase):
                 display_name = svc.get("DisplayName", name)
                 findings.append(
                     Finding(
-                        title=f"Auto-start service stopped: {display_name}",
+                        title=f"Service '{display_name}' is supposed to start but is stopped",
                         description=(
-                            f"Service '{display_name}' ({name}) is configured to auto-start "
-                            f"({start_mode}) but is currently {state}. "
-                            f"This may indicate the service crashed or is experiencing issues."
+                            f"The program '{display_name}' ({name}) is set to start automatically "
+                            f"when you turn on your computer ({start_mode}), but it is "
+                            f"currently {state}. This often happens if the program crashed "
+                            "or if a recent update broke it. It just means this specific "
+                            "background task is not running right now.\n\n"
+                            "What to do: Search for 'Services' in the Start menu, find "
+                            f"'{display_name}', right-click it, and select 'Start'. If "
+                            "it starts and stays running, you are likely fine. If it "
+                            "stops again, check the app's website for updates or known "
+                            "issues."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,

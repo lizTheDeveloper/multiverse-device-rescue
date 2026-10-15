@@ -145,12 +145,22 @@ class Module(ModuleBase):
             plural = "ports" if len(ports) > 1 else "port"
             findings.append(
                 Finding(
-                    title=f"Unusual listening {plural} {port_text} by {process}",
+                    title=(
+                        f"{process} is waiting for connections from other devices on port "
+                        f"{port_text}"
+                    ),
                     description=(
-                        f"Process {process} (PID {pid}) is accepting connections from "
-                        f"other devices on your network on {plural} {port_text}. Many "
-                        f"developer tools and sync apps do this on purpose. If you do "
-                        f"not recognize {process}, check where it came from."
+                        "Your computer is currently listening for connections from other "
+                        f"devices on port {port_text} via the program {process}.\n\n"
+                        "This is often normal for developer tools, file-sharing apps, "
+                        f"or remote access software. However, if you did not install {process} "
+                        "or do not remember turning on a feature that allows others to "
+                        "connect to your computer, it could be a sign that someone else "
+                        "has access.\n\n"
+                        f"What to do: If you recognize {process}, you can likely ignore "
+                        "this. If you do not recognize it, check your System Settings "
+                        "> Network > Firewall to ensure it is not allowed through, or "
+                        "look up the app name to see if it is a known remote access tool."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -241,12 +251,21 @@ class Module(ModuleBase):
             port_text = ", ".join(str(p) for p in ports)
             findings.append(
                 Finding(
-                    title=f"Unusual outbound connection on port {port_text} from {process}",
+                    title=(
+                        f"{process} is sending data to another computer on port {port_text}"
+                    ),
                     description=(
-                        f"Process {process} (PID {pid}) has connections to port "
-                        f"{port_text} on another machine, which is not a common service "
-                        f"port. Plenty of normal software does this; if you do not "
-                        f"recognize {process}, it is worth a closer look."
+                        f"The program {process} is currently sending data to another computer "
+                        f"using port {port_text}.\n\n"
+                        "This is not a standard port for common services like web browsing. "
+                        "Many legitimate apps (like cloud backups or chat apps) use unusual "
+                        "ports, so this is not automatically a sign of a problem. However, "
+                        f"if you do not recognize {process}, it is worth checking what "
+                        "it is.\n\n"
+                        f"What to do: If you do not recognize {process}, search for its "
+                        "name online to see if it is a known app. If you are unsure, "
+                        "you can quit the app to stop the connection and see if it restarts "
+                        "on its own."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

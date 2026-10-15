@@ -70,10 +70,16 @@ class Module(ModuleBase):
             if any(malware in proc_name_lower for malware in KNOWN_MALWARE):
                 findings.append(
                     Finding(
-                        title=f"Known malware process detected: {proc['Name']}",
+                        title=f"A program named {proc['Name']} looks like known malware",
                         description=(
-                            f"Process {proc['Name']} (PID {proc['Id']}) matches known "
-                            "malware signatures and should be investigated immediately."
+                            f"We found a program running on your computer called {proc['Name']} "
+                            f"(ID {proc['Id']}). Its name matches a list of known harmful "
+                            "software. This is a serious sign that your computer may "
+                            "be compromised.\n\n"
+                            "What to do: Run a full scan with your antivirus software "
+                            "immediately. If you do not have one, download a reputable "
+                            "free tool like Malwarebytes. Do not use the computer for "
+                            "banking or email until the scan is complete."
                         ),
                         severity=Severity.CRITICAL,
                         category=self.category,
@@ -92,10 +98,16 @@ class Module(ModuleBase):
             if "nicehash" in proc_name_lower:
                 findings.append(
                     Finding(
-                        title=f"Mining-related process detected: {proc['Name']}",
+                        title=f"A program named {proc['Name']} is mining cryptocurrency",
                         description=(
-                            f"Process {proc['Name']} (PID {proc['Id']}) appears to be "
-                            "cryptomining software. Verify this is expected."
+                            f"We found a program called {proc['Name']} (ID {proc['Id']}) "
+                            "that is using your computer's power to mine cryptocurrency. "
+                            "This is often done without permission to steal processing "
+                            "power.\n\n"
+                            "What to do: If you did not install this software, end the "
+                            "task in Task Manager (right-click the taskbar, select Task "
+                            "Manager, find the process, and click 'End Task'). Then run "
+                            "a full antivirus scan to remove the source."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -115,10 +127,19 @@ class Module(ModuleBase):
             if proc_path and self._matches_suspicious_path(proc_path):
                 findings.append(
                     Finding(
-                        title=f"Process running from suspicious path: {proc['Name']}",
+                        title=(
+                            f"A program named {proc['Name']} is running from a temporary folder"
+                        ),
                         description=(
-                            f"Process {proc['Name']} (PID {proc['Id']}) is running from "
-                            f"temporary directory: {proc_path}"
+                            f"The program {proc['Name']} (ID {proc['Id']}) is running "
+                            f"from a temporary folder: {proc_path}. Legitimate apps usually "
+                            "install in standard locations like 'Program Files'. Running "
+                            "from a temporary folder is a common trick used by malware "
+                            "to hide itself.\n\n"
+                            "What to do: Check if you recognize this program. If not, "
+                            "end the task in Task Manager and run a full antivirus scan. "
+                            "Do not delete the file manually; let the antivirus handle "
+                            "removal to ensure all related files are cleaned."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -137,10 +158,17 @@ class Module(ModuleBase):
             if proc["Name"].lower() != "system" and not proc_path:
                 findings.append(
                     Finding(
-                        title=f"Process with no file path detected: {proc['Name']}",
+                        title=f"A program named {proc['Name']} has no file location",
                         description=(
-                            f"Process {proc['Name']} (PID {proc['Id']}) has no associated "
-                            "file path, suggesting in-memory injection or suspicious behavior."
+                            f"The program {proc['Name']} (ID {proc['Id']}) is running, "
+                            "but we cannot find its file on your disk. This can happen "
+                            "with certain system processes, but it is also a technique "
+                            "used by malware to hide its presence, so it's worth a closer "
+                            "look.\n\n"
+                            "What to do: Run a full scan with your antivirus software. "
+                            "If the scan is clean and you do not recognize the program "
+                            "name, you can safely ignore it, but keep an eye on your "
+                            "computer's performance."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -267,11 +295,16 @@ class Module(ModuleBase):
                         if cmd_line and self._is_encoded_command(cmd_line):
                             findings.append(
                                 Finding(
-                                    title="PowerShell running encoded command",
+                                    title="PowerShell is running a hidden command",
                                     description=(
-                                        "A PowerShell process is executing encoded commands, "
-                                        "which is a common malware technique used to obfuscate "
-                                        "malicious code."
+                                        "We found a PowerShell process running a command "
+                                        "that is encoded (hidden in a scrambled format). "
+                                        "This is a common technique used by malware to "
+                                        "hide what it is doing.\n\n"
+                                        "What to do: Run a full scan with your antivirus "
+                                        "software. If you do not use PowerShell regularly, "
+                                        "this is likely a sign of an infection that needs "
+                                        "to be cleaned."
                                     ),
                                     severity=Severity.WARNING,
                                     category=self.category,

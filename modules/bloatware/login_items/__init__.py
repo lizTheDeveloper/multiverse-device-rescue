@@ -42,8 +42,18 @@ class Module(ModuleBase):
                 # Matched bloatware - flag as WARNING
                 findings.append(
                     Finding(
-                        title=f"Login item: {entry['name']}",
-                        description=entry["description"],
+                        title=(
+                            f"Known extra software starts at login: {entry['name']}"
+                        ),
+                        description=(
+                            f"Your Mac automatically launches {entry['name']} every time "
+                            "you start up. This is a known piece of extra software (often "
+                            "called 'bloatware') that comes with some apps. It isn't "
+                            "harmful, but it can slow down your computer.\n\n"
+                            "What to do: Open System Settings > General > Login Items & Extensions. "
+                            f"Find {entry['name']} in the list and click the minus button "
+                            "to stop it from starting automatically."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={"item_name": item, "bloatware_name": entry["name"]},
@@ -65,8 +75,17 @@ class Module(ModuleBase):
         if len(login_items) > 10:
             findings.append(
                 Finding(
-                    title=f"Too many login items ({len(login_items)})",
-                    description="More than 10 login items can significantly slow down system boot time. Consider disabling items you don't actively use.",
+                    title=(
+                        f"Many apps start automatically when your Mac boots ({len(login_items)})"
+                    ),
+                    description=(
+                        f"Your Mac has {len(login_items)} apps set to launch every time "
+                        "you turn it on. When many apps start at once, your computer "
+                        "takes longer to be ready to use.\n\n"
+                        "What to do: Open System Settings > General > Login Items & Extensions. Look "
+                        "at the list of apps that start at login. Turn off any you don't "
+                        "use often by clicking the minus button."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"count": len(login_items)},
