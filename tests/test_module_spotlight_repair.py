@@ -151,7 +151,7 @@ def test_spotlight_disabled():
     assert len(result.findings) == 1
     finding = result.findings[0]
     assert finding.severity == Severity.WARNING
-    assert "disabled on boot volume" in finding.title
+    assert "turned off on your main drive" in finding.title
     assert finding.data["issue_type"] == "disabled_indexing"
     assert finding.data["indexing_enabled"] is False
 
@@ -168,7 +168,7 @@ def test_high_cpu_mds():
     assert len(result.findings) == 1
     finding = result.findings[0]
     assert finding.severity == Severity.WARNING
-    assert "excessive CPU" in finding.title
+    assert "a lot of power" in finding.title
     assert finding.data["issue_type"] == "high_cpu_usage"
     assert finding.data["mds_cpu_percent"] == 75.2
     assert finding.data["high_cpu_mds"] is True
@@ -203,7 +203,7 @@ def test_large_index_size():
     assert len(result.findings) == 1
     finding = result.findings[0]
     assert finding.severity == Severity.WARNING
-    assert "very large" in finding.title
+    assert "a lot of space" in finding.title
     assert finding.data["issue_type"] == "large_index"
     assert finding.data["very_large_index"] is True
     assert finding.data["index_size_bytes"] > 5 * 1024**3

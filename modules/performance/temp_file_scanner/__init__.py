@@ -159,8 +159,13 @@ class Module(ModuleBase):
                 Finding(
                     title=f"Found {_fmt_bytes(total_waste)} of reclaimable disk space",
                     description=(
-                        f"Total space used by caches, logs, and temp files: {_fmt_bytes(total_waste)}. "
-                        f"Removing these items may improve disk performance and free up space."
+                        f"Your Mac has {_fmt_bytes(total_waste)} of space taken up by "
+                        "temporary files, logs, and caches. These are leftover data from "
+                        "apps and system processes that are no longer needed. Cleaning "
+                        "them up can free up space and help your Mac run smoothly.\n\n"
+                        "What to do: Open System Settings > General > Storage, then click "
+                        "the 'Optimize Storage' or 'Manage' button to review and remove "
+                        "these files safely."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -191,7 +191,7 @@ def test_thermal_throttle_active_throttling():
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.severity == Severity.WARNING for f in result.findings)
-    assert any("throttl" in f.title.lower() for f in result.findings)
+    assert any("slowing itself down" in f.title.lower() for f in result.findings)
 
 
 def test_thermal_throttle_critical_throttling():

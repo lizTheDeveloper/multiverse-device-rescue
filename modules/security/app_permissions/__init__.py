@@ -65,13 +65,19 @@ class Module(ModuleBase):
             severity = Severity.WARNING if count > 10 else Severity.INFO
             findings.append(
                 Finding(
-                    title=f"Accessibility access: {count} app(s)",
+                    title=f"{count} app(s) can control your Mac",
                     description=(
-                        f"{count} app(s) have been granted Accessibility access: "
-                        f"{', '.join(sorted(apps))}. "
-                        "Accessibility access is a powerful permission that allows "
-                        "apps to control your system. Review to ensure only trusted "
-                        "apps have this access."
+                        f"These apps are allowed to control your Mac: {', '.join(sorted(apps))}. "
+                        "This permission lets them move your cursor, type, and click "
+                        "buttons on your behalf. It is very powerful. If you do not recognize "
+                        "any of these names, or if you think someone close to you installed "
+                        "them to watch what you do, please talk to an advocate before "
+                        "removing them, as deleting the app might alert them. US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788.\n\n"
+                        "What to do: Open System Settings > Privacy & Security > Accessibility. "
+                        "Turn off the switch for any app you do not trust or no longer "
+                        "use."
                     ),
                     severity=severity,
                     category=self.category,

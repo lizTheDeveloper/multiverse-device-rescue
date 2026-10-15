@@ -153,10 +153,17 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"High reclaimable storage: {_fmt_bytes(total_reclaimable)}",
+                    title=f"Your Mac has {_fmt_bytes(total_reclaimable)} of unused space",
                     description=(
-                        f"Total reclaimable space across all categories: {_fmt_bytes(total_reclaimable)}. "
-                        f"Review the findings below for specific cleanup opportunities."
+                        f"Your Mac has {_fmt_bytes(total_reclaimable)} of space that is "
+                        "currently taking up room but not actively being used. It simply "
+                        "means you have files, caches, or old data that can be removed "
+                        "to free up storage. Please look at the other findings in this "
+                        "report to see exactly what is using that space.\n\n"
+                        "What to do: Review the other findings below to identify specific "
+                        "items you can safely remove. If you are unsure about a specific "
+                        "file or folder, it is safer to leave it alone than to delete "
+                        "it by mistake."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

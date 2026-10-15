@@ -108,11 +108,14 @@ class Module(ModuleBase):
                 if not is_running:
                     findings.append(
                         Finding(
-                            title=f"Third-party AV not running: {av_name}",
+                            title=f"Your antivirus {av_name} is installed but not running",
                             description=(
-                                f"{av_name} is installed but does not appear to be running. "
-                                f"Check System Settings > General > Login Items to ensure it launches at startup, "
-                                f"or open {av_name} to start its protection services."
+                                f"{av_name} is on your Mac, but it isn't currently active. "
+                                "This means your computer may not be protected against "
+                                "new threats right now.\n\n"
+                                f"What to do: Open the {av_name} app to start it, or check "
+                                "System Settings > General > Login Items & Extensions to make sure "
+                                "it is set to launch at startup."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

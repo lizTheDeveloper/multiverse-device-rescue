@@ -41,12 +41,16 @@ class Module(ModuleBase):
         if is_throttling:
             findings.append(
                 Finding(
-                    title="CPU thermal throttling detected",
+                    title="Your Mac is slowing itself down to stay cool",
                     description=(
-                        "The CPU is being thermally throttled. Your system is running too "
-                        "hot and reducing CPU speed to prevent damage. This significantly "
-                        "impacts performance. Check cooling: clean vents, check fans, ensure "
-                        "proper ventilation, and reduce workload."
+                        "Your Mac is running hot, so it is automatically reducing its "
+                        "speed to prevent damage. It usually happens when the computer "
+                        "is in a tight space, has dust blocking the vents, or is working "
+                        "very hard.\n\n"
+                        "What to do: Make sure the vents on the back or bottom of your "
+                        "Mac are not blocked by blankets, pillows, or walls. If it is "
+                        "dusty, gently clean the vents with compressed air. If the problem "
+                        "continues, Apple Support can check the fans."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -69,12 +73,15 @@ class Module(ModuleBase):
             freq_pct = (current_freq / max_freq * 100) if max_freq > 0 else 0
             findings.append(
                 Finding(
-                    title="CPU running below max frequency",
+                    title=f"Your Mac is running at {freq_pct:.1f}% of its top speed",
                     description=(
-                        f"CPU is running at {freq_pct:.1f}% of maximum frequency "
-                        f"({current_freq} MHz vs {max_freq} MHz). This may indicate thermal "
-                        "constraints or power-saving mode. Check system cooling and power "
-                        "settings."
+                        f"Your Mac is currently running at {current_freq} MHz, which is "
+                        f"{freq_pct:.1f}% of its maximum speed ({max_freq} MHz). This "
+                        "is often normal if you are on battery power or running light "
+                        "tasks, as the Mac saves energy.\n\n"
+                        "What to do: Nothing is usually needed. If your Mac feels slow "
+                        "while plugged in, check that the vents are clear of dust and "
+                        "that it is not sitting on a soft surface."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
