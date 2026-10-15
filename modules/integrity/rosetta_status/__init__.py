@@ -48,8 +48,14 @@ class Module(ModuleBase):
             else:
                 findings.append(
                     Finding(
-                        title="Rosetta 2 is NOT installed",
-                        description="Apple Silicon Mac detected, but Rosetta 2 is not installed. Many older Intel-only apps will fail to launch. Consider installing Rosetta 2.",
+                        title="Rosetta 2 is not installed on your Mac",
+                        description=(
+                            "Your Mac uses Apple Silicon, but the Rosetta 2 tool is missing. "
+                            "Rosetta 2 helps older apps made for Intel chips run on your "
+                            "computer. Without it, some older programs may not open.\n\n"
+                            "What to do: Open Terminal and type: softwareupdate --install-rosetta. "
+                            "Press Enter and follow the prompts to install it."
+                        ),
                         severity=Severity.WARNING,
                         category=self.category,
                         data={

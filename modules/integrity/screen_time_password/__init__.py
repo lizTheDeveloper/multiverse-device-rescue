@@ -58,12 +58,15 @@ class Module(ModuleBase):
             if not passcode_set:
                 findings.append(
                     Finding(
-                        title="Screen Time enabled but no passcode is set",
+                        title="Screen Time is on, but there is no passcode to protect it",
                         description=(
-                            "Screen Time is enabled but no passcode is configured. Without a "
-                            "passcode, children can disable Screen Time and bypass all "
-                            "parental controls. Set a passcode immediately to protect "
-                            "parental control settings."
+                            "Your device has Screen Time turned on, but it is not locked "
+                            "with a passcode. This means anyone with physical access to "
+                            "the device can easily turn off the controls or change the "
+                            "rules.\n\n"
+                            "What to do: Open System Settings > Screen Time and turn on "
+                            "'Lock Screen Time Settings', then choose a passcode only you "
+                            "know."
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
@@ -107,11 +110,15 @@ class Module(ModuleBase):
                 if not has_controls:
                     findings.append(
                         Finding(
-                            title=f"Child account '{account}' has no parental controls",
+                            title=f"Account '{account}' has no parental controls set",
                             description=(
-                                f"Child account '{account}' exists but does not have "
-                                "parental controls configured. Set up Screen Time or "
-                                "parental controls to restrict access on this account."
+                                f"The account '{account}' is on this device, but it does "
+                                "not have any limits or restrictions applied. If this "
+                                "is a child's account, they can currently access anything "
+                                "without barriers.\n\n"
+                                "What to do: Open System Settings, go to Screen Time, "
+                                "and add this account to your family list so you can "
+                                "set age-appropriate limits."
                             ),
                             severity=Severity.WARNING,
                             category=self.category,

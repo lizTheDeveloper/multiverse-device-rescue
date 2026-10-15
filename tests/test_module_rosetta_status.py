@@ -136,7 +136,7 @@ def test_apple_silicon_without_rosetta():
     assert result.has_issues
     assert len(result.findings) == 1
     finding = result.findings[0]
-    assert "NOT installed" in finding.title
+    assert "not installed" in finding.title
     assert finding.severity == Severity.WARNING
     assert finding.data.get("architecture") == "arm64"
     assert finding.data.get("rosetta_installed") is False

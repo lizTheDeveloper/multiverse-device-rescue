@@ -62,10 +62,14 @@ class Module(ModuleBase):
         if not smart_status:
             findings.append(
                 Finding(
-                    title="Could not retrieve SMART status",
+                    title="We couldn't check your drive's health",
                     description=(
-                        "Failed to retrieve disk SMART status from diskutil or system_profiler. "
-                        "Disk health cannot be assessed."
+                        "We tried to read your hard drive's built-in health sensor, but "
+                        "the system didn't give us the information. This means we don't "
+                        "know if the drive is healthy or failing.\n\n"
+                        "What to do: Try running the checkup again. If it still fails, "
+                        "back up your files to be safe, as we cannot verify the drive's "
+                        "condition."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

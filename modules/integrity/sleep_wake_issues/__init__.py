@@ -36,12 +36,18 @@ class Module(ModuleBase):
         if darkwake_count > 10:
             findings.append(
                 Finding(
-                    title=f"Frequent DarkWake events detected ({darkwake_count})",
+                    title=(
+                        f"Your Mac is waking up a lot for background tasks ({darkwake_count} "
+                        "times)"
+                    ),
                     description=(
-                        f"Found {darkwake_count} DarkWake events in recent logs. "
-                        "DarkWake events suggest the system is waking periodically for background tasks. "
-                        "This can cause battery drain and unexpected wake-ups. Check System Settings > "
-                        "General > Login Items > Allow in the Login Items for apps that may be waking the system."
+                        f"We found {darkwake_count} instances where your Mac woke up briefly "
+                        "to run background tasks. This is a normal maintenance process, "
+                        "but if it happens too often, it can drain your battery faster "
+                        "than expected.\n\n"
+                        "What to do: Open System Settings > General > Login Items & Extensions. Look "
+                        "for apps you don't recognize or don't need running in the background "
+                        "and turn them off."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -54,12 +60,15 @@ class Module(ModuleBase):
         if assertions:
             findings.append(
                 Finding(
-                    title="Sleep prevention assertions detected",
+                    title="An app is stopping your Mac from sleeping",
                     description=(
-                        f"The system has active sleep prevention assertions. "
-                        f"Assertions currently preventing sleep: {assertions}. "
-                        "These typically come from apps using preventUserIdleDisplaySleep, "
-                        "preventSystemSleep, or other sleep blocking mechanisms."
+                        f"Your Mac is currently being kept awake by: {assertions}. This "
+                        "usually happens when an app is playing video, syncing files, "
+                        "or running a heavy task. However, if your Mac stays awake when "
+                        "you expect it to sleep, it will use more battery.\n\n"
+                        "What to do: Check which app is using the most energy in System "
+                        "Settings > Battery. If an app is stuck, quit it by right-clicking "
+                        "its icon in the Dock and selecting Quit."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -72,12 +81,14 @@ class Module(ModuleBase):
         if bt_wake_enabled:
             findings.append(
                 Finding(
-                    title="Bluetooth wake is enabled",
+                    title="Bluetooth devices can wake your Mac from sleep",
                     description=(
-                        "Bluetooth wake is enabled, which allows Bluetooth devices "
-                        "(like mouse, keyboard, trackpad) to wake your Mac from sleep. "
-                        "This may cause unexpected wake-ups. You can disable it with: "
-                        "defaults write /Library/Preferences/com.apple.Bluetooth BTPowerController -bool false"
+                        "Your Mac is set to wake up when it detects Bluetooth activity, "
+                        "such as when you move a wireless mouse or type on a keyboard. If "
+                        "your Mac turns on unexpectedly, this is the likely cause.\n\n"
+                        "What to do: Nothing, unless that bothers you. Then search System "
+                        "Settings for 'wake' and turn off 'Allow Bluetooth devices to "
+                        "wake this computer'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

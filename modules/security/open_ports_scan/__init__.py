@@ -77,14 +77,19 @@ class Module(ModuleBase):
         if exposed_risky:
             findings.append(
                 Finding(
-                    title=f"Risky ports exposed to network: {len(exposed_risky)}",
+                    title=(
+                        f"A database service is open to your network ({len(exposed_risky)} found)"
+                    ),
                     description=(
-                        f"Found {len(exposed_risky)} database/service port(s) "
-                        f"exposed to all network interfaces (0.0.0.0):\n"
-                        f"{chr(10).join(exposed_risky)}\n\n"
-                        "This allows network access to sensitive services. "
-                        "Database ports should bind to localhost (127.0.0.1) unless "
-                        "remote access is explicitly required."
+                        f"We found {len(exposed_risky)} service(s) that are open to your "
+                        f"entire network, not just your own computer:\n{chr(10).join(exposed_risky)}\n\n"
+                        "This means other devices on your Wi-Fi or home network could "
+                        "potentially connect to these services. Usually, these should "
+                        "only be reachable by your own computer.\n\n"
+                        "What to do: Check if you actually need remote access to these "
+                        "services. If you do not, open the app that uses the port and "
+                        "look for a setting to 'Listen on localhost only' or 'Local network "
+                        "only' and turn it on."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

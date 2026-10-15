@@ -35,9 +35,17 @@ class Module(ModuleBase):
         if not library_exists:
             findings.append(
                 Finding(
-                    title="Photos library not found",
-                    description="Photos library not found at ~/Pictures/Photos Library.photoslibrary. "
-                    "The library may have been moved or deleted.",
+                    title="Your Photos library is missing from its usual spot",
+                    description=(
+                        "We looked for your Photos library at ~/Pictures/Photos Library.photoslibrary "
+                        "but couldn't find it. This usually happens if you moved the folder, "
+                        "renamed it, or deleted it. If you still have your photos, they "
+                        "might be in a different folder or backed up in iCloud.\n\n"
+                        "What to do: Check if the folder exists in a different location "
+                        "(like your Desktop or a backup drive). If you are sure it is "
+                        "gone, open the Photos app to see if your photos are still there "
+                        "via iCloud."
+                    ),
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "library_exists", "exists": False},
@@ -102,11 +110,17 @@ class Module(ModuleBase):
         if library_size_gb > 100 and not optimize_storage_enabled and icloud_photos_enabled:
             findings.append(
                 Finding(
-                    title="Large Photos library with Optimize Storage disabled",
+                    title=(
+                        f"Your Photos library is large ({library_size_gb:.2f} GB) and "
+                        "using full storage"
+                    ),
                     description=(
-                        f"Photos library is {library_size_gb:.2f} GB and Optimize Storage is not enabled. "
-                        "This means full-resolution images are stored locally, which may consume significant disk space. "
-                        "Consider enabling Optimize Storage to save disk space while keeping iCloud Photos enabled."
+                        f"Your Photos library takes up {library_size_gb:.2f} GB of space, "
+                        "and your Mac is set to keep full-resolution copies of every "
+                        "photo on the disk, which can fill up your drive.\n\n"
+                        "What to do: If you have space to spare, you can ignore this. "
+                        "If you are low on storage, open Photos > Settings > iCloud and "
+                        "choose 'Optimize Mac Storage'."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,

@@ -74,13 +74,25 @@ class Module(ModuleBase):
         if restrictions:
             findings.append(
                 Finding(
-                    title=f"Configuration restrictions installed: {len(restrictions)} profile(s)",
+                    title=(
+                        f"Restrictions are limiting your device: {len(restrictions)} profile(s)"
+                    ),
                     description=(
-                        f"Device has {len(restrictions)} restriction profile(s) installed: "
-                        f"{', '.join(restrictions)}. "
-                        "These may limit functionality like software installation, "
-                        "system preferences access, or other capabilities. "
-                        "Contact IT if restrictions are unexpected."
+                        f"Your device has {len(restrictions)} restriction profile(s) installed: "
+                        f"{', '.join(restrictions)}. These profiles can block you from "
+                        "installing apps, changing settings, or using certain features. "
+                        "If you work for a company, this is likely normal. However, if "
+                        "you do not work for a company or did not expect these restrictions, "
+                        "it is important to check if someone else installed them to control "
+                        "your device.\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "removing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: If you have a job, ask your IT department if these "
+                        "profiles are expected. If you do not have a job, or if you did "
+                        "not expect these restrictions, look in "
+                        "System Settings > General > Device Management (Privacy & Security > Profiles on older macOS)."
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
