@@ -38,10 +38,19 @@ export function renderVerification({ mission, verification, disagreement, canFin
     }
     return `<li class="step"><span class="step-n">${i + 1}</span><span class="step-t">${esc(String(st.text).slice(0, 140))}${detail}</span>${badge(status, v, platform)}</li>`;
   }).join('');
-  const confirmedCount = verification.steps.filter((s) => s.status === 'confirmed').length;
-  // Some steps confirmed, but not enough to finish: say what's left is the person's.
+  // Some steps confirmed, but not enough to finish. Steps for other computers
+  // are left out; a problem is named as a problem; only steps nobody could
+  // check (or no check covers) are the person's.
+  const statuses = mission.steps.map((_, i) => (byStep.get(i) || { status: 'yours' }).status);
+  const count = (st) => statuses.filter((x) => x === st).length;
+  const here = statuses.length - count('other-platform');
+  const problems = count('problem');
+  const theirs = count('couldnt') + count('yours');
+  const plural = (n) => (n === 1 ? 'step' : 'steps');
   const partial = verification.partial && !verification.allConfirmed ? `
-    <p class="intel">Your computer confirmed ${confirmedCount} of ${mission.steps.length} steps. It can’t check the rest, so those are yours to check.</p>` : '';
+    <p class="intel">Your computer confirmed ${count('confirmed')} of ${here} ${plural(here)}.${problems
+      ? ` It found a problem with ${problems} ${plural(problems)}.` : ''}${theirs
+      ? ` ${theirs} ${theirs === 1 ? 'is' : 'are'} yours to check.` : ''}</p>` : '';
   const date = disagreement ? shortDate(disagreement.reportedAt) : '';
   const reported = disagreement ? `
     <div class="panel disagree" role="note">

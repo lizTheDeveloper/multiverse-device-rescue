@@ -45,8 +45,10 @@ export function accountDistrictCards({ rc, rcState, doc }) {
       if (m) checkAgain.add(rc.missionDistrict(m));
     }
   }
+  // No game state yet (or it failed to load): count from an empty one.
+  const state = rcState || rc.createInitialState();
   return [...rc.DISTRICTS].sort((a, b) => a.chapter - b.chapter).map((d) => {
-    const p = rc.calcDistrictProgress(rcState, d.id);
+    const p = rc.calcDistrictProgress(state, d.id);
     return { id: d.id, name: d.name, description: d.description, chapter: d.chapter,
       percent: p.percent, total: p.total, completed: p.completed, checkAgain: checkAgain.has(d.id) };
   });

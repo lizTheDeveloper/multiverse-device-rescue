@@ -83,3 +83,10 @@ test('deviceMissionFor finds the device mission for a module', async () => {
   assert.strictEqual(deviceMissionFor(city, ['find_my_mac_check']), null);
   assert.strictEqual(deviceMissionFor(null, ['encryption_check']), null);
 });
+
+test('account district cards still build when there is no game state yet', async () => {
+  const { accountDistrictCards, rc } = await setup();
+  const cards = accountDistrictCards({ rc, rcState: null, doc: brokenMac });
+  assert.strictEqual(cards.length, rc.DISTRICTS.length);
+  assert.ok(cards.every((c) => c.completed === 0 && c.checkAgain === false));
+});

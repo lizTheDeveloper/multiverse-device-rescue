@@ -255,7 +255,9 @@ test('the verification panel labels every step and links a problem to its device
   assert.match(html, /YOURS TO CHECK/, 'unmapped steps (index 6) are yours');
   assert.match(html, /data-go="mission:dev-1"/);
   assert.match(html, /You reported this done/);
-  assert.match(html, /Your computer confirmed 1 of 7 steps\./);
+  assert.match(html, /Your computer confirmed 1 of 6 steps\. It found a problem with 1 step\. 4 are yours to check\./,
+    'the step for other computers is left out; the problem is named, not called yours');
+  assert.doesNotMatch(html, /can’t check the rest/);
   assert.ok(!html.includes('<img src=x'));
   assert.doesNotMatch(html, /data-act="confirm-from-scan"/);
   assert.match(renderVerification({ mission, verification: { ...verification, allConfirmed: true, partial: false }, disagreement: null, canFinish: true, platform: 'darwin', deviceMissionFor: () => null }), /data-act="confirm-from-scan"/);
@@ -273,4 +275,21 @@ test('the milestone split lists confirmed and reported apart', async () => {
   assert.match(html, /CONFIRMED BY YOUR COMPUTER/);
   assert.match(html, /YOU REPORTED/);
   assert.ok(!html.includes('<img src=x'));
+});
+
+test('a partial mission on Windows leaves the Mac and Linux steps out of the count', async () => {
+  const { renderVerification } = await import('../renderer/game/views/verification.js');
+  const mission = { id: 'device_security-fortify-computer', steps: ['A', 'B', 'C', 'D', 'E', 'F'].map((text) => ({ text })) };
+  const other = (step, p) => ({ step, status: 'other-platform', claim: 'x', platforms: [p], modules: [], problems: [] });
+  const verification = { allConfirmed: false, partial: true, steps: [
+    other(0, 'darwin'),
+    { step: 1, status: 'confirmed', claim: 'BitLocker is on for your drives', platforms: ['win32'], modules: [], problems: [] },
+    { step: 2, status: 'couldnt', claim: 'Your drive is encrypted', platforms: ['win32'], modules: [], problems: [] },
+    other(3, 'linux'), other(4, 'darwin'), other(5, 'darwin'),
+  ] };
+  const html = renderVerification({ mission, verification, disagreement: null, canFinish: false, platform: 'win32', deviceMissionFor: () => null });
+  assert.match(html, /Your computer confirmed 1 of 2 steps\. 1 is yours to check\./);
+  assert.doesNotMatch(html, /of 6/);
+  assert.doesNotMatch(html, /problem with/);
+  assert.match(html, /FOR MAC COMPUTERS/);
 });
