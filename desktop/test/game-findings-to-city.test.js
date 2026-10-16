@@ -1,0 +1,129 @@
+const test = require('node:test');
+const assert = require('node:assert');
+const load = () => import('../renderer/game/findings-to-city.js');
+
+const mod = (name, category, findings, extra = {}) => ({ name, category, status: 'ok', error: null, supported: true, unsupported_reason: null, findings, ...extra });
+const f = (severity, extra = {}) => ({ title: `${severity} thing`, description: 'Something.', severity, code: 'security.m.x', data: {}, ...extra });
+
+test('findings land in districts by category; info goes to notes', async () => {
+  const { findingsToCity } = await load();
+  const city = findingsToCity({ modules: [
+    mod('launch_agent_audit', 'security', [f('critical', { data: { plist: '/a.plist' } }), f('info')]),
+    mod('disk_space', 'performance', [f('warning', { code: 'performance.disk_space.low' })]),
+  ] });
+  const gate = city.districts.find((d) => d.id === 'gatehouse');
+  assert.strictEqual(gate.missions.length, 1);
+  assert.strictEqual(gate.missions[0].severity, 'critical');
+  assert.strictEqual(gate.notes.length, 1);
+  assert.strictEqual(gate.status, 'hot');
+  assert.strictEqual(city.districts.find((d) => d.id === 'engine-room').status, 'warn');
+  assert.deepStrictEqual(city.totals, { critical: 1, warning: 1, info: 1, fog: 0 });
+});
+
+test('a category we do not know goes to The Outskirts instead of disappearing', async () => {
+  const { findingsToCity } = await load();
+  const city = findingsToCity({ modules: [mod('odd', 'test', [f('warning')]), mod('nocat', undefined, [f('critical')])] });
+  const out = city.districts.find((d) => d.id === 'outskirts');
+  assert.ok(out, 'outskirts present when used');
+  assert.strictEqual(out.missions.length, 2);
+});
+
+test('The Outskirts is left out when nothing goes there', async () => {
+  const { findingsToCity } = await load();
+  const city = findingsToCity({ modules: [mod('a', 'security', [])] });
+  assert.ok(!city.districts.some((d) => d.id === 'outskirts'));
+  assert.strictEqual(city.districts.length, 5);
+});
+
+test('unknown severity is treated as info, like the list view', async () => {
+  const { findingsToCity } = await load();
+  const city = findingsToCity({ modules: [mod('a', 'security', [f('weird')])] });
+  const gate = city.districts.find((d) => d.id === 'gatehouse');
+  assert.strictEqual(gate.missions.length, 0);
+  assert.strictEqual(gate.notes.length, 1);
+});
+
+test('fog for unsupported and errored checks; a district of only failed checks is fog, never clear', async () => {
+  const { findingsToCity } = await load();
+  const city = findingsToCity({ modules: [
+    mod('wifi_security_audit', 'network', [], { supported: false, unsupported_reason: 'Needs Location Services.' }),
+    mod('router_security_audit', 'network', [], { status: 'error', error: 'timed out' }),
+    mod('update_checker', 'integrity', []),
+    mod('dns_config', 'integrity', [], { status: 'error', error: 'boom' }),
+  ] });
+  const wires = city.districts.find((d) => d.id === 'wires');
+  assert.strictEqual(wires.status, 'fog');
+  assert.deepStrictEqual(wires.fog.map((x) => x.reason), ['Needs Location Services.', 'timed out']);
+  assert.strictEqual(city.districts.find((d) => d.id === 'foundations').status, 'partial');
+  assert.strictEqual(city.totals.fog, 3);
+});
+
+test('a district where no checks ran at all says none, not clear', async () => {
+  const { findingsToCity } = await load();
+  const city = findingsToCity({ modules: [mod('a', 'security', [])] });
+  assert.strictEqual(city.districts.find((d) => d.id === 'junkyard').status, 'none');
+  assert.strictEqual(city.districts.find((d) => d.id === 'gatehouse').status, 'clear');
+});
+
+test('steps come from the walkthrough, and fall back to What to do, then to the description', async () => {
+  const { missionSteps } = await load();
+  const steps = [{ number: 1, title: 'Remove high-risk background tasks', body: 'Body.' }];
+  assert.deepStrictEqual(missionSteps(f('critical', { remediation: { title: 'T', steps } })), steps);
+  assert.deepStrictEqual(
+    missionSteps(f('warning', { description: 'Your disk is full.\n\nWhat to do:\n1. Empty the Trash.\n2. Delete old downloads.' })).map((s) => s.title),
+    ['Empty the Trash.', 'Delete old downloads.'],
+  );
+  assert.deepStrictEqual(missionSteps(f('warning', { description: 'Just this.' })).map((s) => s.title), ['Just this.']);
+});
+
+test('identity is stable across scans and uses the mark id when there is one', async () => {
+  const { findingIdentity } = await load();
+  const a = { ...f('critical', { data: { plist: '/x.plist', pid: 1 } }), module: 'm' };
+  const b = { ...f('critical', { data: { plist: '/x.plist', pid: 2 } }), module: 'm' };
+  assert.strictEqual(findingIdentity(a), findingIdentity(b));
+  assert.strictEqual(findingIdentity({ ...a, markable: { id: 'abc123' } }), 'mark:abc123');
+  assert.strictEqual(findingIdentity({ ...a, data: { known_item_id: 'abc123', marked_by_user: true } }), 'mark:abc123');
+});
+
+test('two findings with one identity become one mission that lists both, at the higher severity', async () => {
+  const { findingsToCity } = await load();
+  const city = findingsToCity({ modules: [mod('a', 'security', [f('warning', { title: 'one' }), f('critical', { title: 'two' })])] });
+  const gate = city.districts.find((d) => d.id === 'gatehouse');
+  assert.strictEqual(gate.missions.length, 1);
+  assert.strictEqual(gate.missions[0].severity, 'critical');
+  assert.strictEqual(gate.missions[0].findings.length, 2);
+});
+
+test('mission flags: fixable, markable, marked', async () => {
+  const { findingsToCity } = await load();
+  const fixable = { will_change: 'x', how_to_undo: ['y'] };
+  const city = findingsToCity({ modules: [mod('a', 'security', [
+    f('warning', { fixable, markable: { id: 'm1' }, data: { plist: '/1' } }),
+    f('warning', { data: { known_item_id: 'm2', marked_by_user: true } }),
+  ])] });
+  const [m1, m2] = city.districts.find((d) => d.id === 'gatehouse').missions;
+  assert.deepStrictEqual([m1.fixable, m1.markable, m1.marked], [true, true, false]);
+  assert.strictEqual(m2.marked, true);
+});
+
+test('a finding the person marked stays a mission even though the engine lowered it to info', async () => {
+  // rescue/known_items.py sets severity INFO on a marked finding and keeps the
+  // old one in data.original_severity. If it became a note, the mission would
+  // vanish and the next scan would count it as reclaimed: never allowed.
+  const { findingsToCity } = await load();
+  const city = findingsToCity({ modules: [mod('launch_agent_audit', 'security', [
+    f('info', { title: 'Marked as yours: ai.example', data: { known_item_id: 'abc', marked_by_user: true, original_severity: 'warning' } }),
+  ])] });
+  const gate = city.districts.find((d) => d.id === 'gatehouse');
+  assert.strictEqual(gate.notes.length, 0);
+  assert.strictEqual(gate.missions.length, 1);
+  assert.deepStrictEqual([gate.missions[0].id, gate.missions[0].severity, gate.missions[0].marked], ['mark:abc', 'warning', true]);
+});
+
+test('garbage in does not throw', async () => {
+  const { findingsToCity } = await load();
+  for (const doc of [null, {}, { modules: null }, { modules: [null, { name: 'x' }, { name: 'y', findings: [null] }] }]) {
+    const city = findingsToCity(doc);
+    assert.ok(Array.isArray(city.districts));
+  }
+});
