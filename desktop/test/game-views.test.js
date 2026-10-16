@@ -242,7 +242,7 @@ test('the verification panel labels every step and links a problem to its device
   const mission = { id: 'device_security-fortify-computer', steps: [{ text: 'A' }, { text: 'B' }, { text: 'C' }, { text: 'D' }, { text: 'E' }, { text: 'F' }, { text: 'G' }] };
   const verification = { allConfirmed: false, partial: true, steps: [
     { step: 0, status: 'problem', claim: 'FileVault is on', modules: ['encryption_check'], problems: [{ title: EVIL, module: 'encryption_check' }] },
-    { step: 1, status: 'other-platform', claim: 'x', platforms: ['win32'], modules: [], problems: [] },
+    { step: 1, status: 'other-platform', claim: 'x', appliesTo: ['win32'], modules: [], problems: [] },
     { step: 4, status: 'confirmed', claim: 'A password is needed', modules: [], problems: [] },
     { step: 5, status: 'couldnt', claim: 'Find My Mac is on', modules: [], problems: [] },
   ] };
@@ -263,7 +263,7 @@ test('the verification panel labels every step and links a problem to its device
   assert.match(renderVerification({ mission, verification: { ...verification, allConfirmed: true, partial: false }, disagreement: null, canFinish: true, platform: 'darwin', deviceMissionFor: () => null }), /data-act="confirm-from-scan"/);
   assert.doesNotMatch(renderVerification({ mission, verification, disagreement: null, canFinish: true, platform: 'darwin', deviceMissionFor: () => null }), /data-act="confirm-from-scan"/,
     'a partial mission can never be finished from the scan');
-  assert.match(renderVerification({ mission, verification: { ...verification, steps: [{ ...verification.steps[1], platforms: ['linux'] }] }, disagreement: null, canFinish: false, platform: 'darwin', deviceMissionFor: () => null }), /FOR LINUX COMPUTERS/);
+  assert.match(renderVerification({ mission, verification: { ...verification, steps: [{ ...verification.steps[1], appliesTo: ['linux'] }] }, disagreement: null, canFinish: false, platform: 'darwin', deviceMissionFor: () => null }), /FOR LINUX COMPUTERS/);
   const bad = renderVerification({ mission, verification, disagreement: { reportedAt: 'nonsense', problems: [] }, canFinish: false, platform: 'darwin', deviceMissionFor: () => null });
   assert.doesNotMatch(bad, /Invalid Date/);
   assert.doesNotMatch(html + bad, /you’re safe|you're safe|all clear/i);
@@ -280,16 +280,39 @@ test('the milestone split lists confirmed and reported apart', async () => {
 test('a partial mission on Windows leaves the Mac and Linux steps out of the count', async () => {
   const { renderVerification } = await import('../renderer/game/views/verification.js');
   const mission = { id: 'device_security-fortify-computer', steps: ['A', 'B', 'C', 'D', 'E', 'F'].map((text) => ({ text })) };
-  const other = (step, p) => ({ step, status: 'other-platform', claim: 'x', platforms: [p], modules: [], problems: [] });
+  const other = (step, p) => ({ step, status: 'other-platform', claim: 'x', appliesTo: [p], modules: [], problems: [] });
   const verification = { allConfirmed: false, partial: true, steps: [
     other(0, 'darwin'),
-    { step: 1, status: 'confirmed', claim: 'BitLocker is on for your drives', platforms: ['win32'], modules: [], problems: [] },
-    { step: 2, status: 'couldnt', claim: 'Your drive is encrypted', platforms: ['win32'], modules: [], problems: [] },
-    other(3, 'linux'), other(4, 'darwin'), other(5, 'darwin'),
+    { step: 1, status: 'confirmed', claim: 'BitLocker is on for your drives', appliesTo: ['win32'], modules: [], problems: [] },
+    { step: 2, status: 'couldnt', claim: 'Your drive is encrypted', appliesTo: ['win32'], modules: [], problems: [] },
+    other(3, 'linux'),
+    { step: 4, status: 'yours', claim: 'x', appliesTo: ['darwin', 'win32', 'linux'], modules: [], problems: [] },
+    { step: 5, status: 'yours', claim: 'x', appliesTo: ['darwin', 'win32'], modules: [], problems: [] },
   ] };
-  const html = renderVerification({ mission, verification, disagreement: null, canFinish: false, platform: 'win32', deviceMissionFor: () => null });
-  assert.match(html, /Your computer confirmed 1 of 2 steps\. 1 is yours to check\./);
+  const html = renderVerification({ mission, verification, disagreement: null, canFinish: true, platform: 'win32', deviceMissionFor: () => null });
+  assert.match(html, /Your computer confirmed 1 of 4 steps\. 3 are yours to check\./,
+    'the all-platform steps nothing checks on Windows are the person\'s');
   assert.doesNotMatch(html, /of 6/);
   assert.doesNotMatch(html, /problem with/);
   assert.match(html, /FOR MAC COMPUTERS/);
+  assert.match(html, /FOR LINUX COMPUTERS/);
+  assert.strictEqual((html.match(/YOURS TO CHECK/g) || []).length, 2);
+  assert.doesNotMatch(html, /data-act="confirm-from-scan"/);
+});
+
+test('the badge for a step on another computer names every platform the step is for', async () => {
+  const { renderVerification } = await import('../renderer/game/views/verification.js');
+  const { verifyMission } = await import('../renderer/game/verified-missions.js');
+  const { loadRcFromDisk } = require('./rc-from-disk.js');
+  const mission = (await loadRcFromDisk()).MISSIONS.find((m) => m.id === 'device_security-fortify-computer');
+  const LUKS = { name: 'linux_disk_encryption_check', status: 'ok', supported: true, findings: [{ severity: 'info', data: { check: 'encrypted', mount_points: ['/'] } }] };
+  const verification = verifyMission(mission.id, { platform: 'linux', modules: [LUKS] }, mission.steps.length);
+  const html = renderVerification({ mission, verification, disagreement: null, canFinish: true, platform: 'linux', deviceMissionFor: () => null });
+  assert.match(html, /FOR MAC AND WINDOWS COMPUTERS/, 'Find My is for Mac and Windows');
+  assert.match(html, /FOR WINDOWS COMPUTERS/);
+  const items = html.split('<li class="step">').slice(1);
+  assert.match(items[4], /All platforms/);
+  assert.match(items[4], /YOURS TO CHECK/, 'an all-platforms step is never shown as for another computer');
+  assert.doesNotMatch(items[4], /FOR MAC/);
+  assert.doesNotMatch(html, /data-act="confirm-from-scan"/);
 });

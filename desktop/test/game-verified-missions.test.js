@@ -16,7 +16,6 @@ const FMM = ok('find_my_mac_check', [{ severity: 'info', code: 'security.find_my
 const BL = ok('win_bitlocker_check', [{ severity: 'info', code: 'security.win_bitlocker_check.status_info', data: {} }]);
 const stepsOf = async (id) => (await loadRcFromDisk()).MISSIONS.find((m) => m.id === id).steps.length;
 const FC = 'device_security-fortify-computer';
-const ROUTER = 'smart_network-recon-router';
 
 function moduleDir(name) {
   for (const cat of fs.readdirSync(path.join(ROOT, 'modules'))) {
@@ -30,10 +29,10 @@ const SUBJECT = {
   [`${'device_security-fortify-computer'}:0`]: /FileVault/i, [`${'device_security-fortify-computer'}:1`]: /BitLocker/i,
   [`${'device_security-fortify-computer'}:2`]: /encrypt|BitLocker/i, [`${'device_security-fortify-computer'}:3`]: /encrypt|LUKS/i,
   [`${'device_security-fortify-computer'}:4`]: /lock|password|screen/i, [`${'device_security-fortify-computer'}:5`]: /Find My/i,
-  [`${'smart_network-recon-router'}:3`]: /UPnP/i,
 };
 
 test('every row names a real game mission step, a real module, and platforms that module runs on', async () => {
+  const ALL = ['darwin', 'win32', 'linux'];
   const { VERIFIED_MISSIONS } = await load();
   const { MISSIONS } = await loadRcFromDisk();
   const PLAT = { darwin: 'DARWIN', win32: 'WIN32', linux: 'LINUX' };
@@ -41,6 +40,8 @@ test('every row names a real game mission step, a real module, and platforms tha
     const m = MISSIONS.find((x) => x.id === id);
     assert.ok(m, `mission gone upstream: ${id}`);
     for (const row of rows) {
+      assert.ok(row.appliesTo.length && row.appliesTo.every((p) => ALL.includes(p)), `${id} step ${row.step} appliesTo`);
+      assert.ok(row.checkedOn.length && row.checkedOn.every((p) => row.appliesTo.includes(p)), `${id} step ${row.step} is checked only where it applies`);
       assert.ok(row.step >= 0 && row.step < m.steps.length, `${id} step ${row.step}`);
       assert.match(JSON.stringify(m.steps[row.step]), SUBJECT[`${id}:${row.step}`], `${id} step ${row.step} is about something else now`);
       for (const mod of row.modules) {
@@ -48,8 +49,7 @@ test('every row names a real game mission step, a real module, and platforms tha
         assert.ok(dir, `module missing: ${mod}`);
         const src = fs.readFileSync(path.join(dir, '__init__.py'), 'utf8');
         const decl = src.split('\n').find((l) => /^\s*platforms\s*=/.test(l)) || '';
-        for (const p of row.platforms) assert.match(decl, new RegExp(`Platform\\.${PLAT[p]}\\b`), `${mod} declares ${p}`);
-        if (row.dataCheck) assert.ok(src.includes(`"${row.dataCheck}"`), `${mod} never emits check ${row.dataCheck}`);
+        for (const p of row.checkedOn) assert.match(decl, new RegExp(`Platform\\.${PLAT[p]}\\b`), `${mod} declares ${p}`);
       }
     }
   }
@@ -91,32 +91,47 @@ test('all Mac steps confirmed means the mission can be finished from the scan', 
   assert.strictEqual(verifyMission(FC, mac(ok('encryption_check'), FV, LOCK, ok('lock_screen_check'), FMM)).allConfirmed, false, 'unknown step count never finishes a mission');
 });
 
-test('Windows uses the BitLocker steps and leaves the Mac ones alone', async () => {
+test('Windows uses the BitLocker steps; the all-platform steps are the person\'s, so it never finishes', async () => {
   const { verifyMission } = await load();
   const v = verifyMission(FC, { platform: 'win32', modules: [BL] }, 6);
   const by = Object.fromEntries(v.steps.map((s) => [s.step, s.status]));
-  assert.deepStrictEqual([by[0], by[1], by[2], by[4], by[5]], ['other-platform', 'confirmed', 'confirmed', 'other-platform', 'other-platform']);
-  assert.deepStrictEqual(v.steps.find((s) => s.step === 0).platforms, ['darwin']);
+  assert.deepStrictEqual([by[0], by[1], by[2], by[3], by[4], by[5]], ['other-platform', 'confirmed', 'confirmed', 'other-platform', 'yours', 'yours'],
+    'password after sleep (all platforms) and Find My (Mac and Windows) apply on Windows, but nothing here checks them');
+  assert.deepStrictEqual(v.steps.find((s) => s.step === 0).appliesTo, ['darwin']);
+  assert.strictEqual(v.allConfirmed, false, 'BitLocker alone never finishes Harden Your Computer');
+  assert.strictEqual(v.partial, true);
 });
 
-test('the router step only looks at the UPnP finding', async () => {
+test('Linux never finishes Harden Your Computer from the scan', async () => {
   const { verifyMission } = await load();
-  const REMINDER = E('router_manual_review');
-  const upnp = verifyMission(ROUTER, mac(ok('router_security_audit', [warn({ data: { check: 'upnp_enabled' } }), REMINDER])), 6);
-  assert.strictEqual(upnp.steps[0].status, 'problem');
-  const admin = verifyMission(ROUTER, mac(ok('router_security_audit', [warn({ data: { check: 'admin_service_open' } }), REMINDER])), 6);
-  assert.strictEqual(admin.steps[0].status, 'confirmed');
-  assert.strictEqual(verifyMission(ROUTER, mac(), 6).steps[0].status, 'couldnt');
-});
-
-test('a clean UPnP probe alone does not finish the six-step router mission', async () => {
-  const { verifyMission } = await load();
-  const n = await stepsOf(ROUTER);
-  assert.strictEqual(n, 6);
-  const v = verifyMission(ROUTER, mac(ok('router_security_audit', [E('router_manual_review')])), n);
-  assert.strictEqual(v.steps[0].status, 'confirmed');
+  const LUKS = ok('linux_disk_encryption_check', [E('encrypted', { data: { mount_points: ['/'] } })]);
+  const v = verifyMission(FC, { platform: 'linux', modules: [LUKS] }, 6);
+  const by = Object.fromEntries(v.steps.map((s) => [s.step, s.status]));
+  assert.deepStrictEqual([by[0], by[1], by[2], by[3], by[4], by[5]], ['other-platform', 'other-platform', 'other-platform', 'confirmed', 'yours', 'other-platform'],
+    'Find My is for Mac and Windows; the screen lock step is for every computer');
+  assert.deepStrictEqual(v.steps.find((s) => s.step === 5).appliesTo, ['darwin', 'win32']);
   assert.strictEqual(v.allConfirmed, false);
   assert.strictEqual(v.partial, true);
+});
+
+test('a mission with no rows (the router) is not verified', async () => {
+  const { verifyMission, VERIFIED_MISSIONS } = await load();
+  assert.strictEqual(VERIFIED_MISSIONS['smart_network-recon-router'], undefined,
+    'router_manual_review only means one SSDP packet got no reply; it proves nothing about UPnP');
+  assert.strictEqual(verifyMission('smart_network-recon-router', mac(ok('router_security_audit', [E('router_manual_review')])), 6), null);
+});
+
+test('a finding the person marked as theirs is still a problem, so the step never confirms', async () => {
+  const { verifyMission } = await load();
+  const marked = { title: 'Marked as yours', severity: 'info', code: 'security.encryption_check.os_drive_not_encrypted', data: { marked_by_user: true } };
+  const v = verifyMission(FC, mac(ok('encryption_check', [marked]), FV, LOCK, ok('lock_screen_check'), FMM), 6);
+  const s0 = v.steps.find((s) => s.step === 0);
+  assert.strictEqual(s0.status, 'problem');
+  assert.strictEqual(s0.problems[0].title, 'Marked as yours');
+  assert.strictEqual(v.allConfirmed, false);
+  const markedLock = { title: 'm', severity: 'info', data: { check: 'screen_lock_required', value: 'enabled', marked_by_user: true } };
+  const lockOnly = verifyMission(FC, mac(ok('screen_lock_check', [markedLock]), ok('lock_screen_check')), 6);
+  assert.strictEqual(lockOnly.steps.find((s) => s.step === 4).status, 'problem', 'a marked finding is never read as evidence it is fine');
 });
 
 test('a module that ran and said nothing does not confirm a step that needs evidence', async () => {
@@ -137,7 +152,7 @@ test('a module that ran and said nothing does not confirm a step that needs evid
 test('a mission with no row, or no scan, is not verified', async () => {
   const { verifyMission } = await load();
   assert.strictEqual(verifyMission('gmail-recon-breach', mac()), null);
-  assert.strictEqual(verifyMission(FC, null, 6).steps.every((s) => s.status === 'couldnt' || s.status === 'other-platform'), true);
+  assert.strictEqual(verifyMission(FC, null, 6).steps.every((s) => s.status === 'couldnt'), true);
 });
 
 test('a disagreement shows both sides and never changes the record', async () => {
