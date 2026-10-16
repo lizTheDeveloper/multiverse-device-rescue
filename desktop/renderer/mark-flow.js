@@ -163,7 +163,8 @@ const MarkFlow = (function () {
 
   // Delegated handlers on a container that survives re-renders. `api` is the
   // preload bridge: api.markMine(id), api.unmarkMine(id).
-  function attach(root, api) {
+  function attach(root, api, hooks) {
+    const onResult = hooks && typeof hooks.onResult === 'function' ? hooks.onResult : null;
     const state = new WeakMap(); // card -> 'confirming' | 'running'
 
     function cardOf(el) {
@@ -213,6 +214,7 @@ const MarkFlow = (function () {
         const result = await call();
         status.innerHTML = resultHtml(result);
         d = describeMarkResult(result);
+        if (onResult) { try { onResult({ kind, result, described: d }); } catch (_) { /* never break a mark */ } }
         const r = result || {};
         if (kind === 'marked' && (r.status === 'marked' || r.status === 'already_marked')) updateSiblings(card, kind, r);
         if (kind === 'removed' && r.status === 'removed') updateSiblings(card, kind, r);

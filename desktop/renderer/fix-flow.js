@@ -165,7 +165,12 @@ const FixFlow = (function () {
 
   // Delegated handlers on a container that survives re-renders. `api.runFix(name)`
   // is the preload bridge to the 'run-fix' IPC channel.
-  function attach(root, api) {
+  function attach(root, api, hooks) {
+    const onResult = hooks && typeof hooks.onResult === 'function' ? hooks.onResult : null;
+    function notify(kind, card, result, described) {
+      if (!onResult) return;
+      try { onResult({ kind, module: card.getAttribute('data-fix-module'), result, described }); } catch (_) { /* a listener must never break a fix */ }
+    }
     const state = new WeakMap(); // card element -> 'confirming' | 'running'
 
     function cardOf(el) {
@@ -232,6 +237,7 @@ const FixFlow = (function () {
         const result = action ? await api.runAction(action, actionTarget) : await api.runFix(name);
         status.innerHTML = resultHtml(result);
         const d = describeFixResult(result);
+        notify('fix', card, result, d);
         state.delete(card);
         if (action && (d.tone === 'success' || d.tone === 'info')) markHandledElsewhere(card);
         // After a real success there is nothing left to offer; otherwise allow a retry.
@@ -253,7 +259,9 @@ const FixFlow = (function () {
       try {
         const result = await api.undoFix(id);
         status.innerHTML = resultHtml(result);
-        if (describeFixResult(result).restored === true) {
+        const d = describeFixResult(result);
+        notify('undo', card, result, d);
+        if (d.restored === true) {
           if (open) open.hidden = false;
           unmarkHandledElsewhere(card);
         }

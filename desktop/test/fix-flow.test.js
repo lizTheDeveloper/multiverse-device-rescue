@@ -218,3 +218,35 @@ test('an IPC failure becomes a plain-words error, not a stuck spinner', async ()
   assert.match(els.status.innerHTML, /fix-status--error/);
   assert.ok(!/Fixing/.test(els.status.innerHTML));
 });
+
+test('onResult hears the engine answer after Yes, fix it', async () => {
+  const { root, els } = fakeRoot();
+  const heard = [];
+  const result = { applied: true, verified: true, status: 'fixed', how_to_undo: ['Undo it.'] };
+  FixFlow.attach(root, { runFix: async () => result }, { onResult: (e) => heard.push(e) });
+  root.click(els.open);
+  await root.click(els.confirm);
+  assert.strictEqual(heard.length, 1);
+  assert.strictEqual(heard[0].kind, 'fix');
+  assert.strictEqual(heard[0].module, 'firewall_audit');
+  assert.strictEqual(heard[0].result, result);
+  assert.strictEqual(heard[0].described.tone, 'success');
+});
+
+test('a throwing onResult does not break the flow', async () => {
+  const { root, els } = fakeRoot();
+  FixFlow.attach(root, { runFix: async () => ({ applied: true, verified: true, status: 'fixed', how_to_undo: ['u'] }) },
+    { onResult: () => { throw new Error('hook'); } });
+  root.click(els.open);
+  await root.click(els.confirm);
+  assert.match(els.status.innerHTML, /fixed/);
+});
+
+test('onResult is not called when the person cancels', () => {
+  const { root, els } = fakeRoot();
+  let heard = 0;
+  FixFlow.attach(root, { runFix: async () => ({}) }, { onResult: () => { heard++; } });
+  root.click(els.open);
+  root.click(els.cancel);
+  assert.strictEqual(heard, 0);
+});
