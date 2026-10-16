@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, net, protocol } = require('electron');
 const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
@@ -6,6 +6,13 @@ const { runScan, runFix, runAction, runUndo, runMark, runUnmark } = require('./e
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
+const { APP_ORIGIN, serveApp } = require('./app-protocol');
+
+// Must run before the app is ready. "standard" gives app:// a real origin, so
+// ES modules, fetch() of local JSON and the CSP's 'self' all work.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -19,7 +26,7 @@ function createWindow() {
       sandbox: true,
     },
   });
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.loadURL(`${APP_ORIGIN}index.html`);
 
   // The renderer only ever loads the bundled local page; it has no reason to
   // navigate away or spawn windows.
@@ -27,6 +34,7 @@ function createWindow() {
   win.webContents.on('will-navigate', (event) => event.preventDefault());
 }
 app.whenReady().then(() => {
+  protocol.handle('app', (request) => serveApp(request.url, __dirname));
   // Modules the engine itself marked fixable in the scans this process ran.
   const fixPolicy = createFixPolicy();
   // Findings the engine offered as "This is mine" in the scans this process ran.
