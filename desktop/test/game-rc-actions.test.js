@@ -48,6 +48,8 @@ test('the survey toggle, intro, password manager and custom accounts change stat
   assert.strictEqual(applyRcAction(rc, st, 'toggle-account', { account: 'nope' }).state, st);
   assert.strictEqual(applyRcAction(rc, st, 'dismiss-intro', { district: 'vault' }).state.seenIntros.vault, true);
   assert.strictEqual(applyRcAction(rc, st, 'set-password-manager', { pm: 'bitwarden' }).state.passwordManager, 'bitwarden');
+  assert.strictEqual(applyRcAction(rc, st, 'set-password-manager', { pm: 'evil' }).state, st, 'only the game’s own password-manager choices');
+  assert.strictEqual(applyRcAction(rc, st, 'set-password-manager', {}).state, st);
   const added = applyRcAction(rc, st, 'add-custom-account', { district: 'vault', name: '  Credit Union  ' }).state;
   assert.deepStrictEqual(added.customAccounts.vault, ['Credit Union']);
   assert.strictEqual(applyRcAction(rc, st, 'add-custom-account', { district: 'vault', name: '   ' }).state, st);

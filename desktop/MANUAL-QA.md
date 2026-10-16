@@ -29,4 +29,17 @@ Then run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` and 
 7. Start over, pick **I think someone is watching me**, and run the checkup. No city is offered anywhere.
 8. Clean up: `rm ~/Library/LaunchAgents/com.devicerescue.qa.helper.plist; rm -r ~/Library/Application\ Support/.dr-qa`.
 
+## One city (Spec B)
+
+Run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` and check:
+1. Click **Play it as a game**, then **I think I've been hacked**, then run the checkup. The map shows "YOUR COMPUTER" with the device districts, then "YOUR ACCOUNTS", and the view is scrolled to The Master Keys. The HUD reads CONFIRMED and YOU REPORTED, with no RECLAIMED, and there are no payment links anywhere.
+2. Open The Master Keys. The survey ("Do you have a Gmail account?") toggles, and a toggled account appears or disappears.
+3. Open a Gmail mission and click **GO DO IT**. The page opens in your browser, not in the app, and the app moves to the debrief. Answer it and **SUBMIT REPORT**. You land back on the district, and YOU REPORTED goes up by 1.
+4. Open The Perimeter, then **Harden Your Computer**. Every step has a badge: CONFIRMED BY YOUR COMPUTER, PROBLEM FOUND, COULDN'T CHECK, FOR WINDOWS COMPUTERS, or YOURS TO CHECK. If FileVault is off, PROBLEM FOUND links to the device mission.
+5. If every Mac step is confirmed, click **FINISH FROM THE CHECKUP**. CONFIRMED goes up by 1, not YOU REPORTED. Then, in DevTools, delete the `device-rescue.game.scan-confirmed.v1` key and reload. That mission now counts under YOU REPORTED.
+6. Find a step whose link isn't https (the Firefox `about:preferences#privacy` step in a browser-privacy mission, for example **Harden Your Browser** in The Trail). Clicking it shows "This link can't be opened from here" and the URL to copy. Nothing opens.
+7. A link to `#/quiz/phishing` (a Quick Quest or the phishing chapter, if one shows) lands on the one-city map. The address in DevTools (`location.hash`) doesn't change.
+8. DevTools → Network: every request is `app://rescue/…`. The pages opened in step 3 open in the system browser, not as requests from the app.
+9. Open a district's milestone (finish every mission in one). It lists missions under CONFIRMED BY YOUR COMPUTER and YOU REPORTED, and there is no share card.
+
 Record anything that doesn't match as a bug and fix it before the release goes out.

@@ -7,7 +7,7 @@ const FILES = {
   accounts: 'data/accounts.js', districts: 'data/districts.js', debriefUtil: 'utils/debrief.js',
   bursts: 'utils/bursts.js', pmCategories: 'utils/pm-categories.js', feelings: 'utils/scout-feelings.js',
   status: 'utils/mission-status.js', calc: 'utils/calc.js', router: 'router.js',
-  keyboard: 'utils/keyboard.js', scout: 'components/scout.js',
+  keyboard: 'utils/keyboard.js', scout: 'components/scout.js', passwords: 'data/missions-passwords.js',
 };
 export const RC_ENTRY_FILES = Object.values(FILES);
 
@@ -30,6 +30,7 @@ export async function loadRc(importFile = (rel) => import(`../rc/${rel}`)) {
     MISSIONS: m.missions.MISSIONS,
     missionDistrict: m.missions.missionDistrict,
     ACCOUNTS: m.accounts.ACCOUNTS,
+    PASSWORD_MANAGERS: m.passwords.PASSWORD_MANAGERS,
     DISTRICTS: m.districts.DISTRICTS,
     fileDebrief: m.debriefUtil.fileDebrief,
     recordNotNeeded: m.debriefUtil.recordNotNeeded,

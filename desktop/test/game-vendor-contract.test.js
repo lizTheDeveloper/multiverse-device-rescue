@@ -47,6 +47,7 @@ test('loadRc gives every name game mode uses', async () => {
     assert.strictEqual(typeof rc[name], 'function', name);
   }
   assert.ok(Array.isArray(rc.MISSIONS) && rc.MISSIONS.length > 100);
+  assert.ok(Array.isArray(rc.PASSWORD_MANAGERS) && rc.PASSWORD_MANAGERS.some((p) => p.value === 'bitwarden'));
   assert.ok(Array.isArray(rc.DISTRICTS) && rc.DISTRICTS.some((d) => d.type === 'facility'));
   assert.ok(rc.ACCOUNTS.gmail);
   assert.ok(rc.DONE_STATUSES.has('completed'));

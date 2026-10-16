@@ -134,3 +134,16 @@ button.district { display: grid; width: 100%; }
 .missions li + li { border-top: 1px solid var(--line); }
 .mission-text { flex: 1 1 140px; min-width: 0; }
 .from { font-size: 12.5px; color: var(--dim); margin: 6px 0 0; }
+
+/* One city (Plan B): the computer's ring and the accounts' ring on one map. */
+.ring-label { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.ring-label::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.district.account .skyline img { width: 46px; }
+/* The starting point for this worry: marked, never in the "clear" colour. */
+.ring-label[data-focus] .label { color: var(--cyan); }
+.district[data-focus] { box-shadow: 0 0 0 2px rgba(0,229,255,0.45); }
+.verify { padding: 18px 22px 0; display: grid; gap: 14px; }
+.panel.disagree { border-color: rgba(255,159,0,0.45); }
+.link-notice { margin: 12px 18px; padding: 10px 12px; border: 1px solid rgba(255,159,0,0.4); font-size: 14px; }
+.link-notice code { font-family: var(--font-mono); overflow-wrap: anywhere; user-select: all; }
+.milestone-split { margin: 18px 22px 0; display: grid; gap: 8px; }

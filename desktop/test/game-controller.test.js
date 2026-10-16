@@ -15,8 +15,8 @@ function stubWin(recheckDocs) {
   const choices = { outerHTML: '' };
   const calls = { recheck: [], showList: 0 };
   const frame = { innerHTML: '', addEventListener: (type, fn) => { if (type === 'click') listeners.push(fn); },
-    querySelector: (sel) => (sel === '.choices' ? choices : null) };
-  const shadow = { innerHTML: '', getElementById: () => frame };
+    querySelector: (sel) => (sel === '.choices' ? choices : null), querySelectorAll: () => [] };
+  const shadow = { innerHTML: '', getElementById: () => frame, addEventListener: () => {} };
   const hooks = {};
   const win = {
     document: { getElementById: () => ({ attachShadow: () => shadow }) },
@@ -47,7 +47,8 @@ async function setup(recheckDocs, before = scan(mod('mod_a', [finding('A')]), mo
   const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
   const ids = findingsToCity(before).districts[0].missions.map((m) => m.id);
   const stub = stubWin(recheckDocs);
-  const ctl = createController({ win: stub.win, storage: memStore(), scoutSprite: () => '' });
+  // Reclaim City never arrives here: these are Plan A's device-only screens.
+  const ctl = createController({ win: stub.win, storage: memStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}) });
   ctl.show(before, { id: 'unsure' });
   return { ...stub, ctl, before, idA: ids.find((i) => i.startsWith('mod_a')), idB: ids.find((i) => i.startsWith('mod_b')) };
 }
@@ -186,4 +187,280 @@ test('LIST works while a re-check is running', async () => {
   assert.match(t.frame.innerHTML, /Checking again/, 'other clicks still wait for the re-check');
   release();
   await tick(); await tick();
+});
+
+test('a late re-check result doesn’t take over the screen after the city was shown again', async () => {
+  let release;
+  const afterA = scan(mod('mod_a', []), mod('mod_b', [finding('B')]));
+  const t = await setup([() => new Promise((r) => { release = () => r(afterA); })]);
+  t.click({ 'data-go': `mission:${t.idA}` });
+  t.click({ 'data-act': 'i-did-it' });
+  await tick();
+  t.click({ 'data-act': 'list' });
+  t.ctl.show(t.before, { id: 'unsure' });
+  release();
+  await tick(); await tick();
+  assert.doesNotMatch(t.frame.innerHTML, /RECLAIMED!|class="outcome/, 'no outcome screen');
+  assert.match(t.frame.innerHTML, /aria-label="Your computer as a city"/, 'still on the map they came back to');
+});
+
+// ---------------------------------------------------------------------------
+// Account mode: the real Reclaim City modules (from the vendored checkout), a
+// stub frame that answers the selectors the controller uses.
+// ---------------------------------------------------------------------------
+const { loadRcFromDisk } = require('./rc-from-disk.js');
+const FC = 'device_security-fortify-computer';
+const RC_KEY = 'reclaim-city-state';
+const SCAN_KEY = 'device-rescue.game.scan-confirmed.v1';
+const okMod = (name, findings = []) => ({ name, category: 'security', status: 'ok', error: null, supported: true, findings });
+const macBase = [okMod('launch_agents_audit', [finding('Unsigned helper')])];
+// Positive evidence for every Mac step of Harden Your Computer.
+const allMac = { schema_version: 1, platform: 'darwin', modules: [...macBase,
+  okMod('encryption_check'),
+  okMod('filevault_recovery', [{ title: 'FV', severity: 'info', category: 'security', data: { check: 'fv_status' } }]),
+  okMod('screen_lock_check', [{ title: 'SL', severity: 'info', category: 'security', data: { check: 'screen_lock_required', value: 'enabled' } }]),
+  okMod('lock_screen_check'),
+  okMod('find_my_mac_check', [{ title: 'FM', severity: 'info', category: 'security', code: 'security.find_my_mac_check.configured_ok', data: {} }]),
+] };
+const brokenMac = { ...allMac, modules: allMac.modules.map((m) => (m.name === 'encryption_check'
+  ? okMod('encryption_check', [{ title: 'FileVault is off', description: 'd', severity: 'warning', category: 'security', data: {} }]) : m)) };
+const PAYMENT = /buy\.stripe|patreon|ko-fi|SUPPORT \$|donate/i;
+
+function rcStub({ allowed = [] } = {}) {
+  const listeners = { click: [], keydown: [] };
+  const calls = { opened: [], scrolled: 0, removed: 0, showList: 0 };
+  const form = {};
+  const inputs = {};
+  const frame = {
+    innerHTML: '',
+    addEventListener: (type, fn) => { (listeners[type] = listeners[type] || []).push(fn); },
+    contains: () => true,
+    querySelector: (sel) => {
+      if (sel === '[data-focus]') return frame.innerHTML.includes('data-focus') ? { scrollIntoView: () => { calls.scrolled += 1; } } : null;
+      if (sel in inputs) return { value: inputs[sel] };
+      return null;
+    },
+    querySelectorAll: (sel) => {
+      const m = /^input\[name="q_([^"]+)"\]:checked$/.exec(sel);
+      if (m) return [].concat(form[m[1]] || []).map((value) => ({ value }));
+      if (sel.includes('share-card')) return frame.innerHTML.includes('data-action="share-card"') ? [{ remove: () => { calls.removed += 1; } }] : [];
+      return [];
+    },
+  };
+  const shadow = { getElementById: () => frame, addEventListener: () => {} };
+  const win = {
+    location: { hash: '#/start' },
+    document: { getElementById: () => ({ attachShadow: () => shadow }) },
+    FixFlow: { attach: () => {}, fixControlsHtml: () => '', resultHtml: () => '' },
+    MarkFlow: { attach: () => {}, markControlsHtml: () => '' },
+    RescueHost: { showList() { calls.showList += 1; }, docChanged: () => true, wantsSafety: () => false },
+    rescue: {
+      recheckModule: async () => ({ ok: false }),
+      openMissionLink: async (url) => { calls.opened.push(url); return allowed.includes(url); },
+    },
+  };
+  const el = (attrs, tag = 'BUTTON') => {
+    const dataset = {};
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k.startsWith('data-')) dataset[k.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = v;
+    }
+    const node = { tagName: tag, dataset, getAttribute: (k) => (k in attrs ? attrs[k] : null) };
+    node.closest = (sel) => {
+      if (sel === '[data-go],[data-act]') return 'data-go' in attrs || 'data-act' in attrs ? node : null;
+      if (sel === '[data-action]') return 'data-action' in attrs ? node : null;
+      if (sel === 'a[href]') return tag === 'A' && 'href' in attrs ? node : null;
+      return null;
+    };
+    return node;
+  };
+  const click = (attrs, tag) => {
+    const target = el(attrs, tag);
+    listeners.click.forEach((fn) => fn({ target, preventDefault() {} }));
+  };
+  return { win, frame, form, inputs, calls, click };
+}
+
+async function rcSetup({ doc = scan(...macBase), situation = { id: 'hacked' }, storage = memStore(), allowed } = {}) {
+  const { createController } = await import('../renderer/game/controller.js');
+  const rc = await loadRcFromDisk();
+  const stub = rcStub({ allowed });
+  const ctl = createController({ win: stub.win, storage, scoutSprite: () => '', loadGame: async () => rc });
+  await tick();
+  ctl.show(doc, situation);
+  return { ...stub, ctl, rc, storage, html: () => stub.frame.innerHTML };
+}
+const hudCount = (html, label) => Number((new RegExp(`<b>(\\d+)</b> <small>${label}</small>`).exec(html) || [])[1]);
+
+test('one map: the computer’s districts, then the accounts’, scrolled to the starting point', async () => {
+  const t = await rcSetup();
+  const html = t.html();
+  assert.match(html, /RECLAIM CITY/);
+  assert.match(html, /YOUR COMPUTER · FROM THE CHECKUP[\s\S]*YOUR ACCOUNTS/);
+  assert.match(html, /data-go="rc:#\/district\/master-keys" data-focus/);
+  assert.strictEqual(t.calls.scrolled, 1);
+  assert.strictEqual(hudCount(html, 'CONFIRMED'), 0);
+  assert.strictEqual(hudCount(html, 'YOU REPORTED'), 0);
+  assert.doesNotMatch(html, /<small>RECLAIMED<\/small>/);
+  assert.doesNotMatch(html, PAYMENT);
+});
+
+test('if the game can’t load, the computer’s districts still work', async () => {
+  const { createController } = await import('../renderer/game/controller.js');
+  const stub = rcStub();
+  const errors = [];
+  const orig = console.error; console.error = (...a) => errors.push(a.join(' '));
+  try {
+    const ctl = createController({ win: stub.win, storage: memStore(), scoutSprite: () => '', loadGame: () => Promise.reject(new Error('nope')) });
+    ctl.show(scan(...macBase), { id: 'hacked' });
+    await tick();
+  } finally { console.error = orig; }
+  assert.match(stub.frame.innerHTML, /couldn’t load\. Your computer’s districts still work/);
+  assert.match(stub.frame.innerHTML, /data-go="district:/);
+  assert.strictEqual(errors.length, 1);
+});
+
+test('blocked storage: the map still renders from the scan, with the game starting empty', async () => {
+  const throwing = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } };
+  // The game's own loadState/saveState log the storage error to the console.
+  const logged = [];
+  const orig = console.error; console.error = (e) => logged.push(String(e && e.message));
+  try {
+    const t = await rcSetup({ storage: throwing });
+    assert.match(t.html(), /YOUR ACCOUNTS/);
+    assert.match(t.html(), /data-go="district:/);
+    t.click({ 'data-go': 'rc:#/district/master-keys' });
+    assert.match(t.html(), /data-action="toggle-account"/);
+    t.click({ 'data-action': 'toggle-account', 'data-account': 'gmail' });
+    assert.match(t.html(), /data-action="toggle-account"/, 'a failed save doesn’t break the screen');
+  } finally { console.error = orig; }
+  assert.ok(logged.length && logged.every((m) => m === 'denied'), logged.join());
+});
+
+test('game routes the plan doesn’t include, and unknown ids, land on the one-city map', async () => {
+  const t = await rcSetup();
+  for (const hash of ['#/district/nope', '#/mission/nope/briefing', '#/mission/nope/debrief', '#/milestone/nope',
+    '#/quiz/phishing', '#/garage', '#/stats', '#/city']) {
+    t.click({ 'data-go': 'rc:#/district/master-keys' });
+    assert.doesNotMatch(t.html(), /aria-label="Your computer and your accounts as one city"/);
+    t.click({ href: hash }, 'A');
+    assert.match(t.html(), /aria-label="Your computer and your accounts as one city"/, hash);
+  }
+  assert.strictEqual(t.win.location.hash, '#/start', 'the page’s real hash is never changed');
+});
+
+test('the survey toggle changes the game state', async () => {
+  const t = await rcSetup();
+  t.click({ 'data-go': 'rc:#/district/master-keys' });
+  const before = t.rc.loadState(t.storage).accounts.gmail.enabled;
+  t.click({ 'data-action': 'toggle-account', 'data-account': 'gmail' });
+  assert.strictEqual(t.rc.loadState(t.storage).accounts.gmail.enabled, !before);
+});
+
+test('GO DO IT opens the page through the allowlist and moves to the debrief; a refused link is shown to copy', async () => {
+  const url = 'https://haveibeenpwned.com';
+  const t = await rcSetup({ allowed: [url] });
+  t.click({ 'data-go': 'rc:#/mission/gmail-recon-breach/briefing' });
+  t.click({ 'data-action': 'go-do-it', 'data-mission': 'gmail-recon-breach', 'data-url': url });
+  await tick();
+  assert.deepStrictEqual(t.calls.opened, [url]);
+  assert.match(t.html(), /data-debrief="gmail-recon-breach"/);
+  assert.doesNotMatch(t.html(), /link-notice/);
+
+  t.click({ href: 'https://evil.example/haveibeenpwned.com' }, 'A');
+  await tick();
+  assert.match(t.html(), /can’t be opened from here[\s\S]*<code>https:\/\/evil\.example\/haveibeenpwned\.com<\/code>/);
+});
+
+test('a step link that isn’t https opens nothing and shows the URL to copy', async () => {
+  const t = await rcSetup();
+  t.click({ 'data-go': 'rc:#/mission/browser_fingerprint-fortify-harden/briefing' });
+  t.click({ 'data-action': 'mission-step', 'data-mission': 'browser_fingerprint-fortify-harden', href: 'about:preferences#privacy' }, 'A');
+  await tick();
+  assert.deepStrictEqual(t.calls.opened, []);
+  assert.match(t.html(), /can’t be opened from here[\s\S]*<code>about:preferences#privacy<\/code>/);
+});
+
+test('SUBMIT REPORT files the answer, lands on the district, and YOU REPORTED goes up', async () => {
+  const t = await rcSetup();
+  t.click({ 'data-go': `rc:#/mission/${FC}/debrief` });
+  const page = t.html();
+  t.click({ 'data-action': 'submit-debrief', 'data-mission': FC });
+  assert.strictEqual(t.html(), page, 'an unanswered form is left as it was');
+  assert.strictEqual(t.storage.getItem(RC_KEY), null, 'nothing filed');
+
+  t.form.action = 'completed';
+  t.click({ 'data-action': 'submit-debrief', 'data-mission': FC });
+  assert.strictEqual(t.rc.loadState(t.storage).missions[FC].status, 'completed');
+  assert.match(t.html(), /data-action="toggle-account"|perimeter/i);
+  assert.strictEqual(hudCount(t.html(), 'YOU REPORTED'), 1);
+  assert.strictEqual(hudCount(t.html(), 'CONFIRMED'), 0);
+});
+
+test('the first-2FA hug is marked seen, so it doesn’t replay', async () => {
+  const t = await rcSetup();
+  t.click({ 'data-go': 'rc:#/mission/gmail-fortify-2fa/debrief' });
+  t.form.method = 'authenticator';
+  t.click({ 'data-action': 'submit-debrief', 'data-mission': 'gmail-fortify-2fa' });
+  const hug = t.rc.loadState(t.storage).scoutHugs.twoFactor;
+  assert.deepStrictEqual(hug, { mission: 'gmail-fortify-2fa', seen: true });
+});
+
+test('FINISH FROM THE CHECKUP shows only when every step is confirmed, and counts as CONFIRMED', async () => {
+  const broken = await rcSetup({ doc: brokenMac });
+  broken.click({ 'data-go': `rc:#/mission/${FC}/briefing` });
+  assert.doesNotMatch(broken.html(), /confirm-from-scan/);
+  broken.click({ 'data-act': 'confirm-from-scan' });
+  assert.strictEqual(broken.storage.getItem(RC_KEY), null, 'a forged click changes nothing');
+  assert.strictEqual(broken.storage.getItem(SCAN_KEY), null);
+
+  const t = await rcSetup({ doc: allMac });
+  t.click({ 'data-go': `rc:#/mission/${FC}/briefing` });
+  assert.match(t.html(), /data-act="confirm-from-scan"/);
+  t.click({ 'data-act': 'confirm-from-scan' });
+  assert.strictEqual(t.rc.loadState(t.storage).missions[FC].status, 'completed');
+  assert.ok(JSON.parse(t.storage.getItem(SCAN_KEY)).missions[FC]);
+  assert.strictEqual(hudCount(t.html(), 'CONFIRMED'), 1);
+  assert.strictEqual(hudCount(t.html(), 'YOU REPORTED'), 0);
+
+  // Without the scan's record it's the person's report, not the computer's.
+  const again = await rcSetup({ doc: allMac, storage: (() => { const st = memStore(); st.setItem(RC_KEY, t.storage.getItem(RC_KEY)); return st; })() });
+  assert.strictEqual(hudCount(again.html(), 'CONFIRMED'), 0);
+  assert.strictEqual(hudCount(again.html(), 'YOU REPORTED'), 1);
+});
+
+test('the person filed Done and the scan disagrees: both show, and the game state is unchanged', async () => {
+  const storage = memStore();
+  const rc = await loadRcFromDisk();
+  const filed = rc.fileDebrief(rc.createInitialState(), rc.MISSIONS.find((m) => m.id === FC), { action: 'completed' });
+  rc.saveState(filed.state, storage);
+  const saved = storage.getItem(RC_KEY);
+  const t = await rcSetup({ doc: brokenMac, storage });
+  assert.match(t.html(), /CHECK AGAIN/);
+  t.click({ 'data-go': `rc:#/mission/${FC}/briefing` });
+  assert.match(t.html(), /You reported this done[\s\S]*FileVault is off[\s\S]*Your answer is kept/);
+  assert.match(t.html(), /PROBLEM FOUND/);
+  assert.doesNotMatch(t.html(), /confirm-from-scan/);
+  t.click({ href: '#/district/perimeter' }, 'A');
+  t.click({ href: '#/city' }, 'A');
+  assert.strictEqual(storage.getItem(RC_KEY), saved, 'byte-for-byte the same');
+  assert.strictEqual(hudCount(t.html(), 'YOU REPORTED'), 1);
+});
+
+test('the set-password-manager chip accepts only the game’s own choices', async () => {
+  const t = await rcSetup();
+  t.click({ 'data-go': 'rc:#/district/master-keys' });
+  t.click({ 'data-action': 'set-password-manager', 'data-pm': 'not-a-manager' });
+  assert.strictEqual(t.storage.getItem(RC_KEY), null);
+  t.click({ 'data-action': 'set-password-manager', 'data-pm': 'bitwarden' });
+  assert.strictEqual(t.rc.loadState(t.storage).passwordManager, 'bitwarden');
+});
+
+test('a milestone never carries a share card', async () => {
+  const t = await rcSetup();
+  t.click({ 'data-go': 'rc:#/milestone/perimeter' });
+  assert.match(t.html(), /CONFIRMED BY YOUR COMPUTER[\s\S]*YOU REPORTED/);
+  if (t.html().includes('data-action="share-card"')) assert.ok(t.calls.removed > 0);
+  t.click({ 'data-action': 'share-card', 'data-district': 'perimeter' });
+  assert.strictEqual(t.storage.getItem(RC_KEY), null, 'share-card does nothing');
+  assert.doesNotMatch(t.html(), PAYMENT);
 });

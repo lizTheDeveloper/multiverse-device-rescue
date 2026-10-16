@@ -1,5 +1,7 @@
 // The only DOM code in game mode. Renders the city into a shadow root on the
-// "city" screen and wires clicks, fixes, marks and re-checks.
+// "city" screen and wires clicks, fixes, marks and re-checks. With Reclaim City
+// loaded, the same map also holds the accounts' districts, and the game's own
+// screens render here (its app.js is never loaded).
 import { findingsToCity } from './findings-to-city.js';
 import { loadProgress, saveProgress, reconcile, setStatus, ranOkModules, recheckOutcome } from './progress.js';
 import { renderHud } from './views/hud.js';
@@ -10,8 +12,16 @@ import { renderOutcome } from './views/outcome.js';
 import { districtComplete, renderMilestone } from './views/milestone.js';
 import { debriefReply } from './scout-lines.js';
 import { esc } from './escape.js';
+import { loadRc } from './rc-load.js';
+import { routeFor, applyRcAction, fileRc, afterRecorded } from './rc-actions.js';
+import { readAnswers, refreshDebriefForm } from './rc-dom.js';
+import { verifyMission, disagreement, loadScanConfirmed, saveScanConfirmed, markScanConfirmed, DONE } from './verified-missions.js';
+import { focusFor, countConfirmedAndReported, accountDistrictCards, deviceMissionFor } from './one-city.js';
+import { renderOneCityMap } from './views/one-city-map.js';
+import { renderVerification, renderMilestoneSplit } from './views/verification.js';
 
-export function createController({ win, storage, scoutSprite }) {
+// `loadGame` is for tests; the app always loads Reclaim City from app://rescue/rc/.
+export function createController({ win, storage, scoutSprite, loadGame = loadRc }) {
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
@@ -22,7 +32,19 @@ export function createController({ win, storage, scoutSprite }) {
 
   const s = { doc: null, situation: null, city: null, progress: loadProgress(storage), cameBack: [],
     screen: 'map', districtId: null, missionId: null, outcome: null, outcomeMission: null, lastFix: null, message: '', busy: false,
-    trigger: 'i-did-it', recheckModules: [] };
+    trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
+    rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
+    scanConfirmed: loadScanConfirmed(storage), linkNotice: '' };
+
+  loadGame().then((rc) => {
+    s.rc = rc;
+    s.rcState = rc.loadState(storage);
+    if (s.city) render();
+  }).catch((err) => {
+    console.error('Reclaim City content could not load:', err);
+    s.accountsError = true;
+    if (s.city) render();
+  });
 
   // `putBack` is a mission the person just asked to have back (Undo, or "Stop
   // treating this as mine"). Its return is expected, so it isn't "came back".
@@ -46,8 +68,55 @@ export function createController({ win, storage, scoutSprite }) {
   }
   const mission = (id) => s.city.districts.flatMap((d) => d.missions).find((m) => m.id === id) || null;
   const district = (id) => s.city.districts.find((d) => d.id === id) || null;
+  const rcMission = (id) => (s.rc ? s.rc.MISSIONS.find((m) => m.id === id) : null) || null;
+  const stepCount = (m) => (m && Array.isArray(m.steps) ? m.steps.length : undefined);
+
+  // Game state changes only through the person's own clicks.
+  function setRcState(next) {
+    if (!next || next === s.rcState) return;
+    s.rcState = next;
+    s.rc.saveState(next, storage);
+  }
+
+  function rcScreenHtml() {
+    const { screen, params } = s.rcRoute;
+    const rc = s.rc;
+    const st = s.rcState;
+    if (screen === 'district') {
+      const reaction = s.landing && s.landing.districtId === params.id ? s.landing.reaction : null;
+      return rc.renderDistrict(st, params.id, params.tab, { reaction });
+    }
+    if (screen === 'briefing') {
+      const mission = rcMission(params.id);
+      const v = mission ? verifyMission(mission.id, s.doc, stepCount(mission)) : null;
+      const record = st.missions[params.id];
+      const panel = v ? renderVerification({
+        mission, verification: v, disagreement: disagreement(record, v),
+        canFinish: v.allConfirmed && !(record && DONE.has(record.status)),
+        platform: s.doc && s.doc.platform, deviceMissionFor: (mods) => deviceMissionFor(s.city, mods),
+      }) : '';
+      return panel + rc.renderBriefing(st, params.id, { resetAnyway: s.rcUi.resetAnyway === params.id });
+    }
+    if (screen === 'debrief') return rc.renderDebrief(st, params.id);
+    if (screen === 'milestone') {
+      const done = rc.MISSIONS.filter((m) => rc.missionDistrict(m) === params.districtId && st.missions[m.id] && DONE.has(st.missions[m.id].status));
+      const confirmedIds = new Set(done.filter((m) => s.scanConfirmed.missions[m.id]
+        && (verifyMission(m.id, s.doc, stepCount(m)) || {}).allConfirmed).map((m) => m.id));
+      return renderMilestoneSplit({
+        confirmed: done.filter((m) => confirmedIds.has(m.id)).map((m) => m.title),
+        reported: done.filter((m) => !confirmedIds.has(m.id)).map((m) => m.title),
+      }) + rc.renderMilestone(st, params.districtId);
+    }
+    return '';
+  }
+
+  function counts() {
+    if (!s.rc) return undefined;
+    return countConfirmedAndReported({ rc: s.rc, progress: s.progress, rcState: s.rcState, scanConfirmed: s.scanConfirmed, doc: s.doc });
+  }
 
   function screenHtml() {
+    if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
     if (s.screen === 'milestone' && district(s.districtId)) {
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
     }
@@ -79,12 +148,22 @@ export function createController({ win, storage, scoutSprite }) {
       return renderOutcome({ kind: s.outcome, mission: s.outcomeMission, scout, message: s.message, undoHtml });
     }
     s.screen = 'map';
+    if (s.rc || s.accountsError) {
+      return renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
+        accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
+        accountsError: s.accountsError });
+    }
     return renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout });
   }
 
   function render() {
     try {
-      frame.innerHTML = renderHud({ title: 'YOUR COMPUTER', city: s.city, progress: s.progress }) + screenHtml();
+      frame.innerHTML = renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() })
+        + s.linkNotice + screenHtml();
+      // No share cards in Device Rescue: they would describe this person's progress.
+      frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
+      const focused = s.screen === 'map' ? frame.querySelector('[data-focus]') : null;
+      if (focused && s.focusPending) { focused.scrollIntoView({ block: 'start' }); s.focusPending = false; }
     } catch (err) {
       console.error('City view failed:', err);
       frame.innerHTML = `<p class="say">${esc('The city view hit a problem. Here’s the same thing as a list.')}</p>`;
@@ -99,6 +178,7 @@ export function createController({ win, storage, scoutSprite }) {
     const m = mission(missionId) || s.outcomeMission;
     if (!m || s.busy) return;
     const putBack = trigger === 'undo' || trigger === 'unmark';
+    const shownAt = s.shown;
     const modules = [m.module, ...also.filter((x, i, a) => x !== m.module && a.indexOf(x) === i)];
     s.trigger = trigger; s.recheckModules = modules.slice(1);
     s.busy = true; s.screen = 'mission'; s.missionId = m.id; render();
@@ -113,6 +193,9 @@ export function createController({ win, storage, scoutSprite }) {
       }
     }
     s.busy = false;
+    // The city was shown afresh while this ran (LIST, then back): keep the new
+    // scan's data, but don't take the person away from where they are now.
+    if (s.shown !== shownAt) { render(); return; }
     const outcome = recheckOutcome(m.id, s.city, res);
     s.outcome = putBack && outcome === 'not-yet' ? 'put-back' : outcome;
     s.outcomeMission = mission(m.id) || m;
@@ -129,6 +212,9 @@ export function createController({ win, storage, scoutSprite }) {
     // Always a way back to the list, even while a re-check runs.
     if (act === 'list') { win.RescueHost.showList(); return; }
     if (s.busy) return;
+    if (go) s.linkNotice = '';
+    if (go && go.startsWith('rc:')) { if (s.rc) goRc(go.slice(3)); return; }
+    if (act === 'confirm-from-scan') { if (s.rc) confirmFromScan(); return; }
     if (go === 'map') { s.screen = 'map'; render(); return; }
     if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); render(); return; }
     if (go && go.startsWith('milestone:')) { s.screen = 'milestone'; s.districtId = go.slice(10); render(); return; }
@@ -153,6 +239,117 @@ export function createController({ win, storage, scoutSprite }) {
     }
   });
 
+  // A route the game screens can draw: one of the four screens, for a district
+  // or mission that exists. Anything else is the one-city map.
+  function knownRoute(r) {
+    const rc = s.rc;
+    if (r.screen === 'district') return rc.DISTRICTS.some((d) => d.id === r.params.id);
+    if (r.screen === 'milestone') return rc.DISTRICTS.some((d) => d.id === r.params.districtId);
+    if (r.screen === 'briefing' || r.screen === 'debrief') return !!rcMission(r.params.id);
+    return false;
+  }
+
+  // Game navigation never touches the page's real location.hash.
+  function goRc(hash, draw = true) {
+    const r = routeFor(hash, s.rc.parseRoute);
+    s.linkNotice = '';
+    if (!knownRoute(r)) { s.screen = 'map'; s.rcRoute = null; s.landing = null; if (draw) render(); return; }
+    s.rc.newScreenVisit();
+    s.screen = 'rc';
+    s.rcRoute = r;
+    if (r.screen !== 'district') s.landing = null;
+    if (draw) render();
+  }
+
+  const refusedNotice = (url) => `<p class="link-notice" role="status">${esc('This link can’t be opened from here. You can copy it:')} <code>${esc(url)}</code></p>`;
+
+  // Links open only through main's allowlist, in the person's browser.
+  async function openLink(url) {
+    let ok = false;
+    try { ok = await win.rescue.openMissionLink(url); } catch (_) { ok = false; }
+    if (!ok) { s.linkNotice = refusedNotice(url); render(); }
+  }
+
+  // `refused` is a link the game data gave that isn't https, so nothing opens.
+  function applyResult(r, refused = '') {
+    if (!r || r.incomplete) return; // an unfinished form stays as the person left it
+    setRcState(r.state);
+    // The first-2FA hug plays on the screen they land on, so it counts as seen.
+    if (r.reaction && r.reaction.reaction && r.reaction.reaction.feeling === 'hug') setRcState(s.rc.markTwoFactorHugSeen(s.rcState));
+    if (r.ui) s.rcUi = { ...s.rcUi, ...r.ui };
+    if (r.reaction) s.landing = r.reaction;
+    if (r.route) goRc(r.route, false);
+    if (refused) s.linkNotice = refusedNotice(refused);
+    render();
+    if (r.open) openLink(r.open);
+  }
+
+  function onRcAction(el) {
+    const action = el.getAttribute('data-action') || '';
+    const data = { ...el.dataset };
+    if (action === 'mission-step') data.href = el.getAttribute('href');
+    if (action === 'add-custom-account') data.name = (frame.querySelector('#custom-account-input') || {}).value;
+    if (action.startsWith('pm-cat-')) data.raw = (frame.querySelector(`#pm-cat-num-${data.district}`) || {}).value;
+    if (action === 'submit-debrief') {
+      const mission = rcMission(data.mission);
+      applyResult(mission ? fileRc(s.rc, s.rcState, mission.id, readAnswers(frame, mission)) : { state: s.rcState, route: '#/city' });
+      return;
+    }
+    const r = applyRcAction(s.rc, s.rcState, action, data);
+    const link = action === 'mission-step' ? data.href : action === 'go-do-it' ? data.url : '';
+    applyResult(r, link && link !== '#' && !r.open ? link : '');
+  }
+
+  // "Finish from the checkup": only when the scan confirms every step, and only
+  // on the person's click. Filed with the mission's own "Done" answer; the
+  // scan's part is kept apart, so it counts as confirmed only while it holds.
+  function confirmFromScan() {
+    const id = s.screen === 'rc' && s.rcRoute && s.rcRoute.screen === 'briefing' ? s.rcRoute.params.id : null;
+    const mission = rcMission(id);
+    const v = mission && verifyMission(id, s.doc, stepCount(mission));
+    if (!v || !v.allConfirmed) { render(); return; }
+    const record = s.rcState.missions[id];
+    if (record && DONE.has(record.status)) { render(); return; }
+    const q = mission.debriefQs.find((x) => (x.options || []).some((o) => o.value === 'completed'));
+    const filed = q ? s.rc.fileDebrief(s.rcState, mission, { [q.id]: 'completed' }) : null;
+    if (!filed) {
+      s.linkNotice = `<p class="link-notice" role="status">${esc('This one has a few questions only you can answer. Use I DID IT below.')}</p>`;
+      render(); return;
+    }
+    s.scanConfirmed = markScanConfirmed(s.scanConfirmed, id, now());
+    saveScanConfirmed(storage, s.scanConfirmed);
+    applyResult(afterRecorded(s.rc, s.rc.ensureBurst(s.rc.streakAfterFiling(filed.state, filed.event)), mission));
+  }
+
+  // The game screens' own clicks (data-action) and links. Plan A's handler above
+  // only reads data-go and data-act, so the two never act on the same click.
+  frame.addEventListener('click', (e) => {
+    if (!s.rc || s.busy) return;
+    const actEl = e.target.closest('[data-action]');
+    if (actEl && frame.contains(actEl)) { e.preventDefault(); onRcAction(actEl); return; }
+    const a = e.target.closest('a[href]');
+    if (!a || !frame.contains(a)) return;
+    const href = a.getAttribute('href') || '';
+    if (href.startsWith('#')) { e.preventDefault(); goRc(href); return; }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href)) { e.preventDefault(); openLink(href); }
+  });
+  frame.addEventListener('keydown', (e) => {
+    if (!s.rc) return;
+    // Enter in a per-category number box files it, like its button.
+    const id = e.target && e.target.id;
+    if (e.key === 'Enter' && typeof id === 'string' && id.startsWith('pm-cat-num-')) {
+      const box = e.target.closest('[data-pm-category]');
+      const btn = box && box.querySelector('[data-action="pm-cat-flag"], [data-action="pm-cat-changed"]');
+      if (btn) { e.preventDefault(); btn.click(); }
+      return;
+    }
+    const el = s.rc.keyActivationTarget(e);
+    if (el && frame.contains(el)) { e.preventDefault(); el.click(); }
+  });
+  // On the shadow root, so e.target is the real input (not retargeted to the host).
+  shadow.addEventListener('change', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
+  shadow.addEventListener('input', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
+
   // Device Rescue's own fix and mark flows, delegated on the frame so they survive re-renders.
   win.FixFlow.attach(frame, win.rescue, { onResult: ({ kind, module, result, described }) => {
     if (kind === 'fix') s.lastFix = { missionId: s.missionId, module, result };
@@ -167,8 +364,10 @@ export function createController({ win, storage, scoutSprite }) {
     isReady: true,
     show(doc, situation) {
       s.situation = situation;
+      s.shown += 1;
       rebuild(doc);
-      s.screen = 'map'; s.outcome = null; s.lastFix = null;
+      s.screen = 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
+      s.focusPending = true;
       render();
     },
     update(doc) { rebuild(doc); render(); },

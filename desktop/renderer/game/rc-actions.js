@@ -65,6 +65,8 @@ export function applyRcAction(rc, state, action, data = {}) {
     case 'line-up-burst':
       return { state: rc.startBurst(state) };
     case 'set-password-manager':
+      // Only the game's own choices; anything else would change which steps show.
+      if (!(rc.PASSWORD_MANAGERS || []).some((p) => p.value === data.pm)) return { state };
       return { state: { ...state, passwordManager: data.pm } };
     case 'toggle-account': {
       const acct = state.accounts && state.accounts[data.account];
