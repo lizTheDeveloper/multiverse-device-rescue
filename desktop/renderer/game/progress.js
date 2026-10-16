@@ -1,25 +1,43 @@
-// Mission progress for game mode. The scan is the source of truth: progress only
-// remembers what the person chose ("later") and what changed between scans.
-// "reclaimed" is only ever set by evidence: a re-check or a full scan where the
-// finding's module ran and no longer reports it.
+// Mission progress for game mode, plus finished lessons. The scan is the source
+// of truth: progress only remembers what the person chose ("later"), what
+// changed between scans, and which lessons they finished. "reclaimed" is only
+// ever set by evidence: a re-check or a full scan where the finding's module ran
+// and no longer reports it. Lessons never count toward fixes.
+//
+// The key keeps its v1 name so a saved Plan A store is found and migrated.
 export const STORE_KEY = 'device-rescue.game.v1';
 const STATUSES = new Set(['open', 'later', 'yours', 'reclaimed']);
 
 export function emptyProgress() {
-  return { version: 1, missions: {} };
+  return { version: 2, missions: {}, lessons: {} };
 }
 
-function valid(p) {
-  return p && p.version === 1 && p.missions && typeof p.missions === 'object' && !Array.isArray(p.missions)
-    && Object.values(p.missions).every((r) => r && STATUSES.has(r.status));
+function plainObject(x) {
+  return !!x && typeof x === 'object' && !Array.isArray(x);
+}
+
+function validMissions(m) {
+  return plainObject(m) && Object.values(m).every((r) => r && STATUSES.has(r.status));
+}
+
+function validLessons(l) {
+  return plainObject(l) && Object.values(l).every((r) => r && typeof r.completedAt === 'string');
+}
+
+// Accepts a stored version 1 or 2 document. Missions are kept whenever they are
+// valid; a bad lessons field only costs the lessons.
+export function migrate(raw) {
+  if (!plainObject(raw) || !validMissions(raw.missions)) return emptyProgress();
+  if (raw.version === 1) return { version: 2, missions: raw.missions, lessons: {} };
+  if (raw.version === 2) return { version: 2, missions: raw.missions, lessons: validLessons(raw.lessons) ? raw.lessons : {} };
+  return emptyProgress();
 }
 
 export function loadProgress(storage) {
   try {
     const raw = storage ? storage.getItem(STORE_KEY) : null;
     if (!raw) return emptyProgress();
-    const p = JSON.parse(raw);
-    return valid(p) ? p : emptyProgress();
+    return migrate(JSON.parse(raw));
   } catch (_) {
     return emptyProgress();
   }
@@ -47,8 +65,16 @@ function allMissions(city) {
   return (city && Array.isArray(city.districts) ? city.districts : []).flatMap((d) => d.missions || []);
 }
 
+function base(progress) {
+  return {
+    version: 2,
+    missions: { ...((progress && progress.missions) || {}) },
+    lessons: { ...((progress && progress.lessons) || {}) },
+  };
+}
+
 export function reconcile(progress, city, ranOk, now) {
-  const next = { version: 1, missions: { ...(progress && progress.missions) } };
+  const next = base(progress);
   const cameBack = [];
   const present = new Set();
   for (const m of allMissions(city)) {
@@ -77,7 +103,19 @@ export function reconcile(progress, city, ranOk, now) {
 // `about` is { districtId, title } of the mission, when known.
 export function setStatus(progress, id, status, module, now, about = {}) {
   const prev = progress.missions[id] || {};
-  return { version: 1, missions: { ...progress.missions, [id]: { ...prev, ...about, status, module, updatedAt: now } } };
+  const next = base(progress);
+  next.missions[id] = { ...prev, ...about, status, module, updatedAt: now };
+  return next;
+}
+
+export function setLessonDone(progress, id, now) {
+  const next = base(progress);
+  next.lessons[id] = { completedAt: now };
+  return next;
+}
+
+export function lessonDone(progress, id) {
+  return !!(progress && progress.lessons && progress.lessons[id]);
 }
 
 // Missions in this district that are reclaimed: the ones still in the scan with
