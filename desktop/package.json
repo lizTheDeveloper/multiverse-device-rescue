@@ -8,6 +8,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/**/*.test.js\"",
+    "check-game-files": "node -e \"require('fs').existsSync('vendor/reclaim-city/src/components/scout.js') || (console.error('desktop/vendor/reclaim-city is empty. Run git submodule update --init.'), process.exit(1))\"",
+    "predist": "npm run check-game-files",
     "dist": "electron-builder --publish never"
   },
   "build": {
