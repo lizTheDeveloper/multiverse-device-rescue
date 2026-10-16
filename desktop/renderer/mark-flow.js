@@ -267,3 +267,7 @@ const MarkFlow = (function () {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = MarkFlow;
 }
+// A top-level const isn't a window property; game mode's ES modules read it from window.
+if (typeof window !== 'undefined') {
+  window.MarkFlow = MarkFlow;
+}

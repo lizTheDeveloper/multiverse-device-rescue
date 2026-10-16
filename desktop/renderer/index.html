@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
   <title>Device Rescue</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="game-fonts.css" />
 </head>
 <body>
   <div id="app">
@@ -40,7 +41,11 @@
               <span>Device Rescue only looks &mdash; it never changes anything on your device without your explicit OK.</span>
             </div>
           </div>
-          <button id="btn-get-started" class="btn btn--primary btn--large" type="button">Get started</button>
+          <div class="welcome-actions">
+            <button id="btn-get-started" class="btn btn--primary btn--large" type="button">Get started</button>
+            <button id="btn-play-game" class="btn btn--game btn--large" type="button">Play it as a game
+              <small>Same checkup, as a city to take back</small></button>
+          </div>
         </div>
       </section>
 
@@ -112,6 +117,9 @@
           </p>
 
           <div id="results-summary" class="results-summary"></div>
+          <p id="results-city-switch" hidden>
+            <button id="btn-see-city" class="btn btn--game" type="button">See it as a city</button>
+          </p>
 
           <div id="results-groups"></div>
 
@@ -155,6 +163,11 @@
         </div>
       </section>
 
+      <!-- Screen 5: the same results as a city (game mode). Rendered in a shadow root. -->
+      <section id="screen-city" class="screen screen--city" data-screen="city" aria-label="Your computer as a city" hidden>
+        <div id="city-host"></div>
+      </section>
+
     </main>
   </div>
   <script src="ask.js"></script>
@@ -162,5 +175,6 @@
   <script src="fix-flow.js"></script>
   <script src="mark-flow.js"></script>
   <script src="app.js"></script>
+  <script type="module" src="game/boot.js"></script>
 </body>
 </html>

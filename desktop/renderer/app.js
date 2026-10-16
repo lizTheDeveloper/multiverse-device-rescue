@@ -413,20 +413,55 @@ if (typeof document !== 'undefined') {
       worry: document.getElementById('screen-worry'),
       scan: document.getElementById('screen-scan'),
       results: document.getElementById('screen-results'),
+      city: document.getElementById('screen-city'),
     };
     const stepDots = document.querySelectorAll('[data-step-dot]');
 
     let permissionsContent = null;
     let lastKnownPlatform = null; // e.g. "darwin" | "win32" | "linux", once we have a scan result
     let situation = null; // the SITUATIONS entry the person picked
+    let wantsCity = false; // came in through "Play it as a game"
+    const VIEW_KEY = 'device-rescue.view';
+    function rememberView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (_) { /* per-viewer nicety only */ } }
+    function rememberedView() { try { return localStorage.getItem(VIEW_KEY); } catch (_) { return null; } }
+
+    function cityAvailable(doc) {
+      return gameOfferedFor(situation, doc) && !!(window.RescueGame && window.RescueGame.isReady);
+    }
+    function showCity(doc) {
+      if (!cityAvailable(doc)) { showScreen('results'); return; }
+      window.RescueGame.show(doc, situation);
+      rememberView('city');
+      showScreen('city');
+    }
+    function renderCitySwitch(doc) {
+      document.getElementById('results-city-switch').hidden = !cityAvailable(doc);
+    }
+
+    window.RescueHost = {
+      showList() { rememberView('list'); showScreen('results'); },
+      // A re-check changed the scan. Keep the list in step, and close the city if
+      // the gate closed (e.g. monitoring software turned up).
+      docChanged(doc) {
+        lastScanDoc = doc;
+        renderResults(doc);
+        renderLearnMore(doc);
+        renderCitySwitch(doc);
+        if (!gameOfferedFor(situation, doc)) { showScreen('results'); return false; }
+        return true;
+      },
+      wantsSafety(finding) { return wantsSafetyNote(situation, finding); },
+    };
+    window.addEventListener('rescue-game-ready', () => { if (lastScanDoc) renderCitySwitch(lastScanDoc); });
 
     function showScreen(name) {
       Object.keys(screens).forEach((key) => {
         if (!screens[key]) return;
         screens[key].hidden = key !== name;
       });
+      const dotName = name === 'city' ? 'results' : name;
       stepDots.forEach((dot) => {
-        dot.classList.toggle('step-dot--active', dot.dataset.stepDot === name);
+        dot.classList.toggle('step-dot--active', dot.dataset.stepDot === dotName);
       });
       window.scrollTo(0, 0);
     }
@@ -711,7 +746,9 @@ if (typeof document !== 'undefined') {
         renderNextStep();
         renderLearnMore(doc);
         setScanBusy(false);
-        showScreen('results');
+        renderCitySwitch(doc);
+        if ((wantsCity || rememberedView() === 'city') && cityAvailable(doc)) showCity(doc);
+        else showScreen('results');
       } catch (err) {
         setScanBusy(false);
         showScanError(err && err.message ? err.message : String(err));
@@ -727,6 +764,7 @@ if (typeof document !== 'undefined') {
       document.getElementById('scan-progress').hidden = true;
       document.getElementById('scan-error').hidden = true;
       situation = null;
+      wantsCity = false;
       showScreen('welcome');
     }
 
@@ -736,7 +774,15 @@ if (typeof document !== 'undefined') {
     MarkFlow.attach(document.getElementById('results-groups'), window.rescue);
 
     document.getElementById('btn-get-started').addEventListener('click', () => {
+      wantsCity = false;
       showScreen('worry');
+    });
+    document.getElementById('btn-play-game').addEventListener('click', () => {
+      wantsCity = true;
+      showScreen('worry');
+    });
+    document.getElementById('btn-see-city').addEventListener('click', () => {
+      if (lastScanDoc) showCity(lastScanDoc);
     });
 
     async function goToScan() {
