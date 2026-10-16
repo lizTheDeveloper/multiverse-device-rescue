@@ -10,6 +10,64 @@ districts come from the real scan, and Reclaim City's own districts (email,
 finance, social, the Perimeter, the Grid…) come from the vendored game data. Where
 a scan check can confirm one of the game's own missions, the game says so.
 
+## Changes made during planning (2026-10-16)
+
+Reading privacy-the-game at `317e61c` and this repo's modules showed that parts of
+this draft were wrong. Where this section and the sections below disagree, this
+section wins.
+
+1. **The "Confirmed by your computer" table is smaller** (section 4).
+   - `device_security-reclaim-app-permissions` has only phone steps (iPhone and
+     Android), so a scan of this computer can't confirm any of them. That row is
+     dropped.
+   - `smart_network-reclaim-dns` has steps for phones, browsers and routers, plus
+     a check on a website. The scan reads this computer's system DNS, and that
+     matches none of those steps. That row is dropped.
+   - `smart_network-recon-router` is narrowed to its "Disable UPnP" step only.
+     `router_security_audit` never logs in to the router, so it can't see the
+     admin password, WPS or firmware.
+   - Rows map **steps**, not whole missions. Each step names the platforms it
+     applies to, so the Windows BitLocker steps show "For Windows computers" on a
+     Mac, never "confirmed".
+   - The network modules emit findings with no `code`, so a row matches by
+     module, optionally narrowed by `data.check` (`upnp_enabled`), and not by code.
+2. **The link allowlist is built when the code is built, not when the app
+   starts.** `desktop/scripts/build-mission-links.mjs` writes
+   `desktop/mission-links.json`, which holds every `https://` URL found under a
+   `url` key in `MISSIONS`, plus every account's `securityUrl`. A test fails if
+   the file is out of date. `main.js` requires the JSON, so it never imports the
+   game's ES modules from inside the asar. One step URL, `about:preferences#privacy`,
+   isn't https. It's never allowed, and it's shown as text to copy.
+3. **The game's HUD is swapped out.** Every vendored screen draws
+   `components/hud.js`, and that file carries the Stripe and Patreon links. The
+   `app://` protocol serves `rc/components/hud.js` from
+   `renderer/game/rc-overrides/hud.js`, which draws nothing. Device Rescue's own
+   HUD shows the two counts instead.
+4. **Finishing a mission from the scan uses a normal answer.** The game's
+   `debriefRecord` rejects values it doesn't know, so a `confirmed_by_scan` answer
+   would be thrown away. Instead, the mission is filed with the mission's own
+   "completed" option, and Device Rescue records that the scan confirmed it under
+   its own key, `device-rescue.game.scan-confirmed.v1`. The counts read that key
+   and check that the current scan still confirms it.
+5. **Account content uses the vendored screens and a reimplementation of the
+   game's click handling.**
+   - Without the game's `app.js`, Device Rescue handles its `data-action`s itself
+     (`renderer/game/rc-actions.js`), along with its `#/…` links and its debrief
+     form.
+   - Routes this spec doesn't include (garage, timeline, quizzes, Quick Quest,
+     stats, ghost, city-together) go to the one-city map.
+   - The milestone's share card is removed after rendering.
+6. **The reachable game code is exactly 48 files**, listed in
+   `desktop/rc-files.json`.
+   - None of them calls `fetch`, `sendBeacon`, `XMLHttpRequest`, `WebSocket` or
+     `new Image`, and none uses dynamic `import()`.
+   - `Sentry` appears only in `utils/errors.js`, behind a
+     `typeof Sentry === 'undefined'` guard, so it does nothing when the global
+     isn't loaded.
+   - Payment links appear only in `components/hud.js`.
+   - A test walks the graph and keeps all of this true when the submodule is
+     bumped.
+
 ## 1. Overview
 
 Spec A gives a city made only of device districts. This spec loads Reclaim City's

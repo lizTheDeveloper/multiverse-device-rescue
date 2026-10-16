@@ -6,6 +6,49 @@
 finding is a mission (briefing, fix, re-check, debrief), and a building lights up
 only when the engine confirms the problem is gone.
 
+## Changes made during planning (2026-10-16)
+
+Reading privacy-the-game at `317e61c` showed that three of this spec's assumptions
+were wrong. Where this section and the sections below disagree, this section wins.
+
+1. **Device screens are Device Rescue's own. The game supplies the parts.**
+   - Reclaim City's screens (`city-map.js`, `district.js`, `briefing.js`,
+     `debrief.js`, `milestone.js`) take no data as arguments. They import the
+     game's own `DISTRICTS`, `MISSIONS` and `ACCOUNTS`, and they're tied to game
+     logic such as password bursts, ghost mode and collective stats.
+   - So game mode renders device districts and device missions with its own view
+     functions, in `desktop/renderer/game/views/`, styled as in the mockups. From
+     the submodule it uses only `components/scout.js` (`scoutSprite`), `style.css`
+     and `assets/`.
+   - Spec B renders Reclaim City's account content with the vendored screens,
+     because they were built for exactly that.
+2. **The city lives in a Shadow DOM, on its own results screen.**
+   - The vendored `style.css` sets global rules (`* {margin:0}`, `body`,
+     `#app {max-width:960px}`), and Device Rescue's page also uses `#app`.
+   - So the city renders inside a shadow root on a new `screen-city` section,
+     with its tokens on `:host`. The font `@font-face` rules have to be at document
+     level, in `renderer/game-fonts.css`.
+3. **The app is served from an `app://rescue/` protocol, not `file://`.**
+   - The vendored components use art paths relative to the page (`assets/…`), and
+     game mode is ES modules.
+   - `desktop/app-protocol.js` serves `desktop/renderer/` at `app://rescue/`. It
+     maps `assets/` to `vendor/reclaim-city/src/assets/` and `rc/` to an allowlist
+     of `vendor/reclaim-city/src/` paths. It refuses path traversal.
+4. **Re-check gatekeeping merges whole scans** instead of adding
+   `rememberModule`.
+   - `mark-policy.js` groups mark ids across modules, so replacing one module's
+     entries isn't safe.
+   - Instead, `main.js` keeps the last full scan. It replaces the re-checked
+     module's entry with `mergeModuleResult(lastDoc, partial, name)` (in
+     `desktop/recheck.js`) and calls the existing `remember()` on both policies.
+5. **The gate lives in `app.js`.** `mayBeWatched(situation, doc)` is pulled out of
+   `learnMoreFor`, and `gameOfferedFor(situation, doc) = !mayBeWatched(…)`. app.js
+   checks it before showing the city and after every scan or re-check. There's no
+   separate `gate.js`.
+6. **The test runner gets a glob.** The test script becomes
+   `node --test "test/**/*.test.js"`. Bare `node --test` would also find the
+   submodule's vitest files.
+
 ## 1. Overview
 
 Today the results screen (`renderResults`, `desktop/renderer/app.js`) is a list of

@@ -10,6 +10,41 @@ It uses [Spec B](2026-10-16-game-mode-one-city-design.md) if that is present.
 computers get compromised and what Device Rescue will and won't do. Then the real
 scan runs as the final boss, and the city comes out of it.
 
+## Changes made during planning (2026-10-16)
+
+Research for the plan (`docs/superpowers/plans/2026-10-16-game-mode-c-training-grounds.md`)
+found the following. Where this section and the sections below disagree, this
+section wins.
+
+1. **`review_windows_autoruns.md` is the wrong source.** It covers the USB
+   AutoRun/AutoPlay *policy*. The Windows startup-entries guide is
+   `audit_windows_autoruns.md`, so "Things that start on their own" cites that
+   one.
+2. **The Wi-Fi lesson has sources after all.** There's still no router
+   *remediation* guide, but `guides/home_network_intrusion/phase_0.md`–`phase_3.md`
+   cover the hot-and-slow worry, the device list, MAC filtering and the
+   passphrase. The lesson cites those and stays within what they say.
+3. **The password lesson also cites `desktop/renderer/permissions-content.json`.**
+   It's the source for "you'll only be asked for your administrator password if
+   you choose to apply a fix that changes a system setting".
+4. **"You learned about this" links by module, not by category.** Almost every
+   relevant module is `category = "security"`, so linking by category would put
+   every lesson on every Gatehouse briefing. Each lesson lists the `modules` it
+   is about instead.
+5. **Progress keeps its storage key.** The key stays `device-rescue.game.v1`, so
+   saved progress is found, and the `version` field inside goes from 1 to 2.
+6. **The phishing quiz is included, as "Spot the fake message".**
+   privacy-the-game's `src/data/phishing.js` at `317e61c` has no imports and only
+   exports data. It's served through `rc/data/phishing.js`. Its message text is
+   Reclaim City's own content, so the accuracy test covers only the lesson's
+   wrapper text.
+7. **Lessons load one file at a time** (dynamic `import()` with
+   `Promise.allSettled`), so a broken lesson file is left out instead of breaking
+   the Training Grounds.
+8. **Leaving the game.** The Training Grounds and the boss screen have a "Plain
+   view" button. It drops back to the ordinary scan screen (or the results), and
+   a scan that's running carries on there.
+
 ## 1. Overview
 
 Frightened people trust what they understand. A district of short lessons, **The
