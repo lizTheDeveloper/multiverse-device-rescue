@@ -21,10 +21,13 @@ test('assets/ is the game art, png only', () => {
   assert.strictEqual(resolveAppPath(`${APP_ORIGIN}assets/x.js`, BASE), null);
 });
 
-test('rc/ serves only the allowlisted game sources', () => {
+test('rc/ serves only the files in rc-files.json', () => {
   assert.strictEqual(resolveAppPath(`${APP_ORIGIN}rc/components/scout.js`, BASE).file, V('components/scout.js'));
+  assert.strictEqual(resolveAppPath(`${APP_ORIGIN}rc/screens/district.js`, BASE).file, V('screens/district.js'));
   assert.strictEqual(resolveAppPath(`${APP_ORIGIN}rc/style.css`, BASE).mime, 'text/css; charset=utf-8');
-  for (const p of ['rc/app.js', 'rc/index.html', 'rc/sw.js', 'rc/utils/analytics.js', 'rc/utils/errors.js']) {
+  // errors.js is reachable through state.js; it is inert without the Sentry global.
+  assert.ok(resolveAppPath(`${APP_ORIGIN}rc/utils/errors.js`, BASE));
+  for (const p of ['rc/app.js', 'rc/index.html', 'rc/sw.js', 'rc/utils/analytics.js', 'rc/utils/collective.js', 'rc/screens/ghost.js', 'rc/data/phishing.js']) {
     assert.strictEqual(resolveAppPath(`${APP_ORIGIN}${p}`, BASE), null, p);
   }
 });
