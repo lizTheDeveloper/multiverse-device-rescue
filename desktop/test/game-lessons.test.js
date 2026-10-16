@@ -17,7 +17,7 @@ const loadAll = async () => {
 
 // A UI path is two or more capitalised segments joined by " > " or " → ",
 // e.g. "System Settings > Privacy & Security > FileVault".
-const SEG = "[A-Z][\\w&]*(?: [A-Z&][\\w&]*)*";
+const SEG = "[A-Z][\\w&]*(?: [\\w&]+)*";
 const PATH_RE = new RegExp(`${SEG}(?: (?:>|→) ${SEG})+`, 'g');
 const TICKS_RE = /`([^`]+)`/g;
 const norm = (s) => String(s).replace(/\s+/g, ' ');
@@ -33,6 +33,14 @@ function ownText(lesson) {
 
 function sourceText(lesson) {
   return norm(lesson.sources.map((s) => fs.readFileSync(path.join(ROOT, s), 'utf8')).join('\n'));
+}
+
+// Checks one piece of lesson text against the source text; returns the problems.
+function unsourced(text, src) {
+  const bad = [];
+  for (const p of norm(text).match(PATH_RE) || []) if (!src.includes(p)) bad.push(`UI path "${p}"`);
+  for (const [, inner] of norm(text).matchAll(TICKS_RE)) if (!src.includes(inner)) bad.push(`\`${inner}\``);
+  return bad;
 }
 
 function moduleExists(name) {
@@ -60,12 +68,7 @@ test('every UI path and every backticked bit in a lesson appears word for word i
   for (const l of lessons) {
     const src = sourceText(l);
     for (const text of ownText(l)) {
-      for (const p of norm(text).match(PATH_RE) || []) {
-        assert.ok(src.includes(p), `${l.id}: UI path "${p}" is not in ${l.sources.join(', ')}`);
-      }
-      for (const [, inner] of norm(text).matchAll(TICKS_RE)) {
-        assert.ok(src.includes(inner), `${l.id}: \`${inner}\` is not in ${l.sources.join(', ')}`);
-      }
+      assert.deepStrictEqual(unsourced(text, src), [], `${l.id}: not word for word in ${l.sources.join(', ')}`);
       if (/\bSystem Settings\b/.test(text)) assert.ok(src.includes('System Settings'), `${l.id}: names System Settings without a source that does`);
     }
   }
@@ -99,4 +102,14 @@ test('recommendedFor uses only real worry ids, and matches the app’s worries',
   const { SITUATIONS } = require('../renderer/app.js');
   assert.deepStrictEqual([...training.WORRY_IDS].sort(), SITUATIONS.map((s) => s.id).sort());
   for (const l of lessons) for (const w of l.recommendedFor) assert.ok(training.WORRY_IDS.includes(w), `${l.id}: unknown worry ${w}`);
+});
+
+test('the accuracy check catches a made-up path or command, and accepts real ones', () => {
+  const src = norm(fs.readFileSync(path.join(ROOT, 'desktop', 'renderer', 'permissions-content.json'), 'utf8')
+    + fs.readFileSync(path.join(ROOT, 'docs', 'trust-and-safety.md'), 'utf8'));
+  assert.deepStrictEqual(unsourced('Open System Settings → Privacy & Security → Full Disk Access.', src), []);
+  assert.deepStrictEqual(unsourced('Run `Apply this update?` now', src), []);
+  assert.strictEqual(unsourced('Go to Settings > Privacy > Make Me Safe', src).length, 1);
+  assert.strictEqual(unsourced('Go to Settings → Apps → fake thing', src).length, 1);
+  assert.strictEqual(unsourced('Run `rescue make-me-safe --now`', src).length, 1);
 });
