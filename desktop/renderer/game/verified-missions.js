@@ -5,20 +5,25 @@
 // modules give no finding codes). A test proves every mission, step, module,
 // platform and data.check here is real.
 //
+// requires: positive evidence. Several modules say nothing when they can't read
+// a setting (or find nothing to read), so "no problem reported" alone proves
+// nothing. A step is confirmed only if each requirement matches a finding of any
+// severity in that module: by data.check and/or code, and optionally
+// data[includes.key] containing a value, or data[equals.key] equal to one.
 // Left out on purpose: App Permission Audit (phone-only steps) and encrypted DNS
 // (phone/browser/router steps; the scan reads this computer's system DNS). See
 // the spec's "Changes made during planning".
 export const VERIFIED_MISSIONS = {
   'device_security-fortify-computer': [
-    { step: 0, platforms: ['darwin'], modules: ['encryption_check', 'filevault_recovery'], claim: 'FileVault is on' },
-    { step: 1, platforms: ['win32'], modules: ['win_bitlocker_check'], claim: 'BitLocker is on for your drives' },
-    { step: 2, platforms: ['win32'], modules: ['win_bitlocker_check'], claim: 'Your drive is encrypted' },
-    { step: 3, platforms: ['linux'], modules: ['linux_disk_encryption_check'], claim: 'Your disk is encrypted' },
-    { step: 4, platforms: ['darwin'], modules: ['screen_lock_check', 'lock_screen_check'], claim: 'A password is needed after sleep or the screen saver' },
-    { step: 5, platforms: ['darwin'], modules: ['find_my_mac_check'], claim: 'Find My Mac is on' },
+    { step: 0, platforms: ['darwin'], modules: ['encryption_check', 'filevault_recovery'], requires: [{ module: 'filevault_recovery', check: 'fv_status' }], claim: 'FileVault is on' },
+    { step: 1, platforms: ['win32'], modules: ['win_bitlocker_check'], requires: [{ module: 'win_bitlocker_check', code: 'security.win_bitlocker_check.status_info' }], claim: 'BitLocker is on for your drives' },
+    { step: 2, platforms: ['win32'], modules: ['win_bitlocker_check'], requires: [{ module: 'win_bitlocker_check', code: 'security.win_bitlocker_check.status_info' }], claim: 'Your drive is encrypted' },
+    { step: 3, platforms: ['linux'], modules: ['linux_disk_encryption_check'], requires: [{ module: 'linux_disk_encryption_check', check: 'encrypted', includes: { key: 'mount_points', value: '/' } }], claim: 'Your disk is encrypted' },
+    { step: 4, platforms: ['darwin'], modules: ['screen_lock_check', 'lock_screen_check'], requires: [{ module: 'screen_lock_check', check: 'screen_lock_required', equals: { key: 'value', value: 'enabled' } }], claim: 'A password is needed after sleep or the screen saver' },
+    { step: 5, platforms: ['darwin'], modules: ['find_my_mac_check'], requires: [{ module: 'find_my_mac_check', code: 'security.find_my_mac_check.configured_ok' }], claim: 'Find My Mac is on' },
   ],
   'smart_network-recon-router': [
-    { step: 3, platforms: ['darwin', 'win32', 'linux'], modules: ['router_security_audit'], dataCheck: 'upnp_enabled', claim: 'Your router didn’t answer UPnP requests from this computer' },
+    { step: 3, platforms: ['darwin', 'win32', 'linux'], modules: ['router_security_audit'], dataCheck: 'upnp_enabled', requires: [{ module: 'router_security_audit', check: 'router_manual_review' }], claim: 'Your router didn’t answer UPnP requests from this computer' },
   ],
 };
 export const DONE = new Set(['completed', 'not-needed']);
@@ -42,24 +47,41 @@ export function problemFindings(doc, row) {
   return out;
 }
 
+function hasEvidence(doc, req) {
+  const mod = moduleIn(doc, req.module);
+  return !!mod && Array.isArray(mod.findings) && mod.findings.some((f) => {
+    if (!f) return false;
+    const d = f.data || {};
+    if (req.check && d.check !== req.check) return false;
+    if (req.code && f.code !== req.code) return false;
+    if (req.includes && !(Array.isArray(d[req.includes.key]) && d[req.includes.key].includes(req.includes.value))) return false;
+    if (req.equals && d[req.equals.key] !== req.equals.value) return false;
+    return true;
+  });
+}
+
 export function stepStatus(doc, row) {
   if (!doc || !row.platforms.includes(doc.platform)) return doc ? 'other-platform' : 'couldnt';
   for (const name of row.modules) {
     const mod = moduleIn(doc, name);
     if (!mod || mod.status !== 'ok' || mod.supported !== true) return 'couldnt';
   }
-  return problemFindings(doc, row).length ? 'problem' : 'confirmed';
+  if (problemFindings(doc, row).length) return 'problem';
+  return (row.requires || []).every((r) => hasEvidence(doc, r)) ? 'confirmed' : 'couldnt';
 }
 
-export function verifyMission(missionId, doc) {
+export function verifyMission(missionId, doc, stepCount) {
   const rows = VERIFIED_MISSIONS[missionId];
   if (!rows) return null;
   const steps = rows.map((row) => {
     const status = stepStatus(doc, row);
     return { step: row.step, status, claim: row.claim, modules: row.modules, problems: status === 'problem' ? problemFindings(doc, row) : [] };
   });
-  const relevant = steps.filter((s) => s.status !== 'other-platform');
-  return { steps, allConfirmed: relevant.length > 0 && relevant.every((s) => s.status === 'confirmed') };
+  const anyConfirmed = steps.some((s) => s.status === 'confirmed');
+  const covered = Number.isInteger(stepCount) && Array.from({ length: stepCount }, (_, i) => rows.some((r) => r.step === i)).every(Boolean);
+  const settled = steps.every((s) => s.status === 'confirmed' || s.status === 'other-platform');
+  const allConfirmed = covered && settled && anyConfirmed;
+  return { steps, allConfirmed, partial: anyConfirmed && !allConfirmed };
 }
 
 export function disagreement(record, verification) {
