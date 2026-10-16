@@ -250,3 +250,18 @@ test('onResult is not called when the person cancels', () => {
   root.click(els.cancel);
   assert.strictEqual(heard, 0);
 });
+
+test('onResult hears an Undo as kind "undo"', async () => {
+  const { root, els } = fakeRoot();
+  const heard = [];
+  const undo = { name: 'undo', attrs: { 'data-fix-undo': '', 'data-quarantine-id': '20261016T120000Z-com.example.a' },
+    hasAttribute(a) { return a in this.attrs; }, getAttribute(a) { return this.attrs[a]; },
+    closest(sel) { return sel === '[data-fix-module]' ? els.card : null; } };
+  const result = { restored: true, status: 'restored' };
+  FixFlow.attach(root, { runFix: async () => ({}), undoFix: async () => result }, { onResult: (e) => heard.push(e) });
+  await root.click(undo);
+  assert.strictEqual(heard.length, 1);
+  assert.strictEqual(heard[0].kind, 'undo');
+  assert.strictEqual(heard[0].module, 'firewall_audit');
+  assert.strictEqual(heard[0].result, result);
+});
