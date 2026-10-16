@@ -22,6 +22,8 @@
       "fix-policy.js",
       "mark-policy.js",
       "setting-urls.js",
+      "mission-links.js",
+      "mission-links.json",
       "ask-about.js",
       "ai-prompt.js",
       "renderer/**",

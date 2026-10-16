@@ -7,6 +7,7 @@ const { handleRecheck } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
+const { isAllowedMissionLink } = require('./mission-links');
 const { APP_ORIGIN, serveApp } = require('./app-protocol');
 
 // Must run before the app is ready. "standard" gives app:// a real origin, so
@@ -73,6 +74,14 @@ app.whenReady().then(() => {
     if (!isAllowedGuideUrl(url)) {
       return false;
     }
+    shell.openExternal(url);
+    return true;
+  });
+  // A link inside a Reclaim City mission (an account's security page). Only the
+  // exact links in the game's own data open; the renderer shows anything else as
+  // text to copy.
+  ipcMain.handle('open-mission-link', (_e, url) => {
+    if (!isAllowedMissionLink(url)) return false;
     shell.openExternal(url);
     return true;
   });
