@@ -22,7 +22,7 @@ test('no button without a well-formed markable block', () => {
 
 test('the button opens a hidden confirmation that says it stays listed and how to undo', () => {
   const html = MarkFlow.markControlsHtml({ markable: MARKABLE });
-  assert.match(html, /This is mine — stop flagging it/);
+  assert.match(html, /I set this up — it’s mine/);
   assert.match(html, /data-mark-id="abcdef012345"/);
   assert.ok(!html.includes('data-mark-program'), 'only the id is carried back');
   assert.match(html, /data-mark-panel hidden/);

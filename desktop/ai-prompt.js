@@ -87,6 +87,26 @@ function madeByLines(entries, env) {
   }).filter(Boolean);
 }
 
+// What the person said about a card in the app. Only these exact words are
+// passed on; anything else from the page is ignored.
+const PERSON_SAID = new Set([
+  'the person said they did this (this checkup only; not checked again yet)',
+  'marked as theirs by the person just now (kept across checkups)',
+  'marked as theirs by the person on an earlier checkup',
+  'fixed by Device Rescue and checked again',
+]);
+
+function statusLine(f) {
+  if (typeof f.person_said === 'string' && PERSON_SAID.has(f.person_said)) return f.person_said;
+  if (f.data && typeof f.data === 'object' && f.data.marked_by_user === true) {
+    return 'marked as theirs by the person at this computer (it was flagged before they marked it)';
+  }
+  if (f.data && typeof f.data === 'object' && f.data.mark_stale === true) {
+    return 'had been marked as theirs, but it changed since, so it is flagged again';
+  }
+  return null;
+}
+
 function findingText(f, index, env) {
   const lines = [];
   const sev = SEVERITY_WORDS[f.severity] || SEVERITY_WORDS.info;
@@ -96,6 +116,8 @@ function findingText(f, index, env) {
   if (f.category) lines.push(`Kind: ${cleanString(f.category, env)}`);
   if (f.code) lines.push(`Code: ${cleanString(f.code, env)}`);
   if (typeof f.confidence === 'number') lines.push(`Confidence: ${f.confidence}`);
+  const status = statusLine(f);
+  if (status) lines.push(`Status: ${status}`);
   if (f.description) lines.push('', cleanString(f.description, env));
   const made = madeByLines(f.made_by, env);
   if (made.length) lines.push('', 'Who made the programs involved:', ...made);
@@ -144,4 +166,4 @@ function buildAiPrompt(payload, env) {
   return text.trimEnd() + '\n';
 }
 
-module.exports = { buildAiPrompt, cleanEvidence, PREAMBLE, MAX_TOTAL_CHARS };
+module.exports = { buildAiPrompt, cleanEvidence, PREAMBLE, MAX_TOTAL_CHARS, PERSON_SAID };

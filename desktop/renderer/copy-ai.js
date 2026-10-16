@@ -25,8 +25,10 @@ function copyAiPick(f) {
   };
 }
 
-function copyAiButtonHtml(finding) {
-  const id = copyAiRegistry.push(copyAiPick(finding)) - 1;
+// `pick` (optional) is the card's own copy object, shared with the
+// whole-report copy, so an answer given on the card shows in both.
+function copyAiButtonHtml(finding, pick) {
+  const id = copyAiRegistry.push(pick || copyAiPick(finding)) - 1;
   return `<div class="copy-ai">
     <button type="button" class="btn btn--secondary btn--small" data-copy-ai="${id}">Copy for any AI</button>
     <div class="copy-ai__slot" data-copy-ai-slot="${id}" aria-live="polite"></div>

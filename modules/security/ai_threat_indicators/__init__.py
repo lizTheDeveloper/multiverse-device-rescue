@@ -1,3 +1,4 @@
+import hashlib
 import os
 import subprocess
 import re
@@ -306,6 +307,8 @@ class Module(ModuleBase):
                         data={
                             "check": "cron_ai_call",
                             "cron_entry": line[:200],
+                            # The whole line, hashed: what "this is mine" pins.
+                            "entry_sha256": hashlib.sha256(line.encode("utf-8", "replace")).hexdigest(),
                         },
                     )
                 )
