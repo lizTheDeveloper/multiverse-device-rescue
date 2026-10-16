@@ -18,11 +18,13 @@ function districtFor(category) {
   return DISTRICTS.find((d) => d.category === category) || OUTSKIRTS;
 }
 
+// Not the mark id (markable.id / data.known_item_id): rescue/known_items.py
+// hashes the program's content into it, so it changes when the program does.
+// The engine keeps code and data.plist on a marked finding, so this identity
+// holds across mark, unmark and a changed program.
 export function findingIdentity(finding) {
   const fd = finding || {};
-  if (fd.markable && typeof fd.markable.id === 'string') return `mark:${fd.markable.id}`;
   const data = fd.data && typeof fd.data === 'object' ? fd.data : {};
-  if (typeof data.known_item_id === 'string') return `mark:${data.known_item_id}`;
   const what = fd.code || fd.title || '';
   for (const key of STABLE_KEYS) {
     if (typeof data[key] === 'string' && data[key] !== '') return `${fd.module}|${what}|${key}=${data[key]}`;

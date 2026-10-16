@@ -76,13 +76,26 @@ test('steps come from the walkthrough, and fall back to What to do, then to the 
   assert.deepStrictEqual(missionSteps(f('warning', { description: 'Just this.' })).map((s) => s.title), ['Just this.']);
 });
 
-test('identity is stable across scans and uses the mark id when there is one', async () => {
+test('identity is stable across scans and comes from what the finding is about', async () => {
   const { findingIdentity } = await load();
   const a = { ...f('critical', { data: { plist: '/x.plist', pid: 1 } }), module: 'm' };
   const b = { ...f('critical', { data: { plist: '/x.plist', pid: 2 } }), module: 'm' };
   assert.strictEqual(findingIdentity(a), findingIdentity(b));
-  assert.strictEqual(findingIdentity({ ...a, markable: { id: 'abc123' } }), 'mark:abc123');
-  assert.strictEqual(findingIdentity({ ...a, data: { known_item_id: 'abc123', marked_by_user: true } }), 'mark:abc123');
+  assert.strictEqual(findingIdentity(a), 'm|security.m.x|plist=/x.plist');
+});
+
+test('identity ignores the mark id, which changes when the program changes', async () => {
+  // rescue/known_items.py hashes content_sha256 and arguments_sha256 into the
+  // mark id. Same plist with a new program must stay the same mission, or the
+  // old one would be credited as reclaimed while the engine still reports it.
+  const { findingIdentity } = await load();
+  const before = { ...f('warning', { markable: { id: 'id-old' }, data: { plist: '/x.plist', content_sha256: 'aaa' } }), module: 'launch_agent_audit' };
+  const after = { ...f('warning', { markable: { id: 'id-new' }, data: { plist: '/x.plist', content_sha256: 'bbb' } }), module: 'launch_agent_audit' };
+  assert.strictEqual(findingIdentity(before), findingIdentity(after));
+  // Marked and unmarked: the engine retitles and lowers a marked finding but keeps code and plist.
+  const marked = { ...f('info', { title: 'Marked as yours: ai.example',
+    data: { plist: '/x.plist', known_item_id: 'id-old', marked_by_user: true, original_severity: 'warning' } }), module: 'launch_agent_audit' };
+  assert.strictEqual(findingIdentity(marked), findingIdentity(before));
 });
 
 test('two findings with one identity become one mission that lists both, at the higher severity', async () => {
@@ -112,12 +125,12 @@ test('a finding the person marked stays a mission even though the engine lowered
   // vanish and the next scan would count it as reclaimed: never allowed.
   const { findingsToCity } = await load();
   const city = findingsToCity({ modules: [mod('launch_agent_audit', 'security', [
-    f('info', { title: 'Marked as yours: ai.example', data: { known_item_id: 'abc', marked_by_user: true, original_severity: 'warning' } }),
+    f('info', { title: 'Marked as yours: ai.example', data: { plist: '/ai.plist', known_item_id: 'abc', marked_by_user: true, original_severity: 'warning' } }),
   ])] });
   const gate = city.districts.find((d) => d.id === 'gatehouse');
   assert.strictEqual(gate.notes.length, 0);
   assert.strictEqual(gate.missions.length, 1);
-  assert.deepStrictEqual([gate.missions[0].id, gate.missions[0].severity, gate.missions[0].marked], ['mark:abc', 'warning', true]);
+  assert.deepStrictEqual([gate.missions[0].id, gate.missions[0].severity, gate.missions[0].marked], ['launch_agent_audit|security.m.x|plist=/ai.plist', 'warning', true]);
 });
 
 test('garbage in does not throw', async () => {
