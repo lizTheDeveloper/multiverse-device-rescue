@@ -21,7 +21,7 @@ export function createController({ win, storage, scoutSprite }) {
   const now = () => new Date().toISOString();
 
   const s = { doc: null, situation: null, city: null, progress: loadProgress(storage), cameBack: [],
-    screen: 'map', districtId: null, missionId: null, outcome: null, message: '', busy: false };
+    screen: 'map', districtId: null, missionId: null, outcome: null, outcomeMission: null, lastFix: null, message: '', busy: false };
 
   function rebuild(doc) {
     s.doc = doc;
@@ -48,10 +48,12 @@ export function createController({ win, storage, scoutSprite }) {
         scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary) });
     }
     if (s.screen === 'outcome' && s.outcome) {
-      // After a fix the engine can undo, offer Undo here too. FixFlow handles the
+      // After a fix the engine can undo, offer Undo here too, but only on the
+      // RECLAIMED screen of the mission that fix was for. FixFlow handles the
       // click, because this sits inside a [data-fix-module] card on the frame.
       const lf = s.lastFix;
       const undoHtml = s.outcome === 'reclaimed' && lf && lf.result && lf.result.quarantine_id
+        && s.outcomeMission && lf.missionId === s.outcomeMission.id
         ? `<div class="fix-it" data-fix-module="${esc(lf.module)}"><div class="fix-status" data-fix-status>${win.FixFlow.resultHtml(lf.result)}</div></div>`
         : '';
       return renderOutcome({ kind: s.outcome, mission: s.outcomeMission, scout, message: s.message, undoHtml });
@@ -117,7 +119,7 @@ export function createController({ win, storage, scoutSprite }) {
 
   // Device Rescue's own fix and mark flows, delegated on the frame so they survive re-renders.
   win.FixFlow.attach(frame, win.rescue, { onResult: ({ kind, module, result, described }) => {
-    if (kind === 'fix') s.lastFix = { module, result };
+    if (kind === 'fix') s.lastFix = { missionId: s.missionId, module, result };
     if (kind === 'undo' && described && described.restored) s.lastFix = null;
     if (described && (described.tone === 'success' || described.tone === 'info' || described.restored)) recheck(s.missionId);
   } });
@@ -130,7 +132,7 @@ export function createController({ win, storage, scoutSprite }) {
     show(doc, situation) {
       s.situation = situation;
       rebuild(doc);
-      s.screen = 'map'; s.outcome = null;
+      s.screen = 'map'; s.outcome = null; s.lastFix = null;
       render();
     },
     update(doc) { rebuild(doc); render(); },

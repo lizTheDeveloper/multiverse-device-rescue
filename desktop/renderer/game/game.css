@@ -22,7 +22,7 @@ button.district { display: grid; width: 100%; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 /* Device Rescue's fix and mark controls, in the city's colors */
-.fix-it .btn, .mark-it .btn, .mark-mine .btn { font-family: var(--font-display); font-size: 10px; letter-spacing: 1px; padding: 10px 16px; border: 1px solid rgba(0,229,255,0.3); color: var(--cyan); background: rgba(0,229,255,0.08); }
+.fix-it .btn, .mark-mine .btn { font-family: var(--font-display); font-size: 10px; letter-spacing: 1px; padding: 10px 16px; border: 1px solid rgba(0,229,255,0.3); color: var(--cyan); background: rgba(0,229,255,0.08); }
 .fix-it .btn--primary { background: var(--cyan); color: var(--midnight); }
 .fix-panel { border: 1px solid rgba(0,229,255,0.45); background: rgba(0,229,255,0.05); padding: 16px; margin-top: 10px; display: grid; gap: 8px; }
 .fix-status__box { border-left: 2px solid var(--cyan); padding: 6px 12px; margin-top: 10px; }
@@ -97,7 +97,7 @@ button.district { display: grid; width: 100%; }
 .m-title span { color: var(--cyan); text-shadow: 0 0 14px rgba(0,229,255,0.3); }
 .intel { font-size: 14px; color: rgba(237,239,243,0.78); line-height: 1.7; margin: 8px 0 0; }
 .mono { font-family: var(--font-mono); font-size: 12.5px; color: var(--offwhite); background: rgba(0,229,255,0.06); padding: 1px 5px; overflow-wrap: anywhere; }
-.steps { display: grid; gap: 12px; margin-top: 12px; }
+.steps { display: grid; gap: 12px; margin-top: 12px; list-style: none; padding: 0; margin-bottom: 0; }
 .step { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; gap: 10px; align-items: start; }
 .step-n { font-family: var(--font-mono); font-weight: 700; color: var(--cyan); text-align: center; text-shadow: 0 0 8px rgba(0,229,255,0.4); }
 .step-t { font-size: 14px; line-height: 1.5; }
@@ -119,8 +119,8 @@ button.district { display: grid; width: 100%; }
 /* District statuses are hot | warn | clear | partial | fog | none; the mockups
    called two of them warmish and fogged. Outcome headings are h2, not h5. */
 .district.warn { border-color: rgba(255,159,0,0.35); }
-.district.partial { border-color: rgba(198,255,0,0.3); }
-.district.fog, .district.none { border-style: dashed; border-color: rgba(159,179,200,0.35); }
+/* partial: some checks here couldn't run, so it never gets the clear colour */
+.district.fog, .district.none, .district.partial { border-style: dashed; border-color: rgba(159,179,200,0.35); }
 .outcome h2 { margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 900; letter-spacing: 2px; }
 .o-win h2 { color: var(--lime); text-shadow: 0 0 14px rgba(198,255,0,0.35); }
 .o-not h2 { color: var(--amber); }
@@ -132,4 +132,3 @@ button.district { display: grid; width: 100%; }
 .missions li + li { border-top: 1px solid var(--line); }
 .mission-text { flex: 1 1 140px; min-width: 0; }
 .from { font-size: 12.5px; color: var(--dim); margin: 6px 0 0; }
-.steps { list-style: none; padding: 0; margin-bottom: 0; }
