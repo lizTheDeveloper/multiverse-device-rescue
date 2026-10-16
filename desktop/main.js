@@ -2,7 +2,8 @@ const { app, BrowserWindow, ipcMain, shell, net, protocol } = require('electron'
 const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
-const { runScan, runFix, runAction, runUndo, runMark, runUnmark } = require('./engine-runner');
+const { runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck } = require('./engine-runner');
+const { handleRecheck } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
@@ -39,12 +40,15 @@ app.whenReady().then(() => {
   const fixPolicy = createFixPolicy();
   // Findings the engine offered as "This is mine" in the scans this process ran.
   const markPolicy = createMarkPolicy();
+  // The last full scan this process ran, with any re-checks merged in.
+  let lastDoc = null;
   ipcMain.handle('run-scan', async (e, profile) => {
     const doc = await runScan(undefined, profile, (ev) => {
       if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
     });
     fixPolicy.remember(doc);
     markPolicy.remember(doc);
+    lastDoc = doc;
     return doc;
   });
   ipcMain.handle('run-fix', (_e, moduleName) =>
@@ -58,6 +62,13 @@ app.whenReady().then(() => {
     handleMark(id, { policy: markPolicy, runMark }));
   ipcMain.handle('unmark-mine', (_e, id) =>
     handleUnmark(id, { policy: markPolicy, runUnmark }));
+  ipcMain.handle('recheck-module', (_e, name) =>
+    handleRecheck(name, {
+      getLastDoc: () => lastDoc,
+      setLastDoc: (d) => { lastDoc = d; },
+      runRecheck: (n) => runRecheck(n),
+      policies: [fixPolicy, markPolicy],
+    }));
   ipcMain.handle('open-guide', (_e, url) => {
     if (!isAllowedGuideUrl(url)) {
       return false;
