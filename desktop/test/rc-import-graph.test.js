@@ -7,11 +7,7 @@ const { resolveAppPath, APP_ORIGIN } = require('../app-protocol');
 
 const SRC = path.join(__dirname, '..', 'vendor', 'reclaim-city', 'src');
 const BASE = path.join(__dirname, '..');
-// What game mode imports from the game (the same list as rc-load.js RC_ENTRY_FILES).
-const ENTRIES = ['screens/district.js', 'screens/briefing.js', 'screens/debrief.js', 'screens/milestone.js',
-  'state.js', 'data/missions.js', 'data/accounts.js', 'data/districts.js', 'utils/debrief.js',
-  'utils/bursts.js', 'utils/pm-categories.js', 'utils/scout-feelings.js', 'utils/mission-status.js',
-  'utils/calc.js', 'router.js', 'utils/keyboard.js', 'components/scout.js'];
+let ENTRIES;
 const IMPORT_RE = /(?:^|\n)\s*(?:import|export)\b[^;'"`]*?\bfrom\s*['"]([^'"]+)['"]/g;
 const BARE_RE = /(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g;
 
@@ -30,14 +26,16 @@ function walk(entries) {
   return [...seen].sort();
 }
 
-const reachable = walk(ENTRIES);
+const reachableP = import('../renderer/game/rc-load.js').then((m) => { ENTRIES = m.RC_ENTRY_FILES; return walk(ENTRIES); });
 const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
 
-test('rc-files.json is exactly the reachable graph plus the stylesheet', () => {
+test('rc-files.json is exactly the reachable graph plus the stylesheet', async () => {
+  const reachable = await reachableP;
   assert.deepStrictEqual([...RC.files].sort(), [...reachable, 'style.css'].sort());
 });
 
-test('nothing reachable talks to the network or loads code at runtime', () => {
+test('nothing reachable talks to the network or loads code at runtime', async () => {
+  const reachable = await reachableP;
   for (const rel of reachable) {
     const text = read(rel);
     assert.doesNotMatch(text, /\bfetch\s*\(|sendBeacon|XMLHttpRequest|WebSocket|new Image\(/, rel);
@@ -45,7 +43,8 @@ test('nothing reachable talks to the network or loads code at runtime', () => {
   }
 });
 
-test('Sentry is only touched by utils/errors.js, behind a typeof guard', () => {
+test('Sentry is only touched by utils/errors.js, behind a typeof guard', async () => {
+  const reachable = await reachableP;
   for (const rel of reachable) {
     if (rel === 'utils/errors.js') continue;
     assert.doesNotMatch(read(rel), /Sentry/, rel);
@@ -53,7 +52,8 @@ test('Sentry is only touched by utils/errors.js, behind a typeof guard', () => {
   assert.match(read('utils/errors.js'), /typeof Sentry === 'undefined'/);
 });
 
-test('payment links live only in the HUD, and the HUD is always replaced', () => {
+test('payment links live only in the HUD, and the HUD is always replaced', async () => {
+  const reachable = await reachableP;
   for (const rel of reachable) {
     if (rel === 'components/hud.js') continue;
     assert.doesNotMatch(read(rel), /buy\.stripe\.com|patreon\.com/, rel);
