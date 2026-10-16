@@ -107,9 +107,9 @@ test('recommendedFor uses only real worry ids, and matches the app’s worries',
 test('the accuracy check catches a made-up path or command, and accepts real ones', () => {
   const src = norm(fs.readFileSync(path.join(ROOT, 'desktop', 'renderer', 'permissions-content.json'), 'utf8')
     + fs.readFileSync(path.join(ROOT, 'docs', 'trust-and-safety.md'), 'utf8'));
-  assert.deepStrictEqual(unsourced('Open System Settings → Privacy & Security → Full Disk Access.', src), []);
+  assert.deepStrictEqual(unsourced('go to System Settings → Privacy & Security → Full Disk Access.', src), []);
   assert.deepStrictEqual(unsourced('Run `Apply this update?` now', src), []);
-  assert.strictEqual(unsourced('Go to Settings > Privacy > Make Me Safe', src).length, 1);
-  assert.strictEqual(unsourced('Go to Settings → Apps → fake thing', src).length, 1);
+  assert.strictEqual(unsourced('go to Settings > Privacy > Make Me Safe', src).length, 1);
+  assert.strictEqual(unsourced('go to Settings → Apps → fake thing', src).length, 1);
   assert.strictEqual(unsourced('Run `rescue make-me-safe --now`', src).length, 1);
 });
