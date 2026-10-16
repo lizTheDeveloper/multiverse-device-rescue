@@ -30,3 +30,21 @@ test('runRecheck resolves with the parsed scan, and with engine_error on garbage
   const refused = await runRecheck('../x', fakeSpawn('', 0));
   assert.strictEqual(refused.engine_error, 'engine_error');
 });
+
+test('runRecheck timeout and failures use re-check wording, not fix wording', async () => {
+  const { EventEmitter } = require('events');
+  let killed = false;
+  const hangSpawn = () => {
+    const p = new EventEmitter();
+    p.stdout = new EventEmitter(); p.stderr = new EventEmitter(); p.kill = () => { killed = true; };
+    return p;
+  };
+  const timedOut = await runRecheck('a_mod', hangSpawn, 10);
+  assert.strictEqual(timedOut.engine_error, 'timeout');
+  assert.strictEqual(killed, true);
+  assert.match(timedOut.message, /couldn’t re-check this just now/);
+  assert.match(timedOut.message, /Nothing was changed/);
+  assert.doesNotMatch(timedOut.message, /fix|checkup/i);
+  const refused = await runRecheck('../x', hangSpawn, 10);
+  assert.strictEqual(refused.message, timedOut.message);
+});
