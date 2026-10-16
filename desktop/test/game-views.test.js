@@ -138,3 +138,10 @@ test('a district with missions and fog still shows its fog; non-string reasons a
   assert.ok(!briefing.includes('<img src=x'));
   assert.match(briefing, /&lt;img src=x onerror=alert\(1\)&gt;/);
 });
+
+test('a partial district never gets the lit skyline', async () => {
+  const { skyline } = await import('../renderer/game/views/map.js');
+  assert.doesNotMatch(skyline('partial'), /\blit\b/);
+  assert.doesNotMatch(skyline('fog'), /\blit\b/);
+  assert.match(skyline('clear'), /\blit\b/);
+});

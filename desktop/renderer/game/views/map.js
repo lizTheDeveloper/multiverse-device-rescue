@@ -5,14 +5,15 @@ const SKYLINE = {
   hot: ['iso_tower_occ', 'iso_occupied', 'iso_tower_occ'],
   warn: ['iso_progress', 'iso_occupied'],
   clear: ['iso_liberated', 'iso_tower_lib'],
-  partial: ['iso_liberated', 'iso_occupied'],
+  // Some checks here couldn't run: never drawn like a clear district.
+  partial: ['iso_progress', 'iso_occupied'],
   fog: ['iso_occupied', 'iso_tower_occ'],
   none: ['iso_occupied'],
 };
 
 export function skyline(status) {
   const cls = status === 'fog' || status === 'none' ? 'skyline fog' : 'skyline';
-  const tone = { hot: 'dark', warn: 'warm', clear: 'lit', partial: 'lit' }[status] || '';
+  const tone = { hot: 'dark', warn: 'warm', clear: 'lit' }[status] || '';
   return `<div class="${cls}" aria-hidden="true">${(SKYLINE[status] || SKYLINE.none)
     .map((img) => `<img class="${img.includes('tower') ? 'tower ' : ''}${tone}" src="assets/${img}.png" alt="">`).join('')}</div>`;
 }
