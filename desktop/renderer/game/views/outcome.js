@@ -25,6 +25,15 @@ export function renderOutcome({ kind, mission: m, scout, message, undoHtml }) {
       <button type="button" class="btn-s" data-go="district:${esc(m.districtId)}">BACK TO THE DISTRICT</button>
     </section>`;
   }
+  if (kind === 'put-back') {
+    return `
+    <section class="outcome o-not">
+      <span class="badge warn">CHECKED AGAIN: SHOWING</span><h2>PUT BACK</h2>
+      <p>${esc(m.title)}</p>
+      <div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(SCOUT.putBack)}</p></div>
+      <button type="button" class="btn-s" data-go="mission:${esc(m.id)}">BACK TO THE STEPS</button>
+    </section>`;
+  }
   if (kind === 'not-yet') {
     return `
     <section class="outcome o-not">

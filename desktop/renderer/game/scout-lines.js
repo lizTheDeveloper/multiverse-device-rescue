@@ -13,6 +13,8 @@ export const SCOUT = {
   reclaimed: 'Device Rescue checked again, and it’s gone.',
   notYet: 'It’s still showing. Some programs put themselves back. Let’s look at the steps again.',
   couldnt: 'I couldn’t check again just now. That doesn’t mean it’s fixed.',
+  // After Undo or "Stop treating this as mine": the person asked for it back.
+  putBack: 'Put back. It’s showing again.',
   yours: 'Marked as yours. It stays listed, and you can change your mind any time.',
   debrief: {
     easy: 'Good. Every one you do makes the next one easier.',

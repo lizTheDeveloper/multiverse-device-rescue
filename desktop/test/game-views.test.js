@@ -145,3 +145,48 @@ test('a partial district never gets the lit skyline', async () => {
   assert.doesNotMatch(skyline('fog'), /\blit\b/);
   assert.match(skyline('clear'), /\blit\b/);
 });
+
+test('a reclaimed mission the scan no longer reports still completes and is listed on the milestone', async () => {
+  const { districtComplete, renderMilestone } = await import('../renderer/game/views/milestone.js');
+  const v = await views();
+  const district = { id: 'gatehouse', name: 'The Gatehouse', status: 'clear', missions: [], notes: [], fog: [] };
+  const progress = { version: 1, missions: {
+    a: { status: 'reclaimed', module: 'm', districtId: 'gatehouse', title: EVIL },
+    b: { status: 'reclaimed', module: 'm', districtId: 'wires', title: 'Elsewhere' },
+    c: { status: 'reclaimed', module: 'm' }, // an older record without districtId still loads, and is just not placed
+  } };
+  assert.strictEqual(districtComplete(district, progress), true);
+  assert.strictEqual(districtComplete(district, v.emptyProgress()), false, 'nothing done here: no milestone');
+  const html = renderMilestone({ district, progress, scout });
+  assert.match(html, /FIXED AND CHECKED[\s\S]*&lt;img src=x/);
+  assert.doesNotMatch(html, /Elsewhere/);
+  assert.ok(!html.includes('<img src=x'));
+  const screen = v.renderDistrict({ district, progress, scout });
+  assert.match(screen, /mission-row lit[\s\S]*RECLAIMED/);
+  assert.ok(!screen.includes('<img src=x'));
+  const map = v.renderMap({ city: { districts: [district] }, progress, cameBack: [], scout });
+  assert.match(map, /1 RECLAIMED/);
+  assert.doesNotMatch(map, /NOTHING FOUND/);
+});
+
+test('fog keeps a district from its milestone, and a milestone with fog says so', async () => {
+  const { districtComplete, renderMilestone } = await import('../renderer/game/views/milestone.js');
+  const district = { id: 'gatehouse', name: 'The Gatehouse', missions: [], notes: [], fog: [{ module: 'm2', reason: EVIL }] };
+  const progress = { version: 1, missions: { a: { status: 'reclaimed', module: 'm', districtId: 'gatehouse', title: 'A' } } };
+  assert.strictEqual(districtComplete(district, progress), false);
+  const html = renderMilestone({ district, progress, scout });
+  assert.match(html, /Couldn’t check here\. That doesn’t mean it’s safe\./);
+  assert.match(html, /COULDN’T CHECK HERE[\s\S]*m2/);
+  assert.doesNotMatch(html, /every mission here is done/i);
+  assert.doesNotMatch(html, /DISTRICT TAKEN BACK/);
+  assert.ok(!html.includes('<img src=x'));
+});
+
+test('the put-back outcome escapes engine text and promises nothing', async () => {
+  const v = await views();
+  const mission = evilCity(v.findingsToCity).districts[0].missions[0];
+  const html = v.renderOutcome({ kind: 'put-back', mission, scout });
+  assert.match(html, /Put back\. It’s showing again\./);
+  assert.match(html, /data-go="mission:/);
+  assert.ok(!html.includes('<img src=x'));
+});

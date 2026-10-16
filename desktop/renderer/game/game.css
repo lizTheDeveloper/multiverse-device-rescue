@@ -114,6 +114,8 @@ button.district { display: grid; width: 100%; }
 .choice.sel { border-color: rgba(0,229,255,0.5); color: var(--offwhite); background: rgba(0,229,255,0.06); }
 .scout-row { display: flex; gap: 12px; align-items: flex-start; }
 .mission-row { display: flex; gap: 10px; align-items: center; width: 100%; padding: 10px 0; }
+/* a reclaimed mission: checked again and gone, nothing left to open */
+.mission-row.lit .mission-text { color: var(--lime); }
 
 /* ---------- names the views use that the mockups spell differently ---------- */
 /* District statuses are hot | warn | clear | partial | fog | none; the mockups

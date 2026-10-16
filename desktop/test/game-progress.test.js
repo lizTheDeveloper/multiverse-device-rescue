@@ -95,3 +95,27 @@ test('a yours mission that vanishes is never credited as reclaimed', async () =>
   assert.strictEqual(progress.missions.a.status, 'yours');
   assert.strictEqual(countReclaimed(progress), 0);
 });
+
+test('records keep the district and title, so a reclaimed mission can still be shown', async () => {
+  const { reconcile, emptyProgress } = await load();
+  let { progress } = reconcile(emptyProgress(), cityWith(mission('a', 'm', { districtId: 'gatehouse', title: 'A' })), new Set(['m']), NOW);
+  assert.deepStrictEqual([progress.missions.a.districtId, progress.missions.a.title], ['gatehouse', 'A']);
+  ({ progress } = reconcile(progress, cityWith(), new Set(['m']), NOW));
+  assert.deepStrictEqual([progress.missions.a.status, progress.missions.a.districtId, progress.missions.a.title], ['reclaimed', 'gatehouse', 'A']);
+});
+
+test('an older record without district or title still loads and is filled in from the scan', async () => {
+  const { loadProgress, reconcile, STORE_KEY } = await load();
+  const old = { version: 1, missions: { a: { status: 'later', module: 'm', updatedAt: NOW } } };
+  const p = loadProgress(memStore({ [STORE_KEY]: JSON.stringify(old) }));
+  assert.deepStrictEqual(p, old);
+  const { progress } = reconcile(p, cityWith(mission('a', 'm', { districtId: 'gatehouse', title: 'A' })), new Set(['m']), '2026-10-17T00:00:00Z');
+  assert.deepStrictEqual(progress.missions.a, { status: 'later', module: 'm', districtId: 'gatehouse', title: 'A', updatedAt: NOW });
+});
+
+test('setStatus keeps what it knew about the mission', async () => {
+  const { setStatus } = await load();
+  const p = { version: 1, missions: { a: { status: 'open', module: 'm', districtId: 'gatehouse', title: 'A', updatedAt: NOW } } };
+  const next = setStatus(p, 'a', 'later', 'm', NOW);
+  assert.deepStrictEqual([next.missions.a.status, next.missions.a.districtId, next.missions.a.title], ['later', 'gatehouse', 'A']);
+});
