@@ -23,6 +23,10 @@ uses Reclaim City's art and components from `desktop/vendor/reclaim-city`.
 Don't edit files there. Change them in privacy-the-game and bump the pinned
 commit.
 
+After bumping the Reclaim City submodule, run `node desktop/scripts/build-mission-links.mjs`
+and then `npm test` in `desktop/`. The tests fail if the game's import graph,
+mission links or confirmed steps changed in a way game mode doesn't expect.
+
 Optional extras: `.[ai]` for the opt-in AI providers. Nothing in the core needs
 them.
 

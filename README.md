@@ -74,6 +74,10 @@ city to take back, one building at a time, in the style of
 checks and the same fixes, and each fix still asks first. A building only lights
 up once Device Rescue has checked again and the problem is gone. If you've said
 someone may be watching you, the app doesn't offer the game.
+The same city also holds Reclaim City's districts for your accounts: email,
+banking, social media and more. Those you do in your own browser and report
+back. The city always counts what your computer confirmed separately from what
+you reported, so it never claims more than it knows.
 
 It looks at your computer, not your online accounts. To learn passwords and
 two-step sign-in properly, [Reclaim City](https://play.multiversegames.ai/reclaim-city/)
