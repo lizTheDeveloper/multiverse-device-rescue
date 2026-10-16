@@ -7,7 +7,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test",
+    "test": "node --test \"test/**/*.test.js\"",
     "dist": "electron-builder --publish never"
   },
   "build": {
@@ -22,7 +22,12 @@
       "setting-urls.js",
       "ask-about.js",
       "ai-prompt.js",
-      "renderer/**"
+      "renderer/**",
+      "app-protocol.js",
+      "recheck.js",
+      "vendor/reclaim-city/src/components/scout.js",
+      "vendor/reclaim-city/src/style.css",
+      "vendor/reclaim-city/src/assets/**"
     ],
     "extraResources": [
       { "from": "engine", "to": "engine" }
