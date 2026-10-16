@@ -83,6 +83,7 @@ test('ranOkModules lists only modules that ran cleanly', async () => {
   const s = ranOkModules({ modules: [
     { name: 'a', status: 'ok', supported: true }, { name: 'b', status: 'error' },
     { name: 'c', status: 'ok', supported: false }, null,
+    { name: 'd' }, { name: 'e', supported: true }, { name: 'f', status: 'skipped', supported: true },
   ] });
   assert.deepStrictEqual([...s], ['a']);
 });

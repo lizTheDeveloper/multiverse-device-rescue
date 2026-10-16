@@ -34,10 +34,11 @@ export function saveProgress(storage, progress) {
   }
 }
 
+// Only a module that says it ran (status "ok") counts; no status checked nothing.
 export function ranOkModules(doc) {
   const out = new Set();
   for (const m of (doc && Array.isArray(doc.modules) ? doc.modules : [])) {
-    if (m && typeof m.name === 'string' && m.status !== 'error' && m.supported !== false) out.add(m.name);
+    if (m && typeof m.name === 'string' && m.status === 'ok' && m.supported !== false) out.add(m.name);
   }
   return out;
 }
