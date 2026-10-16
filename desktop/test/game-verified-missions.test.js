@@ -96,6 +96,7 @@ test('Windows uses the BitLocker steps and leaves the Mac ones alone', async () 
   const v = verifyMission(FC, { platform: 'win32', modules: [BL] }, 6);
   const by = Object.fromEntries(v.steps.map((s) => [s.step, s.status]));
   assert.deepStrictEqual([by[0], by[1], by[2], by[4], by[5]], ['other-platform', 'confirmed', 'confirmed', 'other-platform', 'other-platform']);
+  assert.deepStrictEqual(v.steps.find((s) => s.step === 0).platforms, ['darwin']);
 });
 
 test('the router step only looks at the UPnP finding', async () => {

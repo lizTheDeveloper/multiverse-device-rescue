@@ -190,3 +190,87 @@ test('the put-back outcome escapes engine text and promises nothing', async () =
   assert.match(html, /data-go="mission:/);
   assert.ok(!html.includes('<img src=x'));
 });
+
+test('the HUD shows confirmed and reported apart when given counts, and stays as before without', async () => {
+  const v = await views();
+  const city = v.findingsToCity({ modules: [] });
+  const two = v.renderHud({ title: 'T', city, progress: v.emptyProgress(), counts: { confirmed: 3, reported: 5 } });
+  assert.match(two, />3<\/b> <small>CONFIRMED/);
+  assert.match(two, />5<\/b> <small>YOU REPORTED/);
+  assert.doesNotMatch(two, /RECLAIMED/);
+  assert.match(v.renderHud({ title: 'T', city, progress: v.emptyProgress() }), /RECLAIMED/);
+});
+
+test('the one-city map: two rings, focus, check again, escaped, and a notice if accounts failed to load', async () => {
+  const v = await views();
+  const { renderOneCityMap } = await import('../renderer/game/views/one-city-map.js');
+  const city = v.findingsToCity({ modules: [] });
+  const cards = [{ id: 'master-keys', name: EVIL, description: EVIL, chapter: 1, percent: 40, total: 5, completed: 2, checkAgain: true }];
+  const html = renderOneCityMap({ city, accountCards: cards, focus: 'master-keys', cameBack: [], scout, accountsError: false });
+  assert.match(html, /YOUR COMPUTER/);
+  assert.match(html, /YOUR ACCOUNTS/);
+  assert.match(html, /data-go="rc:#\/district\/master-keys"/);
+  assert.match(html, /data-focus/);
+  assert.match(html, /CHECK AGAIN/);
+  assert.match(html, /40% REPORTED/);
+  assert.ok(!html.includes('<img src=x'));
+  const failed = renderOneCityMap({ city, accountCards: [], focus: 'computer', cameBack: [], scout, accountsError: true });
+  assert.match(failed, /Your accounts’ districts couldn’t load\./);
+});
+
+test('the one-city map keeps Plan A’s rules: partial never lit, fog never safe, reclaimed shown', async () => {
+  const v = await views();
+  const { renderOneCityMap } = await import('../renderer/game/views/one-city-map.js');
+  const fogCity = v.findingsToCity({ modules: [
+    { name: 'wifi_security_audit', category: 'network', status: 'ok', supported: false, unsupported_reason: 'x', findings: [] },
+  ] });
+  const fog = renderOneCityMap({ city: fogCity, accountCards: [], focus: 'computer', cameBack: [], scout, accountsError: false });
+  assert.match(fog, /Couldn’t check here\. That doesn’t mean it’s safe\./);
+  const partial = { districts: [{ id: 'gatehouse', name: 'The Gatehouse', status: 'partial', blurb: 'b', missions: [], notes: [], fog: [{ module: 'm', reason: 'r' }] }] };
+  assert.doesNotMatch(renderOneCityMap({ city: partial, accountCards: [], focus: 'computer', cameBack: [], scout, accountsError: false }), /iso_liberated/);
+  const clear = { districts: [{ id: 'gatehouse', name: 'The Gatehouse', status: 'clear', blurb: 'b', missions: [], notes: [], fog: [] }] };
+  const progress = { version: 1, missions: { old: { status: 'reclaimed', districtId: 'gatehouse', title: 't' } } };
+  assert.match(renderOneCityMap({ city: clear, progress, accountCards: [], focus: 'computer', cameBack: [], scout, accountsError: false }), /1 RECLAIMED/);
+  const done = [{ id: 'vault', name: 'V', description: 'd', chapter: 2, percent: 100, total: 3, completed: 3, checkAgain: true }];
+  assert.match(renderOneCityMap({ city: { districts: [] }, accountCards: [{ ...done[0], checkAgain: false }], focus: 'computer', cameBack: [], scout, accountsError: false }), /iso_liberated/);
+  assert.doesNotMatch(renderOneCityMap({ city: { districts: [] }, accountCards: done, focus: 'computer', cameBack: [], scout, accountsError: false }), /iso_liberated/,
+    'a district the scan disagrees with is never drawn lit');
+});
+
+test('the verification panel labels every step and links a problem to its device mission', async () => {
+  const { renderVerification } = await import('../renderer/game/views/verification.js');
+  const mission = { id: 'device_security-fortify-computer', steps: [{ text: 'A' }, { text: 'B' }, { text: 'C' }, { text: 'D' }, { text: 'E' }, { text: 'F' }, { text: 'G' }] };
+  const verification = { allConfirmed: false, partial: true, steps: [
+    { step: 0, status: 'problem', claim: 'FileVault is on', modules: ['encryption_check'], problems: [{ title: EVIL, module: 'encryption_check' }] },
+    { step: 1, status: 'other-platform', claim: 'x', platforms: ['win32'], modules: [], problems: [] },
+    { step: 4, status: 'confirmed', claim: 'A password is needed', modules: [], problems: [] },
+    { step: 5, status: 'couldnt', claim: 'Find My Mac is on', modules: [], problems: [] },
+  ] };
+  const html = renderVerification({ mission, verification, disagreement: { reportedAt: '2026-10-09T10:00:00Z', problems: [{ title: EVIL }] }, canFinish: false, platform: 'darwin',
+    deviceMissionFor: () => ({ id: 'dev-1', districtId: 'gatehouse' }) });
+  assert.match(html, /PROBLEM FOUND/);
+  assert.match(html, /FOR WINDOWS COMPUTERS/);
+  assert.match(html, /CONFIRMED BY YOUR COMPUTER/);
+  assert.match(html, /COULDN’T CHECK/);
+  assert.match(html, /YOURS TO CHECK/, 'unmapped steps (index 6) are yours');
+  assert.match(html, /data-go="mission:dev-1"/);
+  assert.match(html, /You reported this done/);
+  assert.match(html, /Your computer confirmed 1 of 7 steps\./);
+  assert.ok(!html.includes('<img src=x'));
+  assert.doesNotMatch(html, /data-act="confirm-from-scan"/);
+  assert.match(renderVerification({ mission, verification: { ...verification, allConfirmed: true, partial: false }, disagreement: null, canFinish: true, platform: 'darwin', deviceMissionFor: () => null }), /data-act="confirm-from-scan"/);
+  assert.doesNotMatch(renderVerification({ mission, verification, disagreement: null, canFinish: true, platform: 'darwin', deviceMissionFor: () => null }), /data-act="confirm-from-scan"/,
+    'a partial mission can never be finished from the scan');
+  assert.match(renderVerification({ mission, verification: { ...verification, steps: [{ ...verification.steps[1], platforms: ['linux'] }] }, disagreement: null, canFinish: false, platform: 'darwin', deviceMissionFor: () => null }), /FOR LINUX COMPUTERS/);
+  const bad = renderVerification({ mission, verification, disagreement: { reportedAt: 'nonsense', problems: [] }, canFinish: false, platform: 'darwin', deviceMissionFor: () => null });
+  assert.doesNotMatch(bad, /Invalid Date/);
+  assert.doesNotMatch(html + bad, /you’re safe|you're safe|all clear/i);
+});
+
+test('the milestone split lists confirmed and reported apart', async () => {
+  const { renderMilestoneSplit } = await import('../renderer/game/views/verification.js');
+  const html = renderMilestoneSplit({ confirmed: ['Harden Your Computer'], reported: [EVIL] });
+  assert.match(html, /CONFIRMED BY YOUR COMPUTER/);
+  assert.match(html, /YOU REPORTED/);
+  assert.ok(!html.includes('<img src=x'));
+});

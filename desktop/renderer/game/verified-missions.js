@@ -75,7 +75,7 @@ export function verifyMission(missionId, doc, stepCount) {
   if (!rows) return null;
   const steps = rows.map((row) => {
     const status = stepStatus(doc, row);
-    return { step: row.step, status, claim: row.claim, modules: row.modules, problems: status === 'problem' ? problemFindings(doc, row) : [] };
+    return { step: row.step, status, claim: row.claim, platforms: row.platforms, modules: row.modules, problems: status === 'problem' ? problemFindings(doc, row) : [] };
   });
   const anyConfirmed = steps.some((s) => s.status === 'confirmed');
   const covered = Number.isInteger(stepCount) && Array.from({ length: stepCount }, (_, i) => rows.some((r) => r.step === i)).every(Boolean);
