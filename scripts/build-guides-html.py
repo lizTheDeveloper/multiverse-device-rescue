@@ -70,13 +70,14 @@ TEMPLATE = """\
 <div class="nav">
   <a href="index.html">← All Guides</a>
   <a href="../tools/index.html">Security Tools</a>
-  <a href="../START-HERE.txt">START HERE</a>
+  <a href="../START-HERE.html">START HERE</a>
 </div>
 {body}
 <div class="safety">
-  <strong>Safety note:</strong> If the person who may have access to your device is
-  someone you know, removing monitoring software can escalate the situation.
-  US hotline: 1-800-799-7233 · <a href="https://stopstalkerware.org">stopstalkerware.org</a>
+  <strong>Safety note:</strong> If someone you know may be monitoring your device,
+  removing their software can alert them. Talk to an advocate first.
+  US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788 ·
+  <a href="https://stopstalkerware.org">stopstalkerware.org</a>
 </div>
 </div>
 </body>
@@ -266,7 +267,7 @@ def build_index(all_pages):
 <div class="wrap">
 <div class="nav">
   <a href="../tools/index.html">Security Tools</a>
-  <a href="../START-HERE.txt">START HERE</a>
+  <a href="../START-HERE.html">START HERE</a>
 </div>
 <h1>Security Guides</h1>
 <p class="intro">
@@ -284,6 +285,10 @@ def build_index(all_pages):
 
 
 def main():
+    global OUTPUT_DIR
+    # `--out DIR` writes somewhere other than dist/rescue-stick/guides/.
+    if "--out" in sys.argv[1:]:
+        OUTPUT_DIR = Path(sys.argv[sys.argv.index("--out") + 1]).resolve()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     print("Building profile walkthroughs...")
@@ -303,7 +308,7 @@ def main():
     # Keep the quick-reference.txt if it exists
     qr = OUTPUT_DIR / "quick-reference.txt"
     if not qr.exists():
-        print("  (quick-reference.txt will be added by build-usb-stick.sh)")
+        print("  (quick-reference.txt will be added by build_rescue_stick.py)")
 
     print(f"\nDone: {len(all_pages)} guides in {OUTPUT_DIR}")
 
