@@ -138,7 +138,9 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
     gets "marked_ids" the same way (rescue.known_items.link_task_marks).
 
     Returns:
-        JSON string with schema_version, platform, and modules array
+        JSON string with schema_version, platform, and modules array.
+        Each module entry has name, category, status, error, supported,
+        unsupported_reason, findings.
     """
     modules = []
     for mod, check in results:
@@ -146,6 +148,7 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
         offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
         modules.append({
             "name": mod.name,
+            "category": getattr(mod, "category", None),
             "status": "error" if check.error else "ok",
             "error": check.error,
             # False means the check could not run here: not a clean result.

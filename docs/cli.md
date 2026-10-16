@@ -117,17 +117,17 @@ profile ships a guide, the available walkthroughs are named at the end.
 ## `rescue scan` — read-only checks
 
 ```console
-$ rescue scan [--json]
+$ rescue scan [--json] [--profile <name> | --module <name> ...]
 ```
 
 Runs every check that supports the current platform and prints one report per
-module. Never applies a fix, never prompts, and takes no profile — for a
-profile-scoped scan use `rescue --auto --profile <name>` or `rescue export
---profile <name>`.
+module. Never applies a fix and never prompts.
 
 | Flag | Effect |
 | --- | --- |
 | `--json` | Emit structured results to stdout instead of the human report. |
+| `--profile <name>` | Only run the modules the named profile selects. Exits `1` on an unknown or invalid profile. |
+| `--module <name>` | Only run this module. Repeat it to run several. Read-only, same JSON. Exits `1` on an unknown module (the valid names go to stderr), and `2` if combined with `--profile`. The desktop app uses it to re-check one finding after a fix. |
 
 The JSON shape is `schema_version` 1:
 
@@ -138,6 +138,7 @@ The JSON shape is `schema_version` 1:
   "modules": [
     {
       "name": "linux_package_updates",
+      "category": "integrity",
       "status": "ok",
       "error": null,
       "findings": [
