@@ -92,3 +92,14 @@ test('a module that errored or is unsupported is not re-checked, never "gone"', 
     assert.strictEqual(t.remembered.length, 0);
   }
 });
+
+test('a full scan that lands during the re-check wins: the stale result is not merged or stored', async () => {
+  const NEWER = { schema_version: 1, platform: 'darwin', modules: [{ name: 'a_mod', category: 'security', status: 'ok', supported: true, findings: [{ title: 'new a' }] }] };
+  const t = deps();
+  t.d.runRecheck = async () => { t.d.setLastDoc(NEWER); return PARTIAL; };
+  const r = await handleRecheck('a_mod', t.d);
+  assert.deepStrictEqual([r.ok, r.error], [false, 'not_rechecked']);
+  assert.strictEqual(r.message, 'That check couldn’t run just now.');
+  assert.strictEqual(t.last, NEWER);
+  assert.strictEqual(t.remembered.length, 0);
+});

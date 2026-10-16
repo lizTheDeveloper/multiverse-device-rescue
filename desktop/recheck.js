@@ -7,6 +7,7 @@
 // comes back without the module (it could not run here), changes nothing and
 // is never treated as "fixed".
 const MODULE_NAME = /^[a-z0-9_]+$/;
+const NOT_RECHECKED = 'That check couldn’t run just now.';
 
 function mergeModuleResult(lastDoc, partialDoc, name) {
   const mods = partialDoc && Array.isArray(partialDoc.modules) ? partialDoc.modules : [];
@@ -43,8 +44,12 @@ async function handleRecheck(name, { getLastDoc, setLastDoc, runRecheck, policie
   if (!partial || partial.engine_error) {
     return fail('engine_error', (partial && partial.message) || 'We couldn’t re-check this.');
   }
+  // A full scan can land while the re-check runs (the person can go back to
+  // the list and start one). That scan is newer: never overwrite it with a
+  // merge into the old one.
+  if (getLastDoc() !== last) return fail('not_rechecked', NOT_RECHECKED);
   const { doc, module } = mergeModuleResult(last, partial, name);
-  if (!module || !didCheck(module)) return fail('not_rechecked', 'That check couldn’t run just now.');
+  if (!module || !didCheck(module)) return fail('not_rechecked', NOT_RECHECKED);
   setLastDoc(doc);
   for (const p of policies) p.remember(doc);
   return { ok: true, doc, module };
