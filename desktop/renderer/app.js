@@ -225,20 +225,28 @@ const LEARN_MORE = {
 };
 
 /**
- * The Reclaim City suggestion for these results, or null. Never offered to
- * someone who may be watched (the "watching me" worry, or monitoring software
- * found): a game is the wrong tone there, and its missions change account
- * settings, which can alert the person doing the watching. The iPhone
- * spyware worry is left out for the same reason.
+ * Whether the person may be watched by someone close to them: they said so
+ * ("watching me"), they're worried about iPhone spyware, or the scan found
+ * monitoring software. Then nothing playful is offered: not the Reclaim City
+ * link, not game mode. Turning things off can alert whoever is watching.
  */
+function mayBeWatched(situation, doc) {
+  if (situation && (situation.safety || situation.id === 'phone')) return true;
+  const modules = (doc && doc.modules) || [];
+  return modules.some((mod) => mod && ALWAYS_SAFETY_MODULES.has(mod.name)
+    && (mod.findings || []).some((f) => f && (f.severity === 'critical' || f.severity === 'warning')));
+}
+
+/** Whether to offer game mode ("Play it as a game" and the city view). */
+function gameOfferedFor(situation, doc) {
+  return !!situation && !mayBeWatched(situation, doc);
+}
+
+/** The Reclaim City suggestion for these results, or null (see mayBeWatched). */
 function learnMoreFor(situation, doc) {
-  if (!situation || situation.safety) return null;
+  if (!situation || mayBeWatched(situation, doc)) return null;
   const entry = LEARN_MORE[situation.id];
   if (!entry) return null;
-  const modules = (doc && doc.modules) || [];
-  const monitoringFound = modules.some((mod) => mod && ALWAYS_SAFETY_MODULES.has(mod.name)
-    && (mod.findings || []).some((f) => f && (f.severity === 'critical' || f.severity === 'warning')));
-  if (monitoringFound) return null;
   return { text: `${GAME_INTRO} ${entry.text}`, url: RECLAIM_CITY_URL + entry.path };
 }
 
@@ -379,6 +387,8 @@ if (typeof module !== 'undefined' && module.exports) {
     safetyNoteHtml,
     wantsSafetyNote,
     learnMoreFor,
+    mayBeWatched,
+    gameOfferedFor,
     RECLAIM_CITY_URL,
     withoutSafetyParagraphs,
     descriptionHtml,
