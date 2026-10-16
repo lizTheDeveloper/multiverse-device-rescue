@@ -68,6 +68,13 @@ When it finds something, it explains what it means and walks you through
 fixing it, one step at a time. A check that couldn't run says so. It doesn't
 pretend everything is fine.
 
+Prefer to play? Choose **Play it as a game** and the same checkup becomes a
+city to take back, one building at a time, in the style of
+[Reclaim City](https://play.multiversegames.ai/reclaim-city/). It's the same
+checks and the same fixes, and each fix still asks first. A building only lights
+up once Device Rescue has checked again and the problem is gone. If you've said
+someone may be watching you, the app doesn't offer the game.
+
 It looks at your computer, not your online accounts. To learn passwords and
 two-step sign-in properly, [Reclaim City](https://play.multiversegames.ai/reclaim-city/)
 is a free game from the same team that walks you through them one account at a

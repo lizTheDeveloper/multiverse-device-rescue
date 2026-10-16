@@ -12,11 +12,16 @@ other and to them.
 Python 3.11, 3.12, or 3.13.
 
 ```bash
-git clone https://github.com/lizTheDeveloper/multiverse-device-rescue.git
+git clone --recurse-submodules https://github.com/lizTheDeveloper/multiverse-device-rescue.git
 cd multiverse-device-rescue
 python -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
 ```
+
+Already cloned? Run `git submodule update --init`. The desktop app's game mode
+uses Reclaim City's art and components from `desktop/vendor/reclaim-city`.
+Don't edit files there. Change them in privacy-the-game and bump the pinned
+commit.
 
 Optional extras: `.[ai]` for the opt-in AI providers. Nothing in the core needs
 them.
