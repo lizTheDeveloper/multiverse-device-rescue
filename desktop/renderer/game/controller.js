@@ -13,7 +13,7 @@ import { districtComplete, renderMilestone } from './views/milestone.js';
 import { debriefReply } from './scout-lines.js';
 import { esc } from './escape.js';
 import { loadRc } from './rc-load.js';
-import { routeFor, applyRcAction, fileRc, afterRecorded } from './rc-actions.js';
+import { routeFor, applyRcAction, fileRc } from './rc-actions.js';
 import { readAnswers, refreshDebriefForm } from './rc-dom.js';
 import { verifyMission, disagreement, loadScanConfirmed, saveScanConfirmed, markScanConfirmed, DONE } from './verified-missions.js';
 import { focusFor, countConfirmedAndReported, accountDistrictCards, deviceMissionFor } from './one-city.js';
@@ -318,14 +318,16 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc 
     const record = s.rcState.missions[id];
     if (record && DONE.has(record.status)) { render(); return; }
     const q = mission.debriefQs.find((x) => (x.options || []).some((o) => o.value === 'completed'));
-    const filed = q ? s.rc.fileDebrief(s.rcState, mission, { [q.id]: 'completed' }) : null;
-    if (!filed) {
+    // Filed the same way as the person's own debrief (fileRc), so nothing the
+    // game does on filing is skipped.
+    const r = q ? fileRc(s.rc, s.rcState, id, { [q.id]: 'completed' }) : { incomplete: true };
+    if (r.incomplete) {
       s.linkNotice = `<p class="link-notice" role="status">${esc('This one has a few questions only you can answer. Use I DID IT below.')}</p>`;
       render(); return;
     }
     s.scanConfirmed = markScanConfirmed(s.scanConfirmed, id, now());
     saveScanConfirmed(storage, s.scanConfirmed);
-    applyResult(afterRecorded(s.rc, s.rc.ensureBurst(s.rc.streakAfterFiling(filed.state, filed.event)), mission));
+    applyResult(r);
   }
 
   // The game screens' own clicks (data-action) and links. Plan A's handler above
