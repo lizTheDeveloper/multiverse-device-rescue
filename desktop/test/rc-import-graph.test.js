@@ -52,12 +52,17 @@ test('Sentry is only touched by utils/errors.js, behind a typeof guard', async (
   assert.match(read('utils/errors.js'), /typeof Sentry === 'undefined'/);
 });
 
-test('payment links live only in the HUD, and the HUD is always replaced', async () => {
+// data/dialogue.js holds the districts' "ALLIED ORGANIZATIONS" links, one of
+// them https://signal.org/donate/. controller.js render() strips that section
+// from every screen (covered in game-controller.test.js, "a district at 100%").
+const PAYMENT_OK = { 'components/hud.js': 'always replaced', 'data/dialogue.js': 'allies stripped at render' };
+test('payment links live only in the HUD and the allies list, and neither is shown', async () => {
   const reachable = await reachableP;
   for (const rel of reachable) {
-    if (rel === 'components/hud.js') continue;
-    assert.doesNotMatch(read(rel), /buy\.stripe\.com|patreon\.com/, rel);
+    if (PAYMENT_OK[rel]) continue;
+    assert.doesNotMatch(read(rel), /buy\.stripe\.com|patreon\.com|\/donate\b/i, rel);
   }
+  assert.match(read('data/dialogue.js'), /\/donate\b/, 'still the known source; if this fails, drop it from PAYMENT_OK');
   assert.strictEqual(RC.overrides['components/hud.js'], 'game/rc-overrides/hud.js');
   const served = resolveAppPath(`${APP_ORIGIN}rc/components/hud.js`, BASE);
   assert.strictEqual(served.file, path.join(BASE, 'renderer', 'game', 'rc-overrides', 'hud.js'));

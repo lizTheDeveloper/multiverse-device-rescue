@@ -162,6 +162,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc 
         + s.linkNotice + screenHtml();
       // No share cards in Device Rescue: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
+      // No "ALLIED ORGANIZATIONS" either (a district at 100%): one is a donation
+      // page, and none are in mission-links.json. Then any other outside link
+      // that isn't a game action, in case the markup changes upstream.
+      frame.querySelectorAll('.section-label').forEach((el) => {
+        if (String(el.textContent || '').trim() === 'ALLIED ORGANIZATIONS' && el.parentElement) el.parentElement.remove();
+      });
+      frame.querySelectorAll('a[target="_blank"]:not([data-action])').forEach((el) => el.remove());
       const focused = s.screen === 'map' ? frame.querySelector('[data-focus]') : null;
       if (focused && s.focusPending) { focused.scrollIntoView({ block: 'start' }); s.focusPending = false; }
     } catch (err) {

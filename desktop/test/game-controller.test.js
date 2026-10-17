@@ -243,7 +243,23 @@ function rcStub({ allowed = [] } = {}) {
     querySelectorAll: (sel) => {
       const m = /^input\[name="q_([^"]+)"\]:checked$/.exec(sel);
       if (m) return [].concat(form[m[1]] || []).map((value) => ({ value }));
-      if (sel.includes('share-card')) return frame.innerHTML.includes('data-action="share-card"') ? [{ remove: () => { calls.removed += 1; } }] : [];
+      // remove() really takes the element's markup out, like the DOM would.
+      const cut = (re) => [...frame.innerHTML.matchAll(re)].map(([html]) => ({
+        html, remove: () => { frame.innerHTML = frame.innerHTML.replace(html, ''); calls.removed += 1; },
+      }));
+      if (sel.includes('share-card')) {
+        return [...cut(/<button[^>]*data-action="share-card"[^>]*>[\s\S]*?<\/button>/g), ...cut(/<div id="milestone-card-preview"[\s\S]*?<\/div>/g)];
+      }
+      if (sel === '.section-label') {
+        // The allies block is the label's parent: <div …><div class="section-label">…</div> … links … </div>
+        const sections = cut(/<div[^>]*>\s*<div class="section-label"[^>]*>[^<]*<\/div>[\s\S]*?<\/a>\s*<\/div>/g);
+        return [...frame.innerHTML.matchAll(/<div class="section-label"[^>]*>([^<]*)<\/div>/g)].map(([html, text]) => ({
+          textContent: text, parentElement: sections.find((x) => x.html.includes(html)) || { remove: () => { throw new Error(`no stub parent for ${text}`); } },
+        }));
+      }
+      if (sel === 'a[target="_blank"]:not([data-action])') {
+        return cut(/<a [^>]*target="_blank"[^>]*>[\s\S]*?<\/a>/g).filter((x) => !/^<a [^>]*data-action=/.test(x.html));
+      }
       return [];
     },
   };
@@ -459,8 +475,31 @@ test('a milestone never carries a share card', async () => {
   const t = await rcSetup();
   t.click({ 'data-go': 'rc:#/milestone/perimeter' });
   assert.match(t.html(), /CONFIRMED BY YOUR COMPUTER[\s\S]*YOU REPORTED/);
-  if (t.html().includes('data-action="share-card"')) assert.ok(t.calls.removed > 0);
+  assert.ok(t.calls.removed > 0, 'the vendored milestone has a share card, and it was taken out');
+  assert.doesNotMatch(t.html(), /data-action="share-card"|milestone-card-preview/);
   t.click({ 'data-action': 'share-card', 'data-district': 'perimeter' });
   assert.strictEqual(t.storage.getItem(RC_KEY), null, 'share-card does nothing');
   assert.doesNotMatch(t.html(), PAYMENT);
+});
+
+test('a district at 100% shows no allied organizations and no donation links', async () => {
+  const rc = await loadRcFromDisk();
+  for (const id of ['perimeter', 'reclamation', 'vault']) { // two facility districts and an account district
+    const storage = memStore();
+    const state = rc.createInitialState();
+    for (const m of rc.MISSIONS.filter((x) => rc.missionDistrict(x) === id)) {
+      state.missions[m.id] = { status: 'completed', action: 'completed', completedAt: '2026-10-09T10:00:00Z' };
+    }
+    assert.strictEqual(rc.calcDistrictProgress(state, id).percent, 100, `${id} is at 100%`);
+    assert.match(rc.renderDistrict(state, id), /ALLIED ORGANIZATIONS/, 'the vendored screen does render the allies here');
+    rc.saveState(state, storage);
+    const t = await rcSetup({ storage });
+    for (const tab of ['', '?tab=reclaim']) {
+      t.click({ href: `#/district/${id}${tab}` }, 'A');
+      assert.match(t.html(), new RegExp(`data-district="${id}"|${id}`, 'i'));
+      assert.doesNotMatch(t.html(), /ALLIED ORGANIZATIONS/, `${id}${tab}`);
+      assert.doesNotMatch(t.html(), PAYMENT, `${id}${tab}`);
+      assert.doesNotMatch(t.html(), /signal\.org\/donate|\/donate\b/i, `${id}${tab}`);
+    }
+  }
 });
