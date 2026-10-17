@@ -9,13 +9,17 @@ export const DISTRICTS = [
   { id: 'engine-room', category: 'performance', name: 'The Engine Room', blurb: 'Performance: speed, memory and storage.' },
   { id: 'junkyard', category: 'bloatware', name: 'The Junkyard', blurb: 'Clutter: preinstalled extras and leftovers.' },
 ];
-const OUTSKIRTS = { id: 'outskirts', category: null, name: 'The Outskirts', blurb: 'Everything else the checkup noticed.' };
+export const OUTSKIRTS = { id: 'outskirts', category: null, name: 'The Outskirts', blurb: 'Everything else the checkup noticed.' };
 const SEVERITY_RANK = { critical: 2, warning: 1 };
 // Data fields that name the thing a finding is about, most specific first.
 const STABLE_KEYS = ['plist', 'path', 'program', 'label', 'bundle_id', 'extension_id', 'name', 'target', 'id'];
 
 function districtFor(category) {
   return DISTRICTS.find((d) => d.category === category) || OUTSKIRTS;
+}
+
+export function districtIdFor(category) {
+  return districtFor(category).id;
 }
 
 // Not the mark id (markable.id / data.known_item_id): rescue/known_items.py
