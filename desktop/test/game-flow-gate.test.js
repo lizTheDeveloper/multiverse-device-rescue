@@ -70,3 +70,13 @@ test('monitoring software seen once this session keeps the game closed, even aft
   assert.strictEqual(noteMonitoring(false, narrowClean), false);
   assert.strictEqual(noteMonitoring(false, { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'info' }] }] }), false);
 });
+
+test('"Play it as a game" is hidden once monitoring software was seen this session', () => {
+  const { playButtonShown } = require('../renderer/app.js');
+  assert.strictEqual(playButtonShown(false), true);
+  assert.strictEqual(playButtonShown(true), false);
+  const monitoring = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'warning' }] }] };
+  const clean = { modules: [{ name: 'stalkerware_scan', findings: [] }] };
+  // Sticky: a later clean scan doesn't bring the button back.
+  assert.strictEqual(playButtonShown(noteMonitoring(noteMonitoring(false, monitoring), clean)), false);
+});

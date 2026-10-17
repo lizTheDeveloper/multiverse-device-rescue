@@ -257,6 +257,23 @@ function noteMonitoring(seen, doc) {
   return !!seen || mayBeWatched(null, doc);
 }
 
+/** "Play it as a game" on the welcome screen: never once monitoring software was seen this session. */
+function playButtonShown(monitoringSeen) {
+  return !monitoringSeen;
+}
+
+/**
+ * A failed scan's message, without Electron's IPC wrapper
+ * ("Error invoking remote method 'rescue:scan': Error: ..."), which means
+ * nothing to the person. '' when nothing is left; callers have a fallback.
+ */
+function scanErrorText(message) {
+  return String(message == null ? '' : message)
+    .replace(/^Error invoking remote method '[^']*':\s*/, '')
+    .replace(/^[A-Za-z]*Error:\s*/, '')
+    .trim();
+}
+
 /** gameOfferedFor, and never once monitoring software was seen this session. */
 function gameStillOffered(situation, doc, monitoringSeen) {
   return !monitoringSeen && gameOfferedFor(situation, doc);
@@ -433,6 +450,8 @@ if (typeof module !== 'undefined' && module.exports) {
     worryOpensTraining,
     gameStillOffered,
     noteMonitoring,
+    playButtonShown,
+    scanErrorText,
     postScanView,
     RECLAIM_CITY_URL,
     withoutSafetyParagraphs,
@@ -497,6 +516,7 @@ if (typeof document !== 'undefined') {
       docChanged(doc) {
         lastScanDoc = doc;
         monitoringSeen = noteMonitoring(monitoringSeen, doc);
+        renderPlayButton();
         renderResults(doc);
         renderLearnMore(doc);
         renderCitySwitch(doc);
@@ -833,6 +853,7 @@ if (typeof document !== 'undefined') {
         }
         lastScanDoc = doc;
         monitoringSeen = noteMonitoring(monitoringSeen, doc);
+        renderPlayButton();
         lastScanSituation = scanSituation;
         renderResults(doc);
         renderNextStep();
@@ -857,7 +878,7 @@ if (typeof document !== 'undefined') {
         }
       } catch (err) {
         setScanBusy(false);
-        const message = err && err.message ? err.message : String(err);
+        const message = scanErrorText(err && err.message ? err.message : String(err));
         if (inGame && !leftGame) {
           if (window.RescueGame.scanFailed(message) === false) showScanError(message);
           else showScreen('city');
@@ -879,7 +900,13 @@ if (typeof document !== 'undefined') {
       situation = null;
       wantsCity = false;
       leftGame = false;
+      renderPlayButton();
       showScreen('welcome');
+    }
+
+    // Once monitoring software has turned up, nothing playful is offered.
+    function renderPlayButton() {
+      document.getElementById('btn-play-game').hidden = !playButtonShown(monitoringSeen);
     }
 
     // "Fix it for me": delegated, so it keeps working when results are re-rendered.

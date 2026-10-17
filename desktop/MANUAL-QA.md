@@ -54,6 +54,7 @@ Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENG
 7. With the test launch agent still in place, click **Start over**, then **Play it as a game**, **Someone is on my Wi-Fi…** and **SKIP TO THE CHECKUP ▶**. Click **PLAIN VIEW** on the boss screen mid-scan. The plain scan screen shows live progress. When it finishes, the list results show, not the city.
 8. Simulate a failed scan: quit, run with `RESCUE_ENGINE=/usr/bin/false`, play, pick a worry, and start the checkup. You're back in the Training Grounds with "THE CHECKUP STOPPED" and **START THE CHECKUP ▶**.
 9. Start over and pick **I think someone is watching me** after **Play it as a game**. The plain scan screen opens, with no Training Grounds.
+   Then run a checkup that reports monitoring software (any worry, with a test stalkerware finding), and click **Start over**. The welcome screen no longer shows **Play it as a game**, and it stays hidden for the rest of the session, even after a later clean scan.
 10. DevTools → Network: every request is `app://rescue/…`, including `rc/data/phishing.js`.
 11. Clean up the test launch agent as in "Game mode, end to end", step 8.
 
