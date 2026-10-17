@@ -12,12 +12,14 @@ export function cityBanner() {
 }
 
 // On every Training Grounds and lesson screen: the way to the checkup.
-export function skipBar(scan) {
+// `scanFinished`: this worry's checkup already finished, so it would run again.
+export function skipBar(scan, scanFinished = false) {
   if (scan && scan.running) {
     return `<div class="skip-bar"><span>Your checkup is running: ${esc(scan.index)} of ${esc(scan.total || '…')} checks.</span>
       <button type="button" class="btn-s lime" data-go="boss">BACK TO THE CHECKUP ▶</button></div>`;
   }
-  const label = scan && scan.error ? 'START THE CHECKUP ▶' : 'SKIP TO THE CHECKUP ▶';
+  const label = scan && scan.error ? 'START THE CHECKUP ▶'
+    : scanFinished ? 'RUN THE CHECKUP AGAIN ▶' : 'SKIP TO THE CHECKUP ▶';
   return `<div class="skip-bar"><span>You don’t need to finish any lessons first.</span>
     <button type="button" class="btn-s lime" data-act="start-checkup">${label}</button></div>`;
 }
@@ -36,7 +38,9 @@ function lessonItem(l, progress) {
     ${lessonDone(progress, l.id) ? '<span class="badge cyan">DONE</span>' : ''}</button></li>`;
 }
 
-export function renderTraining({ ordered, progress, worryTitle, scan, scout, pendingCity }) {
+// `lessonsLoaded`: false while the lesson files are still loading, so an empty
+// list isn't yet a failure.
+export function renderTraining({ ordered, progress, worryTitle, scan, scout, pendingCity, lessonsLoaded = false, scanFinished = false }) {
   const all = [...ordered.recommended, ...ordered.other];
   const head = worryTitle ? `RECOMMENDED FOR “${esc(String(worryTitle).toUpperCase())}”` : 'START HERE';
   const failed = scan && scan.error ? `
@@ -51,11 +55,13 @@ export function renderTraining({ ordered, progress, worryTitle, scan, scout, pen
     <div class="lessons">
       ${ordered.recommended.length ? `<span class="label">${head}</span><ul>${ordered.recommended.map((l) => lessonItem(l, progress)).join('')}</ul>` : ''}
       ${ordered.other.length ? `<span class="label faint">ALSO HERE</span><ul>${ordered.other.map((l) => lessonItem(l, progress)).join('')}</ul>` : ''}
-      ${all.length ? '' : '<p class="intel">The lessons couldn’t load. The checkup still works.</p>'}
+      ${all.length ? '' : lessonsLoaded
+    ? '<p class="intel">The lessons couldn’t load. The checkup still works.</p>'
+    : '<p class="intel">Getting the lessons ready.</p>'}
     </div>
     <div class="quiz">
       <div class="scout-row">${scout('happy', 72)}<p class="say">${esc('These are short. Pick any one, or go straight to the checkup.')}</p></div>
     </div>
   </section>
-  ${skipBar(scan)}`;
+  ${skipBar(scan, scanFinished)}`;
 }

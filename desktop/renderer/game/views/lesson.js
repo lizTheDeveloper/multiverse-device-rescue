@@ -1,7 +1,7 @@
 import { esc } from '../escape.js';
 import { lessonText, skipBar, cityBanner, trainingHud } from './training.js';
 
-export function renderLesson({ lesson: l, qIndex, picked, scan, scout, pendingCity }) {
+export function renderLesson({ lesson: l, qIndex, picked, scan, scout, pendingCity, scanFinished = false }) {
   const i = Math.max(0, Math.min(qIndex, l.questions.length - 1));
   const q = l.questions[i];
   const last = i >= l.questions.length - 1;
@@ -33,5 +33,5 @@ export function renderLesson({ lesson: l, qIndex, picked, scan, scout, pendingCi
     ${after}
     <div class="scout-row">${scout(answer && answer.correct ? 'happy' : 'thinkingA', 54)}</div>
   </section>
-  ${skipBar(scan)}`;
+  ${skipBar(scan, scanFinished)}`;
 }

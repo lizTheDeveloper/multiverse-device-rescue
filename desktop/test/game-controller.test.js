@@ -638,6 +638,24 @@ test('the scan finishes on the boss screen: straight to the city', async () => {
   // Back to the Training Grounds from the city's HUD: the city is still one click away.
   t.click({ 'data-go': 'training' });
   assert.match(t.html(), /Your checkup is done\.[\s\S]*data-go="city"/);
+  assert.match(t.html(), /data-act="start-checkup"[^>]*>RUN THE CHECKUP AGAIN ▶/);
+  // A new worry: no city yet, so back to skipping.
+  t.ctl.showTraining(WIFI);
+  assert.match(t.html(), /SKIP TO THE CHECKUP ▶/);
+});
+
+test('the lessons couldn’t load only once loading has finished', async () => {
+  const { createController } = await import('../renderer/game/controller.js');
+  const stub = stubWin([]);
+  let finish;
+  const ctl = createController({ win: stub.win, storage: memStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}),
+    loadTraining: () => new Promise((r) => { finish = r; }) });
+  ctl.showTraining(WIFI);
+  assert.doesNotMatch(stub.frame.innerHTML, /couldn’t load/);
+  assert.match(stub.frame.innerHTML, /Getting the lessons ready/);
+  finish([]);
+  await tick();
+  assert.match(stub.frame.innerHTML, /The lessons couldn’t load/);
 });
 
 test('the scan fails on the boss screen: back to the Training Grounds, never a frozen boss', async () => {

@@ -58,12 +58,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
     rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
     scanConfirmed: loadScanConfirmed(storage), linkNotice: '',
-    lessons: [], lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit() };
+    lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit() };
   let drawnScreen = null; // the screen the last render drew
 
   // loadLessons never rejects: a lesson that fails to load is left out.
-  loadTraining().then((ls) => {
+  // Until then the Training Grounds says the lessons are on their way, not that they failed.
+  new Promise((r) => r(loadTraining())).catch(() => []).then((ls) => {
     s.lessons = Array.isArray(ls) ? ls : [];
+    s.lessonsLoaded = true;
     if (s.screen === 'training' || s.screen === 'lesson') render();
   });
 
@@ -154,11 +156,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function screenHtml() {
     if (s.screen === 'training') {
       return renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
-        worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting() });
+        worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
+        lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city });
     }
     if (s.screen === 'lesson') {
       const l = s.lesson && s.lessons.find((x) => x.id === s.lesson.id);
-      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting() });
+      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city });
       s.screen = 'training';
       return screenHtml();
     }

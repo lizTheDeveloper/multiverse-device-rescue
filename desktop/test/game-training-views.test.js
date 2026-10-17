@@ -35,6 +35,9 @@ test('the way to the checkup is on every Training Grounds and lesson state', asy
     }
   }
   states.push(v.renderTraining({ ordered: { recommended: [], other: [] }, progress: { lessons: {} }, scan: idle, scout }));
+  states.push(v.renderTraining({ ordered: { recommended: [], other: [] }, progress: { lessons: {} }, scan: idle, scout, lessonsLoaded: true }));
+  states.push(v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout, scanFinished: true }));
+  states.push(v.renderLesson({ lesson: LESSON, qIndex: 0, picked: null, scan: idle, scout, scanFinished: true }));
   for (const html of states) assert.match(html, /data-act="start-checkup"|data-go="boss"/);
 });
 
@@ -177,4 +180,27 @@ test('a finished lesson is marked DONE without the safe styling', async () => {
   const html = v.renderTraining({ ordered, progress: { lessons: { l1: { completedAt: 1 } } }, scan: idle, scout });
   assert.match(html, /class="badge cyan">DONE</);
   assert.doesNotMatch(html, /badge safe/);
+});
+
+test('before the lessons arrive, a neutral line; only a finished load with none says they couldn’t load', async () => {
+  const v = await views();
+  const none = { recommended: [], other: [] };
+  const loading = v.renderTraining({ ordered: none, progress: { lessons: {} }, scan: idle, scout });
+  assert.doesNotMatch(loading, /couldn’t load/);
+  assert.match(loading, /Getting the lessons ready/);
+  const empty = v.renderTraining({ ordered: none, progress: { lessons: {} }, scan: idle, scout, lessonsLoaded: true });
+  assert.match(empty, /The lessons couldn’t load\. The checkup still works\./);
+  const some = v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout, lessonsLoaded: true });
+  assert.doesNotMatch(some, /couldn’t load|Getting the lessons ready/);
+});
+
+test('after this worry’s checkup finished, the button runs it again rather than skipping to it', async () => {
+  const v = await views();
+  const again = /data-act="start-checkup"[^>]*>RUN THE CHECKUP AGAIN ▶/;
+  assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout, scanFinished: true }), again);
+  assert.match(v.renderLesson({ lesson: LESSON, qIndex: 0, picked: null, scan: idle, scout, scanFinished: true }), again);
+  assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout }), /SKIP TO THE CHECKUP ▶/);
+  // A failed later run says START, and a running one goes back to it.
+  assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: failed, scout, scanFinished: true }), /START THE CHECKUP ▶/);
+  assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: running, scout, scanFinished: true }), /data-go="boss"/);
 });
