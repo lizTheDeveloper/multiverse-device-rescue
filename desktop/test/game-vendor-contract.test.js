@@ -89,3 +89,15 @@ test('every account building is served through app://rescue/assets/ and exists',
     assert.ok(fs.existsSync(hit.file), `missing on disk: ${p}`);
   }
 });
+
+test('Reclaim City’s phishing data is self-contained and has the messages the lesson uses', async () => {
+  const file = need('data/phishing.js');
+  assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /^\s*import\s/m);
+  const { CURATED_MESSAGES } = await import(file);
+  for (const id of [1, 4, 5]) {
+    const m = CURATED_MESSAGES.find((x) => x.id === id);
+    assert.ok(m, `message ${id} gone upstream`);
+    assert.ok(['pretext', 'genuine'].includes(m.answer));
+    assert.ok(Array.isArray(m.tells) && m.tells.length > 0);
+  }
+});

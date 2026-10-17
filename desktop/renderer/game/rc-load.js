@@ -9,7 +9,9 @@ const FILES = {
   status: 'utils/mission-status.js', calc: 'utils/calc.js', router: 'router.js',
   keyboard: 'utils/keyboard.js', scout: 'components/scout.js', passwords: 'data/missions-passwords.js',
 };
-export const RC_ENTRY_FILES = Object.values(FILES);
+// Files a Training Grounds lesson loads on its own (not part of loadRc's object).
+export const RC_LESSON_FILES = ['data/phishing.js'];
+export const RC_ENTRY_FILES = [...Object.values(FILES), ...RC_LESSON_FILES];
 
 export async function loadRc(importFile = (rel) => import(`../rc/${rel}`)) {
   const entries = await Promise.all(Object.entries(FILES).map(async ([k, rel]) => [k, await importFile(rel)]));

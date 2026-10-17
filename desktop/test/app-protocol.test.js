@@ -25,9 +25,10 @@ test('rc/ serves only the files in rc-files.json', () => {
   assert.strictEqual(resolveAppPath(`${APP_ORIGIN}rc/components/scout.js`, BASE).file, V('components/scout.js'));
   assert.strictEqual(resolveAppPath(`${APP_ORIGIN}rc/screens/district.js`, BASE).file, V('screens/district.js'));
   assert.strictEqual(resolveAppPath(`${APP_ORIGIN}rc/style.css`, BASE).mime, 'text/css; charset=utf-8');
+  assert.strictEqual(resolveAppPath(`${APP_ORIGIN}rc/data/phishing.js`, BASE).file, V('data/phishing.js'));
   // errors.js is reachable through state.js; it is inert without the Sentry global.
   assert.ok(resolveAppPath(`${APP_ORIGIN}rc/utils/errors.js`, BASE));
-  for (const p of ['rc/app.js', 'rc/index.html', 'rc/sw.js', 'rc/utils/analytics.js', 'rc/utils/collective.js', 'rc/screens/ghost.js', 'rc/data/phishing.js']) {
+  for (const p of ['rc/app.js', 'rc/index.html', 'rc/sw.js', 'rc/utils/analytics.js', 'rc/utils/collective.js', 'rc/screens/ghost.js']) {
     assert.strictEqual(resolveAppPath(`${APP_ORIGIN}${p}`, BASE), null, p);
   }
 });

@@ -41,3 +41,24 @@ test('a scan that finishes mid-lesson shows a banner instead of pulling the pers
   assert.strictEqual(afterScanDone('lesson'), 'banner');
   for (const s of ['training', 'boss', 'map', undefined]) assert.strictEqual(afterScanDone(s), 'city');
 });
+
+test('buildSpotTheFake makes one real-or-fake question per picked message', async () => {
+  const { buildSpotTheFake } = await import('../renderer/game/lessons/spot-the-fake.js');
+  const msgs = [
+    { id: 1, type: 'email', from: 'a@x', subject: 'S', body: 'B', answer: 'pretext', tells: ['Odd domain', 'Deadline.'] },
+    { id: 4, type: 'call', from: '+1', subject: null, body: 'C', answer: 'pretext', tells: ['Asks for a code'] },
+    { id: 5, type: 'email', from: 'n@g', subject: 'P', body: 'D', answer: 'genuine', tells: ['Real address'] },
+    { id: 9, type: 'push', from: 'I', body: 'E', answer: 'genuine', tells: ['x'] },
+  ];
+  const l = buildSpotTheFake(msgs);
+  assert.strictEqual(l.id, 'spot-the-fake');
+  assert.strictEqual(l.type, 'phishing');
+  assert.strictEqual(l.questions.length, 3);
+  const [q1, , q3] = l.questions;
+  assert.deepStrictEqual(q1.options.map((o) => [o.text, o.correct]), [['Fake', true], ['Real', false]]);
+  assert.deepStrictEqual(q3.options.map((o) => [o.text, o.correct]), [['Fake', false], ['Real', true]]);
+  assert.match(q1.options[0].feedback, /Odd domain\. Deadline\./);
+  assert.deepStrictEqual(q1.message, { type: 'email', from: 'a@x', subject: 'S', body: 'B' });
+  assert.throws(() => buildSpotTheFake([]));
+  assert.throws(() => buildSpotTheFake([{ id: 1, answer: 'maybe', tells: ['x'] }]));
+});

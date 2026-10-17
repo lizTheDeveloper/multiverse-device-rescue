@@ -48,7 +48,7 @@ function moduleExists(name) {
   return fs.readdirSync(mods).some((cat) => fs.existsSync(path.join(mods, cat, name)));
 }
 
-test('every lesson file loads, and ids are unique', { todo: 'Task 4 adds Spot the fake message' }, async () => {
+test('every lesson file loads, and ids are unique', async () => {
   const { training, lessons } = await loadAll();
   assert.strictEqual(lessons.length, training.LESSON_FILES.length + 1, 'every lesson plus Spot the fake message');
   assert.strictEqual(new Set(lessons.map((l) => l.id)).size, lessons.length);

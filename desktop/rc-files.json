@@ -9,7 +9,7 @@
     "data/missions-osint-sieve.js", "data/missions-passwords.js", "data/missions-perimeter.js",
     "data/missions-reclamation.js", "data/missions-recon-accounts.js",
     "data/missions-square-archives-marketplace.js", "data/missions-trail.js", "data/missions-vault-capitol.js",
-    "data/missions.js",
+    "data/missions.js", "data/phishing.js",
     "router.js",
     "screens/briefing.js", "screens/debrief.js", "screens/district.js", "screens/milestone.js",
     "state.js",
