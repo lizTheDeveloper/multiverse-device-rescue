@@ -248,19 +248,34 @@ function trainingFirst({ wantsCity, offered, ready }) {
 }
 
 /**
+ * Whether monitoring software has turned up in any scan or re-check this
+ * session. Sticky: not every profile runs the safety modules, so a later,
+ * narrower clean scan says nothing about it. Kept in memory only, never in
+ * storage, where it could tip off whoever is watching.
+ */
+function noteMonitoring(seen, doc) {
+  return !!seen || mayBeWatched(null, doc);
+}
+
+/** gameOfferedFor, and never once monitoring software was seen this session. */
+function gameStillOffered(situation, doc, monitoringSeen) {
+  return !monitoringSeen && gameOfferedFor(situation, doc);
+}
+
+/**
+ * The worry click in game mode. The safety modules describe the machine,
+ * whatever worry was picked, so the last scan and anything seen this session
+ * count too: once monitoring software has turned up, nothing playful is offered.
+ */
+function worryOpensTraining({ situation, lastScanDoc, monitoringSeen, wantsCity, ready }) {
+  return trainingFirst({ wantsCity, offered: gameStillOffered(situation, lastScanDoc || null, monitoringSeen), ready });
+}
+
+/**
  * Where a finished scan lands. The gate is checked again with the real results:
  * if monitoring software turned up, nobody lands in the city. Nor does someone
  * who chose "Plain view" while it ran.
  */
-/**
- * The worry click in game mode. The gate uses the last scan this app ran too:
- * the safety modules describe the machine, whatever worry was picked, so once
- * monitoring software has turned up nothing playful is offered.
- */
-function worryOpensTraining({ situation, lastScanDoc, wantsCity, ready }) {
-  return trainingFirst({ wantsCity, offered: gameOfferedFor(situation, lastScanDoc || null), ready });
-}
-
 function postScanView({ inGame, left, wantsCity, rememberedCity, offered, ready }) {
   if (!offered || !ready || left) return 'results';
   if (inGame) return 'boss-city';
@@ -416,6 +431,8 @@ if (typeof module !== 'undefined' && module.exports) {
     gameOfferedFor,
     trainingFirst,
     worryOpensTraining,
+    gameStillOffered,
+    noteMonitoring,
     postScanView,
     RECLAIM_CITY_URL,
     withoutSafetyParagraphs,
@@ -452,12 +469,15 @@ if (typeof document !== 'undefined') {
     let leftGame = false; // chose "Plain view" during game mode
     let scanRunning = false;
     let lastScanSituation = null; // the worry lastScanDoc was run for
+    // Monitoring software seen in any scan or re-check this session (noteMonitoring).
+    // Memory only: never written to storage.
+    let monitoringSeen = false;
     const VIEW_KEY = 'device-rescue.view';
     function rememberView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (_) { /* per-viewer nicety only */ } }
     function rememberedView() { try { return localStorage.getItem(VIEW_KEY); } catch (_) { return null; } }
 
     function cityAvailable(doc) {
-      return gameOfferedFor(situation, doc) && !!(window.RescueGame && window.RescueGame.isReady);
+      return gameStillOffered(situation, doc, monitoringSeen) && !!(window.RescueGame && window.RescueGame.isReady);
     }
     function showCity(doc) {
       if (!cityAvailable(doc)) { showScreen('results'); return; }
@@ -476,10 +496,11 @@ if (typeof document !== 'undefined') {
       // the gate closed (e.g. monitoring software turned up).
       docChanged(doc) {
         lastScanDoc = doc;
+        monitoringSeen = noteMonitoring(monitoringSeen, doc);
         renderResults(doc);
         renderLearnMore(doc);
         renderCitySwitch(doc);
-        if (!gameOfferedFor(situation, doc)) { showScreen('results'); return false; }
+        if (!gameStillOffered(situation, doc, monitoringSeen)) { showScreen('results'); return false; }
         return true;
       },
       wantsSafety(finding) { return wantsSafetyNote(situation, finding); },
@@ -582,7 +603,7 @@ if (typeof document !== 'undefined') {
       list.querySelectorAll('[data-situation]').forEach((btn) => {
         btn.addEventListener('click', () => {
           situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
-          if (worryOpensTraining({ situation, lastScanDoc, wantsCity,
+          if (worryOpensTraining({ situation, lastScanDoc, monitoringSeen, wantsCity,
             ready: !!(window.RescueGame && window.RescueGame.isReady) })) {
             leftGame = false;
             // false: it couldn't be drawn, and leaveGame() already showed the scan screen.
@@ -614,7 +635,8 @@ if (typeof document !== 'undefined') {
     let learnMoreUrl = null;
     function renderLearnMore(doc) {
       const box = document.getElementById('results-learn');
-      const learn = learnMoreFor(situation, doc);
+      // The Reclaim City link is playful too: not once monitoring software was seen.
+      const learn = monitoringSeen ? null : learnMoreFor(situation, doc);
       learnMoreUrl = learn ? learn.url : null;
       box.hidden = !learn;
       if (!learn) return;
@@ -810,6 +832,7 @@ if (typeof document !== 'undefined') {
           lastKnownPlatform = doc.platform;
         }
         lastScanDoc = doc;
+        monitoringSeen = noteMonitoring(monitoringSeen, doc);
         lastScanSituation = scanSituation;
         renderResults(doc);
         renderNextStep();
@@ -818,7 +841,7 @@ if (typeof document !== 'undefined') {
         renderCitySwitch(doc);
         const view = postScanView({
           inGame, left: leftGame, wantsCity, rememberedCity: rememberedView() === 'city',
-          offered: gameOfferedFor(situation, doc), ready: !!(window.RescueGame && window.RescueGame.isReady),
+          offered: gameStillOffered(situation, doc, monitoringSeen), ready: !!(window.RescueGame && window.RescueGame.isReady),
         });
         if (view === 'boss-city') {
           if (window.RescueGame.scanDone(doc, situation) === false) {

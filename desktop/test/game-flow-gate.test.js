@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { trainingFirst, postScanView, gameOfferedFor, worryOpensTraining, SITUATIONS } = require('../renderer/app.js');
+const { trainingFirst, postScanView, gameOfferedFor, worryOpensTraining, gameStillOffered, noteMonitoring, SITUATIONS } = require('../renderer/app.js');
 const byId = (id) => SITUATIONS.find((s) => s.id === id);
 
 test('the Training Grounds only follows a worry the game is offered for', () => {
@@ -47,4 +47,26 @@ test('a worry never opens the Training Grounds on a machine whose last scan foun
   assert.strictEqual(worryOpensTraining({ ...ready, situation: byId('watched'), lastScanDoc: null }), false);
   assert.strictEqual(worryOpensTraining({ ...ready, situation: byId('phone'), lastScanDoc: null }), false);
   assert.strictEqual(worryOpensTraining({ wantsCity: false, ready: true, situation: byId('unsure'), lastScanDoc: null }), false);
+});
+
+test('monitoring software seen once this session keeps the game closed, even after a narrower clean scan', () => {
+  const monitoring = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'warning' }] }] };
+  // home_for_the_holidays (`helping`) runs none of the safety modules.
+  const narrowClean = { modules: [{ name: 'disk_space', findings: [] }] };
+  let seen = false;
+  seen = noteMonitoring(seen, monitoring);
+  seen = noteMonitoring(seen, narrowClean);
+  seen = noteMonitoring(seen, null);
+  assert.strictEqual(seen, true, 'sticky for the session');
+  const unsure = byId('unsure');
+  assert.strictEqual(worryOpensTraining({ situation: unsure, lastScanDoc: narrowClean, monitoringSeen: seen, wantsCity: true, ready: true }), false);
+  assert.strictEqual(gameStillOffered(unsure, narrowClean, seen), false, 'no city view either');
+  // Without it, the narrow clean scan alone would have reopened the game.
+  assert.strictEqual(worryOpensTraining({ situation: unsure, lastScanDoc: narrowClean, monitoringSeen: false, wantsCity: true, ready: true }), true);
+  assert.strictEqual(gameStillOffered(unsure, narrowClean, false), true);
+  // The per-doc check still applies on its own.
+  assert.strictEqual(gameStillOffered(unsure, monitoring, false), false);
+  assert.strictEqual(gameStillOffered(byId('watched'), narrowClean, false), false);
+  assert.strictEqual(noteMonitoring(false, narrowClean), false);
+  assert.strictEqual(noteMonitoring(false, { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'info' }] }] }), false);
 });
