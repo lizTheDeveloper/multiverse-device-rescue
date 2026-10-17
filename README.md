@@ -71,9 +71,19 @@ pretend everything is fine.
 Prefer to play? Choose **Play it as a game** and the same checkup becomes a
 city to take back, one building at a time, in the style of
 [Reclaim City](https://play.multiversegames.ai/reclaim-city/). It's the same
-checks and the same fixes, and each fix still asks first. A building only lights
-up once Device Rescue has checked again and the problem is gone. If you've said
-someone may be watching you, the app doesn't offer the game.
+checks and the same fixes, and each fix still asks first.
+
+Before the checkup you can play a few short lessons in the Training Grounds:
+what a real security tool never asks you for, what starts on its own, what
+"couldn't check" means. They're optional. "Skip to the checkup" is always
+there, and the checkup itself is the final boss. A lesson only teaches; it
+never counts as a fix, and nothing in the city lights up because of one.
+
+A building only lights up once Device Rescue has checked again and the problem
+is gone. If you've said someone may be watching you, the app doesn't offer the
+game, and if monitoring software turns up during a checkup, the game stays
+closed for the rest of that session. "Plain view" takes you back to the
+ordinary screen whenever you like.
 
 The same city also holds Reclaim City's districts for your accounts: email,
 banking, social media and more. Those you do in your own browser and report
