@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { trainingFirst, postScanView, gameOfferedFor, SITUATIONS } = require('../renderer/app.js');
+const { trainingFirst, postScanView, gameOfferedFor, worryOpensTraining, SITUATIONS } = require('../renderer/app.js');
 const byId = (id) => SITUATIONS.find((s) => s.id === id);
 
 test('the Training Grounds only follows a worry the game is offered for', () => {
@@ -31,4 +31,20 @@ test('outside the game, Plan A’s rule is unchanged', () => {
   assert.strictEqual(postScanView({ ...base, rememberedCity: true }), 'city');
   assert.strictEqual(postScanView({ ...base, rememberedCity: true, offered: false }), 'results');
   assert.strictEqual(postScanView({ ...base, wantsCity: true, ready: false }), 'results');
+});
+
+test('a worry never opens the Training Grounds on a machine whose last scan found monitoring software', () => {
+  const ready = { wantsCity: true, ready: true };
+  const warned = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'warning' }] }] };
+  const critical = { modules: [{ name: 'keylogger_indicators', findings: [{ severity: 'critical' }] }] };
+  const infoOnly = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'info' }] }] };
+  for (const id of ['unsure', 'wifi', 'hacked', 'helping']) {
+    assert.strictEqual(worryOpensTraining({ ...ready, situation: byId(id), lastScanDoc: warned }), false, id);
+    assert.strictEqual(worryOpensTraining({ ...ready, situation: byId(id), lastScanDoc: critical }), false, id);
+    assert.strictEqual(worryOpensTraining({ ...ready, situation: byId(id), lastScanDoc: infoOnly }), true, id);
+    assert.strictEqual(worryOpensTraining({ ...ready, situation: byId(id), lastScanDoc: null }), true, id);
+  }
+  assert.strictEqual(worryOpensTraining({ ...ready, situation: byId('watched'), lastScanDoc: null }), false);
+  assert.strictEqual(worryOpensTraining({ ...ready, situation: byId('phone'), lastScanDoc: null }), false);
+  assert.strictEqual(worryOpensTraining({ wantsCity: false, ready: true, situation: byId('unsure'), lastScanDoc: null }), false);
 });

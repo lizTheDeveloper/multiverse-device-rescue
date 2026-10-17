@@ -678,3 +678,29 @@ test('a briefing links the lesson the person finished for that check', async () 
   t.click({ 'data-go': `mission:${id}` });
   assert.match(t.html(), /data-go="lesson:starts-on-its-own"[^>]*>You learned about this in the Training Grounds/);
 });
+
+test('when a screen fails to render, the controller hands back to the list and says so', async () => {
+  const { createController } = await import('../renderer/game/controller.js');
+  const stub = stubWin([]);
+  let leave = 0;
+  stub.win.RescueHost.leaveGame = () => { leave += 1; };
+  stub.win.RescueHost.scanTips = async () => [];
+  let broken = true;
+  const ctl = createController({ win: stub.win, storage: memStore(), loadGame: () => new Promise(() => {}),
+    loadTraining: async () => [], scoutSprite: () => { if (broken) throw new Error('sprite broke'); return ''; } });
+  await tick();
+  const orig = console.error; console.error = () => {};
+  try {
+    assert.strictEqual(ctl.showTraining(WIFI), false);
+    assert.strictEqual(ctl.scanFailed('x'), false);
+    const doc = scan(mod('mod_a', [finding('A')]));
+    assert.strictEqual(ctl.scanDone(doc, WIFI), false);
+    assert.strictEqual(ctl.show(doc, WIFI), false);
+    assert.strictEqual(leave, 4, 'each failure goes back to Device Rescue’s own screens');
+    assert.match(stub.frame.innerHTML, /same thing as a list/);
+  } finally { console.error = orig; }
+  broken = false;
+  assert.strictEqual(ctl.showTraining(WIFI), true);
+  assert.strictEqual(ctl.show(scan(mod('mod_a', [finding('A')])), WIFI), true);
+  assert.strictEqual(leave, 4);
+});

@@ -252,6 +252,15 @@ function trainingFirst({ wantsCity, offered, ready }) {
  * if monitoring software turned up, nobody lands in the city. Nor does someone
  * who chose "Plain view" while it ran.
  */
+/**
+ * The worry click in game mode. The gate uses the last scan this app ran too:
+ * the safety modules describe the machine, whatever worry was picked, so once
+ * monitoring software has turned up nothing playful is offered.
+ */
+function worryOpensTraining({ situation, lastScanDoc, wantsCity, ready }) {
+  return trainingFirst({ wantsCity, offered: gameOfferedFor(situation, lastScanDoc || null), ready });
+}
+
 function postScanView({ inGame, left, wantsCity, rememberedCity, offered, ready }) {
   if (!offered || !ready || left) return 'results';
   if (inGame) return 'boss-city';
@@ -406,6 +415,7 @@ if (typeof module !== 'undefined' && module.exports) {
     mayBeWatched,
     gameOfferedFor,
     trainingFirst,
+    worryOpensTraining,
     postScanView,
     RECLAIM_CITY_URL,
     withoutSafetyParagraphs,
@@ -451,7 +461,8 @@ if (typeof document !== 'undefined') {
     }
     function showCity(doc) {
       if (!cityAvailable(doc)) { showScreen('results'); return; }
-      window.RescueGame.show(doc, situation);
+      // false: the city couldn't be drawn and the controller already left the game.
+      if (window.RescueGame.show(doc, situation) === false) { showScreen('results'); return; }
       rememberView('city');
       showScreen('city');
     }
@@ -571,11 +582,11 @@ if (typeof document !== 'undefined') {
       list.querySelectorAll('[data-situation]').forEach((btn) => {
         btn.addEventListener('click', () => {
           situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
-          if (trainingFirst({ wantsCity, offered: gameOfferedFor(situation, null),
+          if (worryOpensTraining({ situation, lastScanDoc, wantsCity,
             ready: !!(window.RescueGame && window.RescueGame.isReady) })) {
             leftGame = false;
-            window.RescueGame.showTraining(situation);
-            showScreen('city');
+            // false: it couldn't be drawn, and leaveGame() already showed the scan screen.
+            if (window.RescueGame.showTraining(situation) !== false) showScreen('city');
             return;
           }
           goToScan();
@@ -810,9 +821,12 @@ if (typeof document !== 'undefined') {
           offered: gameOfferedFor(situation, doc), ready: !!(window.RescueGame && window.RescueGame.isReady),
         });
         if (view === 'boss-city') {
-          window.RescueGame.scanDone(doc, situation);
-          rememberView('city');
-          showScreen('city');
+          if (window.RescueGame.scanDone(doc, situation) === false) {
+            showScreen('results'); // the city couldn't be drawn: the list, which has the same results
+          } else {
+            rememberView('city');
+            showScreen('city');
+          }
         } else if (view === 'city') {
           showCity(doc);
         } else {
@@ -822,8 +836,8 @@ if (typeof document !== 'undefined') {
         setScanBusy(false);
         const message = err && err.message ? err.message : String(err);
         if (inGame && !leftGame) {
-          window.RescueGame.scanFailed(message);
-          showScreen('city');
+          if (window.RescueGame.scanFailed(message) === false) showScanError(message);
+          else showScreen('city');
         } else {
           showScanError(message);
         }

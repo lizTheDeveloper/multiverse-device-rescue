@@ -190,6 +190,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout });
   }
 
+  // false when the screen couldn't be drawn and the person was sent to the list,
+  // so app.js doesn't then show the (empty) city screen.
   function render() {
     try {
       // No city yet (the scan hasn't finished): the Training Grounds.
@@ -208,10 +210,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       frame.querySelectorAll('a[target="_blank"]:not([data-action])').forEach((el) => el.remove());
       const focused = s.screen === 'map' ? frame.querySelector('[data-focus]') : null;
       if (focused && s.focusPending) { focused.scrollIntoView({ block: 'start' }); s.focusPending = false; }
+      return true;
     } catch (err) {
       console.error('City view failed:', err);
       frame.innerHTML = `<p class="say">${esc('The city view hit a problem. Here’s the same thing as a list.')}</p>`;
       win.RescueHost.leaveGame();
+      return false;
     }
   }
 
@@ -435,6 +439,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.focusPending = true;
   }
 
+  // show, showTraining, showBoss, scanDone and scanFailed return render()'s
+  // answer: false means the person is already back on Device Rescue's screens.
   return {
     isReady: true,
     show(doc, situation) {
@@ -443,7 +449,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // (the person may have left the boss screen with "Plain view").
       if (s.scan.running) { s.boss = bossFinish(s.boss); s.scan = idleScan(); }
       showCityFrom(doc);
-      render();
+      return render();
     },
     update(doc) { rebuild(doc); render(); },
     // A new worry: the Training Grounds, with no city until its scan finishes.
@@ -454,18 +460,19 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.pendingCity = false;
       s.lesson = null;
       s.screen = 'training';
-      render();
+      return render();
     },
     showBoss() {
       s.boss = bossInit();
       s.scan = { running: true, index: 0, total: 0, error: null };
       s.pendingCity = false;
       s.screen = 'boss';
-      render();
+      const ok = render();
       Promise.resolve().then(() => win.RescueHost.scanTips()).then((t) => {
         s.tips = Array.isArray(t) ? t : [];
         if (s.screen === 'boss') render();
       }, () => {});
+      return ok;
     },
     // The skip bar's "N of M checks" is the boss meter's finished-check count.
     scanEvent(ev) {
@@ -483,14 +490,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const lesson = s.lesson;
       showCityFrom(doc);
       if (inLesson) { s.lesson = lesson; s.screen = 'lesson'; s.pendingCity = true; s.focusPending = false; }
-      render();
+      return render();
     },
     // Never a frozen boss screen: back to the Training Grounds with the error.
     scanFailed(message) {
       s.boss = bossFinish(s.boss);
       s.scan = { running: false, index: 0, total: 0, error: String(message || 'The checkup stopped.') };
       if (s.screen !== 'lesson') s.screen = 'training';
-      render();
+      return render();
     },
   };
 }
