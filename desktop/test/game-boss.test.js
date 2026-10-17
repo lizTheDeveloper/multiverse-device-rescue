@@ -48,3 +48,14 @@ test('odd numbers are clamped; non-progress and late events are ignored', async 
   assert.strictEqual(bossPercent(bossInit()), 0);
   assert.strictEqual(bossPercent(bossApply(bossInit(), ev('done', 3, 0, 'security'))), 0);
 });
+
+test('the count is of finished checks: a start event names the check now running', async () => {
+  const { bossInit, bossApply, bossPercent } = await load();
+  let b = bossApply(bossInit(), ev('start', 1, 4, 'security'));
+  assert.strictEqual(b.index, 0);
+  b = bossApply(b, ev('done', 1, 4, 'security'));
+  assert.strictEqual(b.index, 1);
+  b = bossApply(b, ev('start', 2, 4, 'network'));
+  assert.strictEqual(b.index, 1);
+  assert.strictEqual(bossPercent(b), 25);
+});

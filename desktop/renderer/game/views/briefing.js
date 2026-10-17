@@ -1,7 +1,7 @@
 import { esc } from '../escape.js';
 import { SCOUT } from '../scout-lines.js';
 
-export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety }) {
+export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety, learned }) {
   const steps = m.steps.map((s) => `
       <li class="step"><span class="step-n">${esc(s.number)}</span>
         <span class="step-t">${esc(s.title)}${s.body ? `<small>${esc(s.body)}</small>` : ''}</span></li>`).join('');
@@ -20,6 +20,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
       <div class="crumbs"><button type="button" data-go="district:${esc(m.districtId)}">Back</button> / <b>${m.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</b>${status === 'later' ? ' · saved for later' : ''}</div>
       <h2 class="m-title"><span>${esc(m.title)}</span></h2>
       <div class="panel"><div class="label">WHAT IT IS</div><p class="intel">${esc(m.description)}</p></div>
+      ${learned ? `<p class="from"><button type="button" class="link" data-go="lesson:${esc(learned.id)}">You learned about this in the Training Grounds: ${esc(learned.title)} →</button></p>` : ''}
       ${safety}
       <div class="panel active"><div class="label">YOUR MOVE</div>
         ${m.walkthroughTitle ? `<p class="from">From the walkthrough “${esc(m.walkthroughTitle)}”.</p>` : ''}

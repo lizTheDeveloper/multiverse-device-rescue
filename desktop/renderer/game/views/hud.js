@@ -18,6 +18,6 @@ export function renderHud({ title, city, progress, counts }) {
       : `<span class="stat lime"><b>${done}</b> <small>RECLAIMED</small></span>`}
     ${open ? `<span class="stat grey"><b>${open}</b> <small>TO DO</small></span>` : ''}
     ${t.fog ? `<span class="stat grey"><b>${t.fog}</b> <small>COULDN’T CHECK</small></span>` : ''}
-    <span class="switch"><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
+    <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
 }

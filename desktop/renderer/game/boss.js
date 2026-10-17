@@ -13,7 +13,10 @@ export function bossApply(boss, ev) {
   if (!boss || boss.done || !ev || ev.type !== 'progress') return boss;
   const id = districtIdFor(ev.category);
   const total = num(ev.total) !== null && ev.total > 0 ? ev.total : boss.total;
-  const rawIndex = num(ev.index) !== null ? Math.max(0, ev.index) : boss.index;
+  // The engine numbers checks from 1, and a 'start' event names the check now
+  // starting, so only the ones before it are finished.
+  const given = num(ev.index) !== null ? (ev.phase === 'start' ? ev.index - 1 : ev.index) : null;
+  const rawIndex = given !== null ? Math.max(0, given) : boss.index;
   const index = total ? Math.min(rawIndex, total) : rawIndex;
   const next = { ...boss, total, index, seen: { ...boss.seen } };
   if (ev.phase === 'start') {
