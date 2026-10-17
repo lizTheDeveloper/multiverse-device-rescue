@@ -1,0 +1,3 @@
+[submodule "desktop/vendor/reclaim-city"]
+	path = desktop/vendor/reclaim-city
+	url = https://github.com/lizTheDeveloper/privacy-the-game.git

@@ -1,0 +1,155 @@
+const test = require('node:test');
+const assert = require('node:assert');
+const load = () => import('../renderer/game/progress.js');
+
+const NOW = '2026-10-16T12:00:00Z';
+const mission = (id, module = 'm', extra = {}) => ({ id, module, marked: false, ...extra });
+const cityWith = (...ms) => ({ districts: [{ id: 'gatehouse', missions: ms, notes: [], fog: [] }] });
+const memStore = (init = {}) => { const s = { ...init }; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); }, raw: s }; };
+
+test('a new finding opens a mission', async () => {
+  const { reconcile, emptyProgress } = await load();
+  const { progress } = reconcile(emptyProgress(), cityWith(mission('a')), new Set(['m']), NOW);
+  assert.strictEqual(progress.missions.a.status, 'open');
+  assert.strictEqual(progress.missions.a.module, 'm');
+});
+
+test('gone after a scan where its module ran: reclaimed', async () => {
+  const { reconcile, emptyProgress } = await load();
+  let { progress } = reconcile(emptyProgress(), cityWith(mission('a')), new Set(['m']), NOW);
+  ({ progress } = reconcile(progress, cityWith(), new Set(['m']), NOW));
+  assert.strictEqual(progress.missions.a.status, 'reclaimed');
+});
+
+test('gone because its module could not run: status kept, never credited', async () => {
+  const { reconcile, emptyProgress } = await load();
+  let { progress } = reconcile(emptyProgress(), cityWith(mission('a')), new Set(['m']), NOW);
+  ({ progress } = reconcile(progress, cityWith(), new Set([]), NOW));
+  assert.strictEqual(progress.missions.a.status, 'open');
+});
+
+test('reclaimed and back again: open, and reported as came back', async () => {
+  const { reconcile } = await load();
+  const start = { version: 1, missions: { a: { status: 'reclaimed', module: 'm', updatedAt: NOW } } };
+  const { progress, cameBack } = reconcile(start, cityWith(mission('a')), new Set(['m']), NOW);
+  assert.strictEqual(progress.missions.a.status, 'open');
+  assert.deepStrictEqual(cameBack, ['a']);
+});
+
+test('marked by the person: yours, and never counted as fixed', async () => {
+  const { reconcile, emptyProgress, countReclaimed } = await load();
+  const { progress } = reconcile(emptyProgress(), cityWith(mission('a', 'm', { marked: true })), new Set(['m']), NOW);
+  assert.strictEqual(progress.missions.a.status, 'yours');
+  assert.strictEqual(countReclaimed(progress), 0);
+});
+
+test('later survives a rescan while the finding is still there', async () => {
+  const { reconcile, setStatus, emptyProgress } = await load();
+  let p = setStatus(emptyProgress(), 'a', 'later', 'm', NOW);
+  ({ progress: p } = reconcile(p, cityWith(mission('a')), new Set(['m']), NOW));
+  assert.strictEqual(p.missions.a.status, 'later');
+});
+
+test('recheckOutcome', async () => {
+  const { recheckOutcome } = await load();
+  const okModule = { ok: true, module: { name: 'm', status: 'ok', supported: true } };
+  assert.strictEqual(recheckOutcome('a', cityWith(), okModule), 'reclaimed');
+  assert.strictEqual(recheckOutcome('a', cityWith(mission('a')), okModule), 'not-yet');
+  assert.strictEqual(recheckOutcome('a', cityWith(mission('a', 'm', { marked: true })), okModule), 'yours');
+  assert.strictEqual(recheckOutcome('a', cityWith(), { ok: false, error: 'engine_error' }), 'couldnt');
+  assert.strictEqual(recheckOutcome('a', cityWith(), { ok: false, error: 'not_rechecked' }), 'couldnt');
+  assert.strictEqual(recheckOutcome('a', cityWith(), { ok: true, module: { name: 'm', status: 'error' } }), 'couldnt');
+  assert.strictEqual(recheckOutcome('a', cityWith(), { ok: true, module: { name: 'm', status: 'ok', supported: false } }), 'couldnt');
+  assert.strictEqual(recheckOutcome('a', cityWith(), null), 'couldnt');
+});
+
+test('storage: round trip, corrupt JSON, wrong version, and storage that throws', async () => {
+  const { loadProgress, saveProgress, STORE_KEY, emptyProgress } = await load();
+  const s = memStore();
+  const p = { version: 2, missions: { a: { status: 'later', module: 'm', updatedAt: NOW } }, lessons: {} };
+  assert.strictEqual(saveProgress(s, p), true);
+  assert.deepStrictEqual(loadProgress(s), p);
+  assert.deepStrictEqual(loadProgress(memStore({ [STORE_KEY]: '{not json' })), emptyProgress());
+  assert.deepStrictEqual(loadProgress(memStore({ [STORE_KEY]: '{"version":9,"missions":{}}' })), emptyProgress());
+  assert.deepStrictEqual(loadProgress(memStore({ [STORE_KEY]: '{"version":1,"missions":{"a":{"status":"bogus"}}}' })), emptyProgress());
+  const throwing = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  assert.deepStrictEqual(loadProgress(throwing), emptyProgress());
+  assert.strictEqual(saveProgress(throwing, p), false);
+  assert.deepStrictEqual(loadProgress(null), emptyProgress());
+});
+
+test('ranOkModules lists only modules that ran cleanly', async () => {
+  const { ranOkModules } = await load();
+  const s = ranOkModules({ modules: [
+    { name: 'a', status: 'ok', supported: true }, { name: 'b', status: 'error' },
+    { name: 'c', status: 'ok', supported: false }, null,
+    { name: 'd' }, { name: 'e', supported: true }, { name: 'f', status: 'skipped', supported: true },
+  ] });
+  assert.deepStrictEqual([...s], ['a']);
+});
+
+test('a yours mission that vanishes is never credited as reclaimed', async () => {
+  const { reconcile, emptyProgress, countReclaimed } = await load();
+  let { progress } = reconcile(emptyProgress(), cityWith(mission('a', 'm', { marked: true })), new Set(['m']), NOW);
+  ({ progress } = reconcile(progress, cityWith(), new Set(['m']), NOW));
+  assert.strictEqual(progress.missions.a.status, 'yours');
+  assert.strictEqual(countReclaimed(progress), 0);
+});
+
+test('records keep the district and title, so a reclaimed mission can still be shown', async () => {
+  const { reconcile, emptyProgress } = await load();
+  let { progress } = reconcile(emptyProgress(), cityWith(mission('a', 'm', { districtId: 'gatehouse', title: 'A' })), new Set(['m']), NOW);
+  assert.deepStrictEqual([progress.missions.a.districtId, progress.missions.a.title], ['gatehouse', 'A']);
+  ({ progress } = reconcile(progress, cityWith(), new Set(['m']), NOW));
+  assert.deepStrictEqual([progress.missions.a.status, progress.missions.a.districtId, progress.missions.a.title], ['reclaimed', 'gatehouse', 'A']);
+});
+
+test('an older record without district or title still loads and is filled in from the scan', async () => {
+  const { loadProgress, reconcile, STORE_KEY } = await load();
+  const old = { version: 1, missions: { a: { status: 'later', module: 'm', updatedAt: NOW } } };
+  const p = loadProgress(memStore({ [STORE_KEY]: JSON.stringify(old) }));
+  assert.deepStrictEqual(p, { version: 2, missions: old.missions, lessons: {} });
+  const { progress } = reconcile(p, cityWith(mission('a', 'm', { districtId: 'gatehouse', title: 'A' })), new Set(['m']), '2026-10-17T00:00:00Z');
+  assert.deepStrictEqual(progress.missions.a, { status: 'later', module: 'm', districtId: 'gatehouse', title: 'A', updatedAt: NOW });
+});
+
+test('setStatus keeps what it knew about the mission', async () => {
+  const { setStatus } = await load();
+  const p = { version: 2, missions: { a: { status: 'open', module: 'm', districtId: 'gatehouse', title: 'A', updatedAt: NOW } }, lessons: {} };
+  const next = setStatus(p, 'a', 'later', 'm', NOW);
+  assert.deepStrictEqual([next.missions.a.status, next.missions.a.districtId, next.missions.a.title], ['later', 'gatehouse', 'A']);
+});
+
+test('a saved version 1 store from Plan A migrates to version 2 and keeps every mission', async () => {
+  const { loadProgress, STORE_KEY } = await load();
+  const v1 = { version: 1, missions: { a: { status: 'reclaimed', module: 'm', updatedAt: NOW }, b: { status: 'later', module: 'n', updatedAt: NOW } } };
+  const p = loadProgress(memStore({ [STORE_KEY]: JSON.stringify(v1) }));
+  assert.deepStrictEqual(p, { version: 2, missions: v1.missions, lessons: {} });
+});
+
+test('a corrupt lessons field is dropped but the missions survive', async () => {
+  const { loadProgress, STORE_KEY } = await load();
+  const missions = { a: { status: 'open', module: 'm', updatedAt: NOW } };
+  for (const lessons of [null, [], 'x', { l: { completedAt: 5 } }, { l: null }]) {
+    const p = loadProgress(memStore({ [STORE_KEY]: JSON.stringify({ version: 2, missions, lessons }) }));
+    assert.deepStrictEqual(p, { version: 2, missions, lessons: {} }, JSON.stringify(lessons));
+  }
+});
+
+test('setLessonDone records completion only, and lessons never count as fixes', async () => {
+  const { emptyProgress, setLessonDone, lessonDone, countReclaimed } = await load();
+  const p = setLessonDone(emptyProgress(), 'password-asker', NOW);
+  assert.deepStrictEqual(p.lessons, { 'password-asker': { completedAt: NOW } });
+  assert.strictEqual(lessonDone(p, 'password-asker'), true);
+  assert.strictEqual(lessonDone(p, 'other'), false);
+  assert.strictEqual(countReclaimed(p), 0);
+});
+
+test('reconcile and setStatus keep finished lessons', async () => {
+  const { emptyProgress, setLessonDone, reconcile, setStatus } = await load();
+  let p = setLessonDone(emptyProgress(), 'locked-door', NOW);
+  ({ progress: p } = reconcile(p, cityWith(mission('a')), new Set(['m']), NOW));
+  p = setStatus(p, 'a', 'later', 'm', NOW);
+  assert.deepStrictEqual(p.lessons, { 'locked-door': { completedAt: NOW } });
+  assert.strictEqual(p.version, 2);
+});

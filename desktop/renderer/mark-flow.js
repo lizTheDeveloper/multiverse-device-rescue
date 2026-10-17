@@ -228,7 +228,9 @@ const MarkFlow = (function () {
   // onMarked(cards) and onUnmarked(cards) after the engine saved or removed
   // marks, with every card the answer covered. Returns {unmark(card)} so the
   // "Cleared" list can offer Undo.
+  // onResult({kind, result, described}) after the engine answers (game mode).
   function attach(root, api, hooks) {
+    const onResult = hooks && typeof hooks.onResult === 'function' ? hooks.onResult : null;
     const state = new WeakMap(); // card -> 'confirming' | 'running'
     const on = hooks || {};
 
@@ -306,6 +308,7 @@ const MarkFlow = (function () {
         const result = await call();
         status.innerHTML = resultHtml(result);
         d = describeMarkResult(result);
+        if (onResult) { try { onResult({ kind, result, described: d }); } catch (_) { /* never break a mark */ } }
         const r = result || {};
         if (kind === 'marked' && (r.status === 'marked' || r.status === 'already_marked')) {
           const own = card.getAttribute('data-mark-id');
@@ -376,4 +379,8 @@ const MarkFlow = (function () {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = MarkFlow;
+}
+// A top-level const isn't a window property; game mode's ES modules read it from window.
+if (typeof window !== 'undefined') {
+  window.MarkFlow = MarkFlow;
 }

@@ -143,3 +143,24 @@ jobs:
           "$BIN/rescue" profiles | tee profiles.txt
           grep -q digital_security_reset profiles.txt
           "$BIN/rescue" run disk_space --yes
+
+  desktop:
+    name: desktop app tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install and test
+        working-directory: desktop
+        env:
+          # The tests never start Electron; skip its ~100MB download.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: |
+          npm ci
+          npm test

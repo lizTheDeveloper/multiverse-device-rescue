@@ -106,6 +106,24 @@ function runUndo(quarantineId, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
   return runEngineJson(() => undoArgs(quarantineId), 'undo', spawnFn, timeoutMs);
 }
 
+// Re-check one module after a fix: the same read-only scan, limited to it.
+const RECHECK_TIMEOUT_MS = 180000;
+const RECHECK_FAILED_MESSAGE = 'We couldn’t re-check this just now. Nothing was changed. You can try the re-check again.';
+
+function scanModuleArgs(moduleName) {
+  if (typeof moduleName !== 'string' || !FIX_MODULE_NAME.test(moduleName)) {
+    throw new Error(`invalid module name: ${moduleName}`);
+  }
+  return ['scan', '--json', '--module', moduleName];
+}
+
+// Resolves with the engine's scan document, or {engine_error, message}. Never rejects.
+function runRecheck(moduleName, spawnFn = spawn, timeoutMs = RECHECK_TIMEOUT_MS) {
+  return runEngineJson(() => scanModuleArgs(moduleName), moduleName, spawnFn, timeoutMs,
+    // The engine's own wording is about fixes; a re-check gets its own, whatever went wrong.
+    (error) => ({ engine_error: error, message: RECHECK_FAILED_MESSAGE }));
+}
+
 // "This is mine". The target was already checked against the last scan by the
 // main process; it is checked again here because it is passed to the engine.
 const MARK_ID = /^[0-9a-f]{12}$/;
@@ -204,4 +222,4 @@ function runEngineJson(buildArgs, moduleName, spawnFn, timeoutMs, fail = (error,
   });
 }
 
-module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, markArgs, unmarkArgs, runMark, runUnmark };
+module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, scanModuleArgs, runRecheck, markArgs, unmarkArgs, runMark, runUnmark };

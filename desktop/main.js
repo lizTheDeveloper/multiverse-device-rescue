@@ -1,11 +1,20 @@
-const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, net, protocol } = require('electron');
 const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
-const { runScan, runFix, runAction, runUndo, runMark, runUnmark } = require('./engine-runner');
+const { runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck } = require('./engine-runner');
+const { handleRecheck } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
+const { isAllowedMissionLink } = require('./mission-links');
+const { APP_ORIGIN, serveApp } = require('./app-protocol');
+
+// Must run before the app is ready. "standard" gives app:// a real origin, so
+// ES modules, fetch() of local JSON and the CSP's 'self' all work.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -19,7 +28,7 @@ function createWindow() {
       sandbox: true,
     },
   });
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.loadURL(`${APP_ORIGIN}index.html`);
 
   // The renderer only ever loads the bundled local page; it has no reason to
   // navigate away or spawn windows.
@@ -27,16 +36,20 @@ function createWindow() {
   win.webContents.on('will-navigate', (event) => event.preventDefault());
 }
 app.whenReady().then(() => {
+  protocol.handle('app', (request) => serveApp(request.url, __dirname));
   // Modules the engine itself marked fixable in the scans this process ran.
   const fixPolicy = createFixPolicy();
   // Findings the engine offered as "This is mine" in the scans this process ran.
   const markPolicy = createMarkPolicy();
+  // The last full scan this process ran, with any re-checks merged in.
+  let lastDoc = null;
   ipcMain.handle('run-scan', async (e, profile) => {
     const doc = await runScan(undefined, profile, (ev) => {
       if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
     });
     fixPolicy.remember(doc);
     markPolicy.remember(doc);
+    lastDoc = doc;
     return doc;
   });
   ipcMain.handle('run-fix', (_e, moduleName) =>
@@ -50,10 +63,25 @@ app.whenReady().then(() => {
     handleMark(id, { policy: markPolicy, runMark }));
   ipcMain.handle('unmark-mine', (_e, id) =>
     handleUnmark(id, { policy: markPolicy, runUnmark }));
+  ipcMain.handle('recheck-module', (_e, name) =>
+    handleRecheck(name, {
+      getLastDoc: () => lastDoc,
+      setLastDoc: (d) => { lastDoc = d; },
+      runRecheck: (n) => runRecheck(n),
+      policies: [fixPolicy, markPolicy],
+    }));
   ipcMain.handle('open-guide', (_e, url) => {
     if (!isAllowedGuideUrl(url)) {
       return false;
     }
+    shell.openExternal(url);
+    return true;
+  });
+  // A link inside a Reclaim City mission (an account's security page). Only the
+  // exact links in the game's own data open; the renderer shows anything else as
+  // text to copy.
+  ipcMain.handle('open-mission-link', (_e, url) => {
+    if (!isAllowedMissionLink(url)) return false;
     shell.openExternal(url);
     return true;
   });

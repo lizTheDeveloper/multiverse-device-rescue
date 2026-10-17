@@ -1,0 +1,22 @@
+{
+  "files": [
+    "components/building.js", "components/hud.js", "components/password-progress.js", "components/scout.js",
+    "data/accounts-clinic.js", "data/accounts-foundry.js", "data/accounts-freeway.js", "data/accounts-grid.js",
+    "data/accounts-perimeter.js", "data/accounts-reclamation.js", "data/accounts-sam-additions.js",
+    "data/accounts-trail.js", "data/accounts-vault-capitol-additions.js", "data/accounts.js",
+    "data/dialogue.js", "data/districts.js",
+    "data/missions-clinic.js", "data/missions-foundry.js", "data/missions-freeway.js", "data/missions-grid.js",
+    "data/missions-osint-sieve.js", "data/missions-passwords.js", "data/missions-perimeter.js",
+    "data/missions-reclamation.js", "data/missions-recon-accounts.js",
+    "data/missions-square-archives-marketplace.js", "data/missions-trail.js", "data/missions-vault-capitol.js",
+    "data/missions.js", "data/phishing.js",
+    "router.js",
+    "screens/briefing.js", "screens/debrief.js", "screens/district.js", "screens/milestone.js",
+    "state.js",
+    "utils/bursts.js", "utils/calc.js", "utils/debrief.js", "utils/errorNoise.js", "utils/errors.js",
+    "utils/keyboard.js", "utils/migrate-answers.js", "utils/mission-status.js", "utils/password-need.js",
+    "utils/pm-categories.js", "utils/pm-numbers.js", "utils/scout-feelings.js", "utils/two-factor.js",
+    "style.css"
+  ],
+  "overrides": { "components/hud.js": "game/rc-overrides/hud.js" }
+}

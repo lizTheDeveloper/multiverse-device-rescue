@@ -6,7 +6,9 @@ contextBridge.exposeInMainWorld('rescue', {
   undoFix: (quarantineId) => ipcRenderer.invoke('undo-fix', quarantineId),
   markMine: (id) => ipcRenderer.invoke('mark-mine', id),
   unmarkMine: (id) => ipcRenderer.invoke('unmark-mine', id),
+  recheckModule: (name) => ipcRenderer.invoke('recheck-module', name),
   openGuide: (url) => ipcRenderer.invoke('open-guide', url),
+  openMissionLink: (url) => ipcRenderer.invoke('open-mission-link', url),
   onScanEvent: (cb) => {
     const listener = (_e, ev) => cb(ev);
     ipcRenderer.on('scan-event', listener);

@@ -16,7 +16,7 @@ from rescue.guides import discover_guides
 from rescue.models import ActionKind, CheckResult, Mode, RiskLevel
 from rescue.orchestrator import Orchestrator
 from rescue.profiler.base import detect_platform, gather_profile
-from rescue.profiles import ProfileValidationError, discover_profiles, validate_profile_modules
+from rescue.profiles import Profile, ProfileValidationError, discover_profiles, validate_profile_modules
 from rescue.registry import discover_modules
 from rescue.remediation import load_remediation_walkthroughs
 from rescue.runtime import bundled_root, content_directory
@@ -83,6 +83,23 @@ def _load_profile_or_exit(profile_name: str):
     return profile
 
 
+def _module_only_profile(module_names):
+    """A throwaway profile that runs only the named modules, in the order given."""
+    names = list(dict.fromkeys(module_names))
+    available = {m.name for m in discover_modules(_get_modules_dir())}
+    unknown = [n for n in names if n not in available]
+    if unknown:
+        click.echo(f"Unknown module(s): {', '.join(unknown)}", err=True)
+        click.echo(f"Available: {', '.join(sorted(available))}", err=True)
+        raise SystemExit(1)
+    return Profile(
+        name="selected_modules",
+        display_name="Selected modules",
+        description="Only the modules named with --module.",
+        include_modules=names,
+    )
+
+
 @click.group(invoke_without_command=True)
 @click.option("--auto", is_flag=True, help="Run all checks and apply safe fixes automatically.")
 @click.option("--profile", "profile_name", default=None, help="Threat-model profile to apply (filters/configures modules).")
@@ -143,6 +160,12 @@ def version():
 @click.option("--json", "as_json", is_flag=True, help="Emit read-only check results as JSON on stdout.")
 @click.option("--profile", "profile_name", default=None, help="Only run the modules a profile selects.")
 @click.option(
+    "--module",
+    "module_names",
+    multiple=True,
+    help="Only run this module (repeatable). Read-only; same JSON. Not with --profile.",
+)
+@click.option(
     "--progress",
     is_flag=True,
     help='Write one {"progress": ...} JSON line per check to stderr as the scan runs.',
@@ -157,10 +180,15 @@ def version():
     is_flag=True,
     help='Skip the "Who made it?" lookups (code-signature checks) that add made_by to findings.',
 )
-def scan(as_json, profile_name, progress, trace, no_attribution):
+def scan(as_json, profile_name, module_names, progress, trace, no_attribution):
     """Run read-only checks. With --json, print structured results to stdout."""
     from rescue.serialize import checks_to_json
-    threat_profile = _load_profile_or_exit(profile_name) if profile_name else None
+    if profile_name and module_names:
+        raise click.UsageError("Use --profile or --module, not both.")
+    if module_names:
+        threat_profile = _module_only_profile(module_names)
+    else:
+        threat_profile = _load_profile_or_exit(profile_name) if profile_name else None
     profile = gather_profile()
     orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile)
     if trace:

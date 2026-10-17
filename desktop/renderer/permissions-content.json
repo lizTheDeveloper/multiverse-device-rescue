@@ -21,7 +21,7 @@
     },
     {
       "title": "Administrator password",
-      "body": "You'll only be asked for your administrator password if you choose to apply a fix that changes a system setting. Read-only checks never ask for your password.",
+      "body": "Device Rescue never asks you for a password. Your Mac may show its own administrator prompt for some checks or fixes. That's macOS asking, in its own window, and Device Rescue never sees what you type.",
       "action_label": null,
       "setting_url": null
     },

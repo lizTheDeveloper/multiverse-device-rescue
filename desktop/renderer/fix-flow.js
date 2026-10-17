@@ -167,7 +167,14 @@ const FixFlow = (function () {
   // is the preload bridge to the 'run-fix' IPC channel. `hooks` (optional):
   // onFixed(cards) after a fix the engine confirmed by checking again, and
   // onRestored(cards) after Undo put it back, with every card it covered.
+  // onResult({kind, module, result, described}) after the engine answers
+  // (game mode).
   function attach(root, api, hooks) {
+    const onResult = hooks && typeof hooks.onResult === 'function' ? hooks.onResult : null;
+    function notify(kind, card, result, described) {
+      if (!onResult) return;
+      try { onResult({ kind, module: card.getAttribute('data-fix-module'), result, described }); } catch (_) { /* a listener must never break a fix */ }
+    }
     const state = new WeakMap(); // card element -> 'confirming' | 'running'
     const on = hooks || {};
 
@@ -241,6 +248,7 @@ const FixFlow = (function () {
         const result = action ? await api.runAction(action, actionTarget) : await api.runFix(name);
         status.innerHTML = resultHtml(result);
         const d = describeFixResult(result);
+        notify('fix', card, result, d);
         state.delete(card);
         const others = action && (d.tone === 'success' || d.tone === 'info') ? markHandledElsewhere(card) : [];
         if (d.tone === 'success' && typeof on.onFixed === 'function') on.onFixed([card, ...others]);
@@ -263,7 +271,9 @@ const FixFlow = (function () {
       try {
         const result = await api.undoFix(id);
         status.innerHTML = resultHtml(result);
-        if (describeFixResult(result).restored === true) {
+        const d = describeFixResult(result);
+        notify('undo', card, result, d);
+        if (d.restored === true) {
           if (open) open.hidden = false;
           const others = unmarkHandledElsewhere(card);
           if (typeof on.onRestored === 'function') on.onRestored([card, ...others]);
@@ -309,4 +319,8 @@ const FixFlow = (function () {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = FixFlow;
+}
+// A top-level const isn't a window property; game mode's ES modules read it from window.
+if (typeof window !== 'undefined') {
+  window.FixFlow = FixFlow;
 }

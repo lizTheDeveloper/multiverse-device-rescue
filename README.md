@@ -68,10 +68,31 @@ When it finds something, it explains what it means and walks you through
 fixing it, one step at a time. A check that couldn't run says so. It doesn't
 pretend everything is fine.
 
-It looks at your computer, not your online accounts. To learn passwords and
-two-step sign-in properly, [Reclaim City](https://play.multiversegames.ai/reclaim-city/)
-is a free game from the same team that walks you through them one account at a
-time. You don't need an account to play.
+Prefer to play? Choose **Play it as a game** and the same checkup becomes a
+city to take back, one building at a time, in the style of
+[Reclaim City](https://play.multiversegames.ai/reclaim-city/). It's the same
+checks and the same fixes, and each fix still asks first.
+
+Before the checkup you can play a few short lessons in the Training Grounds:
+what a real security tool never asks you for, what starts on its own, what
+"couldn't check" means. They're optional. "Skip to the checkup" is always
+there, and the checkup itself is the final boss. A lesson only teaches; it
+never counts as a fix, and nothing in the city lights up because of one.
+
+A building only lights up once Device Rescue has checked again and the problem
+is gone. If you've said someone may be watching you, the app doesn't offer the
+game, and if monitoring software turns up during a checkup, the game stays
+closed for the rest of that session. "Plain view" takes you back to the
+ordinary screen whenever you like.
+
+The same city also holds Reclaim City's districts for your accounts: email,
+banking, social media and more. Those you do in your own browser and report
+back. The city always counts what your computer confirmed separately from what
+you reported, so it never claims more than it knows.
+
+The checkup itself looks at your computer, not your online accounts. You can
+also play [Reclaim City](https://play.multiversegames.ai/reclaim-city/) on its
+own: it's free, from the same team, and you don't need an account to play.
 
 ---
 

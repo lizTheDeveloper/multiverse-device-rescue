@@ -1,0 +1,579 @@
+<title>Device Rescue Game Mode</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+/* Layout: a review sheet. A left jump-nav, then each screen in its own app window, with a note on what's real. Single dark theme on purpose: this is Reclaim City's world. */
+:root {
+  color-scheme: dark;
+  /* Reclaim City's own tokens (src/style.css) */
+  --cyan: #00E5FF;
+  --magenta: #FF2D9B;
+  --lime: #C6FF00;
+  --amber: #FF9F00;
+  --charcoal: #1A1F2B;
+  --midnight: #090B10;
+  --offwhite: #EDEFF3;
+  --dim: rgba(237,239,243,0.55);
+  --faint: rgba(237,239,243,0.32);
+  --line: rgba(0,229,255,0.15);
+  --panel: rgba(26,31,43,0.55);
+  /* Device Rescue's own tokens (desktop/renderer/styles.css), used inside its window only */
+  --dr-bg: #f6f4ef;
+  --dr-surface: #ffffff;
+  --dr-border: #e3ddd0;
+  --dr-text: #23241f;
+  --dr-muted: #6b6a60;
+  --dr-brand: #1f6f5c;
+  --dr-brand-strong: #16584a;
+
+  --font-display: 'Orbitron', 'Arial Black', sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; } }
+body {
+  background: var(--midnight);
+  color: var(--offwhite);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+}
+img { image-rendering: pixelated; }
+a { color: var(--cyan); }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.page {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 40px;
+}
+@media (max-width: 900px) { .page { grid-template-columns: minmax(0,1fr); gap: 24px; } }
+
+/* ---------- sheet chrome ---------- */
+.intro { grid-column: 1 / -1; display: grid; gap: 10px; max-width: 70ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px; color: var(--cyan); text-transform: uppercase; }
+h1 { font-family: var(--font-display); font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: 1px; line-height: 1.2; margin: 0; text-wrap: balance; }
+h1 span { color: var(--cyan); text-shadow: 0 0 18px rgba(0,229,255,0.35); }
+.intro p { margin: 0; color: var(--dim); }
+
+nav.jump { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; display: grid; gap: 18px; }
+@media (max-width: 900px) { nav.jump { position: static; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); } }
+.jump-group { display: grid; gap: 4px; }
+.jump-group h2 { font-family: var(--font-display); font-size: 9px; letter-spacing: 3px; color: var(--faint); margin: 0 0 4px; font-weight: 700; }
+.jump a { font-size: 13px; color: var(--dim); text-decoration: none; padding: 3px 0 3px 10px; border-left: 2px solid transparent; }
+.jump a:hover { color: var(--offwhite); border-left-color: var(--cyan); }
+
+.screens { display: grid; gap: 64px; min-width: 0; }
+.shot { display: grid; gap: 14px; scroll-margin-top: 24px; min-width: 0; }
+.shot-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 14px; }
+.spec-chip { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 3px 8px; border: 1px solid; }
+.spec-chip.a { color: var(--cyan); border-color: rgba(0,229,255,0.35); }
+.spec-chip.b { color: var(--magenta); border-color: rgba(255,45,155,0.4); }
+.spec-chip.c { color: var(--lime); border-color: rgba(198,255,0,0.35); }
+.shot-head h3 { font-family: var(--font-display); font-size: 15px; letter-spacing: 1px; margin: 0; font-weight: 700; }
+.shot-note { margin: 0; color: var(--dim); font-size: 14px; max-width: 75ch; }
+.shot-note b { color: var(--offwhite); font-weight: 600; }
+
+/* app window frame */
+.win { border: 1px solid rgba(255,255,255,0.1); background: #05070b; box-shadow: 0 30px 60px -30px rgba(0,0,0,0.8); min-width: 0; }
+.win-bar { display: flex; align-items: center; gap: 7px; padding: 9px 12px; background: #11141c; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.win-bar i { width: 11px; height: 11px; border-radius: 50%; background: #3a3f4b; display: block; }
+.win-bar span { margin-left: 8px; font-size: 12px; color: var(--faint); }
+.game { background: linear-gradient(180deg, #090B10 0%, #0d1018 45%, #121828 100%); position: relative; overflow: hidden; }
+.game::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,229,255,0.018) 2px 4px); }
+
+/* ---------- game components ---------- */
+.hud { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: rgba(9,11,16,0.6); }
+.hud-title { font-family: var(--font-display); font-weight: 800; font-size: 12px; letter-spacing: 3px; color: var(--cyan); margin-right: auto; text-shadow: 0 0 10px rgba(0,229,255,0.35); }
+.stat { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid; font-family: var(--font-mono); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat small { font-family: var(--font-display); font-size: 7px; letter-spacing: 1px; font-weight: 600; }
+.stat.lime { color: var(--lime); border-color: rgba(198,255,0,0.3); background: rgba(198,255,0,0.06); }
+.stat.mag { color: var(--magenta); border-color: rgba(255,45,155,0.3); background: rgba(255,45,155,0.06); }
+.stat.amb { color: var(--amber); border-color: rgba(255,159,0,0.3); background: rgba(255,159,0,0.06); }
+.stat.cyan { color: var(--cyan); border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.06); }
+.stat.grey { color: var(--dim); border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.03); }
+
+.switch { display: inline-flex; border: 1px solid rgba(0,229,255,0.3); }
+.switch b { font-family: var(--font-display); font-size: 9px; letter-spacing: 2px; padding: 6px 12px; font-weight: 700; color: var(--dim); }
+.switch b.on { background: var(--cyan); color: var(--midnight); }
+
+.label { font-family: var(--font-display); font-size: 8px; font-weight: 700; letter-spacing: 3px; color: rgba(0,229,255,0.6); }
+.panel { background: var(--panel); border: 1px solid var(--line); padding: 18px; }
+.panel.active { border-color: rgba(0,229,255,0.35); box-shadow: 0 0 18px rgba(0,229,255,0.06); }
+
+.btn-p { font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--midnight); background: var(--cyan); padding: 13px 22px; border: 0; box-shadow: 0 0 20px rgba(0,229,255,0.35), 0 4px 0 #009bb3; display: inline-block; }
+.btn-s { font-family: var(--font-display); font-size: 10px; font-weight: 600; letter-spacing: 1px; color: var(--cyan); background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.3); padding: 10px 16px; display: inline-block; }
+.btn-s.mag { color: var(--magenta); background: rgba(255,45,155,0.08); border-color: rgba(255,45,155,0.35); }
+.btn-s.lime { color: var(--lime); background: rgba(198,255,0,0.07); border-color: rgba(198,255,0,0.35); }
+.btn-t { font-size: 13px; color: var(--faint); }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+.badge { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; padding: 3px 7px; border: 1px solid; white-space: nowrap; }
+.badge.crit { color: var(--magenta); background: rgba(255,45,155,0.1); border-color: rgba(255,45,155,0.3); }
+.badge.warn { color: var(--amber); background: rgba(255,159,0,0.1); border-color: rgba(255,159,0,0.3); }
+.badge.safe { color: var(--lime); background: rgba(198,255,0,0.1); border-color: rgba(198,255,0,0.3); }
+.badge.skip { color: var(--dim); background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.12); }
+.badge.fog { color: #9fb3c8; background: rgba(159,179,200,0.08); border-color: rgba(159,179,200,0.3); }
+.badge.yours { color: #b49cff; background: rgba(180,156,255,0.1); border-color: rgba(180,156,255,0.35); }
+.badge.cyan { color: var(--cyan); background: rgba(0,229,255,0.07); border-color: rgba(0,229,255,0.3); }
+
+/* Scout: last frame of a 7-frame 64px sprite sheet */
+.scout { width: 72px; height: 72px; background-repeat: no-repeat; background-size: 700% 100%; background-position: 100% 0; image-rendering: pixelated; filter: drop-shadow(0 0 8px rgba(0,229,255,0.3)); flex: none; }
+.scout.sm { width: 54px; height: 54px; }
+.s-happy { background-image: url(art/happy.png); }
+.s-think { background-image: url(art/thinking-a.png); }
+.s-worry { background-image: url(art/worried.png); }
+.s-proud { background-image: url(art/proud.png); }
+.s-wave  { background-image: url(art/wave.png); }
+.say { background: rgba(9,11,16,0.7); border: 1px solid var(--line); padding: 12px 14px; font-size: 13px; color: rgba(237,239,243,0.72); font-style: italic; line-height: 1.6; }
+.scout-name { font-family: var(--font-display); font-size: 9px; font-weight: 700; letter-spacing: 3px; color: var(--cyan); }
+
+/* ---------- city map ---------- */
+.map { padding: 22px 18px 26px; display: grid; gap: 18px; position: relative; z-index: 1; }
+.ring-label { display: flex; align-items: center; gap: 10px; }
+.ring-label .label { color: var(--faint); }
+.ring-label::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.districts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.district { border: 1px solid var(--line); background: rgba(26,31,43,0.45); padding: 14px; display: grid; gap: 10px; align-content: start; position: relative; min-width: 0; }
+.district.hot { border-color: rgba(255,45,155,0.4); box-shadow: 0 0 22px rgba(255,45,155,0.08) inset; }
+.district.warmish { border-color: rgba(255,159,0,0.35); }
+.district.clear { border-color: rgba(198,255,0,0.3); }
+.district.fogged { border-style: dashed; border-color: rgba(159,179,200,0.35); }
+.district h4 { margin: 0; font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; font-weight: 800; }
+.district p { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.45; }
+.skyline { display: flex; align-items: flex-end; gap: 2px; height: 70px; }
+.skyline img { width: 52px; height: auto; }
+.skyline img.tower { width: 30px; }
+.skyline img.dark { filter: brightness(0.55) saturate(0.8); }
+.skyline img.lit { filter: brightness(1.1) drop-shadow(0 0 6px rgba(198,255,0,0.35)); }
+.skyline img.warm { filter: drop-shadow(0 0 5px rgba(255,159,0,0.35)); }
+.skyline.fog { position: relative; }
+.skyline.fog img { filter: blur(2px) brightness(0.45) grayscale(1); opacity: 0.7; }
+.skyline.fog::after { content: ''; position: absolute; inset: -6px -10px; background: radial-gradient(closest-side, rgba(159,179,200,0.28), transparent); }
+.d-foot { display: flex; flex-wrap: wrap; gap: 6px; }
+.account .skyline img { width: 46px; }
+
+/* ---------- briefing layout ---------- */
+.brief { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); position: relative; z-index: 1; }
+@media (max-width: 720px) { .brief { grid-template-columns: minmax(0,1fr); } }
+.brief-main { padding: 22px; display: grid; gap: 18px; align-content: start; min-width: 0; }
+.brief-side { padding: 22px; border-left: 1px solid rgba(0,229,255,0.1); background: rgba(26,31,43,0.4); display: grid; gap: 14px; align-content: start; justify-items: center; }
+@media (max-width: 720px) { .brief-side { border-left: 0; border-top: 1px solid rgba(0,229,255,0.1); } }
+.crumbs { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; color: var(--faint); }
+.crumbs b { color: var(--dim); font-weight: 400; }
+.m-title { font-family: var(--font-display); font-size: clamp(18px, 2.4vw, 24px); font-weight: 800; letter-spacing: 1px; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
+.m-title span { color: var(--cyan); text-shadow: 0 0 14px rgba(0,229,255,0.3); }
+.intel { font-size: 14px; color: rgba(237,239,243,0.78); line-height: 1.7; margin: 8px 0 0; }
+.mono { font-family: var(--font-mono); font-size: 12.5px; color: var(--offwhite); background: rgba(0,229,255,0.06); padding: 1px 5px; overflow-wrap: anywhere; }
+.steps { display: grid; gap: 12px; margin-top: 12px; }
+.step { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; gap: 10px; align-items: start; }
+.step-n { font-family: var(--font-mono); font-weight: 700; color: var(--cyan); text-align: center; text-shadow: 0 0 8px rgba(0,229,255,0.4); }
+.step-t { font-size: 14px; line-height: 1.5; }
+.step-t small { display: block; color: var(--dim); font-size: 12.5px; margin-top: 2px; }
+@media (max-width: 520px) { .step { grid-template-columns: 24px minmax(0,1fr); } .step .badge { grid-column: 2; justify-self: start; } }
+
+.confirm { border: 1px solid rgba(0,229,255,0.45); background: rgba(0,229,255,0.05); padding: 16px; display: grid; gap: 10px; }
+.confirm h5 { margin: 0; font-family: var(--font-display); font-size: 11px; letter-spacing: 2px; color: var(--cyan); }
+.confirm p { margin: 0; font-size: 14px; }
+.confirm ul { margin: 0; padding-left: 18px; color: var(--dim); font-size: 13px; }
+.dr-note { font-family: var(--font-mono); font-size: 10px; color: var(--faint); }
+
+/* ---------- outcomes ---------- */
+.outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--line); position: relative; z-index: 1; }
+.outcome { background: #0b0e15; padding: 20px; display: grid; gap: 12px; align-content: start; justify-items: start; }
+.outcome h5 { margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 900; letter-spacing: 2px; }
+.outcome p { margin: 0; font-size: 13.5px; color: rgba(237,239,243,0.75); }
+.o-win h5 { color: var(--lime); text-shadow: 0 0 14px rgba(198,255,0,0.35); }
+.o-not h5 { color: var(--amber); }
+.o-err h5 { color: #9fb3c8; }
+.before-after { display: flex; align-items: flex-end; gap: 10px; }
+.before-after img { width: 56px; }
+.before-after .arrow { font-family: var(--font-mono); color: var(--lime); padding-bottom: 18px; }
+.choices { display: grid; gap: 6px; width: 100%; }
+.choice { border: 1px solid rgba(255,255,255,0.12); padding: 8px 10px; font-size: 13px; color: var(--dim); }
+.choice.sel { border-color: rgba(0,229,255,0.5); color: var(--offwhite); background: rgba(0,229,255,0.06); }
+
+/* ---------- Device Rescue window ---------- */
+.dr { background: var(--dr-bg); color: var(--dr-text); padding: 28px 20px 36px; display: grid; justify-items: center; }
+.dr-head { width: 100%; max-width: 720px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 22px; }
+.dr-brand { font-weight: 700; font-size: 15px; display: flex; gap: 8px; align-items: center; }
+.dr-brand i { width: 22px; height: 22px; border-radius: 6px; background: var(--dr-brand); display: block; }
+.dr-steps { display: flex; gap: 14px; font-size: 12px; color: var(--dr-muted); flex-wrap: wrap; }
+.dr-steps b { color: var(--dr-brand); }
+.dr-card { width: 100%; max-width: 620px; background: var(--dr-surface); border: 1px solid var(--dr-border); border-radius: 20px; padding: 30px; display: grid; gap: 16px; box-shadow: 0 1px 2px rgba(30,25,15,0.05), 0 8px 24px -12px rgba(30,25,15,0.18); }
+.dr-card h4 { margin: 0; font-size: 26px; line-height: 1.2; text-wrap: balance; }
+.dr-card p { margin: 0; color: var(--dr-muted); }
+.dr-safe { background: #f1efe8; border-radius: 14px; padding: 12px 14px; font-size: 14px; }
+.dr-btns { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.dr-btn { background: var(--dr-brand); color: #fff; border-radius: 12px; padding: 14px 24px; font-weight: 600; font-size: 16px; }
+.dr-game { display: inline-flex; align-items: center; gap: 10px; border-radius: 12px; padding: 10px 16px 10px 10px; font-weight: 600; font-size: 15px; background: #0b0e15; color: var(--cyan); border: 1px solid #0b0e15; }
+.dr-game .scout { width: 32px; height: 32px; filter: none; }
+.dr-game small { display: block; font-weight: 400; font-size: 12px; color: rgba(237,239,243,0.6); }
+.new-tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; color: var(--magenta); border: 1px dashed var(--magenta); padding: 2px 6px; }
+
+/* ---------- training + boss ---------- */
+.train { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); position: relative; z-index: 1; }
+@media (max-width: 760px) { .train { grid-template-columns: minmax(0,1fr); } }
+.lessons { padding: 20px; display: grid; gap: 8px; align-content: start; border-right: 1px solid var(--line); }
+@media (max-width: 760px) { .lessons { border-right: 0; border-bottom: 1px solid var(--line); } }
+.lesson { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(26,31,43,0.4); }
+.lesson b { font-size: 13.5px; font-weight: 600; }
+.lesson small { grid-column: 1; color: var(--faint); font-size: 12px; }
+.lesson.cur { border-color: rgba(198,255,0,0.45); background: rgba(198,255,0,0.05); }
+.lesson .badge { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+.quiz { padding: 22px; display: grid; gap: 14px; align-content: start; }
+.q { font-size: 16px; font-weight: 600; margin: 0; }
+.opt { border: 1px solid rgba(255,255,255,0.14); padding: 11px 14px; font-size: 14px; display: flex; gap: 10px; }
+.opt::before { content: attr(data-k); font-family: var(--font-mono); color: var(--faint); }
+.opt.right { border-color: rgba(198,255,0,0.55); background: rgba(198,255,0,0.06); }
+.feedback { border-left: 2px solid var(--lime); padding: 4px 0 4px 12px; font-size: 13.5px; color: rgba(237,239,243,0.8); }
+.skip-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line); background: rgba(9,11,16,0.6); position: relative; z-index: 1; }
+.skip-bar span { font-size: 12.5px; color: var(--faint); }
+
+.boss { padding: 24px 18px; display: grid; gap: 18px; position: relative; z-index: 1; }
+.boss-top { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 14px; align-items: center; }
+.boss h4 { margin: 0; font-family: var(--font-display); font-weight: 900; letter-spacing: 3px; font-size: clamp(18px, 3vw, 26px); color: var(--magenta); text-shadow: 0 0 18px rgba(255,45,155,0.4); }
+.bar { height: 10px; border: 1px solid rgba(0,229,255,0.35); background: rgba(0,229,255,0.04); position: relative; }
+.bar i { position: absolute; inset: 0 51% 0 0; background: linear-gradient(90deg, rgba(0,229,255,0.5), var(--cyan)); box-shadow: 0 0 14px rgba(0,229,255,0.5); }
+.bar-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.sweep .district { min-height: 0; }
+.district.swept .skyline img { filter: brightness(0.75) grayscale(0.6); }
+.district.sweeping { border-color: rgba(0,229,255,0.6); box-shadow: 0 0 24px rgba(0,229,255,0.15) inset; }
+.district.sweeping .skyline { position: relative; }
+.district.sweeping .skyline::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%; left: 0; background: linear-gradient(90deg, transparent, rgba(0,229,255,0.35), transparent); animation: sweep 1.8s linear infinite; }
+@keyframes sweep { from { transform: translateX(-30%); } to { transform: translateX(330%); } }
+.district.waiting .skyline img { filter: brightness(0.3) grayscale(1); }
+
+.footnote { color: var(--faint); font-size: 13px; max-width: 75ch; margin: 0; }
+</style>
+
+<div class="page">
+  <header class="intro">
+    <div class="eyebrow">Mockups · not built yet</div>
+    <h1>Device Rescue <span>Game Mode</span></h1>
+    <p>What the three specs would look like on screen. The art and colors are Reclaim City's real ones. The finding, its steps and the fix wording come from Device Rescue as it is today (the launch agent audit, its walkthrough guide, and <code class="mono">app_fixes.json</code>). Program names and counts are examples.</p>
+  </header>
+
+  <nav class="jump" aria-label="Screens">
+    <div class="jump-group">
+      <h2>A · DEVICE MISSIONS</h2>
+      <a href="#welcome">Welcome</a>
+      <a href="#city">City map</a>
+      <a href="#briefing">Briefing and fix</a>
+      <a href="#recheck">Re-check outcomes</a>
+    </div>
+    <div class="jump-group">
+      <h2>B · ONE CITY</h2>
+      <a href="#onecity">Combined map</a>
+      <a href="#harden">Confirmed by your computer</a>
+    </div>
+    <div class="jump-group">
+      <h2>C · TRAINING GROUNDS</h2>
+      <a href="#training">A lesson</a>
+      <a href="#boss">The final boss</a>
+    </div>
+  </nav>
+
+  <main class="screens">
+
+    <!-- A1 welcome -->
+    <section class="shot" id="welcome">
+      <div class="shot-head"><span class="spec-chip a">SPEC A</span><h3>Welcome screen, with a second door</h3></div>
+      <p class="shot-note">The app stays Device Rescue. The only change is one new button. It goes through the same worry and checkup screens. If the person then picks <b>"someone is watching me"</b> or <b>iPhone spyware</b>, they carry on in the normal list view and are never shown the city.</p>
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>Device Rescue</span></div>
+        <div class="dr">
+          <div class="dr-head">
+            <div class="dr-brand"><i></i>Device Rescue</div>
+            <div class="dr-steps"><b>1 Welcome</b><span>2 Your worry</span><span>3 Checkup</span><span>4 Results</span></div>
+          </div>
+          <div class="dr-card">
+            <h4>Let's check on your device</h4>
+            <p>Device Rescue looks over your Mac, Windows PC, or Linux machine for signs of trouble: unwanted software, risky settings, and things worth double-checking. It explains what it finds in plain language, so you can decide what to do next.</p>
+            <div class="dr-safe"><strong>Read-only by default.</strong> Device Rescue only looks. It never changes anything on your device without your explicit OK.</div>
+            <div class="dr-btns">
+              <span class="dr-btn">Get started</span>
+              <span class="dr-game"><span class="scout s-wave"></span><span>Play it as a game<small>Same checkup, as a city to take back</small></span></span>
+              <span class="new-tag">NEW</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- A2 city map -->
+    <section class="shot" id="city">
+      <div class="shot-head"><span class="spec-chip a">SPEC A</span><h3>Your computer as a city</h3></div>
+      <p class="shot-note">There's one district for each kind of problem. A critical finding is a dark tower and a warning is a dark block. <b>Fog means a check couldn't run</b>, and it says so: it's never shown as clear. Info findings go in each district's Notes, so they don't crowd the map. The List / City switch goes back to the normal results at any time.</p>
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>Device Rescue · Results</span></div>
+        <div class="game">
+          <div class="hud">
+            <span class="hud-title">YOUR COMPUTER</span>
+            <span class="stat mag">2 <small>CRITICAL</small></span>
+            <span class="stat amb">3 <small>WARNING</small></span>
+            <span class="stat lime">0/5 <small>RECLAIMED</small></span>
+            <span class="stat grey">4 <small>COULDN'T CHECK</small></span>
+            <span class="switch"><b>LIST</b><b class="on">CITY</b></span>
+          </div>
+          <div class="map">
+            <div class="districts">
+              <div class="district hot">
+                <h4>THE GATEHOUSE</h4>
+                <div class="skyline"><img class="tower dark" src="art/iso_tower_occ.png" alt=""><img class="dark" src="art/iso_occupied.png" alt=""><img class="tower dark" src="art/iso_tower_occ.png" alt=""></div>
+                <p>Security: things that start on their own, permissions, protection.</p>
+                <div class="d-foot"><span class="badge crit">2 CRITICAL</span><span class="badge warn">1 WARNING</span><span class="badge skip">6 NOTES</span></div>
+              </div>
+              <div class="district fogged">
+                <h4>THE WIRES</h4>
+                <div class="skyline fog"><img src="art/iso_occupied.png" alt=""><img class="tower" src="art/iso_tower_occ.png" alt=""></div>
+                <p>Couldn't check here. That doesn't mean it's safe. 3 network checks need permission to see Wi-Fi.</p>
+                <div class="d-foot"><span class="badge fog">FOG · 3 CHECKS</span></div>
+              </div>
+              <div class="district warmish">
+                <h4>THE FOUNDATIONS</h4>
+                <div class="skyline"><img class="warm" src="art/iso_progress.png" alt=""><img class="lit" src="art/iso_liberated.png" alt=""></div>
+                <p>Integrity: updates, disk health, system files.</p>
+                <div class="d-foot"><span class="badge warn">1 WARNING</span><span class="badge skip">4 NOTES</span><span class="badge fog">1 FOG</span></div>
+              </div>
+              <div class="district clear">
+                <h4>THE ENGINE ROOM</h4>
+                <div class="skyline"><img class="lit" src="art/iso_liberated.png" alt=""><img class="tower lit" src="art/iso_tower_lib.png" alt=""></div>
+                <p>Nothing found here. Performance checks all ran.</p>
+                <div class="d-foot"><span class="badge safe">NOTHING FOUND</span><span class="badge skip">2 NOTES</span></div>
+              </div>
+              <div class="district warmish">
+                <h4>THE JUNKYARD</h4>
+                <div class="skyline"><img class="dark" src="art/iso_occupied.png" alt=""><img class="lit" src="art/iso_liberated.png" alt=""></div>
+                <p>Clutter: preinstalled extras and leftovers.</p>
+                <div class="d-foot"><span class="badge warn">1 WARNING</span><span class="badge skip">9 NOTES</span></div>
+              </div>
+            </div>
+            <div class="row" style="align-items:flex-start; gap:14px; flex-wrap:nowrap;">
+              <span class="scout sm s-think"></span>
+              <div class="say" style="flex:1; min-width:0;">"Start with the Gatehouse. Two things there start up on their own and I don't recognize who made them. Nothing here means you've been hacked. It means they're worth a look."</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- A3 briefing -->
+    <section class="shot" id="briefing">
+      <div class="shot-head"><span class="spec-chip a">SPEC A</span><h3>A mission briefing: one real finding</h3></div>
+      <p class="shot-note">The briefing is the finding's own description, plus steps from its remediation walkthrough. <b>"Fix it for me" opens Device Rescue's existing confirmation, word for word</b> (shown open here), so nothing happens without a yes. "This is mine" uses the existing mark flow. "I did it" is for doing the steps yourself. Every one of these ends in a re-check.</p>
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>Device Rescue · The Gatehouse</span></div>
+        <div class="game">
+          <div class="hud"><span class="hud-title">THE GATEHOUSE</span><span class="stat lime">0/3 <small>RECLAIMED</small></span><span class="switch"><b>LIST</b><b class="on">CITY</b></span></div>
+          <div class="brief">
+            <div class="brief-main">
+              <div class="crumbs">The Gatehouse <span>/</span> <b>BACKGROUND ITEM</b></div>
+              <h4 class="m-title">Investigate suspicious agent:<br><span>com.mediaupdate.helper</span></h4>
+              <div class="row" style="gap:8px;"><span class="badge crit">CRITICAL</span><span class="badge skip">MADE BY: UNKNOWN · NOT SIGNED</span><span class="badge skip">~20 MIN</span></div>
+              <div class="panel">
+                <div class="label">THREAT INTEL</div>
+                <p class="intel">The launch agent <span class="mono">com.mediaupdate.helper</span> points to a suspicious location: <span class="mono">~/Library/Application Support/.mu/helper</span>. Programs that start themselves from hidden folders are a common way adware and malware stay on a Mac after a restart.</p>
+              </div>
+              <div class="panel active">
+                <div class="label" style="color:var(--cyan)">YOUR MOVE</div>
+                <div class="steps">
+                  <div class="step"><span class="step-n">1</span><span class="step-t">Remove high-risk background tasks<small>From the walkthrough "Review and clean launchd persistence".</small></span></div>
+                </div>
+              </div>
+              <div class="confirm" role="group" aria-label="Fix confirmation">
+                <h5>FIX IT FOR ME?</h5>
+                <p><strong>This will:</strong> Stop the background job 'com.mediaupdate.helper' and move its settings file to Device Rescue's quarantine folder. Nothing is deleted.</p>
+                <div><strong style="font-size:14px">To undo later:</strong>
+                  <ul><li>Open Device Rescue and choose Undo on this item</li><li>Or move the file from ~/Library/Application Support/Device Rescue/Quarantine back to ~/Library/LaunchAgents and log out and back in</li></ul></div>
+                <div class="row"><span class="btn-p">YES, FIX IT</span><span class="btn-s">CANCEL</span></div>
+                <span class="dr-note">The existing fix-flow.js panel, unchanged, restyled for the city</span>
+              </div>
+              <div class="row"><span class="btn-s">I DID IT MYSELF</span><span class="btn-s mag">THIS IS MINE</span><span class="btn-t">LATER</span></div>
+            </div>
+            <aside class="brief-side">
+              <span class="scout s-worry"></span>
+              <span class="scout-name">SCOUT</span>
+              <div class="say">"This one starts every time you log in, from a folder that's hidden on purpose. If you didn't install it, let's switch it off. Device Rescue keeps a copy, so you can bring it back."</div>
+              <div class="label" style="color:rgba(0,229,255,0.45)">THIS LIBERATES</div>
+              <div class="before-after"><img src="art/iso_tower_occ.png" alt="" style="width:34px; filter:brightness(0.6)"><span class="arrow" style="color:var(--cyan)">▶</span><img src="art/iso_tower_lib.png" alt="" style="width:34px"></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- A4 recheck -->
+    <section class="shot" id="recheck">
+      <div class="shot-head"><span class="spec-chip a">SPEC A</span><h3>The re-check decides</h3></div>
+      <p class="shot-note">After the fix, Device Rescue re-runs just that one check. The building lights up <b>only if the problem is really gone</b>. Here are the three outcomes side by side. The debrief question only picks Scout's reply. It never changes the result.</p>
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>Device Rescue · Re-check</span></div>
+        <div class="game">
+          <div class="outcomes">
+            <div class="outcome o-win">
+              <span class="badge safe">RE-CHECK: GONE</span>
+              <h5>RECLAIMED</h5>
+              <div class="before-after"><img src="art/iso_tower_occ.png" alt="" style="width:34px; filter:brightness(0.55)"><span class="arrow">▶</span><img src="art/iso_tower_lib.png" alt="" style="width:34px; filter:drop-shadow(0 0 8px rgba(198,255,0,0.5))"></div>
+              <p>Device Rescue checked again, and com.mediaupdate.helper no longer starts on its own.</p>
+              <div class="choices"><span class="label" style="color:var(--faint)">HOW DID THAT GO?</span><span class="choice sel">Easier than I thought</span><span class="choice">A bit nerve-wracking</span><span class="choice">I'm still worried</span></div>
+              <span class="btn-s">UNDO THIS FIX</span>
+            </div>
+            <div class="outcome o-not">
+              <span class="badge warn">RE-CHECK: STILL THERE</span>
+              <h5>NOT YET</h5>
+              <p>Here's what's still showing: <span class="mono">com.mediaupdate.helper</span> is still set to start when you log in.</p>
+              <div class="row" style="gap:10px; flex-wrap:nowrap;"><span class="scout sm s-think"></span><div class="say">"Some programs put their starter back. Let's look at step 1 again together."</div></div>
+              <span class="btn-s">BACK TO THE STEPS</span>
+            </div>
+            <div class="outcome o-err">
+              <span class="badge fog">RE-CHECK: COULDN'T RUN</span>
+              <h5>COULDN'T RE-CHECK</h5>
+              <p>I couldn't re-check this. That doesn't mean it's fixed. The building stays dark until a check can see it.</p>
+              <span class="btn-s">TRY THE RE-CHECK AGAIN</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- B1 one city -->
+    <section class="shot" id="onecity">
+      <div class="shot-head"><span class="spec-chip b">SPEC B</span><h3>One city: the computer and the accounts</h3></div>
+      <p class="shot-note">The device districts become the first ring. Reclaim City's own districts follow, with their real missions. <b>Progress is always counted twice</b>: "Confirmed" (the computer proved it) and "You reported" (the person said so). Someone who picked "I've been hacked" starts the camera on The Master Keys.</p>
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>Device Rescue · City</span></div>
+        <div class="game">
+          <div class="hud">
+            <span class="hud-title">RECLAIM CITY</span>
+            <span class="stat lime">3 <small>CONFIRMED</small></span>
+            <span class="stat cyan">5 <small>YOU REPORTED</small></span>
+            <span class="stat grey">1 <small>MARKED YOURS</small></span>
+            <span class="switch"><b>LIST</b><b class="on">CITY</b></span>
+          </div>
+          <div class="map">
+            <div class="ring-label"><span class="label">RING 0 · YOUR COMPUTER · FROM THE SCAN</span></div>
+            <div class="districts">
+              <div class="district warmish"><h4>THE GATEHOUSE</h4><div class="skyline"><img class="tower lit" src="art/iso_tower_lib.png" alt=""><img class="dark" src="art/iso_occupied.png" alt=""><img class="tower lit" src="art/iso_tower_lib.png" alt=""></div><div class="d-foot"><span class="badge safe">2 CONFIRMED</span><span class="badge warn">1 OPEN</span></div></div>
+              <div class="district fogged"><h4>THE WIRES</h4><div class="skyline fog"><img src="art/iso_occupied.png" alt=""><img class="tower" src="art/iso_tower_occ.png" alt=""></div><div class="d-foot"><span class="badge fog">FOG</span></div></div>
+              <div class="district clear"><h4>THE FOUNDATIONS</h4><div class="skyline"><img class="lit" src="art/iso_liberated.png" alt=""><img class="lit" src="art/iso_liberated.png" alt=""></div><div class="d-foot"><span class="badge safe">1 CONFIRMED</span></div></div>
+              <div class="district warmish"><h4>ENGINE · JUNKYARD</h4><div class="skyline"><img class="lit" src="art/iso_liberated.png" alt=""><img class="dark" src="art/iso_occupied.png" alt=""></div><div class="d-foot"><span class="badge yours">1 YOURS</span></div></div>
+            </div>
+            <div class="ring-label"><span class="label">RECLAIM CITY · YOUR ACCOUNTS · YOU REPORT THESE</span></div>
+            <div class="districts">
+              <div class="district account hot"><h4>THE MASTER KEYS</h4><div class="skyline"><img class="lit" src="art/gmail.png" alt=""><img class="dark" src="art/apple_id_dark.png" alt=""></div><p>Email and sign-in accounts.</p><div class="d-foot"><span class="badge cyan">3 REPORTED</span><span class="badge crit">START HERE</span></div></div>
+              <div class="district account"><h4>THE VAULT</h4><div class="skyline"><img class="dark" src="art/primary_bank_dark.png" alt=""></div><p>Banks and payments.</p><div class="d-foot"><span class="badge skip">NOT STARTED</span></div></div>
+              <div class="district account warmish"><h4>THE PERIMETER</h4><div class="skyline"><img class="warm" src="art/perimeter_firewall.png" alt=""><img class="dark" src="art/perimeter_watchtower.png" alt="" style="filter:brightness(0.5)"></div><p>SIM PIN, hardening, scams.</p><div class="d-foot"><span class="badge cyan">2 REPORTED</span><span class="badge safe">1 CONFIRMED</span></div></div>
+              <div class="district account"><h4>THE SQUARE</h4><div class="skyline"><img class="dark" src="art/facebook_dark.png" alt=""></div><p>Social media.</p><div class="d-foot"><span class="badge skip">NOT STARTED</span></div></div>
+              <div class="district account"><h4>THE RECLAMATION</h4><div class="skyline"><img class="dark" src="art/reclamation_hub_dark.png" alt=""></div><p>Data broker opt-outs.</p><div class="d-foot"><span class="badge skip">NOT STARTED</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- B2 harden your computer -->
+    <section class="shot" id="harden">
+      <div class="shot-head"><span class="spec-chip b">SPEC B</span><h3>A Reclaim City mission the computer can partly confirm</h3></div>
+      <p class="shot-note">This is the Perimeter's real "Harden Your Computer" mission (shortened here). <b>Each step says who vouches for it.</b> The scan confirms some steps, links a problem it found to its device mission, and leaves the rest to the person. If they already reported it done and the scan disagrees, both are shown, and their answer isn't overwritten.</p>
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>Device Rescue · The Perimeter</span></div>
+        <div class="game">
+          <div class="hud"><span class="hud-title">THE PERIMETER</span><span class="stat lime">3 <small>CONFIRMED</small></span><span class="stat cyan">5 <small>YOU REPORTED</small></span></div>
+          <div class="brief">
+            <div class="brief-main">
+              <div class="crumbs">The Perimeter <span>/</span> <b>FORTIFY</b></div>
+              <h4 class="m-title">Harden Your <span>Computer</span></h4>
+              <div class="panel" style="border-color:rgba(255,159,0,0.35)">
+                <p class="intel" style="margin:0"><strong style="color:var(--amber)">You reported this done on Oct 9.</strong> Your computer still shows: FileVault is off. Your answer is kept. This building gets a "check again" marker.</p>
+              </div>
+              <div class="panel active">
+                <div class="label" style="color:var(--cyan)">YOUR MOVE</div>
+                <div class="steps">
+                  <div class="step"><span class="step-n">1</span><span class="step-t">Mac: System Settings → Privacy &amp; Security → FileVault → Turn On FileVault.<small><a href="#briefing">Your computer says disk encryption is off. Fix it in The Gatehouse →</a></small></span><span class="badge crit">PROBLEM FOUND</span></div>
+                  <div class="step"><span class="step-n">2</span><span class="step-t">Require a password after sleep or screen saver: Immediately.</span><span class="badge safe">CONFIRMED BY YOUR COMPUTER</span></div>
+                  <div class="step"><span class="step-n">3</span><span class="step-t">Turn on Find My Mac.<small>The Find My check couldn't run on this Mac.</small></span><span class="badge fog">COULDN'T CHECK</span></div>
+                  <div class="step"><span class="step-n">4</span><span class="step-t">Save the recovery key somewhere safe, not on the Mac.</span><span class="badge skip">YOURS TO CHECK</span></div>
+                </div>
+              </div>
+              <div class="row"><span class="btn-p">I DID IT ✓</span><span class="btn-s">CHECK AGAIN</span><span class="btn-t">NOT NOW</span></div>
+            </div>
+            <aside class="brief-side">
+              <span class="scout s-think"></span>
+              <span class="scout-name">SCOUT</span>
+              <div class="say">"Your computer can see two of these for itself. One's good. One needs doing. The recovery key is yours to look after. No scan can see where you keep it."</div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- C1 training -->
+    <section class="shot" id="training">
+      <div class="shot-head"><span class="spec-chip c">SPEC C</span><h3>The Training Grounds, before the scan</h3></div>
+      <p class="shot-note">Short lessons, with questions and feedback, like Reclaim City's phishing quiz. The person's worry picks which lessons come first. <b>"Skip to the checkup" is on every screen.</b> Lessons never say anything about this person's computer. The scan does that.</p>
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>Device Rescue · Training Grounds</span></div>
+        <div class="game">
+          <div class="hud"><span class="hud-title">THE TRAINING GROUNDS</span><span class="stat lime">1/6 <small>LESSONS</small></span></div>
+          <div class="train">
+            <div class="lessons">
+              <span class="label" style="margin-bottom:4px">RECOMMENDED FOR "SOMEONE IS ON MY WI-FI"</span>
+              <div class="lesson"><b>The tool that asks for your password</b><small>Always first</small><span class="badge safe">DONE</span></div>
+              <div class="lesson cur"><b>Who's on your Wi-Fi</b><small>2 questions</small><span class="badge cyan">NOW</span></div>
+              <div class="lesson"><b>Things that start on their own</b><small>3 questions</small></div>
+              <span class="label" style="margin:10px 0 4px; color:var(--faint)">ALSO HERE</span>
+              <div class="lesson"><b>Updates and the locked door</b><small>3 questions</small></div>
+              <div class="lesson"><b>Browser add-ons</b><small>2 questions</small></div>
+              <div class="lesson"><b>What "couldn't check" means</b><small>1 question</small></div>
+            </div>
+            <div class="quiz">
+              <div class="crumbs">Who's on your Wi-Fi <span>/</span> <b>QUESTION 1 OF 2</b></div>
+              <p class="q">Your laptop is hot and the fan is loud. What does that tell you about your Wi-Fi?</p>
+              <div class="opt" data-k="A">Someone is definitely on my network</div>
+              <div class="opt right" data-k="B">Not much on its own. Heat usually means a program is working hard.</div>
+              <div class="opt" data-k="C">My router has been hacked</div>
+              <div class="feedback">Right. A hot computer is about what's running on it, not who's on your Wi-Fi. The checkup looks at both separately, so you'll know which one it is.</div>
+              <div class="row" style="gap:10px; flex-wrap:nowrap;"><span class="scout sm s-happy"></span><div class="say">"Being scared makes every clue look like proof. We'll check, not guess."</div></div>
+              <span class="btn-p" style="justify-self:start">NEXT QUESTION</span>
+            </div>
+          </div>
+          <div class="skip-bar"><span>You don't need to finish any lessons first.</span><span class="btn-s lime">SKIP TO THE CHECKUP ▶</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- C2 boss -->
+    <section class="shot" id="boss">
+      <div class="shot-head"><span class="spec-chip c">SPEC C</span><h3>The final boss: the real checkup</h3></div>
+      <p class="shot-note">The real scan, shown as Scout sweeping the city one district at a time, driven by the scan's real progress events. <b>Districts show as "swept", not as safe or unsafe, until the whole scan finishes.</b> The scan can take several minutes, so the lessons stay open while it runs.</p>
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>Device Rescue · Checkup</span></div>
+        <div class="game">
+          <div class="boss">
+            <div class="boss-top"><span class="scout s-proud"></span><div style="display:grid; gap:8px; min-width:0;"><h4>THE SWEEP</h4><div class="bar" role="img" aria-label="142 of 290 checks done"><i></i></div><div class="bar-meta"><span>142 / 290 CHECKS</span><span>4 THINGS FOUND SO FAR</span></div></div></div>
+            <div class="districts sweep">
+              <div class="district swept"><h4>THE GATEHOUSE</h4><div class="skyline"><img src="art/iso_occupied.png" alt=""><img class="tower" src="art/iso_tower_occ.png" alt=""></div><div class="d-foot"><span class="badge skip">SWEPT</span></div></div>
+              <div class="district swept"><h4>THE FOUNDATIONS</h4><div class="skyline"><img src="art/iso_progress.png" alt=""><img src="art/iso_occupied.png" alt=""></div><div class="d-foot"><span class="badge skip">SWEPT</span></div></div>
+              <div class="district sweeping"><h4>THE WIRES</h4><div class="skyline"><img src="art/iso_occupied.png" alt=""><img class="tower" src="art/iso_tower_occ.png" alt=""></div><div class="d-foot"><span class="badge cyan">SWEEPING · ROUTER &amp; WI-FI</span></div></div>
+              <div class="district waiting"><h4>THE ENGINE ROOM</h4><div class="skyline"><img src="art/iso_occupied.png" alt=""></div><div class="d-foot"><span class="badge skip">WAITING</span></div></div>
+              <div class="district waiting"><h4>THE JUNKYARD</h4><div class="skyline"><img src="art/iso_occupied.png" alt=""></div><div class="d-foot"><span class="badge skip">WAITING</span></div></div>
+            </div>
+            <div class="row" style="justify-content:space-between"><div class="say" style="flex:1 1 280px">"Checking the wires now: your router and the networks this computer knows. You don't need to watch. I'll call you when it's done."</div><span class="btn-s lime">PLAY A LESSON WHILE YOU WAIT</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <p class="footnote">District names (The Gatehouse, The Wires, The Foundations, The Engine Room, The Junkyard), Scout's lines, and the Training Grounds name are all placeholders, listed for review in the specs. Art © Reclaim City (privacy-the-game).</p>
+  </main>
+</div>

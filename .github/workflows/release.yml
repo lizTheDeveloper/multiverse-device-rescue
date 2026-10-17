@@ -58,6 +58,8 @@ jobs:
             builder: --win --x64
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - uses: actions/setup-python@v5
         with:
@@ -109,6 +111,7 @@ jobs:
             [ -n "${!v}" ] || unset "$v"
           done
           npm ci
+          npm run check-game-files
           npm test
           if [ -z "${CSC_LINK:-}" ]; then
             # No Developer ID: ad-hoc sign, which Apple Silicon requires to run at all.

@@ -169,3 +169,25 @@ test('stop treating this as mine updates every card for the same task', async ()
   assert.match(b.status.innerHTML, /No longer marked as yours/);
   assert.strictEqual(other.unmark.hidden, false);
 });
+
+test('onResult hears the engine answer after a mark', async () => {
+  const { root, cards: [a] } = cardsRoot([{ 'data-mark-id': ID_A, 'data-mark-group': ID_A }]);
+  const heard = [];
+  const result = { status: 'marked', ids: [ID_A], how_to_undo: ['u'] };
+  MarkFlow.attach(root, { markMine: async () => result }, { onResult: (e) => heard.push(e) });
+  root.click(a.open);
+  await root.click(a.confirm);
+  assert.strictEqual(heard.length, 1);
+  assert.strictEqual(heard[0].kind, 'marked');
+  assert.strictEqual(heard[0].result, result);
+  assert.strictEqual(heard[0].described.done, true);
+});
+
+test('a throwing onResult does not break a mark', async () => {
+  const { root, cards: [a] } = cardsRoot([{ 'data-mark-id': ID_A, 'data-mark-group': ID_A }]);
+  MarkFlow.attach(root, { markMine: async () => ({ status: 'marked', ids: [ID_A], how_to_undo: ['u'] }) },
+    { onResult: () => { throw new Error('hook'); } });
+  root.click(a.open);
+  await root.click(a.confirm);
+  assert.match(a.status.innerHTML, /Marked as yours/);
+});
