@@ -20,7 +20,7 @@ img { image-rendering: pixelated; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: inherit; }
 button.district { display: grid; width: 100%; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 /* Device Rescue's fix and mark controls, in the city's colors */
 .fix-it .btn, .mark-mine .btn { font-family: var(--font-display); font-size: 10px; letter-spacing: 1px; padding: 10px 16px; border: 1px solid rgba(0,229,255,0.3); color: var(--cyan); background: rgba(0,229,255,0.08); }
 .fix-it .btn--primary { background: var(--cyan); color: var(--midnight); }

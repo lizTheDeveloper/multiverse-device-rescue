@@ -162,3 +162,19 @@ test('the boss screen never uses time words or says you are safe', async () => {
     assert.doesNotMatch(text, /score/i);
   }
 });
+
+test('reduced motion also stops the sweep, which is drawn on ::after', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../renderer/game/game.css'), 'utf8');
+  const rule = css.match(/@media \(prefers-reduced-motion: reduce\) \{([^{]*)\{[^}]*animation: none/);
+  assert.ok(rule, 'reduced-motion rule found');
+  assert.match(rule[1], /\*::after/);
+  assert.match(rule[1], /\*::before/);
+  assert.match(css, /\.district\.sweeping \.skyline::after \{[^}]*animation: sweep/);
+});
+
+test('a finished lesson is marked DONE without the safe styling', async () => {
+  const v = await views();
+  const html = v.renderTraining({ ordered, progress: { lessons: { l1: { completedAt: 1 } } }, scan: idle, scout });
+  assert.match(html, /class="badge cyan">DONE</);
+  assert.doesNotMatch(html, /badge safe/);
+});

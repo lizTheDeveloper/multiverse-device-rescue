@@ -33,7 +33,7 @@ function lessonItem(l, progress) {
   const n = l.questions.length;
   return `<li><button type="button" class="lesson${lessonDone(progress, l.id) ? ' done' : ''}" data-go="lesson:${esc(l.id)}">
     <b>${esc(l.title)}</b><small>${n} question${n === 1 ? '' : 's'}</small>
-    ${lessonDone(progress, l.id) ? '<span class="badge safe">DONE</span>' : ''}</button></li>`;
+    ${lessonDone(progress, l.id) ? '<span class="badge cyan">DONE</span>' : ''}</button></li>`;
 }
 
 export function renderTraining({ ordered, progress, worryTitle, scan, scout, pendingCity }) {
