@@ -14,9 +14,20 @@ function stubWin(recheckDocs) {
   const listeners = [];
   const choices = { outerHTML: '' };
   const calls = { recheck: [], showList: 0 };
+  // Focus: `shadow.activeElement` is whatever the test says is focused. After a
+  // redraw, the controller looks it up again by its stable attribute; any
+  // selector naming a button in the current HTML "finds" one, whose focus() is
+  // recorded in `focused`.
+  const focused = [];
   const frame = { innerHTML: '', addEventListener: (type, fn) => { if (type === 'click') listeners.push(fn); },
-    querySelector: (sel) => (sel === '.choices' ? choices : null), querySelectorAll: () => [] };
-  const shadow = { innerHTML: '', getElementById: () => frame, addEventListener: () => {} };
+    querySelector: (sel) => {
+      if (sel === '.choices') return choices;
+      const m = /^\[(data-[a-z]+)="(.*)"\]$/.exec(sel);
+      if (m && frame.innerHTML.includes(`${m[1]}="${m[2]}"`)) return { focus: () => focused.push(sel) };
+      return null;
+    },
+    querySelectorAll: () => [] };
+  const shadow = { innerHTML: '', activeElement: null, getElementById: () => frame, addEventListener: () => {} };
   const hooks = {};
   const win = {
     document: { getElementById: () => ({ attachShadow: () => shadow }) },
@@ -39,7 +50,8 @@ function stubWin(recheckDocs) {
     const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
     listeners.forEach((fn) => fn({ target: { closest: () => el } }));
   };
-  return { win, frame, hooks, click, choices, calls };
+  const focusOn = (attrs) => { shadow.activeElement = attrs ? { getAttribute: (k) => (k in attrs ? attrs[k] : null) } : null; };
+  return { win, frame, shadow, hooks, click, choices, calls, focused, focusOn };
 }
 
 async function setup(recheckDocs, before = scan(mod('mod_a', [finding('A')]), mod('mod_b', [finding('B')]))) {
@@ -703,4 +715,43 @@ test('when a screen fails to render, the controller hands back to the list and s
   assert.strictEqual(ctl.showTraining(WIFI), true);
   assert.strictEqual(ctl.show(scan(mod('mod_a', [finding('A')])), WIFI), true);
   assert.strictEqual(leave, 4);
+});
+
+test('a progress event on the boss screen keeps keyboard focus where it was', async () => {
+  const t = await trainingSetup();
+  t.ctl.showBoss();
+  await tick(); await tick();
+  t.focusOn({ 'data-go': 'training' });
+  t.ctl.scanEvent(prog('start', 1, 4));
+  assert.deepStrictEqual(t.focused, ['[data-go="training"]'], 'PLAY A LESSON WHILE YOU WAIT keeps focus');
+  t.focusOn({ 'data-act': 'leave' });
+  t.ctl.scanEvent(prog('done', 1, 4));
+  assert.deepStrictEqual(t.focused.slice(1), ['[data-act="leave"]']);
+  // Nothing focused: nothing to put back.
+  t.focusOn(null);
+  t.ctl.scanEvent(prog('start', 2, 4));
+  assert.strictEqual(t.focused.length, 2);
+});
+
+test('focus isn’t carried to a different screen', async () => {
+  const t = await trainingSetup();
+  t.ctl.showBoss();
+  t.focusOn({ 'data-go': 'training' });
+  t.click({ 'data-go': 'training' });
+  assert.match(t.html(), /THE TRAINING GROUNDS/);
+  assert.deepStrictEqual(t.focused, []);
+});
+
+test('the boss screen’s pop-up tips stay closed once the person closes them', async () => {
+  const t = await trainingSetup();
+  t.ctl.showBoss();
+  await tick(); await tick();
+  assert.match(t.html(), /<details class="panel" open>/);
+  // The summary's own click toggles the <details>; the controller only remembers it.
+  t.click({ 'data-act': 'toggle-tips' });
+  t.ctl.scanEvent(prog('start', 1, 4));
+  assert.match(t.html(), /<details class="panel">[\s\S]*POP-UPS YOU MIGHT SEE/, 'closed stays closed after a redraw');
+  t.click({ 'data-act': 'toggle-tips' });
+  t.ctl.scanEvent(prog('done', 1, 4));
+  assert.match(t.html(), /<details class="panel" open>/);
 });

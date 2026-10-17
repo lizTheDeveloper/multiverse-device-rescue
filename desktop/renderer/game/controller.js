@@ -30,6 +30,18 @@ const loadLessonsHere = () => loadLessons((spec) => import(spec));
 const idleScan = () => ({ running: false, index: 0, total: 0, error: null });
 const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
 
+// The attribute a redraw finds a focused control by again. On the Training
+// Grounds, lesson and boss screens each of these is unique on the screen.
+const FOCUS_KEYS = ['data-go', 'data-act', 'id'];
+export function focusSelector(el) {
+  if (!el || typeof el.getAttribute !== 'function') return null;
+  for (const k of FOCUS_KEYS) {
+    const v = el.getAttribute(k);
+    if (v) return `[${k}="${String(v).replace(/["\\]/g, '\\$&')}"]`;
+  }
+  return null;
+}
+
 // `loadGame` and `loadTraining` are for tests; the app always loads Reclaim City
 // from app://rescue/rc/ and the lessons from app://rescue/game/lessons/.
 export function createController({ win, storage, scoutSprite, loadGame = loadRc, loadTraining = loadLessonsHere }) {
@@ -46,7 +58,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
     rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
     scanConfirmed: loadScanConfirmed(storage), linkNotice: '',
-    lessons: [], lesson: null, pendingCity: false, tips: [], scan: idleScan(), boss: bossInit() };
+    lessons: [], lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit() };
+  let drawnScreen = null; // the screen the last render drew
 
   // loadLessons never rejects: a lesson that fails to load is left out.
   loadTraining().then((ls) => {
@@ -149,7 +162,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.screen = 'training';
       return screenHtml();
     }
-    if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips });
+    if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen });
     if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
     if (s.screen === 'milestone' && district(s.districtId)) {
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
@@ -196,6 +209,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     try {
       // No city yet (the scan hasn't finished): the Training Grounds.
       if (!s.city && !TRAINING_SCREENS.has(s.screen)) s.screen = 'training';
+      // A redraw of the same training screen (a progress event, an answer)
+      // mustn't lose keyboard or screen-reader focus.
+      const keep = TRAINING_SCREENS.has(s.screen) && s.screen === drawnScreen ? focusSelector(shadow.activeElement) : null;
       const hud = TRAINING_SCREENS.has(s.screen) ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
       frame.innerHTML = hud + screenHtml();
@@ -208,11 +224,16 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
         if (String(el.textContent || '').trim() === 'ALLIED ORGANIZATIONS' && el.parentElement) el.parentElement.remove();
       });
       frame.querySelectorAll('a[target="_blank"]:not([data-action])').forEach((el) => el.remove());
+      // (screenHtml can move on from a lesson that's gone: then nothing to keep.)
+      const again = keep && s.screen === drawnScreen ? frame.querySelector(keep) : null;
+      if (again && typeof again.focus === 'function') again.focus();
+      drawnScreen = s.screen;
       const focused = s.screen === 'map' ? frame.querySelector('[data-focus]') : null;
       if (focused && s.focusPending) { focused.scrollIntoView({ block: 'start' }); s.focusPending = false; }
       return true;
     } catch (err) {
       console.error('City view failed:', err);
+      drawnScreen = null;
       frame.innerHTML = `<p class="say">${esc('The city view hit a problem. Here’s the same thing as a list.')}</p>`;
       win.RescueHost.leaveGame();
       return false;
@@ -257,6 +278,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (!el) return;
     const go = el.getAttribute('data-go');
     const act = el.getAttribute('data-act');
+    // The boss screen's pop-up tips: the <details> toggles itself; remember it for redraws.
+    if (act === 'toggle-tips') { s.tipsOpen = !s.tipsOpen; return; }
     // Always a way back to the list, even while a re-check runs.
     if (act === 'list') { win.RescueHost.showList(); return; }
     if (act === 'leave') { win.RescueHost.leaveGame(); return; }

@@ -7,7 +7,8 @@ function skyline() {
   return '<div class="skyline" aria-hidden="true"><img src="assets/iso_occupied.png" alt=""><img class="tower" src="assets/iso_tower_occ.png" alt=""></div>';
 }
 
-export function renderBoss({ boss, scout, tips }) {
+// `tipsOpen`: the pop-up tips stay as the person left them across redraws.
+export function renderBoss({ boss, scout, tips, tipsOpen = true }) {
   const ds = bossDistricts(boss);
   const pct = bossPercent(boss);
   const current = ds.find((d) => d.state === 'sweeping');
@@ -15,7 +16,7 @@ export function renderBoss({ boss, scout, tips }) {
     ? `Checking ${current.name} now. You don’t need to watch. I’ll call you when it’s done.`
     : 'Starting the checkup engine.';
   const tipList = Array.isArray(tips) && tips.length ? `
-    <details class="panel" open><summary class="label">POP-UPS YOU MIGHT SEE</summary>
+    <details class="panel"${tipsOpen ? ' open' : ''}><summary class="label" data-act="toggle-tips">POP-UPS YOU MIGHT SEE</summary>
       <ul class="notes">${tips.map((t) => `<li><strong>${esc(t.title)}</strong> ${esc(t.body)}</li>`).join('')}</ul></details>` : '';
   return `
   <section class="boss" aria-label="Your checkup is running">
