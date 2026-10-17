@@ -3,7 +3,7 @@
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
 import { findingsToCity } from './findings-to-city.js';
-import { loadProgress, saveProgress, reconcile, setStatus, ranOkModules, recheckOutcome } from './progress.js';
+import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, ranOkModules, recheckOutcome } from './progress.js';
 import { renderHud } from './views/hud.js';
 import { renderMap } from './views/map.js';
 import { renderDistrict } from './views/district.js';
@@ -19,9 +19,20 @@ import { verifyMission, disagreement, loadScanConfirmed, saveScanConfirmed, mark
 import { focusFor, countConfirmedAndReported, accountDistrictCards, deviceMissionFor } from './one-city.js';
 import { renderOneCityMap } from './views/one-city-map.js';
 import { renderVerification, renderMilestoneSplit } from './views/verification.js';
+import { loadLessons, orderLessons, lessonForModule, afterScanDone } from './training.js';
+import { bossInit, bossApply, bossFinish } from './boss.js';
+import { renderTraining } from './views/training.js';
+import { renderLesson } from './views/lesson.js';
+import { renderBoss } from './views/boss.js';
 
-// `loadGame` is for tests; the app always loads Reclaim City from app://rescue/rc/.
-export function createController({ win, storage, scoutSprite, loadGame = loadRc }) {
+// Specifiers resolve against this file (app://rescue/game/controller.js).
+const loadLessonsHere = () => loadLessons((spec) => import(spec));
+const idleScan = () => ({ running: false, index: 0, total: 0, error: null });
+const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
+
+// `loadGame` and `loadTraining` are for tests; the app always loads Reclaim City
+// from app://rescue/rc/ and the lessons from app://rescue/game/lessons/.
+export function createController({ win, storage, scoutSprite, loadGame = loadRc, loadTraining = loadLessonsHere }) {
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
@@ -34,7 +45,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc 
     screen: 'map', districtId: null, missionId: null, outcome: null, outcomeMission: null, lastFix: null, message: '', busy: false,
     trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
     rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
-    scanConfirmed: loadScanConfirmed(storage), linkNotice: '' };
+    scanConfirmed: loadScanConfirmed(storage), linkNotice: '',
+    lessons: [], lesson: null, pendingCity: false, tips: [], scan: idleScan(), boss: bossInit() };
+
+  // loadLessons never rejects: a lesson that fails to load is left out.
+  loadTraining().then((ls) => {
+    s.lessons = Array.isArray(ls) ? ls : [];
+    if (s.screen === 'training' || s.screen === 'lesson') render();
+  });
 
   loadGame().then((rc) => {
     s.rc = rc;
@@ -115,7 +133,23 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc 
     return countConfirmedAndReported({ rc: s.rc, progress: s.progress, rcState: s.rcState, scanConfirmed: s.scanConfirmed, doc: s.doc });
   }
 
+  // "Your checkup is done" and the way to the city: when a scan finished while
+  // in a lesson, or when this worry's scan has finished and the person came back
+  // to the Training Grounds (the HUD's TRAINING, or a briefing's lesson link).
+  const cityWaiting = () => s.pendingCity || (!!s.city && !s.scan.running && !s.scan.error);
+
   function screenHtml() {
+    if (s.screen === 'training') {
+      return renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
+        worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting() });
+    }
+    if (s.screen === 'lesson') {
+      const l = s.lesson && s.lessons.find((x) => x.id === s.lesson.id);
+      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting() });
+      s.screen = 'training';
+      return screenHtml();
+    }
+    if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips });
     if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
     if (s.screen === 'milestone' && district(s.districtId)) {
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
@@ -134,7 +168,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc 
       const m = mission(s.missionId);
       const controls = `${win.FixFlow.fixControlsHtml(m.primary, { watched: false })}${win.MarkFlow.markControlsHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
-        scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary) });
+        scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module) });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the
@@ -158,8 +192,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc 
 
   function render() {
     try {
-      frame.innerHTML = renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() })
-        + s.linkNotice + screenHtml();
+      // No city yet (the scan hasn't finished): the Training Grounds.
+      if (!s.city && !TRAINING_SCREENS.has(s.screen)) s.screen = 'training';
+      const hud = TRAINING_SCREENS.has(s.screen) ? ''
+        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
+      frame.innerHTML = hud + screenHtml();
       // No share cards in Device Rescue: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
       // No "ALLIED ORGANIZATIONS" either (a district at 100%): one is a donation
@@ -174,7 +211,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc 
     } catch (err) {
       console.error('City view failed:', err);
       frame.innerHTML = `<p class="say">${esc('The city view hit a problem. Here’s the same thing as a list.')}</p>`;
-      win.RescueHost.showList();
+      win.RescueHost.leaveGame();
     }
   }
 
@@ -218,8 +255,28 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc 
     const act = el.getAttribute('data-act');
     // Always a way back to the list, even while a re-check runs.
     if (act === 'list') { win.RescueHost.showList(); return; }
+    if (act === 'leave') { win.RescueHost.leaveGame(); return; }
     if (s.busy) return;
     if (go) s.linkNotice = '';
+    if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
+    if (go === 'boss') { s.screen = s.scan.running ? 'boss' : 'training'; render(); return; }
+    if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
+    if (go && go.startsWith('lesson:')) { s.lesson = { id: go.slice(7), q: 0, picked: null }; s.screen = 'lesson'; render(); return; }
+    if (act === 'start-checkup') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
+    if (act && act.startsWith('answer:')) {
+      if (s.lesson && s.lesson.picked == null) { s.lesson.picked = Number(act.slice(7)); render(); }
+      return;
+    }
+    if (act === 'next-question' && s.lesson) { s.lesson = { ...s.lesson, q: s.lesson.q + 1, picked: null }; render(); return; }
+    // Only finishing a lesson records anything; leaving part-way records nothing.
+    if (act === 'finish-lesson' && s.lesson) {
+      s.progress = setLessonDone(s.progress, s.lesson.id, now());
+      saveProgress(storage, s.progress);
+      s.lesson = null;
+      s.screen = 'training';
+      render();
+      return;
+    }
     if (go && go.startsWith('rc:')) { if (s.rc) goRc(go.slice(3)); return; }
     if (act === 'confirm-from-scan') { if (s.rc) confirmFromScan(); return; }
     if (go === 'map') { s.screen = 'map'; render(); return; }
@@ -369,16 +426,71 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc 
     if (described && described.done) recheck(s.missionId, kind === 'removed' ? 'unmark' : 'mark', modulesCoveredBy(result && result.ids));
   } });
 
+  // A fresh city from a finished scan: back to the map, forgetting the last screen's state.
+  function showCityFrom(doc) {
+    s.shown += 1;
+    rebuild(doc);
+    s.screen = 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
+    s.lesson = null; s.pendingCity = false;
+    s.focusPending = true;
+  }
+
   return {
     isReady: true,
     show(doc, situation) {
       s.situation = situation;
-      s.shown += 1;
-      rebuild(doc);
-      s.screen = 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
-      s.focusPending = true;
+      // A city shown from a finished scan: no game scan is running any more
+      // (the person may have left the boss screen with "Plain view").
+      if (s.scan.running) { s.boss = bossFinish(s.boss); s.scan = idleScan(); }
+      showCityFrom(doc);
       render();
     },
     update(doc) { rebuild(doc); render(); },
+    // A new worry: the Training Grounds, with no city until its scan finishes.
+    showTraining(situation) {
+      s.situation = situation;
+      s.city = null; s.doc = null;
+      s.scan = idleScan();
+      s.pendingCity = false;
+      s.lesson = null;
+      s.screen = 'training';
+      render();
+    },
+    showBoss() {
+      s.boss = bossInit();
+      s.scan = { running: true, index: 0, total: 0, error: null };
+      s.pendingCity = false;
+      s.screen = 'boss';
+      render();
+      Promise.resolve().then(() => win.RescueHost.scanTips()).then((t) => {
+        s.tips = Array.isArray(t) ? t : [];
+        if (s.screen === 'boss') render();
+      }, () => {});
+    },
+    // The skip bar's "N of M checks" is the boss meter's finished-check count.
+    scanEvent(ev) {
+      if (!s.scan.running) return;
+      s.boss = bossApply(s.boss, ev);
+      s.scan = { ...s.scan, index: s.boss.index, total: s.boss.total };
+      if (s.screen === 'boss' || s.screen === 'training') render();
+    },
+    // Mid-lesson, the person stays in the lesson with a banner; otherwise the city.
+    scanDone(doc, situation) {
+      s.boss = bossFinish(s.boss);
+      s.scan = { running: false, index: s.boss.total, total: s.boss.total, error: null };
+      if (situation) s.situation = situation;
+      const inLesson = afterScanDone(s.screen) === 'banner';
+      const lesson = s.lesson;
+      showCityFrom(doc);
+      if (inLesson) { s.lesson = lesson; s.screen = 'lesson'; s.pendingCity = true; s.focusPending = false; }
+      render();
+    },
+    // Never a frozen boss screen: back to the Training Grounds with the error.
+    scanFailed(message) {
+      s.boss = bossFinish(s.boss);
+      s.scan = { running: false, index: 0, total: 0, error: String(message || 'The checkup stopped.') };
+      if (s.screen !== 'lesson') s.screen = 'training';
+      render();
+    },
   };
 }

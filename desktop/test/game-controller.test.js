@@ -503,3 +503,178 @@ test('a district at 100% shows no allied organizations and no donation links', a
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Training mode (Plan C): the Training Grounds, lessons, and the scan as the
+// final boss. The real lesson files, loaded the way the controller loads them.
+// ---------------------------------------------------------------------------
+const pathT = require('path');
+const { pathToFileURL } = require('url');
+const GAME_DIR = pathT.join(__dirname, '..', 'renderer', 'game');
+const VENDOR_PHISHING = pathT.join(__dirname, '..', 'vendor', 'reclaim-city', 'src', 'data', 'phishing.js');
+const importLesson = (spec) => import(pathToFileURL(spec === '../rc/data/phishing.js' ? VENDOR_PHISHING : pathT.join(GAME_DIR, spec)).href);
+const WIFI = { id: 'wifi', title: 'Someone is on my Wi-Fi, or my computer is hot and slow' };
+const prog = (phase, index, total, category = 'security', findings = 0) => ({ type: 'progress', phase, index, total, module: 'm', category, findings });
+
+async function trainingSetup({ storage = memStore(), situation = WIFI } = {}) {
+  const { createController } = await import('../renderer/game/controller.js');
+  const { loadLessons } = await import('../renderer/game/training.js');
+  const lessons = await loadLessons(importLesson);
+  const stub = stubWin([]);
+  const host = { startCheckup: 0, leaveGame: 0, tips: [{ title: 'Allow <b>access</b>', body: 'A pop-up may ask.' }] };
+  Object.assign(stub.win.RescueHost, {
+    startCheckup() { host.startCheckup += 1; },
+    leaveGame() { host.leaveGame += 1; },
+    scanTips: async () => host.tips,
+  });
+  const ctl = createController({ win: stub.win, storage, scoutSprite: () => '', loadGame: () => new Promise(() => {}),
+    loadTraining: async () => lessons });
+  await tick();
+  ctl.showTraining(situation);
+  return { ...stub, ctl, host, storage, lessons, html: () => stub.frame.innerHTML, lesson: (id) => lessons.find((l) => l.id === id) };
+}
+const correctIndex = (q) => q.options.findIndex((o) => o.correct);
+const wrongIndex = (q) => q.options.findIndex((o) => !o.correct);
+function finishLesson(t, id) {
+  t.click({ 'data-go': `lesson:${id}` });
+  t.lesson(id).questions.forEach((q, n, all) => {
+    t.click({ 'data-act': `answer:${correctIndex(q)}` });
+    t.click({ 'data-act': n === all.length - 1 ? 'finish-lesson' : 'next-question' });
+  });
+}
+
+test('a worry opens the Training Grounds: password-asker first, the scan one click away, no city HUD', async () => {
+  const t = await trainingSetup();
+  const html = t.html();
+  assert.match(html, /THE TRAINING GROUNDS/);
+  assert.doesNotMatch(html, /YOUR COMPUTER|RECLAIM CITY/, 'no city HUD before there is a city');
+  const order = [...html.matchAll(/data-go="lesson:([^"]+)"/g)].map((m) => m[1]);
+  assert.deepStrictEqual(order.slice(0, 2), ['password-asker', 'whos-on-wifi']);
+  assert.match(html, /data-act="start-checkup"[^>]*>SKIP TO THE CHECKUP ▶/);
+  assert.match(html, new RegExp(`<b>0/${t.lessons.length}</b> <small>LESSONS`));
+});
+
+test('a wrong answer gets feedback; leaving part-way records nothing; finishing marks DONE', async () => {
+  const t = await trainingSetup();
+  const q0 = t.lesson('whos-on-wifi').questions[0];
+  t.click({ 'data-go': 'lesson:whos-on-wifi' });
+  t.click({ 'data-act': `answer:${wrongIndex(q0)}` });
+  assert.match(t.html(), /class="opt wrong"/);
+  assert.match(t.html(), /NEXT QUESTION|FINISH LESSON/);
+  t.click({ 'data-act': `answer:${correctIndex(q0)}` });
+  assert.match(t.html(), /class="opt wrong"/, 'the first pick stands');
+  t.click({ 'data-go': 'training' });
+  assert.doesNotMatch(t.html(), /DONE/);
+  assert.doesNotMatch(String(t.storage.getItem('device-rescue.game.v1') || ''), /whos-on-wifi/);
+
+  finishLesson(t, 'password-asker');
+  assert.match(t.html(), /THE TRAINING GROUNDS/);
+  assert.match(t.html(), /data-go="lesson:password-asker"[\s\S]*?DONE/);
+  assert.match(t.html(), new RegExp(`<b>1/${t.lessons.length}</b> <small>LESSONS`));
+  const saved = JSON.parse(t.storage.getItem('device-rescue.game.v1'));
+  assert.ok(saved.lessons['password-asker'].completedAt);
+  assert.deepStrictEqual(saved.missions, {}, 'a lesson never counts as a fix');
+});
+
+test('the checkup as the boss: one start, the meter and the skip bar agree, tips show', async () => {
+  const t = await trainingSetup();
+  t.click({ 'data-act': 'start-checkup' });
+  assert.strictEqual(t.host.startCheckup, 1);
+  t.ctl.showBoss();
+  t.click({ 'data-act': 'start-checkup' });
+  assert.strictEqual(t.host.startCheckup, 1, 'no second scan while one runs');
+  await tick(); await tick();
+  assert.match(t.html(), /THE SWEEP/);
+  assert.match(t.html(), /POP-UPS YOU MIGHT SEE[\s\S]*Allow &lt;b&gt;access&lt;\/b&gt;/);
+  t.ctl.scanEvent(prog('start', 1, 4));
+  t.ctl.scanEvent(prog('done', 1, 4, 'security', 2));
+  t.ctl.scanEvent(prog('start', 2, 4, 'network'));
+  assert.match(t.html(), /1 \/ 4 CHECKS/);
+  assert.match(t.html(), /SWEEPING/);
+  assert.doesNotMatch(t.html(), /\bsafe\b|\bclear\b/i);
+  t.click({ 'data-go': 'training' });
+  assert.match(t.html(), /running: 1 of 4 checks/);
+  assert.match(t.html(), /data-go="boss"/);
+  assert.doesNotMatch(t.html(), /data-act="start-checkup"/);
+  t.click({ 'data-go': 'boss' });
+  assert.match(t.html(), /THE SWEEP/);
+});
+
+test('the scan finishes mid-lesson: still in the lesson, the pick kept, the city one click away', async () => {
+  const t = await trainingSetup();
+  t.ctl.showBoss();
+  t.click({ 'data-go': 'training' });
+  const q0 = t.lesson('whos-on-wifi').questions[0];
+  t.click({ 'data-go': 'lesson:whos-on-wifi' });
+  t.click({ 'data-act': `answer:${wrongIndex(q0)}` });
+  t.ctl.scanDone(scan(mod('mod_a', [finding('A')])), WIFI);
+  assert.match(t.html(), /Your checkup is done\./);
+  assert.match(t.html(), /class="opt wrong"/, 'the picked answer is still shown');
+  assert.match(t.html(), /QUESTION 1 OF/);
+  t.ctl.scanEvent(prog('done', 9, 9));
+  assert.match(t.html(), /QUESTION 1 OF/, 'a late event changes nothing');
+  t.click({ 'data-go': 'city' });
+  assert.match(t.html(), /aria-label="Your computer as a city"/);
+  assert.match(t.html(), /YOUR COMPUTER/);
+});
+
+test('the scan finishes on the boss screen: straight to the city', async () => {
+  const t = await trainingSetup();
+  t.ctl.showBoss();
+  t.ctl.scanDone(scan(mod('mod_a', [finding('A')])), WIFI);
+  assert.match(t.html(), /aria-label="Your computer as a city"/);
+  // Back to the Training Grounds from the city's HUD: the city is still one click away.
+  t.click({ 'data-go': 'training' });
+  assert.match(t.html(), /Your checkup is done\.[\s\S]*data-go="city"/);
+});
+
+test('the scan fails on the boss screen: back to the Training Grounds, never a frozen boss', async () => {
+  const t = await trainingSetup();
+  t.ctl.showBoss();
+  t.ctl.scanEvent(prog('start', 1, 4));
+  t.ctl.scanFailed('engine exited <b>1</b>');
+  const html = t.html();
+  assert.match(html, /THE TRAINING GROUNDS/);
+  assert.match(html, /THE CHECKUP STOPPED[\s\S]*engine exited &lt;b&gt;1&lt;\/b&gt;/);
+  assert.match(html, /data-act="start-checkup"[^>]*>START THE CHECKUP ▶/);
+  assert.doesNotMatch(html, /Your checkup is done/);
+  t.click({ 'data-go': 'boss' });
+  assert.doesNotMatch(t.html(), /THE SWEEP/, 'no way back to a boss that isn’t running');
+  t.click({ 'data-act': 'start-checkup' });
+  assert.strictEqual(t.host.startCheckup, 1);
+});
+
+test('PLAIN VIEW hands back to Device Rescue from the training, lesson and boss screens', async () => {
+  const t = await trainingSetup();
+  t.click({ 'data-act': 'leave' });
+  t.click({ 'data-go': 'lesson:password-asker' });
+  t.click({ 'data-act': 'leave' });
+  t.ctl.showBoss();
+  t.click({ 'data-act': 'leave' });
+  assert.strictEqual(t.host.leaveGame, 3);
+});
+
+test('after leaving the boss mid-scan, a city shown from the list isn’t stuck on a running scan', async () => {
+  const t = await trainingSetup();
+  t.ctl.showBoss();
+  t.ctl.show(scan(mod('mod_a', [finding('A')])), WIFI);
+  t.click({ 'data-go': 'training' });
+  assert.doesNotMatch(t.html(), /data-go="boss"/);
+  assert.match(t.html(), /data-act="start-checkup"/);
+});
+
+test('a briefing links the lesson the person finished for that check', async () => {
+  const t = await trainingSetup({ situation: { id: 'unsure', title: 'Not sure' } });
+  const doc = scan(mod('launch_agent_audit', [finding('Unsigned helper')]));
+  t.ctl.showBoss();
+  t.ctl.scanDone(doc, { id: 'unsure' });
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const id = findingsToCity(doc).districts[0].missions[0].id;
+  t.click({ 'data-go': `mission:${id}` });
+  assert.doesNotMatch(t.html(), /You learned about this/);
+  t.click({ 'data-go': 'training' });
+  finishLesson(t, 'starts-on-its-own');
+  t.click({ 'data-go': 'city' });
+  t.click({ 'data-go': `mission:${id}` });
+  assert.match(t.html(), /data-go="lesson:starts-on-its-own"[^>]*>You learned about this in the Training Grounds/);
+});

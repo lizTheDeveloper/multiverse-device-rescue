@@ -242,6 +242,22 @@ function gameOfferedFor(situation, doc) {
   return !!situation && !mayBeWatched(situation, doc);
 }
 
+/** After a worry is picked: straight into the Training Grounds, or the plain scan screen. */
+function trainingFirst({ wantsCity, offered, ready }) {
+  return !!(wantsCity && offered && ready);
+}
+
+/**
+ * Where a finished scan lands. The gate is checked again with the real results:
+ * if monitoring software turned up, nobody lands in the city. Nor does someone
+ * who chose "Plain view" while it ran.
+ */
+function postScanView({ inGame, left, wantsCity, rememberedCity, offered, ready }) {
+  if (!offered || !ready || left) return 'results';
+  if (inGame) return 'boss-city';
+  return wantsCity || rememberedCity ? 'city' : 'results';
+}
+
 /** The Reclaim City suggestion for these results, or null (see mayBeWatched). */
 function learnMoreFor(situation, doc) {
   if (!situation || mayBeWatched(situation, doc)) return null;
@@ -389,6 +405,8 @@ if (typeof module !== 'undefined' && module.exports) {
     learnMoreFor,
     mayBeWatched,
     gameOfferedFor,
+    trainingFirst,
+    postScanView,
     RECLAIM_CITY_URL,
     withoutSafetyParagraphs,
     descriptionHtml,
@@ -421,6 +439,9 @@ if (typeof document !== 'undefined') {
     let lastKnownPlatform = null; // e.g. "darwin" | "win32" | "linux", once we have a scan result
     let situation = null; // the SITUATIONS entry the person picked
     let wantsCity = false; // came in through "Play it as a game"
+    let leftGame = false; // chose "Plain view" during game mode
+    let scanRunning = false;
+    let lastScanSituation = null; // the worry lastScanDoc was run for
     const VIEW_KEY = 'device-rescue.view';
     function rememberView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (_) { /* per-viewer nicety only */ } }
     function rememberedView() { try { return localStorage.getItem(VIEW_KEY); } catch (_) { return null; } }
@@ -451,6 +472,25 @@ if (typeof document !== 'undefined') {
         return true;
       },
       wantsSafety(finding) { return wantsSafetyNote(situation, finding); },
+      startCheckup() { runCheckup({ game: true }); },
+      // The OS pop-ups the person may see during the scan, for the boss screen.
+      async scanTips() {
+        try {
+          const content = await loadPermissionsContent();
+          return duringScanTips(content, detectOS(lastKnownPlatform)).map((t) => ({ title: t.title, body: t.body }));
+        } catch (_) {
+          return [];
+        }
+      },
+      // "Plain view": back to Device Rescue's own screens. A running scan carries
+      // on there, with its live progress (setScanBusy(true) already ran).
+      leaveGame() {
+        leftGame = true;
+        wantsCity = false;
+        rememberView('list');
+        if (lastScanDoc && !scanRunning && lastScanSituation === situation) showScreen('results');
+        else goToScan();
+      },
     };
     window.addEventListener('rescue-game-ready', () => { if (lastScanDoc) renderCitySwitch(lastScanDoc); });
 
@@ -531,6 +571,13 @@ if (typeof document !== 'undefined') {
       list.querySelectorAll('[data-situation]').forEach((btn) => {
         btn.addEventListener('click', () => {
           situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
+          if (trainingFirst({ wantsCity, offered: gameOfferedFor(situation, null),
+            ready: !!(window.RescueGame && window.RescueGame.isReady) })) {
+            leftGame = false;
+            window.RescueGame.showTraining(situation);
+            showScreen('city');
+            return;
+          }
           goToScan();
         });
       });
@@ -732,28 +779,57 @@ if (typeof document !== 'undefined') {
       }
     }
 
-    async function runCheckup() {
+    async function runCheckup(opts) {
+      if (scanRunning) return; // one scan at a time, however many buttons are pressed
+      scanRunning = true;
+      // A click handler passes an Event here; only {game: true} from the game counts.
+      const inGame = !!(opts && opts.game === true && window.RescueGame && window.RescueGame.isReady);
+      if (inGame) leftGame = false;
+      const scanSituation = situation;
       setScanBusy(true);
       resetProgress();
-      const unsubscribe = window.rescue.onScanEvent(onScanEvent);
+      if (inGame) window.RescueGame.showBoss();
+      const unsubscribe = window.rescue.onScanEvent((ev) => {
+        onScanEvent(ev);
+        if (inGame && !leftGame && ev.type === 'progress') window.RescueGame.scanEvent(ev);
+      });
       try {
         const doc = await window.rescue.runScan(situation ? situation.profile : null);
         if (doc && typeof doc.platform === 'string') {
           lastKnownPlatform = doc.platform;
         }
         lastScanDoc = doc;
+        lastScanSituation = scanSituation;
         renderResults(doc);
         renderNextStep();
         renderLearnMore(doc);
         setScanBusy(false);
         renderCitySwitch(doc);
-        if ((wantsCity || rememberedView() === 'city') && cityAvailable(doc)) showCity(doc);
-        else showScreen('results');
+        const view = postScanView({
+          inGame, left: leftGame, wantsCity, rememberedCity: rememberedView() === 'city',
+          offered: gameOfferedFor(situation, doc), ready: !!(window.RescueGame && window.RescueGame.isReady),
+        });
+        if (view === 'boss-city') {
+          window.RescueGame.scanDone(doc, situation);
+          rememberView('city');
+          showScreen('city');
+        } else if (view === 'city') {
+          showCity(doc);
+        } else {
+          showScreen('results');
+        }
       } catch (err) {
         setScanBusy(false);
-        showScanError(err && err.message ? err.message : String(err));
+        const message = err && err.message ? err.message : String(err);
+        if (inGame && !leftGame) {
+          window.RescueGame.scanFailed(message);
+          showScreen('city');
+        } else {
+          showScanError(message);
+        }
       } finally {
         unsubscribe();
+        scanRunning = false;
       }
     }
 
@@ -765,6 +841,7 @@ if (typeof document !== 'undefined') {
       document.getElementById('scan-error').hidden = true;
       situation = null;
       wantsCity = false;
+      leftGame = false;
       showScreen('welcome');
     }
 
@@ -779,6 +856,7 @@ if (typeof document !== 'undefined') {
     });
     document.getElementById('btn-play-game').addEventListener('click', () => {
       wantsCity = true;
+      leftGame = false;
       showScreen('worry');
     });
     document.getElementById('btn-see-city').addEventListener('click', () => {

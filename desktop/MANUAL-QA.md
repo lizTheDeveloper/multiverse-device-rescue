@@ -42,4 +42,19 @@ Run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` and check
 8. DevTools → Network: every request is `app://rescue/…`. The pages opened in step 3 open in the system browser, not as requests from the app.
 9. Open a district's milestone (finish every mission in one). It lists missions under CONFIRMED BY YOUR COMPUTER and YOU REPORTED, and there is no share card.
 
+## Training Grounds and the final boss
+
+Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start`, with DevTools open, and check:
+1. Click **Play it as a game**, then **Someone is on my Wi-Fi…**. The Training Grounds opens. "The tool that asks for your password" is first, then "Who's on your Wi-Fi". **SKIP TO THE CHECKUP ▶** is visible.
+2. Open "Who's on your Wi-Fi" and answer question 1 wrongly. The feedback shows, the option is marked, and **NEXT QUESTION** appears. Click **Training Grounds** in the breadcrumb. The lesson isn't marked done.
+3. Finish "The tool that asks for your password". It shows **DONE**, and the HUD reads `1/8 LESSONS`.
+4. Click **SKIP TO THE CHECKUP ▶**. The boss screen shows: the bar moves, districts change from WAITING to SWEEPING to SWEPT, and "POP-UPS YOU MIGHT SEE" is listed. No district says safe or clear.
+5. Click **PLAY A LESSON WHILE YOU WAIT**, open a lesson, and answer one question. When the scan finishes, the banner "Your checkup is done." appears, and the answer you picked is still shown. Click **SEE YOUR CITY ▶** and the city appears. A district where some checks couldn't run has a dashed grey border and a **COULDN'T CHECK** badge. It is never lit.
+6. Click **TRAINING** in the HUD and finish "Things that start on their own". The banner offers **SEE YOUR CITY ▶**. Open The Gatehouse, then the `com.devicerescue.qa.helper` mission. The briefing shows "You learned about this in the Training Grounds" and links to the lesson.
+7. With the test launch agent still in place, click **Start over**, then **Play it as a game**, **Someone is on my Wi-Fi…** and **SKIP TO THE CHECKUP ▶**. Click **PLAIN VIEW** on the boss screen mid-scan. The plain scan screen shows live progress. When it finishes, the list results show, not the city.
+8. Simulate a failed scan: quit, run with `RESCUE_ENGINE=/usr/bin/false`, play, pick a worry, and start the checkup. You're back in the Training Grounds with "THE CHECKUP STOPPED" and **START THE CHECKUP ▶**.
+9. Start over and pick **I think someone is watching me** after **Play it as a game**. The plain scan screen opens, with no Training Grounds.
+10. DevTools → Network: every request is `app://rescue/…`, including `rc/data/phishing.js`.
+11. Clean up the test launch agent as in "Game mode, end to end", step 8.
+
 Record anything that doesn't match as a bug and fix it before the release goes out.
