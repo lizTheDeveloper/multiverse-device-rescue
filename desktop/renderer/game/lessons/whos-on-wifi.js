@@ -13,14 +13,14 @@ export default {
   whatTheScanLooksFor: 'The checkup lists devices that have recently talked to this computer, looks for signs that something is intercepting your traffic, and checks which admin services your router offers to the network. On a Mac or a Windows computer, it also looks for cryptocurrency mining running right now.',
   questions: [
     {
-      prompt: 'A computer is hot, loud and slow. What do the guides say that usually turns out to be?',
+      prompt: 'Your computer is hot and slow. What does the checkup do about that?',
       options: [
-        { text: 'A neighbour using the Wi-Fi', correct: false,
-          feedback: 'The guides point somewhere else: a hot, loud, slow machine usually turns out to be cryptocurrency mining on the computer itself. The network is checked separately.' },
-        { text: 'Cryptocurrency mining running on the computer', correct: true,
-          feedback: 'Right. Mining can run as a program or inside a browser extension. It’s rarely the first thing that happened: it’s what someone does with access they already had.' },
-        { text: 'The router breaking', correct: false,
-          feedback: 'The guides say a hot, loud, slow machine usually turns out to be mining on the computer itself. The router’s settings are checked separately.' },
+        { text: 'It looks for cryptocurrency mining running right now, and checks your network separately', correct: true,
+          feedback: 'Right. On a Mac or a Windows computer, it looks for miner programs, mining commands and live connections to mining pools. The devices on your network and your router’s settings are separate checks.' },
+        { text: 'It counts the devices on your Wi-Fi to find what’s slowing the computer down', correct: false,
+          feedback: 'The device list shows what has recently talked to this computer. For a hot, slow computer, a separate check looks for mining running on the computer itself, on a Mac or a Windows computer.' },
+        { text: 'It checks your router’s settings for the cause', correct: false,
+          feedback: 'The router check looks at which admin services your router offers to the network, and whether UPnP is on. For a hot, slow computer, a separate check looks for mining running on the computer itself, on a Mac or a Windows computer.' },
       ],
     },
     {
@@ -36,7 +36,7 @@ export default {
       prompt: 'What actually removes everyone you haven’t allowed onto your Wi-Fi?',
       options: [
         { text: 'A new Wi-Fi passphrase', correct: true,
-          feedback: 'Right. The passphrase is what devices use to join. Turn off WPS too, or its PIN gets around the new passphrase.' },
+          feedback: 'Right. The passphrase is what devices use to join. Update the router’s firmware first, because if the router has a known weakness, a new passphrase doesn’t help. Turn off WPS too, or its PIN gets around the new passphrase.' },
         { text: 'Blocking devices by hardware address', correct: false,
           feedback: 'A hardware address is easy to change, so blocking one only tells an intruder which address to stop using.' },
         { text: 'Restarting the laptop', correct: false,

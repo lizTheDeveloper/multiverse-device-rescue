@@ -13,9 +13,9 @@ export default {
         { text: 'A screenshot tool that wants to read your cookies and block web requests', correct: true,
           feedback: 'Right. A screenshot tool has no reason to need those.' },
         { text: 'A password manager that wants to work on every site', correct: false,
-          feedback: 'That one’s expected. It has to fill in passwords everywhere.' },
+          feedback: 'That one’s expected. The guide names password managers as needing this kind of access.' },
         { text: 'An ad blocker that sees every page', correct: false,
-          feedback: 'Also expected. It can’t block ads on pages it can’t see.' },
+          feedback: 'Also expected. The guide names ad blockers as needing this kind of access.' },
       ],
     },
     {
