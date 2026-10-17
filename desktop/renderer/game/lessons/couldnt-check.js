@@ -9,8 +9,9 @@ export default {
     'desktop/renderer/index.html',
     'desktop/renderer/app.js',
     'desktop/renderer/game/findings-to-city.js',
+    'desktop/renderer/game/views/map.js',
   ],
-  briefing: 'Not every check can run on every computer. When one can’t, it’s often because a permission or a tool is missing. A check that couldn’t run checked nothing, so it isn’t a clean bill of health. Device Rescue says so instead of pretending everything is fine. In the city, those places show as fog. Even a checkup that finds nothing lowers the odds of a problem without ruling one out.',
+  briefing: 'Not every check can run on every computer. When one can’t, it’s often because a permission or a tool is missing. A check that couldn’t run checked nothing, so it isn’t a clean bill of health. Device Rescue says so instead of pretending everything is fine. In the city, those places show as fog, or are marked COULDN’T CHECK. Even a checkup that finds nothing lowers the odds of a problem without ruling one out.',
   whatTheScanLooksFor: 'After the checkup, anything that couldn’t run is listed by name, so you know exactly what wasn’t looked at.',
   questions: [
     {
