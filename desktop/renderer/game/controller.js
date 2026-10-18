@@ -2,8 +2,15 @@
 // "city" screen and wires clicks, fixes, marks and re-checks. With Reclaim City
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
-import { findingsToCity } from './findings-to-city.js';
-import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, ranOkModules, recheckOutcome } from './progress.js';
+import { findingsToCity, DISTRICTS } from './findings-to-city.js';
+import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts } from './signals.js';
+import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
+import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
+import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './drills.js';
+import { renderDeck } from './views/deck.js';
+import { renderInstruments } from './views/instruments.js';
+import { renderSignalPanel, renderRange } from './views/signal.js';
 import { renderHud } from './views/hud.js';
 import { renderMap } from './views/map.js';
 import { renderDistrict } from './views/district.js';
@@ -16,7 +23,7 @@ import { loadRc } from './rc-load.js';
 import { routeFor, applyRcAction, fileRc } from './rc-actions.js';
 import { readAnswers, refreshDebriefForm } from './rc-dom.js';
 import { verifyMission, disagreement, loadScanConfirmed, saveScanConfirmed, markScanConfirmed, DONE } from './verified-missions.js';
-import { focusFor, countConfirmedAndReported, accountDistrictCards, deviceMissionFor } from './one-city.js';
+import { focusFor, countDeckBars, accountDistrictCards, deviceMissionFor } from './one-city.js';
 import { renderOneCityMap } from './views/one-city-map.js';
 import { renderVerification, renderMilestoneSplit } from './views/verification.js';
 import { loadLessons, orderLessons, lessonForModule, afterScanDone, lessonsByDistrict, districtLesson } from './training.js';
@@ -29,22 +36,52 @@ import { renderBoss } from './views/boss.js';
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
 const idleScan = () => ({ running: false, index: 0, total: 0, error: null });
 const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
+// Screens drawn without a city, and screens whose redraws keep keyboard focus.
+const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range']);
+const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range']);
+const LOG_MAX = 100;
+const MOMENTS_MAX = 4;
+const TAG_WORD = { mine: 'MINE', threat: 'THREAT', closer: 'LOOK CLOSER', noted: 'NOTED' };
+// Specifiers resolve against this file, like the lessons'.
+const loadDrillsHere = () => loadDrills((spec) => import(spec));
 
 // The attribute a redraw finds a focused control by again. On the Training
 // Grounds, lesson and boss screens each of these is unique on the screen.
 const FOCUS_KEYS = ['data-go', 'data-act', 'id'];
-export function focusSelector(el) {
+export function focusKey(el) {
   if (!el || typeof el.getAttribute !== 'function') return null;
   for (const k of FOCUS_KEYS) {
     const v = el.getAttribute(k);
-    if (v) return `[${k}="${String(v).replace(/["\\]/g, '\\$&')}"]`;
+    if (v) return { k, v: String(v) };
   }
   return null;
 }
 
+// The element under `root` whose attribute `k` is exactly `v`, or null. Signal
+// ids carry paths, which can hold quotes, backslashes or newlines: a value
+// like that goes through CSS.escape when there is one, and otherwise (or if
+// the selector still fails) the elements with that attribute are compared one
+// by one. It never throws, so a strange path can't knock anyone out of the game.
+const PLAIN_VALUE = /^[^"\\\u0000-\u001f\u007f]*$/;
+export function findByAttr(root, k, v, css = globalThis.CSS) {
+  if (!root || typeof root.querySelector !== 'function' || typeof v !== 'string') return null;
+  try {
+    if (PLAIN_VALUE.test(v)) return root.querySelector(`[${k}="${v}"]`);
+    if (css && typeof css.escape === 'function') {
+      const el = root.querySelector(`[${k}="${css.escape(v)}"]`);
+      if (el) return el;
+    }
+  } catch (_) { /* fall through to the walk */ }
+  try {
+    for (const el of root.querySelectorAll(`[${k}]`)) if (el.getAttribute(k) === v) return el;
+  } catch (_) { /* nothing to find */ }
+  return null;
+}
+const focusEl = (el) => { if (el && typeof el.focus === 'function') el.focus(); return !!el; };
+
 // `loadGame` and `loadTraining` are for tests; the app always loads Reclaim City
 // from app://rescue/rc/ and the lessons from app://rescue/game/lessons/.
-export function createController({ win, storage, scoutSprite, loadGame = loadRc, loadTraining = loadLessonsHere }) {
+export function createController({ win, storage, scoutSprite, loadGame = loadRc, loadTraining = loadLessonsHere, loadDrillBank = loadDrillsHere }) {
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
@@ -58,7 +95,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
     rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
     scanConfirmed: loadScanConfirmed(storage), linkNotice: '',
-    lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit() };
+    lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit(),
+    // The command center. The ops log is kept in memory only.
+    signal: null, filter: null, lowOpen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
+    drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null };
   let drawnScreen = null; // the screen the last render drew
 
   // loadLessons never rejects: a lesson that fails to load is left out.
@@ -67,6 +107,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.lessons = Array.isArray(ls) ? ls : [];
     s.lessonsLoaded = true;
     if (TRAINING_SCREENS.has(s.screen)) render();
+  });
+
+  // The drill bank, the same way: a drill file that fails to load is left out.
+  new Promise((r) => r(loadDrillBank())).catch(() => []).then((ds) => {
+    s.drillBank = Array.isArray(ds) ? ds : [];
+    s.drillsLoaded = true;
+    if (s.city && s.sweepDrills === null) s.sweepDrills = sweepDrillsNow();
+    if (s.screen === 'range' || (s.screen === 'map' && s.city && !s.busy)) render();
   });
 
   loadGame().then((rc) => {
@@ -82,12 +130,19 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // `putBack` is a mission the person just asked to have back (Undo, or "Stop
   // treating this as mine"). Its return is expected, so it isn't "came back".
   function rebuild(doc, putBack = null) {
+    const before = s.city ? cityIntegrity(s.city, signalsNow()) : null;
     s.doc = doc;
     s.city = findingsToCity(doc);
-    const r = reconcile(s.progress, s.city, ranOkModules(doc), now());
-    s.progress = r.progress;
+    const ranOk = ranOkModules(doc);
+    const r = reconcile(s.progress, s.city, ranOk, now());
     s.cameBack = r.cameBack.filter((id) => id !== putBack);
+    // The deck follows the scan too: a changed finding's tag is set aside, a
+    // gone one's is dropped, and a confirmed fix that came back no longer counts.
+    const rd = reconcileDeck(r.progress.deck, buildSignals(s.city, r.progress.deck), ranOk);
+    rd.changed.forEach((id) => s.changedTags.add(id));
+    s.progress = setDeck(r.progress, rd.deck);
     saveProgress(storage, s.progress);
+    if (before) noteSecured(before, cityIntegrity(s.city, signalsNow()));
   }
 
   // The modules whose findings a mark or unmark covered (by mark id), so each
@@ -143,9 +198,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return '';
   }
 
+  // CONFIRMED is what a re-check (or the checkup, for an account mission)
+  // proved; YOU REPORTED is the person's word. The deck and every HUD agree.
   function counts() {
-    if (!s.rc) return undefined;
-    return countConfirmedAndReported({ rc: s.rc, progress: s.progress, rcState: s.rcState, scanConfirmed: s.scanConfirmed, doc: s.doc });
+    return countDeckBars({ rc: s.rc, deck: s.progress.deck, rcState: s.rcState, scanConfirmed: s.scanConfirmed, doc: s.doc });
   }
 
   // "Your checkup is done" and the way to the city: when a scan finished while
@@ -161,7 +217,271 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const platform = () => (s.doc && s.doc.platform) || (win.rescue && win.rescue.platform) || null;
   const settingFor = (key) => (win.SettingPanes ? win.SettingPanes.lessonSetting(key, platform()) : null);
 
+  // ---------------------------------------------------------------------------
+  // The command center. Everything here reads the scan and changes game state
+  // (the deck) only; nothing touches the computer. Real changes go through
+  // FixFlow and MarkFlow, which ask first.
+  // ---------------------------------------------------------------------------
+  function logEntry(kind, text) {
+    s.log = [{ at: now(), kind, text: String(text == null ? '' : text) }, ...s.log].slice(0, LOG_MAX);
+  }
+  // Moments wait in order for the deck's next redraw. A few at most, and a
+  // rank-up is never the one dropped.
+  function addMoment(m) {
+    const all = [...s.moments, m];
+    while (all.length > MOMENTS_MAX) {
+      const i = all.findIndex((x) => x.kind !== 'rank');
+      all.splice(i < 0 ? 0 : i, 1);
+    }
+    s.moments = all;
+  }
+  function commitDeck(deck) {
+    s.progress = setDeck(s.progress, deck);
+    saveProgress(storage, s.progress);
+  }
+  // A ledger result: keep its deck. A rank-up is a moment and a log entry.
+  function commitAward(r) {
+    if (!r) return 0;
+    commitDeck(r.deck);
+    if (r.rankUp) {
+      const name = rankOf(r.deck).name;
+      addMoment({ kind: 'rank', title: 'RANK UP', text: `You’re now ${name}.` });
+      logEntry('RANK UP', name);
+    }
+    return r.points || 0;
+  }
+  const signalsNow = () => (s.city ? buildSignals(s.city, s.progress.deck, s.changedTags) : []);
+  // This sweep's drills: about one per four real signals, from their districts.
+  function sweepDrillsNow() {
+    const real = queueOf(signalsNow(), null).urgent.filter((x) => x.kind === 'real');
+    return chooseDrills(s.drillBank, real, s.progress.deck, s.progress.deck.sweeps.length);
+  }
+  function deckQueue() {
+    const sigs = signalsNow();
+    const q = queueOf(sigs, s.filter);
+    const drills = (s.sweepDrills || []).filter((d) => !s.drillAnswers[d.id] && (!s.filter || d.district === s.filter));
+    return { sigs, q, items: mixDrills(q.urgent, drills) };
+  }
+  function findSignal(id) {
+    if (typeof id !== 'string') return null;
+    if (id.startsWith('drill:')) {
+      const d = s.drillBank.find((x) => x.id === id.slice(6));
+      return d ? drillSignal(d) : null;
+    }
+    return signalsNow().find((x) => x.id === id) || null;
+  }
+  // Clues opened this sweep, per signal. Memory only.
+  const openedFor = (id) => { if (!s.opened[id]) s.opened[id] = []; return s.opened[id]; };
+  const cluesOf = (sig) => (sig.kind === 'drill' ? drillClues(sig.drill) : sig.kind === 'real' ? cluesFor(sig.finding) : []);
+  const nameOf = (id) => ((s.city && district(id)) || DISTRICTS.find((d) => d.id === id) || {}).name || '';
+
+  function signalPanelHtml() {
+    const sig = s.signal && findSignal(s.signal.id);
+    if (!sig) { s.signal = null; return ''; }
+    // The real "It's mine" step, offered only for a finding that has one. MarkFlow asks its own question.
+    const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding) : '';
+    return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
+      tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
+      range: s.screen === 'range' ? { hasCity: !!s.city } : null });
+  }
+
+  function deckHtml() {
+    const { sigs, q, items } = deckQueue();
+    const integ = cityIntegrity(s.city, sigs);
+    const deck = s.progress.deck;
+    const history = deck.sweeps.map(sweepPercent);
+    const c = counts();
+    const goFor = (d) => `filter:${d.id}`;
+    const heat = districtHeat(s.city, sigs);
+    const cityHtml = s.rc || s.accountsError
+      ? renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
+        accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
+        accountsError: s.accountsError, goFor, heat, selected: s.filter })
+      : renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter });
+    const fd = s.filter ? district(s.filter) : null;
+    const moments = s.moments;
+    s.moments = []; // a moment shows once
+    return renderDeck({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', rank: rankOf(deck),
+      lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
+      items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known, ...q.noted],
+      filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
+      instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
+        history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
+      log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
+      scanRunning: s.scan.running, districtName: nameOf, notice: s.linkNotice });
+  }
+
+  function openSignal(id) {
+    const sig = findSignal(id);
+    s.signal = sig ? { id: sig.id, tagged: null, right: false, read: '', points: 0 } : null;
+    // A drill already answered this sweep opens with that answer: it takes one.
+    const was = sig && sig.kind === 'drill' ? s.drillAnswers[sig.drill.id] : null;
+    if (was) s.signal = { ...s.signal, tagged: was.tag, right: was.right, read: drillRead(sig.drill, was.right) };
+    // FixFlow and MarkFlow results re-check s.missionId. An info signal has no mission.
+    if (sig) s.missionId = sig.missionId || null;
+    s.screen = 'map';
+    render();
+    const title = s.signal ? frame.querySelector('#sig-title') : null;
+    if (title && typeof title.focus === 'function') title.focus();
+  }
+
+  // Opening a clue on a real finding pays once per finding per sweep (the ledger keys it).
+  function scanClue(kind) {
+    const sig = s.signal && findSignal(s.signal.id);
+    if (!sig) return;
+    const opened = openedFor(sig.id);
+    if (!opened.includes(kind) && cluesOf(sig).some((c) => c.kind === kind)) {
+      opened.push(kind);
+      if (sig.kind === 'real') s.signal.points += commitAward(award(s.progress.deck, 'clue', `${sig.id}#${kind}`));
+    }
+    render();
+    focusAfterClue(sig, kind);
+  }
+
+  // The clue's button became its text, so focus moves on: to the next clue
+  // still locked (after this one, then from the top), or else to the clue
+  // just opened.
+  function focusAfterClue(sig, kind) {
+    const kinds = cluesOf(sig).map((c) => c.kind);
+    const opened = openedFor(sig.id);
+    const at = kinds.indexOf(kind);
+    const locked = [...kinds.slice(at + 1), ...kinds.slice(0, at + 1)].filter((k) => !opened.includes(k));
+    for (const k of locked) if (focusEl(findByAttr(frame, 'data-act', `clue:${k}`))) return;
+    focusEl(findByAttr(frame, 'data-clue', kind));
+  }
+
+  // BACK TO THE DECK (or Escape): the panel and its buttons go, so focus lands
+  // on the signal's row in the queue, or else INVESTIGATE NEXT.
+  function closeSignal() {
+    const id = s.signal && s.signal.id;
+    s.signal = null; s.screen = 'map';
+    render();
+    if (id && focusEl(findByAttr(frame, 'data-go', `signal:${id}`))) return;
+    if (focusEl(findByAttr(frame, 'data-act', 'investigate-next'))) return;
+    focusEl(findByAttr(frame, 'data-go', 'range'));
+  }
+
+  // A tag is game sorting only. The bonus is for looking first (two or more
+  // clues), never for which tag was picked.
+  function tagSignal(tag) {
+    const sig = s.signal && findSignal(s.signal.id);
+    if (!sig) return;
+    if (sig.kind === 'drill') { answerDrill(sig, tag); return; }
+    if (!(sig.kind === 'couldnt' ? ['noted'] : ['mine', 'threat', 'closer']).includes(tag)) return;
+    commitDeck(setTag(s.progress.deck, sig.id, tag, sig.fp, now()));
+    s.changedTags.delete(sig.id);
+    if (sig.kind === 'real' && openedFor(sig.id).length >= 2) s.signal.points += commitAward(award(s.progress.deck, 'tagBonus', sig.id));
+    s.signal = { ...s.signal, tagged: tag, read: sig.kind === 'couldnt' ? COULDNT_READ : scoutRead(sig, tag) };
+    logEntry('TAG', `${TAG_WORD[tag]}: ${sig.title}`);
+    render();
+    focusRead();
+  }
+
+  // After a tag, keyboard and screen-reader users land on Scout's read (an
+  // answered drill's tag buttons are disabled, so focus can't stay on them).
+  function focusRead() {
+    const el = frame.querySelector('.sig-panel .say');
+    if (!el) return;
+    if (typeof el.setAttribute === 'function') el.setAttribute('tabindex', '-1');
+    if (typeof el.focus === 'function') el.focus();
+  }
+
+  // A drill takes one answer: right pays (with the clue bonus), wrong pays
+  // nothing and costs nothing. Drill answers never touch the deck's tags.
+  // In the queue a drill takes one answer per sweep (s.drillAnswers). The DRILL
+  // RANGE is practice: an answer holds while that drill is open, and it can be
+  // tried again on a later turn round. Either way the ledger pays a drill once, ever.
+  function answerDrill(sig, tag) {
+    const d = sig.drill;
+    const range = s.screen === 'range';
+    if (s.signal.tagged || (!range && s.drillAnswers[d.id]) || !['mine', 'threat', 'closer'].includes(tag)) return;
+    const right = tag === d.answer;
+    commitDeck(recordDrill(s.progress.deck, right));
+    const points = right ? commitAward(award(s.progress.deck, 'drill', d.id, openedFor(sig.id).length >= 2 ? POINTS.drillClueBonus : 0)) : 0;
+    if (!range) s.drillAnswers[d.id] = { tag, right };
+    s.signal = { ...s.signal, tagged: tag, right, points, read: drillRead(d, right) };
+    logEntry('DRILL', `${right ? 'Right' : 'Not this time'}: ${d.title}`);
+    render();
+    focusRead();
+  }
+
+  // "These are all fine": the visible low-priority signals go to the known pile. No points.
+  function batchFine() {
+    const { q } = deckQueue();
+    if (q.low.length) {
+      let deck = s.progress.deck;
+      for (const sig of q.low) deck = setTag(deck, sig.id, 'mine', sig.fp, now());
+      commitDeck(deck);
+      logEntry('TAG', `${q.low.length} low-priority signal${q.low.length === 1 ? '' : 's'} sorted as fine`);
+    }
+    s.lowOpen = false;
+    render();
+  }
+
+  // A finished scan: a date and counts in the store, a SWEEP line in the log,
+  // "no longer seen" for what's gone (no points: only a re-check confirms),
+  // the clean-sweep bonus when this re-sweep cleared the board, and new drills.
+  function newSweep(doc, prev) {
+    s.sweptDoc = doc;
+    const sigs = signalsNow();
+    const counts = sweepCounts(doc, s.city, cityIntegrity(s.city, sigs));
+    const r = recordSweep(s.progress.deck, counts, now());
+    commitAward(r);
+    logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check.`);
+    if (r.clean) {
+      addMoment({ kind: 'clean', title: 'CLEAN SWEEP', text: 'No critical or warning signal is open in any district that could be checked.' });
+      logEntry('CLEAN SWEEP', 'Every district that could be checked is secured.');
+    }
+    const here = new Set(sigs.map((x) => x.id));
+    for (const p of prev) {
+      if (p.kind === 'real' && (p.tag || p.severity !== 'info') && !here.has(p.id)) logEntry('NO LONGER SEEN', p.title);
+    }
+    s.opened = {};
+    s.drillAnswers = {};
+    s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
+  }
+
+  // A district that had something open and now has nothing open in the checks that ran.
+  function noteSecured(before, after) {
+    for (const id of after.securedIds) {
+      if (before.securedIds.has(id) || !before.checkedIds.has(id)) continue;
+      const name = nameOf(id) || id;
+      addMoment({ kind: 'secured', title: 'DISTRICT SECURED', text: `${name}: nothing critical or warning is open in the checks that ran.` });
+      logEntry('SECURED', name);
+    }
+  }
+
+  // The DRILL RANGE: every district's drills, the ones not yet answered right first.
+  function rangeHtml() {
+    if (!s.range) s.range = { order: [], i: 0 };
+    if (s.drillsLoaded && !s.range.order.length) {
+      s.range.order = pickDrills(s.drillBank, DISTRICTS.map((d) => d.id), s.progress.deck, s.progress.deck.drills.tried).map((d) => d.id);
+    }
+    const order = s.range.order;
+    const id = order.length ? order[s.range.i % order.length] : null;
+    if (id && (!s.signal || s.signal.id !== `drill:${id}`)) s.signal = { id: `drill:${id}`, tagged: null, right: false, read: '', points: 0 };
+    return renderRange({ loaded: s.drillsLoaded, panelHtml: id ? signalPanelHtml() : '', hasCity: !!s.city });
+  }
+
+  // Game missions the person just finished. Finished from the checkup (confirmedId)
+  // is a confirmed fix; anything else is the person's report. Each pays once, ever.
+  function creditReports(before, after, confirmedId) {
+    const was = (before && before.missions) || {};
+    for (const [id, rec] of Object.entries((after && after.missions) || {})) {
+      if (!rec || !DONE.has(rec.status) || (was[id] && DONE.has(was[id].status))) continue;
+      const title = (rcMission(id) || {}).title || 'A mission';
+      if (id === confirmedId) {
+        commitAward(award(s.progress.deck, 'fix', `rc:${id}`));
+        logEntry('CONFIRMED', title);
+      } else {
+        if (rec.status === 'completed') commitAward(award(s.progress.deck, 'report', id));
+        logEntry('YOU REPORTED', title);
+      }
+    }
+  }
+
   function screenHtml() {
+    if (s.screen === 'range') return rangeHtml();
     if (s.screen === 'training') {
       return renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
         worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
@@ -206,12 +526,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return renderOutcome({ kind: s.outcome, mission: s.outcomeMission, scout, message: s.message, undoHtml });
     }
     s.screen = 'map';
-    if (s.rc || s.accountsError) {
-      return renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
-        accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
-        accountsError: s.accountsError });
-    }
-    return renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout });
+    return deckHtml();
   }
 
   // false when the screen couldn't be drawn and the person was sent to the list,
@@ -219,13 +534,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function render() {
     try {
       // No city yet (the scan hasn't finished): the Training Grounds.
-      if (!s.city && !TRAINING_SCREENS.has(s.screen)) s.screen = 'training';
-      // A redraw of the same training screen (a progress event, an answer)
-      // mustn't lose keyboard or screen-reader focus.
-      const keep = TRAINING_SCREENS.has(s.screen) && s.screen === drawnScreen ? focusSelector(shadow.activeElement) : null;
-      const hud = TRAINING_SCREENS.has(s.screen) ? ''
+      if (!s.city && !NO_CITY_SCREENS.has(s.screen)) s.screen = 'training';
+      // A redraw of the same screen (a progress event, an answer, a clue, a
+      // tag) mustn't lose keyboard or screen-reader focus.
+      const keep = KEEP_FOCUS.has(s.screen) && s.screen === drawnScreen ? focusKey(shadow.activeElement) : null;
+      // The known pile is a <details>: keep it open if the person opened it.
+      const knownWasOpen = s.screen === 'map' && drawnScreen === 'map' && !!(frame.querySelector('details.known') || {}).open;
+      const body = screenHtml();
+      // The deck has its own top bar; the training and range screens have theirs.
+      const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
-      frame.innerHTML = hud + screenHtml();
+      frame.innerHTML = hud + body;
       // No share cards in Device Rescue: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
       // No "ALLIED ORGANIZATIONS" either (a district at 100%): one is a donation
@@ -235,9 +554,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
         if (String(el.textContent || '').trim() === 'ALLIED ORGANIZATIONS' && el.parentElement) el.parentElement.remove();
       });
       frame.querySelectorAll('a[target="_blank"]:not([data-action])').forEach((el) => el.remove());
+      const known = knownWasOpen && s.screen === 'map' ? frame.querySelector('details.known') : null;
+      if (known) known.open = true;
       // (screenHtml can move on from a lesson that's gone: then nothing to keep.)
-      const again = keep && s.screen === drawnScreen ? frame.querySelector(keep) : null;
-      if (again && typeof again.focus === 'function') again.focus();
+      if (keep && s.screen === drawnScreen) focusEl(findByAttr(frame, keep.k, keep.v));
       drawnScreen = s.screen;
       const focused = s.screen === 'map' ? frame.querySelector('[data-focus]') : null;
       if (focused && s.focusPending) { focused.scrollIntoView({ block: 'start' }); s.focusPending = false; }
@@ -277,6 +597,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // scan's data, but don't take the person away from where they are now.
     if (s.shown !== shownAt) { render(); return; }
     const outcome = recheckOutcome(m.id, s.city, res);
+    // Only a re-check proves a fix: CONFIRMED, and the fix points pay once per finding, ever.
+    // Nothing about monitoring software is scored or logged (confirmFix refuses it too).
+    const monitoring = MONITORING_MODULES.has(m.module);
+    if (outcome === 'reclaimed' && (trigger === 'fix' || trigger === 'i-did-it') && !monitoring) {
+      commitAward(confirmFix(s.progress.deck, m.id, now()));
+      logEntry('CONFIRMED', m.title);
+    }
+    if (outcome === 'yours' && !monitoring) logEntry('MARKED', m.title);
     s.outcome = putBack && outcome === 'not-yet' ? 'put-back' : outcome;
     s.outcomeMission = mission(m.id) || m;
     s.message = res && !res.ok ? res.message || '' : '';
@@ -302,6 +630,31 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.busy) return;
     if (go) s.linkNotice = '';
+    // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
+    // gate decides where it lands (monitoring software: the plain list).
+    if (act === 'resweep') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
+    // The DRILL RANGE: more drills, with or without a scan.
+    if (go === 'range') { s.signal = null; s.range = { order: [], i: 0 }; s.screen = 'range'; render(); return; }
+    if (act === 'next-drill' && s.range) { s.range = { ...s.range, i: s.range.i + 1 }; s.signal = null; render(); return; }
+    if (act === 'leave-range') { s.range = null; s.signal = null; s.screen = s.city ? 'map' : 'training'; render(); return; }
+    // The deck: the queue, the Signal or Noise panel, and the district filter.
+    if (go && go.startsWith('signal:')) { openSignal(go.slice(7)); return; }
+    if (go && go.startsWith('filter:')) {
+      const id = go.slice(7);
+      s.filter = id === 'all' || s.filter === id ? null : id;
+      s.signal = null; s.screen = 'map'; render(); return;
+    }
+    if (act === 'investigate-next') {
+      const { q, items } = deckQueue();
+      const next = items[0] || q.low[0];
+      if (next) openSignal(next.id); else render();
+      return;
+    }
+    if (act && act.startsWith('clue:')) { scanClue(act.slice(5)); return; }
+    if (act && act.startsWith('tag:')) { tagSignal(act.slice(4)); return; }
+    if (act === 'close-signal') { closeSignal(); return; }
+    if (act === 'toggle-low') { s.lowOpen = !s.lowOpen; render(); return; }
+    if (act === 'batch-fine') { batchFine(); return; }
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
     if (go === 'boss') { s.screen = s.scan.running ? 'boss' : 'training'; render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
@@ -329,7 +682,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (go && go.startsWith('rc:')) { if (s.rc) goRc(go.slice(3)); return; }
     if (act === 'confirm-from-scan') { if (s.rc) confirmFromScan(); return; }
-    if (go === 'map') { s.screen = 'map'; render(); return; }
+    if (go === 'map') { s.screen = 'map'; s.signal = null; render(); return; }
     if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); render(); return; }
     if (go && go.startsWith('milestone:')) { s.screen = 'milestone'; s.districtId = go.slice(10); render(); return; }
     if (go && go.startsWith('mission:')) { s.screen = 'mission'; s.missionId = go.slice(8); render(); return; }
@@ -385,9 +738,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   // `refused` is a link the game data gave that isn't https, so nothing opens.
-  function applyResult(r, refused = '') {
+  // `confirmedId`: the mission "Finish from the checkup" just filed.
+  function applyResult(r, refused = '', confirmedId = null) {
     if (!r || r.incomplete) return; // an unfinished form stays as the person left it
+    const before = s.rcState;
     setRcState(r.state);
+    creditReports(before, s.rcState, confirmedId);
     // The first-2FA hug plays on the screen they land on, so it counts as seen.
     if (r.reaction && r.reaction.reaction && r.reaction.reaction.feeling === 'hug') setRcState(s.rc.markTwoFactorHugSeen(s.rcState));
     if (r.ui) s.rcUi = { ...s.rcUi, ...r.ui };
@@ -434,7 +790,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     s.scanConfirmed = markScanConfirmed(s.scanConfirmed, id, now());
     saveScanConfirmed(storage, s.scanConfirmed);
-    applyResult(r);
+    applyResult(r, '', id);
   }
 
   // The game screens' own clicks (data-action) and links. Plan A's handler above
@@ -448,6 +804,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const href = a.getAttribute('href') || '';
     if (href.startsWith('#')) { e.preventDefault(); goRc(href); return; }
     if (/^[a-z][a-z0-9+.-]*:/i.test(href)) { e.preventDefault(); openLink(href); }
+  });
+  // Escape closes the Signal or Noise panel, like BACK TO THE DECK. Inside a
+  // fix or mark card, Escape belongs to that card (it closes its question).
+  frame.addEventListener('keydown', (e) => {
+    if (!e || e.key !== 'Escape' || s.screen !== 'map' || !s.signal || s.busy) return;
+    const t = e.target;
+    if (t && typeof t.closest === 'function' && t.closest('[data-mark-card],[data-fix-module]')) return;
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    closeSignal();
   });
   frame.addEventListener('keydown', (e) => {
     if (!s.rc) return;
@@ -479,9 +844,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // A fresh city from a finished scan: back to the map, forgetting the last screen's state.
   function showCityFrom(doc) {
     s.shown += 1;
+    const prev = signalsNow();
     rebuild(doc);
+    // A new scan, not the same one shown again, is a sweep.
+    if (doc !== s.sweptDoc) newSweep(doc, prev);
     s.screen = 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
     s.lesson = null; s.pendingCity = false;
+    s.signal = null; s.filter = null; s.lowOpen = false; s.range = null;
     s.focusPending = true;
   }
 
