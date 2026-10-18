@@ -223,3 +223,69 @@ def test_battery_health_fix_no_battery():
         fix = mod.fix(check, Mode.MANUAL)
     assert fix.all_succeeded
     assert any("desktop" in a.description.lower() for a in fix.actions)
+
+
+# --- Regression: Apple silicon, macOS 26.3.1 (serial redacted) ---------------
+# ioreg's MaxCapacity is a percentage (100) on Apple silicon; dividing it by
+# DesignCapacity (mAh) told a battery at 85% that it held 1.6%.
+
+_IOREG_APPLE_SILICON = """
++-o AppleSmartBattery  <class AppleSmartBattery>
+    {
+      "CurrentCapacity" = 100
+      "NominalChargeCapacity" = 5417
+      "MaxCapacity" = 100
+      "DesignCapacity" = 6249
+      "AppleRawMaxCapacity" = 5265
+      "CycleCount" = 305
+      "Serial" = "REDACTED"
+    }
+"""
+
+_SP_APPLE_SILICON = """Power:
+
+    Battery Information:
+
+      Health Information:
+          Cycle Count: 305
+          Condition: Normal
+          Maximum Capacity: 85%
+      Battery Installed: Yes
+"""
+
+
+def _fake_apple_silicon(ioreg=_IOREG_APPLE_SILICON, sp=_SP_APPLE_SILICON):
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        result.stdout = ioreg if "ioreg" in cmd[0] else sp
+        return result
+    return fake_run
+
+
+def test_apple_silicon_percentage_max_capacity_is_not_1_percent():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_apple_silicon()):
+        result = mod.check(_make_profile())
+    assert not [f for f in result.findings if f.data.get("check") == "capacity_percent"]
+
+
+def test_capacity_uses_raw_mah_when_system_profiler_has_no_percentage():
+    mod = _get_module()
+    sp = _SP_APPLE_SILICON.replace("          Maximum Capacity: 85%\n", "")
+    ioreg = _IOREG_APPLE_SILICON.replace("5265", "4000")  # 64% of 6249
+    with patch("subprocess.run", side_effect=_fake_apple_silicon(ioreg=ioreg, sp=sp)):
+        result = mod.check(_make_profile())
+    low = [f for f in result.findings if f.data.get("check") == "capacity_percent"]
+    assert len(low) == 1
+    assert round(low[0].data["capacity_percent"]) == 64
+
+
+def test_system_profiler_percentage_wins():
+    mod = _get_module()
+    sp = _SP_APPLE_SILICON.replace("85%", "72%")
+    with patch("subprocess.run", side_effect=_fake_apple_silicon(sp=sp)):
+        result = mod.check(_make_profile())
+    low = [f for f in result.findings if f.data.get("check") == "capacity_percent"]
+    assert len(low) == 1 and low[0].data["capacity_percent"] == 72

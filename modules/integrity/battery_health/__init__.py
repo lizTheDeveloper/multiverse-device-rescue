@@ -98,8 +98,8 @@ class Module(ModuleBase):
         # Check maximum capacity percentage
         design_capacity = ioreg_info.get("design_capacity")
         max_capacity = ioreg_info.get("max_capacity")
-        if design_capacity and max_capacity and design_capacity > 0:
-            capacity_percent = (max_capacity / design_capacity) * 100
+        capacity_percent = _capacity_percent(battery_info, ioreg_info)
+        if capacity_percent is not None:
             if capacity_percent < 80:
                 findings.append(
                     Finding(
@@ -242,7 +242,38 @@ def _parse_ioreg(output: str) -> dict:
     if max_match:
         info["max_capacity"] = int(max_match.group(1))
 
+    # Apple silicon Macs report MaxCapacity as a percentage (100) and keep the
+    # real full-charge capacity in mAh in AppleRawMaxCapacity.
+    raw_match = re.search(r'"AppleRawMaxCapacity"\s*=\s*(\d+)', output)
+    if raw_match:
+        info["raw_max_capacity"] = int(raw_match.group(1))
+
     return info
+
+
+def _capacity_percent(battery_info: dict, ioreg_info: dict) -> float | None:
+    """How much of its design capacity the battery still holds, or None.
+
+    Prefers macOS's own figure (system_profiler's "Maximum Capacity: 85%",
+    the number System Settings shows). On Apple silicon ioreg's MaxCapacity is
+    already a percentage, so dividing it by DesignCapacity (mAh) reported a
+    healthy 85% battery as 1.6%.
+    """
+    reported = battery_info.get("max_capacity_percent")
+    if reported is not None:
+        return float(reported)
+    design = ioreg_info.get("design_capacity")
+    if not design or design <= 0:
+        return None
+    raw = ioreg_info.get("raw_max_capacity")
+    if raw:
+        return raw / design * 100
+    max_capacity = ioreg_info.get("max_capacity")
+    if not max_capacity:
+        return None
+    if max_capacity <= 100 < design:
+        return float(max_capacity)  # already a percentage
+    return max_capacity / design * 100
 
 
 def _parse_system_profiler(output: str) -> dict:
@@ -262,5 +293,9 @@ def _parse_system_profiler(output: str) -> dict:
     condition_match = re.search(r"Condition:\s*(.+?)(?:\n|$)", output)
     if condition_match:
         info["condition"] = condition_match.group(1).strip()
+
+    capacity_match = re.search(r"Maximum Capacity:\s*(\d+)\s*%", output)
+    if capacity_match:
+        info["max_capacity_percent"] = int(capacity_match.group(1))
 
     return info
