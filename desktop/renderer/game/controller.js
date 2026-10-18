@@ -228,6 +228,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // Lessons show before any scan, so the platform falls back to what preload says.
   const platform = () => (s.doc && s.doc.platform) || (win.rescue && win.rescue.platform) || null;
   const settingFor = (key) => (win.SettingPanes ? win.SettingPanes.lessonSetting(key, platform()) : null);
+  // "Open your router's settings": the router address from the scan, or null (no scan,
+  // no private address). Blocked when the ARP check says the router may be impersonated.
+  let browserName = null;
+  if (win.rescue && win.rescue.defaultBrowser) {
+    Promise.resolve().then(() => win.rescue.defaultBrowser()).then((n) => { browserName = n || null; }).catch(() => {});
+  }
+  const routerFor = () => (win.RouterLink && s.doc ? win.RouterLink.contextFrom(s.doc, browserName) : null);
+  const routerHtml = (finding) => (win.RouterLink && win.RouterLink.offersRouter(finding) ? win.RouterLink.gameLinkHtml(routerFor()) : '');
 
   // ---------------------------------------------------------------------------
   // The command center. Everything here reads the scan and changes game state
@@ -501,7 +509,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'lesson') {
       const l = s.lesson && s.lessons.find((x) => x.id === s.lesson.id);
-      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor });
+      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor, routerFor });
       s.screen = 'training';
       return screenHtml();
     }
@@ -522,7 +530,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'mission' && mission(s.missionId)) {
       const m = mission(s.missionId);
-      const controls = `${win.FixFlow.fixControlsHtml(m.primary, { watched: false })}${win.MarkFlow.markControlsHtml(m.primary)}`;
+      const controls = `${win.FixFlow.fixControlsHtml(m.primary, { watched: false })}${win.MarkFlow.markControlsHtml(m.primary)}${routerHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
         scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module) });
     }
@@ -638,6 +646,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act && act.startsWith('open-setting:')) {
       const url = win.SettingPanes ? win.SettingPanes.urlFor(act.slice(13)) : null;
       if (url) Promise.resolve().then(() => win.rescue.openSetting(url)).catch(() => {});
+      return;
+    }
+    // The router's sign-in page: only the address goes to main, which builds the URL.
+    if (act === 'open-router') {
+      const ctx = routerFor();
+      if (ctx && !ctx.blocked) Promise.resolve().then(() => win.rescue.openRouter(ctx.ip)).catch(() => {});
       return;
     }
     if (s.busy) return;

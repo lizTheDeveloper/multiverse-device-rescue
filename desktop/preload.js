@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('rescue', {
     return () => ipcRenderer.removeListener('scan-event', listener);
   },
   openSetting: (url) => ipcRenderer.invoke('open-setting', url),
+  openRouter: (ip) => ipcRenderer.invoke('open-router', ip),
+  defaultBrowser: () => ipcRenderer.invoke('default-browser'),
   aiPrompt: (payload) => ipcRenderer.invoke('ai-prompt', payload),
   askPreview: (payload) => ipcRenderer.invoke('ask-preview', payload),
   askAbout: (payload) => ipcRenderer.invoke('ask-about', payload),
