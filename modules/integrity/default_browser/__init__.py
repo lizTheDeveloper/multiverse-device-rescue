@@ -45,8 +45,11 @@ class Module(ModuleBase):
         browser_id = https_handler or http_handler
         browser_name = self._get_app_name(browser_id) if browser_id else "Unknown"
 
+        known_id = self._known_id(browser_id) if browser_id else None
+        if known_id:
+            browser_name = self.KNOWN_BROWSERS[known_id]
         if browser_id:
-            browser_display = self.KNOWN_BROWSERS.get(browser_id, browser_name)
+            browser_display = self.KNOWN_BROWSERS.get(known_id, browser_name)
             findings.append(
                 Finding(
                     title="Your default web browser",
@@ -62,11 +65,11 @@ class Module(ModuleBase):
             )
 
             # Check if browser is a known one
-            if browser_id in self.KNOWN_BROWSERS:
+            if known_id:
                 findings.append(
                     Finding(
                         title="Your default web browser is a standard app",
-                        description=f"Using {self.KNOWN_BROWSERS[browser_id]}, a well-known browser.",
+                        description=f"Using {self.KNOWN_BROWSERS[known_id]}, a well-known browser.",
                         severity=Severity.INFO,
                         category=self.category,
                         data={
@@ -158,19 +161,9 @@ class Module(ModuleBase):
                 text=True,
             )
             if result.returncode == 0:
-                # Parse the plist output for the scheme
-                lines = result.stdout.split("\n")
-                current_scheme = None
-                for line in lines:
-                    line = line.strip()
-                    if f'LSHandlerURLScheme = "{scheme}"' in line or f"LSHandlerURLScheme = {scheme}" in line:
-                        current_scheme = scheme
-                    elif current_scheme == scheme and "LSHandlerRoleAll" in line:
-                        # Extract the bundle ID from the value
-                        if "=" in line:
-                            value = line.split("=", 1)[1].strip().strip(';').strip('"')
-                            return value
-                        current_scheme = None
+                handler = self._parse_lshandlers(result.stdout, scheme)
+                if handler:
+                    return handler
         except (OSError, subprocess.SubprocessError):
             pass
 
@@ -186,6 +179,36 @@ class Module(ModuleBase):
         except (OSError, subprocess.SubprocessError):
             pass
 
+        return ""
+
+    @staticmethod
+    def _parse_lshandlers(text: str, scheme: str) -> str:
+        """Bundle id handling ``scheme`` in `defaults read ... LSHandlers` output.
+
+        Each handler is one ``{ ... }`` entry. macOS writes the keys
+        alphabetically, so LSHandlerRoleAll comes *before* LSHandlerURLScheme,
+        and a nested LSHandlerPreferredVersions dict has its own
+        ``LSHandlerRoleAll = "-"``. Reading line by line and taking the next
+        RoleAll after the scheme picked up the following entry's "-" and
+        reported the default browser as a missing app called '-'.
+        """
+        depth = 0
+        entry: dict[str, str] = {}
+        for raw in text.splitlines():
+            line = raw.strip()
+            if depth == 1 and "=" in line:
+                key, value = line.split("=", 1)
+                entry[key.strip()] = value.strip().rstrip(";").strip().strip('"')
+            opens, closes = line.count("{"), line.count("}")
+            if opens and depth == 0:
+                entry = {}
+            depth += opens - closes
+            if closes and depth == 0:
+                if entry.get("LSHandlerURLScheme", "").lower() == scheme:
+                    role = entry.get("LSHandlerRoleAll", "")
+                    if role and role != "-":
+                        return role
+                entry = {}
         return ""
 
     def _get_app_name(self, bundle_id: str) -> str:
@@ -213,11 +236,21 @@ class Module(ModuleBase):
 
         return bundle_id
 
+    def _known_id(self, bundle_id: str) -> str | None:
+        """The KNOWN_BROWSERS key matching ``bundle_id``, ignoring case."""
+        lowered = bundle_id.lower()
+        for known in self.KNOWN_BROWSERS:
+            if known.lower() == lowered:
+                return known
+        return None
+
     def _app_exists(self, bundle_id: str) -> bool:
         """Check if an app with the given bundle ID exists on the system."""
         try:
             result = subprocess.run(
-                ["mdfind", f"kMDItemCFBundleIdentifier = {bundle_id}"],
+                # "c": LaunchServices stores ids lowercased (com.google.chrome)
+                # while the app's own id is com.google.Chrome.
+                ["mdfind", f'kMDItemCFBundleIdentifier == "{bundle_id}"c'],
                 capture_output=True,
                 text=True,
                 timeout=5,

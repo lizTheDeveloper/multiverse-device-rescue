@@ -235,3 +235,65 @@ def test_fix_is_informational():
     assert fix.all_succeeded
     # Should have at least one action for the warning
     assert len(fix.actions) >= 0
+
+
+# --- Regression: real LSHandlers order on macOS 26.3.1 ------------------------
+# Keys are alphabetical, so LSHandlerRoleAll comes before LSHandlerURLScheme,
+# and the next entry's nested LSHandlerPreferredVersions has RoleAll = "-".
+# The old parser reported the default browser as a missing app called '-'.
+
+_LSHANDLERS_MACOS26 = """(
+        {
+        LSHandlerModificationDate = 807217543;
+        LSHandlerPreferredVersions =         {
+            LSHandlerRoleAll = "-";
+        };
+        LSHandlerRoleAll = "com.google.chrome";
+        LSHandlerURLScheme = http;
+    },
+        {
+        LSHandlerModificationDate = 807217543;
+        LSHandlerPreferredVersions =         {
+            LSHandlerRoleAll = "-";
+        };
+        LSHandlerRoleAll = "com.google.chrome";
+        LSHandlerURLScheme = https;
+    },
+        {
+        LSHandlerContentType = "public.html";
+        LSHandlerModificationDate = 807217543;
+        LSHandlerPreferredVersions =         {
+            LSHandlerRoleAll = "-";
+        };
+        LSHandlerRoleAll = "com.google.chrome";
+    }
+)
+"""
+
+
+def _fake_macos26(mdfind_hit=True):
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if "defaults read" in cmd_str and "LSHandlers" in cmd_str:
+            return _make_subprocess_result(_LSHANDLERS_MACOS26)
+        if "mdfind" in cmd_str and mdfind_hit:
+            return _make_subprocess_result("/Applications/Google Chrome.app\n")
+        return _make_subprocess_result()
+    return fake_run
+
+
+def test_macos26_key_order_reads_chrome_not_dash():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    assert not any(f.data.get("check") == "browser_not_installed" for f in result.findings)
+    info = next(f for f in result.findings if f.data.get("check") == "default_browser_info")
+    assert info.data["browser_id"] == "com.google.chrome"
+    assert info.data["browser_name"] == "Google Chrome"
+    assert any(f.data.get("check") == "known_browser" for f in result.findings)
+
+
+def test_parse_lshandlers_ignores_nested_dash():
+    mod = _get_module()
+    assert mod._parse_lshandlers(_LSHANDLERS_MACOS26, "https") == "com.google.chrome"
+    assert mod._parse_lshandlers(_LSHANDLERS_MACOS26, "mailto") == ""
