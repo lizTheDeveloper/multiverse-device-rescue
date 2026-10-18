@@ -207,12 +207,11 @@ class Module(ModuleBase):
                 # launchctl list shows services with a dash if they're loaded
                 # Format is: PID  Status  Label
                 for line in result.stdout.splitlines():
-                    if service_name in line:
-                        # If the line contains the service name and doesn't start with "-",
-                        # it's likely running
-                        parts = line.split()
-                        if parts and parts[0] != "-":
-                            return True
+                    parts = line.split()
+                    # Exact label: a substring test also matched per-user
+                    # helpers such as com.apple.screensharing.agent.
+                    if parts and parts[-1] == service_name and parts[0] != "-":
+                        return True
                 return False
             return False
         except OSError:
@@ -235,34 +234,22 @@ class Module(ModuleBase):
             return self._is_service_enabled("com.apple.sshd")
 
     def _is_printer_sharing_enabled(self) -> bool:
-        """Check if Printer Sharing is enabled via defaults."""
+        """Check if Printer Sharing is on: ``cupsctl`` prints ``_share_printers=1``.
+
+        This used to read the AFP file server's preferences
+        (/Library/Preferences/com.apple.AppleFileServer), which exist on most
+        Macs and have nothing to do with printers, and reported "Printer
+        Sharing is enabled" whenever that file existed.
+        """
         try:
             result = subprocess.run(
-                [
-                    "defaults",
-                    "read",
-                    "/Library/Preferences/com.apple.AppleFileServer",
-                    "guestAccess",
-                ],
+                ["cupsctl"],
                 capture_output=True,
                 text=True,
+                timeout=10,
             )
-            # If the key exists and is 1, printer sharing is enabled
-            if result.returncode == 0:
-                return "1" in result.stdout
-            # Also check if there are any shared printers
-            result2 = subprocess.run(
-                [
-                    "defaults",
-                    "read",
-                    "/Library/Preferences/com.apple.AppleFileServer",
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if result2.returncode == 0:
-                # If the file exists, it means printer sharing was configured
-                return True
+        except (OSError, subprocess.SubprocessError):
             return False
-        except OSError:
+        if result.returncode != 0 or not isinstance(result.stdout, str):
             return False
+        return "_share_printers=1" in result.stdout

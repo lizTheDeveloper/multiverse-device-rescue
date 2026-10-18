@@ -46,24 +46,13 @@ def _fake_run(
                 result.stdout = "Remote Login: On\n"
             else:
                 result.stdout = "Remote Login: Off\n"
-        elif "defaults" in cmd and "read" in cmd:
-            # Check if guestAccess is in the command
-            has_guest_access = any("guestAccess" in str(arg) for arg in cmd)
-            if has_guest_access:
-                if printer_sharing_enabled:
-                    result.stdout = "1\n"
-                    result.returncode = 0
-                else:
-                    result.returncode = 1
-                    result.stderr = "The specified key CFBundleIdentifier does not exist"
-            else:
-                # This is the second defaults read without guestAccess
-                if printer_sharing_enabled:
-                    result.stdout = "{\n    guestAccess = 1;\n}\n"
-                    result.returncode = 0
-                else:
-                    result.returncode = 1
-                    result.stderr = "The specified key CFBundleIdentifier does not exist"
+        elif cmd == ["cupsctl"]:
+            # Real cupsctl output on macOS 26.3.1 (printer sharing off)
+            share = "1" if printer_sharing_enabled else "0"
+            result.stdout = (
+                "_debug_logging=0\n_remote_admin=0\n_remote_any=0\n"
+                f"_share_printers={share}\n_user_cancel_any=0\n"
+            )
         return result
 
     return fake_run
@@ -216,3 +205,40 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.sharing_services.") for c in declared)
+
+
+# --- Regression: macOS 26.3.1 ---------------------------------------------------
+# Printer sharing used to be read from the AFP file server's prefs, which exist
+# on most Macs, so "Printer Sharing is enabled" showed with cupsctl reporting
+# _share_printers=0. The per-user screensharing helpers must not count either.
+
+_LAUNCHCTL_USER_MACOS26 = (
+    "PID\tStatus\tLabel\n"
+    "-\t0\tcom.apple.screensharing.agent\n"
+    "-\t0\tcom.apple.screensharing.menuextra\n"
+    "812\t0\tcom.apple.screensharing.MessagesAgent\n"
+)
+
+
+def test_macos26_afp_prefs_do_not_mean_printer_sharing():
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        if cmd == ["cupsctl"]:
+            result.stdout = "_remote_admin=0\n_share_printers=0\n"
+        elif cmd[0] == "defaults":
+            result.stdout = '{\n    kerberosPrincipal = "REDACTED";\n}\n'
+        elif "launchctl" in cmd:
+            result.stdout = _LAUNCHCTL_USER_MACOS26
+        else:
+            result.stdout = "You need administrator access to run this tool... exiting!\n"
+        return result
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    services = {f.data.get("service") for f in result.findings}
+    assert "printer_sharing" not in services
+    assert "screen_sharing" not in services

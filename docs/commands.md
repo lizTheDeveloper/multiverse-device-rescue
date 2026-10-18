@@ -1806,14 +1806,14 @@ defaults read MobileMeAccounts Accounts
 cupsctl
 defaults read com.apple.sharingd DiscoverableMode
 launchctl list
+launchctl print …
 systemsetup -getremotelogin
 ```
 
 ### `sharing_services`
 
 ```text
-defaults read /Library/Preferences/com.apple.AppleFileServer
-defaults read /Library/Preferences/com.apple.AppleFileServer guestAccess
+cupsctl
 launchctl list
 systemsetup -getremotelogin
 ```

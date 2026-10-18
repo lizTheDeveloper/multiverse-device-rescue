@@ -313,6 +313,39 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
+    @staticmethod
+    def _launchctl_has_label(stdout: str, label: str) -> bool:
+        """True if ``launchctl list`` output has a job whose label is exactly ``label``.
+
+        A substring test matched the per-user helpers that every Mac runs
+        (com.apple.screensharing.agent, .menuextra, .MessagesAgent) and
+        reported "Screen Sharing is enabled" on a Mac with it off.
+        """
+        for line in stdout.splitlines():
+            parts = line.split()
+            if parts and parts[-1] == label:
+                return True
+        return False
+
+    def _system_service_loaded(self, label: str) -> bool:
+        """Is the system daemon ``label`` loaded (``launchctl print system/<label>``)?
+
+        Screen Sharing and File Sharing are system daemons that launchd loads
+        only while the service is turned on; a non-admin ``launchctl list``
+        shows the user's own domain, not these.
+        """
+        try:
+            result = subprocess.run(
+                ["launchctl", "print", f"system/{label}"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+        out = result.stdout if isinstance(result.stdout, str) else ""
+        return result.returncode == 0 and out.lstrip().startswith(f"system/{label} = {{")
+
     def _is_screen_sharing_enabled(self) -> bool:
         """Check if Screen Sharing is enabled via launchctl."""
         try:
@@ -322,11 +355,13 @@ class Module(ModuleBase):
                 text=True,
                 timeout=5,
             )
-            if result.returncode == 0:
-                return "com.apple.screensharing" in result.stdout
-            return False
+            if result.returncode == 0 and self._launchctl_has_label(
+                result.stdout, "com.apple.screensharing"
+            ):
+                return True
         except (OSError, subprocess.TimeoutExpired):
-            return False
+            pass
+        return self._system_service_loaded("com.apple.screensharing")
 
     def _is_file_sharing_enabled(self) -> bool:
         """Check if File Sharing (SMB) is enabled via launchctl."""
@@ -337,9 +372,11 @@ class Module(ModuleBase):
                 text=True,
                 timeout=5,
             )
-            if result.returncode == 0:
-                return "com.apple.smbd" in result.stdout
-            return False
+            if result.returncode == 0 and self._launchctl_has_label(
+                result.stdout, "com.apple.smbd"
+            ):
+                return True
+            return self._system_service_loaded("com.apple.smbd")
         except (OSError, subprocess.TimeoutExpired):
             return False
 
