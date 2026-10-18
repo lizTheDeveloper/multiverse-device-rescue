@@ -343,7 +343,7 @@ test('if the game can’t load, the computer’s districts still work', async ()
     await tick();
   } finally { console.error = orig; }
   assert.match(stub.frame.innerHTML, /couldn’t load\. Your computer’s districts still work/);
-  assert.match(stub.frame.innerHTML, /data-go="district:/);
+  assert.match(stub.frame.innerHTML, /data-go="filter:/, 'the deck’s city filters the queue');
   assert.strictEqual(errors.length, 1);
 });
 
@@ -355,7 +355,7 @@ test('blocked storage: the map still renders from the scan, with the game starti
   try {
     const t = await rcSetup({ storage: throwing });
     assert.match(t.html(), /YOUR ACCOUNTS/);
-    assert.match(t.html(), /data-go="district:/);
+    assert.match(t.html(), /data-go="filter:/);
     t.click({ 'data-go': 'rc:#/district/master-keys' });
     assert.match(t.html(), /data-action="toggle-account"/);
     t.click({ 'data-action': 'toggle-account', 'data-account': 'gmail' });
