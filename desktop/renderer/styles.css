@@ -1118,6 +1118,55 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+/* "It's mine" on a list of apps: one row per app, ids under Technical details. */
+.mark-apps {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.mark-apps__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.1rem 0.75rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.mark-apps__row + .mark-apps__row {
+  border-top: 1px solid var(--border);
+}
+
+.mark-apps__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mark-apps__maker {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.mark-tech {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+}
+
+.mark-tech summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.mark-tech__ids {
+  margin: 0.3rem 0 0 1.2rem;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+
 .cleared-note {
   display: flex;
   align-items: center;

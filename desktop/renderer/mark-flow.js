@@ -19,6 +19,13 @@ const MarkFlow = (function () {
   const MARK_ID = /^[0-9a-f]{12}$/;
   const ONLY_IF_YOURS = 'Only do this if you set this up yourself. If you’re not sure, leave it as it is.';
   const COULD_WATCH = 'Something like this can be used to watch or get into a computer. That is why we ask.';
+  // Why we ask about a list of apps: an ordinary list, not an accusation.
+  const LIST_REASON = 'We ask so the list stays accurate: if a new app appears, you’ll hear about it.';
+  const NOT_SURE_LIST = 'Not sure about one? Leave the whole list as it is.';
+  // Kinds that really are about watching a computer or getting into it remotely.
+  const WATCH_KINDS = new Set(['sharing_service', 'network_proxy', 'system_extension', 'browser_extension', 'ssh_authorized_keys']);
+  // Kinds whose list gets the neutral reason instead.
+  const LIST_KINDS = new Set(['app_permissions']);
   const ITEM_KINDS = new Set([
     'sharing_service', 'network_proxy', 'system_extension', 'browser_extension',
     'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
@@ -111,16 +118,57 @@ const MarkFlow = (function () {
     return `<ol class="fix-undo">${(steps || []).map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`;
   }
 
-  function showsHtml(m) {
+  // The engine's per-app rows ({id, name}) on a list of apps, or [].
+  function appRowsOf(m) {
+    if (!m || !LIST_KINDS.has(m.kind) || !Array.isArray(m.apps)) return [];
+    return m.apps.filter((r) => r && clean(r.id) && clean(r.name, 256));
+  }
+
+  // "Made by …" for one app, from the finding's `made_by` entry for that id.
+  function makerOf(madeBy, id) {
+    const e = Array.isArray(madeBy) ? madeBy.find((x) => x && x.subject === id) : null;
+    if (!e || typeof e.name !== 'string' || !e.name.trim() || e.name === 'Unknown maker') return '';
+    return e.verified ? `Made by ${e.name}` : `Says it is made by ${e.name} (couldn’t verify)`;
+  }
+
+  function appsHtml(rows, madeBy, count) {
+    const items = rows.map((r) => {
+      const maker = makerOf(madeBy, r.id);
+      return `<li class="mark-apps__row"><span class="mark-apps__name">${esc(r.name)}</span>${maker ? `<span class="mark-apps__maker">${esc(maker)}</span>` : ''}</li>`;
+    }).join('');
+    const ids = rows.map((r) => `<li><code>${esc(r.id)}</code>${r.name !== r.id ? ` (${esc(r.name)})` : ''}</li>`).join('');
+    return `<p class="fix-panel__line"><strong>What you are saying is yours${count ? ` (${esc(count)} apps)` : ''}:</strong></p>
+          <ul class="mark-apps">${items}</ul>
+          <p class="fix-panel__line muted">${esc(NOT_SURE_LIST)}</p>
+          <details class="mark-tech"><summary>Technical details</summary>
+            <p class="fix-panel__line">The names the permission list uses for these apps (bundle IDs):</p>
+            <ul class="mark-tech__ids">${ids}</ul>
+          </details>`;
+  }
+
+  function showsHtml(m, finding) {
     const rows = Array.isArray(m.shows)
       ? m.shows.filter((r) => Array.isArray(r) && r.length === 2 && typeof r[0] === 'string' && typeof r[1] === 'string')
       : [];
+    const apps = appRowsOf(m);
+    if (apps.length) {
+      const count = (rows.find(([k]) => k === 'How many') || [])[1] || String(apps.length);
+      return appsHtml(apps, finding && finding.made_by, count);
+    }
     if (m.kind === 'background_task') {
       rows.unshift(['Task', m.label], ['Program', m.program]);
     }
     if (!rows.length) return '';
     return `<p class="fix-panel__line"><strong>What you are saying is yours:</strong></p>
           <dl class="mark-shows">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+  }
+
+  // Why we ask: the watching line only where it is about watching or remote access.
+  function reasonHtml(m, strong) {
+    if (!strong || m.kind === 'background_task') return '';
+    if (LIST_KINDS.has(m.kind)) return `<p class="fix-panel__line">${esc(LIST_REASON)}</p>`;
+    if (WATCH_KINDS.has(m.kind)) return `<p class="fix-panel__line">${esc(COULD_WATCH)}</p>`;
+    return '';
   }
 
   // opts.watched: the person said "I think someone is watching me".
@@ -133,16 +181,16 @@ const MarkFlow = (function () {
       <div class="mark-mine" data-mark-card data-mark-kind="${esc(m.kind)}" data-mark-id="${esc(m.id)}" data-mark-group="${esc(group.join(' '))}">
         <button type="button" class="btn btn--secondary btn--small" data-mark-open>${esc(buttonLabel(m))}</button>
         <div class="fix-panel" data-mark-panel hidden role="group" aria-label="Confirm this is yours">
-          ${showsHtml(m)}
+          ${showsHtml(m, finding)}
           <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.will_change)}</p>
           ${coversHtml(group.length, m.kind)}
           <p class="fix-panel__line"><strong>To undo later:</strong></p>
           ${undoListHtml(m.how_to_undo)}
           ${strong ? `<p class="fix-panel__line fix-panel__warning"><strong>${esc(ONLY_IF_YOURS)}</strong></p>` : ''}
-          ${strong && m.kind !== 'background_task' ? `<p class="fix-panel__line">${esc(COULD_WATCH)}</p>` : ''}
+          ${reasonHtml(m, strong)}
           <p class="muted fix-panel__note">Nothing on your computer is changed or turned off.</p>
           <div class="fix-panel__actions">
-            <button type="button" class="btn btn--primary btn--small" data-mark-confirm>Yes, it’s mine</button>
+            <button type="button" class="btn btn--primary btn--small" data-mark-confirm>${LIST_KINDS.has(m.kind) ? 'Yes, these are mine' : 'Yes, it’s mine'}</button>
             <button type="button" class="btn btn--secondary btn--small" data-mark-cancel>Cancel</button>
           </div>
         </div>
@@ -372,7 +420,7 @@ const MarkFlow = (function () {
   }
 
   return {
-    ONLY_IF_YOURS, COULD_WATCH, BUTTON, NEVER_MARKABLE_MODULES, groupOf, markableOf, markedIdOf,
+    ONLY_IF_YOURS, COULD_WATCH, LIST_REASON, NOT_SURE_LIST, BUTTON, NEVER_MARKABLE_MODULES, groupOf, markableOf, markedIdOf,
     needsStrongConfirm, markControlsHtml, describeMarkResult, resultHtml, attach, esc,
   };
 })();

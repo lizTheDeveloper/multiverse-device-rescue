@@ -65,6 +65,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable
 
+from rescue.app_names import app_rows
 from rescue.models import Finding, Severity
 
 ENV_PATH = "RESCUE_KNOWN_ITEMS"
@@ -85,7 +86,7 @@ KINDS: dict[str, dict] = {
 }
 
 MARK_WILL_CHANGE = (
-    "Device Rescue will stop warning you about the background task '{label}'. "
+    "The checkup will stop warning you about the background task '{label}'. "
     "It will still be listed, as \"marked as yours\", on every checkup and in "
     "anything you export, so anyone helping you can see it. If the task's "
     "program, the script it runs, or its settings file ever changes, the "
@@ -97,8 +98,8 @@ MARK_COVERS_TASK = (
     "This covers every warning about this task on this checkup."
 )
 MARK_HOW_TO_UNDO = [
-    "Choose \"Stop treating this as mine\" on the item in Device Rescue",
-    "Or run: rescue known remove <id> (rescue known list shows the id)",
+    "Choose \"Stop treating this as mine\" on the item in this app",
+    "If you use the command line: rescue known remove <id> (rescue known list shows the id)",
 ]
 
 
@@ -733,8 +734,13 @@ def _show_browser_ext(ident, finding):
 
 
 def _show_apps(ident, finding):
-    apps = finding.data.get("apps") or []
-    return [["Apps", ", ".join(sorted(set(apps)))], ["How many", ident["app_count"]]]
+    # Names people recognise ("Caffeine"), not bundle ids; the ids stay in
+    # markable["apps"] and in the finding's data.
+    names = []
+    for row in app_rows(finding.data.get("apps") or []):
+        if row["name"] not in names:
+            names.append(row["name"])
+    return [["Apps", ", ".join(names)], ["How many", ident["app_count"]]]
 
 
 def _show_ssh(ident, finding):
@@ -1044,7 +1050,7 @@ def item_will_change(kind: str, identity: dict) -> str:
     label = (spec.get("label_of") or (lambda i: ""))(identity)
     what = spec["what"].replace("{label}", label)
     return (
-        f"Device Rescue will stop warning you about {what}. It will still be listed, as "
+        f"The checkup will stop warning you about {what}. It will still be listed, as "
         "\"marked as yours\", on every checkup and in anything you export, so anyone "
         f"helping you can see it. If {spec['changed']} changes, the warning comes back."
     )
@@ -1082,7 +1088,16 @@ def item_markable(finding: Finding, module_name: str) -> dict | None:
         "shows": shows,
         "will_change": item_will_change(kind, identity),
         "how_to_undo": list(MARK_HOW_TO_UNDO),
+        **({"apps": _apps_rows(finding)} if kind == "app_permissions" else {}),
     }
+
+
+def _apps_rows(finding) -> list[dict]:
+    """Each app on a marked list: its bundle id (or path) and the name to show."""
+    try:
+        return app_rows(finding.data.get("apps") or [])
+    except Exception:
+        return []
 
 
 def find_item(code: str, expect_id: str, run_check: Callable[[str], list]) -> tuple[str, dict]:
