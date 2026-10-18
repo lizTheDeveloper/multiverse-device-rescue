@@ -18,6 +18,7 @@
     "case.py": "a6b9e1fd314395f97e971194f6d3a352b85e2273d986eb422b659ade3feb0e87",
     "cli.py": "cb65749351f180def438240717bfbd992b87a67b056ba8e483cd039081d98263",
     "command.py": "fa75b1df5b3b742f81e0e3117f628030523c9442c63aac5c747e99d3c632043e",
+    "crash_reports.py": "eb72bf87abb042fad6931a1166fb27b201a25ec15c19071874458458dea185bc",
     "fsbounds.py": "9eae7c588b5e31a373a42bc3d0fa029e3ac7df15f9d50409b61c2c80acbacdc8",
     "guides.py": "0c3898d0d3e2595095cbd09b5beb30fc2876dfea5184ff5f5a0fff07ebb1253b",
     "known_extensions.py": "cccb506706deb79cb1da44231cf40161ff62b2fed9d2517988348d25a715fafc",

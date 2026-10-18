@@ -13,6 +13,7 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue.crash_reports import crash_report_app_name
 from rescue.module_base import ModuleBase
 
 
@@ -333,8 +334,9 @@ class Module(ModuleBase):
         except (OSError, ValueError):
             mtime = datetime.now()
 
-        # Extract app name from filename (e.g., "AppName_2024-01-15-123456.crash")
-        app_name = file_path.stem.split("_")[0]
+        # Extract app name from filename ("AppName-2024-01-15-123456.ips"). The
+        # name can contain underscores: chrome_crashpad_handler is not "chrome".
+        app_name = crash_report_app_name(file_path)
 
         # Extract exception type/crash reason
         crash_reason = self._extract_crash_reason(content)
