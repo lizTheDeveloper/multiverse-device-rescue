@@ -213,6 +213,7 @@ df -i /
 diskutil apfs list
 diskutil info /
 diskutil verifyVolume /
+fdesetup status
 ```
 
 ### `font_issues`

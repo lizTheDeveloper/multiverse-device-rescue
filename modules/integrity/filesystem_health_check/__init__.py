@@ -84,8 +84,15 @@ class Module(ModuleBase):
             )
 
         # Check FileVault encryption
-        encryption_status = fs_info.get("encryption", "Unknown")
-        is_encrypted = "Yes" in encryption_status or "encrypted" in encryption_status.lower()
+        # "/" is the sealed, read-only System volume: diskutil says
+        # "Encrypted: No" for it even with FileVault on (the user's data lives
+        # on the Data volume). fdesetup is the source of truth; if neither
+        # answers, the status is "Unknown", which is not "off".
+        encryption_status = (
+            self._filevault_status() or fs_info.get("encryption") or "Unknown"
+        )
+        is_encrypted = encryption_status == "Yes"
+        encryption_known = encryption_status in ("Yes", "No")
 
         findings.append(
             Finding(
@@ -98,7 +105,7 @@ class Module(ModuleBase):
         )
 
         # Check if laptop without FileVault (warning)
-        if not is_encrypted and self._is_laptop(profile):
+        if encryption_known and not is_encrypted and self._is_laptop(profile):
             findings.append(
                 Finding(
                     title="Your laptop's data isn't encrypted",
@@ -293,6 +300,27 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
+    def _filevault_status(self) -> str | None:
+        """'Yes' / 'No' from `fdesetup status`, or None if it couldn't tell."""
+        try:
+            result = subprocess.run(
+                ["fdesetup", "status"],
+                capture_output=True,
+                text=True,
+                errors="replace",
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        out = result.stdout if result.returncode == 0 else ""
+        if not isinstance(out, str):
+            return None
+        if "FileVault is On" in out:
+            return "Yes"
+        if "FileVault is Off" in out:
+            return "No"
+        return None
+
     def _get_filesystem_info(self) -> dict:
         """Get filesystem type and encryption status from diskutil info."""
         try:
@@ -324,9 +352,14 @@ class Module(ModuleBase):
             else:
                 info["type"] = fs_type
 
-        # Get encryption status
+        # Get encryption status. "FileVault:" reflects the volume group (it is
+        # "Yes" for "/" when FileVault is on); "Encrypted:" for the sealed
+        # System volume is always "No".
+        filevault_match = re.search(r"FileVault:\s+(Yes|No)", output)
         encryption_match = re.search(r"Encrypted:\s+(Yes|No)", output)
-        if encryption_match:
+        if filevault_match:
+            info["encryption"] = filevault_match.group(1)
+        elif encryption_match:
             info["encryption"] = encryption_match.group(1)
 
         return info
