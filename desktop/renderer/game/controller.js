@@ -84,7 +84,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // treating this as mine"). Its return is expected, so it isn't "came back".
   // The same quiet text as the list (QuietNotes): no hotline paragraphs in missions, notes or clues.
   const quietDoc = (d) => (win.QuietNotes ? win.QuietNotes.quietDoc(d) : d);
-  const hostMode = () => (win.RescueHost && typeof win.RescueHost.mode === 'function' ? win.RescueHost.mode() : null);
+  // Without the host's answer, assume 'city': monitoring software is then held
+  // (nothing to act on) rather than shown with its removal steps.
+  const hostMode = () => (win.RescueHost && typeof win.RescueHost.mode === 'function' ? win.RescueHost.mode() : 'city');
 
   function rebuild(doc, putBack = null) {
     s.doc = doc;

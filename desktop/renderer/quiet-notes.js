@@ -28,6 +28,13 @@ const QuietNotes = (function () {
   // "Keep a record" and the last sentence of "Decide whether it's safe to
   // remove", word for word from guides/remediation/respond_to_monitoring_software.md,
   // and the advocate note above. Nothing here says to remove anything.
+  // What an AI is told about a held finding ("Copy for any AI", "Ask about this").
+  const HELD_AI_NOTE = 'Don’t suggest removing or disabling it; the person may be at risk if it’s removed. Suggest documenting it and talking to an advocate.';
+  // A sentence that tells the person to act on the software: remove, uninstall,
+  // delete, disable, move, or turn or switch it off, and the engine's own
+  // "What to do". None of it is shown on a held card.
+  const ACTS = /\b(?:re)?mov(?:e|es|ed|ing|al)\b|\buninstall\w*|\bdelet\w*|\bdisabl\w*|\b(?:turn|switch)\w*\b(?:\s+\S+){0,3}?\s+off\b|\bwhat to do\b/i;
+  const HELD_ABOUT = 'The checkup found this on your computer.';
   const HELD_HELP_TITLE = 'How to keep a quiet record, and who can help';
   const HELD_HELP = [
     'On paper or on another device, write down the name the scan found, where it was found, and today\'s date. Take a photo of the scan result with your phone. That record can matter later, for a protective order or a police report, and removing the software erases most of it.',
@@ -108,6 +115,14 @@ const QuietNotes = (function () {
     return paragraphs(text).map((p) => quietParagraph(p)[1].join(' ')).filter((p) => p !== '');
   }
 
+  // A held card says only what the software is: the description's first
+  // paragraph, without hotline sentences or any sentence that says to act on it.
+  function heldDescription(text) {
+    const first = paragraphs(text).find((p) => p.trim() !== '') || '';
+    const kept = sentences(quiet(first)).filter((x) => !ACTS.test(x)).join('').trim();
+    return kept || HELD_ABOUT;
+  }
+
   function quietFinding(f) {
     if (!f || typeof f !== 'object') return f;
     const out = { ...f };
@@ -155,7 +170,7 @@ const QuietNotes = (function () {
   function cardText(mode, finding) {
     const f = finding || {};
     const note = noteFor(mode, f);
-    if (note === 'held') return { note, description: quiet(f.description), steps: [], full: [] };
+    if (note === 'held') return { note, description: heldDescription(f.description), steps: [], full: [] };
     const steps = f.remediation && Array.isArray(f.remediation.steps) ? f.remediation.steps : [];
     if (note === 'line') return { note, description: quiet(f.description), steps, full: fullNote(f) };
     const q = quietFinding(f);
@@ -179,7 +194,22 @@ const QuietNotes = (function () {
       + `${HELD_HELP.map((p) => `<p>${esc(p)}</p>`).join('')}</details>`;
   }
 
-  return { MONITORING_MODULES, MARKERS, LINE, HELD_LINE, HELD_MORE, HELD_HELP, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
+  // What "Copy for any AI" and "Ask about this" get for a held card: the
+  // card's own text, never the engine's description, steps or evidence (which
+  // carry removal steps and the path). `held: true` has the copy carry
+  // HELD_AI_NOTE; the ask, which takes only these fields, has it in the text.
+  function heldPick(card, finding) {
+    const f = finding || {};
+    return { title: f.title, description: card.description, severity: f.severity, category: f.category,
+      code: f.code, module: f.module, held: true };
+  }
+  function heldAsk(card, finding) {
+    const f = finding || {};
+    return { title: f.title, description: `${card.description}\n\n${HELD_AI_NOTE}`, severity: f.severity,
+      category: f.category, code: f.code };
+  }
+
+  return { MONITORING_MODULES, MARKERS, LINE, HELD_LINE, HELD_MORE, HELD_HELP, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

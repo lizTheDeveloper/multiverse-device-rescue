@@ -31,6 +31,10 @@ const PREAMBLE = [
   '  the person who installed it, and suggest I talk to an advocate first (US: 1-800-799-7233).',
 ].join('\n');
 
+// For an item the app holds back in its quiet display (monitoring software,
+// `held: true`). Fixed here: the page only says which items it applies to.
+const HELD_NOTE = 'Don’t suggest removing or disabling it; the person may be at risk if it’s removed. Suggest documenting it and talking to an advocate.';
+
 const SEVERITY_WORDS = { critical: 'Needs attention now', warning: 'Worth checking', info: 'For your information' };
 
 function cleanString(s, env) {
@@ -118,6 +122,7 @@ function findingText(f, index, env) {
   if (typeof f.confidence === 'number') lines.push(`Confidence: ${f.confidence}`);
   const status = statusLine(f);
   if (status) lines.push(`Status: ${status}`);
+  if (f.held === true) lines.push(`Please note: ${HELD_NOTE}`);
   if (f.description) lines.push('', cleanString(f.description, env));
   const made = madeByLines(f.made_by, env);
   if (made.length) lines.push('', 'Who made the programs involved:', ...made);
@@ -166,4 +171,4 @@ function buildAiPrompt(payload, env) {
   return text.trimEnd() + '\n';
 }
 
-module.exports = { buildAiPrompt, cleanEvidence, PREAMBLE, MAX_TOTAL_CHARS, PERSON_SAID };
+module.exports = { buildAiPrompt, cleanEvidence, PREAMBLE, MAX_TOTAL_CHARS, PERSON_SAID, HELD_NOTE };

@@ -202,15 +202,24 @@ test('a stealth session with monitoring software found: nothing written names it
   assert.doesNotMatch(JSON.stringify(t.storage.data), NAMES_IT);
 });
 
-test('what stealth shows now (the city map): the hold line and the help, never a fix, a mark or "Removing this"', async () => {
+test('what stealth shows now (the city map): a plain label, the hold line and help closed behind it, never a fix, a mark or "Removing this"', async () => {
   const t = await stealthController('city');
   t.ctl.show(spyDoc(), { id: 'city' });
   const html = t.frame.innerHTML;
-  assert.match(html, /Don’t remove it yet\. Talk to an advocate first\./);
-  assert.match(html, /write down the name the scan found/, 'how to keep a quiet record');
-  assert.match(html, /talk to an advocate before you remove anything\. In the US: National Domestic Violence Hotline, 1-800-799-7233/);
-  assert.match(html, /<details class="finding-card__held-help" open>/, 'the help is open, not behind a click');
-  assert.match(html, /data-act="list"/, 'and the way to the list, where the same card is');
+  const panel = /<div class="panel held">[\s\S]*?SEE IT IN THE LIST<\/button><\/div>/.exec(html)[0];
+  // Closed behind a plain control: what shows on the map before a click.
+  const outer = /<details class="held-more">([\s\S]*)<\/details>/.exec(panel);
+  assert.ok(outer, 'the help is behind a control');
+  const onFace = panel.replace(outer[0], '') + /<summary>[^<]*<\/summary>/.exec(outer[1])[0];
+  assert.match(onFace, /SOMETHING THE CHECKUP FOUND/);
+  assert.match(onFace, /Read this before you change anything/);
+  assert.doesNotMatch(onFace, /mSpy|stalker|spy|monitor|watch|advocate|799-7233|hotline|remove/i, 'nothing on its face gives it away');
+  assert.doesNotMatch(html, /mSpy|Stalkerware found/, 'the title is never on the map in city mode');
+  // Behind it: the hold line and the help.
+  assert.match(outer[1], /Don’t remove it yet\. Talk to an advocate first\./);
+  assert.match(outer[1], /write down the name the scan found/, 'how to keep a quiet record');
+  assert.match(outer[1], /talk to an advocate before you remove anything\. In the US: National Domestic Violence Hotline, 1-800-799-7233/);
+  assert.match(panel, /data-act="list"/, 'and the way to the list, where the same card is');
   assert.doesNotMatch(html, /Open the city/, 'already in the city');
   assert.doesNotMatch(html, /Removing this can alert/);
   assert.doesNotMatch(html, /\[FIX IT\]|\[IT IS MINE\]|Uninstall/);
@@ -245,7 +254,8 @@ test('the briefing on monitoring software: the line and the full note (standard)
   assert.doesNotMatch(city, /Removing this can alert|YOUR MOVE|Uninstall|I DID IT|\[FIX IT\]|\[IT IS MINE\]/);
   // Anything else is as before.
   const other = findingsToCity(spyDoc()).districts.flatMap((d) => d.missions).find((x) => x.module === 'remote_login_check');
-  assert.deepStrictEqual(briefingNote(Q, 'city', other.primary), { kind: 'none', html: '' });
+  const none = briefingNote(Q, 'city', other.primary);
+  assert.deepStrictEqual([none.kind, none.html], ['none', '']);
 });
 
 test('the list in city mode: the hold line with its help, no points, and no removal steps in "Copy for any AI"', async () => {
@@ -262,5 +272,130 @@ test('the list in city mode: the hold line with its help, no points, and no remo
   assert.match(list, /data-card-counts="1"[\s\S]*Remote Login is on/, 'other findings still count');
   const picks = JSON.parse(p.run('JSON.stringify(copyAiRegistry)'));
   const spy = picks.find((x) => x.module === 'stalkerware_scan');
-  assert.ok(spy && !('remediation' in spy), 'its copy has no removal steps');
+  assert.ok(spy && !('remediation' in spy) && !('data' in spy), 'its copy has no removal steps and no evidence');
+});
+
+// Fix round 1.
+
+// Independent of QuietNotes.ACTS on purpose: any word that tells the person to
+// act on the software.
+const ACT_WORDS = /remov|uninstall|delet|disabl|\bmov(?:e|es|ed|ing)\b|\b(?:turn|switch)\w*\b(?:\s+\S+){0,4}?\s+off\b|what to do|get rid/i;
+const REAL = require('./fixtures/monitoring-descriptions.json');
+
+test('the fixture of real monitoring descriptions covers every monitoring check, and is the one the engine writes', () => {
+  const mods = new Set(REAL.map((r) => r.module));
+  assert.deepStrictEqual([...mods].sort(), [...Q.MONITORING_MODULES].sort());
+  assert.ok(REAL.filter((r) => ACT_WORDS.test(r.description)).length >= 10, 'the engine’s own text does tell people to act on it');
+  // tests/test_monitoring_descriptions.py fails when it is stale.
+});
+
+test('a held card says only what the software is: no removal or turn-off sentence from any real description survives', () => {
+  for (const r of REAL) {
+    const f = { module: r.module, code: r.code, title: 'x', description: r.description,
+      remediation: { steps: [{ number: 1, title: 'Remove it', body: 'Uninstall it.' }] } };
+    const card = Q.cardText('city', f);
+    assert.strictEqual(card.note, 'held');
+    assert.deepStrictEqual(card.steps, []);
+    assert.doesNotMatch(card.description, ACT_WORDS, `${r.code}: ${card.description}`);
+    assert.doesNotMatch(card.description, /799-7233|advocate|hotline/i, r.code);
+    assert.ok(card.description.trim().length > 0, r.code);
+    assert.ok(!card.description.includes('\n\n'), `${r.code}: the first paragraph only`);
+  }
+  // What it is stays: the real keylogger critical keeps its first paragraph.
+  const kl = REAL.find((r) => r.code === 'security.keylogger_indicators.known_keyloggers');
+  const card = Q.cardText('city', { module: kl.module, description: kl.description });
+  assert.match(card.description, /These apps can secretly record everything you type/);
+  assert.doesNotMatch(card.description, /Input Monitoring and turn off|move the app folders/);
+  // Standard mode is as Task 6 left it: the description, steps and the one line.
+  const std = Q.cardText('standard', { module: kl.module, description: kl.description, remediation: { steps: [{ title: 'Remove it', body: 'b' }] } });
+  assert.strictEqual(std.note, 'line');
+  assert.match(std.description, /What to do: If you are safe to proceed/);
+  assert.strictEqual(std.steps.length, 1);
+});
+
+test('the list in city mode, with every real description: outside the hold line and its help, no card says to act on it', async () => {
+  const p = page({ store: { [KEY]: 'city' } });
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  const byMod = {};
+  REAL.forEach((r, i) => (byMod[r.module] = byMod[r.module] || []).push({ severity: 'critical', title: `Item ${i}`, code: r.code, category: 'security',
+    description: r.description, data: {}, remediation: { steps: [{ number: 1, title: 'Remove it', body: 'Uninstall it.' }] } }));
+  await p.finish({ schema_version: 1, platform: 'darwin', modules: Object.entries(byMod).map(([n, fs]) => mod(n, fs)) });
+  const list = p.byId('results-groups').innerHTML;
+  const cards = list.split('<li class="finding-card').slice(1);
+  assert.strictEqual(cards.length, REAL.length);
+  for (const c of cards) {
+    const rest = c.replace(/<p class="finding-card__note" role="note">[\s\S]*?<\/p>/, '')
+      .replace(/<details class="finding-card__held-help">[\s\S]*?<\/details>/, '');
+    assert.match(c, /Don’t remove it yet/);
+    assert.doesNotMatch(rest, ACT_WORDS, rest.slice(0, 400));
+  }
+});
+
+test('the briefing on a real held finding says what it is, not the engine’s steps', async () => {
+  const { renderBriefing } = await game('views/briefing.js');
+  const { findingsToCity } = await game('findings-to-city.js');
+  const { briefingNote } = await game('held.js');
+  const kl = REAL.find((r) => r.code === 'security.keylogger_indicators.known_keyloggers');
+  const doc = { modules: [mod('keylogger_indicators', [{ severity: 'critical', title: 'Known keylogger app found', description: kl.description, category: 'security', data: {} }])] };
+  const m = findingsToCity(doc).districts.flatMap((d) => d.missions)[0];
+  const html = renderBriefing({ mission: m, status: 'open', controlsHtml: '', scout: () => '', busy: false, wantsSafety: false, note: briefingNote(Q, 'city', m.primary) });
+  const whatItIs = /WHAT IT IS<\/div><p class="intel">([\s\S]*?)<\/p>/.exec(html)[1];
+  assert.match(whatItIs, /secretly record everything you type/);
+  assert.doesNotMatch(whatItIs, ACT_WORDS);
+});
+
+test('"Copy for any AI" and "Ask about this" on a held card: the card’s own text, no path, and the instruction', async () => {
+  const { buildAiPrompt, HELD_NOTE } = require('../ai-prompt.js');
+  const { buildAskBody } = require('../ask-about.js');
+  const p = page({ store: { [KEY]: 'city' } });
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  await p.finish(spyDoc());
+  const NOTE = 'Don’t suggest removing or disabling it; the person may be at risk if it’s removed. Suggest documenting it and talking to an advocate.';
+  assert.strictEqual(HELD_NOTE, NOTE);
+  assert.strictEqual(Q.HELD_AI_NOTE, NOTE);
+  const picks = JSON.parse(p.run('JSON.stringify(copyAiRegistry)'));
+  const spy = picks.find((x) => x.module === 'stalkerware_scan');
+  assert.deepStrictEqual(Object.keys(spy).sort(), ['category', 'code', 'description', 'held', 'module', 'severity', 'title']);
+  const text = buildAiPrompt({ findings: [spy], platform: 'darwin' }, { home: '/Users/x', user: 'x', hostnames: [] });
+  assert.ok(text.includes(`Please note: ${NOTE}`), 'the copy carries the instruction');
+  assert.ok(!text.includes(SPY_PATH) && !text.includes('mSpyAgent'), 'no path, no process');
+  assert.doesNotMatch(text.split('# What the checkup found')[1], /Uninstall|fix steps|Evidence:/);
+  const remote = buildAiPrompt({ findings: [picks.find((x) => x.module === 'remote_login_check')] }, { home: '/Users/x', user: 'x', hostnames: [] });
+  assert.ok(!remote.includes('Please note:'), 'other findings are as before');
+  const asks = JSON.parse(p.run('JSON.stringify(askRegistry)'));
+  const ask = asks.find((x) => /mSpy/.test(x.title));
+  assert.ok(ask.description.endsWith(NOTE), 'the ask carries the instruction');
+  assert.ok(!ask.description.includes(SPY_PATH) && !/Uninstall/.test(ask.description));
+  const body = buildAskBody({ finding: ask }, { home: '/Users/x', user: 'x', hostnames: [] });
+  assert.ok(body && body.finding.description.includes(NOTE), 'and it survives the ask’s own checks');
+  // Standard mode is unchanged: the raw finding, its steps and evidence.
+  const s = page({ store: { [KEY]: 'standard' } });
+  s.byId('btn-get-started').click();
+  s.pick('hacked');
+  s.byId('btn-run-scan').click();
+  await s.finish(spyDoc());
+  s.answer('known');
+  const sp = JSON.parse(s.run('JSON.stringify(copyAiRegistry)')).find((x) => x.module === 'stalkerware_scan');
+  assert.ok(sp.remediation && sp.data && !sp.held);
+});
+
+test('a host that doesn’t say its mode: the game holds monitoring software, as in city mode', async () => {
+  const { createController } = await import('../renderer/game/controller.js');
+  const frame = { innerHTML: '', addEventListener: () => {}, querySelector: () => null, querySelectorAll: () => [] };
+  const shadow = { activeElement: null, getElementById: () => frame, addEventListener: () => {} };
+  const win = {
+    document: { getElementById: () => ({ attachShadow: () => shadow }) }, QuietNotes: Q,
+    FixFlow: { attach() {}, fixControlsHtml: () => '[FIX IT]', resultHtml: () => '' },
+    MarkFlow: { attach() {}, markControlsHtml: () => '[IT IS MINE]' },
+    RescueHost: { showList() {}, docChanged: () => true, wantsSafety: () => false, scanTips: async () => [], leaveGame() {} }, // no mode()
+    rescue: { recheckModule: async () => ({ ok: false }) },
+  };
+  const ctl = createController({ win, storage: recordingStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}), loadTraining: async () => [] });
+  ctl.show(spyDoc(), { id: 'unsure' });
+  assert.match(frame.innerHTML, /SOMETHING THE CHECKUP FOUND/);
+  assert.doesNotMatch(frame.innerHTML, /Stalkerware found|Removing this can alert/);
+  const { briefingNote } = await game('held.js');
+  assert.strictEqual(briefingNote(Q, 'city', { module: 'keylogger_indicators' }).kind, 'held');
 });

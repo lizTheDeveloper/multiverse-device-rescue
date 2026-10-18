@@ -26,21 +26,32 @@ export function splitHeld(doc) {
 // list's own QuietNotes (`Q`). 'held' (city): the hold line and the help, and
 // nothing to act on. 'line' (standard): the one line with the full note
 // behind it. Anything else: nothing, and the briefing is as before.
+// `description` is what a held briefing says the software is, in place of the
+// engine's own text (which says how to remove it).
 export function briefingNote(Q, mode, finding) {
-  if (!Q || !finding) return { kind: 'none', html: '' };
+  if (!Q || !finding) return { kind: 'none', html: '', description: '' };
   const card = Q.cardText(mode, finding);
-  return { kind: card.note, html: Q.lineHtml(card, esc) + Q.heldHtml(card, esc, { more: false }) };
+  return { kind: card.note, html: Q.lineHtml(card, esc) + Q.heldHtml(card, esc, { more: false }), description: card.description };
 }
 
 // The map's note while something is held, so the city always says it and
 // always shows where help is. Task 8's district takes this place in 'city'.
-// Titles are shown, never stored.
+// In 'city' it is plain on its face: a neutral label, and the hold line and
+// help closed behind it, so a glance at the map gives nothing away. In
+// 'standard' it names what was found, with the one line. Never stored.
+export const HELD_LABEL = 'Something the checkup found';
+export const HELD_OPEN = 'Read this before you change anything';
 export function heldPanelHtml({ held, mode, Q }) {
   if (!Q || !Array.isArray(held) || !held.length) return '';
   const card = Q.cardText(mode, { module: held[0].module });
-  const note = Q.lineHtml(card, esc) + Q.heldHtml(card, esc, { more: false, open: true });
-  const titles = held.map((h) => `<li>${esc(h.title || 'Something the checkup found')}</li>`).join('');
+  const list = '<button type="button" class="btn-t" data-act="list">SEE IT IN THE LIST</button>';
+  if (card.note === 'held') {
+    return `<div class="panel held"><div class="label">${esc(HELD_LABEL.toUpperCase())}</div>
+    <details class="held-more"><summary>${esc(HELD_OPEN)}</summary>${Q.heldHtml(card, esc, { more: false, open: true })}</details>
+    ${list}</div>`;
+  }
+  const titles = held.map((h) => `<li>${esc(h.title || HELD_LABEL)}</li>`).join('');
   return `<div class="panel held" role="note"><div class="label">SOMETHING TO KNOW</div>
-    <ul class="notes">${titles}</ul>${note}
-    <button type="button" class="btn-t" data-act="list">SEE IT IN THE LIST</button></div>`;
+    <ul class="notes">${titles}</ul>${Q.lineHtml(card, esc)}
+    ${list}</div>`;
 }

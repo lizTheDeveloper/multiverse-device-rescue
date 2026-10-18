@@ -81,6 +81,9 @@ test('one list of monitoring checks, everywhere', async () => {
   const { HELD_MODULES } = await game('held.js');
   assert.deepStrictEqual([...HELD_MODULES].sort(), [...ALWAYS_SAFETY_MODULES].sort());
   assert.deepStrictEqual([...Q.MONITORING_MODULES].sort(), [...ALWAYS_SAFETY_MODULES].sort());
+  // "It's mine" is never offered on the same checks.
+  const MarkFlow = require('../renderer/mark-flow.js');
+  assert.deepStrictEqual([...MarkFlow.NEVER_MARKABLE_MODULES].sort(), [...ALWAYS_SAFETY_MODULES].sort());
 });
 
 test('the game never makes a mission of monitoring software, so nothing about it is saved', async () => {

@@ -721,7 +721,13 @@ if (typeof document !== 'undefined') {
       const items = findings
         .map((finding) => {
           const key = String(nextCardKey++);
-          const pick = copyAiPick(finding);
+          // What this card may say (QuietNotes): no hotline text, except the one line on monitoring software.
+          const card = QuietNotes.cardText(mode, finding);
+          // City mode, monitoring software: the hold line and its help. No fix,
+          // no "It's mine", no steps, and it doesn't count toward the list's progress.
+          const held = card.note === 'held';
+          // Nor does an AI get its removal steps or evidence: only the card's own text.
+          const pick = held ? QuietNotes.heldPick(card, finding) : copyAiPick(finding);
           cardPicks.set(key, pick);
           cardTech.set(key, {
             check: finding.module,
@@ -731,15 +737,8 @@ if (typeof document !== 'undefined') {
             evidence: finding.data || {},
           });
           const marked = !!(finding.data && finding.data.marked_by_user === true);
-          // What this card may say (QuietNotes): no hotline text, except the one line on monitoring software.
-          const card = QuietNotes.cardText(mode, finding);
-          // City mode, monitoring software: the hold line and its help. No fix,
-          // no "It's mine", no steps, and it doesn't count toward the list's progress.
-          const held = card.note === 'held';
           // On the list: everything worth acting on, plus what was marked as yours.
           const counts = !held && (severity === 'critical' || severity === 'warning' || marked);
-          // Nor do its removal steps go into "Copy for any AI".
-          if (held) delete pick.remediation;
           return `
             <li class="finding-card finding-card--${severity}" data-card-key="${key}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}>
               <div class="finding-card__header">
@@ -772,7 +771,7 @@ if (typeof document !== 'undefined') {
                     </li>`).join('')}
                 </ol>
               </details>` : ''}
-              ${askButtonHtml(finding)}
+              ${askButtonHtml(held ? QuietNotes.heldAsk(card, finding) : finding)}
               ${copyAiButtonHtml(finding, pick)}
               <details class="tech-details">
                 <summary>Technical details</summary>
