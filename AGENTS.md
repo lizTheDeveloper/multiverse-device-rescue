@@ -1,4 +1,4 @@
-# Using Device Rescue as an AI assistant
+# Using Reclaim City as an AI assistant
 
 You're helping someone who thinks something is wrong with their computer. They
 may be frightened. This file tells you how to run the scan, read its output,
@@ -11,7 +11,7 @@ If the person just wants the app, send them to the download buttons in the
 
 1. **Look, don't touch.** Use `rescue scan --json`, `rescue export`, and
    `rescue run <module> < /dev/null`. All of these are read-only (the one
-   exception: a scan removes a "marked as yours" entry from Device Rescue's
+   exception: a scan removes a "marked as yours" entry from Reclaim City's
    own list when that item is gone, and says so). Don't pass
    `--auto` or `--yes`, because both apply fixes. A fix needs the person to
    agree to that specific change after you've explained it. `rescue known add`

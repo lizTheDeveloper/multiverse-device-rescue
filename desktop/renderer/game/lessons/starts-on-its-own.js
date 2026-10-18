@@ -27,7 +27,7 @@ export default {
       ],
     },
     {
-      teach: 'When a finding names a program, Device Rescue says who made it and whether that could be checked: for example a “verified signature”, or “not signed”. A verified signature tells you who made it, not that you wanted it.',
+      teach: 'When a finding names a program, Reclaim City says who made it and whether that could be checked: for example a “verified signature”, or “not signed”. A verified signature tells you who made it, not that you wanted it.',
       prompt: 'A finding says a program has a “verified signature”. What does that tell you?',
       options: [
         { text: 'Who made it', correct: true,
@@ -43,7 +43,7 @@ export default {
         { text: 'Delete it straight away', correct: false,
           feedback: 'Look before you remove anything, and move it aside rather than deleting it, so it can be looked at again or put back.' },
         { text: 'Check who made it, then switch it off in a way you can undo', correct: true,
-          feedback: 'Right. On a Mac, for a flagged background job, Device Rescue’s “Fix it for me” stops the job and moves its settings file to a quarantine folder. Nothing is deleted, and you can undo it.' },
+          feedback: 'Right. On a Mac, for a flagged background job, Reclaim City’s “Fix it for me” stops the job and moves its settings file to a quarantine folder. Nothing is deleted, and you can undo it.' },
         { text: 'Leave it. Everything on a computer starts on its own.', correct: false,
           feedback: 'Some things do, on purpose. It’s still worth knowing what each one is, because unwanted software uses the same trick.' },
       ],

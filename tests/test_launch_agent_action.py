@@ -282,9 +282,9 @@ def test_offer_exact_shape(env):
     assert f["fixable"] == {
         "action": "disable_launch_agent",
         "target": str(p),
-        "will_change": "Stops the background job 'com.morgan.bluesky-poster' and moves its settings file to Device Rescue's quarantine folder. Nothing is deleted.",
+        "will_change": "Stops the background job 'com.morgan.bluesky-poster' and moves its settings file to Reclaim City's quarantine folder. Nothing is deleted.",
         "how_to_undo": [
-            "Open Device Rescue and choose Undo on this item",
+            "Open Reclaim City and choose Undo on this item",
             "Or move the file from ~/Library/Application Support/Device Rescue/Quarantine back to ~/Library/LaunchAgents and log out and back in",
         ],
     }

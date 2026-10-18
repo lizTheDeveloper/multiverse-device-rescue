@@ -1,4 +1,6 @@
-# Multiverse Device Rescue
+# Reclaim City
+
+Reclaim City is the desktop app. Underneath it is the `rescue` command line, which this site documents and which keeps its name.
 
 A local diagnostic, maintenance, and guided-recovery toolkit for macOS,
 Windows, and Linux. It runs **287 read-only checks** against the machine it is

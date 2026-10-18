@@ -18,7 +18,7 @@ const DROP_KEYS = /env|token|secret|passw|pwd|cookie|credential|auth|private|api
 const COMMAND_KEYS = /arg|cmd|command/i;
 
 const PREAMBLE = [
-  'I ran a security checkup app called Device Rescue on my computer. It only looks; it changed nothing.',
+  'I ran a security checkup app called Reclaim City on my computer. It only looks; it changed nothing.',
   'Below is what it found, with my name, computer name, network addresses and anything password-like removed.',
   '',
   'Please:',
@@ -93,7 +93,7 @@ const PERSON_SAID = new Set([
   'the person said they did this (this checkup only; not checked again yet)',
   'marked as theirs by the person just now (kept across checkups)',
   'marked as theirs by the person on an earlier checkup',
-  'fixed by Device Rescue and checked again',
+  'fixed by Reclaim City and checked again',
 ]);
 
 function statusLine(f) {

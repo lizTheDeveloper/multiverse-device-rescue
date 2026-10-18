@@ -12,8 +12,8 @@ const QID = '20261014T120000Z-com.morgan.bluesky-poster';
 const FIXABLE = {
   action: 'disable_launch_agent',
   target: TARGET,
-  will_change: "Stops the background job 'com.morgan.bluesky-poster' and moves its settings file to Device Rescue's quarantine folder. Nothing is deleted.",
-  how_to_undo: ['Open Device Rescue and choose Undo on this item', 'Or move the file back'],
+  will_change: "Stops the background job 'com.morgan.bluesky-poster' and moves its settings file to Reclaim City's quarantine folder. Nothing is deleted.",
+  how_to_undo: ['Open Reclaim City and choose Undo on this item', 'Or move the file back'],
 };
 const scan = (fixable = FIXABLE) => ({ modules: [{ name: 'launchd_persistence_audit', findings: [{ title: 't', fixable }] }] });
 

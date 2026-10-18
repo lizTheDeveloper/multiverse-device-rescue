@@ -36,7 +36,7 @@ export function districtBadges(d, reclaimed = 0) {
 export function districtLine(d, reclaimed = 0) {
   if (d.status === 'fog') return 'Couldn’t check here. That doesn’t mean it’s safe.';
   if (d.status === 'none') return 'No checks ran here on this computer.';
-  if (d.status === 'clear' && reclaimed) return 'What was found here before is gone now. Device Rescue checked again.';
+  if (d.status === 'clear' && reclaimed) return 'What was found here before is gone now. Reclaim City checked again.';
   if (d.status === 'clear') return 'Nothing found in the checks that ran here.';
   return d.blurb;
 }

@@ -435,7 +435,7 @@ Stated plainly, because you should know before you rely on them.
     this turned on" for these services, and anything like a process id would
     also change on every restart, bringing the warning back for no reason.
 
-    That removal is the one write a scan makes, and only to Device Rescue's
+    That removal is the one write a scan makes, and only to Reclaim City's
     own list: it goes through the same checks as `rescue known remove` (no
     symlinks, owned by you, not writable by others, valid JSON) and an atomic
     replace. If the list is not trusted, nothing is written and no mark

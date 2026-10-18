@@ -125,7 +125,7 @@ async function handleRunAction(action, target, { policy, runAction }) {
 // Pure handler behind ipcMain.handle('undo-fix'). Never throws.
 async function handleRunUndo(quarantineId, { policy, runUndo }) {
   if (!policy.isUndoAllowed(quarantineId)) {
-    return refusal('undo', 'not_allowed', 'We can only undo something Device Rescue turned off in this session. Use the written steps instead.');
+    return refusal('undo', 'not_allowed', 'We can only undo something Reclaim City turned off in this session. Use the written steps instead.');
   }
   try {
     const result = await runUndo(quarantineId);

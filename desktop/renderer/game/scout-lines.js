@@ -10,7 +10,7 @@ export const SCOUT = {
     warning: 'This isn’t urgent, but it’s worth a look when you’re ready.',
   },
   checking: 'Checking again. This only looks; it doesn’t change anything.',
-  reclaimed: 'Device Rescue checked again, and it’s gone.',
+  reclaimed: 'Reclaim City checked again, and it’s gone.',
   notYet: 'It’s still showing. Some programs put themselves back. Let’s look at the steps again.',
   couldnt: 'I couldn’t check again just now. That doesn’t mean it’s fixed.',
   // After Undo or "Stop treating this as mine": the person asked for it back.
@@ -18,7 +18,7 @@ export const SCOUT = {
   yours: 'Marked as yours. It stays listed, and you can change your mind any time.',
   debrief: {
     easy: 'Good. Every one you do makes the next one easier.',
-    nervous: 'That’s normal. You did it anyway, and Device Rescue kept a way back.',
+    nervous: 'That’s normal. You did it anyway, and Reclaim City kept a way back.',
     worried: 'That’s fair. The rest of the city is still here, and the list view has every detail.',
   },
 };
