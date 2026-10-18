@@ -22,14 +22,14 @@ function districtCard(d, learn) {
       <div class="district learned ${d.state}">${head}
         <span class="d-foot" id="sweep-${esc(d.id)}">${badge}<span class="cue">DONE ✓</span></span>
         <p>You’ve done ${l.count === 1 ? 'this lesson' : 'these lessons'}.
-          <button type="button" class="btn-t" data-go="review:${esc(d.id)}" aria-label="Review a lesson about ${esc(d.name)} (optional)">REVIEW ONE? (OPTIONAL)</button></p></div>`;
+          <button type="button" class="btn-t" data-go="review:${esc(d.id)}" aria-label="Review one? (optional): a lesson about ${esc(d.name)}">REVIEW ONE? (OPTIONAL)</button></p></div>`;
   }
-  const progress = l.count > 1 && !l.done ? ` <small>${esc(l.finished)}/${esc(l.count)} DONE</small>` : '';
+  const progress = l.count > 1 ? ` <small>${esc(l.finished)}/${esc(l.count)} DONE</small>` : '';
   return `
-      <button type="button" class="district learnable ${d.state}${now ? ' suggested' : ''}${l.done ? ' learned' : ''}" data-go="learn:${esc(d.id)}"
+      <button type="button" class="district learnable ${d.state}${now ? ' suggested' : ''}" data-go="learn:${esc(d.id)}"
         aria-label="Learn about ${esc(d.name)}" aria-describedby="${now ? `now-${esc(d.id)} ` : ''}sweep-${esc(d.id)}">${head}
         ${now ? `<span class="now" id="now-${esc(d.id)}">Scanning now — learn about it</span>` : ''}
-        <span class="d-foot" id="sweep-${esc(d.id)}">${badge}<span class="cue">${l.done ? 'DONE ✓' : 'LEARN ▶'}</span>${progress}</span></button>`;
+        <span class="d-foot" id="sweep-${esc(d.id)}">${badge}<span class="cue">LEARN ▶</span>${progress}</span></button>`;
 }
 
 // `tipsOpen`: the pop-up tips stay as the person left them across redraws.

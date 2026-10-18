@@ -923,6 +923,7 @@ test('a DONE ✓ district mid-scan opens no quiz; the review is a separate, opti
   assert.match(html, /class="district learned[^"]*"><h4>THE GATEHOUSE[\s\S]*?DONE ✓/);
   assert.doesNotMatch(html, /data-go="learn:gatehouse"/, 'the DONE card is not a lesson button');
   assert.match(html, /data-go="review:gatehouse"[^>]*>REVIEW ONE\? \(OPTIONAL\)/);
+  assert.match(html, /data-go="review:gatehouse" aria-label="Review one\? \(optional\): a lesson about/i, 'the accessible name starts with the visible words');
   t.click({ 'data-go': 'learn:gatehouse' }); // a stale click
   assert.match(t.html(), /THE SWEEP/);
   assert.doesNotMatch(t.html(), /QUESTION \d+ OF/, 'no quiz');
@@ -930,6 +931,29 @@ test('a DONE ✓ district mid-scan opens no quiz; the review is a separate, opti
   assert.match(t.html(), /QUESTION 1 OF/, 'reviewing is still possible, when asked for');
   t.click({ 'data-go': 'boss' });
   assert.match(t.html(), /THE SWEEP/);
+});
+
+test('REVIEW rotates through a district’s done lessons, least recently reviewed first, in memory only', async () => {
+  const storage = memStore();
+  let t = await sweepSetup({ storage, situation: HACKED });
+  for (let i = 0; i < GATEHOUSE.length; i += 1) {
+    t.click({ 'data-go': 'learn:gatehouse' });
+    const open = t.lessons.find((l) => GATEHOUSE.includes(l.id) && t.html().includes(l.title.replace(/[<>&"]/g, '')));
+    answerAll(t, open.id);
+  }
+  t = await sweepSetup({ storage, situation: HACKED });
+  t.ctl.scanEvent(prog('done', 1, 4, 'security'));
+  const before = storage.getItem('device-rescue.game.v1');
+  const seen = [];
+  for (let i = 0; i < GATEHOUSE.length + 1; i += 1) {
+    t.click({ 'data-go': 'review:gatehouse' });
+    const open = t.lessons.find((l) => GATEHOUSE.includes(l.id) && t.html().includes(l.title.replace(/[<>&"]/g, '')));
+    seen.push(open.id);
+    t.click({ 'data-go': 'boss' });
+  }
+  assert.strictEqual(new Set(seen.slice(0, GATEHOUSE.length)).size, GATEHOUSE.length, 'each lesson once before any repeats');
+  assert.strictEqual(seen[GATEHOUSE.length], seen[0], 'then the least recently reviewed again');
+  assert.strictEqual(storage.getItem('device-rescue.game.v1'), before, 'nothing saved');
 });
 
 test('answering every question counts as done, even when the person leaves before FINISH, and survives a restart', async () => {

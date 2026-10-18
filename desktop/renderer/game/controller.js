@@ -213,6 +213,18 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return (id) => districtLesson(by, s.progress, id);
   };
 
+  // Review rotation: least recently reviewed first, ties in lesson order.
+  // In memory only; nothing about it is saved.
+  const reviewedAt = new Map();
+  let reviewTick = 0;
+  const nextReview = (list) => {
+    let pick = list[0];
+    for (const l of list) if ((reviewedAt.get(l.id) || 0) < (reviewedAt.get(pick.id) || 0)) pick = l;
+    reviewTick += 1;
+    reviewedAt.set(pick.id, reviewTick);
+    return pick;
+  };
+
   // Lessons show before any scan, so the platform falls back to what preload says.
   const platform = () => (s.doc && s.doc.platform) || (win.rescue && win.rescue.platform) || null;
   const settingFor = (key) => (win.SettingPanes ? win.SettingPanes.lessonSetting(key, platform()) : null);
@@ -670,7 +682,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // The optional review on a DONE district: its first lesson, coming back the same way.
     if (go && go.startsWith('review:')) {
       const l = learnFor()(go.slice(7));
-      if (l) { s.lesson = { id: l.lesson.id, q: 0, picked: null, fromSweep: true }; s.screen = 'lesson'; render(); }
+      if (l) { s.lesson = { id: nextReview(l.list || [l.lesson]).id, q: 0, picked: null, fromSweep: true }; s.screen = 'lesson'; render(); }
       return;
     }
     if (act === 'start-checkup') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }

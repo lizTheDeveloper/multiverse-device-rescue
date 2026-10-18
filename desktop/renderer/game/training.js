@@ -73,7 +73,7 @@ export function districtLesson(byDistrict, progress, districtId) {
   if (!list.length) return null;
   const next = list.find((l) => !lessonDone(progress, l.id));
   return { lesson: next || list[0], done: !next, count: list.length,
-    finished: list.filter((l) => lessonDone(progress, l.id)).length };
+    finished: list.filter((l) => lessonDone(progress, l.id)).length, list };
 }
 
 export function afterScanDone(screen) {
