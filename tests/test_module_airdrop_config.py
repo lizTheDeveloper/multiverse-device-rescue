@@ -192,3 +192,32 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.airdrop_config.") for c in declared)
+
+
+# --- Regression: macOS 26.3.1 has no ControllerPowerState ---------------------
+# Bluetooth was read only from com.apple.Bluetooth ControllerPowerState, which
+# macOS 26 doesn't write, and reported "Bluetooth is disabled".
+
+
+def test_macos26_bluetooth_on_from_system_profiler():
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if "ControllerPowerState" in cmd_str:
+            return _make_subprocess_result(
+                stderr="The domain/default pair of (/Library/Preferences/com.apple.Bluetooth, "
+                "ControllerPowerState) does not exist", returncode=1)
+        if "SPBluetoothDataType" in cmd_str:
+            return _make_subprocess_result(
+                "Bluetooth:\n\n      Bluetooth Controller:\n          Address: REDACTED\n"
+                "          State: On\n")
+        if "DiscoverableMode" in cmd_str:
+            return _make_subprocess_result("Contacts Only\n")
+        if "getairportpower" in cmd_str:
+            return _make_subprocess_result("Wi-Fi Power (en0): On\n")
+        return _make_subprocess_result()
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert not any(f.code == "security.airdrop_config.bluetooth_disabled" for f in result.findings)

@@ -210,21 +210,22 @@ class Module(ModuleBase):
         """Get iCloud account information from defaults."""
         try:
             result = subprocess.run(
-                ["defaults", "read", "com.apple.iCloud.plist", "MobileMeAccounts"],
+                # The accounts live in the MobileMeAccounts domain. The old
+                # read of a "com.apple.iCloud.plist" domain, which doesn't
+                # exist, said "iCloud is not signed in" on every Mac.
+                ["defaults", "read", "MobileMeAccounts", "Accounts"],
                 capture_output=True,
                 text=True,
             )
             if result.returncode != 0:
                 return None
 
-            # Parse plist output for MobileMeAccountDisplay
-            for line in result.stdout.splitlines():
-                if "MobileMeAccountDisplay" in line:
-                    # Extract the email from something like:
-                    # MobileMeAccountDisplay = "alice@icloud.com";
-                    match = re.search(r'MobileMeAccountDisplay\s*=\s*"([^"]+)"', line)
-                    if match:
-                        return match.group(1)
+            # AccountID (the Apple Account's email) or, on older macOS,
+            # MobileMeAccountDisplay.
+            for key in ("AccountID", "MobileMeAccountDisplay"):
+                match = re.search(rf'\b{key}\s*=\s*"?([^";]+)"?;', result.stdout)
+                if match:
+                    return match.group(1).strip()
             return None
         except (OSError, subprocess.SubprocessError):
             return None

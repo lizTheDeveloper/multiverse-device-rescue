@@ -186,7 +186,25 @@ class Module(ModuleBase):
         return FixResult(module_name=self.name, actions=actions)
 
     def _has_touchid_hardware(self) -> bool:
-        """Check if the Mac has Touch ID hardware."""
+        """Check if the Mac has Touch ID hardware.
+
+        Apple silicon Macs have no T2 ("iBridge") chip, so SPiBridgeDataType
+        never mentions Touch ID there and a MacBook Pro with Touch ID was told
+        "No Touch ID hardware detected". `bioutil -rs` (no admin needed)
+        reports "Biometrics functionality: 1" on Macs with a sensor.
+        """
+        try:
+            result = subprocess.run(
+                ["bioutil", "-rs"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and isinstance(result.stdout, str):
+                if "Biometrics functionality: 1" in result.stdout:
+                    return True
+        except (OSError, subprocess.SubprocessError):
+            pass
         try:
             result = subprocess.run(
                 ["system_profiler", "SPiBridgeDataType"],
@@ -222,10 +240,13 @@ class Module(ModuleBase):
     def _is_sudo_touchid_enabled(self) -> bool:
         """Check if Touch ID for sudo is enabled by checking /etc/pam.d/sudo."""
         try:
-            sudo_pam_path = Path("/etc/pam.d/sudo")
-            if sudo_pam_path.exists():
-                content = sudo_pam_path.read_text()
-                return "pam_tid.so" in content
+            # macOS 14+ keeps local additions in /etc/pam.d/sudo_local (which
+            # survives updates); older setups edited /etc/pam.d/sudo itself.
+            for sudo_pam_path in (Path("/etc/pam.d/sudo_local"), Path("/etc/pam.d/sudo")):
+                if sudo_pam_path.exists():
+                    for line in sudo_pam_path.read_text().splitlines():
+                        if "pam_tid.so" in line and not line.lstrip().startswith("#"):
+                            return True
             return False
         except (OSError, PermissionError):
             return False

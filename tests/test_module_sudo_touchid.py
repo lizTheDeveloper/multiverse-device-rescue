@@ -263,3 +263,37 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.sudo_touchid.") for c in declared)
+
+
+# --- Regression: Apple silicon MacBook Pro, macOS 26.3.1 -------------------------
+# There is no T2/iBridge chip, so SPiBridgeDataType never says "Touch ID";
+# the module reported "No Touch ID hardware detected" on a Mac with Touch ID.
+
+_BIOUTIL_MACOS26 = """System Touch ID configuration:
+	Biometrics functionality: 1
+	Biometrics for unlock: 1
+	Biometric timeout (in seconds): 172800
+	Match timeout (in seconds): 14400
+"""
+
+_SP_IBRIDGE_APPLE_SILICON = """Controller:
+
+      Model Identifier: Mac15,8
+      Firmware Version: iBoot-13822.81.10
+"""
+
+
+def test_apple_silicon_touch_id_is_detected():
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        if cmd[0] == "bioutil":
+            return _make_subprocess_result(_BIOUTIL_MACOS26)
+        if cmd[0] == "system_profiler":
+            return _make_subprocess_result(_SP_IBRIDGE_APPLE_SILICON)
+        return _make_subprocess_result("", returncode=1)
+
+    with patch("subprocess.run", side_effect=fake_run):
+        assert mod._has_touchid_hardware() is True
+        result = mod.check(_make_profile())
+    assert not any(f.data.get("check") == "no_hardware" for f in result.findings)

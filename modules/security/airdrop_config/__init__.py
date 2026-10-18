@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from rescue.models import (
@@ -200,6 +201,22 @@ class Module(ModuleBase):
             if result.returncode == 0:
                 return int(result.stdout.strip()) == 1
         except (OSError, ValueError):
+            pass
+        # macOS 26 no longer writes ControllerPowerState; system_profiler's
+        # "State: On" is the source of truth. Reading only the old key said
+        # "Bluetooth is disabled" on a Mac with Bluetooth on.
+        try:
+            result = subprocess.run(
+                ["system_profiler", "SPBluetoothDataType"],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            if result.returncode == 0 and isinstance(result.stdout, str):
+                match = re.search(r"^\s*State:\s*(On|Off)\b", result.stdout, re.MULTILINE)
+                if match:
+                    return match.group(1) == "On"
+        except (OSError, subprocess.SubprocessError):
             pass
         return False
 

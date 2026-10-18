@@ -258,8 +258,8 @@ scutil --get …
 
 ```text
 defaults read '~/Library/Preferences/com.apple.iCloud.plist' ForceSyncEnabled
+defaults read MobileMeAccounts Accounts
 defaults read com.apple.iCloud.plist Enabled
-defaults read com.apple.iCloud.plist MobileMeAccounts
 defaults read com.apple.iCloud.plist iCloudDrive
 ```
 
@@ -1325,6 +1325,7 @@ systemctl --user stop …
 defaults read /Library/Preferences/com.apple.Bluetooth ControllerPowerState
 defaults read com.apple.sharingd DiscoverableMode
 networksetup -getairportpower en0
+system_profiler SPBluetoothDataType
 ```
 
 ### `airdrop_security_check`
