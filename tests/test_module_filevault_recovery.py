@@ -179,7 +179,7 @@ def test_filevault_recovery_unknown_key_status():
     with patch("subprocess.run", side_effect=_fake_run_fv_enabled_unknown_key_status()):
         result = mod.check(_make_profile())
     # Should have WARNING finding
-    assert any(f.severity == Severity.WARNING and f.data.get("check") == "recovery_key_unknown" for f in result.findings)
+    assert any(f.severity == Severity.INFO and f.data.get("check") == "recovery_key_unknown" for f in result.findings)
 
 
 def test_filevault_recovery_not_all_users_enabled():
@@ -208,3 +208,32 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.filevault_recovery.") for c in declared)
+
+
+# --- Regression: macOS 26.3.1 without root ---------------------------------------
+# fdesetup haspersonalrecoverykey needs root and says so. That is "couldn't
+# check" (info), and the summary must not call the keys "present".
+
+
+def _fake_macos26_needs_root(cmd, **kwargs):
+    cmd_str = " ".join(cmd)
+    if "fdesetup" in cmd_str and "status" in cmd_str:
+        return _make_subprocess_result(stdout="FileVault is On.\n")
+    if "fdesetup" in cmd_str and "list" in cmd_str:
+        return _make_subprocess_result(stderr="Error: This command requires root access.\n",
+                                       returncode=1)
+    if "fdesetup" in cmd_str:
+        return _make_subprocess_result(stdout="Error: This command requires root access.\n",
+                                       returncode=1)
+    return _make_subprocess_result()
+
+
+def test_macos26_recovery_key_needs_root_is_info_and_not_present():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26_needs_root):
+        result = mod.check(_make_profile())
+    assert all(f.severity == Severity.INFO for f in result.findings)
+    assert any(f.data.get("check") == "recovery_key_unknown" for f in result.findings)
+    text = " ".join(f.description for f in result.findings)
+    assert "recovery key: present" not in text
+    assert "Personal recovery key: couldn't check" in text
