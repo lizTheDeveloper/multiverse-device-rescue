@@ -57,7 +57,7 @@ export default {
       setting: 'fileVault',
       prompt: 'You turn on FileVault and it shows you a recovery key. Where should it go?',
       options: [
-        { text: 'Paste it into Device Rescue so it’s kept safe', correct: false,
+        { text: 'Paste it into Reclaim City so it’s kept safe', correct: false,
           feedback: 'Don’t paste it into this tool or into a chat. Anyone who has it can unlock the whole disk.' },
         { text: 'Write it down, or save it in a password manager', correct: true,
           feedback: 'Right. Treat it like a master password.' },

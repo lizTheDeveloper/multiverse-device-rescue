@@ -18,8 +18,8 @@ export function renderMilestone({ district: d, progress, scout }) {
   const yours = d.missions.filter((m) => statusOf(progress, m.id) === 'yours');
   const fog = (d.fog || []).map((x) => `<li><strong>${esc(x.module)}</strong>: ${esc(x.reason)}</li>`).join('');
   const lead = fog
-    ? 'Device Rescue checked each fix again. Some checks here couldn’t run.'
-    : 'Every mission here is done. Device Rescue checked each fix again.';
+    ? 'Reclaim City checked each fix again. Some checks here couldn’t run.'
+    : 'Every mission here is done. Reclaim City checked each fix again.';
   return `
   <section class="outcome ${fog ? 'o-err' : 'o-win'} milestone">
     ${fog ? '<span class="badge fog">NOT EVERYTHING HERE COULD BE CHECKED</span>' : '<span class="badge safe">DISTRICT TAKEN BACK</span>'}

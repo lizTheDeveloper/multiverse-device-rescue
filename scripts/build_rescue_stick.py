@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["markdown>=3.5"]
 # ///
-"""Build a Device Rescue USB stick from the released desktop installers.
+"""Build a Reclaim City USB stick from the released desktop installers.
 
     uv run scripts/build_rescue_stick.py                    # latest release
     uv run scripts/build_rescue_stick.py --version v0.3.4   # a specific release
@@ -43,9 +43,9 @@ SUMS_NAME = "SHA256SUMS.txt"
 # (release asset, folder on the stick). Folder names are what a
 # non-technical person sees when they open the drive.
 INSTALLERS = [
-    ("DeviceRescue-mac-arm64.dmg", "For Mac with Apple chip"),
-    ("DeviceRescue-mac-x64.dmg", "For Mac with Intel"),
-    ("DeviceRescue-windows-x64.exe", "For Windows"),
+    ("ReclaimCity-mac-arm64.dmg", "For Mac with Apple chip"),
+    ("ReclaimCity-mac-x64.dmg", "For Mac with Intel"),
+    ("ReclaimCity-windows-x64.exe", "For Windows"),
 ]
 HELPERS_DIR = "For helpers"
 
@@ -60,8 +60,8 @@ SCHOOL_TOOLS = [
      "Got a suspicious email, text, or call? Pull it apart and build a household scam defense card."),
     ("ad_surface", "ad-surface.html", "Ad Tracking Audit",
      "See how much of your data is used for advertising, and reduce it."),
-    ("device_rescue", "device-rescue.html", "Device Rescue (Web)",
-     "The browser version of Device Rescue: walk through a device audit and check for stalkerware."),
+    ("device_rescue", "device-rescue.html", "Reclaim City (Web)",
+     "The browser version of Reclaim City: walk through a device audit and check for stalkerware."),
     ("attack_surface_bench", "attack-surface.html", "Attack Surface Map",
      "Map your personal attack surface: devices, services, credentials. For the more technical."),
 ]
@@ -181,7 +181,7 @@ def start_here_txt(tag: str, steps: dict[str, str], with_cli: bool, has_tools: b
 DEVICE RESCUE
 =============
 
-This drive has a free program called Device Rescue on it. It looks over
+This drive has a free program called Reclaim City on it. It looks over
 your computer and tells you, in plain words, what it found and what to do
 about it.
 
@@ -209,7 +209,7 @@ something on your phone or computer:
     or text START to 88788. They help with tech safety as well.
   * Coalition Against Stalkerware: https://stopstalkerware.org
 
-Device Rescue will never remove anything on its own. You decide.
+Reclaim City will never remove anything on its own. You decide.
 
 
 ON A MAC
@@ -225,9 +225,9 @@ ON A MAC
        -> open the folder "{mac_intel}"
 
 2. Double-click the file in that folder (it ends in ".dmg").
-   A window opens. Drag "Device Rescue" into "Applications".
+   A window opens. Drag "Reclaim City" into "Applications".
 
-3. Open "Device Rescue" from your Applications folder. A warning appears,
+3. Open "Reclaim City" from your Applications folder. A warning appears,
    because we haven't paid Apple for a signing certificate yet. Click
    "Done". Then:
 
@@ -239,7 +239,7 @@ ON WINDOWS
 
 1. Open the folder "{win}".
 
-2. Double-click "DeviceRescue-windows-x64.exe".
+2. Double-click "ReclaimCity-windows-x64.exe".
 
 3. If a blue box says "Windows protected your PC":
 
@@ -265,8 +265,8 @@ WHAT IT WILL NEVER ASK FOR
   * Two-step sign-in codes (2FA codes)
   * Recovery keys or recovery codes
 
-If anything asks you for these while claiming to be Device Rescue, it is
-not Device Rescue. Close it.
+If anything asks you for these while claiming to be Reclaim City, it is
+not Reclaim City. Close it.
 
 
 ALSO ON THIS DRIVE
@@ -358,7 +358,7 @@ def start_here_html(tag: str, steps: dict[str, str], with_cli: bool, has_tools: 
 </head>
 <body>
 <div class="wrap">
-<h1>Device Rescue</h1>
+<h1>Reclaim City</h1>
 <p class="lead">This drive has a free program on it that looks over your computer and tells you,
 in plain words, what it found and what to do about it.</p>
 <ul class="promises">
@@ -380,7 +380,7 @@ in plain words, what it found and what to do about it.</p>
       <span class="phone">{HOTLINE}</span>, or text <b>START</b> to <b>88788</b>.
       They help with tech safety as well.</li>
   </ul>
-  <p class="small">Device Rescue never removes anything on its own. You decide.
+  <p class="small">Reclaim City never removes anything on its own. You decide.
   More help: <a href="https://stopstalkerware.org">stopstalkerware.org</a></p>
 </section>
 
@@ -397,8 +397,8 @@ in plain words, what it found and what to do about it.</p>
       </div>
     </li>
     <li>Double-click the file in that folder (it ends in <code>.dmg</code>). A window opens.
-      Drag <b>Device Rescue</b> into <b>Applications</b>.</li>
-    <li>Open <b>Device Rescue</b> from your Applications folder. A warning appears, because we
+      Drag <b>Reclaim City</b> into <b>Applications</b>.</li>
+    <li>Open <b>Reclaim City</b> from your Applications folder. A warning appears, because we
       haven't paid Apple for a signing certificate yet. Click <b>Done</b>. Then:
       <p>{e(steps["macos"])}</p></li>
   </ol>
@@ -408,7 +408,7 @@ in plain words, what it found and what to do about it.</p>
   <h2>On Windows</h2>
   <ol>
     <li>Open the folder <span class="folder">{e(win)}</span>.</li>
-    <li>Double-click <code>DeviceRescue-windows-x64.exe</code>.</li>
+    <li>Double-click <code>ReclaimCity-windows-x64.exe</code>.</li>
     <li>If a blue box says <span class="quote">&ldquo;Windows protected your PC&rdquo;</span>:
       <p>{e(steps["windows"])}</p></li>
   </ol>
@@ -426,7 +426,7 @@ in plain words, what it found and what to do about it.</p>
 <section>
   <h2>What it will never ask for</h2>
   <p>Your passwords, two-step sign-in codes (2FA codes), or recovery keys. If anything asks
-  for these while claiming to be Device Rescue, it is not Device Rescue. Close it.</p>
+  for these while claiming to be Reclaim City, it is not Reclaim City. Close it.</p>
 </section>
 
 <section>
@@ -434,7 +434,7 @@ in plain words, what it found and what to do about it.</p>
   <ul>{"".join(extras)}</ul>
 </section>
 
-<p class="small">Device Rescue {e(tag)}. Free and open source:
+<p class="small">Reclaim City {e(tag)}. Free and open source:
 github.com/{e(DEFAULT_REPO)}</p>
 </div>
 </body>
@@ -449,7 +449,7 @@ def checksums_note(tag: str, repo: str, with_cli: bool) -> str:
 CHECKSUMS -- for helpers
 ========================
 
-The installers on this drive are the official Device Rescue {tag} release
+The installers on this drive are the official Reclaim City {tag} release
 downloads from https://github.com/{repo}/releases/tag/{tag}
 
 SHA256SUMS.txt (in this folder) is the checksum file published with that
@@ -459,11 +459,11 @@ You can check again, for example if the drive has been out of your sight.
 On a Mac (Terminal), with the drive called RESCUE:
 
     cd "/Volumes/RESCUE/{mac_arm}"
-    shasum -a 256 DeviceRescue-mac-arm64.dmg
+    shasum -a 256 ReclaimCity-mac-arm64.dmg
 
 On Windows (PowerShell), with the drive at E:
 
-    Get-FileHash "E:\\{win}\\DeviceRescue-windows-x64.exe" -Algorithm SHA256
+    Get-FileHash "E:\\{win}\\ReclaimCity-windows-x64.exe" -Algorithm SHA256
 
 Compare the result with the matching line in SHA256SUMS.txt (Windows prints
 it in capitals; that's fine). For the strongest check, compare against the
@@ -498,7 +498,7 @@ INSTALL IT (from the drive)
   Mac:     Apple menu > About This Mac.
            "Chip: Apple M..."     -> folder "{INSTALLERS[0][1]}"
            "Processor: ... Intel" -> folder "{INSTALLERS[1][1]}"
-           Double-click the .dmg, drag Device Rescue into Applications.
+           Double-click the .dmg, drag Reclaim City into Applications.
            First open: click Done, then System Settings > Privacy &
            Security > scroll down > Open Anyway.
   Windows: folder "{INSTALLERS[2][1]}", double-click the .exe.
@@ -651,7 +651,7 @@ def build_cli(stick: Path) -> None:
     (stick / "command-line" / "SHA256SUMS-cli.txt").write_text(
         f"{sha256_of(dest_dir / exe)}  {os_name}-{arch}/{exe}\n", encoding="utf-8")
     (stick / "command-line" / "README.txt").write_text(
-        f"Command-line Device Rescue for {os_name} ({arch}), built from source on the helper's machine.\n"
+        f"Command-line Reclaim City for {os_name} ({arch}), built from source on the helper's machine.\n"
         "Read-only by default: `rescue scan`, `rescue export`. Don't pass --auto or --yes;\n"
         "those apply fixes. Most people should use the desktop app instead (see START-HERE).\n",
         encoding="utf-8")

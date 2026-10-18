@@ -33,7 +33,7 @@ HEADER = """# What each check runs
     source code. CI runs it with `--check`, so it cannot drift from what ships.
     Do not edit it by hand.
 
-Every check in Device Rescue is a Python file under `modules/`. Most of them
+Every check in Reclaim City is a Python file under `modules/`. Most of them
 gather evidence by running ordinary system commands — the same ones you could
 type yourself. This page lists, for every check, each command it can run.
 
