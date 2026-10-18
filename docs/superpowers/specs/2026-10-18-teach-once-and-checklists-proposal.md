@@ -619,3 +619,10 @@ card in `app.js` (QuietNotes) and adds `display-mode.js`; **[cc]** grows
 4. **The checkup is a lot of little missions.** "The average person only has like a 47 second attention span, so your computer's checkup is like… a lot of little missions." Every step is short and self-contained: one finding, or one small group of the same kind, is one mission with one decision. Long lists and long explanations are split into missions the person can finish quickly and come back to. This applies to the plain results screen too, not only the game.
 
 Open questions 2, 3, 5, 6, 8, 9, 10 above still need answers before building.
+
+### More owner decisions (2026-10-18)
+
+5. **"I know this":** allowed. It records the concept as *skipped*, not learned. If later signals suggest they don't know it (a wrong drill on that concept, a Signal or Noise call Scout disagrees with, a re-opened "?"), offer the lesson again.
+6. **Bulk "It's mine" for watching-capable lists:** yes, several items in one confirmation, within a single finding only, with the watching warning shown.
+7. **Worries:** the worry screen becomes a checklist; the checkup runs the union of the chosen profiles.
+8. **Stealth persistence:** save progress, but disguised. "Don't be so literal: if the code knows what 'six-roses' means, it can know what other recipe-related info about the player that is totally not about domestic stalking." In city mode, progress is stored under innocuous cover identities (recipe- or cooking-themed keys and values) that only the code maps back. Nothing literal on disk.
