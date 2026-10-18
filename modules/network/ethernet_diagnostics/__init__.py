@@ -24,6 +24,15 @@ class Module(ModuleBase):
     priority = 50
     depends_on = []
     estimated_duration = "10s"
+    emits_codes = [
+        "network.ethernet_diagnostics.no_ethernet",
+        "network.ethernet_diagnostics.interface_inactive",
+        "network.ethernet_diagnostics.self_assigned_ip",
+        "network.ethernet_diagnostics.non_standard_mtu",
+        "network.ethernet_diagnostics.link_speed_mismatch",
+        "network.ethernet_diagnostics.high_packet_errors",
+        "network.ethernet_diagnostics.ethernet_summary",
+    ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
@@ -37,6 +46,7 @@ class Module(ModuleBase):
                     description="No Ethernet adapters detected on this system.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="network.ethernet_diagnostics.no_ethernet",
                     data={"check": "no_ethernet"},
                 )
             )
@@ -220,9 +230,11 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="network.ethernet_diagnostics.interface_inactive",
                     data={
                         "check": "interface_inactive",
                         "interface": interface,
+                        "target": interface,
                     },
                 )
             )
@@ -247,9 +259,11 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="network.ethernet_diagnostics.self_assigned_ip",
                     data={
                         "check": "self_assigned_ip",
                         "interface": interface,
+                        "target": interface,
                         "ip_address": ip_addr,
                     },
                 )
@@ -278,9 +292,11 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="network.ethernet_diagnostics.non_standard_mtu",
                     data={
                         "check": "non_standard_mtu",
                         "interface": interface,
+                        "target": interface,
                         "mtu": mtu,
                     },
                 )
@@ -383,9 +399,11 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="network.ethernet_diagnostics.link_speed_mismatch",
                     data={
                         "check": "link_speed_mismatch",
                         "interface": interface,
+                        "target": interface,
                         "speed": speed,
                     },
                 )
@@ -465,9 +483,11 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="network.ethernet_diagnostics.high_packet_errors",
                     data={
                         "check": "high_packet_errors",
                         "interface": interface,
+                        "target": interface,
                         "input_error_rate": ierr_rate,
                         "output_error_rate": oerr_rate,
                         "input_errors": ierrs,
@@ -502,6 +522,7 @@ class Module(ModuleBase):
             description=description,
             severity=Severity.INFO,
             category=self.category,
+            code="network.ethernet_diagnostics.ethernet_summary",
             data={
                 "check": "ethernet_summary",
                 "interfaces": interfaces,

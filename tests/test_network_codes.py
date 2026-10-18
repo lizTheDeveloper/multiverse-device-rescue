@@ -11,6 +11,15 @@ import pytest
 from rescue.registry import discover_modules
 
 EXPECTED_CODES: dict[str, set[str]] = {
+    "ethernet_diagnostics": {
+        "network.ethernet_diagnostics.no_ethernet",
+        "network.ethernet_diagnostics.interface_inactive",
+        "network.ethernet_diagnostics.self_assigned_ip",
+        "network.ethernet_diagnostics.non_standard_mtu",
+        "network.ethernet_diagnostics.link_speed_mismatch",
+        "network.ethernet_diagnostics.high_packet_errors",
+        "network.ethernet_diagnostics.ethernet_summary",
+    },
     "arp_spoof_check": {
         "network.arp_spoof_check.gateway_impersonation",
         "network.arp_spoof_check.duplicate_mac",
@@ -92,6 +101,7 @@ _WALKTHROUGHS = [
     "secure_wifi_connection",
     "fix_vpn_leaks",
     "remove_unwanted_proxy",
+    "fix_ethernet_connection",
 ]
 
 
