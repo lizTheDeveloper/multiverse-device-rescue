@@ -233,9 +233,10 @@ system_profiler SPDisplaysDataType
 
 ```text
 defaults read /Library/Preferences/com.apple.Bluetooth ControllerPowerState
+defaults read MobileMeAccounts Accounts
 defaults read com.apple.coreservices.useractivityd ActivityReceivingAllowed
-defaults read com.apple.iCloud.plist MobileMeAccounts
 networksetup -getairportpower en0
+system_profiler SPBluetoothDataType
 ```
 
 ### `homebrew_health`
@@ -607,6 +608,9 @@ dscl . -read … UserShell
 
 ### `wifi_diagnostics`
 
+```text
+system_profiler SPAirPortDataType
+```
 
 Plus 1 command(s) built at runtime.
 
