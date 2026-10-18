@@ -610,3 +610,12 @@ card in `app.js` (QuietNotes) and adds `display-mode.js`; **[cc]** grows
 10. **Stealth and lessons.** Should any lesson finished in city mode be
     memory-only, not just the safety ones, so the store looks identical
     whichever mode is used?
+
+## Owner decisions (2026-10-18)
+
+1. **Lesson link label:** "Learn this (2 questions)". Size by question count; no time words.
+2. **Info findings are not just collapsed: they're worked through as a mini-game.** "We do need to work through them, so we need to mini-game it." The 382 low-priority notes become a quick sorting game (built on Signal or Noise's batch sorting and the low-priority signals row), in both the plain checkup and game mode, rather than a hidden fold.
+3. **Checkbox defaults: everything starts unticked**, including game-only sorting and copy. The person picks every item.
+4. **The checkup is a lot of little missions.** "The average person only has like a 47 second attention span, so your computer's checkup is like… a lot of little missions." Every step is short and self-contained: one finding, or one small group of the same kind, is one mission with one decision. Long lists and long explanations are split into missions the person can finish quickly and come back to. This applies to the plain results screen too, not only the game.
+
+Open questions 2, 3, 5, 6, 8, 9, 10 above still need answers before building.
