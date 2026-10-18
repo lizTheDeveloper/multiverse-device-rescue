@@ -345,3 +345,89 @@ def test_audio_troubleshoot_fix_disconnected():
         fix = mod.fix(check, Mode.MANUAL)
     assert fix.all_succeeded
     assert any("switch" in a.title.lower() for a in fix.actions)
+
+
+# --- Regression: real SPAudioDataType layout on macOS 26.3.1 ------------------
+# Devices sit under "Devices:" at 8 spaces with details at 10. The old parser
+# expected 4 spaces, found one device called "Devices", and said "No
+# microphone was found" on a MacBook Pro with a built-in microphone.
+
+_SP_AUDIO_MACOS26 = """Audio:
+
+    Devices:
+
+        LG ULTRAGEAR:
+
+          Manufacturer: GSM
+          Output Channels: 2
+          Current SampleRate: 48000
+          Transport: HDMI
+          Output Source: Default
+
+        MacBook Pro Microphone:
+
+          Default Input Device: Yes
+          Input Channels: 1
+          Manufacturer: Apple Inc.
+          Current SampleRate: 48000
+          Transport: Built-in
+          Input Source: MacBook Pro Microphone
+
+        MacBook Pro Speakers:
+
+          Default Output Device: Yes
+          Default System Output Device: Yes
+          Manufacturer: Apple Inc.
+          Output Channels: 2
+          Current SampleRate: 48000
+          Transport: Built-in
+          Output Source: MacBook Pro Speakers
+
+"""
+
+
+def _fake_macos26(profiler=_SP_AUDIO_MACOS26):
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        result.stdout = ""
+        if "system_profiler" in cmd:
+            result.stdout = profiler
+        elif cmd[0] == "osascript":
+            result.stdout = "75"
+        return result
+    return fake_run
+
+
+def test_macos26_builtin_microphone_is_found():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    assert not any(f.data.get("check") == "no_input_device" for f in result.findings)
+
+
+def test_macos26_parser_names_each_device():
+    from importlib import import_module
+    parse = import_module(type(_get_module()).__module__)._parse_audio_devices
+    devices = {d["name"]: d["type"] for d in parse(_SP_AUDIO_MACOS26)}
+    assert devices == {
+        "LG ULTRAGEAR": "output",
+        "MacBook Pro Microphone": "input",
+        "MacBook Pro Speakers": "output",
+    }
+
+
+def test_unreadable_device_list_is_not_no_microphone():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26(profiler="")):
+        result = mod.check(_make_profile())
+    assert not any(f.data.get("check") == "no_input_device" for f in result.findings)
+
+
+def test_really_no_microphone_still_warns():
+    mod = _get_module()
+    no_mic = _SP_AUDIO_MACOS26.split("        MacBook Pro Microphone:")[0]
+    with patch("subprocess.run", side_effect=_fake_macos26(profiler=no_mic)):
+        result = mod.check(_make_profile())
+    assert any(f.data.get("check") == "no_input_device" for f in result.findings)

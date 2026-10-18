@@ -125,8 +125,12 @@ class Module(ModuleBase):
             )
 
         # Check for no input device (microphone issues)
-        input_devices = [d for d in devices if d.get("type") == "input"]
-        if not input_devices:
+        # Only when the device list was actually read: an empty or unreadable
+        # list is "couldn't check", not "no microphone".
+        input_devices = [
+            d for d in devices if d.get("type") == "input" or d.get("has_input")
+        ]
+        if devices and not input_devices:
             findings.append(
                 Finding(
                     title="No microphone was found on your Mac",
@@ -407,31 +411,42 @@ class Module(ModuleBase):
 
 
 def _parse_audio_devices(output: str) -> list[dict]:
-    """Parse system_profiler SPAudioDataType output to extract audio devices."""
-    devices = []
+    """Parse system_profiler SPAudioDataType output to extract audio devices.
 
-    lines = output.split("\n")
+    A device is a heading line ("MacBook Pro Microphone:") followed by
+    "Key: value" detail lines. Real output nests devices under "Devices:" at
+    8 spaces with details at 10; the old parser assumed devices at exactly 4
+    spaces, so on a real Mac it found one device called "Devices" and
+    reported "No microphone was found" on a MacBook with a built-in mic.
+    """
+    devices = []
     current_device = None
 
-    for line in lines:
-        line_rstrip = line.rstrip()
-
-        # Look for device lines: indented once (4 spaces) with device name and colon
-        if line.startswith("    ") and not line.startswith("        ") and ":" in line:
-            device_name = line_rstrip.split(":")[0].strip()
+    for line in output.split("\n"):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.endswith(":"):
+            name = stripped[:-1].strip()
+            if name == "Devices" or name.startswith("Audio"):
+                current_device = None
+                continue
             current_device = {
-                "name": device_name,
+                "name": name,
                 "type": "unknown",
                 "connected": True,
+                "has_input": False,
+                "has_output": False,
             }
             devices.append(current_device)
-
-        # Parse device details (double-indented)
-        elif current_device and line.startswith("        "):
-            if "Input Channels:" in line:
+        elif current_device is not None:
+            if stripped.startswith("Input Channels:"):
+                current_device["has_input"] = True
                 current_device["type"] = "input"
-            elif "Output Channels:" in line:
-                current_device["type"] = "output"
+            elif stripped.startswith("Output Channels:"):
+                current_device["has_output"] = True
+                if current_device["type"] == "unknown":
+                    current_device["type"] = "output"
 
     # If no devices found, try alternative parsing
     if not devices:
