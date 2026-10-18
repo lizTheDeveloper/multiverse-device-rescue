@@ -80,15 +80,6 @@
         <div class="card card--hero">
           <h1 id="scan-title">Ready for your checkup</h1>
           <p id="scan-situation" class="scan-situation"></p>
-          <div id="scan-safety" class="safety-note safety-note--alert" role="note" hidden>
-            <span class="safety-note__icon" aria-hidden="true">&#9888;&#65039;</span>
-            <div>
-              <strong>Before you remove anything</strong>
-              <span>Looking is safe. Deleting monitoring software can alert the person who installed it.
-              If you&rsquo;re not sure that&rsquo;s safe for you, talk to an advocate first. In the US:
-              National Domestic Violence Hotline, 1-800-799-7233, or text START to 88788.</span>
-            </div>
-          </div>
           <p id="scan-intro" class="lede">
             When you click below, Reclaim City will look through your system for anything
             worth your attention. Nothing will be changed &mdash; this is just a look-around.
@@ -143,9 +134,6 @@
           <section id="results-next" class="results-next" hidden>
             <h2>What to do next</h2>
             <p class="muted">There&rsquo;s a step-by-step guide for your situation. It opens in your web browser.</p>
-            <p id="results-next-safety" class="muted" hidden>
-              Reminder: removing monitoring software can alert the person who installed it. Plan first.
-            </p>
             <button id="btn-open-guide" class="btn btn--primary" type="button">Open the step-by-step guide</button>
           </section>
 
@@ -195,6 +183,7 @@
   <script src="setting-panes.js"></script>
   <script src="display-mode.js"></script>
   <script src="first-question.js"></script>
+  <script src="quiet-notes.js"></script>
   <script src="app.js"></script>
   <script type="module" src="game/boot.js"></script>
 </body>

@@ -1010,7 +1010,7 @@ h3 {
   margin-top: 0.55rem;
 }
 
-.finding-card__safety {
+.finding-card__safety, .finding-card__note {
   border-left: 3px solid var(--warning-border);
   border-radius: 4px;
   padding: 8px 12px;

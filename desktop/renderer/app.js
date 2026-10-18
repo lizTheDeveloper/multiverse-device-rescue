@@ -190,18 +190,6 @@ function descriptionHtml(text, esc) {
 // note whatever worry the person picked.
 const ALWAYS_SAFETY_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
 
-/**
- * Whether to show the advocate/hotline note on this finding. It's for someone
- * who may be watched by a person close to them, so it shows when they said so
- * ("someone is watching me"), when they didn't say ("not sure"), and on
- * findings that are monitoring software. Otherwise it's noise for, say,
- * someone whose email was hacked.
- */
-function wantsSafetyNote(situation, finding) {
-  if (!situation || situation.safety || situation.id === 'unsure') return true;
-  return ALWAYS_SAFETY_MODULES.has(finding && finding.module);
-}
-
 const RECLAIM_CITY_URL = 'https://play.multiversegames.ai/reclaim-city/';
 
 /**
@@ -305,24 +293,6 @@ function learnMoreFor(situation, doc) {
   const entry = LEARN_MORE[situation.id];
   if (!entry) return null;
   return { text: `${GAME_INTRO} ${entry.text}`, url: RECLAIM_CITY_URL + entry.path };
-}
-
-/** Drop the paragraphs of a description that give the hotline. */
-function withoutSafetyParagraphs(text) {
-  return String(text || '')
-    .split(/\n\s*\n/)
-    .filter((para) => !para.includes('799-7233'))
-    .join('\n\n');
-}
-
-/**
- * The advocate note from a monitoring-related walkthrough, shown above the
- * steps. Skipped when the finding's own text already gives the hotline.
- */
-function safetyNoteHtml(finding, esc) {
-  const note = finding && finding.remediation && finding.remediation.safety_note;
-  if (!note || String(finding.description || '').includes('799-7233')) return '';
-  return `<p class="finding-card__safety">${esc(note)}</p>`;
 }
 
 /** "Step 2: Turn it off" -> "Turn it off" for the short What-to-do list. */
@@ -441,8 +411,6 @@ if (typeof module !== 'undefined' && module.exports) {
     formatExec,
     renderMiniMarkdown,
     stepTitle,
-    safetyNoteHtml,
-    wantsSafetyNote,
     learnMoreFor,
     mayBeWatched,
     gameOfferedFor,
@@ -454,7 +422,6 @@ if (typeof module !== 'undefined' && module.exports) {
     scanErrorText,
     postScanView,
     RECLAIM_CITY_URL,
-    withoutSafetyParagraphs,
     descriptionHtml,
     describeMadeBy,
     MADE_BY_REASON,
@@ -560,7 +527,8 @@ if (typeof document !== 'undefined') {
         if (!gameStillOffered(situation, doc, monitoringSeen)) { showScreen('results'); return false; }
         return true;
       },
-      wantsSafety(finding) { return wantsSafetyNote(situation, finding); },
+      // The game's briefing shows a mission's safety note only where the list shows the line.
+      wantsSafety(finding) { return QuietNotes.noteFor(mode, finding) === 'line'; },
       // The display preference and the install's seed, for the game.
       mode() { return mode; },
       citySeed() { return citySeed; },
@@ -693,7 +661,6 @@ if (typeof document !== 'undefined') {
       document.getElementById('scan-situation').textContent = situation
         ? `Checking for: ${situation.title}`
         : '';
-      document.getElementById('scan-safety').hidden = !(situation && situation.safety);
     }
 
     function renderNextStep() {
@@ -703,7 +670,6 @@ if (typeof document !== 'undefined') {
         return;
       }
       box.hidden = false;
-      document.getElementById('results-next-safety').hidden = !situation.safety;
     }
 
     let learnMoreUrl = null;
@@ -744,7 +710,8 @@ if (typeof document !== 'undefined') {
 
     function renderSeverityGroup(severity, findings) {
       if (findings.length === 0) return '';
-      const watched = !!(situation && situation.id === 'watched');
+      // City mode: the fix panel's extra warning about whoever set something up.
+      const watched = mode === 'city';
       const items = findings
         .map((finding) => {
           const key = String(nextCardKey++);
@@ -760,6 +727,8 @@ if (typeof document !== 'undefined') {
           const marked = !!(finding.data && finding.data.marked_by_user === true);
           // On the list: everything worth acting on, plus what was marked as yours.
           const counts = severity === 'critical' || severity === 'warning' || marked;
+          // What this card may say (QuietNotes): no hotline text, except the one line on monitoring software.
+          const card = QuietNotes.cardText(mode, finding);
           return `
             <li class="finding-card finding-card--${severity}" data-card-key="${key}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}>
               <div class="finding-card__header">
@@ -767,25 +736,25 @@ if (typeof document !== 'undefined') {
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
               <div class="cleared-note" data-cleared-note role="status" aria-live="polite" hidden></div>
-              ${descriptionHtml(wantsSafetyNote(situation, finding) ? finding.description : withoutSafetyParagraphs(finding.description), escapeHtml)}
+              ${descriptionHtml(card.description, escapeHtml)}
               ${madeByHtml(finding.made_by, escapeHtml)}
               <div class="card-answers">
               ${FixFlow.fixControlsHtml(finding, { watched })}
               ${MarkFlow.markControlsHtml(finding, { watched })}
               ${marked ? '' : ClearList.didControlsHtml(finding, severity, escapeHtml)}
               </div>
-              ${wantsSafetyNote(situation, finding) ? safetyNoteHtml(finding, escapeHtml) : ''}
-              ${finding.remediation && (finding.remediation.steps || []).length ? `
+              ${QuietNotes.lineHtml(card, escapeHtml)}
+              ${card.steps.length ? `
               <div class="next-steps">
                 <h4>What to do</h4>
-                <ol>${finding.remediation.steps.map((step) => `<li>${escapeHtml(stepTitle(step.title))}</li>`).join('')}</ol>
+                <ol>${card.steps.map((step) => `<li>${escapeHtml(stepTitle(step.title))}</li>`).join('')}</ol>
               </div>` : ''}
               ${SettingPanes.findingButtonHtml(finding, currentPlatform())}
               ${finding.remediation ? `
               <details class="fix-steps">
                 <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}</summary>
                 <ol class="fix-steps__list">
-                  ${(finding.remediation.steps || []).map((step) => `
+                  ${card.steps.map((step) => `
                     <li>
                       <h4>${escapeHtml(step.title)}</h4>
                       <div class="fix-steps__body">${renderMiniMarkdown(step.body)}</div>

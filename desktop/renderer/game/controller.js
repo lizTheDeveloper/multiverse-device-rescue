@@ -81,9 +81,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   // `putBack` is a mission the person just asked to have back (Undo, or "Stop
   // treating this as mine"). Its return is expected, so it isn't "came back".
+  // The same quiet text as the list (QuietNotes): no hotline paragraphs in missions, notes or clues.
+  const quietDoc = (d) => (win.QuietNotes ? win.QuietNotes.quietDoc(d) : d);
+
   function rebuild(doc, putBack = null) {
     s.doc = doc;
-    s.city = findingsToCity(doc);
+    s.city = findingsToCity(quietDoc(doc));
     const r = reconcile(s.progress, s.city, ranOkModules(doc), now());
     s.progress = r.progress;
     s.cameBack = r.cameBack.filter((id) => id !== putBack);
