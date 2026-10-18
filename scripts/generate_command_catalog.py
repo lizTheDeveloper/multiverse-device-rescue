@@ -26,6 +26,8 @@ OUTPUT_PATH = REPO_ROOT / "docs" / "commands.md"
 
 SUBPROCESS_FUNCS = {"run", "check_output", "check_call", "call", "Popen"}
 
+SOCKETS_LINE = "Also opens network connections directly from Python (sockets), without an external command."
+
 HEADER = """# What each check runs
 
 !!! info "This page is generated"
@@ -104,42 +106,167 @@ def _render_argv(arg: ast.expr) -> str | None:
     return " ".join(collapsed)
 
 
-def commands_for(module_dir: Path) -> tuple[list[str], int]:
-    found: set[str] = set()
+def _param_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
+    """Positional parameter names as a caller counts them (``self``/``cls`` dropped)."""
+    names = [a.arg for a in fn.args.posonlyargs + fn.args.args]
+    if names and names[0] in {"self", "cls"}:
+        names = names[1:]
+    return names
+
+
+def _runner_helpers(tree: ast.Module) -> dict[str, int]:
+    """Functions that forward one of their parameters as a command's argv.
+
+    Maps function name to the index of the parameter passed as ``args[0]`` to a
+    command call, so literal argv lists given to the helper can be listed.
+    """
+    bounded = _bounded_run_names(tree)
+    helpers: dict[str, int] = {}
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        params = _param_names(fn)
+        for node in ast.walk(fn):
+            if (
+                isinstance(node, ast.Call)
+                and _is_command_call(node, bounded)
+                and node.args
+                and isinstance(node.args[0], ast.Name)
+                and node.args[0].id in params
+            ):
+                helpers[fn.name] = params.index(node.args[0].id)
+    return helpers
+
+
+def _content_module_paths(tree: ast.Module) -> list[Path]:
+    """Files named by string literals passed to ``load_content_module(...)``."""
+    paths: list[Path] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and node.args):
+            continue
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+        first = node.args[0]
+        if name == "load_content_module" and isinstance(first, ast.Constant) and isinstance(first.value, str):
+            paths.append(REPO_ROOT / first.value)
+    return paths
+
+
+def _uses_sockets(tree: ast.Module) -> bool:
+    """True if the file calls ``socket.socket(...)`` or ``socket.create_connection(...)``."""
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in {"socket", "create_connection"}
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "socket"
+        ):
+            return True
+    return False
+
+
+def _helper_name(node: ast.Call, helpers: dict[str, int]) -> str | None:
+    """Name of the runner helper this call invokes (``f(...)`` or ``self.f(...)``)."""
+    func = node.func
+    if isinstance(func, ast.Name) and func.id in helpers:
+        return func.id
+    if (
+        isinstance(func, ast.Attribute)
+        and func.attr in helpers
+        and isinstance(func.value, ast.Name)
+        and func.value.id in {"self", "cls"}
+    ):
+        return func.attr
+    return None
+
+
+def _scan_tree(tree: ast.Module, found: set[str]) -> tuple[int, bool]:
+    """Add the commands in ``tree`` to ``found``; return (dynamic count, sockets)."""
+    bounded = _bounded_run_names(tree)
+    helpers = _runner_helpers(tree)
+    # Command calls whose argv is a helper's own parameter are accounted for
+    # at the helper's call sites, not counted as built at runtime.
+    forwarded: set[int] = set()
+    for fn in ast.walk(tree):
+        if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and fn.name in helpers:
+            params = _param_names(fn)
+            for node in ast.walk(fn):
+                if (
+                    isinstance(node, ast.Call)
+                    and _is_command_call(node, bounded)
+                    and node.args
+                    and isinstance(node.args[0], ast.Name)
+                    and node.args[0].id in params
+                ):
+                    forwarded.add(id(node))
     dynamic = 0
-    for path in sorted(module_dir.rglob("*.py")):
-        if "__pycache__" in path.parts:
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError:
-            continue
-        bounded = _bounded_run_names(tree)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and _is_command_call(node, bounded) and node.args:
-                rendered = _render_argv(node.args[0])
+        if _is_command_call(node, bounded) and node.args:
+            if id(node) in forwarded:
+                continue
+            rendered = _render_argv(node.args[0])
+            if rendered is None:
+                dynamic += 1
+            else:
+                found.add(rendered)
+        elif _helper_name(node, helpers) is not None:
+            index = helpers[_helper_name(node, helpers)]
+            if index < len(node.args):
+                rendered = _render_argv(node.args[index])
                 if rendered is None:
                     dynamic += 1
                 else:
                     found.add(rendered)
-    return sorted(found), dynamic
+            else:
+                dynamic += 1
+    return dynamic, _uses_sockets(tree)
+
+
+def commands_for(module_dir: Path) -> tuple[list[str], int, bool]:
+    found: set[str] = set()
+    dynamic = 0
+    sockets = False
+    parsed: set[Path] = set()
+    pending = [p for p in sorted(module_dir.rglob("*.py")) if "__pycache__" not in p.parts]
+    while pending:
+        path = pending.pop(0)
+        if path in parsed:
+            continue
+        parsed.add(path)
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, OSError):
+            continue
+        extra_dynamic, extra_sockets = _scan_tree(tree, found)
+        dynamic += extra_dynamic
+        sockets = sockets or extra_sockets
+        for target in _content_module_paths(tree):
+            if target.suffix == ".py" and target not in parsed:
+                pending.append(target)
+    return sorted(found), dynamic, sockets
 
 
 def render() -> str:
-    by_category: dict[str, list[tuple[str, list[str], int]]] = defaultdict(list)
+    by_category: dict[str, list[tuple[str, list[str], int, bool]]] = defaultdict(list)
     for module_py in sorted(MODULES_DIR.glob("*/*/__init__.py")):
         module_dir = module_py.parent
         category = module_dir.parent.name
-        commands, dynamic = commands_for(module_dir)
-        by_category[category].append((module_dir.name, commands, dynamic))
+        commands, dynamic, sockets = commands_for(module_dir)
+        by_category[category].append((module_dir.name, commands, dynamic, sockets))
 
     out = [HEADER]
     for category in sorted(by_category):
         out.append(f"## {category.capitalize()}\n")
-        for name, commands, dynamic in by_category[category]:
+        for name, commands, dynamic, sockets in by_category[category]:
             out.append(f"### `{name}`\n")
             if not commands and not dynamic:
-                out.append("Runs no external commands; reads files and system APIs only.\n")
+                if sockets:
+                    out.append(f"Runs no external commands. {SOCKETS_LINE}\n")
+                else:
+                    out.append("Runs no external commands; reads files and system APIs only.\n")
                 continue
             if commands:
                 out.append("```text")
@@ -147,6 +274,8 @@ def render() -> str:
                 out.append("```")
             if dynamic:
                 out.append(f"\nPlus {dynamic} command(s) built at runtime.")
+            if sockets:
+                out.append(f"\n{SOCKETS_LINE}")
             out.append("")
     return "\n".join(out).rstrip() + "\n"
 

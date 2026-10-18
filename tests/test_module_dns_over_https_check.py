@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+from tests.test_network_codes import assert_codes_match_check
 
 
 def _make_profile():
@@ -446,3 +447,61 @@ def test_dns_over_https_check_all_findings():
     assert "dns_configuration" in check_types
     assert "encrypted_dns_profile" in check_types
     assert "local_dns_resolver" in check_types
+
+
+def _run_check(dns_stdout, profiles_stdout="", profiles_rc=1, ps_stdout="root 1 ps aux\n"):
+    mod = _get_module()
+
+    def mock_run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+        if "scutil" in cmd_str:
+            result.stdout = dns_stdout
+        elif "profiles" in cmd_str:
+            result.stdout = profiles_stdout
+            result.returncode = profiles_rc
+        elif "ps" in cmd_str:
+            result.stdout = ps_stdout
+        else:
+            result.stdout = ""
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run), patch(
+        "builtins.open", mock_open(read_data="nameserver 192.168.1.1\n")
+    ):
+        return mod.check(_make_profile())
+
+
+def test_every_finding_carries_its_check_code():
+    mod = _get_module()
+    # Unreadable DNS settings
+    findings = list(_run_check("").findings)
+    # ISP DNS: unencrypted_dns and no_encryption_configured
+    findings += _run_check(
+        "resolver #1\n  nameserver[0]: 192.168.1.1\n"
+    ).findings
+    # Known provider + profile + local resolver
+    findings += _run_check(
+        "resolver #1\n  nameserver[0]: 1.1.1.1\n",
+        profiles_stdout="DNS Profile https installed",
+        profiles_rc=0,
+        ps_stdout="/usr/local/bin/stubby -g\n",
+    ).findings
+    assert_codes_match_check(findings, "dns_over_https_check")
+    assert {f.data["check"] for f in findings} == {
+        c.rsplit(".", 1)[1] for c in mod.emits_codes
+    }
+
+
+def test_both_unencrypted_findings_coded():
+    result = _run_check("resolver #1\n  nameserver[0]: 192.168.1.1\n")
+    codes = [
+        f.code
+        for f in result.findings
+        if f.data["check"] in ("unencrypted_dns", "no_encryption_configured")
+    ]
+    assert sorted(codes) == [
+        "network.dns_over_https_check.no_encryption_configured",
+        "network.dns_over_https_check.unencrypted_dns",
+    ]

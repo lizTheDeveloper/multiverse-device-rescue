@@ -68,6 +68,7 @@ Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENG
     Run with `RESCUE_ENGINE=/tmp/fake-rescue`, click **Play it as a game** and pick **I’m not sure — check everything**. The sweep runs, and when it finishes the list results show, not the city. Click **Start over**. The welcome screen no longer shows **Play it as a game**. Quit and delete `/tmp/fake-rescue` afterwards.
 12. DevTools → Network: every request is `app://rescue/…`, including `rc/data/phishing.js`.
 13. Clean up the test launch agent as in "Game mode, end to end", step 8.
+14. Network findings. On a Mac with a proxy configured (System Settings → Network → your connection → Details → Proxies), run a checkup and open The Wires. The proxy mission shows walkthrough steps and an **Open in System Settings** button that opens Network › Proxies. A router, ARP or LAN mission has no such button. After upgrading from a build without network codes, any network mission previously marked "later" reopens once, because its saved progress was keyed by the old title-based identity. That is accepted, not migrated.
 
 ## Command center (the deck)
 

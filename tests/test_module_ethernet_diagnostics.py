@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+from tests.test_network_codes import assert_codes_match_check
 
 
 def _make_profile():
@@ -448,3 +449,70 @@ def test_ethernet_timeout():
         result = mod.check(_make_profile())
     # Should complete without crashing
     assert isinstance(result.findings, list)
+
+
+def _fake_run(ports, ifconfig, speed="1000 Mbps", netstat=""):
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        cmd_str = " ".join(cmd)
+        if "networksetup" in cmd_str:
+            result.stdout = ports
+        elif "ifconfig" in cmd_str:
+            result.stdout = ifconfig.get(cmd[-1], "")
+        elif "system_profiler" in cmd_str:
+            result.stdout = f"Ethernet Information:\n  Link Speed: {speed}\n"
+        elif "netstat" in cmd_str:
+            result.stdout = netstat
+        return result
+
+    return fake_run
+
+
+_HEADER = "Name Mtu Network Address Ipkts Ierrs Idrop Opkts Oerrs Coll\n"
+
+
+def test_every_finding_carries_its_check_code():
+    mod = _get_module()
+    findings = []
+    one_port = "Hardware Ports:\nEthernet:\n    Device: en5\n"
+    scenarios = [
+        _fake_run("Wi-Fi:\n    Device: en0\n", {}),
+        _fake_run(
+            one_port,
+            {"en5": "en5: flags=8842<BROADCAST> mtu 1500\n    status: inactive\n"},
+        ),
+        _fake_run(
+            one_port,
+            {
+                "en5": "en5: flags=8843<UP> mtu 9000\n    inet 169.254.1.50 netmask 0xffff0000\n    status: active\n"
+            },
+            speed="100 Mbps",
+            netstat=_HEADER + "en5 9000 Link 00:11 100 3 0 100 2 0\n",
+        ),
+    ]
+    for fake in scenarios:
+        with patch("subprocess.run", side_effect=fake):
+            findings += mod.check(_make_profile()).findings
+    assert_codes_match_check(findings, "ethernet_diagnostics")
+    assert {f.data["check"] for f in findings} == {
+        c.rsplit(".", 1)[1] for c in mod.emits_codes
+    }
+
+
+def test_two_interfaces_distinct_targets():
+    mod = _get_module()
+    ports = (
+        "Hardware Ports:\nEthernet:\n    Device: en5\n"
+        "Thunderbolt Ethernet:\n    Device: en6\n"
+    )
+    inactive = "{}: flags=8842<BROADCAST> mtu 1500\n    status: inactive\n"
+    fake = _fake_run(ports, {"en5": inactive.format("en5"), "en6": inactive.format("en6")})
+    with patch("subprocess.run", side_effect=fake):
+        findings = mod.check(_make_profile()).findings
+    inactive_findings = [f for f in findings if f.data["check"] == "interface_inactive"]
+    assert sorted(f.data["target"] for f in inactive_findings) == ["en5", "en6"]
+    for f in findings:
+        if "interface" in f.data:
+            assert f.data["target"] == f.data["interface"]

@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+from tests.test_network_codes import assert_codes_match_check
 
 
 def _make_profile():
@@ -315,3 +316,72 @@ def test_network_proxy_check_fix_localhost_guidance():
     assert fix.all_succeeded
     localhost_actions = [a for a in fix.actions if "local proxy" in a.title or "local proxy" in a.description]
     assert len(localhost_actions) >= 1
+
+
+def _fake_run_local_pac_url():
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
+        if "listallnetworkservices" in cmd_str:
+            return _make_subprocess_result("Wi-Fi\n")
+        elif "getautoproxyurl" in cmd_str:
+            return _make_subprocess_result("URL: file:///etc/proxy.pac\nEnabled: Yes\n")
+        elif "proxy" in cmd_str and "bypass" not in cmd_str:
+            return _make_subprocess_result("Enabled: No\n")
+        return _make_subprocess_result("(null)\n")
+
+    return fake_run
+
+
+def _fake_run_query_failed():
+    def fake_run(cmd, **kwargs):
+        return _make_subprocess_result("", "boom", 1)
+
+    return fake_run
+
+
+def _fake_run_two_interfaces_proxied():
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
+        if "listallnetworkservices" in cmd_str:
+            return _make_subprocess_result("Wi-Fi\nEthernet\n")
+        elif "getwebproxy" in cmd_str:
+            return _make_subprocess_result(
+                "Enabled: Yes\nServer: proxy.example.com\nPort: 8080\n")
+        elif "getautoproxyurl" in cmd_str:
+            return _make_subprocess_result("URL: (null)\n")
+        elif "getproxybypassdomains" in cmd_str:
+            return _make_subprocess_result("(null)\n")
+        return _make_subprocess_result("Enabled: No\n")
+
+    return fake_run
+
+
+def test_every_finding_carries_its_check_code():
+    mod = _get_module()
+    findings = []
+    for fake in (
+        _fake_run_no_proxies(),
+        _fake_run_http_proxy_enabled(),
+        _fake_run_remote_pac_url(),
+        _fake_run_local_pac_url(),
+        _fake_run_localhost_suspicious_proxy(),
+        _fake_run_with_bypass_domains(),
+        _fake_run_query_failed(),
+    ):
+        with patch("subprocess.run", side_effect=fake):
+            findings += mod.check(_make_profile()).findings
+    assert_codes_match_check(findings, "network_proxy_check")
+    assert {f.data["check"] for f in findings} == {
+        c.rsplit(".", 1)[1] for c in mod.emits_codes
+    }
+
+
+def test_per_interface_targets():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_two_interfaces_proxied()):
+        findings = mod.check(_make_profile()).findings
+    enabled = [f for f in findings if f.data["check"] == "proxy_enabled"]
+    assert sorted(f.data["target"] for f in enabled) == ["Ethernet", "Wi-Fi"]
+    for f in findings:
+        if "interface" in f.data:
+            assert f.data["target"] == f.data["interface"]

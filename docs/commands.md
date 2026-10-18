@@ -384,8 +384,12 @@ networksetup -listnetworkserviceorder
 
 ### `network_proxy_detect`
 
-
-Plus 1 command(s) built at runtime.
+```text
+networksetup -getautoproxyurl …
+networksetup -getsecurewebproxy …
+networksetup -getsocksfirewallproxy …
+networksetup -getwebproxy …
+```
 
 ### `network_speed_test`
 
@@ -866,7 +870,15 @@ winmgmt /verifyrepository
 
 ### `arp_spoof_check`
 
-Runs no external commands; reads files and system APIs only.
+```text
+arp -a
+arp -a -n
+arp -an
+ip neigh show
+ip route show default
+route -n get default
+route print -4
+```
 
 ### `dns_over_https_check`
 
@@ -887,24 +899,52 @@ system_profiler SPEthernetDataType
 
 ### `lan_common`
 
-
-Plus 1 command(s) built at runtime.
+```text
+arp -a
+arp -a -n
+arp -an
+ip neigh show
+ip route show default
+route -n get default
+route print -4
+```
 
 ### `lan_device_inventory`
 
-Runs no external commands; reads files and system APIs only.
+```text
+arp -a
+arp -a -n
+arp -an
+ip neigh show
+ip route show default
+route -n get default
+route print -4
+```
 
 ### `network_proxy_check`
 
 ```text
+networksetup -getautoproxyurl …
+networksetup -getproxybypassdomains …
+networksetup -getsecurewebproxy …
+networksetup -getsocksfirewallproxy …
+networksetup -getwebproxy …
 networksetup -listallnetworkservices
 ```
 
-Plus 1 command(s) built at runtime.
-
 ### `router_security_audit`
 
-Runs no external commands; reads files and system APIs only.
+```text
+arp -a
+arp -a -n
+arp -an
+ip neigh show
+ip route show default
+route -n get default
+route print -4
+```
+
+Also opens network connections directly from Python (sockets), without an external command.
 
 ### `vpn_leak_check`
 
@@ -1458,8 +1498,11 @@ ps aux
 
 ### `crypto_miner_persistence`
 
-
-Plus 1 command(s) built at runtime.
+```text
+crontab -l
+reg query …
+schtasks /query /fo csv /v
+```
 
 ### `cryptojacking_iocs`
 
@@ -1695,8 +1738,13 @@ lsof -i -nP
 
 ### `network_proxy`
 
-
-Plus 1 command(s) built at runtime.
+```text
+networksetup -getautoproxyurl …
+networksetup -getproxyautodiscovery …
+networksetup -getsecurewebproxy …
+networksetup -getsocksfirewallproxy …
+networksetup -getwebproxy …
+```
 
 ### `open_ports_scan`
 
@@ -1833,8 +1881,9 @@ ssh-keygen -l -f …
 
 ### `stalkerware_scan`
 
-
-Plus 1 command(s) built at runtime.
+```text
+reg query … /s /v DisplayName
+```
 
 ### `sudo_config_audit`
 
@@ -1951,8 +2000,10 @@ wmic computersystem get partofdomain
 
 ### `win_crypto_miner_detect`
 
-
-Plus 1 command(s) built at runtime.
+```text
+netstat -ano
+powershell -NoProfile -NonInteractive -Command …
+```
 
 ### `win_defender`
 

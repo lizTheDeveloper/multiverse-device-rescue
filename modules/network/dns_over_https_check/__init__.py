@@ -23,6 +23,16 @@ class Module(ModuleBase):
     priority = 50
     depends_on = []
     estimated_duration = "5s"
+    emits_codes = [
+        "network.dns_over_https_check.dns_configuration",
+        "network.dns_over_https_check.unencrypted_dns",
+        "network.dns_over_https_check.encrypted_dns_provider",
+        "network.dns_over_https_check.no_dns_found",
+        "network.dns_over_https_check.encrypted_dns_profile",
+        "network.dns_over_https_check.local_dns_resolver",
+        "network.dns_over_https_check.doh_tls_configured",
+        "network.dns_over_https_check.no_encryption_configured",
+    ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
@@ -48,6 +58,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="network.dns_over_https_check.dns_configuration",
                     data={
                         "check": "dns_configuration",
                         "servers": dns_servers,
@@ -75,6 +86,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="network.dns_over_https_check.unencrypted_dns",
                         data={
                             "check": "unencrypted_dns",
                             "servers": dns_servers,
@@ -93,6 +105,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="network.dns_over_https_check.encrypted_dns_provider",
                         data={
                             "check": "encrypted_dns_provider",
                             "provider": encryption_info["provider_name"],
@@ -107,6 +120,7 @@ class Module(ModuleBase):
                     description="Could not read system DNS settings.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="network.dns_over_https_check.no_dns_found",
                     data={"check": "no_dns_found"},
                 )
             )
@@ -122,6 +136,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="network.dns_over_https_check.encrypted_dns_profile",
                     data={
                         "check": "encrypted_dns_profile",
                         "profile_info": profile_status.get("profile_info"),
@@ -140,6 +155,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="network.dns_over_https_check.local_dns_resolver",
                     data={
                         "check": "local_dns_resolver",
                         "process": local_resolver["process"],
@@ -158,6 +174,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="network.dns_over_https_check.doh_tls_configured",
                     data={
                         "check": "doh_tls_configured",
                         "details": doh_status.get("details"),
@@ -186,6 +203,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="network.dns_over_https_check.no_encryption_configured",
                         data={"check": "no_encryption_configured"},
                     )
                 )

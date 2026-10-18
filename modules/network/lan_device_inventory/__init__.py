@@ -57,6 +57,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "network.lan_device_inventory.lan_inventory",
+        "network.lan_device_inventory.unrecognised_device",
+        "network.lan_device_inventory.device_count_exceeded",
+    ]
+
     def __init__(self) -> None:
         self._expected_device_count: int | None = None
         self._known_macs: set[str] = set()
@@ -209,6 +215,7 @@ class Module(ModuleBase):
             ),
             severity=Severity.INFO,
             category=self.category,
+            code="network.lan_device_inventory.lan_inventory",
             data={
                 "check": "lan_inventory",
                 "device_count": len(devices),
@@ -244,8 +251,10 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="network.lan_device_inventory.unrecognised_device",
                     data={
                         "check": "unrecognised_device",
+                        "target": device["mac"],
                         "ip": device["ips"][0],
                         "mac": device["mac"],
                         "vendor": device["vendor"],
@@ -276,6 +285,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.WARNING,
                 category=self.category,
+                code="network.lan_device_inventory.device_count_exceeded",
                 data={
                     "check": "device_count_exceeded",
                     "device_count": len(devices),
