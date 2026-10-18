@@ -31,31 +31,29 @@ test('the plain route is unchanged: the scan screen, and no scan until Run', () 
   assert.deepStrictEqual(p.calls.game, [], 'never the sweep outside game mode');
 });
 
-test('worries where someone may be watching never start the game, even from "Play it as a game"', () => {
-  for (const id of ['watched', 'phone']) {
-    const p = page();
-    p.byId('btn-play-game').click();
-    p.pick(id);
-    assert.deepStrictEqual(p.calls.game, [], id);
-    assert.deepStrictEqual(p.calls.scans, [], `${id}: the plain scan screen, waiting for Run`);
-    assert.deepStrictEqual(p.shown(), ['scan'], id);
-  }
+test('the iPhone check stays on its own plain screen, even from "Play it as a game"', () => {
+  const p = page();
+  p.byId('btn-play-game').click();
+  p.pick('phone');
+  assert.deepStrictEqual(p.calls.game, []);
+  assert.deepStrictEqual(p.calls.scans, [], 'the plain scan screen, waiting for Run');
+  assert.deepStrictEqual(p.shown(), ['scan']);
 });
 
-test('once a scan found monitoring software, the follow-up comes first; then the next worry gets the plain screen', async () => {
+test('monitoring software in standard mode: the follow-up first, and "Yes, I know about it" keeps the game', async () => {
   const p = page();
   p.byId('btn-play-game').click();
   p.pick('unsure');
   await p.finish(monitoring);
   assert.deepStrictEqual(p.shown(), ['question']);
+  assert.ok(!p.calls.game.includes('scanDone'), 'nothing lands before the answer');
   p.answer('known');
-  assert.ok(!p.calls.game.includes('scanDone'), 'nobody lands in the city');
-  assert.deepStrictEqual(p.shown(), ['results']);
+  assert.ok(p.calls.game.includes('scanDone'));
+  assert.deepStrictEqual(p.shown(), ['city']);
   p.calls.game.length = 0;
   p.byId('btn-play-game').click();
   p.pick('wifi');
-  assert.deepStrictEqual(p.calls.game, []);
-  assert.deepStrictEqual(p.shown(), ['scan']);
+  assert.deepStrictEqual(p.calls.game, ['newWorry', 'showBoss'], 'the next worry plays too');
 });
 
 test('PLAIN VIEW mid-scan: the plain scan screen, then the list when it finishes', async () => {

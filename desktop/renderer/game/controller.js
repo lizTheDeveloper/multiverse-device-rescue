@@ -3,6 +3,7 @@
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
 import { findingsToCity } from './findings-to-city.js';
+import { splitHeld, briefingNote, heldPanelHtml } from './held.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, ranOkModules, recheckOutcome } from './progress.js';
 import { renderHud } from './views/hud.js';
 import { renderMap } from './views/map.js';
@@ -53,7 +54,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
 
-  const s = { doc: null, situation: null, city: null, progress: loadProgress(storage), cameBack: [],
+  const s = { doc: null, held: [], situation: null, city: null, progress: loadProgress(storage), cameBack: [],
     screen: 'map', districtId: null, missionId: null, outcome: null, outcomeMission: null, lastFix: null, message: '', busy: false,
     trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
     rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
@@ -83,10 +84,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // treating this as mine"). Its return is expected, so it isn't "came back".
   // The same quiet text as the list (QuietNotes): no hotline paragraphs in missions, notes or clues.
   const quietDoc = (d) => (win.QuietNotes ? win.QuietNotes.quietDoc(d) : d);
+  const hostMode = () => (win.RescueHost && typeof win.RescueHost.mode === 'function' ? win.RescueHost.mode() : null);
 
   function rebuild(doc, putBack = null) {
     s.doc = doc;
-    s.city = findingsToCity(quietDoc(doc));
+    // Monitoring software never becomes a mission or a signal (held.js).
+    const split = splitHeld(doc);
+    s.held = split.held;
+    s.city = findingsToCity(quietDoc(split.doc));
     const r = reconcile(s.progress, s.city, ranOkModules(doc), now());
     s.progress = r.progress;
     s.cameBack = r.cameBack.filter((id) => id !== putBack);
@@ -189,13 +194,18 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (s.screen === 'mission' && s.busy && !mission(s.missionId) && s.outcomeMission && s.outcomeMission.id === s.missionId) {
       const m = s.outcomeMission;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: '',
-        scout, busy: true, wantsSafety: win.RescueHost.wantsSafety(m.primary) });
+        scout, busy: true, wantsSafety: win.RescueHost.wantsSafety(m.primary), note: briefingNote(win.QuietNotes, hostMode(), m.primary) });
     }
     if (s.screen === 'mission' && mission(s.missionId)) {
       const m = mission(s.missionId);
-      const controls = `${win.FixFlow.fixControlsHtml(m.primary, { watched: false })}${win.MarkFlow.markControlsHtml(m.primary)}`;
+      // Monitoring software is held (rebuild), so it shouldn't reach here; if it
+      // ever does, the briefing carries the list's own note, and in city mode
+      // nothing to act on.
+      const note = briefingNote(win.QuietNotes, hostMode(), m.primary);
+      const controls = note.kind === 'held' ? ''
+        : `${win.FixFlow.fixControlsHtml(m.primary, { watched: false })}${win.MarkFlow.markControlsHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
-        scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module) });
+        scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the
@@ -209,12 +219,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return renderOutcome({ kind: s.outcome, mission: s.outcomeMission, scout, message: s.message, undoHtml });
     }
     s.screen = 'map';
+    // Monitoring software the scan found: said on the map, with where help is.
+    const held = heldPanelHtml({ held: s.held, mode: hostMode(), Q: win.QuietNotes });
     if (s.rc || s.accountsError) {
-      return renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
+      return held + renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
         accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
         accountsError: s.accountsError });
     }
-    return renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout });
+    return held + renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout });
   }
 
   // false when the screen couldn't be drawn and the person was sent to the list,
@@ -271,7 +283,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       try { r = await win.rescue.recheckModule(name); } catch (_) { r = null; }
       if (name === m.module) res = r;
       if (r && r.ok) {
-        if (!win.RescueHost.docChanged(r.doc)) { s.busy = false; return; } // the gate closed: app.js showed the list
+        if (!win.RescueHost.docChanged(r.doc)) { s.busy = false; return; } // app.js asked the follow-up instead
         rebuild(r.doc, putBack ? m.id : null);
       }
     }

@@ -5,6 +5,8 @@
 // and no longer reports it. Lessons never count toward fixes.
 //
 // The key keeps its v1 name so a saved Plan A store is found and migrated.
+import { HELD_MODULES } from './held.js';
+
 export const STORE_KEY = 'device-rescue.game.v1';
 const STATUSES = new Set(['open', 'later', 'yours', 'reclaimed']);
 
@@ -73,11 +75,19 @@ function base(progress) {
   };
 }
 
+// Records keep a mission's title and id, which can name a program and a path.
+// Monitoring software is never recorded: the controller already holds it out
+// of the city (held.js), and this skips it again, and drops any older record
+// of it, so nothing about it is ever written.
 export function reconcile(progress, city, ranOk, now) {
   const next = base(progress);
+  for (const [id, rec] of Object.entries(next.missions)) {
+    if (HELD_MODULES.has(rec.module)) delete next.missions[id];
+  }
   const cameBack = [];
   const present = new Set();
   for (const m of allMissions(city)) {
+    if (HELD_MODULES.has(m.module)) continue;
     present.add(m.id);
     const prev = next.missions[m.id];
     let status;
@@ -102,6 +112,7 @@ export function reconcile(progress, city, ranOk, now) {
 
 // `about` is { districtId, title } of the mission, when known.
 export function setStatus(progress, id, status, module, now, about = {}) {
+  if (HELD_MODULES.has(module)) return base(progress); // never recorded (see reconcile)
   const prev = progress.missions[id] || {};
   const next = base(progress);
   next.missions[id] = { ...prev, ...about, status, module, updatedAt: now };

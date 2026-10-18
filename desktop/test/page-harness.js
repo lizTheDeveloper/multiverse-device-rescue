@@ -105,7 +105,9 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   const fire = (type) => (winListeners[type] || []).forEach((fn) => fn({ type }));
   const finish = async (d) => { finishScan(d); await tick(); await tick(); };
   const activeDot = () => dots.filter((e) => e.classList.contains('step-dot--active')).map((e) => e.dataset.stepDot);
-  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, activeDot };
+  // Reads a top-level name from the page's scripts (a const isn't on window).
+  const run = (code) => vm.runInContext(code, sandbox);
+  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, activeDot, run };
 }
 
 const clean = { schema_version: 1, platform: 'darwin', modules: [] };

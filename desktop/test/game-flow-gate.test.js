@@ -1,82 +1,106 @@
+// The gate, rewritten on purpose. Monitoring software no longer takes anyone
+// out of the game. In 'city' the game is the cover: it never prompts removal,
+// never offers a fix or a mark for monitoring software, and never makes a
+// mission of it. In 'standard' the person is asked first (first-question.js).
 const test = require('node:test');
 const assert = require('node:assert');
-const { gameScanFirst, postScanView, gameOfferedFor, worryStartsGameScan, gameStillOffered, noteMonitoring, SITUATIONS } = require('../renderer/app.js');
+const path = require('path');
+const { pathToFileURL } = require('url');
+const Q = require('../renderer/quiet-notes.js');
+const { recordingStore, forbiddenWrites } = require('./disk-words.js');
+const { gameScanFirst, postScanView, gameOfferedFor, worryStartsGameScan, noteMonitoring, opensInGame,
+  CITY_SITUATION, ALWAYS_SAFETY_MODULES, SITUATIONS } = require('../renderer/app.js');
+
 const byId = (id) => SITUATIONS.find((s) => s.id === id);
+const game = (f) => import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', f)).href);
 
-test('the Training Grounds only follows a worry the game is offered for', () => {
+test('the game is offered for every worry but the iPhone check, monitoring software or not', () => {
+  for (const s of SITUATIONS) assert.strictEqual(gameOfferedFor(s), s.id !== 'phone', s.id);
+  assert.strictEqual(gameOfferedFor(CITY_SITUATION), true);
+  assert.strictEqual(gameOfferedFor(null), false);
+});
+
+test('city always plays: a worry starts its scan in the game, even from Get started', () => {
   for (const s of SITUATIONS) {
-    const offered = gameOfferedFor(s, null);
-    assert.strictEqual(gameScanFirst({ wantsCity: true, offered, ready: true }), offered, s.id);
+    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: false, mode: 'city', ready: true }), s.id !== 'phone', s.id);
+    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: false, mode: 'standard', ready: true }), false, s.id);
+    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: true, mode: 'standard', ready: true }), s.id !== 'phone', s.id);
   }
-  assert.strictEqual(gameScanFirst({ wantsCity: true, offered: gameOfferedFor(byId('watched'), null), ready: true }), false);
-  assert.strictEqual(gameScanFirst({ wantsCity: true, offered: gameOfferedFor(byId('phone'), null), ready: true }), false);
-  assert.strictEqual(gameScanFirst({ wantsCity: false, offered: true, ready: true }), false);
-  assert.strictEqual(gameScanFirst({ wantsCity: true, offered: true, ready: false }), false);
+  assert.strictEqual(worryStartsGameScan({ situation: byId('unsure'), wantsCity: true, mode: 'city', ready: false }), false);
+  assert.strictEqual(gameScanFirst({ wantsCity: true, offered: true, ready: true }), true);
+  assert.strictEqual(opensInGame('city'), true);
+  assert.strictEqual(opensInGame('standard'), false);
+  assert.strictEqual(opensInGame(null), false);
 });
 
-test('after the boss scan: city only when still offered and the person stayed in the game', () => {
-  const base = { inGame: true, left: false, wantsCity: true, rememberedCity: false, offered: true, ready: true };
-  assert.strictEqual(postScanView(base), 'boss-city');
-  const monitoring = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'critical' }] }] };
-  assert.strictEqual(postScanView({ ...base, offered: gameOfferedFor(byId('unsure'), monitoring) }), 'results');
-  assert.strictEqual(postScanView({ ...base, left: true }), 'results');
-  assert.strictEqual(postScanView({ ...base, left: true, rememberedCity: true }), 'results');
-  assert.strictEqual(postScanView({ ...base, ready: false }), 'results');
+test('after a game scan: the city, whatever it found; Plain view stays plain', () => {
+  const base = { inGame: true, left: false, wantsCity: true, rememberedCity: false, offered: gameOfferedFor(byId('unsure')), ready: true };
+  assert.strictEqual(postScanView({ ...base, mode: 'standard' }), 'boss-city');
+  assert.strictEqual(postScanView({ ...base, mode: 'city' }), 'boss-city');
+  assert.strictEqual(postScanView({ ...base, left: true, mode: 'city' }), 'results');
+  assert.strictEqual(postScanView({ ...base, ready: false, mode: 'city' }), 'results');
 });
 
-test('outside the game, Plan A’s rule is unchanged', () => {
-  const base = { inGame: false, left: false, wantsCity: false, rememberedCity: false, offered: true, ready: true };
+test('outside the game: the city when chosen, remembered, or in city mode', () => {
+  const base = { inGame: false, left: false, wantsCity: false, rememberedCity: false, offered: true, ready: true, mode: 'standard' };
   assert.strictEqual(postScanView(base), 'results');
   assert.strictEqual(postScanView({ ...base, wantsCity: true }), 'city');
   assert.strictEqual(postScanView({ ...base, rememberedCity: true }), 'city');
-  assert.strictEqual(postScanView({ ...base, rememberedCity: true, offered: false }), 'results');
-  assert.strictEqual(postScanView({ ...base, wantsCity: true, ready: false }), 'results');
+  assert.strictEqual(postScanView({ ...base, mode: 'city' }), 'city');
+  assert.strictEqual(postScanView({ ...base, mode: 'city', offered: false }), 'results', 'the iPhone check');
 });
 
-test('a worry never opens the Training Grounds on a machine whose last scan found monitoring software', () => {
-  const ready = { wantsCity: true, ready: true };
-  const warned = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'warning' }] }] };
-  const critical = { modules: [{ name: 'keylogger_indicators', findings: [{ severity: 'critical' }] }] };
-  const infoOnly = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'info' }] }] };
-  for (const id of ['unsure', 'wifi', 'hacked', 'helping']) {
-    assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId(id), lastScanDoc: warned }), false, id);
-    assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId(id), lastScanDoc: critical }), false, id);
-    assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId(id), lastScanDoc: infoOnly }), true, id);
-    assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId(id), lastScanDoc: null }), true, id);
-  }
-  assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId('watched'), lastScanDoc: null }), false);
-  assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId('phone'), lastScanDoc: null }), false);
-  assert.strictEqual(worryStartsGameScan({ wantsCity: false, ready: true, situation: byId('unsure'), lastScanDoc: null }), false);
-});
-
-test('monitoring software seen once this session keeps the game closed, even after a narrower clean scan', () => {
+test('monitoring software seen once is remembered for the session; it decides the follow-up', () => {
   const monitoring = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'warning' }] }] };
-  // home_for_the_holidays (`helping`) runs none of the safety modules.
   const narrowClean = { modules: [{ name: 'disk_space', findings: [] }] };
   let seen = false;
   seen = noteMonitoring(seen, monitoring);
   seen = noteMonitoring(seen, narrowClean);
   seen = noteMonitoring(seen, null);
-  assert.strictEqual(seen, true, 'sticky for the session');
-  const unsure = byId('unsure');
-  assert.strictEqual(worryStartsGameScan({ situation: unsure, lastScanDoc: narrowClean, monitoringSeen: seen, wantsCity: true, ready: true }), false);
-  assert.strictEqual(gameStillOffered(unsure, narrowClean, seen), false, 'no city view either');
-  // Without it, the narrow clean scan alone would have reopened the game.
-  assert.strictEqual(worryStartsGameScan({ situation: unsure, lastScanDoc: narrowClean, monitoringSeen: false, wantsCity: true, ready: true }), true);
-  assert.strictEqual(gameStillOffered(unsure, narrowClean, false), true);
-  // The per-doc check still applies on its own.
-  assert.strictEqual(gameStillOffered(unsure, monitoring, false), false);
-  assert.strictEqual(gameStillOffered(byId('watched'), narrowClean, false), false);
+  assert.strictEqual(seen, true);
   assert.strictEqual(noteMonitoring(false, narrowClean), false);
   assert.strictEqual(noteMonitoring(false, { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'info' }] }] }), false);
 });
 
-test('"Play it as a game" is hidden once monitoring software was seen this session', () => {
-  const { playButtonShown } = require('../renderer/app.js');
-  assert.strictEqual(playButtonShown(false), true);
-  assert.strictEqual(playButtonShown(true), false);
-  const monitoring = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'warning' }] }] };
-  const clean = { modules: [{ name: 'stalkerware_scan', findings: [] }] };
-  // Sticky: a later clean scan doesn't bring the button back.
-  assert.strictEqual(playButtonShown(noteMonitoring(noteMonitoring(false, monitoring), clean)), false);
+test('city mode never prompts removal: monitoring software gets the hold line, no steps, no fix, no mark', () => {
+  for (const module of ALWAYS_SAFETY_MODULES) {
+    const f = { module, description: 'An app that records what you type.', remediation: { steps: [{ number: 1, title: 'Remove it', body: 'Uninstall it.' }] } };
+    const card = Q.cardText('city', f);
+    assert.strictEqual(card.note, 'held');
+    assert.deepStrictEqual(card.steps, []);
+    const html = Q.heldHtml(card, String);
+    assert.match(html, /Don’t remove it yet\. Talk to an advocate first\./);
+    assert.doesNotMatch(html, /uninstall|delete|fix it|turn it off/i);
+    assert.strictEqual(Q.lineHtml(card, String), '');
+  }
+  assert.strictEqual(Q.noteFor('city', { module: 'remote_login_check' }), 'none');
+  assert.strictEqual(Q.heldHtml(Q.cardText('standard', { module: 'stalkerware_scan' }), String), '');
+});
+
+test('one list of monitoring checks, everywhere', async () => {
+  const { HELD_MODULES } = await game('held.js');
+  assert.deepStrictEqual([...HELD_MODULES].sort(), [...ALWAYS_SAFETY_MODULES].sort());
+  assert.deepStrictEqual([...Q.MONITORING_MODULES].sort(), [...ALWAYS_SAFETY_MODULES].sort());
+});
+
+test('the game never makes a mission of monitoring software, so nothing about it is saved', async () => {
+  const { splitHeld } = await game('held.js');
+  const { findingsToCity } = await game('findings-to-city.js');
+  const { reconcile, saveProgress, emptyProgress, ranOkModules } = await game('progress.js');
+  const doc = { modules: [
+    { name: 'stalkerware_scan', category: 'security', status: 'ok', supported: true, findings: [
+      { severity: 'critical', title: 'Stalkerware found: mSpy', description: 'd' }, { severity: 'info', title: 'Checked for monitoring apps' }] },
+    { name: 'remote_login_check', category: 'security', status: 'ok', supported: true, findings: [{ severity: 'warning', title: 'Remote Login is on', description: 'd' }] },
+  ] };
+  const split = splitHeld(doc);
+  assert.deepStrictEqual(split.held, [{ module: 'stalkerware_scan', title: 'Stalkerware found: mSpy' }]);
+  assert.strictEqual(doc.modules[0].findings.length, 2, 'the scan itself is untouched');
+  const city = findingsToCity(split.doc);
+  assert.deepStrictEqual(city.districts.flatMap((d) => d.missions).map((m) => m.module), ['remote_login_check']);
+  assert.ok(city.districts.find((d) => d.id === 'gatehouse').checksRan >= 2, 'the check still counts as having run');
+  const store = recordingStore();
+  saveProgress(store, reconcile(emptyProgress(), city, ranOkModules(doc), '2026-10-18T00:00:00Z').progress);
+  assert.deepStrictEqual(forbiddenWrites(store), []);
+  assert.doesNotMatch(JSON.stringify(store.data), /mSpy|stalkerware/i);
+  assert.deepStrictEqual(splitHeld(null), { doc: null, held: [] });
 });

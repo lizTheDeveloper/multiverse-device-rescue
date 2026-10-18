@@ -4,7 +4,9 @@
  * How much the list and the game say to someone who may be watched by a
  * person close to them. Standard mode: none of it, except on a finding that
  * is itself monitoring software, which carries one line with the full note
- * behind it. Everything here works on copies; the scan is never changed.
+ * behind it. City mode: monitoring software gets the hold line and its help
+ * instead, and nothing to act on. Everything here works on copies; the scan
+ * is never changed.
  *
  * Loaded as a plain script (global `QuietNotes`, also on window for the game).
  */
@@ -20,6 +22,18 @@ const QuietNotes = (function () {
   const MARKERS = /799-7233|88788|\btext\s+START\b|\badvocates?\b|domestic\s+violence|\bDV\s+Hotline\b|\bpartner,\s+(?:an\s+)?ex\b|\bex-partner\b|\bhousemates?\b|\babuser\b/i;
   const LINE = 'Removing this can alert whoever installed it. Read this first.';
   const DEFAULT_FULL = 'If someone close to you may have installed it, talk to an advocate before you remove anything. In the US: National Domestic Violence Hotline, 1-800-799-7233, or text START to 88788.';
+  const HELD_LINE = 'Don’t remove it yet. Talk to an advocate first.';
+  const HELD_MORE = 'Open the city to see how to keep a quiet record of it.';
+  // The help behind the hold line, until the city's own district has it:
+  // "Keep a record" and the last sentence of "Decide whether it's safe to
+  // remove", word for word from guides/remediation/respond_to_monitoring_software.md,
+  // and the advocate note above. Nothing here says to remove anything.
+  const HELD_HELP_TITLE = 'How to keep a quiet record, and who can help';
+  const HELD_HELP = [
+    'On paper or on another device, write down the name the scan found, where it was found, and today\'s date. Take a photo of the scan result with your phone. That record can matter later, for a protective order or a police report, and removing the software erases most of it.',
+    DEFAULT_FULL,
+    'Use a phone or computer the other person can\'t reach.',
+  ];
 
   function isMonitoring(finding) {
     return !!finding && MONITORING_MODULES.has(finding.module);
@@ -115,9 +129,11 @@ const QuietNotes = (function () {
     }) };
   }
 
-  // 'line': the one line, with the full note behind it. 'none': nothing.
+  // 'line': the one line, full note behind it (standard). 'held': the hold
+  // line and nothing to act on (city). 'none': nothing.
   function noteFor(mode, finding) {
-    return isMonitoring(finding) ? 'line' : 'none';
+    if (!isMonitoring(finding)) return 'none';
+    return mode === 'city' ? 'held' : 'line';
   }
 
   function fullNote(f) {
@@ -139,6 +155,7 @@ const QuietNotes = (function () {
   function cardText(mode, finding) {
     const f = finding || {};
     const note = noteFor(mode, f);
+    if (note === 'held') return { note, description: quiet(f.description), steps: [], full: [] };
     const steps = f.remediation && Array.isArray(f.remediation.steps) ? f.remediation.steps : [];
     if (note === 'line') return { note, description: quiet(f.description), steps, full: fullNote(f) };
     const q = quietFinding(f);
@@ -151,7 +168,18 @@ const QuietNotes = (function () {
     return `<details class="finding-card__note"><summary>${esc(LINE)}</summary>${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</details>`;
   }
 
-  return { MONITORING_MODULES, MARKERS, LINE, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml };
+  // The hold line, then the help behind it. `more: false` leaves out the
+  // pointer to the city (when this is already in the city); `open: true`
+  // shows the help without a click.
+  function heldHtml(card, esc, opts = {}) {
+    if (!card || card.note !== 'held') return '';
+    const more = opts.more === false ? '' : ` ${esc(HELD_MORE)}`;
+    return `<p class="finding-card__note" role="note"><strong>${esc(HELD_LINE)}</strong>${more}</p>`
+      + `<details class="finding-card__held-help"${opts.open ? ' open' : ''}><summary>${esc(HELD_HELP_TITLE)}</summary>`
+      + `${HELD_HELP.map((p) => `<p>${esc(p)}</p>`).join('')}</details>`;
+  }
+
+  return { MONITORING_MODULES, MARKERS, LINE, HELD_LINE, HELD_MORE, HELD_HELP, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

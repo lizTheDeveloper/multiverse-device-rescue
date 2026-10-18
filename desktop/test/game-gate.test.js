@@ -5,35 +5,26 @@ const { mayBeWatched, gameOfferedFor, learnMoreFor, SITUATIONS } = require('../r
 const byId = (id) => SITUATIONS.find((s) => s.id === id);
 const withFinding = (module, severity) => ({ modules: [{ name: module, findings: [{ severity }] }] });
 
-test('closed for the worries where someone may be watching', () => {
-  assert.strictEqual(gameOfferedFor(byId('watched'), { modules: [] }), false);
-  assert.strictEqual(gameOfferedFor(byId('phone'), { modules: [] }), false);
+test('open for every worry but the iPhone check, which keeps its own plain screen', () => {
+  for (const id of ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'helping', 'unsure']) {
+    assert.strictEqual(gameOfferedFor(byId(id)), true, id);
+  }
+  assert.strictEqual(gameOfferedFor(byId('phone')), false);
 });
 
-test('closed when monitoring software is found, whatever the worry', () => {
+test('monitoring software found no longer closes it: the follow-up question decides', () => {
   for (const mod of ['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']) {
     for (const sev of ['critical', 'warning']) {
-      assert.strictEqual(gameOfferedFor(byId('unsure'), withFinding(mod, sev)), false, `${mod} ${sev}`);
+      assert.strictEqual(gameOfferedFor(byId('unsure'), withFinding(mod, sev)), true, `${mod} ${sev}`);
     }
   }
 });
 
-test('an info finding from a monitoring module does not close it', () => {
-  assert.strictEqual(gameOfferedFor(byId('unsure'), withFinding('stalkerware_scan', 'info')), true);
-});
-
-test('open for every other worry, including ones with no matching chapter', () => {
-  for (const id of ['hacked', 'wifi', 'identity', 'sketchy', 'helping', 'unsure']) {
-    assert.strictEqual(gameOfferedFor(byId(id), { modules: [] }), true, id);
-    assert.strictEqual(gameOfferedFor(byId(id), null), true, `${id} before any scan`);
-  }
-});
-
 test('closed with no worry picked', () => {
-  assert.strictEqual(gameOfferedFor(null, { modules: [] }), false);
+  assert.strictEqual(gameOfferedFor(null), false);
 });
 
-test('learnMoreFor still hides the game link exactly when mayBeWatched says so', () => {
+test('learnMoreFor still hides the web game link exactly when mayBeWatched says so', () => {
   for (const s of SITUATIONS) {
     if (mayBeWatched(s, { modules: [] })) assert.strictEqual(learnMoreFor(s, { modules: [] }), null, s.id);
   }
