@@ -445,6 +445,7 @@ if (typeof module !== 'undefined' && module.exports) {
     wantsSafetyNote,
     learnMoreFor,
     mayBeWatched,
+    ALWAYS_SAFETY_MODULES,
     gameOfferedFor,
     gameScanFirst,
     worryStartsGameScan,
