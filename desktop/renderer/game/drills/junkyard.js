@@ -1,0 +1,37 @@
+// Practice signals for The Junkyard. Invented: none of this is on the person's computer.
+export default [
+  {
+    id: 'preinstalled-trial',
+    district: 'junkyard',
+    severity: 'info',
+    modules: ['win_bloatware'],
+    title: 'A trial app came with the computer',
+    setup: 'Practice setup: this trial came with your new laptop, and you never open it.',
+    clues: {
+      maker: { name: 'Example Trial Co', verified: true, how: 'Authenticode signature' },
+      path: 'C:\\Program Files\\Example Trial\\trial.exe',
+      what: 'A preinstalled trial that starts with Windows and shows offers.',
+      when: null,
+    },
+    answer: 'mine',
+    why: 'It’s signed and installed where Windows programs go, and you know where it came from. It’s clutter, not a threat. Removing it is up to you.',
+    sources: ['guides/remediation/audit_windows_autoruns.md'],
+  },
+  {
+    id: 'downloads-login-item',
+    district: 'junkyard',
+    severity: 'warning',
+    modules: ['login_items'],
+    title: 'A login item runs a program from Downloads',
+    setup: '',
+    clues: {
+      maker: { name: 'Unknown maker', verified: false, how: 'unsigned' },
+      path: '~/Downloads/installer-helper',
+      what: 'Something set to open when you log in. It runs a program from your Downloads folder.',
+      when: null,
+    },
+    answer: 'threat',
+    why: 'Installed software doesn’t run from Downloads, where files from the internet land. A login item pointing there is a strong warning sign.',
+    sources: ['rescue/attribution.py', 'guides/remediation/audit_windows_autoruns.md'],
+  },
+];
