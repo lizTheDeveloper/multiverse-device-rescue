@@ -1,5 +1,6 @@
 import subprocess
 import plistlib
+import re
 from pathlib import Path
 
 from rescue.models import (
@@ -40,6 +41,8 @@ class Module(ModuleBase):
         "security.appleid_security_check.icloud_keychain",
         "security.appleid_security_check.autoupdate_disabled",
         "security.appleid_security_check.appleid_summary",
+        "security.appleid_security_check.icloud_keychain_unknown",
+        "security.appleid_security_check.autoupdate_unknown",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
@@ -72,8 +75,27 @@ class Module(ModuleBase):
                 )
             )
 
+        # Each of these reads as True, False or None (couldn't tell); None is
+        # "couldn't check", never "off".
+        if keychain_enabled is None and appleid_signed_in:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether iCloud Keychain is on",
+                    description=(
+                        "Device Rescue couldn't read whether iCloud Keychain (Passwords) "
+                        "is turned on for your Apple Account. This is not a sign that "
+                        "anything is wrong. To see for yourself, open System Settings, "
+                        "click your name, then iCloud, and look at Passwords."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.appleid_security_check.icloud_keychain_unknown",
+                    data={"check": "icloud_keychain_unknown"},
+                )
+            )
+
         # Flag WARNING if iCloud Keychain is disabled
-        if not keychain_enabled:
+        if keychain_enabled is False:
             findings.append(
                 Finding(
                     title="iCloud Keychain is disabled",
@@ -96,8 +118,24 @@ class Module(ModuleBase):
                 )
             )
 
+        if autoupdate_enabled is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether updates install automatically",
+                    description=(
+                        "Device Rescue couldn't read your Mac's automatic update settings. "
+                        "This is not a sign that anything is wrong. To see for yourself, "
+                        "open System Settings > General > Software Update."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.appleid_security_check.autoupdate_unknown",
+                    data={"check": "autoupdate_unknown"},
+                )
+            )
+
         # Flag WARNING if automatic updates are disabled
-        if not autoupdate_enabled:
+        if autoupdate_enabled is False:
             findings.append(
                 Finding(
                     title="Your Mac doesn't install updates automatically",
@@ -121,11 +159,14 @@ class Module(ModuleBase):
             f"Apple ID signed in: {'Yes' if appleid_signed_in else 'No'}"
         )
         summary_lines.append(f"Two-factor authentication: {'Enabled' if twofa_enabled else 'Not verified'}")
-        summary_lines.append(f"iCloud Keychain: {'Enabled' if keychain_enabled else 'Disabled'}")
+        def _say(value, on="Enabled", off="Disabled"):
+            return "Couldn't check" if value is None else (on if value else off)
+
+        summary_lines.append(f"iCloud Keychain: {_say(keychain_enabled)}")
         summary_lines.append(f"Private Relay: {'Active' if private_relay else 'Not active'}")
         summary_lines.append(f"Mail Privacy Protection: {'Enabled' if mail_privacy else 'Not enabled'}")
         summary_lines.append(f"Devices on this account: {len(icloud_devices)}")
-        summary_lines.append(f"Automatic updates: {'Enabled' if autoupdate_enabled else 'Disabled'}")
+        summary_lines.append(f"Automatic updates: {_say(autoupdate_enabled)}")
 
         findings.append(
             Finding(
@@ -274,22 +315,34 @@ class Module(ModuleBase):
         except Exception:
             return False
 
-    def _check_icloud_keychain(self) -> bool:
-        """Check if iCloud Keychain is enabled."""
+    def _check_icloud_keychain(self) -> bool | None:
+        """Is iCloud Keychain (Passwords) syncing? None if it couldn't be read.
+
+        The switch is the KEYCHAIN_SYNC service of the signed-in account in
+        MobileMeAccounts.plist. The old read of a com.apple.iCloudKeychain
+        preferences domain, which macOS doesn't create, said "disabled" on a
+        Mac with iCloud Keychain on.
+        """
+        path = self._mobileme_plist_path()
         try:
-            result = subprocess.run(
-                [
-                    "defaults",
-                    "read",
-                    str(Path.home() / "Library/Preferences/com.apple.iCloudKeychain"),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            # If file exists and readable, keychain is configured
-            return result.returncode == 0 and result.stdout.strip()
+            if not path.exists():
+                return False  # never signed in to an Apple Account
+            with open(path, "rb") as f:
+                plist = plistlib.load(f)
         except Exception:
-            return False
+            return None
+        accounts = plist.get("Accounts") or []
+        if not accounts:
+            return False  # no Apple Account signed in, so nothing syncs
+        for account in accounts:
+            for service in account.get("Services") or []:
+                if service.get("Name") == "KEYCHAIN_SYNC":
+                    enabled = service.get("Enabled")
+                    if isinstance(enabled, bool):
+                        return enabled
+                    if enabled in (0, 1):
+                        return bool(enabled)
+        return None
 
     def _check_private_relay(self) -> bool:
         """Check if iCloud Private Relay is active (Safari privacy feature)."""
@@ -353,22 +406,37 @@ class Module(ModuleBase):
         except Exception:
             return []
 
-    def _check_autoupdate_enabled(self) -> bool:
-        """Check if automatic software updates are enabled."""
+    def _check_autoupdate_enabled(self) -> bool | None:
+        """Does the Mac install updates automatically? None if it couldn't tell.
+
+        Reads the whole SoftwareUpdate domain. AutomaticCheckEnabled is absent
+        unless someone changed it (macOS's default is on), so reading only that
+        key reported "updates are off" on a Mac with every option on. Installs
+        are on when macOS updates or security responses install automatically.
+        """
         try:
             result = subprocess.run(
-                [
-                    "defaults",
-                    "read",
-                    "/Library/Preferences/com.apple.SoftwareUpdate",
-                    "AutomaticCheckEnabled",
-                ],
+                ["defaults", "read", "/Library/Preferences/com.apple.SoftwareUpdate"],
                 capture_output=True,
                 text=True,
+                timeout=15,
             )
-            if result.returncode == 0:
-                output = result.stdout.strip()
-                return output == "1" or output.lower() == "true"
-            return False
         except Exception:
+            return None
+        if result.returncode != 0 or not isinstance(result.stdout, str):
+            return None
+        values = {
+            m.group(1): m.group(2)
+            for m in re.finditer(r"^\s*(\w+)\s*=\s*(\d+);", result.stdout, re.MULTILINE)
+        }
+        installs = [
+            values.get("AutomaticallyInstallMacOSUpdates"),
+            values.get("CriticalUpdateInstall"),
+        ]
+        if values.get("AutomaticCheckEnabled") == "0":
             return False
+        if "1" in installs:
+            return True
+        if installs == ["0", "0"]:
+            return False
+        return None

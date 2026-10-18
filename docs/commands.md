@@ -1355,9 +1355,8 @@ sqlite3 … 'SELECT client, service, auth_value FROM access WHERE auth_value=2'
 ### `appleid_security_check`
 
 ```text
-defaults read /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled
+defaults read /Library/Preferences/com.apple.SoftwareUpdate
 defaults read com.apple.mail-shared MailPrivacyProtectionEnabled
-defaults read …
 defaults read … AppleIDAccount
 defaults read … ICloudPrivateRelayEnabled
 system_profiler SPiCloudDataType
