@@ -212,7 +212,7 @@ const RECLAIM_CITY_URL = 'https://play.multiversegames.ai/reclaim-city/';
  * #/district/<id>, and its Quick Quests are links to those same districts.
  * Worries with no real match get nothing.
  */
-const GAME_INTRO = 'Reclaim City is a free game from the same team.';
+const GAME_INTRO = 'Reclaim City also comes as a free game you play in your web browser.';
 const LEARN_MORE = {
   hacked: { path: '#/district/master-keys',
     text: 'Its “My email got hacked” Quick Quest opens The Master Keys, which walks you through checking who has signed in, setting new passwords and turning on two-step sign-in for your email, one account at a time.' },

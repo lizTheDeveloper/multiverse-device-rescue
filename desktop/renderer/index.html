@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
-  <title>Device Rescue</title>
+  <title>Reclaim City</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="game-fonts.css" />
 </head>
@@ -12,8 +12,8 @@
   <div id="app">
     <header class="app-header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">&#128737;</span>
-        <span class="brand-name">Device Rescue</span>
+        <span class="brand-mark" aria-hidden="true">&#127961;&#65039;</span>
+        <span class="brand-name">Reclaim City</span>
       </div>
       <ol class="steps" aria-label="Setup progress">
         <li class="step-dot" data-step-dot="welcome"><span class="step-num">1</span><span class="step-label">Welcome</span></li>
@@ -30,7 +30,7 @@
         <div class="card card--hero">
           <h1 id="welcome-title">Let's check on your device</h1>
           <p class="lede">
-            Device Rescue looks over your Mac, Windows PC, or Linux machine for signs of
+            Reclaim City looks over your Mac, Windows PC, or Linux machine for signs of
             trouble &mdash; unwanted software, risky settings, and things worth double-checking.
             It explains what it finds in plain language, so you can decide what to do next.
           </p>
@@ -38,19 +38,19 @@
             <span class="safety-note__icon" aria-hidden="true">&#128274;</span>
             <div>
               <strong>Read-only by default.</strong>
-              <span>Device Rescue only looks &mdash; it never changes anything on your device without your explicit OK.</span>
+              <span>Reclaim City only looks &mdash; it never changes anything on your device without your explicit OK.</span>
             </div>
           </div>
-          <h2 class="route-prompt">How would you like to do it?</h2>
+          <h2 class="route-prompt">How would you like to play?</h2>
           <div class="route-choice">
             <button id="btn-get-started" class="route route--check" type="button">
-              <span class="route__eyebrow">The checkup</span>
+              <span class="route__eyebrow">Plain view</span>
               <span class="route__title">Get started</span>
               <span class="route__desc">Tell us what&rsquo;s worrying you, run a read-only checkup, and get a plain-language list of what to look at.</span>
-              <span class="route__go" aria-hidden="true">Start the checkup &rarr;</span>
+              <span class="route__go" aria-hidden="true">Start in plain view &rarr;</span>
             </button>
             <button id="btn-play-game" class="route route--game" type="button">
-              <span class="route__eyebrow">Reclaim City</span>
+              <span class="route__eyebrow">The city</span>
               <span class="route__title">Play it as a game</span>
               <span class="route__desc">The same checkup, shown as a city to take back. Some worries start with a few short lessons.</span>
               <span class="route__go" aria-hidden="true">Play &#9654;</span>
@@ -84,7 +84,7 @@
             </div>
           </div>
           <p id="scan-intro" class="lede">
-            When you click below, Device Rescue will look through your system for anything
+            When you click below, Reclaim City will look through your system for anything
             worth your attention. Nothing will be changed &mdash; this is just a look-around.
           </p>
           <p class="muted">This can take a few minutes, especially the first time. Feel free to keep this window open and wait.</p>
@@ -122,7 +122,7 @@
         <div class="card card--wide">
           <h1 id="results-title">Here's what we found</h1>
           <p class="lede">
-            This is guidance, not action &mdash; Device Rescue hasn't changed anything on your
+            This is guidance, not action &mdash; Reclaim City hasn't changed anything on your
             device. Review each item and decide what, if anything, you'd like to do about it.
           </p>
 
@@ -160,7 +160,7 @@
             <h2>Want to learn this properly?</h2>
             <p id="results-learn-text" class="muted"></p>
             <p class="muted">You don&rsquo;t need an account, and your progress stays in your browser. It&rsquo;s there whenever you&rsquo;re ready; nothing above depends on it.</p>
-            <button id="btn-open-game" class="btn btn--secondary" type="button">Open Reclaim City in your browser</button>
+            <button id="btn-open-game" class="btn btn--secondary" type="button">Open the web version in your browser</button>
           </section>
 
           <details class="tech-details">
