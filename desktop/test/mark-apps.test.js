@@ -33,10 +33,11 @@ test('a list of apps shows each app by name, with the bundle ids under Technical
   assert.match(html, /What you are saying is yours \(3 apps\)/);
   const rows = html.match(/<li class="mark-apps__row">/g) || [];
   assert.strictEqual(rows.length, 3, 'one row per app');
-  assert.match(html, /<span class="mark-apps__name">Caffeine<\/span><span class="mark-apps__maker">Made by Intelliscape Solutions<\/span>/);
+  assert.match(html, /<span class="mark-apps__name">Caffeine<\/span><span class="mark-apps__id"> · <code>com\.intelliscapesolutions\.caffeine<\/code><\/span><\/span><span class="mark-apps__maker">Made by Intelliscape Solutions \(verified\)<\/span>/);
   assert.match(html, /Says it is made by OBS Project \(couldn’t verify\)/);
   const visible = html.split('<details')[0];
-  assert.ok(!visible.includes('com.intelliscapesolutions.caffeine'), 'no bundle id outside the disclosure');
+  for (const a of APPS.apps) assert.ok(visible.includes(a.id), `bundle id shown on its row: ${a.id}`);
+  assert.ok(!html.includes(MarkFlow.NAME_MAKER_MISMATCH), 'names that fit their makers are not flagged');
   assert.match(html, /<details class="mark-tech"><summary>Technical details<\/summary>/);
   for (const a of APPS.apps) assert.ok(html.includes(`<code>${a.id}</code>`), `evidence kept: ${a.id}`);
   assert.ok(html.includes(MarkFlow.NOT_SURE_LIST));
@@ -45,13 +46,17 @@ test('a list of apps shows each app by name, with the bundle ids under Technical
   assert.ok(!/type="checkbox"/.test(html), 'the whole list is one answer: no per-app ticks the engine would ignore');
 });
 
-test('an app list gets the neutral reason, not the watching line; the "only if yours" line stays', () => {
-  const html = MarkFlow.markControlsHtml({ module: 'app_permissions', markable: APPS });
-  assert.ok(html.includes(MarkFlow.ONLY_IF_YOURS));
-  assert.ok(html.includes(MarkFlow.LIST_REASON));
-  assert.ok(!html.includes(MarkFlow.COULD_WATCH));
+test('an app permission list keeps the watching line and adds the list reason; the "only if yours" line stays', () => {
+  // Accessibility, screen recording, camera, microphone, input monitoring: all can watch a computer.
+  for (const code of ['security.app_permissions.accessibility_access', 'security.app_permissions.screen_recording',
+    'security.privacy_permissions_audit.camera_microphone_combo', 'security.accessibility_permissions.suspicious_accessibility']) {
+    const html = MarkFlow.markControlsHtml({ module: 'app_permissions', markable: { ...APPS, code } });
+    assert.ok(html.includes(MarkFlow.ONLY_IF_YOURS), code);
+    assert.ok(html.includes(MarkFlow.COULD_WATCH), code);
+    assert.ok(html.includes(MarkFlow.LIST_REASON), code);
+  }
   // Remote access, proxies, extensions keep the watching line.
-  for (const kind of ['sharing_service', 'network_proxy', 'ssh_authorized_keys', 'system_extension', 'browser_extension']) {
+  for (const kind of ['sharing_service', 'network_proxy', 'ssh_authorized_keys', 'system_extension', 'browser_extension', 'app_permissions']) {
     assert.ok(MarkFlow.markControlsHtml({ module: 'm', markable: { ...ITEM, kind } }).includes(MarkFlow.COULD_WATCH), kind);
   }
 });
@@ -71,4 +76,83 @@ test('app names and makers from the engine are escaped; an older engine without 
 test('the panel copy names no product', () => {
   const html = MarkFlow.markControlsHtml({ module: 'app_permissions', markable: APPS });
   assert.ok(!/Device Rescue/.test(html));
+});
+
+// The panel's raw list: what the person sees when the per-app view can't be trusted.
+function fallbackList(html) {
+  assert.ok(!/<li class="mark-apps__row">/.test(html), 'no per-app view');
+  assert.match(html, /<dl class="mark-shows">/);
+  assert.ok(html.includes('Caffeine, OBS Studio, com.x.unknown'), 'every item in the raw list is shown');
+}
+
+test('a malformed row never disappears: the panel falls back to the full raw list', () => {
+  const bad = [
+    [{ id: 'com.intelliscapesolutions.caffeine', name: 'Caffeine' }, { id: '', name: 'Ghost' }, APPS.apps[2]],
+    [APPS.apps[0], { id: 'com.obsproject.obs-studio', name: 'x'.repeat(MarkFlow.MAX_APP_NAME + 1) }, APPS.apps[2]],
+    [APPS.apps[0], { id: 'com.obsproject.obs-studio', name: 'Zoom\u202Eexe.gpj' }, APPS.apps[2]],
+    [APPS.apps[0], { id: 'com.obsproject.obs-studio', name: 'Zo\u200Bom' }, APPS.apps[2]],
+    [APPS.apps[0], { id: 'com.obsproject.obs-studio' }, APPS.apps[2]],
+    [APPS.apps[0], null, APPS.apps[2]],
+    [APPS.apps[0], APPS.apps[0], APPS.apps[2]],
+  ];
+  for (const apps of bad) fallbackList(MarkFlow.markControlsHtml({ module: 'app_permissions', markable: { ...APPS, apps } }));
+});
+
+test('the per-app view is shown only when the row count matches the app count', () => {
+  fallbackList(MarkFlow.markControlsHtml({ module: 'app_permissions', markable: { ...APPS, apps: APPS.apps.slice(0, 2) } }));
+  fallbackList(MarkFlow.markControlsHtml({
+    module: 'app_permissions', markable: { ...APPS, shows: [['Apps', 'Caffeine, OBS Studio, com.x.unknown'], ['How many', '4']] },
+  }));
+  fallbackList(MarkFlow.markControlsHtml({
+    module: 'app_permissions', markable: { ...APPS, shows: [['Apps', 'Caffeine, OBS Studio, com.x.unknown']] },
+  }));
+  const ok = MarkFlow.markControlsHtml({ module: 'app_permissions', markable: APPS });
+  assert.strictEqual((ok.match(/<li class="mark-apps__row">/g) || []).length, Number(APPS.shows[1][1]));
+});
+
+test('a name at the engine limit, or the raw id as its name, is accepted', () => {
+  const long = 'N'.repeat(MarkFlow.MAX_APP_NAME);
+  const longId = `/Applications/${'d'.repeat(900)}.app`;
+  const html = MarkFlow.markControlsHtml({
+    module: 'app_permissions',
+    markable: { ...APPS, apps: [APPS.apps[0], { id: 'com.obsproject.obs-studio', name: long }, { id: longId, name: longId }] },
+  });
+  assert.strictEqual((html.match(/<li class="mark-apps__row">/g) || []).length, 3);
+});
+
+test('two apps with the same name are two rows, each with its own bundle id', () => {
+  const html = MarkFlow.markControlsHtml({
+    module: 'app_permissions',
+    markable: { ...APPS, apps: [{ id: 'us.zoom.xos', name: 'Zoom' }, { id: 'com.evil.zoom', name: 'Zoom' }, APPS.apps[2]] },
+  });
+  assert.strictEqual((html.match(/<span class="mark-apps__name">Zoom<\/span>/g) || []).length, 2);
+  assert.ok(html.includes('<code>us.zoom.xos</code>') && html.includes('<code>com.evil.zoom</code>'));
+});
+
+test('a well-known name signed by someone else is flagged; an unverified maker is never "verified"', () => {
+  const markable = { ...APPS, apps: [{ id: 'com.evil.zoom', name: 'Zoom' }, { id: 'us.zoom.xos', name: 'zoom.us' }, APPS.apps[2]] };
+  const html = MarkFlow.markControlsHtml({
+    module: 'app_permissions', markable,
+    made_by: [
+      { subject: 'com.evil.zoom', name: 'Evil Corp', verified: true },
+      { subject: 'us.zoom.xos', name: 'Zoom Video Communications, Inc.', verified: true },
+    ],
+  });
+  assert.match(html, /Made by Evil Corp \(verified\)<\/span><span class="mark-apps__flag">The name doesn’t match its maker<\/span>/);
+  assert.strictEqual(html.split(MarkFlow.NAME_MAKER_MISMATCH).length - 1, 1, 'only the contradicting row is flagged');
+  const unverified = MarkFlow.markControlsHtml({
+    module: 'app_permissions', markable,
+    made_by: [{ subject: 'com.evil.zoom', name: 'Zoom Video Communications, Inc.', verified: false }],
+  });
+  assert.ok(!unverified.includes('(verified)'));
+  assert.ok(unverified.includes('Says it is made by Zoom Video Communications, Inc. (couldn’t verify)'));
+});
+
+test('control and format characters in the raw list are shown, not obeyed', () => {
+  const html = MarkFlow.markControlsHtml({
+    module: 'app_permissions',
+    markable: { ...APPS, apps: undefined, shows: [['Apps', 'com.a\u202Eb'], ['How many', '1']] },
+  });
+  assert.ok(html.includes('com.a[U+202E]b'));
+  assert.ok(!html.includes('\u202E'));
 });

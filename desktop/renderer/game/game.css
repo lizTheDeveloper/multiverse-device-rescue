@@ -48,6 +48,9 @@ button.district { display: grid; width: 100%; }
 .mark-apps__row + .mark-apps__row { border-top: 1px solid var(--line); }
 .mark-apps__name { font-weight: 600; color: #fff; overflow-wrap: anywhere; }
 .mark-apps__maker { color: var(--dim); font-size: 13.5px; }
+.mark-apps__who { overflow-wrap: anywhere; }
+.mark-apps__id { color: var(--dim); font-size: 13.5px; }
+.mark-apps__flag { flex-basis: 100%; color: #ffb347; font-size: 13.5px; font-weight: 600; }
 .mark-tech { font-size: 14px; color: var(--dim); }
 .mark-tech summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75); list-style: none; }
 .mark-tech summary::-webkit-details-marker { display: none; }

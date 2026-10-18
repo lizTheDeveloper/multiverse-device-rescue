@@ -7,6 +7,12 @@ written) and maps each bundle id to the name the app shows: CFBundleDisplayName,
 then CFBundleName, then the ``.app`` folder's name. Anything it can't find keeps
 its bundle id, so the evidence is never lost.
 
+These names are chosen by whoever made the app: malware can call itself
+"Zoom". So a name is only ever shown next to its bundle id, never instead of
+it; control and format characters (bidi overrides, zero-width characters) are
+removed; and Apple's own folders are read first, so an app someone installed
+can't take over the name of an app that is part of macOS.
+
 The index is built once per process and capped, so a scan stays light.
 """
 
@@ -14,6 +20,7 @@ from __future__ import annotations
 
 import os
 import plistlib
+import unicodedata
 
 MAX_APPS_PER_DIR = 600
 _MAX_NAME = 128
@@ -22,22 +29,26 @@ _index_cache: dict[str, str] | None = None
 
 
 def _default_dirs() -> list[str]:
+    # Apple's folders first: the first app found for a bundle id wins, so an
+    # app in /Applications can't shadow the name of one that is part of macOS.
     return [
-        "/Applications",
-        "/Applications/Utilities",
         "/System/Applications",
         "/System/Applications/Utilities",
+        "/Applications",
+        "/Applications/Utilities",
         os.path.expanduser("~/Applications"),
     ]
 
 
 def _clean(name) -> str | None:
+    """A name fit to show: control and format characters (Unicode Cc/Cf: bidi
+    overrides, zero-width characters, NUL...) removed, whitespace collapsed,
+    cut to _MAX_NAME. None if nothing is left."""
     if not isinstance(name, str):
         return None
-    name = " ".join(name.split())
-    if not name or len(name) > _MAX_NAME or "\0" in name:
-        return None
-    return name
+    name = "".join(ch for ch in name if unicodedata.category(ch) not in ("Cc", "Cf"))
+    name = " ".join(name.split())[:_MAX_NAME].rstrip()
+    return name or None
 
 
 def _read_app(app_path: str) -> tuple[str | None, str | None]:
@@ -103,7 +114,9 @@ def display_name(app: str, index: dict[str, str] | None = None) -> str:
 
 
 def app_rows(apps, index: dict[str, str] | None = None) -> list[dict]:
-    """[{"id": entry, "name": name}] for a permission list, sorted by name, deduplicated."""
+    """[{"id": entry, "name": name}] for a permission list, one row per distinct
+    entry (never merged by name: two apps both called "Zoom" are two rows),
+    sorted by name. A name is either cleaned (at most _MAX_NAME) or the entry itself."""
     if not isinstance(apps, (list, tuple)):
         return []
     entries = sorted({a for a in apps if isinstance(a, str) and a and "\0" not in a})

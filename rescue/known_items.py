@@ -734,13 +734,13 @@ def _show_browser_ext(ident, finding):
 
 
 def _show_apps(ident, finding):
-    # Names people recognise ("Caffeine"), not bundle ids; the ids stay in
-    # markable["apps"] and in the finding's data.
-    names = []
+    # Every app, by the name it shows and always with its bundle id: an app
+    # picks its own name, so "Zoom" alone could be anything. Never merged by
+    # name; this list is what the panel falls back to, so it must be complete.
+    shown = []
     for row in app_rows(finding.data.get("apps") or []):
-        if row["name"] not in names:
-            names.append(row["name"])
-    return [["Apps", ", ".join(names)], ["How many", ident["app_count"]]]
+        shown.append(row["id"] if row["name"] == row["id"] else f"{row['name']} · {row['id']}")
+    return [["Apps", ", ".join(shown)], ["How many", ident["app_count"]]]
 
 
 def _show_ssh(ident, finding):

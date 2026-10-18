@@ -1118,7 +1118,7 @@ h3 {
   overflow-wrap: anywhere;
 }
 
-/* "It's mine" on a list of apps: one row per app, ids under Technical details. */
+/* "It's mine" on a list of apps: one row per app, name and bundle id together. */
 .mark-apps {
   list-style: none;
   margin: 0 0 0.5rem;
@@ -1149,6 +1149,22 @@ h3 {
 .mark-apps__maker {
   color: var(--text-muted);
   font-size: 0.88rem;
+}
+
+.mark-apps__who {
+  overflow-wrap: anywhere;
+}
+
+.mark-apps__id {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.mark-apps__flag {
+  flex-basis: 100%;
+  color: var(--warning-text);
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .mark-tech {

@@ -12,7 +12,7 @@ def _app(folder, bundle, info):
     contents = folder / bundle / "Contents"
     contents.mkdir(parents=True)
     with open(contents / "Info.plist", "wb") as fh:
-        plistlib.dump(info, fh)
+        plistlib.dump(info, fh, fmt=plistlib.FMT_BINARY)
     return folder / bundle
 
 
@@ -68,9 +68,56 @@ def test_markable_app_list_shows_names_and_keeps_ids(tmp_path, monkeypatch):
                 category="security", code="security.app_permissions.accessibility_access",
                 data={"check": "accessibility_access", "apps": apps})
     m = item_markable(f, "app_permissions")
-    assert m["shows"][0] == ["Apps", "Caffeine, com.x.unknown, OBS Studio"]
+    assert m["shows"][0] == [
+        "Apps",
+        "Caffeine · com.intelliscapesolutions.caffeine, com.x.unknown, OBS Studio · com.obsproject.obs-studio",
+    ]
     assert m["shows"][1] == ["How many", "3"]
     assert {r["id"] for r in m["apps"]} == set(apps)
     assert m["will_change"].startswith("The checkup will stop warning you")
     assert "Device Rescue" not in m["will_change"] + " ".join(m["how_to_undo"])
     assert any(s.startswith("If you use the command line: rescue known remove") for s in m["how_to_undo"])
+
+
+def test_names_lose_control_and_format_characters_and_are_cut_to_the_limit(tmp_path):
+    d = tmp_path / "Applications"
+    d.mkdir()
+    _app(d, "A.app", {"CFBundleIdentifier": "com.a", "CFBundleName": "Zo​om‮gpj.exe\u0007"})
+    _app(d, "B.app", {"CFBundleIdentifier": "com.b", "CFBundleName": "N" * 500})
+    _app(d, "C.app", {"CFBundleIdentifier": "com.c", "CFBundleDisplayName": "​‮", "CFBundleName": "Real"})
+    idx = build_index([str(d)])
+    assert idx["com.a"] == "Zoomgpj.exe"
+    assert idx["com.b"] == "N" * app_names._MAX_NAME
+    assert idx["com.c"] == "Real"
+
+
+def test_system_apps_are_read_before_applications(tmp_path, monkeypatch):
+    system = tmp_path / "System" / "Applications"
+    user = tmp_path / "Applications"
+    system.mkdir(parents=True)
+    user.mkdir()
+    _app(system, "Safari.app", {"CFBundleIdentifier": "com.apple.Safari", "CFBundleName": "Safari"})
+    _app(user, "Fake.app", {"CFBundleIdentifier": "com.apple.Safari", "CFBundleName": "Totally Safe"})
+    dirs = app_names._default_dirs()
+    assert dirs.index("/System/Applications") < dirs.index("/Applications")
+    assert dirs.index("/System/Applications/Utilities") < dirs.index("/Applications")
+    mapped = {"/System/Applications": str(system), "/Applications": str(user)}
+    monkeypatch.setattr(app_names, "_default_dirs", lambda: [mapped.get(p, str(tmp_path / "none")) for p in dirs])
+    assert build_index()["com.apple.Safari"] == "Safari"
+
+
+def test_shows_lists_every_app_with_its_id_never_merged_by_name(tmp_path, monkeypatch):
+    d = tmp_path / "Applications"
+    d.mkdir()
+    _app(d, "Zoom.app", {"CFBundleIdentifier": "us.zoom.xos", "CFBundleName": "Zoom"})
+    _app(d, "Zoom2.app", {"CFBundleIdentifier": "com.evil.zoom", "CFBundleName": "Zoom"})
+    monkeypatch.setattr(app_names, "_index_cache", build_index([str(d)]))
+    apps = ["us.zoom.xos", "com.evil.zoom", "com.x.unknown"]
+    f = Finding(title="Apps with accessibility access", description="d", severity=Severity.WARNING,
+                category="security", code="security.app_permissions.accessibility_access",
+                data={"check": "accessibility_access", "apps": apps})
+    m = item_markable(f, "app_permissions")
+    assert m["shows"][0] == ["Apps", "com.x.unknown, Zoom · com.evil.zoom, Zoom · us.zoom.xos"]
+    assert m["shows"][1] == ["How many", "3"]
+    assert len(m["apps"]) == int(m["shows"][1][1])
+    assert [r["name"] for r in m["apps"]].count("Zoom") == 2
