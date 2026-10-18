@@ -10,8 +10,8 @@ remediates:
   - network.ethernet_diagnostics.high_packet_errors
 steps_for:
   network.ethernet_diagnostics.interface_inactive: [1, 2, 3, 5, 9]
-  network.ethernet_diagnostics.self_assigned_ip: [1, 4, 2, 3, 5, 6, 9]
-  network.ethernet_diagnostics.non_standard_mtu: [7, 4]
+  network.ethernet_diagnostics.self_assigned_ip: [1, 2, 3, 4, 5, 6, 9]
+  network.ethernet_diagnostics.non_standard_mtu: [7]
   network.ethernet_diagnostics.link_speed_mismatch: [2, 3, 8, 9]
   network.ethernet_diagnostics.high_packet_errors: [2, 3, 8, 9]
 automatable_steps: []
@@ -65,8 +65,8 @@ whether the Ethernet connection comes back.
 Your Mac gave itself a temporary address because your router did not give it
 a proper one, so you likely have no internet access.
 
-Open System Settings > Network > Ethernet > Advanced > TCP/IP and choose
-"Renew DHCP Lease".
+Open System Settings > Network, select Ethernet, click "Details…" ("Advanced…" on
+older macOS), go to TCP/IP, and choose "Renew DHCP Lease".
 
 ## Step 7: Check the data size (MTU) setting
 
@@ -76,10 +76,11 @@ by a person. It is unlikely to cause problems, but it can sometimes make
 certain websites or apps load slowly.
 
 If nothing seems wrong, there is nothing to do right now. If you want to look
-at it, open System Settings > Network > Ethernet > Advanced > Hardware and
-check the MTU setting. If it is not 1500, you can change it back to 1500,
-then click OK and reconnect. If you notice slow internet speeds, try
-restarting your router.
+at it, open System Settings > Network, select Ethernet, click "Details…"
+("Advanced…" on older macOS), and go to Hardware to check the MTU setting.
+If it is not 1500, you can change it back to 1500, then click OK and
+reconnect. Only change the MTU if you know your network requires it. If you
+notice slow internet speeds, try restarting your router.
 
 ## Step 8: Check the switch or router and the adapter
 

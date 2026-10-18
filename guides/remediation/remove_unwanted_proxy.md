@@ -53,8 +53,9 @@ ones, so context matters.
    "Automatic Proxy Configuration."
 4. Save/Apply, then re-run the scan to confirm the PAC URL is gone.
 5. Since this is a strong compromise indicator on a home machine, also
-   check for how it got set: unfamiliar configuration profiles (System
-   Settings → Privacy & Security → Profiles — remove any you don't
+   check for how it got set: unfamiliar configuration profiles (see
+   System Settings > General > Device Management (Privacy & Security >
+   Profiles on older macOS) — remove any you don't
    recognize) and recently installed apps/browser extensions, since some
    adware/malware installs a profile specifically to push proxy settings.
 6. If you find and remove a malicious profile, treat any credentials
@@ -74,18 +75,19 @@ unexpected.
    your organization set up intentionally (corporate proxy, ad-blocking
    proxy like a local Pi-hole/Privoxy instance, VPN client managing its own
    proxy)?
-3. If intentional, no action is needed.
-4. If unexpected: open System Settings → Network → (interface) → Details →
-   Proxies tab, uncheck the relevant proxy type(s), Save/Apply.
-5. Re-run the scan to confirm the proxy is no longer reported as enabled.
-6. If this was unexpected, also check for how it got set: unfamiliar
-   configuration profiles (System Settings → Privacy & Security → Profiles —
-   remove any you don't recognize) and recently installed apps/browser
-   extensions, since some adware/malware installs a profile specifically to
-   push proxy settings. Remove the root cause, not just the setting.
-7. A proxy running on your own Mac that you don't recognize is a strong
+3. A proxy running on your own Mac that you don't recognize is a strong
    sign something is wrong: an app on your Mac may be intercepting your
    internet traffic.
+4. If intentional, no action is needed.
+5. If unexpected: open System Settings → Network → (interface) → Details →
+   Proxies tab, uncheck the relevant proxy type(s), Save/Apply.
+6. Re-run the scan to confirm the proxy is no longer reported as enabled.
+7. If this was unexpected, also check for how it got set: unfamiliar
+   configuration profiles (System Settings > General > Device Management
+   (Privacy & Security > Profiles on older macOS) — remove any you don't
+   recognize) and recently installed apps/browser
+   extensions, since some adware/malware installs a profile specifically to
+   push proxy settings. Remove the root cause, not just the setting.
 
 ## Step 3: No action needed for your network
 

@@ -21,8 +21,9 @@
  *   Network.appex's NetworkSearchGroups.searchTerms.
  * - Network panes (verified on macOS 26, 2026-10-18): Wi-Fi.appex has
  *   CFBundleIdentifier com.apple.wifi-settings-extension with
- *   allowsXAppleSystemPreferencesURLScheme = true. "DNS" and "Proxies" are keys in Network.appex's NetworkSearchGroups.searchTerms, the
- *   same file that verifies "Firewall".
+ *   allowsXAppleSystemPreferencesURLScheme = true. "DNS" and "Proxies" are keys
+ *   in Network.appex's NetworkSearchGroups.searchTerms, the same file that
+ *   verifies "Firewall".
  * Mac only for now; Windows (ms-settings:) can be added as a second table.
  */
 const SettingPanes = (function () {
@@ -81,8 +82,8 @@ const SettingPanes = (function () {
     'security.sharing_preferences_audit.printer_sharing': 'sharing',
     // Network. Not mapped: router, ARP and LAN codes (fixed on the router or
     // by looking at the network, not on this Mac); wpa2_only (the router);
-    // VPN codes (their advice is "open your VPN app"); Ethernet codes (their
-    // advice is a cable or a router port). None of those point to a Mac setting.
+    // VPN codes (their advice is "open your VPN app"); Ethernet codes (no
+    // dedicated Ethernet pane is kept here, so they are left unmapped).
     'network.wifi_security_audit.wep_connected': 'wifi',
     'network.wifi_security_audit.open_network_connected': 'wifi',
     'network.wifi_security_audit.wep_saved': 'wifi',

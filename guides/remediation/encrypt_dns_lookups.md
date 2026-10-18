@@ -53,8 +53,8 @@ to the 'DNS' tab and click '+' to add DNS servers. Add Quad9 (9.9.9.9,
 ## Step 4: Install an encrypted DNS profile
 
 To encrypt the lookups for the whole Mac, check your DNS provider's website
-for a macOS profile. Import the profile in System Settings > General >
-Profiles.
+for a macOS profile. Import the profile in System Settings > General > Device Management (Privacy &
+Security > Profiles on older macOS).
 
 ## Step 5: On your phone
 

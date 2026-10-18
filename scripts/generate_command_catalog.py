@@ -220,6 +220,8 @@ def _scan_tree(tree: ast.Module, found: set[str]) -> tuple[int, bool]:
                     dynamic += 1
                 else:
                     found.add(rendered)
+            else:
+                dynamic += 1
     return dynamic, _uses_sockets(tree)
 
 

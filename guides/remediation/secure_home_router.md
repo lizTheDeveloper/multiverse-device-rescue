@@ -44,9 +44,9 @@ finding names.
 
 If it names an ordinary router admin page (the usual web page you sign in to,
 over HTTP or HTTPS), that is informational. It is how the router is normally
-managed, and it is not on its own a sign of a problem. If you do not use
-remote management, you can disable it in the router's settings. If you do, make
-sure it is protected by a strong, unique password.
+managed, and it is not on its own a sign of a problem. If remote
+management is also turned on and you don't use it, you can disable that. Make
+sure the admin page is protected by a strong, unique password.
 
 If it names a risky service (Telnet, FTP, SSH, or TR-069 remote management),
 that is worth acting on. These are services most home routers do not need

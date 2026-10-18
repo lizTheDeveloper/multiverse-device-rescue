@@ -38,9 +38,10 @@ START to 88788. The Coalition Against Stalkerware (stopstalkerware.org) lists
 services in other countries.
 
 If it is a stranger, a neighbour, or you have no idea, carry on to the next
-step. In the meantime, do not sign in to anything, and do not change any
-passwords while connected to this network. Switch to a phone's mobile data
-for anything that matters; mobile data is not on the compromised network.
+step. If the finding said another device is answering for your router, do
+not sign in to anything, and do not change any passwords while connected to
+this network in the meantime. Switch to a phone's mobile data for anything
+that matters; mobile data is not on this network.
 
 ## Step 2: Confirm from the router itself
 

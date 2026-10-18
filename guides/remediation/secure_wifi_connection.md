@@ -27,6 +27,7 @@ networks it has saved. Which steps apply depends on what the finding named.
 
 WEP is an old security type that is easily broken, so people nearby can read
 the internet traffic on that network, including passwords and messages.
+If this is your own network, see Step 5 first.
 
 Open System Settings > Wi-Fi, select your current network, and click 'Forget
 This Network'. Connect to a different, secure network instead, and do not use
