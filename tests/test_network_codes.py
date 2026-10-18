@@ -17,6 +17,16 @@ EXPECTED_CODES: dict[str, set[str]] = {
         "network.arp_spoof_check.locally_administered_gateway",
         "network.arp_spoof_check.multiple_gateways",
     },
+    "lan_device_inventory": {
+        "network.lan_device_inventory.lan_inventory",
+        "network.lan_device_inventory.unrecognised_device",
+        "network.lan_device_inventory.device_count_exceeded",
+    },
+    "router_security_audit": {
+        "network.router_security_audit.admin_service_open",
+        "network.router_security_audit.upnp_enabled",
+        "network.router_security_audit.router_manual_review",
+    },
 }
 
 

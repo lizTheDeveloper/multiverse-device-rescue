@@ -132,6 +132,12 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "15s"
 
+    emits_codes = [
+        "network.router_security_audit.admin_service_open",
+        "network.router_security_audit.upnp_enabled",
+        "network.router_security_audit.router_manual_review",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         neighbors = _neighbors_module()
         if neighbors is None:
@@ -286,8 +292,10 @@ class Module(ModuleBase):
                     ),
                     severity=entry["severity"],
                     category=self.category,
+                    code="network.router_security_audit.admin_service_open",
                     data={
                         "check": "admin_service_open",
+                        "target": str(entry["port"]),
                         "gateway_ip": gateway_ip,
                         "port": entry["port"],
                         "service": entry["service"],
@@ -317,6 +325,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.WARNING,
                 category=self.category,
+                code="network.router_security_audit.upnp_enabled",
                 data={
                     "check": "upnp_enabled",
                     "gateway_ip": gateway_ip,
@@ -339,6 +348,7 @@ class Module(ModuleBase):
             ),
             severity=Severity.INFO,
             category=self.category,
+            code="network.router_security_audit.router_manual_review",
             data={
                 "check": "router_manual_review",
                 "gateway_ip": gateway_ip,
