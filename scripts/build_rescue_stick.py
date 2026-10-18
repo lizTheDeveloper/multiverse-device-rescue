@@ -651,7 +651,7 @@ def build_cli(stick: Path) -> None:
     (stick / "command-line" / "SHA256SUMS-cli.txt").write_text(
         f"{sha256_of(dest_dir / exe)}  {os_name}-{arch}/{exe}\n", encoding="utf-8")
     (stick / "command-line" / "README.txt").write_text(
-        f"Command-line Reclaim City for {os_name} ({arch}), built from source on the helper's machine.\n"
+        f"The Reclaim City command-line tool (rescue) for {os_name} ({arch}), built from source on the helper's machine.\n"
         "Read-only by default: `rescue scan`, `rescue export`. Don't pass --auto or --yes;\n"
         "those apply fixes. Most people should use the desktop app instead (see START-HERE).\n",
         encoding="utf-8")

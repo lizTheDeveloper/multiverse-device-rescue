@@ -16,7 +16,7 @@ SHIPPED = [
     "site/**/*", "shared/**/*", "docs/*.md", "docs/scenarios/**/*.md",
     "desktop/*.js", "desktop/package.json", "desktop/renderer/**/*",
     ".github/workflows/release.yml",
-    "modules/**/*.py", "rescue/**/*.py", "rescue/**/*.json",
+    "modules/**/*.py", "modules/**/manifest.json", "rescue/**/*.py", "rescue/**/*.json",
     "scripts/build_rescue_stick.py", "scripts/build-guides-html.py",
     "scripts/build-standalone-landing.py", "scripts/generate_command_catalog.py",
 ]

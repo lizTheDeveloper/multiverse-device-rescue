@@ -56,7 +56,7 @@
   "linux": [
     {
       "title": "Linux install (command line only)",
-      "body": "There's no graphical app for Linux yet. Install Reclaim City from the command line, either with \"pip install .\" from the source, or by downloading the release binary and running it from a terminal.",
+      "body": "There's no graphical app for Linux yet. Install the Reclaim City command-line tool (`rescue`), either with \"pip install .\" from the source, or by downloading the release binary and running it from a terminal.",
       "action_label": null,
       "setting_url": null,
       "stage": "install"
