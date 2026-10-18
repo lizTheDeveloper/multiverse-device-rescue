@@ -1,7 +1,7 @@
 // Words that must never be written to disk by the app. A stored key or value
 // containing one could tell whoever looks at this computer what the person
 // was worried about. Used by the storage tests.
-const FORBIDDEN_ON_DISK = /partner|safety|\bsafe\b|stalk|watch|abuse|violence|advocate|hotline|799-7233|88788|monitor|spy/i;
+const FORBIDDEN_ON_DISK = /partner|safety|stealth|\bsafe\b|stalk|watch|abuse|violence|advocate|hotline|799-7233|88788|monitor|spy/i;
 
 // A storage that records every write, for the tests.
 function recordingStore(initial = {}) {
