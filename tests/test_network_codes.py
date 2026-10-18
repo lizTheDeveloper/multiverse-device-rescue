@@ -54,6 +54,16 @@ EXPECTED_CODES: dict[str, set[str]] = {
         "network.vpn_leak_check.split_tunneling",
         "network.vpn_leak_check.vpn_not_connected",
     },
+    "network_proxy_check": {
+        "network.network_proxy_check.network_query_failed",
+        "network.network_proxy_check.remote_pac_url",
+        "network.network_proxy_check.pac_url_detected",
+        "network.network_proxy_check.suspicious_localhost_proxy",
+        "network.network_proxy_check.proxy_enabled",
+        "network.network_proxy_check.proxy_bypass_domains",
+        "network.network_proxy_check.proxy_config_summary",
+        "network.network_proxy_check.no_proxies",
+    },
 }
 
 

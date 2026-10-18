@@ -6,10 +6,20 @@ remediates:
   - security.network_proxy.pac_url_detected
   - security.network_proxy.proxy_enabled
   - security.network_proxy.no_proxies
+  - network.network_proxy_check.remote_pac_url
+  - network.network_proxy_check.pac_url_detected
+  - network.network_proxy_check.suspicious_localhost_proxy
+  - network.network_proxy_check.proxy_enabled
+  - network.network_proxy_check.no_proxies
 steps_for:
   security.network_proxy.pac_url_detected: [1]
   security.network_proxy.proxy_enabled: [2]
   security.network_proxy.no_proxies: [3]
+  network.network_proxy_check.remote_pac_url: [1]
+  network.network_proxy_check.pac_url_detected: [1]
+  network.network_proxy_check.suspicious_localhost_proxy: [2]
+  network.network_proxy_check.proxy_enabled: [2]
+  network.network_proxy_check.no_proxies: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3]
 monitoring_risk: true

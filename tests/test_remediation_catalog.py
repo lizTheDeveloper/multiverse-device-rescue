@@ -84,3 +84,20 @@ def test_dns_walkthrough_lists_quad9_first():
     body = (repo / "guides" / "remediation" / "encrypt_dns_lookups.md").read_text()
     assert "Quad9" in body and "Cloudflare" in body
     assert body.index("Quad9") < body.index("Cloudflare")
+
+
+def test_proxy_codes_route_to_right_steps():
+    repo = Path(__file__).resolve().parent.parent
+    index = load_remediation_walkthroughs(repo / "guides" / "remediation")
+
+    expect = {
+        "remote_pac_url": 1,
+        "pac_url_detected": 1,
+        "suspicious_localhost_proxy": 2,
+        "proxy_enabled": 2,
+        "no_proxies": 3,
+    }
+    for check, step in expect.items():
+        code = f"network.network_proxy_check.{check}"
+        assert code in index, code
+        assert [s.number for s in index[code].steps_for_code(code)] == [step], code
