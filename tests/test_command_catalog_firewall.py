@@ -18,7 +18,7 @@ FW = "/usr/libexec/ApplicationFirewall/socketfilterfw"
 
 
 def test_firewall_rules_audit_commands_are_literal():
-    commands, dynamic = _gen().commands_for(ROOT / "modules/security/firewall_rules_audit")
+    commands, dynamic, _ = _gen().commands_for(ROOT / "modules/security/firewall_rules_audit")
     assert dynamic == 0
     for flag in ("--getglobalstate", "--getstealthmode", "--listapps",
                  "--getblockall", "--getallowsigned"):
@@ -26,13 +26,13 @@ def test_firewall_rules_audit_commands_are_literal():
 
 
 def test_firewall_audit_commands_are_literal():
-    commands, dynamic = _gen().commands_for(ROOT / "modules/security/firewall_audit")
+    commands, dynamic, _ = _gen().commands_for(ROOT / "modules/security/firewall_audit")
     assert dynamic == 0
     assert f"{FW} --getglobalstate" in commands
     assert f"{FW} --getstealthmode" in commands
 
 
 def test_sharing_daemon_probes_are_listed():
-    commands, _ = _gen().commands_for(ROOT / "modules/security/sharing_services")
+    commands, _, _ = _gen().commands_for(ROOT / "modules/security/sharing_services")
     for label in ("com.apple.screensharing", "com.apple.smbd", "com.openssh.sshd"):
         assert f"launchctl print system/{label}" in commands
