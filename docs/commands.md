@@ -1529,13 +1529,8 @@ Plus 2 command(s) built at runtime.
 
 ### `firewall_rules_audit`
 
-```text
-/usr/libexec/ApplicationFirewall/socketfilterfw --getallowsigned
-/usr/libexec/ApplicationFirewall/socketfilterfw --getblockall
-/usr/libexec/ApplicationFirewall/socketfilterfw --listapps
-defaults read /Library/Preferences/com.apple.alf globalstate
-defaults read /Library/Preferences/com.apple.alf stealthenabled
-```
+
+Plus 1 command(s) built at runtime.
 
 ### `firmware_password`
 
