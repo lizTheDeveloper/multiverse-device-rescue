@@ -14,11 +14,13 @@ function accountSkyline(c) {
   return `<div class="skyline" aria-hidden="true"><img class="${tone}" src="assets/${img}.png" alt=""><img class="tower ${tone}" src="assets/${done ? 'iso_tower_lib' : 'iso_tower_occ'}.png" alt=""></div>`;
 }
 
-export function renderOneCityMap({ city, progress, accountCards, focus, cameBack, scout, accountsError }) {
+// goFor, heat and selected: as in map.js's renderMap. Account districts are unchanged.
+export function renderOneCityMap({ city, progress, accountCards, focus, cameBack, scout, accountsError,
+  goFor = (d) => `district:${d.id}`, heat = {}, selected = null }) {
   const device = city.districts.map((d) => {
     const reclaimed = progress ? reclaimedIn(progress, d).length : 0;
     return `
-      <button type="button" class="district ${esc(d.status)}" data-go="district:${esc(d.id)}">
+      <button type="button" class="district ${esc(d.status)}${heat[d.id] ? ` heat-${esc(heat[d.id])}` : ''}" data-go="${esc(goFor(d))}"${selected === d.id ? ' aria-current="true"' : ''}>
         <h4>${esc(d.name.toUpperCase())}</h4>${skyline(d.status)}
         <p>${esc(districtLine(d, reclaimed))}</p><span class="d-foot">${districtBadges(d, reclaimed)}</span>
       </button>`;
