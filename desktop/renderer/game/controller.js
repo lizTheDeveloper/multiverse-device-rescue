@@ -5,7 +5,7 @@
 import { findingsToCity, DISTRICTS } from './findings-to-city.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts } from './signals.js';
-import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS } from './ledger.js';
+import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './drills.js';
 import { renderDeck } from './views/deck.js';
@@ -40,6 +40,7 @@ const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
 const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range']);
 const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range']);
 const LOG_MAX = 100;
+const MOMENTS_MAX = 4;
 const TAG_WORD = { mine: 'MINE', threat: 'THREAT', closer: 'LOOK CLOSER', noted: 'NOTED' };
 // Specifiers resolve against this file, like the lessons'.
 const loadDrillsHere = () => loadDrills((spec) => import(spec));
@@ -47,14 +48,36 @@ const loadDrillsHere = () => loadDrills((spec) => import(spec));
 // The attribute a redraw finds a focused control by again. On the Training
 // Grounds, lesson and boss screens each of these is unique on the screen.
 const FOCUS_KEYS = ['data-go', 'data-act', 'id'];
-export function focusSelector(el) {
+export function focusKey(el) {
   if (!el || typeof el.getAttribute !== 'function') return null;
   for (const k of FOCUS_KEYS) {
     const v = el.getAttribute(k);
-    if (v) return `[${k}="${String(v).replace(/["\\]/g, '\\$&')}"]`;
+    if (v) return { k, v: String(v) };
   }
   return null;
 }
+
+// The element under `root` whose attribute `k` is exactly `v`, or null. Signal
+// ids carry paths, which can hold quotes, backslashes or newlines: a value
+// like that goes through CSS.escape when there is one, and otherwise (or if
+// the selector still fails) the elements with that attribute are compared one
+// by one. It never throws, so a strange path can't knock anyone out of the game.
+const PLAIN_VALUE = /^[^"\\\u0000-\u001f\u007f]*$/;
+export function findByAttr(root, k, v, css = globalThis.CSS) {
+  if (!root || typeof root.querySelector !== 'function' || typeof v !== 'string') return null;
+  try {
+    if (PLAIN_VALUE.test(v)) return root.querySelector(`[${k}="${v}"]`);
+    if (css && typeof css.escape === 'function') {
+      const el = root.querySelector(`[${k}="${css.escape(v)}"]`);
+      if (el) return el;
+    }
+  } catch (_) { /* fall through to the walk */ }
+  try {
+    for (const el of root.querySelectorAll(`[${k}]`)) if (el.getAttribute(k) === v) return el;
+  } catch (_) { /* nothing to find */ }
+  return null;
+}
+const focusEl = (el) => { if (el && typeof el.focus === 'function') el.focus(); return !!el; };
 
 // `loadGame` and `loadTraining` are for tests; the app always loads Reclaim City
 // from app://rescue/rc/ and the lessons from app://rescue/game/lessons/.
@@ -74,7 +97,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     scanConfirmed: loadScanConfirmed(storage), linkNotice: '',
     lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit(),
     // The command center. The ops log is kept in memory only.
-    signal: null, filter: null, lowOpen: false, log: [], moment: null, opened: {}, changedTags: new Set(),
+    signal: null, filter: null, lowOpen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
     drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null };
   let drawnScreen = null; // the screen the last render drew
 
@@ -202,6 +225,16 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function logEntry(kind, text) {
     s.log = [{ at: now(), kind, text: String(text == null ? '' : text) }, ...s.log].slice(0, LOG_MAX);
   }
+  // Moments wait in order for the deck's next redraw. A few at most, and a
+  // rank-up is never the one dropped.
+  function addMoment(m) {
+    const all = [...s.moments, m];
+    while (all.length > MOMENTS_MAX) {
+      const i = all.findIndex((x) => x.kind !== 'rank');
+      all.splice(i < 0 ? 0 : i, 1);
+    }
+    s.moments = all;
+  }
   function commitDeck(deck) {
     s.progress = setDeck(s.progress, deck);
     saveProgress(storage, s.progress);
@@ -212,7 +245,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     commitDeck(r.deck);
     if (r.rankUp) {
       const name = rankOf(r.deck).name;
-      s.moment = { kind: 'rank', title: 'RANK UP', text: `You’re now ${name}.` };
+      addMoment({ kind: 'rank', title: 'RANK UP', text: `You’re now ${name}.` });
       logEntry('RANK UP', name);
     }
     return r.points || 0;
@@ -266,15 +299,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
         accountsError: s.accountsError, goFor, heat, selected: s.filter })
       : renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter });
     const fd = s.filter ? district(s.filter) : null;
-    const moment = s.moment;
-    s.moment = null; // a moment shows once
+    const moments = s.moments;
+    s.moments = []; // a moment shows once
     return renderDeck({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', rank: rankOf(deck),
       lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
       items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known, ...q.noted],
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
         history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
-      log: s.log, moment, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
+      log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
       scanRunning: s.scan.running, districtName: nameOf, notice: s.linkNotice });
   }
 
@@ -302,6 +335,30 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (sig.kind === 'real') s.signal.points += commitAward(award(s.progress.deck, 'clue', `${sig.id}#${kind}`));
     }
     render();
+    focusAfterClue(sig, kind);
+  }
+
+  // The clue's button became its text, so focus moves on: to the next clue
+  // still locked (after this one, then from the top), or else to the clue
+  // just opened.
+  function focusAfterClue(sig, kind) {
+    const kinds = cluesOf(sig).map((c) => c.kind);
+    const opened = openedFor(sig.id);
+    const at = kinds.indexOf(kind);
+    const locked = [...kinds.slice(at + 1), ...kinds.slice(0, at + 1)].filter((k) => !opened.includes(k));
+    for (const k of locked) if (focusEl(findByAttr(frame, 'data-act', `clue:${k}`))) return;
+    focusEl(findByAttr(frame, 'data-clue', kind));
+  }
+
+  // BACK TO THE DECK (or Escape): the panel and its buttons go, so focus lands
+  // on the signal's row in the queue, or else INVESTIGATE NEXT.
+  function closeSignal() {
+    const id = s.signal && s.signal.id;
+    s.signal = null; s.screen = 'map';
+    render();
+    if (id && focusEl(findByAttr(frame, 'data-go', `signal:${id}`))) return;
+    if (focusEl(findByAttr(frame, 'data-act', 'investigate-next'))) return;
+    focusEl(findByAttr(frame, 'data-go', 'range'));
   }
 
   // A tag is game sorting only. The bonus is for looking first (two or more
@@ -372,7 +429,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     commitAward(r);
     logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check.`);
     if (r.clean) {
-      s.moment = { kind: 'clean', title: 'CLEAN SWEEP', text: 'No critical or warning signal is open in any district that could be checked.' };
+      addMoment({ kind: 'clean', title: 'CLEAN SWEEP', text: 'No critical or warning signal is open in any district that could be checked.' });
       logEntry('CLEAN SWEEP', 'Every district that could be checked is secured.');
     }
     const here = new Set(sigs.map((x) => x.id));
@@ -389,7 +446,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     for (const id of after.securedIds) {
       if (before.securedIds.has(id) || !before.checkedIds.has(id)) continue;
       const name = nameOf(id) || id;
-      s.moment = { kind: 'secured', title: 'DISTRICT SECURED', text: `${name}: nothing critical or warning is open in the checks that ran.` };
+      addMoment({ kind: 'secured', title: 'DISTRICT SECURED', text: `${name}: nothing critical or warning is open in the checks that ran.` });
       logEntry('SECURED', name);
     }
   }
@@ -480,7 +537,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (!s.city && !NO_CITY_SCREENS.has(s.screen)) s.screen = 'training';
       // A redraw of the same screen (a progress event, an answer, a clue, a
       // tag) mustn't lose keyboard or screen-reader focus.
-      const keep = KEEP_FOCUS.has(s.screen) && s.screen === drawnScreen ? focusSelector(shadow.activeElement) : null;
+      const keep = KEEP_FOCUS.has(s.screen) && s.screen === drawnScreen ? focusKey(shadow.activeElement) : null;
       // The known pile is a <details>: keep it open if the person opened it.
       const knownWasOpen = s.screen === 'map' && drawnScreen === 'map' && !!(frame.querySelector('details.known') || {}).open;
       const body = screenHtml();
@@ -500,8 +557,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const known = knownWasOpen && s.screen === 'map' ? frame.querySelector('details.known') : null;
       if (known) known.open = true;
       // (screenHtml can move on from a lesson that's gone: then nothing to keep.)
-      const again = keep && s.screen === drawnScreen ? frame.querySelector(keep) : null;
-      if (again && typeof again.focus === 'function') again.focus();
+      if (keep && s.screen === drawnScreen) focusEl(findByAttr(frame, keep.k, keep.v));
       drawnScreen = s.screen;
       const focused = s.screen === 'map' ? frame.querySelector('[data-focus]') : null;
       if (focused && s.focusPending) { focused.scrollIntoView({ block: 'start' }); s.focusPending = false; }
@@ -542,11 +598,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (s.shown !== shownAt) { render(); return; }
     const outcome = recheckOutcome(m.id, s.city, res);
     // Only a re-check proves a fix: CONFIRMED, and the fix points pay once per finding, ever.
-    if (outcome === 'reclaimed' && (trigger === 'fix' || trigger === 'i-did-it')) {
+    // Nothing about monitoring software is scored or logged (confirmFix refuses it too).
+    const monitoring = MONITORING_MODULES.has(m.module);
+    if (outcome === 'reclaimed' && (trigger === 'fix' || trigger === 'i-did-it') && !monitoring) {
       commitAward(confirmFix(s.progress.deck, m.id, now()));
       logEntry('CONFIRMED', m.title);
     }
-    if (outcome === 'yours') logEntry('MARKED', m.title);
+    if (outcome === 'yours' && !monitoring) logEntry('MARKED', m.title);
     s.outcome = putBack && outcome === 'not-yet' ? 'put-back' : outcome;
     s.outcomeMission = mission(m.id) || m;
     s.message = res && !res.ok ? res.message || '' : '';
@@ -594,7 +652,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (act && act.startsWith('clue:')) { scanClue(act.slice(5)); return; }
     if (act && act.startsWith('tag:')) { tagSignal(act.slice(4)); return; }
-    if (act === 'close-signal') { s.signal = null; s.screen = 'map'; render(); return; }
+    if (act === 'close-signal') { closeSignal(); return; }
     if (act === 'toggle-low') { s.lowOpen = !s.lowOpen; render(); return; }
     if (act === 'batch-fine') { batchFine(); return; }
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
@@ -746,6 +804,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const href = a.getAttribute('href') || '';
     if (href.startsWith('#')) { e.preventDefault(); goRc(href); return; }
     if (/^[a-z][a-z0-9+.-]*:/i.test(href)) { e.preventDefault(); openLink(href); }
+  });
+  // Escape closes the Signal or Noise panel, like BACK TO THE DECK. Inside a
+  // fix or mark card, Escape belongs to that card (it closes its question).
+  frame.addEventListener('keydown', (e) => {
+    if (!e || e.key !== 'Escape' || s.screen !== 'map' || !s.signal || s.busy) return;
+    const t = e.target;
+    if (t && typeof t.closest === 'function' && t.closest('[data-mark-card],[data-fix-module]')) return;
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    closeSignal();
   });
   frame.addEventListener('keydown', (e) => {
     if (!s.rc) return;

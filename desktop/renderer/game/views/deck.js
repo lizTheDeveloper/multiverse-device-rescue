@@ -43,11 +43,14 @@ export function nextMoveHtml(sig) {
 }
 
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
-  cityHtml = '', instrumentsHtml = '', log = [], moment = null, panelHtml = '', nothingChecked = false, scanRunning = false,
+  cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
   districtName = () => '', notice = '' }) {
   const dn = districtName;
+  // While the Signal or Noise panel is open, the deck behind it is inert:
+  // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
+  const behind = panelHtml ? ' inert' : '';
   const top = `
-  <header class="hud deck-top">
+  <header class="hud deck-top"${behind}>
     <span class="hud-title">${esc(title)}</span>
     <span class="stat lime"><small>RANK</small> ${esc(rank.name)}</span>
     <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(lastSweep.checks)} CHECKS` : '<small>NO SWEEP YET</small>'}</span>
@@ -72,7 +75,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
       <li class="low-group">
         <button type="button" class="sig low-row" data-act="toggle-low" aria-expanded="${lowOpen ? 'true' : 'false'}">LOW-PRIORITY SIGNALS (${low.length})</button>
         ${lowOpen ? `<ul class="queue">${low.slice(0, LOW_SHOWN).map((x) => signalRow(x, dn)).join('')}</ul>
-        ${low.length > LOW_SHOWN ? `<p class="intel">And ${low.length - LOW_SHOWN} more. THESE ARE ALL FINE sorts every one.</p>` : ''}
+        ${low.length > LOW_SHOWN ? `<p class="intel">And ${low.length - LOW_SHOWN} more. THESE ARE ALL FINE sorts all ${low.length}, including the ones not shown.</p>` : ''}
         <button type="button" class="btn-s" data-act="batch-fine">THESE ARE ALL FINE</button>
         <p class="intel">Sorting them all at once earns no points. Open one to look at its clues.</p>` : ''}
       </li>` : '';
@@ -89,9 +92,12 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
       ${log.length ? `<ol class="log">${log.slice(0, LOG_SHOWN).map((e) => `<li><time>${esc(clock(e.at))}</time> <span class="badge skip">${esc(e.kind)}</span> ${esc(e.text)}</li>`).join('')}</ol>`
     : '<p class="intel">Nothing yet. Tags, sweeps, fixes and reports show up here.</p>'}
     </section>`;
-  const momentHtml = moment ? `<div class="moment moment-${esc(moment.kind)}" role="status"><b>${esc(moment.title)}</b> ${esc(moment.text)}</div>` : '';
+  // Moments stack, one after another (game.css staggers them); with reduced
+  // motion the animation is off, so they are still banners.
+  const all = [...(moment ? [moment] : []), ...(Array.isArray(moments) ? moments : [])];
+  const momentHtml = all.length ? `<div class="moments">${all.map((m) => `<div class="moment moment-${esc(m.kind)}" role="status"><b>${esc(m.title)}</b> ${esc(m.text)}</div>`).join('')}</div>` : '';
   return `${top}${notice}${momentHtml}
-  <div class="deck">
+  <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
       <div class="label">INCOMING SIGNALS</div>${head}${blank}${next}
       <ul class="queue">${items.map((x) => signalRow(x, dn)).join('')}${lowHtml}</ul>

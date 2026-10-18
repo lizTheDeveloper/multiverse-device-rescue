@@ -183,11 +183,31 @@ test('a version 3 store with a bad deck keeps its missions and lessons and start
   const bad = [null, [], 'x', { ...good, points: -1 }, { ...good, rank: 1.5 }, { ...good, drills: null },
     { ...good, tags: { a: { tag: 'delete', at: NOW, fp: 'f' } } }, { ...good, tags: { a: { tag: 'mine', at: NOW } } },
     { ...good, confirmed: { a: 5 } }, { ...good, once: { k: 1 } }, { ...good, sweep: { at: 5, keys: {} } },
-    { ...good, sweeps: {} }, { ...good, sweeps: [{ ...sweep, title: 'Unsigned helper' }] }, { ...good, sweeps: [{ at: NOW, checks: 1 }] }];
+    { ...good, sweeps: {} }, { ...good, sweeps: [{ at: NOW, checks: 1 }] }, { ...good, sweeps: [{ ...sweep, title: 'x', checks: -1 }] }];
   for (const deck of bad) {
     const p = loadProgress(memStore({ [STORE_KEY]: JSON.stringify({ version: 3, missions, lessons, deck }) }));
     assert.deepStrictEqual(p, { version: 3, missions, lessons, deck: emptyDeck() }, JSON.stringify(deck));
   }
+});
+
+// Final review (deferred a): unknown keys are dropped, never stored; the rest survives.
+test('a version 3 deck with unknown keys keeps its known fields and drops the rest, on load and on setDeck', async () => {
+  const { loadProgress, setDeck, emptyProgress, STORE_KEY } = await load();
+  const sweep = { at: NOW, checks: 1, critical: 0, warning: 0, info: 0, fog: 0, checked: 1, secured: 1 };
+  const deck = { points: 35, rank: 0, drills: { right: 1, tried: 2, name: 'Ann' },
+    tags: { 'm|c|plist=/a': { tag: 'threat', at: NOW, fp: 'abc', title: 'Unsigned helper' } },
+    confirmed: { 'm|c|plist=/b': NOW }, once: { 'fix:m|c|plist=/b': true },
+    sweep: { at: NOW, keys: { 'clue:m|c|plist=/a#maker': true }, path: '/Users/ann' },
+    sweeps: [{ ...sweep, title: 'Unsigned helper' }], monitoringSeen: true, name: 'Ann' };
+  const want = { points: 35, rank: 0, drills: { right: 1, tried: 2 },
+    tags: { 'm|c|plist=/a': { tag: 'threat', at: NOW, fp: 'abc' } },
+    confirmed: { 'm|c|plist=/b': NOW }, once: { 'fix:m|c|plist=/b': true },
+    sweep: { at: NOW, keys: { 'clue:m|c|plist=/a#maker': true } }, sweeps: [sweep] };
+  const loaded = loadProgress(memStore({ [STORE_KEY]: JSON.stringify({ version: 3, missions: {}, lessons: {}, deck }) }));
+  assert.deepStrictEqual(loaded.deck, want);
+  const set = setDeck(emptyProgress(), deck);
+  assert.deepStrictEqual(set.deck, want);
+  assert.doesNotMatch(JSON.stringify(set), /monitoringSeen|Ann|Unsigned helper/);
 });
 
 test('a version 3 store round-trips with its deck', async () => {

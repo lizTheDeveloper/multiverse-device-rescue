@@ -240,7 +240,11 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .ibar.amb { color: var(--amber); }
 .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-family: var(--font-mono); font-size: 12px; }
 .log time { color: var(--faint); margin-right: 6px; }
-.moment { margin: 10px 18px 0; padding: 12px 16px; border: 1px solid var(--lime); color: var(--lime); background: rgba(198,255,0,0.07); font-family: var(--font-display); letter-spacing: 1px; animation: moment-in 700ms ease-out; }
+.moment { margin: 10px 18px 0; padding: 12px 16px; border: 1px solid var(--lime); color: var(--lime); background: rgba(198,255,0,0.07); font-family: var(--font-display); letter-spacing: 1px; animation: moment-in 700ms ease-out both; }
+.moments { display: grid; }
+.moments .moment:nth-child(2) { animation-delay: 500ms; }
+.moments .moment:nth-child(3) { animation-delay: 1000ms; }
+.moments .moment:nth-child(4) { animation-delay: 1500ms; }
 @keyframes moment-in { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
 
 /* ---------- Signal or Noise ---------- */

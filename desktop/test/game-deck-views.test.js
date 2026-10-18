@@ -141,3 +141,13 @@ test('the deck stacks queue, city, instruments, log when narrow; drills are hatc
   assert.match(css, /\.moment \{[^}]*animation: moment-in/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \*, \*::before, \*::after \{ animation: none !important/);
 });
+
+// Final review (deferred b): several moments stack in order; game.css staggers them.
+test('several moments stack in order, each a banner with a role', async () => {
+  const html = await deck({ moments: [{ kind: 'secured', title: 'DISTRICT SECURED', text: 'The Wires.' },
+    { kind: 'rank', title: 'RANK UP', text: 'You’re now NETRUNNER.' }, { kind: 'clean', title: 'CLEAN SWEEP', text: 'All clear.' }] });
+  assert.match(html, /<div class="moments"><div class="moment moment-secured" role="status">[\s\S]*<div class="moment moment-rank" role="status"><b>RANK UP<\/b>[\s\S]*<div class="moment moment-clean" role="status">/);
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../renderer/game/game.css'), 'utf8');
+  assert.match(css, /\.moments \.moment:nth-child\(2\) \{ animation-delay/);
+  assert.match(css, /prefers-reduced-motion: reduce\) \{ \*, \*::before, \*::after \{ animation: none !important/);
+});

@@ -11,7 +11,8 @@ function clueItem(c, opened) {
   if (!opened.includes(c.kind)) {
     return `<li><button type="button" class="clue locked" data-act="clue:${esc(c.kind)}">SCAN CLUE: ${esc(c.label)} ▶</button></li>`;
   }
-  return `<li class="clue open"><div class="label">${esc(c.label)}</div>${c.lines.map((l) => `<p class="clue-line">${esc(l)}</p>`).join('')}
+  // tabindex -1: focus can land on a clue just opened when none is left locked.
+  return `<li class="clue open" data-clue="${esc(c.kind)}" tabindex="-1"><div class="label">${esc(c.label)}</div>${c.lines.map((l) => `<p class="clue-line">${esc(l)}</p>`).join('')}
       <p class="reading"><b>How to read this:</b> ${esc(c.reading.text)}</p></li>`;
 }
 

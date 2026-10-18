@@ -23,11 +23,12 @@ const queueOf = (html, end = 'deck-city') => html.split('INCOMING SIGNALS')[1].s
 
 function stub(recheckDocs = []) {
   const listeners = [];
-  const calls = { startCheckup: 0, recheck: [], showList: 0 };
+  const keyListeners = [];
+  const calls = { startCheckup: 0, recheck: [], showList: 0, leaveGame: 0 };
   const focused = [];
   const frame = {
     innerHTML: '',
-    addEventListener: (type, fn) => { if (type === 'click') listeners.push(fn); },
+    addEventListener: (type, fn) => { if (type === 'click') listeners.push(fn); if (type === 'keydown') keyListeners.push(fn); },
     querySelector: (sel) => {
       const m = /^\[(data-[a-z]+)="(.*)"\]$/.exec(sel);
       if (m && frame.innerHTML.includes(`${m[1]}="${m[2]}"`)) return { focus: () => focused.push(sel) };
@@ -43,7 +44,7 @@ function stub(recheckDocs = []) {
     MarkFlow: { attach: (_r, _a, h) => { hooks.mark = h; },
       markControlsHtml: (finding) => (finding && finding.markable ? '<div data-mark-card>MARK IT</div>' : '') },
     RescueHost: { showList() { calls.showList += 1; }, docChanged: () => true, wantsSafety: () => false,
-      startCheckup() { calls.startCheckup += 1; }, scanTips: async () => [], leaveGame() {} },
+      startCheckup() { calls.startCheckup += 1; }, scanTips: async () => [], leaveGame() { calls.leaveGame += 1; } },
     rescue: { recheckModule: async (name) => {
       calls.recheck.push(name);
       const doc = recheckDocs.shift();
@@ -55,7 +56,13 @@ function stub(recheckDocs = []) {
     listeners.forEach((fn) => fn({ target: { closest: () => el } }));
   };
   const focusOn = (attrs) => { shadow.activeElement = attrs ? { getAttribute: (k) => (k in attrs ? attrs[k] : null) } : null; };
-  return { win, frame, hooks, calls, click, focused, focusOn };
+  // A key press on the frame; `inside` is what the target's closest() finds.
+  const key = (k, inside = null) => {
+    const ev = { key: k, target: { closest: () => inside }, prevented: false, preventDefault() { ev.prevented = true; } };
+    keyListeners.forEach((fn) => fn(ev));
+    return ev;
+  };
+  return { win, frame, hooks, calls, click, focused, focusOn, key };
 }
 
 async function deckSetup(doc, { storage = memStore(), situation = { id: 'unsure' }, recheckDocs = [], drills = DRILLS } = {}) {
@@ -187,7 +194,7 @@ test('low-priority signals stay folded; THESE ARE ALL FINE sorts every one and p
   assert.doesNotMatch(t.html(), /Note 7\b/, 'folded');
   t.click({ 'data-act': 'toggle-low' });
   assert.strictEqual((t.html().match(/data-go="signal:a_mod/g) || []).length, 50);
-  assert.match(t.html(), /And 70 more/);
+  assert.match(t.html(), /And 70 more\. THESE ARE ALL FINE sorts all 120, including the ones not shown\./);
   t.click({ 'data-act': 'batch-fine' });
   const saved = t.saved();
   assert.strictEqual(Object.keys(saved.deck.tags).length, 120);
@@ -515,4 +522,170 @@ test('a drill answered in the queue can still be practised on the DRILL RANGE', 
   t.click({ 'data-go': 'signal:drill:gate-2' });
   t.click({ 'data-act': 'tag:threat' });
   assert.deepStrictEqual(t.saved().deck.drills, { right: 2, tried: 2 }, 'the queue still holds its one answer');
+});
+
+// Final review 1: SCAN CLUE replaces its button with text, so focus moves on.
+test('after SCAN CLUE, focus moves to the next locked clue, and to the opened clue when none is left', async () => {
+  const t = await deckSetup(DOC);
+  t.click({ 'data-act': 'investigate-next' });
+  t.focusOn({ 'data-act': 'clue:where' });
+  t.click({ 'data-act': 'clue:where' });
+  assert.deepStrictEqual(t.focused.slice(-1), ['[data-act="clue:what"]'], 'the next locked clue after this one');
+  t.focusOn({ 'data-act': 'clue:what' });
+  t.click({ 'data-act': 'clue:what' });
+  assert.deepStrictEqual(t.focused.slice(-1), ['[data-act="clue:maker"]'], 'then from the top');
+  t.focusOn({ 'data-act': 'clue:maker' });
+  t.click({ 'data-act': 'clue:maker' });
+  assert.deepStrictEqual(t.focused.slice(-1), ['[data-clue="maker"]'], 'none locked: the clue just opened');
+  assert.match(t.html(), /<li class="clue open" data-clue="maker" tabindex="-1">/);
+});
+
+// Final review 1: closing the panel removes the button the person was on.
+test('BACK TO THE DECK puts focus on the signal’s row, or else INVESTIGATE NEXT', async () => {
+  const five = scan(mod('a_mod', Array.from({ length: 5 }, (_, i) => f(`W${i}`, 'warning', { plist: `/w${i}` }))));
+  const [id] = await ids(five);
+  const t = await deckSetup(five);
+  t.click({ 'data-go': `signal:${id}` });
+  t.focusOn({ 'data-act': 'close-signal' });
+  t.click({ 'data-act': 'close-signal' });
+  assert.deepStrictEqual(t.focused.slice(-1), [`[data-go="signal:${id}"]`]);
+  t.click({ 'data-go': 'signal:drill:gate-1' });
+  t.click({ 'data-act': 'tag:threat' });
+  t.click({ 'data-act': 'close-signal' });
+  assert.doesNotMatch(t.html(), /signal:drill:gate-1/, 'an answered drill left the queue');
+  assert.deepStrictEqual(t.focused.slice(-1), ['[data-act="investigate-next"]']);
+});
+
+// Final review 4: Escape closes the panel; the deck behind it is inert while it's open.
+test('Escape closes the Signal or Noise panel like BACK TO THE DECK; the deck behind is inert while it is open', async () => {
+  const [id] = await ids(DOC);
+  const t = await deckSetup(DOC);
+  assert.doesNotMatch(t.html(), /\binert\b/);
+  t.click({ 'data-go': `signal:${id}` });
+  assert.match(t.html(), /<header class="hud deck-top" inert>/);
+  assert.match(t.html(), /<div class="deck" inert>/);
+  assert.doesNotMatch(t.html(), /class="sig-panel[^"]*"[^>]*inert/, 'the panel itself is live');
+  // Inside a mark card, Escape is that card's (it closes its own question).
+  t.key('Escape', { 'data-mark-card': '' });
+  assert.match(t.html(), /id="sig-title"/);
+  t.key('Enter');
+  assert.match(t.html(), /id="sig-title"/);
+  const ev = t.key('Escape');
+  assert.strictEqual(ev.prevented, true);
+  assert.doesNotMatch(t.html(), /id="sig-title"/);
+  assert.doesNotMatch(t.html(), /\binert\b/);
+  assert.deepStrictEqual(t.focused.slice(-1), [`[data-go="signal:${id}"]`]);
+  t.key('Escape');
+  assert.match(t.html(), /INCOMING SIGNALS/, 'nothing open: Escape does nothing');
+});
+
+// Final review 2: nothing about monitoring software is logged, as confirmFix scores nothing.
+test('a re-check of a monitoring finding logs no CONFIRMED and no MARKED', async () => {
+  const mon = (data) => mod('stalkerware_scan', [f('Monitoring app', 'critical', { path: '/m', ...data })]);
+  const before = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]), mon());
+  const id = (await ids(before)).find((x) => x.startsWith('stalkerware_scan|'));
+  assert.ok(id, 'the monitoring finding is a mission in the city');
+  const gone = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]), mod('stalkerware_scan', []));
+  const t = await deckSetup(before, { recheckDocs: [gone] });
+  t.click({ 'data-go': `mission:${id}` });
+  t.click({ 'data-act': 'i-did-it' });
+  await tick(); await tick();
+  assert.match(t.html(), /RECLAIMED/);
+  t.click({ 'data-go': 'map' });
+  assert.doesNotMatch(t.html(), /CONFIRMED<\/span>/);
+  assert.doesNotMatch(t.html(), /Monitoring app/);
+  assert.deepStrictEqual(t.saved().deck.confirmed, {});
+  assert.strictEqual(t.saved().deck.points, 0);
+  // Marked as yours on a re-check: no MARKED entry either.
+  const marked = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]),
+    mon({ marked_by_user: true, original_severity: 'critical', known_item_id: 'k1', path: '/m2' }));
+  const id2 = (await ids(marked)).find((x) => x.startsWith('stalkerware_scan|'));
+  const t2 = await deckSetup(scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]), mon({ path: '/m2' })), { recheckDocs: [marked] });
+  t2.click({ 'data-go': `mission:${id2}` });
+  t2.click({ 'data-act': 'i-did-it' });
+  await tick(); await tick();
+  t2.click({ 'data-go': 'map' });
+  assert.doesNotMatch(t2.html(), /MARKED<\/span>|CONFIRMED<\/span>/);
+});
+
+// Final review 3: an id with a newline and a quote (a path can hold both)
+// still finds its row again, and never knocks the person out of the game.
+test('a signal id with a newline and a quote keeps focus across redraws and on close', async () => {
+  const doc = scan(mod('a_mod', [f('Odd path', 'warning', { plist: '/Users/ann/a "b"\nc.plist' }), f('Low', 'info', { name: 'n' })]));
+  const [id] = await ids(doc);
+  assert.match(id, /\n/);
+  const t = await deckSetup(doc);
+  const unesc = (x) => x.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  // Like a real DOM: a selector with a raw newline or a stray quote throws.
+  t.frame.querySelector = (sel) => {
+    if (/[\n]/.test(sel) || (sel.match(/"/g) || []).length > 2) throw new SyntaxError(`bad selector ${sel}`);
+    const m = /^\[(data-[a-z]+)="(.*)"\]$/.exec(sel);
+    if (m && t.html().includes(`${m[1]}="${m[2]}"`)) return { focus: () => t.focused.push(sel) };
+    return null;
+  };
+  t.frame.querySelectorAll = (sel) => {
+    const m = /^\[(data-[a-z]+)\]$/.exec(sel);
+    if (!m) return [];
+    return [...t.html().matchAll(new RegExp(`${m[1]}="([^"]*)"`, 'g'))].map(([, v]) => ({
+      getAttribute: (k) => (k === m[1] ? unesc(v) : null), focus: () => t.focused.push(`walk:${unesc(v)}`) }));
+  };
+  t.click({ 'data-go': `signal:${id}` });
+  t.click({ 'data-act': 'close-signal' });
+  assert.deepStrictEqual(t.focused.slice(-1), [`walk:signal:${id}`]);
+  t.focusOn({ 'data-go': `signal:${id}` });
+  t.click({ 'data-act': 'toggle-low' });
+  assert.deepStrictEqual(t.focused.slice(-1), [`walk:signal:${id}`]);
+  assert.strictEqual(t.calls.leaveGame, 0, 'still in the game');
+});
+
+test('findByAttr: plain values use a selector; others use CSS.escape, or walk the elements', async () => {
+  const { findByAttr } = await import('../renderer/game/controller.js');
+  const { createDocument } = require('./mini-dom.js');
+  const doc = createDocument();
+  const odd = 'signal:a|"b"\nc\\d';
+  const a = doc.body.add('button', { 'data-go': 'signal:plain' });
+  const b = doc.body.add('button', { 'data-go': odd });
+  assert.strictEqual(findByAttr(doc.body, 'data-go', 'signal:plain', null), a);
+  assert.strictEqual(findByAttr(doc.body, 'data-go', odd, null), b, 'no CSS.escape: the walk');
+  const seen = [];
+  const css = { escape: (v) => { seen.push(v); return 'escaped'; } };
+  assert.strictEqual(findByAttr(doc.body, 'data-go', odd, css), b, 'CSS.escape finds nothing here, so the walk');
+  assert.deepStrictEqual(seen, [odd]);
+  const throwing = { querySelector: () => { throw new SyntaxError('x'); }, querySelectorAll: () => { throw new SyntaxError('y'); } };
+  assert.strictEqual(findByAttr(throwing, 'data-go', odd, css), null, 'never throws');
+  assert.strictEqual(findByAttr(doc.body, 'data-go', 'signal:none', null), null);
+});
+
+// Final review (deferred b): moments queue up; a rank-up is never lost.
+test('a clean sweep that also ranks up shows both moments, with the district secured', async () => {
+  const { emptyDeck } = await import('../renderer/game/progress.js');
+  const storage = memStore();
+  storage.setItem(STORE, JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { ...emptyDeck(), points: 70 } }));
+  const t = await deckSetup(scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })])), { storage });
+  t.ctl.showBoss();
+  t.ctl.scanDone(scan(mod('a_mod', [])), { id: 'unsure' });
+  const html = t.html();
+  assert.match(html, /<div class="moments">[\s\S]*moment-secured[\s\S]*moment-rank" role="status"><b>RANK UP<\/b> You’re now SIGNAL ANALYST[\s\S]*moment-clean" role="status"><b>CLEAN SWEEP<\/b>/);
+  t.click({ 'data-go': 'map' });
+  assert.doesNotMatch(t.html(), /class="moment/, 'each shows once');
+});
+
+test('more moments than fit: the oldest go first, and the rank-up stays', async () => {
+  const { emptyDeck } = await import('../renderer/game/progress.js');
+  const storage = memStore();
+  storage.setItem(STORE, JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { ...emptyDeck(), points: 70 } }));
+  const cats = ['security', 'network', 'integrity', 'performance', 'bloatware'];
+  const busy = scan(...cats.map((c, i) => ({ ...mod(`m${i}`, [f(`W${i}`, 'warning', { plist: `/w${i}` })]), category: c })));
+  const clear = scan(...cats.map((c, i) => ({ ...mod(`m${i}`, []), category: c })));
+  const t = await deckSetup(busy, { storage });
+  t.ctl.showBoss();
+  t.ctl.scanDone(clear, { id: 'unsure' });
+  const kinds = [...t.html().matchAll(/class="moment moment-([a-z]+)"/g)].map((m) => m[1]);
+  assert.strictEqual(kinds.length, 4);
+  assert.deepStrictEqual(kinds.slice(-2), ['rank', 'clean']);
+  assert.deepStrictEqual(kinds.slice(0, 2), ['secured', 'secured']);
+  // (The log shows its newest twelve lines; the Gatehouse's is just past them.)
+  for (const name of ['The Wires', 'The Foundations', 'The Engine Room', 'The Junkyard']) {
+    assert.match(t.html(), new RegExp(`SECURED</span> ${name}`), `${name} is still in the log`);
+  }
 });

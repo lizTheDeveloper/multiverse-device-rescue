@@ -42,6 +42,9 @@ export function validSweep(w) {
     && Object.keys(w).every((k) => k === 'at' || SWEEP_FIELDS.includes(k));
 }
 
+// A stored sweep needs its date and every count; anything else on it is dropped by cleanDeck.
+const sweepFieldsOk = (w) => plainObject(w) && typeof w.at === 'string' && SWEEP_FIELDS.every((k) => count(w[k]));
+
 export function validDeck(d) {
   return plainObject(d) && count(d.points) && count(d.rank)
     && plainObject(d.drills) && count(d.drills.right) && count(d.drills.tried)
@@ -49,7 +52,25 @@ export function validDeck(d) {
     && plainObject(d.confirmed) && Object.values(d.confirmed).every((v) => typeof v === 'string')
     && plainObject(d.once) && Object.values(d.once).every((v) => v === true)
     && plainObject(d.sweep) && (d.sweep.at === null || typeof d.sweep.at === 'string') && plainObject(d.sweep.keys)
-    && Array.isArray(d.sweeps) && d.sweeps.every(validSweep);
+    && Array.isArray(d.sweeps) && d.sweeps.every(sweepFieldsOk);
+}
+
+// The deck rebuilt from its known fields only, or null when it isn't a valid
+// deck. A stray key anywhere (a name, a `monitoringSeen`) is dropped, never
+// stored. Object.fromEntries keeps an id like "__proto__" a plain key.
+export function cleanDeck(d) {
+  if (!validDeck(d)) return null;
+  const map = (o, f) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, f(v)]));
+  return {
+    points: d.points,
+    rank: d.rank,
+    drills: { right: d.drills.right, tried: d.drills.tried },
+    tags: map(d.tags, (t) => ({ tag: t.tag, at: t.at, fp: t.fp })),
+    confirmed: map(d.confirmed, (v) => v),
+    once: map(d.once, () => true),
+    sweep: { at: d.sweep.at, keys: Object.fromEntries(Object.entries(d.sweep.keys).filter(([, v]) => v === true)) },
+    sweeps: d.sweeps.map((w) => Object.fromEntries([['at', w.at], ...SWEEP_FIELDS.map((k) => [k, w[k]])])),
+  };
 }
 
 // Accepts a stored version 1, 2 or 3 document. Missions are kept whenever they
@@ -60,7 +81,7 @@ export function migrate(raw) {
   const lessons = validLessons(raw.lessons) ? raw.lessons : {};
   if (raw.version === 1) return { version: 3, missions: raw.missions, lessons: {}, deck: emptyDeck() };
   if (raw.version === 2) return { version: 3, missions: raw.missions, lessons, deck: emptyDeck() };
-  if (raw.version === 3) return { version: 3, missions: raw.missions, lessons, deck: validDeck(raw.deck) ? raw.deck : emptyDeck() };
+  if (raw.version === 3) return { version: 3, missions: raw.missions, lessons, deck: cleanDeck(raw.deck) || emptyDeck() };
   return emptyProgress();
 }
 
@@ -101,14 +122,16 @@ function base(progress) {
     version: 3,
     missions: { ...((progress && progress.missions) || {}) },
     lessons: { ...((progress && progress.lessons) || {}) },
-    deck: progress && validDeck(progress.deck) ? progress.deck : emptyDeck(),
+    deck: (progress && cleanDeck(progress.deck)) || emptyDeck(),
   };
 }
 
-// The deck changes only through the ledger (ledger.js); an invalid one is refused.
+// The deck changes only through the ledger (ledger.js); an invalid one is
+// refused, and a valid one is rebuilt from its known fields.
 export function setDeck(progress, deck) {
   const next = base(progress);
-  if (validDeck(deck)) next.deck = deck;
+  const clean = cleanDeck(deck);
+  if (clean) next.deck = clean;
   return next;
 }
 
