@@ -77,3 +77,10 @@ def test_allowlist_entries_are_still_needed():
     for code in _NO_WALKTHROUGH_NEEDED:
         assert code in found, f"{code} is no longer emitted; remove it from the allowlist"
         assert code not in index, f"{code} now has a walkthrough; remove it from the allowlist"
+
+
+def test_dns_walkthrough_lists_quad9_first():
+    repo = Path(__file__).resolve().parent.parent
+    body = (repo / "guides" / "remediation" / "encrypt_dns_lookups.md").read_text()
+    assert "Quad9" in body and "Cloudflare" in body
+    assert body.index("Quad9") < body.index("Cloudflare")

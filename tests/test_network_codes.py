@@ -27,6 +27,16 @@ EXPECTED_CODES: dict[str, set[str]] = {
         "network.router_security_audit.upnp_enabled",
         "network.router_security_audit.router_manual_review",
     },
+    "dns_over_https_check": {
+        "network.dns_over_https_check.dns_configuration",
+        "network.dns_over_https_check.unencrypted_dns",
+        "network.dns_over_https_check.encrypted_dns_provider",
+        "network.dns_over_https_check.no_dns_found",
+        "network.dns_over_https_check.encrypted_dns_profile",
+        "network.dns_over_https_check.local_dns_resolver",
+        "network.dns_over_https_check.doh_tls_configured",
+        "network.dns_over_https_check.no_encryption_configured",
+    },
     "wifi_security_audit": {
         "network.wifi_security_audit.wep_connected",
         "network.wifi_security_audit.open_network_connected",
@@ -59,6 +69,7 @@ def test_declared_codes(name):
 
 
 _WALKTHROUGHS = [
+    "encrypt_dns_lookups",
     "review_unknown_lan_devices",
     "secure_home_router",
     "secure_wifi_connection",
