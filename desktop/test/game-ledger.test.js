@@ -72,7 +72,6 @@ test('a clean sweep pays when a re-sweep makes the board clean: not every time, 
   assert.strictEqual(blind.clean, false, 'nothing checked is never a clean sweep');
 });
 
-// Review Focus 3: same identity, changed finding.
 test('tags: kept by identity, set aside when the finding changed, dropped when it’s gone from a check that ran', async () => {
   const { setTag, reconcileDeck, emptyDeck } = await load();
   let d = emptyDeck();
@@ -101,6 +100,13 @@ test('a confirmed fix counts until the finding shows up again; its points stay',
   r = confirmFix(d, 'm|c|plist=/a', LATER);
   assert.strictEqual(r.points, 0, 'fixing it again pays nothing');
   assert.ok(r.deck.confirmed['m|c|plist=/a']);
+});
+
+test('a monitoring finding is never recorded as a confirmed fix', async () => {
+  const { confirmFix, emptyDeck } = await load();
+  const d = emptyDeck();
+  const r = confirmFix(d, 'stalkerware_scan|security.stalkerware_scan.x', NOW);
+  assert.deepStrictEqual([r.points, r.rankUp, r.deck.confirmed, r.deck.points], [0, false, {}, 0]);
 });
 
 test('drill stats count tries and right answers', async () => {

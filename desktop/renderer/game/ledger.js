@@ -87,7 +87,7 @@ export function recordDrill(deck, right) {
 // once per finding, ever.
 export function confirmFix(deck, id, now) {
   const d = deckOf(deck);
-  if (typeof id !== 'string' || id === '') return none(d);
+  if (typeof id !== 'string' || id === '' || MONITORING_MODULES.has(moduleOfKey(id))) return none(d);
   return award({ ...d, confirmed: { ...d.confirmed, [id]: String(now) } }, 'fix', id);
 }
 
