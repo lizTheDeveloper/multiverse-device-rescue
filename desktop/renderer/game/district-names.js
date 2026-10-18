@@ -6,13 +6,13 @@
 
 export const NAMES = [
   'The Night Market', 'Pier 9', 'Clocktower Commons', 'The Observatory', 'Lantern Row', 'Copper Alley',
-  'The Old Mill', 'Glasshouse Gardens', 'Ferry Landing', 'The Arcade', 'Tin Roof Lane', 'The Boardwalk',
-  'Juniper Court', 'The Foundry', 'Canal Street', 'The Tramyard', 'Velvet Quarter', 'Pinecone Square',
-  'The Waterworks', 'Moonlight Diner', 'Neon Strip', 'Harbor Lights', 'The Atrium', 'Saltmarsh Row',
-  'Briar Lane', 'The Bandstand', 'Cobalt Yard', 'Orchard Street', 'The Greenhouse', 'Driftwood Quay',
-  'Paper Lantern Plaza', 'Marigold Mews', 'The Roundhouse', 'Kite Hill', 'Ember Lane', 'Silverfish Wharf',
-  'Thistle Court', 'The Planetarium', 'Crow’s Nest', 'Fig Tree Square', 'Starlight Rink', 'The Junction',
-  'Brass Button Lane', 'Willow Steps', 'Ninth Street Garage', 'The Bakery Steps', 'Rooftop Terrace', 'Gaslight Row',
+  'The Old Mill', 'Gearwheel Row', 'Ferry Landing', 'The Arcade', 'Tin Roof Lane', 'The Boardwalk',
+  'The Depot', 'The Foundry', 'Canal Street', 'The Tramyard', 'Velvet Quarter', 'Tollbooth Corner',
+  'The Waterworks', 'Moonlight Diner', 'Neon Strip', 'Harbor Quay', 'The Atrium', 'Saltmarsh Row',
+  'Rivet Street', 'The Bandstand', 'Cobalt Yard', 'Bell Foundry Lane', 'The Cannery', 'Driftwood Quay',
+  'Paper Lantern Plaza', 'Signal Hill', 'The Roundhouse', 'Kite Hill', 'Ember Lane', 'Silverfish Wharf',
+  'Quarry Steps', 'The Planetarium', 'Crow’s Nest', 'The Print Shop', 'Starlight Rink', 'The Junction',
+  'Brass Button Lane', 'Lamplighter Way', 'Ninth Street Garage', 'The Bakery Steps', 'Rooftop Terrace', 'Gaslight Row',
 ];
 
 // Each look is a `.look-<id>` rule in game.css.
@@ -23,12 +23,12 @@ export const VOICES = [
   { id: 'dock', hello: 'Tide’s in. Find a spot on the bench.', bye: 'The boats come in every night.' },
   { id: 'clock', hello: 'The gears are turning. Have a seat by the big wheel.', bye: 'The clock keeps going for you.' },
   { id: 'stars', hello: 'The dome is open. Plenty of room under the sky.', bye: 'The sky will still be here.' },
-  { id: 'garden', hello: 'Mind the vines. There’s a bench in the shade.', bye: 'Come back when the flowers open.' },
+  { id: 'workshop', hello: 'The soldering iron is warm. Grab a stool by the bench.', bye: 'Your stool will be here when you want it.' },
   { id: 'diner', hello: 'The booth by the window is free. Coffee’s on.', bye: 'Your booth stays open.' },
 ];
 
 // No name or voice may hint at what the district holds.
-export const GIVEAWAY = /safe|help|hotline|advoca|abuse|partner|watch|stalk|shelter|refuge|haven|sanctuar|escape|rescue|secret|hidden|danger|violen|protect|support|crisis|hope|recover/i;
+export const GIVEAWAY = /safe|help|hotline|advoca|abuse|partner|watch|stalk|shelter|refuge|haven|sanctuar|escape|rescue|secret|hidden|danger|violen|protect|support|crisis|hope|recover|garden|rose|flower|bloom|petal|briar|thistle|vine/i;
 
 // mulberry32: a small, well-mixed generator; the same seed gives the same picks.
 function generator(seed) {

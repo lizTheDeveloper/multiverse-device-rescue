@@ -58,3 +58,13 @@ test('a bad seed still gives a district from the pools', async () => {
     assert.ok(NAMES.includes(d.name) && LOOKS.includes(d.look) && VOICES.includes(d.voice), String(seed));
   }
 });
+
+test('every voice line passes the giveaway check too, and none is botanical', async () => {
+  const { VOICES, GIVEAWAY } = await load('district-names.js');
+  for (const v of VOICES) {
+    for (const text of [v.id, v.hello, v.bye]) assert.doesNotMatch(text, GIVEAWAY, text);
+  }
+  for (const bad of ['Glasshouse Gardens', 'Rose Court', 'Marigold Flower Mews', 'Briar Lane', 'Thistle Court', 'Mind the vines']) {
+    assert.match(bad, GIVEAWAY, `the check must catch ${bad}`);
+  }
+});
