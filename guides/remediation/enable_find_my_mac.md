@@ -3,30 +3,28 @@ title: "Enable and verify Find My Mac"
 estimated_time: "10 minutes"
 platforms: [macos]
 remediates:
-  - security.find_my_mac.find_my_mac_disabled
-  - security.find_my_mac.send_last_location_disabled
-  - security.find_my_mac.activation_lock_unknown
-  - security.find_my_mac.configured_ok
   - security.find_my_mac_check.find_my_mac_disabled
+  - security.find_my_mac_check.send_last_location_disabled
+  - security.find_my_mac_check.activation_lock_unknown
   - security.find_my_mac_check.location_services_disabled
   - security.find_my_mac_check.icloud_not_signed_in
   - security.find_my_mac_check.configured_ok
 steps_for:
-  security.find_my_mac.find_my_mac_disabled: [3, 4]
-  security.find_my_mac.send_last_location_disabled: [3, 4]
-  security.find_my_mac.activation_lock_unknown: [4]
-  security.find_my_mac.configured_ok: [4]
+  security.find_my_mac_check.icloud_not_signed_in: [1]
+  security.find_my_mac_check.location_services_disabled: [2]
+  security.find_my_mac_check.find_my_mac_disabled: [3, 4]
+  security.find_my_mac_check.send_last_location_disabled: [3, 4]
+  security.find_my_mac_check.activation_lock_unknown: [4]
   security.find_my_mac_check.configured_ok: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
 
-This walkthrough covers everything both the `find_my_mac` and
-`find_my_mac_check` modules can flag — they check overlapping but not
-identical things (the `_check` variant also verifies Location Services and
-iCloud sign-in as prerequisites). All changes here go through System
-Settings and require entering your Apple ID credentials, so nothing is
-auto-applied.
+This walkthrough covers everything the `find_my_mac_check` module can flag:
+Find My Mac itself, Send Last Location, Activation Lock, and the things Find
+My needs to work (Location Services and iCloud sign-in). All changes here go
+through System Settings and require entering your Apple ID credentials, so
+nothing is auto-applied.
 
 ## Step 1: Sign in to your Apple ID
 

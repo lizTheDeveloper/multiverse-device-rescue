@@ -32,11 +32,11 @@ $ rescue run <module_name>
 
 ## Coverage at a glance
 
-**285 modules** ship in the tree.
+**284 modules** ship in the tree.
 
 | Platform | Modules that run there |
 | --- | ---: |
-| macOS | 197 |
+| macOS | 196 |
 | Windows | 98 |
 | Linux | 26 |
 
@@ -48,7 +48,7 @@ A module can support more than one platform, so these numbers add up to more tha
 | [integrity](#integrity) | 106 |
 | [network](#network) | 8 |
 | [performance](#performance) | 51 |
-| [security](#security) | 116 |
+| [security](#security) | 115 |
 
 ## bloatware
 
@@ -259,7 +259,7 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 
 Malware and spyware indicators, persistence, remote access, credential exposure, and system hardening posture.
 
-116 modules — macOS 81, Windows 43, Linux 16.
+115 modules — macOS 80, Windows 43, Linux 16.
 
 | Module | Platforms | Risk | Duration | What it checks |
 | --- | --- | --- | --- | --- |
@@ -294,7 +294,6 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `encryption_check` | macOS | safe | 3s | — |
 | `evidence_bundle` | macOS, Windows, Linux | safe | 10s | Warn when cleanup is about to destroy the evidence of what happened. |
 | `filevault_recovery` | macOS | safe | 5s | — |
-| `find_my_mac` | macOS | safe | 2s | — |
 | `find_my_mac_check` | macOS | safe | 3s | — |
 | `firewall_audit` | macOS | moderate | 5s | — |
 | `firewall_rules_audit` | macOS | safe | 5s | — |
