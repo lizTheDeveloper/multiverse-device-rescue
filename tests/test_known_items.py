@@ -732,7 +732,7 @@ def test_scan_groups_every_markable_warning_about_the_same_task(tmp_path, agents
         assert sorted(offer["ids"]) == ids
         assert "every warning about this task" in offer["will_change"]
         assert offer["will_change"].startswith(
-            f"Device Rescue will stop warning you about the background task '{LABEL}'. This covers"
+            f"The checkup will stop warning you about the background task '{LABEL}'. This covers"
         )
 
 

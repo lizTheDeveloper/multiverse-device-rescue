@@ -576,7 +576,7 @@ when stdin is not a terminal, so a script cannot mark things silently.
 
 ```console
 $ rescue known add --code security.launch_agent_audit.suspicious_path --label ai.example.gateway --program /Users/me/.example/venv/bin/python
-Device Rescue will stop warning you about the background task 'ai.example.gateway'. ...
+The checkup will stop warning you about the background task 'ai.example.gateway'. ...
 Is this yours, and do you want to stop being warned about it? [y/N]: y
 Marked 'ai.example.gateway' as yours (id 3f9c0a1b2d4e). It will show as "marked as yours" from the next checkup.
 ```

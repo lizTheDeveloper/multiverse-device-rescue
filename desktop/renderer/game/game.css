@@ -28,6 +28,33 @@ button.district { display: grid; width: 100%; }
 .fix-status__box { border-left: 2px solid var(--cyan); padding: 6px 12px; margin-top: 10px; }
 .fix-status--error { border-left-color: var(--magenta); }
 .fix-status--warning { border-left-color: var(--amber); }
+/* The confirmation panels (fix and "It's mine"): comfortable reading size, real hit targets. */
+.fix-panel { font-size: 15.5px; line-height: 1.6; gap: 10px; padding: 18px; }
+.fix-panel p { margin: 0; }
+.fix-panel strong { color: #fff; }
+.fix-panel .muted, .fix-panel__note { color: var(--dim); font-size: 14px; }
+.fix-panel__warning strong { color: var(--amber); }
+.fix-it .btn, .mark-mine .btn { font-size: 12px; letter-spacing: 1.5px; min-height: 44px; padding: 12px 20px; display: inline-flex; align-items: center; justify-content: center; }
+.mark-mine .btn--primary { background: var(--cyan); color: var(--midnight); border-color: var(--cyan); }
+.fix-panel__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.fix-undo { margin: 0; padding: 0 0 0 1.6em; list-style: decimal outside; }
+.fix-undo li { padding: 2px 0; }
+.fix-undo li::marker { color: var(--cyan); font-family: var(--font-mono); }
+.mark-shows { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; padding: 12px 14px; border: 1px solid var(--line); background: rgba(9,11,16,0.55); }
+.mark-shows dt { font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75); padding-top: 3px; }
+.mark-shows dd { margin: 0; overflow-wrap: anywhere; }
+.mark-apps { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: rgba(9,11,16,0.55); }
+.mark-apps__row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 14px; padding: 9px 14px; }
+.mark-apps__row + .mark-apps__row { border-top: 1px solid var(--line); }
+.mark-apps__name { font-weight: 600; color: #fff; overflow-wrap: anywhere; }
+.mark-apps__maker { color: var(--dim); font-size: 13.5px; }
+.mark-tech { font-size: 14px; color: var(--dim); }
+.mark-tech summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75); list-style: none; }
+.mark-tech summary::-webkit-details-marker { display: none; }
+.mark-tech summary::before { content: '▸'; margin-right: 8px; font-size: 12px; }
+.mark-tech[open] summary::before { content: '▾'; }
+.mark-tech p { margin: 4px 0; }
+.mark-tech__ids { margin: 0; padding: 0 0 0 1.4em; overflow-wrap: anywhere; }
 .panel.safety { border-color: rgba(255,159,0,0.45); }
 .checking { font-family: var(--font-mono); color: var(--cyan); }
 
