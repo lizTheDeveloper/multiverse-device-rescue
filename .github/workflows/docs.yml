@@ -16,6 +16,7 @@ on:
   pull_request:
     paths:
       - 'docs/**'
+      - 'modules/**'
       - 'mkdocs.yml'
       - 'scripts/generate_module_catalog.py'
       - 'scripts/generate_command_catalog.py'
