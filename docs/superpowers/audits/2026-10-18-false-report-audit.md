@@ -63,18 +63,43 @@ Both modules now share pure parsers in `rescue/macos_firewall.py`, which return 
 type: Unknown"; macOS 26 prints `Type (Bundle):`), and the FileVault recovery summaries
 ("Personal recovery key: present" when unknown).
 
+### Fixed after review
+
+- **Screen Sharing / File Sharing that is on could never be reported** (`sharing_services`). The
+  exact-label check ran against the user's `launchctl list`, which never lists the system daemons
+  `com.apple.screensharing` and `com.apple.smbd`. Every sharing module now uses
+  `rescue/macos_launchd.py` to read `launchctl print system/<label>`, which needs no admin
+  (loaded → on; `Could not find service` → off; anything else → couldn't check).
+- **Remote Login read as "off" without admin** (`remote_login_check`, `sharing_services`,
+  `sharing_preferences_audit`). `systemsetup -getremotelogin` needs admin, and its refusal was
+  read as "off". For a security check that misses a real problem, so it is not a safe default.
+  Remote Login now comes from `launchctl print system/com.openssh.sshd`, and Remote Apple Events
+  from `system/com.apple.AEServer`. `systemsetup` is only a fallback, and only its exact "On/Off"
+  answer counts. Unreadable services get an info "couldn't check" (`sharing_unknown`,
+  `remote_access_unknown`), and "all disabled" is no longer claimed when something couldn't be read.
+- `sharing_services`: a failed `cupsctl` now means unknown, not off. `airdrop_config`: unreadable
+  Bluetooth means unknown. `audio_troubleshoot`: matches the exact `Audio` heading, and an empty
+  device list is a "couldn't check". `appleid_security_check`: says "Security updates only" when
+  only `CriticalUpdateInstall` is on. `default_browser`: a bundle id containing a quote never
+  reaches the `mdfind` query.
+- `docs/commands.md` lists every `socketfilterfw` command again: the argument lists are now literal.
+- All ten new `*_unknown` codes point to their parent finding's walkthrough.
+
 ### Not fixed (noted for follow-up)
 
-- `remote_login_check`, `sharing_services` and `sharing_preferences_audit` read Remote Login through
-  `systemsetup -getremotelogin`, which needs admin. Without it they report "off". On this Mac that
-  happens to be true (nothing listens on port 22), but it is the same unreadable-as-off pattern in
-  the safe direction.
-- `spotlight_status` and `spotlight_rebuild` (info only) still treat `Index is read-only.` as
-  "indexing disabled".
-- `vpn_leak_check`'s `vpn_configs` data holds "Available", picked up from the `scutil` header line.
-  The finding itself is right.
-- `icloud_storage_check` reports iCloud Drive and Photos as "disabled" (info). This audit didn't
-  confirm or rule that out.
+1. `spotlight_status`, `spotlight_rebuild` (info): still treat `Index is read-only.` as "indexing
+   disabled".
+2. `vpn_leak_check` (warning, claim correct): its `vpn_configs` data holds "Available", picked up
+   from the `scutil --nc list` header line.
+3. `icloud_storage_check` (info): reports iCloud Drive and Photos as "disabled". This audit didn't
+   confirm or rule that out.
+4. `sudo_touchid` (info): the fingerprint count comes from counting `bioutil -rs` lines, so it is
+   wrong (7 on this Mac).
+5. `sharing_services`, `remote_login_check` (warning when on): Remote Management is still read from
+   the user's `launchctl list` (`com.apple.RemoteDesktop.agent`) and from the RemoteManagement and
+   RemoteDesktop preference files, and `remote_login_check` also reads Screen Sharing from
+   `ARD_AllLocalUsers`. Neither was checked on a Mac with Remote Management on. A preference file
+   left over from an old setup can read as "on", and an unreadable state still reads as "off".
 
 ## Triage table (critical and warning findings from the first scan)
 
@@ -211,7 +236,8 @@ hid.
 | `lock_screen_check` | only warning *screen never turns off* (TRUE on AC). |
 | `network_diagnostics` | no gif0/stf0 findings. |
 | `sharing_preferences_audit` | info *Sharing services are properly disabled*. |
-| `sharing_services` | No issues. |
+| `sharing_services` | No issues: Screen Sharing, File Sharing and Remote Login read as off via `launchctl print system/<label>` (`Could not find service`), printer sharing off via `cupsctl`. |
+| `remote_login_check` | info *All remote access services are disabled*, now read without admin (`com.openssh.sshd` and `com.apple.AEServer` not loaded). |
 | `spotlight_repair` | info *Couldn't confirm Spotlight indexing* (macOS said "Index is read-only."). |
 | `ssh_key_audit` | info only; known_hosts files no longer listed as keys. |
 | `time_machine_check` | critical *Your Mac is not automatically backing up your files* (TRUE: no destination). |
@@ -222,6 +248,6 @@ hid.
 | `sudo_touchid` (info) | *Touch ID hardware detected*. Its fingerprint count (7) comes from counting `bioutil -rs` lines and is wrong. This is info only; noted for follow-up. |
 | `vpn_config` (info) | *Your VPN settings (1 found)*. |
 
-Verification: `uv run python scripts/generate_integrity_manifest.py`, plus regenerating
+Verification (after merging main and the review fixes): `uv run python scripts/generate_integrity_manifest.py`, plus regenerating
 `docs/commands.md`, `docs/REMEDIATION_CATALOG.md` and `docs/modules.md` (`--check` clean); `pytest
--q` → 4290 passed, 7 skipped; `ruff check` → clean.
+-q` → 4329 passed, 7 skipped; `ruff check` → clean.
