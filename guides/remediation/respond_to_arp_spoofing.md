@@ -44,10 +44,16 @@ for anything that matters; mobile data is not on the compromised network.
 
 ## Step 2: Confirm from the router itself
 
-Look at the label on the underside of the router, or its admin page, and
-compare the hardware (MAC) address printed there with the address the finding
-reported. If they differ, another device is impersonating the router and
-everything you send is passing through it first.
+If the finding said your router's hardware address was being used by other
+devices, or that the router's address looks fake: look at the label on the
+underside of the router, or its admin page, and compare the hardware (MAC)
+address printed there with the address the finding reported. If they differ,
+another device is impersonating the router and everything you send is passing
+through it first.
+
+If the finding said one hardware address was claiming several devices, it is
+low confidence: virtual machines and some network gear do this legitimately.
+Identify which device it is before treating it as an attack.
 
 Then open the router's own list of connected devices. It may be called
 Attached Devices, Device List, Client List, or DHCP Clients. It is the
@@ -62,8 +68,11 @@ device and run the check again; the entry that disappears is that device.
 
 ## Step 3: Take the router back
 
-An interceptor is already on the network, so treat the Wi-Fi password as
-compromised. Do this only after Step 1, in this order:
+Do this only after Step 1, and only once Step 2 has shown that the router is
+being impersonated or that there is a device on the network you do not
+recognise and cannot explain (if you do not recognise it, unplug it from your
+network). In that case an interceptor may already be on the network, so treat
+the Wi-Fi password as compromised. In this order:
 
 1. Connect a computer to the router by cable if you can, so the next steps do
    not go over the air.
