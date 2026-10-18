@@ -342,7 +342,7 @@ class Module(ModuleBase):
         info = {}
 
         # Get filesystem type
-        type_match = re.search(r"Type \(Bundle Code\):\s+(\S+)", output)
+        type_match = re.search(r"Type \(Bundle(?: Code)?\):\s+(\S+)", output)
         if type_match:
             fs_type = type_match.group(1).lower()
             if "apfs" in fs_type:

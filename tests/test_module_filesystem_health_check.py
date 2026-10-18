@@ -424,7 +424,7 @@ _DISKUTIL_ROOT_MACOS26 = """
    Volume Name:               Macintosh HD
    Mounted:                   Yes
    Mount Point:               /
-   Type (Bundle Code):        apfs
+   Type (Bundle):             apfs
    APFS Volume Group:         REDACTED
    Encrypted:                 No
    FileVault:                 Yes
@@ -454,6 +454,8 @@ def test_macos26_filevault_on_is_not_reported_unencrypted():
     assert not any(f.data.get("check") == "unencrypted_laptop" for f in result.findings)
     status = next(f for f in result.findings if f.data.get("check") == "encryption_status")
     assert status.data["encrypted"] is True
+    # macOS 26 labels it "Type (Bundle):", not "Type (Bundle Code):"
+    assert mod._parse_diskutil_info(_DISKUTIL_ROOT_MACOS26)["type"] == "APFS"
 
 
 def test_diskutil_filevault_line_used_when_fdesetup_silent():
