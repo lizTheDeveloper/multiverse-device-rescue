@@ -26,9 +26,9 @@ function ownText(lesson) {
   // For the phishing lesson, the messages and their tells are Reclaim City's
   // content. Only Device Rescue's wrapper text is checked here.
   const qs = lesson.questions.flatMap((q) => (lesson.type === 'phishing'
-    ? [q.prompt]
-    : [q.prompt, ...q.options.flatMap((o) => [o.text, o.feedback])]));
-  return [lesson.title, lesson.briefing, lesson.whatTheScanLooksFor, ...qs];
+    ? [q.prompt, q.teach]
+    : [q.prompt, q.teach, ...q.options.flatMap((o) => [o.text, o.feedback])]));
+  return [lesson.title, lesson.briefing, lesson.whatTheScanLooksFor, ...qs].filter((t) => t != null);
 }
 
 function sourceText(lesson) {
@@ -63,6 +63,34 @@ test('every lesson cites sources that exist, and modules that exist', async () =
   }
 });
 
+// The renderer only learns a module's category from the scan, so each lesson
+// names its districts. Each must be one a module it teaches really sweeps.
+function moduleDistricts(name, districtIdFor) {
+  const mods = path.join(ROOT, 'modules');
+  return fs.readdirSync(mods).filter((cat) => fs.existsSync(path.join(mods, cat, name))).map((cat) => districtIdFor(cat));
+}
+
+test('every lesson is reachable: from a district on the sweep, or from ALL LESSONS', async () => {
+  const { training, lessons } = await loadAll();
+  const { DISTRICTS, districtIdFor } = await import(pathToFileURL(path.join(GAME, 'findings-to-city.js')).href);
+  const ids = new Set(DISTRICTS.map((d) => d.id));
+  for (const l of lessons) {
+    assert.ok(Array.isArray(l.districts), `${l.id} names its districts (an empty list is fine)`);
+    const backed = new Set(l.modules.flatMap((m) => moduleDistricts(m, districtIdFor)));
+    for (const d of l.districts) {
+      assert.ok(ids.has(d), `${l.id}: no district ${d}`);
+      assert.ok(backed.has(d), `${l.id}: none of its modules is swept in ${d}`);
+    }
+    if (l.modules.length) assert.ok(l.districts.length, `${l.id} teaches checks, so a district opens it`);
+  }
+  const by = training.lessonsByDistrict(lessons, 'unsure');
+  const onSweep = new Set(Object.values(by).flat().map((l) => l.id));
+  assert.deepStrictEqual(lessons.filter((l) => !onSweep.has(l.id)).map((l) => l.id).sort(), ['couldnt-check', 'spot-the-fake']);
+  // ALL LESSONS is the Training Grounds, which lists every lesson.
+  const { recommended, other } = training.orderLessons(lessons, 'unsure');
+  assert.strictEqual(recommended.length + other.length, lessons.length);
+});
+
 test('every UI path and every backticked bit in a lesson appears word for word in its sources', async () => {
   const { lessons } = await loadAll();
   for (const l of lessons) {
@@ -88,7 +116,7 @@ test('no lesson tells the person what is wrong with their own computer, or how l
 test('every question has two or more options, exactly one right answer, and feedback on every option', async () => {
   const { lessons } = await loadAll();
   for (const l of lessons) {
-    assert.ok(l.questions.length >= 1 && l.questions.length <= 3, `${l.id}: 1–3 questions`);
+    assert.ok(l.questions.length >= 1 && l.questions.length <= 5, `${l.id}: 1–5 questions`);
     for (const q of l.questions) {
       assert.ok(q.options.length >= 2, `${l.id}: "${q.prompt}" needs options`);
       assert.strictEqual(q.options.filter((o) => o.correct === true).length, 1, `${l.id}: "${q.prompt}" needs exactly one right answer`);
@@ -112,4 +140,14 @@ test('the accuracy check catches a made-up path or command, and accepts real one
   assert.strictEqual(unsourced('go to Settings > Privacy > Make Me Safe', src).length, 1);
   assert.strictEqual(unsourced('go to Settings → Apps → fake thing', src).length, 1);
   assert.strictEqual(unsourced('Run `rescue make-me-safe --now`', src).length, 1);
+});
+
+test('each question carries its own what-to-know, and the accuracy check reads it', async () => {
+  const { lessons } = await loadAll();
+  for (const l of lessons.filter((x) => x.type !== 'phishing')) {
+    for (const q of l.questions) assert.ok(typeof q.teach === 'string' && q.teach.trim(), `${l.id}: "${q.prompt}" teaches nothing above it`);
+  }
+  const fake = { title: 'T', briefing: 'B', whatTheScanLooksFor: 'W',
+    questions: [{ teach: 'Open System Settings > Make Me Safe.', prompt: 'P', options: [] }] };
+  assert.ok(ownText(fake).includes('Open System Settings > Make Me Safe.'));
 });

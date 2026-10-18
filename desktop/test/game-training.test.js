@@ -62,3 +62,21 @@ test('buildSpotTheFake makes one real-or-fake question per picked message', asyn
   assert.throws(() => buildSpotTheFake([]));
   assert.throws(() => buildSpotTheFake([{ id: 1, answer: 'maybe', tells: ['x'] }]));
 });
+
+test('lessonsByDistrict groups lessons by their districts, in the worry’s order; districtLesson picks the next unfinished', async () => {
+  const { lessonsByDistrict, districtLesson } = await load();
+  const a = { ...L('a', ['wifi']), districts: ['gatehouse'] };
+  const b = { ...L('b'), districts: ['gatehouse', 'wires'] };
+  const c = L('c');
+  const by = lessonsByDistrict([b, a, c], 'wifi');
+  assert.deepStrictEqual(by.gatehouse.map((l) => l.id), ['a', 'b'], 'recommended first');
+  assert.deepStrictEqual(by.wires.map((l) => l.id), ['b']);
+  assert.strictEqual(districtLesson(by, { lessons: {} }, 'junkyard'), null);
+  const none = districtLesson(by, { lessons: {} }, 'gatehouse');
+  assert.strictEqual(none.lesson.id, 'a');
+  assert.deepStrictEqual([none.done, none.count, none.finished], [false, 2, 0]);
+  const one = districtLesson(by, { lessons: { a: { completedAt: 'x' } } }, 'gatehouse');
+  assert.deepStrictEqual([one.lesson.id, one.done, one.finished], ['b', false, 1]);
+  const all = districtLesson(by, { lessons: { a: { completedAt: 'x' }, b: { completedAt: 'y' } } }, 'gatehouse');
+  assert.deepStrictEqual([all.lesson.id, all.done], ['a', true], 'all done: the first again');
+});

@@ -15,7 +15,7 @@ const LESSON = {
   briefing: 'Open `chrome://extensions/` to see them.', whatTheScanLooksFor: 'Extensions.',
   questions: [
     { prompt: 'Q1?', options: [{ text: 'Yes', correct: true, feedback: 'Right.' }, { text: 'No', correct: false, feedback: 'Not quite.' }] },
-    { prompt: 'Q2?', options: [{ text: 'A', correct: false, feedback: 'Nope.' }, { text: 'B', correct: true, feedback: 'Yes.' }] },
+    { teach: 'Second `fact` here.', prompt: 'Q2?', options: [{ text: 'A', correct: false, feedback: 'Nope.' }, { text: 'B', correct: true, feedback: 'Yes.' }] },
   ],
 };
 const idle = { running: false, index: 0, total: 0, error: null };
@@ -138,7 +138,7 @@ test('a call or text has no subject line, and never prints null', async () => {
 test('lesson titles, prompts and feedback with HTML render as text', async () => {
   const v = await views();
   const lesson = { ...LESSON, title: EVIL, briefing: EVIL + ' `' + EVIL + '`',
-    questions: [{ prompt: EVIL, options: [{ text: EVIL, correct: true, feedback: EVIL }, { text: 'No', correct: false, feedback: 'x' }] }] };
+    questions: [{ teach: EVIL, prompt: EVIL, options: [{ text: EVIL, correct: true, feedback: EVIL }, { text: 'No', correct: false, feedback: 'x' }] }] };
   const lessonHtml = v.renderLesson({ lesson, qIndex: 0, picked: 0, scan: idle, scout });
   const trainHtml = v.renderTraining({ ordered: { recommended: [lesson], other: [] }, progress: { lessons: {} }, worryTitle: EVIL, scan: { ...failed, error: EVIL }, scout });
   for (const html of [lessonHtml, trainHtml]) {
@@ -203,4 +203,27 @@ test('after this worry’s checkup finished, the button runs it again rather tha
   // A failed later run says START, and a running one goes back to it.
   assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: failed, scout, scanFinished: true }), /START THE CHECKUP ▶/);
   assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: running, scout, scanFinished: true }), /data-go="boss"/);
+});
+
+test('lesson tiles carry a start cue; the first not-done lesson is the primary one; skip is quiet', async () => {
+  const v = await views();
+  const two = { recommended: [LESSON, { ...LESSON, id: 'l2' }], other: [] };
+  const html = v.renderTraining({ ordered: two, progress: { lessons: { l1: { completedAt: 1 } } }, scan: idle, scout });
+  assert.match(html, /AGAIN ▶<\/span>/);
+  assert.match(html, /START ▶<\/span>/);
+  assert.equal((html.match(/class="lesson[^"]*\bnext\b/g) || []).length, 1);
+  assert.match(html, /class="btn-s quiet" data-act="start-checkup"/);
+  assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: running, scout }), /class="btn-s lime" data-go="boss"/);
+});
+
+test('the lesson intro shows on question 1; each question’s own what-to-know shows above it', async () => {
+  const v = await views();
+  const q1 = v.renderLesson({ lesson: LESSON, qIndex: 0, picked: null, scan: idle, scout });
+  const q2 = v.renderLesson({ lesson: LESSON, qIndex: 1, picked: null, scan: idle, scout });
+  assert.doesNotMatch(q1, /Second/);
+  assert.doesNotMatch(q2, /chrome:\/\/extensions/);
+  assert.match(q2, /WHAT TO KNOW<\/div><p class="intel">Second <code>fact<\/code> here\.<\/p>/);
+  assert.ok(q2.indexOf('Second') < q2.indexOf('Q2?'));
+  const bare = { ...LESSON, briefing: '', questions: [LESSON.questions[0]] };
+  assert.doesNotMatch(v.renderLesson({ lesson: bare, qIndex: 0, picked: null, scan: idle, scout }), /WHAT TO KNOW/);
 });

@@ -19,7 +19,7 @@ import { verifyMission, disagreement, loadScanConfirmed, saveScanConfirmed, mark
 import { focusFor, countConfirmedAndReported, accountDistrictCards, deviceMissionFor } from './one-city.js';
 import { renderOneCityMap } from './views/one-city-map.js';
 import { renderVerification, renderMilestoneSplit } from './views/verification.js';
-import { loadLessons, orderLessons, lessonForModule, afterScanDone } from './training.js';
+import { loadLessons, orderLessons, lessonForModule, afterScanDone, lessonsByDistrict, districtLesson } from './training.js';
 import { bossInit, bossApply, bossFinish } from './boss.js';
 import { renderTraining } from './views/training.js';
 import { renderLesson } from './views/lesson.js';
@@ -66,7 +66,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   new Promise((r) => r(loadTraining())).catch(() => []).then((ls) => {
     s.lessons = Array.isArray(ls) ? ls : [];
     s.lessonsLoaded = true;
-    if (s.screen === 'training' || s.screen === 'lesson') render();
+    if (TRAINING_SCREENS.has(s.screen)) render();
   });
 
   loadGame().then((rc) => {
@@ -152,6 +152,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // in a lesson, or when this worry's scan has finished and the person came back
   // to the Training Grounds (the HUD's TRAINING, or a briefing's lesson link).
   const cityWaiting = () => s.pendingCity || (!!s.city && !s.scan.running && !s.scan.error);
+  const learnFor = () => {
+    const by = lessonsByDistrict(s.lessons, s.situation && s.situation.id);
+    return (id) => districtLesson(by, s.progress, id);
+  };
+
+  // Lessons show before any scan, so the platform falls back to what preload says.
+  const platform = () => (s.doc && s.doc.platform) || (win.rescue && win.rescue.platform) || null;
+  const settingFor = (key) => (win.SettingPanes ? win.SettingPanes.lessonSetting(key, platform()) : null);
 
   function screenHtml() {
     if (s.screen === 'training') {
@@ -161,11 +169,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'lesson') {
       const l = s.lesson && s.lessons.find((x) => x.id === s.lesson.id);
-      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city });
+      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor });
       s.screen = 'training';
       return screenHtml();
     }
-    if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen });
+    if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor() });
     if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
     if (s.screen === 'milestone' && district(s.districtId)) {
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
@@ -286,12 +294,24 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // Always a way back to the list, even while a re-check runs.
     if (act === 'list') { win.RescueHost.showList(); return; }
     if (act === 'leave') { win.RescueHost.leaveGame(); return; }
+    // Opens a System Settings page through main's allowlist; it changes nothing, so it's fine mid-re-check.
+    if (act && act.startsWith('open-setting:')) {
+      const url = win.SettingPanes ? win.SettingPanes.urlFor(act.slice(13)) : null;
+      if (url) Promise.resolve().then(() => win.rescue.openSetting(url)).catch(() => {});
+      return;
+    }
     if (s.busy) return;
     if (go) s.linkNotice = '';
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
     if (go === 'boss') { s.screen = s.scan.running ? 'boss' : 'training'; render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
     if (go && go.startsWith('lesson:')) { s.lesson = { id: go.slice(7), q: 0, picked: null }; s.screen = 'lesson'; render(); return; }
+    // A district on the sweep: the lesson for that area. Finishing it comes back here.
+    if (go && go.startsWith('learn:')) {
+      const l = learnFor()(go.slice(6));
+      if (l) { s.lesson = { id: l.lesson.id, q: 0, picked: null, fromSweep: true }; s.screen = 'lesson'; render(); }
+      return;
+    }
     if (act === 'start-checkup') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
     if (act && act.startsWith('answer:')) {
       if (s.lesson && s.lesson.picked == null) { s.lesson.picked = Number(act.slice(7)); render(); }
@@ -302,8 +322,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'finish-lesson' && s.lesson) {
       s.progress = setLessonDone(s.progress, s.lesson.id, now());
       saveProgress(storage, s.progress);
+      s.screen = s.lesson.fromSweep && s.scan.running ? 'boss' : 'training';
       s.lesson = null;
-      s.screen = 'training';
       render();
       return;
     }
@@ -465,6 +485,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.focusPending = true;
   }
 
+  // A new worry: no city until its scan finishes.
+  function newWorry(situation) {
+    s.situation = situation;
+    s.city = null; s.doc = null;
+    s.scan = idleScan();
+    s.pendingCity = false;
+    s.lesson = null;
+  }
+
   // show, showTraining, showBoss, scanDone and scanFailed return render()'s
   // answer: false means the person is already back on Device Rescue's screens.
   return {
@@ -478,13 +507,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return render();
     },
     update(doc) { rebuild(doc); render(); },
-    // A new worry: the Training Grounds, with no city until its scan finishes.
+    // A new worry in game mode: its scan starts at once (showBoss), no Training Grounds first.
+    newWorry,
+    // A new worry's Training Grounds.
     showTraining(situation) {
-      s.situation = situation;
-      s.city = null; s.doc = null;
-      s.scan = idleScan();
-      s.pendingCity = false;
-      s.lesson = null;
+      newWorry(situation);
       s.screen = 'training';
       return render();
     },

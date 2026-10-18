@@ -1,10 +1,17 @@
 import { esc } from '../escape.js';
 import { lessonText, skipBar, cityBanner, trainingHud } from './training.js';
 
-export function renderLesson({ lesson: l, qIndex, picked, scan, scout, pendingCity, scanFinished = false }) {
+// `settingFor(key)` gives { key, hint } for a question's `setting` on a Mac, else null.
+export function renderLesson({ lesson: l, qIndex, picked, scan, scout, pendingCity, scanFinished = false, settingFor = () => null }) {
   const i = Math.max(0, Math.min(qIndex, l.questions.length - 1));
   const q = l.questions[i];
   const last = i >= l.questions.length - 1;
+  // The lesson's intro opens question 1; each question's own `teach` sits right above it.
+  const know = [i === 0 && l.briefing, q.teach].filter(Boolean);
+  const setting = q.setting ? settingFor(q.setting) : null;
+  const settingHtml = setting ? `
+      <button type="button" class="btn-s setting-open" data-act="open-setting:${esc(setting.key)}">OPEN IN SYSTEM SETTINGS ▶</button>
+      <p class="setting-hint">${esc(setting.hint)}</p>` : '';
   const answer = picked != null ? q.options[picked] : null;
   const options = q.options.map((o, n) => {
     const cls = answer ? (o.correct ? ' right' : (n === picked ? ' wrong' : '')) : '';
@@ -26,7 +33,7 @@ export function renderLesson({ lesson: l, qIndex, picked, scan, scout, pendingCi
   ${pendingCity ? cityBanner() : ''}
   <section class="quiz lesson-screen">
     <div class="crumbs"><button type="button" data-go="training">Training Grounds</button> / <b>${esc(l.title)}</b> · QUESTION ${i + 1} OF ${l.questions.length}</div>
-    ${i === 0 ? `<div class="panel"><div class="label">WHAT TO KNOW</div><p class="intel">${lessonText(l.briefing)}</p></div>` : ''}
+    ${know.length ? `<div class="panel"><div class="label">WHAT TO KNOW</div>${know.map((t) => `<p class="intel">${lessonText(t)}</p>`).join('')}${settingHtml}</div>` : ''}
     ${message}
     <p class="q">${lessonText(q.prompt)}</p>
     <div class="options">${options}</div>

@@ -2,6 +2,11 @@
 
 Checks a person runs on a real Mac before a release. Run them from the
 repository root, with the engine installed in `.venv` (see the README).
+Start the app against that engine, not an old build in `desktop/engine/`:
+
+```bash
+cd desktop && RESCUE_ENGINE="$PWD/../.venv/bin/rescue" npm start
+```
 
 ## Game mode, end to end
 
@@ -20,7 +25,7 @@ sed -i '' "s#/Users/USER#$HOME#" ~/Library/LaunchAgents/com.devicerescue.qa.help
 ```
 
 Then run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` and check:
-1. Click **Play it as a game**, then **I'm not sure**, then **Run checkup**. The city appears with The Gatehouse dark, and DevTools' Console shows no CSP errors.
+1. Click **Play it as a game**, then **I'm not sure**. The checkup starts by itself on the sweep screen. When it finishes, the city appears with The Gatehouse dark, and DevTools' Console shows no CSP errors.
 2. DevTools → Network, filtered to "All": every request is `app://rescue/…`. There is no `https://`.
 3. Open The Gatehouse, then the `com.devicerescue.qa.helper` mission. Click **Fix it for me**, check that the panel text matches the list view's, and click **Yes, fix it**. "Checking again" appears, then **RECLAIMED**.
 4. Clear a district: in The Gatehouse (or another district with no **COULDN'T CHECK** panel), fix or do every remaining mission until each re-check says **RECLAIMED** (marking one as yours also counts). After the last one, answer **How did that go?**. The button reads **SEE THE GATEHOUSE**, and it opens **DISTRICT TAKEN BACK** with every fixed mission listed under **FIXED AND CHECKED**. The district screen still lists them, each with a **RECLAIMED** badge, and the map card shows **N RECLAIMED**, not **NOTHING FOUND**. A district with a **COULDN'T CHECK** panel never offers this screen.
@@ -32,7 +37,7 @@ Then run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` and 
 ## One city (Spec B)
 
 Run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` and check:
-1. Click **Play it as a game**, then **I think I've been hacked**, then run the checkup. The map shows "YOUR COMPUTER" with the device districts, then "YOUR ACCOUNTS", and the view is scrolled to The Master Keys. The HUD reads CONFIRMED and YOU REPORTED, with no RECLAIMED, and there are no payment links anywhere.
+1. Click **Play it as a game**, then **I think I've been hacked**. The checkup starts by itself; when it finishes, the map shows "YOUR COMPUTER" with the device districts, then "YOUR ACCOUNTS", and the view is scrolled to The Master Keys. The HUD reads CONFIRMED and YOU REPORTED, with no RECLAIMED, and there are no payment links anywhere.
 2. Open The Master Keys. The survey ("Do you have a Gmail account?") toggles, and a toggled account appears or disappears.
 3. Open a Gmail mission and click **GO DO IT**. The page opens in your browser, not in the app, and the app moves to the debrief. Answer it and **SUBMIT REPORT**. You land back on the district, and YOU REPORTED goes up by 1.
 4. Open The Perimeter, then **Harden Your Computer**. Every step has a badge: CONFIRMED BY YOUR COMPUTER, PROBLEM FOUND, COULDN'T CHECK, FOR WINDOWS COMPUTERS, or YOURS TO CHECK. If FileVault is off, PROBLEM FOUND links to the device mission.
@@ -45,22 +50,23 @@ Run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` and check
 ## Training Grounds and the final boss
 
 Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start`, with DevTools open, and check:
-1. Click **Play it as a game**, then **Someone is on my Wi-Fi…**. The Training Grounds opens. "The tool that asks for your password" is first, then "Who's on your Wi-Fi". **SKIP TO THE CHECKUP ▶** is visible.
-2. Open "Who's on your Wi-Fi" and answer question 1 wrongly. The feedback shows, the option is marked, and **NEXT QUESTION** appears. Click **Training Grounds** in the breadcrumb. The lesson isn't marked done.
-3. Finish "The tool that asks for your password". It shows **DONE**, and the HUD reads `1/8 LESSONS`.
-4. Click **SKIP TO THE CHECKUP ▶**. The boss screen shows: the bar moves, districts change from WAITING to SWEEPING to SWEPT, and "POP-UPS YOU MIGHT SEE" is listed. No district says safe or clear.
-5. Click **PLAY A LESSON WHILE YOU WAIT**, open a lesson, and answer one question. When the scan finishes, the banner "Your checkup is done." appears, and the answer you picked is still shown. Click **SEE YOUR CITY ▶** and the city appears. A district where some checks couldn't run has a dashed grey border and a **COULDN'T CHECK** badge. It is never lit.
-6. Click **TRAINING** in the HUD and finish "Things that start on their own". The banner offers **SEE YOUR CITY ▶**, and the bottom button reads **RUN THE CHECKUP AGAIN ▶**. Open The Gatehouse, then the `com.devicerescue.qa.helper` mission. The briefing shows "You learned about this in the Training Grounds" and links to the lesson.
-7. With the test launch agent still in place, click **LIST** in the HUD, then **Start over**, then **Play it as a game**, **Someone is on my Wi-Fi…** and **SKIP TO THE CHECKUP ▶**. Click **PLAIN VIEW** on the boss screen mid-scan. The plain scan screen shows live progress. When it finishes, the list results show, not the city.
-8. Simulate a failed scan: quit, run with `RESCUE_ENGINE=/usr/bin/false`, play, pick a worry, and start the checkup. You're back in the Training Grounds with "THE CHECKUP STOPPED" and **START THE CHECKUP ▶**.
-9. Start over and pick **I think someone is watching me** after **Play it as a game**. The plain scan screen opens, with no Training Grounds.
-10. Simulate monitoring software. Quit, save this as `/tmp/fake-rescue`, and run `chmod +x /tmp/fake-rescue`:
+1. Click **Play it as a game**, then **Someone is on my Wi-Fi…**. The checkup starts at once on the sweep screen (THE SWEEP), with no Training Grounds first. "POP-UPS YOU MIGHT SEE" is listed above the districts, and any macOS permission pop-up that appears matches one of the tips.
+2. While it runs: the bar moves and districts change from WAITING to SWEEPING to SWEPT. No district says safe or clear. The Gatehouse, The Wires and The Foundations each show **LEARN ▶**; The Engine Room and The Junkyard have no cue and do nothing when clicked. The district being swept has a bright border and "Scanning now — learn about it". With VoiceOver on, Tab reaches the districts, and each is read as "Learn about …", followed by its state. Focus stays on the district you're on as the sweep moves.
+3. Click the district marked "Scanning now". Its lesson opens, with **BACK TO THE CHECKUP ▶** at the bottom. Answer question 1 wrongly: the feedback shows, the option is marked, and **NEXT QUESTION** appears. Click **BACK TO THE CHECKUP ▶**. That district still shows **LEARN ▶**.
+4. Click **The Wires** and finish "Who's on your Wi-Fi". You're back on the sweep, and The Wires shows **DONE ✓**. Click **The Gatehouse**: "The tool that asks for your password" opens, the first unfinished Gatehouse lesson for this worry.
+5. Click **ALL LESSONS** on the sweep. The Training Grounds lists every lesson, including "Spot the fake message" and "What “couldn’t check” means", which no district opens. The HUD reads `1/8 LESSONS`, and the bottom button is **BACK TO THE CHECKUP ▶**.
+6. Open any lesson and answer one question. When the scan finishes, you stay on that question: the banner "Your checkup is done." appears, and the answer you picked is still shown. Click **SEE YOUR CITY ▶** and the city appears. A district where some checks couldn't run has a dashed grey border and a **COULDN'T CHECK** badge. It is never lit. (In System Settings → Accessibility → Display, with Reduce motion on, the sweep's moving light doesn't move.)
+7. Click **TRAINING** in the HUD and finish "Things that start on their own". The banner offers **SEE YOUR CITY ▶**, and the bottom button reads **RUN THE CHECKUP AGAIN ▶**. Open The Gatehouse, then the `com.devicerescue.qa.helper` mission. The briefing shows "You learned about this in the Training Grounds" and links to the lesson.
+8. With the test launch agent still in place, click **LIST** in the HUD, then **Start over**, then **Play it as a game** and **Someone is on my Wi-Fi…**. Click **PLAIN VIEW** on the sweep mid-scan. The plain scan screen shows live progress. When it finishes, the list results show, not the city.
+9. Simulate a failed scan: quit, run with `RESCUE_ENGINE=/usr/bin/false`, click **Play it as a game** and pick a worry. You land in the Training Grounds with "THE CHECKUP STOPPED" and **START THE CHECKUP ▶**.
+10. Start over and pick **I think someone is watching me** after **Play it as a game**. The plain scan screen opens, waiting for **Run checkup**: no sweep, no lessons, and no checkup started for you. Do the same with the iPhone worry.
+11. Simulate monitoring software. Quit, save this as `/tmp/fake-rescue`, and run `chmod +x /tmp/fake-rescue`:
     ```sh
     #!/bin/sh
     echo '{"schema_version":1,"platform":"darwin","modules":[{"name":"stalkerware_scan","category":"security","status":"ok","error":null,"supported":true,"findings":[{"title":"Monitoring app found (test)","description":"Test only.","severity":"critical","category":"security","data":{}}]}]}'
     ```
-    Run with `RESCUE_ENGINE=/tmp/fake-rescue`, click **Get started**, pick **I’m not sure — check everything**, and run the checkup. Click **Start over**. The welcome screen no longer shows **Play it as a game**. Quit and delete `/tmp/fake-rescue` afterwards.
-11. DevTools → Network: every request is `app://rescue/…`, including `rc/data/phishing.js`.
-12. Clean up the test launch agent as in "Game mode, end to end", step 8.
+    Run with `RESCUE_ENGINE=/tmp/fake-rescue`, click **Play it as a game** and pick **I’m not sure — check everything**. The sweep runs, and when it finishes the list results show, not the city. Click **Start over**. The welcome screen no longer shows **Play it as a game**. Quit and delete `/tmp/fake-rescue` afterwards.
+12. DevTools → Network: every request is `app://rescue/…`, including `rc/data/phishing.js`.
+13. Clean up the test launch agent as in "Game mode, end to end", step 8.
 
 Record anything that doesn't match as a bug and fix it before the release goes out.

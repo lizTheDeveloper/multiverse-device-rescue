@@ -3,16 +3,18 @@ export default {
   title: 'Who’s on your Wi-Fi',
   recommendedFor: ['wifi'],
   modules: ['lan_device_inventory', 'arp_spoof_check', 'router_security_audit', 'wifi_security_audit', 'crypto_miner_detect', 'win_crypto_miner_detect'],
+  districts: ['wires'],
   sources: [
     'guides/home_network_intrusion/phase_0.md',
     'guides/home_network_intrusion/phase_1.md',
     'guides/home_network_intrusion/phase_2.md',
     'guides/home_network_intrusion/phase_3.md',
   ],
-  briefing: 'A slow computer, fans running all the time, a hot laptop doing nothing: these are some of the things that make people worry about their Wi-Fi. The checkup can list devices that have recently talked to this computer, but that list can be incomplete. The router’s own admin page is the full list. If the person you’re worried about is someone you know, stop before you cut them off. Cutting off someone’s access tells them they’ve been found out. If they have ever frightened you, it’s worth getting help to plan the safest order.',
+  briefing: 'A slow computer, fans running all the time, a hot laptop doing nothing: these are some of the things that make people worry about their Wi-Fi.',
   whatTheScanLooksFor: 'The checkup lists devices that have recently talked to this computer, looks for signs that something is intercepting your traffic, and checks which admin services your router offers to the network. On a Mac or a Windows computer, it also looks for cryptocurrency mining running right now.',
   questions: [
     {
+      teach: 'A hot, loud, slow computer usually turns out to be cryptocurrency mining: a program using the computer’s power to make money for someone else. On a Mac or a Windows computer, the checkup looks for mining running right now. Your network and your router are separate checks.',
       prompt: 'Your computer is hot and slow. What does the checkup do about that?',
       options: [
         { text: 'It looks for cryptocurrency mining running right now, and checks your network separately', correct: true,
@@ -24,6 +26,7 @@ export default {
       ],
     },
     {
+      teach: 'Phones, laptops, TVs, printers, doorbells and smart plugs all count as devices. Most households are surprised by the count, and twenty is normal now. Name each one. For anything you can’t name, unplug it or switch it off and look again. The one that disappears is that device.',
       prompt: 'The list shows more devices than you expected. What’s most likely?',
       options: [
         { text: 'Strangers have joined', correct: false,
@@ -33,6 +36,27 @@ export default {
       ],
     },
     {
+      teach: 'The checkup lists devices that have recently talked to this computer, so its list can be incomplete. The router’s own admin page is the full list, including devices this computer hasn’t spoken to.',
+      prompt: 'Where is the full list of devices on your network?',
+      options: [
+        { text: 'The router’s own admin page', correct: true,
+          feedback: 'Right. Compare it with the checkup’s list. Anything on the router’s list you can’t account for is the thing to focus on.' },
+        { text: 'The checkup’s device list', correct: false,
+          feedback: 'That list only shows devices that have recently talked to this computer. The router’s admin page is the full list.' },
+      ],
+    },
+    {
+      teach: 'If the person you’re worried about is someone you know, like a partner, an ex or a housemate, stop before you cut them off. Cutting off someone’s access tells them they’ve been found out. If they have ever frightened you, it’s worth getting help to plan the safest order.',
+      prompt: 'You think a housemate who has frightened you is on your Wi-Fi. What comes first?',
+      options: [
+        { text: 'Get help planning the safest order before you cut them off', correct: true,
+          feedback: 'Right. Cutting someone off tells them they’ve been found out, so the safe order matters more than speed.' },
+        { text: 'Change the Wi-Fi passphrase straight away', correct: false,
+          feedback: 'That tells them they’ve been found out. When it’s someone who has frightened you, get help planning the safest order first.' },
+      ],
+    },
+    {
+      teach: 'The Wi-Fi passphrase is what devices use to join. Update the router’s firmware (its built-in software) first, because if the router has a known weakness, a new passphrase doesn’t help. Turn off WPS too, or its PIN gets around the new passphrase.',
       prompt: 'What actually removes everyone you haven’t allowed onto your Wi-Fi?',
       options: [
         { text: 'A new Wi-Fi passphrase', correct: true,

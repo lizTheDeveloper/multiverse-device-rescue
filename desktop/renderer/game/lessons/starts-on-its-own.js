@@ -3,6 +3,7 @@ export default {
   title: 'Things that start on their own',
   recommendedFor: ['hacked', 'sketchy', 'helping', 'unsure'],
   modules: ['launch_agent_audit', 'launchd_persistence_audit', 'win_autoruns_audit'],
+  districts: ['gatehouse'],
   sources: [
     'guides/remediation/review_launch_persistence.md',
     'guides/remediation/audit_windows_autoruns.md',
@@ -10,10 +11,11 @@ export default {
     'desktop/renderer/app.js',
     'desktop/renderer/fix-flow.js',
   ],
-  briefing: 'Some programs set themselves up to start every time you log in. On a Mac these include launch agents. On Windows they sit in Run keys and the Startup folders. Lots of ordinary apps do this, like sync clients and VPN helpers. Unwanted software does it too, so it keeps coming back. When a finding names a program, Device Rescue says who made it and whether that could be checked: for example a “verified signature”, or “not signed”.',
+  briefing: 'Some programs set themselves up to start every time you log in. On a Mac these include launch agents. On Windows they sit in Run keys and the Startup folders.',
   whatTheScanLooksFor: 'On a Mac, the checkup lists background items that aren’t part of macOS, and flags ones that run from /tmp, /var/tmp or a hidden folder. On Windows, it lists every startup entry, and flags ones that run from a Temp or Downloads folder.',
   questions: [
     {
+      teach: 'Lots of ordinary apps do this, like sync clients and VPN helpers. Unwanted software does it too, so it keeps coming back. One strong warning sign is a program that runs from a temporary or hidden folder. Installed software normally runs from its own install folder, like Program Files on Windows.',
       prompt: 'Which of these is a warning sign in something that starts on its own?',
       options: [
         { text: 'It’s made by a company you know, with a verified signature', correct: false,
@@ -25,6 +27,17 @@ export default {
       ],
     },
     {
+      teach: 'When a finding names a program, Device Rescue says who made it and whether that could be checked: for example a “verified signature”, or “not signed”. A verified signature tells you who made it, not that you wanted it.',
+      prompt: 'A finding says a program has a “verified signature”. What does that tell you?',
+      options: [
+        { text: 'Who made it', correct: true,
+          feedback: 'Right. It tells you who made it. Whether you want it running is still your call.' },
+        { text: 'That you installed it and want it', correct: false,
+          feedback: 'A signature can’t tell that. It tells you who made it, not that you wanted it.' },
+      ],
+    },
+    {
+      teach: 'If you don’t recognise one, look before you remove anything. Switching it off and moving its file aside, rather than deleting it, means it can be looked at again or put back.',
       prompt: 'You don’t recognise a background item. What’s the safest first move?',
       options: [
         { text: 'Delete it straight away', correct: false,

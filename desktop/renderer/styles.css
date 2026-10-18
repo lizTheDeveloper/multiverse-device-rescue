@@ -786,6 +786,8 @@ h3 {
 .made-by__explainer p { margin: 0.3rem 0 0; }
 @media (prefers-color-scheme: dark) {
   .made-by__line--ok { color: #8fd3bf; background: rgba(143, 211, 191, 0.12); }
+}
+
 /* ---------- Ask about this ---------- */
 
 .ask {
@@ -1172,9 +1174,128 @@ h3 {
   flex-wrap: wrap;
   align-items: center;
 }
-/* Game mode: the welcome button, the results switch, and the city screen's host */
-.welcome-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+/* ---------- Welcome: two ways in ---------- */
+
+.route-prompt {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.route-choice {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.route {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 1.15rem 1.2rem 1.05rem;
+  border-radius: var(--radius-md);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.route:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-soft);
+}
+
+.route:active {
+  transform: translateY(0);
+}
+
+.route__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.route__title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.route__desc {
+  font-size: 0.92rem;
+  line-height: 1.45;
+  flex: 1;
+}
+
+.route__go {
+  margin-top: 0.5rem;
+  align-self: flex-start;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.route--check {
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--brand);
+}
+
+.route--check .route__eyebrow { color: var(--brand); }
+.route--check .route__desc { color: var(--text-muted); }
+.route--check .route__go { background: var(--brand); color: var(--brand-contrast); }
+.route--check:hover .route__go { background: var(--brand-strong); }
+
+.route--game {
+  background:
+    linear-gradient(rgba(0, 229, 255, 0.06) 1px, transparent 1px) 0 0 / 100% 18px,
+    radial-gradient(400px 200px at 100% 0%, rgba(0, 229, 255, 0.18), transparent 70%),
+    #0b0e15;
+  color: #edeff3;
+  border: 2px solid #0b0e15;
+}
+
+.route--game .route__eyebrow { color: #00e5ff; font-family: 'Orbitron', -apple-system, sans-serif; }
+.route--game .route__title { font-family: 'Orbitron', -apple-system, sans-serif; font-size: 1.15rem; letter-spacing: 0.02em; }
+.route--game .route__desc { color: rgba(237, 239, 243, 0.72); }
+.route--game .route__go {
+  background: transparent;
+  color: #00e5ff;
+  border: 1.5px solid #00e5ff;
+  font-family: 'Orbitron', -apple-system, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+}
+.route--game:hover { border-color: #00e5ff; box-shadow: 0 10px 28px -14px rgba(0, 229, 255, 0.55); }
+
+@media (prefers-reduced-motion: reduce) {
+  .route, .route:hover { transition: none; transform: none; }
+}
+
+/* Game mode: the results switch and the city screen's host */
 .btn--game { background: #0b0e15; color: #00E5FF; border: 1px solid #0b0e15; }
 .btn--game small { display: block; font-weight: 400; font-size: 12px; color: rgba(237,239,243,0.65); }
 .screen--city { padding: 0; }
 #city-host { min-height: 70vh; }
+
+/* ---------- Open in System Settings (opens a page; changes nothing) ---------- */
+
+.setting-link {
+  margin: 0.5rem 0 0.25rem;
+}
+
+.setting-link .btn--small {
+  margin-top: 0.25rem;
+}
+
+.setting-link__hint {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+}

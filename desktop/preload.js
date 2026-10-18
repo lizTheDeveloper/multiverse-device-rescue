@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer, shell } = require('electron');
 contextBridge.exposeInMainWorld('rescue', {
+  // Read-only: which OS this is ("darwin", "win32", "linux"), known before any scan.
+  platform: process.platform,
   runScan: (profile) => ipcRenderer.invoke('run-scan', profile),
   runFix: (moduleName) => ipcRenderer.invoke('run-fix', moduleName),
   runAction: (action, target) => ipcRenderer.invoke('run-fix-action', action, target),

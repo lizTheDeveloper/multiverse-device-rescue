@@ -41,10 +41,20 @@
               <span>Device Rescue only looks &mdash; it never changes anything on your device without your explicit OK.</span>
             </div>
           </div>
-          <div class="welcome-actions">
-            <button id="btn-get-started" class="btn btn--primary btn--large" type="button">Get started</button>
-            <button id="btn-play-game" class="btn btn--game btn--large" type="button">Play it as a game
-              <small>Same checkup, as a city to take back</small></button>
+          <h2 class="route-prompt">How would you like to do it?</h2>
+          <div class="route-choice">
+            <button id="btn-get-started" class="route route--check" type="button">
+              <span class="route__eyebrow">The checkup</span>
+              <span class="route__title">Get started</span>
+              <span class="route__desc">Tell us what&rsquo;s worrying you, run a read-only checkup, and get a plain-language list of what to look at.</span>
+              <span class="route__go" aria-hidden="true">Start the checkup &rarr;</span>
+            </button>
+            <button id="btn-play-game" class="route route--game" type="button">
+              <span class="route__eyebrow">Reclaim City</span>
+              <span class="route__title">Play it as a game</span>
+              <span class="route__desc">The same checkup, shown as a city to take back. Some worries start with a few short lessons.</span>
+              <span class="route__go" aria-hidden="true">Play &#9654;</span>
+            </button>
           </div>
         </div>
       </section>
@@ -176,6 +186,7 @@
   <script src="fix-flow.js"></script>
   <script src="mark-flow.js"></script>
   <script src="clear-list.js"></script>
+  <script src="setting-panes.js"></script>
   <script src="app.js"></script>
   <script type="module" src="game/boot.js"></script>
 </body>

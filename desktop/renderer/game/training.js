@@ -56,6 +56,26 @@ export function lessonForModule(lessons, progress, module) {
   return (lessons || []).find((l) => (l.modules || []).includes(module) && lessonDone(progress, l.id)) || null;
 }
 
+// Each lesson names the districts it teaches (`districts`): the renderer only
+// learns a module's category from the scan, and a district must be clickable
+// before its checks run. A lesson with none is in the Training Grounds list.
+export function lessonsByDistrict(lessons, worryId) {
+  const { recommended, other } = orderLessons(lessons, worryId);
+  const out = {};
+  for (const l of [...recommended, ...other]) for (const d of l.districts || []) (out[d] = out[d] || []).push(l);
+  return out;
+}
+
+// What a district on the sweep opens: its first unfinished lesson, else its
+// first. `done`: every lesson for it is finished. null: no lesson teaches it.
+export function districtLesson(byDistrict, progress, districtId) {
+  const list = (byDistrict && byDistrict[districtId]) || [];
+  if (!list.length) return null;
+  const next = list.find((l) => !lessonDone(progress, l.id));
+  return { lesson: next || list[0], done: !next, count: list.length,
+    finished: list.filter((l) => lessonDone(progress, l.id)).length };
+}
+
 export function afterScanDone(screen) {
   return screen === 'lesson' ? 'banner' : 'city';
 }

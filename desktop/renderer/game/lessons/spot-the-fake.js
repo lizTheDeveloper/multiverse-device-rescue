@@ -23,6 +23,7 @@ export function buildSpotTheFake(messages) {
         ],
       };
     });
+  if (questions.length) questions[0].teach = 'Look at who sent it, whether it rushes you, and what it asks you to do. Even when a message looks real, type the company’s address into the address bar yourself, and don’t call a number from the message.';
   if (!questions.length) throw new Error('Spot the fake message: no usable messages');
   return {
     id: 'spot-the-fake',
@@ -30,8 +31,9 @@ export function buildSpotTheFake(messages) {
     title: 'Spot the fake message',
     recommendedFor: ['hacked', 'identity', 'helping'],
     modules: [],
+    districts: [],
     sources: ['desktop/vendor/reclaim-city/src/data/phishing.js', 'guides/identity_theft_recovery/phase_6.md'],
-    briefing: 'Scammers copy the messages real companies send. These come from Reclaim City’s scam-defense quiz. For each one, decide whether it’s real or fake. Look at who sent it, whether it rushes you, and what it asks you to do. Even when a message looks real, type the company’s address into the address bar yourself, and don’t call a number from the message.',
+    briefing: 'Scammers copy the messages real companies send. These come from Reclaim City’s scam-defense quiz. For each one, decide whether it’s real or fake.',
     whatTheScanLooksFor: 'The checkup can’t see your messages. It looks for what a scam can leave behind on the computer, like remote-access tools.',
     questions,
   };

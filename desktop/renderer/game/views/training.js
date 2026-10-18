@@ -21,7 +21,7 @@ export function skipBar(scan, scanFinished = false) {
   const label = scan && scan.error ? 'START THE CHECKUP ▶'
     : scanFinished ? 'RUN THE CHECKUP AGAIN ▶' : 'SKIP TO THE CHECKUP ▶';
   return `<div class="skip-bar"><span>You don’t need to finish any lessons first.</span>
-    <button type="button" class="btn-s lime" data-act="start-checkup">${label}</button></div>`;
+    <button type="button" class="btn-s quiet" data-act="start-checkup">${label}</button></div>`;
 }
 
 export function trainingHud(progress, lessons) {
@@ -31,17 +31,20 @@ export function trainingHud(progress, lessons) {
     <span class="switch"><button type="button" data-act="leave">PLAIN VIEW</button></span></header>`;
 }
 
-function lessonItem(l, progress) {
+// `next`: the one lesson to start first; it gets the strongest styling.
+function lessonItem(l, progress, next = false) {
   const n = l.questions.length;
-  return `<li><button type="button" class="lesson${lessonDone(progress, l.id) ? ' done' : ''}" data-go="lesson:${esc(l.id)}">
+  const done = lessonDone(progress, l.id);
+  return `<li><button type="button" class="lesson${done ? ' done' : ''}${next ? ' next' : ''}" data-go="lesson:${esc(l.id)}">
     <b>${esc(l.title)}</b><small>${n} question${n === 1 ? '' : 's'}</small>
-    ${lessonDone(progress, l.id) ? '<span class="badge cyan">DONE</span>' : ''}</button></li>`;
+    ${done ? '<span class="badge cyan">DONE</span>' : ''}<span class="go" aria-hidden="true">${done ? 'AGAIN' : 'START'} ▶</span></button></li>`;
 }
 
 // `lessonsLoaded`: false while the lesson files are still loading, so an empty
 // list isn't yet a failure.
 export function renderTraining({ ordered, progress, worryTitle, scan, scout, pendingCity, lessonsLoaded = false, scanFinished = false }) {
   const all = [...ordered.recommended, ...ordered.other];
+  const nextLesson = ordered.recommended.find((l) => !lessonDone(progress, l.id)) || all.find((l) => !lessonDone(progress, l.id));
   const head = worryTitle ? `RECOMMENDED FOR “${esc(String(worryTitle).toUpperCase())}”` : 'START HERE';
   const failed = scan && scan.error ? `
     <div class="panel fogged" role="alert"><div class="label">THE CHECKUP STOPPED</div>
@@ -53,8 +56,8 @@ export function renderTraining({ ordered, progress, worryTitle, scan, scout, pen
   ${failed}
   <section class="train">
     <div class="lessons">
-      ${ordered.recommended.length ? `<span class="label">${head}</span><ul>${ordered.recommended.map((l) => lessonItem(l, progress)).join('')}</ul>` : ''}
-      ${ordered.other.length ? `<span class="label faint">ALSO HERE</span><ul>${ordered.other.map((l) => lessonItem(l, progress)).join('')}</ul>` : ''}
+      ${ordered.recommended.length ? `<span class="label">${head}</span><ul>${ordered.recommended.map((l) => lessonItem(l, progress, l === nextLesson)).join('')}</ul>` : ''}
+      ${ordered.other.length ? `<span class="label faint">ALSO HERE</span><ul>${ordered.other.map((l) => lessonItem(l, progress, l === nextLesson)).join('')}</ul>` : ''}
       ${all.length ? '' : lessonsLoaded
     ? '<p class="intel">The lessons couldn’t load. The checkup still works.</p>'
     : '<p class="intel">Getting the lessons ready.</p>'}

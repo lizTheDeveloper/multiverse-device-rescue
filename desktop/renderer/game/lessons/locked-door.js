@@ -3,16 +3,19 @@ export default {
   title: 'Updates and the locked door',
   recommendedFor: ['identity', 'helping', 'unsure'],
   modules: ['automatic_updates', 'update_checker', 'encryption_check', 'filevault_recovery', 'win_bitlocker_check', 'lock_screen_check', 'screen_lock_check'],
+  districts: ['gatehouse', 'foundations'],
   sources: [
     'guides/remediation/enable_automatic_updates.md',
     'guides/remediation/enable_disk_encryption.md',
     'guides/remediation/enforce_lock_screen.md',
     'guides/remediation/enable_bitlocker.md',
   ],
-  briefing: 'Three settings do a lot of quiet work. Automatic updates install security fixes. On a Mac, “Install Security Responses and system files” is the most important one, because it covers rapid-response security patches. FileVault, on a Mac, encrypts the whole startup disk, so its contents can’t be read without the password or recovery key, even if the disk is taken out. And a lock screen that asks for your password straight away gives someone less chance to use the computer while you step away.',
+  briefing: 'Three settings do a lot of quiet work: automatic updates, FileVault and the lock screen. This lesson takes them one at a time.',
   whatTheScanLooksFor: 'On a Mac, the checkup looks at your update settings, whether FileVault is on, and how soon the screen asks for a password. On Windows, it checks whether BitLocker is encrypting your drives.',
   questions: [
     {
+      teach: 'Automatic updates install security fixes for you. On a Mac, they’re in System Settings > General > Software Update. Click the “i” next to “Automatic updates” to see each switch.',
+      setting: 'softwareUpdate',
       prompt: 'On a Mac, where do you turn on automatic updates?',
       options: [
         { text: 'System Settings > General > Software Update', correct: true,
@@ -24,6 +27,34 @@ export default {
       ],
     },
     {
+      teach: 'Of those switches, “Install Security Responses and system files” is the most important one. It covers rapid-response security patches that come out between full macOS updates.',
+      setting: 'softwareUpdate',
+      prompt: 'Which update switch matters most for security?',
+      options: [
+        { text: '“Install Security Responses and system files”', correct: true,
+          feedback: 'Right. It covers the rapid-response security patches.' },
+        { text: '“Automatically update apps from the App Store”', correct: false,
+          feedback: 'That one is worth having too, but “Install Security Responses and system files” is the most important, because it covers rapid-response security patches.' },
+        { text: '“Check for updates”', correct: false,
+          feedback: 'Checking is a start, but on its own it doesn’t install anything. “Install Security Responses and system files” is the most important switch.' },
+      ],
+    },
+    {
+      teach: 'FileVault, on a Mac, encrypts (scrambles) the whole startup disk, so its contents can’t be read without your password or recovery key, even if the disk is taken out. It’s in System Settings > Privacy & Security > FileVault. On Windows, BitLocker does this job.',
+      setting: 'fileVault',
+      prompt: 'What does FileVault do?',
+      options: [
+        { text: 'Encrypts the whole startup disk, so it can’t be read without your password or recovery key', correct: true,
+          feedback: 'Right. Even if someone takes the disk out, they can’t read it.' },
+        { text: 'Makes the screen ask for a password after it locks', correct: false,
+          feedback: 'That’s the lock screen setting. FileVault encrypts the disk.' },
+        { text: 'Installs security fixes', correct: false,
+          feedback: 'That’s automatic updates. FileVault encrypts the disk.' },
+      ],
+    },
+    {
+      teach: 'When you turn FileVault on, you choose how to keep the recovery key: store it with your Apple ID, or get a key to keep yourself. Anyone who has that key can unlock the whole disk, so treat it like a master password.',
+      setting: 'fileVault',
       prompt: 'You turn on FileVault and it shows you a recovery key. Where should it go?',
       options: [
         { text: 'Paste it into Device Rescue so it’s kept safe', correct: false,
@@ -35,6 +66,8 @@ export default {
       ],
     },
     {
+      teach: 'When the screen locks, your Mac can ask for the password straight away, or after a delay. A long delay gives someone a chance to use it while you step away. It’s in System Settings > Lock Screen.',
+      setting: 'lockScreen',
       prompt: 'How soon after the screen locks should your Mac ask for the password?',
       options: [
         { text: 'Immediately', correct: true,

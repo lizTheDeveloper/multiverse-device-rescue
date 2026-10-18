@@ -1,17 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { trainingFirst, postScanView, gameOfferedFor, worryOpensTraining, gameStillOffered, noteMonitoring, SITUATIONS } = require('../renderer/app.js');
+const { gameScanFirst, postScanView, gameOfferedFor, worryStartsGameScan, gameStillOffered, noteMonitoring, SITUATIONS } = require('../renderer/app.js');
 const byId = (id) => SITUATIONS.find((s) => s.id === id);
 
 test('the Training Grounds only follows a worry the game is offered for', () => {
   for (const s of SITUATIONS) {
     const offered = gameOfferedFor(s, null);
-    assert.strictEqual(trainingFirst({ wantsCity: true, offered, ready: true }), offered, s.id);
+    assert.strictEqual(gameScanFirst({ wantsCity: true, offered, ready: true }), offered, s.id);
   }
-  assert.strictEqual(trainingFirst({ wantsCity: true, offered: gameOfferedFor(byId('watched'), null), ready: true }), false);
-  assert.strictEqual(trainingFirst({ wantsCity: true, offered: gameOfferedFor(byId('phone'), null), ready: true }), false);
-  assert.strictEqual(trainingFirst({ wantsCity: false, offered: true, ready: true }), false);
-  assert.strictEqual(trainingFirst({ wantsCity: true, offered: true, ready: false }), false);
+  assert.strictEqual(gameScanFirst({ wantsCity: true, offered: gameOfferedFor(byId('watched'), null), ready: true }), false);
+  assert.strictEqual(gameScanFirst({ wantsCity: true, offered: gameOfferedFor(byId('phone'), null), ready: true }), false);
+  assert.strictEqual(gameScanFirst({ wantsCity: false, offered: true, ready: true }), false);
+  assert.strictEqual(gameScanFirst({ wantsCity: true, offered: true, ready: false }), false);
 });
 
 test('after the boss scan: city only when still offered and the person stayed in the game', () => {
@@ -39,14 +39,14 @@ test('a worry never opens the Training Grounds on a machine whose last scan foun
   const critical = { modules: [{ name: 'keylogger_indicators', findings: [{ severity: 'critical' }] }] };
   const infoOnly = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'info' }] }] };
   for (const id of ['unsure', 'wifi', 'hacked', 'helping']) {
-    assert.strictEqual(worryOpensTraining({ ...ready, situation: byId(id), lastScanDoc: warned }), false, id);
-    assert.strictEqual(worryOpensTraining({ ...ready, situation: byId(id), lastScanDoc: critical }), false, id);
-    assert.strictEqual(worryOpensTraining({ ...ready, situation: byId(id), lastScanDoc: infoOnly }), true, id);
-    assert.strictEqual(worryOpensTraining({ ...ready, situation: byId(id), lastScanDoc: null }), true, id);
+    assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId(id), lastScanDoc: warned }), false, id);
+    assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId(id), lastScanDoc: critical }), false, id);
+    assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId(id), lastScanDoc: infoOnly }), true, id);
+    assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId(id), lastScanDoc: null }), true, id);
   }
-  assert.strictEqual(worryOpensTraining({ ...ready, situation: byId('watched'), lastScanDoc: null }), false);
-  assert.strictEqual(worryOpensTraining({ ...ready, situation: byId('phone'), lastScanDoc: null }), false);
-  assert.strictEqual(worryOpensTraining({ wantsCity: false, ready: true, situation: byId('unsure'), lastScanDoc: null }), false);
+  assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId('watched'), lastScanDoc: null }), false);
+  assert.strictEqual(worryStartsGameScan({ ...ready, situation: byId('phone'), lastScanDoc: null }), false);
+  assert.strictEqual(worryStartsGameScan({ wantsCity: false, ready: true, situation: byId('unsure'), lastScanDoc: null }), false);
 });
 
 test('monitoring software seen once this session keeps the game closed, even after a narrower clean scan', () => {
@@ -59,10 +59,10 @@ test('monitoring software seen once this session keeps the game closed, even aft
   seen = noteMonitoring(seen, null);
   assert.strictEqual(seen, true, 'sticky for the session');
   const unsure = byId('unsure');
-  assert.strictEqual(worryOpensTraining({ situation: unsure, lastScanDoc: narrowClean, monitoringSeen: seen, wantsCity: true, ready: true }), false);
+  assert.strictEqual(worryStartsGameScan({ situation: unsure, lastScanDoc: narrowClean, monitoringSeen: seen, wantsCity: true, ready: true }), false);
   assert.strictEqual(gameStillOffered(unsure, narrowClean, seen), false, 'no city view either');
   // Without it, the narrow clean scan alone would have reopened the game.
-  assert.strictEqual(worryOpensTraining({ situation: unsure, lastScanDoc: narrowClean, monitoringSeen: false, wantsCity: true, ready: true }), true);
+  assert.strictEqual(worryStartsGameScan({ situation: unsure, lastScanDoc: narrowClean, monitoringSeen: false, wantsCity: true, ready: true }), true);
   assert.strictEqual(gameStillOffered(unsure, narrowClean, false), true);
   // The per-doc check still applies on its own.
   assert.strictEqual(gameStillOffered(unsure, monitoring, false), false);

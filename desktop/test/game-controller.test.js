@@ -741,7 +741,7 @@ test('a progress event on the boss screen keeps keyboard focus where it was', as
   await tick(); await tick();
   t.focusOn({ 'data-go': 'training' });
   t.ctl.scanEvent(prog('start', 1, 4));
-  assert.deepStrictEqual(t.focused, ['[data-go="training"]'], 'PLAY A LESSON WHILE YOU WAIT keeps focus');
+  assert.deepStrictEqual(t.focused, ['[data-go="training"]'], 'ALL LESSONS keeps focus');
   t.focusOn({ 'data-act': 'leave' });
   t.ctl.scanEvent(prog('done', 1, 4));
   assert.deepStrictEqual(t.focused.slice(1), ['[data-act="leave"]']);
@@ -772,4 +772,105 @@ test('the boss screen’s pop-up tips stay closed once the person closes them', 
   t.click({ 'data-act': 'toggle-tips' });
   t.ctl.scanEvent(prog('done', 1, 4));
   assert.match(t.html(), /<details class="panel" open>/);
+});
+
+// The new flow: a worry starts its scan at once; the sweep's districts open the lessons.
+async function sweepSetup(opts) {
+  const t = await trainingSetup(opts);
+  t.ctl.newWorry(opts && opts.situation || WIFI);
+  t.ctl.showBoss();
+  await tick(); await tick();
+  return t;
+}
+
+test('the sweep: districts with a lesson are buttons with a cue; the one being checked is suggested', async () => {
+  const t = await sweepSetup();
+  let html = t.html();
+  assert.match(html, /<button[^>]*data-go="learn:gatehouse"[^>]*aria-label="Learn about The Gatehouse"/);
+  assert.match(html, /data-go="learn:wires"/);
+  assert.match(html, /data-go="learn:foundations"/);
+  assert.doesNotMatch(html, /data-go="learn:(engine-room|junkyard|outskirts)"/, 'no lesson teaches these');
+  assert.match(html, /<div class="district waiting"><h4>THE ENGINE ROOM/);
+  assert.match(html, /LEARN ▶/);
+  assert.match(html, /data-go="training"[^>]*>ALL LESSONS/);
+  assert.match(html, /POP-UPS YOU MIGHT SEE/, 'the pop-up tips still show as soon as the scan starts');
+  assert.doesNotMatch(html, /Scanning now/);
+  t.ctl.scanEvent(prog('start', 1, 4, 'network'));
+  html = t.html();
+  assert.match(html, /class="district learnable sweeping suggested"[^>]*data-go="learn:wires"[\s\S]*?Scanning now — learn about it/);
+  assert.strictEqual((html.match(/Scanning now/g) || []).length, 1);
+});
+
+test('clicking a district opens its lesson; finishing it mid-scan goes back to the sweep, marked DONE ✓', async () => {
+  const t = await sweepSetup();
+  t.click({ 'data-go': 'learn:wires' });
+  assert.match(t.html(), /Who’s on your Wi-Fi/);
+  assert.match(t.html(), /data-go="boss"[^>]*>BACK TO THE CHECKUP ▶/);
+  t.lesson('whos-on-wifi').questions.forEach((q, n, all) => {
+    t.click({ 'data-act': `answer:${correctIndex(q)}` });
+    t.click({ 'data-act': n === all.length - 1 ? 'finish-lesson' : 'next-question' });
+  });
+  assert.match(t.html(), /THE SWEEP/);
+  assert.match(t.html(), /data-go="learn:wires"[\s\S]*?DONE ✓/);
+  // The Gatehouse has several lessons, in this worry's order: the next unfinished one each time.
+  t.click({ 'data-go': 'learn:gatehouse' });
+  assert.match(t.html(), /The tool that asks for your password/);
+  t.click({ 'data-go': 'learn:engine-room' });
+  assert.match(t.html(), /The tool that asks for your password/, 'a district with no lesson does nothing');
+});
+
+test('the scan finishes while in a lesson opened from the sweep: stay there, pick kept, the city banner', async () => {
+  const t = await sweepSetup();
+  t.click({ 'data-go': 'learn:wires' });
+  const q0 = t.lesson('whos-on-wifi').questions[0];
+  t.click({ 'data-act': `answer:${wrongIndex(q0)}` });
+  t.ctl.scanDone(scan(mod('mod_a', [finding('A')])), WIFI);
+  assert.match(t.html(), /QUESTION 1 OF/);
+  assert.match(t.html(), /class="opt wrong"/);
+  assert.match(t.html(), /Your checkup is done\.[\s\S]*SEE YOUR CITY ▶/);
+  t.click({ 'data-go': 'city' });
+  assert.match(t.html(), /aria-label="Your computer as a city"/);
+});
+
+test('a progress redraw keeps focus on the district button the person is on', async () => {
+  const t = await sweepSetup();
+  t.focusOn({ 'data-go': 'learn:gatehouse' });
+  t.ctl.scanEvent(prog('start', 1, 4, 'security'));
+  t.ctl.scanEvent(prog('done', 1, 4, 'security'));
+  assert.deepStrictEqual(t.focused, ['[data-go="learn:gatehouse"]', '[data-go="learn:gatehouse"]']);
+});
+
+test('lessons that arrive after the sweep is drawn make its districts clickable', async () => {
+  const { createController } = await import('../renderer/game/controller.js');
+  const { loadLessons } = await import('../renderer/game/training.js');
+  const lessons = await loadLessons(importLesson);
+  const stub = stubWin([]);
+  stub.win.RescueHost.scanTips = async () => [];
+  let finish;
+  const ctl = createController({ win: stub.win, storage: memStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}),
+    loadTraining: () => new Promise((r) => { finish = r; }) });
+  ctl.newWorry(WIFI);
+  ctl.showBoss();
+  assert.doesNotMatch(stub.frame.innerHTML, /data-go="learn:/);
+  finish(lessons);
+  await tick();
+  assert.match(stub.frame.innerHTML, /data-go="learn:wires"/);
+});
+
+test('a lesson’s OPEN IN SYSTEM SETTINGS opens that pane through window.rescue, on a Mac only', async () => {
+  const t = await trainingSetup();
+  const opened = [];
+  t.win.SettingPanes = require('../renderer/setting-panes.js');
+  t.win.rescue.openSetting = async (url) => { opened.push(url); return true; };
+  t.win.rescue.platform = 'win32';
+  t.click({ 'data-go': 'lesson:locked-door' });
+  assert.doesNotMatch(t.html(), /open-setting/, 'no button before a scan on Windows');
+  t.win.rescue.platform = 'darwin';
+  t.click({ 'data-go': 'lesson:locked-door' });
+  assert.match(t.html(), /data-act="open-setting:softwareUpdate"/, 'preload’s platform is enough before any scan');
+  t.click({ 'data-act': 'open-setting:softwareUpdate' });
+  t.click({ 'data-act': 'open-setting:notAPane' });
+  await tick();
+  assert.deepStrictEqual(opened, ['x-apple.systempreferences:com.apple.Software-Update-Settings.extension']);
+  assert.match(t.html(), /data-act="open-setting:softwareUpdate"/, 'opening a page leaves the lesson as it was');
 });

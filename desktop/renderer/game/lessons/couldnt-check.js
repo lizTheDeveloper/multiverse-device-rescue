@@ -3,6 +3,7 @@ export default {
   title: 'What “couldn’t check” means',
   recommendedFor: ['unsure'],
   modules: [],
+  districts: [],
   sources: [
     'README.md',
     'AGENTS.md',
@@ -11,10 +12,11 @@ export default {
     'desktop/renderer/game/findings-to-city.js',
     'desktop/renderer/game/views/map.js',
   ],
-  briefing: 'Not every check can run on every computer. When one can’t, it’s often because a permission or a tool is missing. A check that couldn’t run checked nothing, so it isn’t a clean bill of health. Device Rescue says so instead of pretending everything is fine. In the city, those places show as fog, or are marked COULDN’T CHECK. Even a checkup that finds nothing lowers the odds of a problem without ruling one out.',
+  briefing: 'Not every check can run on every computer. When one can’t, it’s often because a permission or a tool is missing.',
   whatTheScanLooksFor: 'After the checkup, anything that couldn’t run is listed by name, so you know exactly what wasn’t looked at.',
   questions: [
     {
+      teach: 'A check that couldn’t run checked nothing, so it isn’t a clean bill of health. Device Rescue says so instead of pretending everything is fine. In the city, those places show as fog, or are marked COULDN’T CHECK.',
       prompt: 'A district on your map is covered in fog. What does that mean?',
       options: [
         { text: 'Those checks couldn’t run, so nothing there was looked at', correct: true,
@@ -26,6 +28,7 @@ export default {
       ],
     },
     {
+      teach: 'Even a checkup that finds nothing lowers the odds of a problem without ruling one out.',
       prompt: 'The checkup found nothing at all. What can you say?',
       options: [
         { text: 'The odds of a problem are lower, but it isn’t a guarantee', correct: true,

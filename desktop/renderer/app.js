@@ -242,8 +242,8 @@ function gameOfferedFor(situation, doc) {
   return !!situation && !mayBeWatched(situation, doc);
 }
 
-/** After a worry is picked: straight into the Training Grounds, or the plain scan screen. */
-function trainingFirst({ wantsCity, offered, ready }) {
+/** After a worry is picked: its scan starts at once on the game's sweep screen, or the plain scan screen. */
+function gameScanFirst({ wantsCity, offered, ready }) {
   return !!(wantsCity && offered && ready);
 }
 
@@ -284,8 +284,8 @@ function gameStillOffered(situation, doc, monitoringSeen) {
  * whatever worry was picked, so the last scan and anything seen this session
  * count too: once monitoring software has turned up, nothing playful is offered.
  */
-function worryOpensTraining({ situation, lastScanDoc, monitoringSeen, wantsCity, ready }) {
-  return trainingFirst({ wantsCity, offered: gameStillOffered(situation, lastScanDoc || null, monitoringSeen), ready });
+function worryStartsGameScan({ situation, lastScanDoc, monitoringSeen, wantsCity, ready }) {
+  return gameScanFirst({ wantsCity, offered: gameStillOffered(situation, lastScanDoc || null, monitoringSeen), ready });
 }
 
 /**
@@ -446,8 +446,8 @@ if (typeof module !== 'undefined' && module.exports) {
     learnMoreFor,
     mayBeWatched,
     gameOfferedFor,
-    trainingFirst,
-    worryOpensTraining,
+    gameScanFirst,
+    worryStartsGameScan,
     gameStillOffered,
     noteMonitoring,
     playButtonShown,
@@ -483,6 +483,8 @@ if (typeof document !== 'undefined') {
 
     let permissionsContent = null;
     let lastKnownPlatform = null; // e.g. "darwin" | "win32" | "linux", once we have a scan result
+    // The scan's own platform once there is one; before that, what preload says.
+    const currentPlatform = () => lastKnownPlatform || (window.rescue && window.rescue.platform) || null;
     let situation = null; // the SITUATIONS entry the person picked
     let wantsCity = false; // came in through "Play it as a game"
     let leftGame = false; // chose "Plain view" during game mode
@@ -623,11 +625,14 @@ if (typeof document !== 'undefined') {
       list.querySelectorAll('[data-situation]').forEach((btn) => {
         btn.addEventListener('click', () => {
           situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
-          if (worryOpensTraining({ situation, lastScanDoc, monitoringSeen, wantsCity,
+          if (!scanRunning && worryStartsGameScan({ situation, lastScanDoc, monitoringSeen, wantsCity,
             ready: !!(window.RescueGame && window.RescueGame.isReady) })) {
             leftGame = false;
-            // false: it couldn't be drawn, and leaveGame() already showed the scan screen.
-            if (window.RescueGame.showTraining(situation) !== false) showScreen('city');
+            window.RescueGame.newWorry(situation);
+            // The city screen first: if the sweep can't be drawn, leaveGame() then
+            // shows the plain scan screen, where the same scan carries on.
+            showScreen('city');
+            runCheckup({ game: true });
             return;
           }
           goToScan();
@@ -726,6 +731,7 @@ if (typeof document !== 'undefined') {
                 <h4>What to do</h4>
                 <ol>${finding.remediation.steps.map((step) => `<li>${escapeHtml(stepTitle(step.title))}</li>`).join('')}</ol>
               </div>` : ''}
+              ${SettingPanes.findingButtonHtml(finding, currentPlatform())}
               ${finding.remediation ? `
               <details class="fix-steps">
                 <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}</summary>
@@ -973,6 +979,11 @@ if (typeof document !== 'undefined') {
       document.getElementById('btn-play-game').hidden = !playButtonShown(monitoringSeen);
     }
 
+    // "Open in System Settings": opens the page and nothing else; main allowlists the URL.
+    resultsRoot.addEventListener('click', (event) => {
+      const btn = event.target.closest && event.target.closest('[data-setting-url]');
+      if (btn && resultsRoot.contains(btn)) window.rescue.openSetting(btn.getAttribute('data-setting-url'));
+    });
     // "Fix it for me": delegated, so it keeps working when results are re-rendered.
     FixFlow.attach(resultsRoot, window.rescue, {
       onFixed: (els) => cardsOf(els).forEach((card) => clearList.clear(card, 'fixed')),
