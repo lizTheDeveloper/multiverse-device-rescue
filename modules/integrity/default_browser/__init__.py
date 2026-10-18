@@ -246,6 +246,11 @@ class Module(ModuleBase):
 
     def _app_exists(self, bundle_id: str) -> bool:
         """Check if an app with the given bundle ID exists on the system."""
+        # The id goes inside a quoted mdfind query; a '"' (or backslash) would
+        # end the string early and change the query. Real bundle ids never
+        # contain them, so such an id can't be checked.
+        if not bundle_id or any(c in bundle_id for c in '"\\'):
+            return False
         try:
             result = subprocess.run(
                 # "c": LaunchServices stores ids lowercased (com.google.chrome)

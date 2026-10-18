@@ -34,14 +34,18 @@ class Module(ModuleBase):
         if not devices:
             findings.append(
                 Finding(
-                    title="No audio devices were found on your Mac",
+                    # An empty list is far more often "system_profiler gave
+                    # nothing back" than a Mac with no speakers at all, so this
+                    # is a couldn't-check, not a warning.
+                    title="Couldn't check your audio devices",
                     description=(
-                        "Your Mac couldn't find any speakers or microphones. This usually "
-                        "means a connection issue or a setting glitch.\n\n"
-                        "What to do: Check that your headphones or speakers are plugged "
-                        "in. If they are, restart your Mac and see if they appear again."
+                        "Device Rescue couldn't read the list of speakers and "
+                        "microphones on this Mac. This is not a sign that anything is "
+                        "wrong.\n\n"
+                        "To see for yourself: open System Settings > Sound and look at "
+                        "Output and Input."
                     ),
-                    severity=Severity.WARNING,
+                    severity=Severity.INFO,
                     category=self.category,
                     data={"check": "no_devices"},
                 )
@@ -428,7 +432,10 @@ def _parse_audio_devices(output: str) -> list[dict]:
             continue
         if stripped.endswith(":"):
             name = stripped[:-1].strip()
-            if name == "Devices" or name.startswith("Audio"):
+            # Section headings, not devices: "Audio:" (older/Intel: "Audio
+            # (Built In):") and "Devices:". Exact match, so a device named
+            # e.g. "Audio Interface" still counts.
+            if name in ("Devices", "Audio") or re.fullmatch(r"Audio \([^)]*\)", name):
                 current_device = None
                 continue
             current_device = {

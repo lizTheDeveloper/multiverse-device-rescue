@@ -296,7 +296,8 @@ def test_audio_troubleshoot_no_devices():
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.data.get("check") == "no_devices" for f in result.findings)
-    assert any(f.severity == Severity.WARNING for f in result.findings)
+    # An empty device list is "couldn't check", not a warning (review fix)
+    assert all(f.severity == Severity.INFO for f in result.findings)
 
 
 def test_audio_troubleshoot_hdmi_output():
@@ -431,3 +432,16 @@ def test_really_no_microphone_still_warns():
     with patch("subprocess.run", side_effect=_fake_macos26(profiler=no_mic)):
         result = mod.check(_make_profile())
     assert any(f.data.get("check") == "no_input_device" for f in result.findings)
+
+
+def test_audio_heading_is_exact_not_prefix():
+    """Review fix: only the 'Audio' section heading is skipped; a device whose
+    name starts with 'Audio' is still a device."""
+    from importlib import import_module
+    parse = import_module(type(_get_module()).__module__)._parse_audio_devices
+    out = (
+        "Audio:\n\n    Devices:\n\n"
+        "        Audio Interface 2x2:\n\n          Input Channels: 2\n"
+        "          Transport: USB\n"
+    )
+    assert [(d["name"], d["type"]) for d in parse(out)] == [("Audio Interface 2x2", "input")]

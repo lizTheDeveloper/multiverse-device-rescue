@@ -403,3 +403,28 @@ def test_check_disabled_explicitly_still_warns(tmp_path):
         result = mod.check(_make_profile())
     assert any(f.code == "security.appleid_security_check.autoupdate_disabled"
                for f in result.findings)
+
+
+def test_critical_updates_only_says_security_updates_only(tmp_path):
+    """Review fix: CriticalUpdateInstall=1 alone is not 'Enabled' for everything."""
+    mod = _get_module()
+    mod.mobileme_plist_path = _write_macos26_plist(tmp_path, [
+        {"Name": "KEYCHAIN_SYNC", "Enabled": True}])
+    only = ("{\n    AutomaticallyInstallMacOSUpdates = 0;\n"
+            "    CriticalUpdateInstall = 1;\n}\n")
+    with patch("subprocess.run", side_effect=_fake_macos26(only)):
+        result = mod.check(_make_profile())
+    summary = next(f for f in result.findings if f.data.get("check") == "appleid_summary")
+    assert "Automatic updates: Security updates only" in summary.description
+    assert not any(f.code == "security.appleid_security_check.autoupdate_disabled"
+                   for f in result.findings)
+
+
+def test_all_updates_on_says_enabled(tmp_path):
+    mod = _get_module()
+    mod.mobileme_plist_path = _write_macos26_plist(tmp_path, [
+        {"Name": "KEYCHAIN_SYNC", "Enabled": True}])
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    summary = next(f for f in result.findings if f.data.get("check") == "appleid_summary")
+    assert "Automatic updates: Enabled" in summary.description

@@ -297,3 +297,17 @@ def test_parse_lshandlers_ignores_nested_dash():
     mod = _get_module()
     assert mod._parse_lshandlers(_LSHANDLERS_MACOS26, "https") == "com.google.chrome"
     assert mod._parse_lshandlers(_LSHANDLERS_MACOS26, "mailto") == ""
+
+
+def test_bundle_id_with_quote_never_reaches_mdfind():
+    """Review fix: a '"' in the handler id must not be spliced into the query."""
+    mod = _get_module()
+    calls = []
+
+    def spy(cmd, **kwargs):
+        calls.append(cmd)
+        return _make_subprocess_result("/Applications/X.app\n")
+
+    with patch("subprocess.run", side_effect=spy):
+        assert mod._app_exists('com.evil" || kMDItemFSName == "*') is False
+    assert not any(c and c[0] == "mdfind" for c in calls)

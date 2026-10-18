@@ -348,9 +348,9 @@ def test_emitted_codes_are_declared():
 
 _NC_LIST_MACOS26 = (
     "Available network connection services in the current set (*=enabled):\n"
-    '* (Disconnected)   20D63D25-BE6E-47C6-A3F4-F3739EF22980 PPP --> USB JTAG/serial debug unit '
+    '* (Disconnected)   00000000-1111-4222-8333-444444444444 PPP --> USB JTAG/serial debug unit '
     '"Debug Unit"   [PPP:Modem]\n'
-    '* (Disconnected)   DAE99DB7-1CB5-4F46-9FC6-A3BA0EC67A85 VPN (com.connectify.Speedify) '
+    '* (Disconnected)   AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE VPN (com.connectify.Speedify) '
     '"Speedify"                       [VPN:com.connectify.Speedify]\n'
 )
 

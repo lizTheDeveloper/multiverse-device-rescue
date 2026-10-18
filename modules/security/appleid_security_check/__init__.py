@@ -53,6 +53,7 @@ class Module(ModuleBase):
         twofa_enabled = self._check_two_factor_auth()
         keychain_enabled = self._check_icloud_keychain()
         icloud_devices = self._get_icloud_devices()
+        self._autoupdate_security_only = False
         autoupdate_enabled = self._check_autoupdate_enabled()
         mail_privacy = self._check_mail_privacy_protection()
         private_relay = self._check_private_relay()
@@ -166,7 +167,12 @@ class Module(ModuleBase):
         summary_lines.append(f"Private Relay: {'Active' if private_relay else 'Not active'}")
         summary_lines.append(f"Mail Privacy Protection: {'Enabled' if mail_privacy else 'Not enabled'}")
         summary_lines.append(f"Devices on this account: {len(icloud_devices)}")
-        summary_lines.append(f"Automatic updates: {_say(autoupdate_enabled)}")
+        if autoupdate_enabled is True and getattr(self, "_autoupdate_security_only", False):
+            # Only CriticalUpdateInstall is on: security responses install, but
+            # macOS updates don't.
+            summary_lines.append("Automatic updates: Security updates only")
+        else:
+            summary_lines.append(f"Automatic updates: {_say(autoupdate_enabled)}")
 
         findings.append(
             Finding(
@@ -433,6 +439,10 @@ class Module(ModuleBase):
             values.get("AutomaticallyInstallMacOSUpdates"),
             values.get("CriticalUpdateInstall"),
         ]
+        self._autoupdate_security_only = (
+            values.get("CriticalUpdateInstall") == "1"
+            and values.get("AutomaticallyInstallMacOSUpdates") != "1"
+        )
         if values.get("AutomaticCheckEnabled") == "0":
             return False
         if "1" in installs:

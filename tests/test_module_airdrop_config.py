@@ -221,3 +221,23 @@ def test_macos26_bluetooth_on_from_system_profiler():
     with patch("subprocess.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     assert not any(f.code == "security.airdrop_config.bluetooth_disabled" for f in result.findings)
+
+
+def test_unreadable_bluetooth_is_not_disabled():
+    """Review fix: neither source readable means None, not 'Bluetooth is disabled'."""
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if "ControllerPowerState" in cmd_str or "SPBluetoothDataType" in cmd_str:
+            return _make_subprocess_result("", returncode=1)
+        if "DiscoverableMode" in cmd_str:
+            return _make_subprocess_result("Contacts Only\n")
+        if "getairportpower" in cmd_str:
+            return _make_subprocess_result("Wi-Fi Power (en0): On\n")
+        return _make_subprocess_result()
+
+    with patch("subprocess.run", side_effect=fake_run):
+        assert mod._is_bluetooth_enabled() is None
+        result = mod.check(_make_profile())
+    assert not any(f.code == "security.airdrop_config.bluetooth_disabled" for f in result.findings)
