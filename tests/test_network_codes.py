@@ -27,6 +27,16 @@ EXPECTED_CODES: dict[str, set[str]] = {
         "network.router_security_audit.upnp_enabled",
         "network.router_security_audit.router_manual_review",
     },
+    "wifi_security_audit": {
+        "network.wifi_security_audit.wep_connected",
+        "network.wifi_security_audit.open_network_connected",
+        "network.wifi_security_audit.wpa2_only",
+        "network.wifi_security_audit.hidden_network",
+        "network.wifi_security_audit.wep_saved",
+        "network.wifi_security_audit.open_saved",
+        "network.wifi_security_audit.wifi_summary",
+        "network.wifi_security_audit.security_unknown",
+    },
 }
 
 
@@ -48,7 +58,11 @@ def test_declared_codes(name):
     assert set(mod.emits_codes) == EXPECTED_CODES[name]
 
 
-_WALKTHROUGHS = ["review_unknown_lan_devices", "secure_home_router"]
+_WALKTHROUGHS = [
+    "review_unknown_lan_devices",
+    "secure_home_router",
+    "secure_wifi_connection",
+]
 
 
 @pytest.mark.parametrize("stem", _WALKTHROUGHS)
