@@ -130,3 +130,6 @@ dmypy.json
 .claude/worktrees/
 
 uv.lock
+
+# Brainstorm mockups and subagent workspaces
+.superpowers/
