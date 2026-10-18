@@ -19,6 +19,46 @@ const MarkFlow = (function () {
   const MARK_ID = /^[0-9a-f]{12}$/;
   const ONLY_IF_YOURS = 'Only do this if you set this up yourself. If you’re not sure, leave it as it is.';
   const COULD_WATCH = 'Something like this can be used to watch or get into a computer. That is why we ask.';
+  // Why we ask about a list of apps: an ordinary list, not an accusation.
+  const LIST_REASON = 'We ask so the list stays accurate: if a new app appears, you’ll hear about it.';
+  const NOT_SURE_LIST = 'Not sure about one? Leave the whole list as it is.';
+  // Kinds that are about watching a computer or getting into it: remote access,
+  // sharing, proxies, extensions, and app permission lists (accessibility,
+  // screen recording, camera, microphone, input monitoring, full disk access).
+  const WATCH_KINDS = new Set([
+    'sharing_service', 'network_proxy', 'system_extension', 'browser_extension', 'ssh_authorized_keys',
+    'app_permissions',
+  ]);
+  // Kinds that are a list of apps: one row per app, "Yes, these are mine".
+  const LIST_KINDS = new Set(['app_permissions']);
+  // Same limits as the engine (rescue/app_names.py _MAX_NAME): a name is at
+  // most 128 characters, or it is the raw entry (bundle id or path) itself.
+  const MAX_APP_NAME = 128;
+  const MAX_APP_ID = 1024;
+  const CONTROL_OR_FORMAT = /[\p{Cc}\p{Cf}]/u;
+  const NAME_MAKER_MISMATCH = 'The name doesn’t match its maker';
+  // Well-known app names and the makers that really publish them. Only used to
+  // flag a plain contradiction between a verified maker and the name an app
+  // gives itself; it never clears anything.
+  const KNOWN_APP_MAKERS = [
+    [/^zoom(\.us)?$|^zoom workplace$/, /zoom/],
+    [/^(google )?chrome$/, /google/],
+    [/^microsoft |^(microsoft )?(teams|edge|outlook|word|excel|powerpoint|onedrive)$/, /microsoft/],
+    [/^skype$/, /skype|microsoft/],
+    [/^slack$/, /slack/],
+    [/^(mozilla )?firefox$/, /mozilla/],
+    [/^dropbox$/, /dropbox/],
+    [/^1password( \d+)?$/, /agilebits|1password/],
+    [/^teamviewer$/, /teamviewer/],
+    [/^anydesk$/, /anydesk|philandro/],
+    [/^discord$/, /discord/],
+    [/^whatsapp$/, /whatsapp|meta/],
+    [/^spotify$/, /spotify/],
+    [/^signal$/, /signal/],
+    [/^telegram$/, /telegram/],
+    [/^brave( browser)?$/, /brave/],
+    [/^(safari|finder|messages|facetime|mail|photos|system settings|system preferences|terminal|screen sharing|xcode)$/, /apple/],
+  ];
   const ITEM_KINDS = new Set([
     'sharing_service', 'network_proxy', 'system_extension', 'browser_extension',
     'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
@@ -111,16 +151,100 @@ const MarkFlow = (function () {
     return `<ol class="fix-undo">${(steps || []).map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`;
   }
 
-  function showsHtml(m) {
+  // Control and format characters (bidi overrides, zero-width spaces) shown as
+  // [U+XXXX], so text can't reorder or hide itself on screen.
+  function visible(s) {
+    return String(s).replace(/[\p{Cc}\p{Cf}]/gu, (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
+  }
+
+  function validAppRow(r) {
+    if (!r || typeof r !== 'object') return false;
+    if (typeof r.id !== 'string' || !r.id || r.id.length > MAX_APP_ID || r.id.includes('\0')) return false;
+    if (r.name === r.id) return true; // the raw-id fallback
+    return typeof r.name === 'string' && r.name.trim() !== '' && r.name.length <= MAX_APP_NAME
+      && !CONTROL_OR_FORMAT.test(r.name);
+  }
+
+  // The engine's per-app rows ({id, name}) on a list of apps, or null when the
+  // panel must show the full raw list instead. Rows are never dropped: if any
+  // row is malformed, an id repeats, or the number of rows isn't the number of
+  // apps the engine counted, the person sees the whole `shows` list.
+  function appRowsOf(m, shownRows) {
+    if (!m || !LIST_KINDS.has(m.kind) || !Array.isArray(m.apps) || !m.apps.length) return null;
+    if (!m.apps.every(validAppRow)) return null;
+    if (new Set(m.apps.map((r) => r.id)).size !== m.apps.length) return null;
+    const count = (shownRows.find(([k]) => k === 'How many') || [])[1];
+    if (!/^\d+$/.test(count || '') || Number(count) !== m.apps.length) return null;
+    return m.apps;
+  }
+
+  // The finding's `made_by` entry for this id, if it names a maker.
+  function makerEntry(madeBy, id) {
+    const e = Array.isArray(madeBy) ? madeBy.find((x) => x && x.subject === id) : null;
+    if (!e || typeof e.name !== 'string' || !e.name.trim() || e.name === 'Unknown maker') return null;
+    return e;
+  }
+
+  // "Made by …" for one app, from the scan's own signature check.
+  function makerText(e) {
+    if (!e) return '';
+    return e.verified === true ? `Made by ${e.name} (verified)` : `Says it is made by ${e.name} (couldn’t verify)`;
+  }
+
+  // True when a well-known name plainly contradicts the verified maker
+  // (an app calling itself "Zoom", signed by someone else).
+  function nameContradictsMaker(name, e) {
+    if (!e || e.verified !== true || typeof name !== 'string') return false;
+    const n = name.trim().toLowerCase();
+    const maker = e.name.toLowerCase();
+    return KNOWN_APP_MAKERS.some(([nameRe, makerRe]) => nameRe.test(n) && !makerRe.test(maker));
+  }
+
+  function appsHtml(rows, madeBy, count) {
+    const items = rows.map((r) => {
+      const e = makerEntry(madeBy, r.id);
+      const maker = makerText(e);
+      const named = r.name !== r.id;
+      return `<li class="mark-apps__row"><span class="mark-apps__who"><span class="mark-apps__name">${esc(visible(r.name))}</span>`
+        + (named ? `<span class="mark-apps__id"> · <code>${esc(visible(r.id))}</code></span>` : '')
+        + '</span>'
+        + (maker ? `<span class="mark-apps__maker">${esc(visible(maker))}</span>` : '')
+        + (nameContradictsMaker(r.name, e) ? `<span class="mark-apps__flag">${esc(NAME_MAKER_MISMATCH)}</span>` : '')
+        + '</li>';
+    }).join('');
+    const ids = rows.map((r) => `<li><code>${esc(visible(r.id))}</code>${r.name !== r.id ? ` (${esc(visible(r.name))})` : ''}</li>`).join('');
+    return `<p class="fix-panel__line"><strong>What you are saying is yours${count ? ` (${esc(count)} apps)` : ''}:</strong></p>
+          <ul class="mark-apps">${items}</ul>
+          <p class="fix-panel__line muted">${esc(NOT_SURE_LIST)}</p>
+          <details class="mark-tech"><summary>Technical details</summary>
+            <p class="fix-panel__line">The names the permission list uses for these apps (bundle IDs):</p>
+            <ul class="mark-tech__ids">${ids}</ul>
+          </details>`;
+  }
+
+  function showsHtml(m, finding) {
     const rows = Array.isArray(m.shows)
       ? m.shows.filter((r) => Array.isArray(r) && r.length === 2 && typeof r[0] === 'string' && typeof r[1] === 'string')
       : [];
+    const apps = appRowsOf(m, rows);
+    if (apps) return appsHtml(apps, finding && finding.made_by, String(apps.length));
     if (m.kind === 'background_task') {
       rows.unshift(['Task', m.label], ['Program', m.program]);
     }
     if (!rows.length) return '';
     return `<p class="fix-panel__line"><strong>What you are saying is yours:</strong></p>
-          <dl class="mark-shows">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+          <dl class="mark-shows">${rows.map(([k, v]) => `<dt>${esc(visible(k))}</dt><dd>${esc(visible(v))}</dd>`).join('')}</dl>`;
+  }
+
+  // Why we ask: the watching line for anything that can watch or get into a
+  // computer (an app permission list can: accessibility, screen recording...),
+  // plus, on a list of apps, why the whole list is one answer.
+  function reasonHtml(m, strong) {
+    if (!strong || m.kind === 'background_task') return '';
+    const lines = [];
+    if (WATCH_KINDS.has(m.kind)) lines.push(COULD_WATCH);
+    if (LIST_KINDS.has(m.kind)) lines.push(LIST_REASON);
+    return lines.map((t) => `<p class="fix-panel__line">${esc(t)}</p>`).join('');
   }
 
   // opts.watched: the person said "I think someone is watching me".
@@ -133,16 +257,16 @@ const MarkFlow = (function () {
       <div class="mark-mine" data-mark-card data-mark-kind="${esc(m.kind)}" data-mark-id="${esc(m.id)}" data-mark-group="${esc(group.join(' '))}">
         <button type="button" class="btn btn--secondary btn--small" data-mark-open>${esc(buttonLabel(m))}</button>
         <div class="fix-panel" data-mark-panel hidden role="group" aria-label="Confirm this is yours">
-          ${showsHtml(m)}
+          ${showsHtml(m, finding)}
           <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.will_change)}</p>
           ${coversHtml(group.length, m.kind)}
           <p class="fix-panel__line"><strong>To undo later:</strong></p>
           ${undoListHtml(m.how_to_undo)}
           ${strong ? `<p class="fix-panel__line fix-panel__warning"><strong>${esc(ONLY_IF_YOURS)}</strong></p>` : ''}
-          ${strong && m.kind !== 'background_task' ? `<p class="fix-panel__line">${esc(COULD_WATCH)}</p>` : ''}
+          ${reasonHtml(m, strong)}
           <p class="muted fix-panel__note">Nothing on your computer is changed or turned off.</p>
           <div class="fix-panel__actions">
-            <button type="button" class="btn btn--primary btn--small" data-mark-confirm>Yes, it’s mine</button>
+            <button type="button" class="btn btn--primary btn--small" data-mark-confirm>${LIST_KINDS.has(m.kind) ? 'Yes, these are mine' : 'Yes, it’s mine'}</button>
             <button type="button" class="btn btn--secondary btn--small" data-mark-cancel>Cancel</button>
           </div>
         </div>
@@ -372,7 +496,7 @@ const MarkFlow = (function () {
   }
 
   return {
-    ONLY_IF_YOURS, COULD_WATCH, BUTTON, NEVER_MARKABLE_MODULES, groupOf, markableOf, markedIdOf,
+    ONLY_IF_YOURS, COULD_WATCH, LIST_REASON, NOT_SURE_LIST, NAME_MAKER_MISMATCH, MAX_APP_NAME, BUTTON, NEVER_MARKABLE_MODULES, groupOf, markableOf, markedIdOf,
     needsStrongConfirm, markControlsHtml, describeMarkResult, resultHtml, attach, esc,
   };
 })();

@@ -23,6 +23,16 @@ hacking game, where the thrill is that it's your real computer.
 | 4 | Dossier: "who made this?" from `made_by` evidence | 1 (best with 2) |
 | 5 | Reverse Heist: account steps ordered, then done at the provider; YOU REPORTED only | 1 |
 | 6 | Full-disk city: an opt-in button builds the whole map from the virus/worm scanners' existing walk; never automatic, cancellable, size-guarded | 2 |
+| 7 | Network analysis track (N1–N10): onboarding level, network visibility in three levels, the skill ladder, case files, the review ladder. See `2026-10-18-network-analysis-training-design.md` | 1 |
+
+**Shared with the network analysis track** (`2026-10-18-network-analysis-training-design.md`):
+- The **threat board** that THREAT sends signals to is that spec's
+  **Evidence Board**. A threat card can be opened as a case.
+- The **Dossier** (piece 4) covers addresses and domains as well as programs.
+  Its "who owns this address" half is network piece N4.
+- **Drills**, **ranks** and the **ops log** are shared. Network drills join the
+  drill bank. Case-file grades feed the same rank. The ops log is the raw
+  timeline that a case file's "What happened" is built from.
 
 ## Decisions
 
@@ -69,6 +79,10 @@ A panel over the deck for one finding.
      place is" (e.g. `~/Library/LaunchAgents` — things that start when you log in).
    - **What it does** — the finding's plain description.
    - **When it showed up** — only when the scan recorded a date.
+   - Network signals add, when the evidence supports them: **Where it's
+     going** (remote address and port), **How often / how much** (from a
+     connection watch), and **Who owns that address** (the Dossier). These
+     come from network pieces N3 and N4.
    Each clue carries a "how to read this" line, e.g. "Verified signature: Apple
    checked who signed this. It tells you who made it, not that it's safe."
 3. **Your call:** **MINE** · **LOOK CLOSER** · **THREAT**.
@@ -163,5 +177,5 @@ focus (existing controller behaviour); reduced motion respected.
 
 ## Out of scope here
 
-Pieces 2–6 above. Windows/Linux settings deep links. Any change to what the
+Pieces 2–7 above. Windows/Linux settings deep links. Any change to what the
 engine scans.
