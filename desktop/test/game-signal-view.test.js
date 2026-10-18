@@ -64,7 +64,7 @@ test('a drill: stamped, practice-only, its setup shown, and never the real “It
   const after = await panel({ signal: drillSig, tagged: 'mine', right: false, read: 'Not this time, and it costs you nothing. The tell: Because.', mineHtml: '<b>MARK</b>' });
   assert.doesNotMatch(after, /<b>MARK<\/b>/);
   assert.match(after, /The tell: Because\./);
-  assert.match(after, /aria-disabled="true"/, 'a drill takes one answer');
+  assert.match(after, /aria-disabled="true" disabled/, 'a drill takes one answer, and the keyboard cannot re-answer');
   assert.doesNotMatch(after, /POINTS/, 'a wrong answer scores nothing');
 });
 

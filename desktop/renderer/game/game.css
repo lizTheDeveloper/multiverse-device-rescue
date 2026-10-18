@@ -260,6 +260,8 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .sig-panel .intel, .range .intel { font-size: 15px; }
 .sig-panel .say { font-size: 16px; }
 .sig-panel .btn-s, .sig-panel .btn-p, .sig-panel .btn-t, .range .btn-s, .range .btn-p, .range .btn-t { min-height: 40px; font-size: 12px; }
-.sig-panel .btn-t { font-size: 15px; }
+.sig-panel .btn-t { font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; color: var(--dim); }
+.sig-panel .faint { color: var(--dim); }
+.badge.drill-stamp { font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; color: var(--lime); background: rgba(198,255,0,0.14); border: 1px solid var(--lime); }
 .sig-panel [aria-disabled="true"] { opacity: 0.6; pointer-events: none; }
 .sig-panel.drill { border: 2px solid var(--lime); background-image: repeating-linear-gradient(45deg, rgba(198,255,0,0.06) 0 8px, transparent 8px 16px); }
