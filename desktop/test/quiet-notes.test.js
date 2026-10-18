@@ -68,16 +68,75 @@ test('quietDoc quiets every finding but monitoring software, and leaves the scan
   assert.strictEqual(Q.quietDoc(null), null);
 });
 
-test('every remediation guide reads cleanly in standard mode, and keeps its other lines', () => {
+// The guides' steps, cut the way rescue/guides.py cuts them.
+function guideSteps(body) {
+  const heads = [...body.matchAll(/^## Step (\d+): (.+)$/gm)];
+  return heads.map((h, i) => ({ title: h[2].trim(), body: body.slice(h.index + h[0].length, i + 1 < heads.length ? heads[i + 1].index : body.length).trim() }));
+}
+// The test's own sentence cut, plain on purpose and independent of the module's.
+const GUIDE_DV = /799-7233|88788|text\s+START|advocate|domestic\s+violence|\bDV\b/i;
+const norm = (t) => String(t).replace(/^\s*(?:[-*]|\d{1,3}\.)\s+/gm, ' ').replace(/\s+/g, ' ').trim();
+const cut = (t) => norm(t).split(/(?<=[.!?][)"'”’*`]*)\s+(?=[A-Z(*`"“])/).filter(Boolean);
+const guides = () => {
   const dir = path.join(REPO, 'guides', 'remediation');
-  for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.md'))) {
-    if (file === 'respond_to_monitoring_software.md') continue; // monitoring software keeps its steps
-    const body = fs.readFileSync(path.join(dir, file), 'utf8').replace(/^---[\s\S]*?---\n/, '');
-    const quiet = Q.quiet(body);
-    assert.doesNotMatch(quiet, DV, file);
-    const kept = body.split('\n').filter((l) => l.trim() && !DV.test(l)).length;
-    if (kept) assert.ok(quiet.trim().length > 0, `${file}: nothing left`);
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.md'))
+    .map((file) => ({ file, body: fs.readFileSync(path.join(dir, file), 'utf8').replace(/^---[\s\S]*?---\n/, '') }));
+};
+
+test('every remediation guide, step by step: no hotline text left, never an empty step, every other sentence kept word for word', () => {
+  let checked = 0;
+  for (const { file, body } of guides()) {
+    const steps = guideSteps(body);
+    assert.ok(steps.length > 0, `${file}: has steps`);
+    for (const [where, text] of [['the whole guide', body], ...steps.map((st) => [`step "${st.title}"`, st.body])]) {
+      const quiet = Q.quiet(text);
+      assert.doesNotMatch(quiet, GUIDE_DV, `${file}, ${where}`);
+      assert.ok(quiet.trim().length > 0, `${file}, ${where}: nothing left`);
+      for (const sentence of cut(text)) {
+        if (GUIDE_DV.test(sentence)) continue;
+        checked += 1;
+        assert.ok(norm(quiet).includes(sentence), `${file}, ${where}: lost "${sentence}"`);
+      }
+    }
   }
+  assert.ok(checked > 200, `checked ${checked} sentences`);
+});
+
+test('the advice the reviewer found missing is kept, sentence by sentence', () => {
+  const read = (f) => Q.quiet(fs.readFileSync(path.join(REPO, 'guides', 'remediation', f), 'utf8'));
+  assert.match(read('secure_linux_accounts.md'), /don't\s+log in as it and don't delete it\./);
+  assert.match(read('secure_linux_accounts.md'), /back up your files and reinstall/);
+  assert.match(read('review_linux_startup_entries.md'), /computer-repair shop to help you reinstall\s+the system\./);
+  assert.match(read('review_linux_startup_entries.md'), /They are evidence of what happened\./);
+  assert.match(read('sign_out_everywhere.md'), /Change passwords from a device they have never had access to\./);
+  assert.match(read('check_app_signatures.md'), /That is your record\./);
+  assert.match(read('harden_linux_ssh_server.md'), /if you didn't turn SSH on yourself, ask why/);
+});
+
+test('only hotline sentences come out; the sentences around them, and a plain "partner", stay', () => {
+  assert.strictEqual(Q.quiet("Don't delete the entry. Talk to an advocate first (1-800-799-7233). Take a photo."), "Don't delete the entry. Take a photo.");
+  assert.strictEqual(Q.quiet('Ask your partner to check the router. Partner apps are fine.'), 'Ask your partner to check the router. Partner apps are fine.');
+  assert.strictEqual(Q.quiet('Use a trusted app, e.g. Signal. Call 88788.'), 'Use a trusted app, e.g. Signal.');
+  assert.strictEqual(Q.quiet('- Keep it.\n- Or text START to\n  88788. Back up first.'), '- Keep it.\n- Back up first.');
+});
+
+test('no step title in any guide carries hotline text', () => {
+  for (const { file, body } of guides()) {
+    for (const st of guideSteps(body)) {
+      assert.doesNotMatch(st.title, Q.MARKERS, `${file}: "${st.title}"`);
+      assert.doesNotMatch(st.title, GUIDE_DV, `${file}: "${st.title}"`);
+    }
+  }
+});
+
+test('the full note gives the hotline once', () => {
+  const SN = 'Before you remove or turn anything off: talk to an advocate first. In the US: 1-800-799-7233, or text START to 88788.';
+  const both = Q.lineHtml(Q.cardText('standard', { module: 'stalkerware_scan', description: 'Found.\n\nIf a partner set this up, call 1-800-799-7233.', remediation: { safety_note: SN, steps: [] } }), esc);
+  assert.strictEqual(both.split('799-7233').length, 2, 'once, not twice');
+  assert.match(both, /talk to an advocate first/);
+  const descOnly = Q.lineHtml(Q.cardText('standard', { module: 'stalkerware_scan', description: 'Found.\n\nIf a partner set this up, call 1-800-799-7233.' }), esc);
+  assert.strictEqual(descOnly.split('799-7233').length, 2, 'the description says it; the default is not added');
+  assert.match(descOnly, /If a partner set this up/);
 });
 
 test('the scan screen and the results never carry the banner or the reminder any more', () => {
@@ -134,4 +193,20 @@ test('the monitoring checks are the same three app.js names', () => {
   assert.ok(m, 'ALWAYS_SAFETY_MODULES is still in app.js');
   const names = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]).sort();
   assert.deepStrictEqual(names, [...Q.MONITORING_MODULES].sort());
+});
+
+test('the extra warning on the fix and "It\'s mine" controls follows the mode: on in city mode only', async () => {
+  for (const [stored, want] of [['city', true], ['standard', false]]) {
+    const p = page({ store: { 'device-rescue.display': stored }, ready: false });
+    const seen = [];
+    p.sandbox.FixFlow.fixControlsHtml = (_f, opts) => { seen.push(['fix', opts && opts.watched]); return ''; };
+    p.sandbox.MarkFlow.markControlsHtml = (_f, opts) => { seen.push(['mark', opts && opts.watched]); return ''; };
+    p.byId('btn-get-started').click();
+    p.pick('hacked');
+    p.byId('btn-run-scan').click();
+    await p.finish({ schema_version: 1, platform: 'darwin', modules: [{ name: 'remote_login_check', category: 'security', status: 'ok', supported: true,
+      findings: [{ severity: 'warning', title: 'Remote Login is on', description: 'On.', category: 'security', data: {} }] }] });
+    assert.deepStrictEqual(p.shown(), ['results'], stored);
+    assert.deepStrictEqual(seen, [['fix', want], ['mark', want]], stored);
+  }
 });
