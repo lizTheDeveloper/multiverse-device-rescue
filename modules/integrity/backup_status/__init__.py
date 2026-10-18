@@ -58,7 +58,7 @@ class Module(ModuleBase):
                         "What to do: Run the checkup again. If it still fails, open System "
                         "Settings > General > Time Machine to check the status manually."
                     ),
-                    severity=Severity.WARNING,
+                    severity=Severity.INFO,  # couldn't check is not a problem
                     category=self.category,
                     data={"check": "timemachine_status_unknown"},
                 )
@@ -71,7 +71,7 @@ class Module(ModuleBase):
                 Finding(
                     title="No backup drive is set up for Time Machine",
                     description=(
-                        "Time Machine is on, but it doesn't know where to save your backups. "
+                        "Time Machine doesn't have a backup drive to save your backups to. "
                         "You need to connect an external drive and tell your Mac to use "
                         "it.\n\n"
                         "What to do: Plug in an external drive, open System Settings > "
