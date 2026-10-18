@@ -65,6 +65,30 @@ test('findings map to the pane their own guidance names', () => {
   assert.strictEqual(k(warn('security.unrelated.thing', 'unrelated')), null);
 });
 
+test('network findings open the Network pane their own advice names', () => {
+  const k = SettingPanes.paneKeyForFinding;
+  assert.strictEqual(k(warn('network.network_proxy_check.proxy_enabled', 'network_proxy_check')), 'networkProxies');
+  assert.strictEqual(k(warn('network.network_proxy_check.pac_url_detected', 'network_proxy_check')), 'networkProxies');
+  assert.strictEqual(k(warn('network.wifi_security_audit.open_saved', 'wifi_security_audit')), 'wifi');
+  assert.strictEqual(k(warn('network.vpn_leak_check.dns_leak', 'vpn_leak_check')), 'networkVpn');
+  assert.strictEqual(k(warn('network.dns_over_https_check.unencrypted_dns', 'dns_over_https_check')), 'networkDns');
+  // Fixed on the router, or by a cable: not a Mac setting.
+  assert.strictEqual(k(warn('network.wifi_security_audit.wpa2_only', 'wifi_security_audit')), null);
+  assert.strictEqual(k(warn('network.router_security_audit.admin_service_open', 'router_security_audit')), null);
+  assert.strictEqual(k(warn('network.ethernet_diagnostics.link_speed_mismatch', 'ethernet_diagnostics')), null);
+  assert.strictEqual(k(warn('network.arp_spoof_check.duplicate_mac', 'arp_spoof_check')), null);
+  assert.strictEqual(k(warn('network.lan_device_inventory.unrecognised_device', 'lan_device_inventory')), null);
+});
+
+test('the network panes open the pages verified on macOS 26', () => {
+  const u = SettingPanes.urlFor;
+  assert.strictEqual(u('wifi'), 'x-apple.systempreferences:com.apple.wifi-settings-extension');
+  assert.strictEqual(u('networkDns'), 'x-apple.systempreferences:com.apple.Network-Settings.extension?DNS');
+  assert.strictEqual(u('networkProxies'), 'x-apple.systempreferences:com.apple.Network-Settings.extension?Proxies');
+  assert.strictEqual(u('networkVpn'), 'x-apple.systempreferences:com.apple.Network-Settings.extension?VPN');
+  assert.strictEqual(u('networkEthernet'), 'x-apple.systempreferences:com.apple.Network-Settings.extension?Ethernet');
+});
+
 test('an info card gets no button, even with a mapped code ("all fine" findings share codes)', () => {
   const f = { ...warn('security.screen_lock_check.screen_lock_required', 'screen_lock_check'), severity: 'info' };
   assert.strictEqual(SettingPanes.paneKeyForFinding(f), null);

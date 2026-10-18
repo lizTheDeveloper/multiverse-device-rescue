@@ -19,6 +19,11 @@
  *   "Privacy_AllFiles" in PrivacySecurity.searchTerms (Privacy_AllFiles is also the
  *   ALL_FILES revealElementKeyName in TCCServiceList.plist), "Firewall" in
  *   Network.appex's NetworkSearchGroups.searchTerms.
+ * - Network panes (verified on macOS 26, 2026-10-18): Wi-Fi.appex has
+ *   CFBundleIdentifier com.apple.wifi-settings-extension with
+ *   allowsXAppleSystemPreferencesURLScheme = true. "DNS", "Proxies", "VPN" and
+ *   "Ethernet" are keys in Network.appex's NetworkSearchGroups.searchTerms, the
+ *   same file that verifies "Firewall".
  * Mac only for now; Windows (ms-settings:) can be added as a second table.
  */
 const SettingPanes = (function () {
@@ -31,6 +36,11 @@ const SettingPanes = (function () {
     sharing: { url: `${PREFIX}com.apple.Sharing-Settings.extension`, page: 'Sharing page' },
     loginItems: { url: `${PREFIX}com.apple.LoginItems-Settings.extension`, page: 'Login Items page' },
     privacySecurity: { url: `${PREFIX}com.apple.preference.security`, page: 'Privacy & Security page' },
+    wifi: { url: `${PREFIX}com.apple.wifi-settings-extension`, page: 'Wi-Fi page' },
+    networkDns: { url: `${PREFIX}com.apple.Network-Settings.extension?DNS`, page: 'DNS section of Network' },
+    networkProxies: { url: `${PREFIX}com.apple.Network-Settings.extension?Proxies`, page: 'Proxies section of Network' },
+    networkVpn: { url: `${PREFIX}com.apple.Network-Settings.extension?VPN`, page: 'VPN section of Network' },
+    networkEthernet: { url: `${PREFIX}com.apple.Network-Settings.extension?Ethernet`, page: 'Ethernet section of Network' },
     fullDiskAccess: { url: `${PREFIX}com.apple.preference.security?Privacy_AllFiles`, page: 'Full Disk Access list in Privacy & Security' },
   };
 
@@ -72,6 +82,23 @@ const SettingPanes = (function () {
     'security.sharing_preferences_audit.remote_login': 'sharing',
     'security.sharing_preferences_audit.remote_management': 'sharing',
     'security.sharing_preferences_audit.printer_sharing': 'sharing',
+    // Network. Not mapped: router, ARP and LAN codes (fixed on the router or
+    // by looking at the network, not on this Mac), wpa2_only (the router),
+    // and the Ethernet warnings (their advice is a cable or a router port;
+    // networkEthernet is here for when one names a Mac setting).
+    'network.wifi_security_audit.wep_connected': 'wifi',
+    'network.wifi_security_audit.open_network_connected': 'wifi',
+    'network.wifi_security_audit.wep_saved': 'wifi',
+    'network.wifi_security_audit.open_saved': 'wifi',
+    'network.network_proxy_check.remote_pac_url': 'networkProxies',
+    'network.network_proxy_check.pac_url_detected': 'networkProxies',
+    'network.network_proxy_check.suspicious_localhost_proxy': 'networkProxies',
+    'network.network_proxy_check.proxy_enabled': 'networkProxies',
+    'network.dns_over_https_check.unencrypted_dns': 'networkDns',
+    'network.dns_over_https_check.no_encryption_configured': 'networkDns',
+    'network.vpn_leak_check.dns_leak': 'networkVpn',
+    'network.vpn_leak_check.split_tunneling': 'networkVpn',
+    'network.vpn_leak_check.vpn_not_connected': 'networkVpn',
   };
   // Findings with no code: every login_items finding is about login items;
   // update_checker's macOS-updates finding (not its Homebrew one).
