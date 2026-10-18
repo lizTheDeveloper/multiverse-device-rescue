@@ -32,7 +32,20 @@ class Module(ModuleBase):
         "security.find_my_mac_check.configured_ok",
         "security.find_my_mac_check.find_my_mac_unknown",
         "security.find_my_mac_check.location_services_unknown",
+        "security.find_my_mac_check.send_last_location_disabled",
+        "security.find_my_mac_check.send_last_location_unknown",
+        "security.find_my_mac_check.activation_lock_unknown",
     ]
+
+    # Where Find My Mac's switches live. macOS writes them to the system-wide
+    # preferences file (root-owned, world-readable); older releases also kept a
+    # copy in the user's com.apple.FindMyMac domain. On macOS 26 the user
+    # domain does not exist at all, so reading only that one turned a Mac with
+    # Find My on into a "Find My Mac is turned off" finding.
+    _FMM_SOURCES = (
+        "/Library/Preferences/com.apple.FindMyMac.plist",
+        "com.apple.FindMyMac",
+    )
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
@@ -48,6 +61,9 @@ class Module(ModuleBase):
 
         # Check Location Services status
         location_services_enabled = self._check_location_services_enabled()
+
+        # Check Send Last Location status
+        send_last_location = self._check_send_last_location()
 
         # Each read is True / False / None. None means the setting couldn't be
         # read (missing key, or a root-only file): report "couldn't check",
@@ -137,6 +153,56 @@ class Module(ModuleBase):
                 )
             )
 
+        if send_last_location is None and find_my_mac_enabled is not False:
+            findings.append(
+                Finding(
+                    title="Couldn't check Send Last Location",
+                    description=(
+                        "Device Rescue couldn't read the Send Last Location setting on "
+                        "this Mac, so it doesn't know whether it is on or off. Newer "
+                        "versions of macOS don't keep this setting where it can be read. "
+                        "This is not a sign that anything is wrong."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.find_my_mac_check.send_last_location_unknown",
+                    data={"send_last_location": None},
+                )
+            )
+        elif send_last_location is False:
+            findings.append(
+                Finding(
+                    title="Send Last Location is turned off",
+                    description=(
+                        "Your Mac is not set to share its location when the battery runs "
+                        "out. If your Mac is lost and the battery dies, this feature helps "
+                        "you find it by sending its last known spot. Turning it on improves "
+                        "your chances of getting the device back.\n\n"
+                        "What to do: Open System Settings, click your name at the top, "
+                        "then select 'iCloud'. Turn on 'Send Last Location'."
+                    ),
+                    severity=Severity.WARNING,
+                    category=self.category,
+                    code="security.find_my_mac_check.send_last_location_disabled",
+                    data={"send_last_location": send_last_location},
+                )
+            )
+
+        if activation_lock_enabled is None:
+            findings.append(
+                Finding(
+                    title="Activation Lock status is unknown",
+                    description=(
+                        "Could not verify Activation Lock status. This feature helps "
+                        "prevent unauthorized access if Find My is enabled."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.find_my_mac_check.activation_lock_unknown",
+                    data={"activation_lock_enabled": None},
+                )
+            )
+
         # Flag WARNING if iCloud is not signed in
         if not icloud_signed_in:
             findings.append(
@@ -160,10 +226,16 @@ class Module(ModuleBase):
         if (
             find_my_mac_enabled is True
             and location_services_enabled is not False
+            and send_last_location is not False
             and icloud_signed_in
         ):
             activation_status = {True: "on", False: "off"}.get(
                 activation_lock_enabled, "unknown"
+            )
+            last_location_status = (
+                "Send Last Location is on"
+                if send_last_location
+                else "Send Last Location couldn't be checked"
             )
             location_status = (
                 "Location Services are on"
@@ -176,6 +248,7 @@ class Module(ModuleBase):
                     description=(
                         f"Find My Mac is on and you're signed in to iCloud. "
                         f"{location_status}. "
+                        f"{last_location_status}. "
                         f"Activation Lock is {activation_status}. "
                         "Your device can be located and remotely managed if lost or stolen."
                     ),
@@ -185,6 +258,7 @@ class Module(ModuleBase):
                     data={
                         "find_my_mac_enabled": find_my_mac_enabled,
                         "location_services_enabled": location_services_enabled,
+                        "send_last_location": send_last_location,
                         "icloud_signed_in": icloud_signed_in,
                         "activation_lock_enabled": activation_lock_enabled,
                     },
@@ -206,6 +280,21 @@ class Module(ModuleBase):
                             "2. Make sure you're signed in with your Apple ID\n"
                             "3. Toggle 'Find My Mac' ON\n"
                             "This requires an active iCloud account and Location Services to be enabled."
+                        ),
+                        risk_level=RiskLevel.SAFE,
+                        success=True,
+                    )
+                )
+            elif finding.code == "security.find_my_mac_check.send_last_location_disabled":
+                actions.append(
+                    Action(
+                        title="Enable Send Last Location",
+                        description=(
+                            "Send Last Location must be enabled in Find My settings. "
+                            "1. Open System Settings > [Your Name] > iCloud\n"
+                            "2. Click 'Find My'\n"
+                            "3. Enable 'Send Last Location'\n"
+                            "This ensures the device's final location is sent when battery is low."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -255,23 +344,30 @@ class Module(ModuleBase):
             return False
         return None
 
+    def _read_bool_default(self, key: str) -> bool | None:
+        """First True/False answer for ``key`` across ``_FMM_SOURCES``."""
+        for domain in self._FMM_SOURCES:
+            try:
+                result = subprocess.run(
+                    ["defaults", "read", domain, key],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            except (OSError, subprocess.SubprocessError):
+                continue
+            value = self._parse_bool_default(result)
+            if value is not None:
+                return value
+        return None
+
     def _check_find_my_mac_enabled(self) -> bool | None:
-        """Find My Mac switch from the system preferences file (None if unreadable)."""
-        try:
-            result = subprocess.run(
-                [
-                    "defaults",
-                    "read",
-                    "/Library/Preferences/com.apple.FindMyMac.plist",
-                    "FMMEnabled",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return None
-        return self._parse_bool_default(result)
+        """Find My Mac switch: True, False, or None when it can't be read."""
+        return self._read_bool_default("FMMEnabled")
+
+    def _check_send_last_location(self) -> bool | None:
+        """Send Last Location switch: True, False, or None when it can't be read."""
+        return self._read_bool_default("SendLastLocation")
 
     def _check_icloud_signed_in(self) -> bool:
         """Check if iCloud account is signed in via defaults read."""
@@ -306,10 +402,7 @@ class Module(ModuleBase):
             )
         except (OSError, subprocess.SubprocessError):
             return None
-        match = _ACTIVATION_LOCK_RE.search(result.stdout or "")
-        if not match:
-            return None
-        return match.group(1).lower() == "enabled"
+        return parse_activation_lock(result.stdout or "")
 
     def _check_location_services_enabled(self) -> bool | None:
         """Location Services switch, or None when it can't be read.
@@ -339,3 +432,11 @@ _ACTIVATION_LOCK_RE = re.compile(
     r"^\s*Activation Lock(?: Status)?:\s*(Enabled|Disabled)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
+
+
+def parse_activation_lock(system_profiler_output: str) -> bool | None:
+    """Read Activation Lock from `system_profiler SPHardwareDataType` output."""
+    match = _ACTIVATION_LOCK_RE.search(system_profiler_output)
+    if not match:
+        return None
+    return match.group(1).lower() == "enabled"

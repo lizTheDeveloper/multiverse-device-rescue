@@ -1506,17 +1506,9 @@ fdesetup list
 fdesetup status
 ```
 
-### `find_my_mac`
-
-```text
-defaults read …
-system_profiler SPHardwareDataType
-```
-
 ### `find_my_mac_check`
 
 ```text
-defaults read /Library/Preferences/com.apple.FindMyMac.plist FMMEnabled
 defaults read /var/db/locationd/Library/Preferences/ByHost/com.apple.locationd LocationServicesEnabled
 defaults read …
 system_profiler SPHardwareDataType
