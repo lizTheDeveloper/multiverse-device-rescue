@@ -16,16 +16,19 @@ const SRC = SCRIPTS.map((f) => fs.readFileSync(path.join(RENDERER, f), 'utf8')).
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 class El {
-  constructor() {
+  constructor(doc) {
+    this.doc = doc;
     this.hidden = false; this.disabled = false; this.textContent = ''; this.dataset = {}; this.style = {};
     this.listeners = {}; this.kids = []; this._html = '';
-    this.classList = { toggle() {}, add() {}, remove() {}, contains: () => false };
+    const classes = new Set();
+    this.classList = { toggle: (c, on) => (on ? classes.add(c) : classes.delete(c)), add: (c) => classes.add(c),
+      remove: (c) => classes.delete(c), contains: (c) => classes.has(c) };
   }
   // The buttons the page makes from HTML: one per data-situation or data-answer.
   set innerHTML(html) {
     this._html = String(html);
     this.kids = [...this._html.matchAll(/data-(situation|answer)="([^"]+)"/g)].map((m) => {
-      const b = new El(); b.dataset[m[1]] = m[2]; return b;
+      const b = new El(this.doc); b.dataset[m[1]] = m[2]; return b;
     });
   }
   // escapeHtml sets textContent and reads innerHTML back.
@@ -40,7 +43,7 @@ class El {
   getAttribute() { return null; }
   setAttribute() {}
   appendChild() {}
-  focus() {}
+  focus() { if (this.doc) this.doc.activeElement = this; }
   scrollIntoView() {}
 }
 
@@ -57,14 +60,18 @@ function blockedStore() {
 
 function page({ store = { 'device-rescue.display': 'standard' }, ready = true, blocked = false } = {}) {
   const els = {};
-  const byId = (id) => (els[id] = els[id] || new El());
+  const doc = { activeElement: null };
+  const byId = (id) => (els[id] = els[id] || new El(doc));
+  // The progress dots at the top of the page, one per step.
+  const dots = ['welcome', 'worry', 'scan', 'results'].map((d) => { const e = new El(doc); e.dataset.stepDot = d; return e; });
   const calls = { game: [], scans: [], guides: [], last: null };
   const winListeners = {};
   const storage = blocked ? blockedStore() : recordingStore(store || {});
   let finishScan = () => {};
   const sandbox = {
     console, setTimeout, Promise, JSON,
-    document: { getElementById: byId, querySelectorAll: () => [], createElement: () => new El(), addEventListener() {} },
+    document: Object.assign(doc, { getElementById: byId, querySelectorAll: (sel) => (sel === '[data-step-dot]' ? dots : []),
+      createElement: () => new El(doc), addEventListener() {} }),
     localStorage: storage,
     fetch: () => Promise.reject(new Error('no network in tests')),
     navigator: { userAgent: 'Macintosh' },
@@ -96,8 +103,9 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   const pick = (id) => byId('situations').kids.find((b) => b.dataset.situation === id).click();
   const answer = (id) => byId('question-card').kids.find((b) => b.dataset.answer === id).click();
   const fire = (type) => (winListeners[type] || []).forEach((fn) => fn({ type }));
-  const finish = async (doc) => { finishScan(doc); await tick(); await tick(); };
-  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish };
+  const finish = async (d) => { finishScan(d); await tick(); await tick(); };
+  const activeDot = () => dots.filter((e) => e.classList.contains('step-dot--active')).map((e) => e.dataset.stepDot);
+  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, activeDot };
 }
 
 const clean = { schema_version: 1, platform: 'darwin', modules: [] };

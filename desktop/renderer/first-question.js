@@ -31,7 +31,22 @@ const FirstQuestion = (function () {
       { id: 'rather-not', label: 'I’d rather not say', mode: 'standard' },
     ],
   };
-  const QUESTIONS = { first: FIRST, recheck: RECHECK };
+  // "Something changed?" once there is an answer: the same question, a way
+  // back that changes nothing, and "rather not say" keeps the current setting.
+  // Only an explicit answer changes it.
+  const CHANGE = {
+    kind: 'change',
+    title: 'Something changed?',
+    text: FIRST.text,
+    note: 'Your answer only changes what this app shows you.',
+    answers: [
+      { id: 'no', label: 'No', mode: 'standard' },
+      { id: 'yes', label: 'Yes, that’s part of it', mode: 'city' },
+      { id: 'rather-not', label: 'I’d rather not say', mode: null },
+    ],
+    back: { id: 'back', label: 'Back — keep things as they are' },
+  };
+  const QUESTIONS = { first: FIRST, recheck: RECHECK, change: CHANGE };
 
   // "I think someone is watching me" goes straight to 'city' without asking.
   const STRAIGHT_TO_CITY = 'watched';
@@ -39,7 +54,7 @@ const FirstQuestion = (function () {
   function modeFor(kind, answerId) {
     const q = QUESTIONS[kind];
     const a = q && q.answers.find((x) => x.id === answerId);
-    return a ? a.mode : null;
+    return a && a.mode ? a.mode : null;
   }
 
   // After a worry is picked: the mode to use now, or 'ask' for the question first.
@@ -57,11 +72,13 @@ const FirstQuestion = (function () {
   function questionHtml(kind, esc) {
     const q = QUESTIONS[kind];
     if (!q) return '';
-    return `<h1 id="question-title">${esc(q.title)}</h1>
+    // tabindex="-1": app.js moves focus here so a screen reader reads the question.
+    return `<h1 id="question-title" tabindex="-1">${esc(q.title)}</h1>
       <p class="lede">${esc(q.text)}</p>
       <ul class="question-answers">${q.answers.map((a) => `
         <li><button type="button" class="btn btn--secondary question-answer" data-answer="${esc(a.id)}">${esc(a.label)}</button></li>`).join('')}
-      </ul>
+      </ul>${q.back ? `
+      <p class="question-back"><button type="button" class="link-button" data-answer="${esc(q.back.id)}">${esc(q.back.label)}</button></p>` : ''}
       <p class="muted">${esc(q.note)}</p>`;
   }
 

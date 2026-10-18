@@ -519,6 +519,9 @@ if (typeof document !== 'undefined') {
         });
       });
       showScreen('question');
+      // Move focus to the question so a screen reader announces it.
+      const title = document.getElementById('question-title');
+      if (title && typeof title.focus === 'function') title.focus();
     }
     const VIEW_KEY = 'device-rescue.view';
     function rememberView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (_) { /* per-viewer nicety only */ } }
@@ -583,12 +586,15 @@ if (typeof document !== 'undefined') {
     };
     window.addEventListener('rescue-game-ready', () => { if (lastScanDoc) renderCitySwitch(lastScanDoc); });
 
+    let activeDot = null;
     function showScreen(name) {
       Object.keys(screens).forEach((key) => {
         if (!screens[key]) return;
         screens[key].hidden = key !== name;
       });
-      const dotName = name === 'city' ? 'results' : name === 'question' ? 'worry' : name;
+      // The question screen keeps the step the person was on (worry, or the checkup's follow-up).
+      const dotName = name === 'question' ? activeDot : name === 'city' ? 'results' : name;
+      activeDot = dotName;
       stepDots.forEach((dot) => {
         dot.classList.toggle('step-dot--active', dot.dataset.stepDot === dotName);
       });
@@ -1057,7 +1063,9 @@ if (typeof document !== 'undefined') {
     });
     // "Something changed?": the question again, then back to the worry screen.
     document.getElementById('btn-something-changed').addEventListener('click', () => {
-      ask('first', () => showScreen('worry'));
+      // Before any answer this is the first ask; after one, the re-ask, where
+      // Back and "rather not say" leave the setting as it is.
+      ask(mode ? 'change' : 'first', () => showScreen('worry'));
     });
     document.getElementById('btn-see-city').addEventListener('click', () => {
       if (lastScanDoc) showCity(lastScanDoc);

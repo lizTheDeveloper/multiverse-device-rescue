@@ -178,3 +178,77 @@ test('the follow-up "No, I don’t" turns on city', async () => {
   assert.deepStrictEqual(modeWrites(p), [[KEY, 'city']]);
   assert.strictEqual(p.sandbox.RescueHost.mode(), 'city');
 });
+
+// Fix round 1: focus, a way back from the re-ask, and the step dot.
+
+test('focus moves to the question, so a screen reader reads it: first ask and the follow-up', async () => {
+  const p = page({ store: {} });
+  p.byId('btn-play-game').click();
+  p.pick('unsure');
+  assert.match(p.byId('question-card').innerHTML, /id="question-title" tabindex="-1"/);
+  assert.strictEqual(p.sandbox.document.activeElement, p.byId('question-title'), 'first ask');
+  p.answer('no');
+  p.sandbox.document.activeElement = null;
+  await p.finish(monitoring);
+  assert.deepStrictEqual(p.shown(), ['question']);
+  assert.match(p.byId('question-card').innerHTML, /id="question-title" tabindex="-1"/);
+  assert.strictEqual(p.sandbox.document.activeElement, p.byId('question-title'), 'the follow-up');
+});
+
+test('the re-ask: Back changes nothing, writes nothing, and returns to the worry screen', () => {
+  for (const m of ['city', 'standard']) {
+    const p = page({ store: { [KEY]: m } });
+    p.byId('btn-get-started').click();
+    p.byId('btn-something-changed').click();
+    assert.deepStrictEqual(p.shown(), ['question']);
+    const before = p.storage.writes.length;
+    p.answer('back');
+    assert.strictEqual(p.storage.writes.length, before, 'nothing written');
+    assert.strictEqual(p.storage.getItem(KEY), m);
+    assert.strictEqual(p.sandbox.RescueHost.mode(), m);
+    assert.deepStrictEqual(p.shown(), ['worry']);
+  }
+});
+
+test('the re-ask: "I’d rather not say" keeps city as city', () => {
+  const p = page({ store: { [KEY]: 'city' } });
+  p.byId('btn-get-started').click();
+  p.byId('btn-something-changed').click();
+  p.answer('rather-not');
+  assert.deepStrictEqual(modeWrites(p), []);
+  assert.strictEqual(p.sandbox.RescueHost.mode(), 'city');
+  assert.deepStrictEqual(p.shown(), ['worry']);
+});
+
+test('the re-ask: only an explicit "No" turns city into standard', () => {
+  const p = page({ store: { [KEY]: 'city' } });
+  p.byId('btn-get-started').click();
+  p.byId('btn-something-changed').click();
+  p.answer('no');
+  assert.deepStrictEqual(modeWrites(p), [[KEY, 'standard']]);
+  assert.strictEqual(p.sandbox.RescueHost.mode(), 'standard');
+});
+
+test('"Something changed?" before any answer is the first ask: "rather not say" there is standard', () => {
+  const p = page({ store: {} });
+  p.byId('btn-get-started').click();
+  p.byId('btn-something-changed').click();
+  assert.ok(!p.byId('question-card').innerHTML.includes('data-answer="back"'));
+  p.answer('rather-not');
+  assert.deepStrictEqual(modeWrites(p), [[KEY, 'standard']]);
+});
+
+test('the step dot stays where the person is: worry for the first ask, the checkup for the follow-up', async () => {
+  const p = page({ store: {} });
+  p.byId('btn-get-started').click();
+  p.pick('unsure');
+  assert.deepStrictEqual(p.activeDot(), ['worry']);
+  p.answer('no');
+  assert.deepStrictEqual(p.activeDot(), ['scan']);
+  p.byId('btn-run-scan').click();
+  await p.finish(monitoring);
+  assert.deepStrictEqual(p.shown(), ['question']);
+  assert.deepStrictEqual(p.activeDot(), ['scan'], 'not back to "worry"');
+  p.answer('known');
+  assert.deepStrictEqual(p.activeDot(), ['results']);
+});

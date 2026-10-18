@@ -51,9 +51,29 @@ test('the follow-up is due once, in standard mode, after monitoring software was
 
 test('the question screen: a heading, the question, one button per answer, all escaped', () => {
   const html = FQ.questionHtml('first', esc);
-  assert.match(html, /<h1 id="question-title">One more question<\/h1>/);
+  // tabindex="-1" so the page can move focus to it and a screen reader reads the question.
+  assert.match(html, /<h1 id="question-title" tabindex="-1">One more question<\/h1>/);
   assert.ok(html.includes(esc(FQ.QUESTIONS.first.text)));
   assert.strictEqual((html.match(/data-answer="/g) || []).length, 3);
   assert.ok(html.includes('data-answer="rather-not"'));
   assert.strictEqual(FQ.questionHtml('nope', esc), '');
+});
+
+test('the re-ask ("Something changed?"): the same question, a way back, and "rather not say" keeps things as they are', () => {
+  const q = FQ.QUESTIONS.change;
+  assert.strictEqual(q.text, FQ.QUESTIONS.first.text);
+  assert.deepStrictEqual(q.answers.map((a) => [a.id, a.label, a.mode]), [
+    ['no', 'No', 'standard'],
+    ['yes', 'Yes, that’s part of it', 'city'],
+    ['rather-not', 'I’d rather not say', null],
+  ]);
+  assert.deepStrictEqual([q.back.id, q.back.label], ['back', 'Back — keep things as they are']);
+  assert.strictEqual(FQ.modeFor('change', 'rather-not'), null);
+  assert.strictEqual(FQ.modeFor('change', 'back'), null);
+  assert.strictEqual(FQ.modeFor('change', 'no'), 'standard');
+  const html = FQ.questionHtml('change', esc);
+  assert.strictEqual((html.match(/data-answer="/g) || []).length, 4);
+  assert.ok(html.includes('data-answer="back"'));
+  assert.ok(html.includes(esc('Back — keep things as they are')));
+  assert.ok(!FQ.questionHtml('first', esc).includes('data-answer="back"'), 'the first ask has no back: there is nothing to keep');
 });
