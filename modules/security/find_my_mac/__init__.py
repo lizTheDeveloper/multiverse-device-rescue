@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from rescue.models import (
@@ -28,14 +29,48 @@ class Module(ModuleBase):
         "security.find_my_mac.send_last_location_disabled",
         "security.find_my_mac.activation_lock_unknown",
         "security.find_my_mac.configured_ok",
+        "security.find_my_mac.find_my_mac_unknown",
+        "security.find_my_mac.send_last_location_unknown",
     ]
+
+    # Find My Mac's on/off switch. macOS writes it to the system-wide
+    # preferences file (root-owned, world-readable); older releases also kept a
+    # copy in the user's com.apple.FindMyMac domain. On macOS 26 the user
+    # domain does not exist at all, so reading only that one turned a Mac with
+    # Find My on into a "Find My Mac is turned off" finding.
+    _FMM_SOURCES = (
+        "/Library/Preferences/com.apple.FindMyMac.plist",
+        "com.apple.FindMyMac",
+    )
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
-        # Check if Find My Mac is enabled
+        # Each read is True (on), False (off) or None (couldn't tell). A missing
+        # or unreadable setting is "couldn't check", never "off".
+        activation_lock = self._check_activation_lock()
         fmm_enabled = self._check_find_my_mac_enabled()
-        if not fmm_enabled:
+        if fmm_enabled is None and activation_lock is True:
+            # Activation Lock is only ever on while Find My Mac is on.
+            fmm_enabled = True
+        if fmm_enabled is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether Find My Mac is on",
+                    description=(
+                        "Device Rescue couldn't read the Find My Mac setting on this "
+                        "Mac, so it doesn't know whether it is on or off. This is not "
+                        "a sign that anything is wrong.\n\n"
+                        "To see for yourself: open System Settings, click your name at "
+                        "the top, then select 'iCloud' and look at 'Find My Mac'."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.find_my_mac.find_my_mac_unknown",
+                    data={"find_my_mac_enabled": None},
+                )
+            )
+        elif fmm_enabled is False:
             findings.append(
                 Finding(
                     title="Find My Mac is turned off",
@@ -59,7 +94,23 @@ class Module(ModuleBase):
 
         # Check if Send Last Location is enabled
         send_last_location = self._check_send_last_location()
-        if not send_last_location:
+        if send_last_location is None and fmm_enabled is not False:
+            findings.append(
+                Finding(
+                    title="Couldn't check Send Last Location",
+                    description=(
+                        "Device Rescue couldn't read the Send Last Location setting on "
+                        "this Mac, so it doesn't know whether it is on or off. Newer "
+                        "versions of macOS don't keep this setting where it can be read. "
+                        "This is not a sign that anything is wrong."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.find_my_mac.send_last_location_unknown",
+                    data={"send_last_location": None},
+                )
+            )
+        elif send_last_location is False:
             findings.append(
                 Finding(
                     title="Send Last Location is turned off",
@@ -78,8 +129,6 @@ class Module(ModuleBase):
                 )
             )
 
-        # Check if Activation Lock is enabled
-        activation_lock = self._check_activation_lock()
         if activation_lock is None:
             # Could not determine; provide INFO
             findings.append(
@@ -95,14 +144,15 @@ class Module(ModuleBase):
                     data={"activation_lock": activation_lock},
                 )
             )
-        elif fmm_enabled and send_last_location:
+        if fmm_enabled is True and send_last_location is not False:
             # All good
             findings.append(
                 Finding(
                     title="Find My Mac is properly configured",
                     description=(
-                        "Find My Mac and Send Last Location are both enabled. "
-                        "Your device can be located and remotely managed if lost or stolen."
+                        "Find My Mac is on"
+                        + (" and Send Last Location is on. " if send_last_location else ". ")
+                        + "Your device can be located and remotely managed if lost or stolen."
                     ),
                     severity=Severity.INFO,
                     category=self.category,
@@ -153,42 +203,75 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _check_find_my_mac_enabled(self) -> bool:
-        """Check if Find My Mac is enabled via defaults read."""
-        try:
-            result = subprocess.run(
-                ["defaults", "read", "com.apple.FindMyMac", "FMMEnabled"],
-                capture_output=True,
-                text=True,
-            )
-            # Output will be "1" if enabled, "0" if disabled, or error if not found
-            output = result.stdout.strip()
-            return output == "1"
-        except Exception:
-            return False
+    @staticmethod
+    def _parse_bool_default(result) -> bool | None:
+        """Turn a `defaults read <domain> <key>` result into True/False/None.
 
-    def _check_send_last_location(self) -> bool:
-        """Check if Send Last Location is enabled via defaults read."""
-        try:
-            result = subprocess.run(
-                ["defaults", "read", "com.apple.FindMyMac", "SendLastLocation"],
-                capture_output=True,
-                text=True,
-            )
-            output = result.stdout.strip()
-            return output == "1"
-        except Exception:
+        A non-zero exit means the domain or key is missing (or unreadable):
+        that is "couldn't tell", not "off".
+        """
+        if result.returncode != 0:
+            return None
+        value = (result.stdout or "").strip()
+        if value == "1":
+            return True
+        if value == "0":
             return False
+        return None
+
+    def _read_bool_default(self, key: str) -> bool | None:
+        for domain in self._FMM_SOURCES:
+            try:
+                result = subprocess.run(
+                    ["defaults", "read", domain, key],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            except (OSError, subprocess.SubprocessError):
+                continue
+            value = self._parse_bool_default(result)
+            if value is not None:
+                return value
+        return None
+
+    def _check_find_my_mac_enabled(self) -> bool | None:
+        """Find My Mac switch: True, False, or None when it can't be read."""
+        return self._read_bool_default("FMMEnabled")
+
+    def _check_send_last_location(self) -> bool | None:
+        """Send Last Location switch: True, False, or None when it can't be read."""
+        return self._read_bool_default("SendLastLocation")
 
     def _check_activation_lock(self) -> bool | None:
-        """Check if Activation Lock is enabled via nvram."""
+        """Activation Lock, from System Information's hardware overview.
+
+        Apple silicon and T2 Macs print "Activation Lock Status: Enabled" or
+        "Disabled". (The fmm-mobileme-token nvram variable this used to look
+        for is hidden from `nvram -p` on Apple silicon.) None when the line is
+        missing, e.g. on older Intel Macs without Activation Lock.
+        """
         try:
             result = subprocess.run(
-                ["nvram", "-p"],
+                ["system_profiler", "SPHardwareDataType"],
                 capture_output=True,
                 text=True,
+                timeout=30,
             )
-            # Look for fmm-mobileme-token in output
-            return "fmm-mobileme-token" in result.stdout
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return None
+        return parse_activation_lock(result.stdout or "")
+
+
+_ACTIVATION_LOCK_RE = re.compile(
+    r"^\s*Activation Lock(?: Status)?:\s*(Enabled|Disabled)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def parse_activation_lock(system_profiler_output: str) -> bool | None:
+    """Read Activation Lock from `system_profiler SPHardwareDataType` output."""
+    match = _ACTIVATION_LOCK_RE.search(system_profiler_output)
+    if not match:
+        return None
+    return match.group(1).lower() == "enabled"

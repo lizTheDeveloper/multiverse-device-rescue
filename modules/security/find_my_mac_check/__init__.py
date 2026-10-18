@@ -1,3 +1,4 @@
+import re
 import subprocess
 from pathlib import Path
 
@@ -29,6 +30,8 @@ class Module(ModuleBase):
         "security.find_my_mac_check.location_services_disabled",
         "security.find_my_mac_check.icloud_not_signed_in",
         "security.find_my_mac_check.configured_ok",
+        "security.find_my_mac_check.find_my_mac_unknown",
+        "security.find_my_mac_check.location_services_unknown",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
@@ -46,8 +49,33 @@ class Module(ModuleBase):
         # Check Location Services status
         location_services_enabled = self._check_location_services_enabled()
 
+        # Each read is True / False / None. None means the setting couldn't be
+        # read (missing key, or a root-only file): report "couldn't check",
+        # never "off".
+        if find_my_mac_enabled is None and activation_lock_enabled is True:
+            # Activation Lock is only ever on while Find My Mac is on.
+            find_my_mac_enabled = True
+
+        if find_my_mac_enabled is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether Find My Mac is on",
+                    description=(
+                        "Device Rescue couldn't read the Find My Mac setting on this "
+                        "Mac, so it doesn't know whether it is on or off. This is not "
+                        "a sign that anything is wrong.\n\n"
+                        "To see for yourself: open System Settings, click your name at "
+                        "the top, choose iCloud, and look at Find My Mac."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.find_my_mac_check.find_my_mac_unknown",
+                    data={"find_my_mac_enabled": None},
+                )
+            )
+
         # Flag CRITICAL if Find My Mac is disabled
-        if not find_my_mac_enabled:
+        if find_my_mac_enabled is False:
             findings.append(
                 Finding(
                     title="Find My Mac is turned off",
@@ -69,8 +97,27 @@ class Module(ModuleBase):
                 )
             )
 
+        if location_services_enabled is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether Location Services are on",
+                    description=(
+                        "macOS keeps the Location Services setting in a file that only "
+                        "the system can read, so Device Rescue couldn't tell whether it "
+                        "is on. Find My Mac needs it to show where this Mac is. This is "
+                        "not a sign that anything is wrong.\n\n"
+                        "To see for yourself: open System Settings > Privacy & Security "
+                        "> Location Services."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.find_my_mac_check.location_services_unknown",
+                    data={"location_services_enabled": None},
+                )
+            )
+
         # Flag WARNING if Location Services are disabled
-        if not location_services_enabled:
+        if location_services_enabled is False:
             findings.append(
                 Finding(
                     title="Location Services are turned off",
@@ -110,15 +157,25 @@ class Module(ModuleBase):
             )
 
         # Flag INFO reporting Find My Mac and Activation Lock status
-        if find_my_mac_enabled and location_services_enabled and icloud_signed_in:
-            activation_status = (
-                "enabled" if activation_lock_enabled else "disabled or unknown"
+        if (
+            find_my_mac_enabled is True
+            and location_services_enabled is not False
+            and icloud_signed_in
+        ):
+            activation_status = {True: "on", False: "off"}.get(
+                activation_lock_enabled, "unknown"
+            )
+            location_status = (
+                "Location Services are on"
+                if location_services_enabled
+                else "Location Services couldn't be checked"
             )
             findings.append(
                 Finding(
                     title="Find My Mac is properly configured",
                     description=(
-                        f"Find My Mac is enabled with Location Services active and iCloud signed in. "
+                        f"Find My Mac is on and you're signed in to iCloud. "
+                        f"{location_status}. "
                         f"Activation Lock is {activation_status}. "
                         "Your device can be located and remotely managed if lost or stolen."
                     ),
@@ -186,8 +243,20 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _check_find_my_mac_enabled(self) -> bool:
-        """Check if Find My Mac is enabled via defaults read."""
+    @staticmethod
+    def _parse_bool_default(result) -> bool | None:
+        """`defaults read` result -> True/False, or None if missing/unreadable."""
+        if result.returncode != 0:
+            return None
+        value = (result.stdout or "").strip()
+        if value == "1":
+            return True
+        if value == "0":
+            return False
+        return None
+
+    def _check_find_my_mac_enabled(self) -> bool | None:
+        """Find My Mac switch from the system preferences file (None if unreadable)."""
         try:
             result = subprocess.run(
                 [
@@ -198,11 +267,11 @@ class Module(ModuleBase):
                 ],
                 capture_output=True,
                 text=True,
+                timeout=10,
             )
-            output = result.stdout.strip()
-            return output == "1"
-        except Exception:
-            return False
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return self._parse_bool_default(result)
 
     def _check_icloud_signed_in(self) -> bool:
         """Check if iCloud account is signed in via defaults read."""
@@ -222,21 +291,33 @@ class Module(ModuleBase):
         except Exception:
             return False
 
-    def _check_activation_lock(self) -> bool:
-        """Check if Activation Lock is enabled via system_profiler."""
+    def _check_activation_lock(self) -> bool | None:
+        """Activation Lock from System Information's hardware overview.
+
+        Apple silicon and T2 Macs print "Activation Lock Status: Enabled" (or
+        Disabled). None when the line is missing.
+        """
         try:
             result = subprocess.run(
                 ["system_profiler", "SPHardwareDataType"],
                 capture_output=True,
                 text=True,
+                timeout=30,
             )
-            # Look for Activation Lock in output
-            return "Activation Lock: Enabled" in result.stdout
-        except Exception:
-            return False
+        except (OSError, subprocess.SubprocessError):
+            return None
+        match = _ACTIVATION_LOCK_RE.search(result.stdout or "")
+        if not match:
+            return None
+        return match.group(1).lower() == "enabled"
 
-    def _check_location_services_enabled(self) -> bool:
-        """Check if Location Services are enabled via defaults read."""
+    def _check_location_services_enabled(self) -> bool | None:
+        """Location Services switch, or None when it can't be read.
+
+        The locationd preferences live under /var/db/locationd, which is
+        readable only by the _locationd user, so without root this read fails
+        and the answer is "couldn't check", not "off".
+        """
         try:
             result = subprocess.run(
                 [
@@ -247,8 +328,14 @@ class Module(ModuleBase):
                 ],
                 capture_output=True,
                 text=True,
+                timeout=10,
             )
-            output = result.stdout.strip()
-            return output == "1"
-        except Exception:
-            return False
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return self._parse_bool_default(result)
+
+
+_ACTIVATION_LOCK_RE = re.compile(
+    r"^\s*Activation Lock(?: Status)?:\s*(Enabled|Disabled)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)

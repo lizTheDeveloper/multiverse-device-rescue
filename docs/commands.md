@@ -1509,9 +1509,8 @@ fdesetup status
 ### `find_my_mac`
 
 ```text
-defaults read com.apple.FindMyMac FMMEnabled
-defaults read com.apple.FindMyMac SendLastLocation
-nvram -p
+defaults read …
+system_profiler SPHardwareDataType
 ```
 
 ### `find_my_mac_check`

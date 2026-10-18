@@ -200,3 +200,77 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.find_my_mac_check.") for c in declared)
+
+
+# --- Regression: real macOS 26.3.1 reads, Find My Mac ON ---------------------
+
+# system_profiler SPHardwareDataType (identifiers redacted).
+MACOS26_HARDWARE = (
+    "Hardware:\n\n    Hardware Overview:\n\n"
+    "      Model Name: MacBook Pro\n"
+    "      Chip: Apple M3 Max\n"
+    "      Serial Number (system): REDACTED\n"
+    "      Hardware UUID: 00000000-0000-0000-0000-000000000000\n"
+    "      Activation Lock Status: Enabled\n"
+)
+
+
+def _fake_run_macos26(fmm_stdout="1\n", fmm_rc=0):
+    """Find My on; /var/db/locationd is root-only so the locationd read fails."""
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if "FindMyMac" in cmd_str:
+            return _make_subprocess_result(stdout=fmm_stdout, returncode=fmm_rc)
+        if "MobileMeAccounts" in cmd_str:
+            return _make_subprocess_result(stdout="{ Accounts = ({...}); }")
+        if "SPHardwareDataType" in cmd_str:
+            return _make_subprocess_result(stdout=MACOS26_HARDWARE)
+        if "locationd" in cmd_str:
+            return _make_subprocess_result(
+                stderr="The domain/default pair of (/var/db/locationd/Library/"
+                "Preferences/ByHost/com.apple.locationd, LocationServicesEnabled) "
+                "does not exist\n",
+                returncode=1,
+            )
+        return _make_subprocess_result(returncode=1)
+    return fake_run
+
+
+def test_macos26_unreadable_location_services_is_not_off():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_macos26()):
+        result = mod.check(_make_profile())
+    codes = {f.code for f in result.findings}
+    assert "security.find_my_mac_check.find_my_mac_disabled" not in codes
+    assert "security.find_my_mac_check.location_services_disabled" not in codes
+    assert "security.find_my_mac_check.location_services_unknown" in codes
+    assert "security.find_my_mac_check.configured_ok" in codes
+    assert all(f.severity == Severity.INFO for f in result.findings)
+    ok = next(f for f in result.findings if f.code.endswith("configured_ok"))
+    assert ok.data["activation_lock_enabled"] is True
+    assert "Activation Lock is on" in ok.description
+
+
+def test_missing_fmm_pref_is_couldnt_check_not_off():
+    mod = _get_module()
+    hw_no_lock = "Hardware Overview:\n      Model Name: iMac\n"
+
+    def fake_run(cmd, **kwargs):
+        if "SPHardwareDataType" in " ".join(cmd):
+            return _make_subprocess_result(stdout=hw_no_lock)
+        return _fake_run_macos26(fmm_stdout="", fmm_rc=1)(cmd, **kwargs)
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    codes = {f.code for f in result.findings}
+    assert "security.find_my_mac_check.find_my_mac_disabled" not in codes
+    assert "security.find_my_mac_check.find_my_mac_unknown" in codes
+
+
+def test_command_failure_is_not_off():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=OSError("boom")):
+        result = mod.check(_make_profile())
+    codes = {f.code for f in result.findings}
+    assert "security.find_my_mac_check.find_my_mac_disabled" not in codes
+    assert "security.find_my_mac_check.location_services_disabled" not in codes
