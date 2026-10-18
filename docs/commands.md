@@ -1521,13 +1521,22 @@ system_profiler SPHardwareDataType
 
 ### `firewall_audit`
 
-
-Plus 2 command(s) built at runtime.
+```text
+/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode
+/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
+/usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on
+```
 
 ### `firewall_rules_audit`
 
-
-Plus 1 command(s) built at runtime.
+```text
+/usr/libexec/ApplicationFirewall/socketfilterfw --getallowsigned
+/usr/libexec/ApplicationFirewall/socketfilterfw --getblockall
+/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode
+/usr/libexec/ApplicationFirewall/socketfilterfw --listapps
+```
 
 ### `firmware_password`
 
@@ -1722,9 +1731,12 @@ sqlite3 …
 ```text
 defaults read /Library/Preferences/com.apple.RemoteDesktop
 defaults read /Library/Preferences/com.apple.RemoteManagement ARD_AllLocalUsers
-systemsetup -getremoteappleevents
-systemsetup -getremotelogin
+launchctl print system/com.apple.AEServer
+launchctl print system/com.apple.screensharing
+launchctl print system/com.openssh.sshd
 ```
+
+Plus 1 command(s) built at runtime.
 
 ### `rootkit_check`
 
@@ -1800,7 +1812,9 @@ defaults read MobileMeAccounts Accounts
 cupsctl
 defaults read com.apple.sharingd DiscoverableMode
 launchctl list
-launchctl print …
+launchctl print system/com.apple.screensharing
+launchctl print system/com.apple.smbd
+launchctl print system/com.openssh.sshd
 systemsetup -getremotelogin
 ```
 
@@ -1809,7 +1823,9 @@ systemsetup -getremotelogin
 ```text
 cupsctl
 launchctl list
-systemsetup -getremotelogin
+launchctl print system/com.apple.screensharing
+launchctl print system/com.apple.smbd
+launchctl print system/com.openssh.sshd
 ```
 
 ### `sip_gatekeeper`

@@ -12,7 +12,7 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
-from rescue.macos_firewall import SOCKETFILTERFW, parse_global_state, parse_stealth_mode
+from rescue.macos_firewall import parse_global_state, parse_stealth_mode
 from rescue.module_base import ModuleBase
 
 
@@ -37,7 +37,9 @@ class Module(ModuleBase):
 
         # Each reading is True (on), False (off) or None (couldn't tell). An
         # unreadable answer is "couldn't check", never "off".
-        global_state = parse_global_state(self._run_socketfilterfw("--getglobalstate"))
+        global_state = parse_global_state(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate"],
+            capture_output=True, text=True, timeout=15)))
         if global_state is None:
             findings.append(
                 Finding(
@@ -76,7 +78,9 @@ class Module(ModuleBase):
 
         # macOS 15+ says "Firewall stealth mode is off", which the old
         # "disabled" substring test never matched.
-        stealth_state = parse_stealth_mode(self._run_socketfilterfw("--getstealthmode"))
+        stealth_state = parse_stealth_mode(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getstealthmode"],
+            capture_output=True, text=True, timeout=15)))
         if stealth_state is None:
             findings.append(
                 Finding(
@@ -123,11 +127,18 @@ class Module(ModuleBase):
             else:
                 continue
             try:
-                result = subprocess.run(
-                    [SOCKETFILTERFW, flag, "on"],
-                    capture_output=True,
-                    text=True,
-                )
+                if flag == "--setglobalstate":
+                    result = subprocess.run(
+                        ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--setglobalstate", "on"],
+                        capture_output=True,
+                        text=True,
+                    )
+                else:
+                    result = subprocess.run(
+                        ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--setstealthmode", "on"],
+                        capture_output=True,
+                        text=True,
+                    )
                 success = result.returncode == 0
                 error = None if success else (
                     result.stderr.strip()
@@ -149,15 +160,12 @@ class Module(ModuleBase):
             )
         return FixResult(module_name=self.name, actions=actions)
 
-    def _run_socketfilterfw(self, flag: str) -> str | None:
-        """stdout of ``socketfilterfw <flag>``, or None if it couldn't run."""
+    # Commands are written out in full so docs/commands.md lists them.
+    @staticmethod
+    def _stdout(call) -> str | None:
+        """stdout of ``call()`` (a subprocess.run), or None if it couldn't run."""
         try:
-            result = subprocess.run(
-                [SOCKETFILTERFW, flag],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
+            result = call()
         except (OSError, subprocess.SubprocessError):
             return None
         if result.returncode != 0:

@@ -11,7 +11,6 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.macos_firewall import (
-    SOCKETFILTERFW,
     parse_allow_signed,
     parse_block_all,
     parse_global_state,
@@ -272,16 +271,13 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
+    # Each command is written out in full (not built from a flag) so
+    # docs/commands.md and `rescue scan --trace` list exactly what runs.
     @staticmethod
-    def _socketfilterfw(flag: str) -> str | None:
-        """stdout of ``socketfilterfw <flag>``, or None if it couldn't run."""
+    def _stdout(call) -> str | None:
+        """stdout of ``call()`` (a subprocess.run), or None if it couldn't run."""
         try:
-            result = subprocess.run(
-                [SOCKETFILTERFW, flag],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
+            result = call()
         except (OSError, subprocess.SubprocessError):
             return None
         if result.returncode != 0:
@@ -290,20 +286,30 @@ class Module(ModuleBase):
 
     def _get_alf_status(self) -> bool | None:
         """Is the Application Firewall on? None if it couldn't be read."""
-        return parse_global_state(self._socketfilterfw("--getglobalstate"))
+        return parse_global_state(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate"],
+            capture_output=True, text=True, timeout=15)))
 
     def _get_stealth_mode(self) -> bool | None:
         """Is stealth mode on? None if it couldn't be read."""
-        return parse_stealth_mode(self._socketfilterfw("--getstealthmode"))
+        return parse_stealth_mode(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getstealthmode"],
+            capture_output=True, text=True, timeout=15)))
 
     def _get_allowed_apps(self) -> list[str] | None:
         """Apps allowed through the firewall; None if the list couldn't be read."""
-        return parse_listapps(self._socketfilterfw("--listapps"))
+        return parse_listapps(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--listapps"],
+            capture_output=True, text=True, timeout=15)))
 
     def _get_block_all_incoming(self) -> bool | None:
         """Is 'Block all incoming connections' on? None if it couldn't be read."""
-        return parse_block_all(self._socketfilterfw("--getblockall"))
+        return parse_block_all(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getblockall"],
+            capture_output=True, text=True, timeout=15)))
 
     def _get_allow_signed_software(self) -> bool | None:
         """Is 'Automatically allow signed software' on? None if unreadable."""
-        return parse_allow_signed(self._socketfilterfw("--getallowsigned"))
+        return parse_allow_signed(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getallowsigned"],
+            capture_output=True, text=True, timeout=15)))
