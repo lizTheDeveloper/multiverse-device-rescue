@@ -4,6 +4,7 @@ estimated_time: "15 minutes"
 platforms: [macos, windows]
 remediates:
   - security.remote_login_check.ssh_enabled
+  - security.remote_login_check.remote_access_unknown
   - security.remote_login_check.screen_sharing_enabled
   - security.remote_login_check.remote_management_enabled
   - security.remote_login_check.remote_apple_events_enabled
@@ -13,6 +14,7 @@ remediates:
   - security.win_rdp_check.rdp_disabled
 steps_for:
   security.remote_login_check.ssh_enabled: [1]
+  security.remote_login_check.remote_access_unknown: [1]
   security.remote_login_check.screen_sharing_enabled: [2]
   security.remote_login_check.remote_management_enabled: [2]
   security.remote_login_check.remote_apple_events_enabled: [2]

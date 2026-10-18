@@ -5,12 +5,16 @@ platforms: [macos]
 remediates:
   - security.appleid_security_check.appleid_signin
   - security.appleid_security_check.icloud_keychain
+  - security.appleid_security_check.icloud_keychain_unknown
   - security.appleid_security_check.autoupdate_disabled
+  - security.appleid_security_check.autoupdate_unknown
   - security.appleid_security_check.appleid_summary
 steps_for:
   security.appleid_security_check.appleid_signin: [1, 4]
   security.appleid_security_check.icloud_keychain: [2, 4]
+  security.appleid_security_check.icloud_keychain_unknown: [2, 4]
   security.appleid_security_check.autoupdate_disabled: [3, 4]
+  security.appleid_security_check.autoupdate_unknown: [3, 4]
   security.appleid_security_check.appleid_summary: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
