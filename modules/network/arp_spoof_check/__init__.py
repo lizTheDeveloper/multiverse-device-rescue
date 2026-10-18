@@ -56,6 +56,13 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "10s"
 
+    emits_codes = [
+        "network.arp_spoof_check.gateway_impersonation",
+        "network.arp_spoof_check.duplicate_mac",
+        "network.arp_spoof_check.locally_administered_gateway",
+        "network.arp_spoof_check.multiple_gateways",
+    ]
+
     def check(self, profile: SystemProfile) -> CheckResult:
         neighbors = _neighbors_module()
         if neighbors is None:
@@ -214,8 +221,10 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.CRITICAL,
                     category=self.category,
+                    code="network.arp_spoof_check.gateway_impersonation",
                     data={
                         "check": "gateway_impersonation",
+                        "target": mac,
                         "mac": mac,
                         "gateway_ips": gateway_matches,
                         "other_ips": others,
@@ -252,8 +261,10 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="network.arp_spoof_check.duplicate_mac",
                     data={
                         "check": "duplicate_mac",
+                        "target": mac,
                         "mac": mac,
                         "ips": ips,
                         "confidence": "low",
@@ -291,8 +302,10 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="network.arp_spoof_check.locally_administered_gateway",
                     data={
                         "check": "locally_administered_gateway",
+                        "target": entry.ip,
                         "mac": entry.mac,
                         "ip": entry.ip,
                         "confidence": "low",
@@ -322,6 +335,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.WARNING,
                 category=self.category,
+                code="network.arp_spoof_check.multiple_gateways",
                 data={
                     "check": "multiple_gateways",
                     "gateways": sorted(unique),
