@@ -80,3 +80,12 @@ test('"Play it as a game" is hidden once monitoring software was seen this sessi
   // Sticky: a later clean scan doesn't bring the button back.
   assert.strictEqual(playButtonShown(noteMonitoring(noteMonitoring(false, monitoring), clean)), false);
 });
+
+test('a RE-SWEEP from the deck is the same game scan: monitoring software in it lands on the list, and the city stays closed', () => {
+  const unsure = byId('unsure');
+  const monitoring = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'warning' }] }] };
+  const seen = noteMonitoring(false, monitoring);
+  assert.strictEqual(postScanView({ inGame: true, left: false, wantsCity: true, rememberedCity: true,
+    offered: gameStillOffered(unsure, monitoring, seen), ready: true }), 'results');
+  assert.strictEqual(gameStillOffered(unsure, { modules: [] }, seen), false);
+});

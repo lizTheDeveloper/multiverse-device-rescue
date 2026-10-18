@@ -107,6 +107,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // `putBack` is a mission the person just asked to have back (Undo, or "Stop
   // treating this as mine"). Its return is expected, so it isn't "came back".
   function rebuild(doc, putBack = null) {
+    const before = s.city ? cityIntegrity(s.city, signalsNow()) : null;
     s.doc = doc;
     s.city = findingsToCity(doc);
     const ranOk = ranOkModules(doc);
@@ -118,6 +119,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     rd.changed.forEach((id) => s.changedTags.add(id));
     s.progress = setDeck(r.progress, rd.deck);
     saveProgress(storage, s.progress);
+    if (before) noteSecured(before, cityIntegrity(s.city, signalsNow()));
   }
 
   // The modules whose findings a mark or unmark covered (by mark id), so each
@@ -329,13 +331,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   // A drill takes one answer: right pays (with the clue bonus), wrong pays
   // nothing and costs nothing. Drill answers never touch the deck's tags.
+  // In the queue a drill takes one answer per sweep (s.drillAnswers). The DRILL
+  // RANGE is practice: an answer holds while that drill is open, and it can be
+  // tried again on a later turn round. Either way the ledger pays a drill once, ever.
   function answerDrill(sig, tag) {
     const d = sig.drill;
-    if (s.signal.tagged || s.drillAnswers[d.id] || !['mine', 'threat', 'closer'].includes(tag)) return;
+    const range = s.screen === 'range';
+    if (s.signal.tagged || (!range && s.drillAnswers[d.id]) || !['mine', 'threat', 'closer'].includes(tag)) return;
     const right = tag === d.answer;
     commitDeck(recordDrill(s.progress.deck, right));
     const points = right ? commitAward(award(s.progress.deck, 'drill', d.id, openedFor(sig.id).length >= 2 ? POINTS.drillClueBonus : 0)) : 0;
-    if (s.screen !== 'range') s.drillAnswers[d.id] = { tag, right };
+    if (!range) s.drillAnswers[d.id] = { tag, right };
     s.signal = { ...s.signal, tagged: tag, right, points, read: drillRead(d, right) };
     logEntry('DRILL', `${right ? 'Right' : 'Not this time'}: ${d.title}`);
     render();
@@ -355,7 +361,70 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     render();
   }
 
+  // A finished scan: a date and counts in the store, a SWEEP line in the log,
+  // "no longer seen" for what's gone (no points: only a re-check confirms),
+  // the clean-sweep bonus when this re-sweep cleared the board, and new drills.
+  function newSweep(doc, prev) {
+    s.sweptDoc = doc;
+    const sigs = signalsNow();
+    const counts = sweepCounts(doc, s.city, cityIntegrity(s.city, sigs));
+    const r = recordSweep(s.progress.deck, counts, now());
+    commitAward(r);
+    logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check.`);
+    if (r.clean) {
+      s.moment = { kind: 'clean', title: 'CLEAN SWEEP', text: 'No critical or warning signal is open in any district that could be checked.' };
+      logEntry('CLEAN SWEEP', 'Every district that could be checked is secured.');
+    }
+    const here = new Set(sigs.map((x) => x.id));
+    for (const p of prev) {
+      if (p.kind === 'real' && (p.tag || p.severity !== 'info') && !here.has(p.id)) logEntry('NO LONGER SEEN', p.title);
+    }
+    s.opened = {};
+    s.drillAnswers = {};
+    s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
+  }
+
+  // A district that had something open and now has nothing open in the checks that ran.
+  function noteSecured(before, after) {
+    for (const id of after.securedIds) {
+      if (before.securedIds.has(id) || !before.checkedIds.has(id)) continue;
+      const name = nameOf(id) || id;
+      s.moment = { kind: 'secured', title: 'DISTRICT SECURED', text: `${name}: nothing critical or warning is open in the checks that ran.` };
+      logEntry('SECURED', name);
+    }
+  }
+
+  // The DRILL RANGE: every district's drills, the ones not yet answered right first.
+  function rangeHtml() {
+    if (!s.range) s.range = { order: [], i: 0 };
+    if (s.drillsLoaded && !s.range.order.length) {
+      s.range.order = pickDrills(s.drillBank, DISTRICTS.map((d) => d.id), s.progress.deck, s.progress.deck.drills.tried).map((d) => d.id);
+    }
+    const order = s.range.order;
+    const id = order.length ? order[s.range.i % order.length] : null;
+    if (id && (!s.signal || s.signal.id !== `drill:${id}`)) s.signal = { id: `drill:${id}`, tagged: null, right: false, read: '', points: 0 };
+    return renderRange({ loaded: s.drillsLoaded, panelHtml: id ? signalPanelHtml() : '', hasCity: !!s.city });
+  }
+
+  // Game missions the person just finished. Finished from the checkup (confirmedId)
+  // is a confirmed fix; anything else is the person's report. Each pays once, ever.
+  function creditReports(before, after, confirmedId) {
+    const was = (before && before.missions) || {};
+    for (const [id, rec] of Object.entries((after && after.missions) || {})) {
+      if (!rec || !DONE.has(rec.status) || (was[id] && DONE.has(was[id].status))) continue;
+      const title = (rcMission(id) || {}).title || 'A mission';
+      if (id === confirmedId) {
+        commitAward(award(s.progress.deck, 'fix', `rc:${id}`));
+        logEntry('CONFIRMED', title);
+      } else {
+        if (rec.status === 'completed') commitAward(award(s.progress.deck, 'report', id));
+        logEntry('YOU REPORTED', title);
+      }
+    }
+  }
+
   function screenHtml() {
+    if (s.screen === 'range') return rangeHtml();
     if (s.screen === 'training') {
       return renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
         worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
@@ -472,6 +541,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // scan's data, but don't take the person away from where they are now.
     if (s.shown !== shownAt) { render(); return; }
     const outcome = recheckOutcome(m.id, s.city, res);
+    // Only a re-check proves a fix: CONFIRMED, and the fix points pay once per finding, ever.
+    if (outcome === 'reclaimed' && (trigger === 'fix' || trigger === 'i-did-it')) {
+      commitAward(confirmFix(s.progress.deck, m.id, now()));
+      logEntry('CONFIRMED', m.title);
+    }
+    if (outcome === 'yours') logEntry('MARKED', m.title);
     s.outcome = putBack && outcome === 'not-yet' ? 'put-back' : outcome;
     s.outcomeMission = mission(m.id) || m;
     s.message = res && !res.ok ? res.message || '' : '';
@@ -497,6 +572,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.busy) return;
     if (go) s.linkNotice = '';
+    // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
+    // gate decides where it lands (monitoring software: the plain list).
+    if (act === 'resweep') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
+    // The DRILL RANGE: more drills, with or without a scan.
+    if (go === 'range') { s.signal = null; s.range = { order: [], i: 0 }; s.screen = 'range'; render(); return; }
+    if (act === 'next-drill' && s.range) { s.range = { ...s.range, i: s.range.i + 1 }; s.signal = null; render(); return; }
+    if (act === 'leave-range') { s.range = null; s.signal = null; s.screen = s.city ? 'map' : 'training'; render(); return; }
     // The deck: the queue, the Signal or Noise panel, and the district filter.
     if (go && go.startsWith('signal:')) { openSignal(go.slice(7)); return; }
     if (go && go.startsWith('filter:')) {
@@ -598,9 +680,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   // `refused` is a link the game data gave that isn't https, so nothing opens.
-  function applyResult(r, refused = '') {
+  // `confirmedId`: the mission "Finish from the checkup" just filed.
+  function applyResult(r, refused = '', confirmedId = null) {
     if (!r || r.incomplete) return; // an unfinished form stays as the person left it
+    const before = s.rcState;
     setRcState(r.state);
+    creditReports(before, s.rcState, confirmedId);
     // The first-2FA hug plays on the screen they land on, so it counts as seen.
     if (r.reaction && r.reaction.reaction && r.reaction.reaction.feeling === 'hug') setRcState(s.rc.markTwoFactorHugSeen(s.rcState));
     if (r.ui) s.rcUi = { ...s.rcUi, ...r.ui };
@@ -647,7 +732,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     s.scanConfirmed = markScanConfirmed(s.scanConfirmed, id, now());
     saveScanConfirmed(storage, s.scanConfirmed);
-    applyResult(r);
+    applyResult(r, '', id);
   }
 
   // The game screens' own clicks (data-action) and links. Plan A's handler above
@@ -692,9 +777,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // A fresh city from a finished scan: back to the map, forgetting the last screen's state.
   function showCityFrom(doc) {
     s.shown += 1;
+    const prev = signalsNow();
     rebuild(doc);
-    // A new scan, not the same one shown again: clues, drills and drill answers start over.
-    if (doc !== s.sweptDoc) { s.sweptDoc = doc; s.opened = {}; s.drillAnswers = {}; s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null; }
+    // A new scan, not the same one shown again, is a sweep.
+    if (doc !== s.sweptDoc) newSweep(doc, prev);
     s.screen = 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
     s.lesson = null; s.pendingCity = false;
     s.signal = null; s.filter = null; s.lowOpen = false; s.range = null;

@@ -352,3 +352,167 @@ test('after a tag, focus moves to Scout’s read (real signals and drills)', asy
   assert.strictEqual(reads.length, 2);
   assert.strictEqual(reads[1].focused, true);
 });
+
+test('RE-SWEEP runs the same game checkup, and only once at a time', async () => {
+  const t = await deckSetup(DOC);
+  assert.match(t.html(), /OPS LOG[\s\S]*SWEEP<\/span> \d+ checks?:/);
+  t.click({ 'data-act': 'resweep' });
+  assert.strictEqual(t.calls.startCheckup, 1);
+  t.ctl.showBoss();
+  t.click({ 'data-act': 'resweep' });
+  assert.strictEqual(t.calls.startCheckup, 1, 'not while a checkup runs');
+});
+
+test('a re-sweep: tags carry over, a gone finding is NO LONGER SEEN with no points, and isn’t CONFIRMED', async () => {
+  const before = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' }), f('B', 'warning', { plist: '/b' })]));
+  const [ia, ib] = await ids(before);
+  const t = await deckSetup(before);
+  t.click({ 'data-go': `signal:${ia}` }); t.click({ 'data-act': 'tag:threat' });
+  t.click({ 'data-go': `signal:${ib}` }); t.click({ 'data-act': 'tag:mine' });
+  const points = t.saved().deck.points;
+  t.ctl.showBoss();
+  t.ctl.scanDone(scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })])), { id: 'unsure' });
+  const saved = t.saved();
+  assert.strictEqual(saved.deck.tags[ia].tag, 'threat', 'carried over by identity');
+  assert.strictEqual(saved.deck.tags[ib], undefined);
+  assert.strictEqual(saved.deck.points, points, 'gone is not a fix: no points');
+  assert.deepStrictEqual(saved.deck.confirmed, {});
+  assert.strictEqual(saved.deck.sweeps.length, 2);
+  assert.ok(saved.deck.sweeps.every((w) => Object.keys(w).every((k) => k === 'at' || typeof w[k] === 'number')), 'dates and counts only');
+  assert.match(t.html(), /NO LONGER SEEN<\/span> B/);
+  assert.match(t.html(), /<b>0<\/b> <small>CONFIRMED<\/small>/);
+  assert.match(t.html(), /City integrity 0%, the same as last sweep\./);
+});
+
+test('the same scan shown twice is one sweep', async () => {
+  const t = await deckSetup(DOC);
+  t.click({ 'data-act': 'list' });
+  t.ctl.show(DOC, { id: 'unsure' });
+  assert.strictEqual(t.saved().deck.sweeps.length, 1);
+});
+
+test('a re-check that proves a fix is CONFIRMED, secures the district, and pays once, ever', async () => {
+  const before = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' }, { fixable: true })]));
+  const after = scan(mod('a_mod', []));
+  const [ia] = await ids(before);
+  const t = await deckSetup(before, { recheckDocs: [after, before, after] });
+  t.click({ 'data-go': `mission:${ia}` });
+  t.hooks.fix.onResult({ kind: 'fix', module: 'a_mod', result: { quarantine_id: 'q' }, described: { tone: 'success' } });
+  await tick(); await tick();
+  assert.match(t.html(), /RECLAIMED/);
+  let saved = t.saved();
+  assert.strictEqual(saved.deck.points, 50);
+  assert.ok(saved.deck.confirmed[ia]);
+  t.click({ 'data-go': 'map' });
+  assert.match(t.html(), /<b>1<\/b> <small>CONFIRMED<\/small>/);
+  assert.match(t.html(), /CONFIRMED<\/span> A/);
+  assert.match(t.html(), /class="moment moment-secured" role="status"><b>DISTRICT SECURED<\/b>/);
+  assert.match(t.html(), /SECURED<\/span> The Gatehouse/);
+  // Undo puts it back: no longer confirmed. Fixing it again is confirmed again, and pays nothing more.
+  t.hooks.fix.onResult({ kind: 'undo', module: 'a_mod', result: { restored: true }, described: { restored: true } });
+  await tick(); await tick();
+  assert.deepStrictEqual(t.saved().deck.confirmed, {});
+  t.click({ 'data-go': `mission:${ia}` });
+  t.hooks.fix.onResult({ kind: 'fix', module: 'a_mod', result: { quarantine_id: 'q2' }, described: { tone: 'success' } });
+  await tick(); await tick();
+  saved = t.saved();
+  assert.strictEqual(saved.deck.points, 50);
+  assert.ok(saved.deck.confirmed[ia]);
+});
+
+test('a clean sweep: the re-sweep that clears the board gets the moment and the bonus; the next clean one doesn’t', async () => {
+  const t = await deckSetup(scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })])));
+  t.ctl.showBoss();
+  t.ctl.scanDone(scan(mod('a_mod', [])), { id: 'unsure' });
+  assert.match(t.html(), /class="moment moment-clean" role="status"><b>CLEAN SWEEP<\/b>/);
+  assert.match(t.html(), /CLEAN SWEEP<\/span>/);
+  assert.strictEqual(t.saved().deck.points, 40);
+  t.click({ 'data-go': 'map' });
+  assert.doesNotMatch(t.html(), /class="moment/, 'a moment shows once');
+  t.ctl.showBoss();
+  t.ctl.scanDone(scan(mod('a_mod', [])), { id: 'unsure' });
+  assert.strictEqual(t.saved().deck.points, 40);
+});
+
+test('the DRILL RANGE runs without a scan, from the Training Grounds', async () => {
+  const t = await deckSetup(null);
+  t.ctl.showTraining({ id: 'unsure', title: 'Not sure' });
+  assert.match(t.html(), /data-go="range"/);
+  t.click({ 'data-go': 'range' });
+  assert.match(t.html(), /THE DRILL RANGE/);
+  assert.match(t.html(), /data-act="next-drill"/);
+  const title = () => /id="sig-title"[^>]*>([^<]+)/.exec(t.html())[1];
+  const first = title();
+  t.click({ 'data-act': 'tag:closer' });
+  assert.match(t.html(), /The tell:|Right\./);
+  t.click({ 'data-act': 'next-drill' });
+  assert.notStrictEqual(title(), first);
+  t.click({ 'data-act': 'leave-range' });
+  assert.match(t.html(), /THE TRAINING GROUNDS/);
+});
+
+test('the DRILL RANGE from a clear board, and back to the deck', async () => {
+  const t = await deckSetup(scan(mod('a_mod', [])));
+  t.click({ 'data-go': 'range' });
+  assert.match(t.html(), /THE DRILL RANGE[\s\S]*BACK TO THE DECK/);
+  t.click({ 'data-act': 'leave-range' });
+  assert.match(t.html(), /INCOMING SIGNALS/);
+});
+
+test('a re-check that closes the gate stops the deck: nothing is scored', async () => {
+  const before = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]));
+  const [ia] = await ids(before);
+  const t = await deckSetup(before, { recheckDocs: [scan(mod('a_mod', []))] });
+  t.win.RescueHost.docChanged = () => false;
+  t.click({ 'data-go': `mission:${ia}` });
+  t.click({ 'data-act': 'i-did-it' });
+  await tick(); await tick();
+  assert.strictEqual(t.saved().deck.points, 0);
+  assert.deepStrictEqual(t.saved().deck.confirmed, {});
+});
+
+// Task 9 (from the Task 8 review): on the DRILL RANGE an answer holds while that
+// drill is open; the range is practice, so a later turn round can answer it again,
+// but a drill pays once, ever (the ledger keys it).
+test('the DRILL RANGE: one answer while a drill is open, practice again later, paid once', async () => {
+  const t = await deckSetup(null);
+  t.ctl.showTraining({ id: 'unsure', title: 'Not sure' });
+  t.click({ 'data-go': 'range' });
+  const title = () => /id="sig-title"[^>]*>([^<]+)/.exec(t.html())[1];
+  const answerOf = (ttl) => DRILLS.find((d) => `Drill ${d.id}` === ttl.trim()).answer;
+  const first = title();
+  const right = answerOf(first);
+  const wrong = ['mine', 'threat', 'closer'].find((x) => x !== right);
+  t.click({ 'data-act': `tag:${right}` });
+  const paid = t.saved().deck.points;
+  assert.ok(paid > 0);
+  assert.deepStrictEqual(t.saved().deck.drills, { right: 1, tried: 1 });
+  t.click({ 'data-act': `tag:${wrong}` });
+  assert.deepStrictEqual(t.saved().deck.drills, { right: 1, tried: 1 }, 'no second answer while it is open');
+  assert.match(t.html(), new RegExp(`data-act="tag:${right}" aria-pressed="true"`));
+  for (let i = 0; i < DRILLS.length; i += 1) t.click({ 'data-act': 'next-drill' });
+  assert.strictEqual(title(), first, 'round again');
+  t.click({ 'data-act': `tag:${right}` });
+  assert.strictEqual(t.saved().deck.drills.tried, 2, 'practice counts as a try');
+  assert.strictEqual(t.saved().deck.points, paid, 'a drill pays once, ever');
+});
+
+test('a drill answered in the queue can still be practised on the DRILL RANGE', async () => {
+  const five = scan(mod('a_mod', Array.from({ length: 5 }, (_, i) => f(`W${i}`, 'warning', { plist: `/w${i}` }))));
+  const t = await deckSetup(five);
+  t.click({ 'data-go': 'signal:drill:gate-2' });
+  t.click({ 'data-act': 'tag:mine' });
+  const points = t.saved().deck.points;
+  assert.deepStrictEqual(t.saved().deck.drills, { right: 1, tried: 1 });
+  t.click({ 'data-go': 'range' });
+  const title = () => /id="sig-title"[^>]*>([^<]+)/.exec(t.html())[1].trim();
+  for (let i = 0; i < DRILLS.length && title() !== 'Drill gate-2'; i += 1) t.click({ 'data-act': 'next-drill' });
+  assert.strictEqual(title(), 'Drill gate-2');
+  t.click({ 'data-act': 'tag:mine' });
+  assert.deepStrictEqual(t.saved().deck.drills, { right: 2, tried: 2 }, 'the buttons work there');
+  assert.strictEqual(t.saved().deck.points, points, 'and pay nothing more');
+  t.click({ 'data-act': 'leave-range' });
+  t.click({ 'data-go': 'signal:drill:gate-2' });
+  t.click({ 'data-act': 'tag:threat' });
+  assert.deepStrictEqual(t.saved().deck.drills, { right: 2, tried: 2 }, 'the queue still holds its one answer');
+});

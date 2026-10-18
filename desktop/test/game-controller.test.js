@@ -456,6 +456,28 @@ test('FINISH FROM THE CHECKUP shows only when every step is confirmed, and count
   assert.strictEqual(hudCount(again.html(), 'YOU REPORTED'), 1);
 });
 
+test('SUBMIT REPORT is logged as YOU REPORTED and pays the smaller amount, once', async () => {
+  const t = await rcSetup();
+  t.click({ 'data-go': `rc:#/mission/${FC}/debrief` });
+  t.form.action = 'completed';
+  t.click({ 'data-action': 'submit-debrief', 'data-mission': FC });
+  assert.strictEqual(JSON.parse(t.storage.getItem('device-rescue.game.v1')).deck.points, 20);
+  t.click({ href: '#/city' }, 'A');
+  assert.match(t.html(), /YOU REPORTED<\/span> [^<]+/);
+  assert.strictEqual(hudCount(t.html(), 'YOU REPORTED'), 1);
+  assert.strictEqual(hudCount(t.html(), 'CONFIRMED'), 0);
+});
+
+test('FINISH FROM THE CHECKUP is logged as CONFIRMED and pays the fix amount', async () => {
+  const t = await rcSetup({ doc: allMac });
+  t.click({ 'data-go': `rc:#/mission/${FC}/briefing` });
+  t.click({ 'data-act': 'confirm-from-scan' });
+  assert.strictEqual(JSON.parse(t.storage.getItem('device-rescue.game.v1')).deck.points, 50);
+  t.click({ href: '#/city' }, 'A');
+  assert.match(t.html(), /CONFIRMED<\/span> [^<]+/);
+  assert.strictEqual(hudCount(t.html(), 'CONFIRMED'), 1);
+});
+
 test('the person filed Done and the scan disagrees: both show, and the game state is unchanged', async () => {
   const storage = memStore();
   const rc = await loadRcFromDisk();
