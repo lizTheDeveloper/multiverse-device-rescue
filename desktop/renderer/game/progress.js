@@ -1,20 +1,33 @@
-// Mission progress for game mode, plus finished lessons. The scan is the source
-// of truth: progress only remembers what the person chose ("later"), what
-// changed between scans, and which lessons they finished. "reclaimed" is only
-// ever set by evidence: a re-check or a full scan where the finding's module ran
-// and no longer reports it. Lessons never count toward fixes.
+// Mission progress for game mode, finished lessons, and the command center's
+// deck. The scan is the source of truth: progress only remembers what the
+// person chose ("later"), what changed between scans, which lessons they
+// finished, and the deck (points, rank, drill stats, game tags and sweep
+// history). "reclaimed" is only ever set by evidence: a re-check or a full scan
+// where the finding's module ran and no longer reports it. Lessons never count
+// toward fixes, and nothing in the deck changes anything on the computer.
 //
 // The key keeps its v1 name so a saved Plan A store is found and migrated.
+// monitoringSeen is never stored here: app.js keeps it in memory only.
 export const STORE_KEY = 'device-rescue.game.v1';
 const STATUSES = new Set(['open', 'later', 'yours', 'reclaimed']);
+// Game tags: sorting only.
+export const TAGS = new Set(['mine', 'threat', 'closer', 'noted']);
+// A sweep is a date and counts. Nothing else: no names, no paths.
+export const SWEEP_FIELDS = ['checks', 'critical', 'warning', 'info', 'fog', 'checked', 'secured'];
+
+export function emptyDeck() {
+  return { points: 0, rank: 0, drills: { right: 0, tried: 0 }, tags: {}, confirmed: {}, once: {}, sweep: { at: null, keys: {} }, sweeps: [] };
+}
 
 export function emptyProgress() {
-  return { version: 2, missions: {}, lessons: {} };
+  return { version: 3, missions: {}, lessons: {}, deck: emptyDeck() };
 }
 
 function plainObject(x) {
   return !!x && typeof x === 'object' && !Array.isArray(x);
 }
+
+const count = (n) => Number.isInteger(n) && n >= 0;
 
 function validMissions(m) {
   return plainObject(m) && Object.values(m).every((r) => r && STATUSES.has(r.status));
@@ -24,12 +37,30 @@ function validLessons(l) {
   return plainObject(l) && Object.values(l).every((r) => r && typeof r.completedAt === 'string');
 }
 
-// Accepts a stored version 1 or 2 document. Missions are kept whenever they are
-// valid; a bad lessons field only costs the lessons.
+export function validSweep(w) {
+  return plainObject(w) && typeof w.at === 'string' && SWEEP_FIELDS.every((k) => count(w[k]))
+    && Object.keys(w).every((k) => k === 'at' || SWEEP_FIELDS.includes(k));
+}
+
+export function validDeck(d) {
+  return plainObject(d) && count(d.points) && count(d.rank)
+    && plainObject(d.drills) && count(d.drills.right) && count(d.drills.tried)
+    && plainObject(d.tags) && Object.values(d.tags).every((t) => plainObject(t) && TAGS.has(t.tag) && typeof t.at === 'string' && typeof t.fp === 'string')
+    && plainObject(d.confirmed) && Object.values(d.confirmed).every((v) => typeof v === 'string')
+    && plainObject(d.once) && Object.values(d.once).every((v) => v === true)
+    && plainObject(d.sweep) && (d.sweep.at === null || typeof d.sweep.at === 'string') && plainObject(d.sweep.keys)
+    && Array.isArray(d.sweeps) && d.sweeps.every(validSweep);
+}
+
+// Accepts a stored version 1, 2 or 3 document. Missions are kept whenever they
+// are valid; a bad lessons field only costs the lessons, and a bad deck only
+// costs the deck.
 export function migrate(raw) {
   if (!plainObject(raw) || !validMissions(raw.missions)) return emptyProgress();
-  if (raw.version === 1) return { version: 2, missions: raw.missions, lessons: {} };
-  if (raw.version === 2) return { version: 2, missions: raw.missions, lessons: validLessons(raw.lessons) ? raw.lessons : {} };
+  const lessons = validLessons(raw.lessons) ? raw.lessons : {};
+  if (raw.version === 1) return { version: 3, missions: raw.missions, lessons: {}, deck: emptyDeck() };
+  if (raw.version === 2) return { version: 3, missions: raw.missions, lessons, deck: emptyDeck() };
+  if (raw.version === 3) return { version: 3, missions: raw.missions, lessons, deck: validDeck(raw.deck) ? raw.deck : emptyDeck() };
   return emptyProgress();
 }
 
@@ -67,10 +98,18 @@ function allMissions(city) {
 
 function base(progress) {
   return {
-    version: 2,
+    version: 3,
     missions: { ...((progress && progress.missions) || {}) },
     lessons: { ...((progress && progress.lessons) || {}) },
+    deck: progress && validDeck(progress.deck) ? progress.deck : emptyDeck(),
   };
+}
+
+// The deck changes only through the ledger (ledger.js); an invalid one is refused.
+export function setDeck(progress, deck) {
+  const next = base(progress);
+  if (validDeck(deck)) next.deck = deck;
+  return next;
 }
 
 export function reconcile(progress, city, ranOk, now) {
