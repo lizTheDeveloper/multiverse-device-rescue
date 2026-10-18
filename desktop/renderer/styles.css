@@ -1364,3 +1364,10 @@ h3 {
   margin: 0.3rem 0 0;
   font-size: 0.9rem;
 }
+
+/* The one question after the worry screen, and the follow-up after a scan */
+.question-answers { list-style: none; padding: 0; margin: 1.25rem 0; display: grid; gap: 0.75rem; }
+.question-answer { width: 100%; text-align: left; }
+.worry-change { margin-top: 1rem; text-align: right; }
+.link-button { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; opacity: 0.75; }
+.link-button:hover, .link-button:focus-visible { opacity: 1; }

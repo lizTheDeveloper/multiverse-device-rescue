@@ -65,7 +65,13 @@
           <h1 id="worry-title">What&rsquo;s worrying you?</h1>
           <p class="lede">Pick the one that sounds closest. You can come back and choose another afterward.</p>
           <ul id="situations" class="situations"></ul>
+          <p class="worry-change"><button id="btn-something-changed" class="link-button" type="button">Something changed?</button></p>
         </div>
+      </section>
+
+      <!-- Screen 2b: one question, or the follow-up after a scan. Filled in by the app at run time. -->
+      <section id="screen-question" class="screen" data-screen="question" aria-labelledby="question-title" hidden>
+        <div id="question-card" class="card card--wide"></div>
       </section>
 
       <!-- Screen 3: Scan -->
@@ -187,6 +193,8 @@
   <script src="mark-flow.js"></script>
   <script src="clear-list.js"></script>
   <script src="setting-panes.js"></script>
+  <script src="display-mode.js"></script>
+  <script src="first-question.js"></script>
   <script src="app.js"></script>
   <script type="module" src="game/boot.js"></script>
 </body>

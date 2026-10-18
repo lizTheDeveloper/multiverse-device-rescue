@@ -475,6 +475,7 @@ if (typeof document !== 'undefined') {
     const screens = {
       welcome: document.getElementById('screen-welcome'),
       worry: document.getElementById('screen-worry'),
+      question: document.getElementById('screen-question'),
       scan: document.getElementById('screen-scan'),
       results: document.getElementById('screen-results'),
       city: document.getElementById('screen-city'),
@@ -493,6 +494,32 @@ if (typeof document !== 'undefined') {
     // Monitoring software seen in any scan or re-check this session (noteMonitoring).
     // Memory only: never written to storage.
     let monitoringSeen = false;
+    // The display preference (DisplayMode): 'city', 'standard', or null before the question.
+    const store = (() => { try { return window.localStorage; } catch (_) { return null; } })();
+    let mode = DisplayMode.readMode(store);
+    // Whether the follow-up was asked this session. Memory only, like monitoringSeen.
+    let recheckAsked = false;
+    function setMode(next) {
+      mode = next;
+      DisplayMode.writeMode(store, next);
+    }
+    // Made once per install for the game's own use, and written for everyone alike.
+    const citySeed = DisplayMode.ensureSeed(store);
+
+    // One question on its own screen (FirstQuestion): the answer picks the
+    // display preference, then `then` carries on where the person was going.
+    function ask(kind, then) {
+      const card = document.getElementById('question-card');
+      card.innerHTML = FirstQuestion.questionHtml(kind, escapeHtml);
+      card.querySelectorAll('[data-answer]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const next = FirstQuestion.modeFor(kind, btn.dataset.answer);
+          if (next) setMode(next);
+          then();
+        });
+      });
+      showScreen('question');
+    }
     const VIEW_KEY = 'device-rescue.view';
     function rememberView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (_) { /* per-viewer nicety only */ } }
     function rememberedView() { try { return localStorage.getItem(VIEW_KEY); } catch (_) { return null; } }
@@ -522,10 +549,18 @@ if (typeof document !== 'undefined') {
         renderResults(doc);
         renderLearnMore(doc);
         renderCitySwitch(doc);
+        if (FirstQuestion.recheckDue({ mode, monitoringSeen, asked: recheckAsked })) {
+          recheckAsked = true;
+          ask('recheck', () => showCity(doc));
+          return false;
+        }
         if (!gameStillOffered(situation, doc, monitoringSeen)) { showScreen('results'); return false; }
         return true;
       },
       wantsSafety(finding) { return wantsSafetyNote(situation, finding); },
+      // The display preference and the install's seed, for the game.
+      mode() { return mode; },
+      citySeed() { return citySeed; },
       startCheckup() { runCheckup({ game: true }); },
       // The OS pop-ups the person may see during the scan, for the boss screen.
       async scanTips() {
@@ -553,7 +588,7 @@ if (typeof document !== 'undefined') {
         if (!screens[key]) return;
         screens[key].hidden = key !== name;
       });
-      const dotName = name === 'city' ? 'results' : name;
+      const dotName = name === 'city' ? 'results' : name === 'question' ? 'worry' : name;
       stepDots.forEach((dot) => {
         dot.classList.toggle('step-dot--active', dot.dataset.stepDot === dotName);
       });
@@ -625,19 +660,27 @@ if (typeof document !== 'undefined') {
       list.querySelectorAll('[data-situation]').forEach((btn) => {
         btn.addEventListener('click', () => {
           situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
-          if (!scanRunning && worryStartsGameScan({ situation, lastScanDoc, monitoringSeen, wantsCity,
-            ready: !!(window.RescueGame && window.RescueGame.isReady) })) {
-            leftGame = false;
-            window.RescueGame.newWorry(situation);
-            // The city screen first: if the sweep can't be drawn, leaveGame() then
-            // shows the plain scan screen, where the same scan carries on.
-            showScreen('city');
-            runCheckup({ game: true });
-            return;
-          }
-          goToScan();
+          const next = FirstQuestion.afterWorry(situation, mode);
+          if (next === 'ask') { ask('first', startWorry); return; }
+          if (next !== mode) setMode(next);
+          startWorry();
         });
       });
+    }
+
+    // What a picked worry does once the display preference is known.
+    function startWorry() {
+      if (!scanRunning && worryStartsGameScan({ situation, lastScanDoc, monitoringSeen, wantsCity,
+        ready: !!(window.RescueGame && window.RescueGame.isReady) })) {
+        leftGame = false;
+        window.RescueGame.newWorry(situation);
+        // The city screen first: if the sweep can't be drawn, leaveGame() then
+        // shows the plain scan screen, where the same scan carries on.
+        showScreen('city');
+        runCheckup({ game: true });
+        return;
+      }
+      goToScan();
     }
 
     function renderScanIntro() {
@@ -920,21 +963,29 @@ if (typeof document !== 'undefined') {
         renderLearnMore(doc);
         setScanBusy(false);
         renderCitySwitch(doc);
-        const view = postScanView({
-          inGame, left: leftGame, wantsCity, rememberedCity: rememberedView() === 'city',
-          offered: gameStillOffered(situation, doc, monitoringSeen), ready: !!(window.RescueGame && window.RescueGame.isReady),
-        });
-        if (view === 'boss-city') {
-          if (window.RescueGame.scanDone(doc, situation) === false) {
-            showScreen('results'); // the city couldn't be drawn: the list, which has the same results
+        const land = () => {
+          const view = postScanView({
+            inGame, left: leftGame, wantsCity, rememberedCity: rememberedView() === 'city',
+            offered: gameStillOffered(situation, doc, monitoringSeen), ready: !!(window.RescueGame && window.RescueGame.isReady),
+          });
+          if (view === 'boss-city') {
+            if (window.RescueGame.scanDone(doc, situation) === false) {
+              showScreen('results'); // the city couldn't be drawn: the list, which has the same results
+            } else {
+              rememberView('city');
+              showScreen('city');
+            }
+          } else if (view === 'city') {
+            showCity(doc);
           } else {
-            rememberView('city');
-            showScreen('city');
+            showScreen('results');
           }
-        } else if (view === 'city') {
-          showCity(doc);
+        };
+        if (FirstQuestion.recheckDue({ mode, monitoringSeen, asked: recheckAsked })) {
+          recheckAsked = true;
+          ask('recheck', land);
         } else {
-          showScreen('results');
+          land();
         }
       } catch (err) {
         setScanBusy(false);
@@ -1003,6 +1054,10 @@ if (typeof document !== 'undefined') {
       wantsCity = true;
       leftGame = false;
       showScreen('worry');
+    });
+    // "Something changed?": the question again, then back to the worry screen.
+    document.getElementById('btn-something-changed').addEventListener('click', () => {
+      ask('first', () => showScreen('worry'));
     });
     document.getElementById('btn-see-city').addEventListener('click', () => {
       if (lastScanDoc) showCity(lastScanDoc);
