@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from rescue.models import (
@@ -27,23 +28,37 @@ class Module(ModuleBase):
         "security.lock_screen_check.screensaver_password",
         "security.lock_screen_check.screensaver_delay",
         "security.lock_screen_check.display_sleep",
+        "security.lock_screen_check.screensaver_password_unknown",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
-        # Check screensaver password requirement
-        try:
-            result = subprocess.run(
-                ["defaults", "read", "com.apple.screensaver", "askForPassword"],
-                capture_output=True,
-                text=True,
-            )
-            ask_for_password = result.stdout.strip()
-        except OSError:
-            ask_for_password = None
+        # Does the Mac ask for a password when the screen saver starts or the
+        # display sleeps? `sysadminctl -screenLock status` (no admin needed) is
+        # the source of truth on current macOS; com.apple.screensaver
+        # askForPassword is usually absent there, and reading it alone told
+        # Macs that lock immediately "does not ask for a password".
+        # True / False / None (couldn't tell).
+        require_password, ask_for_password_delay = self._screen_lock_status()
 
-        if ask_for_password != "1":
+        if require_password is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether your Mac asks for a password after the screen saver",
+                    description=(
+                        "Device Rescue couldn't read your Mac's lock screen setting. This "
+                        "is not a sign that anything is wrong. To see for yourself, open "
+                        "System Settings > Lock Screen and look at 'Require password after "
+                        "screen saver begins or display is turned off'."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.lock_screen_check.screensaver_password_unknown",
+                    data={"check": "screensaver_password_unknown"},
+                )
+            )
+        elif require_password is False:
             findings.append(
                 Finding(
                     title=(
@@ -64,17 +79,6 @@ class Module(ModuleBase):
                     data={"check": "screensaver_password"},
                 )
             )
-
-        # Check screensaver password delay
-        try:
-            result = subprocess.run(
-                ["defaults", "read", "com.apple.screensaver", "askForPasswordDelay"],
-                capture_output=True,
-                text=True,
-            )
-            ask_for_password_delay = int(result.stdout.strip()) if result.stdout.strip() else None
-        except (OSError, ValueError):
-            ask_for_password_delay = None
 
         if ask_for_password_delay is not None and ask_for_password_delay > 60:
             findings.append(
@@ -174,3 +178,51 @@ class Module(ModuleBase):
                 )
             )
         return FixResult(module_name=self.name, actions=actions)
+
+    def _screen_lock_status(self) -> tuple[bool | None, int | None]:
+        """(password required?, delay in seconds) — None where unknown."""
+        try:
+            result = subprocess.run(
+                ["sysadminctl", "-screenLock", "status"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            # sysadminctl logs its answer to stderr.
+            text = " ".join(
+                part for part in (result.stdout, result.stderr) if isinstance(part, str)
+            )
+        except (OSError, subprocess.SubprocessError):
+            text = ""
+        if re.search(r"screenLock delay is immediate", text):
+            return True, 0
+        match = re.search(r"screenLock delay is (\d+) seconds?", text)
+        if match:
+            return True, int(match.group(1))
+        if re.search(r"screenLock is off", text):
+            return False, None
+
+        # Older macOS: the screen saver preferences.
+        try:
+            result = subprocess.run(
+                ["defaults", "read", "com.apple.screensaver", "askForPassword"],
+                capture_output=True,
+                text=True,
+            )
+            ask = result.stdout.strip() if result.returncode == 0 else ""
+        except (OSError, subprocess.SubprocessError):
+            ask = ""
+        if ask not in ("0", "1"):
+            return None, None
+        delay = None
+        try:
+            result = subprocess.run(
+                ["defaults", "read", "com.apple.screensaver", "askForPasswordDelay"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                delay = int(float(result.stdout.strip()))
+        except (OSError, subprocess.SubprocessError, ValueError):
+            delay = None
+        return ask == "1", delay

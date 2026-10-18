@@ -1645,6 +1645,7 @@ system_profiler SPHardwareDataType
 defaults read com.apple.screensaver askForPassword
 defaults read com.apple.screensaver askForPasswordDelay
 pmset -g
+sysadminctl -screenLock status
 ```
 
 ### `login_password_policy`
