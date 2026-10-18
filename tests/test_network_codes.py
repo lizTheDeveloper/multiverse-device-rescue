@@ -46,3 +46,25 @@ def assert_codes_match_check(findings, module_name):
 def test_declared_codes(name):
     mod = load_module(name)
     assert set(mod.emits_codes) == EXPECTED_CODES[name]
+
+
+_WALKTHROUGHS = ["review_unknown_lan_devices", "secure_home_router"]
+
+
+@pytest.mark.parametrize("stem", _WALKTHROUGHS)
+def test_step_references_stay_inside_each_codes_view(stem):
+    import re
+
+    from rescue.guides import load_guide
+
+    guide = load_guide(
+        Path(__file__).parent.parent / "guides" / "remediation" / f"{stem}.md"
+    )
+    for code in guide.remediates:
+        shown = guide.steps_for_code(code)
+        numbers = {s.number for s in shown}
+        for step in shown:
+            for ref in re.findall(r"\bSteps? (\d+)", step.body):
+                assert int(ref) in numbers, (code, step.number, ref)
+            for a, b in re.findall(r"\bSteps (\d+) and (\d+)", step.body):
+                assert int(a) in numbers and int(b) in numbers, (code, step.number)

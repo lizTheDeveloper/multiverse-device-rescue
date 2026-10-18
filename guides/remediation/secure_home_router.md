@@ -44,9 +44,9 @@ finding names.
 
 If it names an ordinary router admin page (the usual web page you sign in to,
 over HTTP or HTTPS), that is informational. It is how the router is normally
-managed, and the HTTPS version is the expected, encrypted way. If you can, use
-the HTTPS page rather than the unencrypted one. There is nothing to fix beyond
-a strong admin password (Step 5).
+managed, and it is not on its own a sign of a problem. If you do not use
+remote management, you can disable it in the router's settings. If you do, make
+sure it is protected by a strong, unique password.
 
 If it names a risky service (Telnet, FTP, SSH, or TR-069 remote management),
 that is worth acting on. These are services most home routers do not need
@@ -63,7 +63,9 @@ off remote/internet administration and "cloud" management too if you do not
 use them.
 
 If the setting will not stay off, or settings you did not change reappear, the
-router may be compromised: see the last paragraph of Step 5.
+router may be compromised. Hold the reset pin for 30 seconds to factory reset
+it, then set it up again from scratch. Do not restore a saved configuration
+backup, because it restores any unwanted changes along with yours.
 
 ## Step 4: Consider turning off UPnP
 
@@ -96,9 +98,13 @@ a computer connected by cable.
    WPA/TKIP, never open.
 4. Disable WPS (Wi-Fi Protected Setup). It has a known brute-force
    vulnerability and defeats a strong Wi-Fi password.
-5. Disable UPnP (see Step 4).
+5. Turn off UPnP (a setting named UPnP or Universal Plug and Play). It lets
+   any program on your network ask the router to open a port to the internet
+   with no password. Games consoles and some video-call software rely on it,
+   so you may see a "strict NAT" warning afterwards. Delete any port-forwarding
+   rule you did not create.
 6. Check the DNS servers on the router's WAN or Internet page. If they are not
-   your provider's or a resolver you chose (for example 1.1.1.1 or 9.9.9.9),
+   your provider's or a resolver you chose (for example 9.9.9.9 or 1.1.1.1),
    someone may have redirected your household's browsing; reset them.
 7. Delete port-forwarding rules and any "DMZ host" you did not create.
 8. Check the guest network: leaving it open with no password is an unlocked
