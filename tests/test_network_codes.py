@@ -91,6 +91,7 @@ _WALKTHROUGHS = [
     "secure_home_router",
     "secure_wifi_connection",
     "fix_vpn_leaks",
+    "remove_unwanted_proxy",
 ]
 
 

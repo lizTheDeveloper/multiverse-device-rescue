@@ -78,12 +78,17 @@ unexpected.
 4. If unexpected: open System Settings → Network → (interface) → Details →
    Proxies tab, uncheck the relevant proxy type(s), Save/Apply.
 5. Re-run the scan to confirm the proxy is no longer reported as enabled.
-6. As in Step 1, if this was unexpected, check for a configuration profile
-   or recently installed software that could have set it, and remove the
-   root cause, not just the setting.
+6. If this was unexpected, also check for how it got set: unfamiliar
+   configuration profiles (System Settings → Privacy & Security → Profiles —
+   remove any you don't recognize) and recently installed apps/browser
+   extensions, since some adware/malware installs a profile specifically to
+   push proxy settings. Remove the root cause, not just the setting.
+7. A proxy running on your own Mac that you don't recognize is a strong
+   sign something is wrong: an app on your Mac may be intercepting your
+   internet traffic.
 
 ## Step 3: No action needed for your network
 
-When no proxy is configured on either interface, the module reports this
+When no proxy is configured on any network interface, the module reports this
 as informational — this is the expected, healthy state for most home
 machines. No action needed.
