@@ -18,6 +18,23 @@ export default [
     sources: ['guides/remediation/audit_windows_autoruns.md'],
   },
   {
+    id: 'signed-optimizer',
+    district: 'junkyard',
+    severity: 'warning',
+    modules: ['win_bloatware'],
+    title: 'A signed “PC optimizer” you never installed',
+    setup: 'Practice setup: you never chose this program. It arrived with a free app you downloaded.',
+    clues: {
+      maker: { name: 'FastClean Software Ltd', verified: true, how: 'Authenticode signature' },
+      path: 'C:\\Program Files\\FastClean Pro\\fastclean.exe',
+      what: 'A program that starts with Windows and keeps showing offers to speed up your computer.',
+      when: null,
+    },
+    answer: 'closer',
+    why: 'Signed tells you who made it, not that you wanted it. The signature is real, but you never chose this program. Look closer at how it got here before you decide whether to keep it.',
+    sources: ['guides/remediation/audit_windows_autoruns.md'],
+  },
+  {
     id: 'downloads-login-item',
     district: 'junkyard',
     severity: 'warning',
@@ -31,7 +48,7 @@ export default [
       when: null,
     },
     answer: 'threat',
-    why: 'Installed software doesn’t run from Downloads, where files from the internet land. A login item pointing there is a strong warning sign.',
+    why: 'Installed software rarely runs from Downloads, where files from the internet land. A login item pointing there is a strong warning sign.',
     sources: ['rescue/attribution.py', 'guides/remediation/audit_windows_autoruns.md'],
   },
 ];

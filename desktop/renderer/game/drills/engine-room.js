@@ -32,6 +32,6 @@ export default [
     },
     answer: 'mine',
     why: 'It’s signed, installed where Mac apps go, and you’re using it right now. A busy processor while you export a video is normal.',
-    sources: ['guides/remediation/investigate_keylogger_indicators.md', 'desktop/renderer/app.js'],
+    sources: ['guides/remediation/triage_suspicious_processes.md', 'desktop/renderer/app.js'],
   },
 ];

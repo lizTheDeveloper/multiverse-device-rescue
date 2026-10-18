@@ -16,7 +16,7 @@ export async function loadDrills(importModule) {
   for (const r of results) {
     if (r.status !== 'fulfilled' || !Array.isArray(r.value)) continue;
     for (const d of r.value) {
-      if (d && typeof d.id === 'string' && !ids.has(d.id) && DRILL_ANSWERS.includes(d.answer)) { ids.add(d.id); out.push(d); }
+      if (d && typeof d.id === 'string' && !ids.has(d.id) && DRILL_ANSWERS.includes(d.answer) && d.clues && typeof d.clues === 'object' && typeof d.clues.what === 'string') { ids.add(d.id); out.push(d); }
     }
   }
   return out;
@@ -63,13 +63,14 @@ export function drillSignal(d) {
 }
 
 // A drill after every fourth real signal; any left over go at the end.
-export function mixDrills(real, drills) {
+export function mixDrills(real, drills = []) {
+  drills = Array.isArray(drills) ? drills : [];
   const out = [];
   let k = 0;
   (real || []).forEach((x, i) => {
     out.push(x);
     if ((i + 1) % 4 === 0 && k < drills.length) { out.push(drillSignal(drills[k])); k += 1; }
   });
-  while (k < (drills || []).length) { out.push(drillSignal(drills[k])); k += 1; }
+  while (k < drills.length) { out.push(drillSignal(drills[k])); k += 1; }
   return out;
 }

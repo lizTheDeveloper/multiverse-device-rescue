@@ -159,3 +159,18 @@ test('a drill never counts in integrity, sorted, or the deck’s tags', async ()
   assert.strictEqual(sortedCount(sigs), 0);
   assert.deepStrictEqual(reconcileDeck(emptyDeck(), sigs, new Set()).deck.tags, {});
 });
+
+test('mixDrills copes with no drills, and loadDrills drops a drill with no clues', async () => {
+  const { mixDrills, loadDrills } = await imp('drills.js');
+  assert.deepStrictEqual(mixDrills([{ id: 'r0' }], undefined).map((x) => x.id), ['r0']);
+  assert.deepStrictEqual(mixDrills(undefined, undefined), []);
+  const good = { id: 'ok', answer: 'mine', clues: { what: 'w' } };
+  const bank = await loadDrills(async () => ({ default: [good, { id: 'noclues', answer: 'mine' }, { id: 'badclues', answer: 'mine', clues: 'x' }] }));
+  assert.deepStrictEqual(bank.map((d) => d.id), ['ok']);
+});
+
+test('signed does not mean wanted, and unsigned does not mean bad', async () => {
+  const { bank } = await loadAll();
+  assert.ok(bank.some((d) => d.clues.maker && d.clues.maker.verified && d.answer !== 'mine'), 'a signed drill that is not mine');
+  assert.ok(bank.some((d) => d.clues.maker && !d.clues.maker.verified && d.answer === 'mine'), 'an unsigned drill that is mine');
+});
