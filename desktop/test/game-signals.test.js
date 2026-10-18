@@ -115,3 +115,39 @@ test('the deck’s bars: confirmed fixes plus account missions the checkup confi
   const r = countDeckBars({ rc: { MISSIONS: [] }, deck, rcState: { missions: { x: { status: 'completed' } } }, scanConfirmed: { missions: {} }, doc: null });
   assert.deepStrictEqual(r, { confirmed: 2, reported: 1 });
 });
+
+test('the same identity at two severities shows the worse one, counted twice', async () => {
+  const { v, city, sigs } = await build(doc(mod('a_mod', [f('Same', 'info', { plist: '/x' }), f('Same', 'warning', { plist: '/x' })])));
+  assert.deepStrictEqual(sigs.map((x) => [x.severity, x.count]), [['warning', 2]]);
+  assert.strictEqual(v.cityIntegrity(city, sigs).secured, 0, 'the warning is not hidden under the info');
+});
+
+test('a monitoring critical is never a signal, but its district is never secured', async () => {
+  const { v, city, sigs } = await build(doc(mod('stalkerware_scan', [f('Monitoring app', 'critical', { plist: '/m' })]), net('b_mod', [f('Note', 'info')])));
+  assert.ok(!sigs.some((x) => x.module === 'stalkerware_scan'));
+  const i = v.cityIntegrity(city, sigs);
+  assert.deepStrictEqual([i.checked, i.secured, i.percent], [2, 1, 50]);
+  assert.deepStrictEqual(Object.values(v.districtHeat(city, sigs)), ['hot']);
+});
+
+test('a marked critical or warning is not open', async () => {
+  const marked = f('Mine', 'warning', { plist: '/m', marked_by_user: true, original_severity: 'warning', known_item_id: 'k1' });
+  const { v, city, sigs } = await build(doc(mod('a_mod', [marked])));
+  assert.deepStrictEqual(sigs.map((x) => [x.marked, x.tag]), [[true, 'mine']]);
+  assert.deepStrictEqual([v.cityIntegrity(city, sigs).percent, v.districtHeat(city, sigs)], [100, {}]);
+});
+
+test('bars with both counts non-zero are reported apart, never summed', async () => {
+  const { countDeckBars } = await load();
+  const FC = 'device_security-fortify-computer';
+  const okm = (name, findings = []) => ({ name, status: 'ok', supported: true, findings });
+  const d = { platform: 'darwin', modules: [okm('encryption_check'), okm('lock_screen_check'),
+    okm('filevault_recovery', [{ severity: 'info', data: { check: 'fv_status' } }]),
+    okm('screen_lock_check', [{ severity: 'info', data: { check: 'screen_lock_required', value: 'enabled' } }]),
+    okm('find_my_mac_check', [{ severity: 'info', code: 'security.find_my_mac_check.configured_ok', data: {} }])] };
+  const rc = { MISSIONS: [{ id: FC, steps: [0, 1, 2, 3, 4, 5] }] };
+  const r = countDeckBars({ rc, deck: { confirmed: { a: NOW } },
+    rcState: { missions: { [FC]: { status: 'completed' }, other: { status: 'completed' } } },
+    scanConfirmed: { missions: { [FC]: true } }, doc: d });
+  assert.deepStrictEqual(r, { confirmed: 2, reported: 1 });
+});
