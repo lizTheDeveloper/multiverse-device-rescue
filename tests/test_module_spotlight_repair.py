@@ -342,5 +342,45 @@ def test_mdutil_timeout():
     # Should return findings despite timeout
     assert len(result.findings) >= 1
     finding = result.findings[0]
-    # When mdutil times out, indexing_enabled defaults to False
-    assert finding.data["indexing_enabled"] is False
+    # When mdutil times out the state is unknown ("couldn't confirm"), not off
+    assert finding.data["indexing_enabled"] is None
+    assert finding.severity == Severity.INFO
+
+
+# --- Regression: macOS 26.3.1 ----------------------------------------------------
+# `mdutil -s /` answers "Index is read-only." while Spotlight search works.
+# Anything but "Indexing enabled" used to read as "Spotlight search is turned
+# off on your main drive".
+
+
+def _fake_mdutil(status):
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if "mdutil" in cmd_str:
+            return _make_subprocess_result(stdout=status)
+        if "ps -eo" in cmd_str:
+            return _make_subprocess_result(stdout="PID PCPU COMM\n100 0.1 mds\n")
+        if "defaults read" in cmd_str:
+            return _make_subprocess_result(returncode=1)
+        return _make_subprocess_result()
+    return fake_run
+
+
+def test_macos26_read_only_index_is_not_turned_off():
+    module = _get_module()
+    with patch("subprocess.run", side_effect=_fake_mdutil("/:\n\tIndex is read-only.\n")):
+        with patch("os.walk", return_value=[]):
+            result = module.check(_make_profile())
+    issues = {f.data.get("issue_type") for f in result.findings}
+    assert "disabled_indexing" not in issues
+    assert "indexing_unknown" in issues
+    assert all(f.severity == Severity.INFO for f in result.findings)
+
+
+def test_indexing_disabled_still_warns():
+    module = _get_module()
+    with patch("subprocess.run", side_effect=_fake_mdutil("/:\n\tIndexing disabled.\n")):
+        with patch("os.walk", return_value=[]):
+            result = module.check(_make_profile())
+    assert any(f.data.get("issue_type") == "disabled_indexing" and f.severity == Severity.WARNING
+               for f in result.findings)
