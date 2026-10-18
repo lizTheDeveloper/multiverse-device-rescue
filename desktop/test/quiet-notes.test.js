@@ -74,7 +74,10 @@ function guideSteps(body) {
   return heads.map((h, i) => ({ title: h[2].trim(), body: body.slice(h.index + h[0].length, i + 1 < heads.length ? heads[i + 1].index : body.length).trim() }));
 }
 // The test's own sentence cut, plain on purpose and independent of the module's.
-const GUIDE_DV = /799-7233|88788|text\s+START|advocate|domestic\s+violence|\bDV\b/i;
+// Independent of QuietNotes.MARKERS on purpose, and narrower: case-sensitive,
+// no bare "DV" (the /i flag made that match `codesign -dv`). A sentence this
+// skips is one the module may take out; everything else must survive.
+const GUIDE_DV = /799-7233|88788|text START to|DV Hotline|\b[Aa]dvocates?\b|[Dd]omestic [Vv]iolence/;
 const norm = (t) => String(t).replace(/^\s*(?:[-*]|\d{1,3}\.)\s+/gm, ' ').replace(/\s+/g, ' ').trim();
 const cut = (t) => norm(t).split(/(?<=[.!?][)"'”’*`]*)\s+(?=[A-Z(*`"“])/).filter(Boolean);
 const guides = () => {
@@ -209,4 +212,27 @@ test('the extra warning on the fix and "It\'s mine" controls follows the mode: o
     assert.deepStrictEqual(p.shown(), ['results'], stored);
     assert.deepStrictEqual(seen, [['fix', want], ['mark', want]], stored);
   }
+});
+
+test('every codesign sentence, and every sentence with a command in backticks, survives in every guide', () => {
+  let codesign = 0;
+  let commands = 0;
+  for (const { file, body } of guides()) {
+    for (const [where, text] of [['the whole guide', body], ...guideSteps(body).map((st) => [`step "${st.title}"`, st.body])]) {
+      const quiet = norm(Q.quiet(text));
+      for (const sentence of cut(text)) {
+        if (/codesign/.test(sentence)) { codesign += 1; assert.ok(quiet.includes(sentence), `${file}, ${where}: lost "${sentence}"`); }
+        if (/`[^`]+`/.test(sentence)) { commands += 1; assert.ok(quiet.includes(sentence), `${file}, ${where}: lost "${sentence}"`); }
+      }
+    }
+  }
+  assert.ok(codesign >= 7, `checked ${codesign} codesign sentences`);
+  assert.ok(commands > 20, `checked ${commands} command sentences`);
+});
+
+test('a command flag like -dv is not hotline wording', () => {
+  const text = "Verify the binary's code signature: `codesign -dv <path-to-binary>`. Then run `spctl -a -vv`.";
+  assert.strictEqual(Q.quiet(text), text);
+  assert.strictEqual(Q.quiet('Run codesign -dv /Applications/X.app to see who signed it.'), 'Run codesign -dv /Applications/X.app to see who signed it.');
+  assert.strictEqual(Q.quiet('Keep it. US National DV Hotline: call 1-800-799-7233.'), 'Keep it.');
 });

@@ -15,8 +15,9 @@ const QuietNotes = (function () {
   // hotline, an advocate, or "a partner, ex or housemate". Only those
   // sentences come out; every other sentence (keep the evidence, don't delete
   // it, change passwords from another device, back up and reinstall) stays.
-  // Generic words like "partner" alone don't count.
-  const MARKERS = /799-7233|88788|\btext\s+START\b|\badvocates?\b|domestic\s+violence|\bDV\b|\bpartner,\s+(?:an\s+)?ex\b|\bex-partner\b|\bhousemates?\b|\babuser\b/i;
+  // Generic words like "partner" alone don't count, and neither does a bare
+  // "DV": under /i it matched the flag in `codesign -dv`.
+  const MARKERS = /799-7233|88788|\btext\s+START\b|\badvocates?\b|domestic\s+violence|\bDV\s+Hotline\b|\bpartner,\s+(?:an\s+)?ex\b|\bex-partner\b|\bhousemates?\b|\babuser\b/i;
   const LINE = 'Removing this can alert whoever installed it. Read this first.';
   const DEFAULT_FULL = 'If someone close to you may have installed it, talk to an advocate before you remove anything. In the US: National Domestic Violence Hotline, 1-800-799-7233, or text START to 88788.';
 
