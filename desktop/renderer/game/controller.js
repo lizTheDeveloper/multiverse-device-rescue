@@ -3,7 +3,7 @@
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
 import { findingsToCity, DISTRICTS } from './findings-to-city.js';
-import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
+import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
@@ -661,21 +661,45 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go && go.startsWith('lesson:')) { s.lesson = { id: go.slice(7), q: 0, picked: null }; s.screen = 'lesson'; render(); return; }
     // A district on the sweep: the lesson for that area. Finishing it comes back here.
     if (go && go.startsWith('learn:')) {
+      // A district whose lessons are all done opens nothing (its card isn't a
+      // button any more; this guards a stale click). Reviewing is `review:`.
       const l = learnFor()(go.slice(6));
+      if (l && !l.done) { s.lesson = { id: l.lesson.id, q: 0, picked: null, fromSweep: true }; s.screen = 'lesson'; render(); }
+      return;
+    }
+    // The optional review on a DONE district: its first lesson, coming back the same way.
+    if (go && go.startsWith('review:')) {
+      const l = learnFor()(go.slice(7));
       if (l) { s.lesson = { id: l.lesson.id, q: 0, picked: null, fromSweep: true }; s.screen = 'lesson'; render(); }
       return;
     }
     if (act === 'start-checkup') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
     if (act && act.startsWith('answer:')) {
-      if (s.lesson && s.lesson.picked == null) { s.lesson.picked = Number(act.slice(7)); render(); }
+      if (s.lesson && s.lesson.picked == null) {
+        s.lesson.picked = Number(act.slice(7));
+        // Answering the last question is finishing: it counts even if the
+        // person then leaves (SEE YOUR CITY, BACK TO THE CHECKUP) without FINISH.
+        const l = s.lessons.find((x) => x.id === s.lesson.id);
+        if (l && s.lesson.q >= l.questions.length - 1 && !lessonDone(s.progress, l.id)) {
+          s.progress = setLessonDone(s.progress, l.id, now());
+          saveProgress(storage, s.progress);
+        }
+        render();
+      }
       return;
     }
     if (act === 'next-question' && s.lesson) { s.lesson = { ...s.lesson, q: s.lesson.q + 1, picked: null }; render(); return; }
     // Only finishing a lesson records anything; leaving part-way records nothing.
     if (act === 'finish-lesson' && s.lesson) {
-      s.progress = setLessonDone(s.progress, s.lesson.id, now());
-      saveProgress(storage, s.progress);
-      s.screen = s.lesson.fromSweep && s.scan.running ? 'boss' : 'training';
+      if (!lessonDone(s.progress, s.lesson.id)) {
+        s.progress = setLessonDone(s.progress, s.lesson.id, now());
+        saveProgress(storage, s.progress);
+      }
+      // A lesson opened from the sweep goes back to the sweep, or, once the
+      // checkup has finished, to the city: never the Training Grounds' list.
+      const fromSweep = s.lesson.fromSweep;
+      s.screen = !fromSweep ? 'training' : s.scan.running ? 'boss' : s.city ? 'map' : 'training';
+      if (s.screen === 'map') s.pendingCity = false;
       s.lesson = null;
       render();
       return;
