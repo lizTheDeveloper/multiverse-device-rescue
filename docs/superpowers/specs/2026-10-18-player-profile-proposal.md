@@ -531,3 +531,10 @@ for word from its file.
 9. **Help-district progress** saved disguised (decision 8, which reverses the teach-once
    proposal's memory-only rule for safety concepts). Is that the intent for C4 too, or
    only for the help district's own steps?
+
+## Owner decisions (2026-10-18)
+
+1. **Stealth list view stays literal.** The map is neutral; the plain list shows the real title and path. Choosing the list is choosing detail.
+2. **Publishing: opt-in, richer.** Off by default and never in stealth mode. With consent the profile may share lesson and drill counts, skill levels and rank. Never findings, paths, or anything about the computer.
+3. **Disguise in both modes.** The saved profile is stored as recipe-like data in every mode, so switching to stealth leaves no visible change on disk.
+4. **"Learned" is measured, not just "answered all".** "We're gonna need enough to get IRT right… so you need a few examples of each question." Each concept gets a bank of several items (variants of each question) so item response theory can estimate the person's ability per concept and each item's difficulty. "Learned" is an ability estimate above a threshold with enough evidence. Answering every question in one pass is evidence, not proof. Wrong answers are kept as evidence, and drills and Signal-or-Noise calls feed the same estimates.
