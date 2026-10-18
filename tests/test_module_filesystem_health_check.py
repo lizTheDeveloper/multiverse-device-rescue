@@ -412,3 +412,70 @@ def test_filesystem_health_check_fix_inode_usage():
     assert fix.all_succeeded
     # Should have actions for inode usage
     assert any("inode" in a.description.lower() for a in fix.actions)
+
+
+# --- Regression: macOS 26.3.1, FileVault on --------------------------------
+# `diskutil info /` describes the sealed System volume, which says
+# "Encrypted: No" even with FileVault on. Reading that line told a FileVault
+# laptop "Your laptop's data isn't encrypted".
+
+_DISKUTIL_ROOT_MACOS26 = """
+   Device Identifier:         disk3s1s1
+   Volume Name:               Macintosh HD
+   Mounted:                   Yes
+   Mount Point:               /
+   Type (Bundle):             apfs
+   APFS Volume Group:         REDACTED
+   Encrypted:                 No
+   FileVault:                 Yes
+"""
+
+
+def _fake_macos26(fdesetup="FileVault is On.\n", diskutil=_DISKUTIL_ROOT_MACOS26):
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        cmd_str = " ".join(cmd)
+        if cmd_str.startswith("fdesetup"):
+            result.stdout = fdesetup
+        elif "diskutil info" in cmd_str:
+            result.stdout = diskutil
+        else:
+            result.stdout = ""
+        return result
+    return fake_run
+
+
+def test_macos26_filevault_on_is_not_reported_unencrypted():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_laptop_profile())
+    assert not any(f.data.get("check") == "unencrypted_laptop" for f in result.findings)
+    status = next(f for f in result.findings if f.data.get("check") == "encryption_status")
+    assert status.data["encrypted"] is True
+    # macOS 26 labels it "Type (Bundle):", not "Type (Bundle Code):"
+    assert mod._parse_diskutil_info(_DISKUTIL_ROOT_MACOS26)["type"] == "APFS"
+
+
+def test_diskutil_filevault_line_used_when_fdesetup_silent():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26(fdesetup="")):
+        result = mod.check(_make_laptop_profile())
+    assert not any(f.data.get("check") == "unencrypted_laptop" for f in result.findings)
+
+
+def test_filevault_off_still_warns_on_laptop():
+    mod = _get_module()
+    off = _DISKUTIL_ROOT_MACOS26.replace("FileVault:                 Yes",
+                                         "FileVault:                 No")
+    with patch("subprocess.run", side_effect=_fake_macos26("FileVault is Off.\n", off)):
+        result = mod.check(_make_laptop_profile())
+    assert any(f.data.get("check") == "unencrypted_laptop" for f in result.findings)
+
+
+def test_unreadable_encryption_is_not_reported_off():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26(fdesetup="", diskutil="")):
+        result = mod.check(_make_laptop_profile())
+    assert not any(f.data.get("check") == "unencrypted_laptop" for f in result.findings)

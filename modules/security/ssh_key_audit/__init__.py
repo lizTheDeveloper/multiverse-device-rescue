@@ -1,5 +1,6 @@
 import subprocess
 import os
+import re
 import stat
 from pathlib import Path
 from shlex import quote
@@ -192,7 +193,9 @@ class Module(ModuleBase):
             for key_file in ssh_dir.iterdir():
                 # Skip public keys and known_hosts
                 if key_file.is_file() and not key_file.name.endswith(".pub"):
-                    if key_file.name not in ["known_hosts", "authorized_keys", "config"]:
+                    if key_file.name not in [
+                        "known_hosts", "authorized_keys", "config"
+                    ] and self._looks_like_private_key(key_file):
                         key_files.append(key_file)
 
                         # Check key type and size
@@ -391,11 +394,21 @@ class Module(ModuleBase):
 
     def _looks_like_private_key(self, key_file: Path) -> bool:
         """True if the file is a private key (not a backup config, log, etc.)."""
+        # known_hosts-style files (e.g. gcloud's google_compute_known_hosts)
+        # hold other machines' *public* keys; `ssh-keygen -l` fingerprints them
+        # too, so they used to be reported as "private key ... open to other
+        # users".
+        if "known_hosts" in key_file.name:
+            return False
         try:
             with key_file.open("rb") as fh:
                 head = fh.read(256)
-            if b"PRIVATE KEY" in head:
+            if b"PRIVATE KEY" in head or b"PuTTY-User-Key-File" in head:
                 return True
+            if isinstance(head, bytes) and re.search(
+                rb"(^|\s)(ssh-(rsa|ed25519|dss)|ecdsa-sha2-\S+|sk-\S+)\s+AAAA", head
+            ):
+                return False  # public key / known_hosts line, not a private key
         except (OSError, TypeError):
             pass
         return bool(self._get_key_info(key_file))

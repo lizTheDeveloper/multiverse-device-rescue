@@ -241,3 +241,65 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.lock_screen_check.") for c in declared)
+
+
+# --- Regression: macOS 26.3.1 -----------------------------------------------------
+# com.apple.screensaver askForPassword doesn't exist on current macOS; the
+# lock-screen setting comes from `sysadminctl -screenLock status`, which logs to
+# stderr. Reading only askForPassword said "does not ask for a password" on a
+# Mac that locks immediately.
+
+_SYSADMINCTL_IMMEDIATE = (
+    "2026-10-18 14:19:13.564 sysadminctl[58384:12128222] screenLock delay is immediate\n"
+)
+
+
+def _fake_macos26(sysadminctl_stderr=_SYSADMINCTL_IMMEDIATE, sysadminctl_rc=0):
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.stdout = ""
+        result.stderr = ""
+        result.returncode = 0
+        if cmd[0] == "sysadminctl":
+            result.stderr = sysadminctl_stderr
+            result.returncode = sysadminctl_rc
+        elif cmd[0] == "defaults":
+            result.returncode = 1
+            result.stderr = "The domain/default pair of (com.apple.screensaver, askForPassword) does not exist"
+        elif cmd[0] == "pmset":
+            result.stdout = " displaysleep         10\n"
+        return result
+    return fake_run
+
+
+def test_macos26_immediate_lock_is_not_reported_as_no_password():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    assert not result.findings
+
+
+def test_macos26_screen_lock_off_warns():
+    mod = _get_module()
+    stderr = "2026-10-18 14:19:13.564 sysadminctl[1:2] screenLock is off\n"
+    with patch("subprocess.run", side_effect=_fake_macos26(stderr)):
+        result = mod.check(_make_profile())
+    assert [f.code for f in result.findings] == ["security.lock_screen_check.screensaver_password"]
+
+
+def test_macos26_long_delay_warns():
+    mod = _get_module()
+    stderr = "2026-10-18 14:19:13.564 sysadminctl[1:2] screenLock delay is 300 seconds\n"
+    with patch("subprocess.run", side_effect=_fake_macos26(stderr)):
+        result = mod.check(_make_profile())
+    assert [f.code for f in result.findings] == ["security.lock_screen_check.screensaver_delay"]
+
+
+def test_unreadable_lock_setting_is_couldnt_check():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26("", sysadminctl_rc=1)):
+        result = mod.check(_make_profile())
+    assert [f.code for f in result.findings] == [
+        "security.lock_screen_check.screensaver_password_unknown"
+    ]
+    assert result.findings[0].severity == Severity.INFO

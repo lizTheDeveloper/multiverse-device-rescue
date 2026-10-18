@@ -11,6 +11,12 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue.macos_launchd import (
+    FILE_SHARING,
+    REMOTE_LOGIN,
+    SCREEN_SHARING,
+    parse_result,
+)
 from rescue.module_base import ModuleBase
 
 
@@ -29,13 +35,29 @@ class Module(ModuleBase):
         "security.sharing_services.remote_login",
         "security.sharing_services.remote_management",
         "security.sharing_services.printer_sharing",
+        "security.sharing_services.sharing_unknown",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
+        # Each service reads as True (on), False (off) or None (couldn't tell).
+        # None is listed in one info "couldn't check" finding, never as "off".
+        unknown: list[str] = []
+        screen_sharing = self._screen_sharing_state()
+        file_sharing = self._file_sharing_state()
+        remote_login = self._remote_login_state()
+        printer_sharing = self._is_printer_sharing_enabled()
+        for state, label in (
+            (screen_sharing, "Screen Sharing"),
+            (file_sharing, "File Sharing"),
+            (remote_login, "Remote Login"),
+            (printer_sharing, "Printer Sharing"),
+        ):
+            if state is None:
+                unknown.append(label)
 
         # Check Screen Sharing (com.apple.screensharing)
-        if self._is_service_enabled("com.apple.screensharing"):
+        if screen_sharing is True:
             findings.append(
                 Finding(
                     title="Screen Sharing is enabled on your Mac",
@@ -58,7 +80,7 @@ class Module(ModuleBase):
             )
 
         # Check File Sharing / SMB (com.apple.smbd)
-        if self._is_service_enabled("com.apple.smbd"):
+        if file_sharing is True:
             findings.append(
                 Finding(
                     title="File Sharing is enabled on your Mac",
@@ -78,7 +100,7 @@ class Module(ModuleBase):
             )
 
         # Check Remote Login / SSH (com.apple.sshd)
-        if self._is_ssh_enabled():
+        if remote_login is True:
             findings.append(
                 Finding(
                     title="Remote Login is enabled on your Mac",
@@ -124,7 +146,7 @@ class Module(ModuleBase):
             )
 
         # Check Printer Sharing
-        if self._is_printer_sharing_enabled():
+        if printer_sharing is True:
             findings.append(
                 Finding(
                     title="Printer Sharing is enabled on your Mac",
@@ -141,6 +163,23 @@ class Module(ModuleBase):
                     category=self.category,
                     code="security.sharing_services.printer_sharing",
                     data={"service": "printer_sharing"},
+                )
+            )
+
+        if unknown:
+            findings.append(
+                Finding(
+                    title="Couldn't check some sharing settings",
+                    description=(
+                        "Device Rescue couldn't read whether these are on: "
+                        + ", ".join(unknown)
+                        + ". This is not a sign that anything is wrong. To see for "
+                        "yourself, open System Settings > General > Sharing."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.sharing_services.sharing_unknown",
+                    data={"check": "sharing_unknown", "services": unknown},
                 )
             )
 
@@ -207,62 +246,64 @@ class Module(ModuleBase):
                 # launchctl list shows services with a dash if they're loaded
                 # Format is: PID  Status  Label
                 for line in result.stdout.splitlines():
-                    if service_name in line:
-                        # If the line contains the service name and doesn't start with "-",
-                        # it's likely running
-                        parts = line.split()
-                        if parts and parts[0] != "-":
-                            return True
+                    parts = line.split()
+                    # Exact label: a substring test also matched per-user
+                    # helpers such as com.apple.screensharing.agent.
+                    if parts and parts[-1] == service_name and parts[0] != "-":
+                        return True
                 return False
             return False
         except OSError:
             return False
 
-    def _is_ssh_enabled(self) -> bool:
-        """Check if SSH (Remote Login) is enabled via systemsetup."""
-        try:
-            result = subprocess.run(
-                ["systemsetup", "-getremotelogin"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                return "on" in result.stdout.lower()
-            # Fallback: check launchctl
-            return self._is_service_enabled("com.apple.sshd")
-        except OSError:
-            # Fallback to launchctl check
-            return self._is_service_enabled("com.apple.sshd")
+    # Screen Sharing, File Sharing and Remote Login are system daemons that
+    # launchd loads only while the switch is on. A user's `launchctl list`
+    # never shows them, and `systemsetup -getremotelogin` needs admin, so
+    # both used to report "off" for a service that was on.
+    # `launchctl print system/<label>` answers without admin.
 
-    def _is_printer_sharing_enabled(self) -> bool:
-        """Check if Printer Sharing is enabled via defaults."""
+    def _screen_sharing_state(self) -> bool | None:
+        return parse_result(SCREEN_SHARING, self._safe(lambda: subprocess.run(
+            ["launchctl", "print", "system/com.apple.screensharing"], capture_output=True, text=True, timeout=5)))
+
+    def _file_sharing_state(self) -> bool | None:
+        return parse_result(FILE_SHARING, self._safe(lambda: subprocess.run(
+            ["launchctl", "print", "system/com.apple.smbd"], capture_output=True, text=True, timeout=5)))
+
+    def _remote_login_state(self) -> bool | None:
+        return parse_result(REMOTE_LOGIN, self._safe(lambda: subprocess.run(
+            ["launchctl", "print", "system/com.openssh.sshd"], capture_output=True, text=True, timeout=5)))
+
+    @staticmethod
+    def _safe(call):
+        """``call()`` (a subprocess.run written out in full, so docs/commands.md
+        lists it), or None if it couldn't run."""
+        try:
+            return call()
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    def _is_printer_sharing_enabled(self) -> bool | None:
+        """Check if Printer Sharing is on: ``cupsctl`` prints ``_share_printers=1``.
+
+        This used to read the AFP file server's preferences
+        (/Library/Preferences/com.apple.AppleFileServer), which exist on most
+        Macs and have nothing to do with printers, and reported "Printer
+        Sharing is enabled" whenever that file existed.
+        """
         try:
             result = subprocess.run(
-                [
-                    "defaults",
-                    "read",
-                    "/Library/Preferences/com.apple.AppleFileServer",
-                    "guestAccess",
-                ],
+                ["cupsctl"],
                 capture_output=True,
                 text=True,
+                timeout=10,
             )
-            # If the key exists and is 1, printer sharing is enabled
-            if result.returncode == 0:
-                return "1" in result.stdout
-            # Also check if there are any shared printers
-            result2 = subprocess.run(
-                [
-                    "defaults",
-                    "read",
-                    "/Library/Preferences/com.apple.AppleFileServer",
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if result2.returncode == 0:
-                # If the file exists, it means printer sharing was configured
-                return True
+        except (OSError, subprocess.SubprocessError):
+            return None  # couldn't run cupsctl: unknown, not off
+        if result.returncode != 0 or not isinstance(result.stdout, str):
+            return None
+        if "_share_printers=1" in result.stdout:
+            return True
+        if "_share_printers=0" in result.stdout:
             return False
-        except OSError:
-            return False
+        return None

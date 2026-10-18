@@ -4,10 +4,12 @@ estimated_time: "10 minutes"
 platforms: [macos]
 remediates:
   - security.lock_screen_check.screensaver_password
+  - security.lock_screen_check.screensaver_password_unknown
   - security.lock_screen_check.screensaver_delay
   - security.lock_screen_check.display_sleep
 steps_for:
   security.lock_screen_check.screensaver_password: [1]
+  security.lock_screen_check.screensaver_password_unknown: [1]
   security.lock_screen_check.screensaver_delay: [2]
   security.lock_screen_check.display_sleep: [3]
 automatable_steps: []

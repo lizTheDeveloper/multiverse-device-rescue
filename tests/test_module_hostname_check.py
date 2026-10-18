@@ -145,3 +145,24 @@ def test_hostname_check_fix_is_informational():
     assert fix.all_succeeded
     for action in fix.actions:
         assert "scutil" in action.description or "system" in action.description.lower()
+
+
+# --- Regression: macOS 26.3.1 default names -------------------------------------
+# A plain space in the ComputerName ("MacBook Pro") was reported twice: once as
+# a space and again as "unusual symbols".
+
+
+def test_space_is_not_also_an_unusual_symbol():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run("MacBook Pro", "MacBook-Pro-2")):
+        result = mod.check(_make_profile())
+    checks = [f.data.get("check") for f in result.findings]
+    assert "special_characters" not in checks
+    assert "spaces_in_name" in checks
+
+
+def test_real_symbol_still_reported():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run("Liz's MacBook", "Lizs-MacBook")):
+        result = mod.check(_make_profile())
+    assert any(f.data.get("check") == "special_characters" for f in result.findings)

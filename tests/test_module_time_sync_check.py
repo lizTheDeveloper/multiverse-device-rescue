@@ -174,3 +174,36 @@ def test_time_sync_check_defaults_error():
     # Should not crash, just skip timezone check
     ntp_findings = [f for f in result.findings if f.data["check"] == "ntp_enabled"]
     assert len(ntp_findings) == 0  # NTP is "enabled", so no warning
+
+
+# --- Regression: macOS 26.3.1 without admin rights ---------------------------
+# systemsetup refuses to answer a non-admin user; that refusal used to read
+# as "Your Mac is not syncing its clock automatically".
+
+_NO_ADMIN = "You need administrator access to run this tool... exiting!\n"
+
+
+def _fake_no_admin(cmd, **kwargs):
+    result = MagicMock()
+    result.stderr = ""
+    if cmd[0] == "systemsetup":
+        result.returncode = 0
+        result.stdout = _NO_ADMIN
+    elif cmd[0] == "defaults":
+        result.returncode = 1  # com.apple.timezone.auto Active does not exist
+        result.stdout = ""
+    else:
+        result.returncode = 0
+        result.stdout = "Sun Oct 18 14:19:39 PDT 2026\n"
+    return result
+
+
+def test_no_admin_rights_is_couldnt_check_not_off():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_no_admin):
+        result = mod.check(_make_profile())
+    checks = {f.data.get("check") for f in result.findings}
+    assert "ntp_enabled" not in checks
+    assert "ntp_unknown" in checks
+    assert "timezone_auto" not in checks
+    assert all(f.severity == Severity.INFO for f in result.findings)

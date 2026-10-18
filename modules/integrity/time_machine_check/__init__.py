@@ -31,6 +31,22 @@ class Module(ModuleBase):
 
         # Check if Time Machine is configured at all
         is_configured = self._check_tm_configured()
+        if is_configured is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check your Time Machine backups",
+                    description=(
+                        "Device Rescue couldn't read your Time Machine settings, so it "
+                        "doesn't know whether backups are set up. This is not a sign that "
+                        "anything is wrong. To see for yourself, open System Settings > "
+                        "General > Time Machine."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={"check": "tm_unknown"},
+                )
+            )
+            return CheckResult(module_name=self.name, findings=findings)
         if not is_configured:
             findings.append(
                 Finding(
@@ -320,8 +336,33 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _check_tm_configured(self) -> bool:
-        """Check if Time Machine is configured via defaults."""
+    def _check_tm_configured(self) -> bool | None:
+        """Does Time Machine have a backup destination? None if it couldn't tell.
+
+        The preferences file exists on every Mac (it holds at least
+        PreferencesVersion), so "the file is readable" used to count as "Time
+        Machine is set up" and produced "We could not check your last backup
+        date" on a Mac with no backup disk. `tmutil destinationinfo` is the
+        source of truth; the plist's Destinations key is the fallback.
+        """
+        try:
+            result = subprocess.run(
+                ["tmutil", "destinationinfo"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            text = "\n".join(
+                part for part in (result.stdout, result.stderr) if isinstance(part, str)
+            )
+            if "No destinations configured" in text:
+                return False
+            if result.returncode == 0 and re.search(
+                r"^\s*(Name|ID|Kind|URL)\s*:", text, re.MULTILINE
+            ):
+                return True
+        except (OSError, subprocess.SubprocessError):
+            pass
         try:
             result = subprocess.run(
                 ["defaults", "read", "/Library/Preferences/com.apple.TimeMachine"],
@@ -329,9 +370,12 @@ class Module(ModuleBase):
                 text=True,
                 timeout=5,
             )
-            return result.returncode == 0 and result.stdout.strip()
-        except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
-            return False
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if result.returncode != 0:
+            return False  # no Time Machine preferences: never set up
+        out = result.stdout if isinstance(result.stdout, str) else ""
+        return "Destinations" in out
 
     def _get_latest_backup(self) -> datetime | None:
         """Get the date of the last Time Machine backup via tmutil latestbackup."""

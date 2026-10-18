@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from rescue.models import (
@@ -95,8 +96,9 @@ class Module(ModuleBase):
                 )
             )
 
-        # Check if Bluetooth and Wi-Fi are enabled
-        if not bluetooth_enabled:
+        # Check if Bluetooth and Wi-Fi are enabled. None = couldn't read it,
+        # which is not "disabled".
+        if bluetooth_enabled is False:
             findings.append(
                 Finding(
                     title="Bluetooth is disabled",
@@ -189,19 +191,35 @@ class Module(ModuleBase):
             pass
         return "Off"
 
-    def _is_bluetooth_enabled(self) -> bool:
-        """Check if Bluetooth is enabled."""
+    def _is_bluetooth_enabled(self) -> bool | None:
+        """Is Bluetooth on? None if neither source could be read."""
         try:
             result = subprocess.run(
                 ["defaults", "read", "/Library/Preferences/com.apple.Bluetooth", "ControllerPowerState"],
                 capture_output=True,
                 text=True,
             )
-            if result.returncode == 0:
-                return int(result.stdout.strip()) == 1
+            if result.returncode == 0 and result.stdout.strip() in ("0", "1"):
+                return result.stdout.strip() == "1"
         except (OSError, ValueError):
             pass
-        return False
+        # macOS 26 no longer writes ControllerPowerState; system_profiler's
+        # "State: On" is the source of truth. Reading only the old key said
+        # "Bluetooth is disabled" on a Mac with Bluetooth on.
+        try:
+            result = subprocess.run(
+                ["system_profiler", "SPBluetoothDataType"],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            if result.returncode == 0 and isinstance(result.stdout, str):
+                match = re.search(r"^\s*State:\s*(On|Off)\b", result.stdout, re.MULTILINE)
+                if match:
+                    return match.group(1) == "On"
+        except (OSError, subprocess.SubprocessError):
+            pass
+        return None
 
     def _is_wifi_enabled(self) -> bool:
         """Check if Wi-Fi is enabled."""

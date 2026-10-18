@@ -108,3 +108,55 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.firewall_audit.") for c in declared)
+
+
+# --- Regression: real socketfilterfw wording on macOS 26.3.1 ------------------
+
+
+def test_macos26_stealth_off_wording_is_detected():
+    """macOS 15+ prints 'Firewall stealth mode is off' (no 'disabled')."""
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run(
+        "Firewall is enabled. (State = 1)\n", "Firewall stealth mode is off\n"
+    )):
+        result = mod.check(_make_profile())
+    assert [f.code for f in result.findings] == ["security.firewall_audit.stealth_mode"]
+
+
+def test_macos26_all_on_is_healthy():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run(
+        "Firewall is enabled. (State = 1)\n", "Firewall stealth mode is on\n"
+    )):
+        result = mod.check(_make_profile())
+    assert not result.has_issues
+
+
+def test_block_all_state_counts_as_on():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run(
+        "Firewall is enabled. (State = 2)\n", "Firewall stealth mode is on\n"
+    )):
+        result = mod.check(_make_profile())
+    assert not result.has_issues
+
+
+def test_unreadable_is_couldnt_check_not_off():
+    mod = _get_module()
+
+    def failing(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 1
+        result.stdout = ""
+        result.stderr = "error"
+        return result
+
+    with patch("subprocess.run", side_effect=failing):
+        result = mod.check(_make_profile())
+    assert {f.code for f in result.findings} == {
+        "security.firewall_audit.global_state_unknown",
+        "security.firewall_audit.stealth_mode_unknown",
+    }
+    assert all(f.severity == Severity.INFO for f in result.findings)
+    fix = mod.fix(result, Mode.MANUAL)
+    assert fix.actions == []

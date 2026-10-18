@@ -15,6 +15,7 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue.crash_reports import crash_report_app_name
 from rescue.module_base import ModuleBase
 
 # Thresholds for crash frequency
@@ -189,8 +190,4 @@ class Module(ModuleBase):
         -> rsplit('_', 2): ['Visual_Studio_Code', '2026-07-06', '001']
         -> returns: Visual_Studio_Code
         """
-        stem = crash_file.stem
-        parts = stem.rsplit("_", 2)
-        if len(parts) >= 2:
-            return parts[0]
-        return stem
+        return crash_report_app_name(crash_file)

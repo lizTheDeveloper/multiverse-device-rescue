@@ -213,6 +213,7 @@ df -i /
 diskutil apfs list
 diskutil info /
 diskutil verifyVolume /
+fdesetup status
 ```
 
 ### `font_issues`
@@ -232,9 +233,10 @@ system_profiler SPDisplaysDataType
 
 ```text
 defaults read /Library/Preferences/com.apple.Bluetooth ControllerPowerState
+defaults read MobileMeAccounts Accounts
 defaults read com.apple.coreservices.useractivityd ActivityReceivingAllowed
-defaults read com.apple.iCloud.plist MobileMeAccounts
 networksetup -getairportpower en0
+system_profiler SPBluetoothDataType
 ```
 
 ### `homebrew_health`
@@ -256,8 +258,8 @@ scutil --get …
 
 ```text
 defaults read '~/Library/Preferences/com.apple.iCloud.plist' ForceSyncEnabled
+defaults read MobileMeAccounts Accounts
 defaults read com.apple.iCloud.plist Enabled
-defaults read com.apple.iCloud.plist MobileMeAccounts
 defaults read com.apple.iCloud.plist iCloudDrive
 ```
 
@@ -610,6 +612,9 @@ dscl . -read … UserShell
 
 ### `wifi_diagnostics`
 
+```text
+system_profiler SPAirPortDataType
+```
 
 Plus 1 command(s) built at runtime.
 
@@ -1360,6 +1365,7 @@ systemctl --user stop …
 defaults read /Library/Preferences/com.apple.Bluetooth ControllerPowerState
 defaults read com.apple.sharingd DiscoverableMode
 networksetup -getairportpower en0
+system_profiler SPBluetoothDataType
 ```
 
 ### `airdrop_security_check`
@@ -1390,9 +1396,8 @@ sqlite3 … 'SELECT client, service, auth_value FROM access WHERE auth_value=2'
 ### `appleid_security_check`
 
 ```text
-defaults read /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled
+defaults read /Library/Preferences/com.apple.SoftwareUpdate
 defaults read com.apple.mail-shared MailPrivacyProtectionEnabled
-defaults read …
 defaults read … AppleIDAccount
 defaults read … ICloudPrivateRelayEnabled
 system_profiler SPiCloudDataType
@@ -1559,17 +1564,21 @@ system_profiler SPHardwareDataType
 
 ### `firewall_audit`
 
-
-Plus 2 command(s) built at runtime.
+```text
+/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode
+/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
+/usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on
+```
 
 ### `firewall_rules_audit`
 
 ```text
 /usr/libexec/ApplicationFirewall/socketfilterfw --getallowsigned
 /usr/libexec/ApplicationFirewall/socketfilterfw --getblockall
+/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode
 /usr/libexec/ApplicationFirewall/socketfilterfw --listapps
-defaults read /Library/Preferences/com.apple.alf globalstate
-defaults read /Library/Preferences/com.apple.alf stealthenabled
 ```
 
 ### `firmware_password`
@@ -1681,6 +1690,7 @@ system_profiler SPHardwareDataType
 defaults read com.apple.screensaver askForPassword
 defaults read com.apple.screensaver askForPasswordDelay
 pmset -g
+sysadminctl -screenLock status
 ```
 
 ### `login_password_policy`
@@ -1769,6 +1779,9 @@ sqlite3 …
 ```text
 defaults read /Library/Preferences/com.apple.RemoteDesktop
 defaults read /Library/Preferences/com.apple.RemoteManagement ARD_AllLocalUsers
+launchctl print system/com.apple.AEServer
+launchctl print system/com.apple.screensharing
+launchctl print system/com.openssh.sshd
 systemsetup -getremoteappleevents
 systemsetup -getremotelogin
 ```
@@ -1847,16 +1860,20 @@ defaults read MobileMeAccounts Accounts
 cupsctl
 defaults read com.apple.sharingd DiscoverableMode
 launchctl list
+launchctl print system/com.apple.screensharing
+launchctl print system/com.apple.smbd
+launchctl print system/com.openssh.sshd
 systemsetup -getremotelogin
 ```
 
 ### `sharing_services`
 
 ```text
-defaults read /Library/Preferences/com.apple.AppleFileServer
-defaults read /Library/Preferences/com.apple.AppleFileServer guestAccess
+cupsctl
 launchctl list
-systemsetup -getremotelogin
+launchctl print system/com.apple.screensharing
+launchctl print system/com.apple.smbd
+launchctl print system/com.openssh.sshd
 ```
 
 ### `sip_gatekeeper`

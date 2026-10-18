@@ -149,3 +149,35 @@ def test_icloud_status_many_icloud_files():
     # Should warn about sync issues if many .icloud files exist
     assert len(result.findings) > 0
     assert any(f.severity == Severity.WARNING for f in result.findings)
+
+
+# --- Regression: macOS 26.3.1 (account redacted) -------------------------------
+# The old read of a "com.apple.iCloud.plist" domain never existed and always
+# gave "iCloud is not signed in".
+
+_MOBILEME_MACOS26 = """(
+        {
+        AccountAlternateDSID = "REDACTED";
+        AccountDSID = 1234567890;
+        AccountDescription = iCloud;
+        AccountID = "someone@example.com";
+        LoggedIn = 1;
+    }
+)
+"""
+
+
+def test_macos26_mobileme_accounts_domain_is_signed_in():
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:4] == ["defaults", "read", "MobileMeAccounts", "Accounts"]:
+            return _make_subprocess_result(_MOBILEME_MACOS26)
+        return _make_subprocess_result("", returncode=1)
+
+    with patch("subprocess.run", side_effect=fake_run), \
+            patch.object(type(mod), "_count_icloud_placeholder_files", return_value=0), \
+            patch.object(type(mod), "_get_icloud_cache_size", return_value=0):
+        result = mod.check(_make_profile())
+    account = [f for f in result.findings if f.data.get("check") == "icloud_account"]
+    assert account and account[0].data["signed_in"] is True
