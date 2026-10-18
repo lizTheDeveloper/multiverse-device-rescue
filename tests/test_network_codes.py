@@ -47,6 +47,13 @@ EXPECTED_CODES: dict[str, set[str]] = {
         "network.wifi_security_audit.wifi_summary",
         "network.wifi_security_audit.security_unknown",
     },
+    "vpn_leak_check": {
+        "network.vpn_leak_check.no_vpns_configured",
+        "network.vpn_leak_check.vpn_config_summary",
+        "network.vpn_leak_check.dns_leak",
+        "network.vpn_leak_check.split_tunneling",
+        "network.vpn_leak_check.vpn_not_connected",
+    },
 }
 
 
@@ -73,6 +80,7 @@ _WALKTHROUGHS = [
     "review_unknown_lan_devices",
     "secure_home_router",
     "secure_wifi_connection",
+    "fix_vpn_leaks",
 ]
 
 

@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+from tests.test_network_codes import assert_codes_match_check
 
 
 def _make_profile():
@@ -285,3 +286,21 @@ def test_vpn_leak_check_fix_not_connected():
     assert fix.all_succeeded
     assert any("connect" in a.title.lower() or "vpn" in a.title.lower() for a in fix.actions)
     assert all(a.success for a in fix.actions)
+
+
+def test_every_finding_carries_its_check_code():
+    mod = _get_module()
+    findings = []
+    for fake in (
+        _fake_run_no_vpn(),
+        _fake_run_vpn_connected_no_leak(),
+        _fake_run_vpn_connected_dns_leak(),
+        _fake_run_vpn_connected_split_tunnel(),
+        _fake_run_vpn_not_connected(),
+    ):
+        with patch("subprocess.run", side_effect=fake):
+            findings += mod.check(_make_profile()).findings
+    assert_codes_match_check(findings, "vpn_leak_check")
+    assert {f.data["check"] for f in findings} == {
+        c.rsplit(".", 1)[1] for c in mod.emits_codes
+    }

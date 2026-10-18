@@ -23,6 +23,13 @@ class Module(ModuleBase):
     priority = 50
     depends_on = []
     estimated_duration = "5s"
+    emits_codes = [
+        "network.vpn_leak_check.no_vpns_configured",
+        "network.vpn_leak_check.vpn_config_summary",
+        "network.vpn_leak_check.dns_leak",
+        "network.vpn_leak_check.split_tunneling",
+        "network.vpn_leak_check.vpn_not_connected",
+    ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
@@ -38,6 +45,7 @@ class Module(ModuleBase):
                     description="No VPN services are configured on this system.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="network.vpn_leak_check.no_vpns_configured",
                     data={"check": "no_vpns_configured"},
                 )
             )
@@ -74,6 +82,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
+                code="network.vpn_leak_check.vpn_config_summary",
                 data={
                     "check": "vpn_config_summary",
                     "vpn_configs": list(vpn_details.keys()),
@@ -104,6 +113,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="network.vpn_leak_check.dns_leak",
                         data={
                             "check": "dns_leak",
                             "vpn_name": vpn_connected,
@@ -130,6 +140,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="network.vpn_leak_check.split_tunneling",
                         data={
                             "check": "split_tunneling",
                             "vpn_name": vpn_connected,
@@ -152,6 +163,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    code="network.vpn_leak_check.vpn_not_connected",
                     data={
                         "check": "vpn_not_connected",
                         "vpn_configs": list(vpn_details.keys()),
