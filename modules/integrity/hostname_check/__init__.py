@@ -108,7 +108,10 @@ class Module(ModuleBase):
             (local_hostname, "LocalHostName"),
             (hostname, "HostName"),
         ]:
-            if name and not re.match(r"^[a-zA-Z0-9\-]*$", name):
+            # Spaces are reported by the check above (and are normal in the
+            # ComputerName, e.g. Apple's default "MacBook Pro"); counting them
+            # again here said "unusual symbols" about a plain space.
+            if name and not re.match(r"^[a-zA-Z0-9\- ]*$", name):
                 findings.append(
                     Finding(
                         title="Your computer's name has unusual symbols",

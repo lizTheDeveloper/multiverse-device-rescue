@@ -360,3 +360,34 @@ if __name__ == "__main__":
     import pytest
 
     pytest.main([__file__, "-v"])
+
+
+# --- Regression: real ifconfig on macOS 26.3.1 (addresses redacted) -------------
+# gif0 and stf0 are tunnel pseudo-interfaces that are always down; they were
+# reported as "Your gif0 connection is off" (warning).
+
+_IFCONFIG_MACOS26 = """lo0: flags=8049<UP,LOOPBACK,RUNNING,SIMPLEX,MULTICAST> mtu 16384
+	inet 127.0.0.1 netmask 0xff000000
+gif0: flags=8010<POINTOPOINT,MULTICAST> mtu 1280
+stf0: flags=0<> mtu 1280
+en0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+	inet 192.0.2.10 netmask 0xffffff00 broadcast 192.0.2.255
+en7: flags=8863<BROADCAST,SMART,SIMPLEX,MULTICAST> mtu 1500
+"""
+
+
+def test_macos26_tunnel_pseudo_interfaces_are_not_reported():
+    mod = _get_module()
+    with patch("socket.getaddrinfo"):
+        with patch("subprocess.run") as mock_run:
+            def side_effect(cmd, *args, **kwargs):
+                result_mock = MagicMock()
+                result_mock.returncode = 0
+                result_mock.stdout = _IFCONFIG_MACOS26 if cmd[0] == "ifconfig" else ""
+                return result_mock
+
+            mock_run.side_effect = side_effect
+            result = mod.check(_make_profile())
+    down = [f.data["interface"] for f in result.findings
+            if f.data.get("check_type") == "network_interfaces"]
+    assert down == ["en7"]
