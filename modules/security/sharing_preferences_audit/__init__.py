@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from rescue.models import (
@@ -11,6 +12,7 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue.macos_launchd import FILE_SHARING, REMOTE_LOGIN, SCREEN_SHARING, parse_result
 from rescue.module_base import ModuleBase
 
 
@@ -32,11 +34,15 @@ class Module(ModuleBase):
         "security.sharing_preferences_audit.airdrop_everyone",
         "security.sharing_preferences_audit.config_secure",
         "security.sharing_preferences_audit.config_summary",
+        "security.sharing_preferences_audit.sharing_unknown",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         enabled_services = []
+        # Remote Login: True / False / None. systemsetup needs admin; without
+        # it Remote Login used to read as "off".
+        remote_login = self._is_remote_login_enabled()
 
         # Check Screen Sharing
         if self._is_screen_sharing_enabled():
@@ -84,7 +90,7 @@ class Module(ModuleBase):
             )
 
         # Check Remote Login (SSH)
-        if self._is_remote_login_enabled():
+        if remote_login is True:
             enabled_services.append("Remote Login (SSH)")
             findings.append(
                 Finding(
@@ -174,6 +180,22 @@ class Module(ModuleBase):
             )
         elif airdrop_mode == "ContactsOnly":
             enabled_services.append("AirDrop (Contacts Only)")
+
+        if remote_login is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether Remote Login is on",
+                    description=(
+                        "Device Rescue couldn't read your Mac's Remote Login (SSH) "
+                        "setting. This is not a sign that anything is wrong. To see for "
+                        "yourself, open System Settings > General > Sharing."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.sharing_preferences_audit.sharing_unknown",
+                    data={"check": "sharing_unknown", "services": ["Remote Login (SSH)"]},
+                )
+            )
 
         # Add INFO summary if no security issues found, or if some services are enabled
         if not findings:
@@ -327,24 +349,18 @@ class Module(ModuleBase):
                 return True
         return False
 
-    def _system_service_loaded(self, label: str) -> bool:
-        """Is the system daemon ``label`` loaded (``launchctl print system/<label>``)?
+    # Screen Sharing, File Sharing and Remote Login are system daemons that
+    # launchd loads only while the switch is on; `launchctl print
+    # system/<label>` answers without admin (rescue/macos_launchd.py).
 
-        Screen Sharing and File Sharing are system daemons that launchd loads
-        only while the service is turned on; a non-admin ``launchctl list``
-        shows the user's own domain, not these.
-        """
+    @staticmethod
+    def _safe(call):
+        """``call()`` (a subprocess.run written out in full, so docs/commands.md
+        lists it), or None if it couldn't run."""
         try:
-            result = subprocess.run(
-                ["launchctl", "print", f"system/{label}"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
+            return call()
         except (OSError, subprocess.SubprocessError):
-            return False
-        out = result.stdout if isinstance(result.stdout, str) else ""
-        return result.returncode == 0 and out.lstrip().startswith(f"system/{label} = {{")
+            return None
 
     def _is_screen_sharing_enabled(self) -> bool:
         """Check if Screen Sharing is enabled via launchctl."""
@@ -361,7 +377,8 @@ class Module(ModuleBase):
                 return True
         except (OSError, subprocess.TimeoutExpired):
             pass
-        return self._system_service_loaded("com.apple.screensharing")
+        return parse_result(SCREEN_SHARING, self._safe(lambda: subprocess.run(
+            ["launchctl", "print", "system/com.apple.screensharing"], capture_output=True, text=True, timeout=5))) is True
 
     def _is_file_sharing_enabled(self) -> bool:
         """Check if File Sharing (SMB) is enabled via launchctl."""
@@ -376,24 +393,25 @@ class Module(ModuleBase):
                 result.stdout, "com.apple.smbd"
             ):
                 return True
-            return self._system_service_loaded("com.apple.smbd")
+            return parse_result(FILE_SHARING, self._safe(lambda: subprocess.run(
+            ["launchctl", "print", "system/com.apple.smbd"], capture_output=True, text=True, timeout=5))) is True
         except (OSError, subprocess.TimeoutExpired):
             return False
 
-    def _is_remote_login_enabled(self) -> bool:
-        """Check if Remote Login (SSH) is enabled via systemsetup."""
-        try:
-            result = subprocess.run(
-                ["systemsetup", "-getremotelogin"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                return "on" in result.stdout.lower()
-            return False
-        except (OSError, subprocess.TimeoutExpired):
-            return False
+    def _is_remote_login_enabled(self) -> bool | None:
+        """Is Remote Login (SSH) on? launchd first (no admin needed), then
+        systemsetup's exact 'Remote Login: On/Off'. None if neither tells."""
+        state = parse_result(REMOTE_LOGIN, self._safe(lambda: subprocess.run(
+            ["launchctl", "print", "system/com.openssh.sshd"], capture_output=True, text=True, timeout=5)))
+        if state is not None:
+            return state
+        result = self._safe(lambda: subprocess.run(
+            ["systemsetup", "-getremotelogin"], capture_output=True, text=True, timeout=5))
+        out = result.stdout if result is not None and isinstance(result.stdout, str) else ""
+        match = re.search(r"Remote Login:\s*(On|Off)\b", out)
+        if result is None or result.returncode != 0 or not match:
+            return None
+        return match.group(1) == "On"
 
     def _is_remote_management_enabled(self) -> bool:
         """Check if Remote Management (ARD) is enabled via launchctl."""

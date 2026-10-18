@@ -26,26 +26,57 @@ def _get_module():
     return next(m for m in modules if m.name == "sharing_services")
 
 
+# Real `launchctl print system/<label>` output on macOS 26.3.1 (no admin).
+_SYSTEM_LABELS = ("com.apple.screensharing", "com.apple.smbd", "com.openssh.sshd")
+
+
+def _print_result(label, loaded):
+    result = MagicMock()
+    result.stderr = ""
+    if loaded:
+        result.returncode = 0
+        result.stdout = f"system/{label} = {{\n\tactive count = 1\n\tpath = /System/Library/LaunchDaemons/x.plist\n\tstate = running\n}}\n"
+    else:
+        result.returncode = 113
+        result.stdout = f'Bad request.\nCould not find service "{label}" in domain for system\n'
+    return result
+
+
 def _fake_run(
     launchctl_output="",
     ssh_enabled=False,
     printer_sharing_enabled=False,
 ):
-    """Create a mock subprocess.run function."""
+    """Create a mock subprocess.run function.
+
+    System daemons named in ``launchctl_output`` with a PID count as loaded
+    (what ``launchctl print system/<label>`` would show); ``ssh_enabled``
+    loads com.openssh.sshd. The user's ``launchctl list`` itself never lists
+    system daemons, so it only carries user agents.
+    """
+    loaded = set()
+    user_lines = []
+    for line in launchctl_output.splitlines():
+        parts = line.split()
+        if parts and parts[-1] in _SYSTEM_LABELS:
+            if parts[0] != "-":
+                loaded.add(parts[-1])
+        else:
+            user_lines.append(line)
+    if ssh_enabled:
+        loaded.add("com.openssh.sshd")
+
     def fake_run(cmd, **kwargs):
         result = MagicMock()
         result.returncode = 0
         result.stdout = ""
         result.stderr = ""
 
-        # cmd is a list, so check elements directly
-        if "launchctl" in cmd and "list" in cmd:
-            result.stdout = launchctl_output
-        elif "systemsetup" in cmd and "-getremotelogin" in cmd:
-            if ssh_enabled:
-                result.stdout = "Remote Login: On\n"
-            else:
-                result.stdout = "Remote Login: Off\n"
+        if cmd[:2] == ["launchctl", "print"]:
+            label = cmd[2].split("/", 1)[1]
+            return _print_result(label, label in loaded)
+        if cmd == ["launchctl", "list"]:
+            result.stdout = "\n".join(user_lines) + "\n"
         elif cmd == ["cupsctl"]:
             # Real cupsctl output on macOS 26.3.1 (printer sharing off)
             share = "1" if printer_sharing_enabled else "0"
@@ -160,28 +191,23 @@ def test_sharing_services_fix_contains_instructions():
     assert "Screen Sharing" in fix.actions[0].description
 
 
-def test_sharing_services_ssh_fallback_to_launchctl():
-    """Test SSH check falls back to launchctl if systemsetup fails."""
+def test_remote_login_read_without_admin():
+    """Remote Login comes from `launchctl print system/com.openssh.sshd`;
+    systemsetup (admin only) is never needed."""
     mod = _get_module()
+    calls = []
+    fake = _fake_run(ssh_enabled=True)
 
-    def fake_run_with_failure(cmd, **kwargs):
-        result = MagicMock()
-        result.returncode = 0
-        result.stdout = ""
-        result.stderr = ""
+    def spy(cmd, **kwargs):
+        calls.append(cmd)
+        if cmd[0] == "systemsetup":
+            raise AssertionError("systemsetup needs admin; must not be used")
+        return fake(cmd, **kwargs)
 
-        if "systemsetup" in cmd:
-            # systemsetup fails
-            raise OSError("systemsetup not found")
-        elif "launchctl" in cmd:
-            # But launchctl shows SSH is enabled
-            result.stdout = "   500  0 com.apple.sshd\n"
-        return result
-
-    with patch("subprocess.run", side_effect=fake_run_with_failure):
+    with patch("subprocess.run", side_effect=spy):
         result = mod.check(_make_profile())
-    assert result.has_issues
     assert any(f.data.get("service") == "remote_login" for f in result.findings)
+    assert ["launchctl", "print", "system/com.openssh.sshd"] in calls
 
 
 def test_sharing_services_launchctl_format_handling():
@@ -242,3 +268,67 @@ def test_macos26_afp_prefs_do_not_mean_printer_sharing():
     services = {f.data.get("service") for f in result.findings}
     assert "printer_sharing" not in services
     assert "screen_sharing" not in services
+
+
+# --- Review fixes: system daemons are on/off/unknown from launchctl print -------
+
+
+def test_screen_and_file_sharing_on_are_reported():
+    """The user's `launchctl list` never has these daemons; only `launchctl
+    print system/<label>` can see them on."""
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:2] == ["launchctl", "print"]:
+            label = cmd[2].split("/", 1)[1]
+            return _print_result(label, label in ("com.apple.screensharing", "com.apple.smbd"))
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        result.stdout = (_LAUNCHCTL_USER_MACOS26 if cmd == ["launchctl", "list"]
+                         else "_share_printers=0\n")
+        return result
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    services = {f.data.get("service") for f in result.findings}
+    assert {"screen_sharing", "file_sharing"} <= services
+    assert "remote_login" not in services
+
+
+def test_all_sharing_off_on_macos26():
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:2] == ["launchctl", "print"]:
+            return _print_result(cmd[2].split("/", 1)[1], False)
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        result.stdout = (_LAUNCHCTL_USER_MACOS26 if cmd == ["launchctl", "list"]
+                         else "_share_printers=0\n")
+        return result
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert not result.findings
+
+
+def test_unreadable_sharing_is_couldnt_check_not_off():
+    mod = _get_module()
+
+    def fake_run(cmd, **kwargs):
+        if cmd == ["cupsctl"] or cmd[:2] == ["launchctl", "print"]:
+            raise OSError("not permitted")
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        result.stdout = ""
+        return result
+
+    with patch("subprocess.run", side_effect=fake_run):
+        result = mod.check(_make_profile())
+    assert [f.code for f in result.findings] == ["security.sharing_services.sharing_unknown"]
+    assert result.findings[0].severity == Severity.INFO
+    assert result.findings[0].data["services"] == [
+        "Screen Sharing", "File Sharing", "Remote Login", "Printer Sharing"]

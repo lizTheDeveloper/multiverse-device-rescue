@@ -232,3 +232,59 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.remote_login_check.") for c in declared)
+
+
+# --- Review fix: Remote Login without admin (macOS 26.3.1) -----------------------
+# systemsetup prints "You need administrator access..." to a non-admin user,
+# which used to read as Remote Login "off" -- missing a Remote Login that's on.
+# `launchctl print system/<label>` answers without admin.
+
+_NO_ADMIN = "You need administrator access to run this tool... exiting!\n"
+
+
+def _fake_macos26(loaded=(), print_fails=False):
+    def fake_run(cmd, **kwargs):
+        if cmd[:2] == ["launchctl", "print"]:
+            if print_fails:
+                raise OSError("launchctl unavailable")
+            label = cmd[2].split("/", 1)[1]
+            if label in loaded:
+                return _make_subprocess_result(f"system/{label} = {{\n\tstate = running\n}}\n")
+            return _make_subprocess_result(
+                f'Bad request.\nCould not find service "{label}" in domain for system\n',
+                returncode=113)
+        if cmd[0] == "systemsetup":
+            return _make_subprocess_result(_NO_ADMIN)
+        return _make_subprocess_result(returncode=1)
+    return fake_run
+
+
+def test_remote_login_on_is_seen_without_admin():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26(loaded={"com.openssh.sshd"})):
+        result = mod.check(_make_profile())
+    assert any(f.code == "security.remote_login_check.ssh_enabled" for f in result.findings)
+
+
+def test_remote_login_off_without_admin_is_all_disabled():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    assert [f.code for f in result.findings] == ["security.remote_login_check.all_disabled"]
+
+
+def test_remote_login_unreadable_is_couldnt_check_not_all_disabled():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26(print_fails=True)):
+        result = mod.check(_make_profile())
+    codes = [f.code for f in result.findings]
+    assert codes == ["security.remote_login_check.remote_access_unknown"]
+    assert result.findings[0].severity == Severity.INFO
+
+
+def test_screen_sharing_daemon_loaded_is_reported():
+    mod = _get_module()
+    with patch("subprocess.run",
+               side_effect=_fake_macos26(loaded={"com.apple.screensharing"})):
+        result = mod.check(_make_profile())
+    assert any(f.data.get("service") == "screen_sharing" for f in result.findings)
