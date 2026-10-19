@@ -1,7 +1,7 @@
 // Steps of Reclaim City missions that a check on this computer can confirm.
 // Each row is one step of one game mission (its index in mission.steps), the
 // platforms the game says that step is for (appliesTo, from the step's own
-// text), the platforms where its Device Rescue modules run (checkedOn), and the
+// text), the platforms where its engine modules run (checkedOn), and the
 // modules that look at it. A test proves every mission, step, module and
 // platform here is real.
 //

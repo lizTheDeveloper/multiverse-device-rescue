@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * Device Rescue renderer app.
+ * Reclaim City renderer app.
  *
  * Pure helpers (detectOS, groupFindingsBySeverity) live at the top and are
  * exported for Node so they can be sanity-checked outside the browser. The
@@ -194,7 +194,7 @@ const RECLAIM_CITY_URL = 'https://play.multiversegames.ai/reclaim-city/';
 
 /**
  * Reclaim City, the same team's free privacy game, as a "learn this properly"
- * link at the end of the results. Device Rescue doesn't teach passwords or
+ * link at the end of the results. The checkup doesn't teach passwords or
  * two-step sign-in itself; the game does, so the worries where that matters
  * point there. Each points at the district that teaches it: the game routes
  * #/district/<id>, and its Quick Quests are links to those same districts.
@@ -549,7 +549,7 @@ if (typeof document !== 'undefined') {
           return [];
         }
       },
-      // "Plain view": back to Device Rescue's own screens. A running scan carries
+      // "Plain view": back to the app's own plain screens. A running scan carries
       // on there, with its live progress (setScanBusy(true) already ran).
       leaveGame() {
         leftGame = true;

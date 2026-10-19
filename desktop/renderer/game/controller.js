@@ -636,7 +636,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
       frame.innerHTML = hud + body;
-      // No share cards in Device Rescue: they would describe this person's progress.
+      // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
       // No "ALLIED ORGANIZATIONS" either (a district at 100%): one is a donation
       // page, and none are in mission-links.json. Then any other outside link
@@ -1000,7 +1000,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   shadow.addEventListener('change', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
   shadow.addEventListener('input', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
 
-  // Device Rescue's own fix and mark flows, delegated on the frame so they survive re-renders.
+  // The app's own fix and mark flows (FixFlow, MarkFlow), delegated on the frame so they survive re-renders.
   win.FixFlow.attach(frame, win.rescue, { onResult: ({ kind, module, result, described }) => {
     if (kind === 'fix') s.lastFix = { missionId: s.missionId, module, result };
     if (kind === 'undo' && described && described.restored) s.lastFix = null;
@@ -1035,7 +1035,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   // show, showTraining, showBoss, scanDone and scanFailed return render()'s
-  // answer: false means the person is already back on Device Rescue's screens.
+  // answer: false means the person is already back on Plain view's screens.
   return {
     isReady: true,
     show(doc, situation) {

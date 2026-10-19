@@ -1,4 +1,4 @@
-// Reclaim City's click actions, re-done for Device Rescue. The game's own app.js
+// Reclaim City's click actions, re-done for the desktop app. The game's own app.js
 // (which also sends analytics, asks for notifications and talks to its server)
 // is never loaded, so this is the part of it game mode needs, as pure functions:
 // they take the game state and return the next one, plus where to go and what
