@@ -507,17 +507,51 @@ function notCheckedLine(sum) {
 
 /**
  * The engine's walkthroughs say `<path-to-plist>` or `<label>` where the scan
- * already knows the value. Fill in what the finding's data has; leave the
- * rest as written.
+ * already knows the value. The person may copy these steps into Terminal, and
+ * scan data (paths, labels, program names) can be chosen by whoever put the
+ * thing there, so a value is filled in only when it can't run as code or
+ * change the step's markup:
+ *   - pid: digits only;
+ *   - label, bundle id: letters, digits, dot, underscore, hyphen;
+ *   - path, program: no quote, $, backtick, backslash, ; | & < > ( ) * ? [ ] { } ~ !,
+ *     # or control character, and always single-quoted (quotes the template
+ *     put around the placeholder are replaced, never doubled).
+ * Anything else leaves the placeholder as written. Windows walkthroughs are
+ * never filled. The step is HTML-escaped afterwards (renderMiniMarkdown).
  */
-const PLACEHOLDERS = { 'path-to-plist': ['plist', 'plist_path'], plist: ['plist', 'plist_path'], label: ['label'],
-  path: ['path', 'location'], pid: ['pid'], program: ['program'], 'bundle-id': ['bundle_id'] };
-function fillPlaceholders(text, data) {
+const PLACEHOLDERS = {
+  'path-to-plist': { keys: ['plist', 'plist_path'], kind: 'path' },
+  plist: { keys: ['plist', 'plist_path'], kind: 'path' },
+  path: { keys: ['path', 'location'], kind: 'path' },
+  program: { keys: ['program'], kind: 'path' },
+  label: { keys: ['label'], kind: 'name' },
+  'bundle-id': { keys: ['bundle_id'], kind: 'name' },
+  pid: { keys: ['pid'], kind: 'pid' },
+};
+const SAFE_NAME = /^[A-Za-z0-9._-]{1,256}$/;
+const UNSAFE_PATH = /['"`$\\;|&<>()*?[\]{}~!#]|[\p{Cc}\p{Cf}]/u;
+function safePlaceholderValue(kind, value) {
+  if (kind === 'pid') {
+    const v = typeof value === 'number' && Number.isInteger(value) && value > 0 ? String(value) : String(value == null ? '' : value);
+    return /^\d{1,10}$/.test(v) ? v : null;
+  }
+  if (typeof value !== 'string') return null;
+  if (kind === 'name') return SAFE_NAME.test(value) && !value.startsWith('-') ? value : null;
+  if (!value.startsWith('/') || value.length > 1024 || UNSAFE_PATH.test(value)) return null;
+  return `'${value}'`;
+}
+function fillPlaceholders(text, data, opts) {
+  const src = String(text == null ? '' : text);
+  if (opts && opts.platform === 'win32') return src;
   const d = data && typeof data === 'object' ? data : {};
-  return String(text == null ? '' : text).replace(/<([a-z-]+)>/g, (all, name) => {
-    const keys = PLACEHOLDERS[name];
-    const key = keys && keys.find((k) => (typeof d[k] === 'string' && d[k]) || typeof d[k] === 'number');
-    return key ? String(d[key]) : all;
+  return src.replace(/(['"]?)<([a-z-]+)>\1/g, (all, quote, name) => {
+    const spec = PLACEHOLDERS[name];
+    if (!spec) return all;
+    for (const k of spec.keys) {
+      const safe = safePlaceholderValue(spec.kind, d[k]);
+      if (safe !== null) return spec.kind === 'path' ? safe : `${quote}${safe}${quote}`;
+    }
+    return all;
   });
 }
 
@@ -671,6 +705,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isPartlyChecked,
     shownSeverity,
     fillPlaceholders,
+    safePlaceholderValue,
     UNFINISHED_LINE,
     SITUATIONS,
     describeProgress,
@@ -1132,7 +1167,7 @@ if (typeof document !== 'undefined') {
           const explain = !madeByExplained;
           const madeBy = madeByHtml(finding.made_by, escapeHtml, { explain });
           if (madeBy) madeByExplained = true;
-          const steps = card.steps.map((step) => ({ title: step.title, body: fillPlaceholders(step.body, finding.data) }));
+          const steps = card.steps.map((step) => ({ title: step.title, body: fillPlaceholders(step.body, finding.data, { platform: currentPlatform() }) }));
           // Ticking selects the card for the actions above the list; it changes nothing by itself.
           const pickBox = counts && !partial ? `<input type="checkbox" class="finding-card__pick" data-card-pick aria-label="${escapeHtml(`Select: ${finding.title || 'this finding'}`)}">` : '';
           return `
