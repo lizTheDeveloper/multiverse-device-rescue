@@ -44,7 +44,7 @@
     "security/signers.py": "b270dfe8fba3034dfe9174ea4974ae23c480c3c473f77bb3af53c7bb61677bda",
     "serialize.py": "d6584703c3440ce95bed70f57fc7a7cb84abc291e3c6de37ac0af88e575abb1a",
     "session.py": "4628542f83fc4b631669c9afc589f8146b2c13f44c4f5c2254f74f4dc901eb6f",
-    "severity_policy.py": "3e6329b8f88ec69ef66c2d109c9081ae65ebe12407464646852637bed5d85319",
+    "severity_policy.py": "c8118a51fc1a74434642d97d32c50cb72b5fb59e9d189bc3289d256ded5e6074",
     "threat_map.py": "abab59fb860938dc5d3d386a931b5021b09aaebd9a578eecad3834eeeb83ad28",
     "trace.py": "fab600c4a20298eb1b532ced8b2ddd675d1257df9c096fa45ab44c4dda965758",
     "tui/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",

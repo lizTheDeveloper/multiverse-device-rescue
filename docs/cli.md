@@ -188,8 +188,9 @@ The JSON shape is `schema_version` 1:
     `data` keeps the exact values. A check that reported the very same
     finding more than once gives it once, with `"repeats": N`. A finding with
     `made_by` also has `makers_verified`: true when every program it names has
-    a verified maker. Findings from performance, bloatware, crash and backup
-    checks are at most `warning`.
+    a verified maker. A few named findings (a program using a lot of
+    power, an app that keeps crashing, a missing or old backup) are at most
+    `warning` (rescue/severity_policy.py); nothing that names malware is lowered.
 
 ---
 

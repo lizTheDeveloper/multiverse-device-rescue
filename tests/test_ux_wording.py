@@ -11,7 +11,7 @@ from rescue.check_names import CHECK_NAMES, check_name, error_kind
 from rescue.models import CheckResult, Finding, Severity
 from rescue.registry import discover_modules
 from rescue.serialize import checks_to_json, module_entry
-from rescue.severity_policy import CAPPED_MODULES, cap_severity
+from rescue.severity_policy import CAPPABLE, cap_severity
 from rescue.wording import plain_day, tidy
 
 MODULES_DIR = Path(__file__).resolve().parent.parent / "modules"
@@ -175,26 +175,54 @@ def test_makers_verified_only_when_every_app_has_a_verified_maker():
 
 # ---- severity (P2-30) ----
 
-def test_performance_crash_and_backup_findings_are_at_most_a_warning():
-    for mod in (Mod("resource_hog_identifier", "performance"), Mod("startup_auditor", "bloatware"),
-                *[Mod(n, "integrity") for n in sorted(CAPPED_MODULES)]):
-        check = CheckResult(mod.name, [f(severity=Severity.CRITICAL), f(severity=Severity.INFO)])
-        cap_severity(mod, check)
-        assert [x.severity for x in check.findings] == [Severity.WARNING, Severity.INFO], mod.name
+def _cat(module):
+    return {"resource_hog_identifier": "performance"}.get(module, "integrity")
 
 
-def test_security_findings_keep_their_severity():
-    check = CheckResult("code_signature_audit", [f(severity=Severity.CRITICAL)])
-    cap_severity(Mod("code_signature_audit", "security"), check)
+@pytest.mark.parametrize("module, check_key", sorted(CAPPABLE, key=str))
+def test_each_named_finding_is_capped_to_a_warning(module, check_key):
+    data = {} if check_key is None else {"check": check_key}
+    finding = Finding(title="t", description="d", severity=Severity.CRITICAL, category=_cat(module), data=data)
+    check = CheckResult(module, [finding, f(severity=Severity.INFO)])
+    cap_severity(Mod(module, _cat(module)), check)
+    assert [x.severity for x in check.findings] == [Severity.WARNING, Severity.INFO]
+
+
+def test_process_scanner_cryptominer_and_scareware_stay_critical():
+    for kind in ("cryptominer", "scareware"):
+        finding = Finding(title="x", description="d", severity=Severity.CRITICAL, category="bloatware",
+                          data={"name": "x", "bloatware_category": kind})
+        check = CheckResult("process_scanner", [finding])
+        cap_severity(Mod("process_scanner", "bloatware"), check)
+        assert check.findings[0].severity == Severity.CRITICAL, kind
+
+
+def test_a_named_finding_that_names_harm_stays_critical():
+    finding = Finding(title="xmrig is using a lot of power", description="d", severity=Severity.CRITICAL,
+                      category="performance", data={"name": "xmrig", "command": "/tmp/xmrig --donate-level 1"})
+    check = CheckResult("resource_hog_identifier", [finding])
+    cap_severity(Mod("resource_hog_identifier", "performance"), check)
     assert check.findings[0].severity == Severity.CRITICAL
-    disk = CheckResult("disk_smart_check", [f(severity=Severity.CRITICAL)])
-    cap_severity(Mod("disk_smart_check", "integrity"), disk)
-    assert disk.findings[0].severity == Severity.CRITICAL, "a failing disk can still be urgent"
+
+
+def test_unnamed_findings_and_security_checks_keep_their_severity():
+    for mod, data in ((Mod("startup_auditor", "bloatware"), {}),
+                      (Mod("time_machine_check", "integrity"), {"check": "tm_unknown"}),
+                      (Mod("code_signature_audit", "security"), {"check": "tampered_binary"}),
+                      (Mod("disk_smart_check", "integrity"), {})):
+        check = CheckResult(mod.name, [f(severity=Severity.CRITICAL, data=data)])
+        cap_severity(mod, check)
+        assert check.findings[0].severity == Severity.CRITICAL, mod.name
+    # A security-category finding is never capped, even from a named module.
+    sec = Finding(title="t", description="d", severity=Severity.CRITICAL, category="security", data={})
+    check = CheckResult("resource_hog_identifier", [sec])
+    cap_severity(Mod("resource_hog_identifier", "performance"), check)
+    assert check.findings[0].severity == Severity.CRITICAL
 
 
 def test_capped_modules_exist():
     names = {m.name for m in ALL}
-    assert CAPPED_MODULES <= names
+    assert {m for m, _ in CAPPABLE} <= names
 
 
 def test_orchestrator_applies_the_cap():
