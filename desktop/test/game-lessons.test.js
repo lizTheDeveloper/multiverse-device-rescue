@@ -215,7 +215,9 @@ function variantProblems(lesson) {
     const variants = Array.isArray(q.variants) ? q.variants : [];
     for (const v of variants) {
       const n = Array.isArray(v.options) ? v.options.length : 0;
-      if (n < 3) problems.push(`variant ${v.key}: ${n} options; it needs at least 3`);
+      // Phishing real-or-fake items are honestly two options (guessing floor 1/2); everything else needs three.
+      const min = lesson.type === 'phishing' ? 2 : 3;
+      if (n < min) problems.push(`variant ${v.key}: ${n} options; it needs at least ${min}`);
     }
     const items = [...(q.key !== undefined ? [q] : []), ...variants];
     for (const it of items) {
@@ -238,6 +240,9 @@ test('the bank item check rejects a two-option variant and monitoring wording, w
   assert.deepStrictEqual(variantProblems(lesson({ variants: [{ key: 'f1-2', prompt: 'P2', options: three() }] })), []);
   const two = lesson({ variants: [{ key: 'f1-2', prompt: 'P2', options: three().slice(0, 2) }] });
   assert.strictEqual(variantProblems(two).length, 1, 'two options');
+  assert.deepStrictEqual(variantProblems({ ...two, type: 'phishing' }), [], 'a phishing variant may have two options');
+  const one = lesson({ variants: [{ key: 'f1-2', prompt: 'P2', options: three().slice(0, 1) }] });
+  assert.strictEqual(variantProblems({ ...one, type: 'phishing' }).length, 1, 'but not one');
   for (const words of ['Is there spy software here?', 'Someone may be watching you.', 'It watches what you type.', 'A stealth app hides itself.',
     'Is it being watched?', 'An app tracking your location.', 'Check the monitoring app.', 'A keylogger records keys.']) {
     assert.strictEqual(variantProblems(lesson({ variants: [{ key: 'f1-2', prompt: words, options: three() }] })).length, 1, `variant prompt: ${words}`);
