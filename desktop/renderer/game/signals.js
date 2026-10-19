@@ -130,6 +130,8 @@ export function couldntTitle(g) {
   const words = String((g && (g.checkName || g.module)) || '').replace(/_/g, ' ').trim();
   const name = words ? words.charAt(0).toUpperCase() + words.slice(1) : 'A check';
   const why = String((g && g.reason) || '');
+  // A checkup that stopped before this check (engine-runner stoppedDocOf): it never ran, nothing failed.
+  if (/stopped before this check ran/i.test(why)) return `${name} didn’t get to run`;
   if (/timed?\s*out|took too long/i.test(why)) return `${name} took too long`;
   if (/permission|not permitted|full disk access|access denied/i.test(why)) return `${name} needed a permission`;
   return `${name} couldn’t run here`;

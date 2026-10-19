@@ -254,3 +254,9 @@ test('NOT CHECKED: a check that didn’t finish and also left a partly-checked n
   t.click({ 'data-go': 'district:gatehouse' });
   assert.match(t.html(), /DIDN’T FINISH HERE[\s\S]*App signatures/);
 });
+
+test('a check the stopped checkup never reached reads “didn’t get to run”, not “couldn’t run here”', async () => {
+  const { couldntTitle } = await game('signals.js');
+  assert.strictEqual(couldntTitle({ checkName: 'Large files', reason: 'The checkup stopped before this check ran.' }), 'Large files didn’t get to run');
+  assert.strictEqual(couldntTitle({ checkName: 'Time Machine', reason: 'Not supported' }), 'Time Machine couldn’t run here');
+});
