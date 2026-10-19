@@ -250,6 +250,74 @@ def test_windows_powershell_failure_is_tolerated(mod):
     result = _run_with(mod, lambda args, **kw: _Result(ok=False), Platform.WIN32)
     inventory = _finding(result, "inventory")
     assert inventory.data["examined"] == 0
+    # A folder that could not be read is not checked, never "all checked".
+    assert inventory.data["unread_folders"] == [r"C:\Program Files"]
+    assert inventory.data["coverage_capped"] is True
+    assert "All applications in the scanned locations were checked" not in inventory.description
+    assert r"could not be read" in inventory.description
+
+
+def test_windows_timed_out_folder_is_not_checked_and_others_kept(mod):
+    mod.app_dirs = [r"C:\Program Files", r"C:\Program Files (x86)"]
+
+    def handler(args, timeout, **kw):
+        assert timeout <= 25  # two folders together stay under the engine's 60 s
+        if "(x86)" in args[-1]:
+            return _Result(ok=False, timed_out=True)
+        return _Result(ok=True, stdout="C:\\Program Files\\Good\\good.exe|Valid|CN=Vendor\n")
+
+    result = _run_with(mod, handler, Platform.WIN32)
+    inventory = _finding(result, "inventory")
+    assert inventory.data["examined"] == 1
+    assert inventory.data["unread_folders"] == [r"C:\Program Files (x86)"]
+    assert inventory.data["stopped_by_time_limit"] is True
+    assert "All applications in the scanned locations were checked" not in inventory.description
+
+
+def test_windows_folders_share_one_time_budget(mod):
+    import time
+
+    mod.app_dirs = [r"C:\A", r"C:\B", r"C:\C"]
+    mod.time_budget_s = 1.0
+    seen = []
+
+    def slow(args, timeout, **kw):
+        seen.append(timeout)
+        time.sleep(1.1)
+        return _Result(ok=False, timed_out=True)
+
+    start = time.monotonic()
+    result = _run_with(mod, slow, Platform.WIN32)
+    assert time.monotonic() - start < 3
+    inventory = _finding(result, "inventory")
+    # The first folder used up the budget; the rest were not started.
+    assert len(seen) == 1 and seen[0] <= 1.0
+    assert inventory.data["unread_folders"] == [r"C:\A", r"C:\B", r"C:\C"]
+
+
+def test_finished_results_after_a_skipped_app_are_kept(mod):
+    """A finished check (here a tampered one) is never dropped because an
+    earlier app was skipped for time."""
+    for name in ("A", "B", "C"):
+        _install(mod, name)
+    module = _module_object(mod)
+
+    def handler(args, **kw):
+        if "C.app" in args[-1] and args[0] == "codesign":
+            return _Result(ok=False, stderr="a sealed resource is missing or invalid")
+        return _Result(ok=True)
+
+    # B is skipped as if the budget had run out when it came up.
+    def skipping_map(self, fn, apps):
+        return [None if app.stem == "B" else fn(app) for app in apps]
+
+    with patch.object(module.ThreadPoolExecutor, "map", skipping_map):
+        result = _run_with(mod, handler)
+
+    inventory = _finding(result, "inventory")
+    assert inventory.data["examined"] == 2
+    assert inventory.data["stopped_by_time_limit"] is True
+    assert _finding(result, "tampered_binary").data["name"] == "C"
 
 
 def test_unsupported_platform_says_so(mod):
@@ -301,3 +369,78 @@ def test_capped_scan_warns_against_reading_it_as_all_clear(mod):
 
     action = next(a for a in fix.actions if a.data.get("check") == "coverage_limit")
     assert "everything is signed" in action.description
+
+
+# --- Regression: 60 apps checked one after another (codesign + spctl, up to
+# 15 s each) never fit in the engine's 60 s limit, so on a Mac with ~100 apps
+# the whole check was reported as "couldn't run".
+
+def test_slow_signature_checks_stop_at_the_time_budget(mod):
+    import time
+
+    for i in range(30):
+        _install(mod, f"App{i:02d}")
+    mod.time_budget_s = 1.0
+
+    def slow(args, timeout, **kw):
+        assert timeout <= 10  # every command has its own short limit
+        time.sleep(0.2)
+        return _Result(ok=True)
+
+    start = time.monotonic()
+    result = _run_with(mod, slow)
+    assert time.monotonic() - start < 4
+
+    inventory = _finding(result, "inventory")
+    assert 0 < inventory.data["examined"] < 30
+    assert inventory.data["coverage_capped"] is True
+    assert inventory.data["stopped_by_time_limit"] is True
+    assert "signature checks took too long" in inventory.description
+    assert "second" not in inventory.description
+    assert "not checked at all" in inventory.description
+
+
+def test_hanging_signature_check_is_not_counted_as_valid(mod):
+    _install(mod, "Hangs")
+    _install(mod, "Fine")
+
+    def handler(args, **kw):
+        if "Hangs.app" in args[-1] and args[0] == "spctl":
+            return _Result(ok=False, timed_out=True, error="timed out after 10s")
+        return _Result(ok=True)
+
+    result = _run_with(mod, handler)
+    inventory = _finding(result, "inventory")
+    assert inventory.data["incomplete"] == 1
+    assert inventory.data["incomplete_apps"] == [str(mod._apps_dir / "Hangs.app")]
+    assert "Valid signatures: 1\n" in inventory.description
+    assert "Could not finish: 1 (Hangs)" in inventory.description
+    assert "does not mean they are fine" in inventory.description
+    assert "All applications in the scanned locations were checked" not in inventory.description
+    # A check that didn't finish is not a problem either.
+    assert _finding(result, "gatekeeper_rejected") is None
+
+
+def test_unread_folders_never_claim_every_app_was_looked_at(mod):
+    entry = {"path": r"C:\A\a.exe", "name": "a", "status": "incomplete", "detail": "x"}
+    with patch.object(
+        type(mod), "_audit_windows", return_value=([entry], 1, 1, False, [r"C:\B"])
+    ):
+        result = mod.check(_make_profile(Platform.WIN32))
+    text = _finding(result, "inventory").description
+    assert "could not be read" in text
+    assert "Every application was looked at" not in text
+    assert "All applications in the scanned locations were checked" not in text
+
+
+def test_person_facing_text_has_no_time_words(mod):
+    """No durations or speed claims in what a person reads."""
+    for i in range(6):
+        _install(mod, f"App{i}")
+    mod.max_binaries = 2
+    check = _run_with(mod, lambda args, **kw: _Result(ok=True))
+    fix = mod.fix(check, Mode.AUTO)
+    texts = [f.description for f in check.findings] + [a.description for a in fix.actions]
+    for text in texts:
+        for word in ("millisecond", "second", "is slow", "next time", "in time"):
+            assert word not in text, (word, text)

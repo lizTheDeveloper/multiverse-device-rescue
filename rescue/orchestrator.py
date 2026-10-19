@@ -1,7 +1,13 @@
 from pathlib import Path
+import atexit
+import errno
 import logging
+import os
+import signal
+import subprocess
 import threading
 import time
+import weakref
 from typing import Callable, TypeVar
 
 from rescue.models import CheckResult, FixResult, Mode, RiskLevel
@@ -55,13 +61,219 @@ class _Timeout(Exception):
     """A module check exceeded its per-module time budget."""
 
 
-def _call_with_timeout(fn: Callable[[], _T], timeout: float) -> _T:
+# What a person reads when a check ran out of time. The technical detail stays
+# in brackets after it, so nothing is hidden from someone who wants it.
+TIMEOUT_PLAIN = (
+    "This check took too long, so it was stopped before it could finish. "
+    "Running the scan again may let it finish."
+)
+
+
+def timeout_message(timeout: float) -> str:
+    return f"{TIMEOUT_PLAIN} (timed out after {timeout}s)"
+
+
+class _AbandonGuard:
+    """Stop a check that ran out of time from running any more commands.
+
+    Python cannot kill the abandoned worker thread, so without this it carries
+    on in the background: on a real Mac one timed-out Wi-Fi check went on to
+    run `system_profiler` 75 more times during the checks after it, slowing
+    them down until they timed out too. The guard kills the commands an
+    abandoned worker is running and refuses to start new ones (Popen raises
+    OSError, which checks already handle as "command failed").
+
+    It wraps ``subprocess.Popen`` once per process and stays: an abandoned
+    worker can outlive the scan that abandoned it. For every other thread the
+    wrapper only records the process and passes through. Threads are tracked
+    by object, not ident (idents are reused), and only the worker thread
+    itself; threads a check starts on its own are not.
+
+    A command started from a check's worker thread gets its own process
+    group, so stopping it kills the programs it started too, not just the
+    direct child: on macOS and Linux a new session (unless the caller set one
+    up), killed with killpg; on Windows CREATE_NEW_PROCESS_GROUP, killed with
+    `taskkill /T /F` (falling back to killing the direct child). On macOS and
+    Linux that also means the command has no terminal to ask for a password
+    on: it fails instead of waiting.
+
+    Those groups no longer get the terminal's Ctrl-C, so the commands still
+    running are killed by :func:`stop_all_commands`: at normal interpreter
+    exit (atexit, which also covers Ctrl-C) and, in `rescue scan`, on SIGTERM
+    or SIGHUP (:func:`stop_commands_on_signals`). Nothing can run on SIGKILL,
+    or when Windows ends the process with TerminateProcess; then they are
+    left to finish or hit their own timeouts.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._abandoned: weakref.WeakSet = weakref.WeakSet()
+        self._workers: weakref.WeakSet = weakref.WeakSet()
+        self._live: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+        self._atexit_registered = False
+
+    def register_worker(self, thread: threading.Thread) -> None:
+        with self._lock:
+            self._workers.add(thread)
+
+    def abandon(self, thread: threading.Thread) -> None:
+        with self._lock:
+            self._abandoned.add(thread)
+            procs = list(self._live.pop(thread, ()))
+        for proc in procs:
+            _stop(proc)
+
+    def _stop_all(self) -> None:
+        with self._lock:
+            procs = [p for group in self._live.values() for p in group]
+        for proc in procs:
+            _stop(proc)
+
+    def _own_session(self, kwargs: dict) -> bool:
+        """Give a check's command its own process group, if nothing else asked."""
+        if threading.current_thread() not in self._workers:
+            return False
+        return _own_group_kwargs(kwargs, os.name)
+
+    def _admit(self, proc) -> None:
+        thread = threading.current_thread()
+        with self._lock:
+            if thread in self._abandoned:
+                raise OSError(errno.ECANCELED, "not started: this check ran out of time")
+            if proc is not None:
+                self._live.setdefault(thread, weakref.WeakSet()).add(proc)
+
+    def ensure_installed(self) -> None:
+        """Wrap whatever ``subprocess.Popen`` is now, unless already wrapped."""
+        current = subprocess.Popen
+        if getattr(current, "_rescue_abandon_guard", None) is self:
+            return
+        guard = self
+        if not self._atexit_registered:
+            atexit.register(self._stop_all)
+            self._atexit_registered = True
+
+        class GuardedPopen(current):  # type: ignore[misc, valid-type]
+            _rescue_abandon_guard = guard
+            _rescue_own_group = False
+
+            def __init__(self, *args, **kwargs):
+                guard._admit(None)
+                own_group = guard._own_session(kwargs)
+                super().__init__(*args, **kwargs)
+                self._rescue_own_group = own_group
+                try:
+                    guard._admit(self)
+                except OSError:
+                    # Abandoned while it was starting: stop it straight away
+                    # and reap it, so it doesn't linger as a zombie.
+                    _stop(self)
+                    try:
+                        self.wait(timeout=1)
+                    except (subprocess.TimeoutExpired, OSError):
+                        pass
+                    raise
+
+        subprocess.Popen = GuardedPopen
+
+
+# subprocess.CREATE_NEW_PROCESS_GROUP exists only on Windows builds.
+_CREATE_NEW_PROCESS_GROUP = 0x00000200
+
+
+def _own_group_kwargs(kwargs: dict, os_name: str) -> bool:
+    """Set Popen kwargs so the command leads its own process group.
+
+    Returns False (kwargs untouched) where the caller already chose how the
+    child is grouped, or on an OS this doesn't handle.
+    """
+    if os_name == "posix":
+        if any(k in kwargs for k in ("start_new_session", "process_group", "preexec_fn")):
+            return False
+        kwargs["start_new_session"] = True
+        return True
+    if os_name == "nt":
+        flags = kwargs.get("creationflags", 0) or 0
+        kwargs["creationflags"] = flags | _CREATE_NEW_PROCESS_GROUP
+        return True
+    return False
+
+
+def _stop(proc, os_name: str | None = None) -> None:
+    """Kill a still-running command, with everything it started if it leads
+    its own process group."""
+    os_name = os_name or os.name
+    try:
+        if proc.poll() is not None:
+            return
+        if getattr(proc, "_rescue_own_group", False):
+            if os_name == "posix":
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    return
+                except (OSError, AttributeError):
+                    pass
+            elif os_name == "nt":
+                try:
+                    done = subprocess.run(
+                        ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                        capture_output=True,
+                        timeout=5,
+                    )
+                    if done.returncode == 0:
+                        return
+                except (OSError, subprocess.SubprocessError):
+                    pass
+        proc.kill()
+    except (OSError, ValueError):
+        pass
+
+
+_GUARD = _AbandonGuard()
+
+
+def stop_all_commands() -> None:
+    """Kill every command a check is still running (see :class:`_AbandonGuard`)."""
+    _GUARD._stop_all()
+
+
+def stop_commands_on_signals() -> None:
+    """On SIGTERM (and SIGHUP on macOS/Linux), stop every running check
+    command, then exit with 128 + the signal number.
+
+    The desktop app cancels a scan by killing the engine (SIGTERM on macOS);
+    without this the commands checks had started kept running. Call it from
+    the main thread, as `rescue scan` does.
+    """
+
+    def handler(signum, frame):
+        stop_all_commands()
+        raise SystemExit(128 + signum)
+
+    names = ["SIGTERM"] + (["SIGHUP"] if os.name == "posix" else [])
+    for name in names:
+        sig = getattr(signal, name, None)
+        if sig is None:
+            continue
+        try:
+            signal.signal(sig, handler)
+        except (ValueError, OSError):
+            pass  # not the main thread, or not allowed here
+
+
+def _call_with_timeout(
+    fn: Callable[[], _T],
+    timeout: float,
+    on_abandon: Callable[[threading.Thread], None] | None = None,
+    on_start: Callable[[threading.Thread], None] | None = None,
+) -> _T:
     """Run ``fn`` on a daemon thread, abandoning it if it exceeds ``timeout``.
 
     Python cannot forcibly kill a thread stuck in a blocking syscall (e.g. a
     ``subprocess.run`` with no timeout), so on timeout the worker is left as a
     daemon and the caller moves on. This bounds the *session* even when an
-    individual command cannot be interrupted.
+    individual command cannot be interrupted. ``on_abandon`` gets the worker
+    thread so its commands can be stopped (see :class:`_AbandonGuard`).
     """
     box: dict[str, object] = {}
 
@@ -72,10 +284,14 @@ def _call_with_timeout(fn: Callable[[], _T], timeout: float) -> _T:
             box["error"] = exc
 
     worker = threading.Thread(target=target, daemon=True)
+    if on_start is not None:
+        on_start(worker)
     worker.start()
     worker.join(timeout)
     if worker.is_alive():
-        raise _Timeout(f"timed out after {timeout}s")
+        if on_abandon is not None:
+            on_abandon(worker)
+        raise _Timeout(timeout_message(timeout))
     if "error" in box:
         raise box["error"]  # type: ignore[misc]
     return box["value"]  # type: ignore[return-value]
@@ -120,6 +336,9 @@ class Orchestrator:
 
         modules = topological_sort(modules)
 
+        # Installed inside any --trace wrapper, so traced commands are guarded too.
+        _GUARD.ensure_installed()
+
         results = []
         marks = None  # the "marked as yours" list, read once when first needed
         start = time.monotonic()
@@ -148,7 +367,10 @@ class Orchestrator:
             report("start", index, total, mod, None)
             try:
                 check = _call_with_timeout(
-                    lambda m=mod: m.check(profile), self._module_timeout
+                    lambda m=mod: m.check(profile),
+                    self._module_timeout,
+                    on_abandon=_GUARD.abandon,
+                    on_start=_GUARD.register_worker,
                 )
             except _Timeout as exc:
                 logger.warning("Module check timed out: %s", mod.name)

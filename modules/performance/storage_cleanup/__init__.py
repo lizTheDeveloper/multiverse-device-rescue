@@ -1,3 +1,5 @@
+import os
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -19,6 +21,17 @@ from rescue.fsbounds import is_dir_nofollow, is_file_nofollow
 OLD_FILES_DAYS = 90
 LARGE_CACHE_SIZE = 500 * 1024 * 1024  # 500 MB
 WARNING_THRESHOLD = 1024 * 1024 * 1024  # 1 GB
+# Adding up every file in ~/Library/Application Support took 79 seconds on a
+# real Mac (114 GB in 202 folders), past the engine's 60-second limit, so the
+# whole check was reported as "couldn't run". Sizes are now measured within
+# this budget; anything not finished is reported as "at least" and named.
+SIZE_BUDGET_S = 30.0
+
+_AREA_NAMES = {
+    "large_caches": "the large temporary storage folders (~/Library/Caches)",
+    "trash": "the Trash",
+    "app_support": "~/Library/Application Support",
+}
 
 
 class Module(ModuleBase):
@@ -30,16 +43,29 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "15s"
 
+    size_budget_s: float = SIZE_BUDGET_S
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         home = Path.home()
+        self._deadline = time.monotonic() + self.size_budget_s
+        cut_short: list[str] = []
+
+        def measured(area, fn, *args):
+            self._ran_out = False
+            value = fn(*args)
+            if self._ran_out:
+                cut_short.append(area)
+            return value
 
         # Scan each storage category
         downloads_old = self._scan_old_downloads(home / "Downloads")
-        large_caches = self._scan_large_caches(home / "Library/Caches")
-        trash_size = self._get_trash_size(home / ".Trash")
+        large_caches = measured("large_caches", self._scan_large_caches, home / "Library/Caches")
+        trash_size = measured("trash", self._get_trash_size, home / ".Trash")
         dmg_files = self._scan_dmg_files(home / "Downloads")
-        app_support = self._scan_app_support(home / "Library/Application Support")
+        app_support = measured(
+            "app_support", self._scan_app_support, home / "Library/Application Support"
+        )
 
         # Calculate total reclaimable space
         total_reclaimable = (
@@ -177,6 +203,35 @@ class Module(ModuleBase):
                         "size_formatted": _fmt_bytes(total_reclaimable),
                     },
                 ),
+            )
+
+        if cut_short:
+            for finding in findings:
+                kind = finding.data.get("type")
+                if kind in cut_short or kind == "total_reclaimable":
+                    finding.data["incomplete"] = True
+                    if kind == "total_reclaimable":
+                        finding.title = finding.title.replace(" has ", " has at least ", 1)
+                    else:
+                        finding.title = finding.title.replace(": ", ": at least ", 1)
+            areas = [_AREA_NAMES[a] for a in cut_short]
+            findings.append(
+                Finding(
+                    title="Some folders were too big to measure fully",
+                    description=(
+                        "Adding up the size of "
+                        + ", ".join(areas)
+                        + " was stopped before it finished. The sizes shown for those folders are only the part that "
+                        "was measured, so the real amount is larger. Nothing was changed."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={
+                        "type": "measurement_incomplete",
+                        "areas": cut_short,
+                        "time_budget_s": self.size_budget_s,
+                    },
+                )
             )
 
         return CheckResult(module_name=self.name, findings=findings)
@@ -384,20 +439,43 @@ class Module(ModuleBase):
         return {"size": total_size, "count": count}
 
     def _get_directory_size(self, path: Path) -> int:
-        """Calculate total size of all files in directory, with error handling."""
-        if not path.exists():
+        """Total size of the regular files under ``path``, without following links.
+
+        Stops at the check's deadline (set in check()), sets ``_ran_out``, and
+        returns what it had added up so far.
+        """
+        if not is_dir_nofollow(path):
             return 0
 
+        deadline = getattr(self, "_deadline", None)
         total_size = 0
-        try:
-            for item in path.rglob("*"):
-                try:
-                    if is_file_nofollow(item):
-                        total_size += item.stat().st_size
-                except (OSError, PermissionError):
-                    continue
-        except (OSError, PermissionError):
-            pass
+        stack = [str(path)]
+        seen = 0
+        while stack:
+            if deadline is not None and time.monotonic() >= deadline:
+                self._ran_out = True
+                return total_size
+            current = stack.pop()
+            try:
+                with os.scandir(current) as entries:
+                    for entry in entries:
+                        seen += 1
+                        if (
+                            deadline is not None
+                            and seen % 500 == 0
+                            and time.monotonic() >= deadline
+                        ):
+                            self._ran_out = True
+                            return total_size
+                        try:
+                            if entry.is_dir(follow_symlinks=False):
+                                stack.append(entry.path)
+                            elif entry.is_file(follow_symlinks=False):
+                                total_size += entry.stat(follow_symlinks=False).st_size
+                        except OSError:
+                            continue
+            except OSError:
+                continue
 
         return total_size
 

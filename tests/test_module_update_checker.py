@@ -109,3 +109,81 @@ def test_update_checker_fix_is_informational():
         fix = mod.fix(check, Mode.AUTO)
     assert fix.all_succeeded
     assert len(fix.actions) == 2
+
+
+# --- Regression: `softwareupdate -l` had no timeout. It asks Apple's servers
+# and took over 60 s on a real Mac, so the whole check hit the engine's limit
+# and was reported as "couldn't run", and the Homebrew part never ran.
+
+def test_every_command_has_a_timeout_that_fits_the_engine_limit():
+    import subprocess as sp
+
+    mod = _get_module()
+    timeouts = {}
+
+    def fake(cmd, **kw):
+        timeouts[cmd[0]] = kw.get("timeout")
+        return _fake_run(SOFTWAREUPDATE_NONE, BREW_OUTDATED_NONE)(cmd, **kw)
+
+    with patch.object(sp, "run", side_effect=fake):
+        mod.check(_make_profile())
+    assert timeouts["softwareupdate"] and timeouts["brew"]
+    assert timeouts["softwareupdate"] + timeouts["brew"] < 60
+
+
+def test_hanging_softwareupdate_is_not_checked_and_brew_still_runs():
+    import subprocess as sp
+    import time
+
+    mod = _get_module()
+    inner = _fake_run(SOFTWAREUPDATE_NONE, BREW_OUTDATED_SOME)
+
+    def fake(cmd, **kw):
+        if cmd[0] == "softwareupdate":
+            raise sp.TimeoutExpired(cmd, kw["timeout"])
+        return inner(cmd, **kw)
+
+    start = time.monotonic()
+    with patch.object(sp, "run", side_effect=fake):
+        result = mod.check(_make_profile())
+    assert time.monotonic() - start < 2
+
+    by_check = {f.data["check"]: f for f in result.findings}
+    note = by_check["os_updates_not_checked"]
+    assert note.severity == Severity.INFO
+    assert "doesn't mean your Mac is up to date" in note.description
+    assert "os_updates" not in by_check
+    # What it could check is kept.
+    assert "brew_outdated" in by_check
+
+
+def test_failed_softwareupdate_is_not_read_as_no_updates():
+    import subprocess as sp
+
+    mod = _get_module()
+
+    def fake(cmd, **kw):
+        result = MagicMock()
+        result.stdout = ""
+        result.returncode = 1 if cmd[0] == "softwareupdate" else 0
+        return result
+
+    with patch.object(sp, "run", side_effect=fake):
+        result = mod.check(_make_profile())
+    assert [f.data["check"] for f in result.findings] == ["os_updates_not_checked"]
+
+
+def test_hanging_brew_is_not_checked():
+    import subprocess as sp
+
+    mod = _get_module()
+    inner = _fake_run(SOFTWAREUPDATE_NONE, "")
+
+    def fake(cmd, **kw):
+        if cmd[0] == "brew":
+            raise sp.TimeoutExpired(cmd, kw["timeout"])
+        return inner(cmd, **kw)
+
+    with patch.object(sp, "run", side_effect=fake):
+        result = mod.check(_make_profile())
+    assert [f.data["check"] for f in result.findings] == ["brew_not_checked"]

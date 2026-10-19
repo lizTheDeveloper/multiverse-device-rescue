@@ -14,7 +14,7 @@ from rescue.app_fixes import AppFixesError, load_app_actions, load_app_fixes
 from rescue.case import RescueCase, write_case
 from rescue.guides import discover_guides
 from rescue.models import ActionKind, CheckResult, Mode, RiskLevel
-from rescue.orchestrator import Orchestrator
+from rescue.orchestrator import Orchestrator, stop_commands_on_signals
 from rescue.profiler.base import detect_platform, gather_profile
 from rescue.profiles import Profile, ProfileValidationError, discover_profiles, merge_profiles, validate_profile_modules
 from rescue.registry import discover_modules
@@ -221,6 +221,7 @@ def scan(as_json, profile_names, module_names, progress, trace, no_attribution):
     # on stderr, so a caller can show results while the rest keep running.
     stream = (lambda mod, check: _emit_module(mod, check, walkthroughs, app_fixes, app_actions)) \
         if as_json and (progress or trace) else None
+    stop_commands_on_signals()  # a cancelled scan leaves no check commands behind
     if trace:
         results = _run_traced(orch, stream)
     elif progress:
