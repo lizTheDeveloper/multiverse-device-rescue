@@ -104,8 +104,10 @@ MARK_COVERS_TASK = (
 )
 MARK_HOW_TO_UNDO = [
     "Choose \"Stop treating this as mine\" on the item in this app",
-    "If you use the command line: rescue known remove <id> (rescue known list shows the id)",
 ]
+# The same, for a tech helper at the command line. Kept apart from the steps
+# above so the app shows it only under "For tech helpers".
+MARK_HOW_TO_UNDO_CLI = "rescue known remove <id> (rescue known list shows the id)"
 
 
 class KnownItemsError(Exception):
@@ -1572,6 +1574,7 @@ def item_markable(finding: Finding, module_name: str) -> dict | None:
         "shows": shows,
         "will_change": item_will_change(kind, identity),
         "how_to_undo": list(MARK_HOW_TO_UNDO),
+        "tech_undo": MARK_HOW_TO_UNDO_CLI,
         **({"apps": _apps_rows(finding)} if kind == "app_permissions" else {}),
     }
     if kind in ENTRY_KIND_FOR:
@@ -1849,6 +1852,7 @@ def markable(finding: Finding, module_name: str) -> dict | None:
             "'{label}'. ", "'{label}'. " + MARK_COVERS_TASK + " ", 1
         ).replace("{label}", fields["label"]),
         "how_to_undo": list(MARK_HOW_TO_UNDO),
+        "tech_undo": MARK_HOW_TO_UNDO_CLI,
     }
 
 

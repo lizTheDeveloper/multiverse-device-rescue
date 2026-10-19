@@ -134,13 +134,16 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=(
-                        f"{len(suspicious_entries)} website names are being redirected "
+                        "1 website name is being redirected to an unusual address"
+                        if len(suspicious_entries) == 1
+                        else f"{len(suspicious_entries)} website names are being redirected "
                         "to unusual addresses"
                     ),
                     description=(
                         "Your computer's address book (/etc/hosts) has entries that send "
-                        "website names to addresses other than your own computer. Here "
-                        f"are {len(suspicious_entries)} of them: {', '.join(e['ip'] + ' ' + e['hostname'] for e in suspicious_entries[:5])}{'...' if len(suspicious_entries) > 5 else ''}. "
+                        "website names to addresses other than your own computer. "
+                        + ("Here it is: " if len(suspicious_entries) == 1 else f"Here are {min(len(suspicious_entries), 5)} of them: ")
+                        + f"{', '.join(e['ip'] + ' ' + e['hostname'] for e in suspicious_entries[:5])}{'...' if len(suspicious_entries) > 5 else ''}. "
                         "Many apps (like VPNs, Adobe, or ad blockers) do this automatically, "
                         "so this is not proof of spying or malware. However, if you see "
                         "a bank, email, or software update site here that you did not "

@@ -76,7 +76,8 @@ def test_markable_app_list_shows_names_and_keeps_ids(tmp_path, monkeypatch):
     assert {r["id"] for r in m["apps"]} == set(apps)
     assert m["will_change"].startswith("The checkup will stop warning you")
     assert "Device Rescue" not in m["will_change"] + " ".join(m["how_to_undo"])
-    assert any(s.startswith("If you use the command line: rescue known remove") for s in m["how_to_undo"])
+    assert not any("rescue known" in s for s in m["how_to_undo"])
+    assert m["tech_undo"].startswith("rescue known remove")
 
 
 def test_names_lose_control_and_format_characters_and_are_cut_to_the_limit(tmp_path):

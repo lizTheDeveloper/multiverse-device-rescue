@@ -15,6 +15,7 @@ from rescue.module_base import ModuleBase
 from rescue.profiler.base import gather_profile
 from rescue.profiles import Profile, filter_modules_by_profile, validate_profile_modules
 from rescue.registry import discover_modules, filter_by_platform, topological_sort
+from rescue.severity_policy import cap_severity
 
 logger = logging.getLogger(__name__)
 
@@ -381,6 +382,7 @@ class Orchestrator:
                 logger.exception("Module check failed: %s", mod.name)
                 check = CheckResult(module_name=mod.name, error=str(exc))
             if not check.error:
+                cap_severity(mod, check)
                 marks = _apply_item_marks(mod.name, check.findings, marks, getattr(check, "supported", True))
             results.append((mod, check))
             report("done", index, total, mod, check)

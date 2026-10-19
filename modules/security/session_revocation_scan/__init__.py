@@ -559,6 +559,10 @@ class Module(ModuleBase):
 
     def _authorized_keys_data(self, count: int) -> dict:
         data = {"check": "ssh_authorized_keys", "key_count": count}
+        # Which file, home-relative (no account name), for the evidence block.
+        data["file"] = (
+            _SSH_AUTHORIZED_KEYS if self.authorized_keys_path is None else str(self.authorized_keys_path)
+        )
         digest = self._authorized_keys_sha256()
         if digest:
             data["list_sha256"] = digest

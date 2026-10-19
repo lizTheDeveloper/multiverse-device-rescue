@@ -278,9 +278,14 @@ def _emit_plan(modules):
     """One {"plan": ...} line on stderr: every check about to run, in order."""
     import json
 
+    from rescue.check_names import check_name
+
     click.echo(json.dumps({"plan": {
         "total": len(modules),
-        "modules": [{"module": m.name, "category": getattr(m, "category", None)} for m in modules],
+        "modules": [
+            {"module": m.name, "check_name": check_name(m.name), "category": getattr(m, "category", None)}
+            for m in modules
+        ],
     }}), err=True)
 
 
@@ -302,11 +307,14 @@ def _emit_progress(phase, index, total, mod, check):
     """One machine-readable progress line on stderr (stdout stays pure JSON)."""
     import json
 
+    from rescue.check_names import check_name
+
     event = {
         "phase": phase,
         "index": index,
         "total": total,
         "module": mod.name,
+        "check_name": check_name(mod.name),
         "category": getattr(mod, "category", None),
     }
     if check is not None:
@@ -438,6 +446,8 @@ def run(module_names, yes, copilot):
         except Exception as exc:
             check = CheckResult(module_name=mod.name, error=str(exc))
         if not check.error:
+            from rescue.severity_policy import cap_severity
+            cap_severity(mod, check)
             marks = _apply_item_marks(mod.name, check.findings, marks, getattr(check, "supported", True))
         checked.append((mod, check))
         click.echo(mod.report(check))
@@ -719,6 +729,8 @@ def _emit_known(doc: dict, as_json: bool, code: int = 0) -> None:
         click.echo(doc["message"], err=code != 0)
         for step in doc.get("how_to_undo") or []:
             click.echo(f"  To undo: {step}")
+        if doc.get("tech_undo"):
+            click.echo(f"  Or at the command line: {doc['tech_undo']}")
     if code:
         raise SystemExit(code)
 
@@ -813,6 +825,7 @@ def known_add(codes, label, program, plist, expect_id, item_ids, as_json, acknow
     from rescue.known_items import (
         BACKGROUND_TASK,
         MARK_HOW_TO_UNDO,
+        MARK_HOW_TO_UNDO_CLI,
         MARK_WILL_CHANGE,
         KnownItemsError,
         KnownItemsStore,
@@ -902,13 +915,14 @@ def known_add(codes, label, program, plist, expect_id, item_ids, as_json, acknow
     ids = [item.id for item, _ in saved]
     created = any(c for _, c in saved)
     undo = [s.replace("<id>", " ".join(ids)) for s in MARK_HOW_TO_UNDO]
+    tech_undo = MARK_HOW_TO_UNDO_CLI.replace("<id>", " ".join(ids))
     message = (
         f"Marked '{label}' as yours (id {', '.join(ids)}). It will show as \"marked as yours\" from the next checkup."
         if created else f"'{label}' was already marked as yours (id {', '.join(ids)})."
     )
     _emit_known(_known_doc(
         "marked" if created else "already_marked", message,
-        id=ids[0], ids=ids, label=label, how_to_undo=undo,
+        id=ids[0], ids=ids, label=label, how_to_undo=undo, tech_undo=tech_undo,
     ), as_json)
 
 
@@ -938,6 +952,7 @@ def _known_add_item(codes, expect_ids, as_json, acknowledged) -> None:
     from rescue.known_items import (
         KINDS,
         MARK_HOW_TO_UNDO,
+        MARK_HOW_TO_UNDO_CLI,
         KnownItemsError,
         KnownItemsStore,
         find_item,
@@ -1012,13 +1027,14 @@ def _known_add_item(codes, expect_ids, as_json, acknowledged) -> None:
     ids = [item.id for item, _ in saved]
     created = any(c for _, c in saved)
     undo = [s.replace("<id>", " ".join(ids)) for s in MARK_HOW_TO_UNDO]
+    tech_undo = MARK_HOW_TO_UNDO_CLI.replace("<id>", " ".join(ids))
     message = (
         f"Marked '{label}' as yours (id {', '.join(ids)}). It will show as \"marked as yours\" from the next checkup."
         if created else f"'{label}' was already marked as yours (id {', '.join(ids)})."
     )
     _emit_known(_known_doc(
         "marked" if created else "already_marked", message,
-        id=ids[0], ids=ids, label=label, kind=kind, how_to_undo=undo,
+        id=ids[0], ids=ids, label=label, kind=kind, how_to_undo=undo, tech_undo=tech_undo,
     ), as_json)
 
 
@@ -1028,6 +1044,7 @@ def _known_add_entries(codes, expect_ids, item_ids, as_json, acknowledged) -> No
         APP_ENTRY,
         KINDS,
         MARK_HOW_TO_UNDO,
+        MARK_HOW_TO_UNDO_CLI,
         MAX_LIST_ENTRIES,
         KnownItemsError,
         KnownItemsStore,
@@ -1096,13 +1113,14 @@ def _known_add_entries(codes, expect_ids, item_ids, as_json, acknowledged) -> No
     ids = [item.id for item, _ in saved]
     created = any(c for _, c in saved)
     undo = [s.replace("<id>", " ".join(ids)) for s in MARK_HOW_TO_UNDO]
+    tech_undo = MARK_HOW_TO_UNDO_CLI.replace("<id>", " ".join(ids))
     message = (
         f"Marked {label} as yours (id {', '.join(ids)}). They will show as \"marked as yours\" from the next checkup."
         if created else f"Those were already marked as yours (id {', '.join(ids)})."
     )
     _emit_known(_known_doc(
         "marked" if created else "already_marked", message,
-        id=ids[0], ids=ids, label=label, kind=entry_kind, how_to_undo=undo,
+        id=ids[0], ids=ids, label=label, kind=entry_kind, how_to_undo=undo, tech_undo=tech_undo,
     ), as_json)
 
 

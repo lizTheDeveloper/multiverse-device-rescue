@@ -87,7 +87,9 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=(
-                        f"Several fonts are installed in more than one place ({len(duplicates)})"
+                        "A font is installed in more than one place"
+                        if len(duplicates) == 1
+                        else f"{len(duplicates)} fonts are installed in more than one place"
                     ),
                     description=(
                         f"We found {len(duplicates)} font names that exist in multiple "

@@ -66,7 +66,7 @@ test('code signature: app, where, what the signature check said, maker not verif
   assert.ok(get(rows, 'Where').mono);
   assert.strictEqual(get(rows, 'Signature check said').value, 'a sealed resource is missing or invalid');
   assert.match(get(rows, 'Signature check said').copy, /^codesign --verify failed/);
-  assert.match(get(rows, 'Made by').value, /^AMZN Mobile LLC · not verified/);
+  assert.strictEqual(get(rows, 'Made by').value, 'AMZN Mobile LLC · not verified');
   assert.strictEqual(get(rows, 'Check').value, 'Checking app signatures');
   assert.ok(!labels(rows).includes('Check id'), 'the internal "check" key is not evidence');
 });

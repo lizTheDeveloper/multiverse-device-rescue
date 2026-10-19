@@ -141,7 +141,8 @@ const Evidence = (function () {
   function makerText(entry) {
     const e = entry || {};
     const name = e.name || 'Unknown maker';
-    const how = e.how ? ` (${e.how})` : '';
+    // "claims to be made by X; couldn't verify" only repeats the name and "not verified".
+    const how = e.how && !/^claims to be made by/i.test(e.how) ? ` (${e.how})` : '';
     return `${name} \u00b7 ${e.verified ? 'verified' : 'not verified'}${how}`;
   }
 

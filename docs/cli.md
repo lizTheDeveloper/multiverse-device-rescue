@@ -140,15 +140,17 @@ The JSON shape is `schema_version` 1:
   "modules": [
     {
       "name": "linux_package_updates",
+      "check_name": "Software updates",
       "category": "integrity",
       "status": "ok",
       "error": null,
       "supported": true,
       "unsupported_reason": null,
       "complete": true,
+      "error_kind": null,
       "findings": [
         {
-          "title": "1 package update(s) available",
+          "title": "1 package update available",
           "description": "Ordinary updates — bug fixes and new versions...",
           "severity": "info",
           "category": "integrity",
@@ -177,6 +179,17 @@ The JSON shape is `schema_version` 1:
     problem missing from an incomplete check's findings may not have been
     looked at. `complete` defaults to `true` and appears both in the final
     document and in each streamed `--progress` entry.
+
+    `check_name` is the check's name for people (also on every `plan` and
+    `progress` line), and `error_kind` says what kind of "couldn't check" it
+    was: `timeout`, `permission`, `skipped`, `unsupported`, `error` or
+    `unfinished` (`null` when it ran). Titles and descriptions have plurals
+    that agree with their numbers and plain days instead of ISO time stamps;
+    `data` keeps the exact values. A check that reported the very same
+    finding more than once gives it once, with `"repeats": N`. A finding with
+    `made_by` also has `makers_verified`: true when every program it names has
+    a verified maker. Findings from performance, bloatware, crash and backup
+    checks are at most `warning`.
 
 ---
 

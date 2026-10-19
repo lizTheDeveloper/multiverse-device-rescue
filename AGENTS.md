@@ -86,11 +86,13 @@ normal.
   "modules": [
     {
       "name": "launch_agents_audit",
+      "check_name": "Background tasks", // the check's name for people
       "status": "ok",                 // "error" = the check crashed
       "error": null,
       "supported": true,              // false = could not run here; NOT clean
       "unsupported_reason": null,
       "complete": true,               // false = ran but didn't finish; NOT clean
+      "error_kind": null,             // timeout | permission | skipped | unsupported | error | unfinished
       "findings": [
         {
           "title": "…",
@@ -105,7 +107,9 @@ normal.
               "how": "Developer ID signature", "location_note": "",
               "what": "Google Chrome: Google's web browser, for visiting websites." }
                                        // "what" only for known programs whose signed identity was verified
-          ]                            // skip with `rescue scan --json --no-attribution`
+          ],                           // skip with `rescue scan --json --no-attribution`
+          "makers_verified": true,     // with made_by: every program named has a verified maker
+          "repeats": 2                 // only when the check reported the same thing more than once
         }
       ]
     }

@@ -4,6 +4,9 @@ from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any
 
+from rescue.check_names import check_name, error_kind
+from rescue.wording import tidy
+
 
 def _plain(value: Any) -> Any:
     """Recursively convert values to JSON-serializable plain Python types.
@@ -94,8 +97,44 @@ def _link_task_marks(modules) -> None:
         pass
 
 
+def _makers_verified(entries, data) -> bool:
+    """True when every program the finding names has a maker that was verified:
+    each made_by entry is verified and, when the finding lists apps, each app
+    has one. Lets a screen tell familiar, verified apps from look-alikes."""
+    if not entries or not all(isinstance(e, dict) and e.get("verified") is True for e in entries):
+        return False
+    apps = data.get("apps") if isinstance(data, dict) else None
+    if isinstance(apps, list):
+        subjects = {e.get("subject") for e in entries}
+        return all(a in subjects for a in apps)
+    return True
+
+
+def _dedupe(findings: list) -> list:
+    """One entry per identical finding: a check that reported the same thing
+    twice (the same login item listed twice, one program seen as four
+    processes) keeps one, with "repeats" saying how many times it was seen."""
+    out, index = [], {}
+    for f in findings:
+        try:
+            key = json.dumps(f, sort_keys=True)
+        except (TypeError, ValueError):
+            out.append(f)
+            continue
+        if key in index:
+            kept = index[key]
+            kept["repeats"] = kept.get("repeats", 1) + 1
+            continue
+        index[key] = f
+        out.append(f)
+    return out
+
+
 def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=None, markable=None) -> dict:
     out = _plain(finding)
+    # Plurals that agree, "once", and plain days instead of ISO time stamps (rescue/wording.py).
+    for key in ("title", "description"):
+        out[key] = tidy(out.get(key))
     if markable is not None:
         out["markable"] = markable
     if action_fixable is not None:
@@ -105,6 +144,7 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
     entries = made_by.get(id(finding)) if made_by else None
     if entries:
         out["made_by"] = _plain(entries)
+        out["makers_verified"] = _makers_verified(out["made_by"], out.get("data"))
     guide = walkthroughs.get(getattr(finding, "code", None)) if walkthroughs else None
     if guide is not None:
         out["remediation"] = _remediation(guide, getattr(finding, "code", None))
@@ -125,8 +165,12 @@ def module_entry(mod, check, walkthroughs=None, app_fixes=None, made_by=None, ap
     """
     entry = (app_fixes or {}).get(mod.name)
     offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
+    supported = getattr(check, "supported", True)
+    complete = bool(getattr(check, "complete", True))
     return {
         "name": mod.name,
+        # The check's name for people, from one table (rescue/check_names.py).
+        "check_name": check_name(mod.name),
         "category": getattr(mod, "category", None),
         "status": "error" if check.error else "ok",
         "error": check.error,
@@ -135,15 +179,18 @@ def module_entry(mod, check, walkthroughs=None, app_fixes=None, made_by=None, ap
         "unsupported_reason": getattr(check, "unsupported_reason", None),
         # False means the check ran but didn't finish its job, so something it
         # didn't report may still be there: never read it as clean.
-        "complete": bool(getattr(check, "complete", True)),
-        "findings": [
+        "complete": complete,
+        # What kind of "couldn't check" this was, or null when it ran:
+        # timeout | permission | skipped | unsupported | error | unfinished.
+        "error_kind": error_kind(check.error, supported, complete),
+        "findings": _dedupe([
             _finding(
                 f, walkthroughs, offer, made_by,
                 None if check.error else _action_fixable(f, mod.name, app_actions),
                 None if check.error else _markable(f, mod.name),
             )
             for f in check.findings
-        ],
+        ]),
     }
 
 
@@ -171,8 +218,8 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
 
     Returns:
         JSON string with schema_version, platform, and modules array.
-        Each module entry has name, category, status, error, supported,
-        unsupported_reason, complete, findings.
+        Each module entry has name, check_name, category, status, error,
+        supported, unsupported_reason, complete, error_kind, findings.
     """
     modules = [
         module_entry(mod, check, walkthroughs, app_fixes, made_by, app_actions)

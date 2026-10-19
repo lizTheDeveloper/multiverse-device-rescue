@@ -346,13 +346,11 @@ class Module(ModuleBase):
                         "close to you, talk to an advocate before you touch it (US National "
                         "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
                         + (
-                            "What to do: Don't remove it yet. Write down what you see here "
-                            "and make a safety plan first; the steps below cover removal for "
-                            "when it's safe."
+                            "What to do: Don't remove it yet. Write down its name, where it "
+                            "was found and today's date, and make a safety plan first."
                             if category == "stalkerware"
                             else "What to do: If you installed it and use it, there's nothing to "
-                            "do. If not, make a safety plan before removing it; the steps "
-                            "below cover how."
+                            "do. If not, make a safety plan before removing it."
                         )
                     ),
                     severity=severity,

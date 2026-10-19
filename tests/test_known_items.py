@@ -650,7 +650,7 @@ def test_cli_add_list_remove_json(tmp_path, agents_dir):
     assert r.exit_code == 0, r.output
     doc = json.loads(r.stdout)
     assert doc["status"] == "marked" and len(doc["id"]) == 12
-    assert any(doc["id"] in step for step in doc["how_to_undo"])
+    assert doc["id"] in doc["tech_undo"]
 
     r = _invoke(["known", "list", "--json"])
     listed = json.loads(r.stdout)["items"]

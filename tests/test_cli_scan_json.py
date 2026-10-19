@@ -134,7 +134,7 @@ def test_scan_progress_reports_each_check_on_stderr_and_keeps_stdout_pure():
               if line.startswith('{"progress"')]
     assert [e["phase"] for e in events] == ["start", "done"]
     assert events[0] == {"phase": "start", "index": 1, "total": 1,
-                         "module": "disk_space", "category": "performance"}
+                         "module": "disk_space", "check_name": "Disk space", "category": "performance"}
     assert events[1]["findings"] == 0 and events[1]["error"] is None
 
 
@@ -231,7 +231,8 @@ def test_scan_progress_streams_each_finished_check_as_its_final_entry():
     kinds = [next(iter(l)) for l in lines]
     assert kinds == ['plan', 'progress', 'progress', 'module', 'progress', 'progress', 'module']
     assert lines[0]['plan'] == {'total': 2, 'modules': [
-        {'module': 'first', 'category': 'security'}, {'module': 'second', 'category': 'security'}]}
+        {'module': 'first', 'check_name': 'First', 'category': 'security'},
+        {'module': 'second', 'check_name': 'Second', 'category': 'security'}]}
     streamed = [l['module'] for l in lines if 'module' in l]
     assert streamed == doc['modules']
 
