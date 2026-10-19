@@ -1,0 +1,33 @@
+{
+  "_note": "Synthetic Windows findings for the Door tests. Made-up names and paths; no real scan data.",
+  "findings": [
+    {
+      "module": "win_autoruns_audit", "severity": "critical", "category": "security",
+      "code": "security.win_autoruns_audit.temp_path_execution",
+      "title": "A startup entry runs from a temporary folder",
+      "description": "A startup entry runs a program from Temp.",
+      "removal_alert": true,
+      "data": { "entry_name": "ExampleUpdater", "location": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "command": "~\\AppData\\Local\\Temp\\exupd.exe /silent" }
+    },
+    {
+      "module": "win_scheduled_tasks_security", "severity": "warning", "category": "security",
+      "code": "security.win_scheduled_tasks_security.recent_boot_logon",
+      "title": "A new task runs at sign-in",
+      "description": "A task created recently runs when you sign in.",
+      "data": { "task_name": "ExampleSync", "task_path": "\\ExampleSync", "created_date": "2026-10-02", "schedule": "At log on" }
+    },
+    {
+      "module": "win_services_audit", "severity": "warning", "category": "security",
+      "code": "security.win_services_audit.suspicious_path",
+      "title": "Program 'Example Helper' runs from an unusual location",
+      "description": "A service starts from an unusual folder.",
+      "data": { "name": "ExHelperSvc", "display_name": "Example Helper", "path": "~\\Downloads\\exhelper.exe" }
+    },
+    {
+      "module": "win_startup", "severity": "warning", "category": "performance",
+      "title": "9 programs start automatically when you sign in",
+      "description": "Programs set to run automatically.",
+      "data": { "names": ["Example Chat", "Example Drive", "Example Music"], "count": 3 }
+    }
+  ]
+}
