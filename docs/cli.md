@@ -268,10 +268,15 @@ Looks up who runs each public address and prints one JSON object on stdout,
 
 The answer comes from three places, and only the address is sent: reverse
 DNS through this computer's own resolver (`hostname`), RIPE NCC's RIPEstat
-at `stat.ripe.net` (`asn`, `as_name`, `prefix`) and `rdap.org`, which passes
-the request on to the regional registry that holds the address (ARIN, RIPE
-NCC, APNIC, LACNIC or AFRINIC), so that registry receives the address too
-(`network`, `registrant`, `country`). `registrant` is only ever an
+at `stat.ripe.net` (`asn`, `as_name`, `prefix`) and `rdap.org`, which
+redirects this computer to the regional registry that holds the address
+(ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC); this computer then asks that
+registry directly (`network`, `registrant`, `country`). Redirects anywhere
+else are refused; the registry hosts are listed in
+[What each check runs](commands.md). Each service also sees this computer's
+public IP address, as any website does, and the app's name and version
+(`User-Agent: ReclaimCity/<version>`, and `sourceapp=reclaim-city` for
+RIPEstat). `registrant` is only ever an
 organisation, never a person. `hostname_confirmed` is `true` only when the
 hostname, looked up again through the same resolver, leads back to the
 address; whoever controls an address can give it any reverse name, so an

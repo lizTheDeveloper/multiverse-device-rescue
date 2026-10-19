@@ -196,10 +196,12 @@ addresses, and from the address's own name in DNS.
 - **What was sent.** Only the addresses were sent, never what was in the
   connections, to these services: your computer's own name lookup (reverse
   DNS, which asks your DNS provider), RIPE NCC (stat.ripe.net) and rdap.org,
-  which passes the question on to the regional registry that holds the
-  address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC). Addresses on your own network,
-  this computer's own address and other private addresses are never sent.
-  Each service learns which addresses were asked about. The lookups keep no
+  which sends your computer on to the regional registry that holds the
+  address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly.
+  Addresses on your own network and other private addresses are never sent.
+  Each service learns which addresses were asked about. Like any website,
+  each also sees your computer's public internet address and that the
+  question came from Reclaim City. The lookups keep no
   copy of their own: the answers are only part of this watch's result.
 - **When a name is missing.** If the computer was offline, or a service
   didn't answer, the watch says how many addresses it couldn't look up, and

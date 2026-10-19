@@ -395,10 +395,14 @@ def run_watch(
     total = minutes * 60
     gathered = _Gathered()
     stopped_early = False
+    stops_seen = 0
     start = clock()
     while True:
         if should_stop():
             stopped_early = True
+            # The request that stopped the watch is the first; any later one,
+            # even one sent straight after it, ends the lookups below.
+            stops_seen = min(stop_requests(), 1) if stop_requests is not None else 0
             break
         at = clock() - start
         gathered.attempts += 1
@@ -436,8 +440,7 @@ def run_watch(
     if not stopped_early:
         lookup_stop, budget = should_stop, BUDGET
     elif stop_requests is not None:
-        already = stop_requests()
-        lookup_stop, budget = (lambda: stop_requests() > already), STOPPED_BUDGET
+        lookup_stop, budget = (lambda: stop_requests() > stops_seen), STOPPED_BUDGET
     else:
         lookup_stop, budget = (lambda: False), STOPPED_BUDGET
     owners = _look_up(gathered, lookups, lookup_stop, on_progress, budget)

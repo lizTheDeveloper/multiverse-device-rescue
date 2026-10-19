@@ -953,6 +953,27 @@ def test_stopped_watch_lookups_end_only_on_a_new_stop():
     assert budgets == [(False, 10)]
 
 
+def test_quick_double_stop_ends_the_lookups_too():
+    """Two stops sent together (a double Ctrl-C, say), both counted before the
+    watch notices: the second one still ends the lookups."""
+    requests = {"n": 0}
+    seen = []
+
+    def collect(platform):
+        requests["n"] += 2  # both stops arrive while this snapshot is read
+        return _busy_snaps()[0]
+
+    def lookups(ips, *, should_stop, on_progress, budget):
+        seen.append(should_stop())
+        return nobody_known(ips)
+
+    fake = FakeTime()
+    run_watch("darwin", 1, 5, collect=collect, dns=no_dns, clock=fake.clock, sleep=fake.sleep,
+              should_stop=lambda: requests["n"] > 0, verdict=lambda p, r: "expected",
+              lookups=lookups, stop_requests=lambda: requests["n"])
+    assert seen == [True]
+
+
 def test_stopped_budget_running_out_is_named():
     stops = iter([False, True])
     result = watch(_busy_snaps(), lookups=fake_lookups({}, over_budget=True),

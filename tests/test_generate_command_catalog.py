@@ -50,3 +50,17 @@ def test_watch_network_use_is_listed():
     assert "https://rdap.org/ip/\n" not in section  # an f-string's pieces are not URLs of their own
     assert "reverse DNS" in section
     assert "security find-certificate -a -p" in section
+
+
+def test_watch_section_lists_every_registry_a_lookup_can_reach():
+    import ast as _ast
+
+    from rescue import whois
+
+    section = gen.render().split("## The connection watch", 1)[1]
+    for host in whois._REDIRECT_HOSTS:
+        assert f"\n{host}\n" in section
+    tree = _ast.parse((REPO_ROOT / "rescue" / "whois.py").read_text(encoding="utf-8"))
+    assert gen._redirect_hosts(tree) == sorted(whois._REDIRECT_HOSTS)
+    assert "redirects this computer to the regional registry" in section
+    assert "public IP address" in section

@@ -241,17 +241,17 @@ class _StopRequests:
         import threading
 
         self._event = threading.Event()
-        self._lock = threading.Lock()
-        self._count = 0
+        # One entry per request. list.append is atomic and takes no lock, so
+        # it is safe in a signal handler that interrupts count() or the
+        # stdin reader.
+        self._requests: list[None] = []
 
     def request(self) -> None:
-        with self._lock:
-            self._count += 1
+        self._requests.append(None)
         self._event.set()
 
     def count(self) -> int:
-        with self._lock:
-            return self._count
+        return len(self._requests)
 
     def is_set(self) -> bool:
         return self._event.is_set()
@@ -322,9 +322,10 @@ def _stop_on_request():
     is_flag=True,
     help="Don't look up who runs each address afterwards. By default each public "
     "address (never what was in the connection) is sent to RIPE NCC and to rdap.org, "
-    "which passes it on to the regional registry that holds it (ARIN, RIPE NCC, "
-    "APNIC, LACNIC or AFRINIC), and looked up in reverse DNS through this "
-    "computer's own resolver.",
+    "which redirects this computer to the regional registry that holds it (ARIN, "
+    "RIPE NCC, APNIC, LACNIC or AFRINIC) to ask directly, and looked up in reverse "
+    "DNS through this computer's own resolver. Each service also sees this "
+    "computer's public IP address and the app's name and version.",
 )
 def watch(minutes, interval, as_json, progress, no_lookups):
     """Watch this computer's connections for a few minutes (opt-in, read-only).
@@ -385,10 +386,11 @@ def lookup(addresses):
     """Look up who runs each public address (read-only).
 
     Prints {address: who} as JSON. Only the address is sent: to RIPE NCC, to
-    rdap.org (which passes it on to the regional registry that holds it: ARIN,
-    RIPE NCC, APNIC, LACNIC or AFRINIC), and to reverse DNS through this
-    computer's own resolver. Private, local and reserved addresses are never
-    looked up; they print null.
+    rdap.org, which redirects this computer to the regional registry that holds
+    it (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask directly, and to
+    reverse DNS through this computer's own resolver. Each service also sees
+    this computer's public IP address and the app's name and version. Private,
+    local and reserved addresses are never looked up; they print null.
     """
     public = [ip for ip in addresses if is_lookupable(ip)]
     distinct = {address_key(ip) for ip in public}

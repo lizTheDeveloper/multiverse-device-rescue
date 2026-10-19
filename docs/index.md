@@ -63,9 +63,11 @@ allowed to do.
     and which sends only finding titles and descriptions to the provider you
     configured; and the "who runs this address" lookups after a connection
     watch (or `rescue lookup`), which send only public addresses to RIPE NCC,
-    to rdap.org (which passes them on to the regional registry that holds the address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC)) and to reverse DNS
-    through your computer's own resolver. `rescue watch --no-lookups` turns
-    the lookups off. See [Privacy](privacy.md).
+    to rdap.org, to the regional registry rdap.org redirects your computer
+    to (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC), and to reverse DNS through
+    your computer's own resolver. Like any website, these services also see
+    your computer's public IP address and the app's name and version.
+    `rescue watch --no-lookups` turns the lookups off. See [Privacy](privacy.md).
 
 !!! success "Guidance and system changes are counted separately"
     "Here is what you should do" and "I did this to your computer" are

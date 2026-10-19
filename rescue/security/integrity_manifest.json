@@ -17,7 +17,7 @@
     "app_names.py": "3aeb2248d91f8d09d3190c6dce4d6481ec0d9978ef6b06609c2c67dfb77f2c88",
     "attribution.py": "65b8a1da8a1f6ce25fb26521d53172a613109f93c865a6dd7ecb5154f72b9f73",
     "case.py": "a6b9e1fd314395f97e971194f6d3a352b85e2273d986eb422b659ade3feb0e87",
-    "cli.py": "9423008f76242c475620b16d073a1f7428d980ce8ba5a5de8fe14b4f3912ba73",
+    "cli.py": "6d8eaa4cc675558bb64fa3cd6efef6e9b36a9174f17fc868fa907d113eab05b1",
     "command.py": "fa75b1df5b3b742f81e0e3117f628030523c9442c63aac5c747e99d3c632043e",
     "crash_reports.py": "eb72bf87abb042fad6931a1166fb27b201a25ec15c19071874458458dea185bc",
     "fsbounds.py": "9eae7c588b5e31a373a42bc3d0fa029e3ac7df15f9d50409b61c2c80acbacdc8",
@@ -68,7 +68,7 @@
     "update/sideload.py": "cf94e79dbc85ebe604ce268f170d5ecc9d1ec082417b7dd6e9f42c57b6d9354e",
     "update/verify.py": "d902798e797833a54e550ca01a9d0961bfbf29614a2f831a412eed450b680f7a",
     "validate.py": "0015bb87a7ebd7f3085af48a7b4c25619d05c01a6b9307c17570eb97298671b8",
-    "watch.py": "e5c0106bde7f8fc2bf7f63da2ab8726780898cf6980f3c17e90ec077d2b7e8fd",
-    "whois.py": "9276a5d9573d374bfa653fbda8d75f4751729a02b3125fec6ad30c24250b8767"
+    "watch.py": "076c38a1e0e4134a7a1d3603a8460a6ff026dba27f7fe831ade6ef038fcbd039",
+    "whois.py": "2814ce479fb3ff4e14d14dac08ccd43b82e325bb32e0c5d20204445c6ec92a1b"
   }
 }

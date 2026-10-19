@@ -67,13 +67,15 @@ Four things, exhaustively:
    module if you want to be certain what a specific check does.
 4. **The connection watch's lookups.** After a `rescue watch` you start (or
    for each address you type into `rescue lookup`), each public address is
-   sent to RIPE NCC (`stat.ripe.net`) and to `rdap.org`, which passes the
-   request on to the regional registry that holds the address (ARIN, RIPE
-   NCC, APNIC, LACNIC or AFRINIC), so that registry receives the address too.
-   It is also looked up in reverse DNS, and the name that comes back is looked
-   up again to confirm it, both through your computer's own resolver (which
-   asks your DNS provider). Only the addresses are sent, never what was in
-   the connections, and private addresses are never sent.
+   sent to RIPE NCC (`stat.ripe.net`) and to `rdap.org`. rdap.org redirects
+   your computer to the regional registry that holds the address (ARIN, RIPE
+   NCC, APNIC, LACNIC or AFRINIC), and your computer then asks that registry
+   directly. The address is also looked up in reverse DNS, and the name that
+   comes back is looked up again to confirm it, both through your computer's
+   own resolver (which asks your DNS provider). Only the addresses are sent,
+   never what was in the connections, and private addresses are never sent.
+   Like any website, each service also sees your computer's public IP
+   address, and the request names the app and its version (Reclaim City).
    `rescue watch --no-lookups` turns this off. See
    [the CLI reference](cli.md#rescue-watch-watch-connections-for-a-few-minutes).
 

@@ -75,7 +75,7 @@ def test_constants():
     assert whois.SOURCES == [
         "reverse DNS (your computer's own resolver)",
         "RIPE NCC (stat.ripe.net)",
-        "rdap.org, which passes it on to the regional registry for the address "
+        "rdap.org and the regional registry it redirects to "
         "(ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC)",
     ]
 
