@@ -14,6 +14,8 @@ export default {
   whatTheScanLooksFor: 'The checkup looks for files these worms are known to drop, connections to their known servers, changed git settings, and anything set to start them again.',
   questions: [
     {
+      key: 'worm-script',
+      concept: 'poisoned-packages',
       teach: 'These worms can drop scripts into hidden or temporary folders. If one is flagged, the guides say to read it first and never run it. Then move it to a quarantine folder (a folder set aside for it) instead of deleting it, so it can be looked at later.',
       prompt: 'The checkup flags a script a worm is known to drop. What do the guides say to do with it?',
       options: [
@@ -24,8 +26,36 @@ export default {
         { text: 'Run it to see what it does', correct: false,
           feedback: 'Never run it. Read it, don’t execute it.' },
       ],
+      variants: [
+        {
+          key: 'worm-script-2',
+          prompt: 'Why move a flagged worm file to a quarantine folder instead of deleting it?',
+          options: [
+            { text: 'So it can be looked at later, and what it does tells you which passwords and keys to change', correct: true,
+              feedback: 'Right. Read it first, then quarantine it.' },
+            { text: 'Deleting it would spread the worm', correct: false,
+              feedback: 'That isn’t the reason. Quarantine keeps it for later review, and what it does tells you which passwords and keys to change.' },
+            { text: 'Quarantine runs it safely', correct: false,
+              feedback: 'Quarantine never runs it. It’s a folder set aside so the file can be looked at later.' },
+          ],
+        },
+        {
+          key: 'worm-script-3',
+          prompt: 'A flagged script downloads something and pipes it straight into a shell. Is it malware?',
+          options: [
+            { text: 'Not necessarily. Many real install scripts do that too, so read it and check whether you added it.', correct: true,
+              feedback: 'Right. This kind of match isn’t confirmed. If you don’t recognise it, quarantine it rather than deleting it.' },
+            { text: 'Yes. Delete it straight away.', correct: false,
+              feedback: 'Many legitimate install scripts use similar patterns. Read it first, and quarantine it rather than deleting it if you don’t recognise it.' },
+            { text: 'No. If it came with a tool you installed, leave it without reading it.', correct: false,
+              feedback: 'Read it first. Once you’ve read it and it checks out as an installer you added on purpose, leaving it is fine. If it’s unfamiliar, quarantine it.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'worm-server',
+      concept: 'poisoned-packages',
       teach: 'Worms also talk to the attacker’s servers. The program making that connection is the real problem; the connection is only the part you happened to see.',
       prompt: 'A program is talking to a known worm server. Is blocking that address enough?',
       options: [
@@ -34,8 +64,36 @@ export default {
         { text: 'Yes. Block it and carry on.', correct: false,
           feedback: 'The program would still be running. The connection is only the part you happened to see.' },
       ],
+      variants: [
+        {
+          key: 'worm-server-2',
+          prompt: 'Before you stop a program that talks to a known worm server, what should you note down?',
+          options: [
+            { text: 'The program’s name and where it was connecting', correct: true,
+              feedback: 'Right. You’ll need that to work out what else the program may have touched.' },
+            { text: 'Nothing. Stop it and move on.', correct: false,
+              feedback: 'Note the program’s name and where it was connecting first. You’ll need that to work out what else it may have touched.' },
+            { text: 'Only the server address, since that is the part the checkup showed', correct: false,
+              feedback: 'The address alone isn’t enough. Note the program’s name too, so you can work out what else it may have touched.' },
+          ],
+        },
+        {
+          key: 'worm-server-3',
+          prompt: 'You blocked the address a worm program was connecting to, and the alert stopped. Is that the end of it?',
+          options: [
+            { text: 'No. The program that made the connection is still running, so stop it and find what keeps starting it.', correct: true,
+              feedback: 'Right. The program itself is the problem; the connection was only the part you happened to see.' },
+            { text: 'Mostly, as long as you keep the block in place', correct: false,
+              feedback: 'The guide says not to simply block the address and leave the program running. The program is still there.' },
+            { text: 'Stop the program, and then it is done with no need to look further', correct: false,
+              feedback: 'Stopping it is the first step. Also find what launched it and what keeps starting it, or it may come back.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'git-hooks',
+      concept: 'poisoned-packages',
       teach: 'Some worms change your global git settings, so that every project you clone or create quietly picks up a malicious hook (a script git runs for you). A hook manager you set up yourself, like husky or pre-commit, uses the same settings on purpose.',
       prompt: 'Your global git settings point hooks at a folder. When is that a problem?',
       options: [
@@ -43,6 +101,32 @@ export default {
           feedback: 'Right. Read what it points at first. If you set it up yourself for a hook manager, it’s fine.' },
         { text: 'Always. Remove any hook setting you find.', correct: false,
           feedback: 'Not always. A hook manager you set up yourself, like husky or pre-commit, uses it on purpose. Read what it points at first.' },
+      ],
+      variants: [
+        {
+          key: 'git-hooks-2',
+          prompt: 'Your git hooks setting points at a folder you set up for husky. What should you do?',
+          options: [
+            { text: 'Nothing. A hook manager you set up yourself uses it on purpose.', correct: true,
+              feedback: 'Right. It’s a problem only when it points somewhere you don’t recognise.' },
+            { text: 'Remove it straight away', correct: false,
+              feedback: 'You set it up yourself, so it’s fine. It’s a problem only when it points somewhere you don’t recognise.' },
+            { text: 'Move the folder to a quarantine folder to be careful', correct: false,
+              feedback: 'There’s no need. You set it up yourself for a hook manager, so it’s fine. Quarantine is for files you don’t recognise.' },
+          ],
+        },
+        {
+          key: 'git-hooks-3',
+          prompt: 'A hooks setting points somewhere you don’t recognise. What do the guides say to do before you unset it?',
+          options: [
+            { text: 'Read the hook scripts in that folder, without running them', correct: true,
+              feedback: 'Right. What they do can tell you which passwords and keys to change.' },
+            { text: 'Run them to see what they do', correct: false,
+              feedback: 'Never run them. Read them first.' },
+            { text: 'Nothing. Just unset it.', correct: false,
+              feedback: 'Read the hook scripts first, without running them. What they do can tell you which passwords and keys to change.' },
+          ],
+        },
       ],
     },
   ],
