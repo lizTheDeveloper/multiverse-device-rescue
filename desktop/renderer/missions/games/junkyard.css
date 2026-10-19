@@ -1,0 +1,67 @@
+/* The Junkyard: size-first scrap cards. Uses the game's CSS variables (renderer/game/game.css). */
+.jy-card {
+  --jy-accent: var(--amber, #FF9F00);
+  border: 1px solid rgba(255, 159, 0, 0.35);
+  border-left: 4px solid var(--jy-accent);
+  background: var(--panel, rgba(26, 31, 43, 0.55));
+  color: var(--offwhite, #EDEFF3);
+  font-family: var(--font-body, system-ui, sans-serif);
+  padding: 18px 20px;
+  max-width: 640px;
+  overflow-wrap: anywhere;
+}
+.jy-card--crash { --jy-accent: var(--magenta, #FF2D9B); border-color: rgba(255, 45, 155, 0.35); }
+.jy-card--setting { --jy-accent: var(--cyan, #00E5FF); border-color: rgba(0, 229, 255, 0.3); }
+.jy-card--hog { --jy-accent: var(--lime, #C6FF00); border-color: rgba(198, 255, 0, 0.3); }
+
+.jy-tag {
+  margin: 0 0 6px;
+  font-family: var(--font-display, sans-serif);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--jy-accent);
+}
+.jy-head { margin: 0 0 6px; font-size: 18px; line-height: 1.35; font-weight: 600; }
+.jy-size {
+  font-family: var(--font-display, sans-serif);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--jy-accent);
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+.jy-rest { color: var(--offwhite, #EDEFF3); }
+.jy-title { margin: 0 0 10px; font-size: 13px; color: var(--dim, rgba(237, 239, 243, 0.55)); }
+.jy-what { margin: 10px 0; font-size: 14px; line-height: 1.5; }
+.jy-verdict { padding: 8px 12px; border-left: 3px solid var(--line, rgba(0, 229, 255, 0.15)); background: rgba(237, 239, 243, 0.04); }
+.jy-verdict--safe { border-left-color: var(--lime, #C6FF00); }
+.jy-verdict--check, .jy-verdict--full { border-left-color: var(--amber, #FF9F00); }
+.jy-verdict--look { border-left-color: var(--cyan, #00E5FF); }
+.jy-verdict--tool { border-left-color: var(--magenta, #FF2D9B); }
+.jy-unfinished { margin: 8px 0; font-size: 13px; color: var(--amber, #FF9F00); }
+.jy-say {
+  margin: 10px 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px dashed var(--jy-accent);
+  background: rgba(255, 159, 0, 0.06);
+}
+.jy-look { outline: 2px solid var(--jy-accent); outline-offset: 4px; }
+
+.jy-rows { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 12px 0 0; font-size: 13px; }
+.jy-rows dt { color: var(--dim, rgba(237, 239, 243, 0.55)); }
+.jy-rows dd { margin: 0; min-width: 0; }
+.jy-mono { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; background: var(--evidence-mono-bg, rgba(0, 229, 255, 0.08)); padding: 0 4px; }
+
+.jy-summary { color: var(--offwhite, #EDEFF3); font-family: var(--font-body, system-ui, sans-serif); }
+.jy-summary .jy-size { color: var(--amber, #FF9F00); }
+.jy-freed { margin: 0 0 6px; font-size: 18px; }
+.jy-note, .jy-tally { margin: 4px 0; font-size: 13px; color: var(--dim, rgba(237, 239, 243, 0.55)); }
+
+@media (max-width: 800px) {
+  .jy-card { padding: 14px 16px; }
+  .jy-size { font-size: 24px; }
+  .jy-rows { grid-template-columns: 1fr; gap: 0; }
+  .jy-rows dd { margin-bottom: 6px; }
+}
