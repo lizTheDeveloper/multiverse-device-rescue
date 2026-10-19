@@ -250,3 +250,17 @@ test('the bank item check rejects a two-option variant and monitoring wording, w
   // An unkeyed question is not a bank item, so its wording is the accuracy gate's business, not this check's.
   assert.deepStrictEqual(variantProblems({ id: 'old', questions: [{ teach: 'T', prompt: 'Is it watching?', options: [] }] }), []);
 });
+
+test('every item in the remove-everyone and cut-off-order families carries the known-person warning', async () => {
+  const { lessons } = await loadAll();
+  const lesson = lessons.find((l) => l.id === 'whos-on-wifi');
+  const warning = 'If it’s someone you know, stop and read the safety note before you change it.';
+  for (const key of ['remove-everyone', 'cut-off-order']) {
+    const q = lesson.questions.find((x) => x.key === key);
+    assert.ok(q, key);
+    assert.ok(q.teach.includes(warning), `${key} teach`);
+    for (const it of itemsOf(q)) {
+      for (const o of it.options) assert.ok(o.feedback.includes(warning), `${it.key}: "${o.text}"`);
+    }
+  }
+});
