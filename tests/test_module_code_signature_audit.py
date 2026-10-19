@@ -419,3 +419,28 @@ def test_hanging_signature_check_is_not_counted_as_valid(mod):
     assert "All applications in the scanned locations were checked" not in inventory.description
     # A check that didn't finish is not a problem either.
     assert _finding(result, "gatekeeper_rejected") is None
+
+
+def test_unread_folders_never_claim_every_app_was_looked_at(mod):
+    entry = {"path": r"C:\A\a.exe", "name": "a", "status": "incomplete", "detail": "x"}
+    with patch.object(
+        type(mod), "_audit_windows", return_value=([entry], 1, 1, False, [r"C:\B"])
+    ):
+        result = mod.check(_make_profile(Platform.WIN32))
+    text = _finding(result, "inventory").description
+    assert "could not be read" in text
+    assert "Every application was looked at" not in text
+    assert "All applications in the scanned locations were checked" not in text
+
+
+def test_person_facing_text_has_no_time_words(mod):
+    """No durations or speed claims in what a person reads."""
+    for i in range(6):
+        _install(mod, f"App{i}")
+    mod.max_binaries = 2
+    check = _run_with(mod, lambda args, **kw: _Result(ok=True))
+    fix = mod.fix(check, Mode.AUTO)
+    texts = [f.description for f in check.findings] + [a.description for a in fix.actions]
+    for text in texts:
+        for word in ("millisecond", "second", "is slow", "next time", "in time"):
+            assert word not in text, (word, text)

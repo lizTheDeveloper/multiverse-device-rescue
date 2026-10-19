@@ -233,15 +233,15 @@ class Module(ModuleBase):
             )
         elif capped:
             coverage = (
-                f"COVERAGE LIMIT: the scan stopped at {self.max_binaries} "
-                "applications because signature verification is slow. This is "
-                "not a full-disk audit, and applications beyond the cap were not "
+                f"COVERAGE LIMIT: the scan checks at most {self.max_binaries} "
+                "applications, because each signature check takes a while. This is "
+                "not a full-disk audit, and applications beyond that number were not "
                 "checked at all.\n\n"
             )
-        elif incomplete:
-            coverage = "Every application was looked at, but some checks did not finish.\n\n"
         elif unread:
             coverage = ""
+        elif incomplete:
+            coverage = "Every application was looked at, but some checks did not finish.\n\n"
         else:
             coverage = "All applications in the scanned locations were checked.\n\n"
         if unread:
@@ -383,8 +383,7 @@ class Module(ModuleBase):
                         description=(
                             f"Only {finding.data.get('examined')} of "
                             f"{finding.data.get('total_present')} applications were "
-                            "checked, because signature verification takes hundreds of "
-                            "milliseconds per binary.\n\n"
+                            "checked, because each signature check takes a while.\n\n"
                             "Do not read a clean result as 'everything is signed'. To "
                             "check a specific application yourself:\n"
                             "  codesign --verify --deep --strict '/Applications/Name.app'"
