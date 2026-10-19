@@ -1,0 +1,30 @@
+{
+ "name": "win_remote_access_audit",
+ "category": "security",
+ "finding": {
+  "title": "TeamViewer is installed on your computer",
+  "description": "We found TeamViewer, a program that lets someone else control your screen from another computer. If you installed this for work or to help a friend, that is fine. However, if you do not remember installing it, it may have been added by someone else to watch your activity.\n\nIf you think a partner, ex, or family member installed this to monitor you, removing it can alert them. Talk to an advocate first (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you did not install TeamViewer, open Windows Settings > Apps > Installed apps, find TeamViewer, and select Uninstall.",
+  "severity": "warning",
+  "category": "security",
+  "data": {
+   "check": "teamviewer_installed",
+   "tool": "TeamViewer"
+  },
+  "confidence": null,
+  "collected_at": null,
+  "code": "security.win_remote_access_audit.teamviewer_installed",
+  "remediation": {
+   "title": "Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP)",
+   "estimated_time": "20 minutes",
+   "steps": [
+    {
+     "number": 2,
+     "title": "Check if you use TeamViewer",
+     "body": "1. Confirm: does anyone with legitimate reason to remotely support this\n   machine (family IT help, a business you work with) use TeamViewer? If\n   yes, no action needed.\n2. If unrecognized or no longer needed, uninstall via Settings → Apps →\n   Apps and features → search \"TeamViewer\" → Uninstall, then restart."
+    }
+   ],
+   "all_steps": false,
+   "safety_note": "Before you remove or turn anything off: if you think someone close to you set this up to watch you, removing it can alert them. Talk to an advocate first. In the US: National Domestic Violence Hotline, 1-800-799-7233, or text START to 88788."
+  }
+ }
+}

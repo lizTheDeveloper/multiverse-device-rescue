@@ -2,11 +2,14 @@
 
 /*
  * How much the list and the game say to someone who may be watched by a
- * person close to them. Standard mode: none of it, except on a finding that
- * is itself monitoring software, which carries one line with the full note
- * behind it. City mode: monitoring software gets the hold line and its help
- * instead, and nothing to act on. Everything here works on copies; the scan
- * is never changed.
+ * person close to them. Standard mode: no hotline or advocate wording, except
+ * that a finding that is monitoring software, or that warns removing it can
+ * alert someone (a walkthrough's safety note, or a sentence saying so), keeps
+ * one line with the full note behind it. Quieting never takes the warning
+ * away. City mode is never quieted: every finding keeps its own text and its
+ * safety note in full, and monitoring software gets the hold line and its
+ * help instead, and nothing to act on. Everything here works on copies; the
+ * scan is never changed.
  *
  * Loaded as a plain script (global `QuietNotes`, also on window for the game).
  */
@@ -21,6 +24,10 @@ const QuietNotes = (function () {
   // "DV": under /i it matched the flag in `codesign -dv`.
   const MARKERS = /799-7233|88788|\btext\s+START\b|\badvocates?\b|domestic\s+violence|\bDV\s+Hotline\b|\bpartner,\s+(?:an\s+)?ex\b|\bex-partner\b|\bhousemates?\b|\babuser\b/i;
   const LINE = 'Removing this can alert whoever installed it. Read this first.';
+  // A sentence that warns removing or switching something off can alert
+  // someone: "removing it can alert them", "Switching off remote access
+  // someone else set up can alert them", "removal can alert them".
+  const ALERTS = /\b(?:remov(?:e|es|ed|ing|al)|uninstall\w*|delet\w*|disabl\w*|(?:switch|turn)\w*\s+(?:\S+\s+){0,3}?off)\b[^.!?]*?\b(?:can|may|could|might|will|would)\s+(?:alert|tip\s+off|notify|warn)\b/i;
   const DEFAULT_FULL = 'If someone close to you may have installed it, talk to an advocate before you remove anything. In the US: National Domestic Violence Hotline, 1-800-799-7233, or text START to 88788.';
   const HELD_LINE = 'Don’t remove it yet. Talk to an advocate first.';
   const HELD_MORE = 'Open the city to see how to keep a quiet record of it.';
@@ -146,9 +153,26 @@ const QuietNotes = (function () {
     return kept || HELD_ABOUT;
   }
 
+  // Whether a finding warns that removing it can alert someone: a safety
+  // note, a sentence that says so in its description or steps, or (already
+  // quieted) the note quietFinding kept for it.
+  function carriesAlert(f) {
+    if (!f || typeof f !== 'object') return false;
+    if (Array.isArray(f.quiet_full) && f.quiet_full.length) return true;
+    const rem = f.remediation && typeof f.remediation === 'object' ? f.remediation : null;
+    if (rem && rem.safety_note) return true;
+    if (ALERTS.test(String(f.description == null ? '' : f.description))) return true;
+    return !!(rem && Array.isArray(rem.steps) && rem.steps.some((s) => s && ALERTS.test(String(s.body == null ? '' : s.body))));
+  }
+
+  // Standard mode's copy of a finding: no hotline or advocate wording in its
+  // description or steps, and no safety note. A finding that warned about
+  // removal keeps that warning as `quiet_full` (memory only), which the one
+  // line shows behind it.
   function quietFinding(f) {
     if (!f || typeof f !== 'object') return f;
     const out = { ...f };
+    if (carriesAlert(f)) out.quiet_full = fullNote(f);
     if (f.description != null) out.description = quiet(f.description);
     const rem = f.remediation && typeof f.remediation === 'object' ? f.remediation : null;
     if (rem) {
@@ -159,8 +183,9 @@ const QuietNotes = (function () {
     return out;
   }
 
-  function quietDoc(doc) {
-    if (!doc || !Array.isArray(doc.modules)) return doc;
+  // City mode is never quieted.
+  function quietDoc(doc, mode) {
+    if (mode === 'city' || !doc || !Array.isArray(doc.modules)) return doc;
     return { ...doc, modules: doc.modules.map((m) => {
       if (!m || !Array.isArray(m.findings) || MONITORING_MODULES.has(m.name)) return m;
       return { ...m, findings: m.findings.map(quietFinding) };
@@ -168,13 +193,17 @@ const QuietNotes = (function () {
   }
 
   // 'line': the one line, full note behind it (standard). 'held': the hold
-  // line and nothing to act on (city). 'none': nothing.
+  // line and nothing to act on (city, monitoring software). 'full': the
+  // finding's own text, unquieted, with its safety note in full (city).
+  // 'none': nothing more to say.
   function noteFor(mode, finding) {
-    if (!isDetection(finding)) return 'none';
-    return mode === 'city' ? 'held' : 'line';
+    if (isDetection(finding)) return mode === 'city' ? 'held' : 'line';
+    if (!carriesAlert(finding)) return 'none';
+    return mode === 'city' ? 'full' : 'line';
   }
 
   function fullNote(f) {
+    if (Array.isArray(f.quiet_full) && f.quiet_full.length) return f.quiet_full.slice();
     const out = [];
     const sn = f.remediation && f.remediation.safety_note;
     if (sn) out.push(String(sn));
@@ -189,16 +218,31 @@ const QuietNotes = (function () {
   }
 
   // What one card may say. Monitoring software keeps its own steps: they are
-  // the careful way to deal with it, read after the line.
+  // the careful way to deal with it, read after the line. In city mode
+  // nothing is quieted.
   function cardText(mode, finding) {
     const f = finding || {};
     const note = noteFor(mode, f);
     if (note === 'held') return { note, description: heldDescription(f.description), steps: [], full: [] };
     const steps = f.remediation && Array.isArray(f.remediation.steps) ? f.remediation.steps : [];
-    if (note === 'line') return { note, description: quiet(f.description), steps, full: fullNote(f) };
+    if (mode === 'city') {
+      const sn = f.remediation && f.remediation.safety_note;
+      return { note, description: f.description == null ? '' : String(f.description), steps, full: sn ? [String(sn)] : [] };
+    }
+    if (note === 'line' && isDetection(f)) return { note, description: quiet(f.description), steps, full: fullNote(f) };
     const q = quietFinding(f);
+    if (note === 'line') {
+      return { note, description: q.description == null ? '' : q.description,
+        steps: q.remediation && Array.isArray(q.remediation.steps) ? q.remediation.steps : [], full: fullNote(f) };
+    }
     return { note, description: q.description == null ? '' : q.description,
       steps: q.remediation && Array.isArray(q.remediation.steps) ? q.remediation.steps : [], full: [] };
+  }
+
+  // City mode: the safety note as it is, on its face.
+  function fullHtml(card, esc) {
+    if (!card || card.note !== 'full' || !card.full.length) return '';
+    return `<div class="finding-card__note" role="note">${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</div>`;
   }
 
   function lineHtml(card, esc) {
@@ -232,7 +276,7 @@ const QuietNotes = (function () {
       category: f.category, code: f.code };
   }
 
-  return { MONITORING_MODULES, NOT_DETECTIONS, isDetection, MARKERS, LINE, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
+  return { MONITORING_MODULES, NOT_DETECTIONS, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -1,10 +1,11 @@
 import { esc } from '../escape.js';
 import { SCOUT } from '../scout-lines.js';
 
-// `note` (held.js briefingNote) is what the list says on monitoring software:
+// `note` (held.js briefingNote) is what the list says about removing it:
 // in 'standard' the one line with the full note behind it, which the engine's
-// safety_note alone doesn't give (stalkerware has none); in 'city' the hold
-// line and its help, and then no steps and nothing to act on.
+// safety_note alone doesn't give (stalkerware has none); in 'city' the safety
+// note in full, or on monitoring software the hold line and its help, and then
+// no steps and nothing to act on.
 export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety, learned, note }) {
   const held = !!note && note.kind === 'held';
   const steps = m.steps.map((s) => `

@@ -30,13 +30,49 @@ test('in a list, only the item that carries it comes out', () => {
 
 test('a card for anything else has no such text, in its description or its steps', () => {
   const finding = { module: 'remote_login_check', description: 'Remote Login is on.\n\nTalk to an advocate first (1-800-799-7233).',
-    remediation: { safety_note: 'Talk to an advocate.', steps: [{ number: 1, title: 'Turn it off', body: 'Open System Settings.\n\nCall 1-800-799-7233 first.' }] } };
+    remediation: { steps: [{ number: 1, title: 'Turn it off', body: 'Open System Settings.\n\nCall 1-800-799-7233 first.' }] } };
   const card = Q.cardText('standard', finding);
   assert.strictEqual(card.note, 'none');
   assert.doesNotMatch(card.description + card.steps.map((s) => s.body).join(' '), DV);
   assert.match(card.description, /Remote Login is on/);
   assert.match(card.steps[0].body, /Open System Settings/);
   assert.strictEqual(Q.lineHtml(card, esc), '');
+});
+
+test('standard mode: a safety note on any finding keeps the one line, with the note behind it', () => {
+  const finding = { module: 'remote_login_check', description: 'Remote Login is on.\n\nTalk to an advocate first (1-800-799-7233).',
+    remediation: { safety_note: 'Talk to an advocate.', steps: [{ number: 1, title: 'Turn it off', body: 'Open System Settings.\n\nCall 1-800-799-7233 first.' }] } };
+  const card = Q.cardText('standard', finding);
+  assert.strictEqual(card.note, 'line');
+  assert.doesNotMatch(card.description + card.steps.map((s) => s.body).join(' '), DV);
+  assert.match(card.steps[0].body, /Open System Settings/);
+  const html = Q.lineHtml(card, esc);
+  assert.match(html, /<summary>Removing this can alert whoever installed it\. Read this first\.<\/summary>/);
+  assert.match(html, /Talk to an advocate\./);
+});
+
+test('a removal-alert sentence alone also keeps the one line', () => {
+  for (const s of ['If you think a partner, ex, or family member installed this to monitor you, removing it can alert them.',
+    'Switching off remote access someone else set up can alert them.', 'Removing it may alert that person.', 'If so, removal can alert them.']) {
+    assert.ok(Q.carriesAlert({ description: `On.\n\n${s}` }), s);
+    assert.strictEqual(Q.noteFor('standard', { module: 'x', description: `On.\n\n${s}` }), 'line', s);
+    assert.strictEqual(Q.noteFor('city', { module: 'x', description: `On.\n\n${s}` }), 'full', s);
+  }
+  assert.ok(!Q.carriesAlert({ description: 'Remove the old printer driver.' }));
+  // Quieted once, the copy still carries it.
+  const q = Q.quietFinding({ module: 'x', description: 'On.\n\nIf a partner, ex or housemate set this up, removing it can alert them.' });
+  assert.doesNotMatch(q.description, /alert/);
+  assert.strictEqual(Q.noteFor('standard', q), 'line');
+  assert.match(Q.lineHtml(Q.cardText('standard', q), esc), /removing it can alert them/);
+});
+
+test('city mode quiets nothing: quietDoc hands back the scan, and a card keeps its note in full', () => {
+  const doc = { modules: [{ name: 'remote_login_check', findings: [{ description: 'On.\n\nCall 1-800-799-7233.', remediation: { safety_note: 'SN 1-800-799-7233', steps: [] } }] }] };
+  assert.strictEqual(Q.quietDoc(doc, 'city'), doc);
+  const card = Q.cardText('city', doc.modules[0].findings[0]);
+  assert.strictEqual(card.note, 'full');
+  assert.match(card.description, /799-7233/);
+  assert.strictEqual(Q.fullHtml(card, esc), '<div class="finding-card__note" role="note"><p>SN 1-800-799-7233</p></div>');
 });
 
 test('monitoring software: one line with the full note behind it, and its own steps kept', () => {
@@ -193,7 +229,7 @@ test('the game’s mission screens read the same quiet text', async () => {
     QuietNotes: Q,
     FixFlow: { attach() {}, fixControlsHtml: () => '', resultHtml: () => '' },
     MarkFlow: { attach() {}, markControlsHtml: () => '' },
-    RescueHost: { showList() {}, docChanged: () => true, wantsSafety: () => false, scanTips: async () => [], leaveGame() {} },
+    RescueHost: { showList() {}, docChanged: () => true, mode: () => 'standard', wantsSafety: () => false, scanTips: async () => [], leaveGame() {} },
     rescue: { recheckModule: async () => ({ ok: false }) },
   };
   const ctl = createController({ win, storage: null, scoutSprite: () => '', loadGame: () => new Promise(() => {}),

@@ -82,7 +82,8 @@ export function heldOnly(doc) {
 export function briefingNote(Q, mode, finding) {
   if (!Q || !finding) return { kind: 'none', html: '', description: '' };
   const card = Q.cardText(mode, finding);
-  return { kind: card.note, html: Q.lineHtml(card, esc) + Q.heldHtml(card, esc, { more: false }), description: card.description };
+  const full = typeof Q.fullHtml === 'function' ? Q.fullHtml(card, esc) : '';
+  return { kind: card.note, html: Q.lineHtml(card, esc) + full + Q.heldHtml(card, esc, { more: false }), description: card.description };
 }
 
 // The map's note while something is held, so the city always says it and

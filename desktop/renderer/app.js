@@ -534,8 +534,8 @@ if (typeof document !== 'undefined') {
         }
         return true;
       },
-      // The game's briefing shows a mission's safety note only where the list shows the line.
-      wantsSafety(finding) { return QuietNotes.noteFor(mode, finding) === 'line'; },
+      // The game's briefing shows a mission's safety note wherever the list shows it.
+      wantsSafety(finding) { const n = QuietNotes.noteFor(mode, finding); return n === 'line' || n === 'full'; },
       // The display preference and the install's seed, for the game.
       mode() { return mode; },
       citySeed() { return citySeed; },
@@ -722,7 +722,8 @@ if (typeof document !== 'undefined') {
       const items = findings
         .map((finding) => {
           const key = String(nextCardKey++);
-          // What this card may say (QuietNotes): no hotline text, except the one line on monitoring software.
+          // What this card may say (QuietNotes). Standard: no hotline text, and the one
+          // line wherever removing something can alert someone. City: everything, unquieted.
           const card = QuietNotes.cardText(mode, finding);
           // City mode, monitoring software: the hold line and its help. No fix,
           // no "It's mine", no steps, and it doesn't count toward the list's progress.
@@ -757,7 +758,7 @@ if (typeof document !== 'undefined') {
               ${noControls ? '' : MarkFlow.markControlsHtml(finding, { watched })}
               ${marked || held ? '' : ClearList.didControlsHtml(finding, severity, escapeHtml)}
               </div>
-              ${QuietNotes.lineHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
+              ${QuietNotes.lineHtml(card, escapeHtml)}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
               ${card.steps.length ? `
               <div class="next-steps">
                 <h4>What to do</h4>

@@ -151,8 +151,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   // `putBack` is a mission the person just asked to have back (Undo, or "Stop
   // treating this as mine"). Its return is expected, so it isn't "came back".
-  // The same quiet text as the list (QuietNotes): no hotline paragraphs in missions, notes or clues.
-  const quietDoc = (d) => (win.QuietNotes ? win.QuietNotes.quietDoc(d) : d);
+  // The same text as the list (QuietNotes): in standard mode no hotline paragraphs in
+  // missions, notes or clues (the one line keeps any removal warning); city mode is never quieted.
+  const quietDoc = (d) => (win.QuietNotes ? win.QuietNotes.quietDoc(d, hostMode()) : d);
+  // City mode: the fix and "It's mine" panels carry the extra warning about whoever set something up.
+  const watchedOpts = () => ({ watched: hostMode() === 'city' });
   // Without the host's answer, assume 'city': monitoring software is then held
   // (nothing to act on) rather than shown with its removal steps.
   const hostMode = () => (win.RescueHost && typeof win.RescueHost.mode === 'function' ? win.RescueHost.mode() : 'city');
@@ -332,7 +335,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const sig = s.signal && findSignal(s.signal.id);
     if (!sig) { s.signal = null; return ''; }
     // The real "It's mine" step, offered only for a finding that has one. MarkFlow asks its own question.
-    const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding) : '';
+    const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, watchedOpts()) : '';
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
       range: s.screen === 'range' ? { hasCity: !!s.city } : null });
@@ -582,7 +585,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // nothing to act on.
       const note = briefingNote(win.QuietNotes, hostMode(), m.primary);
       const controls = note.kind === 'held' ? ''
-        : `${win.FixFlow.fixControlsHtml(m.primary, { watched: false })}${win.MarkFlow.markControlsHtml(m.primary)}`;
+        : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, watchedOpts())}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
         scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note });
     }
