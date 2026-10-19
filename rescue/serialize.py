@@ -115,6 +115,35 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
     return out
 
 
+def module_entry(mod, check, walkthroughs=None, app_fixes=None, made_by=None, app_actions=None) -> dict:
+    """One entry of the "modules" array, for one finished check.
+
+    ``checks_to_json`` builds the whole document from these; ``rescue scan
+    --json --progress`` also streams each one on stderr as its check finishes.
+    A streamed entry is built alone, so a "markable" block's "ids" cover only
+    that module (the final document links them across modules).
+    """
+    entry = (app_fixes or {}).get(mod.name)
+    offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
+    return {
+        "name": mod.name,
+        "category": getattr(mod, "category", None),
+        "status": "error" if check.error else "ok",
+        "error": check.error,
+        # False means the check could not run here: not a clean result.
+        "supported": getattr(check, "supported", True),
+        "unsupported_reason": getattr(check, "unsupported_reason", None),
+        "findings": [
+            _finding(
+                f, walkthroughs, offer, made_by,
+                None if check.error else _action_fixable(f, mod.name, app_actions),
+                None if check.error else _markable(f, mod.name),
+            )
+            for f in check.findings
+        ],
+    }
+
+
 def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, made_by=None, app_actions=None) -> str:
     """Convert check results to a JSON string suitable for external consumption.
 
@@ -142,27 +171,10 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
         Each module entry has name, category, status, error, supported,
         unsupported_reason, findings.
     """
-    modules = []
-    for mod, check in results:
-        entry = (app_fixes or {}).get(mod.name)
-        offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
-        modules.append({
-            "name": mod.name,
-            "category": getattr(mod, "category", None),
-            "status": "error" if check.error else "ok",
-            "error": check.error,
-            # False means the check could not run here: not a clean result.
-            "supported": getattr(check, "supported", True),
-            "unsupported_reason": getattr(check, "unsupported_reason", None),
-            "findings": [
-                _finding(
-                    f, walkthroughs, offer, made_by,
-                    None if check.error else _action_fixable(f, mod.name, app_actions),
-                    None if check.error else _markable(f, mod.name),
-                )
-                for f in check.findings
-            ],
-        })
+    modules = [
+        module_entry(mod, check, walkthroughs, app_fixes, made_by, app_actions)
+        for mod, check in results
+    ]
     _link_task_marks(modules)
     return json.dumps(
         {"schema_version": 1, "platform": platform, "modules": modules},

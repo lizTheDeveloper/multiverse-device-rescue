@@ -119,7 +119,7 @@ def test_scan_progress_reports_each_check_on_stderr_and_keeps_stdout_pure():
                                   'report': lambda self, check, fix=None: ''})()
     check = CheckResult(module_name='disk_space')
 
-    def fake_run_checks(on_progress=None):
+    def fake_run_checks(on_progress=None, on_plan=None):
         on_progress('start', 1, 1, mod, None)
         on_progress('done', 1, 1, mod, check)
         return [(mod, check)]
@@ -145,7 +145,7 @@ def test_scan_trace_reports_commands_under_the_module_that_ran_them():
                                   'report': lambda self, check, fix=None: ''})()
     check = CheckResult(module_name='disk_space')
 
-    def fake_run_checks(on_progress=None):
+    def fake_run_checks(on_progress=None, on_plan=None):
         on_progress('start', 1, 1, mod, None)
         subprocess.run([sys.executable, '-c', 'pass'])
         on_progress('done', 1, 1, mod, check)
@@ -191,3 +191,60 @@ def test_scan_json_attaches_the_fix_walkthrough_to_coded_findings():
         "all_steps": True,
     }
     assert "remediation" not in findings[1]
+
+
+def _streaming_scan(args, findings_by_module):
+    """Run `rescue scan` with fake modules; returns (result, stderr JSON lines)."""
+    mods = [type('MockModule', (), {'name': name, 'category': 'security',
+                                    'report': lambda self, check, fix=None: ''})()
+            for name in findings_by_module]
+    checks = [CheckResult(module_name=m.name, findings=findings_by_module[m.name]) for m in mods]
+
+    def fake_run_checks(on_progress=None, on_plan=None):
+        if on_plan:
+            on_plan(mods)
+        for i, (mod, check) in enumerate(zip(mods, checks), start=1):
+            if on_progress:
+                on_progress('start', i, len(mods), mod, None)
+                on_progress('done', i, len(mods), mod, check)
+        return list(zip(mods, checks))
+
+    with patch('rescue.cli.Orchestrator') as MockOrch:
+        MockOrch.return_value.run_checks.side_effect = fake_run_checks
+        result = CliRunner().invoke(main, args)
+    lines = [json.loads(l) for l in result.stderr.splitlines() if l.startswith('{')]
+    return result, lines
+
+
+def test_scan_progress_streams_each_finished_check_as_its_final_entry():
+    # The desktop app shows findings while the rest of the scan runs. Each
+    # {"module": ...} line is that check's entry of the final "modules" array
+    # (made_by is looked up only at the end), right after its "done" line.
+    found = Finding(title='Unknown helper', description='d', severity=Severity.WARNING,
+                    category='security', code='security.a.b', data={'path': '/tmp/x'})
+    result, lines = _streaming_scan(["scan", "--json", "--progress", "--no-attribution"],
+                                    {'first': [found], 'second': []})
+    assert result.exit_code == 0, result.output
+    doc = json.loads(result.stdout)  # stdout is still one pure document
+    kinds = [next(iter(l)) for l in lines]
+    assert kinds == ['plan', 'progress', 'progress', 'module', 'progress', 'progress', 'module']
+    assert lines[0]['plan'] == {'total': 2, 'modules': [
+        {'module': 'first', 'category': 'security'}, {'module': 'second', 'category': 'security'}]}
+    streamed = [l['module'] for l in lines if 'module' in l]
+    assert streamed == doc['modules']
+
+
+def test_scan_trace_streams_entries_too_but_plain_json_does_not():
+    result, lines = _streaming_scan(["scan", "--json", "--trace", "--no-attribution"], {'only': []})
+    assert result.exit_code == 0, result.output
+    assert [l['module']['name'] for l in lines if 'module' in l] == ['only']
+    result, lines = _streaming_scan(["scan", "--json"], {'only': []})
+    assert result.exit_code == 0 and lines == []
+    json.loads(result.stdout)
+
+
+def test_scan_progress_without_json_streams_no_entries():
+    # The entries are the JSON document's shape; human output doesn't get them.
+    result, lines = _streaming_scan(["scan", "--progress"], {'only': []})
+    assert result.exit_code == 0, result.output
+    assert {next(iter(l)) for l in lines} == {'plan', 'progress'}
