@@ -23,16 +23,17 @@ import sys
 import threading
 import time
 import unicodedata
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
 
 from rescue import __version__
 from rescue.command import run
-from rescue.netaddr import _ip, _is_public
+from rescue.netaddr import address_key, is_public, parse_ip
 
 MAX_ADDRESSES = 150
-WORKERS = 6
+WORKERS = 3
 TIMEOUT = 4.0
 BUDGET = 60.0
 MAX_BODY = 65536
@@ -40,7 +41,8 @@ MAX_BODY = 65536
 SOURCES = [
     "reverse DNS (your computer's own resolver)",
     "RIPE NCC (stat.ripe.net)",
-    "rdap.org (the internet registries)",
+    "rdap.org, which passes it on to the regional registry for the address "
+    "(ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC)",
 ]
 
 _MAX_TEXT = 200
@@ -63,7 +65,7 @@ _EMPTY_RDAP = {"network": None, "registrant": None, "country": None}
 
 def is_lookupable(ip: str) -> bool:
     """True only for an address on the internet (never this computer or network)."""
-    return _is_public(ip)
+    return is_public(ip)
 
 
 def _clean(value) -> str | None:
@@ -256,13 +258,13 @@ def _rdap_url(ip: str) -> str:
 # --- looking up ------------------------------------------------------------
 
 
-def _resolve_bounded(resolve, ip: str, timeout: float):
-    """Reverse DNS has no timeout of its own, so give it one."""
+def _bounded(call: Callable[[], object], timeout: float, what: str):
+    """Name lookups have no timeout of their own, so give them one."""
     box: dict = {}
 
     def target():
         try:
-            box["name"] = resolve(ip)[0]
+            box["value"] = call()
         except BaseException as exc:  # noqa: BLE001 - reported to the caller below
             box["error"] = exc
 
@@ -270,10 +272,15 @@ def _resolve_bounded(resolve, ip: str, timeout: float):
     thread.start()
     thread.join(timeout)
     if thread.is_alive():
-        raise TimeoutError("reverse DNS didn't answer")
+        raise TimeoutError(f"{what} didn't answer")
     if "error" in box:
         raise box["error"]
-    return box.get("name")
+    return box.get("value")
+
+
+def forward_addresses(name: str) -> list[str]:
+    """The addresses a name resolves to, through this computer's own resolver."""
+    return [info[4][0] for info in socket.getaddrinfo(name, None)]
 
 
 def _no_reverse_name(exc: BaseException) -> bool:
@@ -285,25 +292,61 @@ def _no_reverse_name(exc: BaseException) -> bool:
     return False
 
 
-def look_up(ip, *, fetch, resolve, timeout) -> dict:
+def _confirmed(name: str, query: str, forward, timeout: float) -> bool:
+    """True only if ``name`` resolves back to ``query``.
+
+    Whoever controls an address's reverse DNS can give it any name, even
+    "www.apple.com"; a name that doesn't lead back to the address proves nothing.
+    """
+    try:
+        found = _bounded(lambda: forward(name), timeout, "DNS")
+    except Exception:  # noqa: BLE001 - can't confirm, so unconfirmed
+        return False
+    if not isinstance(found, (list, tuple)):
+        return False
+    return any(isinstance(a, str) and address_key(a) == query for a in found)
+
+
+def _is_timeout(exc: BaseException) -> bool:
+    if isinstance(exc, TimeoutError):  # socket.timeout too
+        return True
+    return isinstance(exc, urllib.error.URLError) and isinstance(exc.reason, TimeoutError)
+
+
+def _fetch_once_more_on_timeout(fetch, url: str, timeout: float) -> bytes:
+    """A slow answer gets one more try; any other failure doesn't."""
+    try:
+        return fetch(url, timeout)
+    except Exception as exc:  # noqa: BLE001 - re-raised unless it was a timeout
+        if not _is_timeout(exc):
+            raise
+    return fetch(url, timeout)
+
+
+def look_up(ip, *, fetch, resolve, timeout, forward=forward_addresses) -> dict:
     """Everything that can be learned about one address.
 
-    ``unavailable`` names each part that couldn't be checked: ``dns``,
+    ``hostname_confirmed`` is true only when the hostname resolves back to the
+    address. ``unavailable`` names each part that couldn't be checked: ``dns``,
     ``owner`` (RIPEstat) and ``registry`` (RDAP).
     """
-    query = str(_ip(ip))  # an IPv4 address carried in IPv6 is looked up as IPv4
-    who = {"hostname": None, **_EMPTY_RIPE, **_EMPTY_RDAP, "unavailable": []}
+    query = str(parse_ip(ip))  # an IPv4 address carried in IPv6 is looked up as IPv4
+    who = {"hostname": None, "hostname_confirmed": False, **_EMPTY_RIPE, **_EMPTY_RDAP,
+           "unavailable": []}
 
     try:
-        who["hostname"] = _clean(_resolve_bounded(resolve, query, timeout))
+        answer = _bounded(lambda: resolve(query), timeout, "reverse DNS")
+        who["hostname"] = _clean(answer[0])
     except Exception as exc:  # noqa: BLE001 - any failure is couldn't-check
         if not _no_reverse_name(exc):
             who["unavailable"].append("dns")
+    if who["hostname"]:
+        who["hostname_confirmed"] = _confirmed(who["hostname"], query, forward, timeout)
 
     for group, url, parse in (("owner", _ripe_url(query), parse_ripe),
                               ("registry", _rdap_url(query), parse_rdap)):
         try:
-            found = parse(fetch(url, timeout))
+            found = parse(_fetch_once_more_on_timeout(fetch, url, timeout))
         except Exception:  # noqa: BLE001 - offline, TLS, HTTP errors, oversized
             found = None
         if not found or all(v is None for v in found.values()):
@@ -319,49 +362,57 @@ def look_up_all(
     *,
     fetch: Callable[[str, float], bytes] = default_fetch,
     resolve: Callable[[str], tuple] = socket.gethostbyaddr,
+    forward: Callable[[str], list[str]] = forward_addresses,
     limit: int = MAX_ADDRESSES,
     workers: int = WORKERS,
     timeout: float = TIMEOUT,
     budget: float = BUDGET,
     clock: Callable[[], float] = time.monotonic,
+    should_stop: Callable[[], bool] | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> dict:
     """Look up the first ``limit`` public addresses in ``ips`` (busiest first).
 
     ``skipped`` counts public addresses past the limit, ``failed`` the ones
-    where neither RIPEstat nor RDAP answered, and ``over_budget`` says the
-    lookups stopped because ``budget`` seconds ran out.
+    where neither RIPEstat nor RDAP answered, ``over_budget`` says the lookups
+    stopped because ``budget`` seconds ran out, and ``stopped`` that
+    ``should_stop()`` turned true: no new lookup starts and the ones under way
+    are left behind. ``on_progress(done, total)`` is called from this thread
+    as answers come in.
     """
+    should_stop = should_stop or (lambda: False)
     wanted: list[str] = []
     seen: set[str] = set()
     for ip in ips:
         if not is_lookupable(ip):
             continue
-        key = str(_ip(ip))  # ::ffff:8.8.8.8 and 8.8.8.8 are one address
+        key = address_key(ip)  # ::ffff:8.8.8.8 and 8.8.8.8 are one address
         if key not in seen:
             seen.add(key)
             wanted.append(ip)
     queue = wanted[:limit]
     skipped = len(wanted) - len(queue)
     if not queue:
-        return {"results": {}, "skipped": skipped, "failed": 0, "over_budget": False}
+        return {"results": {}, "skipped": skipped, "failed": 0, "over_budget": False,
+                "stopped": False}
 
     start = clock()
     lock = threading.Lock()
     results: dict[str, dict] = {}
-    state = {"next": 0, "out_of_time": False, "closed": False, "running": 0}
+    state = {"next": 0, "out_of_time": False, "stop": False, "closed": False, "running": 0}
     finished = threading.Event()
 
     def worker():
         while True:
             with lock:
-                if state["closed"] or state["next"] >= len(queue):
+                if state["closed"] or state["stop"] or state["next"] >= len(queue):
                     break
                 if clock() - start >= budget:
                     state["out_of_time"] = True
                     break
                 ip = queue[state["next"]]
                 state["next"] += 1
-            who = look_up(ip, fetch=fetch, resolve=resolve, timeout=timeout)
+            who = look_up(ip, fetch=fetch, resolve=resolve, timeout=timeout, forward=forward)
             with lock:
                 if state["closed"]:
                     break
@@ -371,21 +422,43 @@ def look_up_all(
             if state["running"] == 0:
                 finished.set()
 
+    def report(done: int) -> None:
+        if on_progress is not None:
+            try:
+                on_progress(done, len(queue))
+            except Exception:  # nosec - progress is a courtesy; the lookups go on
+                pass
+
     count = max(1, min(workers, len(queue)))
     state["running"] = count
     # Daemon threads: a lookup stuck past the budget is left behind, never waited on.
     for _ in range(count):
         threading.Thread(target=worker, daemon=True).start()
 
+    reported = 0
+    stopped = False
     while not finished.is_set():
+        if should_stop():
+            stopped = True
+            with lock:
+                state["stop"] = True
+            break
         remaining = budget - (clock() - start)
         if remaining <= 0:
             break
         finished.wait(min(remaining, 0.05))
+        with lock:
+            done_now = len(results)
+        if done_now != reported:
+            reported = done_now
+            report(done_now)
 
     with lock:
         state["closed"] = True
         done = {ip: results[ip] for ip in queue if ip in results}
-        over_budget = state["out_of_time"] or len(done) < len(queue)
+        over_budget = not stopped and (state["out_of_time"] or len(done) < len(queue))
+    if len(done) != reported:
+        report(len(done))
     failed = sum(1 for who in done.values() if {"owner", "registry"} <= set(who["unavailable"]))
-    return {"results": done, "skipped": skipped, "failed": failed, "over_budget": over_budget}
+    return {"results": done, "skipped": skipped, "failed": failed, "over_budget": over_budget,
+            "stopped": stopped}

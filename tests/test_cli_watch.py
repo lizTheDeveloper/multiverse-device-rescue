@@ -74,13 +74,54 @@ def test_no_lookups_flag():
     assert calls[0][2]["lookups"] is None
 
 
-def test_human_summary_names_the_services_asked():
+def _summary(*destinations):
+    return Finding(
+        title="App: 1 destination", description="d", severity=Severity.INFO, category="network",
+        data={"destinations": list(destinations)}, code="network.connection_watch.watch_summary",
+    )
+
+
+def _run_with(findings, args):
+    def run_watch(platform, minutes, interval, **kw):
+        return CheckResult(module_name="connection_watch", findings=findings)
+
+    with patch("rescue.cli.run_watch", run_watch):
+        return CliRunner().invoke(main, ["watch", *args], input="")
+
+
+def test_human_summary_names_the_services_asked_only_when_it_asked():
     from rescue.whois import SOURCES
 
-    result = _run([])
+    looked = _summary({"address": "8.8.8.8", "who": {"asn": 15169}})
+    result = _run_with([looked], [])
     assert all(source in result.output for source in SOURCES)
-    result = _run(["--no-lookups"])
-    assert "not looked up" in result.output
+    # Nothing public, or nothing came back: no claim that anything was looked up.
+    for findings in ([_summary({"address": "192.168.1.1", "who": None})],
+                     [_summary({"address": "8.8.8.8", "who": None})], []):
+        assert "Looked up" not in _run_with(findings, []).output
+    unlooked = _summary({"address": "8.8.8.8", "who": None})
+    assert "not looked up" in _run_with([unlooked], ["--no-lookups"]).output
+    private = _summary({"address": "192.168.1.1", "who": None})
+    assert "not looked up" not in _run_with([private], ["--no-lookups"]).output
+
+
+def test_help_says_where_addresses_go():
+    for command in (["watch", "--help"], ["lookup", "--help"]):
+        text = " ".join(CliRunner().invoke(main, command).output.split())
+        assert "regional registry" in text and "ARIN" in text and "AFRINIC" in text
+        assert "own resolver" in text
+
+
+def test_lookup_command_counts_distinct_addresses():
+    def look_up_all(ips):
+        return {"results": {"8.8.8.8": {"asn": 15169}}, "skipped": 1, "failed": 0,
+                "over_budget": False}
+
+    with patch("rescue.cli.look_up_all", look_up_all):
+        result = CliRunner().invoke(main, ["lookup", "8.8.8.8", "::ffff:8.8.8.8", "1.1.1.1"])
+    assert "Only the first 1 addresses were looked up." in result.stderr
+    doc = json.loads(result.stdout)
+    assert doc["::ffff:8.8.8.8"] == {"asn": 15169} and doc["1.1.1.1"] is None
 
 
 def test_lookup_command_prints_who_for_public_and_refuses_private():

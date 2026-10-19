@@ -295,11 +295,15 @@ def watch_section() -> list[str]:
         "listed under `conn_common` above. When it finishes, unless `--no-lookups`",
         "is given, it looks up who runs each public address it saw (never a private,",
         "local or reserved one); `rescue lookup` does the same for addresses you",
-        "name. Only the address is sent, to these services over HTTPS:\n",
+        "name. Only the address is sent, to these services over HTTPS. rdap.org",
+        "passes the request on to the regional registry that holds the address",
+        "(ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC), so that registry receives it",
+        "too:\n",
         "```text",
         *_https_urls(tree),
         "```\n",
-        "Plus reverse DNS for each address through this computer's own resolver.",
+        "Plus reverse DNS for each address, and a lookup of the name that comes",
+        "back to confirm it, both through this computer's own resolver.",
         "Nothing about the addresses is written to disk.",
     ]
     if commands:

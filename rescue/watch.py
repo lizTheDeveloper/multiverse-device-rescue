@@ -18,7 +18,7 @@ import time
 from collections.abc import Callable
 
 from rescue.models import CheckResult, Finding, Platform, Severity
-from rescue.netaddr import _is_loopback, _is_public, address_key
+from rescue.netaddr import address_key, is_loopback, is_public
 from rescue.whois import BUDGET, MAX_ADDRESSES, SOURCES
 
 WATCH_CODES: list[str] = [
@@ -123,7 +123,7 @@ class _Gathered:
                 continue
             process = record.get("process") or _UNKNOWN
             self.processes.add(process)
-            if _is_loopback(remote):
+            if is_loopback(remote):
                 self.loopback[process] = self.loopback.get(process, 0) + 1
                 continue
             key = (process, remote, record.get("remote_port"), record.get("proto"))
@@ -355,11 +355,13 @@ def run_watch(
 
     ``sleep(seconds)`` waits up to ``seconds`` but returns early once
     ``should_stop()`` is true. ``on_progress`` gets one dict per snapshot:
-    ``{"phase": "watch", "elapsed", "total", "snapshots"}``. ``lookups`` is
-    called once after the last snapshot with the public destinations, busiest
-    first, and answers like ``rescue.whois.look_up_all``; None turns lookups
-    off. Raises ValueError for minutes outside 1-30 or an interval outside
-    2-60 seconds.
+    ``{"phase": "watch", "elapsed", "total", "snapshots"}``, then
+    ``{"phase": "lookup", "done", "total"}`` as addresses are looked up.
+    ``lookups(addresses, should_stop=, on_progress=)`` is called once after
+    the last snapshot with the public destinations, busiest first, and answers
+    like ``rescue.whois.look_up_all``; None turns lookups off. A stop request
+    stops the lookups too. Raises ValueError for minutes outside 1-30 or an
+    interval outside 2-60 seconds.
     """
     if not MIN_MINUTES <= minutes <= MAX_MINUTES:
         raise ValueError(f"minutes must be {MIN_MINUTES}-{MAX_MINUTES}")
@@ -422,7 +424,7 @@ def run_watch(
     if platform != "win32":
         _read_dns(dns, platform, gathered)
     elapsed = clock() - start
-    owners = _look_up(gathered, lookups)
+    owners = _look_up(gathered, lookups, should_stop, on_progress)
     findings = _findings(platform, gathered, minutes, stopped_early, elapsed, verdict, owners)
     return CheckResult(module_name=_MODULE, findings=findings)
 
@@ -448,7 +450,7 @@ def _public_by_busyness(gathered: "_Gathered") -> list[str]:
     seen: dict[str, int] = {}
     first_form: dict[str, str] = {}
     for (_, address, _, _), pair in gathered.pairs.items():
-        if not _is_public(address):
+        if not is_public(address):
             continue
         key = address_key(address)
         first_form.setdefault(key, address)
@@ -457,57 +459,90 @@ def _public_by_busyness(gathered: "_Gathered") -> list[str]:
     return [first_form[key] for key in order]
 
 
-def _look_up(gathered: "_Gathered", lookups) -> _Owners:
+def _look_up(gathered: "_Gathered", lookups, should_stop, on_progress) -> _Owners:
     owners = _Owners(on=lookups is not None)
-    if lookups is None:
-        if gathered.snapshots:
-            owners.reasons.append("Looking up who runs each address was turned off.")
-        return owners
     addresses = _public_by_busyness(gathered)
     if not addresses:
         return owners
+    if lookups is None:
+        owners.reasons.append("Looking up who runs each address was turned off.")
+        return owners
+    if should_stop():
+        owners.reasons.append("Looking up stopped early.")
+        return owners
+
+    def progress(done: int, total: int) -> None:
+        if on_progress is not None:
+            try:
+                on_progress({"phase": "lookup", "done": done, "total": total})
+            except Exception:  # nosec - progress is a courtesy; the lookups go on
+                pass
+
     try:
-        answer = lookups(addresses)
-        results = answer["results"]
-        failed, skipped = answer["failed"], answer["skipped"]
-        over_budget = answer["over_budget"]
-    except Exception:  # a lookup failure is couldn't-check, never an error for the watch
-        results, failed, skipped, over_budget = {}, len(addresses), 0, False
+        answer = lookups(addresses, should_stop=should_stop, on_progress=progress)
+    except (OSError, ValueError):  # offline, refused, a service's bad answer
+        owners.reasons.append(
+            f"Couldn't look up {len(addresses):,} address(es) (offline or the service didn't answer)."
+        )
+        return owners
+    except Exception as exc:  # a bug in Reclaim City, not the network: say so plainly
+        owners.reasons.append(
+            "Looking up who runs each address failed because of a problem in Reclaim City "
+            f"itself ({type(exc).__name__}: {exc})."
+        )
+        return owners
+    results = answer.get("results") or {}
     for address, found in results.items():
         owners.who[address_key(address)] = found
+    failed = answer.get("failed", 0)
+    partial = sum(
+        1 for found in results.values()
+        if found.get("unavailable") and not {"owner", "registry"} <= set(found["unavailable"])
+    )
     if failed:
         owners.reasons.append(
             f"Couldn't look up {failed:,} address(es) (offline or the service didn't answer)."
         )
-    if skipped:
+    if partial:
+        owners.reasons.append(
+            f"Couldn't find out everything about {partial:,} address(es): a lookup service "
+            "didn't answer."
+        )
+    if answer.get("skipped"):
         owners.reasons.append(f"Only the busiest {MAX_ADDRESSES} addresses were looked up.")
-    if over_budget:
+    if answer.get("stopped"):
+        owners.reasons.append("Looking up stopped early.")
+    elif answer.get("over_budget"):
         owners.reasons.append(f"Looking up stopped after {BUDGET:g} seconds.")
     return owners
 
 
-def _owner(address, who: dict | None) -> str:
-    """Who runs an address, as one name: the registrant, else the network's
-    name, else its hostname, else the address itself.
+def _owner(who: dict | None) -> str | None:
+    """Who runs an address, as one name, or None when that isn't known.
 
-    RIPEstat names a network "HANDLE - Organisation" ("GOOGLE - Google LLC"),
-    so only the organisation part is used; it then reads the same as the
-    registrant the registry gives for the company's other addresses.
+    The network's holder comes first: RIPEstat names it "HANDLE - Company"
+    ("GOOGLE - Google LLC"), and only the company part is used. Then the
+    registrant, then a hostname that leads back to the address. A raw address
+    is never an owner.
     """
-    who = who or {}
+    if not who:
+        return None
     as_name = who.get("as_name")
     if as_name and " - " in as_name:
         as_name = as_name.split(" - ", 1)[1].strip() or as_name
-    return who.get("registrant") or as_name or who.get("hostname") or str(address)
+    hostname = who.get("hostname") if who.get("hostname_confirmed") else None
+    return as_name or who.get("registrant") or hostname or None
 
 
 def _mostly(pairs: list, owners: _Owners) -> str:
-    """'Mostly X and Y.': the two owners this program's destinations were seen
-    with most. ``pairs`` comes busiest first, and ties keep that order."""
+    """'Mostly X and Y.': the two known owners this program's destinations were
+    seen with most, or nothing when no owner is known. ``pairs`` comes busiest
+    first, and ties keep that order."""
     weight: dict[str, int] = {}
     for key, pair in pairs:
-        name = _owner(key[1], owners.for_address(key[1]))
-        weight[name] = weight.get(name, 0) + pair["snapshots"]
+        name = _owner(owners.for_address(key[1]))
+        if name:
+            weight[name] = weight.get(name, 0) + pair["snapshots"]
     top = sorted(weight, key=lambda name: -weight[name])[:2]
     if not top:
         return ""
@@ -699,7 +734,7 @@ def _checkins(gathered, facts) -> list[Finding]:
     findings = []
     for key, pair in sorted(gathered.pairs.items(), key=lambda kp: str(kp[0])):
         process, address, port, proto = key
-        if not _is_public(address):
+        if not is_public(address):
             continue
         gap = _checkin(pair)
         if gap is None:

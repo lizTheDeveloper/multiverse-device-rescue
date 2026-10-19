@@ -28,6 +28,25 @@ def no_name(ip):
     raise socket.herror(1, "Unknown host")
 
 
+@pytest.fixture(autouse=True)
+def _no_real_dns(monkeypatch):
+    """Confirming a hostname resolves it; tests must never reach a real resolver."""
+    if os.environ.get("RESCUE_LIVE_NET") == "1":
+        return
+
+    def refuse(*args, **kwargs):
+        raise socket.gaierror(socket.EAI_NONAME, "tests don't resolve names")
+
+    monkeypatch.setattr(socket, "getaddrinfo", refuse)
+
+
+def forward_to(*addresses):
+    def forward(name):
+        return list(addresses)
+
+    return forward
+
+
 def fetch_from(table):
     """A fetcher answering from {url-substring: body}; anything else raises."""
     calls = []
@@ -52,11 +71,12 @@ GOOGLE = {"stat.ripe.net": fixture("ripe_8.8.8.8.json"), "rdap.org": fixture("rd
 
 def test_constants():
     assert (whois.MAX_ADDRESSES, whois.WORKERS, whois.TIMEOUT, whois.BUDGET, whois.MAX_BODY) == (
-        150, 6, 4.0, 60.0, 65536)
+        150, 3, 4.0, 60.0, 65536)
     assert whois.SOURCES == [
         "reverse DNS (your computer's own resolver)",
         "RIPE NCC (stat.ripe.net)",
-        "rdap.org (the internet registries)",
+        "rdap.org, which passes it on to the regional registry for the address "
+        "(ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC)",
     ]
 
 
@@ -161,7 +181,7 @@ def test_hostile_bodies():
 
     who = whois.look_up("8.8.8.8", fetch=fetch_from({"stat.ripe.net": ripe.encode(),
                                                      "rdap.org": body.encode()}),
-                        resolve=resolve, timeout=1)
+                        resolve=resolve, timeout=1, forward=forward_to())
     for field in ("hostname", "as_name", "network", "registrant", "country"):
         value = who[field]
         assert len(value) <= 200, field
@@ -176,10 +196,76 @@ def test_look_up_whole_record():
         return ("dns.google", [], [ip])
 
     fetch = fetch_from(GOOGLE)
-    who = whois.look_up("8.8.8.8", fetch=fetch, resolve=resolve, timeout=2)
-    assert who == {"hostname": "dns.google", "asn": 15169, "as_name": "GOOGLE - Google LLC",
-                   "prefix": "8.8.8.0/24", "network": "GOGL", "registrant": "Google LLC",
-                   "country": None, "unavailable": []}
+    who = whois.look_up("8.8.8.8", fetch=fetch, resolve=resolve, timeout=2,
+                        forward=forward_to("8.8.4.4", "8.8.8.8"))
+    assert who == {"hostname": "dns.google", "hostname_confirmed": True, "asn": 15169,
+                   "as_name": "GOOGLE - Google LLC", "prefix": "8.8.8.0/24", "network": "GOGL",
+                   "registrant": "Google LLC", "country": None, "unavailable": []}
+
+
+def test_hostname_is_confirmed_only_when_it_leads_back():
+    def resolve(ip):
+        return ("www.apple.com", [], [ip])
+
+    def look(forward):
+        return whois.look_up("8.8.8.8", fetch=fetch_from(GOOGLE), resolve=resolve, timeout=1,
+                             forward=forward)
+
+    # A name that resolves elsewhere is kept, but unconfirmed.
+    who = look(forward_to("17.253.144.10"))
+    assert who["hostname"] == "www.apple.com" and who["hostname_confirmed"] is False
+    # The forward lookup failing or answering garbage: unconfirmed, and no "dns" gap.
+    for forward in (forward_to(), lambda name: None, lambda name: [7, None]):
+        who = look(forward)
+        assert who["hostname_confirmed"] is False and who["unavailable"] == []
+
+    def offline(name):
+        raise OSError("Network is unreachable")
+
+    assert look(offline)["hostname_confirmed"] is False
+    # The address written another way still confirms.
+    assert look(forward_to("::ffff:8.8.8.8"))["hostname_confirmed"] is True
+    # The forward lookup asks about the name it was given.
+    asked = []
+    look(lambda name: asked.append(name) or ["8.8.8.8"])
+    assert asked == ["www.apple.com"]
+
+
+def test_no_hostname_is_never_confirmed():
+    who = whois.look_up("8.8.8.8", fetch=fetch_from(GOOGLE), resolve=no_name, timeout=1,
+                        forward=forward_to("8.8.8.8"))
+    assert who["hostname"] is None and who["hostname_confirmed"] is False
+
+
+def test_a_slow_answer_gets_one_more_try():
+    calls = []
+
+    def fetch(url, timeout):
+        calls.append(url)
+        if calls.count(url) == 1:
+            raise TimeoutError("The read operation timed out")
+        return GOOGLE["stat.ripe.net" if "stat.ripe.net" in url else "rdap.org"]
+
+    who = whois.look_up("8.8.8.8", fetch=fetch, resolve=no_name, timeout=1)
+    assert who["registrant"] == "Google LLC" and who["asn"] == 15169
+    assert len(calls) == 4
+
+    import urllib.error
+
+    calls.clear()
+
+    def always_slow(url, timeout):
+        calls.append(url)
+        raise urllib.error.URLError(TimeoutError("timed out"))
+
+    who = whois.look_up("8.8.8.8", fetch=always_slow, resolve=no_name, timeout=1)
+    assert who["unavailable"] == ["owner", "registry"]
+    assert len(calls) == 4  # one retry each, no more
+
+    calls.clear()
+    fetch = fetch_from({"": OSError("Network is unreachable")})
+    whois.look_up("8.8.8.8", fetch=fetch, resolve=no_name, timeout=1)
+    assert len(fetch.calls) == 2  # not a timeout: no retry
 
 
 def test_no_reverse_name_is_an_answer():
@@ -204,7 +290,8 @@ def test_offline_marks_every_field_couldnt_check():
 
     who = whois.look_up("8.8.8.8", fetch=fetch, resolve=resolve, timeout=1)
     assert who["unavailable"] == ["dns", "owner", "registry"]
-    assert all(who[k] is None for k in who if k != "unavailable")
+    assert who["hostname_confirmed"] is False
+    assert all(who[k] is None for k in who if k not in ("unavailable", "hostname_confirmed"))
 
     out = whois.look_up_all(["8.8.8.8", "1.1.1.1"], fetch=fetch, resolve=resolve)
     assert out["failed"] == 2
@@ -280,7 +367,7 @@ def test_no_calls_when_disabled():
     fetch = fetch_from(GOOGLE)
     calls = []
     out = whois.look_up_all([], fetch=fetch, resolve=lambda ip: calls.append(ip))
-    assert out == {"results": {}, "skipped": 0, "failed": 0, "over_budget": False}
+    assert out == {"results": {}, "skipped": 0, "failed": 0, "over_budget": False, "stopped": False}
     assert fetch.calls == [] and calls == []
     out = whois.look_up_all(["192.168.1.1", "::1"], fetch=fetch, resolve=lambda ip: calls.append(ip))
     assert out["results"] == {} and fetch.calls == [] and calls == []
@@ -448,3 +535,43 @@ def test_live_lookup():
     who = out["results"]["8.8.8.8"]
     assert who["asn"] == 15169
     assert who["registrant"] == "Google LLC"
+
+
+def test_stop_ends_the_lookups_promptly():
+    import time as real_time
+
+    stop = threading.Event()
+    started = threading.Event()
+
+    def hanging_fetch(url, timeout):
+        started.set()
+        stop.wait(5)  # a service that never answers
+        real_time.sleep(0.2)
+        return fixture("rdap_8.8.8.8.json")
+
+    ips = [f"8.8.{i}.1" for i in range(20)]
+    # Press stop once the first lookup is under way.
+    threading.Thread(target=lambda: started.wait(5) and stop.set(), daemon=True).start()
+    begun = real_time.monotonic()
+    out = whois.look_up_all(ips, fetch=hanging_fetch, resolve=no_name, should_stop=stop.is_set)
+    assert real_time.monotonic() - begun < 2
+    assert out["stopped"] is True
+    assert out["over_budget"] is False
+    assert out["results"] == {}  # the lookups under way were left behind
+
+
+def test_progress_counts_answers():
+    seen = []
+    ips = ["8.8.8.8", "1.1.1.1", "9.9.9.9"]
+    out = whois.look_up_all(ips, fetch=fetch_from(GOOGLE), resolve=no_name,
+                            on_progress=lambda done, total: seen.append((done, total)))
+    assert len(out["results"]) == 3
+    assert seen[-1] == (3, 3)
+    assert all(total == 3 for _, total in seen)
+    assert [d for d, _ in seen] == sorted(d for d, _ in seen)
+
+    def broken(done, total):
+        raise RuntimeError("progress broke")
+
+    out = whois.look_up_all(ips, fetch=fetch_from(GOOGLE), resolve=no_name, on_progress=broken)
+    assert len(out["results"]) == 3

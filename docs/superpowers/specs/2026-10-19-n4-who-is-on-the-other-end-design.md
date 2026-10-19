@@ -93,7 +93,8 @@ LLC (4), Cloudflare (3)". That's the teaching hook for later lessons.
 
 ## Non-goals
 
-- Lookups outside a watch, or on other devices' traffic.
+- Automatic lookups outside a watch, or any lookup of other devices' traffic.
+  (`rescue lookup` is explicit: the person types each address.)
 - Threat reputation, certificate transparency, geolocation databases.
 - Storing lookup results between runs.
 

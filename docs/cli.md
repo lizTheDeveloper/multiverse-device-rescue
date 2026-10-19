@@ -193,13 +193,15 @@ When it finishes, it looks up who runs each public address it saw (see
 | `--minutes <n>` | How long to watch, 1 to 30 (default 5). |
 | `--interval <seconds>` | How often to look, 2 to 60 (default 5). |
 | `--json` | Print the result as JSON on stdout, in the same shape as `scan --json`, with the module name `connection_watch`. Without it, a short list of what was found. |
-| `--progress` | Write one `{"progress": {"phase": "watch", "elapsed": ..., "total": ..., "snapshots": ...}}` line to stderr after each look (seconds for `elapsed` and `total`). |
+| `--progress` | Write one `{"progress": {"phase": "watch", "elapsed": ..., "total": ..., "snapshots": ...}}` line to stderr after each look (seconds for `elapsed` and `total`), then `{"progress": {"phase": "lookup", "done": ..., "total": ...}}` lines as addresses are looked up. |
 | `--no-lookups` | Don't look up who runs each address. Destinations then carry `"who": null`, `lookup_sources` is `[]`, and `watch_incomplete` says looking up was turned off. |
 
 Out-of-range values exit `2` with a message. To end the watch early, send the
 line `stop` on standard input, or press Ctrl-C (SIGINT) or send SIGTERM. The
 result is still printed, with `stopped_early: true` in each finding's `data`.
-End of standard input is not a stop. The "who made it" lookups that `scan`
+A stop also ends the lookups: none starts after it, the ones under way are
+left behind, and `watch_incomplete` says "Looking up stopped early." End of
+standard input is not a stop. The "who made it" lookups that `scan`
 adds are not done for the watch.
 
 Every finding is `info`, with a `network.connection_watch.*` code:
@@ -219,13 +221,17 @@ With lookups on, each entry in a `watch_summary` finding's
 prints), or `null` for an address that wasn't looked up (a private one, or
 one past the limits below). `data.lookup_sources` names the services asked,
 and the description names the two owners the program talked to most
-("Mostly Google LLC and Cloudflare, Inc."): for each address, the
-`registrant`, else the organisation part of `as_name`, else the `hostname`,
-else the address itself. Lookups run once, after the last
-look, busiest addresses first: at most 150 addresses, 6 at a time, 4 seconds
-per request and 60 seconds in all. `watch_incomplete` says how many
-couldn't be looked up, whether the limit or the time ran out, or that
-looking up was turned off. A stopped watch still looks up what it gathered.
+("Mostly Google LLC and Cloudflare, Inc."): for each address, the company
+part of `as_name` (the network's holder), else the `registrant`, else the
+`hostname` if it is confirmed. An address with none of these is left out;
+with no owner known the sentence is left out, and a raw address is never
+named. Lookups run once, after the last look, busiest addresses first: at
+most 150 addresses, 3 at a time, 4 seconds per request (a request that times
+out gets one more try) and 60 seconds in all. `watch_incomplete` says how
+many addresses couldn't be looked up at all, how many are missing some
+details, whether the limit or the time ran out, whether a stop ended the
+lookups, or that looking up was turned off (only when there were public
+addresses to look up).
 
 ---
 
@@ -242,6 +248,7 @@ Looks up who runs each public address and prints one JSON object on stdout,
 {
   "8.8.8.8": {
     "hostname": "dns.google",
+    "hostname_confirmed": true,
     "asn": 15169,
     "as_name": "GOOGLE - Google LLC",
     "prefix": "8.8.8.0/24",
@@ -255,9 +262,14 @@ Looks up who runs each public address and prints one JSON object on stdout,
 
 The answer comes from three places, and only the address is sent: reverse
 DNS through this computer's own resolver (`hostname`), RIPE NCC's RIPEstat
-at `stat.ripe.net` (`asn`, `as_name`, `prefix`) and `rdap.org`, which
-redirects to the registry for that address (`network`, `registrant`,
-`country`). `registrant` is only ever an organisation, never a person.
+at `stat.ripe.net` (`asn`, `as_name`, `prefix`) and `rdap.org`, which passes
+the request on to the regional registry that holds the address (ARIN, RIPE
+NCC, APNIC, LACNIC or AFRINIC), so that registry receives the address too
+(`network`, `registrant`, `country`). `registrant` is only ever an
+organisation, never a person. `hostname_confirmed` is `true` only when the
+hostname, looked up again through the same resolver, leads back to the
+address; whoever controls an address can give it any reverse name, so an
+unconfirmed one is shown but never used as the owner.
 `unavailable` lists the parts that couldn't be checked (`dns`, `owner`,
 `registry`), for example when offline; any field can be `null`. Nothing is
 written to disk.

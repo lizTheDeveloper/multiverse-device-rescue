@@ -27,7 +27,7 @@ _PRIVATE_NETWORKS = tuple(
 )
 
 
-def _ip(addr: str | None):
+def parse_ip(addr: str | None):
     """The address, with an IPv4 address carried inside IPv6 unwrapped."""
     try:
         ip = ipaddress.ip_address((addr or "").split("%")[0])
@@ -43,14 +43,14 @@ def _ip(addr: str | None):
     return ip
 
 
-def _is_loopback(addr: str | None) -> bool:
-    ip = _ip(addr)
+def is_loopback(addr: str | None) -> bool:
+    ip = parse_ip(addr)
     return ip is not None and ip.is_loopback
 
 
-def _is_public(addr: str | None) -> bool:
+def is_public(addr: str | None) -> bool:
     """True only for an address that is clearly not on this computer or network."""
-    ip = _ip(addr)
+    ip = parse_ip(addr)
     if ip is None or ip.is_multicast or ip.is_unspecified:
         return False
     # IPv4 "reserved" is 240.0.0.0/4 and broadcast. IPv6's is_reserved covers
@@ -62,5 +62,5 @@ def _is_public(addr: str | None) -> bool:
 
 def address_key(addr) -> str:
     """One spelling per address: ::ffff:8.8.8.8 and 8.8.8.8 give the same key."""
-    ip = _ip(addr)
+    ip = parse_ip(addr)
     return str(ip) if ip is not None else str(addr)

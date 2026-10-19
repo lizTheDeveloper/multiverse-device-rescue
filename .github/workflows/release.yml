@@ -90,9 +90,14 @@ jobs:
       - name: The frozen engine can make an HTTPS lookup
         shell: bash
         run: |
-          dist/${{ matrix.engine }} lookup 8.8.8.8 > lookup.json
-          cat lookup.json
-          grep -q '"asn": 15169' lookup.json
+          # RIPEstat gives the AS number; the registrant proves the rdap.org
+          # redirect to the registry worked too. One retry for a slow service.
+          check() {
+            dist/${{ matrix.engine }} lookup 8.8.8.8 > lookup.json
+            cat lookup.json
+            grep -q '"asn": 15169' lookup.json && grep -q '"registrant": "Google LLC"' lookup.json
+          }
+          check || { echo "Retrying once"; check; }
 
       - name: Stage the engine inside the desktop app
         shell: bash

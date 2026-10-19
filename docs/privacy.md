@@ -65,11 +65,15 @@ Four things, exhaustively:
    measures throughput, a LAN inventory sends ARP/neighbour queries on your own
    local segment. These talk to your network, not to the project. Read the
    module if you want to be certain what a specific check does.
-4. **The connection watch's lookups.** After a `rescue watch` you start (or a
-   `rescue lookup` you run), each public address it saw is sent to RIPE NCC
-   (`stat.ripe.net`) and `rdap.org`, and looked up in reverse DNS through your
-   own resolver, to find out who runs it. Only the addresses are sent, never
-   what was in the connections, and private addresses are never sent.
+4. **The connection watch's lookups.** After a `rescue watch` you start (or
+   for each address you type into `rescue lookup`), each public address is
+   sent to RIPE NCC (`stat.ripe.net`) and to `rdap.org`, which passes the
+   request on to the regional registry that holds the address (ARIN, RIPE
+   NCC, APNIC, LACNIC or AFRINIC), so that registry receives the address too.
+   It is also looked up in reverse DNS, and the name that comes back is looked
+   up again to confirm it, both through your computer's own resolver (which
+   asks your DNS provider). Only the addresses are sent, never what was in
+   the connections, and private addresses are never sent.
    `rescue watch --no-lookups` turns this off. See
    [the CLI reference](cli.md#rescue-watch-watch-connections-for-a-few-minutes).
 

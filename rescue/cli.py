@@ -291,8 +291,11 @@ def _stop_on_request():
 @click.option(
     "--no-lookups",
     is_flag=True,
-    help="Don't look up who runs each address afterwards (by default the public "
-    "addresses, not what was in them, are sent to RIPE NCC and rdap.org).",
+    help="Don't look up who runs each address afterwards. By default each public "
+    "address (never what was in the connection) is sent to RIPE NCC and to rdap.org, "
+    "which passes it on to the regional registry that holds it (ARIN, RIPE NCC, "
+    "APNIC, LACNIC or AFRINIC), and looked up in reverse DNS through this "
+    "computer's own resolver.",
 )
 def watch(minutes, interval, as_json, progress, no_lookups):
     """Watch this computer's connections for a few minutes (opt-in, read-only).
@@ -334,10 +337,15 @@ def watch(minutes, interval, as_json, progress, no_lookups):
         return
     for finding in result.findings:
         click.echo(f"- {finding.title}")
+    destinations = [
+        d for f in result.findings if f.code == "network.connection_watch.watch_summary"
+        for d in f.data.get("destinations") or []
+    ]
     if no_lookups:
-        click.echo("Addresses were not looked up (--no-lookups).")
-    else:
-        click.echo("Looked up who runs each public address with: " + ", ".join(SOURCES) + ".")
+        if any(is_lookupable(d.get("address")) for d in destinations):
+            click.echo("Addresses were not looked up (--no-lookups).")
+    elif any(d.get("who") for d in destinations):
+        click.echo("Looked up who runs each public address with: " + "; ".join(SOURCES) + ".")
 
 
 @main.command()
@@ -345,11 +353,14 @@ def watch(minutes, interval, as_json, progress, no_lookups):
 def lookup(addresses):
     """Look up who runs each public address (read-only).
 
-    Prints {address: who} as JSON. Only the address is sent, to RIPE NCC and
-    rdap.org, plus a reverse DNS lookup through this computer's resolver.
-    Private, local and reserved addresses are never looked up; they print null.
+    Prints {address: who} as JSON. Only the address is sent: to RIPE NCC, to
+    rdap.org (which passes it on to the regional registry that holds it: ARIN,
+    RIPE NCC, APNIC, LACNIC or AFRINIC), and to reverse DNS through this
+    computer's own resolver. Private, local and reserved addresses are never
+    looked up; they print null.
     """
     public = [ip for ip in addresses if is_lookupable(ip)]
+    distinct = {address_key(ip) for ip in public}
     for ip in addresses:
         if ip not in public:
             click.echo(
@@ -359,7 +370,9 @@ def lookup(addresses):
             )
     found = look_up_all(public) if public else {"results": {}, "skipped": 0, "over_budget": False}
     if found["skipped"]:
-        click.echo(f"Only the first {len(public) - found['skipped']} addresses were looked up.", err=True)
+        click.echo(
+            f"Only the first {len(distinct) - found['skipped']} addresses were looked up.", err=True
+        )
     if found["over_budget"]:
         click.echo("Looking up stopped before every address was done.", err=True)
     # One answer per address, however it was written (::ffff:8.8.8.8 is 8.8.8.8).

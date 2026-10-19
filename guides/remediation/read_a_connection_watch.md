@@ -186,20 +186,27 @@ addresses, and from the address's own name in DNS.
   a large part of the internet, and many apps rent space from them. So the
   name says who runs the address, which is not necessarily who made the app.
   A chat app that talks to "Amazon.com, Inc." is usually just hosted there.
-- **The name is what the registry says.** Registries list the company that
-  holds a block of addresses, not every customer using it. A name you don't
-  recognise is worth searching for; it isn't a sign of a problem on its own.
+- **The name is the network's holder.** The name shown is the company whose
+  network the address belongs to, as the registries list it, not every
+  customer using it. Where that isn't known, it is the company registered for
+  the address, or the address's own name in DNS, but only if that name leads
+  back to the same address (anyone who runs an address can give it any name,
+  even a famous one). A name you don't recognise is worth searching for; it
+  isn't a sign of a problem on its own.
 - **What was sent.** Only the addresses were sent, never what was in the
   connections, to these services: your computer's own name lookup (reverse
-  DNS), RIPE NCC (stat.ripe.net) and rdap.org (which passes the question to
-  the registry for that part of the world). Addresses on your own network,
+  DNS, which asks your DNS provider), RIPE NCC (stat.ripe.net) and rdap.org,
+  which passes the question on to the regional registry that holds the
+  address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC). Addresses on your own network,
   this computer's own address and other private addresses are never sent.
   Each service learns which addresses were asked about. The lookups keep no
   copy of their own: the answers are only part of this watch's result.
 - **When a name is missing.** If the computer was offline, or a service
-  didn't answer, the watch says it couldn't look some addresses up. It looks
-  up at most the 150 busiest addresses and stops looking after 60 seconds;
-  it says so when either happens. Couldn't-check is not the same as clean.
+  didn't answer, the watch says how many addresses it couldn't look up, and
+  how many it found out only part of. It looks up at most the 150 busiest
+  addresses, stops looking after 60 seconds, and stops at once if you stop
+  the watch; it says so when any of these happens. Couldn't-check is not the
+  same as clean.
 
 To turn the lookups off, untick "Look up who runs each address" before
 starting the watch in the app, or run `rescue watch --no-lookups`. The watch
