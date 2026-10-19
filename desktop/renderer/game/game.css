@@ -122,10 +122,17 @@ h2.hud-title { margin-top: 0; margin-bottom: 0; margin-left: 0; }
 .skyline.fog::after { content: ''; position: absolute; inset: -6px -10px; background: radial-gradient(closest-side, rgba(159,179,200,0.28), transparent); }
 .d-foot { display: flex; flex-wrap: wrap; gap: 6px; }
 .brief { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); position: relative; z-index: 1; }
-@media (max-width: 720px) { .brief { grid-template-columns: minmax(0,1fr); } }
+/* At 800px and narrower the Scout is a short row above the mission, never a mostly empty column. */
+@media (max-width: 800px) { .brief { grid-template-columns: minmax(0,1fr); } }
 .brief-main { padding: 22px; display: grid; gap: 18px; align-content: start; min-width: 0; }
 .brief-side { padding: 22px; border-left: 1px solid rgba(0,229,255,0.1); background: rgba(26,31,43,0.4); display: grid; gap: 14px; align-content: start; justify-items: center; }
-@media (max-width: 720px) { .brief-side { border-left: 0; border-top: 1px solid rgba(0,229,255,0.1); } }
+@media (max-width: 800px) {
+  .brief-side { order: -1; border-left: 0; border-bottom: 1px solid rgba(0,229,255,0.1); padding: 12px 22px;
+    grid-template-columns: auto auto minmax(0, 1fr); justify-items: start; align-items: center; gap: 12px; }
+  .brief-side > :first-child { width: 48px; height: auto; }
+  .brief-side .say { margin: 0; }
+}
+.steps-more { margin-top: 8px; }
 .crumbs { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; color: var(--faint); }
 .crumbs b { color: var(--dim); font-weight: 400; }
 .m-title { font-family: var(--font-display); font-size: clamp(18px, 2.4vw, 24px); font-weight: 800; letter-spacing: 1px; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }

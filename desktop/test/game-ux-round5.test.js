@@ -138,3 +138,29 @@ test('a checkup that stopped with nothing found: the error, as before (no docume
   t.ctl.scanFailed('x', { stopped: { stage: 'early' }, modules: [] });
   assert.doesNotMatch(t.html(), /INCOMING SIGNALS/);
 });
+
+test('YOUR MOVE: the finding’s own prose or the numbered steps, never both', async () => {
+  const { renderBriefing, yourMove } = await game('views/briefing.js');
+  const fs = require('fs');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'game', 'game.css'), 'utf8');
+  const step = { number: 1, title: 'Remove high-risk background tasks', body: 'Run this:\n\n```\nlaunchctl bootout gui/501 <path-to-plist>\n```' };
+  const primary = { title: 't', description: "A task.\n\nWhat to do: Open System Settings > General > Login Items. Turn off 'ai.example.agent'.",
+    remediation: { steps: [step] }, data: { plist: PLIST } };
+  const m = { id: 'x', districtId: 'gatehouse', severity: 'warning', title: 't', description: primary.description, steps: [step],
+    findings: [primary], primary };
+  const html = renderBriefing({ mission: m, status: 'open', controlsHtml: '', scout: () => '<img>', busy: false, wantsSafety: false });
+  const move = html.slice(html.indexOf('YOUR MOVE'), html.indexOf('class="controls"'));
+  assert.match(move, /Open System Settings/);
+  assert.doesNotMatch(move, /Remove high-risk background tasks/);
+  assert.doesNotMatch(move, /class="step-n"/);
+  assert.match(move, /FOR TECH HELPERS/);
+  // Several steps: behind STEP BY STEP, the prose leads.
+  const two = yourMove([step, { ...step, number: 2, title: 'Check again', body: 'Run the checkup again.' }], 'Turn it off.');
+  assert.match(two, /^<div class="step-body todo">/);
+  assert.match(two, /<details class="tech steps-more"><summary>STEP BY STEP \(2\)/);
+  // No prose: the steps are the move.
+  assert.match(yourMove([step], ''), /^<ol class="steps">/);
+  // The Scout column: one column at 800px, the Scout a row above the mission.
+  assert.match(css, /@media \(max-width: 800px\) \{ \.brief \{ grid-template-columns: minmax\(0,1fr\); \} \}/);
+  assert.match(css, /\.brief-side \{ order: -1;/);
+});
