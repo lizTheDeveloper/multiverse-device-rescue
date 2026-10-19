@@ -92,10 +92,3 @@ test('cards look like recipe cards: a dish, servings and at most 24 ingredients'
     assert.ok(c.ingredients.length >= 1 && c.ingredients.length <= CARD_SIZE);
   }
 });
-
-test('peek reads the head of a box from its first card, and nothing that isn’t a box', async () => {
-  const { encode, peek } = await load();
-  assert.strictEqual(peek(encode({ version: 4, a: 'x'.repeat(5000) }, 5150)), '{"version":4,"a":"xx');
-  assert.strictEqual(peek(encode({ version: 5 }, 77), 12), '{"version":5');
-  for (const bad of [null, '', 'foreign', '{"kitchen":"basil basil basil basil","cards":[]}', JSON.stringify({ kitchen: 'x', cards: [] })]) assert.strictEqual(peek(bad), null, String(bad));
-});

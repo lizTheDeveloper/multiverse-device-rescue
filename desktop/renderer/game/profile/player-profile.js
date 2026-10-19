@@ -6,7 +6,7 @@
 //
 // State shown on screen is derived from the record, never stored (MVProfile's
 // rule): see conceptState and lessonState.
-import { encode, decode, seedOf, validSeed, peek } from './recipe-box.js';
+import { encode, decode, seedOf, validSeed } from './recipe-box.js';
 import { estimate, isLearned, levelB, updateDifficulty, PRIOR, BEFORE_PRIOR, MIN_RESPONSES } from './irt.js';
 import { lessonsWithConcept } from './item-bank.js';
 import { CONCEPTS, SKILLS, CLUE_CONCEPTS, isHidden, conceptById } from './skills.js';
@@ -41,7 +41,7 @@ export function emptyDeckPart() {
 }
 export function emptyProfile(now) {
   return { version: VERSION, since: String(now), migrations: [], concepts: {}, items: {}, lessons: {},
-    drills: emptyDrills(), rank: { points: 0, index: 0 }, deck: emptyDeckPart(), missions: {} };
+    drills: emptyDrills(), rank: { points: 0, index: 0 }, deck: emptyDeckPart(), missions: {}, reclaimedEarlier: 0 };
 }
 
 // --- salvage: each record on its own; a bad one is dropped, never its neighbours ---
@@ -165,6 +165,7 @@ export function salvage(raw, now) {
     if (plainObject(raw.rank) && count(raw.rank.points)) p.rank.points = raw.rank.points;
     if (plainObject(raw.rank) && count(raw.rank.index)) p.rank.index = Math.min(RANKS.length - 1, raw.rank.index);
     p.deck = salvageDeck(raw.deck, changes);
+    if (count(raw.reclaimedEarlier)) p.reclaimedEarlier = raw.reclaimedEarlier;
     return { profile: p, changes };
   }
   if (![1, 2, 3].includes(raw.version)) return { profile: p, changes: ['unknown version: started fresh'] };
@@ -214,12 +215,15 @@ export const SPARE_KEYS = Object.freeze([SPARE_KEY, `${SPARE_KEY}.2`]);
 export const SALVAGED_KEY = 'device-rescue.recipe-box.v1.salvaged';
 export const BACKUP_KEY = 'device-rescue.recipe-box.v1.backup';
 // Each slot this code writes holds at most this many characters. The codec
-// makes the text about 13 times the JSON; a box over it is written with older
-// answers compacted (see boxText). Worst case for everything here: the box,
-// the salvaged slot, the spares and the backup, each full, STORAGE_WORST in
-// all, well under Chromium's ~5M characters per origin.
-export const MAX_BOX_CHARS = 600000;
-export const STORAGE_WORST = (3 + SPARE_KEYS.length) * MAX_BOX_CHARS;
+// makes the text about 13 times the JSON; a box over it is made smaller (see
+// boxText). Worst case for everything here: the box, the salvaged slot, the
+// spares and the backup, each full, plus the literal old document an older
+// build wrote (OLD_LITERAL_ALLOWANCE: a city-mode backup of anything larger
+// isn't made, and that larger document is the older build's own). That is
+// STORAGE_WORST in all, well under Chromium's ~5M characters per origin.
+export const MAX_BOX_CHARS = 500000;
+export const OLD_LITERAL_ALLOWANCE = MAX_BOX_CHARS;
+export const STORAGE_WORST = (3 + SPARE_KEYS.length) * MAX_BOX_CHARS + OLD_LITERAL_ALLOWANCE;
 // Answers kept with their time and source when a box is compacted.
 const KEEP_LITERAL = 8;
 const FAILURES = new Set(['encode', 'too-big', 'spare', 'write']);
@@ -248,8 +252,25 @@ function clearFailures(storage) {
   if (said) for (const c of FAILURES) said.delete(c);
 }
 
-// A cheap check that `text` is a box this version wrote: its head only.
-const isOurBox = (text) => peek(text, 13) === `{"version":${VERSION},`;
+// The box this code last loaded or wrote, per storage, as length plus a
+// 32-bit FNV-1a hash: a box that matches it is ours and is overwritten
+// without decoding it. Anything else (damaged since, or written by another
+// window or build) is fully decoded first, and kept aside if it doesn't
+// decode. Held in memory: a fingerprint, no profile data.
+const lastBox = new WeakMap();
+function fingerprint(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+  return `${text.length}:${h >>> 0}`;
+}
+function remember(storage, text) {
+  if (storage && typeof storage === 'object') lastBox.set(storage, fingerprint(text));
+}
+function isOurBox(storage, text) {
+  if (storage && typeof storage === 'object' && lastBox.get(storage) === fingerprint(text)) return true;
+  const v = decode(text);
+  return plainObject(v) && v.version === VERSION;
+}
 
 // Copies an undecodable box to a spare slot, freeing the oldest when all are
 // taken. { ok, problem }: ok is false only when nothing could be written.
@@ -287,6 +308,7 @@ export function loadProfile(storage, now, { onProblem } = {}) {
     const v = decode(box);
     if (plainObject(v) && v.version === VERSION) {
       const { profile, changes } = salvage(v, now);
+      remember(storage, box);
       if (changes.length) {
         if (box.length > MAX_BOX_CHARS || !write(storage, SALVAGED_KEY, box)) say('salvaged');
         profile.migrations = [...profile.migrations, { v: VERSION, from: VERSION, at: String(now), changes }].slice(-MAX_MIGRATIONS);
@@ -323,22 +345,73 @@ export function profileSeed(storage, displayMode, random = Math.random) {
   return seed;
 }
 
-// The box's text. Over MAX_BOX_CHARS, each concept keeps its newest
-// KEEP_LITERAL answers as they are and the rest compacted into `older`
-// (order and right/wrong kept, time and source dropped), so no estimate and
-// no state changes; then migrations are cut to the last 5. Throws when it
-// can't be encoded. May still be over the limit: the caller checks.
-export function boxText(p, seed) {
-  const text = encode(p, seed);
-  if (text.length <= MAX_BOX_CHARS) return text;
-  const concepts = obj(Object.entries(p.concepts).map(([id, c]) => {
+// Each concept keeps its newest KEEP_LITERAL answers as they are and the
+// rest compacted into `older` (order and right/wrong kept, time and source
+// dropped), so no estimate and no state changes.
+function compactEvidence(concepts) {
+  return obj(Object.entries(concepts).map(([id, c]) => {
     const seen = c.seen || [];
     const cut = Math.max(0, seen.length - KEEP_LITERAL);
     if (!cut) return [id, c];
-    const rec = { ...c, older: makeOlder([...olderPairs(c), ...seen.slice(0, cut).map(([k, x]) => [k, x])]), seen: seen.slice(cut) };
-    return [id, rec];
+    return [id, { ...c, older: makeOlder([...olderPairs(c), ...seen.slice(0, cut).map(([k, x]) => [k, x])]), seen: seen.slice(cut) }];
   }));
-  return encode({ ...p, concepts, migrations: p.migrations.slice(-5) }, seed);
+}
+
+const utf8Length = (s) => new TextEncoder().encode(s).length;
+const missionBytes = (id, rec) => utf8Length(JSON.stringify(id)) + utf8Length(JSON.stringify(rec)) + 2;
+const oldestFirst = (missions, status) => Object.entries(missions).filter(([, r]) => r.status === status)
+  .sort(([a, x], [b, y]) => String(x.updatedAt || '').localeCompare(String(y.updatedAt || '')) || a.localeCompare(b));
+
+// Each step takes the bytes still to save and returns what is left.
+const MISSION_STEPS = [
+  // 'open' missions come from the scan; the next scan that still finds one puts it back.
+  (q, excess) => {
+    for (const [id, r] of oldestFirst(q.missions, 'open')) { if (excess <= 0) break; excess -= missionBytes(id, r); delete q.missions[id]; }
+    return excess;
+  },
+  // Reclaimed missions lose their title and time (the district view then says "Something that's gone now").
+  (q, excess) => {
+    for (const [id, r] of oldestFirst(q.missions, 'reclaimed')) {
+      if (excess <= 0) break;
+      if (!('title' in r) && !('updatedAt' in r)) continue;
+      const slim = obj([['status', r.status], ...['module', 'districtId'].filter((k) => k in r).map((k) => [k, r[k]])]);
+      excess -= missionBytes(id, r) - missionBytes(id, slim);
+      q.missions[id] = slim;
+    }
+    return excess;
+  },
+  // Then the oldest reclaimed are folded into a count, so the number reclaimed never drops.
+  (q, excess) => {
+    for (const [id, r] of oldestFirst(q.missions, 'reclaimed')) {
+      if (excess <= 0) break;
+      excess -= missionBytes(id, r);
+      delete q.missions[id];
+      q.reclaimedEarlier += 1;
+    }
+    return excess;
+  },
+];
+
+// The box's text, at most MAX_BOX_CHARS whenever it can be. Over the limit,
+// in this order, until it fits: answers compacted (compactEvidence) and
+// migrations cut to the last 5; then 'open' missions, oldest first; then
+// reclaimed missions slimmed, then folded into `reclaimedEarlier`. Missions
+// the person set ('yours', 'later') are never touched. Throws when it can't
+// be encoded. May still be over the limit (only with hundreds of 'yours' and
+// 'later'); the caller checks and reports it.
+export function boxText(p, seed) {
+  let text = encode(p, seed);
+  if (text.length <= MAX_BOX_CHARS) return text;
+  let q = { ...p, concepts: compactEvidence(p.concepts), migrations: p.migrations.slice(-5) };
+  text = encode(q, seed);
+  for (let round = 0; round < 4 && text.length > MAX_BOX_CHARS; round += 1) {
+    const bytes = utf8Length(JSON.stringify(q));
+    let excess = bytes - (MAX_BOX_CHARS * 0.97) / (text.length / bytes);
+    q = { ...q, missions: { ...q.missions } };
+    for (const step of MISSION_STEPS) { if (excess <= 0) break; excess = step(q, excess); }
+    text = encode(q, seed);
+  }
+  return text;
 }
 
 // In city mode: copy the old literal document, disguised, then remove it.
@@ -365,12 +438,13 @@ export function saveProfile(storage, profile, { seed, mode, onProblem } = {}) {
   try { text = boxText(salvage(profile, profile && profile.since).profile, seed); } catch (_) { say('encode'); return false; }
   if (text.length > MAX_BOX_CHARS) { say('too-big'); return false; }
   const current = read(storage, PROFILE_KEY);
-  if (current && current !== text && !isOurBox(current)) {
+  if (current && current !== text && !isOurBox(storage, current)) {
     const s = stash(storage, current);
     if (s.problem) say(s.problem);
     if (!s.ok) return false;
   }
   try { storage.setItem(PROFILE_KEY, text); } catch (_) { say('write'); return false; }
+  remember(storage, text);
   clearFailures(storage);
   if (mode === 'city') { const r = retireOld(storage, seed); if (r) say(r); }
   return true;
@@ -654,7 +728,7 @@ export function summary(p, bank, lessonsInOrder = [...bank.lessons.keys()]) {
     lessonsLearned: lessons.filter((l) => l.state === 'learned').length,
     drills: { right: p.drills.right, tried: p.drills.tried, lastTen: { right: p.drills.recent.filter((x) => x === 1).length, of: p.drills.recent.length }, ...calibration(p.drills) },
     rank: { index: r.index, level: r.index + 1, of: RANKS.length, name: r.name, points: r.points, toNext: r.toNext, next: r.next ? r.next.name : null },
-    city: { reclaimed: missions.filter((m) => m.status === 'reclaimed').length, later: missions.filter((m) => m.status === 'later').length,
+    city: { reclaimed: missions.filter((m) => m.status === 'reclaimed').length + p.reclaimedEarlier, later: missions.filter((m) => m.status === 'later').length,
       yours: missions.filter((m) => m.status === 'yours').length, lastSweep: last ? sweepPercent(last) : null },
     since: p.since, migrations: p.migrations,
   };

@@ -550,37 +550,97 @@ test('a v4 box with an unreadable record: the rest loads, the drop is logged, an
 });
 
 // Fix round 1, item 3: headroom.
-test('worst case: every slot this code writes is capped, and all of them together stay well under 5M characters', async () => {
+// The largest n with size(n) <= cap.
+const largestUnder = (size, cap) => {
+  let lo = 0;
+  let hi = 1;
+  while (size(hi) <= cap) hi *= 2;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (size(mid) <= cap) lo = mid; else hi = mid; }
+  return lo;
+};
+
+// Fix round 2, item 3: every slot driven to its cap.
+test('worst case: every slot driven to its cap, the old literal included, stays within STORAGE_WORST, well under 5M', async () => {
   const m = await load();
-  const CHROMIUM_PER_ORIGIN = 5000000;
-  assert.ok(m.STORAGE_WORST <= 0.65 * CHROMIUM_PER_ORIGIN, `${m.STORAGE_WORST}`);
-  // Drive every slot: migration, salvaged box, spares (more than fit), city-mode backup, big boxes.
+  const CAP = m.MAX_BOX_CHARS;
+  assert.ok(m.STORAGE_WORST <= 0.65 * 5000000, `${m.STORAGE_WORST}`);
   const problems = [];
   const onProblem = (c) => problems.push(c);
-  const store = recordingStore({ [m.OLD_KEY]: JSON.stringify(V3) });
-  const bank = await wideBank();
-  let p = m.loadProfile(store, NOW, { onProblem });
-  p = heavy(m, bank, p);
-  assert.ok(m.saveProfile(store, p, { seed: 7, mode: 'city', onProblem }));
-  const good = m.rb.decode(store.data[m.PROFILE_KEY]);
-  store.data[m.PROFILE_KEY] = m.rb.encode({ ...good, items: { ...good.items, broken: 1 } }, 7);
-  p = m.loadProfile(store, NOW, { onProblem });
-  for (let i = 0; i < 4; i += 1) {
-    store.data[m.PROFILE_KEY] = `{"kitchen":"x","cards":[${'0,'.repeat(250000 + i)}0]}`;
-    p = m.loadProfile(store, NOW, { onProblem });
-    assert.ok(m.saveProfile(store, p, { seed: 7, mode: 'city', onProblem }));
+  const seed = 7;
+  // An old document whose disguised backup is as big as a slot may be.
+  // (Its bulk is a field this build doesn't read, so the profile itself stays small.)
+  const oldDoc = (n) => JSON.stringify({ ...V3, notes: 't'.repeat(n) });
+  const oldN = largestUnder((n) => m.rb.encode(oldDoc(n), seed).length, CAP);
+  // A profile whose box is as big as a slot may be (person-set missions, which are never trimmed).
+  const padded = (base, n, extra = {}) => ({ ...base, items: { ...base.items, ...extra }, missions: { ...base.missions, 'x|y|z': { status: 'yours', module: 'm', title: 'u'.repeat(n) } } });
+  const store = recordingStore({ [m.OLD_KEY]: oldDoc(oldN) });
+  const p0 = m.loadProfile(store, NOW, { onProblem });
+  const boxN = largestUnder((n) => m.boxText(m.salvage(padded(p0, n), NOW).profile, seed).length, CAP);
+  const p = padded(p0, boxN);
+  // 1. City mode: the box at its cap, the backup at its cap, the literal old document gone.
+  assert.ok(m.saveProfile(store, p, { seed, mode: 'city', onProblem }));
+  assert.strictEqual(store.data[m.OLD_KEY], undefined);
+  // 2. A decodable box with a dropped record, at its cap, goes to the salvaged slot.
+  const salvN = largestUnder((n) => m.rb.encode(padded(p0, n, { broken: 1 }), seed).length, CAP);
+  store.data[m.PROFILE_KEY] = m.rb.encode(padded(p0, salvN, { broken: 1 }), seed);
+  m.loadProfile(store, NOW, { onProblem });
+  assert.ok(m.saveProfile(store, p, { seed, mode: 'city', onProblem }));
+  // 3. Two undecodable boxes, each at the cap, fill the spares.
+  for (const fill of ['0', '1']) {
+    store.data[m.PROFILE_KEY] = `{"kitchen":"x","cards":[${fill.repeat(CAP - 26)}]}`;
+    assert.strictEqual(store.data[m.PROFILE_KEY].length, CAP);
+    assert.ok(m.saveProfile(store, p, { seed, mode: 'city', onProblem }));
   }
-  store.data[m.PROFILE_KEY] = 'y'.repeat(m.MAX_BOX_CHARS + 1); // too big to copy: reported, not silently lost
-  assert.ok(m.saveProfile(store, p, { seed: 7, mode: 'city', onProblem }));
-  assert.ok(problems.includes('unreadable-too-big'));
-  const allowed = new Set([m.PROFILE_KEY, m.SALVAGED_KEY, m.BACKUP_KEY, m.SEED_KEY, ...m.SPARE_KEYS]);
-  for (const [k, v] of store.writes) {
-    assert.ok(allowed.has(k), k);
-    assert.ok(v.length <= m.MAX_BOX_CHARS, `${k}: ${v.length}`);
-  }
+  // 4. An older build writes its literal document again, as big as the allowance; standard mode keeps it.
+  store.data[m.OLD_KEY] = oldDoc(m.OLD_LITERAL_ALLOWANCE - oldDoc(0).length);
+  assert.strictEqual(store.data[m.OLD_KEY].length, m.OLD_LITERAL_ALLOWANCE);
+  assert.ok(m.saveProfile(store, p, { seed, mode: 'standard', onProblem }));
+  assert.deepStrictEqual(problems, []);
+  const slots = [m.PROFILE_KEY, m.SALVAGED_KEY, m.BACKUP_KEY, ...m.SPARE_KEYS, m.OLD_KEY];
+  for (const k of slots) assert.ok(store.data[k] && store.data[k].length >= 0.99 * CAP, `${k}: ${store.data[k] && store.data[k].length}`);
+  for (const [k, v] of store.writes) assert.ok(v.length <= CAP, `${k}: ${v.length}`);
   const total = Object.entries(store.data).reduce((a, [k, v]) => a + k.length + v.length, 0);
-  assert.ok(total <= m.STORAGE_WORST + 1000, `${total}`);
-  assert.ok(store.data[m.SALVAGED_KEY] && store.data[m.BACKUP_KEY] && m.SPARE_KEYS.every((k) => store.data[k]), 'every slot was used');
+  assert.ok(total <= m.STORAGE_WORST + 1000, `${total} of ${m.STORAGE_WORST}`);
+  assert.ok(total >= 0.98 * m.STORAGE_WORST, 'the worst case really was reached');
+  // Over the cap: an undecodable box too big to copy is reported, not silently lost.
+  store.data[m.PROFILE_KEY] = 'y'.repeat(CAP + 1);
+  assert.ok(m.saveProfile(store, p, { seed, onProblem }));
+  assert.deepStrictEqual(problems, ['unreadable-too-big']);
+});
+
+// Fix round 2, item 1: a box damaged after load is never overwritten unseen.
+test('a box damaged since it was loaded, with its first card intact, is kept aside before the save', async () => {
+  const m = await load();
+  const other = m.recordAnswer(m.emptyProfile(NOW), m.bank, 'a2', true, NOW);
+  const damages = {
+    'last card corrupt': (t) => { const box = JSON.parse(t); box.cards.at(-1).ingredients[0] = 'gravel'; return JSON.stringify(box); },
+    'cut off at 60%': (t) => t.slice(0, Math.floor(t.length * 0.6)),
+  };
+  for (const [name, damage] of Object.entries(damages)) {
+    for (const whose of ['another window', 'our own last write']) {
+      const store = recordingStore();
+      let p = m.loadProfile(store, NOW);
+      p = m.recordAnswer(p, m.bank, 'a1', true, NOW);
+      assert.ok(m.saveProfile(store, p, { seed: 21 }));
+      const base = whose === 'our own last write' ? store.data[m.PROFILE_KEY] : m.rb.encode(m.salvage(other, NOW).profile, 21);
+      const bad = damage(base);
+      assert.strictEqual(m.rb.decode(bad), null, `${name}: really damaged`);
+      assert.ok(bad.startsWith(base.slice(0, 300)), `${name}: the head is intact`);
+      store.data[m.PROFILE_KEY] = bad;
+      assert.ok(m.saveProfile(store, m.recordAnswer(p, m.bank, 'a1-2', true, NOW), { seed: 21 }), `${name}, ${whose}`);
+      assert.strictEqual(store.data[m.SPARE_KEY], bad, `${name}, ${whose}: kept aside`);
+    }
+  }
+});
+
+test('the box we last wrote, and a good box another window wrote, are overwritten without a spare', async () => {
+  const m = await load();
+  const store = recordingStore();
+  let p = m.recordAnswer(m.loadProfile(store, NOW), m.bank, 'a1', true, NOW);
+  for (let i = 0; i < 3; i += 1) { p = m.recordAnswer(p, m.bank, 'a1-2', i % 2 === 0, at(i)); assert.ok(m.saveProfile(store, p, { seed: 21 })); }
+  store.data[m.PROFILE_KEY] = m.rb.encode(m.salvage(m.emptyProfile(NOW), NOW).profile, 21);
+  assert.ok(m.saveProfile(store, p, { seed: 21 }));
+  assert.ok(m.SPARE_KEYS.every((k) => store.data[k] === undefined));
 });
 
 // 5. Size.
@@ -642,9 +702,9 @@ test('a box over the limit compacts older answers; learned with mixed recent ans
   for (let i = 0; i < 12; i += 1) p = m.recordAnswer(p, bank, k('lock-screen', i), false, at(i));
   assert.strictEqual(m.conceptState(p, bank, 'lock-screen'), 'refresher');
   p = answer(m, p, bank, [0, 1, 2].map((n) => k('auto-updates', n)), [true, false, true]);
-  // Padding to push the box over the limit.
-  const big = { ...p, missions: { ...p.missions } };
-  for (let i = 0; i < 220; i += 1) big.missions[`launch_agent_audit|security.launch_agent_audit.item${i}|/Library/LaunchAgents/com.example.helper${i}.plist`] = { status: 'later', module: 'launch_agent_audit', title: `A helper ${i}`, updatedAt: NOW };
+  // Padding to push the box over the limit: other concepts' evidence, and a mission.
+  const big = { ...p, concepts: { ...p.concepts }, missions: { 'launch_agent_audit|a|b': { status: 'later', module: 'launch_agent_audit', title: 'A helper', updatedAt: NOW } } };
+  for (let i = 0; i < 30; i += 1) big.concepts[`extra-${i}`] = { seen: Array.from({ length: m.MAX_SEEN }, (_, j) => [`extra-item-${j}`, j % 2, NOW, 'lesson']) };
   assert.ok(m.rb.encode(big, 11).length > m.MAX_BOX_CHARS, 'the test really is over the limit');
   const store = memStore();
   assert.ok(m.saveProfile(store, big, { seed: 11 }));
@@ -704,4 +764,54 @@ test('in every mode every profile write is a recipe box, and what was recorded i
     for (const [k, v] of store.writes) assert.ok(v.startsWith('{"kitchen":') && !v.includes('version'), `${mode}: ${k}`);
     assert.deepStrictEqual(m.loadProfile(store, NOW), p, `${mode}: every field written survives a restart`);
   }
+});
+
+
+// Fix round 2, item 2: missions are bounded, and saving never stops.
+test('a long-lived profile with many scans keeps saving under the cap; what the person set is kept, and the reclaimed count never drops', async () => {
+  const m = await load();
+  const progress = await import('../renderer/game/progress.js');
+  const bank = await wideBank();
+  const problems = [];
+  const onProblem = (c) => problems.push(c);
+  const store = recordingStore({ [m.OLD_KEY]: JSON.stringify(V3) });
+  let p = heavy(m, bank, m.loadProfile(store, NOW));
+  const set = new Map();
+  const reclaimedEver = new Set(Object.entries(p.missions).filter(([, r]) => r.status === 'reclaimed').map(([id]) => id));
+  const SCANS = 400;
+  for (let scan = 0; scan < SCANS; scan += 1) {
+    const now = new Date(Date.UTC(2026, 9, 18) + scan * 3600000).toISOString();
+    // Each scan finds three new things and the last few again; older ones are gone.
+    const missions = [];
+    for (let j = Math.max(0, scan - 2); j <= scan; j += 1) for (let k = 0; k < 3; k += 1) {
+      missions.push({ id: `launch_agent_audit|security.launch_agent_audit.unsigned|/Users/someone/Library/LaunchAgents/com.example.helper-${j}-${k}.plist`, module: 'launch_agent_audit', districtId: 'gatehouse', title: `A helper that starts on its own (${j}-${k})`, marked: false });
+    }
+    const city = { districts: [{ id: 'gatehouse', missions }] };
+    let view = progress.reconcile(m.toProgress(p, bank), city, new Set(['launch_agent_audit']), now).progress;
+    // Now and then the person sets one aside for later, or says it is theirs.
+    if (scan % 5 === 0) {
+      const id = missions.at(-1).id;
+      const status = scan % 10 === 0 ? 'yours' : 'later';
+      view = progress.setStatus(view, id, status, 'launch_agent_audit', now, { districtId: 'gatehouse', title: 'Set by the person' });
+      set.set(id, status);
+    }
+    p = m.withProgress(p, view);
+    for (const [id, r] of Object.entries(p.missions)) if (r.status === 'reclaimed') reclaimedEver.add(id);
+    if (scan % 20 === 19) {
+      assert.ok(m.saveProfile(store, p, { seed: 3, mode: 'city', onProblem }), `save after scan ${scan}`);
+      assert.ok(store.data[m.PROFILE_KEY].length <= m.MAX_BOX_CHARS);
+      const back = m.loadProfile(store, now);
+      for (const [id, status] of set) {
+        // A person-set mission later reconciled (gone from the scan) becomes reclaimed by the game's own rule; only 'later' and 'yours' are exempt from trimming.
+        const live = p.missions[id] && p.missions[id].status;
+        if (live === 'yours' || live === 'later') assert.deepStrictEqual(back.missions[id], p.missions[id], `${id} kept as set`);
+      }
+      assert.strictEqual(m.summary(back, bank).city.reclaimed, m.summary(p, bank).city.reclaimed, 'the reclaimed count never drops');
+      assert.deepStrictEqual(states(m, bank, back), states(m, bank, p));
+      p = back;
+    }
+  }
+  assert.ok(Object.keys(p.missions).length < 9 * SCANS / 3, 'missions were bounded');
+  assert.ok(p.reclaimedEarlier > 0, 'old reclaimed missions were folded into the count');
+  assert.deepStrictEqual(problems, []);
 });
