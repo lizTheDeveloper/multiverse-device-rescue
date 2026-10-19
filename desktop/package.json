@@ -1,7 +1,7 @@
 {
   "name": "device-rescue",
   "productName": "Reclaim City",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Reclaim City desktop app",
   "author": "The Multiverse School",
   "main": "main.js",
@@ -42,7 +42,10 @@
       "vendor/reclaim-city/src/assets/**"
     ],
     "extraResources": [
-      { "from": "engine", "to": "engine" }
+      {
+        "from": "engine",
+        "to": "engine"
+      }
     ],
     "mac": {
       "target": "dmg",
@@ -62,5 +65,8 @@
       "shortcutName": "Reclaim City"
     }
   },
-  "devDependencies": { "electron": "^41.10.6", "electron-builder": "^26.15.3" }
+  "devDependencies": {
+    "electron": "^41.10.6",
+    "electron-builder": "^26.15.3"
+  }
 }
