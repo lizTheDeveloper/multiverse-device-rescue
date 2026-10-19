@@ -231,10 +231,9 @@ export function createMissionDesk(deps) {
       let r = null;
       try { r = await deps.win.rescue.recheckModule(name); } catch (_) { r = null; }
       if (!r || !r.ok || (r.module && r.module.complete === false)) ok = false;
-      if (r && r.ok) {
-        if (!deps.docChanged(r.doc)) { d.busy = false; return; }
-        deps.rebuild(r.doc);
-      }
+      // An unchanged scan means the item is still there: carry on to the answer
+      // below rather than leaving the confirm waiting for nothing.
+      if (r && r.ok && deps.docChanged(r.doc)) deps.rebuild(r.doc);
     }
     d.busy = false;
     const still = d.missions.some((m) => m.items.some((i) => i.key === item.key || (i.sourceKeys || []).includes(item.key)));

@@ -118,6 +118,21 @@ test('a fix decision opens FixFlow’s own confirm with the warning; a re-check 
   assert.match(t.html(), /ITEM \d OF \d/);
 });
 
+test('a fix whose re-check finds the scan unchanged ends the confirm: still there, decisions back', async () => {
+  const t = await setup(doc(), { recheckDocs: [doc()] });
+  t.win.RescueHost.docChanged = () => false;
+  t.click({ 'data-go': 'district:gatehouse' });
+  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:fix' });
+  t.hooks.fix.onResult({ kind: 'fix', module: 'sudo_config_audit', result: { applied: true }, described: { tone: 'success' } });
+  await tick(); await tick();
+  const h = t.html();
+  assert.doesNotMatch(h, /Read the warning above first/, 'not stuck on the confirm');
+  assert.match(h, /Checked again: it’s still there, so it stays open\./);
+  assert.match(h, /data-act="mx-decide:/);
+});
+
 test('deciding moves on; the summary pays the mission bonus once and offers the next mission', async () => {
   const t = await setup(doc(), { recheckDocs: [doc()] });
   t.click({ 'data-go': 'mx:simple:gatehouse:2' });
