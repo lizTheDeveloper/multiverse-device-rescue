@@ -302,3 +302,14 @@ test('P2-25 / P2-20 / P3-32 / P3-33: one calm HUD with the rank, focus lands on 
   assert.doesNotMatch(t, /straight to the checkup/);
   assert.match(t, /<h2 class="hud-title" tabindex="-1">THE TRAINING GROUNDS<\/h2>/);
 });
+
+test('P2-17 / P2-18: the first sweep says where the list is; pop-ups are one line with the details closed', async () => {
+  const { renderBoss, FIRST_SWEEP_LINE, POPUP_LINE } = await game('views/boss.js');
+  const { bossInit } = await game('boss.js');
+  const tips = [{ title: 'Allow', body: 'Reclaim City wants to control System Events.' }];
+  const first = renderBoss({ boss: bossInit(), scout: () => '', tips, firstSweep: true });
+  assert.ok(first.includes(FIRST_SWEEP_LINE));
+  assert.ok(first.includes(POPUP_LINE));
+  assert.match(first, /<details class="panel"><summary/);
+  assert.ok(!renderBoss({ boss: bossInit(), scout: () => '', tips }).includes(FIRST_SWEEP_LINE));
+});

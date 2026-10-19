@@ -177,7 +177,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
     rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
     scanConfirmed: loadScanConfirmed(storage), linkNotice: '',
-    lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit(),
+    lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: false, scan: idleScan(), boss: bossInit(),
     // The command center. The ops log is kept in memory only.
     signal: null, filter: null, lowOpen: false, queueOpen: false, sev: null, sideSeen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
     // This sweep's evidence, memory only: real findings already counted as a
@@ -917,6 +917,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return screenHtml();
     }
     if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor(),
+      firstSweep: !s.progress.deck.sweeps.length,
       // Swept so far: the same path as rebuild()'s, read-only (no progress, deck or store touched).
       toCity: (d) => findingsToCity(quietDoc(splitHeld(d).doc)) });
     if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
@@ -1614,6 +1615,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     },
     showBoss() {
       s.boss = bossInit();
+      s.tipsOpen = false; // one line; the details only when asked for
       s.scan = { running: true, index: 0, total: 0, error: null };
       s.pendingCity = false;
       s.screen = 'boss';

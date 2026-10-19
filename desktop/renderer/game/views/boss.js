@@ -63,7 +63,11 @@ function previewHtml(preview) {
 
 // `tipsOpen`: the pop-up tips stay as the person left them across redraws.
 // `toCity(doc)`: the controller's scan-to-city path, for the swept-so-far preview.
-export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, toCity = null }) {
+export const POPUP_LINE = 'Your computer may ask for permission. Click Allow. Nothing here ever asks for your password.';
+// `firstSweep`: no sweep has finished on this computer before, so Scout says
+// once where the plain list is.
+export const FIRST_SWEEP_LINE = 'This is your city. PLAIN VIEW shows the same as a list, any time.';
+export function renderBoss({ boss, scout, tips, tipsOpen = false, learn = null, toCity = null, firstSweep = false }) {
   const ds = bossDistricts(boss);
   const pct = bossPercent(boss);
   // The check now running; its district may already read SWEPT if it was the last one there.
@@ -74,7 +78,9 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, t
   const line = lookingUp ? LOOKUP_LINE : !current ? `Starting the checkup engine.${anyLesson ? ' Pick a district marked LEARN to see what it looks for.' : ''}`
     : teaches ? `Checking ${current.name} now. Click it to learn what I’m looking for. I’ll call you when the checkup is done.`
       : `Checking ${current.name} now. You don’t need to watch. I’ll call you when it’s done.`;
+  // One line; what each pop-up says is behind it, closed until asked for.
   const tipList = Array.isArray(tips) && tips.length ? `
+    <p class="intel popup-line">${esc(POPUP_LINE)}</p>
     <details class="panel"${tipsOpen ? ' open' : ''}><summary class="label" data-act="toggle-tips">POP-UPS YOU MIGHT SEE</summary>
       <ul class="notes">${tips.map((t) => `<li><strong>${esc(t.title)}</strong> ${esc(t.body)}</li>`).join('')}</ul></details>` : '';
   return `
@@ -84,7 +90,7 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, t
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="--pct: ${pct}%"></i></div>
         <div class="bar-meta"><span>${boss.total ? `${esc(boss.index)} / ${esc(boss.total)} CHECKS` : 'GETTING READY'}</span>
           ${boss.found ? `<span>${esc(boss.found)} THING${boss.found === 1 ? '' : 'S'} NOTED SO FAR</span>` : ''}</div></div></div>
-    <div class="row boss-say"><p class="say">${esc(line)}</p>
+    <div class="row boss-say"><p class="say">${firstSweep ? `${esc(FIRST_SWEEP_LINE)} ` : ''}${esc(line)}</p>
       <button type="button" class="btn-s lime" data-go="training">ALL LESSONS</button>
       <button type="button" class="btn-t" data-act="leave">PLAIN VIEW</button></div>
     ${tipList}

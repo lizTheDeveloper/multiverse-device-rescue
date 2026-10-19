@@ -785,18 +785,19 @@ test('focus isn’t carried to a different screen', async () => {
   assert.deepStrictEqual(t.focused, []);
 });
 
-test('the boss screen’s pop-up tips stay closed once the person closes them', async () => {
+test('the boss screen’s pop-up tips: one line, details closed, and they stay as the person left them', async () => {
   const t = await trainingSetup();
   t.ctl.showBoss();
   await tick(); await tick();
-  assert.match(t.html(), /<details class="panel" open>/);
+  // UX round 1 (P2-18): one line, the details closed until asked for.
+  assert.match(t.html(), /Click Allow\. Nothing here ever asks for your password\.[\s\S]*<details class="panel">[\s\S]*POP-UPS YOU MIGHT SEE/);
   // The summary's own click toggles the <details>; the controller only remembers it.
   t.click({ 'data-act': 'toggle-tips' });
   t.ctl.scanEvent(prog('start', 1, 4));
-  assert.match(t.html(), /<details class="panel">[\s\S]*POP-UPS YOU MIGHT SEE/, 'closed stays closed after a redraw');
+  assert.match(t.html(), /<details class="panel" open>/, 'open stays open after a redraw');
   t.click({ 'data-act': 'toggle-tips' });
   t.ctl.scanEvent(prog('done', 1, 4));
-  assert.match(t.html(), /<details class="panel" open>/);
+  assert.match(t.html(), /<details class="panel">[\s\S]*POP-UPS YOU MIGHT SEE/, 'closed stays closed');
 });
 
 // The new flow: a worry starts its scan at once; the sweep's districts open the lessons.
