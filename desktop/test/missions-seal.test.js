@@ -42,14 +42,16 @@ test('covers claims real modules, narrowed where a module is shared', async () =
     { module: 'certificate_audit' },
     { module: 'certificate_trust_audit' },
     { module: 'win_rootkit_check', codes: ['security.win_rootkit_check.unsigned_drivers'] },
+    { module: 'win_driver_check', checks: ['unsigned_drivers'] },
   ]);
   // Every claimed code is one the engine really emits.
   const root = path.join(__dirname, '..', '..', 'modules');
   for (const c of G.covers) {
-    const dir = ['security', 'integrity'].map((d) => path.join(root, d, c.module)).find((d) => fs.existsSync(d));
+    const dir = ['security', 'integrity', 'performance', 'network'].map((d) => path.join(root, d, c.module)).find((d) => fs.existsSync(d));
     assert.ok(dir, `${c.module} is a real engine module`);
     const src = fs.readFileSync(path.join(dir, '__init__.py'), 'utf8');
     for (const code of c.codes || []) assert.ok(src.includes(`"${code}"`), `${code} is emitted by ${c.module}`);
+    for (const check of c.checks || []) assert.ok(src.includes(`"check": "${check}"`), `${check} is a data.check of ${c.module}`);
   }
 });
 

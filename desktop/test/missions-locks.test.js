@@ -66,7 +66,9 @@ test('Windows locks open Windows panes, or show the steps when Windows has no pa
   assert.deepStrictEqual(first('win_windows_update_status').effect, { kind: 'settings', pane: 'windows-update' });
   assert.deepStrictEqual(first('win_defender').effect, { kind: 'settings', pane: 'windows-security' });
   assert.deepStrictEqual(first('win_firewall').effect, { kind: 'settings', pane: 'windows-firewall' });
-  for (const m of ['win_bitlocker_check', 'win_uac_check', 'win_user_accounts', 'win_restore_points']) {
+  // Panes that exist since integration: device encryption, sign-in options, Find my device.
+  assert.deepStrictEqual(first('win_bitlocker_check').effect, { kind: 'settings', pane: 'windows-bitlocker' });
+  for (const m of ['win_uac_check', 'win_user_accounts', 'win_restore_points']) {
     const d = first(m);
     assert.strictEqual(d.effect.kind, 'closer', m);
     assert.strictEqual(d.label.standard, 'Show me how', m);

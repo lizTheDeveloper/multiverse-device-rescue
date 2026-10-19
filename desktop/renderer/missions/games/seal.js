@@ -572,6 +572,8 @@ export default {
     { module: 'certificate_audit' },
     { module: 'certificate_trust_audit' },
     { module: 'win_rootkit_check', codes: ['security.win_rootkit_check.unsigned_drivers'] },
+    // win_driver_check emits no codes: its unsigned-driver finding by data.check (R9).
+    { module: 'win_driver_check', checks: ['unsigned_drivers'] },
   ],
   classify,
   decisions,

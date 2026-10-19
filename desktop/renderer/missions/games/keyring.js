@@ -60,12 +60,12 @@ export const KEYS = {
   contacts: {
     name: { standard: 'Contacts', city: 'Address key' },
     does: { standard: 'Can read your contacts.', city: 'Reads the address book.' },
-    pane: null, where: 'System Settings > Privacy & Security > Contacts',
+    pane: 'privacy-contacts', where: 'System Settings > Privacy & Security > Contacts',
   },
   'screen-time': {
     name: { standard: 'Screen Time', city: 'Curfew key' },
     does: { standard: 'Sets limits on this computer, and who can change them.', city: 'Sets the curfew, and who can change it.' },
-    pane: null, where: 'System Settings > Screen Time',
+    pane: 'screen-time', where: 'System Settings > Screen Time',
   },
   other: {
     name: { standard: 'A powerful permission', city: 'A spare key' },

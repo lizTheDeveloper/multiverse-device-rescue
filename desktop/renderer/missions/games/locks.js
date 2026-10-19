@@ -51,7 +51,7 @@ const LOCKS = {
     protects: 'Keeps your files unreadable if the computer is lost or stolen.',
     concept: 'disk-encryption',
     mac: { where: 'System Settings > Privacy & Security > FileVault. Turn it on and keep the recovery key it shows you.', pane: 'filevault' },
-    win: { where: 'Settings > Privacy & security > Device encryption, or Control Panel > BitLocker Drive Encryption.', pane: null, how: ['Open Control Panel > System and Security > BitLocker Drive Encryption.', 'Choose Turn on BitLocker for the drive.', 'Save the recovery key where you can find it without this computer.'], lookup: { source: 'microsoft-support', query: 'Turn on BitLocker' } },
+    win: { where: 'Settings > Privacy & security > Device encryption, or Control Panel > BitLocker Drive Encryption.', pane: 'windows-bitlocker', how: ['Open Control Panel > System and Security > BitLocker Drive Encryption.', 'Choose Turn on BitLocker for the drive.', 'Save the recovery key where you can find it without this computer.'], lookup: { source: 'microsoft-support', query: 'Turn on BitLocker' } },
   },
   'recovery-key': {
     name: { standard: 'Recovery key', city: 'Spare vault key' },
@@ -75,7 +75,7 @@ const LOCKS = {
     protects: 'Asks for your password when you step away.',
     concept: 'lock-screen',
     mac: { where: 'System Settings > Lock Screen. Set “Require password after screen saver begins or display is turned off” to Immediately.', pane: 'lock-screen' },
-    win: { where: 'Settings > Accounts > Sign-in options. Set “If you’ve been away, when should Windows require you to sign in again?” to When PC wakes up.', pane: null, how: ['Open Settings > Accounts > Sign-in options.', 'Under Additional settings, choose When PC wakes up from sleep.'] },
+    win: { where: 'Settings > Accounts > Sign-in options. Set “If you’ve been away, when should Windows require you to sign in again?” to When PC wakes up.', pane: 'windows-signin', how: ['Open Settings > Accounts > Sign-in options.', 'Under Additional settings, choose When PC wakes up from sleep.'] },
   },
   'auto-login': {
     name: { standard: 'Sign-in at start', city: 'Front gate' },
@@ -109,7 +109,7 @@ const LOCKS = {
     protects: 'Lets you find, lock or erase a lost computer.',
     concept: null,
     mac: { where: 'System Settings > your name > iCloud > Find My Mac. Turn it on.', pane: 'apple-id' },
-    win: { where: 'Settings > Privacy & security > Find my device.', pane: null, how: ['Open Settings > Privacy & security > Find my device.', 'Turn it on.'] },
+    win: { where: 'Settings > Privacy & security > Find my device.', pane: 'windows-findmydevice', how: ['Open Settings > Privacy & security > Find my device.', 'Turn it on.'] },
   },
   location: {
     name: { standard: 'Location for Find My', city: 'Beacon signal' },
