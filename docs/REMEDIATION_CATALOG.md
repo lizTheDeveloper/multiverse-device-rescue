@@ -4,634 +4,636 @@
 
 629 codes, 602 with walkthroughs (95% covered).
 
-| Code | Module | Walkthrough |
-|---|---|---|
-| `integrity.linux_journal_errors.filesystem_error` | linux_journal_errors | Back up now: your drive or memory is reporting errors |
-| `integrity.linux_journal_errors.memory_error` | linux_journal_errors | Back up now: your drive or memory is reporting errors |
-| `integrity.linux_journal_errors.oom_kill` | linux_journal_errors | Stop programs from crashing or running out of memory |
-| `integrity.linux_journal_errors.segfault` | linux_journal_errors | Stop programs from crashing or running out of memory |
-| `integrity.linux_journal_errors.smart_failure` | linux_journal_errors | Back up now: your drive or memory is reporting errors |
-| `integrity.linux_journal_errors.storage_io_error` | linux_journal_errors | Back up now: your drive or memory is reporting errors |
-| `integrity.linux_package_updates.reboot_required` | linux_package_updates | Install pending security updates and restart |
-| `integrity.linux_package_updates.release_end_of_life` | linux_package_updates | Install pending security updates and restart |
-| `integrity.linux_package_updates.security_updates_pending` | linux_package_updates | Install pending security updates and restart |
-| `integrity.linux_package_updates.updates_pending` | linux_package_updates | Install pending security updates and restart |
-| `integrity.linux_service_health.failed_backup_unit` | linux_service_health | Fix a stopped or crashing background service |
-| `integrity.linux_service_health.failed_unit` | linux_service_health | Fix a stopped or crashing background service |
-| `integrity.linux_service_health.restart_loop` | linux_service_health | Fix a stopped or crashing background service |
-| `integrity.linux_service_health.time_sync_inactive` | linux_service_health | Fix a stopped or crashing background service |
-| `network.arp_spoof_check.duplicate_mac` | arp_spoof_check | Respond to a device answering for your router |
-| `network.arp_spoof_check.gateway_impersonation` | arp_spoof_check | Respond to a device answering for your router |
-| `network.arp_spoof_check.locally_administered_gateway` | arp_spoof_check | Respond to a device answering for your router |
-| `network.arp_spoof_check.multiple_gateways` | arp_spoof_check | Respond to a device answering for your router |
-| `network.dns_over_https_check.dns_configuration` | dns_over_https_check | — **gap** |
-| `network.dns_over_https_check.doh_tls_configured` | dns_over_https_check | — **gap** |
-| `network.dns_over_https_check.encrypted_dns_profile` | dns_over_https_check | — **gap** |
-| `network.dns_over_https_check.encrypted_dns_provider` | dns_over_https_check | Encrypt your DNS lookups |
-| `network.dns_over_https_check.local_dns_resolver` | dns_over_https_check | — **gap** |
-| `network.dns_over_https_check.no_dns_found` | dns_over_https_check | — **gap** |
-| `network.dns_over_https_check.no_encryption_configured` | dns_over_https_check | Encrypt your DNS lookups |
-| `network.dns_over_https_check.unencrypted_dns` | dns_over_https_check | Encrypt your DNS lookups |
-| `network.ethernet_diagnostics.ethernet_summary` | ethernet_diagnostics | — **gap** |
-| `network.ethernet_diagnostics.high_packet_errors` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem |
-| `network.ethernet_diagnostics.interface_inactive` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem |
-| `network.ethernet_diagnostics.link_speed_mismatch` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem |
-| `network.ethernet_diagnostics.no_ethernet` | ethernet_diagnostics | — **gap** |
-| `network.ethernet_diagnostics.non_standard_mtu` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem |
-| `network.ethernet_diagnostics.self_assigned_ip` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem |
-| `network.lan_device_inventory.device_count_exceeded` | lan_device_inventory | Review the devices on your network |
-| `network.lan_device_inventory.lan_inventory` | lan_device_inventory | Review the devices on your network |
-| `network.lan_device_inventory.unrecognised_device` | lan_device_inventory | Review the devices on your network |
-| `network.network_proxy_check.network_query_failed` | network_proxy_check | — **gap** |
-| `network.network_proxy_check.no_proxies` | network_proxy_check | Remove an unwanted network proxy |
-| `network.network_proxy_check.pac_url_detected` | network_proxy_check | Remove an unwanted network proxy |
-| `network.network_proxy_check.proxy_bypass_domains` | network_proxy_check | — **gap** |
-| `network.network_proxy_check.proxy_config_summary` | network_proxy_check | — **gap** |
-| `network.network_proxy_check.proxy_enabled` | network_proxy_check | Remove an unwanted network proxy |
-| `network.network_proxy_check.remote_pac_url` | network_proxy_check | Remove an unwanted network proxy |
-| `network.network_proxy_check.suspicious_localhost_proxy` | network_proxy_check | Remove an unwanted network proxy |
-| `network.router_security_audit.admin_service_open` | router_security_audit | Secure your home router |
-| `network.router_security_audit.router_manual_review` | router_security_audit | Secure your home router |
-| `network.router_security_audit.upnp_enabled` | router_security_audit | Secure your home router |
-| `network.vpn_leak_check.dns_leak` | vpn_leak_check | Check that your VPN is protecting your traffic |
-| `network.vpn_leak_check.no_vpns_configured` | vpn_leak_check | — **gap** |
-| `network.vpn_leak_check.split_tunneling` | vpn_leak_check | Check that your VPN is protecting your traffic |
-| `network.vpn_leak_check.vpn_config_summary` | vpn_leak_check | — **gap** |
-| `network.vpn_leak_check.vpn_not_connected` | vpn_leak_check | Check that your VPN is protecting your traffic |
-| `network.wifi_security_audit.hidden_network` | wifi_security_audit | — **gap** |
-| `network.wifi_security_audit.open_network_connected` | wifi_security_audit | Secure your Wi-Fi connection |
-| `network.wifi_security_audit.open_saved` | wifi_security_audit | Secure your Wi-Fi connection |
-| `network.wifi_security_audit.security_unknown` | wifi_security_audit | — **gap** |
-| `network.wifi_security_audit.wep_connected` | wifi_security_audit | Secure your Wi-Fi connection |
-| `network.wifi_security_audit.wep_saved` | wifi_security_audit | Secure your Wi-Fi connection |
-| `network.wifi_security_audit.wifi_summary` | wifi_security_audit | — **gap** |
-| `network.wifi_security_audit.wpa2_only` | wifi_security_audit | Secure your Wi-Fi connection |
-| `performance.linux_memory_pressure.heavy_swap_use` | linux_memory_pressure | Stop programs from crashing or running out of memory |
-| `performance.linux_memory_pressure.low_available_memory` | linux_memory_pressure | Stop programs from crashing or running out of memory |
-| `performance.linux_memory_pressure.memory_hog` | linux_memory_pressure | Stop programs from crashing or running out of memory |
-| `performance.linux_memory_pressure.memory_stall` | linux_memory_pressure | Stop programs from crashing or running out of memory |
-| `performance.linux_memory_pressure.no_swap_configured` | linux_memory_pressure | Stop programs from crashing or running out of memory |
-| `performance.storage_cleanup.total_reclaimable` | storage_cleanup | Free up space on your Mac |
-| `security.accessibility_permissions.accessibility_access` | accessibility_permissions | Review Accessibility permission grants |
-| `security.accessibility_permissions.excessive_accessibility` | accessibility_permissions | Review Accessibility permission grants |
-| `security.accessibility_permissions.suspicious_accessibility` | accessibility_permissions | Review Accessibility permission grants |
-| `security.ai_threat_indicators.ai_api_connection` | ai_threat_indicators | Respond to AI threat indicators |
-| `security.ai_threat_indicators.ai_api_key_found` | ai_threat_indicators | Respond to AI threat indicators |
-| `security.ai_threat_indicators.ai_config_file` | ai_threat_indicators | Respond to AI threat indicators |
-| `security.ai_threat_indicators.cron_ai_call` | ai_threat_indicators | Respond to AI threat indicators |
-| `security.ai_threat_indicators.launchagent_ai` | ai_threat_indicators | Respond to AI threat indicators |
-| `security.ai_threat_indicators.python_node_ai_process` | ai_threat_indicators | Respond to AI threat indicators |
-| `security.ai_worm_filesystem.known_hash_match` | ai_worm_filesystem | Clean AI worm filesystem artifacts safely |
-| `security.ai_worm_filesystem.known_payload_path` | ai_worm_filesystem | Clean AI worm filesystem artifacts safely |
-| `security.ai_worm_filesystem.obfuscated_script` | ai_worm_filesystem | Clean AI worm filesystem artifacts safely |
-| `security.ai_worm_git_ssh.git_hookspath_hijack` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm |
-| `security.ai_worm_git_ssh.git_templatedir_hijack` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm |
-| `security.ai_worm_git_ssh.npmrc_git_override` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm |
-| `security.ai_worm_git_ssh.repo_hook_file` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm |
-| `security.ai_worm_git_ssh.rogue_mcp_server` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm |
-| `security.ai_worm_git_ssh.ssh_authorized_keys_recent` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm |
-| `security.ai_worm_lateral.credential_harvesting` | ai_worm_lateral | Contain AI worm lateral movement and credential exposure |
-| `security.ai_worm_lateral.imds_access` | ai_worm_lateral | Contain AI worm lateral movement and credential exposure |
-| `security.ai_worm_lateral.npm_publish_credentials` | ai_worm_lateral | Contain AI worm lateral movement and credential exposure |
-| `security.ai_worm_lateral.supply_chain_artifact` | ai_worm_lateral | Contain AI worm lateral movement and credential exposure |
-| `security.ai_worm_network.beaconing_detected` | ai_worm_network | Cut AI worm command-and-control network activity |
-| `security.ai_worm_network.known_malicious_connection` | ai_worm_network | Cut AI worm command-and-control network activity |
-| `security.ai_worm_network.stepsecurity_bypass` | ai_worm_network | Cut AI worm command-and-control network activity |
-| `security.ai_worm_network.token_harvesting_subprocess` | ai_worm_network | Cut AI worm command-and-control network activity |
-| `security.ai_worm_persistence.deadman_switch_launchagent` | ai_worm_persistence | Remove Miasma worm persistence safely |
-| `security.ai_worm_persistence.deadman_switch_systemd_unit` | ai_worm_persistence | Remove Miasma worm persistence safely |
-| `security.ai_worm_persistence.heuristic_persistence_artifact` | ai_worm_persistence | Remove Miasma worm persistence safely |
-| `security.ai_worm_persistence.known_malicious_launchagent` | ai_worm_persistence | Remove Miasma worm persistence safely |
-| `security.ai_worm_persistence.malicious_systemd_unit` | ai_worm_persistence | Remove Miasma worm persistence safely |
-| `security.ai_worm_persistence.scheduled_task_persistence` | ai_worm_persistence | Remove Miasma worm persistence safely |
-| `security.ai_worm_persistence.sessionstart_hook` | ai_worm_persistence | Remove Miasma worm persistence safely |
-| `security.ai_worm_persistence.shell_profile_injection` | ai_worm_persistence | Remove Miasma worm persistence safely |
-| `security.airdrop_config.airdrop_contacts_only` | airdrop_config | Secure AirDrop and related sharing settings |
-| `security.airdrop_config.airdrop_everyone` | airdrop_config | Secure AirDrop and related sharing settings |
-| `security.airdrop_config.airdrop_off` | airdrop_config | Secure AirDrop and related sharing settings |
-| `security.airdrop_config.bluetooth_disabled` | airdrop_config | Secure AirDrop and related sharing settings |
-| `security.airdrop_config.wifi_disabled` | airdrop_config | Secure AirDrop and related sharing settings |
-| `security.airdrop_security_check.airdrop_mode_everyone` | airdrop_security_check | Secure AirDrop and related sharing settings |
-| `security.airdrop_security_check.bluetooth_sharing_enabled` | airdrop_security_check | Secure AirDrop and related sharing settings |
-| `security.airdrop_security_check.sharing_config` | airdrop_security_check | Secure AirDrop and related sharing settings |
-| `security.antivirus_status.av_not_running` | antivirus_status | Enable and maintain antivirus protection |
-| `security.antivirus_status.mrt` | antivirus_status | Enable and maintain antivirus protection |
-| `security.antivirus_status.no_third_party_av` | antivirus_status | Enable and maintain antivirus protection |
-| `security.antivirus_status.third_party_av` | antivirus_status | Enable and maintain antivirus protection |
-| `security.antivirus_status.xprotect_remediator` | antivirus_status | Enable and maintain antivirus protection |
-| `security.app_permissions.accessibility_access` | app_permissions | Review app permissions (TCC grants) |
-| `security.app_permissions.camera_access` | app_permissions | Review app permissions (TCC grants) |
-| `security.app_permissions.full_disk_access` | app_permissions | Review app permissions (TCC grants) |
-| `security.app_permissions.microphone_access` | app_permissions | Review app permissions (TCC grants) |
-| `security.app_permissions.screen_recording` | app_permissions | Review app permissions (TCC grants) |
-| `security.appleid_security_check.appleid_signin` | appleid_security_check | Secure Apple ID and iCloud account settings |
-| `security.appleid_security_check.appleid_summary` | appleid_security_check | Secure Apple ID and iCloud account settings |
-| `security.appleid_security_check.autoupdate_disabled` | appleid_security_check | Secure Apple ID and iCloud account settings |
-| `security.appleid_security_check.autoupdate_unknown` | appleid_security_check | Secure Apple ID and iCloud account settings |
-| `security.appleid_security_check.icloud_keychain` | appleid_security_check | Secure Apple ID and iCloud account settings |
-| `security.appleid_security_check.icloud_keychain_unknown` | appleid_security_check | Secure Apple ID and iCloud account settings |
-| `security.automatic_updates.app_store_auto` | automatic_updates | Enable automatic software updates |
-| `security.automatic_updates.auto_install_macos` | automatic_updates | Enable automatic software updates |
-| `security.automatic_updates.automatic_check` | automatic_updates | Enable automatic software updates |
-| `security.automatic_updates.automatic_download` | automatic_updates | Enable automatic software updates |
-| `security.automatic_updates.config_data` | automatic_updates | Enable automatic software updates |
-| `security.automatic_updates.critical_update` | automatic_updates | Enable automatic software updates |
-| `security.bluetooth_audit.discoverable_state` | bluetooth_audit | Review Bluetooth discoverability and paired devices |
-| `security.bluetooth_audit.paired_devices` | bluetooth_audit | Review Bluetooth discoverability and paired devices |
-| `security.browser_extension_audit.adware_extension` | browser_extension_audit | Review browser extensions |
-| `security.browser_extension_audit.excessive_permissions` | browser_extension_audit | Review browser extensions |
-| `security.browser_extension_audit.extension_bloat` | browser_extension_audit | Review browser extensions |
-| `security.browser_extension_audit.installed_extensions` | browser_extension_audit | Review browser extensions |
-| `security.browser_extension_audit.malicious_extension` | browser_extension_audit | Review browser extensions |
-| `security.browser_hijack_check.all_browsers_clean` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) |
-| `security.browser_hijack_check.chrome_homepage_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) |
-| `security.browser_hijack_check.chrome_managed_by_policy` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) |
-| `security.browser_hijack_check.chrome_search_engine_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) |
-| `security.browser_hijack_check.firefox_homepage_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) |
-| `security.browser_hijack_check.firefox_search_engine_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) |
-| `security.browser_hijack_check.safari_homepage_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) |
-| `security.browser_hijack_check.safari_search_engine_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) |
-| `security.browser_privacy_check.autofilll_passwords_enabled` | browser_privacy_check | Tighten Safari and browser privacy settings |
-| `security.browser_privacy_check.cookies_always_allow` | browser_privacy_check | Tighten Safari and browser privacy settings |
-| `security.browser_privacy_check.do_not_track_disabled` | browser_privacy_check | Tighten Safari and browser privacy settings |
-| `security.browser_privacy_check.fraud_warning_disabled` | browser_privacy_check | Tighten Safari and browser privacy settings |
-| `security.browser_privacy_check.installed_browsers` | browser_privacy_check | Tighten Safari and browser privacy settings |
-| `security.browser_privacy_check.privacy_summary` | browser_privacy_check | Tighten Safari and browser privacy settings |
-| `security.browser_privacy_check.saved_passwords` | browser_privacy_check | Tighten Safari and browser privacy settings |
-| `security.certificate_audit.expired_certificates` | certificate_audit | Review system and login keychain certificates |
-| `security.certificate_audit.total_certificates` | certificate_audit | Review system and login keychain certificates |
-| `security.certificate_audit.user_root_cas` | certificate_audit | Review system and login keychain certificates |
-| `security.certificate_trust_audit.expired_certificates` | certificate_trust_audit | Review trusted root certificates |
-| `security.certificate_trust_audit.self_signed_root_certs` | certificate_trust_audit | Review trusted root certificates |
-| `security.certificate_trust_audit.suspicious_certificates` | certificate_trust_audit | Review trusted root certificates |
-| `security.certificate_trust_audit.user_added_certs` | certificate_trust_audit | Review trusted root certificates |
-| `security.chrome_extensions.broad_permissions` | chrome_extensions | Review Chrome extensions and permissions |
-| `security.chrome_extensions.extension_bloat` | chrome_extensions | Review Chrome extensions and permissions |
-| `security.chrome_extensions.installed_extensions` | chrome_extensions | Review Chrome extensions and permissions |
-| `security.clamav_scanner.clamav_definitions` | clamav_scanner | Act on ClamAV scanner findings |
-| `security.clamav_scanner.clamav_not_installed` | clamav_scanner | Act on ClamAV scanner findings |
-| `security.clamav_scanner.clamav_outdated_definitions` | clamav_scanner | Act on ClamAV scanner findings |
-| `security.clamav_scanner.clamav_version` | clamav_scanner | Act on ClamAV scanner findings |
-| `security.clamav_scanner.clamd_not_running` | clamav_scanner | Act on ClamAV scanner findings |
-| `security.clamav_scanner.clamd_running` | clamav_scanner | Act on ClamAV scanner findings |
-| `security.clamav_scanner.freshclam_not_installed` | clamav_scanner | Act on ClamAV scanner findings |
-| `security.code_signature_audit.gatekeeper_rejected` | code_signature_audit | Check an app whose safety seal is broken or missing |
-| `security.code_signature_audit.inventory` | code_signature_audit | — **gap** |
-| `security.code_signature_audit.old_signature_format` | code_signature_audit | Check an app whose safety seal is broken or missing |
-| `security.code_signature_audit.tampered_binary` | code_signature_audit | Check an app whose safety seal is broken or missing |
-| `security.code_signature_audit.unsigned_system_app` | code_signature_audit | Check an app whose safety seal is broken or missing |
-| `security.cron_jobs_audit.cron_entries_found` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks |
-| `security.cron_jobs_audit.every_minute` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks |
-| `security.cron_jobs_audit.obfuscated_command` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks |
-| `security.cron_jobs_audit.rce_in_cron` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks |
-| `security.cron_jobs_audit.suspicious_path` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks |
-| `security.crypto_miner_detect.high_cpu_process` | crypto_miner_detect | Remove cryptocurrency miner |
-| `security.crypto_miner_detect.known_miner` | crypto_miner_detect | Remove cryptocurrency miner |
-| `security.crypto_miner_detect.mining_pool_connection` | crypto_miner_detect | Remove cryptocurrency miner |
-| `security.disk_encryption_recovery.disk_encryption_status` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys |
-| `security.disk_encryption_recovery.fv_disabled` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys |
-| `security.disk_encryption_recovery.institutional_key_only` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys |
-| `security.disk_encryption_recovery.no_recovery_key` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys |
-| `security.disk_encryption_recovery.recovery_key_unknown` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys |
-| `security.disk_encryption_recovery.users_not_all_enabled` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys |
-| `security.dns_poisoning_check.dns_config` | dns_poisoning_check | Fix DNS hijacking or poisoning |
-| `security.dns_poisoning_check.dns_filtering_profile` | dns_poisoning_check | Fix DNS hijacking or poisoning |
-| `security.dns_poisoning_check.dns_over_https` | dns_poisoning_check | Fix DNS hijacking or poisoning |
-| `security.dns_poisoning_check.dns_resolution_issue` | dns_poisoning_check | Fix DNS hijacking or poisoning |
-| `security.dns_poisoning_check.malicious_dns` | dns_poisoning_check | Fix DNS hijacking or poisoning |
-| `security.dns_poisoning_check.suspicious_dns` | dns_poisoning_check | Fix DNS hijacking or poisoning |
-| `security.encryption_check.filevault_disabled` | encryption_check | Enable disk encryption (FileVault) |
-| `security.evidence_bundle.destination_unwritable` | evidence_bundle | Keep a record before you change anything |
-| `security.evidence_bundle.no_bundle_captured` | evidence_bundle | Keep a record before you change anything |
-| `security.evidence_bundle.readiness` | evidence_bundle | — **gap** |
-| `security.filevault_recovery.fv_disabled` | filevault_recovery | Secure FileVault recovery keys (family devices) |
-| `security.filevault_recovery.fv_status` | filevault_recovery | Secure FileVault recovery keys (family devices) |
-| `security.filevault_recovery.no_recovery_key` | filevault_recovery | Secure FileVault recovery keys (family devices) |
-| `security.filevault_recovery.recovery_key_unknown` | filevault_recovery | Secure FileVault recovery keys (family devices) |
-| `security.filevault_recovery.users_not_all_enabled` | filevault_recovery | Secure FileVault recovery keys (family devices) |
-| `security.find_my_mac_check.activation_lock_unknown` | find_my_mac_check | Enable and verify Find My Mac |
-| `security.find_my_mac_check.configured_ok` | find_my_mac_check | Enable and verify Find My Mac |
-| `security.find_my_mac_check.find_my_mac_disabled` | find_my_mac_check | Enable and verify Find My Mac |
-| `security.find_my_mac_check.find_my_mac_unknown` | find_my_mac_check | — **gap** |
-| `security.find_my_mac_check.icloud_not_signed_in` | find_my_mac_check | Enable and verify Find My Mac |
-| `security.find_my_mac_check.location_services_disabled` | find_my_mac_check | Enable and verify Find My Mac |
-| `security.find_my_mac_check.location_services_unknown` | find_my_mac_check | — **gap** |
-| `security.find_my_mac_check.send_last_location_disabled` | find_my_mac_check | Enable and verify Find My Mac |
-| `security.find_my_mac_check.send_last_location_unknown` | find_my_mac_check | — **gap** |
-| `security.firewall_audit.global_state` | firewall_audit | Enable and tighten the macOS Application Firewall |
-| `security.firewall_audit.global_state_unknown` | firewall_audit | Enable and tighten the macOS Application Firewall |
-| `security.firewall_audit.stealth_mode` | firewall_audit | Enable and tighten the macOS Application Firewall |
-| `security.firewall_audit.stealth_mode_unknown` | firewall_audit | Enable and tighten the macOS Application Firewall |
-| `security.firewall_rules_audit.alf_disabled` | firewall_rules_audit | Tighten Application Layer Firewall rules |
-| `security.firewall_rules_audit.alf_unknown` | firewall_rules_audit | Tighten Application Layer Firewall rules |
-| `security.firewall_rules_audit.allow_signed_enabled` | firewall_rules_audit | Tighten Application Layer Firewall rules |
-| `security.firewall_rules_audit.firewall_summary` | firewall_rules_audit | Tighten Application Layer Firewall rules |
-| `security.firewall_rules_audit.stealth_disabled` | firewall_rules_audit | Tighten Application Layer Firewall rules |
-| `security.firewall_rules_audit.stealth_unknown` | firewall_rules_audit | Tighten Application Layer Firewall rules |
-| `security.firewall_rules_audit.too_many_apps` | firewall_rules_audit | Tighten Application Layer Firewall rules |
-| `security.firmware_password.chip_type` | firmware_password | Set a firmware password / review Startup Security |
-| `security.firmware_password.chip_type_detection_failed` | firmware_password | Set a firmware password / review Startup Security |
-| `security.firmware_password.firmware_password_not_set` | firmware_password | Set a firmware password / review Startup Security |
-| `security.firmware_password.firmware_password_permission_denied` | firmware_password | Set a firmware password / review Startup Security |
-| `security.firmware_password.firmware_password_set` | firmware_password | Set a firmware password / review Startup Security |
-| `security.firmware_password.firmware_password_unavailable` | firmware_password | Set a firmware password / review Startup Security |
-| `security.firmware_password.firmware_password_unknown` | firmware_password | Set a firmware password / review Startup Security |
-| `security.firmware_password.startup_security_info` | firmware_password | Set a firmware password / review Startup Security |
-| `security.gatekeeper_quarantine_check.gatekeeper_assessment_failed` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper |
-| `security.gatekeeper_quarantine_check.gatekeeper_disabled` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper |
-| `security.gatekeeper_quarantine_check.gatekeeper_enabled` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper |
-| `security.gatekeeper_quarantine_check.gatekeeper_working` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper |
-| `security.gatekeeper_quarantine_check.quarantine_removed` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper |
-| `security.gatekeeper_quarantine_check.sip_disabled` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper |
-| `security.gatekeeper_quarantine_check.sip_enabled` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper |
-| `security.guest_account_check.guest_afp_access` | guest_account_check | Disable the Guest account and Guest file-sharing access |
-| `security.guest_account_check.guest_disabled` | guest_account_check | Disable the Guest account and Guest file-sharing access |
-| `security.guest_account_check.guest_enabled` | guest_account_check | Disable the Guest account and Guest file-sharing access |
-| `security.guest_account_check.guest_smb_access` | guest_account_check | Disable the Guest account and Guest file-sharing access |
-| `security.hosts_file_check.bank_domain_redirect` | hosts_file_check | Clean up a tampered /etc/hosts file |
-| `security.hosts_file_check.clean_hosts` | hosts_file_check | Clean up a tampered /etc/hosts file |
-| `security.hosts_file_check.custom_entries_list` | hosts_file_check | Clean up a tampered /etc/hosts file |
-| `security.hosts_file_check.large_hosts_count` | hosts_file_check | Clean up a tampered /etc/hosts file |
-| `security.hosts_file_check.suspicious_ip_redirect` | hosts_file_check | Clean up a tampered /etc/hosts file |
-| `security.hosts_file_check.wellknown_domain_redirect` | hosts_file_check | Clean up a tampered /etc/hosts file |
-| `security.kernel_extensions_audit.kext_retrieval_failed` | kernel_extensions_audit | Review and remove problematic kernel extensions (kexts) |
-| `security.kernel_extensions_audit.problematic_kexts` | kernel_extensions_audit | Review and remove problematic kernel extensions (kexts) |
-| `security.kernel_extensions_audit.third_party_kexts` | kernel_extensions_audit | Review and remove problematic kernel extensions (kexts) |
-| `security.kext_audit.kext_file` | kext_audit | Review and remove problematic kernel extensions (kexts) |
-| `security.kext_audit.loaded_third_party_kext` | kext_audit | Review and remove problematic kernel extensions (kexts) |
-| `security.keylogger_indicators.cgeventtap_usage` | keylogger_indicators | Investigate keylogger indicators |
-| `security.keylogger_indicators.input_monitoring_access` | keylogger_indicators | Investigate keylogger indicators |
-| `security.keylogger_indicators.known_keyloggers` | keylogger_indicators | Investigate keylogger indicators |
-| `security.keylogger_indicators.suspicious_input_monitoring` | keylogger_indicators | Investigate keylogger indicators |
-| `security.launch_agent_audit.agent_info` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) |
-| `security.launch_agent_audit.missing_program` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) |
-| `security.launch_agent_audit.obfuscated_name` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) |
-| `security.launch_agent_audit.suspicious_path` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) |
-| `security.launch_agent_audit.too_many_agents` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) |
-| `security.launchd_persistence_audit.keepalive_runatload` | launchd_persistence_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) |
-| `security.launchd_persistence_audit.known_malware` | launchd_persistence_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) |
-| `security.launchd_persistence_audit.non_apple_info` | launchd_persistence_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) |
-| `security.launchd_persistence_audit.suspicious_path` | launchd_persistence_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) |
-| `security.linux_account_audit.admin_inventory` | linux_account_audit | Lock down accounts that have no password or too much power |
-| `security.linux_account_audit.empty_password` | linux_account_audit | Lock down accounts that have no password or too much power |
-| `security.linux_account_audit.extra_uid0_account` | linux_account_audit | Lock down accounts that have no password or too much power |
-| `security.linux_account_audit.passwordless_sudo` | linux_account_audit | Lock down accounts that have no password or too much power |
-| `security.linux_account_audit.shadow_unreadable` | linux_account_audit | — **gap** |
-| `security.linux_disk_encryption_check.encrypted` | linux_disk_encryption_check | — **gap** |
-| `security.linux_disk_encryption_check.encryption_undetermined` | linux_disk_encryption_check | Protect your files if the computer is lost or stolen |
-| `security.linux_disk_encryption_check.home_not_encrypted` | linux_disk_encryption_check | Protect your files if the computer is lost or stolen |
-| `security.linux_disk_encryption_check.root_not_encrypted` | linux_disk_encryption_check | Protect your files if the computer is lost or stolen |
-| `security.linux_firewall_check.default_allow_inbound` | linux_firewall_check | Turn on your firewall |
-| `security.linux_firewall_check.firewall_inactive` | linux_firewall_check | Turn on your firewall |
-| `security.linux_firewall_check.no_firewall` | linux_firewall_check | Turn on your firewall |
-| `security.linux_firewall_check.undetermined` | linux_firewall_check | — **gap** |
-| `security.linux_persistence_audit.inventory` | linux_persistence_audit | Check what starts automatically on your Linux computer |
-| `security.linux_persistence_audit.ld_preload_set` | linux_persistence_audit | Check what starts automatically on your Linux computer |
-| `security.linux_persistence_audit.suspicious_content` | linux_persistence_audit | Check what starts automatically on your Linux computer |
-| `security.linux_persistence_audit.volatile_path_execution` | linux_persistence_audit | Check what starts automatically on your Linux computer |
-| `security.linux_persistence_audit.world_writable_unit` | linux_persistence_audit | Check what starts automatically on your Linux computer |
-| `security.linux_ssh_hardening.config_unreadable` | linux_ssh_hardening | — **gap** |
-| `security.linux_ssh_hardening.empty_passwords_permitted` | linux_ssh_hardening | Make remote login (SSH) safer |
-| `security.linux_ssh_hardening.listening_on_all_interfaces` | linux_ssh_hardening | Make remote login (SSH) safer |
-| `security.linux_ssh_hardening.password_auth_enabled` | linux_ssh_hardening | Make remote login (SSH) safer |
-| `security.linux_ssh_hardening.root_login_permitted` | linux_ssh_hardening | Make remote login (SSH) safer |
-| `security.location_services.location_desktop_find_my_only` | location_services | Review Location Services |
-| `security.location_services.location_services_enabled` | location_services | Review Location Services |
-| `security.location_services.location_system_services` | location_services | Review Location Services |
-| `security.lock_screen_check.display_sleep` | lock_screen_check | Enforce lock screen: require password promptly, keep display auto-sleep on |
-| `security.lock_screen_check.screensaver_delay` | lock_screen_check | Enforce lock screen: require password promptly, keep display auto-sleep on |
-| `security.lock_screen_check.screensaver_password` | lock_screen_check | Enforce lock screen: require password promptly, keep display auto-sleep on |
-| `security.lock_screen_check.screensaver_password_unknown` | lock_screen_check | Enforce lock screen: require password promptly, keep display auto-sleep on |
-| `security.login_password_policy.ask_password` | login_password_policy | Harden login and password policy settings |
-| `security.login_password_policy.auto_login` | login_password_policy | Harden login and password policy settings |
-| `security.login_password_policy.guest_account_enabled` | login_password_policy | Harden login and password policy settings |
-| `security.login_password_policy.login_window_display` | login_password_policy | Harden login and password policy settings |
-| `security.login_password_policy.password_delay` | login_password_policy | Harden login and password policy settings |
-| `security.login_password_policy.remote_login_enabled` | login_password_policy | Harden login and password policy settings |
-| `security.login_password_policy.screensaver_timeout` | login_password_policy | Harden login and password policy settings |
-| `security.login_window_settings.auto_login` | login_window_settings | Harden login window display and hint settings |
-| `security.login_window_settings.login_settings_info` | login_window_settings | Harden login window display and hint settings |
-| `security.login_window_settings.password_hints` | login_window_settings | Harden login window display and hint settings |
-| `security.login_window_settings.show_user_list` | login_window_settings | Harden login window display and hint settings |
-| `security.malware_scan_indicators.adware_indicator` | malware_scan_indicators | Respond to malware scan indicators |
-| `security.malware_scan_indicators.browser_extension` | malware_scan_indicators | Respond to malware scan indicators |
-| `security.malware_scan_indicators.clean_scan` | malware_scan_indicators | Respond to malware scan indicators |
-| `security.malware_scan_indicators.malware_launchdaemon` | malware_scan_indicators | Respond to malware scan indicators |
-| `security.malware_scan_indicators.suspicious_bundle_id` | malware_scan_indicators | Respond to malware scan indicators |
-| `security.mdm_enrollment.mdm_enrolled` | mdm_enrollment | Verify MDM enrollment and review configuration profiles |
-| `security.mdm_enrollment.no_mdm` | mdm_enrollment | Verify MDM enrollment and review configuration profiles |
-| `security.mdm_enrollment.profiles_installed` | mdm_enrollment | Verify MDM enrollment and review configuration profiles |
-| `security.mdm_enrollment.supervised` | mdm_enrollment | Verify MDM enrollment and review configuration profiles |
-| `security.mdm_enrollment_check.all_profiles` | mdm_enrollment_check | Verify MDM enrollment and review configuration profiles |
-| `security.mdm_enrollment_check.dep_status` | mdm_enrollment_check | Verify MDM enrollment and review configuration profiles |
-| `security.mdm_enrollment_check.mdm_enrollment` | mdm_enrollment_check | Verify MDM enrollment and review configuration profiles |
-| `security.mdm_enrollment_check.restrictions_profiles` | mdm_enrollment_check | Verify MDM enrollment and review configuration profiles |
-| `security.mvt_spyware_scan.mvt_backup_too_large` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) |
-| `security.mvt_spyware_scan.mvt_clean_scan` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) |
-| `security.mvt_spyware_scan.mvt_not_installed` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) |
-| `security.mvt_spyware_scan.mvt_requires_wsl` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) |
-| `security.mvt_spyware_scan.mvt_scan_available` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) |
-| `security.mvt_spyware_scan.mvt_spyware_detected` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) |
-| `security.mvt_spyware_scan.no_backups_found` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) |
-| `security.network_connections_monitor.backdoor_ports` | network_connections_monitor | Review active network connections |
-| `security.network_connections_monitor.connection_summary` | network_connections_monitor | Review active network connections |
-| `security.network_connections_monitor.high_connection_count` | network_connections_monitor | Review active network connections |
-| `security.network_connections_monitor.private_ip_connections` | network_connections_monitor | Review active network connections |
-| `security.network_connections_monitor.unusual_ports` | network_connections_monitor | Review active network connections |
-| `security.network_proxy.no_proxies` | network_proxy | Remove an unwanted network proxy |
-| `security.network_proxy.pac_url_detected` | network_proxy | Remove an unwanted network proxy |
-| `security.network_proxy.proxy_enabled` | network_proxy | Remove an unwanted network proxy |
-| `security.open_ports_scan.exposed_risky_ports` | open_ports_scan | Review open network ports |
-| `security.open_ports_scan.listening_ports` | open_ports_scan | Review open network ports |
-| `security.privacy_audit.analytics` | privacy_audit | Review privacy settings |
-| `security.privacy_audit.location_services` | privacy_audit | Review privacy settings |
-| `security.privacy_audit.personalized_ads` | privacy_audit | Review privacy settings |
-| `security.privacy_audit.significant_locations` | privacy_audit | Review privacy settings |
-| `security.privacy_audit.siri_suggestions` | privacy_audit | Review privacy settings |
-| `security.privacy_permissions_audit.accessibility_access` | privacy_permissions_audit | Review privacy settings |
-| `security.privacy_permissions_audit.camera_access` | privacy_permissions_audit | Review privacy settings |
-| `security.privacy_permissions_audit.camera_microphone_combo` | privacy_permissions_audit | Review privacy settings |
-| `security.privacy_permissions_audit.contacts_access` | privacy_permissions_audit | Review privacy settings |
-| `security.privacy_permissions_audit.excessive_camera` | privacy_permissions_audit | Review privacy settings |
-| `security.privacy_permissions_audit.excessive_microphone` | privacy_permissions_audit | Review privacy settings |
-| `security.privacy_permissions_audit.full_disk_access` | privacy_permissions_audit | Review privacy settings |
-| `security.privacy_permissions_audit.microphone_access` | privacy_permissions_audit | Review privacy settings |
-| `security.privacy_permissions_audit.screen_accessibility_combo` | privacy_permissions_audit | Review privacy settings |
-| `security.privacy_permissions_audit.screen_recording_access` | privacy_permissions_audit | Review privacy settings |
-| `security.remote_login_check.all_disabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) |
-| `security.remote_login_check.remote_access_unknown` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) |
-| `security.remote_login_check.remote_apple_events_enabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) |
-| `security.remote_login_check.remote_management_enabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) |
-| `security.remote_login_check.screen_sharing_enabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) |
-| `security.remote_login_check.ssh_enabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) |
-| `security.rootkit_check.all_clean` | rootkit_check | Investigate rootkit indicators |
-| `security.rootkit_check.binary_integrity` | rootkit_check | Investigate rootkit indicators |
-| `security.rootkit_check.hidden_files` | rootkit_check | Investigate rootkit indicators |
-| `security.rootkit_check.hidden_processes` | rootkit_check | Investigate rootkit indicators |
-| `security.rootkit_check.kernel_extensions` | rootkit_check | Investigate rootkit indicators |
-| `security.rootkit_check.sip_disabled` | rootkit_check | Investigate rootkit indicators |
-| `security.safari_extensions.app_extensions` | safari_extensions | Review Safari extensions and content blockers |
-| `security.safari_extensions.content_blockers_disabled` | safari_extensions | Review Safari extensions and content blockers |
-| `security.safari_extensions.content_blockers_enabled` | safari_extensions | Review Safari extensions and content blockers |
-| `security.safari_extensions.extension_bloat` | safari_extensions | Review Safari extensions and content blockers |
-| `security.safari_extensions.legacy_extensions` | safari_extensions | Review Safari extensions and content blockers |
-| `security.scheduled_tasks_audit.disabled_launch_agent` | scheduled_tasks_audit | Review scheduled tasks (LaunchAgents/LaunchDaemons) |
-| `security.scheduled_tasks_audit.excessive_user_agents` | scheduled_tasks_audit | Review scheduled tasks (LaunchAgents/LaunchDaemons) |
-| `security.scheduled_tasks_audit.launch_agent_info` | scheduled_tasks_audit | Review scheduled tasks (LaunchAgents/LaunchDaemons) |
-| `security.scheduled_tasks_audit.suspicious_launch_agent` | scheduled_tasks_audit | Review scheduled tasks (LaunchAgents/LaunchDaemons) |
-| `security.screen_lock_check.automatic_login` | screen_lock_check | Require a password after sleep or screen saver |
-| `security.screen_lock_check.password_hint` | screen_lock_check | Require a password after sleep or screen saver |
-| `security.screen_lock_check.screen_lock_delay` | screen_lock_check | Require a password after sleep or screen saver |
-| `security.screen_lock_check.screen_lock_required` | screen_lock_check | Require a password after sleep or screen saver |
-| `security.screen_lock_check.screensaver_idle_time` | screen_lock_check | Require a password after sleep or screen saver |
-| `security.screen_time_audit.app_limits_configured` | screen_time_audit | Review Screen Time and parental controls |
-| `security.screen_time_audit.communication_limits_configured` | screen_time_audit | Review Screen Time and parental controls |
-| `security.screen_time_audit.content_privacy_restrictions` | screen_time_audit | Review Screen Time and parental controls |
-| `security.screen_time_audit.downtime_enabled` | screen_time_audit | Review Screen Time and parental controls |
-| `security.screen_time_audit.screen_time_disabled` | screen_time_audit | Review Screen Time and parental controls |
-| `security.screen_time_audit.screen_time_enabled` | screen_time_audit | Review Screen Time and parental controls |
-| `security.screen_time_audit.screen_time_no_passcode` | screen_time_audit | Review Screen Time and parental controls |
-| `security.screen_time_parental.adult_content_filtering` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.app_limits_configured` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.ask_to_buy_enabled` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.communication_limits_configured` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.content_privacy_disabled_with_children` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.content_privacy_restrictions` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.downtime_enabled` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.managed_accounts` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.screen_time_disabled` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.screen_time_disabled_with_children` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.screen_time_enabled` | screen_time_parental | Review Screen Time and parental controls |
-| `security.screen_time_parental.screen_time_no_passcode` | screen_time_parental | Review Screen Time and parental controls |
-| `security.security_baseline_diff.baseline_established` | security_baseline_diff | — **gap** |
-| `security.security_baseline_diff.new_browser_extension` | security_baseline_diff | Review what changed on your computer since the last check |
-| `security.security_baseline_diff.new_listening_port` | security_baseline_diff | Review what changed on your computer since the last check |
-| `security.security_baseline_diff.new_persistence` | security_baseline_diff | Review what changed on your computer since the last check |
-| `security.security_baseline_diff.no_change` | security_baseline_diff | — **gap** |
-| `security.security_baseline_diff.protection_disabled` | security_baseline_diff | Review what changed on your computer since the last check |
-| `security.session_revocation_scan.browser_sessions` | session_revocation_scan | Sign out of other devices and cut off old access |
-| `security.session_revocation_scan.inventory` | session_revocation_scan | — **gap** |
-| `security.session_revocation_scan.ssh_authorized_keys` | session_revocation_scan | Sign out of other devices and cut off old access |
-| `security.session_revocation_scan.system_accounts` | session_revocation_scan | Sign out of other devices and cut off old access |
-| `security.sharing_preferences_audit.airdrop_everyone` | sharing_preferences_audit | Review and disable unneeded sharing services |
-| `security.sharing_preferences_audit.config_secure` | sharing_preferences_audit | Review and disable unneeded sharing services |
-| `security.sharing_preferences_audit.config_summary` | sharing_preferences_audit | Review and disable unneeded sharing services |
-| `security.sharing_preferences_audit.file_sharing` | sharing_preferences_audit | Review and disable unneeded sharing services |
-| `security.sharing_preferences_audit.printer_sharing` | sharing_preferences_audit | Review and disable unneeded sharing services |
-| `security.sharing_preferences_audit.remote_login` | sharing_preferences_audit | Review and disable unneeded sharing services |
-| `security.sharing_preferences_audit.remote_management` | sharing_preferences_audit | Review and disable unneeded sharing services |
-| `security.sharing_preferences_audit.screen_sharing` | sharing_preferences_audit | Review and disable unneeded sharing services |
-| `security.sharing_preferences_audit.sharing_unknown` | sharing_preferences_audit | Review and disable unneeded sharing services |
-| `security.sharing_services.file_sharing` | sharing_services | Review and disable unneeded sharing services |
-| `security.sharing_services.printer_sharing` | sharing_services | Review and disable unneeded sharing services |
-| `security.sharing_services.remote_login` | sharing_services | Review and disable unneeded sharing services |
-| `security.sharing_services.remote_management` | sharing_services | Review and disable unneeded sharing services |
-| `security.sharing_services.screen_sharing` | sharing_services | Review and disable unneeded sharing services |
-| `security.sharing_services.sharing_unknown` | sharing_services | Review and disable unneeded sharing services |
-| `security.sip_gatekeeper.gatekeeper_status` | sip_gatekeeper | Verify and re-enable SIP and Gatekeeper |
-| `security.sip_gatekeeper.sip_status` | sip_gatekeeper | Verify and re-enable SIP and Gatekeeper |
-| `security.siri_privacy.hey_siri` | siri_privacy | Tighten Siri privacy settings |
-| `security.siri_privacy.lockscreen_siri` | siri_privacy | Tighten Siri privacy settings |
-| `security.siri_privacy.siri_analytics` | siri_privacy | Tighten Siri privacy settings |
-| `security.siri_privacy.siri_config_status` | siri_privacy | Tighten Siri privacy settings |
-| `security.siri_privacy.siri_enabled` | siri_privacy | Tighten Siri privacy settings |
-| `security.siri_privacy.siri_suggestions` | siri_privacy | Tighten Siri privacy settings |
-| `security.ssh_key_audit.authorized_keys` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.bad_key_perms` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.bad_ssh_dir_perms` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.dsa_key_found` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.ed25519_keys` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.known_hosts` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.password_auth_enabled` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.permit_root_login` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.rsa_keys` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.ssh_agent_not_running` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.ssh_agent_running` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.ssh_key_audit.weak_rsa_key` | ssh_key_audit | Harden SSH keys and configuration |
-| `security.stalkerware_scan.monitoring_software_found` | stalkerware_scan | What to do about monitoring software |
-| `security.sudo_config_audit.nopasswd_all` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account |
-| `security.sudo_config_audit.nopasswd_partial` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account |
-| `security.sudo_config_audit.root_disabled` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account |
-| `security.sudo_config_audit.root_enabled` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account |
-| `security.sudo_config_audit.timestamp_long` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account |
-| `security.sudo_config_audit.timestamp_ok` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account |
-| `security.sudo_config_audit.touchid_disabled` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account |
-| `security.sudo_config_audit.touchid_enabled` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account |
-| `security.sudo_touchid.applepay_enabled` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication |
-| `security.sudo_touchid.no_fingerprints` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication |
-| `security.sudo_touchid.no_hardware` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication |
-| `security.sudo_touchid.sudo_not_enabled` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication |
-| `security.sudo_touchid.touchid_status` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication |
-| `security.suspicious_connections.high_connection_count` | suspicious_connections | Triage suspicious network connections |
-| `security.suspicious_connections.unusual_listening_port` | suspicious_connections | Triage suspicious network connections |
-| `security.suspicious_connections.unusual_outbound_connection` | suspicious_connections | Triage suspicious network connections |
-| `security.suspicious_processes.all_clean` | suspicious_processes | Triage suspicious processes |
-| `security.suspicious_processes.high_cpu` | suspicious_processes | Triage suspicious processes |
-| `security.suspicious_processes.known_malware` | suspicious_processes | Triage suspicious processes |
-| `security.suspicious_processes.suspicious_names` | suspicious_processes | Triage suspicious processes |
-| `security.suspicious_processes.suspicious_paths` | suspicious_processes | Triage suspicious processes |
-| `security.suspicious_processes.unsigned_apps` | suspicious_processes | Triage suspicious processes |
-| `security.system_extensions.active_extension` | system_extensions | Review macOS System Extensions |
-| `security.system_extensions.unusual_state` | system_extensions | Review macOS System Extensions |
-| `security.usb_device_audit.no_vendor_devices` | usb_device_audit | Review connected USB devices |
-| `security.usb_device_audit.storage_devices` | usb_device_audit | Review connected USB devices |
-| `security.usb_device_audit.usb_devices` | usb_device_audit | Review connected USB devices |
-| `security.usb_device_audit.usb_hubs` | usb_device_audit | Review connected USB devices |
-| `security.user_account_audit.admin_accounts` | user_account_audit | Review user accounts, admin privileges, Guest, and auto-login |
-| `security.user_account_audit.auto_login` | user_account_audit | Review user accounts, admin privileges, Guest, and auto-login |
-| `security.user_account_audit.guest_enabled` | user_account_audit | Review user accounts, admin privileges, Guest, and auto-login |
-| `security.vpn_config.no_vpn` | vpn_config | Review VPN configuration |
-| `security.vpn_config.pptp_detected` | vpn_config | Review VPN configuration |
-| `security.vpn_config.third_party_vpns` | vpn_config | Review VPN configuration |
-| `security.vpn_config.vpn_list` | vpn_config | Review VPN configuration |
-| `security.win_antivirus_status.multiple_av_products` | win_antivirus_status | Enable and restore Windows antivirus protection |
-| `security.win_antivirus_status.no_av_product` | win_antivirus_status | Enable and restore Windows antivirus protection |
-| `security.win_antivirus_status.realtime_protection_disabled` | win_antivirus_status | Enable and restore Windows antivirus protection |
-| `security.win_antivirus_status.registered_products` | win_antivirus_status | Enable and restore Windows antivirus protection |
-| `security.win_antivirus_status.stale_definitions` | win_antivirus_status | Enable and restore Windows antivirus protection |
-| `security.win_autorun.autoplay_disabled` | win_autorun | Review Windows AutoRun and AutoPlay settings |
-| `security.win_autorun.autoplay_enabled` | win_autorun | Review Windows AutoRun and AutoPlay settings |
-| `security.win_autorun.autorun_disabled_full` | win_autorun | Review Windows AutoRun and AutoPlay settings |
-| `security.win_autorun.autorun_enabled` | win_autorun | Review Windows AutoRun and AutoPlay settings |
-| `security.win_autorun.autorun_partial` | win_autorun | Review Windows AutoRun and AutoPlay settings |
-| `security.win_autoruns_audit.excessive_entries` | win_autoruns_audit | Audit Windows autorun/startup entries |
-| `security.win_autoruns_audit.inventory` | win_autoruns_audit | Audit Windows autorun/startup entries |
-| `security.win_autoruns_audit.obfuscated_command` | win_autoruns_audit | Audit Windows autorun/startup entries |
-| `security.win_autoruns_audit.temp_path_execution` | win_autoruns_audit | Audit Windows autorun/startup entries |
-| `security.win_bitlocker.encryption_suspended` | win_bitlocker | Enable BitLocker and secure recovery keys |
-| `security.win_bitlocker.no_recovery_key` | win_bitlocker | Enable BitLocker and secure recovery keys |
-| `security.win_bitlocker.os_drive_not_encrypted` | win_bitlocker | Enable BitLocker and secure recovery keys |
-| `security.win_bitlocker.status_info` | win_bitlocker | Enable BitLocker and secure recovery keys |
-| `security.win_bitlocker_check.encryption_suspended` | win_bitlocker_check | Enable BitLocker and secure recovery keys |
-| `security.win_bitlocker_check.fixed_drive_not_encrypted` | win_bitlocker_check | Enable BitLocker and secure recovery keys |
-| `security.win_bitlocker_check.no_recovery_key` | win_bitlocker_check | Enable BitLocker and secure recovery keys |
-| `security.win_bitlocker_check.os_drive_not_encrypted` | win_bitlocker_check | Enable BitLocker and secure recovery keys |
-| `security.win_bitlocker_check.status_info` | win_bitlocker_check | Enable BitLocker and secure recovery keys |
-| `security.win_cortana_telemetry.activity_feed` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure |
-| `security.win_cortana_telemetry.advertising_id` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure |
-| `security.win_cortana_telemetry.cortana_enabled` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure |
-| `security.win_cortana_telemetry.location_services` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure |
-| `security.win_cortana_telemetry.optimized` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure |
-| `security.win_cortana_telemetry.telemetry_level` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure |
-| `security.win_credential_guard.credential_guard_disabled` | win_credential_guard | Enable Credential Guard and tighten password policy |
-| `security.win_credential_guard.password_min_length_below_threshold` | win_credential_guard | Enable Credential Guard and tighten password policy |
-| `security.win_credential_guard.passwords_never_expire` | win_credential_guard | Enable Credential Guard and tighten password policy |
-| `security.win_credential_guard.windows_hello_configured` | win_credential_guard | Enable Credential Guard and tighten password policy |
-| `security.win_credential_manager_audit.credential_sprawl` | win_credential_manager_audit | Review Windows Credential Manager entries |
-| `security.win_credential_manager_audit.domain_credentials_non_domain_joined` | win_credential_manager_audit | Review Windows Credential Manager entries |
-| `security.win_credential_manager_audit.generic_credentials_sensitive_services` | win_credential_manager_audit | Review Windows Credential Manager entries |
-| `security.win_credential_manager_audit.inventory_summary` | win_credential_manager_audit | Review Windows Credential Manager entries |
-| `security.win_defender.antivirus_enabled` | win_defender | Enable and restore Windows antivirus protection |
-| `security.win_defender.realtime_protection` | win_defender | Enable and restore Windows antivirus protection |
-| `security.win_defender.signature_age` | win_defender | Enable and restore Windows antivirus protection |
-| `security.win_defender_deep_check.all_passed` | win_defender_deep_check | Restore Windows Defender protection |
-| `security.win_defender_deep_check.cloud_protection_off` | win_defender_deep_check | Restore Windows Defender protection |
-| `security.win_defender_deep_check.controlled_folder_access_disabled` | win_defender_deep_check | Restore Windows Defender protection |
-| `security.win_defender_deep_check.excessive_exclusions` | win_defender_deep_check | Restore Windows Defender protection |
-| `security.win_defender_deep_check.pua_protection_disabled` | win_defender_deep_check | Restore Windows Defender protection |
-| `security.win_defender_deep_check.realtime_disabled` | win_defender_deep_check | Restore Windows Defender protection |
-| `security.win_defender_deep_check.stale_full_scan` | win_defender_deep_check | Restore Windows Defender protection |
-| `security.win_defender_deep_check.tamper_protection_disabled` | win_defender_deep_check | Restore Windows Defender protection |
-| `security.win_firewall.private_domain_profile_disabled` | win_firewall | Enable the Windows Firewall (all profiles) |
-| `security.win_firewall.public_profile_disabled` | win_firewall | Enable the Windows Firewall (all profiles) |
-| `security.win_firewall_rules_audit.default_inbound_allow` | win_firewall_rules_audit | Review Windows Firewall rule configuration |
-| `security.win_firewall_rules_audit.excessive_rules` | win_firewall_rules_audit | Review Windows Firewall rule configuration |
-| `security.win_firewall_rules_audit.rule_allows_all_ports` | win_firewall_rules_audit | Review Windows Firewall rule configuration |
-| `security.win_firewall_rules_audit.rule_allows_all_programs` | win_firewall_rules_audit | Review Windows Firewall rule configuration |
-| `security.win_firewall_rules_audit.summary` | win_firewall_rules_audit | Review Windows Firewall rule configuration |
-| `security.win_group_policy_audit.applocker_configured` | win_group_policy_audit | Review Windows Group Policy findings |
-| `security.win_group_policy_audit.restrictive_policy` | win_group_policy_audit | Review Windows Group Policy findings |
-| `security.win_group_policy_audit.stale_domain_policies` | win_group_policy_audit | Review Windows Group Policy findings |
-| `security.win_group_policy_audit.status_report` | win_group_policy_audit | Review Windows Group Policy findings |
-| `security.win_group_policy_audit.weak_password_policy` | win_group_policy_audit | Review Windows Group Policy findings |
-| `security.win_hosts_file.entries_summary` | win_hosts_file | Clean up the Windows hosts file |
-| `security.win_hosts_file.excessive_entries` | win_hosts_file | Clean up the Windows hosts file |
-| `security.win_hosts_file.security_domain_redirect` | win_hosts_file | Clean up the Windows hosts file |
-| `security.win_hosts_file_check.blocked_security_domains` | win_hosts_file_check | Clean up the Windows hosts file |
-| `security.win_hosts_file_check.entry_count_summary` | win_hosts_file_check | Clean up the Windows hosts file |
-| `security.win_hosts_file_check.file_permissions` | win_hosts_file_check | Clean up the Windows hosts file |
-| `security.win_hosts_file_check.large_file_size` | win_hosts_file_check | Clean up the Windows hosts file |
-| `security.win_hosts_file_check.redirected_legitimate` | win_hosts_file_check | Clean up the Windows hosts file |
-| `security.win_local_admin_audit.admin_accounts_summary` | win_local_admin_audit | Review Windows local administrator accounts |
-| `security.win_local_admin_audit.admin_blank_password` | win_local_admin_audit | Review Windows local administrator accounts |
-| `security.win_local_admin_audit.admin_password_never_expires` | win_local_admin_audit | Review Windows local administrator accounts |
-| `security.win_local_admin_audit.builtin_admin_enabled` | win_local_admin_audit | Review Windows local administrator accounts |
-| `security.win_local_admin_audit.excessive_admin_accounts` | win_local_admin_audit | Review Windows local administrator accounts |
-| `security.win_local_admin_audit.guest_account_enabled` | win_local_admin_audit | Review Windows local administrator accounts |
-| `security.win_malware_indicators.clean_system` | win_malware_indicators | Respond to Windows malware indicators |
-| `security.win_malware_indicators.malware_folder` | win_malware_indicators | Respond to Windows malware indicators |
-| `security.win_malware_indicators.malware_registry` | win_malware_indicators | Respond to Windows malware indicators |
-| `security.win_malware_indicators.safe_mode_disabled` | win_malware_indicators | Respond to Windows malware indicators |
-| `security.win_malware_indicators.suspicious_service` | win_malware_indicators | Respond to Windows malware indicators |
-| `security.win_network_shares_audit.enumeration_failed` | win_network_shares_audit | Review Windows network shares |
-| `security.win_network_shares_audit.everyone_read_access` | win_network_shares_audit | Review Windows network shares |
-| `security.win_network_shares_audit.everyone_write_access` | win_network_shares_audit | Review Windows network shares |
-| `security.win_network_shares_audit.sensitive_directory` | win_network_shares_audit | Review Windows network shares |
-| `security.win_network_shares_audit.shares_enumerated` | win_network_shares_audit | Review Windows network shares |
-| `security.win_network_shares_audit.smb1_enabled` | win_network_shares_audit | Review Windows network shares |
-| `security.win_proxy_detect.ie_proxy_enabled` | win_proxy_detect | Review and remove unexpected Windows proxy settings |
-| `security.win_proxy_detect.localhost_suspicious` | win_proxy_detect | Review and remove unexpected Windows proxy settings |
-| `security.win_proxy_detect.no_proxies` | win_proxy_detect | Review and remove unexpected Windows proxy settings |
-| `security.win_proxy_detect.pac_configured` | win_proxy_detect | Review and remove unexpected Windows proxy settings |
-| `security.win_proxy_detect.system_proxy` | win_proxy_detect | Review and remove unexpected Windows proxy settings |
-| `security.win_rdp_check.rdp_disabled` | win_rdp_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) |
-| `security.win_rdp_check.rdp_enabled_no_nla` | win_rdp_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) |
-| `security.win_rdp_check.rdp_enabled_with_nla` | win_rdp_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) |
-| `security.win_remote_access_audit.anydesk_installed` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) |
-| `security.win_remote_access_audit.chrome_remote_desktop` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) |
-| `security.win_remote_access_audit.logmein_installed` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) |
-| `security.win_remote_access_audit.multiple_tools` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) |
-| `security.win_remote_access_audit.no_tools_found` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) |
-| `security.win_remote_access_audit.rdp_enabled` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) |
-| `security.win_remote_access_audit.teamviewer_installed` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) |
-| `security.win_remote_access_audit.tools_summary` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) |
-| `security.win_remote_access_audit.vnc_installed` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) |
-| `security.win_rootkit_check.all_passed` | win_rootkit_check | Investigate Windows rootkit indicators |
-| `security.win_rootkit_check.alternate_data_streams` | win_rootkit_check | Investigate Windows rootkit indicators |
-| `security.win_rootkit_check.boot_tampering` | win_rootkit_check | Investigate Windows rootkit indicators |
-| `security.win_rootkit_check.hidden_services` | win_rootkit_check | Investigate Windows rootkit indicators |
-| `security.win_rootkit_check.secure_boot_disabled` | win_rootkit_check | Investigate Windows rootkit indicators |
-| `security.win_rootkit_check.unsigned_drivers` | win_rootkit_check | Investigate Windows rootkit indicators |
-| `security.win_scheduled_tasks.encoded_command` | win_scheduled_tasks | Review Windows scheduled tasks (basic scan) |
-| `security.win_scheduled_tasks.non_microsoft_tasks` | win_scheduled_tasks | Review Windows scheduled tasks (basic scan) |
-| `security.win_scheduled_tasks.suspicious_path` | win_scheduled_tasks | Review Windows scheduled tasks (basic scan) |
-| `security.win_scheduled_tasks_security.encoded_powershell` | win_scheduled_tasks_security | Secure Windows scheduled tasks |
-| `security.win_scheduled_tasks_security.enumeration_failed` | win_scheduled_tasks_security | Secure Windows scheduled tasks |
-| `security.win_scheduled_tasks_security.frequent_schedule` | win_scheduled_tasks_security | Secure Windows scheduled tasks |
-| `security.win_scheduled_tasks_security.hidden_attributes` | win_scheduled_tasks_security | Secure Windows scheduled tasks |
-| `security.win_scheduled_tasks_security.inventory` | win_scheduled_tasks_security | Secure Windows scheduled tasks |
-| `security.win_scheduled_tasks_security.non_microsoft_system` | win_scheduled_tasks_security | Secure Windows scheduled tasks |
-| `security.win_scheduled_tasks_security.recent_boot_logon` | win_scheduled_tasks_security | Secure Windows scheduled tasks |
-| `security.win_scheduled_tasks_security.temp_path_system` | win_scheduled_tasks_security | Secure Windows scheduled tasks |
-| `security.win_services_audit.bloatware_detected` | win_services_audit | Review Windows services |
-| `security.win_services_audit.excessive_autostart` | win_services_audit | Review Windows services |
-| `security.win_services_audit.non_microsoft_autostart` | win_services_audit | Review Windows services |
-| `security.win_services_audit.stopped_autostart` | win_services_audit | Review Windows services |
-| `security.win_services_audit.suspicious_path` | win_services_audit | Review Windows services |
-| `security.win_services_security_audit.overprivileged` | win_services_security_audit | Review Windows service security hardening findings |
-| `security.win_services_security_audit.stopped_auto_start` | win_services_security_audit | Review Windows service security hardening findings |
-| `security.win_services_security_audit.summary` | win_services_security_audit | Review Windows service security hardening findings |
-| `security.win_services_security_audit.unquoted_path` | win_services_security_audit | Review Windows service security hardening findings |
-| `security.win_services_security_audit.user_writable_dir` | win_services_security_audit | Review Windows service security hardening findings |
-| `security.win_suspicious_processes.encoded_powershell` | win_suspicious_processes | Triage Windows suspicious processes |
-| `security.win_suspicious_processes.known_malware` | win_suspicious_processes | Triage Windows suspicious processes |
-| `security.win_suspicious_processes.mining_software` | win_suspicious_processes | Triage Windows suspicious processes |
-| `security.win_suspicious_processes.no_file_path` | win_suspicious_processes | Triage Windows suspicious processes |
-| `security.win_suspicious_processes.summary` | win_suspicious_processes | Triage Windows suspicious processes |
-| `security.win_suspicious_processes.suspicious_path` | win_suspicious_processes | Triage Windows suspicious processes |
-| `security.win_uac_check.secure_desktop_disabled` | win_uac_check | Re-enable and tighten User Account Control (UAC) |
-| `security.win_uac_check.uac_configured_ok` | win_uac_check | Re-enable and tighten User Account Control (UAC) |
-| `security.win_uac_check.uac_disabled` | win_uac_check | Re-enable and tighten User Account Control (UAC) |
-| `security.win_uac_check.uac_never_notify` | win_uac_check | Re-enable and tighten User Account Control (UAC) |
-| `security.win_user_accounts.auto_login_enabled` | win_user_accounts | Review Windows user accounts, Guest access, and auto-login |
-| `security.win_user_accounts.guest_account_enabled` | win_user_accounts | Review Windows user accounts, Guest access, and auto-login |
-| `security.win_user_accounts.multiple_admin_accounts` | win_user_accounts | Review Windows user accounts, Guest access, and auto-login |
-| `security.win_user_accounts.no_min_password_length` | win_user_accounts | Review Windows user accounts, Guest access, and auto-login |
-| `security.xprotect_status.gatekeeper_disabled` | xprotect_status | Update XProtect definitions and restore Gatekeeper |
-| `security.xprotect_status.gatekeeper_status` | xprotect_status | Update XProtect definitions and restore Gatekeeper |
-| `security.xprotect_status.mrt_outdated` | xprotect_status | Update XProtect definitions and restore Gatekeeper |
-| `security.xprotect_status.mrt_version` | xprotect_status | Update XProtect definitions and restore Gatekeeper |
-| `security.xprotect_status.xprotect_missing` | xprotect_status | Update XProtect definitions and restore Gatekeeper |
-| `security.xprotect_status.xprotect_old` | xprotect_status | Update XProtect definitions and restore Gatekeeper |
-| `security.xprotect_status.xprotect_outdated` | xprotect_status | Update XProtect definitions and restore Gatekeeper |
-| `security.xprotect_status.xprotect_version` | xprotect_status | Update XProtect definitions and restore Gatekeeper |
+The removal warning ("removing it can alert whoever set it up; talk to an advocate first") is shown only where the last column says so (rescue/safety_scope.py), and never on an info finding.
+
+| Code | Module | Walkthrough | Removal warning |
+|---|---|---|---|
+| `integrity.linux_journal_errors.filesystem_error` | linux_journal_errors | Back up now: your drive or memory is reporting errors | — |
+| `integrity.linux_journal_errors.memory_error` | linux_journal_errors | Back up now: your drive or memory is reporting errors | — |
+| `integrity.linux_journal_errors.oom_kill` | linux_journal_errors | Stop programs from crashing or running out of memory | — |
+| `integrity.linux_journal_errors.segfault` | linux_journal_errors | Stop programs from crashing or running out of memory | — |
+| `integrity.linux_journal_errors.smart_failure` | linux_journal_errors | Back up now: your drive or memory is reporting errors | — |
+| `integrity.linux_journal_errors.storage_io_error` | linux_journal_errors | Back up now: your drive or memory is reporting errors | — |
+| `integrity.linux_package_updates.reboot_required` | linux_package_updates | Install pending security updates and restart | — |
+| `integrity.linux_package_updates.release_end_of_life` | linux_package_updates | Install pending security updates and restart | — |
+| `integrity.linux_package_updates.security_updates_pending` | linux_package_updates | Install pending security updates and restart | — |
+| `integrity.linux_package_updates.updates_pending` | linux_package_updates | Install pending security updates and restart | — |
+| `integrity.linux_service_health.failed_backup_unit` | linux_service_health | Fix a stopped or crashing background service | — |
+| `integrity.linux_service_health.failed_unit` | linux_service_health | Fix a stopped or crashing background service | — |
+| `integrity.linux_service_health.restart_loop` | linux_service_health | Fix a stopped or crashing background service | — |
+| `integrity.linux_service_health.time_sync_inactive` | linux_service_health | Fix a stopped or crashing background service | — |
+| `network.arp_spoof_check.duplicate_mac` | arp_spoof_check | Respond to a device answering for your router | yes |
+| `network.arp_spoof_check.gateway_impersonation` | arp_spoof_check | Respond to a device answering for your router | yes |
+| `network.arp_spoof_check.locally_administered_gateway` | arp_spoof_check | Respond to a device answering for your router | — |
+| `network.arp_spoof_check.multiple_gateways` | arp_spoof_check | Respond to a device answering for your router | — |
+| `network.dns_over_https_check.dns_configuration` | dns_over_https_check | — **gap** | — |
+| `network.dns_over_https_check.doh_tls_configured` | dns_over_https_check | — **gap** | — |
+| `network.dns_over_https_check.encrypted_dns_profile` | dns_over_https_check | — **gap** | — |
+| `network.dns_over_https_check.encrypted_dns_provider` | dns_over_https_check | Encrypt your DNS lookups | — |
+| `network.dns_over_https_check.local_dns_resolver` | dns_over_https_check | — **gap** | — |
+| `network.dns_over_https_check.no_dns_found` | dns_over_https_check | — **gap** | — |
+| `network.dns_over_https_check.no_encryption_configured` | dns_over_https_check | Encrypt your DNS lookups | — |
+| `network.dns_over_https_check.unencrypted_dns` | dns_over_https_check | Encrypt your DNS lookups | — |
+| `network.ethernet_diagnostics.ethernet_summary` | ethernet_diagnostics | — **gap** | — |
+| `network.ethernet_diagnostics.high_packet_errors` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem | — |
+| `network.ethernet_diagnostics.interface_inactive` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem | — |
+| `network.ethernet_diagnostics.link_speed_mismatch` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem | — |
+| `network.ethernet_diagnostics.no_ethernet` | ethernet_diagnostics | — **gap** | — |
+| `network.ethernet_diagnostics.non_standard_mtu` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem | — |
+| `network.ethernet_diagnostics.self_assigned_ip` | ethernet_diagnostics | Fix a wired (Ethernet) connection problem | — |
+| `network.lan_device_inventory.device_count_exceeded` | lan_device_inventory | Review the devices on your network | — |
+| `network.lan_device_inventory.lan_inventory` | lan_device_inventory | Review the devices on your network | — |
+| `network.lan_device_inventory.unrecognised_device` | lan_device_inventory | Review the devices on your network | — |
+| `network.network_proxy_check.network_query_failed` | network_proxy_check | — **gap** | — |
+| `network.network_proxy_check.no_proxies` | network_proxy_check | Remove an unwanted network proxy | — |
+| `network.network_proxy_check.pac_url_detected` | network_proxy_check | Remove an unwanted network proxy | yes |
+| `network.network_proxy_check.proxy_bypass_domains` | network_proxy_check | — **gap** | — |
+| `network.network_proxy_check.proxy_config_summary` | network_proxy_check | — **gap** | — |
+| `network.network_proxy_check.proxy_enabled` | network_proxy_check | Remove an unwanted network proxy | yes |
+| `network.network_proxy_check.remote_pac_url` | network_proxy_check | Remove an unwanted network proxy | yes |
+| `network.network_proxy_check.suspicious_localhost_proxy` | network_proxy_check | Remove an unwanted network proxy | yes |
+| `network.router_security_audit.admin_service_open` | router_security_audit | Secure your home router | — |
+| `network.router_security_audit.router_manual_review` | router_security_audit | Secure your home router | — |
+| `network.router_security_audit.upnp_enabled` | router_security_audit | Secure your home router | — |
+| `network.vpn_leak_check.dns_leak` | vpn_leak_check | Check that your VPN is protecting your traffic | — |
+| `network.vpn_leak_check.no_vpns_configured` | vpn_leak_check | — **gap** | — |
+| `network.vpn_leak_check.split_tunneling` | vpn_leak_check | Check that your VPN is protecting your traffic | — |
+| `network.vpn_leak_check.vpn_config_summary` | vpn_leak_check | — **gap** | — |
+| `network.vpn_leak_check.vpn_not_connected` | vpn_leak_check | Check that your VPN is protecting your traffic | — |
+| `network.wifi_security_audit.hidden_network` | wifi_security_audit | — **gap** | — |
+| `network.wifi_security_audit.open_network_connected` | wifi_security_audit | Secure your Wi-Fi connection | — |
+| `network.wifi_security_audit.open_saved` | wifi_security_audit | Secure your Wi-Fi connection | — |
+| `network.wifi_security_audit.security_unknown` | wifi_security_audit | — **gap** | — |
+| `network.wifi_security_audit.wep_connected` | wifi_security_audit | Secure your Wi-Fi connection | — |
+| `network.wifi_security_audit.wep_saved` | wifi_security_audit | Secure your Wi-Fi connection | — |
+| `network.wifi_security_audit.wifi_summary` | wifi_security_audit | — **gap** | — |
+| `network.wifi_security_audit.wpa2_only` | wifi_security_audit | Secure your Wi-Fi connection | — |
+| `performance.linux_memory_pressure.heavy_swap_use` | linux_memory_pressure | Stop programs from crashing or running out of memory | — |
+| `performance.linux_memory_pressure.low_available_memory` | linux_memory_pressure | Stop programs from crashing or running out of memory | — |
+| `performance.linux_memory_pressure.memory_hog` | linux_memory_pressure | Stop programs from crashing or running out of memory | — |
+| `performance.linux_memory_pressure.memory_stall` | linux_memory_pressure | Stop programs from crashing or running out of memory | — |
+| `performance.linux_memory_pressure.no_swap_configured` | linux_memory_pressure | Stop programs from crashing or running out of memory | — |
+| `performance.storage_cleanup.total_reclaimable` | storage_cleanup | Free up space on your Mac | — |
+| `security.accessibility_permissions.accessibility_access` | accessibility_permissions | Review Accessibility permission grants | yes |
+| `security.accessibility_permissions.excessive_accessibility` | accessibility_permissions | Review Accessibility permission grants | yes |
+| `security.accessibility_permissions.suspicious_accessibility` | accessibility_permissions | Review Accessibility permission grants | yes |
+| `security.ai_threat_indicators.ai_api_connection` | ai_threat_indicators | Respond to AI threat indicators | — |
+| `security.ai_threat_indicators.ai_api_key_found` | ai_threat_indicators | Respond to AI threat indicators | — |
+| `security.ai_threat_indicators.ai_config_file` | ai_threat_indicators | Respond to AI threat indicators | — |
+| `security.ai_threat_indicators.cron_ai_call` | ai_threat_indicators | Respond to AI threat indicators | — |
+| `security.ai_threat_indicators.launchagent_ai` | ai_threat_indicators | Respond to AI threat indicators | — |
+| `security.ai_threat_indicators.python_node_ai_process` | ai_threat_indicators | Respond to AI threat indicators | — |
+| `security.ai_worm_filesystem.known_hash_match` | ai_worm_filesystem | Clean AI worm filesystem artifacts safely | — |
+| `security.ai_worm_filesystem.known_payload_path` | ai_worm_filesystem | Clean AI worm filesystem artifacts safely | — |
+| `security.ai_worm_filesystem.obfuscated_script` | ai_worm_filesystem | Clean AI worm filesystem artifacts safely | — |
+| `security.ai_worm_git_ssh.git_hookspath_hijack` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm | — |
+| `security.ai_worm_git_ssh.git_templatedir_hijack` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm | — |
+| `security.ai_worm_git_ssh.npmrc_git_override` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm | — |
+| `security.ai_worm_git_ssh.repo_hook_file` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm | — |
+| `security.ai_worm_git_ssh.rogue_mcp_server` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm | — |
+| `security.ai_worm_git_ssh.ssh_authorized_keys_recent` | ai_worm_git_ssh | Secure git, npm, MCP configs, and SSH access after an AI worm | yes |
+| `security.ai_worm_lateral.credential_harvesting` | ai_worm_lateral | Contain AI worm lateral movement and credential exposure | — |
+| `security.ai_worm_lateral.imds_access` | ai_worm_lateral | Contain AI worm lateral movement and credential exposure | — |
+| `security.ai_worm_lateral.npm_publish_credentials` | ai_worm_lateral | Contain AI worm lateral movement and credential exposure | — |
+| `security.ai_worm_lateral.supply_chain_artifact` | ai_worm_lateral | Contain AI worm lateral movement and credential exposure | — |
+| `security.ai_worm_network.beaconing_detected` | ai_worm_network | Cut AI worm command-and-control network activity | — |
+| `security.ai_worm_network.known_malicious_connection` | ai_worm_network | Cut AI worm command-and-control network activity | — |
+| `security.ai_worm_network.stepsecurity_bypass` | ai_worm_network | Cut AI worm command-and-control network activity | — |
+| `security.ai_worm_network.token_harvesting_subprocess` | ai_worm_network | Cut AI worm command-and-control network activity | — |
+| `security.ai_worm_persistence.deadman_switch_launchagent` | ai_worm_persistence | Remove Miasma worm persistence safely | — |
+| `security.ai_worm_persistence.deadman_switch_systemd_unit` | ai_worm_persistence | Remove Miasma worm persistence safely | — |
+| `security.ai_worm_persistence.heuristic_persistence_artifact` | ai_worm_persistence | Remove Miasma worm persistence safely | — |
+| `security.ai_worm_persistence.known_malicious_launchagent` | ai_worm_persistence | Remove Miasma worm persistence safely | — |
+| `security.ai_worm_persistence.malicious_systemd_unit` | ai_worm_persistence | Remove Miasma worm persistence safely | — |
+| `security.ai_worm_persistence.scheduled_task_persistence` | ai_worm_persistence | Remove Miasma worm persistence safely | — |
+| `security.ai_worm_persistence.sessionstart_hook` | ai_worm_persistence | Remove Miasma worm persistence safely | — |
+| `security.ai_worm_persistence.shell_profile_injection` | ai_worm_persistence | Remove Miasma worm persistence safely | — |
+| `security.airdrop_config.airdrop_contacts_only` | airdrop_config | Secure AirDrop and related sharing settings | — |
+| `security.airdrop_config.airdrop_everyone` | airdrop_config | Secure AirDrop and related sharing settings | — |
+| `security.airdrop_config.airdrop_off` | airdrop_config | Secure AirDrop and related sharing settings | — |
+| `security.airdrop_config.bluetooth_disabled` | airdrop_config | Secure AirDrop and related sharing settings | — |
+| `security.airdrop_config.wifi_disabled` | airdrop_config | Secure AirDrop and related sharing settings | — |
+| `security.airdrop_security_check.airdrop_mode_everyone` | airdrop_security_check | Secure AirDrop and related sharing settings | — |
+| `security.airdrop_security_check.bluetooth_sharing_enabled` | airdrop_security_check | Secure AirDrop and related sharing settings | — |
+| `security.airdrop_security_check.sharing_config` | airdrop_security_check | Secure AirDrop and related sharing settings | — |
+| `security.antivirus_status.av_not_running` | antivirus_status | Enable and maintain antivirus protection | — |
+| `security.antivirus_status.mrt` | antivirus_status | Enable and maintain antivirus protection | — |
+| `security.antivirus_status.no_third_party_av` | antivirus_status | Enable and maintain antivirus protection | — |
+| `security.antivirus_status.third_party_av` | antivirus_status | Enable and maintain antivirus protection | — |
+| `security.antivirus_status.xprotect_remediator` | antivirus_status | Enable and maintain antivirus protection | — |
+| `security.app_permissions.accessibility_access` | app_permissions | Review app permissions (TCC grants) | yes |
+| `security.app_permissions.camera_access` | app_permissions | Review app permissions (TCC grants) | yes |
+| `security.app_permissions.full_disk_access` | app_permissions | Review app permissions (TCC grants) | yes |
+| `security.app_permissions.microphone_access` | app_permissions | Review app permissions (TCC grants) | yes |
+| `security.app_permissions.screen_recording` | app_permissions | Review app permissions (TCC grants) | yes |
+| `security.appleid_security_check.appleid_signin` | appleid_security_check | Secure Apple ID and iCloud account settings | — |
+| `security.appleid_security_check.appleid_summary` | appleid_security_check | Secure Apple ID and iCloud account settings | — |
+| `security.appleid_security_check.autoupdate_disabled` | appleid_security_check | Secure Apple ID and iCloud account settings | — |
+| `security.appleid_security_check.autoupdate_unknown` | appleid_security_check | Secure Apple ID and iCloud account settings | — |
+| `security.appleid_security_check.icloud_keychain` | appleid_security_check | Secure Apple ID and iCloud account settings | — |
+| `security.appleid_security_check.icloud_keychain_unknown` | appleid_security_check | Secure Apple ID and iCloud account settings | — |
+| `security.automatic_updates.app_store_auto` | automatic_updates | Enable automatic software updates | — |
+| `security.automatic_updates.auto_install_macos` | automatic_updates | Enable automatic software updates | — |
+| `security.automatic_updates.automatic_check` | automatic_updates | Enable automatic software updates | — |
+| `security.automatic_updates.automatic_download` | automatic_updates | Enable automatic software updates | — |
+| `security.automatic_updates.config_data` | automatic_updates | Enable automatic software updates | — |
+| `security.automatic_updates.critical_update` | automatic_updates | Enable automatic software updates | — |
+| `security.bluetooth_audit.discoverable_state` | bluetooth_audit | Review Bluetooth discoverability and paired devices | — |
+| `security.bluetooth_audit.paired_devices` | bluetooth_audit | Review Bluetooth discoverability and paired devices | — |
+| `security.browser_extension_audit.adware_extension` | browser_extension_audit | Review browser extensions | yes |
+| `security.browser_extension_audit.excessive_permissions` | browser_extension_audit | Review browser extensions | yes |
+| `security.browser_extension_audit.extension_bloat` | browser_extension_audit | Review browser extensions | — |
+| `security.browser_extension_audit.installed_extensions` | browser_extension_audit | Review browser extensions | — |
+| `security.browser_extension_audit.malicious_extension` | browser_extension_audit | Review browser extensions | yes |
+| `security.browser_hijack_check.all_browsers_clean` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) | — |
+| `security.browser_hijack_check.chrome_homepage_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) | — |
+| `security.browser_hijack_check.chrome_managed_by_policy` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) | — |
+| `security.browser_hijack_check.chrome_search_engine_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) | — |
+| `security.browser_hijack_check.firefox_homepage_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) | — |
+| `security.browser_hijack_check.firefox_search_engine_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) | — |
+| `security.browser_hijack_check.safari_homepage_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) | — |
+| `security.browser_hijack_check.safari_search_engine_suspicious` | browser_hijack_check | Fix browser hijacking (homepage / search engine / policy) | — |
+| `security.browser_privacy_check.autofilll_passwords_enabled` | browser_privacy_check | Tighten Safari and browser privacy settings | — |
+| `security.browser_privacy_check.cookies_always_allow` | browser_privacy_check | Tighten Safari and browser privacy settings | — |
+| `security.browser_privacy_check.do_not_track_disabled` | browser_privacy_check | Tighten Safari and browser privacy settings | — |
+| `security.browser_privacy_check.fraud_warning_disabled` | browser_privacy_check | Tighten Safari and browser privacy settings | — |
+| `security.browser_privacy_check.installed_browsers` | browser_privacy_check | Tighten Safari and browser privacy settings | — |
+| `security.browser_privacy_check.privacy_summary` | browser_privacy_check | Tighten Safari and browser privacy settings | — |
+| `security.browser_privacy_check.saved_passwords` | browser_privacy_check | Tighten Safari and browser privacy settings | — |
+| `security.certificate_audit.expired_certificates` | certificate_audit | Review system and login keychain certificates | — |
+| `security.certificate_audit.total_certificates` | certificate_audit | Review system and login keychain certificates | — |
+| `security.certificate_audit.user_root_cas` | certificate_audit | Review system and login keychain certificates | yes |
+| `security.certificate_trust_audit.expired_certificates` | certificate_trust_audit | Review trusted root certificates | — |
+| `security.certificate_trust_audit.self_signed_root_certs` | certificate_trust_audit | Review trusted root certificates | yes |
+| `security.certificate_trust_audit.suspicious_certificates` | certificate_trust_audit | Review trusted root certificates | yes |
+| `security.certificate_trust_audit.user_added_certs` | certificate_trust_audit | Review trusted root certificates | yes |
+| `security.chrome_extensions.broad_permissions` | chrome_extensions | Review Chrome extensions and permissions | yes |
+| `security.chrome_extensions.extension_bloat` | chrome_extensions | Review Chrome extensions and permissions | — |
+| `security.chrome_extensions.installed_extensions` | chrome_extensions | Review Chrome extensions and permissions | — |
+| `security.clamav_scanner.clamav_definitions` | clamav_scanner | Act on ClamAV scanner findings | — |
+| `security.clamav_scanner.clamav_not_installed` | clamav_scanner | Act on ClamAV scanner findings | — |
+| `security.clamav_scanner.clamav_outdated_definitions` | clamav_scanner | Act on ClamAV scanner findings | — |
+| `security.clamav_scanner.clamav_version` | clamav_scanner | Act on ClamAV scanner findings | — |
+| `security.clamav_scanner.clamd_not_running` | clamav_scanner | Act on ClamAV scanner findings | — |
+| `security.clamav_scanner.clamd_running` | clamav_scanner | Act on ClamAV scanner findings | — |
+| `security.clamav_scanner.freshclam_not_installed` | clamav_scanner | Act on ClamAV scanner findings | — |
+| `security.code_signature_audit.gatekeeper_rejected` | code_signature_audit | Check an app whose safety seal is broken or missing | — |
+| `security.code_signature_audit.inventory` | code_signature_audit | — **gap** | — |
+| `security.code_signature_audit.old_signature_format` | code_signature_audit | Check an app whose safety seal is broken or missing | — |
+| `security.code_signature_audit.tampered_binary` | code_signature_audit | Check an app whose safety seal is broken or missing | critical only |
+| `security.code_signature_audit.unsigned_system_app` | code_signature_audit | Check an app whose safety seal is broken or missing | — |
+| `security.cron_jobs_audit.cron_entries_found` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks | — |
+| `security.cron_jobs_audit.every_minute` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks | — |
+| `security.cron_jobs_audit.obfuscated_command` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks | if the maker isn't verified |
+| `security.cron_jobs_audit.rce_in_cron` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks | if the maker isn't verified |
+| `security.cron_jobs_audit.suspicious_path` | cron_jobs_audit | Review and clean suspicious cron jobs and scheduled tasks | if the maker isn't verified |
+| `security.crypto_miner_detect.high_cpu_process` | crypto_miner_detect | Remove cryptocurrency miner | — |
+| `security.crypto_miner_detect.known_miner` | crypto_miner_detect | Remove cryptocurrency miner | — |
+| `security.crypto_miner_detect.mining_pool_connection` | crypto_miner_detect | Remove cryptocurrency miner | — |
+| `security.disk_encryption_recovery.disk_encryption_status` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys | — |
+| `security.disk_encryption_recovery.fv_disabled` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys | — |
+| `security.disk_encryption_recovery.institutional_key_only` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys | — |
+| `security.disk_encryption_recovery.no_recovery_key` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys | — |
+| `security.disk_encryption_recovery.recovery_key_unknown` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys | — |
+| `security.disk_encryption_recovery.users_not_all_enabled` | disk_encryption_recovery | Secure FileVault disk encryption recovery keys | — |
+| `security.dns_poisoning_check.dns_config` | dns_poisoning_check | Fix DNS hijacking or poisoning | — |
+| `security.dns_poisoning_check.dns_filtering_profile` | dns_poisoning_check | Fix DNS hijacking or poisoning | yes |
+| `security.dns_poisoning_check.dns_over_https` | dns_poisoning_check | Fix DNS hijacking or poisoning | — |
+| `security.dns_poisoning_check.dns_resolution_issue` | dns_poisoning_check | Fix DNS hijacking or poisoning | — |
+| `security.dns_poisoning_check.malicious_dns` | dns_poisoning_check | Fix DNS hijacking or poisoning | yes |
+| `security.dns_poisoning_check.suspicious_dns` | dns_poisoning_check | Fix DNS hijacking or poisoning | yes |
+| `security.encryption_check.filevault_disabled` | encryption_check | Enable disk encryption (FileVault) | — |
+| `security.evidence_bundle.destination_unwritable` | evidence_bundle | Keep a record before you change anything | — |
+| `security.evidence_bundle.no_bundle_captured` | evidence_bundle | Keep a record before you change anything | — |
+| `security.evidence_bundle.readiness` | evidence_bundle | — **gap** | — |
+| `security.filevault_recovery.fv_disabled` | filevault_recovery | Secure FileVault recovery keys (family devices) | — |
+| `security.filevault_recovery.fv_status` | filevault_recovery | Secure FileVault recovery keys (family devices) | — |
+| `security.filevault_recovery.no_recovery_key` | filevault_recovery | Secure FileVault recovery keys (family devices) | — |
+| `security.filevault_recovery.recovery_key_unknown` | filevault_recovery | Secure FileVault recovery keys (family devices) | — |
+| `security.filevault_recovery.users_not_all_enabled` | filevault_recovery | Secure FileVault recovery keys (family devices) | — |
+| `security.find_my_mac_check.activation_lock_unknown` | find_my_mac_check | Enable and verify Find My Mac | — |
+| `security.find_my_mac_check.configured_ok` | find_my_mac_check | Enable and verify Find My Mac | — |
+| `security.find_my_mac_check.find_my_mac_disabled` | find_my_mac_check | Enable and verify Find My Mac | — |
+| `security.find_my_mac_check.find_my_mac_unknown` | find_my_mac_check | — **gap** | — |
+| `security.find_my_mac_check.icloud_not_signed_in` | find_my_mac_check | Enable and verify Find My Mac | — |
+| `security.find_my_mac_check.location_services_disabled` | find_my_mac_check | Enable and verify Find My Mac | — |
+| `security.find_my_mac_check.location_services_unknown` | find_my_mac_check | — **gap** | — |
+| `security.find_my_mac_check.send_last_location_disabled` | find_my_mac_check | Enable and verify Find My Mac | — |
+| `security.find_my_mac_check.send_last_location_unknown` | find_my_mac_check | — **gap** | — |
+| `security.firewall_audit.global_state` | firewall_audit | Enable and tighten the macOS Application Firewall | — |
+| `security.firewall_audit.global_state_unknown` | firewall_audit | Enable and tighten the macOS Application Firewall | — |
+| `security.firewall_audit.stealth_mode` | firewall_audit | Enable and tighten the macOS Application Firewall | — |
+| `security.firewall_audit.stealth_mode_unknown` | firewall_audit | Enable and tighten the macOS Application Firewall | — |
+| `security.firewall_rules_audit.alf_disabled` | firewall_rules_audit | Tighten Application Layer Firewall rules | — |
+| `security.firewall_rules_audit.alf_unknown` | firewall_rules_audit | Tighten Application Layer Firewall rules | — |
+| `security.firewall_rules_audit.allow_signed_enabled` | firewall_rules_audit | Tighten Application Layer Firewall rules | — |
+| `security.firewall_rules_audit.firewall_summary` | firewall_rules_audit | Tighten Application Layer Firewall rules | — |
+| `security.firewall_rules_audit.stealth_disabled` | firewall_rules_audit | Tighten Application Layer Firewall rules | — |
+| `security.firewall_rules_audit.stealth_unknown` | firewall_rules_audit | Tighten Application Layer Firewall rules | — |
+| `security.firewall_rules_audit.too_many_apps` | firewall_rules_audit | Tighten Application Layer Firewall rules | — |
+| `security.firmware_password.chip_type` | firmware_password | Set a firmware password / review Startup Security | — |
+| `security.firmware_password.chip_type_detection_failed` | firmware_password | Set a firmware password / review Startup Security | — |
+| `security.firmware_password.firmware_password_not_set` | firmware_password | Set a firmware password / review Startup Security | — |
+| `security.firmware_password.firmware_password_permission_denied` | firmware_password | Set a firmware password / review Startup Security | — |
+| `security.firmware_password.firmware_password_set` | firmware_password | Set a firmware password / review Startup Security | — |
+| `security.firmware_password.firmware_password_unavailable` | firmware_password | Set a firmware password / review Startup Security | — |
+| `security.firmware_password.firmware_password_unknown` | firmware_password | Set a firmware password / review Startup Security | — |
+| `security.firmware_password.startup_security_info` | firmware_password | Set a firmware password / review Startup Security | — |
+| `security.gatekeeper_quarantine_check.gatekeeper_assessment_failed` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper | — |
+| `security.gatekeeper_quarantine_check.gatekeeper_disabled` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper | — |
+| `security.gatekeeper_quarantine_check.gatekeeper_enabled` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper | — |
+| `security.gatekeeper_quarantine_check.gatekeeper_working` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper | — |
+| `security.gatekeeper_quarantine_check.quarantine_removed` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper | — |
+| `security.gatekeeper_quarantine_check.sip_disabled` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper | — |
+| `security.gatekeeper_quarantine_check.sip_enabled` | gatekeeper_quarantine_check | Verify and re-enable SIP and Gatekeeper | — |
+| `security.guest_account_check.guest_afp_access` | guest_account_check | Disable the Guest account and Guest file-sharing access | — |
+| `security.guest_account_check.guest_disabled` | guest_account_check | Disable the Guest account and Guest file-sharing access | — |
+| `security.guest_account_check.guest_enabled` | guest_account_check | Disable the Guest account and Guest file-sharing access | — |
+| `security.guest_account_check.guest_smb_access` | guest_account_check | Disable the Guest account and Guest file-sharing access | — |
+| `security.hosts_file_check.bank_domain_redirect` | hosts_file_check | Clean up a tampered /etc/hosts file | — |
+| `security.hosts_file_check.clean_hosts` | hosts_file_check | Clean up a tampered /etc/hosts file | — |
+| `security.hosts_file_check.custom_entries_list` | hosts_file_check | Clean up a tampered /etc/hosts file | — |
+| `security.hosts_file_check.large_hosts_count` | hosts_file_check | Clean up a tampered /etc/hosts file | — |
+| `security.hosts_file_check.suspicious_ip_redirect` | hosts_file_check | Clean up a tampered /etc/hosts file | — |
+| `security.hosts_file_check.wellknown_domain_redirect` | hosts_file_check | Clean up a tampered /etc/hosts file | — |
+| `security.kernel_extensions_audit.kext_retrieval_failed` | kernel_extensions_audit | Review and remove problematic kernel extensions (kexts) | — |
+| `security.kernel_extensions_audit.problematic_kexts` | kernel_extensions_audit | Review and remove problematic kernel extensions (kexts) | — |
+| `security.kernel_extensions_audit.third_party_kexts` | kernel_extensions_audit | Review and remove problematic kernel extensions (kexts) | — |
+| `security.kext_audit.kext_file` | kext_audit | Review and remove problematic kernel extensions (kexts) | — |
+| `security.kext_audit.loaded_third_party_kext` | kext_audit | Review and remove problematic kernel extensions (kexts) | — |
+| `security.keylogger_indicators.cgeventtap_usage` | keylogger_indicators | Investigate keylogger indicators | monitoring check: always |
+| `security.keylogger_indicators.input_monitoring_access` | keylogger_indicators | Investigate keylogger indicators | monitoring check: always |
+| `security.keylogger_indicators.known_keyloggers` | keylogger_indicators | Investigate keylogger indicators | monitoring check: always |
+| `security.keylogger_indicators.suspicious_input_monitoring` | keylogger_indicators | Investigate keylogger indicators | monitoring check: always |
+| `security.launch_agent_audit.agent_info` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) | — |
+| `security.launch_agent_audit.missing_program` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) | — |
+| `security.launch_agent_audit.obfuscated_name` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) | if the maker isn't verified |
+| `security.launch_agent_audit.suspicious_path` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) | if the maker isn't verified |
+| `security.launch_agent_audit.too_many_agents` | launch_agent_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) | — |
+| `security.launchd_persistence_audit.keepalive_runatload` | launchd_persistence_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) | if the maker isn't verified |
+| `security.launchd_persistence_audit.known_malware` | launchd_persistence_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) | yes |
+| `security.launchd_persistence_audit.non_apple_info` | launchd_persistence_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) | — |
+| `security.launchd_persistence_audit.suspicious_path` | launchd_persistence_audit | Review and clean launchd persistence (LaunchAgents/LaunchDaemons) | if the maker isn't verified |
+| `security.linux_account_audit.admin_inventory` | linux_account_audit | Lock down accounts that have no password or too much power | — |
+| `security.linux_account_audit.empty_password` | linux_account_audit | Lock down accounts that have no password or too much power | — |
+| `security.linux_account_audit.extra_uid0_account` | linux_account_audit | Lock down accounts that have no password or too much power | yes |
+| `security.linux_account_audit.passwordless_sudo` | linux_account_audit | Lock down accounts that have no password or too much power | — |
+| `security.linux_account_audit.shadow_unreadable` | linux_account_audit | — **gap** | — |
+| `security.linux_disk_encryption_check.encrypted` | linux_disk_encryption_check | — **gap** | — |
+| `security.linux_disk_encryption_check.encryption_undetermined` | linux_disk_encryption_check | Protect your files if the computer is lost or stolen | — |
+| `security.linux_disk_encryption_check.home_not_encrypted` | linux_disk_encryption_check | Protect your files if the computer is lost or stolen | — |
+| `security.linux_disk_encryption_check.root_not_encrypted` | linux_disk_encryption_check | Protect your files if the computer is lost or stolen | — |
+| `security.linux_firewall_check.default_allow_inbound` | linux_firewall_check | Turn on your firewall | — |
+| `security.linux_firewall_check.firewall_inactive` | linux_firewall_check | Turn on your firewall | — |
+| `security.linux_firewall_check.no_firewall` | linux_firewall_check | Turn on your firewall | — |
+| `security.linux_firewall_check.undetermined` | linux_firewall_check | — **gap** | — |
+| `security.linux_persistence_audit.inventory` | linux_persistence_audit | Check what starts automatically on your Linux computer | — |
+| `security.linux_persistence_audit.ld_preload_set` | linux_persistence_audit | Check what starts automatically on your Linux computer | if the maker isn't verified |
+| `security.linux_persistence_audit.suspicious_content` | linux_persistence_audit | Check what starts automatically on your Linux computer | if the maker isn't verified |
+| `security.linux_persistence_audit.volatile_path_execution` | linux_persistence_audit | Check what starts automatically on your Linux computer | if the maker isn't verified |
+| `security.linux_persistence_audit.world_writable_unit` | linux_persistence_audit | Check what starts automatically on your Linux computer | — |
+| `security.linux_ssh_hardening.config_unreadable` | linux_ssh_hardening | — **gap** | — |
+| `security.linux_ssh_hardening.empty_passwords_permitted` | linux_ssh_hardening | Make remote login (SSH) safer | — |
+| `security.linux_ssh_hardening.listening_on_all_interfaces` | linux_ssh_hardening | Make remote login (SSH) safer | — |
+| `security.linux_ssh_hardening.password_auth_enabled` | linux_ssh_hardening | Make remote login (SSH) safer | — |
+| `security.linux_ssh_hardening.root_login_permitted` | linux_ssh_hardening | Make remote login (SSH) safer | — |
+| `security.location_services.location_desktop_find_my_only` | location_services | Review Location Services | — |
+| `security.location_services.location_services_enabled` | location_services | Review Location Services | — |
+| `security.location_services.location_system_services` | location_services | Review Location Services | — |
+| `security.lock_screen_check.display_sleep` | lock_screen_check | Enforce lock screen: require password promptly, keep display auto-sleep on | — |
+| `security.lock_screen_check.screensaver_delay` | lock_screen_check | Enforce lock screen: require password promptly, keep display auto-sleep on | — |
+| `security.lock_screen_check.screensaver_password` | lock_screen_check | Enforce lock screen: require password promptly, keep display auto-sleep on | — |
+| `security.lock_screen_check.screensaver_password_unknown` | lock_screen_check | Enforce lock screen: require password promptly, keep display auto-sleep on | — |
+| `security.login_password_policy.ask_password` | login_password_policy | Harden login and password policy settings | — |
+| `security.login_password_policy.auto_login` | login_password_policy | Harden login and password policy settings | — |
+| `security.login_password_policy.guest_account_enabled` | login_password_policy | Harden login and password policy settings | — |
+| `security.login_password_policy.login_window_display` | login_password_policy | Harden login and password policy settings | — |
+| `security.login_password_policy.password_delay` | login_password_policy | Harden login and password policy settings | — |
+| `security.login_password_policy.remote_login_enabled` | login_password_policy | Harden login and password policy settings | — |
+| `security.login_password_policy.screensaver_timeout` | login_password_policy | Harden login and password policy settings | — |
+| `security.login_window_settings.auto_login` | login_window_settings | Harden login window display and hint settings | — |
+| `security.login_window_settings.login_settings_info` | login_window_settings | Harden login window display and hint settings | — |
+| `security.login_window_settings.password_hints` | login_window_settings | Harden login window display and hint settings | — |
+| `security.login_window_settings.show_user_list` | login_window_settings | Harden login window display and hint settings | — |
+| `security.malware_scan_indicators.adware_indicator` | malware_scan_indicators | Respond to malware scan indicators | — |
+| `security.malware_scan_indicators.browser_extension` | malware_scan_indicators | Respond to malware scan indicators | — |
+| `security.malware_scan_indicators.clean_scan` | malware_scan_indicators | Respond to malware scan indicators | — |
+| `security.malware_scan_indicators.malware_launchdaemon` | malware_scan_indicators | Respond to malware scan indicators | — |
+| `security.malware_scan_indicators.suspicious_bundle_id` | malware_scan_indicators | Respond to malware scan indicators | — |
+| `security.mdm_enrollment.mdm_enrolled` | mdm_enrollment | Verify MDM enrollment and review configuration profiles | yes |
+| `security.mdm_enrollment.no_mdm` | mdm_enrollment | Verify MDM enrollment and review configuration profiles | — |
+| `security.mdm_enrollment.profiles_installed` | mdm_enrollment | Verify MDM enrollment and review configuration profiles | yes |
+| `security.mdm_enrollment.supervised` | mdm_enrollment | Verify MDM enrollment and review configuration profiles | yes |
+| `security.mdm_enrollment_check.all_profiles` | mdm_enrollment_check | Verify MDM enrollment and review configuration profiles | yes |
+| `security.mdm_enrollment_check.dep_status` | mdm_enrollment_check | Verify MDM enrollment and review configuration profiles | yes |
+| `security.mdm_enrollment_check.mdm_enrollment` | mdm_enrollment_check | Verify MDM enrollment and review configuration profiles | yes |
+| `security.mdm_enrollment_check.restrictions_profiles` | mdm_enrollment_check | Verify MDM enrollment and review configuration profiles | yes |
+| `security.mvt_spyware_scan.mvt_backup_too_large` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) | monitoring check: always |
+| `security.mvt_spyware_scan.mvt_clean_scan` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) | monitoring check: always |
+| `security.mvt_spyware_scan.mvt_not_installed` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) | monitoring check: always |
+| `security.mvt_spyware_scan.mvt_requires_wsl` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) | monitoring check: always |
+| `security.mvt_spyware_scan.mvt_scan_available` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) | monitoring check: always |
+| `security.mvt_spyware_scan.mvt_spyware_detected` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) | monitoring check: always |
+| `security.mvt_spyware_scan.no_backups_found` | mvt_spyware_scan | Respond to mobile spyware findings (MVT) | monitoring check: always |
+| `security.network_connections_monitor.backdoor_ports` | network_connections_monitor | Review active network connections | yes |
+| `security.network_connections_monitor.connection_summary` | network_connections_monitor | Review active network connections | — |
+| `security.network_connections_monitor.high_connection_count` | network_connections_monitor | Review active network connections | — |
+| `security.network_connections_monitor.private_ip_connections` | network_connections_monitor | Review active network connections | — |
+| `security.network_connections_monitor.unusual_ports` | network_connections_monitor | Review active network connections | — |
+| `security.network_proxy.no_proxies` | network_proxy | Remove an unwanted network proxy | — |
+| `security.network_proxy.pac_url_detected` | network_proxy | Remove an unwanted network proxy | yes |
+| `security.network_proxy.proxy_enabled` | network_proxy | Remove an unwanted network proxy | yes |
+| `security.open_ports_scan.exposed_risky_ports` | open_ports_scan | Review open network ports | — |
+| `security.open_ports_scan.listening_ports` | open_ports_scan | Review open network ports | — |
+| `security.privacy_audit.analytics` | privacy_audit | Review privacy settings | — |
+| `security.privacy_audit.location_services` | privacy_audit | Review privacy settings | — |
+| `security.privacy_audit.personalized_ads` | privacy_audit | Review privacy settings | — |
+| `security.privacy_audit.significant_locations` | privacy_audit | Review privacy settings | — |
+| `security.privacy_audit.siri_suggestions` | privacy_audit | Review privacy settings | — |
+| `security.privacy_permissions_audit.accessibility_access` | privacy_permissions_audit | Review privacy settings | yes |
+| `security.privacy_permissions_audit.camera_access` | privacy_permissions_audit | Review privacy settings | yes |
+| `security.privacy_permissions_audit.camera_microphone_combo` | privacy_permissions_audit | Review privacy settings | yes |
+| `security.privacy_permissions_audit.contacts_access` | privacy_permissions_audit | Review privacy settings | — |
+| `security.privacy_permissions_audit.excessive_camera` | privacy_permissions_audit | Review privacy settings | yes |
+| `security.privacy_permissions_audit.excessive_microphone` | privacy_permissions_audit | Review privacy settings | yes |
+| `security.privacy_permissions_audit.full_disk_access` | privacy_permissions_audit | Review privacy settings | yes |
+| `security.privacy_permissions_audit.microphone_access` | privacy_permissions_audit | Review privacy settings | yes |
+| `security.privacy_permissions_audit.screen_accessibility_combo` | privacy_permissions_audit | Review privacy settings | yes |
+| `security.privacy_permissions_audit.screen_recording_access` | privacy_permissions_audit | Review privacy settings | yes |
+| `security.remote_login_check.all_disabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) | — |
+| `security.remote_login_check.remote_access_unknown` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) | yes |
+| `security.remote_login_check.remote_apple_events_enabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) | yes |
+| `security.remote_login_check.remote_management_enabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) | yes |
+| `security.remote_login_check.screen_sharing_enabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) | yes |
+| `security.remote_login_check.ssh_enabled` | remote_login_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) | yes |
+| `security.rootkit_check.all_clean` | rootkit_check | Investigate rootkit indicators | — |
+| `security.rootkit_check.binary_integrity` | rootkit_check | Investigate rootkit indicators | yes |
+| `security.rootkit_check.hidden_files` | rootkit_check | Investigate rootkit indicators | yes |
+| `security.rootkit_check.hidden_processes` | rootkit_check | Investigate rootkit indicators | yes |
+| `security.rootkit_check.kernel_extensions` | rootkit_check | Investigate rootkit indicators | yes |
+| `security.rootkit_check.sip_disabled` | rootkit_check | Investigate rootkit indicators | — |
+| `security.safari_extensions.app_extensions` | safari_extensions | Review Safari extensions and content blockers | yes |
+| `security.safari_extensions.content_blockers_disabled` | safari_extensions | Review Safari extensions and content blockers | — |
+| `security.safari_extensions.content_blockers_enabled` | safari_extensions | Review Safari extensions and content blockers | — |
+| `security.safari_extensions.extension_bloat` | safari_extensions | Review Safari extensions and content blockers | — |
+| `security.safari_extensions.legacy_extensions` | safari_extensions | Review Safari extensions and content blockers | yes |
+| `security.scheduled_tasks_audit.disabled_launch_agent` | scheduled_tasks_audit | Review scheduled tasks (LaunchAgents/LaunchDaemons) | — |
+| `security.scheduled_tasks_audit.excessive_user_agents` | scheduled_tasks_audit | Review scheduled tasks (LaunchAgents/LaunchDaemons) | — |
+| `security.scheduled_tasks_audit.launch_agent_info` | scheduled_tasks_audit | Review scheduled tasks (LaunchAgents/LaunchDaemons) | — |
+| `security.scheduled_tasks_audit.suspicious_launch_agent` | scheduled_tasks_audit | Review scheduled tasks (LaunchAgents/LaunchDaemons) | if the maker isn't verified |
+| `security.screen_lock_check.automatic_login` | screen_lock_check | Require a password after sleep or screen saver | — |
+| `security.screen_lock_check.password_hint` | screen_lock_check | Require a password after sleep or screen saver | — |
+| `security.screen_lock_check.screen_lock_delay` | screen_lock_check | Require a password after sleep or screen saver | — |
+| `security.screen_lock_check.screen_lock_required` | screen_lock_check | Require a password after sleep or screen saver | — |
+| `security.screen_lock_check.screensaver_idle_time` | screen_lock_check | Require a password after sleep or screen saver | — |
+| `security.screen_time_audit.app_limits_configured` | screen_time_audit | Review Screen Time and parental controls | yes |
+| `security.screen_time_audit.communication_limits_configured` | screen_time_audit | Review Screen Time and parental controls | yes |
+| `security.screen_time_audit.content_privacy_restrictions` | screen_time_audit | Review Screen Time and parental controls | yes |
+| `security.screen_time_audit.downtime_enabled` | screen_time_audit | Review Screen Time and parental controls | yes |
+| `security.screen_time_audit.screen_time_disabled` | screen_time_audit | Review Screen Time and parental controls | — |
+| `security.screen_time_audit.screen_time_enabled` | screen_time_audit | Review Screen Time and parental controls | yes |
+| `security.screen_time_audit.screen_time_no_passcode` | screen_time_audit | Review Screen Time and parental controls | yes |
+| `security.screen_time_parental.adult_content_filtering` | screen_time_parental | Review Screen Time and parental controls | — |
+| `security.screen_time_parental.app_limits_configured` | screen_time_parental | Review Screen Time and parental controls | yes |
+| `security.screen_time_parental.ask_to_buy_enabled` | screen_time_parental | Review Screen Time and parental controls | — |
+| `security.screen_time_parental.communication_limits_configured` | screen_time_parental | Review Screen Time and parental controls | yes |
+| `security.screen_time_parental.content_privacy_disabled_with_children` | screen_time_parental | Review Screen Time and parental controls | — |
+| `security.screen_time_parental.content_privacy_restrictions` | screen_time_parental | Review Screen Time and parental controls | yes |
+| `security.screen_time_parental.downtime_enabled` | screen_time_parental | Review Screen Time and parental controls | yes |
+| `security.screen_time_parental.managed_accounts` | screen_time_parental | Review Screen Time and parental controls | yes |
+| `security.screen_time_parental.screen_time_disabled` | screen_time_parental | Review Screen Time and parental controls | — |
+| `security.screen_time_parental.screen_time_disabled_with_children` | screen_time_parental | Review Screen Time and parental controls | — |
+| `security.screen_time_parental.screen_time_enabled` | screen_time_parental | Review Screen Time and parental controls | yes |
+| `security.screen_time_parental.screen_time_no_passcode` | screen_time_parental | Review Screen Time and parental controls | yes |
+| `security.security_baseline_diff.baseline_established` | security_baseline_diff | — **gap** | — |
+| `security.security_baseline_diff.new_browser_extension` | security_baseline_diff | Review what changed on your computer since the last check | yes |
+| `security.security_baseline_diff.new_listening_port` | security_baseline_diff | Review what changed on your computer since the last check | — |
+| `security.security_baseline_diff.new_persistence` | security_baseline_diff | Review what changed on your computer since the last check | if the maker isn't verified |
+| `security.security_baseline_diff.no_change` | security_baseline_diff | — **gap** | — |
+| `security.security_baseline_diff.protection_disabled` | security_baseline_diff | Review what changed on your computer since the last check | — |
+| `security.session_revocation_scan.browser_sessions` | session_revocation_scan | Sign out of other devices and cut off old access | yes |
+| `security.session_revocation_scan.inventory` | session_revocation_scan | — **gap** | — |
+| `security.session_revocation_scan.ssh_authorized_keys` | session_revocation_scan | Sign out of other devices and cut off old access | yes |
+| `security.session_revocation_scan.system_accounts` | session_revocation_scan | Sign out of other devices and cut off old access | yes |
+| `security.sharing_preferences_audit.airdrop_everyone` | sharing_preferences_audit | Review and disable unneeded sharing services | — |
+| `security.sharing_preferences_audit.config_secure` | sharing_preferences_audit | Review and disable unneeded sharing services | — |
+| `security.sharing_preferences_audit.config_summary` | sharing_preferences_audit | Review and disable unneeded sharing services | — |
+| `security.sharing_preferences_audit.file_sharing` | sharing_preferences_audit | Review and disable unneeded sharing services | yes |
+| `security.sharing_preferences_audit.printer_sharing` | sharing_preferences_audit | Review and disable unneeded sharing services | — |
+| `security.sharing_preferences_audit.remote_login` | sharing_preferences_audit | Review and disable unneeded sharing services | yes |
+| `security.sharing_preferences_audit.remote_management` | sharing_preferences_audit | Review and disable unneeded sharing services | yes |
+| `security.sharing_preferences_audit.screen_sharing` | sharing_preferences_audit | Review and disable unneeded sharing services | yes |
+| `security.sharing_preferences_audit.sharing_unknown` | sharing_preferences_audit | Review and disable unneeded sharing services | yes |
+| `security.sharing_services.file_sharing` | sharing_services | Review and disable unneeded sharing services | yes |
+| `security.sharing_services.printer_sharing` | sharing_services | Review and disable unneeded sharing services | — |
+| `security.sharing_services.remote_login` | sharing_services | Review and disable unneeded sharing services | yes |
+| `security.sharing_services.remote_management` | sharing_services | Review and disable unneeded sharing services | yes |
+| `security.sharing_services.screen_sharing` | sharing_services | Review and disable unneeded sharing services | yes |
+| `security.sharing_services.sharing_unknown` | sharing_services | Review and disable unneeded sharing services | yes |
+| `security.sip_gatekeeper.gatekeeper_status` | sip_gatekeeper | Verify and re-enable SIP and Gatekeeper | — |
+| `security.sip_gatekeeper.sip_status` | sip_gatekeeper | Verify and re-enable SIP and Gatekeeper | — |
+| `security.siri_privacy.hey_siri` | siri_privacy | Tighten Siri privacy settings | — |
+| `security.siri_privacy.lockscreen_siri` | siri_privacy | Tighten Siri privacy settings | — |
+| `security.siri_privacy.siri_analytics` | siri_privacy | Tighten Siri privacy settings | — |
+| `security.siri_privacy.siri_config_status` | siri_privacy | Tighten Siri privacy settings | — |
+| `security.siri_privacy.siri_enabled` | siri_privacy | Tighten Siri privacy settings | — |
+| `security.siri_privacy.siri_suggestions` | siri_privacy | Tighten Siri privacy settings | — |
+| `security.ssh_key_audit.authorized_keys` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.bad_key_perms` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.bad_ssh_dir_perms` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.dsa_key_found` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.ed25519_keys` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.known_hosts` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.password_auth_enabled` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.permit_root_login` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.rsa_keys` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.ssh_agent_not_running` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.ssh_agent_running` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.ssh_key_audit.weak_rsa_key` | ssh_key_audit | Harden SSH keys and configuration | — |
+| `security.stalkerware_scan.monitoring_software_found` | stalkerware_scan | What to do about monitoring software | monitoring check: always |
+| `security.sudo_config_audit.nopasswd_all` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account | — |
+| `security.sudo_config_audit.nopasswd_partial` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account | — |
+| `security.sudo_config_audit.root_disabled` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account | — |
+| `security.sudo_config_audit.root_enabled` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account | — |
+| `security.sudo_config_audit.timestamp_long` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account | — |
+| `security.sudo_config_audit.timestamp_ok` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account | — |
+| `security.sudo_config_audit.touchid_disabled` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account | — |
+| `security.sudo_config_audit.touchid_enabled` | sudo_config_audit | Review sudo configuration: NOPASSWD, timestamp timeout, Touch ID, root account | — |
+| `security.sudo_touchid.applepay_enabled` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication | — |
+| `security.sudo_touchid.no_fingerprints` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication | — |
+| `security.sudo_touchid.no_hardware` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication | — |
+| `security.sudo_touchid.sudo_not_enabled` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication | — |
+| `security.sudo_touchid.touchid_status` | sudo_touchid | Enroll Touch ID and enable it for sudo authentication | — |
+| `security.suspicious_connections.high_connection_count` | suspicious_connections | Triage suspicious network connections | — |
+| `security.suspicious_connections.unusual_listening_port` | suspicious_connections | Triage suspicious network connections | — |
+| `security.suspicious_connections.unusual_outbound_connection` | suspicious_connections | Triage suspicious network connections | — |
+| `security.suspicious_processes.all_clean` | suspicious_processes | Triage suspicious processes | — |
+| `security.suspicious_processes.high_cpu` | suspicious_processes | Triage suspicious processes | — |
+| `security.suspicious_processes.known_malware` | suspicious_processes | Triage suspicious processes | yes |
+| `security.suspicious_processes.suspicious_names` | suspicious_processes | Triage suspicious processes | yes |
+| `security.suspicious_processes.suspicious_paths` | suspicious_processes | Triage suspicious processes | yes |
+| `security.suspicious_processes.unsigned_apps` | suspicious_processes | Triage suspicious processes | — |
+| `security.system_extensions.active_extension` | system_extensions | Review macOS System Extensions | yes |
+| `security.system_extensions.unusual_state` | system_extensions | Review macOS System Extensions | yes |
+| `security.usb_device_audit.no_vendor_devices` | usb_device_audit | Review connected USB devices | — |
+| `security.usb_device_audit.storage_devices` | usb_device_audit | Review connected USB devices | — |
+| `security.usb_device_audit.usb_devices` | usb_device_audit | Review connected USB devices | — |
+| `security.usb_device_audit.usb_hubs` | usb_device_audit | Review connected USB devices | — |
+| `security.user_account_audit.admin_accounts` | user_account_audit | Review user accounts, admin privileges, Guest, and auto-login | yes |
+| `security.user_account_audit.auto_login` | user_account_audit | Review user accounts, admin privileges, Guest, and auto-login | — |
+| `security.user_account_audit.guest_enabled` | user_account_audit | Review user accounts, admin privileges, Guest, and auto-login | — |
+| `security.vpn_config.no_vpn` | vpn_config | Review VPN configuration | — |
+| `security.vpn_config.pptp_detected` | vpn_config | Review VPN configuration | — |
+| `security.vpn_config.third_party_vpns` | vpn_config | Review VPN configuration | — |
+| `security.vpn_config.vpn_list` | vpn_config | Review VPN configuration | — |
+| `security.win_antivirus_status.multiple_av_products` | win_antivirus_status | Enable and restore Windows antivirus protection | — |
+| `security.win_antivirus_status.no_av_product` | win_antivirus_status | Enable and restore Windows antivirus protection | — |
+| `security.win_antivirus_status.realtime_protection_disabled` | win_antivirus_status | Enable and restore Windows antivirus protection | — |
+| `security.win_antivirus_status.registered_products` | win_antivirus_status | Enable and restore Windows antivirus protection | — |
+| `security.win_antivirus_status.stale_definitions` | win_antivirus_status | Enable and restore Windows antivirus protection | — |
+| `security.win_autorun.autoplay_disabled` | win_autorun | Review Windows AutoRun and AutoPlay settings | — |
+| `security.win_autorun.autoplay_enabled` | win_autorun | Review Windows AutoRun and AutoPlay settings | — |
+| `security.win_autorun.autorun_disabled_full` | win_autorun | Review Windows AutoRun and AutoPlay settings | — |
+| `security.win_autorun.autorun_enabled` | win_autorun | Review Windows AutoRun and AutoPlay settings | — |
+| `security.win_autorun.autorun_partial` | win_autorun | Review Windows AutoRun and AutoPlay settings | — |
+| `security.win_autoruns_audit.excessive_entries` | win_autoruns_audit | Audit Windows autorun/startup entries | — |
+| `security.win_autoruns_audit.inventory` | win_autoruns_audit | Audit Windows autorun/startup entries | — |
+| `security.win_autoruns_audit.obfuscated_command` | win_autoruns_audit | Audit Windows autorun/startup entries | if the maker isn't verified |
+| `security.win_autoruns_audit.temp_path_execution` | win_autoruns_audit | Audit Windows autorun/startup entries | if the maker isn't verified |
+| `security.win_bitlocker.encryption_suspended` | win_bitlocker | Enable BitLocker and secure recovery keys | — |
+| `security.win_bitlocker.no_recovery_key` | win_bitlocker | Enable BitLocker and secure recovery keys | — |
+| `security.win_bitlocker.os_drive_not_encrypted` | win_bitlocker | Enable BitLocker and secure recovery keys | — |
+| `security.win_bitlocker.status_info` | win_bitlocker | Enable BitLocker and secure recovery keys | — |
+| `security.win_bitlocker_check.encryption_suspended` | win_bitlocker_check | Enable BitLocker and secure recovery keys | — |
+| `security.win_bitlocker_check.fixed_drive_not_encrypted` | win_bitlocker_check | Enable BitLocker and secure recovery keys | — |
+| `security.win_bitlocker_check.no_recovery_key` | win_bitlocker_check | Enable BitLocker and secure recovery keys | — |
+| `security.win_bitlocker_check.os_drive_not_encrypted` | win_bitlocker_check | Enable BitLocker and secure recovery keys | — |
+| `security.win_bitlocker_check.status_info` | win_bitlocker_check | Enable BitLocker and secure recovery keys | — |
+| `security.win_cortana_telemetry.activity_feed` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure | — |
+| `security.win_cortana_telemetry.advertising_id` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure | — |
+| `security.win_cortana_telemetry.cortana_enabled` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure | — |
+| `security.win_cortana_telemetry.location_services` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure | — |
+| `security.win_cortana_telemetry.optimized` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure | — |
+| `security.win_cortana_telemetry.telemetry_level` | win_cortana_telemetry | Reduce Windows telemetry and privacy exposure | — |
+| `security.win_credential_guard.credential_guard_disabled` | win_credential_guard | Enable Credential Guard and tighten password policy | — |
+| `security.win_credential_guard.password_min_length_below_threshold` | win_credential_guard | Enable Credential Guard and tighten password policy | — |
+| `security.win_credential_guard.passwords_never_expire` | win_credential_guard | Enable Credential Guard and tighten password policy | — |
+| `security.win_credential_guard.windows_hello_configured` | win_credential_guard | Enable Credential Guard and tighten password policy | — |
+| `security.win_credential_manager_audit.credential_sprawl` | win_credential_manager_audit | Review Windows Credential Manager entries | — |
+| `security.win_credential_manager_audit.domain_credentials_non_domain_joined` | win_credential_manager_audit | Review Windows Credential Manager entries | — |
+| `security.win_credential_manager_audit.generic_credentials_sensitive_services` | win_credential_manager_audit | Review Windows Credential Manager entries | — |
+| `security.win_credential_manager_audit.inventory_summary` | win_credential_manager_audit | Review Windows Credential Manager entries | — |
+| `security.win_defender.antivirus_enabled` | win_defender | Enable and restore Windows antivirus protection | — |
+| `security.win_defender.realtime_protection` | win_defender | Enable and restore Windows antivirus protection | — |
+| `security.win_defender.signature_age` | win_defender | Enable and restore Windows antivirus protection | — |
+| `security.win_defender_deep_check.all_passed` | win_defender_deep_check | Restore Windows Defender protection | — |
+| `security.win_defender_deep_check.cloud_protection_off` | win_defender_deep_check | Restore Windows Defender protection | — |
+| `security.win_defender_deep_check.controlled_folder_access_disabled` | win_defender_deep_check | Restore Windows Defender protection | — |
+| `security.win_defender_deep_check.excessive_exclusions` | win_defender_deep_check | Restore Windows Defender protection | — |
+| `security.win_defender_deep_check.pua_protection_disabled` | win_defender_deep_check | Restore Windows Defender protection | — |
+| `security.win_defender_deep_check.realtime_disabled` | win_defender_deep_check | Restore Windows Defender protection | — |
+| `security.win_defender_deep_check.stale_full_scan` | win_defender_deep_check | Restore Windows Defender protection | — |
+| `security.win_defender_deep_check.tamper_protection_disabled` | win_defender_deep_check | Restore Windows Defender protection | — |
+| `security.win_firewall.private_domain_profile_disabled` | win_firewall | Enable the Windows Firewall (all profiles) | — |
+| `security.win_firewall.public_profile_disabled` | win_firewall | Enable the Windows Firewall (all profiles) | — |
+| `security.win_firewall_rules_audit.default_inbound_allow` | win_firewall_rules_audit | Review Windows Firewall rule configuration | — |
+| `security.win_firewall_rules_audit.excessive_rules` | win_firewall_rules_audit | Review Windows Firewall rule configuration | — |
+| `security.win_firewall_rules_audit.rule_allows_all_ports` | win_firewall_rules_audit | Review Windows Firewall rule configuration | — |
+| `security.win_firewall_rules_audit.rule_allows_all_programs` | win_firewall_rules_audit | Review Windows Firewall rule configuration | — |
+| `security.win_firewall_rules_audit.summary` | win_firewall_rules_audit | Review Windows Firewall rule configuration | — |
+| `security.win_group_policy_audit.applocker_configured` | win_group_policy_audit | Review Windows Group Policy findings | — |
+| `security.win_group_policy_audit.restrictive_policy` | win_group_policy_audit | Review Windows Group Policy findings | — |
+| `security.win_group_policy_audit.stale_domain_policies` | win_group_policy_audit | Review Windows Group Policy findings | — |
+| `security.win_group_policy_audit.status_report` | win_group_policy_audit | Review Windows Group Policy findings | — |
+| `security.win_group_policy_audit.weak_password_policy` | win_group_policy_audit | Review Windows Group Policy findings | — |
+| `security.win_hosts_file.entries_summary` | win_hosts_file | Clean up the Windows hosts file | — |
+| `security.win_hosts_file.excessive_entries` | win_hosts_file | Clean up the Windows hosts file | — |
+| `security.win_hosts_file.security_domain_redirect` | win_hosts_file | Clean up the Windows hosts file | — |
+| `security.win_hosts_file_check.blocked_security_domains` | win_hosts_file_check | Clean up the Windows hosts file | — |
+| `security.win_hosts_file_check.entry_count_summary` | win_hosts_file_check | Clean up the Windows hosts file | — |
+| `security.win_hosts_file_check.file_permissions` | win_hosts_file_check | Clean up the Windows hosts file | — |
+| `security.win_hosts_file_check.large_file_size` | win_hosts_file_check | Clean up the Windows hosts file | — |
+| `security.win_hosts_file_check.redirected_legitimate` | win_hosts_file_check | Clean up the Windows hosts file | — |
+| `security.win_local_admin_audit.admin_accounts_summary` | win_local_admin_audit | Review Windows local administrator accounts | — |
+| `security.win_local_admin_audit.admin_blank_password` | win_local_admin_audit | Review Windows local administrator accounts | — |
+| `security.win_local_admin_audit.admin_password_never_expires` | win_local_admin_audit | Review Windows local administrator accounts | — |
+| `security.win_local_admin_audit.builtin_admin_enabled` | win_local_admin_audit | Review Windows local administrator accounts | — |
+| `security.win_local_admin_audit.excessive_admin_accounts` | win_local_admin_audit | Review Windows local administrator accounts | yes |
+| `security.win_local_admin_audit.guest_account_enabled` | win_local_admin_audit | Review Windows local administrator accounts | — |
+| `security.win_malware_indicators.clean_system` | win_malware_indicators | Respond to Windows malware indicators | — |
+| `security.win_malware_indicators.malware_folder` | win_malware_indicators | Respond to Windows malware indicators | — |
+| `security.win_malware_indicators.malware_registry` | win_malware_indicators | Respond to Windows malware indicators | — |
+| `security.win_malware_indicators.safe_mode_disabled` | win_malware_indicators | Respond to Windows malware indicators | — |
+| `security.win_malware_indicators.suspicious_service` | win_malware_indicators | Respond to Windows malware indicators | — |
+| `security.win_network_shares_audit.enumeration_failed` | win_network_shares_audit | Review Windows network shares | — |
+| `security.win_network_shares_audit.everyone_read_access` | win_network_shares_audit | Review Windows network shares | — |
+| `security.win_network_shares_audit.everyone_write_access` | win_network_shares_audit | Review Windows network shares | — |
+| `security.win_network_shares_audit.sensitive_directory` | win_network_shares_audit | Review Windows network shares | — |
+| `security.win_network_shares_audit.shares_enumerated` | win_network_shares_audit | Review Windows network shares | — |
+| `security.win_network_shares_audit.smb1_enabled` | win_network_shares_audit | Review Windows network shares | — |
+| `security.win_proxy_detect.ie_proxy_enabled` | win_proxy_detect | Review and remove unexpected Windows proxy settings | yes |
+| `security.win_proxy_detect.localhost_suspicious` | win_proxy_detect | Review and remove unexpected Windows proxy settings | yes |
+| `security.win_proxy_detect.no_proxies` | win_proxy_detect | Review and remove unexpected Windows proxy settings | — |
+| `security.win_proxy_detect.pac_configured` | win_proxy_detect | Review and remove unexpected Windows proxy settings | yes |
+| `security.win_proxy_detect.system_proxy` | win_proxy_detect | Review and remove unexpected Windows proxy settings | yes |
+| `security.win_rdp_check.rdp_disabled` | win_rdp_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) | — |
+| `security.win_rdp_check.rdp_enabled_no_nla` | win_rdp_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) | yes |
+| `security.win_rdp_check.rdp_enabled_with_nla` | win_rdp_check | Disable unwanted remote access (SSH, Screen Sharing, ARD, RDP) | yes |
+| `security.win_remote_access_audit.anydesk_installed` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) | yes |
+| `security.win_remote_access_audit.chrome_remote_desktop` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) | yes |
+| `security.win_remote_access_audit.logmein_installed` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) | yes |
+| `security.win_remote_access_audit.multiple_tools` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) | yes |
+| `security.win_remote_access_audit.no_tools_found` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) | — |
+| `security.win_remote_access_audit.rdp_enabled` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) | yes |
+| `security.win_remote_access_audit.teamviewer_installed` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) | yes |
+| `security.win_remote_access_audit.tools_summary` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) | — |
+| `security.win_remote_access_audit.vnc_installed` | win_remote_access_audit | Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP) | yes |
+| `security.win_rootkit_check.all_passed` | win_rootkit_check | Investigate Windows rootkit indicators | — |
+| `security.win_rootkit_check.alternate_data_streams` | win_rootkit_check | Investigate Windows rootkit indicators | — |
+| `security.win_rootkit_check.boot_tampering` | win_rootkit_check | Investigate Windows rootkit indicators | yes |
+| `security.win_rootkit_check.hidden_services` | win_rootkit_check | Investigate Windows rootkit indicators | yes |
+| `security.win_rootkit_check.secure_boot_disabled` | win_rootkit_check | Investigate Windows rootkit indicators | — |
+| `security.win_rootkit_check.unsigned_drivers` | win_rootkit_check | Investigate Windows rootkit indicators | yes |
+| `security.win_scheduled_tasks.encoded_command` | win_scheduled_tasks | Review Windows scheduled tasks (basic scan) | if the maker isn't verified |
+| `security.win_scheduled_tasks.non_microsoft_tasks` | win_scheduled_tasks | Review Windows scheduled tasks (basic scan) | if the maker isn't verified |
+| `security.win_scheduled_tasks.suspicious_path` | win_scheduled_tasks | Review Windows scheduled tasks (basic scan) | if the maker isn't verified |
+| `security.win_scheduled_tasks_security.encoded_powershell` | win_scheduled_tasks_security | Secure Windows scheduled tasks | if the maker isn't verified |
+| `security.win_scheduled_tasks_security.enumeration_failed` | win_scheduled_tasks_security | Secure Windows scheduled tasks | — |
+| `security.win_scheduled_tasks_security.frequent_schedule` | win_scheduled_tasks_security | Secure Windows scheduled tasks | — |
+| `security.win_scheduled_tasks_security.hidden_attributes` | win_scheduled_tasks_security | Secure Windows scheduled tasks | if the maker isn't verified |
+| `security.win_scheduled_tasks_security.inventory` | win_scheduled_tasks_security | Secure Windows scheduled tasks | — |
+| `security.win_scheduled_tasks_security.non_microsoft_system` | win_scheduled_tasks_security | Secure Windows scheduled tasks | if the maker isn't verified |
+| `security.win_scheduled_tasks_security.recent_boot_logon` | win_scheduled_tasks_security | Secure Windows scheduled tasks | — |
+| `security.win_scheduled_tasks_security.temp_path_system` | win_scheduled_tasks_security | Secure Windows scheduled tasks | if the maker isn't verified |
+| `security.win_services_audit.bloatware_detected` | win_services_audit | Review Windows services | — |
+| `security.win_services_audit.excessive_autostart` | win_services_audit | Review Windows services | — |
+| `security.win_services_audit.non_microsoft_autostart` | win_services_audit | Review Windows services | — |
+| `security.win_services_audit.stopped_autostart` | win_services_audit | Review Windows services | — |
+| `security.win_services_audit.suspicious_path` | win_services_audit | Review Windows services | if the maker isn't verified |
+| `security.win_services_security_audit.overprivileged` | win_services_security_audit | Review Windows service security hardening findings | — |
+| `security.win_services_security_audit.stopped_auto_start` | win_services_security_audit | Review Windows service security hardening findings | — |
+| `security.win_services_security_audit.summary` | win_services_security_audit | Review Windows service security hardening findings | — |
+| `security.win_services_security_audit.unquoted_path` | win_services_security_audit | Review Windows service security hardening findings | — |
+| `security.win_services_security_audit.user_writable_dir` | win_services_security_audit | Review Windows service security hardening findings | — |
+| `security.win_suspicious_processes.encoded_powershell` | win_suspicious_processes | Triage Windows suspicious processes | — |
+| `security.win_suspicious_processes.known_malware` | win_suspicious_processes | Triage Windows suspicious processes | — |
+| `security.win_suspicious_processes.mining_software` | win_suspicious_processes | Triage Windows suspicious processes | — |
+| `security.win_suspicious_processes.no_file_path` | win_suspicious_processes | Triage Windows suspicious processes | — |
+| `security.win_suspicious_processes.summary` | win_suspicious_processes | Triage Windows suspicious processes | — |
+| `security.win_suspicious_processes.suspicious_path` | win_suspicious_processes | Triage Windows suspicious processes | — |
+| `security.win_uac_check.secure_desktop_disabled` | win_uac_check | Re-enable and tighten User Account Control (UAC) | — |
+| `security.win_uac_check.uac_configured_ok` | win_uac_check | Re-enable and tighten User Account Control (UAC) | — |
+| `security.win_uac_check.uac_disabled` | win_uac_check | Re-enable and tighten User Account Control (UAC) | — |
+| `security.win_uac_check.uac_never_notify` | win_uac_check | Re-enable and tighten User Account Control (UAC) | — |
+| `security.win_user_accounts.auto_login_enabled` | win_user_accounts | Review Windows user accounts, Guest access, and auto-login | — |
+| `security.win_user_accounts.guest_account_enabled` | win_user_accounts | Review Windows user accounts, Guest access, and auto-login | — |
+| `security.win_user_accounts.multiple_admin_accounts` | win_user_accounts | Review Windows user accounts, Guest access, and auto-login | yes |
+| `security.win_user_accounts.no_min_password_length` | win_user_accounts | Review Windows user accounts, Guest access, and auto-login | — |
+| `security.xprotect_status.gatekeeper_disabled` | xprotect_status | Update XProtect definitions and restore Gatekeeper | — |
+| `security.xprotect_status.gatekeeper_status` | xprotect_status | Update XProtect definitions and restore Gatekeeper | — |
+| `security.xprotect_status.mrt_outdated` | xprotect_status | Update XProtect definitions and restore Gatekeeper | — |
+| `security.xprotect_status.mrt_version` | xprotect_status | Update XProtect definitions and restore Gatekeeper | — |
+| `security.xprotect_status.xprotect_missing` | xprotect_status | Update XProtect definitions and restore Gatekeeper | — |
+| `security.xprotect_status.xprotect_old` | xprotect_status | Update XProtect definitions and restore Gatekeeper | — |
+| `security.xprotect_status.xprotect_outdated` | xprotect_status | Update XProtect definitions and restore Gatekeeper | — |
+| `security.xprotect_status.xprotect_version` | xprotect_status | Update XProtect definitions and restore Gatekeeper | — |

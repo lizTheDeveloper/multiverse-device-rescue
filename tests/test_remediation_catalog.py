@@ -30,7 +30,7 @@ def test_render_markdown_has_table_and_summary():
     rows = [{"code": "security.m.a", "module": "m", "walkthrough_title": "W"},
             {"code": "security.m.b", "module": "m", "walkthrough_title": None}]
     md = render_catalog_markdown(rows)
-    assert "| Code | Module | Walkthrough |" in md
+    assert "| Code | Module | Walkthrough | Removal warning |" in md
     assert "**gap**" in md
     assert "1 with walkthroughs" in md
 

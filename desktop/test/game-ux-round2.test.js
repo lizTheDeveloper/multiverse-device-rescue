@@ -94,14 +94,18 @@ test('a mission: WHAT IT IS is the evidence block and one line; no walkthrough s
 });
 
 test('the commands a check ran arrive later and are drawn into the block in place', async () => {
-  const t = await setup({ commands: [['/usr/bin/plutil', '-p', '/Library/LaunchAgents/x.plist']] });
+  const t = await setup({ commands: [['/usr/bin/plutil', '-p', '/Users/ann/Library/LaunchAgents/ai.hermes.gateway-deflock.plist'],
+    ['/usr/bin/plutil', '-p', '/Library/LaunchAgents/someone-else.plist']] });
   const els = [{ innerHTML: '', getAttribute: () => 'launch_agent_audit' }];
   t.frame.querySelectorAll = (sel) => (sel === '[data-ev-module]' ? els : []);
   t.click({ 'data-go': `mission:${await missionId(DOC, LAUNCH.title)}` });
   await tick(); await tick();
   assert.deepStrictEqual(t.calls.commands, ['launch_agent_audit']);
   // The path the command looked at stays in view.
-  assert.match(els[0].innerHTML.replace(/<wbr>/g, ''), /<dt>Checked with<\/dt><dd><code class="evidence-mono"[^>]*>plutil -p \/Library\/LaunchAgents\/x\.plist<\/code>/);
+  // Only the command on this task's own file (N1), not another task's.
+  const html = els[0].innerHTML.replace(/<wbr>/g, '');
+  assert.match(html, /<dt>Checked with<\/dt><dd><code class="evidence-mono"[^>]*>plutil -p ~\/Library\/Launc…es\.gateway-deflock\.plist<\/code>/);
+  assert.ok(!html.includes('someone-else'));
 });
 
 test('missionText: the first sentence, the first paragraph, and the "What to do" text', async () => {

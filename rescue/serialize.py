@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any
 
 from rescue.check_names import check_name, error_kind
+from rescue import safety_scope
 from rescue.same_finding import same_key
 from rescue.wording import tidy
 
@@ -231,6 +232,9 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
         # inventories would repeat it on every card.
         if getattr(getattr(finding, "severity", None), "value", None) == "info":
             out["remediation"].pop("safety_note", None)
+    # The removal warning, by finding code (rescue/safety_scope.py): on
+    # monitoring-capable findings and possible someone-else's installs only.
+    safety_scope.apply(module, out, SAFETY_NOTE)
     return out
 
 

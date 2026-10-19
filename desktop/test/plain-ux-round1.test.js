@@ -29,7 +29,7 @@ test('notes that say part of a check couldn’t look are counted with the checks
   assert.deepStrictEqual(g.groups.info.map((f) => f.title), ['2 USB devices']);
   assert.deepStrictEqual(g.partlyChecked, [{ name: 'usb_devices_check', title: 'We couldn’t list your USB devices' }]);
   const sum = app.notCheckedSummary(doc);
-  assert.deepStrictEqual(sum, { checks: 4, couldntRun: 1, unfinished: 1, notStarted: 0, partly: 1, count: 3 });
+  assert.deepStrictEqual(sum, { checks: 4, couldntRun: 1, notReached: 0, unfinished: 1, notStarted: 0, partly: 1, count: 3 });
   assert.strictEqual(app.notCheckedLine(sum),
     '2 checks couldn’t run or didn’t finish, and 1 thing was only partly checked, so this isn’t a clean bill of health.');
   assert.strictEqual(app.notCheckedLine({ couldntRun: 6 }), '6 checks couldn’t run, so this isn’t a clean bill of health.');

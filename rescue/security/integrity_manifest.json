@@ -38,13 +38,14 @@
     "profiler/windows.py": "b3fdae0d8671b5a669c0af05f5a50f7ffb1b61520f45280f82e16a0f96c83d45",
     "profiles.py": "588f557cf9087b8844467329c205107fbe1d449a5736b6b5272ab24ce6be8b35",
     "registry.py": "df8f118c46f109754a2579a4fbda91ba7b28d0b189dc3db5f66620f8e2c3cebd",
-    "remediation.py": "39d1dae639520ed7f06e69289f0b5a5c71851f18fb38bf2649c1bd062b386e11",
+    "remediation.py": "2082a3955ce172845ac64d71d79f7eba869ddedea0e1d61885eed4f2a7428b8e",
     "runtime.py": "f025274c2e5374944dd80c4ae37d3e52c5ae6b3b253a8afa2e24bdab0b782121",
-    "same_finding.py": "35ec7ae685a653b46868e7da44ce638728faf2834afe88d9b08b0544c8f23eda",
+    "safety_scope.py": "ac0cd21407f3ac8393dbc74cb939d0b8f43824fb0eb7dc06c956ab789b2c7943",
+    "same_finding.py": "08b751624f81cbb1877f1d78526b263f56e28661de07daeb5079a62c49eb65b7",
     "security/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "security/integrity.py": "e0d9cdc38fe6abf4c6c3ec046adb0e0e2c69f56f418ab94581c2b3f5e2edb7ad",
     "security/signers.py": "b270dfe8fba3034dfe9174ea4974ae23c480c3c473f77bb3af53c7bb61677bda",
-    "serialize.py": "adda6647a409808411573cb0aea2820297c57e357de5df4869d0d0a12c93fc1c",
+    "serialize.py": "2c46687574bdde109a4cb51e5f2ac20b590f5bef8aeadb049a4f2c900aaaf10f",
     "session.py": "4628542f83fc4b631669c9afc589f8146b2c13f44c4f5c2254f74f4dc901eb6f",
     "severity_policy.py": "c8118a51fc1a74434642d97d32c50cb72b5fb59e9d189bc3289d256ded5e6074",
     "threat_map.py": "abab59fb860938dc5d3d386a931b5021b09aaebd9a578eecad3834eeeb83ad28",
@@ -71,6 +72,6 @@
     "update/sideload.py": "cf94e79dbc85ebe604ce268f170d5ecc9d1ec082417b7dd6e9f42c57b6d9354e",
     "update/verify.py": "d902798e797833a54e550ca01a9d0961bfbf29614a2f831a412eed450b680f7a",
     "validate.py": "ae931e943e204f95fbdf4ac47f9d9dee4ea9394e33abd1e420ae99fba39f991c",
-    "wording.py": "598c7caa7ec717574f89aca98ae79ef67fbe78e2f281dd5a8a7393b16f62f851"
+    "wording.py": "387454319e24529bec83f9678de5863f03696f106691ec1dad4c82632b044085"
   }
 }

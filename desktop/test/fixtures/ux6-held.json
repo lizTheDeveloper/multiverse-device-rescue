@@ -1,0 +1,791 @@
+{
+ "schema_version": 1,
+ "platform": "darwin",
+ "synthetic": true,
+ "modules": [
+  {
+   "name": "code_signature_audit",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": false,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "App Example Photos was changed after it was signed",
+     "severity": "critical",
+     "category": "security",
+     "code": "security.code_signature_audit.tampered_binary",
+     "description": "App Example Photos was changed after it was signed.",
+     "data": {
+      "check": "tampered_binary",
+      "path": "/Applications/Example Photos.app",
+      "apps_checked": 16,
+      "apps_total": 110
+     }
+    }
+   ]
+  },
+  {
+   "name": "energy_saver_check",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac is set to never sleep",
+     "severity": "warning",
+     "category": "performance",
+     "code": null,
+     "description": "Your Mac is set to never sleep.",
+     "data": {
+      "check": "computer_sleep_disabled",
+      "setting": "sleep",
+      "value": "0"
+     },
+     "same_key": "power:never_sleep"
+    },
+    {
+     "title": "Your screen is set to never turn off",
+     "severity": "warning",
+     "category": "performance",
+     "code": null,
+     "description": "Your screen is set to never turn off.",
+     "data": {
+      "check": "display_sleep_disabled",
+      "setting": "displaysleep",
+      "value": "0"
+     },
+     "same_key": "display:never_off"
+    },
+    {
+     "title": "Hard drive sleep is turned off",
+     "severity": "info",
+     "category": "performance",
+     "code": null,
+     "description": "Hard drive sleep is turned off.",
+     "data": {
+      "check": "disk_sleep_disabled"
+     }
+    }
+   ]
+  },
+  {
+   "name": "energy_settings",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac is set to never sleep",
+     "severity": "warning",
+     "category": "performance",
+     "code": null,
+     "description": "Your Mac is set to never sleep.",
+     "data": {
+      "setting": "sleep",
+      "value": 0,
+      "issue": "battery_drain"
+     },
+     "same_key": "power:never_sleep"
+    }
+   ]
+  },
+  {
+   "name": "power_settings",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac is set to never sleep",
+     "severity": "warning",
+     "category": "performance",
+     "code": null,
+     "description": "Your Mac is set to never sleep.",
+     "data": {
+      "setting": "sleep",
+      "value": 0,
+      "issue": "never_sleeps"
+     },
+     "same_key": "power:never_sleep"
+    }
+   ]
+  },
+  {
+   "name": "lock_screen_check",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac screen never turns off automatically",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.lock_screen_check.display_sleep",
+     "description": "Your Mac screen never turns off automatically.",
+     "data": {
+      "check": "display_sleep"
+     },
+     "same_key": "display:never_off"
+    }
+   ]
+  },
+  {
+   "name": "accessibility_permissions",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Apps you may not recognize can control your Mac (3)",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.accessibility_permissions.suspicious_accessibility",
+     "description": "Apps you may not recognize can control your Mac (3).",
+     "data": {
+      "check": "suspicious_accessibility",
+      "apps": [
+       "com.example.one",
+       "com.example.two",
+       "com.example.three"
+      ]
+     },
+     "markable": {
+      "id": "k-apps",
+      "kind": "apps"
+     },
+     "same_key": "permissions:accessibility"
+    },
+    {
+     "title": "Many apps can control your Mac (14)",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.accessibility_permissions.excessive_accessibility",
+     "description": "Many apps can control your Mac (14).",
+     "data": {
+      "check": "excessive_accessibility",
+      "count": 14
+     },
+     "same_key": "permissions:accessibility"
+    }
+   ]
+  },
+  {
+   "name": "app_permissions",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "14 apps can control your Mac",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.app_permissions.accessibility_access",
+     "description": "14 apps can control your Mac.",
+     "data": {
+      "check": "accessibility_access",
+      "apps": []
+     },
+     "same_key": "permissions:accessibility"
+    }
+   ]
+  },
+  {
+   "name": "system_log_errors",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac logged 83,759 errors in the last hour",
+     "severity": "warning",
+     "category": "integrity",
+     "code": null,
+     "description": "Your Mac logged 83759 errors in the last hour.",
+     "data": {
+      "error_count": 83759,
+      "unique_sources": 9,
+      "top_sources": {}
+     },
+     "same_key": "logs:errors"
+    },
+    {
+     "title": "Found 4,837 errors from known Mac issues",
+     "severity": "warning",
+     "category": "integrity",
+     "code": null,
+     "description": "Found 4837 errors from known Mac issues.",
+     "data": {
+      "known_bad_count": 4837
+     },
+     "same_key": "logs:errors"
+    }
+   ]
+  },
+  {
+   "name": "login_items_cleanup",
+   "category": "bloatware",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Many apps start automatically (40)",
+     "severity": "warning",
+     "category": "bloatware",
+     "code": null,
+     "description": "Many apps start automatically (40).",
+     "data": {
+      "type": "excessive_login_items",
+      "count": 40
+     },
+     "same_key": "startup:many_items"
+    }
+   ]
+  },
+  {
+   "name": "startup_optimizer",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "33 apps start automatically in the background",
+     "severity": "warning",
+     "category": "performance",
+     "code": null,
+     "description": "33 apps start automatically in the background.",
+     "data": {
+      "items": [],
+      "count": 33
+     },
+     "same_key": "startup:many_items"
+    }
+   ]
+  },
+  {
+   "name": "backup_status",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "No backup drive is set up for Time Machine",
+     "severity": "warning",
+     "category": "integrity",
+     "code": null,
+     "description": "No backup drive is set up for Time Machine.",
+     "data": {
+      "check": "no_destination"
+     },
+     "same_key": "backup:no_destination"
+    }
+   ]
+  },
+  {
+   "name": "time_machine_check",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac is not automatically backing up your files",
+     "severity": "warning",
+     "category": "integrity",
+     "code": null,
+     "description": "Your Mac is not automatically backing up your files.",
+     "data": {
+      "check": "not_configured"
+     },
+     "same_key": "backup:no_destination"
+    }
+   ]
+  },
+  {
+   "name": "time_machine_health",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "No Time Machine backup destination is set up",
+     "severity": "warning",
+     "category": "integrity",
+     "code": null,
+     "description": "No Time Machine backup destination is set up.",
+     "data": {
+      "check": "no_destination_configured"
+     },
+     "same_key": "backup:no_destination"
+    }
+   ]
+  },
+  {
+   "name": "resource_hog_identifier",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "exampled is using a lot of your computer's power",
+     "severity": "warning",
+     "category": "performance",
+     "code": null,
+     "description": "exampled is using a lot of your computer's power.",
+     "data": {
+      "pid": 4242,
+      "name": "exampled",
+      "cpu_percent": 122.3
+     },
+     "same_key": "process:4242:high_cpu"
+    }
+   ]
+  },
+  {
+   "name": "crypto_miner_detect",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "A program called exampled is using a lot of power",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.crypto_miner_detect.high_cpu_process",
+     "description": "A program called exampled is using a lot of power.",
+     "data": {
+      "check": "high_cpu_process",
+      "pid": 4242,
+      "process": "exampled",
+      "cpu_percent": 104.3
+     },
+     "same_key": "process:4242:high_cpu"
+    }
+   ]
+  },
+  {
+   "name": "chrome_extensions",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Extension with broad permissions: Example Tabs",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.chrome_extensions.broad_permissions",
+     "description": "Extension with broad permissions: Example Tabs.",
+     "data": {
+      "check": "broad_permissions",
+      "extension": "Example Tabs",
+      "permissions": [
+       "tabs"
+      ]
+     }
+    },
+    {
+     "title": "Extension with broad permissions: Example Passwords",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.chrome_extensions.broad_permissions",
+     "description": "Extension with broad permissions: Example Passwords.",
+     "data": {
+      "check": "broad_permissions",
+      "extension": "Example Passwords",
+      "permissions": [
+       "tabs"
+      ]
+     }
+    },
+    {
+     "title": "Extension with broad permissions: Example Helper",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.chrome_extensions.broad_permissions",
+     "description": "Extension with broad permissions: Example Helper.",
+     "data": {
+      "check": "broad_permissions",
+      "extension": "Example Helper",
+      "permissions": [
+       "tabs"
+      ]
+     }
+    },
+    {
+     "title": "Extension with broad permissions: Example Reader",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.chrome_extensions.broad_permissions",
+     "description": "Extension with broad permissions: Example Reader.",
+     "data": {
+      "check": "broad_permissions",
+      "extension": "Example Reader",
+      "permissions": [
+       "tabs"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "launch_agent_audit",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Background task 'com.example.sync' runs from a hidden folder",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.launch_agent_audit.suspicious_path",
+     "description": "Background task 'com.example.sync' runs from a hidden folder.",
+     "data": {
+      "check": "suspicious_path",
+      "label": "com.example.sync",
+      "plist": "/Users/example/Library/LaunchAgents/com.example.sync.plist",
+      "program": "/Users/example/.example-tool/bin/run"
+     },
+     "same_key": "task:/Users/example/Library/LaunchAgents/com.example.sync.plist:com.example.sync:suspicious_path"
+    },
+    {
+     "title": "Background task 'com.example.old' points to a missing program",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.launch_agent_audit.missing_program",
+     "description": "Background task 'com.example.old' points to a missing program.",
+     "data": {
+      "check": "missing_program",
+      "label": "com.example.old",
+      "plist": "/Users/example/Library/LaunchAgents/com.example.old.plist",
+      "program": "/Users/example/.example-tool/bin/run"
+     },
+     "same_key": "task:/Users/example/Library/LaunchAgents/com.example.old.plist:com.example.old:missing_program"
+    }
+   ]
+  },
+  {
+   "name": "launchd_persistence_audit",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Background task runs from a hidden folder: com.example.sync",
+     "severity": "warning",
+     "category": "security",
+     "code": "security.launchd_persistence_audit.suspicious_path",
+     "description": "Background task runs from a hidden folder: com.example.sync.",
+     "data": {
+      "check": "suspicious_path",
+      "label": "com.example.sync",
+      "plist": "/Users/example/Library/LaunchAgents/com.example.sync.plist",
+      "program": "/Users/example/.example-tool/bin/run"
+     },
+     "same_key": "task:/Users/example/Library/LaunchAgents/com.example.sync.plist:com.example.sync:suspicious_path"
+    }
+   ]
+  },
+  {
+   "name": "ai_threat_indicators",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "AI-related program running: /Applications/Example A.app",
+     "severity": "info",
+     "category": "security",
+     "code": "security.ai_threat_indicators.ai_process",
+     "description": "AI-related program running: /Applications/Example A.app.",
+     "data": {
+      "check": "ai_process"
+     }
+    },
+    {
+     "title": "AI-related program running: /Applications/Example B.app",
+     "severity": "info",
+     "category": "security",
+     "code": "security.ai_threat_indicators.ai_process",
+     "description": "AI-related program running: /Applications/Example B.app.",
+     "data": {
+      "check": "ai_process"
+     }
+    }
+   ]
+  },
+  {
+   "name": "disk_space",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your disk is 92% full",
+     "severity": "warning",
+     "category": "performance",
+     "code": null,
+     "description": "Your disk is 92% full.",
+     "data": {
+      "used_pct": 0.92
+     }
+    }
+   ]
+  },
+  {
+   "name": "firewall_audit",
+   "category": "network",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac responds to network pings",
+     "severity": "warning",
+     "category": "network",
+     "code": null,
+     "description": "Your Mac responds to network pings.",
+     "data": {
+      "check": "stealth_mode"
+     },
+     "same_key": "firewall:answers_pings"
+    }
+   ]
+  },
+  {
+   "name": "firewall_rules_audit",
+   "category": "network",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac responds to network pings",
+     "severity": "warning",
+     "category": "network",
+     "code": null,
+     "description": "Your Mac responds to network pings.",
+     "data": {
+      "check": "stealth_disabled"
+     },
+     "same_key": "firewall:answers_pings"
+    }
+   ]
+  },
+  {
+   "name": "dns_config",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "DNS configuration",
+     "severity": "info",
+     "category": "integrity",
+     "code": null,
+     "description": "DNS configuration.",
+     "data": {
+      "servers": [
+       "192.0.2.1"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "update_checker",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": false,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Couldn't check for macOS updates",
+     "severity": "info",
+     "category": "integrity",
+     "code": null,
+     "description": "Couldn't check for macOS updates.",
+     "data": {}
+    }
+   ]
+  },
+  {
+   "name": "large_files_finder",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": false,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Found 3 large files",
+     "severity": "info",
+     "category": "performance",
+     "code": null,
+     "description": "Found 3 large files.",
+     "data": {
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "storage_cleanup",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": false,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Caches you could clean: 2 GB",
+     "severity": "info",
+     "category": "performance",
+     "code": null,
+     "description": "Caches you could clean: 2 GB.",
+     "data": {
+      "bytes": 2000000000
+     }
+    }
+   ]
+  },
+  {
+   "name": "mvt_spyware_scan",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "An iPhone backup can be checked for spyware",
+     "severity": "info",
+     "category": "security",
+     "code": "security.mvt_spyware_scan.mvt_scan_available",
+     "description": "An iPhone backup can be checked for spyware.",
+     "data": {}
+    }
+   ],
+   "not_started": true
+  },
+  {
+   "name": "keylogger_indicators",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Example Keys can see what you type",
+     "severity": "critical",
+     "category": "security",
+     "code": "security.keylogger_indicators.known_keyloggers",
+     "description": "Example Keys can see what you type.",
+     "data": {
+      "check": "known_keylogger",
+      "name": "Example Keys"
+     }
+    }
+   ]
+  }
+ ]
+}

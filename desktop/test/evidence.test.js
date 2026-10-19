@@ -176,12 +176,23 @@ test('the commands the check ran: short names shown, full lines copied, home fol
     ['spctl', '-a', 'x'], ['ls'],
   ];
   const r = get(E.evidenceRows(F.tampered, { commands }), 'Checked with');
-  // The last path each command was given stays in view: what it looked at.
-  assert.strictEqual(r.value, 'codesign --verify … /Applications/Amazon Photos.app, codesign --verify … /Applications/Baba Is You.app, plutil -p ~/Library/LaunchAgents/x.plist, and 3 more');
+  // Only commands on this app (and ones that name no file); the last path
+  // each was given stays in view: what it looked at.
+  assert.strictEqual(r.value, 'codesign --verify … /Applications/Amazon Photos.app, mdfind …, spctl -a …, and 1 more');
   assert.ok(r.mono);
   assert.match(r.copy, /^\/usr\/bin\/codesign --verify --deep '\/Applications\/Amazon Photos.app'\n/);
-  assert.match(r.copy, /plutil -p ~\/Library\/LaunchAgents\/x.plist/);
+  assert.ok(!/Baba|x\.plist/.test(r.copy), 'never a command run on another app (N1)');
   assert.ok(!get(E.evidenceRows(F.tampered), 'Checked with'), 'no commands, no row');
+  // A finding that names nothing: commands on files show as their program only.
+  const bare = get(E.evidenceRows({ module: 'x', data: {} }, { commands }), 'Checked with');
+  assert.ok(!/Applications|Library/.test(bare.value + bare.copy), bare.copy);
+  assert.match(bare.copy, /\ncodesign\nplutil$/);
+  // The finding's label or home-relative path counts as its subject too.
+  const task = { module: 'launch_agent_audit', data: { label: 'com.x.task', plist: '/Users/ann/Library/LaunchAgents/com.x.task.plist' } };
+  const got = E.commandsFor(task, [['launchctl', 'print', 'gui/501/com.x.task'], ['plutil', '-p', '~/Library/LaunchAgents/com.x.task.plist'],
+    ['plutil', '-p', '/Library/LaunchAgents/other.plist']]);
+  assert.strictEqual(got.commands.length, 2);
+  assert.deepStrictEqual(got.names, []);
 });
 
 test('generic fallback: scalars, lists, small maps, dates, bytes; bookkeeping keys left out', () => {
@@ -434,4 +445,14 @@ test('values wrap between names, the label column is capped, and narrow blocks s
   assert.match(E.CSS, /@container \(max-width:28rem\)\{\.evidence-grid\{grid-template-columns:1fr/);
   assert.match(E.CSS, /@media \(max-width:800px\)\{\.evidence-grid\{grid-template-columns:1fr/);
   assert.doesNotMatch(E.CSS, /max-content/);
+});
+
+test('P2-4: no engine words: confidence left out, code words in words, a target that repeats the port dropped', () => {
+  const rows = E.evidenceRows({ module: 'router_security_audit', data: { check: 'admin_service_open', target: '22', gateway_ip: '192.0.2.1',
+    port: 22, service: 'SSH', confidence: 'high' } });
+  const labels = rows.map((r) => r.label);
+  assert.ok(!labels.includes('Confidence') && !labels.includes('Target'), labels.join(','));
+  assert.strictEqual(rows.find((r) => r.label === 'Router').value, '192.0.2.1');
+  const kind = E.evidenceRows({ module: 'ai_worm_shell', data: { kind: 'pipe_to_shell' } }).find((r) => r.label === 'Kind');
+  assert.strictEqual(kind.value, 'pipe to shell');
 });

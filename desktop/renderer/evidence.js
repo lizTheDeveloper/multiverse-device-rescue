@@ -278,12 +278,53 @@ const Evidence = (function () {
     return shown.join(' ');
   }
 
-  function commandRow(commands) {
+  function commandRow(commands, names = []) {
     const list = (Array.isArray(commands) ? commands : []).filter(Boolean);
-    if (!list.length) return null;
-    const shorts = [...new Set(list.map(shortCommand).filter(Boolean))];
+    const progs = [...new Set((names || []).filter(Boolean))];
+    if (!list.length && !progs.length) return null;
+    const shorts = [...new Set([...list.map(shortCommand).filter(Boolean), ...progs])];
     const shown = shorts.slice(0, MAX_COMMANDS).join(', ') + (shorts.length > MAX_COMMANDS ? `, and ${shorts.length - MAX_COMMANDS} more` : '');
-    return row('Checked with', shown, { mono: true, copy: list.map(commandLine) });
+    return row('Checked with', shown, { mono: true, copy: [...list.map(commandLine), ...progs] });
+  }
+
+  const argvOf = (cmd) => (Array.isArray(cmd) ? cmd : (isObj(cmd) && Array.isArray(cmd.argv) ? cmd.argv
+    : (typeof cmd === 'string' ? cmd.split(/\s+/) : []))).map(String);
+
+  /** The things a finding is about: its paths, labels and ids (and its makers' subjects). */
+  const SUBJECT_FIELDS = ['path', 'plist', 'program', 'location', 'file', 'bundle_id', 'label', 'app', 'app_path', 'extension_id', 'target_path'];
+  function findingSubjects(f) {
+    const d = isObj(f && f.data) ? f.data : {};
+    const out = new Set();
+    const add = (v) => { if (typeof v === 'string' && v.trim().length >= 4) out.add(homeRelative(v.trim())); };
+    for (const k of SUBJECT_FIELDS) add(d[k]);
+    for (const a of Array.isArray(d.apps) ? d.apps : []) add(appSubject(a));
+    for (const e of Array.isArray(f && f.made_by) ? f.made_by : []) if (isObj(e)) add(e.subject);
+    return [...out];
+  }
+
+  /**
+   * "Checked with" for one finding (N1): only the commands that touched what
+   * the finding is about (an argument names its path, label or id), plus
+   * commands that name no file at all ("pmset -g"). Never a command run on
+   * another app. When the finding names nothing, a command that looked at a
+   * file shows as its program's name only.
+   *   commandsFor(finding, commands) -> { commands: [cmd], names: ['codesign'] }
+   */
+  function commandsFor(finding, commands) {
+    const list = (Array.isArray(commands) ? commands : []).filter(Boolean);
+    const subjects = findingSubjects(finding);
+    const keep = [];
+    const names = [];
+    for (const cmd of list) {
+      const argv = argvOf(cmd);
+      if (!argv.length) continue;
+      const args = argv.slice(1).map((a) => homeRelative(a));
+      const touches = subjects.length && args.some((a) => subjects.some((s) => a.includes(s)));
+      const namesAFile = args.some(looksLikePath);
+      if (touches || !namesAFile) keep.push(cmd);
+      else if (!subjects.length) names.push(baseName(argv[0]));
+    }
+    return { commands: keep, names: [...new Set(names)] };
   }
 
   // ---- per-module adapters -------------------------------------------------
@@ -402,7 +443,9 @@ const Evidence = (function () {
   // Keys that are the engine's own bookkeeping, not evidence ("Check type:
   // suspicious_dns", "Source: filesystem").
   const SKIP = new Set(['check', 'severity_level', 'marked_by_user', 'mark_stale', 'mark_id', 'original_title',
-    'used_pct', 'is_system_app', 'source', 'known_item_id', 'original_severity']);
+    'used_pct', 'is_system_app', 'source', 'known_item_id', 'original_severity',
+    // The engine's own certainty ("medium"): a word for code, not evidence (P2-4).
+    'confidence']);
   const skipKey = (key) => SKIP.has(key) || /_type$/.test(key) || /^check_/.test(key);
   // An empty value says nothing: never a row.
   const isEmpty = (v) => v == null || (typeof v === 'string' && v.trim() === '')
@@ -420,8 +463,10 @@ const Evidence = (function () {
     baseline_captured_at: 'Last snapshot', apps: 'Apps', keys: 'Keys', confidence: 'Confidence',
     interval_seconds: 'Every (seconds)', bundle_id: 'Bundle id', team_id: 'Team id', signer: 'Signed by',
     servers: 'DNS servers', dns_servers: 'DNS servers', providers: 'Provider', provider: 'Provider',
-    profile_ids: 'Profile id',
+    profile_ids: 'Profile id', gateway_ip: 'Router', service: 'Service', kind: 'Kind',
   };
+  // A value written for code ("pipe_to_shell") in words ("pipe to shell").
+  const CODE_WORD = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
   const MONO_KEYS = new Set(['pid', 'port', 'ports', 'ip', 'hostname', 'dest', 'remote', 'label', 'process',
     'bundle_id', 'team_id', 'command', 'device', 'value', 'keys', 'apps', 'detail', 'servers', 'dns_servers', 'profile_ids']);
 
@@ -429,7 +474,10 @@ const Evidence = (function () {
     const rows = [];
     for (const [key, v] of Object.entries(data)) {
       if (used.has(key) || skipKey(key) || isEmpty(v)) continue;
+      // "Target 22" beside "Port 22" says nothing new.
+      if (key === 'target' && data.port != null && String(v) === String(data.port)) continue;
       const label = LABELS[key] || humanize(key);
+      if (key === 'kind' && typeof v === 'string' && CODE_WORD.test(v)) { rows.push(row(label, v.replace(/_/g, ' '))); continue; }
       if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(label, v));
       else if (/_bytes$/.test(key) && typeof v === 'number') rows.push(row(label, bytes(v)));
       else if (/(^|_)(date|at|time|since)$/.test(key) && typeof v === 'string') rows.push(row(label, plainDay(v)));
@@ -535,7 +583,8 @@ const Evidence = (function () {
     }
     const check = o.checkName || f.check_name || (f.module ? humanize(f.module) : '');
     if (check) rows.push(row('Check', check));
-    const cmd = commandRow(o.commands);
+    const mine = commandsFor(f, o.commands);
+    const cmd = commandRow(mine.commands, mine.names);
     if (cmd) rows.push(cmd);
     if (f.repeats > 1) rows.push(row('Seen', `${f.repeats} times in this check`));
     const when = o.seen || f.collected_at;
@@ -655,7 +704,7 @@ const Evidence = (function () {
     MONITORING_MODULES, ADAPTERS, CSS, PAPER_LINE,
     evidenceRows, renderEvidence, evidenceText, wireCopy, replacesDescription, noClipboard,
     plainDay, shortHash, shortPath, homeRelative, bytes, makersVerified, makerText, checkLabel, commandLine, shortCommand,
-    appSubject, breakable,
+    appSubject, breakable, commandsFor, findingSubjects,
   };
 })();
 

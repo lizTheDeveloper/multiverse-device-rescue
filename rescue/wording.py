@@ -9,9 +9,9 @@ reads the same way:
   (have/are/were) agrees too. With no number before it, "(s)" is plural.
 - "1 times" is "once".
 - An ISO date-time ("2026-10-10T18:44:55+00:00") is a plain day ("10 Oct 2026").
-- A big count of things gets thousands separators: "108966 errors" is
-  "108,966 errors" (only before a counted noun, so ports, ids, phone and
-  text numbers are left alone).
+- A count of a thousand or more things gets thousands separators: "4837
+  errors" is "4,837 errors" (only before a counted noun, so ports, ids, phone
+  and text numbers are left alone; four digits that read as a year stay).
 
 ``data`` is never touched: it keeps the exact values for anyone who wants them.
 """
@@ -37,7 +37,7 @@ _NOUNS = (
     "errors|warnings|files|items|apps|entries|times|crashes|connections|lines|events|"
     "messages|processes|requests|records|attempts|packets|fonts|folders|programs"
 )
-_BIG_COUNT = re.compile(rf"(?<![\w.,:/#-])(?P<n>\d{{5,}})(?=\s+(?:{_NOUNS})\b)")
+_BIG_COUNT = re.compile(rf"(?<![\w.,:/#-])(?P<n>\d{{4,}})(?=\s+(?:{_NOUNS})\b)")
 
 
 def _plural(word: str) -> str:
@@ -71,6 +71,14 @@ def plain_day(match_or_text) -> str:
     return f"{int(m.group('d'))} {_MONTHS[month - 1]} {m.group('y')}"
 
 
+def _big(m: re.Match) -> str:
+    n = m.group("n")
+    # Four digits that read as a year ("2026 errors" after a date) stay as written.
+    if len(n) == 4 and 1900 <= int(n) <= 2099:
+        return n
+    return f"{int(n):,}"
+
+
 def tidy(text):
     """The same text with the fixes above. Anything not a string is returned as is."""
     if not isinstance(text, str) or not text:
@@ -79,5 +87,5 @@ def tidy(text):
     out = _BARE.sub(lambda m: _plural(m.group("word")), out)
     out = _ONE_TIMES.sub("once", out)
     out = _ISO.sub(plain_day, out)
-    out = _BIG_COUNT.sub(lambda m: f"{int(m.group('n')):,}", out)
+    out = _BIG_COUNT.sub(_big, out)
     return out

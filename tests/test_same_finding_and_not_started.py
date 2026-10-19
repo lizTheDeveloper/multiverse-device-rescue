@@ -31,6 +31,23 @@ def test_twins_from_different_checks_share_one_key():
         [_f("launch_agent_audit", "a", {"check": "suspicious_path", "label": "x.task", "plist": "/Library/LaunchAgents/x.task.plist"}),
          _f("launchd_persistence_audit", "b", {"check": "suspicious_path", "label": "x.task", "plist": "/Library/LaunchAgents/x.task.plist"})],
     ]
+    # UX round 5 (N3): the near-duplicates the audit found.
+    pairs += [
+        [_f("energy_saver_check", "Your Mac is set to never sleep", {"check": "computer_sleep_disabled", "setting": "sleep", "value": "0"}),
+         _f("energy_settings", "Your Mac is set to never sleep", {"setting": "sleep", "value": 0, "issue": "battery_drain"}),
+         _f("power_settings", "Your Mac is set to never sleep", {"setting": "sleep", "value": 0, "issue": "never_sleeps"})],
+        [_f("energy_saver_check", "Your screen is set to never turn off", {"check": "display_sleep_disabled", "setting": "displaysleep"}),
+         _f("lock_screen_check", "Your Mac screen never turns off automatically", {"check": "display_sleep"})],
+        [_f("resource_hog_identifier", "opencode is using a lot of your computer's power", {"pid": 6538, "name": "opencode", "cpu_percent": 122.3}),
+         _f("crypto_miner_detect", "A program called opencode is using a lot of power", {"check": "high_cpu_process", "pid": 6538, "process": "opencode"})],
+        [_f("system_log_errors", "Your Mac logged 83,759 errors in the last hour", {"error_count": 83759, "unique_sources": 103, "top_sources": {}}),
+         _f("system_log_errors", "Found 4,837 errors from known Mac issues", {"known_bad_count": 4837, "sample_errors": []})],
+        [_f("login_items_cleanup", "Many apps start automatically (40)", {"type": "excessive_login_items", "count": 40}),
+         _f("startup_optimizer", "33 apps start automatically in the background", {"items": [], "count": 33})],
+    ]
+    pairs[2].append(_f("time_machine_check", "Your Mac is not automatically backing up your files", {"check": "not_configured"}))
+    pairs[6].append(_f("accessibility_permissions", "Apps you may not recognize can control your Mac (11)",
+                       {"check": "suspicious_accessibility", "apps": []}))
     keys = []
     for group in pairs:
         got = {same_key(m, f) for m, f in group}
@@ -44,8 +61,13 @@ def test_different_problems_and_monitoring_checks_get_no_shared_key():
     a = same_key("launch_agent_audit", {"data": {"check": "suspicious_path", "label": "x.task", "plist": p}})
     b = same_key("launch_agent_audit", {"data": {"check": "missing_program", "label": "x.task", "plist": p}})
     assert a != b
-    # Unrecognised apps that can control the Mac is its own (markable) finding.
-    assert same_key("accessibility_permissions", {"data": {"check": "suspicious_accessibility"}}) is None
+    # A check id another module uses for something else gets no key there.
+    assert same_key("some_other_check", {"data": {"check": "suspicious_accessibility"}}) is None
+    assert same_key("some_other_check", {"data": {"check": "not_configured"}}) is None
+    assert same_key("energy_settings", {"severity": "warning", "data": {"setting": "sleep", "value": 10}}) is None
+    assert same_key("system_log_errors", {"severity": "info", "data": {"error_count": 3, "top_sources": {}}}) is None
+    assert same_key("resource_hog_identifier", {"data": {"pid": 1, "cpu_percent": 90}}) != \
+        same_key("crypto_miner_detect", {"data": {"check": "high_cpu_process", "pid": 2}})
     assert same_key("audio_config", {"data": {"check": "volume_low", "volume_percent": 12}}) is None
     for m in ("stalkerware_scan", "mvt_spyware_scan", "keylogger_indicators"):
         assert same_key(m, {"data": {"check": "no_destination", "label": "x"}}) is None
