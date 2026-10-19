@@ -240,3 +240,49 @@ def test_a_key_list_with_a_line_that_did_not_parse_is_offered_whole_only(tmp_pat
                      "--item", "0123456789ab", "--json", "--i-understand"], data)
     assert r.exit_code == 2 and "one entry at a time" in json.loads(r.stdout)["message"]
     assert KnownItemsStore().load() == []
+
+
+WATCH = "Things like this can be used to watch or get into a computer. Only say yes if you set these up yourself."
+
+
+def test_the_question_warns_about_watching_and_matches_how_many(tmp_path):
+    apps = ("com.example.one", "com.example.two")
+    offer = _offer(_apps(*apps))
+    one = _add(offer, _ids(offer, "com.example.one"))[:-1]
+    r = _invoke(one, apps, tty=True, input="n\n")
+    assert r.exit_code == 1 and WATCH in r.output
+    assert "Is this yours, and do you want to stop being warned about it?" in r.output
+    both = _add(offer, _ids(offer, *apps))[:-1]
+    r = _invoke(both, apps, tty=True, input="n\n")
+    assert r.exit_code == 1 and WATCH in r.output
+    assert "Are these yours, and do you want to stop being warned about them?" in r.output
+    assert KnownItemsStore().load() == []
+
+
+def test_keys_get_the_watching_caution_too(tmp_path):
+    from tests.test_known_entries import _key_line, _ssh_data
+
+    data = _ssh_data(tmp_path, _key_line(1), _key_line(2))
+    offer = item_markable(_f(SSH, data), "session_revocation_scan")
+    args = ["known", "add", "--code", SSH, "--expect-id", offer["id"], "--item", offer["items"][0]["id"]]
+
+    def check_quietly(mod, profile):
+        return CheckResult(mod.name, [_f(SSH, data)] if mod.name == "session_revocation_scan" else [])
+
+    with patch.object(cli_mod, "_stdin_is_tty", return_value=True), \
+         patch.object(cli_mod, "_run_startup_integrity_check"), \
+         patch.object(cli_mod, "gather_profile", return_value=None), \
+         patch.object(cli_mod, "_check_quietly", side_effect=check_quietly):
+        r = CliRunner().invoke(cli_mod.main, args, input="n\n")
+    assert r.exit_code == 1 and WATCH in r.output and KnownItemsStore().load() == []
+
+
+def test_a_broken_entry_offer_is_logged_and_the_list_stays_markable_whole(monkeypatch, caplog):
+    def boom(*a, **k):
+        raise RuntimeError("lookup broke")
+
+    monkeypatch.setattr(known_items, "entry_offers", boom)
+    with caplog.at_level("DEBUG", logger="rescue.known_items"):
+        offer = _offer(_apps("com.example.one"))
+    assert offer["id"] and "items" not in offer
+    assert "lookup broke" in caplog.text

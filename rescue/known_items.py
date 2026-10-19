@@ -56,11 +56,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import plistlib
 import stat
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,6 +70,8 @@ from typing import Callable, Iterable
 
 from rescue.app_names import app_rows, display_name
 from rescue.models import Finding, Severity
+
+logger = logging.getLogger(__name__)
 
 ENV_PATH = "RESCUE_KNOWN_ITEMS"
 SCHEMA_VERSION = 1
@@ -950,13 +954,34 @@ del _kind, _spec
 
 _MAX_PROGRAM_BYTES = 128 * 1024 * 1024
 _SCAN_HASH_BYTES = 1024 * 1024 * 1024
+# git's "racy" rule: a file changed this close to when it was hashed may change
+# again within one tick of a coarse ctime clock, so its hash is never cached.
+_RACY_NS = 1_000_000_000
 _hash_state = {"spent": 0, "cache": {}}
+# Entry offers check each app's maker with their own small lookup budget, so
+# they never use up the one that "made by" attribution relies on.
+ENTRY_MAX_LOOKUPS = 60
+ENTRY_BUDGET_SECONDS = 20.0
+_entry_state: dict = {"attributor": None}
 
 
 def reset_hash_budget() -> None:
-    """Start a scan: forget what was hashed and spend nothing yet."""
+    """Start a scan: forget what was hashed and looked up, and spend nothing yet."""
     _hash_state["spent"] = 0
     _hash_state["cache"] = {}
+    _entry_state["attributor"] = None
+
+
+def _entry_attributor():
+    """This scan's attributor for entry offers (made on first use, so its
+    time budget starts then)."""
+    att = _entry_state["attributor"]
+    if att is None:
+        from rescue import attribution
+
+        att = _entry_state["attributor"] = attribution.Attributor(
+            sys.platform, max_lookups=ENTRY_MAX_LOOKUPS, budget_seconds=ENTRY_BUDGET_SECONDS)
+    return att
 
 
 def _hash_regular_file(path: str) -> str | None:
@@ -973,6 +998,7 @@ def _hash_regular_file(path: str) -> str | None:
             return None
         # Keyed only on the open handle's fstat: a program can restore mtime
         # after a same-size rewrite, but not ctime, which the rewrite changes.
+        # A file changed in the last second is never cached (see _RACY_NS).
         key = (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
         cache = _hash_state["cache"]
         if key in cache:
@@ -990,8 +1016,10 @@ def _hash_regular_file(path: str) -> str | None:
                 return None
             digest.update(chunk)
         _hash_state["spent"] += total
-        cache[key] = digest.hexdigest()
-        return cache[key]
+        result = digest.hexdigest()
+        if time.time_ns() - max(st.st_mtime_ns, st.st_ctime_ns) >= _RACY_NS:
+            cache[key] = result
+        return result
     finally:
         os.close(fd)
 
@@ -1003,7 +1031,7 @@ def _program_sha256(app: str) -> str | None:
     try:
         from rescue import attribution
 
-        path = attribution.resolve_app(app, sys.platform)
+        path = attribution.resolve_app(app, sys.platform, attributor=_entry_attributor())
         if not path:
             return None
         path = os.path.realpath(path)
@@ -1027,7 +1055,7 @@ def app_signer(app: str) -> str | None:
     try:
         from rescue import attribution
 
-        made = attribution.identify(app, sys.platform)
+        made = attribution.identify(app, sys.platform, attributor=_entry_attributor())
     except Exception:
         return None
     if made is None:
@@ -1514,7 +1542,9 @@ def item_markable(finding: Finding, module_name: str) -> dict | None:
     if kind in ENTRY_KIND_FOR:
         try:
             offers = entry_offers(finding, kind)
-        except Exception:
+        except Exception as exc:
+            # Fail safe: the list is still offered whole.
+            logger.debug("entry offers for %s skipped: %r", identity["code"], exc)
             offers = []
         if offers:
             out["items"] = offers

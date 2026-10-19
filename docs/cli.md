@@ -535,13 +535,18 @@ carries `markable.items` in `rescue scan --json`: one row per entry, with
 `key` (bundle id or path, or the key's SHA-256), `label`, `detail`, and `id`
 (the entry's mark id, or `null` when it can't be pinned now, so it can't be
 marked on its own: its maker can't be checked, or an unsigned app's program
-can't be read). Rows already marked have `"marked": true` and their saved id.
+can't be read, or this scan's own limit of 60 maker lookups for entries ran
+out). Rows already marked have `"marked": true` and their saved id. A row
+marked before whose maker or saved line has changed since has `"stale": true`
+and its `id` as it is now (or `null`), so it can be marked again. `markable.items_will_change` is
+the plain-words text of what marking entries does, for the app to show.
 A key list with any line that doesn't read cleanly (an odd option, a second
 key type, a stray backslash or unusual spacing) has no `items` and can only be
 marked whole. Pass the list's `markable.id` as `--expect-id` and one
 `--item` per entry. The check runs again right then; if the list or any
 chosen entry changed, nothing is saved. In a terminal the command lists each
-entry by name and id and asks once, default No.
+entry by name and id, adds a caution that things like these can be used to
+watch or get into a computer, and asks once, default No.
 
 A partly marked list stays a warning. Its title ends "(N of M not marked as
 yours)", the description lists the entries not marked first, and `data` has

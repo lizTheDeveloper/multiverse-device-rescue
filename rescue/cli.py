@@ -996,7 +996,16 @@ def _known_add_entries(codes, expect_ids, item_ids, as_json, acknowledged) -> No
             if entry_kind == APP_ENTRY:
                 click.echo(f"    made by: {ident['signer']}", err=True)
         click.echo(f"  Finding: {code}", err=True)
-        if not click.confirm("Are these yours, and do you want to stop being warned about them?", default=False, err=True):
+        if spec.get("monitoring"):
+            click.echo(
+                "Things like this can be used to watch or get into a computer. "
+                "Only say yes if you set these up yourself.", err=True,
+            )
+        question = (
+            "Is this yours, and do you want to stop being warned about it?" if len(chosen) == 1
+            else "Are these yours, and do you want to stop being warned about them?"
+        )
+        if not click.confirm(question, default=False, err=True):
             _emit_known(_known_doc("cancelled", "Nothing was marked.", label=label), as_json, 1)
             return
         via = "confirmed in the terminal"
