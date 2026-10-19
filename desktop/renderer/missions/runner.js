@@ -10,6 +10,7 @@
 //   viewFor(run, game, ctx, research) -> view          what the screen draws (game.render gets the same view)
 //   choose(run, id, game, ctx) -> { run, act }         act: null | { kind: mark|fix|settings|link|recheck|lesson|odd, … }
 //   confirmPending(run, game, ctx) / cancelPending(run) the warning-before-acting step (R6)
+//   openLink(run, game, ctx, act) -> { run, act }       a research link; behind the confirm when the item warns
 //   proceed(run)                                       past an answered item whose steps are on screen
 //   guideOf(item, decision, mode)                      steps, checklist, hint, focus, off a decision shows
 //   settle(run, outcome)                               a mark/fix/recheck flow finished: 'done' | 'cancelled'
@@ -193,6 +194,18 @@ export function choose(run, id, game, ctx) {
     default:
       return { run, act: null };
   }
+}
+
+// A link under "Check it yourself" (a settings page or a look-up). On an item
+// that warns, or whose decisions are warned (R6), it waits behind the same
+// confirm as a warned decision; otherwise it opens straight away.
+export function openLink(run, game, ctx, act) {
+  const item = currentItem(run);
+  if (!item || !act) return { run, act: null };
+  const warned = alerting(item) || act.warning === true
+    || decisionsFor(run, game, item, ctx).some((x) => x.effect && x.effect.warning === true);
+  if (!warned) return { run, act };
+  return { run: { ...run, phase: 'confirm', pending: { key: item.key, decision: { id: 'link' }, warning: true, act } }, act: null };
 }
 
 // After an answered item's steps: on to the next one.

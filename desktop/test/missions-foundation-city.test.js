@@ -219,6 +219,25 @@ test('a keyring app also flagged by the keylogger check: Keep pays nothing and i
   assert.match(b.html(), /ITEM 1 OF 1/, 'asked again on the next scan');
 });
 
+test('a link under Check it yourself on a warned item waits for the warning, like Hand back', async () => {
+  const REAL = require('./fixtures/monitoring-findings.json');
+  const d = scan(JSON.parse(JSON.stringify(REAL.keylogger_indicators)));
+  const real = async () => { const I = await import('../renderer/missions/games/index.js'); return I.loadGames(); };
+  const t = await setup(d, { games: real });
+  t.click({ 'data-go': 'mx:keyring:gatehouse:1' });
+  if (/PRACTICE FIRST/.test(t.html())) t.click({ 'data-act': 'mx-know' });
+  assert.match(t.html(), /data-act="mx-link:0"/);
+  t.click({ 'data-act': 'mx-link:0' });
+  await tick();
+  assert.deepStrictEqual(t.calls.openSetting, [], 'nothing opens before the warning is read');
+  assert.match(t.html(), /Read the warning above first\. Go on\?/);
+  assert.match(t.html(), /Removing this can alert whoever installed it\./);
+  t.click({ 'data-act': 'mx-confirm' });
+  await tick();
+  assert.strictEqual(t.calls.openSetting.length, 1);
+  assert.match(t.calls.openSetting[0], /^x-apple\.systempreferences:/);
+});
+
 test('a settings decision opens the pane through the setting allowlist', async () => {
   const lockGame = async () => {
     const I = await import('../renderer/missions/games/index.js');

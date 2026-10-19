@@ -372,7 +372,13 @@ export function createMissionDesk(deps) {
       const item = Run.currentItem(d.run);
       const links = item ? assemble(game, item, ctx, { unfinished: d.unfinished }).links : [];
       const l = links[Number(act.slice(8))];
-      if (l) carryOut({ kind: l.kind === 'settings' ? 'settings' : 'link', url: l.url, text: l.text, item, steps: [] });
+      if (l) {
+        // R6 for links too: a warned item's page opens only after the warning was read.
+        const r = Run.openLink(d.run, game, ctx, { kind: l.kind === 'settings' ? 'settings' : 'link', url: l.url, text: l.text, item, steps: [],
+          ...(l.warning === true ? { warning: true } : {}) });
+        d.run = r.run;
+        if (r.act) Promise.resolve(carryOut(r.act)).then(() => deps.render());
+      }
     } else if (act.startsWith('mx-lesson:')) {
       keepRun();
       deps.openConcept(act.slice(10));
