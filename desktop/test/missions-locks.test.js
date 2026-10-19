@@ -283,3 +283,15 @@ test('the game is pure: no DOM, storage, network, clipboard or globals', async (
   assert.doesNotMatch(src, /\b(?:document|window|globalThis|navigator)\s*\.|\b(?:localStorage|sessionStorage|XMLHttpRequest|clipboard)\b|\bfetch\s*\(|\brequire\s*\(|\bimport\s*\(/);
   assert.doesNotMatch(src, /https?:\/\/|x-apple\.systempreferences|ms-settings:/, 'games return intents, never URLs');
 });
+
+test('the state badge fits the lock: a missing key is Missing, automatic sign-in is On, a plain switch is Off', async () => {
+  const { C, game, mac } = await setup();
+  const ctx = C.testContext();
+  const badge = (item) => (game.render({ item, research: game.research(item, ctx), decisions: [], index: 0, total: 1 }, ctx).match(/class="lk-state[^"]*">([^<]*)</) || [])[1];
+  assert.strictEqual(badge(find(mac, 'filevault_recovery')), 'Missing');
+  assert.strictEqual(badge(find(mac, 'login_password_policy')), 'On');
+  assert.strictEqual(badge(find(mac, 'firewall_audit')), 'Off');
+  assert.strictEqual(badge(find(mac, 'time_machine_check')), 'Not checked');
+  assert.strictEqual(game.decisions(find(mac, 'filevault_recovery'), ctx)[0].label.standard, 'Open FileVault');
+  assert.strictEqual(game.decisions(find(mac, 'login_password_policy'), ctx)[0].label.standard, 'Turn it off');
+});

@@ -32,6 +32,7 @@ const LOCKS = {
   },
   'os-support': {
     name: { standard: 'System still supported', city: 'Foundation age' },
+    state: { standard: 'Out of date', city: 'Aging' },
     protects: 'Security fixes only reach systems the maker still supports.',
     concept: 'auto-updates',
     mac: { where: 'System Settings > General > Software Update shows the newest macOS this Mac can run.', pane: 'software-update', lookup: { source: 'apple-support', query: 'macOS compatibility' } },
@@ -39,6 +40,7 @@ const LOCKS = {
   },
   'app-updates': {
     name: { standard: 'Package updates', city: 'Toolbox patches' },
+    state: { standard: 'Out of date', city: 'Aging' },
     protects: 'Keeps tools you installed with Homebrew up to date.',
     concept: 'auto-updates',
     mac: { where: 'In Terminal, Homebrew updates its packages with: brew upgrade', pane: null, how: ['Open Terminal.', 'Type brew outdated to see the list.', 'Type brew upgrade to update them.'] },
@@ -53,6 +55,8 @@ const LOCKS = {
   },
   'recovery-key': {
     name: { standard: 'Recovery key', city: 'Spare vault key' },
+    state: { standard: 'Missing', city: 'Missing' },
+    on: { standard: 'Open FileVault', city: 'Open the vault' },
     protects: 'Lets you unlock your disk if you forget your password.',
     concept: 'disk-encryption',
     neverPaste: true,
@@ -75,6 +79,7 @@ const LOCKS = {
   },
   'auto-login': {
     name: { standard: 'Sign-in at start', city: 'Front gate' },
+    state: { standard: 'On', city: 'Open' },
     protects: 'Makes anyone who turns the computer on sign in first.',
     concept: 'lock-screen',
     on: { standard: 'Turn it off', city: 'Shut the gate' },
@@ -83,6 +88,7 @@ const LOCKS = {
   },
   guest: {
     name: { standard: 'Guest access', city: 'Visitor door' },
+    state: { standard: 'On', city: 'Open' },
     protects: 'Keeps people without an account out of your computer and shared folders.',
     concept: null,
     on: { standard: 'Turn it off', city: 'Close the door' },
@@ -91,6 +97,7 @@ const LOCKS = {
   },
   'guest-share': {
     name: { standard: 'Guest access to shared folders', city: 'Visitor shelf' },
+    state: { standard: 'On', city: 'Open' },
     protects: 'Keeps your shared folders for people you named.',
     concept: null,
     on: { standard: 'Turn it off', city: 'Close the shelf' },
@@ -148,6 +155,7 @@ const LOCKS = {
   },
   sessions: {
     name: { standard: 'Saved sign-in keys', city: 'Spare keys' },
+    state: { standard: 'To look at', city: 'Unchecked' },
     protects: 'Decides which other computers can sign in to this one.',
     concept: 'remote-access-scams',
     on: { standard: 'Show me how', city: 'Show me how' },
@@ -318,7 +326,7 @@ export function render(view, ctx) {
     <div class="lk-head">${lockIcon(state)}<div>
       <p class="lk-kicker">${e(mode === 'city' ? `Lock ${pos}` : `Setting ${pos}`)}${v.practice ? ` · ${e(mode === 'city' ? 'Drill' : 'Practice')}` : ''}</p>
       <h3 class="lk-name">${e(lock.name[mode])}</h3>
-    </div><span class="lk-state lk-state--${state}">${e(STATE[state][mode])}</span></div>
+    </div><span class="lk-state lk-state--${state}">${e(state === 'open' && lock.state ? lock.state[mode] : STATE[state][mode])}</span></div>
     <p class="lk-title">${e(f.title || '')}</p>
     <dl class="lk-facts">
       <div><dt>${e(mode === 'city' ? 'Guards' : 'Protects')}</dt><dd>${e(r.what || lock.protects)}</dd></div>
