@@ -231,15 +231,19 @@ test('Esc is left alone while the city isn’t on screen (app.js’s own screens
 const SPY = () => mod('stalkerware_scan', [finding('Monitoring app', 'critical', { code: 'security.stalkerware_scan.monitoring_software_found', data: { path: '/m' } })]);
 const NONE = () => mod('stalkerware_scan', []);
 
-test('a district holding a monitoring finding never reads NOTHING FOUND: it says it was checked, and points to the note', async () => {
+test('a district holding a monitoring finding never reads NOTHING FOUND: it says it was checked, and points to where it is said', async () => {
   const { findingsToCity } = await game('findings-to-city.js');
   const { HELD_DISTRICT_LINE } = await game('views/map.js');
+  const { pickDistrict } = await game('district-names.js');
   const gate = findingsToCity(scan(SPY())).districts.find((d) => d.missions.length).id;
   for (const mode of ['city', 'standard', 'none']) {
     const t = await setup({ mode }, scan(SPY()));
     const card = t.html().split(`data-go="filter:${gate}"`)[1].split('</button>')[0];
     assert.doesNotMatch(card, /NOTHING FOUND|Nothing found|RECLAIMED/, mode);
-    assert.ok(card.includes(HELD_DISTRICT_LINE), `${mode}: ${card}`);
+    // City mode has no note above the map, only the generated district's tile.
+    const want = mode === 'city' ? `Checked. See ${pickDistrict(424242).name}.` : HELD_DISTRICT_LINE;
+    assert.ok(card.includes(want), `${mode}: ${card}`);
+    if (mode === 'city') assert.doesNotMatch(t.html(), /note above/, 'nothing points to a note that isn’t there');
     assert.doesNotMatch(t.html(), /Nothing stood out in the checks that ran/, mode);
     // Once it is gone, the district reads as before.
     t.ctl.show(scan(NONE()), { id: 'city' });

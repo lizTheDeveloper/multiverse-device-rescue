@@ -355,11 +355,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const held = inCity() ? '' : heldPanelHtml({ held: s.held, mode: hostMode(), Q: win.QuietNotes });
     // Its district reads as checked, never NOTHING FOUND (views/map.js heldView).
     const heldIn = heldDistrictIds(s.heldCity);
+    // City mode has no note above the map: a held district points to the generated one.
+    const heldAt = inCity() ? side().name : null;
     const cityHtml = sideTile() + held + (s.rc || s.accountsError
       ? renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
         accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
-        accountsError: s.accountsError, goFor, heat, selected: s.filter, held: heldIn })
-      : renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter, held: heldIn }));
+        accountsError: s.accountsError, goFor, heat, selected: s.filter, held: heldIn, heldAt })
+      : renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter, held: heldIn, heldAt }));
     const fd = s.filter ? district(s.filter) : null;
     const moments = s.moments;
     s.moments = []; // a moment shows once

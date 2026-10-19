@@ -13,16 +13,16 @@ function accountSkyline(c) {
   return `<div class="skyline" aria-hidden="true"><img class="${tone}" src="assets/${img}.png" alt=""><img class="tower ${tone}" src="assets/${done ? 'iso_tower_lib' : 'iso_tower_occ'}.png" alt=""></div>`;
 }
 
-// goFor, heat and selected: as in map.js's renderMap. Account districts are unchanged.
+// goFor, heat, selected, held and heldAt: as in map.js's renderMap. Account districts are unchanged.
 export function renderOneCityMap({ city, progress, accountCards, focus, cameBack, scout, accountsError,
-  goFor = (d) => `district:${d.id}`, heat = {}, selected = null, held = null }) {
+  goFor = (d) => `district:${d.id}`, heat = {}, selected = null, held = null, heldAt = null }) {
   const device = city.districts.map((d0) => {
     const d = heldView(d0, held);
     const reclaimed = progress ? reclaimedIn(progress, d).length : 0;
     return `
       <button type="button" class="district ${esc(d.status)}${heat[d.id] ? ` heat-${esc(heat[d.id])}` : ''}" data-go="${esc(goFor(d))}"${selected === d.id ? ' aria-current="true"' : ''}>
         <h4>${esc(d.name.toUpperCase())}</h4>${skyline(d.status)}
-        <p>${esc(districtLine(d, reclaimed))}</p><span class="d-foot">${districtBadges(d, reclaimed)}</span>
+        <p>${esc(districtLine(d, reclaimed, heldAt))}</p><span class="d-foot">${districtBadges(d, reclaimed)}</span>
       </button>`;
   }).join('');
   const accounts = (accountCards || []).map((c) => `
@@ -32,7 +32,7 @@ export function renderOneCityMap({ city, progress, accountCards, focus, cameBack
         <span class="d-foot">${c.completed ? `<span class="badge cyan">${esc(c.percent)}% REPORTED</span>` : '<span class="badge skip">NOT STARTED</span>'}
         ${c.checkAgain ? '<span class="badge warn">CHECK AGAIN</span>' : ''}</span>
       </button>`).join('');
-  const line = mapLine(city, cameBack, held);
+  const line = mapLine(city, cameBack, held, heldAt);
   return `
   <section class="map" aria-label="Your computer and your accounts as one city">
     <div class="ring-label"${focus === 'computer' ? ' data-focus' : ''}><span class="label">YOUR COMPUTER · FROM THE CHECKUP</span></div>
