@@ -106,3 +106,55 @@ test('stopRunningScans sends SIGTERM to a running scan, and forgets finished one
   stopRunningScans();
   assert.deepStrictEqual(signals, ['SIGTERM'], 'nothing left to stop');
 });
+
+// The commands each check ran, kept per check for the Evidence block.
+const { createExecLog, EXEC_LIMITS } = require('../engine-runner');
+
+test('exec log: per check, repeats counted, copies handed out, reset per scan', () => {
+  const log = createExecLog();
+  const ev = (module, argv, extra = {}) => ({ type: 'exec', module, argv, returncode: 0, seconds: 0.1, ...extra });
+  assert.strictEqual(log.add(ev('code_signature_audit', ['codesign', '--verify', '/Applications/A.app'])), true);
+  log.add(ev('code_signature_audit', ['codesign', '--verify', '/Applications/A.app']));
+  log.add(ev('code_signature_audit', ['codesign', '-dv', '/Applications/A.app'], { returncode: 1 }));
+  log.add(ev('launch_agent_audit', ['plutil', '-p', 'x.plist']));
+  const got = log.get('code_signature_audit');
+  assert.deepStrictEqual(got, [
+    { argv: ['codesign', '--verify', '/Applications/A.app'], returncode: 0, seconds: 0.1, times: 2 },
+    { argv: ['codesign', '-dv', '/Applications/A.app'], returncode: 1, seconds: 0.1, times: 1 },
+  ]);
+  got[0].argv.push('changed');
+  assert.strictEqual(log.get('code_signature_audit')[0].argv.length, 3, 'a copy');
+  assert.strictEqual(log.get('launch_agent_audit').length, 1);
+  assert.deepStrictEqual(log.get('nope'), []);
+  log.reset();
+  assert.deepStrictEqual(log.get('code_signature_audit'), []);
+});
+
+test('exec log: refuses odd events and stays bounded', () => {
+  const log = createExecLog();
+  for (const bad of [null, {}, { type: 'progress', module: 'x', argv: ['a'] }, { type: 'exec', module: null, argv: ['a'] },
+    { type: 'exec', module: '../x', argv: ['a'] }, { type: 'exec', module: 'x', argv: [] }, { type: 'exec', module: 'x', argv: 'ls' }]) {
+    assert.strictEqual(log.add(bad), false, JSON.stringify(bad));
+  }
+  for (let i = 0; i < 50; i += 1) log.add({ type: 'exec', module: 'busy', argv: ['cmd', String(i)] });
+  assert.strictEqual(log.get('busy').length, EXEC_LIMITS.perModule);
+  log.add({ type: 'exec', module: 'long', argv: [...Array(100).keys()].map((i) => 'x'.repeat(1000 + i)) });
+  const [c] = log.get('long');
+  assert.strictEqual(c.argv.length, EXEC_LIMITS.argv);
+  assert.ok(c.argv.every((a) => a.length === EXEC_LIMITS.arg));
+  const small = createExecLog({ modules: 2, perModule: 1, argv: 2, arg: 5 });
+  for (const m of ['a', 'b', 'c']) small.add({ type: 'exec', module: m, argv: ['ls'] });
+  assert.deepStrictEqual(small.get('c'), []);
+  assert.deepStrictEqual(log.get(42), []);
+});
+
+test('main keeps the exec lines per check and the window can ask for one check', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  const preload = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
+  assert.match(main, /execLog\.reset\(\);\s*const doc = await runScan/);
+  assert.match(main, /if \(ev\.type === 'exec'\) execLog\.add\(ev\);/);
+  assert.match(main, /ipcMain\.handle\('module-commands', \(_e, name\) => execLog\.get\(name\)\)/);
+  assert.match(preload, /moduleCommands: \(name\) => ipcRenderer\.invoke\('module-commands', name\)/);
+});

@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('rescue', {
   markMine: (id, itemIds) => ipcRenderer.invoke('mark-mine', id, itemIds),
   unmarkMine: (idOrIds) => ipcRenderer.invoke('unmark-mine', idOrIds),
   recheckModule: (name) => ipcRenderer.invoke('recheck-module', name),
+  // Read-only: the commands one check ran in the last scan
+  // ([{argv, returncode, seconds, times}]), for its Evidence block.
+  moduleCommands: (name) => ipcRenderer.invoke('module-commands', name),
   openGuide: (url) => ipcRenderer.invoke('open-guide', url),
   openMissionLink: (url) => ipcRenderer.invoke('open-mission-link', url),
   onScanEvent: (cb) => {

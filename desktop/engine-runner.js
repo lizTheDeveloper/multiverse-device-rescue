@@ -57,6 +57,48 @@ function parseStderrLine(line) {
   return { type: 'log', line };
 }
 
+// The commands each check ran, from the {"exec"} trace lines, so a finding's
+// Evidence block can say "checked with: codesign --verify …". Kept in memory
+// only, for the last scan, and bounded: so many checks, so many distinct
+// commands per check (repeats are counted, not kept), so many words per
+// command, so many characters per word.
+const EXEC_LIMITS = { modules: 400, perModule: 12, argv: 24, arg: 240 };
+const EXEC_MODULE = /^[a-z0-9_]+$/;
+
+function createExecLog(limits = EXEC_LIMITS) {
+  let byModule = new Map();
+  return {
+    reset() { byModule = new Map(); },
+    add(ev) {
+      if (!ev || ev.type !== 'exec' || typeof ev.module !== 'string' || !EXEC_MODULE.test(ev.module)) return false;
+      if (!Array.isArray(ev.argv) || !ev.argv.length) return false;
+      let list = byModule.get(ev.module);
+      if (!list) {
+        if (byModule.size >= limits.modules) return false;
+        list = [];
+        byModule.set(ev.module, list);
+      }
+      const argv = ev.argv.slice(0, limits.argv).map((a) => String(a).slice(0, limits.arg));
+      const key = argv.join('\0');
+      const seen = list.find((c) => c.key === key);
+      if (seen) { seen.times += 1; return true; }
+      if (list.length >= limits.perModule) return false;
+      list.push({
+        key, argv,
+        returncode: Number.isInteger(ev.returncode) ? ev.returncode : null,
+        seconds: typeof ev.seconds === 'number' ? ev.seconds : null,
+        times: 1,
+      });
+      return true;
+    },
+    // Copies, so nothing the window does changes what main holds.
+    get(name) {
+      if (typeof name !== 'string' || !EXEC_MODULE.test(name)) return [];
+      return (byModule.get(name) || []).map(({ argv, returncode, seconds, times }) => ({ argv: [...argv], returncode, seconds, times }));
+    },
+  };
+}
+
 // Scans still running, so quitting the app can stop them (stopRunningScans).
 const runningScans = new Set();
 
@@ -284,4 +326,4 @@ function runEngineJson(buildArgs, moduleName, spawnFn, timeoutMs, fail = (error,
   });
 }
 
-module.exports = { resolveEnginePath, parseEngineOutput, runScan, stopRunningScans, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, scanModuleArgs, runRecheck, markArgs, unmarkArgs, runMark, runUnmark };
+module.exports = { createExecLog, EXEC_LIMITS, resolveEnginePath, parseEngineOutput, runScan, stopRunningScans, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, scanModuleArgs, runRecheck, markArgs, unmarkArgs, runMark, runUnmark };

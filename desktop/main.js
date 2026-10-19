@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, net, protocol } = require('electron'
 const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
-const { runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck, stopRunningScans } = require('./engine-runner');
+const { createExecLog, runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck, stopRunningScans } = require('./engine-runner');
 const { handleRecheck } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
@@ -52,8 +52,12 @@ app.whenReady().then(() => {
   let lastDoc = null;
   // Fixes, undos and marks wait for the scan to finish (scan-gate.js).
   const gate = createScanGate();
+  // The commands each check ran in the last scan (engine-runner.js createExecLog).
+  const execLog = createExecLog();
   ipcMain.handle('run-scan', (e, profile) => gate.runScan(async () => {
+    execLog.reset();
     const doc = await runScan(undefined, profile, (ev) => {
+      if (ev.type === 'exec') execLog.add(ev);
       if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
     });
     fixPolicy.remember(doc);
@@ -61,6 +65,8 @@ app.whenReady().then(() => {
     lastDoc = doc;
     return doc;
   }, () => { if (!e.sender.isDestroyed()) e.sender.send('scan-event', { type: 'wait', reason: 'change' }); }));
+  // Read-only: what one check ran, for its findings' Evidence block.
+  ipcMain.handle('module-commands', (_e, name) => execLog.get(name));
   ipcMain.handle('run-fix', (_e, moduleName) => gate.runChange(() =>
     handleRunFix(moduleName, { policy: fixPolicy, runFix }), fixRefusal(moduleName)));
   ipcMain.handle('run-fix-action', (_e, action, target) => gate.runChange(() =>
