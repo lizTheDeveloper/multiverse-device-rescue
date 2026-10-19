@@ -12,7 +12,7 @@
 // Pure: no DOM, no storage, no globals. Every scan value goes through ctx.esc. Scan titles and descriptions are never
 // rendered (they carry engine words that don't belong in the city).
 
-const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+import { isMonitoringModule, isAlertingItem } from '../contract.js';
 
 // key id -> words and where its switch lives. pane: macOS settings pane (null: no pane in the allowlist; Hand back
 // then shows where the switch is). Windows uses its privacy page with the key as the permission hint.
@@ -194,13 +194,9 @@ function appsIn(item) {
   return [...out.values()];
 }
 
-const isMonitoring = (item) => findingsOf(item).some((f) => MONITORING_MODULES.has(moduleOf(f)));
+const isMonitoring = (item) => findingsOf(item).some((f) => isMonitoringModule(moduleOf(f)));
 // The runner shows the removal warning for these itself.
-const runnerWarns = (item) => {
-  const it = obj(item);
-  const f = obj(it.finding);
-  return !!(it.removal_alert || f.removal_alert || obj(f.remediation).safety_note);
-};
+const runnerWarns = (item) => isAlertingItem(item);
 const unconfirmed = (apps) => apps.some((a) => !a.confirmed);
 // The game's own warning line, where the runner won't show one: monitoring checks and keyboard access by an app
 // whose maker isn't confirmed (keyboard access with no app named counts as unconfirmed).

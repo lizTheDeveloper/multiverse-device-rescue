@@ -15,8 +15,10 @@ test('Odd Jobs passes every contract check, on real-shaped items too', async () 
   const items = [
     C.makeItem({ module: 'battery_health', title: 'Battery is worn', data: { cycles: 900 } }),
     C.makeItem({ module: 'login_items', title: 'Helper', data: { label: 'com.example.h' }, markable: { id: 'm1', kind: 'background_task' } }),
-    C.makeItem({ module: 'stalkerware_scan', title: 'x', removal_alert: true, fixable: { will_change: 'x', how_to_undo: ['y'] } }),
+    // The engine's real stalkerware finding (no removal_alert of its own), made fixable.
+    C.makeItem({ ...require('./fixtures/monitoring-findings.json').stalkerware_scan.findings[0], module: 'stalkerware_scan', fixable: { will_change: 'x', how_to_undo: ['y'] } }),
   ];
+  assert.ok(!items[2].finding.removal_alert && C.isAlertingItem(items[2]), 'warns through the module set alone');
   assert.deepStrictEqual(C.runContractChecks(S.default, items), []);
   const d = S.default.decisions(items[2], C.testContext());
   assert.strictEqual(d[0].effect.kind, 'later', 'the safe default leads');

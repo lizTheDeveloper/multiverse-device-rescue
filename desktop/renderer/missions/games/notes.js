@@ -11,7 +11,7 @@
 //   batchNotes(items, { areaOf, size }) -> [{ area, part, parts, items }]   batches of BATCH_SIZE per area
 //   summary(results, ctx): results = [{ item, decision, effect, points? }]; progress comes from
 //     ctx.notes (or results.progress): { sorted, total, areaSorted, areaTotal, batchPoints, cleared, bonus }
-import { CITY_FORBIDDEN } from '../contract.js';
+import { CITY_FORBIDDEN, MONITORING_MODULES } from '../contract.js';
 import { cluesFor, placeFor, pathOf } from '../../game/clues.js';
 
 export const BATCH_SIZE = 5;
@@ -21,7 +21,7 @@ export const covers = [{ module: '*', severities: ['info'] }];
 
 // The same three checks as evidence.js and game/held.js. In city mode their notes stay in game words,
 // carry no evidence rows and no look-up, and never offer the clipboard.
-export const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+export { MONITORING_MODULES };
 
 const WORDS = {
   standard: {

@@ -121,9 +121,10 @@ test('keyboard access by an unconfirmed maker always carries the removal warning
       const it = mode === 'city' ? { ...found, held: false } : found;
       const ctx = C.testContext({ mode });
       const html = G.render(view(it, G, ctx), ctx);
-      assert.match(html, /kr-warn/, `${code} ${mode}`);
+      // A monitoring check's own finding: the runner's removal warning (contract.js isAlertingItem), not the card's.
+      assert.ok(C.isAlertingItem(it), `${code} ${mode}: the runner warns`);
+      assert.doesNotMatch(html, /kr-warn/, `${code} ${mode}: one warning, the runner's`);
       if (mode === 'city') assert.deepStrictEqual(C.checkCityWords(html), []);
-      else assert.match(text(html), /can alert whoever set it up/);
       assert.notStrictEqual(G.decisions(it, ctx)[0].id, 'hand_back');
     }
   }

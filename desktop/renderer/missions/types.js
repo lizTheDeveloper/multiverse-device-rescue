@@ -15,7 +15,7 @@
 //
 // Built only from NotChecked.displayItems, so a mission never counts anything
 // the list doesn't. Pure; no DOM, no storage.
-import { TYPE_IDS, claimConflicts } from './contract.js';
+import { TYPE_IDS, claimConflicts, isMonitoringFinding } from './contract.js';
 import { districtIdFor, DISTRICTS, OUTSKIRTS } from '../game/findings-to-city.js';
 
 const NC = globalThis.NotChecked;
@@ -175,12 +175,11 @@ export function typeOf(finding, table = DEFAULT_TABLE) {
 const RANK = { critical: 2, warning: 1, info: 0 };
 const NOT_CHECKED_CODE = /_(?:unknown|failed|unavailable|permission_denied)$/;
 const ORDER_OF_DISTRICT = new Map([...DISTRICTS.map((d) => d.id), OUTSKIRTS.id].map((id, i) => [id, i]));
-const isAlerting = (f) => !!f && (f.removal_alert === true || !!(f.remediation && f.remediation.safety_note));
 const isFixable = (f) => !!(f && f.fixable && typeof f.fixable === 'object');
 const isStale = (item) => item.findings.some((f) => f && f.data && f.data.mark_stale === true);
 
 function withAlert(item) {
-  return { ...item, removal_alert: item.findings.some(isAlerting) };
+  return { ...item, removal_alert: item.findings.some(isMonitoringFinding) };
 }
 const leads = (item) => (item.removal_alert || item.findings.some(isFixable) ? 1 : 0);
 

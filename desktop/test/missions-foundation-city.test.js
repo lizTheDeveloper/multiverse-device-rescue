@@ -18,9 +18,9 @@ const CITY_FORBIDDEN = /partner|stalk|abuse|violence|advocate|hotline|799-7233|8
 
 // Five unmapped warnings, a fixable alerting critical and a markable one: seven
 // Odd Jobs items in the Gatehouse, so a mission of 4 (the critical first) and one of 3.
-function doc({ path: p = '/opt/x/a.bin' } = {}) {
+function doc({ path: p = '/opt/x/a.bin', part = 'part' } = {}) {
   return scan(
-    mod('battery_health', Array.from({ length: 5 }, (_, i) => f(`Worn part ${i}`, 'warning', { name: `part${i}` }))),
+    mod('battery_health', Array.from({ length: 5 }, (_, i) => f(`Worn part ${i}`, 'warning', { name: `${part}${i}` }))),
     mod('sudo_config_audit', [f('Odd sudo rule', 'critical', { path: p }, { removal_alert: true, fixable: { will_change: 'Turns it off.', how_to_undo: ['Turn it on.'] } })]),
     mod('ssh_key_audit', [f('An extra key', 'warning', { path: '/etc/ssh/k' }, { markable: { id: 'm1', kind: 'background_task' } })]),
   );
@@ -112,8 +112,9 @@ test('a fix decision opens FixFlow’s own confirm with the warning; a re-check 
   await tick(); await tick();
   assert.deepStrictEqual(t.calls.recheck, ['sudo_config_audit']);
   const p = savedProfile(t.storage);
-  assert.ok(p.rank.points - before >= 75, `CONFIRMED pays (${p.rank.points - before})`);
-  assert.match(t.html(), /it’s gone/);
+  // A warned item (contract.js isAlertingItem) pays nothing, as a monitoring check's never did.
+  assert.strictEqual(p.rank.points - before, 0, 'a warned item pays no points');
+  assert.match(t.html(), /Checked again: it’s gone\.</);
   assert.match(t.html(), /ITEM \d OF \d/);
 });
 
@@ -177,16 +178,22 @@ test('remembered answers survive a new scan with the same evidence, and drop whe
   a.click({ 'data-act': 'mx-know' });
   a.click({ 'data-act': 'mx-decide:ok' });
   assert.match(a.html(), /ITEM 2 OF 4/);
-  const pts = savedProfile(s2).rank.points;
-  assert.strictEqual(pts, 5, 'a decided item pays');
-  // Same evidence on the next app start: the first item is answered.
+  assert.strictEqual(savedProfile(s2).rank.points, 0, 'the warned sudo rule pays nothing');
+  a.click({ 'data-act': 'mx-decide:ok' });
+  assert.match(a.html(), /ITEM 3 OF 4/);
+  assert.strictEqual(savedProfile(s2).rank.points, 5, 'a decided item pays');
+  // Same evidence on the next app start: the warned item is asked again (its answer was this
+  // session's only); the other one is remembered and skipped.
   const b = await setup(doc(), { storage: s2, games: keepGame });
   b.click({ 'data-go': 'mx:simple:gatehouse:1' });
-  assert.match(b.html(), /ITEM 2 OF 4/, 'the remembered item is skipped');
-  // The path changed: asked again.
-  const c = await setup(doc({ path: '/opt/y/b.bin' }), { storage: s2, games: keepGame });
+  assert.match(b.html(), /ITEM 1 OF 4/, 'a warned item is never remembered across scans');
+  b.click({ 'data-act': 'mx-decide:ok' });
+  assert.match(b.html(), /ITEM 3 OF 4/, 'the remembered item is skipped');
+  // Its evidence changed: asked again.
+  const c = await setup(doc({ part: 'piece' }), { storage: s2, games: keepGame });
   c.click({ 'data-go': 'mx:simple:gatehouse:1' });
-  assert.match(c.html(), /ITEM 1 OF 4/);
+  c.click({ 'data-act': 'mx-decide:ok' });
+  assert.match(c.html(), /ITEM 2 OF 4/);
   assert.ok(t);
 });
 

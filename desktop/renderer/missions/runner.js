@@ -22,16 +22,14 @@
 // Phases: 'offer' (first time: practice or "I know this"), 'practice',
 // 'item', 'confirm' (the removal warning before a fix or a warned settings
 // pane), 'summary'.
-import { EFFECT_KINDS, MIN_DECISIONS, MAX_DECISIONS, REMOVING_KINDS, checkDecisions } from './contract.js';
+import { EFFECT_KINDS, MIN_DECISIONS, MAX_DECISIONS, REMOVING_KINDS, checkDecisions, isAlertingItem } from './contract.js';
 import { shortHash } from '../game/folded.js';
 
 export const REMOVAL_WARNING = 'Removing this can alert whoever installed it.';
 
-export function alerting(item) {
-  if (!item) return false;
-  const fs = [item.finding, ...(Array.isArray(item.findings) ? item.findings : [])].filter(Boolean);
-  return item.removal_alert === true || fs.some((f) => f.removal_alert === true || !!(f.remediation && f.remediation.safety_note));
-}
+// contract.js's one rule: a monitoring check's own finding always warns, as
+// does any finding carrying removal_alert or a safety note.
+export const alerting = (item) => isAlertingItem(item);
 
 // The fix confirm's options for FixFlow.fixControlsHtml: city mode's watched
 // warning, else the removal line whenever the item warns. Games can't change it.

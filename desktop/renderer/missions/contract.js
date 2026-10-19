@@ -83,6 +83,34 @@ export const HOSTILE = [
   'a\u0000b​c',
 ];
 
+// The one monitoring rule (runner, types, the mission desk, points and
+// checkDecisions all use it). The monitoring checks' own findings carry no
+// removal_alert or safety note from the engine (their whole description is the
+// warning; rescue/safety_scope.py leaves them out), so the module set counts
+// on its own. Any other finding counts when it carries the warning.
+const OWN_MONITORING = ['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators'];
+const evidenceSet = () => {
+  const E = globalThis.Evidence;
+  return E && E.MONITORING_MODULES instanceof Set ? E.MONITORING_MODULES : null;
+};
+export const MONITORING_MODULES = new Set([...OWN_MONITORING, ...(evidenceSet() || [])]);
+export function isMonitoringModule(name) {
+  if (typeof name !== 'string' || !name) return false;
+  const ev = evidenceSet();
+  return MONITORING_MODULES.has(name) || !!(ev && ev.has(name));
+}
+// A finding from a monitoring check, or one whose removal can alert someone.
+export function isMonitoringFinding(f) {
+  return !!f && typeof f === 'object' && (isMonitoringModule(f.module) || f.removal_alert === true
+    || !!(f.remediation && typeof f.remediation === 'object' && f.remediation.safety_note));
+}
+// An item warns when any of its findings does (or it says so itself).
+export function isAlertingItem(item) {
+  if (!item || typeof item !== 'object') return false;
+  const fs = [item.finding, ...(Array.isArray(item.findings) ? item.findings : [])].filter(Boolean);
+  return item.removal_alert === true || fs.some(isMonitoringFinding);
+}
+
 const wordCount = (s) => String(s || '').trim().split(/\s+/).filter(Boolean).length;
 
 // Validate a game module's shape. Returns a list of problems (empty = valid).
@@ -168,8 +196,7 @@ export function checkDecisions(decisions, item) {
     else for (const m of ['standard', 'city']) if (wordCount(d.label[m]) > MAX_LABEL_WORDS) p.push(`${d.id}: ${m} label over ${MAX_LABEL_WORDS} words`);
     if (!d.effect || !EFFECT_KINDS.includes(d.effect.kind)) p.push(`${d.id}: effect kind must be one of ${EFFECT_KINDS.join(', ')}`);
   });
-  const alerting = item && (item.removal_alert || (item.finding && (item.finding.removal_alert || (item.finding.remediation && item.finding.remediation.safety_note))));
-  if (alerting && decisions[0] && decisions[0].effect && REMOVING_KINDS.has(decisions[0].effect.kind)) {
+  if (isAlertingItem(item) &&decisions[0] && decisions[0].effect && REMOVING_KINDS.has(decisions[0].effect.kind)) {
     p.push('an item with a removal warning must not have a removing decision first (default)');
   }
   return p;
@@ -222,7 +249,7 @@ export function testContext(overrides = {}) {
 // Build an Item (the shape groupMissions hands a game) around one finding.
 export function makeItem(finding, extra = {}) {
   const f = { severity: 'warning', category: 'security', data: {}, ...finding };
-  return { key: `${f.module || 'm'}:${f.code || f.title}`, severity: f.severity, finding: f, findings: [f], seen_in: [f.module || 'm'], marked: false, held: false, removal_alert: !!f.removal_alert, ...extra };
+  return { key: `${f.module || 'm'}:${f.code || f.title}`, severity: f.severity, finding: f, findings: [f], seen_in: [f.module || 'm'], marked: false, held: false, removal_alert: isMonitoringFinding(f), ...extra };
 }
 
 // Run every contract check for a game against some items; returns problems with context.
