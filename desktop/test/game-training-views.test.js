@@ -227,3 +227,20 @@ test('the lesson intro shows on question 1; each question’s own what-to-know s
   const bare = { ...LESSON, briefing: '', questions: [LESSON.questions[0]] };
   assert.doesNotMatch(v.renderLesson({ lesson: bare, qIndex: 0, picked: null, scan: idle, scout }), /WHAT TO KNOW/);
 });
+
+test('a visit renders the items it was given, counts them, and hides the what-to-know when told to', async () => {
+  const v = await import('../renderer/game/views/lesson.js');
+  const lesson = { id: 'l', title: 'L', briefing: 'Intro here.', questions: [{ teach: 'Q teach', prompt: 'Q one', options: [{ text: 'A', correct: true, feedback: 'ok' }, { text: 'B', correct: false, feedback: 'no' }] }] };
+  const items = [
+    { key: 'x-2', teach: 'Family teach', prompt: 'Variant prompt', options: [{ text: 'Yes', correct: true, feedback: 'Right.' }, { text: 'No', correct: false, feedback: 'No.' }] },
+    { key: 'y', teach: 'Other teach', prompt: 'Second item', options: [{ text: 'Yes', correct: true, feedback: 'Right.' }, { text: 'No', correct: false, feedback: 'No.' }] },
+  ];
+  const scout = () => '';
+  const idle = { running: false, index: 0, total: 0, error: null };
+  const first = v.renderLesson({ lesson, items, qIndex: 0, picked: null, scan: idle, scout });
+  assert.ok(first.includes('Variant prompt') && first.includes('QUESTION 1 OF 2') && first.includes('Family teach'));
+  assert.ok(!first.includes('Q one'));
+  const hidden = v.renderLesson({ lesson, items, qIndex: 1, picked: null, showTeach: false, scan: idle, scout });
+  assert.ok(hidden.includes('Second item') && !hidden.includes('Other teach'));
+  assert.match(v.renderLesson({ lesson, items, qIndex: 1, picked: 0, scan: idle, scout }), /data-act="finish-lesson"/);
+});
