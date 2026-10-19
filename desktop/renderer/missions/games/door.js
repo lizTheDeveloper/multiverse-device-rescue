@@ -12,7 +12,7 @@
 // scan value goes through ctx.esc. Decision buttons and the removal warning are
 // the runner's chrome; render() draws the card only.
 import { placeFor } from '../../game/clues.js';
-import { makerFor } from '../contract.js';
+import { makerFor, isAlertingItem } from '../contract.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const dataOf = (f) => (f && isObj(f.data) ? f.data : {});
@@ -164,10 +164,8 @@ export function whatOf(f) {
   return '';
 }
 
-function alerting(item) {
-  const f = (item && item.finding) || {};
-  return !!(item && (item.removal_alert || f.removal_alert || (isObj(f.remediation) && f.remediation.safety_note)));
-}
+// contract.js's one monitoring rule.
+const alerting = (item) => isAlertingItem(item);
 
 const unfinished = (item) => {
   const f = (item && item.finding) || {};

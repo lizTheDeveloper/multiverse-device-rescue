@@ -4,6 +4,7 @@
 // that check) / Not now. A pure module: it returns decisions, research and link intents; the runner acts.
 //
 // Never asks for a password or a recovery key. Recovery-key locks always say never to paste the key anywhere.
+import { isAlertingItem } from '../contract.js';
 
 // Where a check couldn't look. Such a lock is never shown as fine: its state is "Not checked".
 const COULDNT_TITLE = /^(?:we\s+)?(?:couldn[’']t|could\s+not)\s+(?:check|list|read|see|tell|find\s+out)\b/i;
@@ -331,7 +332,8 @@ const modules = (item) => {
   return [...new Set([lead, ...seen].filter((m) => typeof m === 'string' && m))];
 };
 
-const alerting = (item) => !!(item && (item.removal_alert || (item.finding && (item.finding.removal_alert || (item.finding.remediation && item.finding.remediation.safety_note)))));
+// contract.js's one monitoring rule.
+const alerting = (item) => isAlertingItem(item);
 
 // The runner draws the buttons, the removal-warning line, the evidence rows and the links (ruling R1); render
 // returns only the lock card.

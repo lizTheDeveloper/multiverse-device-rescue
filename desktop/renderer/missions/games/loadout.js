@@ -13,7 +13,7 @@
 // macOS and Windows: Chrome, Edge, Brave, Vivaldi, Chromium, Firefox, Safari. The engine's in-browser
 // mining check names a Chromium browser by its profile folder, which is "User Data" on Windows, so the
 // browser is read from the finding's path there.
-import { makerFor } from '../contract.js';
+import { makerFor, isAlertingItem } from '../contract.js';
 
 const ID_RE = /^[a-p]{32}$/;
 const HOST_RE = /^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/i;
@@ -292,7 +292,7 @@ function decisions(item, ctx) {
   const id = idOf(f);
   const closer = { id: 'closer', label: L('Look closer'), effect: { kind: 'closer', checklist: closerList(kind, b, ctx) } };
   // R6: a removing or trimming move on an item with the removal warning asks the runner to show it first.
-  const alerting = !!(item && (item.removal_alert || f.removal_alert || (f.remediation && f.remediation.safety_note)));
+  const alerting = isAlertingItem(item);
   const warn = (e) => (alerting ? { ...e, warning: true } : e);
   const removeEffect = (steps) => warn(f.fixable ? { kind: 'fix' } : { kind: 'note', note: 'remove', steps });
   const keep = (standard, city) => ({ id: 'keep', label: L(standard, city), effect: keepOf(item) });

@@ -15,7 +15,7 @@
 //
 // Pure module (missions/contract.js): no DOM, storage, globals or network. Step and checklist texts in effects are
 // PLAIN TEXT (scan values passed through ctx.visible); whoever shows them must escape them.
-import { makerFor } from '../contract.js';
+import { makerFor, isAlertingItem } from '../contract.js';
 
 const MODULES = [
   'ai_worm_filesystem', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
@@ -272,7 +272,7 @@ export function tagOf(item, ctx) {
     win: isWin(ctx, f),
     markable: !!(f.markable && typeof f.markable === 'object'),
     fixable: hasEngineFix(f),
-    alerting: !!(item && (item.removal_alert || f.removal_alert || (f.remediation && f.remediation.safety_note))),
+    alerting: isAlertingItem(item),
     unfinished: !!((item && item.unfinished) || d.incomplete),
     stale: d.mark_stale === true,
   };

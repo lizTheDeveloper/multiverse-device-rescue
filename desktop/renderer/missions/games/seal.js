@@ -23,7 +23,7 @@
 //
 // Pure: no DOM, storage, globals, network or clipboard. Every scan value goes through ctx.esc. The engine's own
 // description is never shown: it can carry help-line sentences that city mode must not show.
-import { makerFor } from '../contract.js';
+import { makerFor, isAlertingItem } from '../contract.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const t = (standard, city) => ({ standard, city });
@@ -222,8 +222,7 @@ export function classify(finding) {
 // ---- decisions --------------------------------------------------------------
 
 function alerting(item, v) {
-  const f = item.finding || {};
-  return !!(v.verdict === 'tampered' || item.removal_alert || f.removal_alert || (isObj(f.remediation) && f.remediation.safety_note));
+  return v.verdict === 'tampered' || isAlertingItem(item);
 }
 
 const STEPS = {
