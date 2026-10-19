@@ -516,3 +516,58 @@ def test_defaults_load_independently(monkeypatch):
 
     result = run_watch("darwin", 1, 30, dns=no_dns, clock=fake.clock, sleep=fake.sleep)
     assert result.error and "connections" in result.error
+
+
+def test_listener_taken_over_by_another_program_is_new():
+    first = listener("python3", 8000, pid=10)
+    result = watch([snap([first]), snap([first]), snap([dict(first, process="nc", pid=11)])])
+    [found] = by_code(result, "new_listener")
+    assert found.data["target"] == "nc"
+    assert found.data["port"] == 8000
+    summaries = {f.data["target"]: f for f in by_code(result, "watch_summary")}
+    assert summaries["nc"].data["listeners_opened"] == [8000]
+    assert summaries["python3"].data["listeners_closed"] == [8000]
+
+
+def test_hidden_owner_named_later_is_not_a_takeover():
+    hidden = dict(listener("node", 3000), process=None, pid=None)
+    result = watch([snap([]), snap([hidden]), snap([listener("node", 3000)])],
+                   platform="linux", dns=lambda p: {"names": None, "reason": "Hidden."})
+    [found] = by_code(result, "new_listener")
+    assert found.data["target"] == "node"
+
+
+def test_nat64_classified_by_embedded_ipv4():
+    public = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote="64:ff9b::808:808"))
+    assert len(by_code(public, "regular_checkins")) == 1
+    for remote in ("64:ff9b::c0a8:10a", "64:ff9b:1::a00:1"):
+        result = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote=remote))
+        assert by_code(result, "regular_checkins") == [], remote
+
+
+def test_ipv6_public_address_not_dropped_as_reserved():
+    result = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote="2606:4700::1111"))
+    assert len(by_code(result, "regular_checkins")) == 1
+
+
+def test_bytes_baseline_is_first_snapshot_only():
+    a = rec("curl", "9.9.9.9", 443, 40001, pid=10, laddr="10.0.0.2")
+    key_a = ("10.0.0.2", 40001, "9.9.9.9", 443)
+    # The first snapshot had no byte reading: a Linux connection seen later starts from 0.
+    linux = watch([
+        snap([a], bytes_=None, limits=["Couldn't read data counts."]),
+        snap([a], bytes_={key_a: (500, 700)}),
+        snap([a], bytes_={key_a: (600, 900)}),
+    ], platform="linux")
+    [summary] = by_code(linux, "watch_summary")
+    assert (summary.data["bytes_in"], summary.data["bytes_out"]) == (600, 900)
+
+    # macOS counts per program, so a later first reading is still the baseline.
+    b = rec("curl", "9.9.9.9", 443, 40001, pid=10)
+    darwin = watch([
+        snap([b], bytes_=None, limits=["Couldn't read data counts."]),
+        snap([b], bytes_={10: (500, 700)}),
+        snap([b], bytes_={10: (600, 900)}),
+    ])
+    [summary] = by_code(darwin, "watch_summary")
+    assert (summary.data["bytes_in"], summary.data["bytes_out"]) == (100, 200)

@@ -48,6 +48,8 @@ _UNSTORED_LIMIT = 10 * MAX_PAIRS
 # Shared address space used by carrier-grade NAT; not a destination on the internet.
 _CGNAT = ipaddress.ip_network("100.64.0.0/10")
 
+_NAT64 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
+
 _PRIVATE_NETWORKS = tuple(
     ipaddress.ip_network(n)
     for n in (
@@ -72,12 +74,18 @@ class WatchModule:
 
 
 def _ip(addr: str | None):
+    """The address, with an IPv4 address carried inside IPv6 unwrapped."""
     try:
         ip = ipaddress.ip_address((addr or "").split("%")[0])
     except ValueError:
         return None
-    if ip.version == 6 and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
+    if ip.version == 6:
+        if ip.ipv4_mapped is not None:
+            return ip.ipv4_mapped
+        if any(ip in net for net in _NAT64):
+            # NAT64 (RFC 6052 / RFC 8215) puts the IPv4 address in the last 32
+            # bits with the usual /96 prefix, so classify by that address.
+            return ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
     return ip
 
 
@@ -89,7 +97,11 @@ def _is_loopback(addr: str | None) -> bool:
 def _is_public(addr: str | None) -> bool:
     """True only for an address that is clearly not on this computer or network."""
     ip = _ip(addr)
-    if ip is None or ip.is_multicast or ip.is_unspecified or ip.is_reserved or ip in _CGNAT:
+    if ip is None or ip.is_multicast or ip.is_unspecified:
+        return False
+    # IPv4 "reserved" is 240.0.0.0/4 and broadcast. IPv6's is_reserved covers
+    # whole unassigned ranges, which says nothing about where a connection goes.
+    if ip.version == 4 and (ip.is_reserved or ip in _CGNAT):
         return False
     return not any(ip in net for net in _PRIVATE_NETWORKS if net.version == ip.version)
 
@@ -120,8 +132,12 @@ class _Gathered:
         # of the time; ``listener_owner`` keeps the best name seen.
         self.first_listeners: dict[tuple, dict] | None = None
         self.last_listeners: dict[tuple, dict] = {}
-        self.new_listeners: dict[tuple, dict] = {}
+        # Each listener that opened during the watch: {"key", "owner", "record"}.
+        # A port taken over by a different named program counts as a new one.
+        self.new_listeners: list[dict] = []
+        self._latest_new: dict[tuple, dict] = {}
         self.listener_owner: dict[tuple, str] = {}
+        self.changed_owner: list[tuple[str, int]] = []
         # Byte counters: key (pid or 4-tuple) -> {"process", "first", "last"}
         self.counters: dict = {}
         self.bytes_seen = False
@@ -203,33 +219,61 @@ class _Gathered:
                 continue
             key = (record.get("proto"), record.get("local_addr"), record.get("local_port"))
             now[key] = record
-            if record.get("process") or key not in self.listener_owner:
-                self.listener_owner[key] = record.get("process") or _UNKNOWN
+            self._note_owner(key, record)
         if self.first_listeners is None:
             self.first_listeners = now
-        else:
-            for key, record in now.items():
-                if key not in self.first_listeners and key not in self.new_listeners:
-                    self.new_listeners[key] = record
         self.last_listeners = now
+
+    def _note_owner(self, key: tuple, record: dict) -> None:
+        name = record.get("process")
+        known = self.listener_owner.get(key)
+        if known is None:
+            self.listener_owner[key] = name or _UNKNOWN
+            if self.first_listeners is not None:
+                self._add_new_listener(key, name or _UNKNOWN, record)
+        elif not name or name == known:
+            return
+        elif known == _UNKNOWN:
+            # A name that was hidden before (Linux without admin) is the same owner.
+            self.listener_owner[key] = name
+            latest = self._latest_new.get(key)
+            if latest is not None and latest["owner"] == _UNKNOWN:
+                latest["owner"] = name
+        else:
+            # A different program now holds the port: a new listener.
+            self.changed_owner.append((known, key[2]))
+            self.listener_owner[key] = name
+            self._add_new_listener(key, name, record)
+
+    def _add_new_listener(self, key: tuple, owner: str, record: dict) -> None:
+        entry = {"key": key, "owner": owner, "record": record}
+        self.new_listeners.append(entry)
+        self._latest_new[key] = entry
 
     def listeners_by_owner(self) -> tuple[dict[str, list], dict[str, list]]:
         """Ports opened during the watch, and ports closed by its end, per program."""
         opened: dict[str, list] = {}
         closed: dict[str, list] = {}
-        for key in self.new_listeners:
-            opened.setdefault(self.listener_owner[key], []).append(key[2])
-        for key in list(self.first_listeners or {}) + list(self.new_listeners):
+        for entry in self.new_listeners:
+            opened.setdefault(entry["owner"], []).append(entry["key"][2])
+        for owner, port in self.changed_owner:
+            closed.setdefault(owner, []).append(port)
+        for key in self.listener_owner:
             if key not in self.last_listeners:
                 closed.setdefault(self.listener_owner[key], []).append(key[2])
         return opened, closed
 
     def _add_bytes(self, counts, records: list[dict]) -> None:
+        if self.first_byte_keys is None:
+            # Only the first snapshot's reading is the baseline. If it had no
+            # reading, nothing seen later was known to be open at the start, so
+            # every Linux connection starts from 0 (its counters begin at 0
+            # when it opens). macOS pids still keep their first reading below,
+            # because nettop counts per program since the program started.
+            self.first_byte_keys = set(counts or ())
         if counts is None:
             return
         self.bytes_seen = True
-        if self.first_byte_keys is None:
-            self.first_byte_keys = set(counts)
         by_pid = {r["pid"]: r.get("process") for r in records if r.get("pid") is not None}
         by_tuple = {
             (r.get("local_addr"), r.get("local_port"), r.get("remote_addr"), r.get("remote_port")):
@@ -652,10 +696,10 @@ def _listeners(platform, gathered, facts, verdict, reasons) -> list[Finding]:
             if verdict is None:
                 problems.append("the listening-port check wasn't found")
     findings = []
-    for key in sorted(gathered.new_listeners, key=str):
-        proto, addr, port = key
-        process = gathered.listener_owner[key]
-        record = gathered.new_listeners[key]
+    for entry in sorted(gathered.new_listeners, key=lambda e: (str(e["key"]), e["owner"])):
+        proto, addr, port = entry["key"]
+        process = entry["owner"]
+        record = entry["record"]
         next_checkup = None
         if verdict is not None:
             try:
