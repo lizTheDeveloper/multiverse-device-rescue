@@ -494,8 +494,9 @@ test('P2-11: keys and values written for code read as words', () => {
     swap_used_mb: 3935.38, latency_ms: 12, time_budget_s: 30, upload_mbps: 41.5, uptime_days: 9, usage_percent: 87,
     size_bytes: 18900000000, size_formatted: '17.6 GB', issue: 'usr_local_root_owned', type: 'broken_login_items',
     vpn_count: 2, twofa_enabled: true, wifi_enabled: false, areas: ['app_support', 'caches'], keys: ['google_compute_engine'],
-    label: 'com.example.my_agent',
+    label: 'com.example.my_agent', first_seen: '2026-09-30',
   } });
+  assert.strictEqual(get(rows, 'First seen').value, '30 Sep 2026');
   assert.strictEqual(get(rows, 'Swap used').value, '3.9 GB');
   assert.strictEqual(get(rows, 'Latency').value, '12 ms');
   assert.strictEqual(get(rows, 'Upload').value, '41.5 Mbps');

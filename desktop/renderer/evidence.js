@@ -509,7 +509,7 @@ const Evidence = (function () {
       if (typeof v === 'string' && CODE_WORD.test(v) && !MONO_KEYS.has(key)) { rows.push(row(label, v.replace(/_/g, ' '))); continue; }
       if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(hashLabel(key), v));
       else if (/_bytes$/.test(key) && typeof v === 'number') rows.push(row(label, bytes(v)));
-      else if (/(^|_)(date|at|time|since)$/.test(key) && typeof v === 'string') rows.push(row(label, plainDay(v)));
+      else if (/(^|_)(date|at|time|since|seen)$/.test(key) && typeof v === 'string') rows.push(row(label, plainDay(v)));
       else if (key === 'cpu_percent') rows.push(row(label, `${v}%`));
       else if (typeof v === 'string' && looksLikePath(v)) rows.push(pathRow(label, v));
       else if (isScalar(v)) rows.push(row(label, fmtScalar(v), { mono: MONO_KEYS.has(key) }));
