@@ -216,7 +216,14 @@ export function classify(finding) {
     if (o.disk) words.disk = o.disk;
     if (o.means) words.means = o.means;
   }
-  return { verdict, kind, win, sip: extra.includes('sip'), subject: subjectOf(f), maker: makerOf(f), ...words };
+  const maker = makerOf(f);
+  // Unsigned but naming a maker (from its own files): say so, rather than "nothing says who made it" next to a name.
+  if (verdict === 'unsigned' && maker && maker.name) {
+    words.makerText = kind === 'driver'
+      ? t('No signature. The driver names its maker itself, but nothing checks that.', 'No seal. It names its maker itself, but nothing checks that.')
+      : t('No signature. The app names its maker itself, but nothing checks that.', 'No seal. It names its maker itself, but nothing checks that.');
+  }
+  return { verdict, kind, win, sip: extra.includes('sip'), subject: subjectOf(f), search: searchName(f), maker, ...words };
 }
 
 // ---- decisions --------------------------------------------------------------
@@ -354,12 +361,33 @@ function closer(v, ctx) {
   return { id: 'closer', label: D.closer, effect: { kind: 'closer', checklist: say(list, ctx).slice() } };
 }
 
-function lookupFor(v) {
-  if (v.maker && v.maker.verified) return { kind: 'lookup', source: 'maker-site', query: v.maker.name };
-  return { kind: 'lookup', source: 'web', query: v.subject };
+// What to search for: the item's own name (one app, driver or certificate), never the finding's title sentence.
+function searchName(f) {
+  const d = isObj(f && f.data) ? f.data : {};
+  if (d.name) return str(d.name);
+  const many = names(d.certs).length ? names(d.certs) : names(d.certificates).length ? names(d.certificates)
+    : names(d.drivers).length ? names(d.drivers) : names(d.apps);
+  if (many.length) return many[0];
+  return str(d.path).split(/[\\/]/).filter(Boolean).pop() || '';
 }
 
+function lookupFor(v) {
+  if (v.maker && v.maker.verified) return { kind: 'lookup', source: 'maker-site', query: v.maker.name };
+  return v.search ? { kind: 'lookup', source: 'web', query: v.search } : null;
+}
+
+// The first decision is the default: a move that leaves the item as it is ("Mine", "Leave it", "Looks normal")
+// never leads on a critical or warning item; Look closer does.
+const wavesThrough = (d) => !!(d && d.effect && (d.effect.kind === 'keep' || d.effect.kind === 'mark'));
 export function decisions(item, ctx) {
+  const list = baseDecisions(item, ctx);
+  const sev = (item && item.severity) || ((item && item.finding) || {}).severity;
+  if (!(sev === 'critical' || sev === 'warning') || !wavesThrough(list[0])) return list;
+  const look = list.find((d) => d.id === 'closer');
+  return look ? [look, ...list.filter((d) => d !== look)] : list;
+}
+
+function baseDecisions(item, ctx) {
   const f = (item && item.finding) || {};
   const v = classify(f);
   const alert = alerting(item || {}, v);
@@ -369,7 +397,7 @@ export function decisions(item, ctx) {
   if (v.kind === 'app') {
     const reinstall = {
       id: 'reinstall', label: D.reinstall,
-      effect: { kind: 'link', link: lookupFor(v), steps: v.win ? STEPS.winApp : STEPS.macApp, removal: alert, warning: alert },
+      effect: { kind: 'link', link: lookupFor(v) || { kind: 'lookup', source: v.win ? 'microsoft-support' : 'apple-support', query: 'reinstall an app' }, steps: v.win ? STEPS.winApp : STEPS.macApp, removal: alert, warning: alert },
     };
     return alert ? [look, mine, reinstall] : [reinstall, mine, look];
   }
@@ -430,15 +458,15 @@ export function research(item, ctx) {
   const notDone = unfinished(item);
   const links = [];
   if (v.kind === 'app') {
-    links.push(lookupFor(v));
+    if (lookupFor(v)) links.push(lookupFor(v));
     if (v.win) links.push({ kind: 'settings', pane: 'windows-apps' });
     if (v.win && v.verdict === 'tampered') links.push({ kind: 'settings', pane: 'windows-security' });
   } else if (v.kind === 'driver') {
     links.push({ kind: 'settings', pane: 'windows-update' });
-    if (v.subject) links.push({ kind: 'lookup', source: 'web', query: v.subject });
+    if (v.search) links.push({ kind: 'lookup', source: 'web', query: v.search });
   } else if (v.kind === 'cert') {
     links.push({ kind: 'lookup', source: 'apple-support', query: 'Keychain Access certificates' });
-    if (v.subject) links.push({ kind: 'lookup', source: 'web', query: v.subject });
+    if (v.search) links.push({ kind: 'lookup', source: 'web', query: v.search });
   } else if (v.kind === 'checker') {
     links.push({ kind: 'lookup', source: 'apple-support', query: v.sip ? 'System Integrity Protection' : 'Gatekeeper' });
   }
@@ -455,6 +483,7 @@ const HEAD = {
   kicker: t('App seal', 'Seal Check'),
   unfinished: t('This check didn’t finish, so it may have missed things.', 'This check didn’t finish, so it may have missed things.'),
   signer: t('Says it’s from', 'Seal says'),
+  names: t('Names itself as from', 'Calls itself'),
   verified: t('verified', 'checked'),
   notVerified: t('not verified', 'not checked'),
 };
@@ -469,7 +498,7 @@ export function render(view, ctx) {
   const index = num(view && view.index) || 0;
   const total = num(view && view.total) || 1;
   const signer = v.maker
-    ? `<p class="seal-signer">${e(say(HEAD.signer, ctx))}: <b>${e(v.maker.name)}</b> · ${e(say(v.maker.verified ? HEAD.verified : HEAD.notVerified, ctx))}</p>`
+    ? `<p class="seal-signer">${e(say(v.verdict === 'unsigned' ? HEAD.names : HEAD.signer, ctx))}: <b>${e(v.maker.name)}</b> · ${e(say(v.maker.verified ? HEAD.verified : HEAD.notVerified, ctx))}</p>`
     : '';
   const where = d.path ? `<p class="seal-path seal-mono">${e(d.path)}</p>` : '';
   const mismatch = ['tampered', 'unknown-maker', 'unsigned', 'checker-off'].includes(v.verdict);
@@ -562,15 +591,24 @@ const PRACTICE_ITEMS = [
   }),
 ];
 
+// Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+// an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
 const PRACTICE_SCRIPT = [
   { item: 0, say: t('Two sides: what the maker signed, and what’s on disk. When they don’t match, that’s your clue.',
     'Two sides: the maker’s seal, and what’s here now. When they don’t match, that’s your clue.') },
-  { item: 0, say: t('This game is signed the old way. Today’s macOS can’t check that kind, so a fresh copy from the maker is the easy fix.',
-    'This game has an old seal the checker can’t read. A fresh copy from the maker sorts it out.'), expect: 'reinstall' },
-  { item: 1, say: t('Changed after signing: updates are always signed again, so this has no normal reason. Don’t replace it yet. Look closer first.',
-    'Broken seal: real updates always get a new seal. Don’t swap it yet. Look closer first.'), expect: 'closer' },
-  { item: 2, say: t('No signature, but this is a test build you made yourself. Your own builds are often unsigned.',
-    'No seal, but this is gear you built yourself. Home-built gear often has no seal.'), expect: 'mine' },
+  { item: 0, expect: ['reinstall', 'closer'],
+    say: t('Read both sides of this game’s seal. What would you do?', 'Read both sides of this game’s seal. What would you do?'),
+    why: t('It’s signed the old way, and today’s macOS can’t check that kind. A fresh copy from the maker comes with a current signature.',
+      'It has an old seal the checker can’t read. A fresh copy from the maker comes with a fresh seal.') },
+  { item: 1, expect: 'closer',
+    say: t('Read both sides again. What would you do?', 'Read both sides again. What would you do?'),
+    why: t('Changed after signing: updates from the maker are always signed again, so there’s no normal reason for this. Don’t replace it yet: look closer first.',
+      'Broken seal: real updates always come with a new seal, so there’s no good reason for this. Don’t swap it yet: look closer first.') },
+  { item: 2, expect: ['mine', 'closer'],
+    say: t('No signature at all. In this practice, MyTestBuild is a test build you made yourself. What would you do?',
+      'No seal at all. In this drill, MyTestBuild is gear you built yourself. What would you do?'),
+    why: t('Your own builds are often unsigned. You know what it is and why it’s there, so it’s yours.',
+      'Home-built gear often has no seal. You know what it is and why it’s there, so it’s yours.') },
 ];
 
 export default {

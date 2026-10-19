@@ -5,6 +5,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const MISSIONS = path.join(__dirname, '..', 'renderer', 'missions');
 const FIXTURE = path.join(__dirname, 'fixtures', 'missions', 'switchboard-items.json');
@@ -19,6 +21,14 @@ async function load() {
 
 const ctxFor = (C, f, extra = {}) => C.testContext({ platform: f.platform || 'darwin', ...extra });
 const ids = (ds) => ds.map((d) => d.id);
+const byId = (ds, id) => ds.find((d) => d.id === id);
+// The default order: Expected first only on a note; on a critical or warning line (or one that can alert someone)
+// Look closer leads, or "close it" for a website name sent to a real address. Expected goes last.
+const orderFor = (f, mod) => {
+  const wary = f.severity === 'critical' || f.severity === 'warning' || !!f.removal_alert;
+  if (!wary) return ['expected', 'odd', 'closer'];
+  return mod.lineKind(f) === 'hosts' && mod.redirectsElsewhere(f) ? ['odd', 'closer', 'expected'] : ['closer', 'odd', 'expected'];
+};
 
 test('passes every contract check on fixture and practice items', async () => {
   const { C, game, items } = await load();
@@ -49,20 +59,22 @@ test('each fixture finding is traced as its kind, with at least one line', async
 });
 
 test('Expected marks only when markable; Odd fixes, opens the right pane, or gives steps', async () => {
-  const { C, game, fixtures, items } = await load();
+  const { C, mod, game, fixtures, items } = await load();
   fixtures.forEach((f, i) => {
     const d = game.decisions(items[i], ctxFor(C, f));
     assert.strictEqual(d.length, 3, f.code);
-    assert.deepStrictEqual(ids(d), ['expected', 'odd', 'closer'], f.code);
-    assert.strictEqual(d[0].effect.kind, f.expect.expected, `${f.code} expected`);
-    assert.strictEqual(d[1].effect.kind, f.expect.odd, `${f.code} odd`);
-    if (f.expect.pane) assert.strictEqual(d[1].effect.pane, f.expect.pane, `${f.code} pane`);
-    if (d[1].effect.kind === 'odd') assert.ok(Array.isArray(d[1].effect.steps) && d[1].effect.steps.length, `${f.code} steps`);
-    assert.strictEqual(d[2].effect.kind, 'closer');
-    assert.ok(d[2].effect.checklist.length >= 2, `${f.code} checklist`);
+    assert.deepStrictEqual(ids(d), orderFor(items[i].finding, mod), f.code);
+    const expected = byId(d, 'expected'); const odd = byId(d, 'odd'); const closer = byId(d, 'closer');
+    assert.strictEqual(expected.effect.kind, f.expect.expected, `${f.code} expected`);
+    assert.strictEqual(odd.effect.kind, f.expect.odd, `${f.code} odd`);
+    if (f.expect.pane) assert.strictEqual(odd.effect.pane, f.expect.pane, `${f.code} pane`);
+    if (odd.effect.kind === 'odd') assert.ok(Array.isArray(odd.effect.steps) && odd.effect.steps.length, `${f.code} steps`);
+    assert.strictEqual(closer.effect.kind, 'closer');
+    assert.ok(closer.effect.checklist.length >= 2, `${f.code} checklist`);
     assert.notStrictEqual(d[0].effect.kind, 'fix');
+    assert.ok(!['keep', 'mark'].includes(d[0].effect.kind) || f.severity === 'info', `${f.code}: Expected leads a ${f.severity} line`);
     // R6: the change on an alerting item carries the removal warning; others don't.
-    assert.strictEqual(!!d[1].effect.warning, !!f.removal_alert, `${f.code} warning`);
+    assert.strictEqual(!!odd.effect.warning, !!f.removal_alert, `${f.code} warning`);
   });
 });
 
@@ -81,9 +93,10 @@ test('a marked-but-changed item can be marked again; a bad markable block is kep
   const { C, game } = await load();
   const good = { kind: 'network_proxy', id: '1a2b3c4d5e6f', code: 'security.network_proxy.proxy_enabled', group: '6f5e4d3c2b1a' };
   const f = { module: 'network_proxy', code: 'security.network_proxy.proxy_enabled', data: { http_server: 'proxy.example:8080' } };
-  assert.strictEqual(game.decisions(C.makeItem({ ...f, markable: good }), C.testContext())[0].effect.kind, 'mark');
-  assert.strictEqual(game.decisions(C.makeItem({ ...f, markable: { ...good, id: 'not-an-id' } }), C.testContext())[0].effect.kind, 'keep');
-  assert.strictEqual(game.decisions(C.makeItem({ ...f, markable: { ...good, kind: 'background_task' } }), C.testContext())[0].effect.kind, 'keep');
+  const exp = (mk) => byId(game.decisions(C.makeItem({ ...f, markable: mk }), C.testContext()), 'expected').effect.kind;
+  assert.strictEqual(exp(good), 'mark');
+  assert.strictEqual(exp({ ...good, id: 'not-an-id' }), 'keep');
+  assert.strictEqual(exp({ ...good, kind: 'background_task' }), 'keep');
 });
 
 test('covers: the spec modules and their Windows equivalents; never a firewall on/off code', async () => {
@@ -127,14 +140,15 @@ test('DNS filtering profile asks whose profile it is; city mode drops the findin
   for (const mode of ['standard', 'city']) {
     const ctx = C.testContext({ mode });
     const d = game.decisions(item, ctx);
-    assert.strictEqual(d[0].effect.kind, 'mark');
+    assert.strictEqual(byId(d, 'expected').effect.kind, 'mark');
+    assert.strictEqual(d[0].id, 'closer', 'whose profile is it: Look closer leads, never the mark');
     const html = game.render({ item, research: game.research(item, ctx), decisions: d, index: 0, total: 1 }, ctx);
     assert.match(html, /sb-ask/);
     assert.match(html, /ExampleDNS/);
     assert.match(html, /192\.0\.2\.53/);
     if (mode === 'standard') {
       assert.match(html, /Whose profile is this\?/);
-      assert.strictEqual(d[0].label.standard, 'It’s my profile');
+      assert.strictEqual(byId(d, 'expected').label.standard, 'It’s my profile');
     } else {
       assert.deepStrictEqual(C.checkCityWords(html), []);
       assert.doesNotMatch(html, /advocate|hotline|monitor/i);
@@ -271,9 +285,9 @@ test('practice: a printer port, an unknown listener and a hosts redirect, with a
     assert.ok(step.item >= 0 && step.item < p.items.length);
     assert.ok(step.say.standard && step.say.city);
     assert.deepStrictEqual(C.checkCityWords(step.say.city), []);
-    if (step.expect) assert.ok(ids(game.decisions(p.items[step.item], ctx)).includes(step.expect), step.expect);
+    if (step.expect) assert.ok(ids(game.decisions(p.items[step.item], ctx)).includes(first(step.expect)), step.expect);
   }
-  const expects = p.script.filter((s) => s.expect).map((s) => [s.item, s.expect]);
+  const expects = p.script.filter((s) => s.expect).map((s) => [s.item, first(s.expect)]);
   assert.deepStrictEqual(expects, [[0, 'expected'], [1, 'closer'], [2, 'odd']]);
   // Synthetic only.
   const text = JSON.stringify(p.items);
@@ -311,4 +325,32 @@ test('the stylesheet exists and styles the line diagram', () => {
   const css = fs.readFileSync(path.join(MISSIONS, 'games', 'switchboard.css'), 'utf8');
   for (const sel of ['.sb-card', '.sb-line', '.sb-node', '.sb-wire', '.sb-odd', '.sb-ask', '.sb-step']) assert.ok(css.includes(sel), sel);
   assert.match(css, /@media/);
+});
+
+test('a mining hosts-file line (browser_cryptojacking_check) is traced as a hosts line and leads with "close it"', async () => {
+  const { C, mod, game } = await load();
+  const loadout = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'missions', 'loadout-findings.json'), 'utf8'));
+  const found = [...loadout.darwin, ...loadout.win32].filter((f) => f.data && f.data.check === 'mining_hosts_entry');
+  assert.strictEqual(found.length, 2);
+  assert.ok(game.covers.some((c) => c.module === 'browser_cryptojacking_check' && c.checks.includes('mining_hosts_entry')));
+  for (const f of found) {
+    const item = C.makeItem(f);
+    const platform = /^C:/.test(f.data.path) ? 'win32' : 'darwin';
+    for (const mode of ['standard', 'city']) {
+      const ctx = C.testContext({ mode, platform });
+      assert.strictEqual(mod.lineKind(item.finding), 'hosts');
+      const t = mod.linesOf(item.finding, ctx);
+      assert.strictEqual(t.lines.length, 1);
+      assert.strictEqual(t.lines[0].via, 'pool.example-mine.test');
+      assert.strictEqual(t.lines[0].to, f.data.address);
+      assert.ok(t.lines[0].odd);
+      const d = game.decisions(item, ctx);
+      assert.deepStrictEqual(ids(d), ['odd', 'closer', 'expected']);
+      if (mode === 'standard') assert.ok(byId(d, 'odd').effect.steps.join('\n').includes(platform === 'win32' ? 'Notepad' : '/etc/hosts'));
+      const html = game.render({ item, research: game.research(item, ctx), decisions: d, index: 0, total: 1 }, ctx);
+      assert.match(html, /pool\.example-mine\.test/);
+      assert.deepStrictEqual(C.checkInert(html), []);
+      if (mode === 'city') { assert.deepStrictEqual(C.checkCityWords(html), []); assert.doesNotMatch(html, /mining server/); }
+    }
+  }
 });

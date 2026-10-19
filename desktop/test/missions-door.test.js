@@ -5,6 +5,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const ROOT = path.join(__dirname, '..', '..');
 const imp = (...p) => import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', ...p)).href);
@@ -88,10 +90,12 @@ test('names and paths come from the fields the modules write', async () => {
   assert.strictEqual(D.homeRelative('/private/tmp/a'), '/tmp/a');
 });
 
-test('decisions: Mine / Look closer / Not mine, Look closer first on a warning item', async () => {
+test('decisions: Mine / Look closer / Not mine on a note; Look closer first on a warning or critical item', async () => {
   const { default: game } = await door();
   const ctx = (await contract()).testContext();
-  const vpn = await byModule('launchd_persistence_audit');
+  const vpnWarning = await byModule('launchd_persistence_audit');
+  assert.deepStrictEqual(ids(game.decisions(vpnWarning, ctx)), ['closer', 'mine', 'not-mine'], 'a warning never leads with Mine');
+  const vpn = { ...vpnWarning, severity: 'info', finding: { ...vpnWarning.finding, severity: 'info' } };
   assert.deepStrictEqual(ids(game.decisions(vpn, ctx)), ['mine', 'closer', 'not-mine']);
   assert.deepStrictEqual(game.decisions(vpn, ctx).map((d) => d.label.standard), ['Mine', 'Look closer', 'Not mine']);
   assert.strictEqual(game.decisions(vpn, ctx)[0].effect.kind, 'mark', 'markable → mark');
@@ -113,7 +117,7 @@ test('decisions: Mine is keep when nothing can be marked; Not mine routes to the
   const { default: game } = await door();
   const ctx = (await contract()).testContext();
   const nm = async (mod) => game.decisions(await byModule(mod), ctx).find((x) => x.id === 'not-mine').effect;
-  assert.strictEqual(game.decisions(await byModule('login_items'), ctx)[0].effect.kind, 'keep');
+  assert.strictEqual(game.decisions(await byModule('login_items'), ctx).find((x) => x.id === 'mine').effect.kind, 'keep');
   assert.deepStrictEqual(await nm('login_items'), { kind: 'settings', pane: 'login-items' });
   assert.deepStrictEqual(await nm('kext_audit'), { kind: 'settings', pane: 'login-items' });
   assert.deepStrictEqual(await nm('win_startup'), { kind: 'settings', pane: 'startup-apps' });
@@ -248,11 +252,11 @@ test('practice: a verified Apple agent, an unsigned agent in ~/.hidden, a develo
   assert.match(dev.finding.setup, /you installed/);
   for (const s of game.practice.script) {
     assert.ok(game.practice.items[s.item], 'step points at a practice item');
-    if (s.expect) assert.ok(ids(game.decisions(game.practice.items[s.item], ctx)).includes(s.expect), `${s.expect} is a decision`);
+    if (s.expect) assert.ok(ids(game.decisions(game.practice.items[s.item], ctx)).includes(first(s.expect)), `${first(s.expect)} is a decision`);
     assert.deepStrictEqual(C.checkCityWords(s.say.city), []);
   }
-  const expects = game.practice.script.filter((s) => s.expect).map((s) => [s.item, s.expect]);
-  assert.deepStrictEqual(expects, [[0, 'mine'], [1, 'not-mine'], [2, 'mine']]);
+  const expects = game.practice.script.filter((s) => s.expect).map((s) => [s.item, first(s.expect)]);
+  assert.deepStrictEqual(expects, [[0, 'mine'], [1, 'closer'], [2, 'mine']]);
   // The hidden practice agent carries the removal warning, so its default is Look closer.
   assert.strictEqual(game.decisions(hidden, ctx)[0].id, 'closer');
 });

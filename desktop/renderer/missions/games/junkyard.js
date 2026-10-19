@@ -5,6 +5,7 @@
 //   crash items    Keep / Update it / Later   Update = a maker look-up intent (nothing to clear)
 //   setting items  Keep / Change it / Later   Change = the settings pane and steps
 //   hog items      Keep / Quit it | Remove it / Later
+// (that order on a note; on a critical or warning item Keep goes last, see decisions()).
 // The summary adds up the space the Clear choices would free (an estimate from the scan).
 //
 // Pure module: no DOM, no storage, no globals. Everything shown goes through ctx.esc.
@@ -77,13 +78,15 @@ const isTotal = (item) => TOTAL_TYPES.has(subtype(dataOf(findingOf(item))));
 
 // ---------------------------------------------------------------- what each pile is
 
-const SAFE = 'safe'; const CHECK = 'check'; const LOOK = 'look'; const TOOL = 'tool'; const FULL = 'full';
+const SAFE = 'safe'; const CHECK = 'check'; const LOOK = 'look'; const TOOL = 'tool'; const FULL = 'full'; const SUM = 'sum';
 
 const VERDICTS = {
   [SAFE]: { standard: 'Safe to clear. Apps rebuild it when they need it.', city: 'Scrap. It grows back on its own.' },
   [CHECK]: { standard: 'Look inside first. Once it is emptied, it is gone.', city: 'Check the pile first. Once hauled, it is gone.' },
   [LOOK]: { standard: 'Yours to judge. These are your files, so look before clearing.', city: 'Your stuff. Look it over before hauling.' },
   [TOOL]: { standard: 'Let Windows clear this with its own tool. Never delete it by hand.', city: 'Only the yard crane moves this pile.' },
+  // A total of other piles: it isn't one pile to clear, and those piles hold your own files too.
+  [SUM]: { standard: 'A total of the other piles. Decide each pile on its own card before you clear any of it.', city: 'A tally of the other piles. Sort each pile on its own before hauling any of it.' },
   [FULL]: { standard: 'The drive is nearly full. Clearing other piles makes room.', city: 'The yard is nearly full. Hauling other piles makes room.' },
 };
 
@@ -120,7 +123,7 @@ const WIN_SYSTEM_STEPS = [
 
 // type -> { what: {standard, city}, verdict, steps, pane? }   (the {app}/{browser} slot is filled from data)
 const SPACE = {
-  total_reclaimable: { what: { standard: 'you could free across your computer', city: 'of scrap across the yard' }, verdict: LOOK,
+  total_reclaimable: { what: { standard: 'in old downloads, caches, the Trash and old installers', city: 'in old deliveries, scrap, the haul-out bin and old crates' }, verdict: SUM,
     darwin: { pane: 'storage', steps: ['Open Storage settings (button above).', 'Go through the Recommendations and the list of categories.', 'Look at each one before you remove anything.'] },
     win32: { pane: 'windows-storage', steps: WIN_TEMP_STEPS } },
   // temp_file_scanner's own total of its piles (caches, logs, temps, Xcode, Homebrew).
@@ -330,12 +333,21 @@ const fixable = (item) => isObj(findingOf(item).fixable);
 const alerting = (item) => !!(item && (item.removal_alert || findingOf(item).removal_alert
   || (isObj(findingOf(item).remediation) && findingOf(item).remediation.safety_note)));
 
-// Keep stays first (the safe default); on an item with a removal warning every acting effect
-// carries warning: true, so the runner shows the warning before it acts (ruling R6).
+// The first decision is the default. Keep leads only on a note (info). On a critical or warning item the safe
+// move leads instead: Update it / Change it (a look-up or a settings page), Clear it for a pile that rebuilds on
+// its own, else Later; Keep comes last. On an item with a removal warning every acting effect carries
+// warning: true, so the runner shows the warning before it acts (ruling R6), and nothing removing leads.
 function decisions(item, ctx) {
-  const list = baseDecisions(item, ctx);
-  if (!alerting(item)) return list;
-  return list.map((d) => (['keep', 'later'].includes(d.effect.kind) ? d : { ...d, effect: { ...d.effect, warning: true } }));
+  const base = baseDecisions(item, ctx);
+  const alert = alerting(item);
+  const list = alert ? base.map((d) => (['keep', 'later'].includes(d.effect.kind) ? d : { ...d, effect: { ...d.effect, warning: true } })) : base;
+  const sev = (item && item.severity) || findingOf(item).severity;
+  if (!(sev === 'critical' || sev === 'warning' || alert)) return list;
+  const [keep, act, later] = list;
+  const kind = kindOf(item);
+  const safeAct = !alert && act.effect.kind !== 'fix'
+    && (kind === 'crash' || kind === 'setting' || (kind === 'space' && (spaceInfo(item) || {}).verdict === SAFE));
+  return safeAct ? [act, later, keep] : [later, act, keep];
 }
 
 function baseDecisions(item, ctx) {
@@ -479,7 +491,8 @@ function render(view, ctx) {
     `<p class="jy-tag">${esc(pick(mode, TAG[kind] || TAG.other))}</p>`,
     `<h3 class="jy-head${at('size')}">${h.size ? `<span class="jy-size">${esc(h.size)}</span> ` : ''}<span class="jy-rest">${esc(h.rest)}</span></h3>`,
   ];
-  if (h.rest !== str(f.title) && str(f.title)) parts.push(`<p class="jy-title">${esc(f.title)}</p>`);
+  // The engine's title, unless it only restates the size ("Your Mac has 12.0 GB of unused space" reads as free space).
+  if (h.rest !== str(f.title) && str(f.title) && !(h.size && str(f.title).includes(h.size))) parts.push(`<p class="jy-title">${esc(f.title)}</p>`);
   if (r.what) parts.push(`<p class="jy-what${verdict ? ` jy-verdict jy-verdict--${esc(verdict)}` : ''}${at('verdict')}${at('what')}">${esc(r.what)}</p>`);
   if (r.unfinished) parts.push(`<p class="jy-unfinished">${esc(pick(mode, UNFINISHED))}</p>`);
   if (v.step && v.step.say) parts.push(`<p class="jy-say">${esc(pick(mode, v.step.say))}</p>`);
@@ -566,11 +579,19 @@ const PRACTICE_ITEMS = [
   }),
 ];
 
+// Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+// an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
 const PRACTICE_SCRIPT = [
-  { item: 0, look: 'size', say: L('Start with the size. This pile is 2.4 GB of browser cache.', 'Start with the size. This pile is 2.4 GB of browser scrap.') },
-  { item: 0, look: 'verdict', say: L('A cache is copies a browser keeps to load pages faster. It rebuilds them, so this is safe to clear.', 'Browser scrap grows back on its own, so it is safe to haul off.'), expect: 'clear' },
-  { item: 1, look: 'top', say: L('Big is not the same as junk. This is a film you made: keep it, or copy it to a backup before clearing.', 'Big is not the same as scrap. This is a film you made: keep it, or copy it somewhere safe first.'), expect: 'keep' },
-  { item: 2, look: 'what', say: L('This app keeps crashing. There is nothing here to clear away, so choose Update it to look up the maker\'s fix.', 'This machine keeps breaking down. There is no scrap to haul, so choose Patch it to look up a new part.'), expect: 'update' },
+  { item: 0, look: 'size', say: L('Start with the size, then read what the pile is.', 'Start with the size, then read what the pile is.') },
+  { item: 0, look: 'verdict', expect: ['clear', 'later'],
+    say: L('A pile of browser cache. Read what it is. What would you do?', 'A pile of browser scrap. Read what it is. What would you do?'),
+    why: L('A cache is copies a browser keeps to load pages faster. It rebuilds them, so it is safe to clear.', 'Browser scrap grows back on its own, so it is safe to haul off.') },
+  { item: 1, look: 'top', expect: ['keep', 'later'],
+    say: L('A big pile. Read the biggest file in it. What would you do?', 'A big pile. Read the biggest piece in it. What would you do?'),
+    why: L('Big is not the same as junk. This is a film you made: keep it, or copy it to a backup before clearing.', 'Big is not the same as scrap. This is a film you made: keep it, or copy it somewhere safe first.') },
+  { item: 2, look: 'what', expect: 'update',
+    say: L('This app keeps crashing. What would you do?', 'This machine keeps breaking down. What would you do?'),
+    why: L('There is nothing here to clear away. Update it looks up the maker\'s fix.', 'There is no scrap to haul. Patch it looks up a new part from its maker.') },
 ];
 
 export default {

@@ -6,6 +6,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const root = path.join(__dirname, '..', 'renderer', 'missions');
 const loadGame = () => import(pathToFileURL(path.join(root, 'games', 'junkyard.js')).href);
@@ -20,6 +22,7 @@ async function setup() {
 }
 
 const ids = (d) => d.map((x) => x.id);
+const pickId = (d, id) => d.find((x) => x.id === id);
 
 test('passes every contract check for Mac and Windows fixtures and its practice items', async () => {
   const { C, game, items } = await setup();
@@ -55,11 +58,17 @@ test('covers the storage, crash, energy and clutter checks on Mac and Windows', 
   for (const m of mods) assert.ok(all.has(m), `engine module ${m} exists`);
 });
 
-test('space items: Keep first, Clear in the middle, Later last', async () => {
+test('space items: on a note Keep leads; on a warning the safe move leads and Keep goes last', async () => {
   const { C, game, items, byTitle } = await setup();
   const ctx = C.testContext();
-  const cache = byTitle(items('junkyard-mac.json'), /4\.2 GB of caches/);
-  const d = game.decisions(cache, ctx);
+  const m = items('junkyard-mac.json');
+  const cache = byTitle(m, /4\.2 GB of caches/);
+  // A cache rebuilds itself: Clear it leads on a warning.
+  assert.deepStrictEqual(ids(game.decisions(cache, ctx)), ['clear', 'later', 'keep']);
+  // Your own files (old downloads, the big total): Later leads, never Keep and never a clear.
+  assert.deepStrictEqual(ids(game.decisions(byTitle(m, /12\.0 GB/), ctx)), ['later', 'clear', 'keep']);
+  const note = { ...cache, severity: 'info', finding: { ...cache.finding, severity: 'info' } };
+  const d = game.decisions(note, ctx);
   assert.deepStrictEqual(ids(d), ['keep', 'clear', 'later']);
   assert.strictEqual(d[0].effect.kind, 'keep');
   assert.strictEqual(d[2].effect.kind, 'later');
@@ -69,32 +78,32 @@ test('Clear uses the fix flow only when the engine offers a fix', async () => {
   const { C, game, items, byTitle } = await setup();
   const ctx = C.testContext();
   const trash = byTitle(items('junkyard-mac.json'), /Trash/);
-  assert.notStrictEqual(game.decisions(trash, ctx)[1].effect.kind, 'fix');
+  assert.notStrictEqual(pickId(game.decisions(trash, ctx), 'clear').effect.kind, 'fix');
   const offered = { ...trash, finding: { ...trash.finding, fixable: { will_change: 'Empties the Trash.', how_to_undo: ['Nothing to undo.'] } } };
-  assert.strictEqual(game.decisions(offered, ctx)[1].effect.kind, 'fix');
+  assert.strictEqual(pickId(game.decisions(offered, ctx), 'clear').effect.kind, 'fix');
 });
 
 test('without a fix, Clear gives real steps, and opens Storage settings where that is where it happens', async () => {
   const { C, game, items, byTitle } = await setup();
   const mac = C.testContext();
   const total = byTitle(items('junkyard-mac.json'), /12\.0 GB/);
-  const e1 = game.decisions(total, mac)[1].effect;
+  const e1 = pickId(game.decisions(total, mac), 'clear').effect;
   assert.strictEqual(e1.kind, 'settings');
   assert.strictEqual(e1.pane, 'storage');
   assert.ok(e1.steps.length >= 2);
   const safari = byTitle(items('junkyard-mac.json'), /Safari/);
-  const e2 = game.decisions(safari, mac)[1].effect;
+  const e2 = pickId(game.decisions(safari, mac), 'clear').effect;
   assert.strictEqual(e2.kind, 'closer');
   assert.ok(e2.steps.some((s) => /Empty Caches/.test(s)), 'Safari steps');
   const docker = byTitle(items('junkyard-mac.json'), /Docker/);
-  assert.ok(game.decisions(docker, mac)[1].effect.steps.some((s) => /docker system prune/.test(s)));
+  assert.ok(pickId(game.decisions(docker, mac), 'clear').effect.steps.some((s) => /docker system prune/.test(s)));
   const win = C.testContext({ platform: 'win32' });
   const temp = byTitle(items('junkyard-win.json'), /Temporary files/);
-  const e3 = game.decisions(temp, win)[1].effect;
+  const e3 = pickId(game.decisions(temp, win), 'clear').effect;
   assert.strictEqual(e3.kind, 'settings');
   assert.strictEqual(e3.pane, 'windows-storage');
   const winsxs = byTitle(items('junkyard-win.json'), /Component store/);
-  assert.ok(game.decisions(winsxs, win)[1].effect.steps.some((s) => /Disk Cleanup/.test(s)));
+  assert.ok(pickId(game.decisions(winsxs, win), 'clear').effect.steps.some((s) => /Disk Cleanup/.test(s)));
 });
 
 test('crash items get Update it: a maker look-up intent, not Clear', async () => {
@@ -103,16 +112,16 @@ test('crash items get Update it: a maker look-up intent, not Clear', async () =>
   const mac = items('junkyard-mac.json');
   const crash = byTitle(mac, /SampleNotes/);
   const d = game.decisions(crash, ctx);
-  assert.deepStrictEqual(ids(d), ['keep', 'update', 'later']);
-  assert.deepStrictEqual(d[1].effect, { kind: 'link', link: { kind: 'lookup', source: 'web', query: '"SampleNotes" update' } });
+  assert.deepStrictEqual(ids(d), ['update', 'later', 'keep'], 'a warning leads with the look-up, Keep last');
+  assert.deepStrictEqual(pickId(d, 'update').effect, { kind: 'link', link: { kind: 'lookup', source: 'web', query: '"SampleNotes" update' } });
   // A verified maker: look it up on the maker's site.
   const verified = byTitle(mac, /memory errors/);
-  assert.deepStrictEqual(game.decisions(verified, ctx)[1].effect.link, { kind: 'lookup', source: 'maker-site', query: 'SampleDraw', maker: 'Sample Studio Ltd' });
+  assert.deepStrictEqual(pickId(game.decisions(verified, ctx), 'update').effect.link, { kind: 'lookup', source: 'maker-site', query: 'SampleDraw', maker: 'Sample Studio Ltd' });
   // Parts of the system: Apple support.
-  assert.strictEqual(game.decisions(byTitle(mac, /System processes/), ctx)[1].effect.link.source, 'apple-support');
+  assert.strictEqual(pickId(game.decisions(byTitle(mac, /System processes/), ctx), 'update').effect.link.source, 'apple-support');
   // Windows blue screens: Microsoft support with the stop code.
   const bsod = byTitle(items('junkyard-win.json'), /crashed in the last 24 hours/);
-  assert.deepStrictEqual(game.decisions(bsod, C.testContext({ platform: 'win32' }))[1].effect.link, { kind: 'lookup', source: 'microsoft-support', query: 'stop code 0x0000SAMPLE' });
+  assert.deepStrictEqual(pickId(game.decisions(bsod, C.testContext({ platform: 'win32' })), 'update').effect.link, { kind: 'lookup', source: 'microsoft-support', query: 'stop code 0x0000SAMPLE' });
   // Research offers the update pane for the platform.
   assert.ok(game.research(crash, ctx).links.some((l) => l.kind === 'settings' && l.pane === 'software-update'));
   assert.ok(game.research(bsod, C.testContext({ platform: 'win32' })).links.some((l) => l.kind === 'settings' && l.pane === 'windows-update'));
@@ -125,18 +134,18 @@ test('settings and programs: Change it / Quit it / Remove it with the right pane
   const m = items('junkyard-mac.json');
   const w = items('junkyard-win.json');
   const sleep = game.decisions(byTitle(m, /never goes to sleep/), mac);
-  assert.deepStrictEqual(ids(sleep), ['keep', 'change', 'later']);
-  assert.strictEqual(sleep[1].effect.pane, 'battery');
-  assert.strictEqual(game.decisions(byTitle(m, /Display never/), mac)[1].effect.pane, 'lock-screen');
-  assert.ok(game.decisions(byTitle(w, /Power saver/), win)[1].effect.steps.some((s) => /Balanced/.test(s)));
-  assert.ok(game.decisions(byTitle(w, /Virtual memory/), win)[1].effect.steps.some((s) => /Automatically manage paging file/.test(s)));
-  assert.ok(game.decisions(byTitle(w, /Transparency/), win)[1].effect.steps.some((s) => /Transparency effects/.test(s)));
+  assert.deepStrictEqual(ids(sleep), ['change', 'later', 'keep']);
+  assert.strictEqual(pickId(sleep, 'change').effect.pane, 'battery');
+  assert.strictEqual(pickId(game.decisions(byTitle(m, /Display never/), mac), 'change').effect.pane, 'lock-screen');
+  assert.ok(pickId(game.decisions(byTitle(w, /Power saver/), win), 'change').effect.steps.some((s) => /Balanced/.test(s)));
+  assert.ok(pickId(game.decisions(byTitle(w, /Virtual memory/), win), 'change').effect.steps.some((s) => /Automatically manage paging file/.test(s)));
+  assert.ok(pickId(game.decisions(byTitle(w, /Transparency/), win), 'change').effect.steps.some((s) => /Transparency effects/.test(s)));
   const hog = game.decisions(byTitle(m, /SampleRender/), mac);
-  assert.deepStrictEqual(ids(hog), ['keep', 'quit', 'later']);
-  assert.ok(hog[1].effect.steps.some((s) => /Activity Monitor/.test(s)));
+  assert.deepStrictEqual(ids(hog), ['later', 'quit', 'keep']);
+  assert.ok(pickId(hog, 'quit').effect.steps.some((s) => /Activity Monitor/.test(s)));
   const bloat = game.decisions(byTitle(w, /SampleGames/), win);
-  assert.deepStrictEqual(ids(bloat), ['keep', 'remove', 'later']);
-  assert.strictEqual(bloat[1].effect.pane, 'windows-apps');
+  assert.deepStrictEqual(ids(bloat), ['later', 'remove', 'keep']);
+  assert.strictEqual(pickId(bloat, 'remove').effect.pane, 'windows-apps');
 });
 
 test('cards are size first, in both display modes', async () => {
@@ -197,14 +206,14 @@ test('the biggest file shows by name only, escaped', async () => {
   assert.deepStrictEqual(C.checkInert(html), []);
 });
 
-test('on an item with a removal warning, Keep stays first and acting effects carry warning: true (R6)', async () => {
+test('on an item with a removal warning, Later leads (never Keep, never an acting move) and acting effects carry warning: true (R6)', async () => {
   const { C, game, items, byTitle } = await setup();
   const ctx = C.testContext();
   const w = items('junkyard-win.json');
   for (const base of [byTitle(w, /SampleGames/), byTitle(w, /Temporary files/), byTitle(w, /crashed in the last/)]) {
     const item = { ...base, removal_alert: true };
     const d = game.decisions(item, ctx);
-    assert.strictEqual(d[0].id, 'keep');
+    assert.strictEqual(d[0].id, 'later');
     assert.deepStrictEqual(C.checkDecisions(d, item), []);
     for (const x of d) assert.strictEqual(x.effect.warning === true, !['keep', 'later'].includes(x.effect.kind), x.id);
   }
@@ -250,7 +259,7 @@ test('practice: a browser cache, a video you made, an app that keeps crashing', 
   assert.strictEqual(p.items.length, 3);
   assert.deepStrictEqual(p.items.map((i) => i.finding.module), ['browser_cache_cleanup', 'large_files_finder', 'app_crash_analyzer']);
   const ctx = C.testContext();
-  const expected = p.script.filter((s) => s.expect).map((s) => [s.item, s.expect]);
+  const expected = p.script.filter((s) => s.expect).map((s) => [s.item, first(s.expect)]);
   assert.deepStrictEqual(expected, [[0, 'clear'], [1, 'keep'], [2, 'update']]);
   for (const [i, want] of expected) assert.ok(ids(game.decisions(p.items[i], ctx)).includes(want), `item ${i} offers ${want}`);
   for (const s of p.script) {
@@ -288,4 +297,23 @@ test('the game module is pure: no DOM, storage, clipboard, network or globals', 
   for (const re of [/\bdocument\b/, /\bwindow\b/, /localStorage|sessionStorage|indexedDB/, /clipboard/, /\bfetch\(/, /XMLHttpRequest/, /globalThis/, /\bimport\s*\(/, /^import /m, /href=/]) {
     assert.doesNotMatch(src, re, String(re));
   }
+});
+
+test('the big total says what it adds up, not "unused space" over "these are your files" (P2-14)', async () => {
+  const { C, G, game, items, byTitle } = await setup();
+  const total = byTitle(items('junkyard-mac.json'), /12\.0 GB/);
+  for (const mode of ['standard', 'city']) {
+    const ctx = C.testContext({ mode });
+    const html = game.render({ item: total, research: game.research(total, ctx), decisions: [], index: 0, total: 1 }, ctx);
+    assert.doesNotMatch(html, /unused space|you could free|These are your files/);
+    if (mode === 'standard') {
+      assert.deepStrictEqual(G.headline(total, mode), { size: '12.0 GB', rest: 'in old downloads, caches, the Trash and old installers' });
+      assert.match(html, /A total of the other piles/);
+    } else assert.deepStrictEqual(C.checkCityWords(html), []);
+  }
+  // Clear on the total leads to Storage settings and is never the default.
+  assert.strictEqual(game.decisions(total, C.testContext())[0].id, 'later');
+  // A title that says something the headline doesn't still shows.
+  const sync = byTitle(items('junkyard-mac.json'), /SampleSync/);
+  assert.match(game.render({ item: sync, research: game.research(sync, C.testContext()), decisions: [], index: 0, total: 1 }, C.testContext()), /jy-title|SampleSync/);
 });

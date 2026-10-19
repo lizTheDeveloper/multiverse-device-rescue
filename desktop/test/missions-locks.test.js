@@ -5,6 +5,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const MISSIONS = path.join(__dirname, '..', 'renderer', 'missions');
 const loadContract = () => import(pathToFileURL(path.join(MISSIONS, 'contract.js')).href);
@@ -223,9 +225,9 @@ test('practice: updates off, FileVault off, screen lock never — synthetic, wit
   for (const step of game.practice.script) {
     assert.ok(step.item >= 0 && step.item < game.practice.items.length);
     assert.ok(step.say.standard && step.say.city);
-    if (step.expect) assert.ok(game.decisions(game.practice.items[step.item], C.testContext()).some((d) => d.id === step.expect));
+    if (step.expect) assert.ok(game.decisions(game.practice.items[step.item], C.testContext()).some((d) => d.id === first(step.expect)));
   }
-  assert.ok(game.practice.script.some((s) => /Never paste/.test(s.say.standard)));
+  assert.ok(game.practice.script.some((s) => /Never paste/.test(s.say.standard + (s.why ? s.why.standard : ''))));
   // The coach line shows when the runner passes a step.
   const ctx = C.testContext();
   const html = game.render({ item: game.practice.items[0], research: game.research(game.practice.items[0], ctx), decisions: [], index: 0, total: 3, practice: true, step: game.practice.script[0] }, ctx);
@@ -318,4 +320,18 @@ test('the state badge fits the lock: a missing key is Missing, automatic sign-in
   assert.strictEqual(badge(find(mac, 'time_machine_check')), 'Not checked');
   assert.strictEqual(game.decisions(find(mac, 'filevault_recovery'), ctx)[0].label.standard, 'Open FileVault');
   assert.strictEqual(game.decisions(find(mac, 'login_password_policy'), ctx)[0].label.standard, 'Turn it off');
+});
+
+test('summary: says how a lock pays when nothing has paid yet; no such line once points came', async () => {
+  const C = await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', 'contract.js')).href);
+  const game = (await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', 'games', 'locks.js')).href)).default;
+  const item = game.practice.items[0];
+  for (const mode of ['standard', 'city']) {
+    const ctx = C.testContext({ mode });
+    const none = game.summary([{ item, decision: 'later', points: 0 }], ctx);
+    assert.match(none, /No points yet/);
+    assert.doesNotMatch(game.summary([{ item, decision: 'done', points: 75 }], ctx), /No points yet/);
+    assert.doesNotMatch(game.summary([], ctx), /No points yet/);
+    if (mode === 'city') assert.deepStrictEqual(C.checkCityWords(none), []);
+  }
 });

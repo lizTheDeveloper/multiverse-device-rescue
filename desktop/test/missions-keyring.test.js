@@ -6,6 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const NotChecked = require('../renderer/not-checked.js');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const R = path.join(__dirname, '..', 'renderer', 'missions');
 const load = async () => ({
@@ -56,16 +58,20 @@ test('each finding maps to its keys and the exact privacy pane', async () => {
   assert.strictEqual(K.KEYS.automation.pane, 'privacy-automation');
 });
 
-test('Keep is first; Hand back opens that key’s pane; Windows uses its privacy page with the permission', async () => {
+test('Look closer leads on a warning key, Keep on a note; Hand back opens that key’s pane; Windows uses its privacy page with the permission', async () => {
   const { C, G } = await load();
   const items = itemsOf(fixture('keyring-scan.json'));
   const ctx = C.testContext();
   const combo = byCode(items, 'security.privacy_permissions_audit.camera_microphone_combo');
   const d = G.decisions(combo, ctx);
-  assert.strictEqual(d[0].id, 'keep');
+  assert.deepStrictEqual(d.map((x) => x.id), ['closer', 'keep', 'hand_back'], 'a warning never leads with Keep');
   const back = d.find((x) => x.id === 'hand_back');
   assert.deepStrictEqual([back.effect.kind, back.effect.pane], ['settings', 'privacy-camera']);
-  assert.ok(!d.some((x) => x.id === 'closer'), 'a confirmed maker needs no Look closer');
+  const nf = { ...combo.finding, severity: 'info', removal_alert: false };
+  const note = { ...combo, severity: 'info', removal_alert: false, finding: nf, findings: [nf], keys: (combo.keys || []).map((k) => ({ ...k, finding: nf })) };
+  const nd = G.decisions(note, ctx);
+  assert.strictEqual(nd[0].id, 'keep');
+  assert.ok(!nd.some((x) => x.id === 'closer'), 'a confirmed maker on a note needs no Look closer');
 
   const win = itemsOf(fixture('keyring-windows.json'))[0];
   const wd = G.decisions(win, C.testContext({ platform: 'win32' }));
@@ -77,9 +83,9 @@ test('a marked-as-yours-able list keeps through MarkFlow; others keep in mission
   const { C, G } = await load();
   const items = itemsOf(fixture('keyring-scan.json'));
   const acc = byCode(items, 'security.accessibility_permissions.suspicious_accessibility');
-  assert.strictEqual(G.decisions(acc, C.testContext())[0].effect.kind, 'mark');
+  assert.strictEqual(G.decisions(acc, C.testContext()).find((x) => x.id === 'keep').effect.kind, 'mark');
   const loc = byCode(items, 'security.location_services.location_desktop_find_my_only');
-  assert.strictEqual(G.decisions(loc, C.testContext())[0].effect.kind, 'keep');
+  assert.strictEqual(G.decisions(loc, C.testContext()).find((x) => x.id === 'keep').effect.kind, 'keep');
 });
 
 test('apps known only by a bundle id never read as confirmed, even when made_by says verified', async () => {
@@ -197,11 +203,11 @@ test('practice: a screen recorder (keep), a game with Accessibility (hand back),
   const { items, script } = G.practice;
   assert.strictEqual(items.length, 3);
   const ctx = C.testContext({ practice: true });
-  const expects = script.filter((s) => s.expect).map((s) => [s.item, s.expect]);
+  const expects = script.filter((s) => s.expect).map((s) => [s.item, first(s.expect)]);
   assert.deepStrictEqual(expects, [[0, 'keep'], [1, 'hand_back'], [2, 'closer']]);
   for (const s of script) {
     const ids = G.decisions(items[s.item], ctx).map((d) => d.id);
-    if (s.expect) assert.ok(ids.includes(s.expect), `${s.expect} in ${ids}`);
+    if (s.expect) assert.ok(ids.includes(first(s.expect)), `${first(s.expect)} in ${ids}`);
     assert.deepStrictEqual(C.checkCityWords(s.say.city), []);
   }
   // Synthetic only: no home folders.
@@ -261,9 +267,52 @@ test('per app (R4): the exploded item names only its app, with every key it hold
   const back = d.find((x) => x.id === 'hand_back').effect;
   assert.strictEqual(back.pane, 'privacy-camera');
   assert.ok(back.steps.some((x) => /Microphone/.test(x) && /com\.example\.alpha/.test(x)), back.steps.join(' | '));
-  assert.strictEqual(d[0].effect.kind, 'keep', 'marking the camera list would mark beta too');
-  assert.strictEqual(G.decisions(solo, ctx)[0].effect.kind, 'mark', 'a list of one app is marked through MarkFlow');
+  assert.strictEqual(d.find((x) => x.id === 'keep').effect.kind, 'keep', 'marking the camera list would mark beta too');
+  assert.strictEqual(G.decisions(solo, ctx).find((x) => x.id === 'keep').effect.kind, 'mark', 'a list of one app is marked through MarkFlow');
   const looks = G.research(alpha, ctx).links.filter((l) => l.kind === 'lookup').map((l) => l.query);
   assert.deepStrictEqual(looks, ['com.example.alpha']);
   assert.deepStrictEqual(C.runContractChecks(G, [alpha, beta, solo]), []);
+});
+
+test('per key (P2-9): an app holding several keys becomes one item per key, each handing back only its own key', async () => {
+  const { C, G, K: mod } = await load();
+  const app = '/Applications/Example Studio.app';
+  const made = [{ subject: app, name: 'Example Studio Ltd', verified: true, how: 'Developer ID signature', what: 'Example Studio: a made-up app.' }];
+  const fin = (code, service) => ({ module: 'privacy_permissions_audit', code: `security.privacy_permissions_audit.${code}`, title: `${code} list`, description: 'x',
+    severity: 'warning', category: 'security', data: { service, apps: [app] }, made_by: made });
+  const acc = fin('accessibility_access', 'kTCCServiceAccessibility');
+  const mic = fin('microphone_access', 'kTCCServiceMicrophone');
+  const scr = fin('screen_recording_access', 'kTCCServiceScreenCapture');
+  const item = { key: `app|gatehouse|${app}`, severity: 'warning', app: { subject: app, name: '' }, finding: acc, findings: [acc, mic, scr],
+    keys: [acc, mic, scr].map((f) => ({ permission: f.data.service, finding: f })), seen_in: ['privacy_permissions_audit'], sourceKeys: ['a', 'b', 'c'],
+    marked: false, held: false, removal_alert: false };
+  const split = mod.perKey([item]);
+  assert.deepStrictEqual(split.map((i) => i.keyId), ['accessibility', 'microphone', 'screen']);
+  assert.strictEqual(new Set(split.map((i) => i.key)).size, 3);
+  const panes = { accessibility: 'privacy-accessibility', microphone: 'privacy-microphone', screen: 'privacy-screen-recording' };
+  for (const it of split) {
+    assert.strictEqual(it.findings.length, 1);
+    const ctx = C.testContext();
+    const d = G.decisions(it, ctx);
+    const back = d.find((x) => x.id === 'hand_back').effect;
+    assert.strictEqual(back.pane, panes[it.keyId]);
+    assert.strictEqual(back.key, it.keyId);
+    assert.ok(!back.steps, 'no "also switch off" steps: the other keys are their own items');
+    assert.deepStrictEqual(C.runContractChecks(G, [it]), []);
+    for (const mode of ['standard', 'city']) {
+      const c = C.testContext({ mode });
+      const html = G.render({ item: it, research: G.research(it, c), decisions: G.decisions(it, c), index: 0, total: 3 }, c);
+      assert.match(html, /kr-also/);
+      assert.strictEqual((html.match(/class="kr-key-title"/g) || []).length, 1);
+    }
+  }
+  // One key: unchanged.
+  const one = { ...item, findings: [acc], keys: [{ permission: 'x', finding: acc }] };
+  assert.deepStrictEqual(mod.perKey([one]), [one]);
+  // A camera + microphone combo finding splits into two keys from the same finding.
+  const combo = fin('camera_microphone_combo', '');
+  delete combo.data.service;
+  const two = mod.perKey([{ ...item, finding: combo, findings: [combo], keys: [{ permission: 'x', finding: combo }] }]);
+  assert.deepStrictEqual(two.map((i) => i.keyId), ['camera', 'microphone']);
+  assert.ok(two.every((i) => i.findings[0] === combo));
 });

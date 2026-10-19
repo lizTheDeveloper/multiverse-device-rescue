@@ -37,7 +37,7 @@
 .jy-verdict { padding: 8px 12px; border-left: 3px solid var(--line, rgba(0, 229, 255, 0.15)); background: rgba(237, 239, 243, 0.04); }
 .jy-verdict--safe { border-left-color: var(--lime, #C6FF00); }
 .jy-verdict--check, .jy-verdict--full { border-left-color: var(--amber, #FF9F00); }
-.jy-verdict--look { border-left-color: var(--cyan, #00E5FF); }
+.jy-verdict--look, .jy-verdict--sum { border-left-color: var(--cyan, #00E5FF); }
 .jy-verdict--tool { border-left-color: var(--magenta, #FF2D9B); }
 .jy-unfinished { margin: 8px 0; font-size: 13px; color: var(--amber, #FF9F00); }
 .jy-say {

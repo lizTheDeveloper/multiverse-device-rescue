@@ -47,6 +47,26 @@ const dataOf = (f) => (f && f.data && typeof f.data === 'object' ? f.data : {});
 const str = (v) => (typeof v === 'string' ? v : '');
 const quiet = (f, mode) => mode === 'city' && MONITORING_MODULES.has(f && f.module);
 // City output never carries a non-game word, whatever the scan wrote.
+// A note's headline in plain words (audit P2-11): engine phrasing ("Found process with AI reference: /Users/…/x
+// --serve") becomes one short line ("A running program mentions AI: x"). The evidence rows keep the details.
+const baseName = (p) => String(p).split(/[\\/]/).filter(Boolean).pop() || String(p);
+const firstWord = (s) => String(s).trim().split(/\s+/)[0] || '';
+const PLAIN = [
+  [/^Found process with AI reference:\s*(.+)$/i, (m) => `A running program mentions AI: ${baseName(firstWord(m[1]))}`],
+  [/^LaunchAgent\/Daemon with AI reference:\s*(.+)$/i, (m) => `A background item mentions AI: ${baseName(m[1])}`],
+  [/^Found (?:an? )?excessive number of (.+)$/i, (m) => `A lot of ${m[1]}`],
+  [/^Found (.+)$/i, (m) => m[1].charAt(0).toUpperCase() + m[1].slice(1)],
+];
+export function plainTitle(title) {
+  let t = String(title == null ? '' : title).trim();
+  for (const [re, to] of PLAIN) { const m = re.exec(t); if (m) { t = to(m); break; } }
+  // "1 app(s)" -> "1 app", "3 app(s)" -> "3 apps".
+  t = t.replace(/\b(\d[\d,]*)(\s[^()\d]*?)\(s\)/g, (_, n, mid) => `${n}${mid}${n === '1' ? '' : 's'}`).replace(/\(s\)/g, 's');
+  // A full path in a headline: just its last part (the rows show where it is).
+  t = t.replace(/(?:~|\/(?:Users|home|private|var|opt|usr|Library|Applications|System|tmp)|[A-Za-z]:\\)[^\s,;)]*/g, (x) => baseName(x));
+  return t.length > 120 ? `${t.slice(0, 117).trimEnd()}…` : t;
+}
+
 const cityText = (s, mode) => (mode === 'city' && CITY_FORBIDDEN.test(String(s)) ? QUIET_LINE : String(s == null ? '' : s));
 // A clue line is one line: the scan's line breaks read as spaces, not as [U+000A].
 const oneLine = (s) => String(s == null ? '' : s).replace(/[ \t]*[\r\n]+[ \t]*/g, ' ');
@@ -116,12 +136,19 @@ export function paneFor(finding, platform) {
 
 function lookupName(f) {
   const d = dataOf(f);
-  for (const k of ['label', 'bundle_id', 'name', 'app']) {
+  for (const k of ['label', 'bundle_id', 'extension_id', 'name', 'app']) {
     const v = str(d[k]).trim();
     if (v && v.length <= 200) return v;
   }
-  const t = str(f.title).trim();
-  return t && t.length <= 200 ? t : '';
+  // One app named in a list: its name. Never the note's title (a sentence, not a name to search for).
+  const apps = Array.isArray(d.apps) ? d.apps : [];
+  if (apps.length === 1) {
+    const a = apps[0];
+    const v = (typeof a === 'string' ? a : a && typeof a === 'object' ? str(a.name) || str(a.bundle_id) || str(a.path) : '').trim();
+    const base = v.split(/[\\/]/).filter(Boolean).pop() || '';
+    if (base && base.length <= 200) return base.replace(/\.app$/i, '');
+  }
+  return '';
 }
 
 function whatOf(f) {
@@ -163,7 +190,7 @@ export function render(view, ctx = {}) {
   const hush = quiet(f, mode);
   const total = Number.isFinite(view && view.total) ? view.total : 1;
   const index = Number.isFinite(view && view.index) ? view.index : 0;
-  const title = hush ? QUIET_TITLE : cityText(str(f.title) || 'A note', mode);
+  const title = hush ? QUIET_TITLE : cityText(plainTitle(str(f.title)) || 'A note', mode);
   const clues = hush ? [] : cluesFor(asClueFinding(f));
   const tell = hush ? '' : tellOf(f);
   const r = (view && view.research) || {};
@@ -218,16 +245,24 @@ const PRACTICE_ITEMS = [
 
 export const practice = {
   items: PRACTICE_ITEMS,
+  // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. Several ids in
+  // `expect`: all of them fit (the first is the best).
   script: [
     { item: 0, expect: 'normal', say: {
-      standard: 'This one runs from a system folder, and its maker is Apple, verified. Housekeeping like this is normal. Try “Looks normal”.',
-      city: 'System folder, Apple’s seal, verified. That’s noise. Call it.' } },
+      standard: 'Read where it runs and who made it. Normal or odd?',
+      city: 'Read where it runs and whose seal it carries. Noise or signal?' }, why: {
+      standard: 'It runs from a system folder, and its maker is Apple, verified. Housekeeping like this is normal.',
+      city: 'System folder, Apple’s seal, verified. That’s noise.' } },
     { item: 1, expect: 'odd', say: {
-      standard: 'See where it runs? ~/.hidden is a hidden folder, and nobody has vouched for the maker. That’s odd. Try “Looks odd”: it becomes a mission of its own.',
-      city: 'Look where it runs: a hidden folder, and no seal. That’s a signal. Call it, and it becomes a mission.' } },
-    { item: 2, expect: 'normal', say: {
-      standard: 'One video-call app can use the camera. If you make video calls, that’s normal.',
-      city: 'One video-call app has the camera key. If you make calls, that’s noise.' } },
+      standard: 'Read where this one runs. Normal or odd?',
+      city: 'Read where this one runs. Noise or signal?' }, why: {
+      standard: '~/.hidden is a hidden folder, and nobody has vouched for the maker. That’s odd. Calling it odd makes it a mission of its own.',
+      city: 'A hidden folder, and no seal. That’s a signal. Calling it makes it a mission of its own.' } },
+    { item: 2, expect: ['normal', 'odd'], say: {
+      standard: 'One app can use the camera: a video-call app. Normal or odd?',
+      city: 'One video-call app has the lens key. Noise or signal?' }, why: {
+      standard: 'If you make video calls, that’s normal. If you don’t, call it odd and look at it.',
+      city: 'If you make calls, that’s noise. If you don’t, call it a signal and look at it.' } },
   ],
 };
 
