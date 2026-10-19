@@ -91,3 +91,30 @@ test('the copy panel escapes the text', () => {
   assert.ok(!html.includes('<script>'));
   assert.ok(html.includes('&lt;/textarea&gt;'));
 });
+
+test('saved-key comments never leave the app: Copy for any AI, one card or the whole report', () => {
+  const comments = ['mark@marks-macbook', 'mark@laptop', 'Marks MacBook Pro key'];
+  const keyFinding = {
+    title: '3 saved key(s) could let another computer log in to this one',
+    description: 'This computer keeps a list of 3 key(s).',
+    severity: 'warning',
+    code: 'security.session_revocation_scan.ssh_authorized_keys',
+    data: {
+      key_count: 3,
+      keys: comments.map((comment, i) => ({ type: 'ssh-ed25519', sha256: String(i).repeat(64), line_sha256: 'f'.repeat(64), comment })),
+      nested: { keys: [{ type: 'ssh-rsa', comment: 'mark@laptop' }] },
+    },
+  };
+  const one = buildAiPrompt({ findings: [keyFinding] }, ENV);
+  const all = buildAiPrompt({ findings: [FINDING, keyFinding], situation: 'Something is wrong' }, ENV);
+  for (const text of [one, all]) {
+    for (const c of comments) assert.ok(!text.includes(c), `${c} leaked`);
+    assert.match(text, /left out: key comment/);
+    assert.match(text, /ssh-ed25519/); // the rest of the key's evidence stays
+  }
+  const ev = cleanEvidence(keyFinding.data, ENV);
+  assert.strictEqual(ev.keys.length, 3);
+  assert.ok(ev.keys.every((k) => k.comment === '[left out: key comment]'));
+  // A key with no comment stays without one.
+  assert.strictEqual(cleanEvidence({ keys: [{ type: 'ssh-rsa', comment: '' }] }, ENV).keys[0].comment, '');
+});

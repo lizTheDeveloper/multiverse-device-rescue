@@ -54,6 +54,17 @@ function programOnly(v, env) {
   return cleanString(parts[0], env) + (rest ? ` [${rest} argument(s) left out]` : '');
 }
 
+// A saved remote-login key's comment is often user@host or a person's name
+// ("Marks MacBook Pro key"). The app shows it on this computer only; nothing
+// copied out carries it, as with the export (rescue/case.py _without_key_comments).
+const KEY_COMMENT_LEFT_OUT = '[left out: key comment]';
+
+function withoutKeyComments(keys) {
+  return keys.map((k) => (k && typeof k === 'object' && !Array.isArray(k) && 'comment' in k
+    ? Object.assign({}, k, { comment: k.comment ? KEY_COMMENT_LEFT_OUT : k.comment })
+    : k));
+}
+
 /** Redact every string in an evidence value; drop risky keys; cap size and depth. */
 function cleanEvidence(value, env, depth = 0) {
   if (value == null || typeof value === 'boolean' || typeof value === 'number') return value;
@@ -70,6 +81,7 @@ function cleanEvidence(value, env, depth = 0) {
       const key = cleanString(k, env);
       if (DROP_KEYS.test(k)) out[key] = '[left out: may contain private data]';
       else if (COMMAND_KEYS.test(k)) out[key] = programOnly(v, env);
+      else if (k === 'keys' && Array.isArray(v)) out[key] = cleanEvidence(withoutKeyComments(v), env, depth + 1);
       else out[key] = cleanEvidence(v, env, depth + 1);
     }
     return out;
