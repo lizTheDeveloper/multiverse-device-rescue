@@ -11,7 +11,7 @@ import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, record
 import { conceptById, isHidden } from './profile/skills.js';
 import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, PUBLISH_FIELDS } from './profile/publish.js';
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts } from './signals.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedSummary, notCheckedLine } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, drillSignal, pickDrills } from './drills.js';
@@ -298,7 +298,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // Held findings' own districts, in memory only, so integrity and heat
     // still count them as open while they're never signals, points or stored.
     s.heldCity = findingsToCity(heldOnly(doc));
-    s.city = findingsToCity(quietDoc(split.doc));
+    // A note saying part of a check couldn't look is counted with the checks
+    // that didn't finish, never among the notes (the same rule as the list).
+    const folded = foldPartly(split.doc);
+    s.city = findingsToCity(quietDoc(folded.doc));
+    for (const d of s.city.districts) {
+      d.unfinished = (d.unfinished || []).map((x) => (folded.partly.has(x.module) ? { ...x, titles: folded.partly.get(x.module) } : x));
+    }
     const ranOk = ranOkModules(doc);
     const r = reconcile(s.progress, s.city, ranOk, now());
     s.cameBack = r.cameBack.filter((id) => id !== putBack);
@@ -550,6 +556,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null, learned: learnedCount(),
       scanRunning: s.scan.running, districtName: nameOf, notice: heldNotice() + s.linkNotice,
       // With something held, an empty queue points to it instead of saying "clear".
+      notChecked: notCheckedLine(notCheckedSummary(s.doc)),
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 

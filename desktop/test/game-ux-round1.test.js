@@ -186,3 +186,31 @@ test('P1-11: each held item shows what to write down (name, where, how, maker, d
   assert.match(renderSide({ district: pickDistrict(1), held, date: 'd', copied: -1 }), /couldn’t be copied/);
   assert.match(fs.readFileSync(path.join(__dirname, '../renderer/game/game.css'), 'utf8'), /\.side-steps \{ list-style-position: inside;/);
 });
+
+test('P1-6 / P2-29: every check counted, couldn’t-check named with why, partly checked notes folded in, one top line', async () => {
+  const { notCheckedSummary, notCheckedLine, foldPartly, couldntTitle } = await game('signals.js');
+  const { sweepChecks } = await game('views/deck.js');
+  const doc = { modules: [
+    { name: 'code_signature_audit', status: 'ok', findings: [{ title: 'Checked 16 of 110 app signatures', severity: 'info', data: { incomplete: true } }, { title: 'X', severity: 'warning' }] },
+    { name: 'usb_audit', status: 'ok', findings: [{ title: 'We couldn’t list your USB devices', severity: 'info' }] },
+    { name: 'a', status: 'error', error: 'timed out after 60.0s' },
+    { name: 'b', status: 'ok', supported: false, unsupported_reason: 'PermissionError: [Errno 1] Operation not permitted' },
+    { name: 'stalkerware_scan', status: 'error', error: 'x' },
+    { name: 'c', status: 'ok', complete: false, findings: [] },
+    { name: 'd', status: 'ok', findings: [{ title: 'Fine', severity: 'info' }] },
+  ] };
+  const sum = notCheckedSummary(doc);
+  assert.deepStrictEqual(sum, { checks: 7, couldntRun: 3, unfinished: 1, partly: 2, count: 6 });
+  assert.strictEqual(notCheckedLine(sum), '4 checks couldn’t run or didn’t finish, and 2 things were only partly checked, so this isn’t a clean bill of health.');
+  assert.strictEqual(notCheckedLine(notCheckedSummary({ modules: [{ name: 'd', status: 'ok', findings: [] }] })), '');
+  const f = foldPartly(doc);
+  assert.deepStrictEqual(f.doc.modules[0].findings.map((x) => x.title), ['X']);
+  assert.strictEqual(f.doc.modules[0].complete, false);
+  assert.deepStrictEqual(f.partly.get('usb_audit'), ['We couldn’t list your USB devices']);
+  assert.strictEqual(doc.modules[0].findings.length, 2, 'the scan is unchanged');
+  assert.strictEqual(couldntTitle({ module: 'code_signature_audit', reason: 'timed out after 60.0s' }), 'Code signature audit took too long');
+  assert.strictEqual(couldntTitle({ module: 'b', reason: 'PermissionError: Operation not permitted' }), 'B needed a permission');
+  assert.strictEqual(couldntTitle({ module: 'c', reason: 'Not on Windows' }), 'C couldn’t run here');
+  assert.strictEqual(sweepChecks({ checks: 5, fog: 6 }), '11 CHECKS, 6 COULDN’T RUN');
+  assert.strictEqual(sweepChecks({ checks: 1, fog: 0 }), '1 CHECK');
+});

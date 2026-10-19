@@ -38,6 +38,14 @@ export function signalRow(sig, districtName = () => '') {
       <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}${same}</span><small>${esc(districtName(sig.districtId))}</small></button></li>`;
 }
 
+// "11 CHECKS, 6 COULDN'T RUN": every check, never only the ones that worked.
+export function sweepChecks(w) {
+  const ok = Number(w && w.checks) || 0;
+  const fog = Number(w && w.fog) || 0;
+  const all = ok + fog;
+  return `${all} CHECK${all === 1 ? '' : 'S'}${fog ? `, ${fog} COULDN’T RUN` : ''}`;
+}
+
 // THREAT's next move: the finding's own briefing, where any real fix asks first.
 // Breach Protocol (piece 3) and account steps (piece 5) aren't built yet.
 export function nextMoveHtml(sig) {
@@ -57,7 +65,7 @@ function chipLabel(rank, learned) {
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
   districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '', learned = null,
-  queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', districtChips = [] }) {
+  queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', districtChips = [], notChecked = '' }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -66,7 +74,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   <header class="hud deck-top"${behind}>
     <span class="hud-title">${esc(title)}</span>
     <button type="button" class="stat lime rank-chip" data-go="profile" aria-label="${esc(chipLabel(rank, learned))}"><small>RANK</small> ${esc(rank.name)} · ${esc(rank.points)}</button>
-    <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(lastSweep.checks)} CHECKS` : '<small>NO SWEEP YET</small>'}</span>
+    <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(sweepChecks(lastSweep))}` : '<small>NO SWEEP YET</small>'}</span>
     ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>' : preSweep ? '' : '<button type="button" class="btn-s" data-act="resweep">RE-SWEEP ⟳</button>'}
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
@@ -138,7 +146,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   return `${top}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
-      <div class="label">INCOMING SIGNALS</div>${scoutHtml}${filters}${head}${blank}${next}
+      <div class="label">INCOMING SIGNALS</div>${notChecked ? `<div class="panel fogged not-checked" role="note"><p class="intel">${esc(notChecked)}</p>${counts.couldnt ? '<button type="button" class="btn-t" data-act="sev:couldnt">SEE WHICH ▶</button>' : ''}</div>` : ''}${scoutHtml}${filters}${head}${blank}${next}
       <ul class="queue">${shown.map((x) => signalRow(x, dn)).join('')}${more}${practice}${lowHtml}</ul>
       ${threatHtml}${knownHtml}
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>

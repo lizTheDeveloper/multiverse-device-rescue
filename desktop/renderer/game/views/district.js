@@ -41,7 +41,9 @@ export function renderDistrict({ district: d, progress, scout }) {
   const notes = d.notes.map((n) => `<li>${esc(n.title)}</li>`).join('');
   const fog = d.fog.map((x) => `<li><strong>${esc(checkWords(x.module))}</strong>: ${esc(x.reason)}</li>`).join('');
   // Ran, but stopped before the end (the engine's "complete": false).
-  const unfinished = (d.unfinished || []).map((x) => `<li><strong>${esc(checkWords(x.module))}</strong></li>`).join('');
+  // Or a note said part of it couldn't look (`titles`, signals.js foldPartly).
+  const unfinished = (d.unfinished || []).map((x) => `<li><strong>${esc(checkWords(x.module))}</strong>${
+    Array.isArray(x.titles) && x.titles.length && !HELD_MODULES.has(x.module) ? `: ${esc(x.titles.join('; '))}` : ''}</li>`).join('');
   return `
   <section class="district-screen">
     <div class="crumbs"><button type="button" data-go="map">Your computer</button> / <b>${esc(d.name)}</b></div>
@@ -50,7 +52,7 @@ export function renderDistrict({ district: d, progress, scout }) {
     <p class="intel">${esc(districtLine(d, reclaimedIn(progress, d).length))}</p>
     ${rows ? `<div class="panel active"><div class="label">MISSIONS</div><ul class="missions">${rows}</ul></div>` : ''}
     ${fog ? `<div class="panel fogged"><div class="label">COULDN’T CHECK HERE</div><p class="intel">That doesn’t mean it’s safe.</p><ul class="fog-list">${fog}</ul></div>` : ''}
-    ${unfinished ? `<div class="panel fogged"><div class="label">DIDN’T FINISH HERE</div><p class="intel">These checks stopped before the end, so they may have missed something. That doesn’t mean it’s safe.</p><ul class="fog-list">${unfinished}</ul></div>` : ''}
+    ${unfinished ? `<div class="panel fogged"><div class="label">DIDN’T FINISH HERE</div><p class="intel">These checks stopped before the end or couldn’t look at everything, so they may have missed something. That doesn’t mean it’s safe.</p><ul class="fog-list">${unfinished}</ul></div>` : ''}
     ${notes ? `<details class="panel"><summary class="label">NOTES (${d.notes.length})</summary><ul class="notes">${notes}</ul></details>` : ''}
     <div class="scout-row">${scout('happy', 54)}<p class="say">${esc(d.missions.length ? 'Pick one. You can stop after any of them.' : 'Nothing to do here right now.')}</p></div>
   </section>`;
