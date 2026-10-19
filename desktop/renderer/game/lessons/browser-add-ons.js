@@ -9,6 +9,8 @@ export default {
   whatTheScanLooksFor: 'On a Mac, the checkup lists your extensions in Chrome, Firefox and Safari, flags names known to be harmful or adware, and points out ones asking for an unusually broad set of permissions.',
   questions: [
     {
+      key: 'permissions-fit',
+      concept: 'browser-add-ons',
       teach: 'Many good extensions, like ad blockers and password managers, need broad permissions to do their job. So a broad set of permissions is a prompt to look, not a verdict. What matters is whether the permissions fit what the extension is for.',
       prompt: 'Which extension’s permissions would you question?',
       options: [
@@ -19,8 +21,36 @@ export default {
         { text: 'An ad blocker that sees every page', correct: false,
           feedback: 'Also expected. The guide names ad blockers as needing this kind of access.' },
       ],
+      variants: [
+        {
+          key: 'permissions-fit-2',
+          prompt: 'A password manager extension wants to work on every site. Is that a warning sign?',
+          options: [
+            { text: 'No. A password manager needs that to do its job.', correct: true,
+              feedback: 'Right. What matters is whether the permissions fit what the extension is for.' },
+            { text: 'Yes. No extension should need every site.', correct: false,
+              feedback: 'Some do. Ad blockers and password managers need that kind of access to work. What matters is whether it fits what the extension is for.' },
+            { text: 'Yes. It should be removed right away.', correct: false,
+              feedback: 'Not on its own. The guide names password managers as needing this kind of access. What matters is whether it fits what the extension is for.' },
+          ],
+        },
+        {
+          key: 'permissions-fit-3',
+          prompt: 'The checkup points out an extension with a broad set of permissions. What does that mean on its own?',
+          options: [
+            { text: 'It’s a prompt to look, not a verdict', correct: true,
+              feedback: 'Right. Check whether the permissions fit what the extension is for, and who publishes it.' },
+            { text: 'It’s harmful', correct: false,
+              feedback: 'Not on its own. Many good extensions need broad permissions. It’s a prompt to look, not a verdict.' },
+            { text: 'It’s fine', correct: false,
+              feedback: 'Not necessarily either. It’s a prompt to look: do the permissions fit what the extension is for?' },
+          ],
+        },
+      ],
     },
     {
+      key: 'unknown-extension',
+      concept: 'browser-add-ons',
       teach: 'It also matters who publishes an extension: a company or developer you recognise and trust. An extension you don’t remember installing may have come bundled with other software. Look it up by name in the browser’s extension store before deciding whether to keep it.',
       prompt: 'You find an extension you don’t remember installing. What’s a good first step?',
       options: [
@@ -29,8 +59,36 @@ export default {
         { text: 'Leave it. If it’s in the browser, it must be fine.', correct: false,
           feedback: 'Not always. It may have come bundled with other software. Check who publishes it first.' },
       ],
+      variants: [
+        {
+          key: 'unknown-extension-2',
+          prompt: 'How might an extension you never chose have got into your browser?',
+          options: [
+            { text: 'It came bundled with other software you installed', correct: true,
+              feedback: 'Right. Look it up in the extension store and check who publishes it.' },
+            { text: 'The checkup added it', correct: false,
+              feedback: 'The checkup only looks; it never adds anything. An extension you don’t remember installing may have come bundled with other software.' },
+            { text: 'Extensions can only get in if you chose them', correct: false,
+              feedback: 'Not always. An extension you don’t remember installing may have come bundled with other software.' },
+          ],
+        },
+        {
+          key: 'unknown-extension-3',
+          prompt: 'You looked up an unfamiliar extension, and its publisher doesn’t check out. What now?',
+          options: [
+            { text: 'Remove it', correct: true,
+              feedback: 'Right. If it doesn’t check out, remove it.' },
+            { text: 'Keep it, but only use it on some sites', correct: false,
+              feedback: 'An extension runs on the pages it has access to whether you use it or not. If it doesn’t check out, remove it.' },
+            { text: 'Run the checkup again to see if it goes away', correct: false,
+              feedback: 'The checkup only lists what is installed. If it doesn’t check out, remove it.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'extensions-page',
+      concept: 'browser-add-ons',
       teach: 'Each browser has a page that lists its extensions. In Chrome it’s `chrome://extensions/`. In Firefox it’s `about:addons`. In Safari, go to Safari > Settings > Extensions.',
       prompt: 'Where do you see your extensions in Chrome?',
       options: [
@@ -41,8 +99,36 @@ export default {
         { text: 'Safari > Settings > Extensions', correct: false,
           feedback: 'That’s Safari. Chrome’s is `chrome://extensions/`.' },
       ],
+      variants: [
+        {
+          key: 'extensions-page-2',
+          prompt: 'Where do you see your add-ons in Firefox?',
+          options: [
+            { text: '`about:addons`', correct: true,
+              feedback: 'Right. Chrome uses `chrome://extensions/`.' },
+            { text: '`chrome://extensions/`', correct: false,
+              feedback: 'That’s Chrome’s page. Firefox’s is `about:addons`.' },
+            { text: 'Safari > Settings > Extensions', correct: false,
+              feedback: 'That’s Safari. Firefox’s is `about:addons`.' },
+          ],
+        },
+        {
+          key: 'extensions-page-3',
+          prompt: 'Where do you see your extensions in Safari?',
+          options: [
+            { text: 'Safari > Settings > Extensions', correct: true,
+              feedback: 'Right. Find the extension there to uninstall it.' },
+            { text: '`about:addons`', correct: false,
+              feedback: 'That’s Firefox’s page. In Safari, it’s this: Safari > Settings > Extensions.' },
+            { text: '`chrome://extensions/`', correct: false,
+              feedback: 'That’s Chrome’s page. In Safari, it’s this: Safari > Settings > Extensions.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'unused-extension',
+      concept: 'browser-add-ons',
       teach: 'Every extension is more code running on every page you visit, even a harmless one. A simple test for each: have I used this in the last month?',
       prompt: 'You haven’t used an extension in the last month. What’s a good move?',
       options: [
@@ -50,6 +136,32 @@ export default {
           feedback: 'Right. Fewer extensions means less code running on every page you visit.' },
         { text: 'Keep every extension, just in case', correct: false,
           feedback: 'Each one is more code running on every page you visit. If you don’t use it, it can go.' },
+      ],
+      variants: [
+        {
+          key: 'unused-extension-2',
+          prompt: 'You have three ad blockers installed. What does the guide suggest?',
+          options: [
+            { text: 'Keep one trusted one', correct: true,
+              feedback: 'Right. Overlapping extensions are best brought down to one you trust.' },
+            { text: 'Keep all three, for extra protection', correct: false,
+              feedback: 'Each one is more code running on every page you visit. Keep one you trust.' },
+            { text: 'Keep two, in case one stops working', correct: false,
+              feedback: 'Overlapping extensions are best brought down to one trusted extension.' },
+          ],
+        },
+        {
+          key: 'unused-extension-3',
+          prompt: 'An extension is harmless, but you never use it. Why remove it?',
+          options: [
+            { text: 'It’s more code running on every page you visit', correct: true,
+              feedback: 'Right. You can always reinstall it later if you need it.' },
+            { text: 'There’s no reason to. Unused extensions do nothing.', correct: false,
+              feedback: 'An installed extension still runs code on the pages you visit. If you don’t use it, it can go.' },
+            { text: 'It’s probably adware', correct: false,
+              feedback: 'The extension is described as harmless. The reason to remove it is that every extension is more code running on every page you visit.' },
+          ],
+        },
       ],
     },
   ],
