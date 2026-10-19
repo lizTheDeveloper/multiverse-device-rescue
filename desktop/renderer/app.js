@@ -513,6 +513,7 @@ const notCheckedLine = NotCheckedRule.notCheckedLine;
 // only for macOS and Linux. The step is HTML-escaped afterwards (renderMiniMarkdown).
 const StepFillRule = typeof StepFill !== 'undefined' ? StepFill : require('./step-fill.js');
 const fillPlaceholders = StepFillRule.fillPlaceholders;
+const fillStep = StepFillRule.fillStep;
 const safePlaceholderValue = StepFillRule.safeValue;
 
 /**
@@ -732,23 +733,6 @@ function groupByCheck(findings, mode, doc) {
 }
 
 /**
- * Checks that are waiting for the person to start them, not checks that
- * couldn't run: the iPhone backup scan reads a backup only when asked, so
- * finding one ("scan available") means it can be started.
- * TODO(round-3 integration): not-checked.js (Group C) is moving this rule
- * into NotChecked as "not started"; use its field once it lands.
- */
-const NOT_STARTED_CODES = new Set(['security.mvt_spyware_scan.mvt_scan_available']);
-function notStartedModules(doc) {
-  const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
-  return mods.filter((m) => m && m.status !== 'error' && m.supported !== false
-    && (m.findings || []).some((f) => f && NOT_STARTED_CODES.has(f.code))
-    && !(m.findings || []).some((f) => f && QuietNotesRule().isDetection(Object.assign({ module: m.name }, f))))
-    .map((m) => m.name);
-}
-function QuietNotesRule() { return typeof QuietNotes !== 'undefined' ? QuietNotes : require('./quiet-notes.js'); }
-
-/**
  * A check run on its own after the checkup (the iPhone backup scan): its
  * entries replace the same checks' entries in the checkup, everything else
  * stays as it was.
@@ -774,12 +758,12 @@ function notStartedLine(names, mode) {
 /** What wasn't fully checked, with checks waiting to be started taken out of "couldn't run". */
 function plainNotChecked(doc) {
   const parts = NotCheckedRule.notCheckedParts(doc);
-  const waiting = Array.isArray(parts.notStarted) ? parts.notStarted.map((m) => m.name || m) : notStartedModules(doc);
-  const couldntRun = parts.couldntRun.filter((m) => !waiting.includes(m.name));
+  const waiting = parts.notStarted.map((m) => m.name);
   const sum = NotCheckedRule.notCheckedSummary(doc);
-  const summary = Object.assign({}, sum, { couldntRun: couldntRun.length,
-    count: couldntRun.length + parts.unfinished.length + parts.partly.length });
-  return { couldntRun, unfinished: parts.unfinished, partly: parts.partly, notStarted: waiting, summary };
+  const counts = NotCheckedRule.scanCounts(doc, { mode: 'standard' });
+  const summary = Object.assign({}, sum, { couldntRun: counts.couldntRun, notStarted: counts.notStarted,
+    count: counts.didntFinish + counts.partly });
+  return { couldntRun: parts.couldntRun, unfinished: parts.unfinished, partly: parts.partly, notStarted: waiting, summary };
 }
 
 /**
@@ -904,10 +888,11 @@ const WAIT_FOR_CHANGE_TEXT = 'Waiting for the change you asked for to finish, th
 function partialCountText(partial) {
   const done = partial && partial.done > 0 ? partial.done : 0;
   const total = partial && partial.total > 0 ? partial.total : 0;
-  // TODO(round-3 integration): if engine-runner (Group C) resolves a stopped
-  // scan as a document, mark it with partial.stopped so it reads like this.
   if (partial && partial.stopped) {
-    if (total && done >= total) return 'Every check ran, but the checkup stopped at the very end, before it could put the results together. This is what the checks found.';
+    // doc.stopped.stage, mirrored in partial.stopped; an older `true` is read from the counts.
+    const stage = partial.stopped === 'assembly' || partial.stopped === 'early' ? partial.stopped
+      : (total && done >= total ? 'assembly' : 'early');
+    if (stage === 'assembly') return `All ${total} checks ran, but the report couldn\u2019t be put together. This is what they found.`;
     return total ? `The checkup stopped before it finished: ${done} of ${total} checks done. This is only what they found.`
       : 'The checkup stopped before it finished. This is only what it found before then.';
   }
@@ -959,7 +944,6 @@ if (typeof module !== 'undefined' && module.exports) {
     sortByImportance,
     importanceRank,
     groupByCheck,
-    notStartedModules,
     plainNotChecked,
     mergeModules,
     notStartedLine,
@@ -972,6 +956,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isPartlyChecked,
     shownSeverity,
     fillPlaceholders,
+    fillStep,
     safePlaceholderValue,
     UNFINISHED_LINE,
     SITUATIONS,
@@ -1454,7 +1439,7 @@ if (typeof document !== 'undefined') {
           const alerts = card.note === 'line' || card.note === 'full';
           const fix = noControls ? '' : FixFlow.fixControlsHtml(finding, { watched, safety: alerts && !watched ? QuietNotes.LINE_SHORT : '' });
           const mark = noControls ? '' : MarkFlow.markControlsHtml(finding, { watched });
-          const steps = card.steps.map((step) => ({ title: step.title, body: fillPlaceholders(step.body, finding.data, { platform: currentPlatform() }) }));
+          const steps = card.steps.map((step) => ({ title: step.title, body: fillStep(step.body, finding.data, { platform: currentPlatform() }) }));
           // Evidence first; then at most two sentences of why, never what the
           // evidence, the warning box, the steps or a lesson already say.
           const rows = cardEvidenceRows(finding, { mode, held, doc: shownDoc, commands: moduleCommandCache });
@@ -1973,6 +1958,7 @@ if (typeof document !== 'undefined') {
       resetProgress();
       fdaNeeded = false;
       stoppedDoc = null;
+      let resolvedStopped = null;
       if (permissionsContent) renderScanTips(permissionsContent, detectOS(lastKnownPlatform));
       partialScan = mergeInto ? null : partialScanState();
       updatePartialStatus();
@@ -1984,6 +1970,11 @@ if (typeof document !== 'undefined') {
       try {
         // One profile, the union of several (one --profile each), or null for every check.
         const ran = await window.rescue.runScan(mergeInto ? opts.profile : WorryPick.scanProfile(situation));
+        if (ran && ran.stopped && typeof ran.stopped === 'object') {
+          // A checkup that stopped: kept as "what it found so far", never as a result.
+          if (!mergeInto) resolvedStopped = ran;
+          throw new Error(STOPPED_LINE);
+        }
         const doc = mergeInto ? mergeModules(mergeInto, ran) : ran;
         if (doc && typeof doc.platform === 'string') {
           lastKnownPlatform = doc.platform;
@@ -2029,7 +2020,7 @@ if (typeof document !== 'undefined') {
         const wasViewing = viewingPartial();
         // What arrived before it stopped is kept, behind "See what it found
         // so far": marked as stopped, so it never reads as the whole checkup.
-        stoppedDoc = partialScan && partialScan.modules.length ? stoppedDocOf(partialScan, currentPlatform()) : null;
+        stoppedDoc = resolvedStopped || (partialScan && partialScan.modules.length ? stoppedDocOf(partialScan, currentPlatform()) : null);
         endPartial();
         if (lastScanDoc) {
           renderResults(lastScanDoc);

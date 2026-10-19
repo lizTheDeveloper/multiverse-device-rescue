@@ -128,7 +128,7 @@ test('P2-12: an iPhone backup that can be scanned is "not started", never "could
       code: 'security.mvt_spyware_scan.mvt_scan_available', data: { check: 'mvt_scan_available', backups_found: 1 } }], { check_name: 'iPhone backup spyware scan' }),
     mod('remote_login_check', [{ title: 'Remote Login is on', severity: 'warning', description: 'On.', data: {} }]),
   ] };
-  assert.deepStrictEqual(app.notStartedModules(doc), ['mvt_spyware_scan']);
+  assert.deepStrictEqual(app.plainNotChecked(doc).notStarted, ['mvt_spyware_scan']);
   assert.strictEqual(app.plainNotChecked(doc).summary.count, 0);
   const p = await results(doc);
   assert.strictEqual(p.byId('results-errors').hidden, true, 'not in the couldn’t-check box');
@@ -256,4 +256,42 @@ test('P2-14: Your progress counts the list’s own answers', async () => {
   const { plainCountsLine } = await import('../renderer/game/profile/plain-panel.js');
   assert.strictEqual(plainCountsLine({ fixed: 1, marked: 2, did: 0 }), 'On this checkup: 1 fixed · 2 marked as yours · 0 you said you did');
   assert.strictEqual(plainCountsLine(null), '');
+});
+
+// ---------------------------------------------------------------------------
+// Integration: stopped scans by stage, dns_profile marks, one set of counts.
+// ---------------------------------------------------------------------------
+async function stoppedPage(stage, done, total) {
+  const p = page();
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  p.byId('btn-run-scan').click();
+  p.emit({ type: 'plan', total, modules: [] });
+  await p.finish({ schema_version: 1, platform: 'darwin',
+    modules: [mod('remote_login_check', [{ title: 'Remote Login is on', severity: 'warning', description: 'On.', data: {} }])],
+    stopped: { stage, reason: 'exit', exit_code: 1, done, total }, partial: { done, total, stopped: stage } });
+  assert.strictEqual(p.byId('btn-scan-sofar').hidden, false);
+  p.byId('btn-scan-sofar').click();
+  return p;
+}
+test('a stopped scan after every check ran says the report could not be put together, and not the other line', async () => {
+  const p = await stoppedPage('assembly', 3, 3);
+  const text = p.byId('results-running-text').textContent;
+  assert.strictEqual(text, 'All 3 checks ran, but the report couldn\u2019t be put together. This is what they found.');
+  assert.ok(!/stopped before it finished/.test(text));
+  await tick();
+});
+test('a stopped scan that ended early says how many checks were done, and not the other line', async () => {
+  const p = await stoppedPage('early', 1, 3);
+  const text = p.byId('results-running-text').textContent;
+  assert.strictEqual(text, 'The checkup stopped before it finished: 1 of 3 checks done. This is only what they found.');
+  assert.ok(!/put together/.test(text));
+  await tick();
+});
+test('a DNS filtering-profile warning can be marked as mine', () => {
+  const html = MarkFlow.markControlsHtml({ module: 'm', markable: { kind: 'dns_profile', monitoring: false,
+    items: [], id: 'abc' } });
+  assert.ok(MarkFlow.BUTTON.dns_profile);
+  assert.ok(MarkFlow.WATCH_KINDS ? MarkFlow.WATCH_KINDS.has('dns_profile') : true);
+  assert.strictEqual(typeof html, 'string');
 });

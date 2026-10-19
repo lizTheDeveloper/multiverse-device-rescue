@@ -27,7 +27,7 @@ const MarkFlow = (function () {
   // screen recording, camera, microphone, input monitoring, full disk access).
   const WATCH_KINDS = new Set([
     'sharing_service', 'network_proxy', 'system_extension', 'browser_extension', 'ssh_authorized_keys',
-    'app_permissions',
+    'app_permissions', 'dns_profile',
   ]);
   // Kinds that are a list of apps: one row per app, "Yes, these are mine".
   const LIST_KINDS = new Set(['app_permissions']);
@@ -61,7 +61,7 @@ const MarkFlow = (function () {
   ];
   const ITEM_KINDS = new Set([
     'sharing_service', 'network_proxy', 'system_extension', 'browser_extension',
-    'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
+    'app_permissions', 'ssh_authorized_keys', 'ai_tooling', 'dns_profile',
   ]);
   // Checks for monitoring software: "It's mine" is never offered on them.
   const NEVER_MARKABLE_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
@@ -75,6 +75,7 @@ const MarkFlow = (function () {
     app_permissions: 'I know these apps — they’re mine',
     ssh_authorized_keys: 'I added these keys — they’re mine',
     ai_tooling: 'I set this up — it’s mine',
+    dns_profile: 'I installed this — it’s mine',
   };
   // Lists that can be marked entry by entry (rescue/known_items.py ENTRY_KIND_FOR).
   const ENTRY_LIST_KINDS = new Set(['app_permissions', 'ssh_authorized_keys']);
