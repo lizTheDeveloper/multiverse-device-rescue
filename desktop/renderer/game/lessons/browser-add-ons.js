@@ -159,7 +159,7 @@ export default {
             { text: 'There’s no reason to. Unused extensions do nothing.', correct: false,
               feedback: 'An installed extension still runs code on the pages you visit. If you don’t use it, it can go.' },
             { text: 'Harmless extensions turn harmful after a month unused', correct: false,
-              feedback: 'An extension doesn’t change over time. The reason to remove it is that every extension is more code running on every page you visit, even a harmless one.' },
+              feedback: 'Going unused isn’t what makes an extension a risk. The reason to remove it is that every extension is more code running on every page you visit, even a harmless one.' },
           ],
         },
       ],
