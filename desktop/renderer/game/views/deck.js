@@ -79,13 +79,15 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
   // Filters: by kind, and by district (only those with something in the queue).
+  // ALL carries no number: it would add the to-dos and the couldn't-checks
+  // into one figure the HUD (TO DO, COULDN'T CHECK) never shows.
   const counts = sevCounts || {};
   const total = SEV_FILTERS.reduce((n, [k]) => n + (Number(counts[k]) || 0), 0);
   const chip = (attr, label, on) => `<button type="button" class="chip" ${attr}${on ? ' aria-pressed="true"' : ' aria-pressed="false"'}>${esc(label)}</button>`;
   const sevChips = SEV_FILTERS.filter(([k]) => counts[k]).map(([k, label]) => chip(`data-act="sev:${k}"`, `${label} ${counts[k]}`, sev === k));
   const dChips = (districtChips || []).map((d) => chip(`data-go="filter:${esc(d.id)}"`, `${String(d.name).toUpperCase()} ${d.count}`, filter && filter.id === d.id));
   const filters = total && (sevChips.length > 1 || dChips.length > 1 || sev || filter) ? `
-      <div class="chips" role="group" aria-label="Show only">${chip('data-act="sev:all"', `ALL ${total}`, !sev && !filter)}${sevChips.join('')}${dChips.join('')}</div>` : '';
+      <div class="chips" role="group" aria-label="Show only">${chip('data-act="sev:all"', 'ALL', !sev && !filter)}${sevChips.join('')}${dChips.join('')}</div>` : '';
   const head = filter ? `
       <div class="row"><span class="label">SHOWING ${esc(String(filter.name).toUpperCase())}</span>
         <button type="button" class="btn-t" data-go="filter:all">SHOW ALL</button>

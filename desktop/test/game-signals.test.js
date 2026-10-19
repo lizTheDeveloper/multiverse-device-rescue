@@ -89,10 +89,19 @@ test('every check errored: no reading, nothing checked, only COULDN’T CHECK si
   assert.deepStrictEqual(v.sweepCounts(d, city, i), { checks: 0, critical: 0, warning: 0, info: 0, fog: 2, checked: 0, secured: 0, unfinished: 0 });
 });
 
-test('monitoring checks never become signals, even their info findings or a check that couldn’t run', async () => {
+test('monitoring checks’ findings never become signals; one that couldn’t run is an unnamed COULDN’T CHECK row', async () => {
   const { sigs } = await build(doc(mod('stalkerware_scan', [f('No monitoring apps found', 'info')]),
-    mod('keylogger_indicators', [], { status: 'error', error: 'x' }), mod('a_mod', [f('Other', 'info')])));
-  assert.deepStrictEqual(sigs.map((x) => x.title), ['Other']);
+    mod('keylogger_indicators', [], { status: 'error', error: 'timed out looking for keyloggers' }), mod('a_mod', [f('Other', 'info')])));
+  assert.deepStrictEqual(sigs.map((x) => x.title), ['Other', 'A check took too long']);
+  // Counted as the list counts it (not-checked.js), but never named, explained, tagged or stored.
+  const c = sigs.find((x) => x.kind === 'couldnt');
+  assert.strictEqual(c.monitoring, true);
+  assert.doesNotMatch(JSON.stringify([c.title, c.description]), /keylogger|Keylogger/);
+  const { setTag } = await import('../renderer/game/ledger.js');
+  const { emptyDeck } = await import('../renderer/game/progress.js');
+  assert.deepStrictEqual(setTag(emptyDeck(), c.id, 'noted', c.fp, '2026-10-19T00:00:00Z').tags, {});
+  const { renderSignalPanel } = await import('../renderer/game/views/signal.js');
+  assert.doesNotMatch(renderSignalPanel({ signal: c, scout: () => '' }), /data-act="tag:noted"/);
 });
 
 // Review Focus 5.

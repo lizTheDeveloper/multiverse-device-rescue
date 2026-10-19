@@ -4,41 +4,26 @@
 // in 'standard' the list shows them with the one line. The same three checks
 // as app.js's ALWAYS_SAFETY_MODULES; a test keeps them equal.
 import { esc } from './escape.js';
+// Sets globalThis.NotChecked (a plain script the list loads too).
+import '../not-checked.js';
 
 export const HELD_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
 
 // What those checks say when they found nothing or couldn't look (QuietNotes'
-// NOT_DETECTIONS; a test keeps them equal). Never held: no software was found.
-export const NOT_DETECTIONS = new Set([
-  'security.mvt_spyware_scan.mvt_requires_wsl',
-  'security.mvt_spyware_scan.no_backups_found',
-  'security.mvt_spyware_scan.mvt_not_installed',
-  'security.mvt_spyware_scan.mvt_scan_available',
-  'security.mvt_spyware_scan.mvt_backup_too_large',
-  'security.mvt_spyware_scan.mvt_clean_scan',
-  'security.keylogger_indicators.input_monitoring_access',
-]);
-
-// Of those, the lines that mean the check couldn't look at all: no backups,
-// no scanner, no Linux layer, a backup too large to read, or a scan that
-// wasn't run. A check that couldn't look is never "clear": its module goes to
-// the city as COULDN'T CHECK (fog), the same as a check that couldn't run.
-export const COULDNT_LOOK = new Set([
-  'security.mvt_spyware_scan.mvt_requires_wsl',
-  'security.mvt_spyware_scan.no_backups_found',
-  'security.mvt_spyware_scan.mvt_not_installed',
-  'security.mvt_spyware_scan.mvt_scan_available',
-  'security.mvt_spyware_scan.mvt_backup_too_large',
-]);
+// NOT_DETECTIONS; a test keeps them equal), and of those, the lines that mean
+// the check couldn't look at all: no backups, no scanner, no Linux layer, a
+// backup too large to read, or a scan that wasn't run. A check that couldn't
+// look is never "clear": its module goes to the city as COULDN'T CHECK (fog),
+// the same as a check that couldn't run, and the list counts it the same way
+// (renderer/not-checked.js owns the rule).
+const NC = globalThis.NotChecked;
+export const NOT_DETECTIONS = NC.NOT_DETECTIONS;
+export const COULDNT_LOOK = NC.COULDNT_LOOK;
 // What the city says about it: plain, the same words as any check that couldn't run.
-export const COULDNT_LOOK_REASON = 'This check couldn’t look here.';
+export const COULDNT_LOOK_REASON = NC.COULDNT_LOOK_REASON;
 
 // The same rule as QuietNotes.isDetection, for a finding of a held module.
-export function isDetection(f) {
-  if (!f) return false;
-  if (f.code) return !NOT_DETECTIONS.has(f.code);
-  return f.severity !== 'info';
-}
+export const isDetection = NC.isDetection;
 
 // The one finding that may leave the help district: keyboard access for
 // apps with familiar names (keylogger_indicators' claimed_vendor check), at
@@ -96,7 +81,7 @@ export function splitHeld(doc) {
     }
     // Nothing found, and it couldn't look: fog, never clear. (With a
     // detection the check did look, and its district stays open for it.)
-    if (!found && fs.some((f) => f && COULDNT_LOOK.has(f.code))) {
+    if (!found && NC.couldntLook(m)) {
       return { ...m, findings: [], supported: false, unsupported_reason: COULDNT_LOOK_REASON };
     }
     // A familiar app with a verified maker stays, as an ordinary note.

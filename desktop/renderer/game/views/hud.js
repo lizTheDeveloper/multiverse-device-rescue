@@ -6,9 +6,13 @@ import { countReclaimed } from '../progress.js';
 // With `counts` (the game) it is the deck's HUD on every screen: the rank
 // (opens YOUR FILE), what's done, and what's left to do; no running tally of
 // criticals and warnings, which only frightens. `rank`: { name, points }.
-export function renderHud({ title, city, progress, counts, rank = null }) {
+// `todo` (signals.js todoCount) and `notChecked` (notCheckedSummary of the
+// scan) are the deck's own counts, so the HUD on a mission says what the deck
+// and the list say. Without them, the city's own totals.
+export function renderHud({ title, city, progress, counts, rank = null, todo = null, notChecked = null }) {
   const t = (city && city.totals) || { critical: 0, warning: 0, fog: 0 };
-  const open = (city.districts || []).reduce((n, d) => n + d.missions.length, 0);
+  const open = Number.isInteger(todo) ? todo : ((city && city.districts) || []).reduce((n, d) => n + d.missions.length, 0);
+  const fog = notChecked ? notChecked.couldntRun : t.fog;
   const done = countReclaimed(progress);
   return `
   <header class="hud">
@@ -21,7 +25,7 @@ export function renderHud({ title, city, progress, counts, rank = null }) {
     <span class="stat cyan"><b>${Number(counts.reported) || 0}</b> <small>YOU REPORTED</small></span>`
       : `<span class="stat lime"><b>${done}</b> <small>RECLAIMED</small></span>`}
     ${open ? `<span class="stat grey"><b>${open}</b> <small>TO DO</small></span>` : ''}
-    ${t.fog ? `<span class="stat grey"><b>${t.fog}</b> <small>COULDN’T CHECK</small></span>` : ''}
+    ${fog ? `<span class="stat grey"><b>${fog}</b> <small>COULDN’T CHECK</small></span>` : ''}
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
 }

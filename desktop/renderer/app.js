@@ -422,16 +422,9 @@ function shownSeverity(finding) {
   return sev === 'critical' && !ALARM_CATEGORIES.has(finding.category) ? 'warning' : sev;
 }
 
-// A note that says part of a check couldn't look ("We couldn't list your USB
-// devices", "Checked 16 of 110 app signatures"). It belongs with the checks
-// that couldn't run, not among the good-to-know notes.
-const COULDNT_TITLE = /^(?:we\s+)?(?:couldn[’']t|could\s+not)\s+(?:check|list|read|see|tell|find\s+out)\b/i;
-function isPartlyChecked(finding) {
-  if (!finding || finding.severity !== 'info') return false;
-  const title = String(finding.title || '');
-  if (COULDNT_TITLE.test(title)) return true;
-  return !!(finding.data && finding.data.incomplete) && /^checked\s+\d+\s+of\s+\d+/i.test(title);
-}
+// What wasn't fully checked: one rule for the list and the city (not-checked.js).
+const NotCheckedRule = typeof NotChecked !== 'undefined' ? NotChecked : require('./not-checked.js');
+const isPartlyChecked = NotCheckedRule.isPartlyChecked;
 
 /**
  * Group every finding across every module by severity, and collect the
@@ -447,28 +440,20 @@ function isPartlyChecked(finding) {
  */
 function groupFindingsBySeverity(doc) {
   const groups = { critical: [], warning: [], info: [] };
-  const erroredModules = [];
-  const unfinishedModules = [];
-  // Findings that say part of a check couldn't look: listed with the checks
-  // that couldn't run (partlyChecked), not as notes.
-  const partlyChecked = [];
+  // Could not run here (or a monitoring check couldn't look): not a clean
+  // result, so it must not read as one. Findings that say part of a check
+  // couldn't look are listed with them (partlyChecked), not as notes. The
+  // same rule as the city's (not-checked.js).
+  const parts = NotCheckedRule.notCheckedParts(doc);
+  const erroredModules = parts.couldntRun;
+  const unfinishedModules = parts.unfinished;
+  const partlyChecked = parts.partly;
   const modules = (doc && doc.modules) || [];
 
   for (const mod of modules) {
-    if (mod && mod.status === 'error') {
-      erroredModules.push({ name: mod.name, error: mod.error || null });
-    } else if (mod && mod.supported === false) {
-      // Could not run here: not a clean result, so it must not read as one.
-      erroredModules.push({ name: mod.name, error: mod.unsupported_reason || null });
-    } else if (mod && mod.complete === false) {
-      unfinishedModules.push({ name: mod.name });
-    }
     const findings = (mod && mod.findings) || [];
     for (const finding of findings) {
-      if (isPartlyChecked(finding)) {
-        partlyChecked.push({ name: mod.name, title: String(finding.title || '') });
-        continue;
-      }
+      if (isPartlyChecked(finding)) continue;
       groups[shownSeverity(finding)].push(Object.assign({}, finding, { module: mod.name }));
     }
   }
@@ -476,34 +461,10 @@ function groupFindingsBySeverity(doc) {
   return { groups, erroredModules, unfinishedModules, partlyChecked };
 }
 
-/**
- * One count of what wasn't fully checked, for the list and the city alike:
- * checks that couldn't run or didn't finish, plus notes that say part of a
- * check couldn't look. `checks` is every check in the scan.
- */
-function notCheckedSummary(doc) {
-  const { erroredModules, unfinishedModules, partlyChecked } = groupFindingsBySeverity(doc);
-  const checks = ((doc && doc.modules) || []).length;
-  return {
-    checks,
-    couldntRun: erroredModules.length,
-    unfinished: unfinishedModules.length,
-    partly: partlyChecked.length,
-    count: erroredModules.length + unfinishedModules.length + partlyChecked.length,
-  };
-}
-
+// One count of what wasn't fully checked, the same one the city shows.
+const notCheckedSummary = NotCheckedRule.notCheckedSummary;
 // The top line when something wasn't fully checked. Never an all-clear.
-function notCheckedLine(sum) {
-  const s = sum || {};
-  const ran = (s.couldntRun || 0) + (s.unfinished || 0);
-  const how = s.couldntRun && s.unfinished ? 'couldn’t run or didn’t finish' : s.couldntRun ? 'couldn’t run' : 'didn’t finish';
-  const parts = [];
-  if (ran) parts.push(`${ran} ${ran === 1 ? 'check' : 'checks'} ${how}`);
-  if (s.partly) parts.push(`${s.partly} ${s.partly === 1 ? 'thing was' : 'things were'} only partly checked`);
-  if (!parts.length) return '';
-  return `${parts.join(', and ')}, so this isn’t a clean bill of health.`;
-}
+const notCheckedLine = NotCheckedRule.notCheckedLine;
 
 /**
  * The engine's walkthroughs say `<path-to-plist>` or `<label>` where the scan

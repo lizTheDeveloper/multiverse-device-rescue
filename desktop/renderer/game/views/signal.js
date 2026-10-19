@@ -45,7 +45,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
   }
   const current = tagged || sig.tag;
   const call = couldnt
-    ? `<div class="row tags"><button type="button" class="btn-s" data-act="tag:noted"${current === 'noted' ? ' aria-pressed="true"' : ''}>NOTED</button>
+    ? `<div class="row tags">${sig.monitoring ? '' : `<button type="button" class="btn-s" data-act="tag:noted"${current === 'noted' ? ' aria-pressed="true"' : ''}>NOTED</button>`}
       <button type="button" class="btn-t" data-go="lesson:couldnt-check">WHAT “COULDN’T CHECK” MEANS ▶</button></div>`
     : `<div class="row tags">${TAG_BUTTONS.map(([t, label]) => `<button type="button" class="btn-s tag-${t}" data-act="tag:${t}"${current === t ? ' aria-pressed="true"' : ''}${drill && tagged ? ' aria-disabled="true" disabled' : ''}>${label}</button>`).join('')}</div>`;
   const after = !tagged ? '' : `

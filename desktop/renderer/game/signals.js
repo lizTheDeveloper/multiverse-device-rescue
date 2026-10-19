@@ -7,6 +7,8 @@
 // find something, and nothing about them is scored.
 import { findingIdentity, DISTRICTS, OUTSKIRTS } from './findings-to-city.js';
 import { MONITORING_MODULES } from './ledger.js';
+// Sets globalThis.NotChecked (a plain script the list loads too).
+import '../not-checked.js';
 
 const ORDER = { critical: 0, warning: 1, couldnt: 2, info: 3 };
 const DISTRICT_ORDER = [...DISTRICTS, OUTSKIRTS].map((d) => d.id);
@@ -65,10 +67,14 @@ export function buildSignals(city, deck, changedIds = null) {
         marked: false, stale: false, fp: fingerprint(n), count: 1 });
     }
     for (const g of d.fog || []) {
-      if (MONITORING_MODULES.has(g.module)) continue;
-      add({ id: `couldnt|${g.module}`, kind: 'couldnt', severity: 'couldnt', title: couldntTitle(g),
-        description: String(g.reason == null ? '' : g.reason), districtId: d.id, module: g.module, finding: null,
-        missionId: null, fixable: false, marked: false, stale: false, fp: 'couldnt', count: 1 });
+      // A monitoring check that couldn't run is still a COULDN'T CHECK row, so
+      // the queue counts what the list counts (not-checked.js). It is never
+      // named, never tagged and never stored (ledger.js refuses its id too).
+      const monitoring = MONITORING_MODULES.has(g.module);
+      add({ id: `couldnt|${g.module}`, kind: 'couldnt', severity: 'couldnt', title: couldntTitle(monitoring ? { reason: g.reason } : g),
+        description: monitoring ? 'This check couldn’t run.' : String(g.reason == null ? '' : g.reason), districtId: d.id,
+        module: g.module, finding: null, missionId: null, fixable: false, marked: false, stale: false, fp: 'couldnt', count: 1,
+        ...(monitoring ? { monitoring: true } : {}) });
     }
   }
   return out;
@@ -105,6 +111,13 @@ export function queueOf(signals, filter = null) {
     known: sorted(list.filter((x) => x.tag === 'mine')),
     noted: sorted(list.filter((x) => x.tag === 'noted')),
   };
+}
+
+// What's left to do: open findings (critical or warning, not marked as
+// yours), the same ones the deck's CRITICAL and WARNING chips start from. The
+// HUD's TO DO; COULDN'T CHECK is counted apart (notCheckedSummary).
+export function todoCount(signals) {
+  return (signals || []).filter(isOpen).length;
 }
 
 export function sortedCount(signals) {
@@ -201,39 +214,13 @@ export function severityCounts(signals) {
   return out;
 }
 
-// A note that says part of a check couldn't look ("We couldn't list your USB
-// devices", "Checked 16 of 110 app signatures"). The same rule as the list's
-// (app.js isPartlyChecked), so both views count the same things.
-const COULDNT_TITLE = /^(?:we\s+)?(?:couldn[’']t|could\s+not)\s+(?:check|list|read|see|tell|find\s+out)\b/i;
-export function isPartlyChecked(f) {
-  if (!f || f.severity !== 'info') return false;
-  const title = String(f.title || '');
-  if (COULDNT_TITLE.test(title)) return true;
-  return !!(f.data && f.data.incomplete) && /^checked\s+\d+\s+of\s+\d+/i.test(title);
-}
-
-// One count of what wasn't fully checked, the same as the list's
-// (app.js notCheckedSummary): checks that couldn't run or didn't finish, and
-// notes that say part of a check couldn't look. `checks`: every check.
-export function notCheckedSummary(doc) {
-  const mods = doc && Array.isArray(doc.modules) ? doc.modules.filter(Boolean) : [];
-  const couldntRun = mods.filter((m) => m.status === 'error' || m.supported === false).length;
-  const unfinished = mods.filter((m) => m.status !== 'error' && m.supported !== false && m.complete === false).length;
-  const partly = mods.reduce((n, m) => n + (Array.isArray(m.findings) ? m.findings.filter(isPartlyChecked).length : 0), 0);
-  return { checks: mods.length, couldntRun, unfinished, partly, count: couldntRun + unfinished + partly };
-}
-
-// The deck's top line when something wasn't fully checked. Never an all-clear.
-export function notCheckedLine(sum) {
-  const s = sum || {};
-  const ran = (s.couldntRun || 0) + (s.unfinished || 0);
-  const how = s.couldntRun && s.unfinished ? 'couldn’t run or didn’t finish' : s.couldntRun ? 'couldn’t run' : 'didn’t finish';
-  const parts = [];
-  if (ran) parts.push(`${ran} ${ran === 1 ? 'check' : 'checks'} ${how}`);
-  if (s.partly) parts.push(`${s.partly} ${s.partly === 1 ? 'thing was' : 'things were'} only partly checked`);
-  if (!parts.length) return '';
-  return `${parts.join(', and ')}, so this isn’t a clean bill of health.`;
-}
+// What wasn't fully checked: the list's own rule, one module for both
+// (renderer/not-checked.js), so both views count the same things.
+const NC = globalThis.NotChecked;
+export const isPartlyChecked = NC.isPartlyChecked;
+export const notCheckedSummary = NC.notCheckedSummary;
+export const notCheckedLine = NC.notCheckedLine;
+export const notCheckedParts = NC.notCheckedParts;
 
 // The scan as the city reads it: a note saying part of a check couldn't look
 // leaves the notes, and its check counts as not finished (never clear). The
