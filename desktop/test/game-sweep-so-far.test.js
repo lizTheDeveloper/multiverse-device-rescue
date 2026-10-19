@@ -103,3 +103,22 @@ test('the controller previews through its own scan-to-city path, and app.js forw
   const { GAME_SCAN_EVENTS } = require('../renderer/app.js');
   for (const t of ['progress', 'plan', 'module']) assert.ok(GAME_SCAN_EVENTS.has(t), t);
 });
+
+test('a swept district whose only findings are held gets the same neutral line as any district without missions', async () => {
+  const { bossInit, bossApply } = await boss();
+  const { renderBoss, NO_MISSION_LINE, LOOKUP_LINE } = await view();
+  let b = bossApply(bossInit(), plan('security', 'network'));
+  b = bossApply(b, prog('done', 1, 2, 'security'));
+  b = bossApply(b, entry('stalkerware_scan', 'security', [warn('Monitoring app found')]));
+  const html = renderBoss({ boss: b, scout, tips: [], toCity: await toCity() });
+  const panel = /<section class="panel sweep-so-far"[\s\S]*?<\/section>/.exec(html)[0];
+  assert.match(panel, /THE GATEHOUSE[\s\S]*No missions from here yet\./);
+  assert.strictEqual(NO_MISSION_LINE, 'No missions from here yet.');
+  assert.ok(!html.includes('Monitoring app found'));
+  assert.doesNotMatch(panel.replace(/<[^>]+>/g, ' '), VERDICT);
+  // Every check done: the lookup line, not a stalled count.
+  b = bossApply(b, prog('done', 2, 2, 'network'));
+  const last = renderBoss({ boss: b, scout, tips: [] });
+  assert.ok(last.includes(LOOKUP_LINE.replace(/’/g, '’')));
+  assert.doesNotMatch(LOOKUP_LINE, /\b(seconds?|minutes?|hours?|program|scan)\b/i);
+});

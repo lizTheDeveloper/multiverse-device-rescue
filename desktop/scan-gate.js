@@ -16,9 +16,11 @@ function createScanGate() {
   return {
     scanning: () => scans > 0,
     // Runs `scan()` once no change is running; the gate is closed until it settles.
-    async runScan(scan) {
+    // `onWait()` is called once if it has to wait, so the window can say so.
+    async runScan(scan, onWait = () => {}) {
       scans += 1;
       try {
+        if (changes.size) onWait();
         while (changes.size) await Promise.allSettled([...changes]);
         return await scan();
       } finally {

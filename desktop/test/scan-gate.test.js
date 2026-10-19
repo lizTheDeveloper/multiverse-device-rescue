@@ -69,3 +69,29 @@ test('main.js routes every change through the gate, and the gate ships', () => {
   const pkg = require('../package.json');
   assert.ok(pkg.build.files.includes('scan-gate.js'));
 });
+
+test('the window hears about the wait, and the fix and mark cards word the refusal plainly, once', async () => {
+  const gate = createScanGate();
+  const change = later();
+  const changing = gate.runChange(() => change.p, null);
+  let waited = 0;
+  const scanning = gate.runScan(() => 'doc', () => { waited += 1; });
+  assert.strictEqual(waited, 1);
+  change.resolve(); await changing; await scanning;
+  await gate.runScan(() => 'doc', () => { waited += 1; });
+  assert.strictEqual(waited, 1, 'no wait, no message');
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8'), /send\('scan-event', \{ type: 'wait'/);
+
+  const FixFlow = require('../renderer/fix-flow.js');
+  const MarkFlow = require('../renderer/mark-flow.js');
+  const f = FixFlow.describeFixResult(fixRefusal('x'));
+  assert.strictEqual(f.headline, 'The checkup is still running.');
+  assert.doesNotMatch(f.headline + f.detail, /didn’t go through|Run the checkup again/);
+  const m = MarkFlow.describeMarkResult(markRefusal());
+  assert.strictEqual(m.headline, 'The checkup is still running.');
+  for (const d of [f, m]) assert.strictEqual(d.detail.match(/Nothing was changed\./g).length, 1);
+  // Any refusal that already says it doesn't get it twice.
+  const other = MarkFlow.describeMarkResult({ status: 'refused', error: 'not_allowed', message: 'This item can’t be marked from the app. Nothing was changed.' });
+  assert.strictEqual(other.detail.match(/Nothing was changed\./g).length, 1);
+  assert.match(MarkFlow.describeMarkResult({ status: 'refused', message: 'No.' }).detail, /^No\. Nothing was changed\.$/);
+});

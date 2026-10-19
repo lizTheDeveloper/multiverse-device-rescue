@@ -60,7 +60,7 @@ app.whenReady().then(() => {
     markPolicy.remember(doc);
     lastDoc = doc;
     return doc;
-  }));
+  }, () => { if (!e.sender.isDestroyed()) e.sender.send('scan-event', { type: 'wait', reason: 'change' }); }));
   ipcMain.handle('run-fix', (_e, moduleName) => gate.runChange(() =>
     handleRunFix(moduleName, { policy: fixPolicy, runFix }), fixRefusal(moduleName)));
   ipcMain.handle('run-fix-action', (_e, action, target) => gate.runChange(() =>

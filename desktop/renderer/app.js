@@ -490,10 +490,16 @@ function isPartialDoc(doc) {
 }
 
 // "34 of 120 checks done": what the partial results screen says it is.
+// After the last check, before the results: the engine's "Who made it?" lookups.
+const LOOKUP_TEXT = 'All checks are done. Looking up who made each program\u2026';
+// A scan asked for while a fix or mark is still being made starts after it.
+const WAIT_FOR_CHANGE_TEXT = 'Waiting for the change you asked for to finish, then the checkup starts\u2026';
+
 function partialCountText(partial) {
   const done = partial && partial.done > 0 ? partial.done : 0;
   const total = partial && partial.total > 0 ? partial.total : 0;
   if (!total) return 'The checkup is still running.';
+  if (done >= total) return LOOKUP_TEXT;
   return `The checkup is still running: ${done} of ${total} checks done.`;
 }
 
@@ -518,6 +524,8 @@ if (typeof module !== 'undefined' && module.exports) {
     partialCountText,
     partialSummaryText,
     PARTIAL_ACTIONS_TEXT,
+    LOOKUP_TEXT,
+    WAIT_FOR_CHANGE_TEXT,
     duringScanTips,
     groupFindingsBySeverity,
     SITUATIONS,
@@ -582,6 +590,8 @@ if (typeof document !== 'undefined') {
     let wantsCity = false; // came in through "Play it as a game"
     let leftGame = false; // chose "Plain view" during game mode
     let scanRunning = false;
+    // The results screen is showing a running scan's results so far.
+    let resultsPartial = false;
     let lastScanSituation = null; // the worry lastScanDoc was run for
     // Monitoring software seen in any scan or re-check this session (noteMonitoring).
     // Memory only: never written to storage.
@@ -636,7 +646,8 @@ if (typeof document !== 'undefined') {
       showScreen('city');
     }
     function renderCitySwitch(doc) {
-      document.getElementById('results-city-switch').hidden = !cityAvailable();
+      // Not while the list is partial: the city opens from the finished checkup.
+      document.getElementById('results-city-switch').hidden = !cityAvailable() || resultsPartial;
     }
 
     window.RescueHost = {
@@ -994,10 +1005,31 @@ if (typeof document !== 'undefined') {
       });
     }
 
+    // New cards can land above what the person is reading. Remember the
+    // topmost card on screen and where it sat, then put it back there.
+    const cardSelector = (key) => `[data-finding-key="${String(key).replace(/["\\]/g, '\\$&')}"]`;
+    function readingAnchor(root) {
+      if (!root || typeof root.querySelectorAll !== 'function' || typeof window.scrollBy !== 'function') return null;
+      for (const card of root.querySelectorAll('[data-finding-key]')) {
+        if (typeof card.getBoundingClientRect !== 'function') return null;
+        const r = card.getBoundingClientRect();
+        if (r.bottom > 0) return r.top >= (window.innerHeight || 0) ? null : { key: card.getAttribute('data-finding-key'), top: r.top };
+      }
+      return null;
+    }
+    function keepReadingAnchor(root, anchor) {
+      if (!anchor || typeof root.querySelector !== 'function') return;
+      const card = root.querySelector(cardSelector(anchor.key));
+      if (!card || typeof card.getBoundingClientRect !== 'function') return;
+      const moved = card.getBoundingClientRect().top - anchor.top;
+      if (moved) window.scrollBy(0, moved);
+    }
+
     // The results screen's frame: "still running" (partial) or the finished checkup.
     function renderResultsFrame(partial) {
       const running = document.getElementById('results-running');
       running.hidden = !partial;
+      resultsPartial = !!partial;
       if (partial) {
         document.getElementById('results-running-text').textContent = partialCountText(partial);
         document.getElementById('results-running-actions').textContent = PARTIAL_ACTIONS_TEXT;
@@ -1035,11 +1067,13 @@ if (typeof document !== 'undefined') {
       routerCtx = RouterLink.contextFrom(doc, browserName);
       const groupsEl = document.getElementById('results-groups');
       const wasOpen = partial ? openDetailsIn(groupsEl) : new Set();
+      const anchor = partial ? readingAnchor(groupsEl) : null;
       keepFocus(groupsEl, () => {
         groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial)).join('')
           + ClearList.sectionHtml();
       });
       reopenDetailsIn(groupsEl, wasOpen);
+      keepReadingAnchor(groupsEl, anchor);
       reportFindings.push(...cardPicks.values());
 
       // Items marked as yours on an earlier checkup start out cleared.
@@ -1164,6 +1198,11 @@ if (typeof document !== 'undefined') {
         if (changed) schedulePartialRender();
       }
       if (ev.type === 'module' || ev.type === 'plan') return;
+      if (ev.type === 'wait') {
+        document.getElementById('scan-status').textContent = WAIT_FOR_CHANGE_TEXT;
+        document.getElementById('scan-substatus').textContent = '';
+        return;
+      }
       if (ev.type === 'log') {
         appendLog(ev.line);
         return;
@@ -1185,6 +1224,11 @@ if (typeof document !== 'undefined') {
         appendLog(`[${ev.index}/${ev.total}] ${ev.module} ...`);
       } else {
         foundSoFar += ev.findings || 0;
+        // The last check is done; the engine now looks up who made each program.
+        if (ev.total && ev.index >= ev.total) {
+          document.getElementById('scan-status').textContent = LOOKUP_TEXT;
+          document.getElementById('scan-substatus').textContent = '';
+        }
         appendLog(`[${ev.index}/${ev.total}] ${ev.module}: ${
           ev.error ? `could not run (${ev.error})` : `${ev.findings} finding(s)`}`);
       }
@@ -1250,8 +1294,13 @@ if (typeof document !== 'undefined') {
         // and the error shows where the checkup's progress was.
         const wasViewing = viewingPartial();
         endPartial();
-        if (lastScanDoc) renderResults(lastScanDoc);
-        else renderResultsFrame(null);
+        if (lastScanDoc) {
+          renderResults(lastScanDoc);
+          renderLearnMore(lastScanDoc);
+          renderCitySwitch(lastScanDoc);
+        } else {
+          renderResultsFrame(null);
+        }
         if (wasViewing) showScreen('scan');
         setScanBusy(false);
         const message = scanErrorText(err && err.message ? err.message : String(err));

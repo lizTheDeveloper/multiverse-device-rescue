@@ -33,6 +33,10 @@ function districtCard(d, learn) {
         <span class="d-foot" id="sweep-${esc(d.id)}">${badge}<span class="cue">LEARN ▶</span>${progress}</span></button>`;
 }
 
+export const NO_MISSION_LINE = 'No missions from here yet.';
+// After the last check, before the city: the engine's "who made it" lookups.
+export const LOOKUP_LINE = 'Every district is checked. I’m finding out who built what. I’ll call you when the city is ready.';
+
 // What the swept districts' finished checks found, read-only: titles to come
 // back to, never a mission to start, and never "all clear" mid-sweep.
 function previewHtml(preview) {
@@ -41,7 +45,10 @@ function previewHtml(preview) {
     const n = d.missions.length;
     const said = n ? `${n} MISSION${n === 1 ? '' : 'S'} WAITING` : '';
     const fog = d.fog ? `${d.fog} COULDN’T CHECK` : '';
-    const titles = n ? `<ul class="notes">${d.missions.map((m) => `<li>${esc(m.title)}</li>`).join('')}</ul>` : '';
+    // No mission from it: one neutral line, the same whatever it found (some
+    // of it may be held), so it is never blank and never reads as "clear".
+    const titles = n ? `<ul class="notes">${d.missions.map((m) => `<li>${esc(m.title)}</li>`).join('')}</ul>`
+      : `<p class="intel">${esc(NO_MISSION_LINE)}</p>`;
     return `<li><strong>${esc(d.name.toUpperCase())}</strong>${said ? ` <span class="badge skip">${esc(said)}</span>` : ''}${fog ? ` <span class="badge fog">${esc(fog)}</span>` : ''}${titles}</li>`;
   }).join('');
   return `
@@ -59,7 +66,8 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, t
   const current = ds.find((d) => d.state === 'sweeping') || (boss && boss.current ? ds.find((d) => d.id === boss.current) : undefined);
   const teaches = current && learn && learn(current.id);
   const anyLesson = !!learn && ds.some((d) => learn(d.id));
-  const line = !current ? `Starting the checkup engine.${anyLesson ? ' Pick a district marked LEARN to see what it looks for.' : ''}`
+  const lookingUp = boss && boss.total > 0 && boss.index >= boss.total;
+  const line = lookingUp ? LOOKUP_LINE : !current ? `Starting the checkup engine.${anyLesson ? ' Pick a district marked LEARN to see what it looks for.' : ''}`
     : teaches ? `Checking ${current.name} now. Click it to learn what I’m looking for. I’ll call you when the checkup is done.`
       : `Checking ${current.name} now. You don’t need to watch. I’ll call you when it’s done.`;
   const tipList = Array.isArray(tips) && tips.length ? `

@@ -489,11 +489,15 @@ const MarkFlow = (function () {
     if (r.status === 'removed') {
       return { tone: 'info', done: true, headline: 'No longer marked as yours.', detail: 'Its warning comes back on your next checkup.', undo: [] };
     }
+    if (r.error === 'scan_running') {
+      return { tone: 'info', headline: 'The checkup is still running.',
+        detail: 'You can do this once it’s done. Nothing was changed.', undo: [] };
+    }
     if (r.error === 'not_allowed' || r.status === 'refused') {
-      return {
-        tone: 'error', headline: 'We couldn’t mark this one.',
-        detail: `${typeof r.message === 'string' ? r.message + ' ' : ''}Nothing was changed.`.trim(), undo: [],
-      };
+      const said = typeof r.message === 'string' ? r.message.trim() : '';
+      // The main process's refusals already say it; never twice.
+      const detail = /Nothing was changed\./.test(said) ? said : `${said ? said + ' ' : ''}Nothing was changed.`;
+      return { tone: 'error', headline: 'We couldn’t mark this one.', detail, undo: [] };
     }
     return {
       tone: 'error', headline: 'That didn’t go through.',

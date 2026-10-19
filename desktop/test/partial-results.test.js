@@ -156,3 +156,67 @@ test('a scan that fails mid-way drops its partial results and shows the error wh
   assert.strictEqual(p.byId('results-running').hidden, true);
   assert.strictEqual(p.byId('scan-partial').hidden, true);
 });
+
+test('after the last check: a plain "looking up who made each program" line, not a stalled count', async () => {
+  const { LOOKUP_TEXT, WAIT_FOR_CHANGE_TEXT } = require('../renderer/app.js');
+  assert.strictEqual(partialCountText({ done: 3, total: 3 }), LOOKUP_TEXT);
+  for (const t of [LOOKUP_TEXT, WAIT_FOR_CHANGE_TEXT]) assert.doesNotMatch(t, /minute|second|hour|soon/i);
+  const p = await running();
+  p.emit({ type: 'wait', reason: 'change' });
+  assert.strictEqual(p.byId('scan-status').textContent, WAIT_FOR_CHANGE_TEXT);
+  p.emit({ type: 'plan', total: 1, modules: [] });
+  p.emit({ type: 'progress', phase: 'start', index: 1, total: 1, module: 'a', category: 'security' });
+  p.emit(done(1, 1, 'a'));
+  p.emit({ type: 'module', result: entry('a', []) });
+  assert.strictEqual(p.byId('scan-status').textContent, LOOKUP_TEXT);
+  p.byId('btn-see-partial').click();
+  assert.strictEqual(p.byId('results-running-text').textContent, LOOKUP_TEXT);
+});
+
+test('the city switch: hidden while partial (even when the game loads), back with the learn-more box after a failed scan', async () => {
+  const p = page({ store: { 'device-rescue.display': 'standard' }, ready: true });
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  p.byId('btn-run-scan').click();
+  await p.finish({ schema_version: 1, platform: 'darwin', modules: [entry('a', [warning])] });
+  assert.strictEqual(p.byId('results-city-switch').hidden, false, 'offered after a finished checkup');
+  const learnBefore = p.byId('results-learn').hidden;
+  p.byId('btn-run-scan').click();
+  p.emit({ type: 'plan', total: 2, modules: [] });
+  p.emit(done(1, 2, 'a', 1));
+  p.emit({ type: 'module', result: entry('a', [warning]) });
+  p.byId('btn-see-partial').click();
+  assert.strictEqual(p.byId('results-city-switch').hidden, true);
+  p.fire('rescue-game-ready');
+  assert.strictEqual(p.byId('results-city-switch').hidden, true, 'the game loading doesn’t bring it back mid-scan');
+  await p.fail('engine exited 1: boom');
+  assert.strictEqual(p.byId('results-city-switch').hidden, false);
+  assert.strictEqual(p.byId('results-learn').hidden, learnBefore);
+});
+
+test('new cards above the one being read keep it where it was on screen', async () => {
+  const p = await running();
+  p.emit({ type: 'plan', total: 3, modules: [] });
+  p.emit(done(1, 3, 'launch_agents_audit', 1));
+  p.emit({ type: 'module', result: entry('launch_agents_audit', [warning]) });
+  p.byId('btn-see-partial').click();
+  // A stand-in layout: the card being read sits at 120px; after the redraw a
+  // new card above pushes it down by 300px, until the page scrolls back.
+  const groups = p.byId('results-groups');
+  let shift = 0;
+  const key = 'launch_agents_audit|security.launch_agents_audit.unsigned|Unknown helper starts at login';
+  const card = () => ({ getAttribute: () => key, getBoundingClientRect: () => ({ top: 120 + shift, bottom: 400 + shift }) });
+  groups.querySelectorAll = (sel) => (sel === '[data-finding-key]' ? [card()] : []);
+  groups.querySelector = (sel) => (sel.includes('launch_agents_audit') ? card() : null);
+  const scrolls = [];
+  p.sandbox.innerHeight = 800;
+  p.sandbox.scrollBy = (_x, y) => { scrolls.push(y); shift -= y; };
+  const before = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(groups), 'innerHTML');
+  Object.defineProperty(groups, 'innerHTML', { get() { return before.get.call(this); },
+    set(v) { before.set.call(this, v); shift = 300; }, configurable: true });
+  p.emit(done(2, 3, 'firewall', 1));
+  p.emit({ type: 'module', result: entry('firewall', [{ ...warning, severity: 'critical', title: 'Firewall off', code: 'x.y.z' }]) });
+  await sleep(450);
+  assert.deepStrictEqual(scrolls, [300]);
+  assert.strictEqual(card().getBoundingClientRect().top, 120);
+});
