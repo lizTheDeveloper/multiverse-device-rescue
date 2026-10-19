@@ -7,7 +7,7 @@ const { handleRecheck } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
-const { routerUrlFor } = require('./router-url');
+const { routerUrlFor, browserDisplayName } = require('./router-url');
 const { isAllowedMissionLink } = require('./mission-links');
 const { APP_ORIGIN, serveApp } = require('./app-protocol');
 
@@ -104,7 +104,7 @@ app.whenReady().then(() => {
   // The default browser's name ("Safari"), so the router button can say where it opens.
   ipcMain.handle('default-browser', () => {
     try {
-      return app.getApplicationNameForProtocol('http://') || null;
+      return browserDisplayName(app.getApplicationNameForProtocol('http://'));
     } catch {
       return null;
     }

@@ -17,4 +17,13 @@ function routerUrlFor(ip) {
   return isPrivateIpv4(ip) ? `http://${ip}/` : null;
 }
 
-module.exports = { isPrivateIpv4, routerUrlFor };
+// The default browser's name as the OS reports it, made fit to show: Linux can
+// report a .desktop file name ("firefox.desktop"). Anything odd becomes null,
+// and the button then says "your web browser".
+function browserDisplayName(name) {
+  if (typeof name !== 'string') return null;
+  const plain = name.trim().replace(/\.desktop$/i, '');
+  return plain && plain.length <= 80 ? plain : null;
+}
+
+module.exports = { isPrivateIpv4, routerUrlFor, browserDisplayName };

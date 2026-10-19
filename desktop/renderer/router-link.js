@@ -11,6 +11,8 @@
  * No button when the ARP check says another device may be answering for the
  * router: opening that address could hand the router password to whatever is
  * pretending to be it. The person is told to check the router's label instead.
+ * When the ARP check didn't run (not in this profile, errored, unsupported), that
+ * is "couldn't check", not "clean": the button stays, and its hint says so.
  */
 const RouterLink = (function () {
   // Warning/critical findings whose fix happens on the router's own pages.
@@ -46,13 +48,15 @@ const RouterLink = (function () {
     return modules.flatMap((m) => (Array.isArray(m.findings) ? m.findings.map((f) => ({ module: m.name, ...f })) : []));
   }
 
-  // { ip, blocked, browser } for a scan, or null when it has no usable router address.
+  // { ip, blocked, unverified, browser } for a scan, or null when it has no usable router address.
   function contextFrom(doc, browser) {
     const findings = allFindings(doc);
     const fromRouter = findings.find((f) => f.module === 'router_security_audit' && f.data && isPrivateIpv4(f.data.gateway_ip));
     if (!fromRouter) return null;
     const blocked = findings.some((f) => f.module === 'arp_spoof_check' && f.data && IMPERSONATION_CHECKS.has(f.data.check));
-    return { ip: fromRouter.data.gateway_ip, blocked, browser: typeof browser === 'string' && browser ? browser : null };
+    const arp = (doc.modules || []).find((m) => m && m.name === 'arp_spoof_check');
+    const unverified = !arp || arp.status !== 'ok' || arp.supported === false;
+    return { ip: fromRouter.data.gateway_ip, blocked, unverified, browser: typeof browser === 'string' && browser ? browser : null };
   }
 
   function offersRouter(finding) {
@@ -64,7 +68,8 @@ const RouterLink = (function () {
   function hintText(ctx) {
     const where = ctx.browser ? `in ${ctx.browser}` : 'in your web browser';
     return `Opens your router’s sign-in page (http://${ctx.ip}/) ${where}. You sign in there yourself; Device Rescue never sees the password. `
-      + `You can also type ${ctx.ip} into any browser’s address bar. If your router is managed by a phone app, use the app instead.`;
+      + `You can also type ${ctx.ip} into any browser’s address bar. If your router is managed by a phone app, use the app instead.`
+      + (ctx.unverified ? ' This checkup couldn’t confirm that this address is really your router, so compare it with the address on the router’s label before you sign in.' : '');
   }
 
   const BLOCKED_TEXT = 'Not opening your router’s page: this checkup saw signs that another device may be pretending to be your router. '

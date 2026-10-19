@@ -12,9 +12,34 @@ const doc = (...findings) => {
 };
 const routerInfo = f('router_security_audit', 'router_manual_review', 'info', { gateway_ip: '192.168.0.1' });
 
+const arpRan = (findings = []) => ({ name: 'arp_spoof_check', status: 'ok', supported: true, findings });
+const withArp = (d, m) => ({ modules: [...d.modules, m] });
+
 test('context takes the gateway address from the router check', () => {
-  const ctx = RouterLink.contextFrom(doc(routerInfo), 'Safari');
-  assert.deepStrictEqual(ctx, { ip: '192.168.0.1', blocked: false, browser: 'Safari' });
+  const ctx = RouterLink.contextFrom(withArp(doc(routerInfo), arpRan()), 'Safari');
+  assert.deepStrictEqual(ctx, { ip: '192.168.0.1', blocked: false, unverified: false, browser: 'Safari' });
+});
+
+test('unverified when the ARP check did not run, errored or was unsupported', () => {
+  assert.strictEqual(RouterLink.contextFrom(doc(routerInfo), 'Safari').unverified, true, 'not run');
+  assert.strictEqual(RouterLink.contextFrom(withArp(doc(routerInfo), { ...arpRan(), status: 'error' })).unverified, true, 'errored');
+  assert.strictEqual(RouterLink.contextFrom(withArp(doc(routerInfo), { ...arpRan(), supported: false })).unverified, true, 'unsupported');
+});
+
+test('an unverified context keeps the button but says to compare with the label', () => {
+  const html = RouterLink.findingLinkHtml(f('router_security_audit', 'upnp_enabled'), { ip: '192.168.0.1', blocked: false, unverified: true, browser: null });
+  assert.match(html, /data-router-ip/);
+  assert.match(html, /couldn’t confirm/);
+  assert.match(html, /label/);
+  assert.doesNotMatch(RouterLink.hintText({ ip: '192.168.0.1', blocked: false, unverified: false, browser: null }), /couldn’t confirm/);
+});
+
+test('renderer and main agree on which addresses are private', () => {
+  const main = require('../router-url');
+  for (const v of ['192.168.0.1', '10.0.0.1', '172.16.0.1', '172.31.255.254', '172.15.0.1', '172.32.0.1', '8.8.8.8', '127.0.0.1',
+    '169.254.1.1', '192.168.00.1', '192.168.0.256', '192.168.0.1\n', ' 10.0.0.1', '10.0.0.1:80', '', null, 167772161]) {
+    assert.strictEqual(RouterLink.isPrivateIpv4(v), main.isPrivateIpv4(v), JSON.stringify(v));
+  }
 });
 
 test('no context without a private gateway address', () => {
@@ -81,14 +106,18 @@ test('a lesson question marked `router` shows the router button when there is a 
   const { pathToFileURL } = require('url');
   const path = require('path');
   const { renderLesson } = await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', 'views', 'lesson.js')).href);
-  global.window = { RouterLink };
   const lesson = { id: 'x', title: 'X', briefing: 'b', whatTheScanLooksFor: 'w',
     questions: [{ teach: 't', prompt: 'p', router: true, options: [{ text: 'a', correct: true, feedback: 'f' }] }] };
   const args = { lesson, qIndex: 0, picked: null, scan: {}, scout: () => '', pendingCity: false };
-  assert.match(renderLesson({ ...args, routerFor: () => ({ ip: '192.168.0.1', blocked: false, browser: null }) }), /data-act="open-router"/);
-  assert.doesNotMatch(renderLesson({ ...args, routerFor: () => null }), /open-router/);
+  const routerHtml = (ctx) => () => RouterLink.gameLinkHtml(ctx);
+  assert.match(renderLesson({ ...args, routerHtml: routerHtml({ ip: '192.168.0.1', blocked: false, browser: null }) }), /data-act="open-router"/);
+  assert.doesNotMatch(renderLesson({ ...args, routerHtml: routerHtml(null) }), /open-router/);
   assert.doesNotMatch(renderLesson(args), /open-router/);
-  delete global.window;
+  const blocked = renderLesson({ ...args, routerHtml: routerHtml({ ip: '192.168.0.1', blocked: true, browser: null }) });
+  assert.doesNotMatch(blocked, /open-router/);
+  assert.match(blocked, /pretending to be your router/);
+  const other = { ...lesson, questions: [{ ...lesson.questions[0], router: false }] };
+  assert.doesNotMatch(renderLesson({ ...args, lesson: other, routerHtml: routerHtml({ ip: '192.168.0.1', blocked: false, browser: null }) }), /open-router/);
 });
 
 test('whos-on-wifi marks its "where is the full list" question as a router question', async () => {

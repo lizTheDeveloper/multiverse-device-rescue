@@ -509,7 +509,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'lesson') {
       const l = s.lesson && s.lessons.find((x) => x.id === s.lesson.id);
-      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor, routerFor });
+      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor,
+        routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') });
       s.screen = 'training';
       return screenHtml();
     }
