@@ -287,8 +287,11 @@ export function createMissionDesk(deps) {
       if (m.items.some((i) => !d.run.results.some((r) => r.key === i.key))) d.run = Run.skip({ ...d.run, index: -1 });
       keepRun();
     }
-    d.notice = about(e.item, ok ? (mode() === 'city' ? 'Put back. It’s on the board again.' : 'Put back. It’s on the list again.')
-      : 'Put back, but the check couldn’t run to the end.');
+    // Said only as the scan shows it: back on the list, or not seen by the check right now.
+    const back = d.missions.some((m) => m.items.some((i) => i.key === e.key || (i.sourceKeys || []).includes(e.key)));
+    d.notice = about(e.item, !ok ? 'Put back, but the check couldn’t run to the end.'
+      : back ? (mode() === 'city' ? 'Put back. It’s on the board again.' : 'Put back. It’s on the list again.')
+        : (mode() === 'city' ? 'Put back, but the sweep doesn’t see it right now.' : 'Put back, but the check doesn’t show it right now.'));
     // Said on the district's list too, where its Undo may have been.
     d.listNotice = d.notice;
     deps.render();
@@ -418,7 +421,7 @@ export function createMissionDesk(deps) {
     }
     if (act.kind === 'fix') {
       const html = w.FixFlow.fixControlsHtml({ ...act.item.finding }, { ...act.options, ...(act.options && act.options.watched ? { place: deps.place() } : {}) });
-      if (!html) { d.notice = mode() === 'city' ? 'No patch the city can make for this one.' : 'There’s no fix the app can make for this one.'; d.run = Run.cancelPending(d.run); return; }
+      if (!html) { d.notice = about(act.item, mode() === 'city' ? 'No patch the city can make for this one.' : 'There’s no fix the app can make for this one.'); d.run = Run.cancelPending(d.run); return; }
       d.act = { kind: 'fix', html: oneStep(html, 'fix'), item: act.item, open: /\bdata-fix-open\b/.test(html) };
       return;
     }
