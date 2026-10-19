@@ -8,7 +8,7 @@
 //
 // The key keeps its v1 name so a saved Plan A store is found and migrated.
 // monitoringSeen is never stored here: app.js keeps it in memory only.
-import { validBloom } from './folded.js';
+import { validBloom, validHashes } from './folded.js';
 
 export const STORE_KEY = 'device-rescue.game.v1';
 const STATUSES = new Set(['open', 'later', 'yours', 'reclaimed']);
@@ -59,9 +59,11 @@ export function validDeck(d) {
     // Kept by the profile when it folds old records to stay small (folded.js):
     // `paid`, lifetime award keys folded out of `once` (and `sweep.paid`,
     // this sweep's keys folded out of `sweep.keys`); `confirmedEarlier`,
-    // confirmed fixes folded out of `confirmed`, still counted.
+    // confirmed fixes folded out of `confirmed`, still counted, with their
+    // ids as short hashes in `confirmedFolded`.
     && (d.paid === undefined || validBloom(d.paid))
-    && (d.confirmedEarlier === undefined || count(d.confirmedEarlier));
+    && (d.confirmedEarlier === undefined || count(d.confirmedEarlier))
+    && (d.confirmedFolded === undefined || validHashes(d.confirmedFolded));
 }
 
 // The deck rebuilt from its known fields only, or null when it isn't a valid
@@ -82,6 +84,7 @@ export function cleanDeck(d) {
     sweeps: d.sweeps.map((w) => Object.fromEntries([['at', w.at], ...SWEEP_FIELDS.map((k) => [k, w[k]])])),
     ...(d.paid !== undefined ? { paid: d.paid } : {}),
     ...(d.confirmedEarlier !== undefined ? { confirmedEarlier: d.confirmedEarlier } : {}),
+    ...(d.confirmedFolded !== undefined ? { confirmedFolded: d.confirmedFolded } : {}),
   };
 }
 

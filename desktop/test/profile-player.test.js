@@ -817,7 +817,9 @@ test('a long-lived profile with many scans keeps saving under the cap; what the 
 });
 
 // Fix round 3, item 1: the deck is bounded, totals hold, nothing pays twice.
-test('1000 scans with about 100 tags and 5 fixes each keep saving; CONFIRMED holds and no award pays twice', async () => {
+// 150 scans by default; the full 1000 with IRT_SIM_FULL=1.
+const LONG_SCANS = process.env.IRT_SIM_FULL ? 1000 : 150;
+test(`${LONG_SCANS} scans with about 100 tags and 5 fixes each keep saving; CONFIRMED holds and no award pays twice`, async () => {
   const m = await load();
   const progress = await import('../renderer/game/progress.js');
   const oneCity = await import('../renderer/game/one-city.js');
@@ -831,7 +833,7 @@ test('1000 scans with about 100 tags and 5 fixes each keep saving; CONFIRMED hol
   let present = Array.from({ length: 100 }, () => idOf(next++));
   const fixed = [];
   let paidPoints = 0;
-  for (let scan = 0; scan < 1000; scan += 1) {
+  for (let scan = 0; scan < LONG_SCANS; scan += 1) {
     const now = new Date(Date.UTC(2026, 9, 18) + scan * 3600000).toISOString();
     let view = m.toProgress(p, m.bank);
     let deck = L.recordSweep(view.deck, { checks: 100, checked: 100, secured: 95 }, now).deck;
@@ -848,7 +850,7 @@ test('1000 scans with about 100 tags and 5 fixes each keep saving; CONFIRMED hol
     present = [...present.slice(5), ...Array.from({ length: 5 }, () => idOf(next++))];
     view = progress.setDeck(view, deck);
     p = m.withProgress(p, view);
-    if (scan % 50 === 49) {
+    if (scan % 25 === 24) {
       assert.ok(m.saveProfile(store, p, { seed: 13, mode: 'city', onProblem }), `save after scan ${scan}`);
       assert.ok(store.data[m.PROFILE_KEY].length <= m.MAX_BOX_CHARS);
       const back = m.loadProfile(store, now);
@@ -940,4 +942,59 @@ test('the folded records: a filter that never forgets a key, short hashes, and a
   assert.notStrictEqual(f.shortHash('a'), f.shortHash('b'));
   assert.doesNotMatch(bloom, FORBIDDEN_ON_DISK);
   assert.doesNotMatch('012345679bcdfghjklmnpqrstvwxz-_.', /[aeiouy8]/);
+});
+
+// Fix round 4, item 1: CONFIRMED after a fold, a return and a re-fix.
+test('confirm, fold, the finding comes back, fix it again: CONFIRMED goes 1, 1, 0, 1 and the fix pays once', async () => {
+  const m = await load();
+  const L = m.ledger;
+  const oneCity = await import('../renderer/game/one-city.js');
+  const progress = await import('../renderer/game/progress.js');
+  const idOf = (n) => `launch_agent_audit|security.launch_agent_audit.unsigned|/Users/someone/Library/LaunchAgents/com.example.agent-${n}.plist`;
+  const target = idOf(0);
+  let deck = progress.emptyDeck();
+  // The target is the oldest fix; 300 more push the box over the limit, so it folds.
+  for (let i = 0; i <= 300; i += 1) deck = L.confirmFix(deck, idOf(i), new Date(Date.UTC(2026, 0, 1) + i * 60000).toISOString()).deck;
+  const points = deck.points;
+  const bars = (d) => oneCity.countDeckBars({ deck: d }).confirmed;
+  let p = m.withProgress(m.emptyProfile(NOW), { ...m.toProgress(m.emptyProfile(NOW), m.bank), deck });
+  const store = memStore();
+  assert.ok(m.saveProfile(store, p, { seed: 19 }));
+  p = m.loadProfile(store, NOW);
+  let d = m.toProgress(p, m.bank).deck;
+  assert.strictEqual(d.confirmed[target], undefined, 'the target was folded');
+  assert.ok(d.confirmedEarlier > 0);
+  assert.strictEqual(bars(d), 301, 'CONFIRMED holds across the fold');
+  // The finding comes back (a scan shows it again): it is no longer confirmed.
+  d = L.reconcileDeck(d, [{ id: target, fp: 'f', kind: 'finding' }], new Set(['launch_agent_audit'])).deck;
+  assert.strictEqual(bars(d), 300);
+  // Fixed again: confirmed once more, counted once, and the fix doesn't pay again.
+  const r = L.confirmFix(d, target, NOW);
+  assert.strictEqual(r.points, 0);
+  assert.strictEqual(bars(r.deck), 301, 'counted once, not twice');
+  assert.strictEqual(r.deck.points, points);
+  // And through a save: still 301.
+  p = m.withProgress(p, { ...m.toProgress(p, m.bank), deck: r.deck });
+  assert.ok(m.saveProfile(store, p, { seed: 19 }));
+  assert.strictEqual(bars(m.toProgress(m.loadProfile(store, NOW), m.bank).deck), 301);
+});
+
+// Fix round 4, item 2: a damaged paid filter fails safe.
+test('a damaged paid filter fails safe: no folded award pays again, drills still pay, and it is logged', async () => {
+  const m = await load();
+  const L = m.ledger;
+  const good = m.emptyProfile(NOW);
+  good.deck = { ...good.deck, once: { 'drill:a': true }, paid: 'damaged!', sweep: { at: NOW, keys: {}, paid: 'also damaged' } };
+  const store = memStore({ [m.PROFILE_KEY]: m.rb.encode(good, 23) });
+  const p = m.loadProfile(store, NOW);
+  assert.ok(p.migrations.at(-1).changes.includes('deck: award record unreadable, folded awards treated as paid'));
+  const d = m.toProgress(p, m.bank).deck;
+  assert.strictEqual(L.award(d, 'fix', 'launch_agent_audit|x|anything').points, 0, 'a folded fix key can never pay again');
+  assert.strictEqual(L.award(d, 'report', 'launch_agent_audit|x|anything').points, 0);
+  assert.strictEqual(L.award(d, 'clue', 'launch_agent_audit|x|y#maker').points, 0, 'this sweep, too');
+  assert.ok(L.award(d, 'drill', 'b').points > 0, 'drill keys are never folded, so they still pay');
+  assert.strictEqual(L.award(d, 'drill', 'a').points, 0);
+  // The next sweep starts a clean sweep filter.
+  const next = L.recordSweep(d, { checks: 1, checked: 1, secured: 0 }, NOW).deck;
+  assert.ok(L.award(next, 'clue', 'launch_agent_audit|x|y#maker').points > 0);
 });

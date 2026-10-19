@@ -12,7 +12,7 @@ import { lessonsWithConcept } from './item-bank.js';
 import { CONCEPTS, SKILLS, CLUE_CONCEPTS, isHidden, conceptById } from './skills.js';
 import { STORE_KEY as OLD_KEY, TAGS, SWEEP_FIELDS } from '../progress.js';
 import { MONITORING_MODULES, RANKS, rankOf, sweepPercent, MAX_SWEEPS } from '../ledger.js';
-import { bloomAdd, validBloom, shortHash, SHORT_HASH_CHARS, BLOOM_CHARS } from '../folded.js';
+import { bloomAdd, validBloom, shortHash, SHORT_HASH_CHARS, BLOOM_CHARS, FULL_BLOOM, validHashes, addHashes } from '../folded.js';
 
 export const PROFILE_KEY = 'device-rescue.recipe-box.v1';
 // Boxes that wouldn't decode are moved here (see the storage section).
@@ -68,6 +68,16 @@ const HASH_RE = new RegExp(`^(?:[012345679bcdfghjklmnpqrstvwxz_.-]{${SHORT_HASH_
 const validFolded = (s) => str(s) && s.length <= MAX_FOLDED_IDS * SHORT_HASH_CHARS && HASH_RE.test(s);
 const foldedHas = (s, h) => { for (let i = 0; i < s.length; i += SHORT_HASH_CHARS) if (s.slice(i, i + SHORT_HASH_CHARS) === h) return i; return -1; };
 
+// A damaged `paid` filter fails safe: every folded key counts as paid (no
+// award folded out of `once` can pay twice; a new fix or report then pays
+// nothing either, which is said in the migration log). A damaged
+// `sweep.paid` does the same until the next sweep starts a new one.
+function paidOrFull(s, changes) {
+  if (validBloom(s)) return s;
+  changes.push('deck: award record unreadable, folded awards treated as paid');
+  return FULL_BLOOM;
+}
+
 function salvageDeck(d, changes) {
   const out = emptyDeckPart();
   if (!plainObject(d)) return out;
@@ -81,10 +91,11 @@ function salvageDeck(d, changes) {
     // `carry` (reclaim-city's held.js): a bare flag that this sweep held
     // something, so its going is never paid, even after a restart.
     out.sweep = { at: d.sweep.at, keys: obj(entries(d.sweep.keys).filter(([, v]) => v === true)), ...(d.sweep.carry === true ? { carry: true } : {}),
-      ...(validBloom(d.sweep.paid) ? { paid: d.sweep.paid } : {}) };
+      ...(d.sweep.paid !== undefined ? { paid: paidOrFull(d.sweep.paid, changes) } : {}) };
   }
-  if (validBloom(d.paid)) out.paid = d.paid;
+  if (d.paid !== undefined) out.paid = paidOrFull(d.paid, changes);
   if (count(d.confirmedEarlier) && d.confirmedEarlier > 0) out.confirmedEarlier = d.confirmedEarlier;
+  if (validHashes(d.confirmedFolded) && d.confirmedFolded) out.confirmedFolded = d.confirmedFolded;
   for (const w of Array.isArray(d.sweeps) ? d.sweeps : []) {
     if (plainObject(w) && str(w.at) && SWEEP_FIELDS.every((k) => count(w[k]))) out.sweeps.push(obj([['at', w.at], ...SWEEP_FIELDS.map((k) => [k, w[k]])]));
     else dropped += 1;
@@ -382,13 +393,16 @@ const isFoldableOnce = (k) => !k.startsWith('drill:');
 // first ones lose nothing anyone sees; the last one (tags) loses the oldest
 // sorting.
 const FOLD_STEPS = [
-  // Confirmed fixes, oldest first, into a count: the CONFIRMED total never drops.
+  // Confirmed fixes, oldest first, into a count: the CONFIRMED total never
+  // drops. Their ids are kept as short hashes (confirmedFolded), so one whose
+  // finding comes back leaves the count (ledger.reconcileDeck).
   (q, excess) => {
     for (const [id, at] of Object.entries(q.deck.confirmed).sort(([a, x], [b, y]) => String(x).localeCompare(String(y)) || a.localeCompare(b))) {
       if (excess <= 0) break;
-      excess -= entryBytes(id, at);
+      excess -= entryBytes(id, at) - SHORT_HASH_CHARS;
       delete q.deck.confirmed[id];
       q.deck.confirmedEarlier = (q.deck.confirmedEarlier || 0) + 1;
+      q.deck.confirmedFolded = addHashes(q.deck.confirmedFolded, [id]);
     }
     return excess;
   },

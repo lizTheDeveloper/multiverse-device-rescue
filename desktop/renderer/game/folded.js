@@ -74,3 +74,20 @@ export function bloomAdd(s, keys) {
   for (const k of keys) for (const p of positions(k)) bits[p] = 1;
   return textOf(bits);
 }
+
+// A filter with every bit set: every key in it. What a damaged filter is
+// replaced with, so a folded key can never pay again (fail safe).
+export const FULL_BLOOM = ALPHABET[31].repeat(BLOOM_CHARS);
+
+// A list of short hashes, as one string, newest last, at most MAX_HASHES.
+export const MAX_HASHES = 500;
+const HASHES_RE = new RegExp(`^(?:[012345679bcdfghjklmnpqrstvwxz_.-]{${SHORT_HASH_CHARS}})*$`);
+export const validHashes = (s) => typeof s === 'string' && s.length <= MAX_HASHES * SHORT_HASH_CHARS && HASHES_RE.test(s);
+export const addHashes = (s, ids) => ((validHashes(s) ? s : '') + ids.map(shortHash).join('')).slice(-MAX_HASHES * SHORT_HASH_CHARS);
+// `s` without the hash of `id`, or null when it isn't there.
+export function takeHash(s, id) {
+  if (!validHashes(s) || !s) return null;
+  const h = shortHash(id);
+  for (let i = 0; i < s.length; i += SHORT_HASH_CHARS) if (s.slice(i, i + SHORT_HASH_CHARS) === h) return s.slice(0, i) + s.slice(i + SHORT_HASH_CHARS);
+  return null;
+}
