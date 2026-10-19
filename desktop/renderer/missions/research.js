@@ -110,9 +110,11 @@ export function paneUrl(pane, platform) {
 
 const MAX_QUERY = 120;
 // Drop control, format and separator characters (newlines, bidi overrides,
-// zero-width), collapse spaces, cap the length.
+// zero-width), and DuckDuckGo's search tricks: "!" (a bang sends the search
+// to another site) and "\\" (opens the first result instead of the results);
+// collapse spaces, cap the length. main's lookup-url.js rejects both too.
 export function cleanQuery(q) {
-  return String(q == null ? '' : q).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_QUERY);
+  return String(q == null ? '' : q).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}!\\]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_QUERY).trim();
 }
 
 const SEARCH = 'https://duckduckgo.com/?q=';

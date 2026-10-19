@@ -125,3 +125,20 @@ test('standard mode opens a look-up in the browser through rescue.openLookup; ci
   await tick();
   assert.deepStrictEqual(city.opened, [], 'city mode never opens a look-up');
 });
+
+test('DuckDuckGo’s search tricks never get through: no "!" bang, no "\\" first-result jump', async () => {
+  const R = await research();
+  for (const q of ['!g evil.example', 'Helper !ducky', '\\evil site', 'a\\b', '!!', '! leading']) {
+    const url = R.lookupUrl('web', q);
+    if (!url) continue;
+    const decoded = decodeURIComponent(url.split('?q=')[1]);
+    assert.doesNotMatch(decoded, /[!\\]/, `${JSON.stringify(q)} -> ${decoded}`);
+    assert.ok(isAllowedLookupUrl(url));
+  }
+  assert.strictEqual(R.lookupUrl('web', '!!'), null, 'nothing left to search');
+  assert.strictEqual(R.cleanQuery('! Helper\\App'), 'Helper App');
+  // Main rejects them even when a renderer builds the URL itself.
+  for (const q of ['"!g evil"', '"\\evil"', 'site:support.apple.com "!bang"', '"a!b"']) {
+    assert.strictEqual(isAllowedLookupUrl(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`), false, q);
+  }
+});
