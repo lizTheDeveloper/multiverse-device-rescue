@@ -845,10 +845,14 @@ function partialDocOf(state, platform) {
     partial: { done: state.done, total: state.total } };
 }
 
-// A checkup that stopped before the end: what arrived, marked stopped.
+// A checkup that stopped before the end: what arrived, marked stopped, in
+// engine-runner's stoppedDocOf shape (doc.stopped.stage), so the city reads it too.
 function stoppedDocOf(state, platform) {
   const doc = partialDocOf(state, platform);
-  doc.partial.stopped = true;
+  const { done, total } = doc.partial;
+  const stage = total > 0 && done >= total ? 'assembly' : 'early';
+  doc.partial.stopped = stage;
+  doc.stopped = { stage, reason: 'exit', done, total };
   return doc;
 }
 const STOPPED_LINE = 'The checkup stopped before it finished. Nothing on your computer was changed.';
@@ -2015,7 +2019,19 @@ if (typeof document !== 'undefined') {
         if (wasViewing) showScreen('scan');
         setScanBusy(false);
         const message = scanErrorText(err && err.message ? err.message : String(err));
-        if (inGame && !leftGame) {
+        if (inGame && !leftGame && stoppedDoc) {
+          // What the stopped checkup found goes to the city, which shows it as
+          // stopped (its own deck, nothing to act on). The list behind the
+          // city's "see it in the list" shows the same stopped results.
+          renderResults(stoppedDoc);
+          if (window.RescueGame.scanDone(stoppedDoc, scanSituation) === false) {
+            showScreen('scan');
+            showScanError(message);
+          } else {
+            rememberView('city');
+            showScreen('city');
+          }
+        } else if (inGame && !leftGame) {
           if (window.RescueGame.scanFailed(message) === false) showScanError(message);
           else showScreen('city');
         } else {
