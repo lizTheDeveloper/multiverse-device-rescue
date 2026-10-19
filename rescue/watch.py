@@ -20,7 +20,7 @@ from collections.abc import Callable
 
 from rescue.models import CheckResult, Finding, Platform, Severity
 from rescue.netaddr import address_key, is_loopback, is_public
-from rescue.whois import BUDGET, MAX_ADDRESSES, SOURCES
+from rescue.whois import BUDGET, MAX_ADDRESSES, SOURCES, is_lookupable
 
 WATCH_CODES: list[str] = [
     "network.connection_watch.watch_summary",
@@ -48,7 +48,10 @@ _UNKNOWN = "unknown"
 _UNSTORED_LIMIT = 10 * MAX_PAIRS
 # A watch stopped early still looks up what it gathered, but briefly: whoever
 # stopped it is waiting (the desktop app waits 15 seconds before giving up).
+# The time counts from when the stop is seen, and with less than
+# STOPPED_MIN_LOOKUP left the lookups are skipped.
 STOPPED_BUDGET = 10.0
+STOPPED_MIN_LOOKUP = 2.0
 
 
 class WatchModule:
@@ -363,13 +366,15 @@ def run_watch(
     ``{"phase": "watch", "elapsed", "total", "snapshots"}``, then
     ``{"phase": "lookup", "done", "total"}`` as addresses are looked up.
     ``lookups(addresses, should_stop=, on_progress=, budget=)`` is called once
-    after the last snapshot with the public destinations, busiest first, and
+    after the last snapshot with the public destinations it may ask about
+    (``rescue.whois.is_lookupable``), busiest first, and
     answers like ``rescue.whois.look_up_all``; None turns lookups off.
 
     A stop during the lookups ends them. A watch stopped while watching still
-    looks up what it gathered, but for at most ``STOPPED_BUDGET`` seconds, and
-    only a further stop request ends that: ``stop_requests()`` counts the stop
-    requests so far (without it, only the shorter budget applies). Raises
+    looks up what it gathered, but for at most ``STOPPED_BUDGET`` seconds counted
+    from when the stop is seen (skipping the lookups if under
+    ``STOPPED_MIN_LOOKUP`` remain), and only a further stop request ends that:
+    ``stop_requests()`` counts the stop requests so far (without it, only the shorter budget applies). Raises
     ValueError for minutes outside 1-30 or an interval outside 2-60 seconds.
     """
     if not MIN_MINUTES <= minutes <= MAX_MINUTES:
@@ -396,10 +401,13 @@ def run_watch(
     gathered = _Gathered()
     stopped_early = False
     stops_seen = 0
+    stopped_at = None
     start = clock()
     while True:
         if should_stop():
             stopped_early = True
+            if stopped_at is None:
+                stopped_at = clock()
             # The request that stopped the watch is the first; any later one,
             # even one sent straight after it, ends the lookups below.
             stops_seen = min(stop_requests(), 1) if stop_requests is not None else 0
@@ -410,6 +418,8 @@ def run_watch(
             snap = collect(platform)
         except Exception as exc:  # a collector bug must not lose what was gathered
             snap = {"records": [], "error": f"Reading connections failed: {exc}"}
+        if stopped_at is None and should_stop():
+            stopped_at = clock()  # a stop during a slow snapshot starts its time here
         if snap.get("error"):
             if snap["error"] not in gathered.errors:
                 gathered.errors.append(snap["error"])
@@ -431,7 +441,7 @@ def run_watch(
         if next_at >= total or clock() - start >= total:
             break
         wait = start + next_at - clock()
-        if wait > 0:
+        if wait > 0 and stopped_at is None:  # once stopped, no waiting for the next look
             sleep(wait)
 
     if platform != "win32":
@@ -443,7 +453,10 @@ def run_watch(
         lookup_stop, budget = (lambda: stop_requests() > stops_seen), STOPPED_BUDGET
     else:
         lookup_stop, budget = (lambda: False), STOPPED_BUDGET
-    owners = _look_up(gathered, lookups, lookup_stop, on_progress, budget)
+    if stopped_early:
+        budget -= clock() - stopped_at  # the time since the stop was seen is spent
+    owners = _look_up(gathered, lookups, lookup_stop, on_progress, budget,
+                      skip=stopped_early and budget < STOPPED_MIN_LOOKUP)
     findings = _findings(platform, gathered, minutes, stopped_early, elapsed, verdict, owners)
     return CheckResult(module_name=_MODULE, findings=findings)
 
@@ -464,12 +477,13 @@ class _Owners:
         return self.who.get(address_key(address))
 
 
-def _public_by_busyness(gathered: "_Gathered") -> list[str]:
-    """Each public destination once, the ones seen in the most snapshots first."""
+def _lookupable_by_busyness(gathered: "_Gathered") -> list[str]:
+    """Each destination that may be looked up once, the ones seen in the most
+    snapshots first."""
     seen: dict[str, int] = {}
     first_form: dict[str, str] = {}
     for (_, address, _, _), pair in gathered.pairs.items():
-        if not is_public(address):
+        if not is_lookupable(address):
             continue
         key = address_key(address)
         first_form.setdefault(key, address)
@@ -478,13 +492,17 @@ def _public_by_busyness(gathered: "_Gathered") -> list[str]:
     return [first_form[key] for key in order]
 
 
-def _look_up(gathered: "_Gathered", lookups, should_stop, on_progress, budget) -> _Owners:
+def _look_up(gathered: "_Gathered", lookups, should_stop, on_progress, budget,
+             skip: bool = False) -> _Owners:
     owners = _Owners(on=lookups is not None)
-    addresses = _public_by_busyness(gathered)
+    addresses = _lookupable_by_busyness(gathered)
     if not addresses:
         return owners
     if lookups is None:
         owners.reasons.append("Looking up who runs each address was turned off.")
+        return owners
+    if skip:
+        owners.reasons.append("Looking up was skipped: the watch was stopped.")
         return owners
     def progress(done: int, total: int) -> None:
         if on_progress is not None:
@@ -528,7 +546,7 @@ def _look_up(gathered: "_Gathered", lookups, should_stop, on_progress, budget) -
     if answer.get("stopped"):
         owners.reasons.append("Looking up stopped early.")
     elif answer.get("over_budget"):
-        owners.reasons.append(f"Looking up stopped after {budget:g} seconds.")
+        owners.reasons.append(f"Looking up stopped after {budget:.0f} seconds.")
     return owners
 
 

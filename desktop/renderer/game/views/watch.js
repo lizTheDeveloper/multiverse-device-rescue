@@ -66,7 +66,7 @@ function startHtml(n, lookups) {
   return `
     <p class="intel">${what}</p>
     <div class="row watch-minutes" role="group" aria-label="Minutes to watch"><span class="label">MINUTES</span>${picks}</div>
-    <label class="intel watch-lookups"><input type="checkbox" data-act="watch-lookups"${lookups ? ' checked' : ''}> Look up who runs each address (sends the addresses, not what was in them, to RIPE NCC and rdap.org)</label>
+    <label class="intel watch-lookups"><input type="checkbox" data-act="watch-lookups"${lookups ? ' checked' : ''}> Look up who runs each address (sends the addresses, not what was in them, to RIPE NCC, rdap.org and the regional registry that holds each one, and asks your DNS provider for their names)</label>
     <button type="button" class="btn-s lime" data-act="watch-start">START THE WATCH ▶</button>`;
 }
 

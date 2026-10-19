@@ -1038,3 +1038,69 @@ def test_stop_during_lookups_returns_promptly():
     assert reasons_of(result) == ["Looking up stopped early."]
     (summary,) = by_code(result, "watch_summary")
     assert all(d["who"] is None for d in summary.data["destinations"])
+
+
+def _slow_stop_run(dns_seconds, lookups):
+    """A stop lands during a slow snapshot on Windows; the name-cache read
+    after it takes ``dns_seconds``. Returns (result, when the stop was seen)."""
+    fake = FakeTime()
+    stopped = {"at": None}
+
+    def collect(platform):
+        fake.t += 4  # a slow snapshot; the stop arrives while it runs
+        stopped["at"] = fake.t
+        return _busy_snaps()[0]
+
+    def slow_dns(platform):
+        fake.t += dns_seconds
+        return {"names": [], "reason": None}
+
+    result = run_watch("win32", 1, 5, collect=collect, dns=slow_dns, clock=fake.clock,
+                       sleep=fake.sleep, should_stop=lambda: stopped["at"] is not None,
+                       verdict=lambda p, r: "expected", lookups=lookups(fake),
+                       stop_requests=lambda: 1 if stopped["at"] is not None else 0)
+    return result, stopped["at"]
+
+
+def test_stopped_budget_counts_from_the_stop():
+    """The desktop gives a stopped watch 15 seconds: the lookups' 10 count from
+    when the stop is seen, not from after the snapshot and name-cache read."""
+    ended = []
+
+    def lookups(fake):
+        def run(ips, *, should_stop, on_progress, budget):
+            fake.t += budget  # lookups that use all the time they're given
+            ended.append(fake.t)
+            return {"results": {}, "skipped": 0, "failed": 0, "over_budget": True,
+                    "stopped": False}
+        return run
+
+    result, stop_seen = _slow_stop_run(3, lookups)
+    assert ended and ended[0] <= stop_seen + 10
+    assert "Looking up stopped after 7 seconds." in reasons_of(result)
+
+
+def test_stopped_lookups_skipped_when_little_time_is_left():
+    called = []
+
+    def lookups(fake):
+        def run(ips, **kw):
+            called.append(ips)
+            return nobody_known(ips)
+        return run
+
+    result, _ = _slow_stop_run(8.5, lookups)
+    assert called == []
+    assert "Looking up was skipped: the watch was stopped." in reasons_of(result)
+
+
+def test_fake_ip_addresses_are_watched_but_never_looked_up():
+    """A proxy tool's fake-IP mode hands apps 198.18.0.0/15 addresses: the watch
+    still reads them as destinations (check-ins included), but doesn't ask anyone
+    who runs them."""
+    calls = []
+    result = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote="198.18.0.7"),
+                   lookups=fake_lookups({}, calls=calls))
+    [found] = by_code(result, "regular_checkins")
+    assert found.data["address"] == "198.18.0.7"
+    assert calls == []

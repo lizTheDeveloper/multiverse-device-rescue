@@ -8,7 +8,7 @@ const EVIL = '<img src=x onerror=alert(1)>';
 const view = () => import('../renderer/game/views/watch.js');
 const IDLE = 'Watches which apps on this computer connect where, for 5 minutes, then looks up who runs each address. You can keep using the computer while the watch runs. Results last until your next checkup.';
 const IDLE_OFF = 'Watches which apps on this computer connect where, for 5 minutes. Nothing leaves this computer, and you can keep using it while the watch runs. Results last until your next checkup.';
-const LOOKUPS_LABEL = 'Look up who runs each address (sends the addresses, not what was in them, to RIPE NCC and rdap.org)';
+const LOOKUPS_LABEL = 'Look up who runs each address (sends the addresses, not what was in them, to RIPE NCC, rdap.org and the regional registry that holds each one, and asks your DNS provider for their names)';
 
 test('idle: the heading, what it does for the chosen minutes, the picker and a start button', async () => {
   const { renderWatch } = await view();

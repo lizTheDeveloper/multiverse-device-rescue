@@ -198,7 +198,8 @@ addresses, and from the address's own name in DNS.
   DNS, which asks your DNS provider), RIPE NCC (stat.ripe.net) and rdap.org,
   which sends your computer on to the regional registry that holds the
   address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly.
-  Addresses on your own network and other private addresses are never sent.
+  Addresses on your own network, other private addresses, and the special
+  ranges set aside for testing and documentation are never sent.
   Each service learns which addresses were asked about. Like any website,
   each also sees your computer's public internet address and that the
   question came from Reclaim City. The lookups keep no
@@ -207,7 +208,8 @@ addresses, and from the address's own name in DNS.
   didn't answer, the watch says how many addresses it couldn't look up, and
   how many it found out only part of. It looks up at most the 150 busiest
   addresses and stops looking after 60 seconds. If you stop the watch early,
-  it still looks up what it gathered, for at most 10 seconds, and stopping
+  it still looks up what it gathered, for at most 10 seconds from the stop
+  (if less than 2 seconds are left by then, it skips them), and stopping
   again ends that at once. It says so when any of these cuts the lookups
   short. Couldn't-check is not the
   same as clean.

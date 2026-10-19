@@ -85,8 +85,31 @@ def test_lookupable_ranges():
         assert whois.is_lookupable(ip), ip
     for ip in ("10.1.2.3", "172.16.0.9", "192.168.1.1", "127.0.0.1", "169.254.3.4",
                "100.64.0.1", "224.0.0.251", "::1", "fe80::1", "fc00::1", "0.0.0.0",
-               "240.0.0.1", "", "not an address", "::ffff:192.168.1.1", "64:ff9b::a00:1"):
+               "240.0.0.1", "", "not an address", "::ffff:192.168.1.1", "64:ff9b::a00:1",
+               *_SPECIAL_PURPOSE):
         assert not whois.is_lookupable(ip), ip
+
+
+# Special-purpose ranges that route nowhere useful to ask about: "this network",
+# documentation, benchmarking (and proxy tools' fake-IP mode), IPv6
+# documentation, IETF protocol assignments (Teredo among them), 6to4 and the
+# local-use NAT64 prefix. One address from each, edges included.
+_SPECIAL_PURPOSE = (
+    "0.1.2.3", "192.0.2.1", "198.51.100.7", "203.0.113.255", "198.18.0.1", "198.19.255.254",
+    "::ffff:198.18.0.1", "2001:db8::1", "2001::1", "2001:10::1", "2001:1ff:ffff::1",
+    "2002:a00:1::", "64:ff9b:1::a00:1",
+)
+
+
+def test_special_purpose_ranges_still_count_as_public_for_the_watch():
+    """Only the lookup refuses them: the watch's own public/private reading
+    (check-ins, uploads, which destinations are listed) is unchanged."""
+    from rescue.netaddr import is_public
+
+    for ip in _SPECIAL_PURPOSE:
+        assert is_public(ip), ip
+    for ip in ("2001:200::1", "198.20.0.1", "198.17.255.255", "2003::1", "64:ff9b:2::1"):
+        assert whois.is_lookupable(ip), ip
 
 
 def test_parse_real_ripe_and_rdap():

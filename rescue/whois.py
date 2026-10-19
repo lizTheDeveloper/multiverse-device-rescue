@@ -16,6 +16,7 @@ The fetcher, resolver and clock are passed in, so tests never touch the network.
 from __future__ import annotations
 
 import functools
+import ipaddress
 import json
 import socket
 import ssl
@@ -64,9 +65,30 @@ _EMPTY_RIPE = {"asn": None, "as_name": None, "prefix": None}
 _EMPTY_RDAP = {"network": None, "registrant": None, "country": None}
 
 
+# Special-purpose ranges no registry can say anything useful about, so they are
+# never sent. The watch still counts them as public destinations (is_public);
+# only the lookups leave them out.
+_NOT_LOOKED_UP = tuple(
+    ipaddress.ip_network(n)
+    for n in (
+        "0.0.0.0/8",                                          # "this network"
+        "192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24",  # documentation
+        "198.18.0.0/15",                  # benchmarking; proxy tools' fake-IP mode
+        "2001:db8::/32",                                      # documentation
+        "2001::/23",                      # IETF protocol assignments (Teredo among them)
+        "2002::/16",                                          # 6to4
+        "64:ff9b:1::/48",                                     # local-use NAT64
+    )
+)
+
+
 def is_lookupable(ip: str) -> bool:
-    """True only for an address on the internet (never this computer or network)."""
-    return is_public(ip)
+    """True only for an address on the internet (never this computer or network,
+    nor a special-purpose range)."""
+    if not is_public(ip):
+        return False
+    parsed = parse_ip(ip)
+    return not any(parsed in net for net in _NOT_LOOKED_UP if net.version == parsed.version)
 
 
 def _clean(value) -> str | None:

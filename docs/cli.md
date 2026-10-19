@@ -200,7 +200,9 @@ Out-of-range values exit `2` with a message. To end the watch early, send the
 line `stop` on standard input, or press Ctrl-C (SIGINT) or send SIGTERM. The
 result is still printed, with `stopped_early: true` in each finding's `data`.
 A watch stopped early still looks up who runs the addresses it gathered, but
-for at most 10 seconds. A stop during the lookups (for a stopped watch, a
+for at most 10 seconds, counted from when the stop is seen; if less than 2
+seconds are left when the lookups would start, it skips them and
+`watch_incomplete` says "Looking up was skipped: the watch was stopped." A stop during the lookups (for a stopped watch, a
 second `stop` line or signal) ends them at once: none starts after it, the
 ones under way are left behind, and `watch_incomplete` says "Looking up
 stopped early." End of
@@ -286,7 +288,10 @@ unconfirmed one is shown but never used as the owner.
 written to disk.
 
 Private, loopback, link-local, multicast, carrier-grade NAT, unspecified and
-reserved addresses (and anything that isn't an address) are never looked up:
+reserved addresses, the special-purpose ranges (0.0.0.0/8, the documentation
+ranges 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24 and 2001:db8::/32,
+198.18.0.0/15, 2001::/23, 6to4's 2002::/16 and 64:ff9b:1::/48), and anything
+that isn't an address are never looked up:
 they print `null`, with a line on stderr saying so. The exit code is `0`
 either way.
 
