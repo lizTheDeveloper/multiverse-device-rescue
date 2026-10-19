@@ -1,12 +1,17 @@
 import { esc } from '../escape.js';
 import { SCOUT } from '../scout-lines.js';
 
+export const SWEEP_RUNNING = 'The sweep is still running. You can act on this once it’s done.';
+
 // `note` (held.js briefingNote) is what the list says about removing it:
 // in 'standard' the one line with the full note behind it, which the engine's
 // safety_note alone doesn't give (stalkerware has none); in 'city' the safety
 // note in full, or on monitoring software the hold line and its help, and then
 // no steps and nothing to act on.
-export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety, learned, note }) {
+// `scanRunning`: a sweep is still running, so nothing here can be acted on
+// yet (main refuses changes and re-checks until it's done): no fix or mark
+// controls and no I DID IT MYSELF, only a plain line and LATER.
+export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety, learned, note, scanRunning = false }) {
   const held = !!note && note.kind === 'held';
   const steps = m.steps.map((s) => `
       <li class="step"><span class="step-n">${esc(s.number)}</span>
@@ -17,6 +22,9 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
     : wantsSafety && m.safetyNote ? `<div class="panel safety" role="note">${esc(m.safetyNote)}</div>` : '';
   const actions = held ? '' : busy
     ? `<p class="checking" role="status" aria-live="polite">${esc(SCOUT.checking)} Checking again…</p>`
+    : scanRunning
+    ? `<p class="say" role="status" data-scan-running>${esc(SWEEP_RUNNING)}</p>
+      <div class="row"><button type="button" class="btn-t" data-act="later">LATER</button></div>`
     : `<div class="row">
         <button type="button" class="btn-s" data-act="i-did-it">I DID IT MYSELF</button>
         <button type="button" class="btn-t" data-act="later">LATER</button>
@@ -33,7 +41,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
         ${m.walkthroughTitle ? `<p class="from">From the walkthrough “${esc(m.walkthroughTitle)}”.</p>` : ''}
         <ol class="steps">${steps}</ol></div>`}
       ${also}
-      <div class="controls" ${busy ? 'hidden' : ''}>${held ? '' : controlsHtml}</div>
+      <div class="controls" ${busy ? 'hidden' : ''}>${held || scanRunning ? '' : controlsHtml}</div>
       ${actions}
     </div>
     <aside class="brief-side">${scout(m.severity === 'critical' ? 'worried' : 'thinkingA', 72)}

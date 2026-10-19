@@ -1,5 +1,6 @@
 import { esc } from '../escape.js';
 import { reclaimedIn } from '../progress.js';
+import { checkWords } from './district.js';
 
 const statusOf = (progress, id) => (progress.missions[id] && progress.missions[id].status) || 'open';
 
@@ -8,6 +9,8 @@ const statusOf = (progress, id) => (progress.missions[id] && progress.missions[i
 // and no check in it failed. Fog means we couldn't see, so it is never complete.
 export function districtComplete(district, progress) {
   if (district.fog && district.fog.length) return false;
+  // A check that didn't finish may have missed something: never taken back.
+  if (district.unfinished && district.unfinished.length) return false;
   if (district.missions.some((m) => ['open', 'later'].includes(statusOf(progress, m.id)))) return false;
   const yours = district.missions.filter((m) => statusOf(progress, m.id) === 'yours').length;
   return yours + reclaimedIn(progress, district).length > 0;
@@ -16,7 +19,7 @@ export function districtComplete(district, progress) {
 export function renderMilestone({ district: d, progress, scout }) {
   const fixed = reclaimedIn(progress, d);
   const yours = d.missions.filter((m) => statusOf(progress, m.id) === 'yours');
-  const fog = (d.fog || []).map((x) => `<li><strong>${esc(x.module)}</strong>: ${esc(x.reason)}</li>`).join('');
+  const fog = (d.fog || []).map((x) => `<li><strong>${esc(checkWords(x.module))}</strong>: ${esc(x.reason)}</li>`).join('');
   const lead = fog
     ? 'Reclaim City checked each fix again. Some checks here couldn’t run.'
     : 'Every mission here is done. Reclaim City checked each fix again.';

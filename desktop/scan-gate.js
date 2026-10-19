@@ -9,6 +9,7 @@
 
 const SCAN_RUNNING_FIX = 'The checkup is still running. You can fix this once it’s done. Nothing was changed.';
 const SCAN_RUNNING_MARK = 'The checkup is still running. You can do this once it’s done. Nothing was changed.';
+const SCAN_RUNNING_RECHECK = 'The checkup is still running. You can check this again once it’s done. Nothing was changed.';
 
 function createScanGate() {
   let scans = 0;
@@ -49,8 +50,14 @@ function fixRefusal(module) {
   };
 }
 
+// A re-check is read-only, but it is a second engine run and it merges into
+// the last scan, so it waits for the scan like a change does.
+function recheckRefusal() {
+  return { ok: false, error: 'scan_running', message: SCAN_RUNNING_RECHECK };
+}
+
 function markRefusal() {
   return { status: 'refused', error: 'scan_running', message: SCAN_RUNNING_MARK, id: null, label: null, how_to_undo: [] };
 }
 
-module.exports = { createScanGate, fixRefusal, markRefusal, SCAN_RUNNING_FIX, SCAN_RUNNING_MARK };
+module.exports = { createScanGate, fixRefusal, markRefusal, recheckRefusal, SCAN_RUNNING_FIX, SCAN_RUNNING_MARK, SCAN_RUNNING_RECHECK };

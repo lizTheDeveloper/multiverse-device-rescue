@@ -60,12 +60,16 @@ test('the refusals use each flow’s own shape, say nothing was changed, and giv
 
 test('main.js routes every change through the gate, and the gate ships', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
-  for (const channel of ['run-fix', 'run-fix-action', 'undo-fix', 'mark-mine', 'unmark-mine']) {
+  for (const channel of ['run-fix', 'run-fix-action', 'undo-fix', 'mark-mine', 'unmark-mine', 'recheck-module']) {
     const at = main.indexOf(`ipcMain.handle('${channel}'`);
     assert.ok(at > 0, channel);
     assert.match(main.slice(at, at + 160), /gate\.runChange\(/, channel);
   }
   assert.match(main, /ipcMain\.handle\('run-scan', \(e, profile\) => gate\.runScan\(/);
+  // A re-check waits for the scan like a change, with its own plain refusal.
+  assert.match(main, /recheckRefusal\(\)\)\);/);
+  // Quitting mid-scan stops the engine (SIGTERM, so it stops its commands too).
+  assert.match(main, /app\.on\('before-quit', \(\) => stopRunningScans\(\)\)/);
   const pkg = require('../package.json');
   assert.ok(pkg.build.files.includes('scan-gate.js'));
 });
@@ -94,4 +98,19 @@ test('the window hears about the wait, and the fix and mark cards word the refus
   const other = MarkFlow.describeMarkResult({ status: 'refused', error: 'not_allowed', message: 'This item can’t be marked from the app. Nothing was changed.' });
   assert.strictEqual(other.detail.match(/Nothing was changed\./g).length, 1);
   assert.match(MarkFlow.describeMarkResult({ status: 'refused', message: 'No.' }).detail, /^No\. Nothing was changed\.$/);
+});
+
+
+test('a re-check asked for while a scan runs is refused plainly, and starts nothing', async () => {
+  const { recheckRefusal } = require('../scan-gate.js');
+  const gate = createScanGate();
+  const scan = later();
+  const scanning = gate.runScan(() => scan.p);
+  let ran = 0;
+  const r = await gate.runChange(() => { ran += 1; return { ok: true }; }, recheckRefusal());
+  assert.strictEqual(ran, 0);
+  assert.deepStrictEqual([r.ok, r.error], [false, 'scan_running']);
+  assert.match(r.message, /Nothing was changed\./);
+  assert.doesNotMatch(r.message, /minute|second|hour|soon/i);
+  scan.resolve('doc'); await scanning;
 });

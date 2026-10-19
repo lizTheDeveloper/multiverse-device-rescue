@@ -128,7 +128,8 @@ export function cityIntegrity(city, signals, held = null) {
   for (const d of (city && city.districts) || []) {
     if (!(d.checksRan > 0)) continue;
     checkedIds.add(d.id);
-    if (!openIn.has(d.id)) securedIds.add(d.id);
+    // A check here that didn't finish may have missed something: not secured.
+    if (!openIn.has(d.id) && !(d.unfinished && d.unfinished.length)) securedIds.add(d.id);
   }
   const checked = checkedIds.size;
   const secured = securedIds.size;

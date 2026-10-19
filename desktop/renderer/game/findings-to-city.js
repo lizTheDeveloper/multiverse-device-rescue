@@ -1,6 +1,7 @@
 // Turns an engine scan (rescue scan --json) into a city: one district per
 // kind of problem, one mission per warning or critical finding, notes for info
-// findings, and fog where a check couldn't run. Pure; no DOM.
+// findings, fog where a check couldn't run, and `unfinished` where a check ran
+// but stopped before the end (the engine's "complete": false). Pure; no DOM.
 
 export const DISTRICTS = [
   { id: 'gatehouse', category: 'security', name: 'The Gatehouse', blurb: 'Security: things that start on their own, permissions, protection.' },
@@ -50,13 +51,14 @@ export function missionSteps(finding) {
 }
 
 function emptyDistrict(d) {
-  return { id: d.id, name: d.name, blurb: d.blurb, category: d.category, missions: [], notes: [], fog: [], checksRan: 0, status: 'none' };
+  return { id: d.id, name: d.name, blurb: d.blurb, category: d.category, missions: [], notes: [], fog: [], unfinished: [], checksRan: 0, status: 'none' };
 }
 
 function statusOf(d) {
   if (d.missions.length) return d.missions.some((m) => m.severity === 'critical') ? 'hot' : 'warn';
   if (d.fog.length && d.checksRan === 0) return 'fog';
-  if (d.fog.length) return 'partial';
+  // A check that didn't finish may have missed something: never clear.
+  if (d.fog.length || d.unfinished.length) return 'partial';
   return d.checksRan > 0 || d.notes.length ? 'clear' : 'none';
 }
 
@@ -74,6 +76,9 @@ export function findingsToCity(doc) {
       totals.fog += 1;
     } else {
       district.checksRan += 1;
+      if (mod.complete === false) {
+        district.unfinished.push({ module: mod.name });
+      }
     }
     for (const raw of Array.isArray(mod.findings) ? mod.findings : []) {
       if (!raw || typeof raw !== 'object') continue;

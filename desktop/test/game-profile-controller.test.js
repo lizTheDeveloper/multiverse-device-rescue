@@ -241,7 +241,7 @@ test('a save that fails says so on screen, calmly; in city mode only in game wor
   assert.doesNotMatch(notice, /profile|progress|monitor/i);
   // Every message city mode can show is in game words.
   const { saveProblemText } = await game('controller.js');
-  for (const code of ['encode', 'too-big', 'spare', 'write', 'salvaged', 'spare-full', 'unreadable-too-big', 'old-kept', 'anything-else']) {
+  for (const code of ['encode', 'too-big', 'spare', 'write', 'salvaged', 'spare-full', 'unreadable', 'unreadable-too-big', 'old-kept', 'anything-else']) {
     assert.doesNotMatch(saveProblemText(code, true), /profile|progress|safety|monitor|partner|\bsafe\b|watch|stalk/i, code);
     assert.doesNotMatch(saveProblemText(code, true) + saveProblemText(code, false), /just now|next/i, code);
   }
@@ -656,7 +656,7 @@ test('the lessons-learned count is one rule: YOUR FILE, the rank chip and the pu
   assert.notStrictEqual(pp.conceptState(p, bank, 'cut-off-order'), 'learned');
   const full = pp.summary(p, bank);
   const shown = pub.lessonsLearned(full);
-  assert.ok(shown > full.lessonsLearned, 'the hidden concept would otherwise hold its lesson back');
+  assert.ok(shown > full.lessons.filter((l) => l.state === 'learned').length, 'the hidden concept would otherwise hold its lesson back');
   // The city bank: the hidden concept isn't part of any lesson there.
   const c = ib.buildBank(cityLessons(lessons), DRILLS);
   const city = pp.summary(p, { items: bank.items, lessons: c.lessons, concepts: c.concepts });

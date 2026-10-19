@@ -41,6 +41,8 @@ export function districtBadges(d, reclaimed = 0) {
   if (warn) out.push(`<span class="badge warn">${warn} WARNING</span>`);
   if (d.notes.length) out.push(`<span class="badge skip">${d.notes.length} NOTES</span>`);
   if (d.fog.length) out.push(`<span class="badge fog">${d.fog.length} COULDN’T CHECK</span>`);
+  const unfinished = (d.unfinished || []).length;
+  if (unfinished) out.push(`<span class="badge fog">${unfinished} DIDN’T FINISH</span>`);
   if (d.held) return out.join('');
   if (reclaimed) out.push(`<span class="badge safe">${reclaimed} RECLAIMED</span>`);
   else if (d.status === 'clear') out.push('<span class="badge safe">NOTHING FOUND</span>');
@@ -50,6 +52,7 @@ export function districtBadges(d, reclaimed = 0) {
 export function districtLine(d, reclaimed = 0, heldAt = null) {
   if (d.held) return heldDistrictLine(heldAt);
   if (d.status === 'fog') return 'Couldn’t check here. That doesn’t mean it’s safe.';
+  if (d.status === 'partial' && (d.unfinished || []).length && !d.fog.length) return 'Some checks here didn’t finish. That doesn’t mean it’s safe.';
   if (d.status === 'none') return 'No checks ran here on this computer.';
   if (d.status === 'clear' && reclaimed) return 'What was found here before is gone now. Reclaim City checked again.';
   if (d.status === 'clear') return 'Nothing found in the checks that ran here.';

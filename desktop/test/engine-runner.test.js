@@ -81,3 +81,28 @@ test('runScan streams plan and finished-check entries as events, and keeps them 
     return true;
   });
 });
+
+test('stopRunningScans sends SIGTERM to a running scan, and forgets finished ones', async () => {
+  const { EventEmitter } = require('events');
+  const { runScan, stopRunningScans } = require('../engine-runner');
+  const signals = [];
+  const spawned = [];
+  const fake = () => {
+    const p = new EventEmitter();
+    p.stdout = new EventEmitter(); p.stderr = new EventEmitter();
+    p.kill = (sig) => { signals.push(sig); setImmediate(() => p.emit('close', 143)); };
+    spawned.push(p);
+    return p;
+  };
+  // A finished scan isn't signalled.
+  const first = runScan(fake, null, () => {});
+  spawned[0].stdout.emit('data', '{"schema_version":1,"modules":[]}');
+  spawned[0].emit('close', 0);
+  await first;
+  const running = runScan(fake, null, () => {});
+  stopRunningScans();
+  assert.deepStrictEqual(signals, ['SIGTERM']);
+  await assert.rejects(running, /engine exited 143/);
+  stopRunningScans();
+  assert.deepStrictEqual(signals, ['SIGTERM'], 'nothing left to stop');
+});

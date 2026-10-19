@@ -321,13 +321,18 @@ function oldText(storage) {
   return str(kept) && kept ? kept : null;
 }
 
-// Never throws. A box that won't decode is kept aside (see stash); then the
+// Never throws. A box that won't decode is kept aside (see stash), said
+// ('unreadable', or stash's own problem), and listed in DATA HISTORY; then the
 // old document is read, as on a first run. Records a v4 box held that could
 // not be read are listed in a migration entry, and that box is kept in
 // SALVAGED_KEY.
+export const UNREADABLE_KEPT = 'save: couldn’t be read; a copy was set aside';
+export const UNREADABLE_NOT_KEPT = 'save: couldn’t be read; too big to keep a copy';
+export const UNREADABLE_NO_ROOM = 'save: couldn’t be read; no copy could be kept';
 export function loadProfile(storage, now, { onProblem } = {}) {
   const say = (code) => report(storage, onProblem, code);
   const box = read(storage, PROFILE_KEY);
+  let lost = null;
   if (box) {
     const v = decode(box);
     if (plainObject(v) && v.version === VERSION) {
@@ -340,15 +345,23 @@ export function loadProfile(storage, now, { onProblem } = {}) {
       return profile;
     }
     const s = stash(storage, box);
-    if (s.problem) say(s.problem);
+    // Losing the whole box is said, like losing part of it ('salvaged').
+    // ('spare-full' here still kept a copy: the whole box is what was lost.)
+    say(s.problem && s.problem !== 'spare-full' ? s.problem : 'unreadable');
+    lost = s.problem === 'unreadable-too-big' ? UNREADABLE_NOT_KEPT : s.ok ? UNREADABLE_KEPT : UNREADABLE_NO_ROOM;
   }
   // First run of this build (or the box was unreadable): migrate the old document.
   const old = oldText(storage);
-  if (!old) return emptyProfile(now);
+  if (!old) {
+    const fresh = emptyProfile(now);
+    if (lost) fresh.migrations = [{ v: VERSION, from: null, at: String(now), changes: [lost] }];
+    return fresh;
+  }
   let raw = null;
   try { raw = JSON.parse(old); } catch (_) { raw = null; }
   const { profile, changes } = salvage(raw, now);
-  profile.migrations = [{ v: VERSION, from: plainObject(raw) && count(raw.version) ? raw.version : null, at: String(now), changes }];
+  profile.migrations = [{ v: VERSION, from: plainObject(raw) && count(raw.version) ? raw.version : null, at: String(now),
+    changes: lost ? [lost, ...changes] : changes }];
   return profile;
 }
 
@@ -816,8 +829,9 @@ export function summary(p, bank, lessonsInOrder = [...bank.lessons.keys()]) {
   const missions = Object.values(p.missions);
   const last = p.deck.sweeps.length ? p.deck.sweeps[p.deck.sweeps.length - 1] : null;
   return {
+    // No lesson count here: every count of lessons learned is
+    // publish.js lessonsLearned (shown concepts only), one rule everywhere.
     lessons, concepts, skills,
-    lessonsLearned: lessons.filter((l) => l.state === 'learned').length,
     drills: { right: p.drills.right, tried: p.drills.tried, lastTen: { right: p.drills.recent.filter((x) => x === 1).length, of: p.drills.recent.length }, ...calibration(p.drills) },
     rank: { index: r.index, level: r.index + 1, of: RANKS.length, name: r.name, points: r.points, toNext: r.toNext, next: r.next ? r.next.name : null },
     city: { reclaimed: missions.filter((m) => m.status === 'reclaimed').length + Object.values(p.reclaimedEarlierBy).reduce((a, n) => a + n, 0), later: missions.filter((m) => m.status === 'later').length,

@@ -7,7 +7,6 @@ const assert = require('node:assert');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const Q = require('../renderer/quiet-notes.js');
-const { recordingStore, forbiddenWrites } = require('./disk-words.js');
 const { gameScanFirst, postScanView, gameOfferedFor, worryStartsGameScan, noteMonitoring, opensInGame,
   CITY_SITUATION, ALWAYS_SAFETY_MODULES, SITUATIONS } = require('../renderer/app.js');
 
@@ -89,7 +88,7 @@ test('one list of monitoring checks, everywhere', async () => {
 test('the game never makes a mission of monitoring software, so nothing about it is saved', async () => {
   const { splitHeld } = await game('held.js');
   const { findingsToCity } = await game('findings-to-city.js');
-  const { reconcile, saveProgress, emptyProgress, ranOkModules } = await game('progress.js');
+  const { reconcile, emptyProgress, ranOkModules } = await game('progress.js');
   const doc = { modules: [
     { name: 'stalkerware_scan', category: 'security', status: 'ok', supported: true, findings: [
       { severity: 'critical', title: 'Stalkerware found: mSpy', description: 'd' }, { severity: 'info', title: 'Checked for monitoring apps' }] },
@@ -101,10 +100,9 @@ test('the game never makes a mission of monitoring software, so nothing about it
   const city = findingsToCity(split.doc);
   assert.deepStrictEqual(city.districts.flatMap((d) => d.missions).map((m) => m.module), ['remote_login_check']);
   assert.ok(city.districts.find((d) => d.id === 'gatehouse').checksRan >= 2, 'the check still counts as having run');
-  const store = recordingStore();
-  saveProgress(store, reconcile(emptyProgress(), city, ranOkModules(doc), '2026-10-18T00:00:00Z').progress);
-  assert.deepStrictEqual(forbiddenWrites(store), []);
-  assert.doesNotMatch(JSON.stringify(store.data), /mSpy|stalkerware/i);
+  // What would be saved (the player profile stores this progress) names none of it.
+  const saved = reconcile(emptyProgress(), city, ranOkModules(doc), '2026-10-18T00:00:00Z').progress;
+  assert.doesNotMatch(JSON.stringify(saved), /mSpy|stalkerware/i);
   assert.deepStrictEqual(splitHeld(null), { doc: null, held: [] });
 });
 

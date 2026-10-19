@@ -237,7 +237,8 @@ test('the summary: lessons, shown concepts, skill depth, drills and rank', async
   p = answer(m, p, m.bank, keys, keys.map(() => true));
   const s = m.summary(p, m.bank);
   assert.deepStrictEqual(s.lessons.map((l) => [l.id, l.state]), [['lesson-a', 'learned'], ['lesson-b', 'learned']]);
-  assert.strictEqual(s.lessonsLearned, 2);
+  // The count is publish.js lessonsLearned's alone; the summary carries none.
+  assert.strictEqual(s.lessonsLearned, undefined);
   const honest = s.skills.find((k) => k.id === 'honest-results');
   assert.deepStrictEqual([honest.depth, honest.learned, honest.of], ['practiced', 1, 1]);
   assert.strictEqual(s.skills.find((k) => k.id === 'locks-and-updates'), undefined, 'nothing in this bank measures it, so it isn’t listed');
@@ -484,7 +485,26 @@ test('three salvage loads, then a garbage box, then a save: the save succeeds', 
   assert.strictEqual(store.data[m.SPARE_KEY], 'garbage');
   assert.strictEqual(m.saveProfile(store, p, { seed: 31, onProblem }), true);
   assert.ok(m.rb.decode(store.data[m.PROFILE_KEY]));
-  assert.deepStrictEqual(problems, []);
+  // Losing the whole file is said (once), and DATA HISTORY lists it.
+  assert.deepStrictEqual(problems, ['unreadable']);
+  assert.deepStrictEqual(p.migrations.map((x) => x.changes), [[m.UNREADABLE_KEPT]]);
+});
+
+test('an unreadable save file over the copy limit is said as not kept, and listed in DATA HISTORY', async () => {
+  const m = await load();
+  const problems = [];
+  const store = recordingStore();
+  store.data[m.PROFILE_KEY] = 'z'.repeat(m.MAX_BOX_CHARS + 1);
+  const p = m.loadProfile(store, NOW, { onProblem: (c) => problems.push(c) });
+  assert.deepStrictEqual(problems, ['unreadable-too-big']);
+  assert.ok(m.SPARE_KEYS.every((k) => store.data[k] === undefined), 'too big to copy');
+  assert.deepStrictEqual(p.migrations[0].changes, [m.UNREADABLE_NOT_KEPT]);
+  const { saveProblemText } = await import('../renderer/game/controller.js');
+  assert.match(saveProblemText('unreadable-too-big', true), /too big to keep a copy of/);
+  assert.match(saveProblemText('unreadable', true), /couldn’t be read[\s\S]*set aside/);
+  for (const code of ['unreadable', 'unreadable-too-big']) {
+    assert.doesNotMatch(saveProblemText(code, true), /profile|progress|monitor|minute|second|hour|soon/i);
+  }
 });
 
 test('when every spare is taken the oldest is freed, said once, and the save still goes ahead', async () => {

@@ -147,3 +147,27 @@ test('garbage in does not throw', async () => {
     assert.ok(Array.isArray(city.districts));
   }
 });
+
+test('a check that ran but didn’t finish makes its district partial, never clear, and never secured', async () => {
+  const { findingsToCity } = await load();
+  const { cityIntegrity } = await import('../renderer/game/signals.js');
+  const { districtLine, districtBadges } = await import('../renderer/game/views/map.js');
+  const { districtComplete } = await import('../renderer/game/views/milestone.js');
+  const city = findingsToCity({ modules: [
+    mod('update_checker', 'integrity', [f('info', { code: null })], { complete: false }),
+    mod('disk_space', 'performance', [], { complete: true }),
+  ] });
+  const found = city.districts.find((d) => d.id === 'foundations');
+  assert.strictEqual(found.status, 'partial');
+  assert.deepStrictEqual(found.unfinished, [{ module: 'update_checker' }]);
+  assert.strictEqual(found.checksRan, 1);
+  assert.match(districtLine(found), /didn’t finish/);
+  assert.doesNotMatch(districtBadges(found) + districtLine(found), /NOTHING FOUND|Nothing found/);
+  assert.match(districtBadges(found), /1 DIDN’T FINISH/);
+  assert.strictEqual(city.districts.find((d) => d.id === 'engine-room').status, 'clear');
+  const integ = cityIntegrity(city, []);
+  assert.ok(integ.checkedIds.has('foundations'));
+  assert.ok(!integ.securedIds.has('foundations'));
+  const progress = { missions: { a: { status: 'reclaimed', module: 'update_checker', districtId: 'foundations', title: 'A' } } };
+  assert.strictEqual(districtComplete(found, progress), false);
+});

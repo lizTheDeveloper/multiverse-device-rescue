@@ -51,6 +51,8 @@ const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
 // 'profile': YOUR FILE.
 const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range', 'home', 'profile']);
 const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range', 'home', 'profile']);
+// A re-check whose check stopped before the end proves nothing either way.
+export const UNFINISHED_RECHECK = 'That check didn’t finish, so this wasn’t checked to the end.';
 const LOG_MAX = 100;
 const MOMENTS_MAX = 4;
 const TAG_WORD = { mine: 'MINE', threat: 'THREAT', closer: 'LOOK CLOSER', noted: 'NOTED' };
@@ -71,8 +73,18 @@ export const cityLessons = (lessons) => (lessons || []).map((l) => (l && Array.i
 // What the person sees when the record couldn't be saved or read: calm, and
 // in city mode only the game's own words. Codes are player-profile.js's.
 const SAVE_CODES = new Set(['encode', 'too-big', 'spare', 'write']);
-const READ_CODES = new Set(['salvaged', 'spare-full', 'unreadable-too-big']);
+const READ_CODES = new Set(['salvaged', 'spare-full']);
 export function saveProblemText(code, city) {
+  // The whole saved file couldn't be read (a copy is kept aside).
+  if (code === 'unreadable') {
+    return city ? 'Your saved city couldn’t be read, so the game started from what it could find. A copy was set aside.'
+      : 'Your saved progress couldn’t be read, so the game started from what it could find. A copy was set aside.';
+  }
+  // It couldn't be read, and was too big to keep a copy of: said plainly.
+  if (code === 'unreadable-too-big') {
+    return city ? 'Your saved city couldn’t be read, and it was too big to keep a copy of. The game started from what it could find.'
+      : 'Your saved progress couldn’t be read, and it was too big to keep a copy of. The game started from what it could find.';
+  }
   if (SAVE_CODES.has(code)) {
     return city ? 'The city couldn’t save your last move. It keeps trying.'
       : 'Your progress couldn’t be saved. It keeps trying.';
@@ -686,8 +698,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       logEntry('CLEAN SWEEP', 'Every district that could be checked is secured.');
     }
     const here = new Set(sigs.map((x) => x.id));
+    // Only a check that ran and finished can say something is no longer there.
+    const looked = ranOkModules(doc);
     for (const p of prev) {
-      if (p.kind === 'real' && (p.tag || p.severity !== 'info') && !here.has(p.id)) logEntry('NO LONGER SEEN', p.title);
+      if (p.kind === 'real' && (p.tag || p.severity !== 'info') && !here.has(p.id) && looked.has(p.module)) logEntry('NO LONGER SEEN', p.title);
     }
     s.opened = {};
     s.drillAnswers = {};
@@ -898,7 +912,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const controls = note.kind === 'held' ? ''
         : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, { ...watchedOpts(), theme: 'game' })}${routerHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
-        scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note });
+        scout, busy: s.busy, scanRunning: !!s.scan.running, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the
@@ -974,7 +988,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // findings in more than one check). The outcome is for this mission only.
   async function recheck(missionId, trigger = 'i-did-it', also = []) {
     const m = mission(missionId) || s.outcomeMission;
-    if (!m || s.busy) return;
+    // Main refuses a re-check while a sweep runs; never start one then.
+    if (!m || s.busy || s.scan.running) return;
     const putBack = trigger === 'undo' || trigger === 'unmark';
     const shownAt = s.shown;
     const modules = [m.module, ...also.filter((x, i, a) => x !== m.module && a.indexOf(x) === i)];
@@ -1005,7 +1020,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (outcome === 'yours' && !monitoring) logEntry('MARKED', m.title);
     s.outcome = putBack && outcome === 'not-yet' ? 'put-back' : outcome;
     s.outcomeMission = mission(m.id) || m;
-    s.message = res && !res.ok ? res.message || '' : '';
+    s.message = res && !res.ok ? res.message || ''
+      : res && res.module && res.module.complete === false ? UNFINISHED_RECHECK : '';
     s.screen = 'outcome';
     render();
   }
@@ -1357,12 +1373,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   shadow.addEventListener('input', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
 
   // The app's own fix and mark flows (FixFlow, MarkFlow), delegated on the frame so they survive re-renders.
+  // A change refused because a sweep is running (main's scan gate) tried
+  // nothing: no re-check, no outcome screen, and it isn't the last fix.
+  const refusedMidScan = (result) => !!(result && result.error === 'scan_running');
   win.FixFlow.attach(frame, win.rescue, { onResult: ({ kind, module, result, described }) => {
+    if (refusedMidScan(result)) return;
     if (kind === 'fix') s.lastFix = { missionId: s.missionId, module, result };
     if (kind === 'undo' && described && described.restored) s.lastFix = null;
     if (described && (described.tone === 'success' || described.tone === 'info' || described.restored)) recheck(s.missionId, kind === 'undo' ? 'undo' : 'fix');
   } });
   win.MarkFlow.attach(frame, win.rescue, { onResult: ({ kind, result, described }) => {
+    if (refusedMidScan(result)) return;
     if (described && described.done) recheck(s.missionId, kind === 'removed' ? 'unmark' : 'mark', modulesCoveredBy(result && result.ids));
   } });
 

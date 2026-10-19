@@ -743,3 +743,81 @@ test('city mode: I DID IT on a held finding re-checks nothing and confirms nothi
   assert.strictEqual(t.saved().deck.points, 0);
   assert.doesNotMatch(t.html().split('OPS LOG')[1], /CONFIRMED|MARKED|SECURED|Monitoring app/);
 });
+
+// --- A check that ran but didn't finish ("complete": false) is never clean.
+
+test('an open mission and a re-sweep whose check didn’t finish: still open, no award, the district partial', async () => {
+  const before = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]));
+  const [ia] = await ids(before);
+  const t = await deckSetup(before);
+  // The person said they did it, but the re-check is what pays: here a re-sweep.
+  const points = t.saved().deck.points;
+  t.ctl.showBoss();
+  t.ctl.scanDone(scan(mod('a_mod', [f('Couldn’t finish', 'info')], { complete: false })), { id: 'unsure' });
+  const saved = t.saved();
+  assert.strictEqual(saved.missions[ia].status, 'open', 'not reclaimed on an unfinished check’s word');
+  assert.deepStrictEqual(saved.deck.confirmed, {});
+  assert.strictEqual(saved.deck.points, points);
+  const html = t.html();
+  assert.match(html, /class="district partial[^"]*" data-go="filter:gatehouse"/);
+  assert.match(html, /1 DIDN’T FINISH/);
+  assert.doesNotMatch(html, /NOTHING FOUND|What was found here before is gone now|CLEAN SWEEP|SECURED<\/span> The Gatehouse/);
+  assert.doesNotMatch(html, /NO LONGER SEEN<\/span> A/);
+});
+
+test('I DID IT MYSELF, then a re-check whose check didn’t finish: COULDN’T RE-CHECK, no CONFIRMED, still open', async () => {
+  const before = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]));
+  const unfinished = scan(mod('a_mod', [], { complete: false }));
+  const [ia] = await ids(before);
+  const t = await deckSetup(before, { recheckDocs: [unfinished] });
+  t.click({ 'data-go': `mission:${ia}` });
+  t.click({ 'data-act': 'i-did-it' });
+  await tick(); await tick();
+  const html = t.html();
+  assert.match(html, /COULDN’T RE-CHECK/);
+  assert.match(html, /didn’t finish, so this wasn’t checked to the end/);
+  assert.doesNotMatch(html, /RECLAIMED/);
+  const saved = t.saved();
+  assert.strictEqual(saved.missions[ia].status, 'open');
+  assert.deepStrictEqual(saved.deck.confirmed, {});
+  assert.strictEqual(saved.deck.points, 0);
+});
+
+// --- A change refused mid-scan tried nothing.
+
+test('a fix refused because a sweep is running: no re-check, no outcome screen, not the last fix', async () => {
+  const before = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' }, { fixable: true })]));
+  const [ia] = await ids(before);
+  const t = await deckSetup(before, { recheckDocs: [scan(mod('a_mod', []))] });
+  t.click({ 'data-go': `mission:${ia}` });
+  const { fixRefusal, markRefusal } = require('../scan-gate.js');
+  t.hooks.fix.onResult({ kind: 'fix', module: 'a_mod', result: fixRefusal('a_mod'), described: { tone: 'info' } });
+  t.hooks.mark.onResult({ kind: 'marked', result: markRefusal(), described: { done: false } });
+  await tick(); await tick();
+  assert.deepStrictEqual(t.calls.recheck, []);
+  assert.doesNotMatch(t.html(), /RECLAIMED|COULDN’T RE-CHECK|NOT YET/);
+  assert.match(t.html(), /data-act="i-did-it"/, 'still on the briefing');
+});
+
+test('while a sweep runs, a mission shows no fix, mark or I DID IT MYSELF, and no re-check starts', async () => {
+  const before = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' }, { markable: true })]));
+  const [ia] = await ids(before);
+  const t = await deckSetup(before, { recheckDocs: [scan(mod('a_mod', []))] });
+  t.click({ 'data-go': `mission:${ia}` });
+  assert.match(t.html(), /MARK IT/);
+  t.ctl.showBoss();
+  t.click({ 'data-go': `mission:${ia}` });
+  let html = t.html();
+  assert.doesNotMatch(html, /MARK IT|data-act="i-did-it"/);
+  assert.match(html, /data-scan-running/);
+  assert.match(html, /The sweep is still running\. You can act on this once it’s done\./);
+  assert.doesNotMatch(html, /minute|second|hour|soon/i);
+  t.hooks.fix.onResult({ kind: 'fix', module: 'a_mod', result: { status: 'fixed' }, described: { tone: 'success' } });
+  await tick();
+  assert.deepStrictEqual(t.calls.recheck, [], 'no re-check while the sweep runs');
+  t.ctl.scanDone(before, { id: 'unsure' });
+  t.click({ 'data-go': `mission:${ia}` });
+  html = t.html();
+  assert.match(html, /MARK IT/);
+  assert.match(html, /data-act="i-did-it"/);
+});

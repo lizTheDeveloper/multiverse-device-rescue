@@ -122,20 +122,14 @@ export function loadProgress(storage) {
   }
 }
 
-export function saveProgress(storage, progress) {
-  try {
-    storage.setItem(STORE_KEY, JSON.stringify(progress));
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-// Only a module that says it ran (status "ok") counts; no status checked nothing.
+// Only a module that says it ran (status "ok") and finished counts; no status
+// checked nothing. A check that stopped before the end ("complete": false)
+// may simply not have looked at what's missing from it, so its open missions
+// stay open: nothing is reclaimed, confirmed or dropped on its word.
 export function ranOkModules(doc) {
   const out = new Set();
   for (const m of (doc && Array.isArray(doc.modules) ? doc.modules : [])) {
-    if (m && typeof m.name === 'string' && m.status === 'ok' && m.supported !== false) out.add(m.name);
+    if (m && typeof m.name === 'string' && m.status === 'ok' && m.supported !== false && m.complete !== false) out.add(m.name);
   }
   return out;
 }
@@ -237,7 +231,8 @@ export function recheckOutcome(missionId, cityAfter, response) {
   if (!response || response.ok !== true || !response.module) return 'couldnt';
   if (response.module.status === 'error' || response.module.supported === false) return 'couldnt';
   const m = allMissions(cityAfter).find((x) => x.id === missionId);
-  if (!m) return 'reclaimed';
+  // Gone from a check that stopped before the end isn't proof it's gone.
+  if (!m) return response.module.complete === false ? 'couldnt' : 'reclaimed';
   return m.marked ? 'yours' : 'not-yet';
 }
 

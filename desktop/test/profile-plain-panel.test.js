@@ -146,7 +146,7 @@ test('the headline count is the game\'s rule (publish.js lessonsLearned): a hidd
   }
   const full = pp.summary(p, bank);
   const shown = pub.lessonsLearned(full);
-  assert.ok(shown > full.lessonsLearned, 'the fixture has a lesson held back only by the hidden concept');
+  assert.ok(shown > full.lessons.filter((l) => l.state === 'learned').length, 'the fixture has a lesson held back only by the hidden concept');
   const storage = recordingStore();
   pp.saveProfile(storage, p, { seed: 4242, mode: 'standard' });
   const t = await setup({ storage, loadBank: async () => ib.buildBank(lessons, gameDrills) });

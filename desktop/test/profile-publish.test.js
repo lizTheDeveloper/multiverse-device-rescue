@@ -278,8 +278,9 @@ test('fix 5: hidden concepts never count toward the published lesson total, and 
   const count = (p) => JSON.parse(pub.buildPayload(pp.summary(p, bank), ['lessons'], { mode: 'standard', now: NOW })).security.city_lessons_learned.by['reclaim-city'].value;
   const wrong = answer(base, false);
   // The in-app total moves with the hidden concept; the published one doesn't.
-  assert.strictEqual(pp.summary(base, bank).lessonsLearned, 2);
-  assert.strictEqual(pp.summary(wrong, bank).lessonsLearned, 1);
+  const byState = (p) => pp.summary(p, bank).lessons.filter((l) => l.state === 'learned').length;
+  assert.strictEqual(byState(base), 2);
+  assert.strictEqual(byState(wrong), 1);
   assert.strictEqual(count(base), 2);
   assert.strictEqual(count(wrong), 2);
   assert.strictEqual(count(answer(base, true)), 2);

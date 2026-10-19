@@ -79,6 +79,7 @@ function formatExec(ev) {
 function describeProgress(ev) {
   const words = String(ev.module || '').replace(/_/g, ' ');
   const name = words.charAt(0).toUpperCase() + words.slice(1);
+  // (checkName says the same, for the "couldn't check these" list.)
   const done = ev.phase === 'done' ? ev.index : ev.index - 1;
   return {
     headline: CATEGORY_PHRASES[ev.category] || 'Checking your computer',
@@ -418,11 +419,16 @@ function duringScanTips(content, osKey) {
  * to "info" so nothing silently disappears.
  *
  * @param {{modules?: Array<{name:string,status:string,error:?string,findings?:Array}>}} doc
- * @returns {{groups: {critical: Array, warning: Array, info: Array}, erroredModules: Array<{name:string,error:?string}>}}
+ * `unfinishedModules`: checks that ran but stopped before the end (the
+ * engine's "complete": false). Their findings are listed, but what's missing
+ * from them may not have been looked at, so they are never a clean result.
+ *
+ * @returns {{groups: {critical: Array, warning: Array, info: Array}, erroredModules: Array<{name:string,error:?string}>, unfinishedModules: Array<{name:string}>}}
  */
 function groupFindingsBySeverity(doc) {
   const groups = { critical: [], warning: [], info: [] };
   const erroredModules = [];
+  const unfinishedModules = [];
   const modules = (doc && doc.modules) || [];
 
   for (const mod of modules) {
@@ -431,6 +437,8 @@ function groupFindingsBySeverity(doc) {
     } else if (mod && mod.supported === false) {
       // Could not run here: not a clean result, so it must not read as one.
       erroredModules.push({ name: mod.name, error: mod.unsupported_reason || null });
+    } else if (mod && mod.complete === false) {
+      unfinishedModules.push({ name: mod.name });
     }
     const findings = (mod && mod.findings) || [];
     for (const finding of findings) {
@@ -441,7 +449,33 @@ function groupFindingsBySeverity(doc) {
     }
   }
 
-  return { groups, erroredModules };
+  return { groups, erroredModules, unfinishedModules };
+}
+
+/**
+ * A check's name for people: "launch_agent_audit" -> "Launch agent audit",
+ * the same words the progress line uses. Never the raw id. In city mode a
+ * monitoring check is never named: just "A check".
+ */
+function checkName(module, mode) {
+  if (mode === 'city' && ALWAYS_SAFETY_MODULES.has(module)) return 'A check';
+  const words = String(module || '').replace(/_/g, ' ').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'A check';
+}
+
+const UNFINISHED_LINE = 'It didn’t finish, so it may have missed something.';
+
+/**
+ * The "couldn't check these" list: checks that couldn't run, then checks
+ * that didn't finish. In city mode a monitoring check's reason isn't shown
+ * either (it can name what it looked for).
+ */
+function couldntCheckItems(erroredModules, unfinishedModules, mode) {
+  const hide = (name) => mode === 'city' && ALWAYS_SAFETY_MODULES.has(name);
+  return [
+    ...erroredModules.map((m) => ({ name: checkName(m.name, mode), reason: hide(m.name) ? '' : m.error || '' })),
+    ...unfinishedModules.map((m) => ({ name: checkName(m.name, mode), reason: UNFINISHED_LINE })),
+  ];
 }
 
 // The scan events the game's sweep screen follows.
@@ -528,6 +562,9 @@ if (typeof module !== 'undefined' && module.exports) {
     WAIT_FOR_CHANGE_TEXT,
     duringScanTips,
     groupFindingsBySeverity,
+    checkName,
+    couldntCheckItems,
+    UNFINISHED_LINE,
     SITUATIONS,
     describeProgress,
     formatExec,
@@ -1049,7 +1086,8 @@ if (typeof document !== 'undefined') {
     function renderResults(doc) {
       const partial = isPartialDoc(doc) ? doc.partial : null;
       renderResultsFrame(partial);
-      const { groups, erroredModules } = groupFindingsBySeverity(doc);
+      const { groups, erroredModules, unfinishedModules } = groupFindingsBySeverity(doc);
+      const notFullyChecked = erroredModules.length + unfinishedModules.length;
       const total = SEVERITY_ORDER.reduce((sum, sev) => sum + groups[sev].length, 0);
 
 
@@ -1061,7 +1099,7 @@ if (typeof document !== 'undefined') {
         findings: reportFindings,
         situation: copyAiSituation(situation, mode),
         platform: doc && doc.platform,
-        couldNotCheck: erroredModules.map((m) => m.name),
+        couldNotCheck: [...erroredModules, ...unfinishedModules].map((m) => m.name),
       });
       cardPicks = new Map();
       cardTech = new Map();
@@ -1079,7 +1117,7 @@ if (typeof document !== 'undefined') {
       reportFindings.push(...cardPicks.values());
 
       // Items marked as yours on an earlier checkup start out cleared.
-      clearList.reset({ couldNotCheck: erroredModules.length });
+      clearList.reset({ couldNotCheck: notFullyChecked });
       groupsEl.querySelectorAll('[data-marked-before]').forEach((card) => clearList.clear(card, 'marked_before'));
 
       // The sentence at the top counts what the progress bar counts.
@@ -1091,9 +1129,10 @@ if (typeof document !== 'undefined') {
         document.getElementById('results-progress').hidden = true;
         summaryEl.innerHTML = `<p>${escapeHtml(partialSummaryText({
           worth: groups.critical.length + groups.warning.length, other: groups.info.length }))}</p>`;
-      } else if (total === 0 && erroredModules.length > 0) {
+      } else if ((total === 0 || !said) && notFullyChecked > 0) {
+        // Never an all-clear while a check couldn't run or didn't finish.
         summaryEl.innerHTML =
-          '<p class="results-summary__all-clear">Nothing stood out in the checks that ran. Some checks couldn\'t run on this computer &mdash; they\'re listed at the bottom.</p>';
+          '<p>Some checks couldn\'t run or didn\'t finish on this computer &mdash; they\'re listed at the bottom. The checks that finished found nothing worth a look.</p>';
       } else if (total === 0 || !said) {
         summaryEl.innerHTML =
           '<p class="results-summary__all-clear">Nothing stood out during this checkup. Nice and tidy.</p>';
@@ -1103,11 +1142,11 @@ if (typeof document !== 'undefined') {
 
       const errorsSection = document.getElementById('results-errors');
       const errorsList = document.getElementById('results-errors-list');
-      if (erroredModules.length > 0) {
-        errorsList.innerHTML = erroredModules
+      if (notFullyChecked > 0) {
+        errorsList.innerHTML = couldntCheckItems(erroredModules, unfinishedModules, mode)
           .map(
-            (mod) =>
-              `<li><strong>${escapeHtml(mod.name)}</strong>${mod.error ? ` &mdash; ${escapeHtml(mod.error)}` : ''}</li>`
+            (item) =>
+              `<li><strong>${escapeHtml(item.name)}</strong>${item.reason ? ` &mdash; ${escapeHtml(item.reason)}` : ''}</li>`
           )
           .join('');
         errorsSection.hidden = false;

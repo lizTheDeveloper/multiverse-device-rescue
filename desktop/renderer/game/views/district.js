@@ -3,6 +3,14 @@ import { esc } from '../escape.js';
 import { skyline, districtLine } from './map.js';
 import { reclaimedIn } from '../progress.js';
 
+// A check's name for people, never its raw id; a monitoring check is never
+// named on the city (held.js): just "A check".
+export function checkWords(module) {
+  if (HELD_MODULES.has(module)) return 'A check';
+  const words = String(module || '').replace(/_/g, ' ').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'A check';
+}
+
 const STATUS_BADGE = {
   open: '', later: '<span class="badge skip">LATER</span>',
   yours: '<span class="badge yours">YOURS</span>', reclaimed: '<span class="badge safe">RECLAIMED</span>',
@@ -31,8 +39,9 @@ export function renderDistrict({ district: d, progress, scout }) {
     + (earlier ? row(`${earlier} more reclaimed earlier`) : '');
   const rows = missions + reclaimed;
   const notes = d.notes.map((n) => `<li>${esc(n.title)}</li>`).join('');
-  // A monitoring check is never named on the city (held.js): just "A check".
-  const fog = d.fog.map((x) => `<li><strong>${esc(HELD_MODULES.has(x.module) ? 'A check' : x.module)}</strong>: ${esc(x.reason)}</li>`).join('');
+  const fog = d.fog.map((x) => `<li><strong>${esc(checkWords(x.module))}</strong>: ${esc(x.reason)}</li>`).join('');
+  // Ran, but stopped before the end (the engine's "complete": false).
+  const unfinished = (d.unfinished || []).map((x) => `<li><strong>${esc(checkWords(x.module))}</strong></li>`).join('');
   return `
   <section class="district-screen">
     <div class="crumbs"><button type="button" data-go="map">Your computer</button> / <b>${esc(d.name)}</b></div>
@@ -41,6 +50,7 @@ export function renderDistrict({ district: d, progress, scout }) {
     <p class="intel">${esc(districtLine(d, reclaimedIn(progress, d).length))}</p>
     ${rows ? `<div class="panel active"><div class="label">MISSIONS</div><ul class="missions">${rows}</ul></div>` : ''}
     ${fog ? `<div class="panel fogged"><div class="label">COULDN’T CHECK HERE</div><p class="intel">That doesn’t mean it’s safe.</p><ul class="fog-list">${fog}</ul></div>` : ''}
+    ${unfinished ? `<div class="panel fogged"><div class="label">DIDN’T FINISH HERE</div><p class="intel">These checks stopped before the end, so they may have missed something. That doesn’t mean it’s safe.</p><ul class="fog-list">${unfinished}</ul></div>` : ''}
     ${notes ? `<details class="panel"><summary class="label">NOTES (${d.notes.length})</summary><ul class="notes">${notes}</ul></details>` : ''}
     <div class="scout-row">${scout('happy', 54)}<p class="say">${esc(d.missions.length ? 'Pick one. You can stop after any of them.' : 'Nothing to do here right now.')}</p></div>
   </section>`;

@@ -63,19 +63,23 @@ test('recheckOutcome', async () => {
   assert.strictEqual(recheckOutcome('a', cityWith(), null), 'couldnt');
 });
 
-test('storage: round trip, corrupt JSON, wrong version, and storage that throws', async () => {
-  const { loadProgress, saveProgress, STORE_KEY, emptyProgress, emptyDeck } = await load();
-  const s = memStore();
+test('reading the old store: round trip, corrupt JSON, wrong version, and storage that throws', async () => {
+  const { loadProgress, STORE_KEY, emptyProgress, emptyDeck } = await load();
   const p = { version: 3, missions: { a: { status: 'later', module: 'm', updatedAt: NOW } }, lessons: {}, deck: emptyDeck() };
-  assert.strictEqual(saveProgress(s, p), true);
+  // Only read now (the player profile moves it): nothing writes this key any more.
+  const s = memStore({ [STORE_KEY]: JSON.stringify(p) });
   assert.deepStrictEqual(loadProgress(s), p);
   assert.deepStrictEqual(loadProgress(memStore({ [STORE_KEY]: '{not json' })), emptyProgress());
   assert.deepStrictEqual(loadProgress(memStore({ [STORE_KEY]: '{"version":9,"missions":{}}' })), emptyProgress());
   assert.deepStrictEqual(loadProgress(memStore({ [STORE_KEY]: '{"version":1,"missions":{"a":{"status":"bogus"}}}' })), emptyProgress());
   const throwing = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
   assert.deepStrictEqual(loadProgress(throwing), emptyProgress());
-  assert.strictEqual(saveProgress(throwing, p), false);
   assert.deepStrictEqual(loadProgress(null), emptyProgress());
+});
+
+test('saveProgress is gone: the old readable store is never written again', async () => {
+  const mod = await load();
+  assert.strictEqual(mod.saveProgress, undefined);
 });
 
 test('ranOkModules lists only modules that ran cleanly', async () => {
@@ -211,15 +215,13 @@ test('a version 3 deck with unknown keys keeps its known fields and drops the re
 });
 
 test('a version 3 store round-trips with its deck', async () => {
-  const { loadProgress, saveProgress, emptyDeck } = await load();
-  const s = memStore();
+  const { loadProgress, STORE_KEY, emptyDeck } = await load();
   const deck = { ...emptyDeck(), points: 35, drills: { right: 1, tried: 2 },
     tags: { 'm|c|plist=/a': { tag: 'threat', at: NOW, fp: 'abc' } }, confirmed: { 'm|c|plist=/b': NOW },
     once: { 'fix:m|c|plist=/b': true }, sweep: { at: NOW, keys: { 'clue:m|c|plist=/a#maker': true } },
     sweeps: [{ at: NOW, checks: 290, critical: 1, warning: 2, info: 30, fog: 3, checked: 4, secured: 3 }] };
   const p = { version: 3, missions: {}, lessons: {}, deck };
-  assert.strictEqual(saveProgress(s, p), true);
-  assert.deepStrictEqual(loadProgress(s), p);
+  assert.deepStrictEqual(loadProgress(memStore({ [STORE_KEY]: JSON.stringify(p) })), p);
 });
 
 test('setDeck changes only the deck; reconcile, setStatus and setLessonDone keep it', async () => {
@@ -234,4 +236,19 @@ test('setDeck changes only the deck; reconcile, setStatus and setLessonDone keep
   assert.strictEqual(p.deck.points, 10);
   assert.strictEqual(p.version, 3);
   assert.strictEqual(setDeck(p, { points: 'lots' }).deck.points, 10, 'a bad deck is refused');
+});
+
+test('a check that didn’t finish ("complete": false) never reclaims, and a re-check of it proves nothing', async () => {
+  const { ranOkModules, reconcile, emptyProgress, recheckOutcome } = await load();
+  const doc = { modules: [
+    { name: 'done_mod', status: 'ok', supported: true, complete: true },
+    { name: 'cut_mod', status: 'ok', supported: true, complete: false },
+    { name: 'old_mod', status: 'ok', supported: true },
+  ] };
+  assert.deepStrictEqual([...ranOkModules(doc)].sort(), ['done_mod', 'old_mod']);
+  let { progress } = reconcile(emptyProgress(), cityWith(mission('a', 'cut_mod')), new Set(['cut_mod']), NOW);
+  ({ progress } = reconcile(progress, cityWith(), ranOkModules(doc), NOW));
+  assert.strictEqual(progress.missions.a.status, 'open');
+  assert.strictEqual(recheckOutcome('a', cityWith(), { ok: true, module: { name: 'cut_mod', status: 'ok', complete: false } }), 'couldnt');
+  assert.strictEqual(recheckOutcome('a', cityWith(), { ok: true, module: { name: 'cut_mod', status: 'ok', complete: true } }), 'reclaimed');
 });

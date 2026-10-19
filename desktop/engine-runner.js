@@ -57,9 +57,24 @@ function parseStderrLine(line) {
   return { type: 'log', line };
 }
 
+// Scans still running, so quitting the app can stop them (stopRunningScans).
+const runningScans = new Set();
+
+// SIGTERM every running scan (main.js calls it on before-quit). On macOS and
+// Linux the engine's SIGTERM handler stops the commands its checks started,
+// then exits. On Windows kill() ends the engine outright (TerminateProcess),
+// so commands it had started finish or hit their own timeouts.
+function stopRunningScans(signal = 'SIGTERM') {
+  for (const p of runningScans) {
+    try { p.kill(signal); } catch (_) { /* already gone */ }
+  }
+  runningScans.clear();
+}
+
 function runScan(spawnFn = spawn, profile = null, onEvent = () => {}) {
   return new Promise((resolve, reject) => {
     const p = spawnFn(resolveEnginePath(), scanArgs(profile).concat(['--trace']));
+    runningScans.add(p);
     // `logs` keeps only the plain log lines, for an error message: the event
     // lines (some of them a whole check's findings) aren't kept twice.
     let out = '', logs = [], pending = '';
@@ -76,8 +91,9 @@ function runScan(spawnFn = spawn, profile = null, onEvent = () => {}) {
       pending = lines.pop();
       for (const line of lines) take(line);
     });
-    p.on('error', reject);
+    p.on('error', (err) => { runningScans.delete(p); reject(err); });
     p.on('close', code => {
+      runningScans.delete(p);
       take(pending);
       pending = '';
       if (code !== 0) return reject(new Error(`engine exited ${code}: ${logs.join('\n')}`));
@@ -268,4 +284,4 @@ function runEngineJson(buildArgs, moduleName, spawnFn, timeoutMs, fail = (error,
   });
 }
 
-module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, scanModuleArgs, runRecheck, markArgs, unmarkArgs, runMark, runUnmark };
+module.exports = { resolveEnginePath, parseEngineOutput, runScan, stopRunningScans, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, scanModuleArgs, runRecheck, markArgs, unmarkArgs, runMark, runUnmark };

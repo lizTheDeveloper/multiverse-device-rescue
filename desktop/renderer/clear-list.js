@@ -63,7 +63,7 @@ const ClearList = (function () {
   function progressText(p, opts) {
     const couldNotCheck = (opts && opts.couldNotCheck) || 0;
     const notChecked = couldNotCheck
-      ? `${couldNotCheck} check${couldNotCheck === 1 ? '' : 's'} couldn’t run on this computer, so ${couldNotCheck === 1 ? 'that wasn’t' : 'those weren’t'} checked (listed at the bottom).`
+      ? `${couldNotCheck} check${couldNotCheck === 1 ? '' : 's'} couldn’t run or didn’t finish on this computer, so ${couldNotCheck === 1 ? 'that wasn’t' : 'those weren’t'} fully checked (listed at the bottom).`
       : '';
     const sayso = p.did
       ? `${p.did === 1 ? 'One thing' : `${p.did} things`} you said you did will be checked again on your next checkup.`
@@ -72,7 +72,8 @@ const ClearList = (function () {
     if (p.cleared >= p.total) {
       return {
         allClear: true,
-        headline: 'All clear — nothing left on your list.',
+        // Never "all clear" while some check couldn't run or didn't finish.
+        headline: couldNotCheck ? 'Nothing left on your list.' : 'All clear — nothing left on your list.',
         detail: [sayso, notChecked, 'A clear list lowers the odds of a problem; it can’t rule one out.'].filter(Boolean).join(' '),
       };
     }
@@ -158,7 +159,7 @@ const ClearList = (function () {
   // Wire it up in the page. `opts`:
   //   progressEl: where the progress line goes
   //   esc: HTML escaper
-  //   couldNotCheck: how many checks couldn't run
+  //   couldNotCheck: how many checks couldn't run or didn't finish
   //   onChange(card, how|null): after a card is cleared or put back
   //   undoMark(markCard): ask MarkFlow to unmark (Undo on a marked card)
   function attach(root, opts) {

@@ -2,11 +2,11 @@ const { app, BrowserWindow, ipcMain, shell, net, protocol } = require('electron'
 const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
-const { runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck } = require('./engine-runner');
+const { runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck, stopRunningScans } = require('./engine-runner');
 const { handleRecheck } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
-const { createScanGate, fixRefusal, markRefusal } = require('./scan-gate');
+const { createScanGate, fixRefusal, markRefusal, recheckRefusal } = require('./scan-gate');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 const { routerUrlFor, browserDisplayName } = require('./router-url');
 const { isAllowedMissionLink } = require('./mission-links');
@@ -72,13 +72,13 @@ app.whenReady().then(() => {
     handleMark(id, { policy: markPolicy, runMark }, itemIds), markRefusal()));
   ipcMain.handle('unmark-mine', (_e, idOrIds) => gate.runChange(() =>
     handleUnmark(idOrIds, { policy: markPolicy, runUnmark }), markRefusal()));
-  ipcMain.handle('recheck-module', (_e, name) =>
+  ipcMain.handle('recheck-module', (_e, name) => gate.runChange(() =>
     handleRecheck(name, {
       getLastDoc: () => lastDoc,
       setLastDoc: (d) => { lastDoc = d; },
       runRecheck: (n) => runRecheck(n),
       policies: [fixPolicy, markPolicy],
-    }));
+    }), recheckRefusal()));
   ipcMain.handle('open-guide', (_e, url) => {
     if (!isAllowedGuideUrl(url)) {
       return false;
@@ -132,3 +132,6 @@ app.whenReady().then(() => {
   createWindow();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+// Quitting mid-scan stops the engine: SIGTERM, so its handler also stops the
+// commands its checks started (rescue/orchestrator.py stop_commands_on_signals).
+app.on('before-quit', () => stopRunningScans());

@@ -37,10 +37,13 @@ test('the progress line: N of M, then all clear, honest about what was not check
   assert.match(mid.detail, /1 check couldn’t run/);
   const done = ClearList.progressText({ total: 4, cleared: 4, did: 1 }, { couldNotCheck: 3 });
   assert.strictEqual(done.allClear, true);
-  assert.strictEqual(done.headline, 'All clear — nothing left on your list.');
+  // Never "all clear" while checks couldn't run or didn't finish.
+  assert.strictEqual(done.headline, 'Nothing left on your list.');
   assert.match(done.detail, /One thing you said you did will be checked again/);
-  assert.match(done.detail, /3 checks couldn’t run on this computer, so those weren’t checked/);
+  assert.match(done.detail, /3 checks couldn’t run or didn’t finish on this computer, so those weren’t fully checked/);
   assert.match(done.detail, /can’t rule one out/);
+  const clean = ClearList.progressText({ total: 4, cleared: 4, did: 0 });
+  assert.strictEqual(clean.headline, 'All clear — nothing left on your list.');
 });
 
 test('the notes say which kind of clearing it was', () => {
@@ -179,7 +182,7 @@ test('"I did this" moves the card to Cleared, counts it, and Undo puts it back w
   assert.deepStrictEqual(changes.at(-1), [b.getAttribute('data-card-key'), null]);
 });
 
-test('clearing everything says all clear, and the empty group says so', async () => {
+test('clearing everything says the list is empty (not all clear while checks didn’t run), and the empty group says so', async () => {
   const p = page();
   const a = p.card('warning');
   const b = p.card('warning');
@@ -187,7 +190,8 @@ test('clearing everything says all clear, and the empty group says so', async ()
   ctl.reset({ couldNotCheck: 2 });
   await btn(a, '[data-clear-did]').click();
   await btn(b, '[data-clear-did]').click();
-  assert.match(p.progressEl.innerHTML, /All clear — nothing left on your list/);
+  assert.match(p.progressEl.innerHTML, /Nothing left on your list/);
+  assert.doesNotMatch(p.progressEl.innerHTML, /All clear/);
   assert.match(p.progressEl.innerHTML, /2 checks couldn’t run/);
   assert.strictEqual(p.root.querySelector('[data-results-group="warning"] [data-group-empty]').hidden, false);
 });

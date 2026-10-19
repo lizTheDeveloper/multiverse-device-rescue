@@ -220,3 +220,31 @@ test('new cards above the one being read keep it where it was on screen', async 
   assert.deepStrictEqual(scrolls, [300]);
   assert.strictEqual(card().getBoundingClientRect().top, 120);
 });
+
+test('a finished checkup with a check that didn’t finish is never all-clear, and names checks in words', async () => {
+  const p = await running();
+  await p.finish({ schema_version: 1, platform: 'darwin', modules: [
+    entry('update_checker', [{ title: 'Couldn’t check for macOS updates', description: 'd', severity: 'info', category: 'integrity', data: {} }],
+      { category: 'integrity', complete: false }),
+    entry('disk_space', [], { category: 'performance' }),
+  ] });
+  assert.deepStrictEqual(p.shown(), ['results']);
+  const summary = p.byId('results-summary').innerHTML;
+  assert.doesNotMatch(summary, ALL_CLEAR);
+  assert.match(summary, /didn.t finish/);
+  assert.strictEqual(p.byId('results-errors').hidden, false);
+  const list = p.byId('results-errors-list').innerHTML;
+  assert.match(list, /<strong>Update checker<\/strong> &mdash; It didn’t finish, so it may have missed something\./);
+  assert.doesNotMatch(list, /update_checker/);
+});
+
+test('the couldn’t-check list never shows raw ids, and city mode never names a monitoring check', () => {
+  const { checkName, couldntCheckItems } = require('../renderer/app.js');
+  assert.strictEqual(checkName('launch_agent_audit', 'standard'), 'Launch agent audit');
+  assert.strictEqual(checkName('stalkerware_scan', 'standard'), 'Stalkerware scan');
+  const city = couldntCheckItems([{ name: 'stalkerware_scan', error: 'mSpy check timed out' }, { name: 'disk_space', error: 'x' }],
+    [{ name: 'mvt_spyware_scan' }], 'city');
+  assert.deepStrictEqual(city.map((i) => i.name), ['A check', 'Disk space', 'A check']);
+  assert.strictEqual(city[0].reason, '', 'a monitoring check’s reason can name what it looked for');
+  assert.doesNotMatch(JSON.stringify(city), /stalkerware|mvt|mSpy|_/i);
+});

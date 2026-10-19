@@ -176,7 +176,8 @@ test('fog keeps a district from its milestone, and a milestone with fog says so'
   assert.strictEqual(districtComplete(district, progress), false);
   const html = renderMilestone({ district, progress, scout });
   assert.match(html, /Couldn’t check here\. That doesn’t mean it’s safe\./);
-  assert.match(html, /COULDN’T CHECK HERE[\s\S]*m2/);
+  // The check's name in words (never its raw id).
+  assert.match(html, /COULDN’T CHECK HERE[\s\S]*M2/);
   assert.doesNotMatch(html, /every mission here is done/i);
   assert.doesNotMatch(html, /DISTRICT TAKEN BACK/);
   assert.ok(!html.includes('<img src=x'));
