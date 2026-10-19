@@ -85,7 +85,10 @@ test('the integration moves: storage piles to the Junkyard; firewall stealth, SI
   assert.strictEqual(out.firewall_rules_audit['security.firewall_rules_audit.too_many_apps'], 'switchboard');
   assert.strictEqual(out.rootkit_check['security.rootkit_check.sip_disabled'], 'locks');
   assert.strictEqual(out.rootkit_check['security.rootkit_check.hidden_processes'], 'locker');
-  for (const c of Object.keys(out.clamav_scanner)) assert.strictEqual(out.clamav_scanner[c], 'locks', c);
+  // ClamAV missing is a note (an optional extra scanner); a ClamAV that's there but not working is a lock.
+  for (const c of Object.keys(out.clamav_scanner)) assert.strictEqual(out.clamav_scanner[c], /clamav_not_installed$/.test(c) ? 'notes' : 'locks', c);
+  // Sleep, screen-off and Power Nap are settings, not clutter (Odd Jobs until Lock Run has a lock for them).
+  for (const m of ['energy_saver_check', 'energy_settings', 'power_settings']) assert.deepStrictEqual(Object.values(out[m]), ['simple'], m);
   for (const c of Object.keys(out.browser_privacy_check)) assert.strictEqual(out.browser_privacy_check[c], 'locks', c);
   assert.deepStrictEqual(Object.values(out.default_browser), ['locks']);
   const T = await imp('types.js');

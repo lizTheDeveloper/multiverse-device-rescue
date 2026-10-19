@@ -69,6 +69,8 @@ export const BASE_COVERS = Object.freeze({
       'win_firewall_rules_audit', 'win_hosts_file', 'win_hosts_file_check', 'win_proxy_detect', 'win_rdp_check',
       'win_remote_access_audit', 'win_network_shares_audit', 'win_dns_config'),
     { module: 'security_baseline_diff', codes: [`${SBD}new_listening_port`] },
+    // A hosts-file line found by the mining check is a line in the address book.
+    { module: 'browser_cryptojacking_check', checks: ['mining_hosts_entry'] },
   ],
   locker: whole('ai_worm_filesystem', 'ai_worm_iocs', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
     'malware_scan_indicators', 'cryptojacking_iocs', 'crypto_miner_detect', 'rootkit_check',
@@ -89,8 +91,8 @@ export const BASE_COVERS = Object.freeze({
     { module: 'security_baseline_diff', codes: [`${SBD}protection_disabled`] },
   ],
   junkyard: whole('storage_cleanup', 'large_files_finder', 'library_cache_cleanup', 'browser_cache_cleanup', 'trash_cleanup',
-    'docker_cleanup', 'xcode_cleanup', 'mail_attachment_cleanup', 'crash_log_analyzer', 'app_crash_analyzer', 'energy_saver_check',
-    'energy_settings', 'resource_hog_identifier', 'system_log_errors', 'process_scanner', 'temp_file_scanner',
+    'docker_cleanup', 'xcode_cleanup', 'mail_attachment_cleanup', 'crash_log_analyzer', 'app_crash_analyzer',
+    'resource_hog_identifier', 'system_log_errors', 'process_scanner', 'temp_file_scanner',
     'win_disk_cleanup', 'win_temp_cleanup', 'win_temp_files', 'win_temp_files_cleanup', 'win_bloatware', 'win_disk_space'),
   notes: [],
   simple: [],
@@ -114,7 +116,7 @@ export const ODD_JOBS = Object.freeze([
   'time_machine_health', 'time_sync_check', 'usb_devices_check', 'user_account_health', 'wifi_diagnostics', 'wifi_password_recovery',
   'arp_spoof_check', 'ethernet_diagnostics', 'lan_device_inventory', 'clamshell_mode', 'disk_fragmentation_check', 'disk_io_health',
   'disk_space', 'font_cache_repair', 'font_cache', 'macos_user_cleanup', 'memory_pressure_check', 'memory_pressure', 'network_quality',
-  'notification_center_check', 'power_settings', 'screen_resolution_scaling', 'spotlight_rebuild', 'spotlight_repair',
+  'notification_center_check', 'power_settings', 'energy_saver_check', 'energy_settings', 'screen_resolution_scaling', 'spotlight_rebuild', 'spotlight_repair',
   'spotlight_status', 'swap_memory_check', 'swap_usage', 'thermal_throttle_check', 'thermal_throttle', 'user_profile_size',
   'bluetooth_audit', 'disk_encryption_recovery', 'evidence_bundle', 'login_window_settings',
   'mdm_enrollment_check', 'mdm_enrollment', 'sip_gatekeeper', 'siri_privacy', 'ssh_key_audit', 'sudo_config_audit', 'sudo_touchid',
@@ -138,6 +140,27 @@ export const WIN_ODD_JOBS = Object.freeze([
   'win_cortana_telemetry', 'win_group_policy_audit',
 ]);
 
+// Where the grouping puts a check whatever a game's own covers say (UX audit
+// P3), applied last in buildTable: a whole move takes the module from every
+// other type; a narrow move (codes or checks) adds a claim that wins over a
+// whole one. A game that already claims the same keeps it (no double claim).
+export const MOVES = Object.freeze([
+  { module: 'browser_cryptojacking_check', checks: ['mining_hosts_entry'], to: 'switchboard' },
+  // Sleep, screen-off and Power Nap are settings, not clutter. Lock Run is
+  // their place once games/locks.js has a lock for them (today it would draw
+  // them as "Automatic updates"); until then, Odd Jobs (listed in ODD_JOBS).
+  { module: 'energy_saver_check', to: 'simple' },
+  { module: 'energy_settings', to: 'simple' },
+  { module: 'power_settings', to: 'simple' },
+]);
+
+// To-dos that are shown as notes (Good to know / Signal or Noise): the list
+// counts them as to-dos, so missionCounts does too. A code prefix, as covers.
+export const NOTE_CODES = Object.freeze([
+  'security.clamav_scanner.clamav_not_installed', // an optional extra scanner, not a lock left open
+]);
+const isNoteCode = (code) => typeof code === 'string' && NOTE_CODES.some((p) => code.startsWith(p));
+
 // A wildcard ({ module: '*', severities }) is kept but never matched here:
 // every info item goes to the notes missions anyway, and it claims nothing
 // another game claims (contract.js claimConflicts skips it).
@@ -155,6 +178,18 @@ export function buildTable(games = []) {
   for (const t of TYPE_IDS) table[t] = cleanCovers(BASE_COVERS[t]);
   for (const g of Array.isArray(games) ? games : []) {
     if (g && TYPE_IDS.includes(g.type) && Array.isArray(g.covers)) table[g.type] = cleanCovers(g.covers);
+  }
+  for (const mv of MOVES) {
+    const narrow = mv.codes ? { codes: mv.codes.slice() } : mv.checks ? { checks: mv.checks.slice() } : null;
+    if (!narrow) {
+      for (const t of TYPE_IDS) if (t !== mv.to) table[t] = table[t].filter((c) => c.module !== mv.module);
+      // Odd Jobs is the fallback type: nothing to claim there.
+      if (mv.to !== 'simple' && !table[mv.to].some((c) => c.module === mv.module && !c.codes && !c.checks)) table[mv.to].push({ module: mv.module });
+      continue;
+    }
+    const same = (c) => c.module === mv.module && JSON.stringify(c.codes || c.checks) === JSON.stringify(narrow.codes || narrow.checks);
+    for (const t of TYPE_IDS) if (t !== mv.to) table[t] = table[t].filter((c) => !same(c));
+    if (!table[mv.to].some(same)) table[mv.to].push({ module: mv.module, ...narrow });
   }
   return table;
 }
@@ -187,7 +222,7 @@ export function claimedType(finding, table = DEFAULT_TABLE) {
 }
 
 export function typeOf(finding, table = DEFAULT_TABLE) {
-  if (!finding || finding.severity === 'info') return 'notes';
+  if (!finding || finding.severity === 'info' || isNoteCode(finding.code)) return 'notes';
   return claimedType(finding, table);
 }
 
@@ -239,7 +274,11 @@ export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE, o
   const lockNote = (i) => claimedType(i.finding, table) === 'locks' && NOT_CHECKED_CODE.test(String(i.finding.code || ''));
   const promoted = new Set(list.info.filter((i) => oddSet.has(i.key) || lockNote(i)).map((i) => i.key));
   const oddNotes = list.info.filter((i) => promoted.has(i.key)).map((i) => ({ ...i, fromNote: true }));
-  const todo = [...list.critical, ...list.warning, ...list.marked.filter(isStale), ...oddNotes].map(dress);
+  const all = [...list.critical, ...list.warning, ...list.marked.filter(isStale), ...oddNotes].map(dress);
+  // NOTE_CODES: a to-do shown with the notes (as a note: severity info, the list's in `listSeverity`).
+  const asNote = (i) => !i.fromNote && isNoteCode(i.finding && i.finding.code);
+  const todo = all.filter((i) => !asNote(i));
+  const shownAsNotes = all.filter(asNote).map((i) => ({ ...i, severity: 'info', listSeverity: i.severity, asNote: true }));
   const groups = new Map();
   for (const item of todo) {
     const type = item.fromNote ? claimedType(item.finding, table) : typeOf({ ...item.finding, severity: item.severity }, table);
@@ -258,7 +297,7 @@ export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE, o
   missions.sort((a, b) => (RANK[b.severity] - RANK[a.severity]) || (leadsMission(b) - leadsMission(a))
     || (TYPE_IDS.indexOf(a.type) - TYPE_IDS.indexOf(b.type))
     || ((ORDER_OF_DISTRICT.get(a.district) ?? 99) - (ORDER_OF_DISTRICT.get(b.district) ?? 99)) || (a.part - b.part));
-  const notes = list.info.filter((i) => !promoted.has(i.key)).map(dress);
+  const notes = [...shownAsNotes, ...list.info.filter((i) => !promoted.has(i.key)).map(dress)];
   for (const b of notesBatches(notes, batchNotes)) missions.push(mission('notes', b.area, b.items, b.part, b.parts, true));
   return missions;
 }
@@ -355,11 +394,12 @@ function mission(type, district, items, part, of, notes) {
 
 // The list's numbers: an app item made from several permission findings
 // counts each list item once (sourceKeys), so todo equals scanCounts.todo; a
-// note made an item (odd, or a Lock Run "couldn't check") still counts as a note.
+// note made an item (odd, or a Lock Run "couldn't check") still counts as a
+// note, and a to-do shown as a note (NOTE_CODES) still counts as a to-do.
 export function missionCounts(missions) {
   const todo = new Set(); let notes = 0;
   for (const m of missions || []) {
-    if (m.notes) { notes += m.items.length; continue; }
+    if (m.notes) { for (const i of m.items) { if (i.asNote) todo.add(i.key); else notes += 1; } continue; }
     for (const i of m.items) { if (i.fromNote) { notes += 1; continue; } for (const k of i.sourceKeys || [i.key]) todo.add(k); }
   }
   return { todo: todo.size, notes };
