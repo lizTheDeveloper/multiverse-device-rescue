@@ -289,3 +289,14 @@ test('city mode: a mission’s fix confirm says stop by the help district, in ga
   assert.ok(t.html().includes(`Stop by ${opts.place} before you change it.`));
   assert.doesNotMatch(t.html(), CITY_FORBIDDEN);
 });
+
+test('Mine on an item MarkFlow can’t mark is still an answer: kept in the app, never a dead end', async () => {
+  const t = await setup(scan(mod('ssh_key_audit', [f('An extra key', 'warning', { path: '/etc/ssh/k' }, { markable: { kind: 'odd' } })])));
+  t.win.MarkFlow.markControlsHtml = () => '';
+  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:mine' });
+  await tick(); await tick();
+  assert.match(t.html(), /mx-summary/, 'the only item is answered');
+  assert.match(t.html(), /Noted as yours in this app\. The checkup will still list it\./);
+});

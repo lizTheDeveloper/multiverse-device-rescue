@@ -193,7 +193,14 @@ export function createMissionDesk(deps) {
     }
     if (act.kind === 'mark') {
       const html = w.MarkFlow.markControlsHtml({ ...act.item.finding }, { ...deps.watchedOpts(), theme: 'game' });
-      if (!html) { d.notice = mode() === 'city' ? 'This one can’t be marked from here.' : 'This one can’t be marked as yours from here.'; d.run = Run.cancelPending(d.run); return; }
+      // The checkup can't record this mark (MarkFlow offers none): the answer
+      // is kept here instead (remembered while the evidence holds), so the
+      // item is never a dead end. Nothing on the computer changes.
+      if (!html) {
+        d.notice = mode() === 'city' ? 'Noted as yours here. The sweep will still show it.' : 'Noted as yours in this app. The checkup will still list it.';
+        d.run = Run.settle(d.run, 'done', act.item);
+        return;
+      }
       d.act = { kind: 'mark', html, item: act.item };
       return;
     }
