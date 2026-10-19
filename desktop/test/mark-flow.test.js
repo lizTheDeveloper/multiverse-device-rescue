@@ -36,9 +36,10 @@ test('the button opens a hidden confirmation that says it stays listed and how t
 });
 
 test('round 3: the task confirm shows the program the way the card does, with ~ for the home folder', () => {
-  const html = MarkFlow.markControlsHtml({ markable: { ...MARKABLE, program: '/Users/annhoward/.hermes/venv/bin/python' } });
-  assert.match(html, /<dt>Program<\/dt><dd>~\/\.hermes\/venv\/bin\/python<\/dd>/);
-  assert.doesNotMatch(html, /annhoward/);
+  const home = require('os').homedir();
+  const html = MarkFlow.markControlsHtml({ markable: { ...MARKABLE, program: `${home}/.tools/venv/bin/python` } });
+  assert.match(html, /<dt>Program<\/dt><dd>~\/\.tools\/venv\/bin\/python<\/dd>/);
+  assert.ok(!html.includes(home + '/'), 'the home folder is shown as ~');
 });
 
 test('a marked finding offers unmark instead', () => {

@@ -252,8 +252,8 @@ test('helpers', () => {
     'codesign --verify … /Applications/Baba Is You.app');
   assert.strictEqual(E.shortCommand(['ls']), 'ls');
   // Whole folder names: the first two and last three (P2-10).
-  assert.strictEqual(E.shortPath('/tmp/claude-501/-Users-annhoward-src-multiverse-device-rescue/e5f5649d-5eac-431b-840f-8c301f2c6330/scratchpad/plan/gen4.py'),
-    '/tmp/claude-501/…/scratchpad/plan/gen4.py');
+  assert.strictEqual(E.shortPath('/tmp/tool-501/-Users-example-src-project/0000-session/scratchpad/plan/gen4.py'),
+    '/tmp/tool-501/…/scratchpad/plan/gen4.py');
 });
 
 test('odd input never throws', () => {
