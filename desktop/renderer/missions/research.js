@@ -193,11 +193,38 @@ export function resolveLink(l, { mode = 'standard', platform = null } = {}) {
     return { kind: 'lookup', source: l.source, url: lookupUrl(l.source, q), label, text: '' };
   }
   if (typeof l.concept !== 'string' || !l.concept) return null;
-  return { kind: 'lesson', concept: l.concept, url: null, label: { standard: 'Learn how to read this', city: 'Training: how to read this' }, text: '' };
+  const topic = own(LESSON_TOPIC, l.concept) ? LESSON_TOPIC[l.concept] : null;
+  const label = topic ? { standard: `Learn: ${topic}`, city: `Training: ${topic}` } : { standard: 'Learn how to read this', city: 'Training: how to read this' };
+  return { kind: 'lesson', concept: l.concept, url: null, label, text: '' };
 }
 
+// A lesson button names its lesson, so an item with two lessons shows two
+// different buttons (profile/skills.js CONCEPTS titles, in lower case).
+const LESSON_TOPIC = {
+  'who-made-it': 'who made it', 'where-it-lives': 'where it lives', 'fix-and-undo': 'switching off so you can undo',
+  'couldnt-check': 'when a check can’t finish', 'clean-isnt-certain': 'what a clean result means',
+  'disk-encryption': 'the recovery key', 'auto-updates': 'automatic updates', 'lock-screen': 'the lock screen',
+  'browser-add-ons': 'browser add-ons', 'remote-access-scams': 'remote-access scams',
+  'password-prompts': 'who asks for your password', 'wifi-and-mining': 'Wi-Fi and a hot, slow computer',
+  'poisoned-packages': 'poisoned packages', 'fake-messages': 'spotting a fake message',
+};
+
+// One button per destination: the same lesson, page or search twice (two
+// keys on one pane, two games' links) shows once, and no two buttons read alike.
+const linkKey = (l) => (l.kind === 'lesson' ? `lesson:${l.concept}` : `${l.kind}:${l.url || ''}:${l.text}:${l.label.standard}`);
+
 export function resolveLinks(links, ctx = {}) {
-  return (Array.isArray(links) ? links : []).map((l) => resolveLink(l, ctx)).filter(Boolean);
+  const seen = new Set();
+  const labels = new Set();
+  const mode = ctx && ctx.mode === 'city' ? 'city' : 'standard';
+  return (Array.isArray(links) ? links : []).map((l) => resolveLink(l, ctx)).filter((l) => {
+    if (!l) return false;
+    const k = linkKey(l);
+    const said = l.url || l.kind === 'lesson' ? l.label[mode] : l.text;
+    if (seen.has(k) || labels.has(said)) return false;
+    seen.add(k); labels.add(said);
+    return true;
+  });
 }
 
 // `subject`: the program the item is about (a per-app item's app); else the

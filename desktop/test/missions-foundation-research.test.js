@@ -151,3 +151,40 @@ test('P2-12: a city look-up quotes the words once', async () => {
     assert.ok(!text(q).includes('"'), `no straight quote left: ${text(q)}`);
   }
 });
+
+test('P3: an item never shows the same lesson button twice; each lesson button names its lesson', async () => {
+  const [R] = await load();
+  for (const mode of ['standard', 'city']) {
+    const links = R.resolveLinks([{ kind: 'lesson', concept: 'who-made-it' }, { kind: 'lesson', concept: 'couldnt-check' },
+      { kind: 'lesson', concept: 'who-made-it' }, { kind: 'settings', pane: 'login-items' }, { kind: 'settings', pane: 'login-items' }],
+    { mode, platform: 'darwin' });
+    assert.deepStrictEqual(links.map((l) => l.kind), ['lesson', 'lesson', 'settings'], mode);
+    const said = links.map((l) => l.label[mode]);
+    assert.strictEqual(new Set(said).size, said.length, said.join(' / '));
+  }
+  const std = R.resolveLinks([{ kind: 'lesson', concept: 'who-made-it' }, { kind: 'lesson', concept: 'couldnt-check' }], { mode: 'standard' });
+  assert.deepStrictEqual(std.map((l) => l.label.standard), ['Learn: who made it', 'Learn: when a check can’t finish']);
+  assert.deepStrictEqual(std.map((l) => l.label.city), ['Training: who made it', 'Training: when a check can’t finish']);
+  // An unknown lesson keeps the plain words, and only one such button shows.
+  const odd = R.resolveLinks([{ kind: 'lesson', concept: 'new-one' }, { kind: 'lesson', concept: 'other-new' }], { mode: 'standard' });
+  assert.deepStrictEqual(odd.map((l) => l.label.standard), ['Learn how to read this']);
+  // The same search twice is one line in the city.
+  const city = R.resolveLinks([{ kind: 'lookup', source: 'web', query: 'X' }, { kind: 'lookup', source: 'maker-site', query: 'X' }], { mode: 'city' });
+  assert.strictEqual(city.length, 1, 'the city shows only the words, and they are the same');
+  const std2 = R.resolveLinks([{ kind: 'lookup', source: 'web', query: 'X' }, { kind: 'lookup', source: 'maker-site', query: 'X' }], { mode: 'standard' });
+  assert.strictEqual(std2.length, 2, 'two different buttons stay');
+  const same = R.resolveLinks([{ kind: 'lookup', source: 'web', query: 'X' }, { kind: 'lookup', source: 'web', query: 'X' }], { mode: 'city' });
+  assert.strictEqual(same.length, 1);
+});
+
+test('P3: every lesson a game links to has its own button name', async () => {
+  const fs = require('fs');
+  const dir = path.join(__dirname, '..', 'renderer', 'missions', 'games');
+  const concepts = new Set();
+  for (const f of fs.readdirSync(dir)) for (const m of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/kind: 'lesson', concept: '([a-z-]+)'/g)) concepts.add(m[1]);
+  assert.ok(concepts.size > 3, [...concepts].join());
+  const [R] = await load();
+  for (const concept of concepts) {
+    assert.notStrictEqual(R.resolveLink({ kind: 'lesson', concept }).label.standard, 'Learn how to read this', concept);
+  }
+});
