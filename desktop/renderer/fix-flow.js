@@ -114,6 +114,11 @@ const FixFlow = (function () {
         undo,
       };
     }
+    // Refused because a checkup is running (main's scan gate): nothing was tried.
+    if (r.error === 'scan_running') {
+      return { tone: 'info', headline: 'The checkup is still running.',
+        detail: 'You can fix this once it’s done. Nothing was changed.', undo: [] };
+    }
     if (r.error === 'not_allowed' || r.error === 'not_confirmed') {
       return {
         tone: 'error',

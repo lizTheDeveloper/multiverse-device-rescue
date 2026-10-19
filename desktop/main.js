@@ -6,6 +6,7 @@ const { runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck } = 
 const { handleRecheck } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
+const { createScanGate, fixRefusal, markRefusal } = require('./scan-gate');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 const { routerUrlFor, browserDisplayName } = require('./router-url');
 const { isAllowedMissionLink } = require('./mission-links');
@@ -49,7 +50,9 @@ app.whenReady().then(() => {
   const markPolicy = createMarkPolicy();
   // The last full scan this process ran, with any re-checks merged in.
   let lastDoc = null;
-  ipcMain.handle('run-scan', async (e, profile) => {
+  // Fixes, undos and marks wait for the scan to finish (scan-gate.js).
+  const gate = createScanGate();
+  ipcMain.handle('run-scan', (e, profile) => gate.runScan(async () => {
     const doc = await runScan(undefined, profile, (ev) => {
       if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
     });
@@ -57,18 +60,18 @@ app.whenReady().then(() => {
     markPolicy.remember(doc);
     lastDoc = doc;
     return doc;
-  });
-  ipcMain.handle('run-fix', (_e, moduleName) =>
-    handleRunFix(moduleName, { policy: fixPolicy, runFix }));
-  ipcMain.handle('run-fix-action', (_e, action, target) =>
-    handleRunAction(action, target, { policy: fixPolicy, runAction }));
-  ipcMain.handle('undo-fix', (_e, quarantineId) =>
-    handleRunUndo(quarantineId, { policy: fixPolicy, runUndo }));
+  }, () => { if (!e.sender.isDestroyed()) e.sender.send('scan-event', { type: 'wait', reason: 'change' }); }));
+  ipcMain.handle('run-fix', (_e, moduleName) => gate.runChange(() =>
+    handleRunFix(moduleName, { policy: fixPolicy, runFix }), fixRefusal(moduleName)));
+  ipcMain.handle('run-fix-action', (_e, action, target) => gate.runChange(() =>
+    handleRunAction(action, target, { policy: fixPolicy, runAction }), fixRefusal(action)));
+  ipcMain.handle('undo-fix', (_e, quarantineId) => gate.runChange(() =>
+    handleRunUndo(quarantineId, { policy: fixPolicy, runUndo }), fixRefusal('undo')));
   // Only an id crosses IPC; the main process uses the target it stored from its own scan.
-  ipcMain.handle('mark-mine', (_e, id, itemIds) =>
-    handleMark(id, { policy: markPolicy, runMark }, itemIds));
-  ipcMain.handle('unmark-mine', (_e, idOrIds) =>
-    handleUnmark(idOrIds, { policy: markPolicy, runUnmark }));
+  ipcMain.handle('mark-mine', (_e, id, itemIds) => gate.runChange(() =>
+    handleMark(id, { policy: markPolicy, runMark }, itemIds), markRefusal()));
+  ipcMain.handle('unmark-mine', (_e, idOrIds) => gate.runChange(() =>
+    handleUnmark(idOrIds, { policy: markPolicy, runUnmark }), markRefusal()));
   ipcMain.handle('recheck-module', (_e, name) =>
     handleRecheck(name, {
       getLastDoc: () => lastDoc,

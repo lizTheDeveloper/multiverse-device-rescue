@@ -48,3 +48,36 @@ test('runRecheck timeout and failures use re-check wording, not fix wording', as
   const refused = await runRecheck('../x', hangSpawn, 10);
   assert.strictEqual(refused.message, timedOut.message);
 });
+
+test('runScan streams plan and finished-check entries as events, and keeps them out of the error text', async () => {
+  const { EventEmitter } = require('events');
+  const { runScan, parseStderrLine } = require('../engine-runner');
+  const entry = { name: 'disk_space', category: 'performance', status: 'ok', error: null, supported: true, findings: [{ title: 'x' }] };
+  assert.deepStrictEqual(parseStderrLine(JSON.stringify({ module: entry })), { type: 'module', result: entry });
+  assert.deepStrictEqual(parseStderrLine('{"plan": {"total": 2, "modules": []}}'), { type: 'plan', total: 2, modules: [] });
+  assert.strictEqual(parseStderrLine('{"module": [1]}').type, 'log', 'not an entry: a log line');
+
+  const fake = (code, stdout) => () => {
+    const p = new EventEmitter();
+    p.stdout = new EventEmitter(); p.stderr = new EventEmitter();
+    setImmediate(() => {
+      const line = JSON.stringify({ module: entry });
+      // Split mid-line: the runner joins chunks before it parses.
+      p.stderr.emit('data', '{"plan": {"total": 1, "modules": []}}\n' + line.slice(0, 10));
+      p.stderr.emit('data', line.slice(10) + '\nModule check timed out: x\n');
+      if (stdout) p.stdout.emit('data', stdout);
+      p.emit('close', code);
+    });
+    return p;
+  };
+  const events = [];
+  const doc = await runScan(fake(0, '{"schema_version":1,"modules":[]}'), null, (ev) => events.push(ev));
+  assert.deepStrictEqual(doc, { schema_version: 1, modules: [] });
+  assert.deepStrictEqual(events.map((e) => e.type), ['plan', 'module', 'log']);
+  assert.deepStrictEqual(events[1].result, entry);
+  await assert.rejects(runScan(fake(1, ''), null, () => {}), (err) => {
+    assert.match(err.message, /engine exited 1: Module check timed out: x/);
+    assert.doesNotMatch(err.message, /"module"|"plan"|disk_space/);
+    return true;
+  });
+});

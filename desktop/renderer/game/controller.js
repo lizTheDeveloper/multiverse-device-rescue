@@ -872,7 +872,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.screen = noCity();
       return screenHtml();
     }
-    if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor() });
+    if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor(),
+      // Swept so far: the same path as rebuild()'s, read-only (no progress, deck or store touched).
+      toCity: (d) => findingsToCity(quietDoc(splitHeld(d).doc)) });
     if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
     if (s.screen === 'milestone' && district(s.districtId)) {
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });

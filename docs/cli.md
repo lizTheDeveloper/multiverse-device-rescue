@@ -128,6 +128,8 @@ module. Never applies a fix and never prompts.
 | `--json` | Emit structured results to stdout instead of the human report. |
 | `--profile <name>` | Only run the modules the named profile selects. Repeat it to run every module any of the profiles selects, with each one's module settings; two profiles that set the same module setting differently are refused. Exits `1` on an unknown or invalid profile, or such a conflict. |
 | `--module <name>` | Only run this module. Repeat it to run several. Read-only, same JSON. Exits `1` on an unknown module (the valid names go to stderr), and `2` if combined with `--profile`. The desktop app uses it to re-check one finding after a fix. |
+| `--progress` | Write JSON lines to stderr as the scan runs: first `{"plan": {"total", "modules": [{"module", "category"}]}}`, then `{"progress": {"phase": "start"\|"done", "index", "total", "module", "category", ...}}` around each check. With `--json`, each check's `"done"` line is followed by `{"module": {...}}`: that check's entry of the final `modules` array, without `made_by` (looked up once, at the end). stdout is unchanged and stays the document to act on. |
+| `--trace` | `--progress`, plus one `{"exec": ...}` line per external command (see [What each check runs](commands.md)). |
 
 The JSON shape is `schema_version` 1:
 

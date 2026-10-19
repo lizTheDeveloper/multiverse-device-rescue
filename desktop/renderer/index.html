@@ -98,6 +98,9 @@
             </div>
             <p id="scan-status" class="scan-status" role="status" aria-live="polite">Getting ready&hellip;</p>
             <p id="scan-substatus" class="muted scan-substatus"></p>
+            <p id="scan-partial" class="scan-partial" hidden>
+              <button id="btn-see-partial" class="btn btn--secondary" type="button">See results so far</button>
+            </p>
             <details class="tech-details">
               <summary>Show technical details</summary>
               <pre id="scan-log" class="tech-log" aria-live="off"></pre>
@@ -127,6 +130,11 @@
             device. Review each item and decide what, if anything, you'd like to do about it.
           </p>
 
+          <div id="results-running" class="results-running" role="status" aria-live="polite" hidden>
+            <p id="results-running-text"></p>
+            <p id="results-running-actions" class="muted"></p>
+            <button id="btn-back-to-scan" class="btn btn--secondary btn--small" type="button">Show the checkup&rsquo;s progress</button>
+          </div>
           <div id="results-summary" class="results-summary"></div>
           <div id="results-progress" class="results-progress" role="status" aria-live="polite" hidden></div>
           <p id="results-city-switch" hidden>
@@ -154,7 +162,7 @@
             <ul id="results-errors-list" class="errors-list"></ul>
           </section>
 
-          <section class="copy-ai-all">
+          <section id="results-copy-all" class="copy-ai-all">
             <h2>Ask your own AI</h2>
             <p class="muted">Get everything above as one message to paste into ChatGPT, Claude, Gemini or another AI assistant. You'll see the full text before anything is copied.</p>
             <button type="button" class="btn btn--secondary" data-copy-ai="all">Copy everything for an AI</button>
@@ -168,7 +176,7 @@
             <button id="btn-open-game" class="btn btn--secondary" type="button">Open the web version in your browser</button>
           </section>
 
-          <details class="tech-details">
+          <details id="results-tech" class="tech-details">
             <summary>For tech helpers: full technical report</summary>
             <p class="muted">Every check that ran, with its raw evidence, as JSON. Everything is included except saved-key labels, so only paste it to someone you trust who is helping you.</p>
             <button id="btn-copy-json" class="btn btn--secondary btn--small" type="button">Copy technical report</button>

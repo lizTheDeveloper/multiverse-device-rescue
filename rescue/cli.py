@@ -184,7 +184,9 @@ def version():
 @click.option(
     "--progress",
     is_flag=True,
-    help='Write one {"progress": ...} JSON line per check to stderr as the scan runs.',
+    help='Write one {"progress": ...} JSON line per check to stderr as the scan runs '
+         '(after one {"plan": ...} line). With --json, each finished check\'s entry follows '
+         'its "done" line as {"module": ...}.',
 )
 @click.option(
     "--trace",
@@ -207,14 +209,25 @@ def scan(as_json, profile_names, module_names, progress, trace, no_attribution):
         threat_profile = _load_profiles_or_exit(profile_names) if profile_names else None
     profile = gather_profile()
     orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile)
+    walkthroughs = app_fixes = app_actions = None
+    if as_json:
+        walkthroughs = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
+        try:
+            app_fixes = load_app_fixes()
+        except AppFixesError:
+            app_fixes = {}  # unreadable list: offer nothing, never everything
+        app_actions = load_app_actions()
+    # With --json and --progress, each finished check's entry is also streamed
+    # on stderr, so a caller can show results while the rest keep running.
+    stream = (lambda mod, check: _emit_module(mod, check, walkthroughs, app_fixes, app_actions)) \
+        if as_json and (progress or trace) else None
     if trace:
-        results = _run_traced(orch)
+        results = _run_traced(orch, stream)
     elif progress:
-        results = orch.run_checks(on_progress=_emit_progress)
+        results = orch.run_checks(on_progress=_progress_reporter(stream), on_plan=_emit_plan)
     else:
         results = orch.run_checks()
     if as_json:
-        walkthroughs = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
         made_by = None
         if not no_attribution:
             try:
@@ -222,36 +235,66 @@ def scan(as_json, profile_names, module_names, progress, trace, no_attribution):
                 made_by = compute_made_by(results, profile.platform.value)
             except Exception:
                 made_by = None  # enrichment is optional; never break a scan
-        try:
-            app_fixes = load_app_fixes()
-        except AppFixesError:
-            app_fixes = {}  # unreadable list: offer nothing, never everything
         click.echo(checks_to_json(
             results, profile.platform.value, walkthroughs, app_fixes, made_by,
-            app_actions=load_app_actions(),
+            app_actions=app_actions,
         ))
         return
     for mod, check in results:
         click.echo(mod.report(check))
 
 
-def _run_traced(orch):
+def _run_traced(orch, stream=None):
     """Run the checks, reporting progress and every external command on stderr."""
     import json
 
     from rescue.trace import trace_commands
 
     current = {"module": None}
+    report = _progress_reporter(stream)
 
     def on_progress(phase, index, total, mod, check):
         current["module"] = mod.name if phase == "start" else None
-        _emit_progress(phase, index, total, mod, check)
+        report(phase, index, total, mod, check)
 
     def on_exec(event):
         click.echo(json.dumps({"exec": event}), err=True)
 
     with trace_commands(on_exec, current_module=lambda: current["module"]):
-        return orch.run_checks(on_progress=on_progress)
+        return orch.run_checks(on_progress=on_progress, on_plan=_emit_plan)
+
+
+def _progress_reporter(stream=None):
+    """The progress line for each check, then (if streaming) its finished entry."""
+    def report(phase, index, total, mod, check):
+        _emit_progress(phase, index, total, mod, check)
+        if stream is not None and phase == "done" and check is not None:
+            stream(mod, check)
+    return report
+
+
+def _emit_plan(modules):
+    """One {"plan": ...} line on stderr: every check about to run, in order."""
+    import json
+
+    click.echo(json.dumps({"plan": {
+        "total": len(modules),
+        "modules": [{"module": m.name, "category": getattr(m, "category", None)} for m in modules],
+    }}), err=True)
+
+
+def _emit_module(mod, check, walkthroughs, app_fixes, app_actions):
+    """One {"module": ...} line on stderr: a finished check's entry of the final
+    "modules" array, without made_by (that is looked up once the scan ends).
+    The final document on stdout is unchanged and is the one to act on."""
+    import json
+
+    from rescue.serialize import module_entry
+    try:
+        line = json.dumps({"module": module_entry(mod, check, walkthroughs, app_fixes, None, app_actions)})
+    except Exception:
+        return  # streaming is a convenience; never break a scan
+    click.echo(line, err=True)
 
 
 def _emit_progress(phase, index, total, mod, check):

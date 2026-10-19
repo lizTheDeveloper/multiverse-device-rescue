@@ -95,12 +95,16 @@ class Orchestrator:
         self._module_timeout = module_timeout
         self._total_budget = total_budget
 
-    def run_checks(self, on_progress=None) -> list[tuple[ModuleBase, CheckResult]]:
+    def run_checks(self, on_progress=None, on_plan=None) -> list[tuple[ModuleBase, CheckResult]]:
         """Run every applicable module's check().
 
         ``on_progress(phase, index, total, module, check)``, if given, is called
         with phase "start" before each module (check is None) and "done" after
         it, so a caller can say what is happening during a long scan.
+
+        ``on_plan(modules)``, if given, is called once with the modules about
+        to run, in order, before the first one starts, so a caller can tell
+        when every check of one kind has finished.
         """
         profile = gather_profile()
         modules = discover_modules(self._modules_dir)
@@ -122,6 +126,8 @@ class Orchestrator:
         budget_exhausted = False
         total = len(modules)
         report = on_progress or (lambda *args: None)
+        if on_plan is not None:
+            on_plan(list(modules))
         for index, mod in enumerate(modules, start=1):
             if budget_exhausted or (
                 self._total_budget is not None
