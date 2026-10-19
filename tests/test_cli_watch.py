@@ -284,3 +284,52 @@ def test_stop_requests_count_each_request():
     stop.request()
     assert (stop.is_set(), stop.count()) == (True, 2)
     assert stop.wait(0) is True
+
+
+def test_stop_request_takes_no_lock_and_wakes_a_wait_it_interrupts():
+    """A signal handler calls request() on the main thread, possibly mid-wait.
+
+    Simulate that: the waiter's own sleep calls request(), in the same thread.
+    The whole thing runs in a helper thread with a deadline, so a request()
+    that blocks on a lock the waiter holds fails the test instead of hanging it.
+    """
+    import threading
+    import time
+
+    from rescue.cli import _StopRequests
+
+    stop = _StopRequests()
+    assert not any(
+        isinstance(v, (threading.Event, threading.Condition, type(threading.Lock()),
+                       type(threading.RLock())))
+        for v in vars(stop).values()
+    ), "request() must not depend on a lock: it runs in a signal handler"
+
+    real_sleep = time.sleep
+    outcome = []
+
+    def interrupted_sleep(seconds):
+        stop.request()  # as the SIGINT/SIGTERM handler would, mid-wait
+        real_sleep(0)
+
+    def waiter():
+        with patch("time.sleep", interrupted_sleep):
+            started = time.monotonic()
+            woke = stop.wait(5)
+        outcome.append((woke, time.monotonic() - started, stop.count()))
+
+    thread = threading.Thread(target=waiter, daemon=True)
+    thread.start()
+    thread.join(2)
+    assert not thread.is_alive(), "request() blocked inside wait()"
+    woke, took, count = outcome[0]
+    assert (woke, count) == (True, 1)
+    assert took < 1
+
+
+def test_stop_wait_times_out_without_a_request():
+    from rescue.cli import _StopRequests
+
+    stop = _StopRequests()
+    assert stop.wait(0.05) is False
+    assert stop.count() == 0

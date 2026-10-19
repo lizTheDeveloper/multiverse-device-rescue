@@ -231,33 +231,42 @@ def _listening_verdict():
 
 
 class _StopRequests:
-    """Stop requests so far: set by the first, counted so a later one can be told apart.
+    """Stop requests so far: the first one stops, and each is counted so a later one can be told apart.
 
     The watch stops at the first request; when it then looks up who runs each
     address, a second request ends that too.
+
+    ``request()`` runs inside a signal handler, so it takes no lock: it only
+    appends to a list, which is atomic. A threading.Event would not do: its
+    set() takes the lock that wait() holds, and a signal landing on the main
+    thread inside wait() would then never return. ``wait()`` polls the list
+    in short slices instead, so a stop wakes it promptly.
     """
 
-    def __init__(self):
-        import threading
+    POLL_SECONDS = 0.1
 
-        self._event = threading.Event()
-        # One entry per request. list.append is atomic and takes no lock, so
-        # it is safe in a signal handler that interrupts count() or the
-        # stdin reader.
+    def __init__(self):
         self._requests: list[None] = []
 
     def request(self) -> None:
         self._requests.append(None)
-        self._event.set()
 
     def count(self) -> int:
         return len(self._requests)
 
     def is_set(self) -> bool:
-        return self._event.is_set()
+        return bool(self._requests)
 
     def wait(self, seconds: float) -> bool:
-        return self._event.wait(seconds)
+        import time
+
+        deadline = time.monotonic() + seconds
+        while not self._requests:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                return False
+            time.sleep(min(left, self.POLL_SECONDS))
+        return True
 
 
 def _stop_on_request():
