@@ -301,3 +301,52 @@ def test_capped_scan_warns_against_reading_it_as_all_clear(mod):
 
     action = next(a for a in fix.actions if a.data.get("check") == "coverage_limit")
     assert "everything is signed" in action.description
+
+
+# --- Regression: 60 apps checked one after another (codesign + spctl, up to
+# 15 s each) never fit in the engine's 60 s limit, so on a Mac with ~100 apps
+# the whole check was reported as "couldn't run".
+
+def test_slow_signature_checks_stop_at_the_time_budget(mod):
+    import time
+
+    for i in range(30):
+        _install(mod, f"App{i:02d}")
+    mod.time_budget_s = 1.0
+
+    def slow(args, timeout, **kw):
+        assert timeout <= 10  # every command has its own short limit
+        time.sleep(0.2)
+        return _Result(ok=True)
+
+    start = time.monotonic()
+    result = _run_with(mod, slow)
+    assert time.monotonic() - start < 4
+
+    inventory = _finding(result, "inventory")
+    assert 0 < inventory.data["examined"] < 30
+    assert inventory.data["coverage_capped"] is True
+    assert inventory.data["stopped_by_time_limit"] is True
+    assert "time limit" in inventory.description
+    assert "not checked at all" in inventory.description
+
+
+def test_hanging_signature_check_is_not_counted_as_valid(mod):
+    _install(mod, "Hangs")
+    _install(mod, "Fine")
+
+    def handler(args, **kw):
+        if "Hangs.app" in args[-1] and args[0] == "spctl":
+            return _Result(ok=False, timed_out=True, error="timed out after 10s")
+        return _Result(ok=True)
+
+    result = _run_with(mod, handler)
+    inventory = _finding(result, "inventory")
+    assert inventory.data["incomplete"] == 1
+    assert inventory.data["incomplete_apps"] == [str(mod._apps_dir / "Hangs.app")]
+    assert "Valid signatures: 1\n" in inventory.description
+    assert "Could not finish: 1 (Hangs)" in inventory.description
+    assert "does not mean they are fine" in inventory.description
+    assert "All applications in the scanned locations were checked" not in inventory.description
+    # A check that didn't finish is not a problem either.
+    assert _finding(result, "gatekeeper_rejected") is None

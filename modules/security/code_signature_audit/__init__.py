@@ -26,6 +26,8 @@ and whether it was hit. A result that silently examined 40 of 300 applications
 while implying a full audit would be worse than no result at all.
 """
 
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from rescue.models import (
@@ -44,9 +46,15 @@ from rescue.module_base import ModuleBase
 from rescue.command import run
 from rescue.fsbounds import is_dir_nofollow
 
-# Signature checks are expensive; these bound the whole scan.
+# Signature checks are expensive; these bound the whole scan. The engine stops
+# any check at 60 seconds, and on a Mac with ~100 apps the old sequential
+# 60-app scan (up to 30s of codesign + spctl per app) never finished inside
+# that, so the whole check was reported as "couldn't run". The wall-clock
+# budget leaves headroom, and a few apps are checked at once.
 _MAX_BINARIES = 60
-_PER_COMMAND_TIMEOUT = 15
+_PER_COMMAND_TIMEOUT = 10
+_TIME_BUDGET_S = 40.0
+_WORKERS = 3
 
 _DARWIN_APP_DIRS = ["/Applications", "~/Applications"]
 _SYSTEM_WIDE_PREFIXES = ("/Applications",)
@@ -92,6 +100,7 @@ class Module(ModuleBase):
     # Scan roots and cap, overridable so tests are deterministic and bounded.
     app_dirs: list[str] | None = None
     max_binaries: int = _MAX_BINARIES
+    time_budget_s: float = _TIME_BUDGET_S
 
     def check(self, profile: SystemProfile) -> CheckResult:
         if profile.platform not in (Platform.DARWIN, Platform.WIN32):
@@ -105,8 +114,9 @@ class Module(ModuleBase):
                 ),
             )
 
+        out_of_time = False
         if profile.platform == Platform.DARWIN:
-            results, examined, total = self._audit_darwin()
+            results, examined, total, out_of_time = self._audit_darwin()
         else:
             results, examined, total = self._audit_windows()
 
@@ -115,6 +125,8 @@ class Module(ModuleBase):
         tampered = [r for r in results if r["status"] == "tampered"]
         unsigned = [r for r in results if r["status"] == "unsigned"]
         rejected = [r for r in results if r["status"] == "gatekeeper_rejected"]
+        # A check that did not finish is neither a problem nor a pass.
+        incomplete = [r for r in results if r["status"] == "incomplete"]
 
         for entry in tampered:
             findings.append(
@@ -210,23 +222,46 @@ class Module(ModuleBase):
             )
 
         capped = total > examined
+        valid = len(results) - len(tampered) - len(unsigned) - len(rejected) - len(incomplete)
+        if capped and out_of_time:
+            coverage = (
+                f"COVERAGE LIMIT: the scan stopped after {examined} applications because "
+                f"it reached its {self.time_budget_s:.0f}-second time limit. Signature "
+                "checks are slow. This is not a full-disk audit, and the applications "
+                "after that were not checked at all.\n\n"
+            )
+        elif capped:
+            coverage = (
+                f"COVERAGE LIMIT: the scan stopped at {self.max_binaries} "
+                "applications because signature verification is slow. This is "
+                "not a full-disk audit, and applications beyond the cap were not "
+                "checked at all.\n\n"
+            )
+        elif incomplete:
+            coverage = "Every application was looked at, but some checks did not finish.\n\n"
+        else:
+            coverage = "All applications in the scanned locations were checked.\n\n"
+        unfinished = (
+            f"Could not finish: {len(incomplete)} ("
+            + ", ".join(r["name"] for r in incomplete[:10])
+            + (", ..." if len(incomplete) > 10 else "")
+            + "). Their signature check took too long and was stopped, so they "
+            "were not checked. That does not mean they are fine.\n"
+            if incomplete
+            else ""
+        )
         findings.append(
             Finding(
                 title=f"Checked {examined} of {total} app signatures",
                 description=(
                     f"Examined: {examined}\nPresent in the scanned locations: {total}\n"
-                    f"Valid signatures: {len(results) - len(tampered) - len(unsigned) - len(rejected)}\n"
+                    f"Valid signatures: {valid}\n"
                     f"Broken signatures: {len(tampered)}\n"
                     f"Unsigned: {len(unsigned)}\n"
-                    f"Gatekeeper-rejected: {len(rejected)}\n\n"
-                    + (
-                        f"COVERAGE LIMIT: the scan stopped at {self.max_binaries} "
-                        "applications because signature verification is slow. This is "
-                        "not a full-disk audit, and applications beyond the cap were not "
-                        "checked at all.\n\n"
-                        if capped
-                        else "All applications in the scanned locations were checked.\n\n"
-                    )
+                    f"Gatekeeper-rejected: {len(rejected)}\n"
+                    + unfinished
+                    + "\n"
+                    + coverage
                     + "Only signature status was read. No application was opened, "
                     "modified, quarantined, or sent anywhere."
                 ),
@@ -239,9 +274,13 @@ class Module(ModuleBase):
                     "total_present": total,
                     "coverage_capped": capped,
                     "cap": self.max_binaries,
+                    "stopped_by_time_limit": out_of_time,
+                    "time_budget_s": self.time_budget_s,
                     "tampered": len(tampered),
                     "unsigned": len(unsigned),
                     "gatekeeper_rejected": len(rejected),
+                    "incomplete": len(incomplete),
+                    "incomplete_apps": [r["path"] for r in incomplete],
                 },
             )
         )
@@ -370,57 +409,88 @@ class Module(ModuleBase):
             apps.extend(e for e in entries if e.suffix == ".app")
         return apps
 
-    def _audit_darwin(self) -> tuple[list[dict], int, int]:
+    def _audit_darwin(self) -> tuple[list[dict], int, int, bool]:
+        """Check app signatures within the count cap and the time budget.
+
+        Returns (results, examined, total, out_of_time). Apps not started
+        before the budget ran out are left out of ``results`` (not examined);
+        an app whose own command ran out of time is "incomplete".
+        """
         apps = self._collect_darwin_apps()
         total = len(apps)
+        deadline = time.monotonic() + self.time_budget_s
+
+        def check_one(app: Path) -> dict | None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            return self._check_darwin_app(app, deadline)
+
+        with ThreadPoolExecutor(max_workers=_WORKERS) as pool:
+            checked = list(pool.map(check_one, apps[: self.max_binaries]))
+        # Keep a contiguous prefix so "the first N apps" stays true.
         results: list[dict] = []
-
-        for app in apps[: self.max_binaries]:
-            verify = run(
-                ["codesign", "--verify", "--deep", "--strict", str(app)],
-                timeout=_PER_COMMAND_TIMEOUT,
-            )
-            entry = {
-                "path": str(app),
-                "name": app.stem,
-                "status": "valid",
-                "detail": "codesign --verify reported a valid signature",
-            }
-
-            if not verify.ok:
-                combined = (verify.stdout + verify.stderr).lower()
-                if "not signed" in combined or "code object is not signed" in combined:
-                    # Unsigned only counts as a finding in a system-wide location:
-                    # an unsigned app in the user's own ~/Applications is their
-                    # own business and would be pure noise.
-                    if str(app).startswith(_SYSTEM_WIDE_PREFIXES):
-                        entry["status"] = "unsigned"
-                        entry["detail"] = "codesign: code object is not signed at all"
-                    else:
-                        entry["detail"] = "unsigned, in a per-user location"
-                elif verify.timed_out or verify.error:
-                    entry["detail"] = "signature check did not complete"
-                else:
-                    entry["status"] = "tampered"
-                    entry["detail"] = (
-                        "codesign --verify failed on a signed object: "
-                        + (verify.stderr.strip() or verify.stdout.strip() or "no detail")
-                    )
-            else:
-                assess = run(
-                    ["spctl", "--assess", "--type", "execute", str(app)],
-                    timeout=_PER_COMMAND_TIMEOUT,
-                )
-                if not assess.ok and not assess.timed_out and not assess.error:
-                    entry["status"] = "gatekeeper_rejected"
-                    entry["detail"] = (
-                        "spctl --assess rejected it: "
-                        + (assess.stderr.strip() or assess.stdout.strip() or "no detail")
-                    )
-
+        for entry in checked:
+            if entry is None:
+                break
             results.append(entry)
+        out_of_time = len(results) < min(total, self.max_binaries)
+        return results, len(results), total, out_of_time
 
-        return results, len(results), total
+    def _check_darwin_app(self, app: Path, deadline: float) -> dict:
+        def budget() -> float:
+            return max(1.0, min(_PER_COMMAND_TIMEOUT, deadline - time.monotonic()))
+
+        verify = run(
+            ["codesign", "--verify", "--deep", "--strict", str(app)],
+            timeout=budget(),
+        )
+        entry = {
+            "path": str(app),
+            "name": app.stem,
+            "status": "valid",
+            "detail": "codesign --verify reported a valid signature",
+        }
+
+        if not verify.ok:
+            combined = (verify.stdout + verify.stderr).lower()
+            if "not signed" in combined or "code object is not signed" in combined:
+                # Unsigned only counts as a finding in a system-wide location:
+                # an unsigned app in the user's own ~/Applications is their
+                # own business and would be pure noise.
+                if str(app).startswith(_SYSTEM_WIDE_PREFIXES):
+                    entry["status"] = "unsigned"
+                    entry["detail"] = "codesign: code object is not signed at all"
+                else:
+                    entry["detail"] = "unsigned, in a per-user location"
+            elif verify.timed_out or verify.error:
+                entry["status"] = "incomplete"
+                entry["detail"] = "signature check did not complete: " + (
+                    verify.error or "timed out"
+                )
+            else:
+                entry["status"] = "tampered"
+                entry["detail"] = (
+                    "codesign --verify failed on a signed object: "
+                    + (verify.stderr.strip() or verify.stdout.strip() or "no detail")
+                )
+        else:
+            assess = run(
+                ["spctl", "--assess", "--type", "execute", str(app)],
+                timeout=budget(),
+            )
+            if assess.timed_out or assess.error:
+                entry["status"] = "incomplete"
+                entry["detail"] = "Gatekeeper check did not complete: " + (
+                    assess.error or "timed out"
+                )
+            elif not assess.ok:
+                entry["status"] = "gatekeeper_rejected"
+                entry["detail"] = (
+                    "spctl --assess rejected it: "
+                    + (assess.stderr.strip() or assess.stdout.strip() or "no detail")
+                )
+        return entry
 
     def _audit_windows(self) -> tuple[list[dict], int, int]:
         results: list[dict] = []
