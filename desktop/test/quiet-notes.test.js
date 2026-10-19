@@ -257,8 +257,12 @@ test('the monitoring checks are the same three app.js names', () => {
   assert.deepStrictEqual(names, [...Q.MONITORING_MODULES].sort());
 });
 
-test('the extra warning on the fix and "It\'s mine" controls follows the mode: on in city mode only', async () => {
-  for (const [stored, want] of [['city', true], ['standard', false]]) {
+test('the extra warning on the fix and "It\'s mine" controls follows the mode in the city; the LIST offers neither', async () => {
+  // The city's missions build the controls (watched in city mode only).
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'renderer', 'game', 'controller.js'), 'utf8');
+  assert.match(src, /const watchedOpts = \(\) => \(\{ watched: hostMode\(\) === 'city' \}\)/);
+  // The LIST (read-only) never asks for a fix or mark control, in either mode.
+  for (const stored of ['city', 'standard']) {
     const p = page({ store: { 'device-rescue.display': stored }, ready: false });
     const seen = [];
     p.sandbox.FixFlow.fixControlsHtml = (_f, opts) => { seen.push(['fix', opts && opts.watched]); return ''; };
@@ -269,7 +273,7 @@ test('the extra warning on the fix and "It\'s mine" controls follows the mode: o
     await p.finish({ schema_version: 1, platform: 'darwin', modules: [{ name: 'remote_login_check', category: 'security', status: 'ok', supported: true,
       findings: [{ severity: 'warning', title: 'Remote Login is on', description: 'On.', category: 'security', data: {} }] }] });
     assert.deepStrictEqual(p.shown(), ['results'], stored);
-    assert.deepStrictEqual(seen, [['fix', want], ['mark', want]], stored);
+    assert.deepStrictEqual(seen, [], stored);
   }
 });
 

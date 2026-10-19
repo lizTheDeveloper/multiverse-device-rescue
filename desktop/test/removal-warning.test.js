@@ -1,6 +1,7 @@
 // The "removing it can alert them" warning survives on every finding that
 // carries it, outside the three monitoring checks too, in both display modes:
-// in the list, in the game's briefing, and (city mode) in the fix panel.
+// on the city's LIST (read-only), in the game's briefing, and in the fix panel
+// (the missions' own; the LIST has none).
 // Run against the engine's real TeamViewer finding (scripts/remote_access_fixture.py).
 const test = require('node:test');
 const assert = require('node:assert');
@@ -45,13 +46,11 @@ async function listHtml(mode, fixable = true) {
   return p.byId('results-groups').innerHTML;
 }
 
-test('the list, standard mode: the one line on the card, the note once above the list; no hotline wording on its face', async () => {
+test('the LIST, standard mode: the one line on the card, the note once above the list; no hotline wording on its face; no fix', async () => {
   const html = await listHtml('standard');
-  // On its face, before the fix button (P1-8), with "Read this first" pointing at the note above the list (round 5).
+  // On its face, with "Read this first" pointing at the note above the list (round 5).
   assert.match(html, /<p class="finding-card__note finding-card__note--first" role="note" data-safety-line><strong>Removing this can alert whoever installed it\.<\/strong> <button type="button" class="link-button" data-safety-jump>Read this first<\/button><\/p>/);
-  assert.ok(html.indexOf('data-safety-line') < html.indexOf('data-fix-open'), 'the warning comes before the fix button');
-  // And in the fix confirm itself.
-  assert.match(/<div class="fix-panel"[\s\S]*?data-fix-confirm/.exec(html)[0], /data-fix-safety><strong>Removing this can alert whoever installed it\.<\/strong>/);
+  assert.doesNotMatch(html, /data-fix-open|data-fix-confirm/, 'the LIST is read-only: the fix (and its confirm\'s warning) is the mission\'s');
   assert.ok(html.indexOf('id="results-safety"') < html.indexOf('data-card-key'), 'the banner is above the list');
   const note = /<details data-safety-details>[\s\S]*?<\/details>/.exec(html)[0];
   assert.match(note, ALERT, 'the full note behind "Read this first" in the banner');
@@ -60,11 +59,11 @@ test('the list, standard mode: the one line on the card, the note once above the
   assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'the extra warning is city mode’s');
 });
 
-test('the list, city mode: nothing quieted, the safety note in full, and the fix panel carries the extra warning', async () => {
+test('the LIST, city mode: nothing quieted, the safety note in full; no fix panel (the mission\'s carries the extra warning)', async () => {
   const html = await listHtml('city');
   assert.match(html, /If you think a partner, ex, or family member installed this to monitor you, removing it can alert them\./);
   assert.match(html, /<div class="finding-card__note" role="note"><p>Before you remove or turn anything off: if you think someone close to you set this up to watch you, removing it can alert them\./, 'the safety note on its face');
-  assert.ok(html.includes(FixFlow.WATCHED_WARNING), 'WATCHED_WARNING in the fix panel');
+  assert.doesNotMatch(html, /data-fix-open/);
 });
 
 async function gameBriefing(mode, fixable = true) {
@@ -102,6 +101,9 @@ test('the game, standard mode: the briefing keeps the one line with the warning 
   assert.match(note, ALERT);
   assert.doesNotMatch(html.replace(note, ''), DV);
   assert.deepStrictEqual(seen, [['fix', false], ['mark', false]]);
+  // The fix confirm says it too (moved here from the retired Plain cards).
+  assert.match(/<div class="fix-panel"[\s\S]*?data-fix-confirm/.exec(html)[0], /data-fix-safety><strong>Removing this can alert whoever installed it\.<\/strong>/);
+  assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'the extra warning is city mode’s');
 });
 
 test('the game, city mode: the help lives in the help district; the mission keeps one warning line before the fix, and the fix panel the extra warning', async () => {
@@ -117,11 +119,10 @@ test('the game, city mode: the help lives in the help district; the mission keep
   assert.deepStrictEqual(seen, [['fix', true], ['mark', true]]);
 });
 
-test('a fix with no engine action: the warning in city mode, in the list and the game; not in standard mode', async () => {
+test('a fix with no engine action: the warning in city mode, in the game; not in standard mode', async () => {
   for (const mode of ['city', 'standard']) {
-    const list = await listHtml(mode, 'module');
     const game = (await gameBriefing(mode, 'module')).html;
-    for (const [where, html] of [['list', list], ['game', game]]) {
+    for (const [where, html] of [['game', game]]) {
       assert.match(html, /data-fix-module="win_remote_access_audit"/, `${mode} ${where}: the fix is offered`);
       assert.doesNotMatch(html, /data-fix-action=/, `${mode} ${where}: no engine action`);
       assert.strictEqual(html.includes(FixFlow.WATCHED_WARNING), mode === 'city', `${mode} ${where}`);

@@ -231,16 +231,16 @@ function mayBeWatched(situation, doc) {
 }
 
 /**
- * Whether to offer game mode: every worry but the iPhone check, which reads a
- * phone backup on its own plain screen. Monitoring software no longer closes
- * it. In 'city' the game is the cover and its help lives in one district; in
- * 'standard' the person is asked first (FirstQuestion's follow-up).
+ * Whether the city plays this worry: every worry does, the iPhone check too
+ * (its long backup sweep waits in the city until the person starts it).
+ * Plain view is retired. In 'city' the game is the cover and its help lives
+ * in one district; in 'standard' the city uses plain words.
  */
 function gameOfferedFor(situation) {
-  return !!situation && !WorryPick.has(situation, 'phone');
+  return !!situation;
 }
 
-/** 'city' always plays: the app opens into the game, and every worry's scan runs there. */
+/** 'city' opens straight into the game, before any worry is picked. */
 function opensInGame(mode) {
   return mode === 'city';
 }
@@ -254,9 +254,9 @@ const CITY_SITUATION = Object.freeze({
   profile: 'digital_security_reset', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/digital-security-reset/',
 });
 
-/** After a worry is picked: its scan starts at once on the game's sweep screen, or the plain scan screen. */
-function gameScanFirst({ wantsCity, offered, ready }) {
-  return !!(wantsCity && offered && ready);
+/** After a worry is picked: its scan starts at once on the game's sweep screen when the game can draw. */
+function gameScanFirst({ offered, ready }) {
+  return !!(offered && ready);
 }
 
 /**
@@ -316,19 +316,20 @@ function copyAiSituation(situation, mode) {
   return situation.title;
 }
 
-/** The worry click: its scan starts at once in the game, or the plain scan screen. */
-function worryStartsGameScan({ situation, wantsCity, mode, ready }) {
-  return gameScanFirst({ wantsCity: !!wantsCity || opensInGame(mode), offered: gameOfferedFor(situation), ready });
+/** The worry click: its scan starts at once in the game, or on the scan screen when the game can't draw. */
+function worryStartsGameScan({ situation, ready }) {
+  return gameScanFirst({ offered: gameOfferedFor(situation), ready });
 }
 
 /**
- * Where a finished scan lands. Monitoring software doesn't change it: the
- * follow-up question, when due, comes before this. "Plain view" stays plain.
+ * Where a finished scan lands: the city. The LIST (the results screen) only
+ * when the city can't be drawn or the person left it (the city failed to
+ * draw mid-scan). Monitoring software doesn't change it: the follow-up
+ * question, when due, comes before this.
  */
-function postScanView({ inGame, left, wantsCity, rememberedCity, offered, ready, mode }) {
+function postScanView({ inGame, left, offered, ready }) {
   if (!offered || !ready || left) return 'results';
-  if (inGame) return 'boss-city';
-  return wantsCity || rememberedCity || opensInGame(mode) ? 'city' : 'results';
+  return inGame ? 'boss-city' : 'city';
 }
 
 /** The Reclaim City suggestion for these results, or null (see mayBeWatched). */
@@ -711,25 +712,11 @@ function groupByArea(findings, mode, doc) {
     .filter((a) => a.checks.length);
 }
 
-/**
- * A check run on its own after the checkup (the iPhone backup scan): its
- * entry replaces the same check's entry in the checkup, everything else
- * stays as it was. Main's rule (recheck.js mergeSingleModuleScan): only a
- * result of exactly one check joins; anything else stands on its own, as
- * main keeps it.
- */
-function mergeModules(base, extra) {
-  const add = extra && Array.isArray(extra.modules) ? extra.modules.filter((m) => m && typeof m.name === 'string') : [];
-  if (!base || !Array.isArray(base.modules) || add.length !== 1) return extra;
-  const names = new Set(add.map((m) => m.name));
-  const kept = base.modules.map((m) => (m && names.has(m.name) ? add.find((x) => x.name === m.name) : m));
-  const extraOnly = add.filter((m) => !base.modules.some((b) => b && b.name === m.name));
-  return Object.assign({}, base, { modules: [...kept, ...extraOnly] });
-}
-
 // The line for a check that waits to be started. City mode names nothing.
 const PHONE_WAITING_LINE = 'Not started \u2014 your iPhone backup can be checked for spyware. This is a long scan.';
 const WAITING_LINE_CITY = 'A check is waiting for you to start it. It only runs when you ask.';
+// Where it is started: the city's own waiting signal (the LIST starts nothing).
+const NOT_STARTED_WHERE = 'You can start it from the city.';
 function notStartedLine(names, mode) {
   if (!names || !names.length) return '';
   if (mode === 'city') return WAITING_LINE_CITY;
@@ -934,12 +921,33 @@ function partialSummaryText({ worth = 0, other = 0, stopped = false } = {}) {
   return 'Nothing to show yet. The checkup isn’t finished.';
 }
 
-const STOPPED_ACTIONS_TEXT = 'Fixes and “It’s mine” open after a checkup that finishes.';
-const PARTIAL_ACTIONS_TEXT = 'Fixes and “It’s mine” open when the checkup is done.';
+// The LIST before any checkup has run this session. Never an all-clear.
+const NO_SCAN_LINE = 'No checkup has run yet, so there is nothing to list. Nothing has been checked.';
+// The LIST changes nothing; what is still to come is all it has to say.
+const STOPPED_ACTIONS_TEXT = 'The rest wasn’t checked. Run the checkup again to check it.';
+const PARTIAL_ACTIONS_TEXT = 'More may turn up as the other checks finish.';
+
+/**
+ * The LIST's top sentence: how many things to look at and how many notes,
+ * the numbers scanCounts gives (todo, notes). null when there are none.
+ */
+function listSummaryText(listCount, infoCount) {
+  const list = Math.max(0, listCount | 0);
+  const info = Math.max(0, infoCount | 0);
+  const notes = info === 1 ? '1 good-to-know note' : `${info} good-to-know notes`;
+  if (!list && !info) return null;
+  if (!list) return `Nothing to look at. There ${info === 1 ? 'is' : 'are'} ${notes} further down.`;
+  const things = list === 1 ? '1 thing to look at' : `${list} things to look at`;
+  if (!info) return `${things}, grouped by how important ${list === 1 ? 'it is' : 'they are'}.`;
+  return `${things}, and ${notes} further down.`;
+}
+
+// An item marked as the person's on an earlier checkup: mentioned on its
+// card, never treated as cleared (ai-prompt.js says so to an AI from data.marked_by_user).
+const MARKED_BEFORE_LINE = 'Marked as yours on an earlier checkup. It stays listed so anyone helping you can see it.';
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    mergeModules,
     detectOS,
     GAME_SCAN_EVENTS,
     partialScanState,
@@ -953,6 +961,10 @@ if (typeof module !== 'undefined' && module.exports) {
     partialCountText,
     partialSummaryText,
     PARTIAL_ACTIONS_TEXT,
+    STOPPED_ACTIONS_TEXT,
+    NO_SCAN_LINE,
+    listSummaryText,
+    MARKED_BEFORE_LINE,
     LOOKUP_TEXT,
     WAIT_FOR_CHANGE_TEXT,
     duringScanTips,
@@ -970,7 +982,6 @@ if (typeof module !== 'undefined' && module.exports) {
     groupByArea,
     noteAreaOf,
     plainNotChecked,
-    mergeModules,
     notStartedLine,
     PHONE_WAITING_LINE,
     cardProse,
@@ -1046,12 +1057,12 @@ if (typeof document !== 'undefined') {
     }
     let routerCtx = null; // RouterLink context for the results on screen
     let situation = null; // the SITUATIONS entry the person picked
-    let wantsCity = false; // came in through "Play it as a game"
-    let leftGame = false; // chose "Plain view" during game mode
+    let leftGame = false; // the city couldn't draw (or the person left it): the LIST and scan screens carry on
     let scanRunning = false;
+    // The running scan is the game's sweep (its boss screen follows it).
+    let gameScan = false;
     // The results screen is showing a running scan's results so far.
     let resultsPartial = false;
-    let lastScanSituation = null; // the worry lastScanDoc was run for
     // Monitoring software seen in any scan or re-check this session (noteMonitoring).
     // Memory only: never written to storage.
     let monitoringSeen = false;
@@ -1060,7 +1071,7 @@ if (typeof document !== 'undefined') {
     let mode = DisplayMode.readMode(store);
     // Whether the follow-up was asked this session. Memory only, like monitoringSeen.
     let recheckAsked = false;
-    // A change of mode redraws the list, so a card loses or gains its controls at once.
+    // A change of mode redraws the LIST, so a held card shows as held at once.
     function setMode(next) {
       const changed = next !== mode;
       mode = next;
@@ -1069,8 +1080,6 @@ if (typeof document !== 'undefined') {
       if (changed && window.RescueGame && typeof window.RescueGame.profileModeChanged === 'function') window.RescueGame.profileModeChanged();
       const shownDoc = currentResultsDoc();
       if (changed && shownDoc) renderResults(shownDoc);
-      // "Your progress" (game/profile/plain-panel.js) shows only in standard mode.
-      if (changed && typeof window.dispatchEvent === 'function' && typeof Event === 'function') window.dispatchEvent(new Event('rescue-mode-changed'));
     }
     // Made once per install for the game's own use, and written for everyone alike.
     const citySeed = DisplayMode.ensureSeed(store);
@@ -1092,28 +1101,59 @@ if (typeof document !== 'undefined') {
       const title = document.getElementById('question-title');
       if (title && typeof title.focus === 'function') title.focus();
     }
-    const VIEW_KEY = 'device-rescue.view';
-    function rememberView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (_) { /* per-viewer nicety only */ } }
-    function rememberedView() { try { return localStorage.getItem(VIEW_KEY); } catch (_) { return null; } }
 
     function cityAvailable() {
       return gameOfferedFor(situation) && !!(window.RescueGame && window.RescueGame.isReady);
     }
+    // The city from a finished scan. If it can't be drawn, the LIST, which has the same results.
     function showCity(doc) {
-      if (!cityAvailable()) { showScreen('results'); return; }
+      if (!cityAvailable()) { showList(); return; }
       // false: the city couldn't be drawn and the controller already left the game.
-      if (window.RescueGame.show(doc, situation) === false) { showScreen('results'); return; }
-      rememberView('city');
+      if (window.RescueGame.show(doc, situation) === false) { showList(); return; }
+      leftGame = false;
       showScreen('city');
     }
-    function renderCitySwitch(doc) {
-      // Not while the list is partial: the city opens from the finished checkup.
-      document.getElementById('results-city-switch').hidden = !cityAvailable() || resultsPartial;
+    // Whether the LIST can go back to the city: a finished scan to show, or
+    // the game's own sweep still running (its boss screen is where it was).
+    function canGoBackToCity() {
+      if (!cityAvailable()) return false;
+      if (scanRunning) return gameScan;
+      return !!lastScanDoc || !!stoppedDoc;
+    }
+    // "Back to the city" and Esc on the LIST. Mid-sweep the city is shown as
+    // it is (RescueGame.show would end the game's sweep); otherwise it is
+    // drawn from the scan the LIST shows.
+    function backToCity() {
+      if (!canGoBackToCity()) return;
+      if (scanRunning) { leftGame = false; showScreen('city'); return; }
+      showCity(resultsPartial && stoppedDoc ? stoppedDoc : lastScanDoc);
+    }
+    function renderCitySwitch() {
+      const btn = document.getElementById('results-city-switch');
+      if (btn) btn.hidden = !canGoBackToCity();
+    }
+    // The LIST: whatever the results screen should show now (a running
+    // scan's results so far, a stopped one's, or the last finished one).
+    function showList() {
+      const doc = currentResultsDoc();
+      if (doc) renderResults(doc); else renderNoScan();
+      showScreen('results');
+    }
+    // The LIST before any checkup this session: it says so, and never reads as clean.
+    function renderNoScan() {
+      renderResultsFrame(null);
+      document.getElementById('results-summary').innerHTML = `<p>${escapeHtml(NO_SCAN_LINE)}</p>`;
+      document.getElementById('results-groups').innerHTML = '';
+      document.getElementById('results-errors').hidden = true;
+      document.getElementById('results-waiting').hidden = true;
+      document.getElementById('results-next').hidden = true;
+      document.getElementById('results-more').hidden = true;
     }
 
     window.RescueHost = {
-      showList() { rememberView('list'); showScreen('results'); },
-      // A re-check changed the scan. Keep the list in step. Monitoring software
+      // The city's LIST tab: the read-only list of everything, always there.
+      showList() { showList(); },
+      // A re-check changed the scan. Keep the LIST in step. Monitoring software
       // no longer closes the city; in standard mode it brings the follow-up once.
       docChanged(doc) {
         lastScanDoc = doc;
@@ -1121,7 +1161,7 @@ if (typeof document !== 'undefined') {
         monitoringSeen = noteMonitoring(monitoringSeen, doc);
         renderResults(doc);
         renderLearnMore(doc);
-        renderCitySwitch(doc);
+        renderCitySwitch();
         if (FirstQuestion.recheckDue({ mode, monitoringSeen, asked: recheckAsked })) {
           recheckAsked = true;
           ask('recheck', () => showCity(doc));
@@ -1134,12 +1174,6 @@ if (typeof document !== 'undefined') {
       // The display preference and the install's seed, for the game.
       mode() { return mode; },
       citySeed() { return citySeed; },
-      // What the person did on this list (fixed, marked as yours, said they did), for "Your progress".
-      listCounts() {
-        const p = clearList.progress();
-        const by = p.by || {};
-        return { fixed: by.fixed || 0, marked: (by.marked || 0) + (by.marked_before || 0), did: by.did || 0 };
-      },
       // What wasn't fully checked, counted the same way the list counts it, so both views agree.
       notChecked(doc) { return notCheckedSummary(doc || lastScanDoc); },
       startCheckup() { runCheckup({ game: true }); },
@@ -1152,17 +1186,18 @@ if (typeof document !== 'undefined') {
           return [];
         }
       },
-      // "Plain view": back to the app's own plain screens. A running scan carries
-      // on there, with its live progress (setScanBusy(true) already ran).
+      // The city couldn't draw (or its old PLAIN VIEW button): the person
+      // carries on outside it. A running scan carries on on the scan screen,
+      // with its live progress (setScanBusy(true) already ran); a finished
+      // one is on the LIST.
       leaveGame() {
         leftGame = true;
-        wantsCity = false;
-        rememberView('list');
-        if (lastScanDoc && !scanRunning && WorryPick.key(lastScanSituation) === WorryPick.key(situation)) showScreen('results');
-        else goToScan();
+        if (scanRunning) { goToScan(); return; }
+        if (lastScanDoc || stoppedDoc) { showList(); return; }
+        goToScan();
       },
     };
-    window.addEventListener('rescue-game-ready', () => { if (lastScanDoc) renderCitySwitch(lastScanDoc); });
+    window.addEventListener('rescue-game-ready', () => renderCitySwitch());
 
     let activeDot = null;
     function showScreen(name) {
@@ -1178,6 +1213,8 @@ if (typeof document !== 'undefined') {
       stepDots.forEach((dot) => {
         dot.classList.toggle('step-dot--active', dot.dataset.stepDot === dotName);
       });
+      // The LIST's way back to the city follows what the city can show now.
+      if (name === 'results') renderCitySwitch();
       window.scrollTo(0, 0);
     }
 
@@ -1289,14 +1326,15 @@ if (typeof document !== 'undefined') {
       startWorry();
     }
 
-    // What a picked worry does once the display preference is known.
+    // What a picked worry does once the display preference is known: its
+    // scan starts at once on the city's sweep screen. Only when the game
+    // can't draw does the scan screen show (Run checkup), landing on the LIST.
     function startWorry() {
-      if (!scanRunning && worryStartsGameScan({ situation, wantsCity, mode,
-        ready: !!(window.RescueGame && window.RescueGame.isReady) })) {
+      if (!scanRunning && worryStartsGameScan({ situation, ready: !!(window.RescueGame && window.RescueGame.isReady) })) {
         leftGame = false;
         window.RescueGame.newWorry(situation);
         // The city screen first: if the sweep can't be drawn, leaveGame() then
-        // shows the plain scan screen, where the same scan carries on.
+        // shows the scan screen, where the same scan carries on.
         showScreen('city');
         runCheckup({ game: true });
         return;
@@ -1348,74 +1386,15 @@ if (typeof document !== 'undefined') {
       document.getElementById('results-learn-text').textContent = learn.text;
     }
 
-    // Per card, for the session answers: what "Copy for any AI" and the
-    // technical details say about it. Reset on every render.
+    // Per card: what "Copy for any AI" and the technical details say about
+    // it. Reset on every render.
     let cardPicks = new Map(); // card key -> copy-ai pick
     // While the list renders (standard mode): each card's QuietNotes text, for the one warning banner.
     let safetyCards = null;
-    let cardTech = new Map(); // card key -> technical-details object
     let nextCardKey = 0;
 
-    function techText(key, how) {
-      const base = cardTech.get(key) || {};
-      const said = ClearList.personSaid(how);
-      return JSON.stringify(said ? Object.assign({}, base, { person_said: said }) : base, null, 2);
-    }
-
-    // A card was cleared (how) or put back (null): keep the AI text and the
-    // technical details honest about it.
-    function onCardChange(card, how) {
-      const key = card.getAttribute('data-card-key');
-      const pick = cardPicks.get(key);
-      if (pick) {
-        const said = ClearList.personSaid(how);
-        if (said) pick.person_said = said; else delete pick.person_said;
-      }
-      const pre = card.querySelector('[data-tech-log]');
-      if (pre) pre.textContent = techText(key, how);
-      const box = card.querySelector('[data-card-pick]');
-      if (box && how) box.checked = false;
-      // A card past "Show more" can be cleared too (marked on an earlier checkup): in Cleared it shows.
-      if (how && card.hasAttribute('data-card-more')) { card.hidden = false; card.removeAttribute('data-card-more'); }
-      const root = document.getElementById('results-groups');
-      topUp(root);
-      updateBulk();
-    }
-
     const FDA_URL = 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles';
-    // The actions on ticked cards. Ticking changes nothing; these buttons do, and only to the ticked cards.
-    const BULK_HTML = `
-      <div class="results-bulk" data-bulk role="group" aria-label="Ticked cards" hidden>
-        <span class="results-bulk__count" data-bulk-count aria-live="polite"></span>
-        <button type="button" class="btn btn--secondary btn--small" data-bulk-did></button>
-        <button type="button" class="btn btn--secondary btn--small" data-bulk-copy data-copy-ai="sel:">Copy these for any AI</button>
-        <button type="button" class="link-button" data-bulk-none>Untick all</button>
-        <div class="copy-ai__slot" data-bulk-slot data-copy-ai-slot="sel:" aria-live="polite"></div>
-      </div>`;
 
-    // The bulk bar follows the ticks: how many, and what each button would do.
-    function updateBulk() {
-      const root = document.getElementById('results-groups');
-      const bar = root && root.querySelector('[data-bulk]');
-      if (!bar) return;
-      const ticked = Array.from(root.querySelectorAll('[data-card-pick]')).filter((b) => b.checked && !b.closest('[data-cleared]'));
-      bar.hidden = ticked.length === 0;
-      bar.querySelector('[data-bulk-count]').textContent = `${ticked.length} ticked`;
-      const canDid = ticked.filter((b) => b.closest('[data-card-key]').querySelector('[data-clear-did]:not([hidden])'));
-      const did = bar.querySelector('[data-bulk-did]');
-      did.hidden = canDid.length === 0;
-      did.textContent = canDid.length === 1 ? 'I did this one' : `I did these ${canDid.length}`;
-      const ids = ticked.map((b) => b.closest('[data-card-key]').querySelector('[data-copy-ai]'))
-        .filter(Boolean).map((btn) => btn.getAttribute('data-copy-ai')).join(',');
-      const copy = bar.querySelector('[data-bulk-copy]');
-      const slot = bar.querySelector('[data-bulk-slot]');
-      if (copy.getAttribute('data-copy-ai') !== `sel:${ids}`) slot.innerHTML = '';
-      copy.setAttribute('data-copy-ai', `sel:${ids}`);
-      slot.setAttribute('data-copy-ai-slot', `sel:${ids}`);
-    }
-
-    // How many cards each group shows before "Show more".
-    const PAGE = 10;
     // Each check's traced commands from the last finished scan, for the
     // Evidence block: fetched once per check, cleared when a new scan lands.
     let moduleCommandCache = new Map();
@@ -1423,79 +1402,63 @@ if (typeof document !== 'undefined') {
     // block once the commands are in. Reset on every render.
     let cardFindings = new Map();
 
-    // `partial`: the scan is still running. The cards are the same, with
-    // nothing on them that changes the computer or the list (main refuses
-    // those mid-scan too: scan-gate.js).
-    function renderSeverityGroup(severity, findings, partial = false, shownDoc = null, counts = null) {
-      if (findings.length === 0) return '';
-      // City mode: the fix panel's extra warning about whoever set something up.
-      const watched = mode === 'city';
-      // Good to know: one line per note, opened one at a time; no paging.
+    // One LIST card. The LIST is read-only: it shows what the checkup saw
+    // and changes nothing, so no card has a fix, a mark, "I did this" or a
+    // checkbox (the city's missions do that, through the same flows).
+    // City mode: a held card (monitoring software) is drawn as the help
+    // district draws it: what to write down, no clipboard, the hold line and
+    // its help, and no steps.
+    function cardHtml(finding, severity, shownDoc) {
+      const key = String(nextCardKey++);
       const note = severity === 'info';
-      const cardHtml = (finding, index) => {
-          const key = String(nextCardKey++);
-          // What this card may say (QuietNotes). Standard: no hotline text, and the one
-          // line wherever removing something can alert someone. City: everything, unquieted.
-          const card = QuietNotes.cardText(mode, finding);
-          if (safetyCards) safetyCards.push(card);
-          // City mode, monitoring software: the hold line and its help. No fix,
-          // no "It's mine", no steps, and it doesn't count toward the list's progress.
-          const held = card.note === 'held';
-          // City mode never offers a fix or a mark on these checks, even on a
-          // status line that found nothing ("No device backups found").
-          const noControls = partial || held || (mode === 'city' && QuietNotes.isMonitoring(finding));
-          // City mode: nothing from a monitoring check goes to the clipboard or
-          // to a website (monitoring apps can read the clipboard), and the
-          // whole-report copy leaves it out.
-          const noClipboard = held || EvidenceRule.noClipboard(mode, finding.seen_in || finding.module);
-          const pick = noClipboard ? null : copyAiPick(finding);
-          if (pick) cardPicks.set(key, pick);
-          cardTech.set(key, {
-            check: finding.seen_in && finding.seen_in.length > 1 ? finding.seen_in : finding.module,
-            code: finding.code || null,
-            category: finding.category,
-            confidence: finding.confidence == null ? null : finding.confidence,
-            evidence: finding.data || {},
-          });
-          const marked = !!(finding.data && finding.data.marked_by_user === true);
-          // On the list: everything worth acting on, plus what was marked as yours.
-          const counts = !held && (severity === 'critical' || severity === 'warning' || marked);
-          // Monitoring software never gets "I did this": it reads as "I removed it".
-          const did = marked || held || partial || QuietNotes.isDetection(finding)
-            ? '' : ClearList.didControlsHtml(finding, severity, escapeHtml);
-          // Whether removing this can alert someone: said before any fix or mark, and in the fix confirm.
-          const alerts = card.note === 'line' || card.note === 'full';
-          const fix = noControls ? '' : FixFlow.fixControlsHtml(finding, { watched, safety: alerts && !watched ? QuietNotes.LINE_SHORT : '' });
-          const mark = noControls ? '' : MarkFlow.markControlsHtml(finding, { watched });
-          const steps = card.steps.map((step) => ({ title: step.title, body: fillStep(step.body, finding.data, { platform: currentPlatform() }) }));
-          // Evidence first; then at most two sentences of why, never what the
-          // evidence, the warning box, the steps or a lesson already say.
-          const rows = cardEvidenceRows(finding, { mode, held, doc: shownDoc, commands: moduleCommandCache });
-          cardFindings.set(key, { finding, held });
-          const warned = alerts || (card.note === 'full' && card.full.length > 0);
-          const prose = held ? { why: card.description, todo: '' }
-            : EvidenceRule.replacesDescription(finding) ? { why: '', todo: '' }
-              : cardProse(card.description, finding, { steps: steps.length, alertShown: warned });
-          const lesson = held ? '' : lessonFor(finding);
-          // Ticking selects the card for the actions above the list; it changes nothing by itself.
-          const pickBox = counts && !partial ? `<input type="checkbox" class="finding-card__pick" data-card-pick aria-label="${escapeHtml(`Select: ${finding.title || 'this finding'}`)}">` : '';
-          // "Ask about this" sends what the card shows: the evidence first, then the why.
-          const askFinding = Object.assign({}, finding, {
-            description: [rows.length ? `Evidence:\n${EvidenceRule.evidenceText(rows)}` : '', prose.why || card.description || ''].filter(Boolean).join('\n\n'),
-          });
-          const title = `<h3 tabindex="-1">${escapeHtml(finding.title || 'Untitled finding')}</h3>`;
-          const body = `
-              <div class="cleared-note" data-cleared-note role="status" aria-live="polite" hidden></div>
-              <div class="evidence-slot" data-evidence-slot>${EvidenceRule.renderEvidence(rows, { copy: !noClipboard })}</div>
+      // What this card may say (QuietNotes). Standard: no hotline text, and the one
+      // line wherever removing something can alert someone. City: everything, unquieted.
+      const card = QuietNotes.cardText(mode, finding);
+      if (safetyCards) safetyCards.push(card);
+      const held = card.note === 'held';
+      // City mode: nothing from a monitoring check goes to the clipboard or
+      // to a website (monitoring apps can read the clipboard), and the
+      // whole-report copy leaves it out.
+      const noClipboard = held || EvidenceRule.noClipboard(mode, finding.seen_in || finding.module);
+      const pick = noClipboard ? null : copyAiPick(finding);
+      if (pick) cardPicks.set(key, pick);
+      const tech = {
+        check: finding.seen_in && finding.seen_in.length > 1 ? finding.seen_in : finding.module,
+        code: finding.code || null,
+        category: finding.category,
+        confidence: finding.confidence == null ? null : finding.confidence,
+        evidence: finding.data || {},
+      };
+      const marked = !!(finding.data && finding.data.marked_by_user === true);
+      const steps = held ? [] : card.steps.map((step) => ({ title: step.title, body: fillStep(step.body, finding.data, { platform: currentPlatform() }) }));
+      // Evidence first; then at most two sentences of why, never what the
+      // evidence, the warning box, the steps or a lesson already say.
+      const rows = cardEvidenceRows(finding, { mode, held, doc: shownDoc, commands: moduleCommandCache });
+      cardFindings.set(key, { finding, held });
+      const alerts = card.note === 'line' || card.note === 'full';
+      const warned = alerts || (card.note === 'full' && card.full.length > 0);
+      const prose = held ? { why: card.description, todo: '' }
+        : EvidenceRule.replacesDescription(finding) ? { why: '', todo: '' }
+          : cardProse(card.description, finding, { steps: steps.length, alertShown: warned });
+      const lesson = held ? '' : lessonFor(finding);
+      // "Ask about this" sends what the card shows: the evidence first, then the why.
+      const askFinding = Object.assign({}, finding, {
+        description: [rows.length ? `Evidence:\n${EvidenceRule.evidenceText(rows)}` : '', prose.why || card.description || ''].filter(Boolean).join('\n\n'),
+      });
+      const title = `<h3 tabindex="-1">${escapeHtml(finding.title || 'Untitled finding')}</h3>`;
+      const evidence = held ? EvidenceRule.renderEvidence(rows, { held: true, title: 'Write this down' })
+        : EvidenceRule.renderEvidence(rows, { copy: !noClipboard });
+      const body = `
+              ${marked ? `<p class="finding-card__marked" role="note">${escapeHtml(MARKED_BEFORE_LINE)}</p>` : ''}
+              <div class="evidence-slot" data-evidence-slot>${evidence}</div>
               ${prose.why || lesson ? `<p class="finding-card__why">${escapeHtml(prose.why)}${lesson ? `${prose.why ? ' ' : ''}<button type="button" class="link-button finding-card__lesson" data-lesson-link="${lesson}">What does this mean?</button>` : ''}</p>` : ''}
               ${prose.todo ? `<p class="finding-card__todo"><strong>What to do:</strong> ${escapeHtml(prose.todo)}</p>` : ''}
-              ${QuietNotes.lineHtml(card, escapeHtml, { first: !!(fix || mark), banner: !!safetyCards })}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
-              ${fix || mark || did ? `<div class="card-answers">${fix}${mark}${did}</div>` : ''}
+              ${QuietNotes.lineHtml(card, escapeHtml, { banner: !!safetyCards })}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
               ${held ? '' : SettingPanes.findingButtonHtml(finding, currentPlatform())}
               ${held ? '' : RouterLink.findingLinkHtml(finding, routerCtx)}
-              ${!held && steps.length ? `
+              ${steps.length ? `
               <details class="fix-steps">
-                <summary>${fix ? 'Or fix it yourself, step by step' : 'Show me how, step by step'} (${steps.length})</summary>
+                <summary>Show me how, step by step (${steps.length})</summary>
                 <ol class="fix-steps__list">
                   ${steps.map((step) => `
                     <li>
@@ -1510,42 +1473,45 @@ if (typeof document !== 'undefined') {
                 ${askButtonHtml(askFinding)}
                 ${copyAiButtonHtml(finding, pick)}
               </details>`}
+              ${held ? '' : `
               <details class="tech-details">
                 <summary>Technical details</summary>
-                ${held || !card.description ? '' : `<div class="tech-details__about">${descriptionHtml(card.description, escapeHtml)}</div>`}
-                <pre class="tech-log" data-tech-log>${escapeHtml(techText(key, null))}</pre>
-              </details>`;
-          const attrs = `class="finding-card finding-card--${severity}${note ? ' finding-card--note' : ''}" data-card-key="${key}" data-finding-key="${escapeHtml(`${finding.module}|${finding.code || ''}|${finding.title || ''}`).replace(/"/g, '&quot;')}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}${!note && index >= PAGE ? ' data-card-more hidden' : ''}`;
-          // The level's chip only shows once a card is in "Cleared" (its group says it otherwise).
-          const chip = `<span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>`;
-          if (note) {
-            return `
+                ${card.description ? `<div class="tech-details__about">${descriptionHtml(card.description, escapeHtml)}</div>` : ''}
+                <pre class="tech-log">${escapeHtml(JSON.stringify(tech, null, 2))}</pre>
+              </details>`}`;
+      const attrs = `class="finding-card finding-card--${severity}${note ? ' finding-card--note' : ''}${held ? ' finding-card--held' : ''}" data-card-key="${key}" data-finding-key="${escapeHtml(`${finding.module}|${finding.code || ''}|${finding.title || ''}`).replace(/"/g, '&quot;')}"${marked ? ' data-marked-before' : ''}${held ? ' data-held' : ''}`;
+      const chip = `<span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>`;
+      if (note) {
+        return `
             <li ${attrs}>
               <details class="finding-note"><summary class="finding-note__summary">${chip}${title}</summary>${body}</details>
             </li>`;
-          }
-          return `
+      }
+      return `
             <li ${attrs}>
               <div class="finding-card__header">
-                ${pickBox}
                 <div class="finding-card__titles">${chip}${title}</div>
               </div>${body}
             </li>`;
-      };
+    }
 
+    // One level of the LIST, every card on show: the LIST is literal, so a
+    // person can always see everything.
+    function renderSeverityGroup(severity, findings, shownDoc = null, counts = null) {
+      if (findings.length === 0) return '';
       // Good to know: one closed box, then one closed box per area with its
       // count; inside, a closed box per check with several notes, and a
       // check's one note as its line. Nothing in it needs doing.
-      if (note) {
+      if (severity === 'info') {
         const areas = groupByArea(findings, mode, shownDoc);
         // The numbers are scanCounts' (byDistrict, by area).
         const byArea = NotCheckedRule.scanCounts(shownDoc, { mode: mode === 'city' ? 'city' : 'standard', districtOf: noteAreaOf }).byDistrict;
         const areaCount = (a) => (byArea[a.id] ? byArea[a.id].notes : 0);
-        const checkHtml = (c) => (c.findings.length === 1 ? cardHtml(c.findings[0], 0) : `
+        const checkHtml = (c) => (c.findings.length === 1 ? cardHtml(c.findings[0], 'info', shownDoc) : `
                 <li class="info-check">
                   <details class="info-check__fold">
                     <summary><span class="info-check__name">${escapeHtml(c.name)}</span> <span class="results-group__count">${c.findings.length}</span></summary>
-                    <ul class="findings-list findings-list--notes" data-group-list>${c.findings.map((f, i) => cardHtml(f, i)).join('')}</ul>
+                    <ul class="findings-list findings-list--notes" data-group-list>${c.findings.map((f) => cardHtml(f, 'info', shownDoc)).join('')}</ul>
                   </details>
                 </li>`);
         // Checks with several notes first, then the single notes.
@@ -1566,50 +1532,16 @@ if (typeof document !== 'undefined') {
           </details>
         </section>`;
       }
-
-      const items = findings.map(cardHtml).join('');
-      const more = findings.length > PAGE
-        ? `<button type="button" class="btn btn--secondary btn--small results-group__more" data-show-more>${escapeHtml(moreLabel(findings.length - PAGE))}</button>` : '';
       return `
         <section class="results-group results-group--${severity}" data-results-group="${severity}">
           <h2>
             <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
             <span class="results-group__count">${findings.length}</span>
           </h2>
-          <p class="muted results-group__empty" data-group-empty hidden>Nothing left here. Everything in this group is in “Cleared” below.</p>
-          <ul class="findings-list" data-group-list>${items}</ul>
-          ${more}
+          <ul class="findings-list" data-group-list>${findings.map((f) => cardHtml(f, severity, shownDoc)).join('')}</ul>
         </section>
       `;
     }
-    function moreLabel(left) {
-      return left > PAGE ? `Show ${PAGE} more (${left} not shown)` : `Show the last ${left}`;
-    }
-
-    // Each group keeps PAGE cards on show: a cleared card's place goes to the next one.
-    function topUp(root) {
-      root.querySelectorAll('[data-results-group]').forEach((group) => {
-        const list = group.querySelector('[data-group-list]');
-        if (!list) return;
-        const cards = Array.from(list.querySelectorAll(':scope > [data-card-key]'));
-        let shown = cards.filter((c) => !c.hidden).length;
-        for (const c of cards) {
-          if (shown >= PAGE) break;
-          if (c.hidden && c.hasAttribute('data-card-more')) { c.hidden = false; c.removeAttribute('data-card-more'); shown += 1; }
-        }
-        updateMore(group);
-      });
-    }
-    function updateMore(group) {
-      const btn = group.querySelector('[data-show-more]');
-      if (!btn) return;
-      const left = group.querySelectorAll('[data-group-list] > [data-card-more]').length;
-      btn.hidden = left === 0;
-      btn.textContent = moreLabel(left);
-    }
-
-    // A re-check redraws the list; focus stays on the same checklist row.
-    const keepFocus = (root, render) => (typeof Checklist !== 'undefined' ? Checklist.preserveFocus(root, render) : render());
 
     // While a scan runs, a redraw keeps open what the person opened.
     function openDetailsIn(root) {
@@ -1666,13 +1598,9 @@ if (typeof document !== 'undefined') {
       // The whole-report copies would read as the full checkup: only once it's done.
       document.getElementById('results-copy-all').hidden = !!partial;
       document.getElementById('results-tech').hidden = !!partial;
-      // "Your progress" waits for the finished checkup too (plain-panel.js shows it in standard mode).
-      const progressBtn = document.getElementById('btn-your-progress');
-      document.getElementById('progress-link').hidden = !!partial || !progressBtn || progressBtn.hidden;
-      if (partial) {
-        document.getElementById('results-learn').hidden = true;
-        document.getElementById('results-city-switch').hidden = true;
-      }
+      document.getElementById('results-more').hidden = false;
+      if (partial) document.getElementById('results-learn').hidden = true;
+      renderCitySwitch();
     }
 
     function renderResults(doc) {
@@ -1696,8 +1624,7 @@ if (typeof document !== 'undefined') {
       const nothing = counts.todo === 0 && counts.notes === 0 && counts.markedItems === 0 && counts.heldItems === 0;
 
       // Before the cards render: it resets the per-finding copy registry. The
-      // whole-report copy uses the same per-card objects, so an answer given
-      // on a card ("I did this", "It's mine") shows in both.
+      // whole-report copy uses the same per-card objects.
       const reportFindings = [];
       setCopyAiReport({
         findings: reportFindings,
@@ -1708,7 +1635,6 @@ if (typeof document !== 'undefined') {
         notStarted: plain.notStarted.map((name) => aiCheckLabel(name, mode, doc)),
       });
       cardPicks = new Map();
-      cardTech = new Map();
       cardFindings = new Map();
       nextCardKey = 0;
       routerCtx = RouterLink.contextFrom(doc, browserName);
@@ -1719,29 +1645,19 @@ if (typeof document !== 'undefined') {
       // carries it; those cards keep the one bold line. City mode: every
       // card keeps its note in full, as before.
       safetyCards = mode === 'city' ? null : [];
-      const cardsHtml = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial, doc, counts)).join('');
+      const cardsHtml = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], doc, counts)).join('');
       const banner = safetyCards ? QuietNotes.bannerHtml(QuietNotes.bannerNotes(safetyCards), escapeHtml) : '';
       safetyCards = null;
-      keepFocus(groupsEl, () => {
-        groupsEl.innerHTML = banner + (partial ? '' : BULK_HTML) + cardsHtml + ClearList.sectionHtml();
-      });
+      groupsEl.innerHTML = banner + cardsHtml;
       reopenDetailsIn(groupsEl, wasOpen);
       keepReadingAnchor(groupsEl, anchor);
       reportFindings.push(...cardPicks.values());
 
-      // Items marked as yours on an earlier checkup start out cleared.
-      clearList.reset({ couldNotCheck: counts.didntFinish });
-      groupsEl.querySelectorAll('[data-marked-before]').forEach((card) => clearList.clear(card, 'marked_before'));
-      topUp(groupsEl);
-      updateBulk();
-
-      // The sentence at the top counts what the progress bar counts.
       const summaryEl = document.getElementById('results-summary');
       // The numbers are scanCounts', the same ones the city shows.
-      const said = ClearList.summaryText(counts.todo, counts.notes);
+      const said = listSummaryText(counts.todo, counts.notes);
       if (partial) {
         // Never an all-clear while checks are still running.
-        document.getElementById('results-progress').hidden = true;
         summaryEl.innerHTML = `<p>${escapeHtml(partialSummaryText({
           worth: counts.todo, other: counts.notes, stopped: !!partial.stopped }))}</p>`;
       } else if ((nothing || !said) && notFullyChecked > 0) {
@@ -1756,7 +1672,7 @@ if (typeof document !== 'undefined') {
 
       document.getElementById('results-lessons').hidden = nothing;
       renderCouldntCheck(doc, { notChecked, counts, erroredModules, unfinishedModules, partlyChecked, partial: !!partial });
-      renderNotStarted(plain.notStarted, !!partial);
+      renderNotStarted(plain.notStarted);
       if (!partial) fillCommands(doc);
     }
 
@@ -1792,16 +1708,13 @@ if (typeof document !== 'undefined') {
 
     // A check waiting for the person to start it (the iPhone backup scan):
     // one line and a Start button that asks first. Never in "couldn't run".
-    function renderNotStarted(names, partial) {
+    // The LIST starts nothing: the city's waiting signal is where it starts.
+    function renderNotStarted(names) {
       const box = document.getElementById('results-waiting');
       if (!box) return;
       const line = notStartedLine(names, mode);
       box.hidden = !line;
-      document.getElementById('results-waiting-line').textContent = line;
-      // City mode names nothing, so it offers nothing to start here either.
-      const canStart = !!line && !partial && mode !== 'city' && names.includes('mvt_spyware_scan');
-      document.getElementById('btn-phone-start').hidden = !canStart;
-      document.getElementById('phone-start-confirm').hidden = true;
+      document.getElementById('results-waiting-line').textContent = line ? `${line} ${NOT_STARTED_WHERE}` : '';
     }
 
     // Run the checks that took too long again, one at a time (main runs one
@@ -2011,17 +1924,14 @@ if (typeof document !== 'undefined') {
       // A click handler passes an Event here; only {game: true} from the game counts.
       const inGame = !!(opts && opts.game === true && window.RescueGame && window.RescueGame.isReady);
       if (inGame) leftGame = false;
-      const scanSituation = situation;
-      // One check run after the checkup (the iPhone backup scan): its result
-      // joins the checkup's instead of replacing it.
-      const mergeInto = opts && opts.mergeInto && !inGame ? opts.mergeInto : null;
+      gameScan = inGame;
       setScanBusy(true);
       resetProgress();
       fdaNeeded = false;
       stoppedDoc = null;
       let resolvedStopped = null;
       if (permissionsContent) renderScanTips(permissionsContent, detectOS(lastKnownPlatform));
-      partialScan = mergeInto ? null : partialScanState();
+      partialScan = partialScanState();
       updatePartialStatus();
       if (inGame) window.RescueGame.showBoss();
       const unsubscribe = window.rescue.onScanEvent((ev) => {
@@ -2030,37 +1940,34 @@ if (typeof document !== 'undefined') {
       });
       try {
         // One profile, the union of several (one --profile each), or null for every check.
-        const ran = await window.rescue.runScan(mergeInto ? opts.profile : WorryPick.scanProfile(situation));
-        if (ran && ran.stopped && typeof ran.stopped === 'object') {
+        const doc = await window.rescue.runScan(WorryPick.scanProfile(situation));
+        if (doc && doc.stopped && typeof doc.stopped === 'object') {
           // A checkup that stopped: kept as "what it found so far", never as a result.
-          if (!mergeInto) resolvedStopped = ran;
+          resolvedStopped = doc;
           throw new Error(STOPPED_LINE);
         }
-        const doc = mergeInto ? mergeModules(mergeInto, ran) : ran;
         if (doc && typeof doc.platform === 'string') {
           lastKnownPlatform = doc.platform;
         }
         lastScanDoc = doc;
         moduleCommandCache = new Map();
         monitoringSeen = noteMonitoring(monitoringSeen, doc);
-        lastScanSituation = scanSituation;
         endPartial();
+        // scanRunning stays true until `finally`: the LIST's way back to the city follows the finished scan now.
+        scanRunning = false;
         renderResults(doc);
         renderNextStep();
         renderLearnMore(doc);
         setScanBusy(false);
-        renderCitySwitch(doc);
         const land = () => {
-          if (mergeInto) { showScreen('results'); return; }
           const view = postScanView({
-            inGame, left: leftGame, wantsCity, rememberedCity: rememberedView() === 'city',
-            offered: gameOfferedFor(situation), ready: !!(window.RescueGame && window.RescueGame.isReady), mode,
+            inGame, left: leftGame,
+            offered: gameOfferedFor(situation), ready: !!(window.RescueGame && window.RescueGame.isReady),
           });
           if (view === 'boss-city') {
             if (window.RescueGame.scanDone(doc, situation) === false) {
-              showScreen('results'); // the city couldn't be drawn: the list, which has the same results
+              showScreen('results'); // the city couldn't be drawn: the LIST, which has the same results
             } else {
-              rememberView('city');
               showScreen('city');
             }
           } else if (view === 'city') {
@@ -2083,10 +1990,10 @@ if (typeof document !== 'undefined') {
         // so far": marked as stopped, so it never reads as the whole checkup.
         stoppedDoc = resolvedStopped || (partialScan && partialScan.modules.length ? stoppedDocOf(partialScan, currentPlatform()) : null);
         endPartial();
+        scanRunning = false;
         if (lastScanDoc) {
           renderResults(lastScanDoc);
           renderLearnMore(lastScanDoc);
-          renderCitySwitch(lastScanDoc);
         } else {
           renderResultsFrame(null);
         }
@@ -2103,7 +2010,6 @@ if (typeof document !== 'undefined') {
             showScreen('scan');
             showScanError(message);
           } else {
-            rememberView('city');
             showScreen('city');
           }
         } else if (inGame && !leftGame) {
@@ -2115,6 +2021,7 @@ if (typeof document !== 'undefined') {
       } finally {
         unsubscribe();
         scanRunning = false;
+        gameScan = false;
         if (partialTimer) { clearTimeout(partialTimer); partialTimer = null; }
       }
     }
@@ -2129,48 +2036,12 @@ if (typeof document !== 'undefined') {
       document.getElementById('scan-title').textContent = 'Ready for your checkup';
       document.getElementById('scan-keep-open').hidden = false;
       situation = null;
-      wantsCity = false;
       leftGame = false;
       showScreen('welcome');
     }
 
-    // Clearing the list: answered cards move to "Cleared" at the bottom.
+    // The LIST's delegated controls: none of them changes the computer.
     const resultsRoot = document.getElementById('results-groups');
-    let markControl = null;
-    const clearList = ClearList.attach(resultsRoot, {
-      progressEl: document.getElementById('results-progress'),
-      esc: escapeHtml,
-      onChange: onCardChange,
-      undoMark: (markCard) => markControl && markControl.unmark(markCard),
-    });
-    const cardsOf = (els) => els.map((el) => clearList.cardOf(el)).filter(Boolean);
-
-    // Ticking a card: only the bulk bar changes.
-    resultsRoot.addEventListener('change', (event) => {
-      if (event.target && event.target.hasAttribute && event.target.hasAttribute('data-card-pick')) updateBulk();
-    });
-    resultsRoot.addEventListener('click', (event) => {
-      const t = event.target && event.target.closest ? event.target.closest('[data-show-more],[data-bulk-did],[data-bulk-none]') : null;
-      if (!t) return;
-      if (t.hasAttribute('data-show-more')) {
-        const group = t.closest('[data-results-group]');
-        Array.from(group.querySelectorAll('[data-group-list] > [data-card-more]')).slice(0, PAGE).forEach((c) => {
-          c.hidden = false; c.removeAttribute('data-card-more');
-        });
-        updateMore(group);
-        return;
-      }
-      const ticked = Array.from(resultsRoot.querySelectorAll('[data-card-pick]')).filter((b) => b.checked);
-      if (t.hasAttribute('data-bulk-did')) {
-        ticked.forEach((b) => {
-          const card = b.closest('[data-card-key]');
-          if (card && card.querySelector('[data-clear-did]:not([hidden])')) { b.checked = false; clearList.clear(card, 'did'); }
-        });
-      } else {
-        ticked.forEach((b) => { b.checked = false; });
-      }
-      updateBulk();
-    });
     document.getElementById('results-errors-list').addEventListener('click', (event) => {
       const btn = event.target.closest && event.target.closest('[data-setting-url]');
       if (btn) window.rescue.openSetting(btn.getAttribute('data-setting-url'));
@@ -2209,25 +2080,8 @@ if (typeof document !== 'undefined') {
     });
     // The Evidence block's Copy buttons (none on a held card: renderEvidence leaves them out).
     EvidenceRule.wireCopy(document, (t) => navigator.clipboard.writeText(t));
-    // "Fix it for me": delegated, so it keeps working when results are re-rendered.
-    FixFlow.attach(resultsRoot, window.rescue, {
-      onFixed: (els) => cardsOf(els).forEach((card) => clearList.clear(card, 'fixed')),
-      onRestored: (els) => cardsOf(els).forEach((card) => clearList.restore(card)),
-    });
-    // "It's mine": same delegation; the engine keeps marked items listed.
-    markControl = MarkFlow.attach(resultsRoot, window.rescue, {
-      onMarked: (els) => cardsOf(els).forEach((card) => clearList.clear(card, 'marked')),
-      onUnmarked: (els) => cardsOf(els).forEach((card) => clearList.restore(card)),
-    });
-
     // Each visit to the worry screen starts with nothing ticked.
     document.getElementById('btn-get-started').addEventListener('click', () => {
-      wantsCity = false;
-      renderSituations();
-      showScreen('worry');
-    });
-    document.getElementById('btn-play-game').addEventListener('click', () => {
-      wantsCity = true;
       leftGame = false;
       renderSituations();
       showScreen('worry');
@@ -2244,9 +2098,7 @@ if (typeof document !== 'undefined') {
         if (back && typeof back.focus === 'function') back.focus();
       });
     });
-    document.getElementById('btn-see-city').addEventListener('click', () => {
-      if (lastScanDoc) showCity(lastScanDoc);
-    });
+    document.getElementById('btn-back-city').addEventListener('click', backToCity);
 
     async function goToScan() {
       renderScanIntro();
@@ -2284,28 +2136,15 @@ if (typeof document !== 'undefined') {
     });
 
     document.getElementById('btn-see-partial').addEventListener('click', showPartialResults);
-    document.getElementById('btn-back-to-scan').addEventListener('click', () => showScreen('scan'));
+    // The running box's way back: the city's sweep screen when the sweep is
+    // the game's, else the scan screen (its progress, or "Run it again").
+    document.getElementById('btn-back-to-scan').addEventListener('click', () => {
+      if (scanRunning && gameScan && !leftGame && cityAvailable()) showScreen('city');
+      else showScreen('scan');
+    });
     document.getElementById('btn-run-scan').addEventListener('click', runCheckup);
     document.getElementById('btn-scan-retry').addEventListener('click', runCheckup);
     document.getElementById('btn-scan-sofar').addEventListener('click', showStopped);
-    // The iPhone backup scan: asked first, then run on its own; its result joins this checkup.
-    document.getElementById('btn-phone-start').addEventListener('click', () => {
-      document.getElementById('phone-start-confirm').hidden = false;
-      const yes = document.getElementById('btn-phone-start-yes');
-      if (yes && typeof yes.focus === 'function') yes.focus();
-    });
-    document.getElementById('btn-phone-start-no').addEventListener('click', () => {
-      document.getElementById('phone-start-confirm').hidden = true;
-      const back = document.getElementById('btn-phone-start');
-      if (back && typeof back.focus === 'function') back.focus();
-    });
-    document.getElementById('btn-phone-start-yes').addEventListener('click', () => {
-      document.getElementById('phone-start-confirm').hidden = true;
-      if (scanRunning || !lastScanDoc) return;
-      document.getElementById('scan-situation').textContent = 'Checking the iPhone backup on this computer';
-      showScreen('scan');
-      runCheckup({ profile: 'iphone_spyware_check', mergeInto: lastScanDoc });
-    });
     // Start over throws these results away: asked first, as the city asks.
     document.getElementById('btn-start-over').addEventListener('click', () => {
       document.getElementById('btn-start-over').hidden = true;
@@ -2324,24 +2163,20 @@ if (typeof document !== 'undefined') {
       if (back && typeof back.focus === 'function') back.focus();
     });
 
-    // City mode: Esc on the list goes back to the city, as it does from the
-    // help district. Not when Esc just closed a confirm panel or a dialog.
+    // Esc on the LIST goes back to the city, in both modes, as it does from
+    // the help district. Not when Esc just closed a confirm panel.
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
-      if (mode !== 'city' || !screens.results || screens.results.hidden) return;
-      const dialog = document.getElementById('progress-dialog');
-      if (dialog && dialog.open) return;
-      if (!lastScanDoc || scanRunning || !cityAvailable()) return;
-      showCity(lastScanDoc);
+      if (!screens.results || screens.results.hidden) return;
+      backToCity();
     });
 
     // 'city' opens straight into the game: the command deck, with the sweep
-    // as its main action until one has run this session. Plain view, Start
-    // over, TRAINING and every worry still work from there.
+    // as its main action until one has run this session. LIST, TRAINING and
+    // every worry still work from there.
     function openCityHome() {
       if (!(window.RescueGame && window.RescueGame.isReady)) return false;
       situation = CITY_SITUATION;
-      wantsCity = true;
       leftGame = false;
       if (window.RescueGame.showHome(situation) !== false) showScreen('city');
       return true;

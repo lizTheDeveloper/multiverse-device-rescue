@@ -21,9 +21,10 @@ async function results(doc, mode = 'standard') {
   const p = page({ store: { 'device-rescue.display': mode } });
   p.byId('btn-get-started').click();
   p.pick('hacked');
-  if (mode !== 'city') p.byId('btn-run-scan').click();
   await p.finish(doc);
   if (p.shown().includes('question')) p.answer('known');
+  // The LIST, as the city's LIST tab opens it after the sweep.
+  p.sandbox.RescueHost.showList();
   return p;
 }
 
@@ -75,8 +76,9 @@ test('P1-4: on the fresh scan, criticals first, then the fixes and the signs som
   const html = p.byId('results-groups').innerHTML;
   const groups = html.split('data-results-group="');
   const warn = groups.find((g) => g.startsWith('warning'));
-  const shown = cardsOf(warn).filter((c) => !/data-card-more hidden/.test(c.split('>')[0]));
-  assert.strictEqual(shown.length, 10, 'one page of cards');
+  // The LIST shows every card; the first ten are what matters most.
+  const shown = cardsOf(warn).slice(0, 10);
+  assert.strictEqual(shown.length, 10);
   const first = shown.map((c) => /<h3[^>]*>([^<]*)</.exec(c)[1]).join('\n');
   for (const want of [/gateway-deflock' runs from a hidden folder/, /gateway-multiverse-games' runs from a hidden/,
     /saved key could let another computer log in/, /website name is being redirected/, /router&#39;s SSH is open|router's SSH is open/,
@@ -143,9 +145,9 @@ test('P1-4: near-duplicates from different checks merge by what the data says (c
 });
 
 // ---------------------------------------------------------------------------
-// P2-12: the iPhone backup scan isn't "couldn't run"; Start asks first.
+// P2-12: the iPhone backup scan isn't "couldn't run"; the city starts it.
 // ---------------------------------------------------------------------------
-test('P2-12: an iPhone backup that can be scanned is "not started", never "couldn’t run", and Start asks first', async () => {
+test('P2-12: an iPhone backup that can be scanned is "not started", never "couldn’t run"; the LIST starts nothing', async () => {
   const doc = { schema_version: 1, platform: 'darwin', modules: [
     mod('mvt_spyware_scan', [{ title: '1 device backup found (scan available)', severity: 'info', category: 'security',
       code: 'security.mvt_spyware_scan.mvt_scan_available', data: { check: 'mvt_scan_available', backups_found: 1 } }], { check_name: 'iPhone backup spyware scan' }),
@@ -157,41 +159,21 @@ test('P2-12: an iPhone backup that can be scanned is "not started", never "could
   const p = await results(doc);
   assert.strictEqual(p.byId('results-errors').hidden, true, 'not in the couldn’t-check box');
   assert.strictEqual(p.byId('results-waiting').hidden, false);
-  assert.strictEqual(p.byId('results-waiting-line').textContent, 'Not started — your iPhone backup can be checked for spyware. This is a long scan.');
-  assert.strictEqual(p.byId('btn-phone-start').hidden, false);
-  // Start only asks: no scan runs until "Yes, start it".
-  const before = p.calls.scans.length;
-  p.byId('btn-phone-start').click();
-  assert.strictEqual(p.byId('phone-start-confirm').hidden, false);
-  assert.strictEqual(p.calls.scans.length, before, 'nothing ran yet');
-  p.byId('btn-phone-start-yes').click();
-  assert.deepStrictEqual(p.calls.scans.slice(before), ['iphone_spyware_check']);
-  // Its result joins the checkup: the other findings stay.
-  await p.finish({ schema_version: 1, platform: 'darwin', modules: [mod('mvt_spyware_scan', [{ title: 'No known spyware found in the backup',
-    severity: 'info', category: 'security', code: 'security.mvt_spyware_scan.mvt_clean_scan', data: {} }])] });
-  assert.deepStrictEqual(p.shown(), ['results']);
-  const html = p.byId('results-groups').innerHTML;
-  assert.match(html, /Remote Login is on/);
-  assert.match(html, /No known spyware found in the backup/);
-  assert.strictEqual(p.byId('results-waiting').hidden, true);
-  // City mode names nothing and offers no Start.
+  assert.strictEqual(p.byId('results-waiting-line').textContent,
+    'Not started — your iPhone backup can be checked for spyware. This is a long scan. You can start it from the city.');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /btn-phone-start/, 'the city\'s waiting signal starts it, after asking');
+  // City mode names nothing.
   const c = await results(doc, 'city');
   assert.doesNotMatch(c.byId('results-waiting-line').textContent, /iPhone|spyware/);
-  assert.strictEqual(c.byId('btn-phone-start').hidden, true);
-});
-
-test('mergeModules: the extra checks replace their own entries, the rest stays', () => {
-  const a = { platform: 'darwin', modules: [{ name: 'x', findings: [1] }, { name: 'mvt_spyware_scan', findings: [2] }] };
-  const out = app.mergeModules(a, { modules: [{ name: 'mvt_spyware_scan', findings: [3] }] });
-  assert.deepStrictEqual(out.modules.map((m) => m.findings[0]), [1, 3]);
-  assert.strictEqual(out.platform, 'darwin');
 });
 
 // ---------------------------------------------------------------------------
 // P1-1 (Plain side): a checkup that stops keeps what it found, plainly.
 // ---------------------------------------------------------------------------
 test('P1-1: a stopped checkup says so in one plain line, keeps the raw text for tech helpers, and offers what it found so far', async () => {
-  const p = page();
+  // The scan screen's own route (the game couldn't draw); the city's is in plain-ux-round5.
+  const p = page({ ready: false });
   p.byId('btn-get-started').click();
   p.pick('hacked');
   p.byId('btn-run-scan').click();
@@ -278,17 +260,11 @@ test('Ask about this sends the evidence, not only the prose', async () => {
   assert.match(asks[0].description, /\/etc\/hosts/);
 });
 
-test('P2-14: Your progress counts the list’s own answers', async () => {
-  const { plainCountsLine } = await import('../renderer/game/profile/plain-panel.js');
-  assert.strictEqual(plainCountsLine({ fixed: 1, marked: 2, did: 0 }), 'On this checkup: 1 fixed · 2 marked as yours · 0 you said you did');
-  assert.strictEqual(plainCountsLine(null), '');
-});
-
 // ---------------------------------------------------------------------------
 // Integration: stopped scans by stage, dns_profile marks, one set of counts.
 // ---------------------------------------------------------------------------
 async function stoppedPage(stage, done, total) {
-  const p = page();
+  const p = page({ ready: false });
   p.byId('btn-get-started').click();
   p.pick('hacked');
   p.byId('btn-run-scan').click();

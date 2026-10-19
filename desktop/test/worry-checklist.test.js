@@ -29,8 +29,7 @@ test('two worries run the union of their profiles in one scan', () => {
   const p = page();
   p.byId('btn-get-started').click();
   p.pick('hacked', 'wifi');
-  assert.deepStrictEqual(p.shown(), ['scan']);
-  p.byId('btn-run-scan').click();
+  assert.deepStrictEqual(p.shown(), ['city'], 'straight onto the city\'s sweep');
   // The page runs in its own realm: copy its array to compare it here.
   const scans = p.calls.scans.map((x) => (Array.isArray(x) ? [...x] : x));
   assert.deepStrictEqual(scans, [[profileOf('hacked'), profileOf('wifi')]]);
@@ -89,7 +88,7 @@ test('redrawing the worry list adds no listeners to its container', () => {
   const counts = () => ['change', 'click', 'keydown'].map((t) => (root.listeners[t] || []).length);
   const before = counts();
   assert.deepStrictEqual(before, [1, 1, 1], 'the checklist is attached once');
-  for (let i = 0; i < 3; i += 1) { p.byId('btn-get-started').click(); p.byId('btn-play-game').click(); }
+  for (let i = 0; i < 3; i += 1) { p.byId('btn-get-started').click(); p.byId('btn-get-started').click(); }
   assert.deepStrictEqual(counts(), before);
 });
 

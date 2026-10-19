@@ -1,11 +1,11 @@
-// UX round 1, Plain view: honesty at the top, a shorter list, ticked cards,
-// the safety line before a fix, and engine wording mapped for people.
+// UX round 1, now on the city's LIST (Plain view is retired): honesty at the
+// top, the safety line before a fix (in the flows the city's missions use),
+// and engine wording mapped for people.
 const test = require('node:test');
 const assert = require('node:assert');
 const app = require('../renderer/app.js');
 const FixFlow = require('../renderer/fix-flow.js');
 const MarkFlow = require('../renderer/mark-flow.js');
-const ClearList = require('../renderer/clear-list.js');
 const QuietNotes = require('../renderer/quiet-notes.js');
 const { page } = require('./page-harness.js');
 
@@ -126,12 +126,6 @@ test('confirm panels say Reclaim City, keep real paths, and put command-line lin
   assert.match(mark, /For tech helpers<\/summary><p>If you use the command line/);
 });
 
-test('a cleared card leaves one line where it was', () => {
-  assert.match(ClearList.stubText('fixed'), /Nothing was deleted/);
-  assert.match(ClearList.stubText('did'), /You said you did this/);
-  assert.strictEqual(ClearList.stubText('marked_before'), '', 'an earlier mark leaves no line');
-});
-
 test('a note that points at steps the card doesn’t show loses that sentence', () => {
   const card = QuietNotes.cardText('standard', { module: 'stalkerware_scan', code: 'security.stalkerware_scan.found', severity: 'critical',
     description: 'mSpy is on this computer. The steps below cover removal for when it’s safe.' });
@@ -140,30 +134,30 @@ test('a note that points at steps the card doesn’t show loses that sentence', 
   assert.match(card.description, /mSpy is on this computer\./);
 });
 
+// The LIST, as the city's LIST tab opens it after the sweep.
 async function results(doc, store) {
   const p = page(store ? { store } : undefined);
   p.byId('btn-get-started').click();
   p.pick('hacked');
-  p.byId('btn-run-scan').click();
   await p.finish(doc);
+  if (p.shown().includes('question')) p.answer('known');
+  p.sandbox.RescueHost.showList();
   return p;
 }
 
 const warning = (title, extra = {}) => Object.assign({ title, description: 'What to do: do it.', severity: 'warning', category: 'security', data: {} }, extra);
 
-test('the list: ten cards a group, Good to know folded, a checkbox per card, and the honesty line at the top', async () => {
+test('the LIST: every card on show (it is literal), Good to know folded, no checkboxes, and the honesty line at the top', async () => {
   const many = Array.from({ length: 23 }, (_, i) => warning(`Warning ${i}`));
   const p = await results({ schema_version: 1, platform: 'darwin', modules: [
     mod('a', many), mod('b', [info('A note'), info('We couldn’t list your USB devices')]),
     mod('c', [], { status: 'error', error: 'timed out after 60.0s' }),
   ] });
   const html = p.byId('results-groups').innerHTML;
-  assert.strictEqual((html.match(/data-card-more hidden/g) || []).length, 13, 'cards past ten wait behind “Show more”');
-  assert.match(html, /data-show-more>Show 10 more \(13 not shown\)/);
+  for (let i = 0; i < 23; i += 1) assert.ok(html.includes(`>Warning ${i}<`), `card ${i} on show`);
+  assert.doesNotMatch(html, /data-card-more|data-show-more/, 'nothing behind “Show more”');
   assert.match(html, /<details class="results-group__fold">\s*<summary><span class="chip chip--info">Good to know/);
-  assert.strictEqual((html.match(/data-card-pick/g) || []).length, 23, 'a checkbox on every card on the list, none on notes');
-  assert.doesNotMatch(html, /data-card-pick[^>]*checked/, 'unticked');
-  assert.match(html, /data-bulk role="group"/);
+  assert.doesNotMatch(html, /data-card-pick|data-bulk|type="checkbox"/, 'nothing to tick: the LIST changes nothing');
   assert.match(p.byId('results-errors-line').textContent, /^1 check couldn’t run, and 1 thing was only partly checked/);
   assert.doesNotMatch(html, /We couldn’t list your USB devices/, 'the partly-checked note moved to the top list');
 });
@@ -180,23 +174,13 @@ test('Start over asks first', async () => {
   assert.deepStrictEqual(p.shown(), ['welcome']);
 });
 
-test('Monitoring software never offers “I did this” in Plain view', async () => {
-  const p = page();
-  // The real "I did this" markup, so the card shows whether it was offered.
-  const stub = p.sandbox.ClearList;
-  p.sandbox.ClearList = new Proxy({}, { get: (_t, k) => (k === 'didControlsHtml' ? ClearList.didControlsHtml : stub[k]) });
-  p.byId('btn-get-started').click();
-  p.pick('hacked');
-  p.byId('btn-run-scan').click();
-  await p.finish({ schema_version: 1, platform: 'darwin', modules: [
+test('the LIST offers no “I did this”, fix or mark on any card, monitoring software or not', async () => {
+  const p = await results({ schema_version: 1, platform: 'darwin', modules: [
     mod('stalkerware_scan', [warning('mSpy is on this computer', { code: 'security.stalkerware_scan.found' })]),
-    mod('other', [warning('Something else')]),
+    mod('other', [warning('Something else', { fixable: { will_change: 'x' }, markable: { kind: 'background_task', id: 'a' } })]),
   ] });
-  if (p.shown().includes('question')) p.answer('known');
   const html = p.byId('results-groups').innerHTML;
-  const cards = html.split('<li class="finding-card');
-  const mspy = cards.find((c) => c.includes('mSpy is on this computer'));
-  const other = cards.find((c) => c.includes('Something else'));
-  assert.doesNotMatch(mspy, /data-clear-did/);
-  assert.match(other, /data-clear-did/);
+  assert.match(html, /mSpy is on this computer/);
+  assert.match(html, /Something else/);
+  assert.doesNotMatch(html, /data-clear-did|\[FIX IT\]|\[IT IS MINE\]|data-fix|data-mark/);
 });

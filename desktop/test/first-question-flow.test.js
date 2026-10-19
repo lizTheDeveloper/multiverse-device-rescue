@@ -7,7 +7,7 @@ const modeWrites = (p) => p.storage.writes.filter(([k]) => k === KEY);
 
 test('the question comes once, after the worry, before any scan', () => {
   const p = page({ store: {} });
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('wifi');
   assert.deepStrictEqual(p.shown(), ['question']);
   assert.deepStrictEqual(p.calls.scans, []);
@@ -56,7 +56,7 @@ test('"Something changed?" opens the question again, then back to the worry scre
 
 test('monitoring software in a standard-mode scan: the follow-up, once a session', async () => {
   const p = page();
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('unsure');
   await p.finish(monitoring);
   assert.deepStrictEqual(p.shown(), ['question']);
@@ -74,7 +74,7 @@ test('monitoring software in a standard-mode scan: the follow-up, once a session
 
 test('the follow-up never comes in city mode', async () => {
   const p = page({ store: { [KEY]: 'city' } });
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('hacked');
   await p.finish(monitoring);
   assert.ok(!p.shown().includes('question'));
@@ -91,7 +91,7 @@ test('the seed is written for every install, so it says nothing about anyone', (
 
 test('blocked storage: "Yes" stays city for the whole session, though nothing could be saved', async () => {
   const p = page({ blocked: true });
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('wifi');
   assert.deepStrictEqual(p.shown(), ['question'], 'nothing could be read, so ask');
   p.answer('yes');
@@ -138,7 +138,7 @@ test('the old game-view setting is not an answer: it is never moved into the mod
   for (const view of ['city', 'list']) {
     const p = page({ store: { 'device-rescue.view': view } });
     assert.strictEqual(p.sandbox.RescueHost.mode(), null, view);
-    p.byId('btn-play-game').click();
+    p.byId('btn-get-started').click();
     p.pick('wifi');
     assert.deepStrictEqual(p.shown(), ['question'], view);
     assert.deepStrictEqual(modeWrites(p), [], view);
@@ -150,7 +150,7 @@ test('nothing written during the question, its follow-up or "Something changed?"
   assert.ok(FORBIDDEN_ON_DISK.test('stealth'), '"stealth" is never written either');
   for (const first of ['no', 'yes', 'rather-not']) {
     const p = page({ store: {} });
-    p.byId('btn-play-game').click();
+    p.byId('btn-get-started').click();
     p.pick('unsure');
     p.answer(first);
     await p.finish(monitoring);
@@ -170,7 +170,7 @@ test('nothing written during the question, its follow-up or "Something changed?"
 
 test('the follow-up "No, I don’t" turns on city', async () => {
   const p = page();
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('unsure');
   await p.finish(monitoring);
   assert.deepStrictEqual(p.shown(), ['question']);
@@ -183,7 +183,7 @@ test('the follow-up "No, I don’t" turns on city', async () => {
 
 test('focus moves to the question, so a screen reader reads it: first ask and the follow-up', async () => {
   const p = page({ store: {} });
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('unsure');
   assert.match(p.byId('question-card').innerHTML, /id="question-title" tabindex="-1"/);
   assert.strictEqual(p.sandbox.document.activeElement, p.byId('question-title'), 'first ask');
@@ -238,8 +238,22 @@ test('"Something changed?" before any answer is the first ask: "rather not say" 
   assert.deepStrictEqual(modeWrites(p), [[KEY, 'standard']]);
 });
 
-test('the step dot stays where the person is: worry for the first ask, the checkup for the follow-up', async () => {
+test('the step dot stays where the person is: worry for the first ask, the city for the follow-up', async () => {
   const p = page({ store: {} });
+  p.byId('btn-get-started').click();
+  p.pick('unsure');
+  assert.deepStrictEqual(p.activeDot(), ['worry']);
+  p.answer('no');
+  assert.deepStrictEqual(p.shown(), ['city'], 'the scan runs on the city\'s sweep screen');
+  await p.finish(monitoring);
+  assert.deepStrictEqual(p.shown(), ['question']);
+  assert.deepStrictEqual(p.activeDot(), ['results'], 'the city\'s step, not back to "worry"');
+  p.answer('known');
+  assert.deepStrictEqual(p.shown(), ['city']);
+});
+
+test('the game can\'t draw: the step dot stays where the person is, and the scan screen runs the checkup', async () => {
+  const p = page({ store: {}, ready: false });
   p.byId('btn-get-started').click();
   p.pick('unsure');
   assert.deepStrictEqual(p.activeDot(), ['worry']);

@@ -19,9 +19,10 @@ async function results(doc, mode = 'standard') {
   const p = page({ store: { 'device-rescue.display': mode } });
   p.byId('btn-get-started').click();
   p.pick('hacked');
-  if (mode !== 'city') p.byId('btn-run-scan').click();
   await p.finish(doc);
   if (p.shown().includes('question')) p.answer('known');
+  // The LIST, as the city's LIST tab opens it after the sweep.
+  p.sandbox.RescueHost.showList();
   return p;
 }
 
@@ -102,7 +103,9 @@ test('I2: every evidence block the city draws goes through the same rule', () =>
   assert.match(src, /const evidenceOpts = \(module\) => \(\{ copy: !EV\.noClipboard\(inCity\(\) \? 'city' : 'standard', module\) \}\)/);
   const app = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'app.js'), 'utf8');
   const appCalls = [...app.matchAll(/EvidenceRule\.renderEvidence\(/g)];
-  assert.strictEqual(appCalls.length, 2);
+  // The LIST: a held card as the help district draws it (held, no copy), every other card under the shared rule.
+  assert.strictEqual(appCalls.length, 3);
+  assert.strictEqual((app.match(/EvidenceRule\.renderEvidence\(rows, \{ held: true, title: 'Write this down' \}\)/g) || []).length, 1);
   assert.strictEqual((app.match(/EvidenceRule\.noClipboard\(mode, finding\.seen_in \|\| finding\.module\)/g) || []).length, 2);
 });
 
@@ -296,21 +299,18 @@ test('M7: the re-check-failed words are one text: FixFlow, the city outcome and 
   assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', 'renderer', 'fix-flow.js'), 'utf8'), /TODO\(round-3 integration\)/);
 });
 
-// ---- M5: the phone sweep joins the checkup by main's rule, on both screens ----
+// ---- M5: the phone sweep joins the checkup by main's rule (it is started in the city now) ----
 
 test('M5: a one-check sweep joins the checkup; any other result stands alone, as main keeps it', () => {
-  const app = require('../renderer/app.js');
   const { applyScanResult } = require('../recheck.js');
   const base = { schema_version: 1, platform: 'darwin', modules: [mod('firewall_check', []), mod('mvt_spyware_scan', [], { not_started: true })] };
   const one = { schema_version: 1, platform: 'darwin', modules: [mod('mvt_spyware_scan', [])] };
   const two = { schema_version: 1, platform: 'darwin', modules: [mod('mvt_spyware_scan', []), mod('stalkerware_scan', [])] };
   const main = (doc) => applyScanResult({ profile: 'iphone_spyware_check', lastDoc: base, doc, policies: [] });
-  for (const ran of [one, two]) {
-    const list = app.mergeModules(base, ran);
-    assert.deepStrictEqual(list.modules.map((m) => m.name), main(ran).modules.map((m) => m.name), `${ran.modules.length} module(s)`);
-  }
-  assert.deepStrictEqual(app.mergeModules(base, one).modules.map((m) => m.name), ['firewall_check', 'mvt_spyware_scan']);
-  assert.strictEqual(app.mergeModules(base, two), two);
+  assert.deepStrictEqual(main(one).modules.map((m) => m.name), ['firewall_check', 'mvt_spyware_scan']);
+  assert.deepStrictEqual(main(two).modules.map((m) => m.name), ['mvt_spyware_scan', 'stalkerware_scan']);
+  // The LIST starts no sweep of its own, so it has no merge of its own.
+  assert.strictEqual(require('../renderer/app.js').mergeModules, undefined);
   // The game's copy has the same guard.
   const fs = require('node:fs');
   const src = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'game', 'controller.js'), 'utf8');
