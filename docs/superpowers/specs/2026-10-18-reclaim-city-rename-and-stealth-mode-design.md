@@ -94,7 +94,7 @@ Asked once, right after the worry screen, and remembered:
     yours; preserving evidence before changing anything;
   - help: 911, National DV Hotline 1-800-799-7233 (text START to 88788),
     TechSafety.org, NNEDV Safety Net, WomensLaw.org, Clinic to End Tech Abuse,
-    and the Six Roses guide itself (opens in the browser; it reads as a recipe);
+    and the Six Roses guide itself (opens in the browser; its title reads as a recipe, though the page itself is plainly a safety guide);
   - "Leaving is the most dangerous time. Plan carefully with DV advocates."
 - **Monitoring findings never say "remove".** In stealth mode a monitoring
   finding goes to the help district as "Don't remove it yet. Talk to an
