@@ -149,8 +149,8 @@ export function renderMissionScreen(o) {
         ${sayHtml}</div>
       ${warningHtml(view.warning, mode, place)}
       <div class="mx-card">${cardHtml}</div>
-      ${a ? feedback : moves}
-      <button type="button" class="btn-t" data-act="mx-practice-leave">LEAVE PRACTICE</button></section>`;
+      <div class="mx-bar">${a ? feedback : moves}
+      <button type="button" class="btn-t" data-act="mx-practice-leave">LEAVE PRACTICE</button></div></section>`;
   }
   if (run.phase === 'summary') {
     const next = nextMission ? `<button type="button" class="btn-p" data-act="mx-next">NEXT MISSION ▶</button>` : '';
@@ -172,6 +172,11 @@ export function renderMissionScreen(o) {
     ? (mode === 'city' ? 'Only if it’s yours. Keep it?' : 'Keep it only if you know it’s yours. Keep it?')
     : (mode === 'city' ? 'Read the line above first. Go on?' : 'Read the warning above first. Go on?'))}</p>
       <div class="row"><button type="button" class="btn-p" data-act="mx-confirm">YES, GO ON</button><button type="button" class="btn-s" data-act="mx-cancel">CANCEL</button></div></div>` : '';
+  // The decision bar: the decisions (or the confirm, or NEXT) stay in view at the
+  // foot of the window however long the card and evidence are.
+  const deciding = !(confirming || actHtml || busy || view.showing);
+  const bar = `${confirm}${view.showing && !busy ? `<div class="row"><button type="button" class="btn-p" data-act="mx-continue">${esc(view.index + 1 < view.total ? 'NEXT ▶' : 'FINISH ▶')}</button></div>` : ''}${deciding
+    ? `${decisionButtons(view.decisions || [], mode, 'mx-decide')}<button type="button" class="btn-t mx-skip" data-act="mx-skip">SKIP FOR NOW</button>` : ''}`;
   const act = actHtml ? `<div class="mx-act">${actHtml}<button type="button" class="btn-t" data-act="mx-cancel">NOT NOW</button></div>` : '';
   return `<section class="mx-screen">${head}
     <div class="row mx-progress"><span class="mx-where"><span class="label">${esc(mode === 'city' ? 'TARGET' : 'ITEM')} ${esc(view.index + 1)} OF ${esc(view.total)}</span>${sev}</span>${practiceBtn}</div>
@@ -181,10 +186,8 @@ export function renderMissionScreen(o) {
     ${unfinished}${guideHtml(view.guide, mode)}
     ${view.closer || research.open ? evidenceHtml : `<details class="mx-evidence"><summary class="label">${esc(mode === 'city' ? 'WHAT THE SWEEP SAW' : 'WHAT THE CHECK SAW')}</summary>${evidenceHtml}</details>`}
     ${linksHtml(research.links, mode)}
-    ${confirm}${act}
-    ${view.showing && !busy ? `<div class="row"><button type="button" class="btn-p" data-act="mx-continue">${esc(view.index + 1 < view.total ? 'NEXT ▶' : 'FINISH ▶')}</button></div>` : ''}
-    ${confirming || actHtml || busy || view.showing ? '' : decisionButtons(view.decisions || [], mode, 'mx-decide')}
-    ${confirming || actHtml || busy || view.showing ? '' : '<button type="button" class="btn-t" data-act="mx-skip">SKIP FOR NOW</button>'}
+    ${act}
+    ${bar ? `<div class="mx-bar">${bar}</div>` : ''}
   </section>`;
 }
 

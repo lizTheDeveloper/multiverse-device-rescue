@@ -212,3 +212,20 @@ test('"didn’t finish" is said once: the card’s own line, else the screen’s
   assert.strictEqual(count(bare), 1);
   assert.match(bare, /badge fog">DIDN’T FINISH/, 'a card that doesn’t say it still gets the line: never reads clean');
 });
+
+// --- P2-15: the decisions stay in view; P3: the screen has its own padding ---
+
+test('the decisions, the confirm and NEXT sit in the sticky decision bar; the screen is padded', async () => {
+  const k = await kit();
+  const ctx = ctxOf(k.C, k.R);
+  const g = { ...k.games.simple, decisions: () => [D('later', 'later'), D('note', 'note', { steps: ['Do this.'] })] };
+  const item = k.C.makeItem({ module: 'm', title: 't', severity: 'warning' });
+  let run = k.Run.startRun({ id: 'm', items: [item, { ...item, key: 'b' }] });
+  const bar = (h) => (h.match(/<div class="mx-bar">([\s\S]*?)<\/div>\s*<\/section>/) || [])[1] || '';
+  assert.match(bar(screen(k, run, k.Run.viewFor(run, g, ctx, {}))), /mx-decide:later[\s\S]*mx-skip/);
+  run = k.Run.choose(run, 'note', g, ctx).run;
+  assert.match(bar(screen(k, run, k.Run.viewFor(run, g, ctx, {}))), /mx-continue/);
+  const css = fs.readFileSync(path.join(M, 'missions.css'), 'utf8');
+  assert.match(css, /\.mx-bar \{ position: sticky; bottom: 0;/);
+  assert.match(css, /\.mx-screen \{[^}]*padding: 22px 18px 0/);
+});

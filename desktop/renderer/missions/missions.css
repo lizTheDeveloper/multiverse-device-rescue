@@ -9,7 +9,7 @@
 .mx-row.mx-done .mission-text { color: var(--dim); }
 .mx-notes-label { margin-top: 16px; }
 
-.mx-screen { display: flex; flex-direction: column; gap: 14px; max-width: 860px; }
+.mx-screen { display: flex; flex-direction: column; gap: 14px; max-width: 860px; padding: 22px 18px 0; box-sizing: border-box; }
 .mx-screen .m-title .mx-part { font-family: var(--font-mono); font-size: 12px; color: var(--dim); letter-spacing: 1px; margin-left: 8px; }
 .mx-progress { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .mx-where { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -25,6 +25,13 @@
 .mx-guide .mx-guide-head { margin: 10px 0 0; }
 .mx-guide .mx-guide-head:first-child { margin-top: 0; }
 .mx-decisions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* The decisions stay in view at the foot of the window (a long card or open
+   evidence never pushes them below the fold). */
+.mx-bar { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  background: var(--charcoal); border-top: 1px solid var(--line); padding: 12px 0 14px; margin-top: 4px; }
+.mx-bar .mx-decisions { flex: 1 1 auto; }
+.mx-bar .mx-confirm { flex: 1 1 100%; }
+.mx-bar .mx-feedback { flex: 1 1 100%; }
 .mx-decisions button { min-height: 44px; white-space: normal; }
 .mx-confirm, .mx-act { border: 1px solid var(--amber); padding: 14px; background: var(--panel); }
 .mx-practice-banner { border-color: var(--lime); }
@@ -36,5 +43,6 @@
 
 @media (max-width: 820px) {
   .mx-screen { max-width: 100%; }
-  .mx-decisions button { flex: 1 1 100%; }
+  .mx-screen { padding: 16px 14px 0; }
+  .mx-decisions button { flex: 1 1 auto; }
 }
