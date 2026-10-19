@@ -215,7 +215,7 @@ test('Esc from the district on a deck with signals: the deck at once, focus on t
   assert.match(t.html(), /side-title/);
   t.press('Escape');
   assert.match(t.html(), /INCOMING SIGNALS/);
-  assert.ok(t.focused.some((x) => x.startsWith('[data-go="filter:')), t.focused.join(', '));
+  assert.ok(t.focused.some((x) => x.startsWith('[data-go="district:')), t.focused.join(', '));
 });
 
 test('Esc is left alone while the city isn’t on screen (app.js’s own screens keep their Esc)', async () => {
@@ -239,7 +239,7 @@ test('a district holding a monitoring finding never reads NOTHING FOUND: it says
   const gate = findingsToCity(scan(SPY())).districts.find((d) => d.missions.length).id;
   for (const mode of ['city', 'standard', 'none']) {
     const t = await setup({ mode }, scan(SPY()));
-    const card = t.html().split(`data-go="filter:${gate}"`)[1].split('</button>')[0];
+    const card = t.html().split(`data-go="district:${gate}"`)[1].split('</button>')[0];
     assert.doesNotMatch(card, /NOTHING FOUND|Nothing found|RECLAIMED/, mode);
     // City mode has no note above the map, only the generated district's tile.
     const want = mode === 'city' ? `Checked. See ${pickDistrict(424242).name}.` : HELD_DISTRICT_LINE;
@@ -248,7 +248,7 @@ test('a district holding a monitoring finding never reads NOTHING FOUND: it says
     assert.doesNotMatch(t.html(), /Nothing stood out in the checks that ran/, mode);
     // Once it is gone, the district reads as before.
     t.ctl.show(scan(NONE()), { id: 'city' });
-    assert.match(t.html().split(`data-go="filter:${gate}"`)[1].split('</button>')[0], /NOTHING FOUND/, mode);
+    assert.match(t.html().split(`data-go="district:${gate}"`)[1].split('</button>')[0], /NOTHING FOUND/, mode);
   }
 });
 
@@ -385,7 +385,7 @@ test('a monitoring check that couldn’t look is COULDN’T CHECK, never NOTHING
     assert.strictEqual(d.status, 'fog', code);
     for (const mode of ['city', 'standard', 'none']) {
       const t = await setup({ mode }, doc);
-      const card = t.html().split(`data-go="filter:${d.id}"`)[1].split('</button>')[0];
+      const card = t.html().split(`data-go="district:${d.id}"`)[1].split('</button>')[0];
       assert.match(card, /COULDN’T CHECK/, `${mode} ${code}`);
       assert.doesNotMatch(card, /NOTHING FOUND|Nothing found/, `${mode} ${code}`);
       assert.doesNotMatch(t.html(), /<b>100%<\/b>/, `${mode} ${code}`);

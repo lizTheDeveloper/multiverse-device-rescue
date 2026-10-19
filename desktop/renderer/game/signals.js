@@ -166,3 +166,26 @@ export function sweepCounts(doc, city, integrity, held = null) {
     unfinished: mods.filter((m) => m && m.status === 'ok' && m.supported !== false && m.complete === false).length,
   };
 }
+
+// The queue as rows: signals with the same title and severity in one row,
+// with how many there are (`same`) and the first one's id to open. Order kept.
+export function mergeSame(signals) {
+  const out = [];
+  const at = new Map();
+  for (const x of signals || []) {
+    const k = `${x.kind}|${x.severity}|${x.title}`;
+    const row = at.get(k);
+    if (row && x.kind !== 'drill') { row.same += 1; row.ids.push(x.id); continue; }
+    const r = { ...x, same: 1, ids: [x.id] };
+    at.set(k, r);
+    out.push(r);
+  }
+  return out;
+}
+
+// How many signals of each kind the queue holds, for its filters.
+export function severityCounts(signals) {
+  const out = { critical: 0, warning: 0, couldnt: 0 };
+  for (const x of signals || []) if (x.severity in out) out[x.severity] += 1;
+  return out;
+}

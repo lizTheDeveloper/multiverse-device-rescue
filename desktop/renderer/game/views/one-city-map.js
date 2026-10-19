@@ -15,7 +15,7 @@ function accountSkyline(c) {
 
 // goFor, heat, selected, held and heldAt: as in map.js's renderMap. Account districts are unchanged.
 export function renderOneCityMap({ city, progress, accountCards, focus, cameBack, scout, accountsError,
-  goFor = (d) => `district:${d.id}`, heat = {}, selected = null, held = null, heldAt = null }) {
+  goFor = (d) => `district:${d.id}`, heat = {}, selected = null, held = null, heldAt = null, showScout = true }) {
   const device = city.districts.map((d0) => {
     const d = heldView(d0, held);
     const reclaimed = progress ? reclaimedIn(progress, d).length : 0;
@@ -37,10 +37,10 @@ export function renderOneCityMap({ city, progress, accountCards, focus, cameBack
   <section class="map" aria-label="Your computer and your accounts as one city">
     <div class="ring-label"${focus === 'computer' ? ' data-focus' : ''}><span class="label">YOUR COMPUTER · FROM THE CHECKUP</span></div>
     <div class="districts">${device}</div>
-    <div class="ring-label"><span class="label">YOUR ACCOUNTS · YOU REPORT THESE</span></div>
     ${accountsError
-      ? `<p class="say">${esc('Your accounts’ districts couldn’t load. Your computer’s districts still work.')}</p>`
-      : `<div class="districts">${accounts}</div>`}
-    <div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(line)}</p></div>
+      ? `<div class="ring-label"><span class="label">YOUR ACCOUNTS · YOU REPORT THESE</span></div><p class="say">${esc('Your accounts’ districts couldn’t load. Your computer’s districts still work.')}</p>`
+      : `<details class="accounts-fold"${(accountCards || []).some((c) => c.id === focus) ? ' open' : ''}><summary class="ring-label"><span class="label">YOUR ACCOUNTS (${(accountCards || []).length}) · YOU REPORT THESE</span></summary>
+      <div class="districts">${accounts}</div></details>`}
+    ${showScout ? `<div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(line)}</p></div>` : ''}
   </section>`;
 }

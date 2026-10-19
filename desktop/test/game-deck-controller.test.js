@@ -86,7 +86,7 @@ test('the deck is the city’s home: queue, city, instruments, log, and its own 
   assert.match(html, /INCOMING SIGNALS/);
   assert.match(html, /data-act="investigate-next"/);
   assert.match(html, /aria-label="Your computer as a city"/);
-  assert.match(html, /data-go="filter:gatehouse"/);
+  assert.match(html, /data-go="district:gatehouse"/);
   assert.match(html, /City integrity/);
   assert.match(html, /OPS LOG/);
   assert.match(html, /LOW-PRIORITY SIGNALS \(1\)/);
@@ -223,12 +223,20 @@ test('monitoring checks never become signals, and nothing about them is stored',
   assert.doesNotMatch(JSON.stringify(savedProfile(t.storage)), /stalkerware|monitoringSeen/);
 });
 
-test('drills join the queue: about one per four real signals, from the same districts, stamped DRILL', async () => {
+test('drills sit apart from what the scan found: one practice row at the end of the queue, from the same districts', async () => {
   const five = scan(mod('a_mod', Array.from({ length: 5 }, (_, i) => f(`W${i}`, 'warning', { plist: `/w${i}` }))));
   const t = await deckSetup(five);
-  const drills = queueOf(t.html()).match(/data-go="signal:drill:[^"]+"/g) || [];
-  assert.strictEqual(drills.length, 2);
+  const q = queueOf(t.html());
+  const drills = q.match(/data-go="signal:drill:[^"]+"/g) || [];
+  assert.strictEqual(drills.length, 1, 'one practice row');
   assert.ok(drills.every((d) => /gate-/.test(d)), 'only drills from the districts in the queue');
+  assert.match(q, /2 practice signals/);
+  assert.ok(q.lastIndexOf('signal:a_mod') < q.indexOf('signal:drill:'), 'after every real signal');
+  // Answering the first, the row moves on to the next.
+  t.click({ 'data-go': drills[0].slice(9, -1) });
+  t.click({ 'data-act': 'tag:threat' });
+  t.click({ 'data-act': 'close-signal' });
+  assert.match(queueOf(t.html()), /1 practice signal</);
 });
 
 test('a drill: right pays drill points, wrong pays nothing and gives the tell; neither touches integrity or the bars', async () => {
@@ -759,7 +767,7 @@ test('an open mission and a re-sweep whose check didn’t finish: still open, no
   assert.deepStrictEqual(saved.deck.confirmed, {});
   assert.strictEqual(saved.deck.points, points);
   const html = t.html();
-  assert.match(html, /class="district partial[^"]*" data-go="filter:gatehouse"/);
+  assert.match(html, /class="district partial[^"]*" data-go="district:gatehouse"/);
   assert.match(html, /1 DIDN’T FINISH/);
   assert.doesNotMatch(html, /NOTHING FOUND|What was found here before is gone now|CLEAN SWEEP|SECURED<\/span> The Gatehouse/);
   assert.doesNotMatch(html, /NO LONGER SEEN<\/span> A/);

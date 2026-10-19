@@ -104,7 +104,7 @@ test('Esc, or BACK TO THE GAME, swaps straight to the deck with focus on the map
     else t.click({ 'data-act': 'side-back' });
     assert.doesNotMatch(t.html(), /side-title/, leave);
     assert.match(t.html(), /INCOMING SIGNALS/, leave);
-    assert.ok(t.focused.includes('[data-go="filter:gatehouse"]'), `${leave}: ${t.focused.join(', ')}`);
+    assert.ok(t.focused.includes('[data-go="district:gatehouse"]'), `${leave}: ${t.focused.join(', ')}`);
   }
 });
 

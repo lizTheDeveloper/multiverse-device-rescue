@@ -11,15 +11,15 @@ import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, record
 import { conceptById, isHidden } from './profile/skills.js';
 import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, PUBLISH_FIELDS } from './profile/publish.js';
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ } from './clues.js';
-import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './drills.js';
+import { loadDrills, chooseDrills, drillSignal, pickDrills } from './drills.js';
 import { renderDeck, preSweepCityHtml } from './views/deck.js';
 import { renderInstruments } from './views/instruments.js';
 import { renderSignalPanel, renderRange } from './views/signal.js';
 import { renderHud } from './views/hud.js';
-import { renderMap } from './views/map.js';
+import { renderMap, mapLine } from './views/map.js';
 import { renderDistrict } from './views/district.js';
 import { renderBriefing } from './views/briefing.js';
 import { renderOutcome } from './views/outcome.js';
@@ -172,7 +172,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     scanConfirmed: loadScanConfirmed(storage), linkNotice: '',
     lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit(),
     // The command center. The ops log is kept in memory only.
-    signal: null, filter: null, lowOpen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
+    signal: null, filter: null, lowOpen: false, queueOpen: false, sev: null, sideSeen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
     // This sweep's evidence, memory only: real findings already counted as a
     // call gap, and drills whose first answer was recorded (a re-try after the
     // right answer was shown is practice, not evidence).
@@ -201,8 +201,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     sideDistrict = pickDistrict(seedFrom(raw));
     return sideDistrict;
   };
-  const sideTile = () => (inCity() ? sideTileHtml(side(), s.held.length) : '');
-  const heldNotice = () => (inCity() && s.held.length ? heldNoticeHtml(side()) : '');
+  // The tile is always there (the cover); the notice says something new is
+  // in there, until the person has been this sweep. One pointer, not two.
+  const sideTile = () => (inCity() ? sideTileHtml(side(), 0) : '');
+  const heldNotice = () => (inCity() && s.held.length && !s.sideSeen ? heldNoticeHtml(side()) : '');
 
   // loadLessons never rejects: a lesson that fails to load is left out.
   // Until then the Training Grounds says the lessons are on their way, not that they failed.
@@ -479,11 +481,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const real = queueOf(signalsNow(), null).urgent.filter((x) => x.kind === 'real');
     return chooseDrills(s.drillBank, real, s.progress.deck, s.progress.deck.sweeps.length);
   }
+  // The queue: what the scan found (by kind and district, as filtered), and
+  // this sweep's practice drills apart from it.
   function deckQueue() {
     const sigs = signalsNow();
     const q = queueOf(sigs, s.filter);
-    const drills = (s.sweepDrills || []).filter((d) => !s.drillAnswers[d.id] && (!s.filter || d.district === s.filter));
-    return { sigs, q, items: mixDrills(q.urgent, drills) };
+    const drills = (s.sweepDrills || []).filter((d) => !s.drillAnswers[d.id] && (!s.filter || d.district === s.filter)).map(drillSignal);
+    const items = s.sev ? q.urgent.filter((x) => x.severity === s.sev) : q.urgent;
+    return { sigs, q, items, drills };
   }
   function findSignal(id) {
     if (typeof id !== 'string') return null;
@@ -509,12 +514,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   function deckHtml() {
-    const { sigs, q, items } = deckQueue();
+    const { sigs, q, items, drills } = deckQueue();
     const integ = cityIntegrity(s.city, sigs, s.heldCity);
     const deck = s.progress.deck;
     const history = deck.sweeps.map(sweepPercent);
     const c = counts();
-    const goFor = (d) => `filter:${d.id}`;
+    // A district card opens its district; the queue has its own filters.
+    const goFor = (d) => `district:${d.id}`;
     const heat = districtHeat(s.city, sigs, s.heldCity);
     // Monitoring software the scan found. City mode: the generated district's
     // tile and a notice that name only the place, and the help is in there.
@@ -527,14 +533,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const cityHtml = sideTile() + held + (s.rc || s.accountsError
       ? renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
         accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
-        accountsError: s.accountsError, goFor, heat, selected: s.filter, held: heldIn, heldAt })
-      : renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter, held: heldIn, heldAt }));
+        accountsError: s.accountsError, goFor, heat, selected: s.filter, held: heldIn, heldAt, showScout: false })
+      : renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter, held: heldIn, heldAt, showScout: false }));
+    // Scout's read sits under the queue's header, where the person starts.
+    const scoutHtml = `<div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(mapLine(s.city, s.cameBack, heldIn, heldAt))}</p></div>`;
     const fd = s.filter ? district(s.filter) : null;
     const moments = s.moments;
     s.moments = []; // a moment shows once
     return renderDeck({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', rank: rankOf(deck),
       lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
-      items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known, ...q.noted],
+      items: mergeSame(items), low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known, ...q.noted],
+      queueOpen: s.queueOpen, sev: s.sev, sevCounts: severityCounts(q.urgent), drills, scoutHtml,
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
         history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
@@ -1059,6 +1068,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function openSide() {
     s.signal = null; // a Signal or Noise panel left open closes
     s.sideNotice = false;
+    s.sideSeen = true;
     s.screen = 'side';
     // Only where they went: nothing about what is there.
     logEntry('VISIT', `Visited ${side().name}`);
@@ -1076,7 +1086,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     render();
     const first = s.city && s.city.districts.length ? s.city.districts[0] : null;
     const target = first
-      ? frame.querySelector(`[data-go="filter:${first.id}"]`) || frame.querySelector(`[data-go="district:${first.id}"]`)
+      ? frame.querySelector(`[data-go="district:${first.id}"]`) || frame.querySelector(`[data-go="filter:${first.id}"]`)
       : frame.querySelector('[data-act="start-checkup"]');
     if (target && typeof target.focus === 'function') target.focus();
   }
@@ -1148,8 +1158,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.signal = null; s.screen = 'map'; render(); return;
     }
     if (act === 'investigate-next') {
-      const { q, items } = deckQueue();
-      const next = items[0] || q.low[0];
+      const { q, items, drills } = deckQueue();
+      const next = items[0] || drills[0] || q.low[0];
       if (next) openSignal(next.id); else render();
       return;
     }
@@ -1157,6 +1167,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act && act.startsWith('tag:')) { tagSignal(act.slice(4)); return; }
     if (act === 'close-signal') { closeSignal(); return; }
     if (act === 'toggle-low') { s.lowOpen = !s.lowOpen; render(); return; }
+    if (act === 'toggle-queue') { s.queueOpen = !s.queueOpen; render(); focusEl(findByAttr(frame, 'data-act', 'toggle-queue')); return; }
+    if (act && act.startsWith('sev:')) {
+      const k = act.slice(4);
+      s.sev = k === 'all' || s.sev === k ? null : k;
+      if (k === 'all') s.filter = null;
+      s.queueOpen = false; s.signal = null; render(); focusEl(findByAttr(frame, 'data-act', act)); return;
+    }
     if (act === 'batch-fine') { batchFine(); return; }
     // YOUR FILE, its Start over, and its publish sheet.
     if (go === 'profile') { openProfile(); return; }
@@ -1428,7 +1445,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (doc !== s.sweptDoc) newSweep(doc, prev);
     s.screen = stay ? 'side' : 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
     s.lesson = null; s.pendingCity = false;
-    s.signal = null; s.filter = null; s.lowOpen = false; s.range = null;
+    s.signal = null; s.filter = null; s.lowOpen = false; s.range = null; s.queueOpen = false; s.sev = null;
+    // A new sweep that holds something says NEW on the tile again.
+    if (doc !== s.sweptDocSeen) { s.sideSeen = false; s.sweptDocSeen = doc; }
     s.focusPending = !stay;
   }
 

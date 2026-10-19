@@ -70,3 +70,62 @@ test('steps never paste scan data into a shell command where it could run', asyn
   // A safe value is always single-quoted, in every template context.
   for (const t of TEMPLATES.slice(0, 4)) assert.strictEqual(fillPlaceholders(t, { path: '/Applications/Ö App.app' }, 'darwin'), "cat '/Applications/Ö App.app'");
 });
+
+test('P1-4: the queue is a few little missions: 5 rows, AND N MORE, same titles merged, filters, Scout up top', async () => {
+  const { renderDeck, QUEUE_SHOWN } = await game('views/deck.js');
+  const { mergeSame, severityCounts } = await game('signals.js');
+  const { rankOf } = await game('ledger.js');
+  const { emptyDeck } = await game('progress.js');
+  const sig = (id, severity, title = `T ${id}`) => ({ id, kind: 'real', severity, title, districtId: 'gatehouse', tag: null, count: 1 });
+  const all = [sig('a', 'critical'), ...Array.from({ length: 3 }, (_, i) => sig(`n${i}`, 'warning', 'Your Mac is set to never sleep')),
+    ...Array.from({ length: 12 }, (_, i) => sig(`w${i}`, 'warning'))];
+  const rows = mergeSame(all);
+  assert.strictEqual(rows.length, 14);
+  assert.strictEqual(rows[1].same, 3);
+  const deck = (over) => renderDeck({ title: 'X', rank: rankOf(emptyDeck()), lastSweep: null, items: rows, sevCounts: severityCounts(all),
+    scoutHtml: '<p class="say">Start with The Gatehouse.</p>', districtName: () => 'The Gatehouse',
+    districtChips: [{ id: 'gatehouse', name: 'The Gatehouse', count: 16 }, { id: 'wires', name: 'The Wires', count: 2 }], ...over });
+  const html = deck({});
+  const q = html.split('INCOMING SIGNALS')[1].split('deck-city')[0];
+  assert.strictEqual((q.match(/data-go="signal:/g) || []).length, QUEUE_SHOWN);
+  assert.match(q, /AND 9 MORE ▶/);
+  assert.match(q, /Your Mac is set to never sleep <span class="same"[^>]*>×3<\/span>/);
+  assert.ok(q.indexOf('Start with The Gatehouse') < q.indexOf('investigate-next'), 'Scout’s read under the header');
+  assert.match(q, /data-act="sev:critical"[^>]*>CRITICAL 1</);
+  assert.match(q, /data-act="sev:warning"[^>]*>WARNING 15</);
+  assert.match(q, /data-go="filter:wires"/);
+  const open = deck({ queueOpen: true }).split('INCOMING SIGNALS')[1].split('deck-city')[0];
+  assert.strictEqual((open.match(/data-go="signal:/g) || []).length, 14);
+  assert.match(open, /SHOW FEWER/);
+});
+
+test('P1-4: the deck controller filters by kind, opens the rest, and a district card opens the district', async () => {
+  const { createController } = await game('controller.js');
+  let html = '';
+  const clicks = [];
+  const frame = { set innerHTML(v) { html = v; }, get innerHTML() { return html; }, addEventListener: (t, fn) => { if (t === 'click') clicks.push(fn); },
+    querySelector: () => null, querySelectorAll: () => [] };
+  const shadow = { activeElement: null, getElementById: () => frame, addEventListener: () => {} };
+  const Q = require('../renderer/quiet-notes.js');
+  const win = { document: { getElementById: () => ({ attachShadow: () => shadow }) }, QuietNotes: Q,
+    FixFlow: { attach() {}, fixControlsHtml: () => '', resultHtml: () => '' }, MarkFlow: { attach() {}, markControlsHtml: () => '' },
+    RescueHost: { mode: () => 'city', citySeed: () => 1, showList() {}, docChanged: () => true, wantsSafety: () => false, scanTips: async () => [], leaveGame() {} },
+    rescue: {} };
+  const ctl = createController({ win, storage: { getItem: () => null, setItem() {}, removeItem() {} }, scoutSprite: () => '',
+    loadGame: () => new Promise(() => {}), loadTraining: async () => [], loadDrillBank: async () => [] });
+  const f = (title, severity, i) => ({ title, severity, description: '', category: 'security', code: `c.${i}`, data: { path: `/p${i}` } });
+  const findings = [f('Crit', 'critical', 0), ...Array.from({ length: 8 }, (_, i) => f(`Warn ${i}`, 'warning', i + 1))];
+  ctl.show({ schema_version: 1, platform: 'darwin', modules: [{ name: 'some_check', category: 'security', status: 'ok', supported: true, findings }] }, { id: 'city' });
+  const click = (attrs) => { const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) }; clicks.forEach((fn) => fn({ target: { closest: () => el } })); };
+  const q = () => html.split('INCOMING SIGNALS')[1].split('deck-city')[0];
+  const rows = () => (q().match(/data-go="signal:/g) || []).length;
+  assert.strictEqual(rows(), 5);
+  click({ 'data-act': 'toggle-queue' });
+  assert.strictEqual(rows(), 9);
+  click({ 'data-act': 'sev:critical' });
+  assert.strictEqual(rows(), 1);
+  assert.match(q(), /data-act="sev:critical" aria-pressed="true"/);
+  click({ 'data-act': 'sev:all' });
+  assert.strictEqual(rows(), 5);
+  assert.match(html, /class="district [^"]*" data-go="district:gatehouse"/);
+});
