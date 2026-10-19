@@ -182,8 +182,14 @@ const Evidence = (function () {
     const subjects = new Set(entries.map((e) => e.subject));
     // An app is matched only by what the engine looked up: the name itself
     // for a string, the path for a {path, name} entry (never its own name).
-    return apps.every((a) => { const k = appSubject(a); return k != null && subjects.has(k); });
+    return apps.every((a) => { const k = verifiedSubject(a); return k != null && subjects.has(k); });
   }
+
+  // What a maker can be verified for: a full path (the file attribution
+  // checked). A bundle id never is: it is what the app says it is, and a TCC
+  // row's id can belong to any program (rescue/serialize.py _app_subject).
+  const isPath = (a) => typeof a === 'string' && (/^[/~]/.test(a) || /^[A-Za-z]:[\\/]/.test(a));
+  const verifiedSubject = (a) => (typeof a === 'string' ? (isPath(a) ? a : null) : appSubject(a));
 
   /** The subject an "apps" entry was looked up by: itself, or its path. */
   function appSubject(a) {

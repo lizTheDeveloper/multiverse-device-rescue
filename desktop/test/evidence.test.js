@@ -31,10 +31,10 @@ const F = {
     data: { check: 'new_persistence', added: ['/Users/ann/Library/LaunchAgents/ai.hermes.gateway-deflock.plist'], baseline_captured_at: '2026-10-10T18:44:55+00:00' } },
   keyboard: { module: 'keylogger_indicators', severity: 'info', title: 'Keyboard access: 2 apps with familiar names',
     code: 'security.keylogger_indicators.suspicious_input_monitoring',
-    data: { check: 'claimed_vendor_input_monitoring', apps: ['com.microsoft.VSCode', 'com.valvesoftware.steam'] },
+    data: { check: 'claimed_vendor_input_monitoring', apps: ['/Applications/Visual Studio Code.app', '/Applications/Steam.app'] },
     made_by: [
-      { subject: 'com.microsoft.VSCode', name: 'Microsoft Corporation', verified: true, how: 'Developer ID signature', location_note: '' },
-      { subject: 'com.valvesoftware.steam', name: 'Valve Corporation (Steam)', verified: true, how: 'Developer ID signature', location_note: '' },
+      { subject: '/Applications/Visual Studio Code.app', name: 'Microsoft Corporation', verified: true, how: 'Developer ID signature', location_note: '' },
+      { subject: '/Applications/Steam.app', name: 'Valve Corporation (Steam)', verified: true, how: 'Developer ID signature', location_note: '' },
     ] },
   mspy: { module: 'stalkerware_scan', severity: 'critical', title: 'mSpy is on this computer (app)',
     data: { check: 'monitoring_software_found', stalkerware_name: 'mSpy', stalkerware_category: 'stalkerware', detected_as: 'app', location: '/Applications/mSpy.app', confidence: 'high' },
@@ -131,8 +131,8 @@ test('keyboard access: one row per app with its maker and whether it was verifie
   const rows = E.evidenceRows(F.keyboard);
   const apps = rows.filter((r) => r.label === 'Keyboard access');
   assert.deepStrictEqual(apps.map((r) => r.value), [
-    'com.microsoft.VSCode — Microsoft Corporation · verified (Developer ID signature)',
-    'com.valvesoftware.steam — Valve Corporation (Steam) · verified (Developer ID signature)',
+    '/Applications/Visual Studio Code.app — Microsoft Corporation · verified (Developer ID signature)',
+    '/Applications/Steam.app — Valve Corporation (Steam) · verified (Developer ID signature)',
   ]);
   assert.ok(!get(rows, 'Made by'), 'makers are on the app rows, not repeated');
   assert.strictEqual(E.makersVerified(F.keyboard), true);
@@ -352,6 +352,13 @@ test('keyboard access with every maker verified: the rows replace the "not verif
   assert.strictEqual(E.replacesDescription(one), false);
   assert.strictEqual(E.evidenceRows(one).replacesDescription, undefined);
   assert.strictEqual(E.replacesDescription({ ...kb, makers_verified: false }), false);
+  // Apps named by bundle id (a TCC row's client): what the app says it is,
+  // never verified, even with a "verified" entry under that name.
+  const named = { ...kb, data: { ...kb.data, apps: ['com.google.Chrome'] },
+    made_by: [{ subject: 'com.google.Chrome', name: 'Google LLC', verified: true, what: 'Google Chrome' }] };
+  assert.strictEqual(E.makersVerified(named), false);
+  assert.strictEqual(E.replacesDescription(named), false, 'the engine’s “not verified” prose stays');
+  assert.strictEqual(E.evidenceRows(named).replacesDescription, undefined);
   // Other findings never.
   assert.strictEqual(E.replacesDescription(F.tampered), false);
   assert.strictEqual(E.replacesDescription({ ...F.agent, made_by: [{ subject: 'x', name: 'Apple', verified: true }] }), false);

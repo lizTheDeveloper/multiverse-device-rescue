@@ -163,14 +163,31 @@ def _with_makers(entries, apps):
 
 
 def test_makers_verified_only_when_every_app_has_a_verified_maker():
-    ms = {"subject": "com.microsoft.VSCode", "name": "Microsoft Corporation", "verified": True, "how": "Developer ID signature"}
-    valve = {"subject": "com.valvesoftware.steam", "name": "Valve", "verified": True, "how": "Developer ID signature"}
-    apps = ["com.microsoft.VSCode", "com.valvesoftware.steam"]
+    ms = {"subject": "/Applications/Visual Studio Code.app", "name": "Microsoft Corporation", "verified": True, "how": "Developer ID signature"}
+    valve = {"subject": "/Applications/Steam.app", "name": "Valve", "verified": True, "how": "Developer ID signature"}
+    apps = ["/Applications/Visual Studio Code.app", "/Applications/Steam.app"]
     assert _with_makers([ms, valve], apps)["makers_verified"] is True
     assert _with_makers([ms], apps)["makers_verified"] is False
     assert _with_makers([ms, {**valve, "verified": False}], apps)["makers_verified"] is False
     plain = module_entry(Mod("x"), CheckResult("x", [f()]))["findings"][0]
     assert "makers_verified" not in plain, "no makers looked up, nothing claimed"
+
+
+def test_a_bundle_id_never_borrows_a_verified_maker():
+    """A TCC row's client is a bundle id the app reports about itself; the
+    signature of whichever app in /Applications declares it says nothing about
+    the program that holds keyboard access."""
+    chrome = {"subject": "com.google.Chrome", "name": "Google LLC", "verified": True,
+              "how": "Developer ID signature", "what": "Google Chrome: Google's web browser."}
+    out = _with_makers([chrome], ["com.google.Chrome"])
+    assert out["makers_verified"] is False
+    (entry,) = out["made_by"]
+    assert entry["verified"] is False and "what" not in entry
+    assert entry["name"] == "Google LLC" and "app id only" in entry["how"]
+    # A path the attribution checked keeps its verified maker.
+    path = {**chrome, "subject": "/Applications/Google Chrome.app"}
+    out = _with_makers([path], ["/Applications/Google Chrome.app"])
+    assert out["makers_verified"] is True and out["made_by"][0]["verified"] is True
 
 
 # ---- severity (P2-30) ----
@@ -263,3 +280,22 @@ def test_big_counts_get_thousands_separators_only_before_counted_nouns():
     for keep in ("text START to 88788).", "Port 62628 (custom)", "Process python (pid 80674) kept",
                  "snapshot-zsh-1792113144222-fdfa5c.sh", "2026 errors", "BOOKWORM27-377984 files"):
         assert tidy(keep) == keep
+
+
+def test_app_permissions_list_entries_keyed_by_bundle_id_carry_no_verified_maker(monkeypatch):
+    import rescue.serialize as ser
+
+    finding = f(title="2 apps can control this computer", severity=Severity.INFO,
+                data={"check": "accessibility_access", "apps": ["com.google.Chrome", "/usr/local/bin/tool"]})
+    monkeypatch.setattr(ser, "_markable", lambda fi, name: {"items": [
+        {"key": "com.google.Chrome", "label": "Google Chrome"}, {"key": "/usr/local/bin/tool", "label": "tool"}]})
+    chrome = {"subject": "com.google.Chrome", "name": "Google LLC", "verified": True, "what": "Google Chrome"}
+    tool = {"subject": "/usr/local/bin/tool", "name": "Tool Co", "verified": True}
+    e = module_entry(Mod("app_permissions"), CheckResult("app_permissions", [finding]),
+                     made_by={id(finding): [chrome, tool]})
+    out = e["findings"][0]
+    by_key = {i["key"]: i["made_by"] for i in out["markable"]["items"]}
+    assert by_key["com.google.Chrome"]["verified"] is False and "what" not in by_key["com.google.Chrome"]
+    assert by_key["/usr/local/bin/tool"]["verified"] is True
+    assert [m["verified"] for m in out["made_by"]] == [False, True]
+    assert out["makers_verified"] is False

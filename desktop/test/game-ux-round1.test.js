@@ -133,9 +133,11 @@ test('P1-4: the deck controller filters by kind, opens the rest, and a district 
 test('P1-11: only verified, known programs with keyboard access leave the help district; everything else stays held', async () => {
   const { splitHeld, heldOnly, familiarVerified } = await game('held.js');
   const KB = 'security.keylogger_indicators.suspicious_input_monitoring';
-  const VS = { subject: 'com.microsoft.VSCode', name: 'Microsoft Corporation', verified: true, what: 'Visual Studio Code: Microsoft’s code editor.' };
-  const ST = { subject: 'com.valvesoftware.steam', name: 'Valve Corporation (Steam)', verified: true, what: 'Steam: Valve’s game store.' };
-  const kb = (severity, made_by, apps = ['com.microsoft.VSCode', 'com.valvesoftware.steam'], check = 'claimed_vendor_input_monitoring') =>
+  const VSC = '/Applications/Visual Studio Code.app';
+  const STM = '/Applications/Steam.app';
+  const VS = { subject: VSC, name: 'Microsoft Corporation', verified: true, what: 'Visual Studio Code: Microsoft’s code editor.' };
+  const ST = { subject: STM, name: 'Valve Corporation (Steam)', verified: true, what: 'Steam: Valve’s game store.' };
+  const kb = (severity, made_by, apps = [VSC, STM], check = 'claimed_vendor_input_monitoring') =>
     ({ title: 'Keyboard access: 2 app(s) with familiar names', severity, code: KB, data: { check, apps }, made_by });
   const doc = (f, name = 'keylogger_indicators') => ({ modules: [{ name, category: 'security', status: 'ok', supported: true, findings: [f] }] });
   assert.strictEqual(familiarVerified(kb('info', [VS, ST]), 'keylogger_indicators'), true);
@@ -144,17 +146,21 @@ test('P1-11: only verified, known programs with keyboard access leave the help d
   assert.deepStrictEqual(r.held, []);
   assert.strictEqual(r.doc.modules[0].findings.length, 1, 'kept as an ordinary note');
   assert.deepStrictEqual(heldOnly(doc(kb('info', [VS, ST]))).modules[0].findings, []);
-  const unknownSigned = { subject: 'com.evil.keys', name: 'Evil Keys Ltd', verified: true };
+  const unknownSigned = { subject: '/Applications/Keys.app', name: 'Evil Keys Ltd', verified: true };
+  const chrome = { subject: 'com.google.Chrome', name: 'Google LLC', verified: true, what: 'Google Chrome: Google’s web browser.' };
   const held = [
-    ['signed but unknown maker (no what)', doc(kb('info', [VS, unknownSigned], ['com.microsoft.VSCode', 'com.evil.keys']))],
-    ['one unknown app mixed in, with no made_by entry', doc(kb('info', [VS, ST], ['com.microsoft.VSCode', 'com.valvesoftware.steam', 'com.evil.keys']))],
+    ['signed but unknown maker (no what)', doc(kb('info', [VS, unknownSigned], [VSC, '/Applications/Keys.app']))],
+    ['one unknown app mixed in, with no made_by entry', doc(kb('info', [VS, ST], [VSC, STM, '/Applications/Keys.app']))],
+    ['named by bundle id only (a TCC client), with a verified, known maker', doc(kb('info', [chrome], ['com.google.Chrome']))],
+    ['bundle id mixed with paths', doc(kb('info', [VS, chrome], [VSC, 'com.google.Chrome']))],
+    ['the engine says not verified', doc({ ...kb('info', [VS, ST]), makers_verified: false })],
     ['one maker not verified', doc(kb('info', [VS, { ...ST, verified: false }]))],
     ['no makers', doc(kb('info', []))],
     ['warning', doc(kb('warning', [VS, ST]))],
     ['critical', doc(kb('critical', [VS, ST]))],
     ['the suspicious-apps check, same code', doc(kb('info', [VS, ST], undefined, 'suspicious_input_monitoring'))],
     ['stalkerware_scan at info with verified, known makers', doc({ title: 'TeamViewer is on this computer (app)', severity: 'info',
-      code: 'security.stalkerware_scan.monitoring_software_found', data: { check: 'claimed_vendor_input_monitoring', apps: ['com.microsoft.VSCode'] }, made_by: [VS] }, 'stalkerware_scan')],
+      code: 'security.stalkerware_scan.monitoring_software_found', data: { check: 'claimed_vendor_input_monitoring', apps: [VSC] }, made_by: [VS] }, 'stalkerware_scan')],
     ['mvt_spyware_scan with the familiar code', doc(kb('info', [VS, ST]), 'mvt_spyware_scan')],
   ];
   for (const [why, d] of held) {

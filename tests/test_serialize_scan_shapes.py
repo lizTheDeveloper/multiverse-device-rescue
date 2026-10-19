@@ -58,6 +58,8 @@ def test_apps_as_path_name_dicts_match_their_makers():
     assert _makers_verified(entries, {"apps": apps}) is True
     assert _makers_verified(entries[:1], {"apps": apps}) is False
     assert _makers_verified(entries, {"apps": ["/Applications/A.app", {"weird": 1}, 3]}) is False
+    # A bundle id is never a subject, even with a verified entry under that name.
+    assert _makers_verified([{"subject": "com.google.Chrome", "verified": True}], {"apps": ["com.google.Chrome"]}) is False
 
 
 def test_an_app_cannot_borrow_a_verified_maker_by_what_it_calls_itself():
@@ -121,11 +123,18 @@ def test_one_unwritable_finding_keeps_its_title_and_marks_the_check_unfinished(m
 def test_list_entries_carry_the_maker_looked_up_for_them():
     from rescue.serialize import _items_made_by
 
-    markable = {"items": [{"key": "com.getdropbox.dropbox", "label": "Dropbox"}, {"key": "com.apple.Terminal"}, "odd"]}
-    made_by = [{"subject": "com.getdropbox.dropbox", "name": "Dropbox, Inc.", "verified": True}]
+    markable = {"items": [{"key": "com.getdropbox.dropbox", "label": "Dropbox"}, {"key": "com.apple.Terminal"},
+                          {"key": "/Applications/Dropbox.app"}, "odd"]}
+    made_by = [{"subject": "com.getdropbox.dropbox", "name": "Dropbox, Inc.", "verified": True, "what": "Dropbox"},
+               {"subject": "/Applications/Dropbox.app", "name": "Dropbox, Inc.", "verified": True}]
     _items_made_by(markable, made_by)
     assert markable["items"][0]["made_by"]["name"] == "Dropbox, Inc."
+    # Keyed by a bundle id (a TCC client): the maker is named, never verified.
+    assert markable["items"][0]["made_by"]["verified"] is False
+    assert "what" not in markable["items"][0]["made_by"]
+    assert made_by[0]["verified"] is True, "the finding's own list is not changed here"
     assert "made_by" not in markable["items"][1]
+    assert markable["items"][2]["made_by"]["verified"] is True, "a checked path keeps it"
     _items_made_by(None, made_by)  # nothing to do, no crash
 
 

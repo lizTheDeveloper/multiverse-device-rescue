@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import re
 from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any
@@ -116,13 +117,49 @@ def _makers_verified(entries, data) -> bool:
     return True
 
 
+def _is_path(s) -> bool:
+    """A full path ("/…", "~/…" or "C:\\…"): something attribution checked the
+    file of. A bundle id or app name is not: it is what an app says it is."""
+    return isinstance(s, str) and (s.startswith(("/", "~")) or bool(re.match(r"^[A-Za-z]:[\\/]", s)))
+
+
+# How a maker reads when it was found only through a bundle id: the app that
+# declares that id was checked, not the program that holds the access.
+NAMED_ONLY_HOW = "matched by app id only; the program that holds this access wasn't checked"
+
+
+def _unverified(entry: dict) -> dict:
+    """``entry`` with no verified claim: a bundle id (a TCC row's client, an
+    app's own Info.plist) is a name the app reports about itself, so the
+    signature of whichever app declares it says nothing about who holds the
+    access. The "what it is" line goes too: it is only for verified programs."""
+    out = {k: v for k, v in entry.items() if k != "what"}
+    if out.get("verified") is True:
+        out["verified"] = False
+        out["how"] = NAMED_ONLY_HOW
+    return out
+
+
+def _unverify_named_apps(entries, data) -> None:
+    """Every made_by entry for an app in ``data["apps"]`` that is named by a
+    bundle id or name, not a path, loses its verified claim (in place)."""
+    apps = data.get("apps") if isinstance(data, dict) else None
+    if not isinstance(apps, list) or not isinstance(entries, list):
+        return
+    named = {a for a in apps if isinstance(a, str) and not _is_path(a)}
+    for i, e in enumerate(entries):
+        if isinstance(e, dict) and e.get("subject") in named:
+            entries[i] = _unverified(e)
+
+
 def _app_subject(app) -> str | None:
     """The one string attribution identifies an app in "apps" by: the app
-    itself when it is a string, else its path (rescue.attribution._candidates,
+    itself when it is a full path, else its path (rescue.attribution._candidates,
     first entry) for a {path, name} dict. A self-reported name, bundle id or
-    "app" field never counts: a process can call itself anything."""
+    "app" field never counts: a process can call itself anything, and a TCC
+    row's bundle id can belong to any program."""
     if isinstance(app, str):
-        return app
+        return app if _is_path(app) else None
     if isinstance(app, dict):
         from rescue.attribution import _candidates
 
@@ -141,7 +178,9 @@ def _items_made_by(markable, made_by) -> None:
     by_subject = {e.get("subject"): e for e in made_by if isinstance(e, dict) and isinstance(e.get("subject"), str)}
     for item in items:
         if isinstance(item, dict) and isinstance(item.get("key"), str) and item["key"] in by_subject:
-            item["made_by"] = by_subject[item["key"]]
+            entry = by_subject[item["key"]]
+            # An entry keyed by a bundle id never carries a verified maker.
+            item["made_by"] = entry if _is_path(item["key"]) else _unverified(entry)
 
 
 def _dedupe(findings: list) -> list:
@@ -182,6 +221,7 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
     entries = made_by.get(id(finding)) if made_by else None
     if entries:
         out["made_by"] = _plain(entries)
+        _unverify_named_apps(out["made_by"], out.get("data"))
         out["makers_verified"] = _makers_verified(out["made_by"], out.get("data"))
         _items_made_by(out.get("markable"), out["made_by"])
     guide = walkthroughs.get(getattr(finding, "code", None)) if walkthroughs else None

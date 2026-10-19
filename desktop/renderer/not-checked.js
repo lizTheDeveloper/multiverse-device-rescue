@@ -173,10 +173,17 @@ const NotChecked = (function () {
   // game/held.js's rule, here so the counts can leave held findings out.
   const FAMILIAR_CODE = 'security.keylogger_indicators.suspicious_input_monitoring';
   const FAMILIAR_CHECK = 'claimed_vendor_input_monitoring';
+  // A full path: the file attribution checked. A bundle id is not one: it is
+  // the name a TCC row's client reports about itself, and the signature of
+  // whichever app declares that id says nothing about the program holding the
+  // access (rescue/serialize.py _app_subject says the same).
+  const isPathSubject = (a) => typeof a === 'string' && (/^[/~]/.test(a) || /^[A-Za-z]:[\\/]/.test(a));
   function familiarVerified(f, module = f && f.module) {
     if (!f || f.severity !== 'info' || f.code !== FAMILIAR_CODE || module !== 'keylogger_indicators') return false;
+    if (f.makers_verified === false) return false;
     const d = f.data && typeof f.data === 'object' ? f.data : {};
     const apps = Array.isArray(d.apps) ? d.apps : [];
+    if (!apps.every(isPathSubject)) return false;
     const mb = Array.isArray(f.made_by) ? f.made_by.filter(Boolean) : [];
     const known = (m) => m.verified === true && typeof m.what === 'string' && m.what.trim() !== ''
       && typeof m.name === 'string' && m.name.trim() !== '';
@@ -252,7 +259,7 @@ const NotChecked = (function () {
   return {
     MONITORING_MODULES, NOT_DETECTIONS, COULDNT_LOOK, COULDNT_LOOK_REASON, NOT_STARTED_CODE,
     isPartlyChecked, isDetection, couldntLook, notStarted, notCheckedParts, notCheckedSummary, notCheckedLine,
-    shownSeverity, familiarVerified, isHeld, itemKey, scanCounts,
+    shownSeverity, familiarVerified, isPathSubject, isHeld, itemKey, scanCounts,
   };
 })();
 
