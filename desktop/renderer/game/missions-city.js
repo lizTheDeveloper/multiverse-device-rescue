@@ -171,7 +171,17 @@ export function createMissionDesk(deps) {
     if (act.kind === 'settings' || act.kind === 'link') {
       const url = act.url;
       if (url && SETTING_SCHEME.test(url)) { Promise.resolve().then(() => w.rescue.openSetting(url)).catch(() => {}); d.notice = mode() === 'city' ? 'Opened the settings. Make the change there, then come back.' : 'Opened in Settings. You make the change there, then come back here.'; return; }
-      if (url && w.rescue && typeof w.rescue.openLookup === 'function') { Promise.resolve().then(() => w.rescue.openLookup(url)).catch(() => {}); return; }
+      // Standard mode: a look-up opens in the browser (main re-checks it against
+      // research.js's templates). City mode never opens one: a watched computer
+      // keeps browser history, so it is words to search somewhere else.
+      if (url && mode() !== 'city' && w.rescue && typeof w.rescue.openLookup === 'function') {
+        d.notice = 'Opened in your browser.';
+        Promise.resolve().then(() => w.rescue.openLookup(url)).then((ok) => {
+          if (ok === false) { d.notice = `Search in your browser: ${url}`; deps.render(); }
+        }).catch(() => {});
+        return;
+      }
+      if (url && mode() === 'city') { d.notice = act.text || 'Search for it on another device.'; return; }
       d.notice = act.text || (url ? `Search in your browser: ${url}` : (act.steps && act.steps.length ? '' : 'There is no page to open for this one.'));
       if (act.steps && act.steps.length) d.run = { ...d.run, guide: { key: act.item.key, steps: act.steps, checklist: [], hint: '', focus: '' } };
       return;

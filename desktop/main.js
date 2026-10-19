@@ -10,6 +10,7 @@ const { createScanGate, fixRefusal, markRefusal, recheckRefusal } = require('./s
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 const { routerUrlFor, browserDisplayName } = require('./router-url');
 const { isAllowedMissionLink } = require('./mission-links');
+const { isAllowedLookupUrl } = require('./lookup-url');
 const { APP_ORIGIN, serveApp } = require('./app-protocol');
 const { userDataDir } = require('./user-data');
 
@@ -100,6 +101,13 @@ app.whenReady().then(() => {
   // text to copy.
   ipcMain.handle('open-mission-link', (_e, url) => {
     if (!isAllowedMissionLink(url)) return false;
+    shell.openExternal(url);
+    return true;
+  });
+  // A look-up from a little mission (standard mode only; city mode shows it as
+  // text). Only research.js's templates open: host and path checked again here.
+  ipcMain.handle('open-lookup', (_e, url) => {
+    if (!isAllowedLookupUrl(url)) return false;
     shell.openExternal(url);
     return true;
   });

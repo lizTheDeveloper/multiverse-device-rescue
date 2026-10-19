@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('rescue', {
   moduleCommands: (name) => ipcRenderer.invoke('module-commands', name),
   openGuide: (url) => ipcRenderer.invoke('open-guide', url),
   openMissionLink: (url) => ipcRenderer.invoke('open-mission-link', url),
+  // A little mission's look-up (main opens only research.js's templates).
+  openLookup: (url) => ipcRenderer.invoke('open-lookup', url),
   onScanEvent: (cb) => {
     const listener = (_e, ev) => cb(ev);
     ipcRenderer.on('scan-event', listener);

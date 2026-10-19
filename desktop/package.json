@@ -26,6 +26,7 @@
       "setting-urls.js",
       "mission-links.js",
       "mission-links.json",
+      "lookup-url.js",
       "ask-about.js",
       "ai-prompt.js",
       "renderer/**",
