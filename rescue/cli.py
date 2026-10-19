@@ -708,6 +708,13 @@ def _known_label(item) -> str:
         "Give one per --code, in the same order; if any does not match, nothing is saved."
     ),
 )
+@click.option(
+    "--item", "item_ids", multiple=True,
+    help=(
+        "Mark only these entries of a list finding (apps on a permission list, remote-login keys): "
+        "the ids from markable.items. Repeat for several. Needs exactly one --code and its --expect-id."
+    ),
+)
 @click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
 @click.option(
     "--i-understand",
@@ -715,7 +722,7 @@ def _known_label(item) -> str:
     is_flag=True,
     help="Skip the typed confirmation. Only for the desktop app, after its own confirmation.",
 )
-def known_add(codes, label, program, plist, expect_id, as_json, acknowledged):
+def known_add(codes, label, program, plist, expect_id, item_ids, as_json, acknowledged):
     """Mark something as yours: it is still listed, but no longer flagged.
 
     A background task is named with --label and --program. Anything else (a
@@ -734,6 +741,14 @@ def known_add(codes, label, program, plist, expect_id, as_json, acknowledged):
         item_id,
     )
 
+    if item_ids:
+        if label is not None or program is not None or plist is not None:
+            _emit_known(_known_doc(
+                "refused", "--item is for lists of apps or keys, not background tasks. Nothing was marked.",
+            ), as_json, 2)
+            return
+        _known_add_entries(list(codes), list(expect_id or ()), list(item_ids), as_json, acknowledged)
+        return
     if label is None and program is None and plist is None:
         _known_add_item(codes, list(expect_id or ()), as_json, acknowledged)
         return
@@ -818,6 +833,27 @@ def known_add(codes, label, program, plist, expect_id, as_json, acknowledged):
     ), as_json)
 
 
+def _fresh_check_runner():
+    """run_check(module_name) for find_item and find_entries: each check runs
+    once, now, at write time; never trust what a scan said earlier."""
+    by_name: dict = {}
+    ran: dict = {}
+
+    def run_check(module_name):
+        from rescue.known_items import KnownItemsError
+
+        if module_name not in ran:
+            if not by_name:
+                by_name.update({m.name: m for m in discover_modules(_get_modules_dir())})
+            mod = by_name.get(module_name)
+            if mod is None:
+                raise KnownItemsError("that check was not found")
+            ran[module_name] = _check_quietly(mod, gather_profile()).findings
+        return ran[module_name]
+
+    return run_check
+
+
 def _known_add_item(codes, expect_ids, as_json, acknowledged) -> None:
     """`rescue known add --code C --expect-id ID ...` for settings and installed items."""
     from rescue.known_items import (
@@ -853,19 +889,7 @@ def _known_add_item(codes, expect_ids, as_json, acknowledged) -> None:
         ), as_json, 2)
         return
     kind = kinds.pop()
-    by_name: dict = {}
-    ran: dict = {}
-
-    def run_check(module_name):
-        # Each check runs once, now, at write time; never trust what a scan said earlier.
-        if module_name not in ran:
-            if not by_name:
-                by_name.update({m.name: m for m in discover_modules(_get_modules_dir())})
-            mod = by_name.get(module_name)
-            if mod is None:
-                raise KnownItemsError("that check was not found")
-            ran[module_name] = _check_quietly(mod, gather_profile()).findings
-        return ran[module_name]
+    run_check = _fresh_check_runner()
 
     try:
         hits = [find_item(code, eid, run_check) for code, eid in zip(codes, expect_ids)]
@@ -916,6 +940,81 @@ def _known_add_item(codes, expect_ids, as_json, acknowledged) -> None:
     _emit_known(_known_doc(
         "marked" if created else "already_marked", message,
         id=ids[0], ids=ids, label=label, kind=kind, how_to_undo=undo,
+    ), as_json)
+
+
+def _known_add_entries(codes, expect_ids, item_ids, as_json, acknowledged) -> None:
+    """`rescue known add --code C --expect-id ID --item I ...`: some entries of one list."""
+    from rescue.known_items import (
+        APP_ENTRY,
+        KINDS,
+        MARK_HOW_TO_UNDO,
+        MAX_LIST_ENTRIES,
+        KnownItemsError,
+        KnownItemsStore,
+        entries_will_change,
+        find_entries,
+    )
+
+    if (
+        len(codes) != 1
+        or len(expect_ids) != 1
+        or not re.fullmatch(r"[0-9a-f]{12}", expect_ids[0])
+        or not item_ids
+        or len(item_ids) > MAX_LIST_ENTRIES
+        or len(set(item_ids)) != len(item_ids)
+        or not all(re.fullmatch(r"[0-9a-f]{12}", i) for i in item_ids)
+    ):
+        _emit_known(_known_doc(
+            "refused",
+            "To mark some of a list, give one --code, its --expect-id (the list's mark id from the "
+            "checkup), and one --item for each entry, each once. Nothing was marked.",
+        ), as_json, 2)
+        return
+    code = codes[0]
+    try:
+        entry_kind, chosen, total = find_entries(code, expect_ids[0], item_ids, _fresh_check_runner())
+    except KnownItemsError as exc:
+        _emit_known(_known_doc("refused", str(exc)), as_json, 2)
+        return
+    spec = KINDS[entry_kind]
+    label = f"{len(chosen)} of {total} {spec['nouns']}"
+    if acknowledged:
+        via = "confirmed in the app (--i-understand)"
+    else:
+        if not _stdin_is_tty():
+            _emit_known(_known_doc(
+                "refused",
+                "Marking something as yours needs the person at the keyboard. Run this in a "
+                "terminal and answer the question. Nothing was marked.",
+                label=label,
+            ), as_json, 2)
+            return
+        click.echo(entries_will_change(entry_kind, len(chosen), total), err=True)
+        for row, ident, iid in chosen:
+            click.echo(f"  {row['shown']}  (id {iid})", err=True)
+            if entry_kind == APP_ENTRY:
+                click.echo(f"    made by: {ident['signer']}", err=True)
+        click.echo(f"  Finding: {code}", err=True)
+        if not click.confirm("Are these yours, and do you want to stop being warned about them?", default=False, err=True):
+            _emit_known(_known_doc("cancelled", "Nothing was marked.", label=label), as_json, 1)
+            return
+        via = "confirmed in the terminal"
+    try:
+        saved = KnownItemsStore().add_many(entry_kind, [ident for _, ident, _ in chosen], via=via)
+    except (KnownItemsError, OSError) as exc:
+        _emit_known(_known_doc("failed", f"Could not save the mark: {exc}", label=label), as_json, 1)
+        return
+    ids = [item.id for item, _ in saved]
+    created = any(c for _, c in saved)
+    undo = [s.replace("<id>", " ".join(ids)) for s in MARK_HOW_TO_UNDO]
+    message = (
+        f"Marked {label} as yours (id {', '.join(ids)}). They will show as \"marked as yours\" from the next checkup."
+        if created else f"Those were already marked as yours (id {', '.join(ids)})."
+    )
+    _emit_known(_known_doc(
+        "marked" if created else "already_marked", message,
+        id=ids[0], ids=ids, label=label, kind=entry_kind, how_to_undo=undo,
     ), as_json)
 
 
