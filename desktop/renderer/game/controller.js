@@ -2,7 +2,7 @@
 // "city" screen and wires clicks, fixes, marks and re-checks. With Reclaim City
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
-import { findingsToCity, DISTRICTS } from './findings-to-city.js';
+import { findingsToCity, findingIdentity, DISTRICTS } from './findings-to-city.js';
 import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
 import { reconcile, setStatus, ranOkModules, recheckOutcome, setDeck } from './progress.js';
 import { buildBank, drawLessonVisit, drawConcept } from './profile/item-bank.js';
@@ -318,6 +318,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function rebuild(doc, putBack = null) {
     const before = s.city ? cityIntegrity(s.city, signalsNow(), s.heldCity) : null;
     const heldBefore = heldDistrictIds(s.heldCity);
+    // Which mission each finding belonged to before (progress.js reconcile):
+    // one item reported by several checks keeps one record as they drop out.
+    const sameAsBefore = new Map();
+    for (const d of (s.city && s.city.districts) || []) {
+      for (const m of d.missions || []) for (const f of m.findings || []) sameAsBefore.set(findingIdentity(f), m.id);
+    }
     s.doc = doc;
     // Each scan (or re-check) has its own record of the commands it ran.
     commands = new Map();
@@ -345,7 +351,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     // A stopped checkup proves nothing gone: nothing is reclaimed, dropped or confirmed from it.
     const ranOk = s.stopped ? new Set() : ranOkModules(doc);
-    const r = reconcile(s.progress, s.city, ranOk, now());
+    const r = reconcile(s.progress, s.city, ranOk, now(), sameAsBefore);
     s.cameBack = r.cameBack.filter((id) => id !== putBack);
     // The deck follows the scan too: a changed finding's tag is set aside, a
     // gone one's is dropped, and a confirmed fix that came back no longer counts.
