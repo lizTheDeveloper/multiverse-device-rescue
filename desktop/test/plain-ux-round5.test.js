@@ -124,15 +124,19 @@ test('the fix confirm says the warning, and the card’s own line hides meanwhil
   const els = {};
   const mk = (name, attrs = {}) => {
     const el = { name, attrs, hidden: false, innerHTML: '',
-      closest(sel) { return sel === '[data-fix-module]' ? els.card : null; },
+      closest(sel) { return sel === '[data-fix-module]' ? els.card : sel === '[data-card-key]' ? els.outer : null; },
       hasAttribute(a) { return a in attrs; }, getAttribute(a) { return attrs[a]; }, setAttribute() {}, focus() {},
       querySelector(sel) {
         if (name === 'panel') return sel === '[data-fix-safety]' ? els.safety : null;
+        // The line is on the finding card, outside the fix control's own box.
+        if (name === 'outer') return sel === '[data-safety-line]' ? els.line : null;
+        if (sel === '[data-safety-line]') return null;
         return { '[data-fix-panel]': els.panel, '[data-fix-status]': els.status, '[data-fix-open]': els.open, '[data-safety-line]': els.line }[sel] || null;
       } };
     els[name] = el;
     return el;
   };
+  mk('outer', { 'data-card-key': '0' });
   mk('card', { 'data-fix-module': 'launch_agent_audit' });
   mk('panel'); els.panel.hidden = true;
   mk('safety', { 'data-fix-safety': '' });

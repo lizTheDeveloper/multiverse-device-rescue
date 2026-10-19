@@ -294,7 +294,9 @@ const FixFlow = (function () {
       state.delete(card);
     }
     function setFaceLine(card, hide) {
-      const line = card && card.querySelector ? card.querySelector('[data-safety-line]') : null;
+      // `card` is the fix control's own box; the line is on the finding card around it.
+      const outer = card && typeof card.closest === 'function' ? card.closest('[data-card-key]') || card : card;
+      const line = outer && outer.querySelector ? outer.querySelector('[data-safety-line]') : null;
       if (line) line.hidden = !!hide;
     }
 
