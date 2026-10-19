@@ -254,3 +254,33 @@ def test_threat_remediation_knows_every_watch_code():
         result = CliRunner().invoke(main, ["threat-remediation"])
     assert result.exit_code == 1
     assert set(WATCH_CODES) <= seen["codes"]
+
+
+def test_every_stop_request_is_counted():
+    """The first stop ends the watch; a second one ends the lookups after it."""
+    import time
+
+    counts = []
+
+    def run_watch(platform, minutes, interval, **kw):
+        deadline = time.monotonic() + 5
+        while kw["stop_requests"]() < 2 and time.monotonic() < deadline:
+            kw["sleep"](0.02)
+        counts.append((kw["should_stop"](), kw["stop_requests"]()))
+        return CheckResult(module_name="connection_watch", findings=[_finding(True)])
+
+    with patch("rescue.cli.run_watch", run_watch):
+        result = CliRunner().invoke(main, ["watch", "--json"], input="stop\nstop\n")
+    assert result.exit_code == 0, result.output
+    assert counts == [(True, 2)]
+
+
+def test_stop_requests_count_each_request():
+    from rescue.cli import _StopRequests
+
+    stop = _StopRequests()
+    assert (stop.is_set(), stop.count()) == (False, 0)
+    stop.request()
+    stop.request()
+    assert (stop.is_set(), stop.count()) == (True, 2)
+    assert stop.wait(0) is True

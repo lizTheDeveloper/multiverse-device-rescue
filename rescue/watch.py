@@ -13,6 +13,7 @@ scripted snapshots and a fake clock. Nothing here changes the computer.
 
 from __future__ import annotations
 
+import re
 import statistics
 import time
 from collections.abc import Callable
@@ -45,6 +46,9 @@ _UPLOAD_BYTES = 10_000_000
 _UPLOAD_RATIO = 3
 _UNKNOWN = "unknown"
 _UNSTORED_LIMIT = 10 * MAX_PAIRS
+# A watch stopped early still looks up what it gathered, but briefly: whoever
+# stopped it is waiting (the desktop app waits 15 seconds before giving up).
+STOPPED_BUDGET = 10.0
 
 
 class WatchModule:
@@ -350,6 +354,7 @@ def run_watch(
     on_progress: Callable[[dict], None] | None = None,
     verdict: Callable[[str, dict], str] | None = None,
     lookups: Callable[[list[str]], dict] | None = None,
+    stop_requests: Callable[[], int] | None = None,
 ) -> CheckResult:
     """Watch this computer's connections and summarise them per program.
 
@@ -357,11 +362,15 @@ def run_watch(
     ``should_stop()`` is true. ``on_progress`` gets one dict per snapshot:
     ``{"phase": "watch", "elapsed", "total", "snapshots"}``, then
     ``{"phase": "lookup", "done", "total"}`` as addresses are looked up.
-    ``lookups(addresses, should_stop=, on_progress=)`` is called once after
-    the last snapshot with the public destinations, busiest first, and answers
-    like ``rescue.whois.look_up_all``; None turns lookups off. A stop request
-    stops the lookups too. Raises ValueError for minutes outside 1-30 or an
-    interval outside 2-60 seconds.
+    ``lookups(addresses, should_stop=, on_progress=, budget=)`` is called once
+    after the last snapshot with the public destinations, busiest first, and
+    answers like ``rescue.whois.look_up_all``; None turns lookups off.
+
+    A stop during the lookups ends them. A watch stopped while watching still
+    looks up what it gathered, but for at most ``STOPPED_BUDGET`` seconds, and
+    only a further stop request ends that: ``stop_requests()`` counts the stop
+    requests so far (without it, only the shorter budget applies). Raises
+    ValueError for minutes outside 1-30 or an interval outside 2-60 seconds.
     """
     if not MIN_MINUTES <= minutes <= MAX_MINUTES:
         raise ValueError(f"minutes must be {MIN_MINUTES}-{MAX_MINUTES}")
@@ -424,7 +433,14 @@ def run_watch(
     if platform != "win32":
         _read_dns(dns, platform, gathered)
     elapsed = clock() - start
-    owners = _look_up(gathered, lookups, should_stop, on_progress)
+    if not stopped_early:
+        lookup_stop, budget = should_stop, BUDGET
+    elif stop_requests is not None:
+        already = stop_requests()
+        lookup_stop, budget = (lambda: stop_requests() > already), STOPPED_BUDGET
+    else:
+        lookup_stop, budget = (lambda: False), STOPPED_BUDGET
+    owners = _look_up(gathered, lookups, lookup_stop, on_progress, budget)
     findings = _findings(platform, gathered, minutes, stopped_early, elapsed, verdict, owners)
     return CheckResult(module_name=_MODULE, findings=findings)
 
@@ -459,7 +475,7 @@ def _public_by_busyness(gathered: "_Gathered") -> list[str]:
     return [first_form[key] for key in order]
 
 
-def _look_up(gathered: "_Gathered", lookups, should_stop, on_progress) -> _Owners:
+def _look_up(gathered: "_Gathered", lookups, should_stop, on_progress, budget) -> _Owners:
     owners = _Owners(on=lookups is not None)
     addresses = _public_by_busyness(gathered)
     if not addresses:
@@ -467,10 +483,6 @@ def _look_up(gathered: "_Gathered", lookups, should_stop, on_progress) -> _Owner
     if lookups is None:
         owners.reasons.append("Looking up who runs each address was turned off.")
         return owners
-    if should_stop():
-        owners.reasons.append("Looking up stopped early.")
-        return owners
-
     def progress(done: int, total: int) -> None:
         if on_progress is not None:
             try:
@@ -479,7 +491,7 @@ def _look_up(gathered: "_Gathered", lookups, should_stop, on_progress) -> _Owner
                 pass
 
     try:
-        answer = lookups(addresses, should_stop=should_stop, on_progress=progress)
+        answer = lookups(addresses, should_stop=should_stop, on_progress=progress, budget=budget)
     except (OSError, ValueError):  # offline, refused, a service's bad answer
         owners.reasons.append(
             f"Couldn't look up {len(addresses):,} address(es) (offline or the service didn't answer)."
@@ -513,23 +525,41 @@ def _look_up(gathered: "_Gathered", lookups, should_stop, on_progress) -> _Owner
     if answer.get("stopped"):
         owners.reasons.append("Looking up stopped early.")
     elif answer.get("over_budget"):
-        owners.reasons.append(f"Looking up stopped after {BUDGET:g} seconds.")
+        owners.reasons.append(f"Looking up stopped after {budget:g} seconds.")
     return owners
+
+
+_HANDLE = re.compile(r"[A-Z0-9-]*[0-9-][A-Z0-9-]*")
+
+
+def _holder_company(name: str | None) -> str | None:
+    """The company part of a network holder's name.
+
+    RIPEstat writes "HANDLE - Company" ("GOOGLE - Google LLC") or, for some
+    networks, "HANDLE Company" ("AKAMAI-ASN1 Akamai International B.V."). A
+    handle is all capitals, digits and hyphens with at least one digit or
+    hyphen; it is dropped only when a name follows it.
+    """
+    if not name:
+        return name
+    if " - " in name:
+        return name.split(" - ", 1)[1].strip() or name
+    first, _, rest = name.partition(" ")
+    if rest.strip() and _HANDLE.fullmatch(first):
+        return rest.strip()
+    return name
 
 
 def _owner(who: dict | None) -> str | None:
     """Who runs an address, as one name, or None when that isn't known.
 
-    The network's holder comes first: RIPEstat names it "HANDLE - Company"
-    ("GOOGLE - Google LLC"), and only the company part is used. Then the
+    The network's holder comes first, by its company part only. Then the
     registrant, then a hostname that leads back to the address. A raw address
     is never an owner.
     """
     if not who:
         return None
-    as_name = who.get("as_name")
-    if as_name and " - " in as_name:
-        as_name = as_name.split(" - ", 1)[1].strip() or as_name
+    as_name = _holder_company(who.get("as_name"))
     hostname = who.get("hostname") if who.get("hostname_confirmed") else None
     return as_name or who.get("registrant") or hostname or None
 

@@ -682,14 +682,16 @@ def who(*, registrant=None, as_name=None, hostname=None, confirmed=False, unavai
 
 
 def fake_lookups(answers, *, skipped=0, failed=0, over_budget=False, stopped=False, calls=None):
-    def lookups(ips, *, should_stop, on_progress):
+    def lookups(ips, *, should_stop, on_progress, budget):
         if calls is not None:
             calls.append(list(ips))
+        lookups.budgets.append(budget)
         results = {ip: answers[ip] for ip in ips if ip in answers}
         on_progress(len(results), len(ips))
         return {"results": results, "skipped": skipped, "failed": failed,
                 "over_budget": over_budget, "stopped": stopped}
 
+    lookups.budgets = []
     return lookups
 
 
@@ -901,18 +903,85 @@ def test_lookups_run_after_snapshots_and_nothing_reaches_disk(tmp_path, monkeypa
     assert list(tmp_path.rglob("*")) == []
 
 
-def test_stop_before_lookups_skips_them():
-    events = []
+def test_stopped_watch_still_looks_up_briefly():
+    from rescue.watch import STOPPED_BUDGET
 
-    def lookups(ips, **kw):
-        events.append("lookups")
+    lookups = fake_lookups({"8.8.8.8": who(registrant="Google LLC")})
+    stops = iter([False, True])
+    result = watch(_busy_snaps(), lookups=lookups, should_stop=lambda: next(stops, True))
+    assert STOPPED_BUDGET == 10
+    assert lookups.budgets == [10]
+    (summary,) = by_code(result, "watch_summary")
+    by_address = {d["address"]: d["who"] for d in summary.data["destinations"]}
+    assert by_address["8.8.8.8"]["registrant"] == "Google LLC"
+    assert "Looking up stopped early." not in reasons_of(result)
+
+    # A watch that ran its full time gets the full budget.
+    lookups = fake_lookups({})
+    watch(_busy_snaps(), lookups=lookups)
+    assert lookups.budgets == [60]
+
+
+def test_stopped_watch_lookups_end_only_on_a_new_stop():
+    requests = {"n": 1}
+    seen = []
+
+    def lookups(ips, *, should_stop, on_progress, budget):
+        seen.append(should_stop())  # the first stop doesn't end the lookups
+        requests["n"] += 1          # ... a second one does
+        seen.append(should_stop())
+        return {"results": {}, "skipped": 0, "failed": 0, "over_budget": False, "stopped": True}
+
+    fake = FakeTime()
+    stops = iter([False, True])
+    result = run_watch("darwin", 1, 5, collect=scripted(_busy_snaps()), dns=no_dns,
+                       clock=fake.clock, sleep=fake.sleep, should_stop=lambda: next(stops, True),
+                       verdict=lambda p, r: "expected", lookups=lookups,
+                       stop_requests=lambda: requests["n"])
+    assert seen == [False, True]
+    assert "Looking up stopped early." in reasons_of(result)
+
+    # Without a count of requests, only the shorter budget bounds it.
+    budgets = []
+
+    def plain(ips, *, should_stop, on_progress, budget):
+        budgets.append((should_stop(), budget))
         return nobody_known(ips)
 
     stops = iter([False, True])
-    result = watch(_busy_snaps(), lookups=lookups, should_stop=lambda: next(stops, True))
-    assert events == []
-    assert "Looking up stopped early." in reasons_of(result)
-    assert by_code(result, "watch_summary")
+    watch(_busy_snaps(), lookups=plain, should_stop=lambda: next(stops, True))
+    assert budgets == [(False, 10)]
+
+
+def test_stopped_budget_running_out_is_named():
+    stops = iter([False, True])
+    result = watch(_busy_snaps(), lookups=fake_lookups({}, over_budget=True),
+                   should_stop=lambda: next(stops, True))
+    assert "Looking up stopped after 10 seconds." in reasons_of(result)
+
+
+def test_holder_handles_are_dropped():
+    from rescue.watch import _holder_company
+
+    cases = {
+        "GOOGLE - Google LLC": "Google LLC",
+        "AKAMAI-ASN1 Akamai International B.V.": "Akamai International B.V.",
+        "HETZNER-CLOUD3-AS Hetzner Online GmbH": "Hetzner Online GmbH",
+        "AS13335 Cloudflare": "Cloudflare",
+        "CLOUDFLARENET": "CLOUDFLARENET",          # nothing follows: kept
+        "AKAMAI-ASN1": "AKAMAI-ASN1",
+        "IBM Corporation": "IBM Corporation",      # no digit or hyphen: a word, kept
+        "Fastly, Inc.": "Fastly, Inc.",
+        "Akamai-Tech International": "Akamai-Tech International",  # not all capitals
+        None: None,
+    }
+    for name, company in cases.items():
+        assert _holder_company(name) == company, name
+    snaps = [snap([rec("App", "23.1.1.1", 443, 50000)])]
+    result = watch(snaps, lookups=fake_lookups(
+        {"23.1.1.1": who(as_name="AKAMAI-ASN1 Akamai International B.V.")}))
+    (summary,) = by_code(result, "watch_summary")
+    assert "Mostly Akamai International B.V. This" in summary.description
 
 
 def test_stop_during_lookups_returns_promptly():

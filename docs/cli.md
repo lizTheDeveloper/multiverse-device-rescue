@@ -199,8 +199,11 @@ When it finishes, it looks up who runs each public address it saw (see
 Out-of-range values exit `2` with a message. To end the watch early, send the
 line `stop` on standard input, or press Ctrl-C (SIGINT) or send SIGTERM. The
 result is still printed, with `stopped_early: true` in each finding's `data`.
-A stop also ends the lookups: none starts after it, the ones under way are
-left behind, and `watch_incomplete` says "Looking up stopped early." End of
+A watch stopped early still looks up who runs the addresses it gathered, but
+for at most 10 seconds. A stop during the lookups (for a stopped watch, a
+second `stop` line or signal) ends them at once: none starts after it, the
+ones under way are left behind, and `watch_incomplete` says "Looking up
+stopped early." End of
 standard input is not a stop. The "who made it" lookups that `scan`
 adds are not done for the watch.
 
@@ -226,8 +229,11 @@ part of `as_name` (the network's holder), else the `registrant`, else the
 `hostname` if it is confirmed. An address with none of these is left out;
 with no owner known the sentence is left out, and a raw address is never
 named. Lookups run once, after the last look, busiest addresses first: at
-most 150 addresses, 3 at a time, 4 seconds per request (a request that times
-out gets one more try) and 60 seconds in all. `watch_incomplete` says how
+most 150 addresses, 3 at a time (and at most 2 requests to rdap.org and the
+registries at once), 4 seconds per request and 60 seconds in all. A request
+that times out gets one more try; so does an RDAP request answered "too busy"
+(HTTP 429 or 503), after a pause of 1 second, or the service's `Retry-After`
+if that is 2 seconds or less. `watch_incomplete` says how
 many addresses couldn't be looked up at all, how many are missing some
 details, whether the limit or the time ran out, whether a stop ended the
 lookups, or that looking up was turned off (only when there were public

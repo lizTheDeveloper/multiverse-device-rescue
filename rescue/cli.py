@@ -230,23 +230,52 @@ def _listening_verdict():
     return None
 
 
-def _stop_on_request():
-    """An Event that a ``stop`` line on stdin, SIGINT or SIGTERM sets.
+class _StopRequests:
+    """Stop requests so far: set by the first, counted so a later one can be told apart.
 
-    Returns (event, restore). End of input is not a stop. ``restore`` puts the
-    signal handlers back.
+    The watch stops at the first request; when it then looks up who runs each
+    address, a second request ends that too.
+    """
+
+    def __init__(self):
+        import threading
+
+        self._event = threading.Event()
+        self._lock = threading.Lock()
+        self._count = 0
+
+    def request(self) -> None:
+        with self._lock:
+            self._count += 1
+        self._event.set()
+
+    def count(self) -> int:
+        with self._lock:
+            return self._count
+
+    def is_set(self) -> bool:
+        return self._event.is_set()
+
+    def wait(self, seconds: float) -> bool:
+        return self._event.wait(seconds)
+
+
+def _stop_on_request():
+    """Stop requests from a ``stop`` line on stdin, SIGINT or SIGTERM; each one counts.
+
+    Returns (requests, restore). End of input is not a stop. ``restore`` puts
+    the signal handlers back.
     """
     import signal
     import threading
 
-    stop = threading.Event()
+    stop = _StopRequests()
 
     def read_stdin():
         try:
             for line in sys.stdin:
                 if line.strip().lower() == "stop":
-                    stop.set()
-                    return
+                    stop.request()
         except (OSError, ValueError):
             pass  # no usable stdin: nothing to read, not a stop
 
@@ -255,7 +284,7 @@ def _stop_on_request():
     previous = {}
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
-            previous[sig] = signal.signal(sig, lambda *_: stop.set())
+            previous[sig] = signal.signal(sig, lambda *_: stop.request())
         except ValueError:
             pass  # not the main thread: stdin and the caller can still stop it
 
@@ -302,7 +331,8 @@ def watch(minutes, interval, as_json, progress, no_lookups):
 
     Afterwards it looks up who runs each public address it saw, unless you pass
     --no-lookups. Ends early if you send the line "stop" on standard input, or
-    press Ctrl-C. The result is still printed, marked as stopped early.
+    press Ctrl-C. The result is still printed, marked as stopped early, after
+    a short lookup of what was gathered; a second stop ends that lookup too.
     """
     from rescue.serialize import checks_to_json
 
@@ -322,6 +352,7 @@ def watch(minutes, interval, as_json, progress, no_lookups):
             interval,
             sleep=sleep,
             should_stop=stop.is_set,
+            stop_requests=stop.count,
             on_progress=on_progress if progress else None,
             verdict=_listening_verdict(),
             lookups=None if no_lookups else look_up_all,

@@ -34,6 +34,7 @@ from rescue.netaddr import address_key, is_public, parse_ip
 
 MAX_ADDRESSES = 150
 WORKERS = 3
+RDAP_AT_ONCE = 2  # rdap.org and the registries limit how fast one asker may go
 TIMEOUT = 4.0
 BUDGET = 60.0
 MAX_BODY = 65536
@@ -313,22 +314,45 @@ def _is_timeout(exc: BaseException) -> bool:
     return isinstance(exc, urllib.error.URLError) and isinstance(exc.reason, TimeoutError)
 
 
-def _fetch_once_more_on_timeout(fetch, url: str, timeout: float) -> bytes:
-    """A slow answer gets one more try; any other failure doesn't."""
+_BUSY_CODES = (429, 503)  # too many requests; service unavailable
+_BUSY_PAUSE = 1.0
+_MAX_RETRY_AFTER = 2.0
+
+
+def _busy_pause(exc: BaseException) -> float | None:
+    """How long to wait before asking again, if the service said it was busy."""
+    if not (isinstance(exc, urllib.error.HTTPError) and exc.code in _BUSY_CODES):
+        return None
+    try:
+        asked = float((exc.headers or {}).get("Retry-After", ""))
+    except (TypeError, ValueError):  # missing, or an HTTP date: not worth waiting for
+        return _BUSY_PAUSE
+    return asked if 0 <= asked <= _MAX_RETRY_AFTER else _BUSY_PAUSE
+
+
+def _fetch_with_one_retry(fetch, url: str, timeout: float, *, busy_retry: bool,
+                          sleep: Callable[[float], None]) -> bytes:
+    """A slow answer gets one more try, and so (with ``busy_retry``) does a
+    "too busy" one, after a short pause. Any other failure doesn't."""
     try:
         return fetch(url, timeout)
-    except Exception as exc:  # noqa: BLE001 - re-raised unless it was a timeout
-        if not _is_timeout(exc):
+    except Exception as exc:  # noqa: BLE001 - re-raised unless worth one more try
+        pause = _busy_pause(exc) if busy_retry else None
+        if pause is None and not _is_timeout(exc):
             raise
+    if pause:
+        sleep(pause)
     return fetch(url, timeout)
 
 
-def look_up(ip, *, fetch, resolve, timeout, forward=forward_addresses) -> dict:
+def look_up(ip, *, fetch, resolve, timeout, forward=forward_addresses,
+            rdap_gate=None, sleep: Callable[[float], None] = time.sleep) -> dict:
     """Everything that can be learned about one address.
 
     ``hostname_confirmed`` is true only when the hostname resolves back to the
     address. ``unavailable`` names each part that couldn't be checked: ``dns``,
-    ``owner`` (RIPEstat) and ``registry`` (RDAP).
+    ``owner`` (RIPEstat) and ``registry`` (RDAP). ``rdap_gate`` (a semaphore)
+    limits how many RDAP requests run at once across lookups.
     """
     query = str(parse_ip(ip))  # an IPv4 address carried in IPv6 is looked up as IPv4
     who = {"hostname": None, "hostname_confirmed": False, **_EMPTY_RIPE, **_EMPTY_RDAP,
@@ -343,10 +367,18 @@ def look_up(ip, *, fetch, resolve, timeout, forward=forward_addresses) -> dict:
     if who["hostname"]:
         who["hostname_confirmed"] = _confirmed(who["hostname"], query, forward, timeout)
 
-    for group, url, parse in (("owner", _ripe_url(query), parse_ripe),
-                              ("registry", _rdap_url(query), parse_rdap)):
+    def rdap_fetch(url: str, seconds: float) -> bytes:
+        if rdap_gate is None:
+            return fetch(url, seconds)
+        with rdap_gate:
+            return fetch(url, seconds)
+
+    for group, url, parse, get, busy_retry in (
+            ("owner", _ripe_url(query), parse_ripe, fetch, False),
+            ("registry", _rdap_url(query), parse_rdap, rdap_fetch, True)):
         try:
-            found = parse(_fetch_once_more_on_timeout(fetch, url, timeout))
+            found = parse(_fetch_with_one_retry(get, url, timeout, busy_retry=busy_retry,
+                                                sleep=sleep))
         except Exception:  # noqa: BLE001 - offline, TLS, HTTP errors, oversized
             found = None
         if not found or all(v is None for v in found.values()):
@@ -370,6 +402,8 @@ def look_up_all(
     clock: Callable[[], float] = time.monotonic,
     should_stop: Callable[[], bool] | None = None,
     on_progress: Callable[[int, int], None] | None = None,
+    rdap_at_once: int = RDAP_AT_ONCE,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> dict:
     """Look up the first ``limit`` public addresses in ``ips`` (busiest first).
 
@@ -399,6 +433,7 @@ def look_up_all(
     start = clock()
     lock = threading.Lock()
     results: dict[str, dict] = {}
+    rdap_gate = threading.BoundedSemaphore(max(1, rdap_at_once))
     state = {"next": 0, "out_of_time": False, "stop": False, "closed": False, "running": 0}
     finished = threading.Event()
 
@@ -412,7 +447,8 @@ def look_up_all(
                     break
                 ip = queue[state["next"]]
                 state["next"] += 1
-            who = look_up(ip, fetch=fetch, resolve=resolve, timeout=timeout, forward=forward)
+            who = look_up(ip, fetch=fetch, resolve=resolve, timeout=timeout, forward=forward,
+                          rdap_gate=rdap_gate, sleep=sleep)
             with lock:
                 if state["closed"]:
                     break

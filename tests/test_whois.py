@@ -575,3 +575,73 @@ def test_progress_counts_answers():
 
     out = whois.look_up_all(ips, fetch=fetch_from(GOOGLE), resolve=no_name, on_progress=broken)
     assert len(out["results"]) == 3
+
+
+def _busy(code, retry_after=None):
+    import email.message
+    import urllib.error
+
+    headers = email.message.Message()
+    if retry_after is not None:
+        headers["Retry-After"] = retry_after
+    return urllib.error.HTTPError("https://rdap.org/ip/8.8.8.8", code, "busy", headers, None)
+
+
+@pytest.mark.parametrize("code, retry_after, pause", [
+    (429, None, 1.0), (503, None, 1.0), (429, "2", 2.0), (429, "0.5", 0.5),
+    (429, "30", 1.0), (503, "Wed, 21 Oct 2026 07:28:00 GMT", 1.0),
+])
+def test_busy_registry_gets_one_retry_after_a_pause(code, retry_after, pause):
+    calls = []
+    pauses = []
+
+    def fetch(url, timeout):
+        calls.append(url)
+        if "rdap.org" in url and calls.count(url) == 1:
+            raise _busy(code, retry_after)
+        return GOOGLE["stat.ripe.net" if "stat.ripe.net" in url else "rdap.org"]
+
+    who = whois.look_up("8.8.8.8", fetch=fetch, resolve=no_name, timeout=1, sleep=pauses.append)
+    assert who["registrant"] == "Google LLC" and who["unavailable"] == []
+    assert pauses == [pause]
+    assert sum("rdap.org" in u for u in calls) == 2
+
+
+def test_busy_twice_or_other_errors_are_not_retried_more():
+    pauses = []
+    fetch = fetch_from({"rdap.org": _busy(429), "stat.ripe.net": _busy(429)})
+    who = whois.look_up("8.8.8.8", fetch=fetch, resolve=no_name, timeout=1, sleep=pauses.append)
+    assert who["unavailable"] == ["owner", "registry"]
+    # RDAP: one retry after a pause. RIPEstat's busy answer isn't retried.
+    assert sum("rdap.org" in u for u in fetch.calls) == 2
+    assert sum("stat.ripe.net" in u for u in fetch.calls) == 1
+    assert pauses == [1.0]
+
+    pauses.clear()
+    fetch = fetch_from({"rdap.org": _busy(404), "stat.ripe.net": GOOGLE["stat.ripe.net"]})
+    whois.look_up("8.8.8.8", fetch=fetch, resolve=no_name, timeout=1, sleep=pauses.append)
+    assert sum("rdap.org" in u for u in fetch.calls) == 1 and pauses == []
+
+
+def test_rdap_requests_at_most_two_at_once():
+    import time as real_time
+
+    lock = threading.Lock()
+    running = {"rdap": 0, "ripe": 0}
+    most = {"rdap": 0, "ripe": 0}
+
+    def fetch(url, timeout):
+        kind = "rdap" if "rdap.org" in url else "ripe"
+        with lock:
+            running[kind] += 1
+            most[kind] = max(most[kind], running[kind])
+        real_time.sleep(0.03)
+        with lock:
+            running[kind] -= 1
+        return GOOGLE["rdap.org" if kind == "rdap" else "stat.ripe.net"]
+
+    ips = [f"8.8.{i}.8" for i in range(12)]
+    out = whois.look_up_all(ips, fetch=fetch, resolve=no_name)
+    assert len(out["results"]) == 12
+    assert most["rdap"] == 2
+    assert most["ripe"] <= 3

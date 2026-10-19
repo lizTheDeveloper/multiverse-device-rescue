@@ -204,8 +204,10 @@ addresses, and from the address's own name in DNS.
 - **When a name is missing.** If the computer was offline, or a service
   didn't answer, the watch says how many addresses it couldn't look up, and
   how many it found out only part of. It looks up at most the 150 busiest
-  addresses, stops looking after 60 seconds, and stops at once if you stop
-  the watch; it says so when any of these happens. Couldn't-check is not the
+  addresses and stops looking after 60 seconds. If you stop the watch early,
+  it still looks up what it gathered, for at most 10 seconds, and stopping
+  again ends that at once. It says so when any of these cuts the lookups
+  short. Couldn't-check is not the
   same as clean.
 
 To turn the lookups off, untick "Look up who runs each address" before
