@@ -82,6 +82,8 @@ test('render shows the clues, borrowing a scheduled task’s command as where it
   assert.match(html, /One clue: it lives in a hidden folder\./);
   assert.match(html, /Note 2 of 5/);
   assert.doesNotMatch(html, /data-decision|<button/, 'the runner renders the decision buttons');
+  const multi = C.makeItem({ severity: 'info', title: 'x', description: 'Line one\nLine two' });
+  assert.match(game.render({ item: multi, research: game.research(multi, ctx), decisions: [], index: 0, total: 1 }, ctx), /Line one Line two/);
 });
 
 test('an unfinished check says so; nothing reads clean', async () => {
@@ -158,7 +160,7 @@ test('summary: batch points, overall and area progress, and the area bonus', asy
   const ctx = C.testContext({ notes: { sorted: 120, total: 394, areaSorted: 12, areaTotal: 40, batchPoints: 20 } });
   const s = game.summary(results, ctx);
   assert.match(s, /3 notes sorted: 2 normal, 1 odd\./);
-  assert.match(s, /became a mission/);
+  assert.match(s, /The odd one became a mission of its own/);
   assert.match(s, /\+50 points for this batch/);
   assert.match(s, /120 of 394 sorted/);
   assert.match(s, /12 of 40 in The Gatehouse/);

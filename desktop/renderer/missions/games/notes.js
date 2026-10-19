@@ -32,7 +32,7 @@ const WORDS = {
     oneClue: 'One clue: ',
   },
   city: {
-    kicker: 'SIGNAL OR NOISE', note: 'SIGNAL', practice: 'DRILL. A made-up signal.',
+    kicker: 'SIGNAL OR NOISE', note: 'CALL', practice: 'A made-up one. Not on this computer.',
     lean: 'Most of these are noise. The clues are how you tell.',
     none: 'No clues on this one. Its title is all there is to go on.',
     unfinished: 'This check didn’t finish, so part of its ground wasn’t covered.',
@@ -48,6 +48,8 @@ const str = (v) => (typeof v === 'string' ? v : '');
 const quiet = (f, mode) => mode === 'city' && MONITORING_MODULES.has(f && f.module);
 // City output never carries a non-game word, whatever the scan wrote.
 const cityText = (s, mode) => (mode === 'city' && CITY_FORBIDDEN.test(String(s)) ? QUIET_LINE : String(s == null ? '' : s));
+// A clue line is one line: the scan's line breaks read as spaces, not as [U+000A].
+const oneLine = (s) => String(s == null ? '' : s).replace(/[ \t]*[\r\n]+[ \t]*/g, ' ');
 const fmt = (n) => (Number.isFinite(n) ? Number(n).toLocaleString('en-US') : '0');
 const isUnfinished = (item) => !!(item && (item.unfinished || (item.finding && item.finding.unfinished)));
 
@@ -149,7 +151,7 @@ export function research(item, ctx = {}) {
 
 function clueHtml(c, mode, esc) {
   return `<li class="clue open nt-clue" data-clue="${esc(c.kind)}"><div class="label">${esc(c.label)}</div>${
-    c.lines.map((l) => `<p class="clue-line">${esc(cityText(l, mode))}</p>`).join('')}</li>`;
+    c.lines.map((l) => `<p class="clue-line">${esc(cityText(oneLine(l), mode))}</p>`).join('')}</li>`;
 }
 
 export function render(view, ctx = {}) {
@@ -246,7 +248,7 @@ export function summary(results, ctx = {}) {
   else {
     lines.push(city ? `${fmt(sorted.length)} sorted: ${fmt(normal)} noise, ${fmt(odd)} signal.`
       : `${fmt(sorted.length)} ${sorted.length === 1 ? 'note' : 'notes'} sorted: ${fmt(normal)} normal, ${fmt(odd)} odd.`);
-    if (odd) lines.push(city ? 'Each signal became a mission of its own.' : `The odd ${odd === 1 ? 'one became a mission' : 'ones became missions'} of their own, with their own steps.`);
+    if (odd) lines.push(city ? 'Each signal became a mission of its own.' : (odd === 1 ? 'The odd one became a mission of its own, with its own steps.' : 'The odd ones became missions of their own, with their own steps.'));
   }
   const out = [`<section class="nt-summary"><div class="label">${city ? 'BATCH SORTED' : 'Batch sorted'}</div>`,
     ...lines.map((l) => `<p class="intel">${esc(l)}</p>`)];
