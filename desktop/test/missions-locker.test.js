@@ -294,3 +294,35 @@ test('fixtures are synthetic: only example home folders, documentation addresses
     for (const ip of txt.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || []) assert.match(ip, /^192\.0\.2\./, `${name}: ${ip}`);
   }
 });
+
+test('paste steps only ever offer a plain absolute folder; command lines are reduced to their program path', async () => {
+  const { G, game, C } = await setup();
+  const win = C.testContext({ platform: 'win32' });
+  const mac = C.testContext();
+  const steps = (data, ctx, module = 'win_malware_indicators', code = 'security.win_malware_indicators.suspicious_service') =>
+    game.decisions(C.makeItem({ module, code, data }), ctx).find((d) => d.id === 'quarantine').effect.steps.join('\n');
+  // ImagePath parsing.
+  assert.strictEqual(G.exePath('"C:\\Program Files\\Ex\\svc.exe" -k netsvcs'), 'C:\\Program Files\\Ex\\svc.exe');
+  assert.strictEqual(G.exePath('C:\\ex\\svc.exe & calc.exe'), 'C:\\ex\\svc.exe');
+  assert.match(steps({ binary_path: '"C:\\Program Files\\Ex\\svc.exe" -k netsvcs' }, win), /paste C:\\Program Files\\Ex and press Enter/);
+  const amp = steps({ binary_path: 'C:\\ex\\svc.exe & calc.exe' }, win);
+  assert.match(amp, /paste C:\\ex and press Enter/);
+  assert.doesNotMatch(amp, /calc/);
+  // Hostile folders: no paste step at all, a safe way to find it instead.
+  const hostileWin = ['C:\\Users\\example\\%COMSPEC%\\a.ps1', 'C:\\x&calc\\a.exe', 'C:\\x\\"y\\a.exe', 'cmd /c start C:\\x\\a.exe', '\\\\evil\\share\\a.exe', 'C:\\x\u202e\\a.exe'];
+  for (const p of hostileWin) {
+    const s = steps({ binary_path: p }, win);
+    assert.doesNotMatch(s, /paste/, p);
+    assert.match(s, /Open file location/, p);
+  }
+  const hostileMac = ['/tmp/$(touch x)/a.sh', '/tmp/`id`/a.sh', "/tmp/a'b/c.sh", '/tmp/a;rm/c.sh', '/tmp/a\nb/c.sh', 'relative/dir/c.sh', '/tmp/../etc/c.sh'];
+  for (const p of hostileMac) {
+    const s = steps({ path: p }, mac, 'ai_worm_filesystem', 'security.ai_worm_filesystem.obfuscated_script');
+    assert.doesNotMatch(s, /paste/, p);
+    assert.match(s, /Where line of the tag/, p);
+  }
+  for (const h of C.HOSTILE) {
+    for (const ctx of [win, mac]) assert.doesNotMatch(steps({ path: h, binary_path: h }, ctx), /paste/, h);
+  }
+  assert.strictEqual(G.safeFolder('~/Library/Caches/com.example.browser/Code Cache/js', false), '~/Library/Caches/com.example.browser/Code Cache/js');
+});

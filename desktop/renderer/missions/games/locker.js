@@ -125,12 +125,39 @@ const sepOf = (p) => (winPath(p) ? '\\' : '/');
 
 export function pathOf(f) {
   const d = (f && f.data) || {};
-  for (const k of PATH_FIELDS) if (typeof d[k] === 'string' && d[k]) return d[k];
+  for (const k of PATH_FIELDS) {
+    if (typeof d[k] === 'string' && d[k]) return k === 'binary_path' ? exePath(d[k]) : d[k];
+  }
   if (typeof d.location === 'string' && d.location) {
     return d.name ? `${d.location.replace(/[\\/]+$/, '')}${sepOf(d.location)}${d.name}` : d.location;
   }
   if (checkOf(f).endsWith('hijack') && typeof d.value === 'string') return d.value;
   return '';
+}
+
+// A command line's program path, the way Windows reads a service ImagePath: the quoted first token, or the first
+// token ending .exe. Anything else is returned as given (and must still pass safeFolder before it is pasted).
+export function exePath(cmd) {
+  const t = str(cmd).trim();
+  if (t.startsWith('"')) {
+    const end = t.indexOf('"', 1);
+    return end > 1 ? t.slice(1, end) : '';
+  }
+  const m = t.match(/^(.+?\.exe)(?=\s|$)/i);
+  return m ? m[1] : t;
+}
+
+// Only a plain absolute folder path is ever offered to paste into an address bar or Go to Folder. Scan data a
+// harmful program controls must not become something that runs: no shell or cmd metacharacters, quotes, variables,
+// control characters, arguments or program names.
+const CLEAN_WIN_DIR = /^[A-Za-z]:\\[^<>"|?*\r\n%&^;]*$/;
+const CLEAN_POSIX_DIR = /^(~|\/)[^\r\n$`"'\\;|&<>(){}*?!\[\]#]*$/;
+export function safeFolder(dir, win) {
+  const d = str(dir);
+  if (!d || d.length > 400 || /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(d)) return '';
+  if (/\s[-/]\S/.test(d) || /\.(exe|com|bat|cmd|ps1|vbs|js|sh|scr|lnk|msi)$/i.test(d)) return '';
+  if (win) return CLEAN_WIN_DIR.test(d) ? d : '';
+  return CLEAN_POSIX_DIR.test(d) && !d.split('/').includes('..') ? d : '';
 }
 
 function dirOf(p) {
@@ -259,20 +286,23 @@ const READ_NOTE = ['Read the note above before you move anything.', 'Read the no
 export function moveAsideSteps(item, ctx) {
   const t = tagOf(item, ctx);
   const folder = pick(ctx, ['Quarantine', 'Set aside']);
-  const dir = t.rawPath ? (ctx.visible || String)(dirOf(t.win ? t.rawPath : shortHome(t.rawPath))) : '';
+  const dir = t.rawPath ? safeFolder(dirOf(t.win ? t.rawPath : shortHome(t.rawPath)), t.win) : '';
   const name = t.name || pick(ctx, ['the file', 'the file']);
   const s = [pick(ctx, NO_RUN)];
   if (t.alerting) s.push(pick(ctx, READ_NOTE));
   if (t.win) {
     if (dir) s.push(`Open File Explorer, click the address bar, paste ${dir} and press Enter.`);
+    else s.push('To find its folder, open Task Manager (Ctrl+Shift+Esc) > Details, right-click the program and choose Open file location. If it is not running, use the Where line on the tag.');
     if (t.flags.hidden) s.push("If you can't see it, turn on Hidden items in File Explorer's View menu.");
     s.push(`Make a folder named ${folder} in your user folder and drag ${name} into it. Nothing is deleted, and you can drag it back.`);
     s.push('If Windows says the file is in use, end the program in Task Manager (Ctrl+Shift+Esc) first, then try again.');
   } else if (ctx && ctx.platform === 'linux') {
     if (dir) s.push(`Open your file manager and go to ${dir}.`);
+    else s.push('Open your file manager and find the folder on the Where line of the tag.');
     s.push(`Make a folder named ${folder} in your home folder and move ${name} into it. Nothing is deleted, and you can move it back.`);
   } else {
     if (dir) s.push(`In Finder, press Command-Shift-G and paste ${dir}`);
+    else s.push('In Finder, find the folder on the Where line of the tag.');
     if (t.flags.hidden) s.push("If you can't see it, press Command-Shift-. (period) to show hidden files.");
     s.push(`Make a folder named ${folder} in your home folder and drag ${name} into it. Nothing is deleted, and you can drag it back.`);
     if (ADMIN_RE.test(t.rawPath)) s.push('Your Mac may ask for your Mac password to move it. That is your Mac asking, not this app.');
