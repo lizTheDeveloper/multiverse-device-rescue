@@ -5,7 +5,7 @@ const path = require('node:path');
 
 // An unclosed block makes the browser swallow every rule after it, silently.
 // One left open in a dark-mode @media hid most of the results-screen styling.
-const SHEETS = ['renderer/styles.css', 'renderer/game/game.css', 'renderer/game-fonts.css', 'renderer/checklist.css', 'renderer/game/profile.css', 'renderer/profile.css'];
+const SHEETS = ['renderer/styles.css', 'renderer/game/game.css', 'renderer/game-fonts.css', 'renderer/checklist.css', 'renderer/game/profile.css', 'renderer/missions/missions.css'];
 
 for (const rel of SHEETS) {
   test(`${rel} closes every block it opens`, () => {
@@ -23,3 +23,9 @@ for (const rel of SHEETS) {
     assert.strictEqual(depth, 0, `${depth} block(s) left open`);
   });
 }
+
+test('the retired Plain view’s renderer/profile.css is gone and nothing links it', () => {
+  assert.ok(!fs.existsSync(path.join(__dirname, '..', 'renderer', 'profile.css')));
+  const html = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /href="profile\.css"/);
+});

@@ -1186,7 +1186,7 @@ if (typeof document !== 'undefined') {
           return [];
         }
       },
-      // The city couldn't draw (or its old PLAIN VIEW button): the person
+      // The city couldn't draw: the person
       // carries on outside it. A running scan carries on on the scan screen,
       // with its live progress (setScanBusy(true) already ran); a finished
       // one is on the LIST.

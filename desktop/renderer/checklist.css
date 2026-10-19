@@ -1,4 +1,4 @@
-/* The shared checklist (checklist.js). Plain view uses styles.css tokens;
+/* The shared checklist (checklist.js). The LIST uses styles.css tokens;
    the game's shadow root links this file too and adds .checklist--game. */
 .checklist {
   border: 1px solid var(--border, #d0d4dc);

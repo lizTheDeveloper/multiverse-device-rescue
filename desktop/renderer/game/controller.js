@@ -1439,8 +1439,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (desk.click(act, go)) return;
     if (go === 'side') { if (inCity()) openSide(); return; }
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
-    // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
-    // gate decides where it lands (monitoring software: the plain list).
+    // RE-SWEEP: the same read-only scan as the first one, through app.js, whose
+    // gate decides where it lands.
     if (act === 'resweep') { if (!sweeping()) win.RescueHost.startCheckup(); return; }
     // The DRILL RANGE: more drills, with or without a scan.
     if (go === 'range') { s.signal = null; s.range = { order: [], i: 0 }; s.screen = 'range'; render(); return; }

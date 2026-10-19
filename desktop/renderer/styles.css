@@ -1170,7 +1170,7 @@ h3 {
 .link-button:hover, .link-button:focus-visible { opacity: 1; }
 .question-back { margin: 0 0 1rem; }
 
-/* ---------- UX round 1: Plain view ---------- */
+/* ---------- UX round 1 (first written for the retired Plain view; the LIST uses these) ---------- */
 
 /* A heading focused by the app (so a screen reader reads it) is not a control: no ring. */
 h1[tabindex="-1"]:focus,

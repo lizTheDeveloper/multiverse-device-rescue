@@ -1,4 +1,6 @@
-// The profile screen: YOUR FILE in game style, "Your progress" in plain view.
+// The profile screen: YOUR FILE in game style. `theme: 'plain'` ("Your
+// progress", plain words, no lesson host) was the retired Plain view's; the
+// city always draws the game theme.
 // Same content, two sets of words. Pure: takes PlayerProfile.summary(…) and
 // returns HTML. Counts only for the city: never a finding's name.
 import { esc } from '../escape.js';
@@ -45,7 +47,7 @@ function lessonNote(l, theme) {
   return '';
 }
 
-// Game rows get the button that opens the lesson; plain view has no lesson host yet.
+// Game rows get the button that opens the lesson; the plain theme has no lesson host.
 function lessonAction(l, theme) {
   if (theme !== 'game') return '';
   const label = { learned: 'REVIEW ONE', measuring: 'CONTINUE', skipped: 'TAKE THE LESSON', 'worth-a-look': '2 QUESTIONS', refresher: '2 QUESTIONS', 'not-yet': 'START' }[l.state] || 'START';
@@ -78,10 +80,10 @@ function historyHtml(s, w) {
 }
 
 export const START_OVER = 'Start over? This clears your lessons, drills, rank and missions here. Nothing on your computer changes.';
-// Plain view's words: the results screen has its own "Start over" (a new checkup).
+// The plain theme's words (a results screen has its own "Start over", a new checkup).
 export const CLEAR_PROGRESS = 'Clear your progress? This clears your lessons, drills, rank and missions here. Nothing on your computer changes.';
 
-// Plain view: none of the lessons can be started from there, so it says where
+// The plain theme: none of the lessons can be started from there, so it says where
 // they are played, and Skills (read from the same lessons, so it repeats
 // them) isn't shown.
 export const PLAIN_WHERE = 'Lessons are played in the city view.';
