@@ -43,7 +43,8 @@ function lessonItem(l, progress, next = false) {
 // `lessonsLoaded`: false while the lesson files are still loading, so an empty
 // list isn't yet a failure.
 // `forYou`: city mode, where no worry is named on screen.
-export function renderTraining({ ordered, progress, worryTitle, forYou = false, scan, scout, pendingCity, lessonsLoaded = false, scanFinished = false }) {
+// `sideHtml`: the help district's tile (city mode), inside the frame under the top bar.
+export function renderTraining({ ordered, progress, worryTitle, forYou = false, scan, scout, pendingCity, lessonsLoaded = false, scanFinished = false, sideHtml = '' }) {
   const all = [...ordered.recommended, ...ordered.other];
   const nextLesson = ordered.recommended.find((l) => !lessonDone(progress, l.id)) || all.find((l) => !lessonDone(progress, l.id));
   const head = worryTitle ? `RECOMMENDED FOR “${esc(String(worryTitle).toUpperCase())}”` : forYou ? 'RECOMMENDED FOR YOU' : 'START HERE';
@@ -53,6 +54,7 @@ export function renderTraining({ ordered, progress, worryTitle, forYou = false, 
       <p class="intel">Nothing on your computer was changed. You can start it again whenever you’re ready.</p></div>` : '';
   return `
   ${trainingHud(progress, all)}
+  ${sideHtml ? `<div class="train-side">${sideHtml}</div>` : ''}
   ${pendingCity ? cityBanner() : ''}
   ${failed}
   <section class="train">

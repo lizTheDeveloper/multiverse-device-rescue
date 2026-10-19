@@ -385,3 +385,7 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 details.reading { margin-top: 6px; font-size: 13px; color: var(--dim); }
 details.reading > summary { cursor: pointer; }
 details.reading .link { color: var(--cyan); }
+/* Under 900px the signal drawer takes the width, so it never half-covers the queue. */
+@media (max-width: 900px) { .sig-panel { left: 12px; width: auto; } }
+.train-side { padding: 12px 18px 0; }
+.train-side .side-tile { margin: 0; }

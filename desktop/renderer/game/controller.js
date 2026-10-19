@@ -901,7 +901,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return homeHtml();
     }
     if (s.screen === 'training') {
-      return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, worryIdsOf(s.situation)), progress: s.progress,
+      return renderTraining({ sideHtml: sideTile(), ordered: orderLessons(s.lessons, worryIdsOf(s.situation)), progress: s.progress,
         // City mode is the cover: no worry's words on a game screen ("…watching
         // me"). Only the city's own home keeps its title, "Take back the city".
         worryTitle: inCity() && !isCityHome(s.situation) ? null : s.situation && s.situation.title, forYou: inCity(), scan: s.scan, scout, pendingCity: cityWaiting(),

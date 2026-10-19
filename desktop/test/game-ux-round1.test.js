@@ -313,3 +313,12 @@ test('P2-17 / P2-18: the first sweep says where the list is; pop-ups are one lin
   assert.match(first, /<details class="panel"><summary/);
   assert.ok(!renderBoss({ boss: bossInit(), scout: () => '', tips }).includes(FIRST_SWEEP_LINE));
 });
+
+test('P3-33 / P3-35 / P3-36: the side tile sits under the Training Grounds bar; a first 0% is a starting point; the drawer is full width when narrow', async () => {
+  const { renderTraining } = await game('views/training.js');
+  const t = renderTraining({ ordered: { recommended: [], other: [] }, progress: { lessons: {}, missions: {} }, scout: () => '', sideHtml: '<div class="side-tile">X</div>' });
+  assert.ok(t.indexOf('</header>') < t.indexOf('side-tile'));
+  const { integrityText } = await game('views/instruments.js');
+  assert.match(integrityText(0, null), /starting point/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../renderer/game/game.css'), 'utf8'), /@media \(max-width: 900px\) \{ \.sig-panel \{ left: 12px; width: auto; \} \}/);
+});
