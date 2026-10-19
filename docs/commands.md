@@ -887,7 +887,13 @@ route print -4
 
 ### `conn_common`
 
-Runs no external commands; reads files and system APIs only.
+```text
+lsof -i -n -P
+nettop -P -L 1 -n -x -J bytes_in,bytes_out
+powershell -NoProfile -NonInteractive -Command …
+ss -tniH
+ss -tunapH
+```
 
 ### `dns_over_https_check`
 

@@ -40,8 +40,8 @@ _WIN_DNS_SCRIPT = (
 )
 
 
-def _powershell(script: str) -> list[str]:
-    return ["powershell", "-NoProfile", "-NonInteractive", "-Command", script]
+WIN_ARGS = ["powershell", "-NoProfile", "-NonInteractive", "-Command", _WIN_SCRIPT]
+WIN_DNS_ARGS = ["powershell", "-NoProfile", "-NonInteractive", "-Command", _WIN_DNS_SCRIPT]
 
 
 # --- records ---------------------------------------------------------------
@@ -163,7 +163,7 @@ def parse_ss(text: str) -> list[dict]:
         remote_addr, remote_port = _split_endpoint(parts[5])
         if _is_unset(remote_addr, remote_port):
             remote_addr, remote_port = None, None
-        state = parts[1].upper()
+        state = parts[1].upper().replace("-", "_")
         state = _SS_STATES.get(state, state)
         pid = process = None
         owner = _SS_USERS.search(line)
@@ -309,6 +309,13 @@ def _failure(result) -> str | None:
     return None
 
 
+def _unreadable(result, records: list[dict]) -> str | None:
+    """Output arrived but none of it parsed: a changed format, not a clean machine."""
+    if (result.stdout or "").strip() and not records:
+        return "The command's output wasn't in a form this check understands."
+    return None
+
+
 def snapshot(platform: str, run=command.run) -> dict:
     """Collect connections now.
 
@@ -321,10 +328,23 @@ def snapshot(platform: str, run=command.run) -> dict:
 
     if platform == "darwin":
         result = run(LSOF_ARGS, timeout=_TIMEOUT)
-        out["error"] = _failure(result)
-        if out["error"]:
-            return out
-        out["records"] = parse_lsof(result.stdout)
+        # lsof exits 1 with no output when nothing has a network file open.
+        if result.returncode == 1 and not result.timed_out and not result.error \
+                and not (result.stdout or "").strip():
+            out["records"] = []
+        else:
+            out["error"] = _failure(result)
+            if out["error"]:
+                return out
+            out["records"] = parse_lsof(result.stdout)
+            out["error"] = _unreadable(result, out["records"])
+            if out["error"]:
+                return out
+        if os.geteuid() != 0:
+            out["limits"].append(
+                "macOS shows connections only for programs running as you unless "
+                "the check runs as admin."
+            )
         sent = run(NETTOP_ARGS, timeout=_TIMEOUT)
         if _failure(sent) is None:
             out["bytes"] = parse_nettop(sent.stdout)
@@ -336,6 +356,9 @@ def snapshot(platform: str, run=command.run) -> dict:
         if out["error"]:
             return out
         out["records"] = parse_ss(result.stdout)
+        out["error"] = _unreadable(result, out["records"])
+        if out["error"]:
+            return out
         if any(r["pid"] is None for r in out["records"]):
             out["limits"].append(
                 "Linux shows which program owns a connection only for your own "
@@ -347,12 +370,17 @@ def snapshot(platform: str, run=command.run) -> dict:
         else:
             out["limits"].append("Couldn't read how much data each connection carried.")
     elif platform == "win32":
-        result = run(_powershell(_WIN_SCRIPT), timeout=_TIMEOUT)
+        result = run(WIN_ARGS, timeout=_TIMEOUT)
         out["error"] = _failure(result)
         if out["error"]:
             return out
         lines = (result.stdout or "").splitlines()
         lines += [""] * (3 - len(lines))
+        if not _win_rows(lines[0]):
+            # A working Windows machine always has TCP listeners; a blank or
+            # unparseable first document means the query failed.
+            out["error"] = "Windows didn't return the list of connections."
+            return out
         out["records"] = parse_win_connections(lines[0], lines[1], lines[2])
         out["limits"].append(
             "Windows doesn't show how much data each connection carried without admin."
@@ -365,7 +393,7 @@ def snapshot(platform: str, run=command.run) -> dict:
 def dns_cache(platform: str, run=command.run) -> dict:
     """Names this computer recently looked up. Only Windows lets us read them."""
     if platform == "win32":
-        result = run(_powershell(_WIN_DNS_SCRIPT), timeout=_TIMEOUT)
+        result = run(WIN_DNS_ARGS, timeout=_TIMEOUT)
         reason = _failure(result)
         if reason:
             return {"names": None, "reason": f"Couldn't read the list of looked-up names. {reason}"}
@@ -385,30 +413,78 @@ def dns_cache(platform: str, run=command.run) -> dict:
 
 # --- ordinary listeners ----------------------------------------------------
 
-_WIN_LISTEN_PORTS = {135, 139, 445, 5040, 5357}
-_LINUX_LISTENERS = {
+_SYSTEM_PID = 4
+_WIN_SERVICE_HOSTS = ("lsass.exe", "wininit.exe", "services.exe", "svchost.exe", "spoolsv.exe")
+_WIN_FIXED_PORTS = {
+    135: ("svchost.exe",),
+    5040: ("svchost.exe",),
+}
+_WIN_SYSTEM_PORTS = {139, 445, 5357}
+_LINUX_PRIVILEGED = {
     ("sshd", 22), ("systemd-resolve", 53), ("cupsd", 631),
-    ("avahi-daemon", 5353), ("chronyd", 123), ("ntpd", 123),
+    ("chronyd", 123), ("ntpd", 123),
 }
 _LINUX_STUB_ADDRS = {"127.0.0.53", "127.0.0.54"}
+_AVAHI_EXE = "/usr/sbin/avahi-daemon"
 
 
-def is_expected_listener(platform: str, record: dict) -> bool:
-    """True for a listener that a normal, healthy install of the OS opens."""
+def _windows_dir() -> str:
+    """The real Windows folder, asked of the OS (never an environment variable)."""
+    try:
+        import ctypes
+
+        buf = ctypes.create_unicode_buffer(260)
+        if ctypes.windll.kernel32.GetSystemWindowsDirectoryW(buf, 260):
+            return buf.value
+    except (AttributeError, OSError, ImportError):
+        pass
+    return "C:\\Windows"
+
+
+def _win_expected(record: dict, port: int, windows_dir: str | None) -> bool:
+    if port in _WIN_SYSTEM_PORTS:
+        return record.get("pid") == _SYSTEM_PID
+    if port in _WIN_FIXED_PORTS:
+        allowed = _WIN_FIXED_PORTS[port]
+    elif 49664 <= port <= 49699:
+        allowed = _WIN_SERVICE_HOSTS
+    else:
+        return False
+    exe = (record.get("exe") or "").replace("/", "\\").lower()
+    if exe:
+        base = (windows_dir or _windows_dir()).replace("/", "\\").rstrip("\\").lower()
+        return any(exe == f"{base}\\system32\\{name}" for name in allowed)
+    # Without admin, Windows hides the path of service programs. A program run
+    # as the person always shows its path, so a pathless one must be a service
+    # and is judged by its name.
+    name = (record.get("process") or "").lower()
+    return (name if name.endswith(".exe") else name + ".exe") in allowed
+
+
+def is_expected_listener(
+    platform: str, record: dict, readlink=os.readlink, windows_dir: str | None = None
+) -> bool:
+    """True for a listener that a normal, healthy install of the OS opens.
+
+    ``readlink`` and ``windows_dir`` are injectable so tests don't need a real
+    Linux or Windows machine.
+    """
     port = record.get("local_port")
     if port is None:
         return False
     if platform == "win32":
-        if not (port in _WIN_LISTEN_PORTS or 49664 <= port <= 49699):
-            return False
-        if record.get("pid") == 4:
-            return True
-        root = os.environ.get("SystemRoot") or r"C:\Windows"
-        system32 = root.replace("/", "\\").rstrip("\\").lower() + "\\system32\\"
-        exe = (record.get("exe") or "").replace("/", "\\").lower()
-        return exe.startswith(system32)
+        return _win_expected(record, port, windows_dir)
     if platform == "linux":
-        if (record.get("process"), port) not in _LINUX_LISTENERS:
+        process = record.get("process")
+        if process == "avahi-daemon" and port == 5353:
+            pid = record.get("pid")
+            if pid is None:
+                return False
+            try:
+                return readlink(f"/proc/{pid}/exe") == _AVAHI_EXE
+            except OSError:
+                return False
+        if (process, port) not in _LINUX_PRIVILEGED:
             return False
         if port == 53:
             return record.get("local_addr") in _LINUX_STUB_ADDRS

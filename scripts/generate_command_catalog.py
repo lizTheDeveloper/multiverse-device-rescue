@@ -201,6 +201,18 @@ def _scan_tree(tree: ast.Module, found: set[str]) -> tuple[int, bool]:
                 ):
                     forwarded.add(id(node))
     dynamic = 0
+    # Module-level ``NAME_ARGS = [...]`` constants are argv lists that a runner
+    # passed in as a parameter will execute (e.g. conn_common/collect.py).
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id.endswith("_ARGS")
+        ):
+            rendered = _render_argv(node.value)
+            if rendered is not None:
+                found.add(rendered)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue

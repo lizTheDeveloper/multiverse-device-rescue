@@ -168,6 +168,39 @@ def test_bytes_failure_does_not_fail_snapshot():
     assert snap["error"] is None and snap["bytes"] is None and snap["limits"]
 
 
+def test_windows_blank_tcp_document_is_an_error():
+    out = "\n".join(["", fx("win_udp.json").strip(), fx("win_proc.json").strip()])
+    snap = C.snapshot("win32", run=lambda a, **k: result(out))
+    assert snap["error"] and snap["records"] == []
+    bad = C.snapshot("win32", run=lambda a, **k: result("not json\n\n\n"))
+    assert bad["error"] and bad["records"] == []
+
+
+def test_unparseable_output_is_an_error_on_unix():
+    for platform in ("darwin", "linux"):
+        snap = C.snapshot(platform, run=lambda a, **k: result("totally new format\n"))
+        assert snap["error"] and snap["records"] == []
+
+
+def test_lsof_exit_one_without_output_means_no_connections():
+    snap = C.snapshot("darwin", run=lambda a, **k: result("", returncode=1))
+    assert snap["error"] is None and snap["records"] == []
+
+
+def test_darwin_limit_when_not_admin(monkeypatch):
+    run = lambda a, **k: result(fx("lsof_mac.txt"))  # noqa: E731
+    monkeypatch.setattr(C.os, "geteuid", lambda: 501)
+    assert any("programs running as you" in s for s in C.snapshot("darwin", run=run)["limits"])
+    monkeypatch.setattr(C.os, "geteuid", lambda: 0)
+    assert not any("programs running as you" in s for s in C.snapshot("darwin", run=run)["limits"])
+
+
+def test_ss_states_use_underscores():
+    line = 'tcp   SYN-SENT 0 0 192.168.1.30:51044 203.0.113.9:443\n' \
+           'tcp   TIME-WAIT 0 0 192.168.1.30:51045 203.0.113.9:443\n'
+    assert [r["state"] for r in C.parse_ss(line)] == ["SYN_SENT", "TIME_WAIT"]
+
+
 def test_windows_bytes_none_with_limit():
     out = "\n".join(
         json.dumps(json.loads(fx(n))) for n in ("win_tcp.json", "win_udp.json", "win_proc.json")
@@ -209,7 +242,45 @@ def test_expected_listeners_clean_windows():
 def test_expected_listeners_clean_linux():
     recs = C.parse_ss(fx("clean_linux_ss.txt"))
     assert len(recs) == 6
-    assert all(C.is_expected_listener("linux", r) for r in recs)
+    ok = lambda p: "/usr/sbin/avahi-daemon"  # noqa: E731
+    assert all(C.is_expected_listener("linux", r, readlink=ok) for r in recs)
+
+
+def test_linux_avahi_needs_verified_exe():
+    avahi = {"process": "avahi-daemon", "pid": 701, "local_port": 5353, "local_addr": "0.0.0.0"}
+    assert C.is_expected_listener("linux", avahi, readlink=lambda p: "/usr/sbin/avahi-daemon")
+    assert not C.is_expected_listener("linux", avahi, readlink=lambda p: "/tmp/avahi-daemon")
+
+    def gone(path):
+        raise FileNotFoundError(path)
+
+    assert not C.is_expected_listener("linux", avahi, readlink=gone)
+    assert not C.is_expected_listener("linux", {**avahi, "pid": None}, readlink=gone)
+    # name alone is not enough on an unprivileged port
+    assert not C.is_expected_listener("linux", {**avahi, "process": "sshd", "local_port": 2222})
+
+
+def test_expected_windows_listeners_without_paths():
+    recs = C.parse_win_connections(fx("clean_win_listen.json"), "[]", fx("win_proc_nopath.json"))
+    listeners = [r for r in recs if r["state"] == "LISTEN"]
+    assert all(r["exe"] is None for r in listeners)
+    assert all(C.is_expected_listener("win32", r) for r in listeners)
+    # a pathless program that is not a service host is not expected
+    odd = {**listeners[0], "process": "chrome", "pid": 5120}
+    assert not C.is_expected_listener("win32", odd)
+
+
+def test_windows_expected_needs_exact_system32_program():
+    base = {"local_port": 135, "pid": 1044, "process": "svchost", "local_addr": "0.0.0.0"}
+    sys32 = "C:\\Windows\\System32\\"
+    assert C.is_expected_listener("win32", {**base, "exe": sys32 + "svchost.exe"}, windows_dir="C:\\Windows")
+    assert not C.is_expected_listener("win32", {**base, "exe": "C:\\Users\\x\\svchost.exe"})
+    rundll = {**base, "local_port": 49670, "process": "rundll32", "exe": sys32 + "rundll32.exe"}
+    assert not C.is_expected_listener("win32", rundll)
+    assert not C.is_expected_listener("win32", {**rundll, "exe": None})
+    assert C.is_expected_listener("win32", {**rundll, "process": "lsass", "exe": sys32 + "lsass.exe"})
+    # 445 is the System process only
+    assert not C.is_expected_listener("win32", {**base, "local_port": 445, "exe": sys32 + "svchost.exe"})
 
 
 def test_unexpected_listener():
@@ -221,8 +292,6 @@ def test_unexpected_listener():
     app = {"process": "app", "local_port": 445, "local_addr": "0.0.0.0", "pid": 7000,
            "exe": "C:\\Users\\sam\\AppData\\app.exe"}
     assert not C.is_expected_listener("win32", app)
-    sys32 = {**app, "exe": "C:\\Windows\\SysWOW64\\x.exe"}
-    assert not C.is_expected_listener("win32", sys32)
-    assert not C.is_expected_listener("win32", {**app, "exe": "C:\\Windows\\System32\\x.exe", "local_port": 8080})
-    assert C.is_expected_listener("win32", {**app, "exe": "c:\\windows\\system32\\x.exe"})
+    assert not C.is_expected_listener("win32", {**app, "exe": "C:\\Windows\\SysWOW64\\svchost.exe"})
+    assert not C.is_expected_listener("win32", {**app, "exe": "C:\\Windows\\System32\\svchost.exe", "local_port": 8080})
     assert not C.is_expected_listener("darwin", py)
