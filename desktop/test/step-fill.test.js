@@ -96,3 +96,27 @@ test('what is filled is drawn as text by both renderers', async () => {
   assert.match(gameHtml, /cat &#39;\/a\/b_c,d@e%f=g\+h:i&#39;/);
   assert.match(s.stepsHtml([{ number: 1, title: 't', body: '`cat <path>`' }], { data: { path: '$(touch x)' }, platform: mac }), /cat &lt;path&gt;/);
 });
+
+// ---- UX round 3 (P2-16): steps for another computer are left out ----------
+
+test('forPlatform keeps what is said for this computer only', () => {
+  const S = require('../renderer/step-fill.js');
+  const t = "1. Download the app again from the maker's own website or from the App Store\n"
+    + '   (Mac) or Microsoft Store (Windows). Never use a link from an ad or an email.\n'
+    + '2. Close the app. On a Mac, drag the old copy out of Applications; on Windows,\n'
+    + '   open **Settings > Apps > Installed apps**, find it and choose **Uninstall**.\n'
+    + '3. Install the fresh copy.';
+  assert.strictEqual(S.forPlatform(t, 'darwin'),
+    "1. Download the app again from the maker's own website or from the App Store. Never use a link from an ad or an email.\n"
+    + '2. Close the app. Drag the old copy out of Applications.\n'
+    + '3. Install the fresh copy.');
+  const win = S.forPlatform(t, 'win32');
+  assert.match(win, /2\. Close the app\. Open \*\*Settings > Apps > Installed apps\*\*, find it and choose \*\*Uninstall\*\*\./);
+  assert.doesNotMatch(win, /Mac|drag the old copy/);
+  assert.strictEqual(S.forPlatform(t, 'nope'), t, 'unknown platform: everything');
+  assert.strictEqual(S.forPlatform('Open Terminal.\nRun this.', 'darwin'), 'Open Terminal.\nRun this.', 'nothing about another computer: unchanged');
+  const code = 'On Windows, run:\n```\nreg query x\n```';
+  assert.strictEqual(S.forPlatform(code, 'darwin'), code, 'a code block is never rewritten');
+  assert.strictEqual(S.fillStep("On Windows, skip this. Run launchctl print gui/501/<label>.", { label: 'com.x' }, 'darwin'),
+    "Run launchctl print gui/501/'com.x'.");
+});

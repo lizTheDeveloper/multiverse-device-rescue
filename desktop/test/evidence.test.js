@@ -176,7 +176,8 @@ test('the commands the check ran: short names shown, full lines copied, home fol
     ['spctl', '-a', 'x'], ['ls'],
   ];
   const r = get(E.evidenceRows(F.tampered, { commands }), 'Checked with');
-  assert.strictEqual(r.value, 'codesign --verify …, plutil -p …, mdfind …, and 2 more');
+  // The last path each command was given stays in view: what it looked at.
+  assert.strictEqual(r.value, 'codesign --verify … /Applications/Amazon Photos.app, codesign --verify … /Applications/Baba Is You.app, plutil -p ~/Library/LaunchAgents/x.plist, and 3 more');
   assert.ok(r.mono);
   assert.match(r.copy, /^\/usr\/bin\/codesign --verify --deep '\/Applications\/Amazon Photos.app'\n/);
   assert.match(r.copy, /plutil -p ~\/Library\/LaunchAgents\/x.plist/);
@@ -208,9 +209,11 @@ test('long lists stop at eight with "and N more"; copy has them all', () => {
   const rows = E.evidenceRows({ module: 'some_check', data: { apps } });
   assert.match(get(rows, 'Apps').value, /app7, and 4 more$/);
   assert.strictEqual(get(rows, 'Apps').copy.split(', ').length, 12);
-  const perm = E.evidenceRows({ module: 'app_permissions', data: { apps } }).filter((r) => r.label === 'App');
-  assert.strictEqual(perm.length, 9);
-  assert.strictEqual(perm[8].value, 'and 4 more');
+  // A permission list is marked app by app: up to 16 apps, one row each.
+  const many = Array.from({ length: 20 }, (_, i) => `com.example.app${i}`);
+  const perm = E.evidenceRows({ module: 'app_permissions', data: { apps: many } }).filter((r) => r.label === 'App');
+  assert.strictEqual(perm.length, 17);
+  assert.strictEqual(perm[16].value, 'and 4 more');
 });
 
 test('long paths keep their start and end; the whole path is on copy', () => {
@@ -234,6 +237,12 @@ test('helpers', () => {
   assert.strictEqual(E.checkLabel('code_signature_audit', { modules: [{ name: 'code_signature_audit', check_name: 'Checking app signatures' }] }), 'Checking app signatures');
   assert.strictEqual(E.checkLabel('smcreset_guide', null), 'Smcreset guide');
   assert.strictEqual(E.shortCommand(['/usr/sbin/system_profiler', 'SPUSBDataType', '-json']), 'system_profiler -json …');
+  assert.strictEqual(E.shortCommand(['codesign', '--verify', '--deep', '--strict', '/Applications/Baba Is You.app']),
+    'codesign --verify … /Applications/Baba Is You.app');
+  assert.strictEqual(E.shortCommand(['ls']), 'ls');
+  // Whole folder names: the first two and last three (P2-10).
+  assert.strictEqual(E.shortPath('/tmp/claude-501/-Users-annhoward-src-multiverse-device-rescue/e5f5649d-5eac-431b-840f-8c301f2c6330/scratchpad/plan/gen4.py'),
+    '/tmp/claude-501/…/scratchpad/plan/gen4.py');
 });
 
 test('odd input never throws', () => {
@@ -346,4 +355,76 @@ test('keyboard access with every maker verified: the rows replace the "not verif
   // Other findings never.
   assert.strictEqual(E.replacesDescription(F.tampered), false);
   assert.strictEqual(E.replacesDescription({ ...F.agent, made_by: [{ subject: 'x', name: 'Apple', verified: true }] }), false);
+});
+
+// ---- UX round 3 (P1-5, P2-4, P2-6) -------------------------------------------
+
+test('several makers: the label stays "Made by", the program goes in the value', () => {
+  const rows = E.evidenceRows({ module: 'launch_agent_audit', data: { label: 'ai.x' }, made_by: [
+    { subject: '/Users/ann/.hermes/venv/bin/python', name: 'Unknown maker', verified: false },
+    { subject: '/Users/ann/Library/LaunchAgents/ai.x.plist', name: 'Unknown maker', verified: false },
+  ] });
+  const made = rows.filter((r) => r.label.startsWith('Made by'));
+  assert.deepStrictEqual(made.map((r) => r.label), ['Made by', 'Made by']);
+  assert.strictEqual(made[0].value, 'python — Unknown maker · not verified');
+  assert.strictEqual(made[1].value, 'ai.x.plist — Unknown maker · not verified');
+  assert.match(made[0].copy, /^~\/\.hermes\/venv\/bin\/python — /);
+});
+
+test('no developer labels or filler: empty values, *_type, check and source keys are left out; keys read as words', () => {
+  const rows = E.evidenceRows({ module: 'dns_config', data: {
+    check_type: 'suspicious_dns', source: 'filesystem', servers: ['45.90.28.163'], blank: '  ', none: null,
+    settings: { font_smoothing: '', mouse_tracking_speed: 1.5, keyRepeat: 2, empty: [] },
+  } });
+  const labels = rows.map((r) => r.label);
+  assert.ok(!labels.some((l) => /type|source|blank|none/i.test(l)), labels.join(', '));
+  assert.deepStrictEqual(labels.filter((l) => /check/i.test(l)), ['Check'], 'only the check’s name');
+  assert.ok(!labels.includes('font_smoothing') && !labels.includes('Font smoothing'), 'an empty value is no row');
+  assert.ok(labels.includes('Mouse tracking speed'));
+  assert.ok(labels.includes('Key repeat'));
+  assert.strictEqual(rows.find((r) => r.label === 'DNS servers').value, '45.90.28.163');
+  assert.ok(!rows.some((r) => r.value === ''), 'no empty value');
+});
+
+test('app lists: names first, in the "It’s mine" panel’s order, each with the maker looked up for it', () => {
+  const f = {
+    module: 'app_permissions',
+    data: { check: 'accessibility_access', apps: ['com.getdropbox.dropbox', 'com.apple.Terminal', 'com.example.x'] },
+    made_by: [{ subject: 'com.getdropbox.dropbox', name: 'Dropbox, Inc.', verified: true }],
+    markable: { items: [
+      { key: 'com.apple.Terminal', label: 'Terminal', made_by: { subject: 'com.apple.Terminal', name: 'Apple', verified: true } },
+      { key: 'com.getdropbox.dropbox', label: 'Dropbox' },
+      { key: 'com.example.x', label: 'com.example.x' },
+    ] },
+  };
+  const apps = E.evidenceRows(f).filter((r) => r.label === 'App').map((r) => r.value);
+  assert.deepStrictEqual(apps, [
+    'Terminal (com.apple.Terminal) — Apple · verified',
+    'Dropbox (com.getdropbox.dropbox) — Dropbox, Inc. · verified',
+    'com.example.x',
+  ]);
+});
+
+test('makers verified: a {path, name} app counts only by its path, never by its own name', () => {
+  const vscode = [{ subject: '/Applications/Visual Studio Code.app', verified: true }];
+  assert.strictEqual(E.makersVerified({ made_by: vscode, data: { apps: [{ name: '/Applications/Visual Studio Code.app', path: '/tmp/evil' }] } }), false);
+  assert.strictEqual(E.makersVerified({ made_by: vscode, data: { apps: [{ name: 'x', path: '/Applications/Visual Studio Code.app' }] } }), true);
+  assert.strictEqual(E.makersVerified({ made_by: vscode, data: { apps: [{ name: 'Code' }] } }), false);
+});
+
+test('a code-signature finding says how much of the list was checked', () => {
+  const rows = E.evidenceRows({ module: 'code_signature_audit', data: { name: 'A', path: '/Applications/A.app', apps_checked: 17, apps_total: 110 } });
+  assert.strictEqual(rows.find((r) => r.label === 'Checked').value, '17 of 110 apps');
+  assert.ok(!rows.some((r) => /apps (checked|total)/i.test(r.label)));
+});
+
+test('values wrap between names, the label column is capped, and narrow blocks stack', () => {
+  const html = E.renderEvidence([{ label: 'Where', value: '~/Library/LaunchAgents/ai.hermes.gateway-deflock.plist', mono: true, copy: 'x' }]);
+  assert.match(html, /~\/<wbr>Library\/<wbr>LaunchAgents\/<wbr>ai\.<wbr>hermes\.<wbr>gateway-deflock\.<wbr>plist/);
+  assert.doesNotMatch(E.breakable('a <b>/c'), /<b>/, 'still escaped');
+  assert.match(E.CSS, /grid-template-columns:fit-content\(11em\) minmax\(0,1fr\)/);
+  assert.match(E.CSS, /\.evidence\{[^}]*container-type:inline-size/);
+  assert.match(E.CSS, /@container \(max-width:28rem\)\{\.evidence-grid\{grid-template-columns:1fr/);
+  assert.match(E.CSS, /@media \(max-width:800px\)\{\.evidence-grid\{grid-template-columns:1fr/);
+  assert.doesNotMatch(E.CSS, /max-content/);
 });

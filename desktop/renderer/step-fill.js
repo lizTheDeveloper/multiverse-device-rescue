@@ -28,6 +28,11 @@
  *   StepFill.safeValue(kind, value) -> the text to put in, or null
  *   StepFill.shellSafe(value) -> true for a value safe single-quoted in a shell
  *   StepFill.PLACEHOLDERS -> { name: { keys, kind } }
+ *   StepFill.forPlatform(text, platform) -> the step without what is said
+ *     for another computer ("…; on Windows, open Settings > Apps…" on a Mac,
+ *     "App Store (Mac) or Microsoft Store (Windows)" -> "App Store"). An
+ *     unknown platform keeps everything.
+ *   StepFill.fillStep(text, data, platform) -> forPlatform, then fillPlaceholders
  *
  * Loaded as a plain script (global `StepFill`, also on window/globalThis);
  * the game's ES modules `import '../step-fill.js'` (or '../../step-fill.js')
@@ -93,7 +98,62 @@ const StepFill = (function () {
     });
   }
 
-  return { PLACEHOLDERS, safeValue, shellSafe, fillPlaceholders };
+  // What a step calls each computer, as said at the start of a clause
+  // ("On a Mac, …", "on Windows, …") or after a name ("(Windows)").
+  const OS_WORDS = {
+    darwin: ['a mac', 'mac', 'macos', 'your mac'],
+    win32: ['windows', 'a windows pc', 'a pc', 'your pc'],
+    linux: ['linux'],
+  };
+  const words = (list) => list.map((w) => w.replace(/ /g, '\\s+')).join('|');
+  const OTHER = (p) => Object.keys(OS_WORDS).filter((k) => k !== p).flatMap((k) => OS_WORDS[k]);
+
+  function forPlatform(text, platform) {
+    const t = String(text == null ? '' : text);
+    const p = platform && typeof platform === 'object' ? platform.platform : platform;
+    if (!OS_WORDS[p]) return t;
+    const other = words(OTHER(p));
+    const mine = words(OS_WORDS[p]);
+    const lead = new RegExp(`^\\s*(?:on|in|for)\\s+(?:${other})\\s*[,:]`, 'i');
+    const ownLead = new RegExp(`^(\\s*)(?:on|in|for)\\s+(?:${mine})\\s*[,:]\\s*`, 'i');
+    const cap = (x) => x.replace(/^(\s*)([a-z])/, (m, sp, c) => sp + c.toUpperCase());
+    // Nothing said for another computer, or a code block (whose lines must
+    // stay as they are): unchanged.
+    if (!new RegExp(`\\b(?:${other}|${mine})\\b`, 'i').test(t) || /```|^(?: {4}|\t)/m.test(t)) return t;
+    // A step's lines are soft-wrapped: join each list item or paragraph first.
+    const blocks = [];
+    for (const line of t.split('\n')) {
+      const starts = !blocks.length || /^\s*$/.test(line) || /^\s*(?:\d+[.)]|[-*•])\s/.test(line)
+        || /^\s*$/.test(blocks[blocks.length - 1]);
+      if (starts) blocks.push(line);
+      else blocks[blocks.length - 1] += ` ${line.trim()}`;
+    }
+    return blocks.map((block) => {
+      // "X (Mac) or Y (Windows)": keep the one for this computer.
+      let l = block.replace(new RegExp(`\\s+or\\s+[^,.;()\\n]*\\((?:${other})\\)`, 'gi'), '')
+        .replace(new RegExp(`(?:[\\w'-]+\\s+)?[\\w'-]+\\s*\\((?:${other})\\)\\s+or\\s+`, 'gi'), '')
+        .replace(new RegExp(`\\s*\\((?:${mine})\\)`, 'gi'), '');
+      const indent = /^\s*(?:\d+[.)]\s+|[-*•]\s+)?/.exec(l)[0];
+      const body = l.slice(indent.length);
+      // Sentences, then clauses: drop those said for another computer.
+      const sentences = body.split(/(?<=[.!?])\s+(?=\S)/).map((sentence) => {
+        const clauses = sentence.split(/;\s*/);
+        const kept = clauses.filter((c) => !lead.test(c));
+        if (!kept.length) return '';
+        let out = kept.map((c, i) => (i === 0 ? cap(c.replace(ownLead, '$1')) : c)).join('; ');
+        if (kept.length < clauses.length && !/[.!?]$/.test(out)) out += '.';
+        return out;
+      }).filter((x) => x !== '');
+      l = indent + sentences.join(' ');
+      return l;
+    }).join('\n');
+  }
+
+  function fillStep(text, data, platform) {
+    return fillPlaceholders(forPlatform(text, platform), data, platform);
+  }
+
+  return { PLACEHOLDERS, safeValue, shellSafe, fillPlaceholders, forPlatform, fillStep };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

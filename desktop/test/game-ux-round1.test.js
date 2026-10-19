@@ -174,7 +174,8 @@ test('P1-11 / round 2: each held item is the shared evidence block, held: what t
   const { held } = splitHeld({ modules: [{ name: 'stalkerware_scan', status: 'ok', findings: [mspy] }] });
   const { finding, ...fields } = held[0];
   assert.deepStrictEqual(fields, { module: 'stalkerware_scan', title: mspy.title, name: 'mSpy', where: '/Applications/<b>mSpy.app', how: 'app', maker: 'Unknown maker (not verified)' });
-  const html = renderSide({ district: pickDistrict(1), held, seen: new Date(2026, 9, 18) });
+  // Values carry <wbr> break chances after / and . (evidence.js breakable).
+  const html = renderSide({ district: pickDistrict(1), held, seen: new Date(2026, 9, 18) }).replace(/<wbr>/g, '');
   assert.match(html, /class="evidence evidence--held"/);
   assert.match(html, /Write this on paper or on another device\./);
   assert.match(html, /<dt>Name<\/dt><dd><span>mSpy<\/span><\/dd>/);

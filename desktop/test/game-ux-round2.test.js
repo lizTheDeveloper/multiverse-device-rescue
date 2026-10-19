@@ -73,7 +73,7 @@ const missionId = async (doc, title) => {
 test('a mission: WHAT IT IS is the evidence block and one line; no walkthrough source line, no generic prose', async () => {
   const t = await setup();
   t.click({ 'data-go': `mission:${await missionId(DOC, LAUNCH.title)}` });
-  const html = t.html();
+  const html = t.html().replace(/<wbr>/g, ''); // break chances (evidence.js breakable)
   const what = html.split('WHAT IT IS')[1].split('</div></div>')[0] + html.split('WHAT IT IS')[1];
   assert.match(what, /class="evidence"/);
   assert.match(what, /<dt>Background task<\/dt><dd><code class="evidence-mono">ai\.hermes\.gateway-deflock<\/code>/);
@@ -99,7 +99,8 @@ test('the commands a check ran arrive later and are drawn into the block in plac
   t.click({ 'data-go': `mission:${await missionId(DOC, LAUNCH.title)}` });
   await tick(); await tick();
   assert.deepStrictEqual(t.calls.commands, ['launch_agent_audit']);
-  assert.match(els[0].innerHTML, /<dt>Checked with<\/dt><dd><code class="evidence-mono"[^>]*>plutil -p …<\/code>/);
+  // The path the command looked at stays in view.
+  assert.match(els[0].innerHTML.replace(/<wbr>/g, ''), /<dt>Checked with<\/dt><dd><code class="evidence-mono"[^>]*>plutil -p \/Library\/LaunchAgents\/x\.plist<\/code>/);
 });
 
 test('missionText: the first sentence, the first paragraph, and the "What to do" text', async () => {

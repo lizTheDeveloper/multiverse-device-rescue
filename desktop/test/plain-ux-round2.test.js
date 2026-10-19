@@ -101,7 +101,7 @@ test('the card: title, Evidence, warning, actions; steps, help and technical det
     mod('b', [], { status: 'error', error: 'Operation not permitted' }),
     mod('c', [], { status: 'error', error: 'timed out after 60s' }),
   ] });
-  const html = p.byId('results-groups').innerHTML;
+  const html = p.byId('results-groups').innerHTML.replace(/<wbr>/g, ''); // break chances (evidence.js breakable)
   const cards = html.split('<li class="finding-card').slice(1);
   assert.strictEqual(cards.length, 1, 'one card for the task both checks saw');
   const card = cards[0];

@@ -60,10 +60,25 @@ const Evidence = (function () {
 
   const looksLikePath = (s) => typeof s === 'string' && (/^(~|\/|[A-Za-z]:\\)/.test(s));
 
-  /** A long path keeps its start and end: "~/Library/…/deflock.plist". */
+  /**
+   * A long path keeps whole folder names: its first two and last three
+   * ("/tmp/claude-501/…/scratchpad/plan/gen4.py"), or last two, never a cut
+   * in the middle of a name. Only a path whose names are themselves too long
+   * falls back to its start and end.
+   */
   function shortPath(p, max = MAX_PATH_SHOWN) {
     const s = homeRelative(p);
     if (s.length <= max) return s;
+    const sep = s.includes('\\') && !s.includes('/') ? '\\' : '/';
+    const parts = s.split(sep);
+    // ["", "tmp", ...] for "/tmp/..." keeps the root with the first name.
+    const lead = parts[0] === '' ? 3 : 2;
+    if (parts.length > lead + 3) {
+      const out = [...parts.slice(0, lead), '\u2026', ...parts.slice(-3)].join(sep);
+      if (out.length <= max) return out;
+      const tail = [...parts.slice(0, lead), '\u2026', ...parts.slice(-2)].join(sep);
+      if (tail.length <= max) return tail;
+    }
     const keepEnd = Math.ceil(max * 0.6);
     const keepStart = max - keepEnd - 1;
     return `${s.slice(0, keepStart)}\u2026${s.slice(-keepEnd)}`;
@@ -165,25 +180,55 @@ const Evidence = (function () {
     const apps = isObj(f.data) && Array.isArray(f.data.apps) ? f.data.apps : null;
     if (!apps) return true;
     const subjects = new Set(entries.map((e) => e.subject));
-    return apps.every((a) => subjects.has(a));
+    // An app is matched only by what the engine looked up: the name itself
+    // for a string, the path for a {path, name} entry (never its own name).
+    return apps.every((a) => { const k = appSubject(a); return k != null && subjects.has(k); });
   }
 
+  /** The subject an "apps" entry was looked up by: itself, or its path. */
+  function appSubject(a) {
+    if (typeof a === 'string') return a;
+    if (isObj(a)) for (const k of ['plist', 'path', 'program', 'exe', 'executable', 'binary']) if (typeof a[k] === 'string' && a[k]) return a[k];
+    return null;
+  }
+
+  /**
+   * "Made by" rows. One program: its maker. Several: the label stays "Made
+   * by" and the program goes in the value ("python \u2014 Unknown maker \u00b7 not
+   * verified"), so the label column stays short.
+   */
   function makerRows(madeBy, { skip = new Set() } = {}) {
     const entries = (Array.isArray(madeBy) ? madeBy : []).filter((e) => isObj(e) && !skip.has(e.subject));
     if (entries.length === 1) return [row('Made by', makerText(entries[0]))];
-    return entries.slice(0, MAX_LIST).map((e) => row(`Made by (${clip(baseName(e.subject), 40)})`, makerText(e)))
+    return entries.slice(0, MAX_LIST).map((e) => row('Made by', `${clip(baseName(e.subject), 40)} \u2014 ${makerText(e)}`,
+      { copy: `${homeRelative(e.subject)} \u2014 ${makerText(e)}` }))
       .concat(entries.length > MAX_LIST ? [row('Made by', `and ${entries.length - MAX_LIST} more`)] : []);
   }
 
-  /** One row per app, each with its maker: "com.microsoft.VSCode  Microsoft Corporation · verified". */
-  function appRows(label, apps, madeBy) {
+  const MAX_APPS = 16; // apps listed one per row (a permission list is marked app by app)
+
+  /**
+   * One row per app, names first and in the order the "It's mine" panel
+   * lists them (markable.items), each with its maker:
+   * "Visual Studio Code (com.microsoft.VSCode) \u2014 Microsoft Corporation \u00b7 verified".
+   */
+  function appRows(label, apps, madeBy, items) {
     const bySubject = new Map((Array.isArray(madeBy) ? madeBy : []).filter(isObj).map((e) => [e.subject, e]));
-    const rows = apps.slice(0, MAX_LIST).map((app) => {
-      const e = bySubject.get(app);
-      const id = looksLikePath(app) ? shortPath(app, 48) : String(app);
-      return row(label, e ? `${id} \u2014 ${makerText(e)}` : id, { mono: true, copy: e ? `${homeRelative(app)} \u2014 ${makerText(e)}` : homeRelative(app) });
+    const rows0 = (Array.isArray(items) ? items : []).filter((i) => isObj(i) && typeof i.key === 'string');
+    const byKey = new Map(rows0.map((i) => [i.key, i]));
+    const keys = apps.map(appSubject).filter((k) => k != null);
+    // The panel's order first, then anything the panel doesn't list.
+    const order = [...rows0.map((i) => i.key).filter((k) => keys.includes(k)), ...keys.filter((k) => !byKey.has(k))];
+    const rows = order.slice(0, MAX_APPS).map((key) => {
+      const item = byKey.get(key);
+      const e = (item && isObj(item.made_by) ? item.made_by : null) || bySubject.get(key);
+      const id = looksLikePath(key) ? shortPath(key, 48) : String(key);
+      const name = item && typeof item.label === 'string' && item.label && item.label !== key ? item.label : '';
+      const what = name ? `${name} (${id})` : id;
+      const full = name ? `${name} (${homeRelative(key)})` : homeRelative(key);
+      return row(label, e ? `${what} \u2014 ${makerText(e)}` : what, { mono: !name, copy: e ? `${full} \u2014 ${makerText(e)}` : full });
     });
-    if (apps.length > MAX_LIST) rows.push(row(label, `and ${apps.length - MAX_LIST} more`, { copy: apps.slice(MAX_LIST).map(homeRelative).join(', ') }));
+    if (order.length > MAX_APPS) rows.push(row(label, `and ${order.length - MAX_APPS} more`, { copy: order.slice(MAX_APPS).map(homeRelative).join(', ') }));
     return rows;
   }
 
@@ -195,12 +240,25 @@ const Evidence = (function () {
     return homeRelative(argv.map((a) => (/^[\w@%+=:,./~-]+$/.test(String(a)) ? String(a) : `'${String(a).replace(/'/g, "'\\''")}'`)).join(' '));
   }
 
+  /**
+   * "codesign --verify … ~/…/Baba Is You.app": the program, its first flag,
+   * and the last path it was given (the thing it looked at), so "…" never
+   * hides what makes the line concrete.
+   */
   function shortCommand(cmd) {
     const argv = Array.isArray(cmd) ? cmd : (isObj(cmd) && Array.isArray(cmd.argv) ? cmd.argv : (typeof cmd === 'string' ? cmd.split(/\s+/) : []));
     if (!argv.length) return '';
     const prog = baseName(argv[0]);
-    const flag = argv.slice(1).find((a) => /^-{1,2}[A-Za-z]/.test(String(a)));
-    return `${prog}${flag ? ` ${flag}` : ''}${argv.length > (flag ? 2 : 1) ? ' \u2026' : ''}`;
+    const rest = argv.slice(1).map(String);
+    const flag = rest.find((a) => /^-{1,2}[A-Za-z]/.test(a));
+    let lastPath = null;
+    for (let i = rest.length - 1; i >= 0; i -= 1) if (looksLikePath(rest[i])) { lastPath = i; break; }
+    const shown = [prog];
+    if (flag) shown.push(flag);
+    const used = (flag ? 1 : 0) + (lastPath != null ? 1 : 0);
+    if (rest.length > used) shown.push('\u2026');
+    if (lastPath != null && rest[lastPath] !== flag) shown.push(shortPath(rest[lastPath], 40));
+    return shown.join(' ');
   }
 
   function commandRow(commands) {
@@ -241,7 +299,11 @@ const Evidence = (function () {
         const reason = String(d.detail).split(': ').pop();
         rows.push(row('Signature check said', reason, { mono: true, copy: homeRelative(d.detail) }));
       }
-      return { rows, used: ['name', 'path', 'detail'] };
+      // The list may be partial: say how much of it was checked, here.
+      if (Number.isInteger(d.apps_checked) && Number.isInteger(d.apps_total) && d.apps_total > 0) {
+        rows.push(row('Checked', `${d.apps_checked} of ${d.apps_total} apps`));
+      }
+      return { rows, used: ['name', 'path', 'detail', 'apps_checked', 'apps_total'] };
     },
     session_revocation_scan(f) {
       const d = f.data;
@@ -313,15 +375,23 @@ const Evidence = (function () {
   for (const name of ['app_permissions', 'privacy_permissions_audit', 'accessibility_permissions']) {
     ADAPTERS[name] = (f) => {
       const apps = Array.isArray(f.data.apps) ? f.data.apps : [];
-      return { rows: apps.length ? appRows('App', apps, f.made_by) : [], used: ['apps', 'service', 'display_name'], makersDone: apps.length > 0 };
+      return { rows: apps.length ? appRows('App', apps, f.made_by, isObj(f.markable) ? f.markable.items : null) : [],
+        used: ['apps', 'service', 'display_name'], makersDone: apps.length > 0 };
     };
   }
 
   // ---- generic ---------------------------------------------------------------
 
-  // Keys that are the engine's own bookkeeping, not evidence.
+  // Keys that are the engine's own bookkeeping, not evidence ("Check type:
+  // suspicious_dns", "Source: filesystem").
   const SKIP = new Set(['check', 'severity_level', 'marked_by_user', 'mark_stale', 'mark_id', 'original_title',
-    'used_pct', 'is_system_app']);
+    'used_pct', 'is_system_app', 'source', 'known_item_id', 'original_severity']);
+  const skipKey = (key) => SKIP.has(key) || /_type$/.test(key) || /^check_/.test(key);
+  // An empty value says nothing: never a row.
+  const isEmpty = (v) => v == null || (typeof v === 'string' && v.trim() === '')
+    || (Array.isArray(v) && !v.some((x) => !isEmpty(x))) || (isObj(v) && !Object.values(v).some((x) => !isEmpty(x)));
+  // A key written for code ("font_smoothing", "mouseTrackingSpeed") in words.
+  const keyLabel = (k) => (/^[a-z][a-z0-9]*(?:[_A-Z][a-z0-9]*)+$/.test(k) ? humanize(k.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()) : k);
   const LABELS = {
     path: 'Where', location: 'Where', file: 'File', plist: 'Settings file', program: 'Runs', binary: 'Program file',
     label: 'Name', name: 'Name', app_name: 'App', item_name: 'Item', process: 'Program', pid: 'Process id',
@@ -332,14 +402,16 @@ const Evidence = (function () {
     total_crashes: 'Crashes', profile_count: 'Profiles', most_recent_date: 'Most recent', last_seen: 'Last seen',
     baseline_captured_at: 'Last snapshot', apps: 'Apps', keys: 'Keys', confidence: 'Confidence',
     interval_seconds: 'Every (seconds)', bundle_id: 'Bundle id', team_id: 'Team id', signer: 'Signed by',
+    servers: 'DNS servers', dns_servers: 'DNS servers', providers: 'Provider', provider: 'Provider',
+    profile_ids: 'Profile id',
   };
   const MONO_KEYS = new Set(['pid', 'port', 'ports', 'ip', 'hostname', 'dest', 'remote', 'label', 'process',
-    'bundle_id', 'team_id', 'command', 'device', 'value', 'keys', 'apps', 'detail']);
+    'bundle_id', 'team_id', 'command', 'device', 'value', 'keys', 'apps', 'detail', 'servers', 'dns_servers', 'profile_ids']);
 
   function genericRows(data, used) {
     const rows = [];
     for (const [key, v] of Object.entries(data)) {
-      if (used.has(key) || SKIP.has(key) || v == null || v === '') continue;
+      if (used.has(key) || skipKey(key) || isEmpty(v)) continue;
       const label = LABELS[key] || humanize(key);
       if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(label, v));
       else if (/_bytes$/.test(key) && typeof v === 'number') rows.push(row(label, bytes(v)));
@@ -353,9 +425,9 @@ const Evidence = (function () {
         else if (v.every(isObj)) rows.push(listRow(label, v.map(flatObject), { mono: false }));
       } else if (isObj(v)) {
         // A small map ({"Arial.ttf": ["/Library/Fonts", …]}, {"chrome": 50}): one row per key.
-        const entries = Object.entries(v).filter(([, x]) => isScalar(x) || (Array.isArray(x) && x.every(isScalar)));
+        const entries = Object.entries(v).filter(([, x]) => !isEmpty(x) && (isScalar(x) || (Array.isArray(x) && x.every(isScalar))));
         for (const [k, x] of entries.slice(0, MAX_LIST)) {
-          rows.push(Array.isArray(x) ? listRow(clip(k, 48), x) : row(clip(k, 48), fmtScalar(x), { mono: true }));
+          rows.push(Array.isArray(x) ? listRow(clip(keyLabel(k), 48), x) : row(clip(keyLabel(k), 48), fmtScalar(x), { mono: true }));
         }
         if (entries.length > MAX_LIST) rows.push(row(label, `and ${entries.length - MAX_LIST} more`));
       }
@@ -367,7 +439,7 @@ const Evidence = (function () {
   function flatObject(o) {
     const parts = [];
     for (const [k, x] of Object.entries(o)) {
-      if (!isScalar(x) || x == null || x === '' || SKIP.has(k)) continue;
+      if (!isScalar(x) || isEmpty(x) || skipKey(k)) continue;
       parts.push(typeof x === 'string' && parts.length === 0 ? (looksLikePath(x) ? shortPath(x, 48) : x) : `${humanize(k).toLowerCase()} ${fmtScalar(x)}`);
     }
     return parts.slice(0, 4).join(', ');
@@ -468,6 +540,15 @@ const Evidence = (function () {
   const PAPER_LINE = 'Write this on paper or on another device.';
 
   /**
+   * An escaped value with a line-break chance after each "/", "\\" and "." of
+   * a path or id, so a long value wraps between its names, not mid-name
+   * (the CSS's overflow-wrap:anywhere is only the last resort).
+   */
+  function breakable(value) {
+    return esc(value).replace(/([/\\.])(?=[^\s/\\.])/g, '$1<wbr>');
+  }
+
+  /**
    * A compact key/value grid. Values in monospace only for paths, ids,
    * ports, hashes and commands, and only those get their own Copy; "Copy all"
    * copies every row. opts.copy false leaves the copy buttons out.
@@ -488,8 +569,8 @@ const Evidence = (function () {
     const body = list.map((r) => {
       const full = r.copy != null ? r.copy : r.value;
       const val = r.mono
-        ? `<code class="evidence-mono"${full !== r.value ? ` title="${esc(full)}"` : ''}>${esc(r.value)}</code>`
-        : `<span${full !== r.value ? ` title="${esc(full)}"` : ''}>${esc(r.value)}</span>`;
+        ? `<code class="evidence-mono"${full !== r.value ? ` title="${esc(full)}"` : ''}>${breakable(r.value)}</code>`
+        : `<span${full !== r.value ? ` title="${esc(full)}"` : ''}>${breakable(r.value)}</span>`;
       return `<dt>${esc(r.label)}</dt><dd>${val}${r.mono ? btn(full, 'Copy', `Copy ${r.label}`) : ''}</dd>`;
     }).join('');
     return `<section class="evidence${held ? ' evidence--held' : ''}" data-evidence>`
@@ -523,11 +604,11 @@ const Evidence = (function () {
   // Styles for the block, for a <style> in the page or a shadow root (the CSP
   // allows inline styles). Colours inherit; set --evidence-* to theme it.
   const CSS = `
-.evidence{margin:.5rem 0;padding:.5rem .75rem;border:1px solid var(--evidence-border,rgba(127,127,127,.35));border-radius:6px}
+.evidence{margin:.5rem 0;padding:.5rem .75rem;border:1px solid var(--evidence-border,rgba(127,127,127,.35));border-radius:6px;container-type:inline-size}
 .evidence-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.25rem}
 .evidence-title{font-weight:600;font-size:.85em;letter-spacing:.04em;text-transform:uppercase}
-.evidence-grid{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.2rem .75rem;margin:0}
-.evidence-grid dt{opacity:.8}
+.evidence-grid{display:grid;grid-template-columns:fit-content(11em) minmax(0,1fr);gap:.2rem .75rem;margin:0}
+.evidence-grid dt{opacity:.8;overflow-wrap:break-word;min-width:0}
 .evidence-grid dd{margin:0;display:flex;gap:.5rem;align-items:baseline;min-width:0}
 .evidence-grid dd>code,.evidence-grid dd>span{overflow-wrap:anywhere;min-width:0}
 .evidence-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;background:var(--evidence-mono-bg,rgba(127,127,127,.12));padding:0 .25em;border-radius:3px}
@@ -535,13 +616,15 @@ const Evidence = (function () {
 .evidence--held{font-size:1.2em;line-height:1.5}
 .evidence--held .evidence-grid{gap:.5rem 1rem}
 .evidence-paper{margin:.25rem 0 .5rem;font-weight:600}
-@media (max-width:600px){.evidence-grid{grid-template-columns:1fr}.evidence-grid dd{margin-bottom:.3rem}}
+@container (max-width:28rem){.evidence-grid{grid-template-columns:1fr;gap:0}.evidence-grid dd{margin-bottom:.35rem}}
+@media (max-width:800px){.evidence-grid{grid-template-columns:1fr;gap:0}.evidence-grid dd{margin-bottom:.35rem}}
 `;
 
   return {
     MONITORING_MODULES, ADAPTERS, CSS, PAPER_LINE,
     evidenceRows, renderEvidence, evidenceText, wireCopy, replacesDescription,
     plainDay, shortHash, shortPath, homeRelative, bytes, makersVerified, makerText, checkLabel, commandLine, shortCommand,
+    appSubject, breakable,
   };
 })();
 
