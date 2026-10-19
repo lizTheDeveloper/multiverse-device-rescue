@@ -20,7 +20,7 @@ import { renderInstruments } from './views/instruments.js';
 import { renderSignalPanel, renderRange } from './views/signal.js';
 import { renderHud } from './views/hud.js';
 import { renderMap, mapLine } from './views/map.js';
-import { renderDistrict } from './views/district.js';
+import { renderDistrict, bulkLabel } from './views/district.js';
 import { renderBriefing } from './views/briefing.js';
 import { renderOutcome } from './views/outcome.js';
 import { districtComplete, renderMilestone } from './views/milestone.js';
@@ -915,7 +915,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
     }
     if (s.screen === 'district' && district(s.districtId)) {
-      return renderDistrict({ district: district(s.districtId), progress: s.progress, scout });
+      return renderDistrict({ district: district(s.districtId), progress: s.progress, scout, message: s.districtMsg || '', busy: s.busy,
+        scanRunning: !!s.scan.running });
     }
     // During an Undo re-check the mission was reclaimed, so it isn't in the
     // city: show the checking briefing from the mission we last showed.
@@ -1085,6 +1086,55 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       focusEl(findByAttr(frame, 'data-act', `side-copy:${i}`));
     };
     Promise.resolve().then(() => win.navigator.clipboard.writeText(heldText(h, today()))).then(() => done(true), () => done(false));
+  }
+
+  // District missions ticked for a bulk move (read from the page; the
+  // selection starts again on every redraw, like the list's checklists).
+  const ticked = () => Array.from(frame.querySelectorAll('[data-pick]')).filter((b) => b.checked === true)
+    .map((b) => b.getAttribute('data-pick')).filter((id) => mission(id));
+  function updateBulk() {
+    const n = ticked().length;
+    frame.querySelectorAll('[data-act="bulk-did"],[data-act="bulk-later"]').forEach((b) => {
+      b.disabled = n === 0 || (b.hasAttribute('data-scan-running') && b.getAttribute('data-act') === 'bulk-did');
+      b.textContent = bulkLabel(b.getAttribute('data-verb'), n);
+    });
+    const c = frame.querySelector('[data-pick-count]');
+    if (c) c.textContent = n ? `${n} ticked` : 'None ticked';
+  }
+  // I DID THESE MYSELF: each ticked mission's check once, then what's gone is
+  // CONFIRMED (and paid, as for one), and the district says how many.
+  async function recheckMany(ids) {
+    if (s.busy || s.scan.running) return;
+    const ms = ids.map(mission).filter(Boolean);
+    const modules = ms.map((m) => m.module).filter((x, i, a) => a.indexOf(x) === i);
+    const shownAt = s.shown;
+    s.busy = true; s.districtMsg = ''; render();
+    const res = {};
+    for (const name of modules) {
+      let r;
+      try { r = await win.rescue.recheckModule(name); } catch (_) { r = null; }
+      res[name] = r;
+      if (r && r.ok) {
+        if (!win.RescueHost.docChanged(r.doc)) { s.busy = false; return; }
+        rebuild(r.doc);
+      }
+    }
+    s.busy = false;
+    let gone = 0; let still = 0; let couldnt = 0;
+    for (const m of ms) {
+      const o = recheckOutcome(m.id, s.city, res[m.module]);
+      if (o === 'reclaimed') {
+        gone += 1;
+        if (!MONITORING_MODULES.has(m.module)) { commitAward(confirmFix(s.progress.deck, m.id, now())); logEntry('CONFIRMED', m.title); }
+      } else if (o === 'couldnt') couldnt += 1; else still += 1;
+    }
+    const parts = [];
+    if (gone) parts.push(`${gone} gone (Reclaim City checked again)`);
+    if (still) parts.push(`${still} still showing`);
+    if (couldnt) parts.push(`${couldnt} couldn’t be checked again, so not confirmed`);
+    s.districtMsg = parts.join(', ') + '.';
+    if (s.shown !== shownAt) { render(); return; }
+    render();
   }
 
   function openSide() {
@@ -1286,7 +1336,21 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go && go.startsWith('rc:')) { if (s.rc) goRc(go.slice(3)); return; }
     if (act === 'confirm-from-scan') { if (s.rc) confirmFromScan(); return; }
     if (go === 'map') { s.screen = 'map'; s.signal = null; render(); return; }
-    if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); render(); return; }
+    if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); s.districtMsg = ''; render(); return; }
+    if (act === 'bulk-did' || act === 'bulk-later') {
+      const ids = ticked();
+      if (!ids.length || s.screen !== 'district') return;
+      if (act === 'bulk-did') { recheckMany(ids); return; }
+      let p = s.progress;
+      for (const id of ids) {
+        const m = mission(id);
+        if (m) p = setStatus(p, m.id, 'later', m.module, now(), { districtId: m.districtId, title: m.title });
+      }
+      keep(p);
+      s.districtMsg = `${ids.length} saved for later.`;
+      render();
+      return;
+    }
     if (go && go.startsWith('milestone:')) { s.screen = 'milestone'; s.districtId = go.slice(10); render(); return; }
     if (go && go.startsWith('mission:')) { s.screen = 'mission'; s.missionId = go.slice(8); render(); return; }
     if (act === 'i-did-it') { recheck(s.missionId, 'i-did-it'); return; }
@@ -1441,7 +1505,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (el && frame.contains(el)) { e.preventDefault(); el.click(); }
   });
   // On the shadow root, so e.target is the real input (not retargeted to the host).
-  shadow.addEventListener('change', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
+  shadow.addEventListener('change', (e) => {
+    if (e && e.target && typeof e.target.hasAttribute === 'function' && e.target.hasAttribute('data-pick')) { updateBulk(); return; }
+    if (s.rc) refreshDebriefForm(e, s.rc);
+  });
   shadow.addEventListener('input', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
 
   // The app's own fix and mark flows (FixFlow, MarkFlow), delegated on the frame so they survive re-renders.

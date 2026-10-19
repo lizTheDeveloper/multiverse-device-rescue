@@ -16,14 +16,29 @@ const STATUS_BADGE = {
   yours: '<span class="badge yours">YOURS</span>', reclaimed: '<span class="badge safe">RECLAIMED</span>',
 };
 
-export function renderDistrict({ district: d, progress, scout }) {
+// Each open mission has a checkbox, unticked, for the bulk moves below the
+// list (I DID THESE MYSELF re-checks them; LATER saves them for later), and
+// its row opens it. `message`: what the last bulk move found. `busy`: a bulk
+// re-check is running; `scanRunning`: a sweep is, so nothing can be re-checked.
+export const BULK_DID = 'I DID THESE MYSELF';
+export const BULK_LATER = 'LATER';
+export function bulkLabel(verb, n) { return n ? `${verb} (${n})` : verb; }
+export function renderDistrict({ district: d, progress, scout, message = '', busy = false, scanRunning = false }) {
   const status = (id) => (progress.missions[id] && progress.missions[id].status) || 'open';
-  const missions = d.missions.map((m) => `
-      <li><button type="button" class="mission-row" data-go="mission:${esc(m.id)}">
+  const missions = d.missions.map((m, i) => `
+      <li class="pick-row"><input type="checkbox" class="pick" id="pick-${i}" data-pick="${esc(m.id)}" aria-label="${esc(`Tick: ${m.title}`)}"${busy ? ' disabled' : ''}>
+        <button type="button" class="mission-row" data-go="mission:${esc(m.id)}">
         <span class="badge ${m.severity === 'critical' ? 'crit' : 'warn'}">${m.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</span>
         <span class="mission-text">${esc(m.title)}</span>
         ${STATUS_BADGE[status(m.id)] || ''}
       </button></li>`).join('');
+  const bulk = d.missions.length > 1 ? `
+      <div class="row bulk" role="group" aria-label="With the ticked ones">
+        <button type="button" class="btn-s" data-act="bulk-did" data-verb="${esc(BULK_DID)}" disabled${scanRunning ? ' data-scan-running' : ''}>${esc(BULK_DID)}</button>
+        <button type="button" class="btn-t" data-act="bulk-later" data-verb="${esc(BULK_LATER)}" disabled>${esc(BULK_LATER)}</button>
+        <span class="intel" data-pick-count aria-live="polite">None ticked</span></div>` : '';
+  const said = busy ? '<p class="checking" role="status" aria-live="polite">Checking again… This only looks; it doesn’t change anything.</p>'
+    : message ? `<p class="intel" role="status">${esc(message)}</p>` : '';
   // Reclaimed missions are no longer in the scan, so they come from progress.
   // There is nothing to open, so each is a lit row, not a button.
   const present = new Set(d.missions.map((m) => m.id));
@@ -50,7 +65,7 @@ export function renderDistrict({ district: d, progress, scout }) {
     <h2 class="m-title">${esc(d.name)}</h2>
     ${skyline(d.status)}
     <p class="intel">${esc(districtLine(d, reclaimedIn(progress, d).length))}</p>
-    ${rows ? `<div class="panel active"><div class="label">MISSIONS</div><ul class="missions">${rows}</ul></div>` : ''}
+    ${rows ? `<div class="panel active"><div class="label">MISSIONS</div><ul class="missions">${rows}</ul>${bulk}${said}</div>` : ''}
     ${fog ? `<div class="panel fogged"><div class="label">COULDN’T CHECK HERE</div><p class="intel">That doesn’t mean it’s safe.</p><ul class="fog-list">${fog}</ul></div>` : ''}
     ${unfinished ? `<div class="panel fogged"><div class="label">DIDN’T FINISH HERE</div><p class="intel">These checks stopped before the end or couldn’t look at everything, so they may have missed something. That doesn’t mean it’s safe.</p><ul class="fog-list">${unfinished}</ul></div>` : ''}
     ${notes ? `<details class="panel"><summary class="label">NOTES (${d.notes.length})</summary><ul class="notes">${notes}</ul></details>` : ''}

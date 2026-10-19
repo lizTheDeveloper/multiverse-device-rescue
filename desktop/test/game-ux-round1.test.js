@@ -214,3 +214,41 @@ test('P1-6 / P2-29: every check counted, couldn’t-check named with why, partly
   assert.strictEqual(sweepChecks({ checks: 5, fog: 6 }), '11 CHECKS, 6 COULDN’T RUN');
   assert.strictEqual(sweepChecks({ checks: 1, fog: 0 }), '1 CHECK');
 });
+
+test('P1-7: district missions have unticked checkboxes, and moves for the ticked ones', async () => {
+  const { renderDistrict } = await game('views/district.js');
+  const d = { id: 'gatehouse', name: 'The Gatehouse', status: 'warn', missions: [
+    { id: 'm1', title: 'One <b>', severity: 'warning' }, { id: 'm2', title: 'Two', severity: 'critical' }], notes: [], fog: [], unfinished: [] };
+  const html = renderDistrict({ district: d, progress: { missions: {} }, scout: () => '' });
+  assert.strictEqual((html.match(/<input type="checkbox" class="pick"/g) || []).length, 2);
+  assert.doesNotMatch(html, /checked/);
+  assert.match(html, /aria-label="Tick: One &lt;b&gt;"/);
+  assert.match(html, /data-act="bulk-did"[^>]*disabled/);
+  assert.match(html, /data-act="bulk-later"[^>]*disabled/);
+  assert.match(renderDistrict({ district: d, progress: { missions: {} }, scout: () => '', message: '1 gone.' }), /role="status">1 gone\./);
+
+  // The controller: LATER for the ticked ones saves each; the selection is read from the page.
+  const { createController } = await game('controller.js');
+  let html2 = '';
+  const clicks = [];
+  const picks = [];
+  const frame = { set innerHTML(v) { html2 = v; }, get innerHTML() { return html2; }, addEventListener: (t, fn) => { if (t === 'click') clicks.push(fn); },
+    querySelector: () => null, querySelectorAll: (sel) => (sel === '[data-pick]' ? picks : []) };
+  const shadow = { activeElement: null, getElementById: () => frame, addEventListener: () => {} };
+  const win = { document: { getElementById: () => ({ attachShadow: () => shadow }) }, QuietNotes: require('../renderer/quiet-notes.js'),
+    FixFlow: { attach() {}, fixControlsHtml: () => '', resultHtml: () => '' }, MarkFlow: { attach() {}, markControlsHtml: () => '' },
+    RescueHost: { mode: () => 'city', citySeed: () => 1, showList() {}, docChanged: () => true, wantsSafety: () => false, scanTips: async () => [], leaveGame() {} },
+    rescue: {} };
+  const ctl = createController({ win, storage: { getItem: () => null, setItem() {}, removeItem() {} }, scoutSprite: () => '',
+    loadGame: () => new Promise(() => {}), loadTraining: async () => [], loadDrillBank: async () => [] });
+  const f = (title, i) => ({ title, severity: 'warning', description: '', category: 'security', code: `c.${i}`, data: { path: `/p${i}` } });
+  ctl.show({ schema_version: 1, platform: 'darwin', modules: [{ name: 'some_check', category: 'security', status: 'ok', supported: true, findings: [f('A', 1), f('B', 2), f('C', 3)] }] }, { id: 'city' });
+  const click = (attrs) => { const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) }; clicks.forEach((fn) => fn({ target: { closest: () => el } })); };
+  click({ 'data-go': 'district:gatehouse' });
+  const ids = [...html2.matchAll(/data-pick="([^"]+)"/g)].map((m) => m[1].replace(/&#39;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+  assert.strictEqual(ids.length, 3);
+  picks.push({ checked: true, getAttribute: () => ids[0] }, { checked: false, getAttribute: () => ids[1] }, { checked: true, getAttribute: () => ids[2] });
+  click({ 'data-act': 'bulk-later' });
+  assert.match(html2, /2 saved for later\./);
+  assert.strictEqual((html2.match(/class="badge skip">LATER</g) || []).length, 2);
+});
