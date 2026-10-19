@@ -4,6 +4,7 @@
 //   TYPE_TITLES[type] -> { standard, city }
 //   BASE_COVERS[type] -> [{ module, codes? }]   the spec's table, macOS and Windows
 //   ODD_JOBS                                   modules that can warn on macOS and go to Odd Jobs on purpose
+//   WIN_ODD_JOBS                               the same on Windows
 //   buildTable(games) -> table                 a registered game's `covers` replaces its type's entry
 //   doubleClaims(table) -> [problem]            two types claiming the same (module, code)
 //   typeOf(finding, table) -> type id           info -> 'notes'; unmapped -> 'simple'
@@ -46,7 +47,7 @@ export const BASE_COVERS = Object.freeze({
     ...whole('launch_agent_audit', 'launchd_persistence_audit', 'login_items_cleanup', 'login_items', 'scheduled_tasks_audit',
       'cron_jobs_audit', 'startup_optimizer', 'startup_auditor', 'ai_worm_persistence', 'crypto_miner_persistence', 'kext_audit',
       'kernel_extensions_audit', 'system_extensions_check', 'system_extensions',
-      'win_autorun', 'win_autoruns_audit', 'win_scheduled_tasks', 'win_scheduled_tasks_security', 'win_startup',
+      'win_autoruns_audit', 'win_scheduled_tasks', 'win_scheduled_tasks_security', 'win_startup',
       'win_startup_programs_audit', 'win_services_audit', 'win_services_security_audit'),
     { module: 'security_baseline_diff', codes: [`${SBD}new_persistence`] },
   ],
@@ -56,8 +57,10 @@ export const BASE_COVERS = Object.freeze({
     ...whole('chrome_extensions', 'safari_extensions', 'browser_extension_audit', 'browser_hijack_check', 'browser_cryptojacking_check'),
     { module: 'security_baseline_diff', codes: [`${SBD}new_browser_extension`] },
   ],
-  seal: whole('code_signature_audit', 'gatekeeper_quarantine_check', 'suspicious_processes', 'certificate_audit',
-    'certificate_trust_audit', 'win_suspicious_processes'),
+  seal: [
+    ...whole('code_signature_audit', 'gatekeeper_quarantine_check', 'suspicious_processes', 'certificate_audit', 'certificate_trust_audit'),
+    { module: 'win_suspicious_processes', codes: ['security.win_suspicious_processes.suspicious_path', 'security.win_suspicious_processes.no_file_path'] },
+  ],
   switchboard: [
     ...whole('firewall_rules_audit', 'open_ports_scan', 'network_connections_monitor', 'suspicious_connections',
       'dns_config', 'dns_poisoning_check', 'dns_over_https_check', 'hosts_file_check', 'network_proxy', 'network_proxy_check',
@@ -70,13 +73,14 @@ export const BASE_COVERS = Object.freeze({
   locker: whole('ai_worm_filesystem', 'ai_worm_iocs', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
     'malware_scan_indicators', 'cryptojacking_iocs', 'crypto_miner_detect', 'rootkit_check',
     'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check'),
+  // (win_suspicious_processes' harmful programs: the Locker game claims them by code.)
   locks: [
     ...whole('automatic_updates', 'update_checker', 'encryption_check', 'filevault_recovery', 'screen_lock_check', 'lock_screen_check',
       'find_my_mac_check', 'guest_account_check', 'firmware_password', 'login_password_policy', 'antivirus_status',
       'macos_version_support', 'macos_eol_check', 'backup_status', 'time_machine_check', 'session_revocation_scan',
       'appleid_security_check',
       'win_defender', 'win_defender_deep_check', 'win_antivirus_status', 'win_bitlocker', 'win_bitlocker_check', 'win_firewall',
-      'win_updates', 'win_windows_update_status', 'win_uac_check'),
+      'win_updates', 'win_windows_update_status', 'win_uac_check', 'win_autorun', 'win_local_admin_audit', 'win_credential_manager_audit'),
     ...whole('firewall_audit', 'clamav_scanner', 'browser_privacy_check', 'default_browser'),
     { module: 'firewall_rules_audit', codes: ['security.firewall_rules_audit.alf_', 'security.firewall_rules_audit.stealth_'] },
     { module: 'rootkit_check', codes: ['security.rootkit_check.sip_disabled'] },
@@ -117,6 +121,21 @@ export const ODD_JOBS = Object.freeze([
   'usb_device_audit', 'user_account_audit', 'vpn_config', 'xprotect_status', 'screen_time_parental',
   // Split by code above; its other warnings (none today) would be Odd Jobs.
   'security_baseline_diff',
+]);
+
+// The same on Windows: checks that can warn on Windows and go to Odd Jobs on
+// purpose (hardware, repair tools and system health with no mini-game; the
+// monitoring checks, as on macOS). Shared modules listed in ODD_JOBS count too.
+export const WIN_ODD_JOBS = Object.freeze([
+  'win_activation', 'win_activation_check', 'win_audio_check', 'win_battery', 'win_bluetooth_check', 'win_boot_config_check',
+  'win_boot_time', 'win_disk_health', 'win_dism_health', 'win_display_check', 'win_event_log_health', 'win_memory_diagnostics',
+  'win_network_adapters', 'win_network_diag', 'win_network_reset', 'win_print_spooler_check', 'win_printer_check',
+  'win_printer_issues', 'win_recovery_options', 'win_safe_mode_check', 'win_search_index', 'win_sfc_check', 'win_startup_repair',
+  'win_user_profiles', 'win_wifi_diagnostics', 'win_winsock_check', 'win_wmi_health',
+  // Its unsigned drivers are Seal Check's (by data.check); its other warnings are driver health.
+  'win_driver_check',
+  // Telemetry and advertising settings (its location switch is the Keyring's), and domain policy notes.
+  'win_cortana_telemetry', 'win_group_policy_audit',
 ]);
 
 // A wildcard ({ module: '*', severities }) is kept but never matched here:

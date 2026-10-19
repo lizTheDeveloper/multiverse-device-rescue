@@ -43,6 +43,7 @@ test('covers claims real modules, narrowed where a module is shared', async () =
     { module: 'certificate_trust_audit' },
     { module: 'win_rootkit_check', codes: ['security.win_rootkit_check.unsigned_drivers'] },
     { module: 'win_driver_check', checks: ['unsigned_drivers'] },
+    { module: 'win_suspicious_processes', codes: ['security.win_suspicious_processes.suspicious_path', 'security.win_suspicious_processes.no_file_path'] },
   ]);
   // Every claimed code is one the engine really emits.
   const root = path.join(__dirname, '..', '..', 'modules');

@@ -146,6 +146,32 @@ const LOCKS = {
     mac: { where: '', pane: null, how: [] },
     win: { where: 'Control Panel > User Accounts > Change User Account Control settings. Move the slider back to the default.', pane: null, how: ['Search for UAC in Start and open Change User Account Control settings.', 'Move the slider to the second notch from the top.', 'Choose OK.'], lookup: { source: 'microsoft-support', query: 'User Account Control settings' } },
   },
+  autorun: {
+    name: { standard: 'AutoRun and AutoPlay', city: 'Auto-open latch' },
+    state: { standard: 'On', city: 'Open' },
+    protects: 'Stops a plugged-in USB stick or disc from starting a program by itself.',
+    concept: null,
+    on: { standard: 'Turn it off', city: 'Shut the latch' },
+    mac: { where: '', pane: null, how: [] },
+    win: { where: 'Settings > Bluetooth & devices > AutoPlay. Turn off “Use AutoPlay for all media and devices”.', pane: null,
+      how: ['Open Settings > Bluetooth & devices > AutoPlay.', 'Turn off “Use AutoPlay for all media and devices”.'], lookup: { source: 'microsoft-support', query: 'turn AutoPlay on or off Windows' } },
+  },
+  admins: {
+    name: { standard: 'Administrator accounts', city: 'Master keys' },
+    protects: 'Keeps the accounts that can change everything few, known and locked with a password.',
+    concept: 'password-prompts',
+    mac: { where: 'System Settings > Users & Groups. Check which accounts are administrators.', pane: 'users-groups' },
+    win: { where: 'Settings > Accounts > Other users. Check which accounts are administrators, and remove any you don’t know.', pane: 'users-groups',
+      how: ['Open Settings > Accounts > Other users.', 'Choose each account and check its account type.', 'Change an account you don’t use every day to Standard user.'] },
+  },
+  'saved-logins': {
+    name: { standard: 'Saved sign-ins', city: 'Spare keys' },
+    protects: 'Keeps the passwords Windows remembers for other computers and sites few and current.',
+    concept: null,
+    mac: { where: '', pane: null, how: [] },
+    win: { where: 'Control Panel > User Accounts > Credential Manager. Remove saved sign-ins you no longer use.', pane: null,
+      how: ['Search for Credential Manager in Start and open it.', 'Choose Windows Credentials.', 'Open each one you don’t use any more and choose Remove.'], lookup: { source: 'microsoft-support', query: 'Credential Manager Windows' } },
+  },
   backups: {
     name: { standard: 'Backups', city: 'Archive' },
     protects: 'Keeps a copy of your files if the disk fails or files are lost.',
@@ -248,6 +274,7 @@ const BY_CHECK = {
   win_bitlocker: (c, code) => (/no_recovery_key/.test(code) ? 'recovery-key' : 'encryption'),
   win_bitlocker_check: (c, code) => (/no_recovery_key/.test(code) ? 'recovery-key' : 'encryption'),
   win_user_accounts: (c) => ({ guest_enabled: 'guest', auto_login: 'auto-login' }[c] || 'password'),
+  win_local_admin_audit: (c) => ({ guest_enabled: 'guest', builtin_admin_enabled: 'admins', excessive_admins: 'admins', admin_accounts: 'admins' }[c] || 'password'),
   firewall_audit: (c, code) => (/stealth_mode/.test(code) || /^stealth_mode/.test(c) ? 'stealth' : 'firewall'),
   firewall_rules_audit: (c, code) => (/\.stealth_/.test(code) || /^stealth_/.test(c) ? 'stealth' : 'firewall'),
 };
@@ -261,6 +288,7 @@ const BY_MODULE = {
   win_uac_check: 'uac', win_credential_guard: 'password',
   backup_status: 'backups', time_machine_check: 'backups', win_restore_points: 'backups', win_shadow_copies_check: 'backups',
   session_revocation_scan: 'sessions',
+  win_autorun: 'autorun', win_credential_manager_audit: 'saved-logins',
 };
 
 const isWinModule = (m) => /^win_/.test(String(m || ''));
@@ -482,6 +510,8 @@ export const covers = [
   { module: 'win_restore_points' }, { module: 'win_shadow_copies_check' },
   { module: 'win_rootkit_check', codes: ['security.win_rootkit_check.secure_boot_disabled'] },
   { module: 'win_malware_indicators', codes: ['security.win_malware_indicators.safe_mode_disabled'] },
+  // AutoRun/AutoPlay is a switch; admin accounts and saved sign-ins are locks (the Mac's guest and password ones are here too).
+  { module: 'win_autorun' }, { module: 'win_local_admin_audit' }, { module: 'win_credential_manager_audit' },
 ];
 
 export const LOCK_IDS = Object.keys(LOCKS);

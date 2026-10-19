@@ -1,0 +1,389 @@
+{
+ "ai_worm_filesystem": {
+  "security.ai_worm_filesystem.known_hash_match": "locker",
+  "security.ai_worm_filesystem.known_payload_path": "locker",
+  "security.ai_worm_filesystem.obfuscated_script": "locker"
+ },
+ "ai_worm_git_ssh": {
+  "security.ai_worm_git_ssh.git_hookspath_hijack": "locker",
+  "security.ai_worm_git_ssh.npmrc_git_override": "locker",
+  "security.ai_worm_git_ssh.repo_hook_file": "locker",
+  "security.ai_worm_git_ssh.rogue_mcp_server": "locker",
+  "security.ai_worm_git_ssh.ssh_authorized_keys_recent": "locker"
+ },
+ "ai_worm_lateral": {
+  "security.ai_worm_lateral.credential_harvesting": "locker",
+  "security.ai_worm_lateral.imds_access": "locker",
+  "security.ai_worm_lateral.supply_chain_artifact": "locker"
+ },
+ "ai_worm_network": {
+  "security.ai_worm_network.beaconing_detected": "locker",
+  "security.ai_worm_network.stepsecurity_bypass": "locker",
+  "security.ai_worm_network.token_harvesting_subprocess": "locker"
+ },
+ "ai_worm_persistence": {
+  "(no code)": "door",
+  "security.ai_worm_persistence.scheduled_task_persistence": "door",
+  "security.ai_worm_persistence.shell_profile_injection": "door"
+ },
+ "arp_spoof_check": {
+  "network.arp_spoof_check.duplicate_mac": "switchboard",
+  "network.arp_spoof_check.gateway_impersonation": "switchboard",
+  "network.arp_spoof_check.locally_administered_gateway": "switchboard",
+  "network.arp_spoof_check.multiple_gateways": "switchboard"
+ },
+ "browser_cryptojacking_check": {
+  "(no code)": "loadout"
+ },
+ "code_signature_audit": {
+  "security.code_signature_audit.gatekeeper_rejected": "seal",
+  "security.code_signature_audit.old_signature_format": "seal",
+  "security.code_signature_audit.tampered_binary": "seal",
+  "security.code_signature_audit.unsigned_system_app": "seal"
+ },
+ "crypto_miner_persistence": {
+  "(no code)": "door"
+ },
+ "disk_space": {
+  "(no code)": "simple"
+ },
+ "evidence_bundle": {
+  "security.evidence_bundle.destination_unwritable": "simple",
+  "security.evidence_bundle.no_bundle_captured": "simple"
+ },
+ "lan_device_inventory": {
+  "network.lan_device_inventory.device_count_exceeded": "switchboard",
+  "network.lan_device_inventory.unrecognised_device": "switchboard"
+ },
+ "mvt_spyware_scan": {
+  "security.mvt_spyware_scan.mvt_backup_too_large": "simple",
+  "security.mvt_spyware_scan.mvt_spyware_detected": "simple"
+ },
+ "process_scanner": {
+  "(no code)": "junkyard"
+ },
+ "resource_hog_identifier": {
+  "(no code)": "junkyard"
+ },
+ "router_security_audit": {
+  "network.router_security_audit.upnp_enabled": "switchboard"
+ },
+ "security_baseline_diff": {
+  "security.security_baseline_diff.protection_disabled": "simple"
+ },
+ "session_revocation_scan": {
+  "security.session_revocation_scan.ssh_authorized_keys": "locks"
+ },
+ "stalkerware_scan": {
+  "(no code)": "simple"
+ },
+ "win_activation": {
+  "(no code)": "simple"
+ },
+ "win_activation_check": {
+  "(no code)": "simple"
+ },
+ "win_antivirus_status": {
+  "security.win_antivirus_status.multiple_av_products": "locks",
+  "security.win_antivirus_status.no_av_product": "locks",
+  "security.win_antivirus_status.realtime_protection_disabled": "locks",
+  "security.win_antivirus_status.stale_definitions": "locks"
+ },
+ "win_audio_check": {
+  "(no code)": "simple"
+ },
+ "win_autorun": {
+  "security.win_autorun.autoplay_enabled": "locks",
+  "security.win_autorun.autorun_enabled": "locks"
+ },
+ "win_autoruns_audit": {
+  "security.win_autoruns_audit.excessive_entries": "door",
+  "security.win_autoruns_audit.obfuscated_command": "door",
+  "security.win_autoruns_audit.temp_path_execution": "door"
+ },
+ "win_battery": {
+  "(no code)": "simple"
+ },
+ "win_bitlocker": {
+  "security.win_bitlocker.encryption_suspended": "locks",
+  "security.win_bitlocker.no_recovery_key": "locks",
+  "security.win_bitlocker.os_drive_not_encrypted": "locks"
+ },
+ "win_bitlocker_check": {
+  "security.win_bitlocker_check.encryption_suspended": "locks",
+  "security.win_bitlocker_check.fixed_drive_not_encrypted": "locks",
+  "security.win_bitlocker_check.no_recovery_key": "locks",
+  "security.win_bitlocker_check.os_drive_not_encrypted": "locks"
+ },
+ "win_bloatware": {
+  "(no code)": "junkyard"
+ },
+ "win_bluetooth_check": {
+  "(no code)": "simple"
+ },
+ "win_boot_config_check": {
+  "(no code)": "simple"
+ },
+ "win_boot_time": {
+  "(no code)": "simple"
+ },
+ "win_bsod_analysis": {
+  "(no code)": "junkyard"
+ },
+ "win_cortana_telemetry": {
+  "security.win_cortana_telemetry.advertising_id": "simple",
+  "security.win_cortana_telemetry.telemetry_level": "simple"
+ },
+ "win_credential_guard": {
+  "security.win_credential_guard.password_min_length_below_threshold": "locks",
+  "security.win_credential_guard.passwords_never_expire": "locks"
+ },
+ "win_credential_manager_audit": {
+  "security.win_credential_manager_audit.credential_sprawl": "locks",
+  "security.win_credential_manager_audit.domain_credentials_non_domain_joined": "locks",
+  "security.win_credential_manager_audit.generic_credentials_sensitive_services": "locks"
+ },
+ "win_crypto_miner_detect": {
+  "(no code)": "locker"
+ },
+ "win_defender": {
+  "security.win_defender.antivirus_enabled": "locks",
+  "security.win_defender.realtime_protection": "locks",
+  "security.win_defender.signature_age": "locks"
+ },
+ "win_defender_deep_check": {
+  "security.win_defender_deep_check.cloud_protection_off": "locks",
+  "security.win_defender_deep_check.controlled_folder_access_disabled": "locks",
+  "security.win_defender_deep_check.excessive_exclusions": "locks",
+  "security.win_defender_deep_check.pua_protection_disabled": "locks",
+  "security.win_defender_deep_check.realtime_disabled": "locks",
+  "security.win_defender_deep_check.stale_full_scan": "locks",
+  "security.win_defender_deep_check.tamper_protection_disabled": "locks"
+ },
+ "win_disk_cleanup": {
+  "(no code)": "junkyard"
+ },
+ "win_disk_health": {
+  "(no code)": "simple"
+ },
+ "win_disk_space": {
+  "(no code)": "junkyard"
+ },
+ "win_dism_health": {
+  "(no code)": "simple"
+ },
+ "win_display_check": {
+  "(no code)": "simple"
+ },
+ "win_dns_config": {
+  "(no code)": "switchboard"
+ },
+ "win_driver_check": {
+  "(no code)": "simple"
+ },
+ "win_event_errors": {
+  "(no code)": "junkyard"
+ },
+ "win_event_log_health": {
+  "(no code)": "simple"
+ },
+ "win_firewall": {
+  "(no code)": "locks"
+ },
+ "win_firewall_rules_audit": {
+  "security.win_firewall_rules_audit.default_inbound_allow": "switchboard",
+  "security.win_firewall_rules_audit.excessive_rules": "switchboard",
+  "security.win_firewall_rules_audit.rule_allows_all_ports": "switchboard",
+  "security.win_firewall_rules_audit.rule_allows_all_programs": "switchboard"
+ },
+ "win_group_policy_audit": {
+  "security.win_group_policy_audit.restrictive_policy": "simple",
+  "security.win_group_policy_audit.stale_domain_policies": "simple",
+  "security.win_group_policy_audit.weak_password_policy": "simple"
+ },
+ "win_hosts_file": {
+  "security.win_hosts_file.excessive_entries": "switchboard",
+  "security.win_hosts_file.security_domain_redirect": "switchboard"
+ },
+ "win_hosts_file_check": {
+  "security.win_hosts_file_check.blocked_security_domains": "switchboard",
+  "security.win_hosts_file_check.file_permissions": "switchboard",
+  "security.win_hosts_file_check.large_file_size": "switchboard",
+  "security.win_hosts_file_check.redirected_legitimate": "switchboard"
+ },
+ "win_local_admin_audit": {
+  "security.win_local_admin_audit.admin_blank_password": "locks",
+  "security.win_local_admin_audit.admin_password_never_expires": "locks",
+  "security.win_local_admin_audit.builtin_admin_enabled": "locks",
+  "security.win_local_admin_audit.excessive_admin_accounts": "locks",
+  "security.win_local_admin_audit.guest_account_enabled": "locks"
+ },
+ "win_malware_indicators": {
+  "security.win_malware_indicators.malware_folder": "locker",
+  "security.win_malware_indicators.malware_registry": "locker",
+  "security.win_malware_indicators.safe_mode_disabled": "locks",
+  "security.win_malware_indicators.suspicious_service": "locker"
+ },
+ "win_memory_diagnostics": {
+  "(no code)": "simple"
+ },
+ "win_network_adapters": {
+  "(no code)": "simple"
+ },
+ "win_network_diag": {
+  "(no code)": "simple"
+ },
+ "win_network_reset": {
+  "(no code)": "simple"
+ },
+ "win_network_shares_audit": {
+  "security.win_network_shares_audit.everyone_write_access": "switchboard",
+  "security.win_network_shares_audit.sensitive_directory": "switchboard",
+  "security.win_network_shares_audit.smb1_enabled": "switchboard"
+ },
+ "win_pagefile": {
+  "(no code)": "junkyard"
+ },
+ "win_pagefile_check": {
+  "(no code)": "junkyard"
+ },
+ "win_power_plan": {
+  "(no code)": "junkyard"
+ },
+ "win_power_plan_check": {
+  "(no code)": "junkyard"
+ },
+ "win_print_spooler_check": {
+  "(no code)": "simple"
+ },
+ "win_printer_check": {
+  "(no code)": "simple"
+ },
+ "win_printer_issues": {
+  "(no code)": "simple"
+ },
+ "win_proxy_detect": {
+  "security.win_proxy_detect.ie_proxy_enabled": "switchboard",
+  "security.win_proxy_detect.localhost_suspicious": "switchboard",
+  "security.win_proxy_detect.pac_configured": "switchboard"
+ },
+ "win_rdp_check": {
+  "security.win_rdp_check.rdp_enabled_no_nla": "switchboard",
+  "security.win_rdp_check.rdp_enabled_with_nla": "switchboard"
+ },
+ "win_recovery_options": {
+  "(no code)": "simple"
+ },
+ "win_remote_access_audit": {
+  "security.win_remote_access_audit.anydesk_installed": "switchboard",
+  "security.win_remote_access_audit.chrome_remote_desktop": "switchboard",
+  "security.win_remote_access_audit.logmein_installed": "switchboard",
+  "security.win_remote_access_audit.multiple_tools": "switchboard",
+  "security.win_remote_access_audit.rdp_enabled": "switchboard",
+  "security.win_remote_access_audit.teamviewer_installed": "switchboard",
+  "security.win_remote_access_audit.vnc_installed": "switchboard"
+ },
+ "win_restore_points": {
+  "(no code)": "locks"
+ },
+ "win_rootkit_check": {
+  "security.win_rootkit_check.alternate_data_streams": "locker",
+  "security.win_rootkit_check.boot_tampering": "locker",
+  "security.win_rootkit_check.hidden_services": "locker",
+  "security.win_rootkit_check.secure_boot_disabled": "locks",
+  "security.win_rootkit_check.unsigned_drivers": "seal"
+ },
+ "win_safe_mode_check": {
+  "(no code)": "simple"
+ },
+ "win_scheduled_tasks": {
+  "security.win_scheduled_tasks.encoded_command": "door",
+  "security.win_scheduled_tasks.suspicious_path": "door"
+ },
+ "win_scheduled_tasks_security": {
+  "security.win_scheduled_tasks_security.encoded_powershell": "door",
+  "security.win_scheduled_tasks_security.frequent_schedule": "door",
+  "security.win_scheduled_tasks_security.non_microsoft_system": "door",
+  "security.win_scheduled_tasks_security.recent_boot_logon": "door",
+  "security.win_scheduled_tasks_security.temp_path_system": "door"
+ },
+ "win_search_index": {
+  "(no code)": "simple"
+ },
+ "win_services_audit": {
+  "security.win_services_audit.excessive_autostart": "door",
+  "security.win_services_audit.stopped_autostart": "door",
+  "security.win_services_audit.suspicious_path": "door"
+ },
+ "win_services_security_audit": {
+  "security.win_services_security_audit.overprivileged": "door",
+  "security.win_services_security_audit.stopped_auto_start": "door",
+  "security.win_services_security_audit.unquoted_path": "door",
+  "security.win_services_security_audit.user_writable_dir": "door"
+ },
+ "win_sfc_check": {
+  "(no code)": "simple"
+ },
+ "win_shadow_copies_check": {
+  "(no code)": "locks"
+ },
+ "win_startup": {
+  "(no code)": "door"
+ },
+ "win_startup_programs_audit": {
+  "(no code)": "door"
+ },
+ "win_startup_repair": {
+  "(no code)": "simple"
+ },
+ "win_suspicious_processes": {
+  "security.win_suspicious_processes.encoded_powershell": "locker",
+  "security.win_suspicious_processes.known_malware": "locker",
+  "security.win_suspicious_processes.mining_software": "locker",
+  "security.win_suspicious_processes.no_file_path": "seal",
+  "security.win_suspicious_processes.suspicious_path": "seal"
+ },
+ "win_temp_cleanup": {
+  "(no code)": "junkyard"
+ },
+ "win_temp_files": {
+  "(no code)": "junkyard"
+ },
+ "win_temp_files_cleanup": {
+  "(no code)": "junkyard"
+ },
+ "win_uac_check": {
+  "security.win_uac_check.secure_desktop_disabled": "locks",
+  "security.win_uac_check.uac_disabled": "locks",
+  "security.win_uac_check.uac_never_notify": "locks"
+ },
+ "win_update_history": {
+  "(no code)": "locks"
+ },
+ "win_updates": {
+  "(no code)": "locks"
+ },
+ "win_user_accounts": {
+  "security.win_user_accounts.auto_login_enabled": "locks",
+  "security.win_user_accounts.guest_account_enabled": "locks",
+  "security.win_user_accounts.no_min_password_length": "locks"
+ },
+ "win_user_profiles": {
+  "(no code)": "simple"
+ },
+ "win_visual_effects": {
+  "(no code)": "junkyard"
+ },
+ "win_wifi_diagnostics": {
+  "(no code)": "simple"
+ },
+ "win_windows_update_status": {
+  "(no code)": "locks"
+ },
+ "win_winsock_check": {
+  "(no code)": "simple"
+ },
+ "win_wmi_health": {
+  "(no code)": "simple"
+ }
+}
