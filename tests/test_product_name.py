@@ -31,6 +31,7 @@ ALLOWED = [
     "Multiverse Device Rescue — system diagnostic and repair toolkit",  # `rescue --help` output
     "used to be called Device Rescue",          # one line for people upgrading
     '"appId": "school.themultiverse.devicerescue"',  # kept so updates and OS permissions carry over
+    "replace(/(?<![/\\w])Device Rescue\\b(?!\\/)/g, 'Reclaim City')",  # renames the engine's own text
 ]
 # Matched without regard to case, so DEVICE RESCUE in a heading counts too.
 # Slugs that must stay never match: `device-rescue` (URLs, paths, the
