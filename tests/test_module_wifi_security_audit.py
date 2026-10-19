@@ -360,3 +360,66 @@ def test_unknown_security_is_not_open():
     assert f.title == "Couldn't read your Wi-Fi's security type"
     assert "not checked" in f.description.lower()
     assert "safe" not in f.description.lower().replace("not safe", "")
+
+
+# --- Regression: one system_profiler run per saved network timed the check out.
+# On a Mac that remembered 197 networks, `system_profiler SPAirPortDataType`
+# (about 5 s each) ran once per network and the check hit the engine's 60 s
+# limit, so The Wires showed "couldn't check".
+
+def test_system_profiler_runs_once_however_many_networks_are_saved():
+    import subprocess as sp
+
+    mod = _get_module()
+    saved = "Preferred networks on en0:\n" + "".join(f"\tNet{i}\n" for i in range(200))
+    fake = _make_run(
+        current_network_output="Current Wi-Fi Network: Net0",
+        saved_networks_output=saved,
+        profiler_output="Wi-Fi:\n  Current Network Information:\n    Net0:\n      Security: WPA3 Personal\n",
+    )
+    calls = []
+
+    def counting(cmd, **kw):
+        calls.append(cmd)
+        return fake(cmd, **kw)
+
+    with patch.object(sp, "run", side_effect=counting):
+        result = mod.check(_make_profile())
+
+    assert sum(1 for c in calls if c[0] == "system_profiler") == 1
+    summary = next(f for f in result.findings if f.data["check"] == "wifi_summary")
+    assert summary.data["saved_networks_count"] == 200
+
+
+def test_hanging_system_profiler_is_unknown_not_safe_and_runs_once():
+    import subprocess as sp
+    import time
+
+    mod = _get_module()
+    saved = "Preferred networks on en0:\n" + "".join(f"\tNet{i}\n" for i in range(50))
+    fake = _make_run(
+        current_network_output="Current Wi-Fi Network: Net0",
+        saved_networks_output=saved,
+    )
+    profiler_calls = []
+
+    def hanging(cmd, **kw):
+        if cmd[0] == "system_profiler":
+            profiler_calls.append(kw.get("timeout"))
+            raise sp.TimeoutExpired(cmd, kw.get("timeout"))
+        return fake(cmd, **kw)
+
+    start = time.monotonic()
+    with patch.object(sp, "run", side_effect=hanging):
+        result = mod.check(_make_profile())
+    assert time.monotonic() - start < 2
+
+    # One bounded attempt, not one per network.
+    assert profiler_calls == [10]
+    checks = {f.data["check"] for f in result.findings}
+    # What it could not read is reported as unknown, never as open or fine...
+    assert "security_unknown" in checks
+    assert "open_network_connected" not in checks
+    assert "open_saved" not in checks
+    # ...and what it could read is kept.
+    assert "wifi_summary" in checks

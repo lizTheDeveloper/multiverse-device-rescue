@@ -16,6 +16,10 @@ from rescue.models import (
 from rescue.module_base import ModuleBase
 
 
+# Marks "system_profiler not read yet in this check" (None means "read, failed").
+_UNREAD = object()
+
+
 class Module(ModuleBase):
     name = "wifi_security_audit"
     category = "network"
@@ -37,6 +41,11 @@ class Module(ModuleBase):
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
+        # `system_profiler SPAirPortDataType` takes about 5 seconds. It used to
+        # run once per saved network, so a Mac that remembers 200 networks
+        # spent over 15 minutes here and the check timed out. One report per
+        # check is enough: every lookup below reads the same text.
+        self._airport_report = _UNREAD
 
         # Get current Wi-Fi connection info
         current_network = self._get_current_network()
@@ -176,8 +185,16 @@ class Module(ModuleBase):
         except (subprocess.SubprocessError, Exception):
             return None
 
-    def _get_network_security_info(self, network_name: str) -> dict:
-        """Get security info for a specific network via system_profiler."""
+    def _airport_text(self) -> Optional[str]:
+        """The Wi-Fi report from system_profiler, read at most once per check.
+
+        None when it could not be read (failed or timed out); callers then
+        report the security as Unknown, never as fine.
+        """
+        cached = getattr(self, "_airport_report", _UNREAD)
+        if cached is not _UNREAD:
+            return cached
+        text: Optional[str] = None
         try:
             result = subprocess.run(
                 ["system_profiler", "SPAirPortDataType"],
@@ -185,11 +202,19 @@ class Module(ModuleBase):
                 text=True,
                 timeout=10,
             )
+            if result.returncode == 0:
+                text = result.stdout
+        except (subprocess.SubprocessError, Exception):
+            text = None
+        self._airport_report = text
+        return text
 
-            if result.returncode != 0:
+    def _get_network_security_info(self, network_name: str) -> dict:
+        """Get security info for a specific network via system_profiler."""
+        try:
+            output = self._airport_text()
+            if output is None:
                 return {"security": "Unknown", "is_hidden": False}
-
-            output = result.stdout
             is_hidden = False
             security = "Unknown"
 
@@ -237,7 +262,7 @@ class Module(ModuleBase):
             networks = []
             for line in result.stdout.split("\n"):
                 line = line.strip()
-                if line and not line.startswith("Preferred networks:"):
+                if line and not line.startswith("Preferred networks"):
                     networks.append({"name": line})
 
             return networks
