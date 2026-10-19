@@ -1,0 +1,6 @@
+ESTAB 0      0       192.168.1.30:51044   203.0.113.9:443
+	 cubic wscale:7,7 rto:204 rtt:3.5/1.2 bytes_sent:1520 bytes_acked:1521 bytes_received:48213 segs_out:40 segs_in:55 send 100Mbps
+ESTAB 0      0      [2001:db8::30]:51100 [2001:db8:1::5]:443
+	 cubic wscale:7,7 rto:204 bytes_sent:900 bytes_received:7000 segs_out:10
+LISTEN 0     128          0.0.0.0:22         0.0.0.0:*
+	 cubic cwnd:10

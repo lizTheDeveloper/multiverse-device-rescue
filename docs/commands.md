@@ -885,6 +885,10 @@ route -n get default
 route print -4
 ```
 
+### `conn_common`
+
+Runs no external commands; reads files and system APIs only.
+
 ### `dns_over_https_check`
 
 ```text
