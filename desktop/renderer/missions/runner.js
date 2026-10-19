@@ -243,7 +243,14 @@ export function confirmPending(run, game = null, ctx = {}) {
   if (run.phase !== 'confirm' || !p) return { run, act: null };
   if (p.act) return { run: { ...run, phase: 'item', pending: null, opened: { ...run.opened, [p.key]: p.decision.id } }, act: p.act };
   if (p.deferred && game) return choose({ ...run, pending: { ...p, confirmed: true } }, p.deferred, game, ctx);
-  return { run, act: null };
+  // A fix whose confirm panel was lost (the person left the mission and came
+  // back): YES opens the fix's own confirm again rather than doing nothing.
+  const item = currentItem(run);
+  if (item && item.key === p.key && p.decision && p.decision.effect && p.decision.effect.kind === 'fix') {
+    return { run, act: { kind: 'fix', item, options: fixOptions(item, ctx && ctx.mode) } };
+  }
+  // Nothing left to carry out: back to the item, never a confirm that can't go on.
+  return { run: cancelPending(run), act: null };
 }
 export function cancelPending(run) {
   return { ...run, phase: run.phase === 'confirm' ? 'item' : run.phase, pending: null };

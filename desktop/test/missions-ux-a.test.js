@@ -171,3 +171,25 @@ test('an item screen shows its severity beside ITEM n OF m (critical and warning
     if (mode === 'city') assert.deepStrictEqual(k.C.checkCityWords(one), []);
   }
 });
+
+// --- P2-7: no stuck confirm ---
+
+test('a fix confirm left and come back to: YES opens the fix again; a confirm with nothing behind it goes back to the item', async () => {
+  const k = await kit();
+  const ctx = ctxOf(k.C, k.R);
+  const g = { ...k.games.simple, decisions: () => [D('later', 'later'), D('fix', 'fix')] };
+  const item = k.C.makeItem({ module: 'launch_agent_audit', title: 'Agent', severity: 'warning', fixable: { action: 'disable_launch_agent' } });
+  const first = k.Run.choose(k.Run.startRun({ id: 'm', items: [item] }), 'fix', g, ctx);
+  assert.strictEqual(first.act.kind, 'fix');
+  // The controller dropped the fix panel (the person left); the run kept its confirm.
+  const again = k.Run.confirmPending(first.run, g, ctx);
+  assert.strictEqual(again.act && again.act.kind, 'fix', 'YES re-opens the fix');
+  assert.strictEqual(again.act.item.key, item.key);
+  assert.deepStrictEqual(again.act.options, k.Run.fixOptions(item, 'standard'));
+  // A confirm with nothing to carry out never sticks.
+  const odd = { ...first.run, pending: { key: item.key, decision: { id: 'x', effect: { kind: 'later' } } } };
+  const out = k.Run.confirmPending(odd, g, ctx);
+  assert.strictEqual(out.act, null);
+  assert.strictEqual(out.run.phase, 'item');
+  assert.match(screen(k, out.run, k.Run.viewFor(out.run, g, ctx, {})), /data-act="mx-decide:later"/);
+});
