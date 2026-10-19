@@ -673,6 +673,17 @@ def _proxy_identity(finding) -> dict | None:
     return {"interface": interface, "proxies": ", ".join(sorted(set(servers)))}
 
 
+def _dns_profile_identity(finding) -> dict | None:
+    data = finding.data
+    provider = _text(data.get("provider"), 128)
+    servers = data.get("servers")
+    if provider is None or not isinstance(servers, list) or not servers:
+        return None
+    if not all(_text(s, 64) for s in servers):
+        return None
+    return {"provider": provider, "servers": ", ".join(sorted(set(servers)))}
+
+
 def _system_extension_identity(finding) -> dict | None:
     data = finding.data
     bundle_id = _text(data.get("name"), 256)
@@ -731,6 +742,10 @@ def _show_sharing(ident, finding):
 
 def _show_proxy(ident, finding):
     return [["Connection", ident["interface"]], ["Proxy", ident["proxies"]]]
+
+
+def _show_dns_profile(ident, finding):
+    return [["Provider", ident["provider"]], ["DNS servers", ident["servers"]]]
 
 
 def _show_sysext(ident, finding):
@@ -794,6 +809,21 @@ ITEM_KINDS: dict[str, dict] = {
         "changed": "the proxy server",
         "monitoring": True,
         "show": _show_proxy,
+    },
+    "dns_profile": {
+        # A NextDNS / Control D / AdGuard profile: its owner sees every name
+        # looked up, so it counts as able to watch someone.
+        "keys": ("code", "provider", "servers"),
+        "evidence_keys": ("servers",),
+        "modules": ("dns_poisoning_check",),
+        "identify": _dns_profile_identity,
+        "label_of": lambda i: f"{i.get('provider', '')} ({i.get('servers', '')})",
+        "title": "DNS profile you marked as yours: {label}",
+        "noun": "DNS profile",
+        "what": "your {label} DNS profile",
+        "changed": "the DNS servers",
+        "monitoring": True,
+        "show": _show_dns_profile,
     },
     "system_extension": {
         "keys": ("code", "bundle_id", "team_id", "state"),
@@ -880,6 +910,7 @@ ITEM_CODES: dict[str, str] = {
     "security.remote_login_check.remote_apple_events_enabled": "sharing_service",
     "security.airdrop_config.airdrop_everyone": "sharing_service",
     "security.network_proxy.proxy_enabled": "network_proxy",
+    "security.dns_poisoning_check.dns_filtering_profile": "dns_profile",
     "security.system_extensions.unusual_state": "system_extension",
     "security.browser_extension_audit.excessive_permissions": "browser_extension",
     "security.app_permissions.accessibility_access": "app_permissions",

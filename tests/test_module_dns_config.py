@@ -243,8 +243,10 @@ def test_dns_config_fix_unreachable():
 
 
 def test_privacy_dns_providers_are_not_unrecognised():
-    """NextDNS (a real Mac's setting), Mullvad, Control D, AdGuard, Quad9's
-    second address: chosen on purpose, named in the DNS note, never flagged."""
+    """Shared resolvers (Mullvad, Control D's free one, AdGuard's public one,
+    Quad9's second address) are chosen on purpose and never flagged here. A
+    NextDNS profile address isn't flagged here either: the security DNS check
+    reports it on its own, for the person to confirm."""
     from unittest.mock import MagicMock
 
     servers = ["45.90.28.163", "45.90.30.163", "194.242.2.2", "76.76.2.0", "94.140.14.14", "149.112.112.112", "1.0.0.1"]
@@ -262,15 +264,16 @@ def test_privacy_dns_providers_are_not_unrecognised():
         result = module.check(_make_profile())
     assert not any(f.data.get("check_type") == "suspicious_dns" for f in result.findings)
     info = next(f for f in result.findings if f.data.get("check_type") == "dns_info")
-    assert info.data["providers"]["45.90.28.163"] == "NextDNS"
+    assert info.data["providers"]["45.90.28.163"] == "NextDNS profile"
     assert info.data["providers"]["194.242.2.2"] == "Mullvad DNS"
-    assert "NextDNS" in info.description
+    assert "Mullvad DNS" in info.description
 
 
 def test_provider_names():
     from rescue.dns_providers import ROUTER, provider_name
 
-    assert provider_name("45.90.30.163") == "NextDNS"
+    assert provider_name("45.90.30.163") is None, "a profile address is never trusted silently"
+    assert provider_name("45.90.30.0") == "NextDNS"
     assert provider_name("1.0.0.1") == "Cloudflare DNS"
     assert provider_name("192.168.1.1") == ROUTER
     assert provider_name("203.0.113.9") is None

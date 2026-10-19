@@ -46,23 +46,15 @@ from rescue.dns_providers import KNOWN_DNS_NETWORKS, KNOWN_DNS_PARSED as _KNOWN_
 CANARY_DOMAINS = ["apple.com", "google.com", "microsoft.com"]
 
 
-from rescue.dns_providers import LOCAL_NETWORKS as _LOCAL_NETWORKS  # noqa: E402
+from rescue.dns_providers import LOCAL_NETWORKS as _LOCAL_NETWORKS  # noqa: E402,F401
+from rescue.dns_providers import provider_info, provider_name  # noqa: E402
 
 
 def _known_dns_provider(server: str) -> Optional[str]:
-    """Return a friendly name if server is a known provider or a local/router address."""
-    try:
-        addr = ipaddress.ip_address(server.split("%")[0])
-    except ValueError:
-        return None
-    if addr.is_loopback or addr.is_unspecified:
-        return None  # handled separately (sinkhole list)
-    if any(addr.version == n.version and addr in n for n in _LOCAL_NETWORKS):
-        return "your router"
-    for name, net in _KNOWN_DNS_PARSED:
-        if addr.version == net.version and addr in net:
-            return name
-    return None
+    """A shared provider's name, "your router" for a local address, or None.
+    A per-account profile address (NextDNS, Control D, AdGuard) is None here:
+    it is reported on its own (rescue/dns_providers.py)."""
+    return provider_name(server)
 
 
 def _is_bogon(ip: str) -> bool:
@@ -85,6 +77,7 @@ class Module(ModuleBase):
     emits_codes = [
         "security.dns_poisoning_check.malicious_dns",
         "security.dns_poisoning_check.suspicious_dns",
+        "security.dns_poisoning_check.dns_filtering_profile",
         "security.dns_poisoning_check.dns_resolution_issue",
         "security.dns_poisoning_check.dns_config",
         "security.dns_poisoning_check.dns_over_https",
@@ -266,13 +259,18 @@ class Module(ModuleBase):
         malicious = []
         suspicious = []
         local_other = []
+        profiles = []
         gateway = None
         gateway_read = False
 
         for server in dns_servers:
+            info = provider_info(server)
             # Check for malicious servers
             if server in MALICIOUS_DNS:
                 malicious.append(server)
+            elif info and info["profile"]:
+                # A per-account profile: its owner sees every name looked up.
+                profiles.append({"server": server, "provider": info["name"], "profile_id": info["profile_id"]})
             elif server in KNOWN_GOOD_DNS:
                 continue
             elif _known_dns_provider(server) == "your router" or server.startswith(
@@ -290,6 +288,36 @@ class Module(ModuleBase):
                 # Check if it looks like a valid IP (not ISP DNS, localhost, etc)
                 if not self._is_isp_dns(server) and server not in ["127.0.0.1", "::1"]:
                     suspicious.append(server)
+
+        if profiles:
+            providers = ", ".join(dict.fromkeys(p["provider"] for p in profiles))
+            ids = [p["profile_id"] for p in profiles if p["profile_id"]]
+            findings.append(
+                Finding(
+                    title=f"Your DNS goes through a filtering profile ({providers})",
+                    description=(
+                        "A profile's owner can see every website name looked up. Check it's yours.\n\n"
+                        f"Addresses: {', '.join(p['server'] for p in profiles)}"
+                        + (f" (profile {', '.join(dict.fromkeys(ids))})" if ids else "")
+                        + ".\n\n"
+                        "If you think someone close to you set this up to monitor you, "
+                        "changing it can alert them. Talk to an advocate first (US National "
+                        "Domestic Violence Hotline: 1-800-799-7233, or text START to "
+                        "88788).\n\n"
+                        "What to do: Sign in to your account with that provider and check "
+                        "the profile is yours. If it isn't, set DNS back to automatic."
+                    ),
+                    severity=Severity.WARNING,
+                    category=self.category,
+                    code="security.dns_poisoning_check.dns_filtering_profile",
+                    data={
+                        "check": "dns_filtering_profile",
+                        "provider": providers,
+                        "servers": [p["server"] for p in profiles],
+                        "profile_ids": list(dict.fromkeys(ids)),
+                    },
+                )
+            )
 
         if local_other:
             findings.append(

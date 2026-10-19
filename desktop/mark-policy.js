@@ -32,7 +32,7 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const BACKGROUND_TASK = 'background_task';
 // Settings and installed items (rescue/known_items.py ITEM_KINDS).
 const ITEM_KINDS = new Set([
-  'sharing_service', 'network_proxy', 'system_extension', 'browser_extension',
+  'sharing_service', 'network_proxy', 'dns_profile', 'system_extension', 'browser_extension',
   'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
 ]);
 // Lists that can be marked entry by entry (rescue/known_items.py ENTRY_KIND_FOR).

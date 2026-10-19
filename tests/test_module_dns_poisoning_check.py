@@ -332,3 +332,52 @@ def test_public_domain_resolving_to_bogon_is_flagged():
         res = dict(_GOOD, **{"google.com": bad})
         result = _run_dns(["8.8.8.8"], res)
         assert any(f.data.get("check") == "dns_resolution_issue" for f in result.findings), bad
+
+
+def test_a_filtering_profile_is_its_own_warning_never_trusted_silently():
+    """NextDNS / Control D / AdGuard give each account its own addresses, and
+    the account's owner sees every name looked up: reported for the person to
+    confirm (markable), never skipped as a known provider."""
+    from rescue.dns_providers import provider_info, provider_name, profile_servers
+
+    assert provider_info("45.90.28.163")["profile"] is True
+    assert provider_name("45.90.28.163") is None
+    assert provider_info("2a07:a8c0::ab:cd12")["profile_id"] == "abcd12"
+    for shared in ("45.90.28.0", "1.1.1.1", "1.0.0.1", "9.9.9.9", "8.8.8.8", "194.242.2.2", "94.140.14.14", "76.76.2.0"):
+        assert provider_info(shared)["profile"] is False, shared
+        assert provider_name(shared), shared
+    assert [p["provider"] for p in profile_servers(["1.1.1.1", "76.76.2.44"])] == ["Control D"]
+
+    mod = _get_module()
+    findings = mod._check_dns_servers(["45.90.28.163", "2a07:a8c0::ab:cd12", "1.1.1.1"])
+    prof = [f for f in findings if f.code == "security.dns_poisoning_check.dns_filtering_profile"]
+    assert len(prof) == 1
+    f = prof[0]
+    assert f.severity.value == "warning"
+    assert f.title == "Your DNS goes through a filtering profile (NextDNS)"
+    assert f.description.startswith("A profile's owner can see every website name looked up. Check it's yours.")
+    assert f.data["servers"] == ["45.90.28.163", "2a07:a8c0::ab:cd12"] and f.data["profile_ids"] == ["abcd12"]
+    assert not any(f.code == "security.dns_poisoning_check.suspicious_dns" for f in findings)
+
+    from rescue.known_items import item_markable
+    offer = item_markable(f, "dns_poisoning_check")
+    assert offer and offer["kind"] == "dns_profile" and offer["monitoring"] is True
+
+
+def test_a_filtering_profile_gets_the_removal_safety_note():
+    import json
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from rescue.models import CheckResult
+    from rescue.remediation import load_remediation_walkthroughs
+    from rescue.serialize import checks_to_json
+
+    mod = _get_module()
+    f = [x for x in mod._check_dns_servers(["45.90.28.163"]) if x.data.get("check") == "dns_filtering_profile"][0]
+    walks = load_remediation_walkthroughs(Path(__file__).parent.parent / "guides" / "remediation")
+    doc = json.loads(checks_to_json([(SimpleNamespace(name="dns_poisoning_check", category="security"),
+                                      CheckResult(module_name="dns_poisoning_check", findings=[f]))], "darwin", walks))
+    out = doc["modules"][0]["findings"][0]
+    assert "alert" in out["remediation"]["safety_note"]
+    assert out["markable"]["kind"] == "dns_profile"

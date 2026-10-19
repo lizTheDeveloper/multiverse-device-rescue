@@ -5,12 +5,14 @@ platforms: [macos]
 remediates:
   - security.dns_poisoning_check.malicious_dns
   - security.dns_poisoning_check.suspicious_dns
+  - security.dns_poisoning_check.dns_filtering_profile
   - security.dns_poisoning_check.dns_resolution_issue
   - security.dns_poisoning_check.dns_config
   - security.dns_poisoning_check.dns_over_https
 steps_for:
   security.dns_poisoning_check.malicious_dns: [1]
   security.dns_poisoning_check.suspicious_dns: [2]
+  security.dns_poisoning_check.dns_filtering_profile: [2]
   security.dns_poisoning_check.dns_resolution_issue: [3]
   security.dns_poisoning_check.dns_config: [4]
   security.dns_poisoning_check.dns_over_https: [4]
@@ -68,6 +70,9 @@ networks, and privacy-focused resolvers, so it is not automatically bad.
 2. Check where this came from: is it your VPN's DNS, your workplace's
    internal resolver, or a resolver you configured yourself (e.g. a
    self-hosted Pi-hole)? If so, no action needed.
+   For a filtering profile (NextDNS, Control D, AdGuard), sign in to that
+   provider and check the profile shown in the finding is in your account:
+   its owner can see every website name looked up.
 3. If you don't recognize the source, look up the IP (WHOIS/reverse DNS)
    to see who operates it.
 4. If it's unexplained, reset to automatic/known-good DNS the same way as

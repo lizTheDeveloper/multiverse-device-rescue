@@ -13,7 +13,7 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
-from rescue.dns_providers import ROUTER, provider_name
+from rescue.dns_providers import ROUTER, provider_info, provider_name
 from rescue.module_base import ModuleBase
 
 
@@ -179,6 +179,12 @@ class Module(ModuleBase):
             # reported: this check can't tell a router's DNS from a rogue one.)
             if server in self.WELL_KNOWN_DNS or server in ["127.0.0.1"] or provider_name(server) not in (None, ROUTER):
                 continue
+            # A per-account profile (NextDNS, Control D, AdGuard) isn't trusted
+            # either: the security DNS check reports it on its own, with what
+            # to confirm, so it isn't listed twice.
+            info = provider_info(server)
+            if info and info["profile"]:
+                continue
             suspicious.append(server)
 
         if suspicious:
@@ -226,7 +232,11 @@ class Module(ModuleBase):
             lines.append(f"{interface} DNS: {', '.join(servers)}")
 
         # Which provider each server belongs to, when it is a known one.
-        providers = {s: self.WELL_KNOWN_DNS.get(s) or provider_name(s) for s in dns_servers}
+        providers = {
+            s: self.WELL_KNOWN_DNS.get(s) or provider_name(s)
+            or (f"{provider_info(s)['name']} profile" if provider_info(s) else None)
+            for s in dns_servers
+        }
         providers = {s: n for s, n in providers.items() if n != ROUTER}
         providers = {s: n for s, n in providers.items() if n}
         names = list(dict.fromkeys(providers.values()))

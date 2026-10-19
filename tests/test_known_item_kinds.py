@@ -54,6 +54,15 @@ CASES = {
         {"check": "proxy_enabled", "interface": "Wi-Fi", "proxy_servers": ["HTTP evil.example:8080"]},
         {"check": "proxy_enabled", "interface": "Ethernet", "proxy_servers": ["HTTP proxy.example:8080"]},
     ),
+    "dns_profile": (
+        "security.dns_poisoning_check.dns_filtering_profile",
+        {"check": "dns_filtering_profile", "provider": "NextDNS", "servers": ["45.90.28.163", "45.90.30.163"],
+         "profile_ids": []},
+        {"check": "dns_filtering_profile", "provider": "NextDNS", "servers": ["45.90.28.99", "45.90.30.99"],
+         "profile_ids": []},
+        {"check": "dns_filtering_profile", "provider": "Control D", "servers": ["45.90.28.163", "45.90.30.163"],
+         "profile_ids": []},
+    ),
     "system_extension": (
         "security.system_extensions.unusual_state",
         {"check": "unusual_state", "name": "com.example.filter", "team_id": "ABCDE12345",
@@ -251,7 +260,7 @@ def test_monitoring_capable_kinds_say_so():
     assert offer("security.sharing_services.screen_sharing", {"service": "screen_sharing"})["monitoring"] is True
     assert offer("security.remote_login_check.ssh_enabled", {"service": "ssh"})["monitoring"] is True
     assert offer("security.sharing_services.printer_sharing", {"service": "printer_sharing"})["monitoring"] is False
-    for kind in ("network_proxy", "system_extension", "browser_extension", "app_permissions", "ssh_authorized_keys"):
+    for kind in ("network_proxy", "dns_profile", "system_extension", "browser_extension", "app_permissions", "ssh_authorized_keys"):
         code, data, _, _ = CASES[kind]
         assert offer(code, data)["monitoring"] is True, kind
 
