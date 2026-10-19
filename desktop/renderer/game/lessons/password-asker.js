@@ -67,14 +67,14 @@ export default {
       variants: [
         {
           key: 'fake-prompt-2',
-          prompt: 'During the checkup, a window from macOS itself asks for your Mac’s administrator password. What is that?',
+          prompt: 'During the checkup, a window from macOS itself asks for your Mac’s administrator password. Who sees what you type there?',
           options: [
-            { text: 'Your Mac’s own prompt, in its own window', correct: true,
-              feedback: 'Right. Your Mac may show its own administrator prompt for some checks or fixes. Reclaim City never sees what you type there.' },
-            { text: 'Reclaim City asking for your email password', correct: false,
-              feedback: 'Reclaim City never asks for your email password. This is macOS asking for its own administrator password, in its own window.' },
-            { text: 'Not real. Close it without typing, because Reclaim City never asks for passwords.', correct: false,
-              feedback: 'This one is real: it’s macOS’s own window, which some checks or fixes need. Reclaim City never asks you to type a password into it, and it never sees what you type here.' },
+            { text: 'Only macOS', correct: true,
+              feedback: 'Right. Your Mac may show its own administrator prompt for some checks or fixes. Only macOS sees what you type there; Reclaim City never does.' },
+            { text: 'Reclaim City', correct: false,
+              feedback: 'Reclaim City never sees it. The window belongs to macOS, and only macOS sees what you type there.' },
+            { text: 'Apple, over the internet', correct: false,
+              feedback: 'Your Mac checks its administrator password itself. Only macOS sees what you type there; Reclaim City never does.' },
           ],
         },
         {
