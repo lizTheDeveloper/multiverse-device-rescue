@@ -40,9 +40,10 @@ show while where it lives is hidden).
 1. Note the program, PID, and port from the finding.
 2. Confirm what's actually listening and where it lives:
    - **Mac:** `lsof -i :<port>` and `ps -p <pid> -o pid,ppid,command`.
-   - **Linux:** `ss -tlnp` shows which program has the port open (an
-     administrator sees every owner with `ss -tnap`); `ls -l /proc/<pid>/exe`
-     shows where it lives.
+   - **Linux:** `ss -tlnp` shows which program has the port open, for
+     programs running as you; an administrator sees every owner with
+     `sudo ss -tnap`. `ls -l /proc/<pid>/exe` shows where it lives (use
+     `sudo ls -l /proc/<pid>/exe` for another account's program).
    - **Windows:** open Resource Monitor (type "Resource Monitor" in the
      Start menu), go to the Network tab and look under Listening Ports to
      see where the program lives. In PowerShell,

@@ -22,7 +22,9 @@ from rescue import command
 
 _TIMEOUT = 30
 
-LSOF_ARGS = ["lsof", "-i", "-n", "-P"]
+# "+c 0": full program names. lsof cuts them to 9 characters otherwise, which
+# merges different apps ("Google" for every Chrome helper and Google program).
+LSOF_ARGS = ["lsof", "+c", "0", "-i", "-n", "-P"]
 NETTOP_ARGS = ["nettop", "-P", "-L", "1", "-n", "-x", "-J", "bytes_in,bytes_out"]
 SS_ARGS = ["ss", "-tunapH"]
 SS_BYTES_ARGS = ["ss", "-tniH"]
@@ -99,7 +101,8 @@ def _is_unset(addr: str | None, port: int | None) -> bool:
 
 
 def _lsof_name(raw: str) -> str:
-    # lsof escapes spaces and other bytes in command names as \xNN.
+    # lsof escapes spaces and other bytes in command names as \xNN, so a
+    # full name ("Google\x20Chrome\x20Helper") is still one column.
     return re.sub(r"\\x([0-9a-fA-F]{2})", lambda m: chr(int(m.group(1), 16)), raw)
 
 
@@ -246,6 +249,9 @@ def _win_state(value) -> str | None:
     return None
 
 
+_IDLE_PID = 0
+
+
 def parse_win_connections(tcp_json: str, udp_json: str, proc_json: str) -> list[dict]:
     procs: dict[int, tuple[str | None, str | None]] = {}
     for row in _win_rows(proc_json):
@@ -255,6 +261,10 @@ def parse_win_connections(tcp_json: str, udp_json: str, proc_json: str) -> list[
 
     def owner(row: dict):
         pid = _to_int(row.get("OwningProcess"))
+        if pid == _IDLE_PID:
+            # Closed (TIME_WAIT) connections sit on PID 0, which Get-Process
+            # calls "Idle". That isn't a program, so the row has no owner.
+            return None, None, None
         name, path = procs.get(pid, (None, None)) if pid is not None else (None, None)
         return pid, name, path
 
@@ -427,6 +437,8 @@ _WIN_SERVICE_HOSTS = ("lsass.exe", "wininit.exe", "services.exe", "svchost.exe",
 _WIN_FIXED_PORTS = {
     135: ("svchost.exe",),
     5040: ("svchost.exe",),
+    # Delivery Optimization (DoSvc) shares Windows updates with nearby PCs.
+    7680: ("svchost.exe",),
 }
 _WIN_SYSTEM_PORTS = {139, 445, 5357}
 # Outbound: file sharing (SMB) is opened by the System process itself, and

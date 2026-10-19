@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 
 import pytest
@@ -377,7 +378,7 @@ def test_windows_pathless_services_are_noted_not_warned():
     noted = [f for f in result.findings if f.data.get("check") == "unnamed_listeners"]
     assert len(noted) == 1
     assert "couldn't confirm which program" in noted[0].description
-    assert {i["port"] for i in noted[0].data["items"]} == {135, 49664}
+    assert {i["port"] for i in noted[0].data["items"]} == {135, 7680, 49664}
 
 
 def test_listening_verdict_windows():
@@ -525,3 +526,47 @@ def test_skips_data_count_commands():
     with patch("rescue.command.run", side_effect=run):
         _get_module().check(_make_profile(Platform.LINUX))
     assert seen == [["ss", "-tunapH"]]
+
+
+def test_windows_closed_connections_are_not_named_idle():
+    """TIME_WAIT rows sit on PID 0 ("Idle"): no finding may name Idle as their program."""
+    tcp = json.loads((FIX / "clean_win_listen.json").read_text()) + [
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50111, "RemoteAddress": "192.168.1.9",
+         "RemotePort": 7680, "State": 11, "OwningProcess": 0},
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50112, "RemoteAddress": "203.0.113.5",
+         "RemotePort": 8080, "State": 11, "OwningProcess": 0},
+    ]
+    proc = json.loads((FIX / "win_proc.json").read_text()) + [
+        {"Id": 0, "ProcessName": "Idle", "Path": None}
+    ]
+    result = _check(Platform.WIN32, win=_win_output(json.dumps(tcp), json.dumps(proc)))
+    for f in result.findings:
+        assert "Idle" not in f.title + f.description + json.dumps(f.data, default=str), f.title
+
+
+def test_linux_unnamed_note_gives_a_command_that_works():
+    """Without sudo, ss shows the same unnamed sockets: the advice must say sudo."""
+    ss = "tcp   LISTEN 0 128 0.0.0.0:8000 0.0.0.0:*\n"
+    noted = [
+        f for f in _check(Platform.LINUX, ss=ss).findings
+        if f.data.get("check") == "unnamed_listeners"
+    ]
+    assert noted and "`sudo ss -tnap`" in noted[0].description
+
+
+def test_admin_ss_advice_always_says_sudo():
+    """Wherever modules or guides say an administrator sees every owner, the ss command has sudo."""
+    root = Path(__file__).resolve().parents[1]
+    files = list((root / "guides").rglob("*.md")) + list((root / "modules").rglob("*.py"))
+    files.append(root / "rescue" / "watch.py")
+    near = re.compile(
+        r"administrator[^`]{0,160}`(ss\b[^`]*)`"
+        r"|`(ss -[^`]*)`[^`]{0,160}?administrator(?![^`]{0,40}`sudo )",
+        re.I,
+    )
+    bad = []
+    for path in files:
+        text = " ".join(path.read_text(encoding="utf-8").split())
+        for m in near.finditer(text):
+            bad.append(f"{path.relative_to(root)}: {m.group(1) or m.group(2)}")
+    assert not bad, bad

@@ -129,7 +129,7 @@ If you don't recognise the program, see which program holds the port:
   port and its program.
 - **Linux:** in a terminal, `ss -tlnp` lists listening ports and their
   programs. Programs that belong to other accounts show only when an
-  administrator runs it.
+  administrator runs `sudo ss -tlnp`.
 - **Windows:** open Resource Monitor (type "Resource Monitor" in the Start
   menu), go to the Network tab and look under Listening Ports.
 
@@ -161,7 +161,7 @@ the same as clean. Things it may list:
 - **Other accounts' programs.** A Mac shows connections only for programs
   running as you, and Linux shows which program owns a connection only for
   your own programs, unless the check runs as admin. On Linux, an
-  administrator can see every owner with `ss -tnap`.
+  administrator can see every owner with `sudo ss -tnap`.
 - **Stopped early, or looks that failed.** The result covers only the time
   that was gathered.
 - **Too much to list.** The watch keeps at most 2,000 program-and-destination

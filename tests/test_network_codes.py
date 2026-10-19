@@ -4,6 +4,7 @@ Each task that gives a network module its codes adds that module's entry to
 EXPECTED_CODES. Per-module test files import assert_codes_match_check.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -159,3 +160,21 @@ def test_connection_walkthroughs_give_every_code_its_own_steps(stem):
     guide = load_guide(path)
     for code in guide.remediates:
         assert guide.steps_for.get(code), code
+
+
+def test_open_ports_stop_service_step_works_as_written():
+    """The listening-ports view says sudo for systemctl and how to find the service name."""
+    from rescue.guides import load_guide
+
+    guide = load_guide(
+        Path(__file__).parent.parent / "guides" / "remediation" / "review_open_ports.md"
+    )
+    body = " ".join(
+        " ".join(s.body.split())
+        for s in guide.steps_for_code("security.open_ports_scan.listening_ports")
+    )
+    assert "`sudo systemctl disable --now <service>`" in body
+    assert "`systemctl status <pid>`" in body
+    for path in (Path(__file__).parent.parent / "guides").rglob("*.md"):
+        text = " ".join(path.read_text(encoding="utf-8").split())
+        assert not re.search(r"(?<!sudo )`?systemctl (disable|stop|mask)", text), path.name

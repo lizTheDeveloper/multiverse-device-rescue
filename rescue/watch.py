@@ -459,8 +459,10 @@ def run_watch(
                 })
             except Exception:  # nosec - progress is a courtesy; the watch goes on
                 pass
+        # The watch ends at its deadline by the clock: a slow snapshot must
+        # not stretch it. A snapshot may start before the deadline, none after.
         next_at = gathered.attempts * interval
-        if next_at >= total:
+        if next_at >= total or clock() - start >= total:
             break
         wait = start + next_at - clock()
         if wait > 0:

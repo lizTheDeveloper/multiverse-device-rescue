@@ -1,10 +1,11 @@
 COMMAND     PID      USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
-ControlCe   686 annhoward   10u  IPv4 0x3688276a1af5ebbb      0t0  TCP *:7000 (LISTEN)
-ControlCe   686 annhoward   11u  IPv6 0x8ea36c7b934887f5      0t0  TCP *:7000 (LISTEN)
+ControlCenter   686 annhoward   10u  IPv4 0x3688276a1af5ebbb      0t0  TCP *:7000 (LISTEN)
+ControlCenter   686 annhoward   11u  IPv6 0x8ea36c7b934887f5      0t0  TCP *:7000 (LISTEN)
 rapportd    702 annhoward    8u  IPv4 0x1c3d0a9e2b6f4a10      0t0  TCP 127.0.0.1:49152 (LISTEN)
 Google\x20Chrome  4312 annhoward   42u  IPv4 0x5a1e7c3d9b2f8e01      0t0  TCP 192.168.1.20:52814->203.0.113.9:443 (ESTABLISHED)
 Google\x20Chrome  4312 annhoward   57u  IPv6 0x7b2f8d4e0c3a9f12      0t0  TCP [2001:db8::20]:52900->[2001:db8:1::5]:443 (ESTABLISHED)
-identitys   734 annhoward    7u  IPv4 0x2dd105efaf781815      0t0  UDP *:*
-mDNSRespo   410 _mdnsresponder    8u  IPv4 0x4e5f6a7b8c9d0e1f      0t0  UDP *:5353
-mDNSRespo   410 _mdnsresponder    9u  IPv6 0x5f6a7b8c9d0e1f20      0t0  UDP *:5353
+identityservicesd   734 annhoward    7u  IPv4 0x2dd105efaf781815      0t0  UDP *:*
+mDNSResponder   410 _mdnsresponder    8u  IPv4 0x4e5f6a7b8c9d0e1f      0t0  UDP *:5353
+mDNSResponder   410 _mdnsresponder    9u  IPv6 0x5f6a7b8c9d0e1f20      0t0  UDP *:5353
 curl      9001 annhoward    5u  IPv4 0x6a7b8c9d0e1f2031      0t0  TCP 192.168.1.20:53000->198.51.100.7:8080 (SYN_SENT)
+Microsoft\x20Edge\x20Helper  5120 annhoward   40u  IPv4 0x7c8d9e0f1a2b3c40      0t0  TCP 192.168.1.20:53100->203.0.113.30:443 (ESTABLISHED)

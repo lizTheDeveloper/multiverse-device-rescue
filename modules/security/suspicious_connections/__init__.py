@@ -489,7 +489,7 @@ class Module(ModuleBase):
                 "services, but a name alone doesn't prove it."
             )
         if platform == "linux":
-            parts.append("An administrator can see every owner with `ss -tnap`.")
+            parts.append("An administrator can see every owner with `sudo ss -tnap`.")
         elif platform == "win32":
             parts.append(
                 "Resource Monitor's Network tab shows each program, where it lives, "

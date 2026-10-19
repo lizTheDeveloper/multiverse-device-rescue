@@ -231,7 +231,7 @@ def test_windows_clean_machine_no_warnings():
     result = _check(Platform.WIN32, win=win)
     assert not _warnings(result)
     listed = [f for f in result.findings if f.data.get("check") == "listening_ports"]
-    assert listed and listed[0].data["count"] == 5
+    assert listed and listed[0].data["count"] == 6
 
 
 def test_linux_exposed_database_warns():

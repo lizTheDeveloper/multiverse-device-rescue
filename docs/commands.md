@@ -888,7 +888,7 @@ route print -4
 ### `conn_common`
 
 ```text
-lsof -i -n -P
+lsof +c 0 -i -n -P
 nettop -P -L 1 -n -x -J bytes_in,bytes_out
 powershell -NoProfile -NonInteractive -Command …
 ss -tniH
@@ -1753,7 +1753,7 @@ Plus 1 command(s) built at runtime.
 ### `network_connections_monitor`
 
 ```text
-lsof -i -n -P
+lsof +c 0 -i -n -P
 nettop -P -L 1 -n -x -J bytes_in,bytes_out
 powershell -NoProfile -NonInteractive -Command …
 ss -tniH
@@ -1773,7 +1773,7 @@ networksetup -getwebproxy …
 ### `open_ports_scan`
 
 ```text
-lsof -i -n -P
+lsof +c 0 -i -n -P
 nettop -P -L 1 -n -x -J bytes_in,bytes_out
 powershell -NoProfile -NonInteractive -Command …
 ss -tniH
@@ -1940,7 +1940,7 @@ system_profiler SPiBridgeDataType
 ### `suspicious_connections`
 
 ```text
-lsof -i -n -P
+lsof +c 0 -i -n -P
 nettop -P -L 1 -n -x -J bytes_in,bytes_out
 powershell -NoProfile -NonInteractive -Command …
 ss -tniH

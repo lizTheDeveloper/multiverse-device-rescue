@@ -585,3 +585,62 @@ def test_every_fix_action_avoids_macos_tools(platform):
         assert bad not in text
     for word in ("kill", "terminate", "end task"):
         assert word not in text
+
+
+def test_windows_closed_connections_are_not_named_idle():
+    """TIME_WAIT rows sit on PID 0 ("Idle"): no finding may name Idle as their program."""
+    tcp = json.loads((FIX / "clean_win_listen.json").read_text()) + [
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50111, "RemoteAddress": "192.168.1.9",
+         "RemotePort": 7680, "State": 11, "OwningProcess": 0},
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50112, "RemoteAddress": "203.0.113.5",
+         "RemotePort": 8080, "State": 11, "OwningProcess": 0},
+    ]
+    proc = json.loads((FIX / "win_proc.json").read_text()) + [
+        {"Id": 0, "ProcessName": "Idle", "Path": None}
+    ]
+    result = _check(Platform.WIN32, win=_win_output(json.dumps(tcp), json.dumps(proc)))
+    for f in result.findings:
+        assert "Idle" not in f.title + f.description + json.dumps(f.data, default=str), f.title
+
+
+def _criticals(result):
+    return [f for f in result.findings if f.severity == Severity.CRITICAL]
+
+
+def test_loopback_backdoor_port_is_not_critical_mac():
+    """A browser tab on a local Jupyter (127.0.0.1:8888) never leaves the computer."""
+    fake_run = _make_run_result([
+        ("python3", 4100, "127.0.0.1", 8888, "ESTABLISHED"),
+        ("Safari", 4200, "::1", 8080, "ESTABLISHED"),
+    ])
+    with patch("rescue.command.run", side_effect=fake_run):
+        result = _get_module().check(_make_profile())
+    assert not _criticals(result)
+
+
+def test_loopback_backdoor_port_is_not_critical_linux_unnamed():
+    ss = (
+        "tcp   ESTAB  0      0       127.0.0.1:51000   127.0.0.1:8888\n"
+        "tcp   ESTAB  0      0       127.0.0.1:8888    127.0.0.1:51000\n"
+    )
+    result = _check(Platform.LINUX, ss=ss)
+    assert not _criticals(result)
+    noted = [f for f in result.findings if f.data.get("check") == "unnamed_connections"]
+    assert noted and noted[0].severity == Severity.INFO
+
+
+def test_remote_backdoor_port_stays_critical_when_unnamed():
+    ss = "tcp   ESTAB  0      0       192.168.1.30:51051   203.0.113.5:4444\n"
+    crit = _criticals(_check(Platform.LINUX, ss=ss))
+    assert len(crit) == 1
+    assert crit[0].code == "security.network_connections_monitor.backdoor_ports"
+    assert crit[0].data["connections"] == ["program not visible -> 203.0.113.5:4444"]
+
+
+def test_full_edge_name_gets_the_browser_threshold():
+    """lsof +c 0 prints "Microsoft\\x20Edge\\x20Helper"; decoded, it is a browser."""
+    mod_globals = _get_module().__class__.__module__
+    nm = sys.modules[mod_globals]
+    assert "microsoft edge" in nm.BROWSER_PREFIXES
+    assert not any("\\x" in p for p in nm.BROWSER_PREFIXES)
+    assert nm._threshold_for("Microsoft Edge Helper") == nm.BROWSER_CONNECTION_THRESHOLD

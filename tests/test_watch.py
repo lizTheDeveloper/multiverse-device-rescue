@@ -604,3 +604,63 @@ def test_hidden_owner_on_a_port_open_from_the_start_is_not_new():
     result = watch([snap([hidden]), snap([listener("cupsd", 631)])], platform="linux",
                    dns=lambda p: {"names": None, "reason": "Hidden."})
     assert by_code(result, "new_listener") == []
+
+
+def test_watch_ends_by_the_clock_when_snapshots_are_slow():
+    # Each snapshot takes 12 s against a 5 s interval: the watch still stops
+    # at its deadline, not after 12 snapshots' worth of time.
+    fake = FakeTime()
+    starts = []
+
+    def slow_collect(platform):
+        starts.append(fake.t)
+        fake.t += 12
+        return snap([rec("Safari", "17.253.1.1", 443, 50001)])
+
+    result = run_watch(
+        "darwin", 1, 5, collect=slow_collect, dns=no_dns, clock=fake.clock,
+        sleep=fake.sleep, should_stop=lambda: False,
+        verdict=lambda platform, record: "expected",
+    )
+    assert starts and all(t < 60 for t in starts)
+    assert 60 <= fake.t < 60 + 12
+    assert len(starts) == 5
+    summary = by_code(result, "watch_summary")[0]
+    assert summary.data["elapsed"] == 60
+    assert summary.data["stopped_early"] is False
+
+
+def test_windows_closed_connections_are_not_named_idle():
+    """TIME_WAIT rows on PID 0 ("Idle") must not become a program in the watch."""
+    import json
+
+    from rescue.command import CommandResult
+    from rescue.runtime import load_content_module
+
+    collector = load_content_module(
+        "modules/network/conn_common/collect.py", "rescue_conn_common_collect"
+    )
+    proc = json.dumps([
+        {"Id": 0, "ProcessName": "Idle", "Path": None},
+        {"Id": 1044, "ProcessName": "svchost", "Path": "C:\\Windows\\System32\\svchost.exe"},
+    ])
+    listen = {"LocalAddress": "0.0.0.0", "LocalPort": 135, "RemoteAddress": "0.0.0.0",
+              "RemotePort": 0, "State": 2, "OwningProcess": 1044}
+    looks = iter(range(10_000))
+
+    def run(args, **kwargs):
+        n = next(looks)
+        closed = {"LocalAddress": "192.168.1.40", "LocalPort": 50000 + n,
+                  "RemoteAddress": "203.0.113.5", "RemotePort": 8080, "State": 11,
+                  "OwningProcess": 0}
+        out = "\n".join([json.dumps([listen, closed]), "[]", proc]) + "\n"
+        return CommandResult(args=args, returncode=0, stdout=out, stderr="",
+                             timed_out=False, error=None, duration_s=0.0, truncated=False)
+
+    result = watch(
+        lambda platform: collector.snapshot(platform, run=run), platform="win32",
+        dns=lambda platform: {"names": [], "reason": None},
+    )
+    for f in result.findings:
+        text = f.title + f.description + json.dumps(f.data, default=str)
+        assert "Idle" not in text, f.title

@@ -37,7 +37,7 @@ network, not just programs on the same computer.
    - **Mac:** `lsof -i :<port>` and `ps -p <pid> -o pid,ppid,command`.
    - **Linux:** `ss -tlnp` lists listening ports and their programs, and
      `ps -p <pid> -o args=` shows the full command. Programs that belong to
-     other accounts show only when an administrator runs `ss`.
+     other accounts show only when an administrator runs `sudo ss -tlnp`.
    - **Windows:** open Resource Monitor (type "Resource Monitor" in the
      Start menu), go to the Network tab and look under Listening Ports. In
      PowerShell, `Get-NetTCPConnection -LocalPort <port>` shows the
@@ -79,7 +79,7 @@ level, so you have a full picture of what's reachable.
      `lsof -iTCP -sTCP:LISTEN -nP` for every listening port at once.
    - **Linux:** `ss -tlnp` lists every listening port and its program.
      Programs that belong to other accounts show only when an administrator
-     runs it.
+     runs `sudo ss -tlnp`.
    - **Windows:** open Resource Monitor (type "Resource Monitor" in the
      Start menu), go to the Network tab and look under Listening Ports. In
      PowerShell, `Get-NetTCPConnection -State Listen` lists the same ports
@@ -89,8 +89,12 @@ level, so you have a full picture of what's reachable.
    running — fewer listening ports means a smaller attack surface. Stop the
    service through its normal mechanism: its own quit or stop command or
    setting, `launchctl unload` for a LaunchAgent/Daemon you control on a
-   Mac, `systemctl disable --now <service>` on Linux, or `services.msc` on
-   Windows. That way it doesn't just start again.
+   Mac, `sudo systemctl disable --now <service>` on Linux, or
+   `services.msc` on Windows. That way it doesn't just start again. On
+   Linux, `systemctl status <pid>` (the PID from `ss -tlnp`) shows which
+   service the program belongs to: the service name is the `.service` name
+   on its first line. If it shows no `.service`, the program isn't a system
+   service and is stopped through its own settings instead.
 4. For services you do want, prefer binding to `127.0.0.1` unless you
    specifically need LAN or remote reachability (edit the service's own
    configuration file to bind to `127.0.0.1` instead of `0.0.0.0`).

@@ -29,12 +29,14 @@ def test_parse_lsof_ipv4_ipv6_and_listen():
     assert recs[0] == {
         "proto": "tcp", "state": "LISTEN", "local_addr": "*", "local_port": 7000,
         "remote_addr": None, "remote_port": None, "pid": 686,
-        "process": "ControlCe", "exe": None,
+        "process": "ControlCenter", "exe": None,
     }
     chrome4 = next(r for r in recs if r["local_port"] == 52814)
     assert chrome4["process"] == "Google Chrome"
     assert chrome4["state"] == "ESTABLISHED"
     assert (chrome4["remote_addr"], chrome4["remote_port"]) == ("203.0.113.9", 443)
+    edge = next(r for r in recs if r["local_port"] == 53100)
+    assert edge["process"] == "Microsoft Edge Helper"
     chrome6 = next(r for r in recs if r["local_port"] == 52900)
     assert chrome6["local_addr"] == "2001:db8::20"
     assert (chrome6["remote_addr"], chrome6["remote_port"]) == ("2001:db8:1::5", 443)
@@ -133,7 +135,7 @@ def test_snapshot_uses_numeric_flags():
     snap = C.snapshot("darwin", run=run)
     assert snap["error"] is None and snap["records"]
     assert snap["bytes"][371] == (12889957, 4157155)
-    assert calls[0] == ["lsof", "-i", "-n", "-P"]
+    assert calls[0] == ["lsof", "+c", "0", "-i", "-n", "-P"]
     assert all("-n" in argv for argv in calls)
 
 
@@ -235,7 +237,8 @@ def test_dns_cache_mac_and_linux_reason():
 def test_expected_listeners_clean_windows():
     recs = C.parse_win_connections(fx("clean_win_listen.json"), "[]", fx("win_proc.json"))
     listeners = [r for r in recs if r["state"] == "LISTEN"]
-    assert len(listeners) == 5
+    assert len(listeners) == 6
+    assert 7680 in {r["local_port"] for r in listeners}
     assert all(C.is_expected_listener("win32", r) for r in listeners)
 
 
@@ -270,7 +273,7 @@ def test_expected_windows_listeners_without_paths():
     assert all(r["pid"] == 4 for r in expected)
     # ...and the pathless svchost listeners only claim to be services.
     svchost = [r for r in listeners if r["pid"] == 1044]
-    assert len(svchost) == 3
+    assert len(svchost) == 4
     assert all(C.claims_expected_service("win32", r) for r in svchost)
     assert not any(C.claims_expected_service("win32", r) for r in expected)
     # a pathless program that is not a service host claims nothing
@@ -370,3 +373,24 @@ def test_snapshot_without_bytes_skips_data_count_commands():
         assert snap["bytes"] is None
         assert len(seen) == 1
         assert not any("data" in s for s in snap["limits"])
+
+
+# Windows reports closed (TIME_WAIT) connections on PID 0, which Get-Process
+# names "Idle". That is not a program, so the record has no owner.
+WIN_PID0_TCP = json.dumps([
+    {"LocalAddress": "192.168.1.40", "LocalPort": 50111, "RemoteAddress": "192.168.1.9",
+     "RemotePort": 7680, "State": 11, "OwningProcess": 0},
+    {"LocalAddress": "192.168.1.40", "LocalPort": 50112, "RemoteAddress": "203.0.113.5",
+     "RemotePort": 8080, "State": 11, "OwningProcess": 0},
+])
+WIN_PID0_PROC = json.dumps([
+    {"Id": 0, "ProcessName": "Idle", "Path": None},
+    {"Id": 4, "ProcessName": "System", "Path": None},
+])
+
+
+def test_windows_pid_0_is_no_owner():
+    recs = C.parse_win_connections(WIN_PID0_TCP, "[]", WIN_PID0_PROC)
+    assert len(recs) == 2
+    assert all(r["pid"] is None and r["process"] is None and r["exe"] is None for r in recs)
+    assert all(r["state"] == "TIME_WAIT" for r in recs)

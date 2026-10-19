@@ -28,7 +28,7 @@ WELL_KNOWN_REMOTE_PORTS = {5228, 5223}
 # Browsers legitimately hold hundreds of connections (tabs, extensions, helpers)
 BROWSER_PREFIXES = (
     "google", "chrome", "safari", "firefox", "brave", "arc", "opera",
-    "vivaldi", "msedge", "microsoft\\x20edge", "com.apple.webkit",
+    "vivaldi", "msedge", "microsoft edge", "com.apple.webkit",
     "chromium",
 )
 BROWSER_CONNECTION_THRESHOLD = 300
@@ -41,6 +41,9 @@ DEFAULT_CONNECTION_THRESHOLD = 20
 
 
 def _is_loopback(addr: str) -> bool:
+    addr = addr.lower()
+    if addr.startswith("::ffff:"):
+        addr = addr[len("::ffff:"):]
     return addr in ("::1", "localhost") or addr.startswith("127.")
 
 
@@ -276,16 +279,21 @@ class Module(ModuleBase):
         # A connection whose program this check couldn't see is noted below as
         # info; it never counts towards a warning about a named program.
         connections = [c for c in all_connections if c["process"] is not None]
-        # Except a backdoor-port connection: that is critical whoever owns it.
+        # Except a backdoor-port connection to another computer: that is
+        # critical whoever owns it. One that stays on this computer (a local
+        # notebook or dev server on 8888 or 8080) is not reaching anyone.
+        def remote_backdoor(conn: dict) -> bool:
+            return conn["port"] in BACKDOOR_PORTS and not _is_loopback(conn["remote_addr"])
+
         unseen = [
             c for c in all_connections
-            if c["process"] is None and c["port"] not in BACKDOOR_PORTS
+            if c["process"] is None and not remote_backdoor(c)
         ]
 
         # Check for connections on backdoor ports
         backdoor_connections = []
         for conn in all_connections:
-            if conn["port"] in BACKDOOR_PORTS:
+            if remote_backdoor(conn):
                 who = (
                     f"{conn['process']} (PID {conn['pid']})"
                     if conn["process"] is not None
