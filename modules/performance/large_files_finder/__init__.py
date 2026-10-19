@@ -1,5 +1,5 @@
-import subprocess
 import os
+import time
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -15,6 +15,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.command import run
 from rescue.fsbounds import is_file_nofollow
 
 # Thresholds
@@ -29,6 +30,22 @@ DISK_IMAGE_EXTENSIONS = {".dmg", ".iso", ".img"}
 ARCHIVE_EXTENSIONS = {".zip", ".tar", ".gz", ".bz2", ".7z", ".rar", ".xz"}
 VM_IMAGE_EXTENSIONS = {".vmdk", ".vdi", ".vhdx"}
 
+# Searching a whole home folder for big files can take more than ten minutes
+# on a developer Mac. It used to run as one `find` with a 60-second timeout,
+# exactly the engine's limit for the whole check, so the check always timed
+# out and reported nothing. Now the search has its own budget and runs one
+# `find` per folder, each with its own limit, folders where big files usually
+# are first. A stopped `find` loses what it printed (its output is buffered),
+# so separate runs keep the results of every folder that finished, and the
+# folders that didn't are named.
+SEARCH_BUDGET_S = 30.0
+# No one folder may use more than this, so a huge one can't starve the rest.
+_PER_FOLDER_TIMEOUT_S = 10.0
+# Searched first, in this order. Documents last: it is often the biggest tree.
+_LIKELY_FOLDERS = ["Downloads", "Desktop", "Movies", "Music", "Pictures", "Documents"]
+# Folder names skipped everywhere: package caches with many small files.
+_SKIP_NAMES = ["node_modules"]
+
 
 class Module(ModuleBase):
     name = "large_files_finder"
@@ -39,11 +56,14 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "30s"
 
+    search_budget_s: float = SEARCH_BUDGET_S
+
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
         home = Path.home()
 
         # Find all large files
+        self._search_incomplete = False
         large_files = self._find_large_files(home)
         old_downloads = self._find_old_large_downloads(home / "Downloads")
         desktop_files = self._find_large_desktop_files(home / "Desktop")
@@ -187,6 +207,30 @@ class Module(ModuleBase):
                 ),
             )
 
+        if self._search_incomplete:
+            unfinished = self._unfinished_folders
+            findings.append(
+                Finding(
+                    title="The search for big files didn't finish",
+                    description=(
+                        "Looking for files over "
+                        f"{_fmt_bytes(LARGE_FILE_SIZE)} took too long in some places, so "
+                        "the search there was stopped. Not searched to the end: "
+                        + ", ".join(unfinished)
+                        + ". Big files in those places may be missing from this list. "
+                        "Nothing was changed."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={
+                        "type": "search_incomplete",
+                        "time_budget_s": self.search_budget_s,
+                        "unfinished": unfinished,
+                        "files_found": len(large_files),
+                    },
+                )
+            )
+
         return CheckResult(module_name=self.name, findings=findings)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
@@ -270,41 +314,68 @@ class Module(ModuleBase):
         return FixResult(module_name=self.name, actions=actions)
 
     def _find_large_files(self, home: Path) -> list[dict]:
-        """Find all files > 1GB using find command."""
+        """Find files > 1GB under ``home`` within the search budget.
+
+        One ``find`` per likely folder, then one for the rest of the home
+        folder (skipping those). Each run is limited to what is left of the
+        budget and to a per-folder cap. ``_search_incomplete`` and
+        ``_unfinished_folders`` record what was not searched to the end.
+        """
+        self._search_incomplete = False
+        self._unfinished_folders: list[str] = []
+        deadline = time.monotonic() + self.search_budget_s
+        skip: list[str] = []
+        for name in _SKIP_NAMES:
+            skip += ["-name", name, "-o"]
+
+        likely = [(f"~/{name}", home / name) for name in _LIKELY_FOLDERS]
+        likely = [(label, path) for label, path in likely if path.is_dir()]
+        rest_skip = list(skip)
+        for _, folder in likely:
+            rest_skip += ["-path", str(folder), "-o"]
+
+        searches = [
+            (label, ["find", str(path), "-xdev", "(", *skip[:-1], ")", "-prune",
+                     "-o", "-type", "f", "-size", "+1G", "-print"])
+            for label, path in likely
+        ]
+        searches.append(
+            ("the rest of your home folder",
+             ["find", str(home), "-xdev", "(", *rest_skip[:-1], ")", "-prune",
+              "-o", "-type", "f", "-size", "+1G", "-print"])
+        )
+
+        paths: list[str] = []
+        for label, cmd in searches:
+            remaining = deadline - time.monotonic()
+            if remaining < 0.5:
+                self._unfinished_folders.append(label)
+                continue
+            result = run(cmd, timeout=min(remaining, _PER_FOLDER_TIMEOUT_S))
+            output = result.stdout
+            if result.timed_out or result.error or result.returncode is None:
+                self._unfinished_folders.append(label)
+                # Anything printed before it was stopped is real, except a
+                # last line that may have been cut off.
+                if not output.endswith("\n"):
+                    output = output.rsplit("\n", 1)[0] if "\n" in output else ""
+            # find exits 1 when some folders could not be read (common in a
+            # home folder); the paths it printed are still real.
+            paths += [line for line in output.splitlines() if line.strip()]
+        self._search_incomplete = bool(self._unfinished_folders)
+
         files = []
-
-        try:
-            # Use find to locate files > 1GB
-            cmd = [
-                "find",
-                str(home),
-                "-type", "f",
-                "-size", "+1G",
-            ]
-
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-
-            if result.returncode == 0 and result.stdout:
-                for line in result.stdout.strip().split("\n"):
-                    if line.strip():
-                        try:
-                            path = Path(line.strip())
-                            if path.exists():
-                                size = path.stat().st_size
-                                files.append({
-                                    "path": str(path),
-                                    "size": size,
-                                })
-                        except (OSError, PermissionError):
-                            continue
-        except (subprocess.TimeoutExpired, Exception):
-            pass
-
+        seen = set()
+        for line in paths:
+            if line in seen:
+                continue
+            seen.add(line)
+            try:
+                path = Path(line.strip())
+                if is_file_nofollow(path):
+                    files.append({"path": str(path), "size": path.stat().st_size})
+            except (OSError, PermissionError):
+                continue
         return files
 
     def _find_old_large_downloads(self, downloads_dir: Path) -> list[dict]:

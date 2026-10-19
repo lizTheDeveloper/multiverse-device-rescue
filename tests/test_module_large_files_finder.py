@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 import subprocess
+import time
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -423,49 +424,59 @@ class TestLargeFilesFinderErrorHandling:
             assert isinstance(result.findings, list)
 
 
+def _cmd(stdout="", returncode=0, timed_out=False):
+    from rescue.command import CommandResult
+
+    return CommandResult(
+        args=["find"], returncode=None if timed_out else returncode, stdout=stdout,
+        stderr="", timed_out=timed_out,
+        error="timed out after 1s" if timed_out else None,
+        duration_s=0.0, truncated=False,
+    )
+
+
+def _patch_run(mod, **kw):
+    return patch.object(sys.modules[type(mod).__module__], "run", **kw)
+
+
 class TestLargeFilesFinderFindCommand:
     def test_find_large_files_command_mocked(self, tmp_path):
         mod = _get_module()
         home = tmp_path / "home"
         home.mkdir()
+        large_file = home / "large.bin"
+        large_file.write_text("mock")
 
-        # Mock subprocess to return large file
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=f"{home}/large.bin\n"
-            )
-
-            # Create mock large file
-            large_file = home / "large.bin"
-            large_file.write_text("mock")
-
+        with _patch_run(mod, return_value=_cmd(f"{home}/large.bin\n")):
             files = mod._find_large_files(home)
-            assert len(files) == 1
-            assert files[0]["path"] == str(large_file)
+        assert len(files) == 1
+        assert files[0]["path"] == str(large_file)
+        assert mod._search_incomplete is False
 
     def test_find_multiple_large_files_mocked(self, tmp_path):
         mod = _get_module()
         home = tmp_path / "home"
         home.mkdir()
+        file1 = home / "file1.bin"
+        file2 = home / "file2.bin"
+        file1.write_text("mock1")
+        file2.write_text("mock2")
 
-        # Mock subprocess to return multiple files
-        with patch("subprocess.run") as mock_run:
-            file1_path = f"{home}/file1.bin"
-            file2_path = f"{home}/file2.bin"
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=f"{file1_path}\n{file2_path}\n"
-            )
-
-            # Create mock files
-            file1 = Path(file1_path)
-            file2 = Path(file2_path)
-            file1.write_text("mock1")
-            file2.write_text("mock2")
-
+        with _patch_run(mod, return_value=_cmd(f"{file1}\n{file2}\n")):
             files = mod._find_large_files(home)
-            assert len(files) == 2
+        assert len(files) == 2
+
+    def test_unreadable_folders_do_not_discard_results(self, tmp_path):
+        """find exits 1 when some folder can't be read; what it printed still counts."""
+        mod = _get_module()
+        home = tmp_path / "home"
+        home.mkdir()
+        big = home / "big.bin"
+        big.write_text("x")
+
+        with _patch_run(mod, return_value=_cmd(f"{big}\n", returncode=1)):
+            files = mod._find_large_files(home)
+        assert [f["path"] for f in files] == [str(big)]
 
     def test_find_ignores_small_files(self, tmp_path):
         mod = _get_module()
@@ -478,3 +489,99 @@ class TestLargeFilesFinderFindCommand:
 
         files = mod._find_large_files(home)
         assert len(files) == 0
+
+    def test_likely_folders_are_searched_first(self, tmp_path):
+        mod = _get_module()
+        home = tmp_path / "home"
+        (home / "Downloads").mkdir(parents=True)
+        calls = []
+
+        def fake(cmd, **kw):
+            calls.append(cmd)
+            return _cmd("")
+
+        with _patch_run(mod, side_effect=fake):
+            mod._find_large_files(home)
+        assert str(home / "Downloads") in calls[0]
+        # The last pass, over the rest of home, skips what was already searched.
+        assert ["-path", str(home / "Downloads")] == calls[-1][calls[-1].index("-path"):][:2]
+
+    def test_a_huge_folder_does_not_lose_the_others(self, tmp_path):
+        """Each folder gets its own find, so one that is stopped keeps the rest."""
+        mod = _get_module()
+        home = tmp_path / "home"
+        for name in ("Desktop", "Documents"):
+            (home / name).mkdir(parents=True)
+        big = home / "Desktop" / "big.mov"
+        big.write_text("x")
+        timeouts = []
+
+        def fake(cmd, timeout, **kw):
+            timeouts.append(timeout)
+            if cmd[1] == str(home / "Desktop"):
+                return _cmd(f"{big}\n")
+            if cmd[1] == str(home / "Documents"):
+                return _cmd("", timed_out=True)  # lost its buffered output
+            return _cmd("")
+
+        with _patch_run(mod, side_effect=fake):
+            files = mod._find_large_files(home)
+        assert [f["path"] for f in files] == [str(big)]
+        assert mod._unfinished_folders == ["~/Documents"]
+        assert max(timeouts) <= 10.0
+
+
+class TestLargeFilesFinderTimeBudget:
+    """Regression: the whole-home `find` used the engine's full 60s, so the
+    check always timed out and reported nothing."""
+
+    def test_hanging_find_returns_within_budget_and_keeps_what_it_found(self, tmp_path):
+        mod = _get_module()
+        mod.search_budget_s = 1.0
+        home = tmp_path / "home"
+        (home / "Downloads").mkdir(parents=True)
+        found = home / "Downloads" / "movie.mov"
+        found.write_text("x")
+
+        def hang(cmd, timeout, **kw):
+            assert timeout <= 1.0  # never more than what is left of the budget
+            # A stopped find: one full path, then a line cut off mid-way.
+            return _cmd(f"{found}\n{home}/Downloads/cut-of", timed_out=True)
+
+        start = time.monotonic()
+        with patch.object(Path, "home", return_value=home), _patch_run(mod, side_effect=hang):
+            result = mod.check(_make_profile())
+        assert time.monotonic() - start < 5
+
+        top = next(f for f in result.findings if f.data.get("type") == "top_large_files")
+        assert [f["path"] for f in top.data["files"]] == [str(found)]
+        note = next(f for f in result.findings if f.data.get("type") == "search_incomplete")
+        assert note.severity == Severity.INFO
+        assert "didn't finish" in note.title
+        assert "~/Downloads" in note.data["unfinished"]
+        assert "may be missing" in note.description
+
+    def test_real_hanging_command_is_stopped(self, tmp_path):
+        """With the real command runner, a find that never ends is killed."""
+        mod = _get_module()
+        mod.search_budget_s = 1.5
+        home = tmp_path / "home"
+        home.mkdir()
+        from rescue import command as real_command
+
+        def sleeper(cmd, timeout, **kw):
+            return real_command.run([sys.executable, "-c", "import time; time.sleep(30)"], timeout=timeout)
+
+        start = time.monotonic()
+        with patch.object(Path, "home", return_value=home), _patch_run(mod, side_effect=sleeper):
+            result = mod.check(_make_profile())
+        assert time.monotonic() - start < 6
+        assert any(f.data.get("type") == "search_incomplete" for f in result.findings)
+
+    def test_finished_search_has_no_incomplete_note(self, tmp_path):
+        mod = _get_module()
+        home = tmp_path / "home"
+        home.mkdir()
+        with patch.object(Path, "home", return_value=home), _patch_run(mod, return_value=_cmd("")):
+            result = mod.check(_make_profile())
+        assert not any(f.data.get("type") == "search_incomplete" for f in result.findings)

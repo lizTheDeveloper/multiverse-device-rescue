@@ -389,3 +389,72 @@ class TestStorageCleanupErrorHandling:
 
         # Should not crash on missing directories
         assert isinstance(result.findings, list)
+
+
+class TestStorageCleanupTimeBudget:
+    """Regression: adding up ~/Library/Application Support (114 GB) took 79 s,
+    past the engine's 60 s limit, so the whole check reported "couldn't run"."""
+
+    def _home(self, tmp_path):
+        support = tmp_path / "Library" / "Application Support" / "BigApp"
+        support.mkdir(parents=True)
+        for i in range(2000):
+            (support / f"f{i}").write_bytes(b"x" * 10)
+        downloads = tmp_path / "Downloads"
+        downloads.mkdir()
+        (downloads / "setup.dmg").write_bytes(b"x" * 100)
+        return tmp_path
+
+    def test_out_of_time_reports_what_it_measured_and_says_so(self, tmp_path):
+        import time
+
+        mod = _get_module()
+        mod.size_budget_s = 0.0  # already out of time when sizing starts
+        home = self._home(tmp_path)
+        start = time.monotonic()
+        with patch.object(Path, "home", return_value=home):
+            result = mod.check(_make_profile())
+        assert time.monotonic() - start < 2
+
+        by_type = {f.data.get("type"): f for f in result.findings}
+        note = by_type["measurement_incomplete"]
+        assert note.severity == Severity.INFO
+        assert "app_support" in note.data["areas"]
+        assert "real amount is larger" in note.description
+        # What did not need the budget is still reported.
+        assert by_type["dmg_files"].data["size_bytes"] == 100
+
+    def test_slow_walk_stops_at_the_deadline(self, tmp_path):
+        mod = _get_module()
+        home = self._home(tmp_path)
+        mod._deadline = 0.0  # long past
+        mod._ran_out = False
+        size = mod._get_directory_size(home / "Library" / "Application Support")
+        assert mod._ran_out is True
+        assert size < 2000 * 10
+
+    def test_partial_size_is_labelled_at_least(self, tmp_path):
+        mod = _get_module()
+        home = self._home(tmp_path)
+
+        def partial(path):
+            mod._ran_out = True
+            return 5 * 1024**3
+
+        with patch.object(Path, "home", return_value=home), \
+                patch.object(mod, "_get_directory_size", side_effect=partial):
+            result = mod.check(_make_profile())
+        by_type = {f.data.get("type"): f for f in result.findings}
+        assert by_type["app_support"].title.startswith("Data from uninstalled apps: at least ")
+        assert by_type["app_support"].data["incomplete"] is True
+        assert " has at least " in by_type["total_reclaimable"].title
+
+    def test_finished_measurement_has_no_note(self, tmp_path):
+        mod = _get_module()
+        home = self._home(tmp_path)
+        with patch.object(Path, "home", return_value=home):
+            result = mod.check(_make_profile())
+        types = {f.data.get("type") for f in result.findings}
+        assert "measurement_incomplete" not in types
+        app = next(f for f in result.findings if f.data.get("type") == "app_support")
+        assert app.data["size_bytes"] == 2000 * 10
