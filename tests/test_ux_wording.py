@@ -277,6 +277,9 @@ def test_big_counts_get_thousands_separators_only_before_counted_nouns():
     from rescue.wording import tidy
 
     assert tidy("Your Mac logged 108966 errors in the last hour") == "Your Mac logged 108,966 errors in the last hour"
+    assert tidy("Found 4837 errors from known Mac issues") == "Found 4,837 errors from known Mac issues"
+    assert tidy("We found 4837 errors that match known problems") == "We found 4,837 errors that match known problems"
+    assert tidy("1200 files") == "1,200 files" and tidy("999 files") == "999 files"
     for keep in ("text START to 88788).", "Port 62628 (custom)", "Process python (pid 80674) kept",
                  "snapshot-zsh-1792113144222-fdfa5c.sh", "2026 errors", "BOOKWORM27-377984 files"):
         assert tidy(keep) == keep

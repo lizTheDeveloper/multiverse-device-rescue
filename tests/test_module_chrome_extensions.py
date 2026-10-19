@@ -118,6 +118,9 @@ def test_chrome_extensions_broad_permissions(tmp_path):
     assert result.has_issues
     assert any(f.data.get("check") == "broad_permissions" for f in result.findings)
     assert any(f.severity == Severity.WARNING for f in result.findings)
+    # Each extension is named by its own id too (two can share a name).
+    broad = next(f for f in result.findings if f.data.get("check") == "broad_permissions")
+    assert broad.data["extension_id"] == "extension1"
 
 
 def test_chrome_extensions_many_extensions(tmp_path):

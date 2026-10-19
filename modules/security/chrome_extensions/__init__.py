@@ -60,10 +60,10 @@ class Module(ModuleBase):
             # Check for broad permissions
             broad_perms = [p for p in permissions if p in self.BROAD_PERMISSIONS]
             if broad_perms:
-                extensions_with_broad_perms.append((name, broad_perms))
+                extensions_with_broad_perms.append((ext_id, name, broad_perms))
 
         # Flag WARNING for extensions with broad permissions
-        for ext_name, broad_perms in extensions_with_broad_perms:
+        for ext_id, ext_name, broad_perms in extensions_with_broad_perms:
             findings.append(
                 Finding(
                     title=f"Extension with broad permissions: {ext_name}",
@@ -86,6 +86,8 @@ class Module(ModuleBase):
                     data={
                         "check": "broad_permissions",
                         "extension": ext_name,
+                        # The extension's own id: two extensions can share a name.
+                        "extension_id": ext_id,
                         "permissions": broad_perms,
                     },
                 )
