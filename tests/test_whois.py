@@ -111,11 +111,16 @@ def test_garbage_answer_is_couldnt_check():
 
 
 class StubResponse:
-    def __init__(self, body):
+    def __init__(self, body, on_read=None):
         self.body = body
+        self.on_read = on_read
 
     def read(self, n=-1):
-        return self.body if n < 0 else self.body[:n]
+        if self.on_read:
+            self.on_read()
+        n = len(self.body) if n < 0 else n
+        chunk, self.body = self.body[:n], self.body[n:]
+        return chunk
 
     def __enter__(self):
         return self
@@ -125,13 +130,14 @@ class StubResponse:
 
 
 class StubOpener:
-    def __init__(self, body):
+    def __init__(self, body, on_read=None):
         self.body = body
+        self.on_read = on_read
         self.requests = []
 
     def open(self, request, timeout=None):
         self.requests.append((request, timeout))
-        return StubResponse(self.body)
+        return StubResponse(self.body, self.on_read)
 
 
 def test_hostile_bodies():
@@ -145,7 +151,7 @@ def test_hostile_bodies():
     # Hostile registry text: control characters stripped, length capped.
     name = "<script>alert(1)</script>\x1b[31m‮evil\x00" + "A" * 10_000
     body = ('{"name": %s, "country": "US\\u0007", "entities": [{"roles": ["registrant"],'
-            ' "vcardArray": ["vcard", [["fn", {}, "text", %s]]]}]}') % (
+            ' "vcardArray": ["vcard", [["kind", {}, "text", "org"], ["fn", {}, "text", %s]]]}]}') % (
         json.dumps(name), json.dumps(name))
     ripe = ('{"data": {"resource": "8.8.8.0/24", "asns": [{"asn": 15169, "holder": %s}]}}'
             % json.dumps(name))
@@ -295,12 +301,91 @@ def test_user_agent_and_sourceapp():
     ]
 
 
-def test_fetch_refuses_plain_http():
-    with pytest.raises(ValueError):
-        whois.default_fetch("http://rdap.org/ip/8.8.8.8", 4, opener=StubOpener(b"{}"))
-    handler = whois._HTTPSOnlyRedirects()
-    with pytest.raises(OSError):
-        handler.redirect_request(None, None, 302, "Found", {}, "http://rdap.example/ip/8.8.8.8")
+def test_fetch_refuses_plain_http_and_other_hosts():
+    for url in ("http://rdap.org/ip/8.8.8.8", "https://evil.example/ip/8.8.8.8",
+                "https://rdap.arin.net/registry/ip/8.8.8.8", "https://rdap.org:8443/ip/8.8.8.8"):
+        with pytest.raises(ValueError):
+            whois.default_fetch(url, 4, opener=StubOpener(b"{}"))
+
+
+def test_redirects_only_to_registries():
+    import urllib.request
+
+    handler = whois._RegistryRedirects()
+    req = urllib.request.Request("https://rdap.org/ip/8.8.8.8")
+    for bad in ("http://rdap.arin.net/registry/ip/8.8.8.8", "https://127.0.0.1/ip/8.8.8.8",
+                "https://10.0.0.1/", "https://evil.example/ip/8.8.8.8", "https://localhost/",
+                "https://rdap.arin.net.evil.example/", "https://rdap.arin.net:444/x"):
+        with pytest.raises(OSError):
+            handler.redirect_request(req, None, 302, "Found", {}, bad)
+    for good in ("https://rdap.arin.net/registry/ip/8.8.8.8", "https://rdap.db.ripe.net/ip/2a00::1",
+                 "https://rdap.apnic.net/ip/1.1.1.1", "https://rdap.lacnic.net/rdap/ip/200.1.1.1",
+                 "https://rdap.afrinic.net/rdap/ip/41.1.1.1"):
+        assert handler.redirect_request(req, None, 302, "Found", {}, good).full_url == good
+
+
+def test_fetch_has_one_deadline_for_the_whole_request():
+    clock = FakeClock()
+    opener = StubOpener(b"x" * 50_000, on_read=lambda: clock.advance(1.0))
+    with pytest.raises(TimeoutError):
+        whois.default_fetch("https://rdap.org/ip/8.8.8.8", 4, opener=opener, clock=clock)
+    # A drip-feeding service is couldn't-check, not a hang.
+    def fetch(url, timeout):
+        slow = StubOpener(b"x" * 50_000, on_read=lambda: clock.advance(1.0))
+        return whois.default_fetch(url, timeout, opener=slow, clock=clock)
+    who = whois.look_up("8.8.8.8", fetch=fetch, resolve=no_name, timeout=4)
+    assert who["unavailable"] == ["owner", "registry"]
+
+
+def test_registrant_is_never_a_person():
+    def record(*entities):
+        return json.dumps({"name": "NET-1", "entities": list(entities)}).encode()
+
+    def entity(roles, *props):
+        return {"roles": roles, "vcardArray": ["vcard", [["version", {}, "text", "4.0"], *props]]}
+
+    person = entity(["registrant"], ["fn", {}, "text", "Jane Doe"], ["kind", {}, "text", "individual"])
+    no_kind = entity(["administrative"], ["fn", {}, "text", "John Roe"])
+    for body in (record(person), record(no_kind), record(person, no_kind)):
+        assert whois.parse_rdap(body) == {"network": "NET-1", "registrant": None, "country": None}
+    with_org = entity(["registrant"], ["fn", {}, "text", "Example Hosting"],
+                      ["org", {}, "text", "Example Hosting Ltd"])
+    assert whois.parse_rdap(record(person, with_org))["registrant"] == "Example Hosting"
+    group = entity(["administrative"], ["fn", {}, "text", "Ops Team"], ["kind", {}, "text", "group"])
+    assert whois.parse_rdap(record(no_kind, group))["registrant"] == "Ops Team"
+
+
+@pytest.mark.parametrize("exc, answered", [
+    (socket.herror(1, "Unknown host"), True),
+    (socket.herror(4, "No address associated with name"), True),
+    (socket.herror(2, "Host name lookup failure"), False),
+    (socket.gaierror(socket.EAI_NONAME, "nodename nor servname provided"), True),
+    (socket.gaierror(socket.EAI_AGAIN, "Temporary failure in name resolution"), False),
+    (TimeoutError("timed out"), False),
+])
+def test_reverse_dns_no_name_versus_try_again(exc, answered):
+    def resolve(ip):
+        raise exc
+
+    who = whois.look_up("8.8.8.8", fetch=fetch_from(GOOGLE), resolve=resolve, timeout=1)
+    assert who["hostname"] is None
+    assert ("dns" in who["unavailable"]) is (not answered)
+
+
+def test_same_address_written_two_ways_is_one_lookup():
+    fetch = fetch_from(GOOGLE)
+    looked = []
+
+    def resolve(ip):
+        looked.append(ip)
+        raise socket.herror(1, "Unknown host")
+
+    ips = ["::ffff:8.8.8.8", "8.8.8.8", "2001:4860:4860:0:0:0:0:8888", "2001:4860:4860::8888",
+           "1.1.1.1"]
+    out = whois.look_up_all(ips, fetch=fetch, resolve=resolve, limit=2)
+    assert list(out["results"]) == ["::ffff:8.8.8.8", "2001:4860:4860:0:0:0:0:8888"]
+    assert out["skipped"] == 1
+    assert sorted(looked) == ["2001:4860:4860::8888", "8.8.8.8"]
 
 
 def test_ssl_context_is_cached_and_falls_back(monkeypatch):

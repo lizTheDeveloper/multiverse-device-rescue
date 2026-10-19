@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 import unicodedata
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 
@@ -45,6 +46,16 @@ SOURCES = [
 _MAX_TEXT = 200
 _USER_AGENT = f"ReclaimCity/{__version__}"
 _ROOTS_KEYCHAIN = "/System/Library/Keychains/SystemRootCertificates.keychain"
+
+_READ_CHUNK = 8192
+# The two services asked first, and the registries rdap.org redirects to.
+_START_HOSTS = frozenset({"stat.ripe.net", "rdap.org"})
+_REDIRECT_HOSTS = frozenset({"rdap.org", "rdap.arin.net", "rdap.db.ripe.net", "rdap.apnic.net",
+                             "rdap.lacnic.net", "rdap.afrinic.net"})
+# Reverse DNS errors that mean "there is no name" rather than "couldn't ask".
+_NO_NAME_HERRORS = (1, 4)  # HOST_NOT_FOUND, NO_DATA
+_NO_NAME_GAIERRORS = tuple(
+    getattr(socket, name) for name in ("EAI_NONAME", "EAI_NODATA") if hasattr(socket, name))
 
 _EMPTY_RIPE = {"asn": None, "as_name": None, "prefix": None}
 _EMPTY_RDAP = {"network": None, "registrant": None, "country": None}
@@ -118,23 +129,26 @@ def _has_role(entity: dict, role: str) -> bool:
     return isinstance(roles, list) and role in roles
 
 
-def _registrant(doc: dict) -> str | None:
-    """The registrant's name, else the administrative contact's.
+def _is_organisation(entity: dict) -> bool:
+    """A company or group, never a person: vCard kind "org"/"group", or no
+    kind at all but an "org" property. A bare name with no kind could be anyone."""
+    kind = _vcard(entity, "kind")
+    if kind is None:
+        return _vcard(entity, "org") is not None
+    return kind in ("org", "group")
 
-    RIPE lists a maintainer handle (vCard kind "individual") as registrant and
-    often puts the organisation one level down or as the administrative
-    contact, so an organisation's name is preferred over a handle.
+
+def _registrant(doc: dict) -> str | None:
+    """The registering organisation's name, else the administrative one's.
+
+    Registry records also name real people (and RIPE lists a maintainer handle
+    as "registrant"), so only an organisation or group counts. With none, the
+    answer is None and the network name stands in.
     """
     entities = _entities(doc)
     for role in ("registrant", "administrative"):
         for entity in entities:
-            if _has_role(entity, role) and _vcard(entity, "kind") in ("org", "group"):
-                name = _clean(_vcard(entity, "fn"))
-                if name:
-                    return name
-    for role in ("registrant", "administrative"):
-        for entity in entities:
-            if _has_role(entity, role):
+            if _has_role(entity, role) and _is_organisation(entity):
                 name = _clean(_vcard(entity, "fn"))
                 if name:
                     return name
@@ -172,29 +186,51 @@ def ssl_context() -> ssl.SSLContext:
     return ssl.create_default_context()
 
 
-class _HTTPSOnlyRedirects(urllib.request.HTTPRedirectHandler):
-    """Follow redirects (rdap.org sends you to the registry) but only over HTTPS."""
+def _https_host(url: str, allowed: frozenset[str]) -> bool:
+    try:
+        parts = urllib.parse.urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return False
+    return parts.scheme == "https" and parts.hostname in allowed and port in (None, 443)
+
+
+class _RegistryRedirects(urllib.request.HTTPRedirectHandler):
+    """Follow redirects (rdap.org sends you to the registry) only to a registry."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        if not newurl.lower().startswith("https://"):
-            raise OSError(f"refused a redirect away from HTTPS: {newurl[:_MAX_TEXT]}")
+        if not _https_host(newurl, _REDIRECT_HOSTS):
+            raise OSError(f"refused a redirect to {newurl[:_MAX_TEXT]}")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def default_fetch(url: str, timeout: float, *, opener=None) -> bytes:
-    """GET ``url`` over HTTPS and return at most ``MAX_BODY`` bytes, or raise."""
-    if not url.startswith("https://"):
-        raise ValueError("lookups only use HTTPS")
+def default_fetch(url: str, timeout: float, *, opener=None,
+                  clock: Callable[[], float] = time.monotonic) -> bytes:
+    """GET ``url`` over HTTPS and return at most ``MAX_BODY`` bytes, or raise.
+
+    The whole request, connecting and reading, has ``timeout`` seconds.
+    """
+    if not _https_host(url, _START_HOSTS):
+        raise ValueError("lookups only go to stat.ripe.net and rdap.org over HTTPS")
+    deadline = clock() + timeout
     if opener is None:
         opener = urllib.request.build_opener(
-            urllib.request.HTTPSHandler(context=ssl_context()), _HTTPSOnlyRedirects())
+            urllib.request.HTTPSHandler(context=ssl_context()), _RegistryRedirects())
     request = urllib.request.Request(
         url, headers={"User-Agent": _USER_AGENT, "Accept": "application/json"})
+    body = bytearray()
     with opener.open(request, timeout=timeout) as response:
-        body = response.read(MAX_BODY + 1)
-    if len(body) > MAX_BODY:
-        raise ValueError("answer too large")
-    return body
+        read = getattr(response, "read1", response.read)
+        while True:
+            if clock() >= deadline:
+                raise TimeoutError("the service took too long to answer")
+            chunk = read(_READ_CHUNK)
+            if not chunk:
+                break
+            body += chunk
+            if len(body) > MAX_BODY:
+                raise ValueError("answer too large")
+    return bytes(body)
 
 
 def _ripe_url(ip: str) -> str:
@@ -228,6 +264,15 @@ def _resolve_bounded(resolve, ip: str, timeout: float):
     return box.get("name")
 
 
+def _no_reverse_name(exc: BaseException) -> bool:
+    """The resolver answered "no such name" (an answer), not "try again" (a failure)."""
+    if isinstance(exc, socket.gaierror):
+        return exc.errno in _NO_NAME_GAIERRORS
+    if isinstance(exc, socket.herror):
+        return exc.errno in _NO_NAME_HERRORS
+    return False
+
+
 def look_up(ip, *, fetch, resolve, timeout) -> dict:
     """Everything that can be learned about one address.
 
@@ -239,10 +284,9 @@ def look_up(ip, *, fetch, resolve, timeout) -> dict:
 
     try:
         who["hostname"] = _clean(_resolve_bounded(resolve, query, timeout))
-    except socket.herror:
-        pass  # no reverse name: an answer, not a failure
-    except Exception:  # noqa: BLE001 - any failure is couldn't-check
-        who["unavailable"].append("dns")
+    except Exception as exc:  # noqa: BLE001 - any failure is couldn't-check
+        if not _no_reverse_name(exc):
+            who["unavailable"].append("dns")
 
     for group, url, parse in (("owner", _ripe_url(query), parse_ripe),
                               ("registry", _rdap_url(query), parse_rdap)):
@@ -278,8 +322,11 @@ def look_up_all(
     wanted: list[str] = []
     seen: set[str] = set()
     for ip in ips:
-        if ip not in seen and is_lookupable(ip):
-            seen.add(ip)
+        if not is_lookupable(ip):
+            continue
+        key = str(_ip(ip))  # ::ffff:8.8.8.8 and 8.8.8.8 are one address
+        if key not in seen:
+            seen.add(key)
             wanted.append(ip)
     queue = wanted[:limit]
     skipped = len(wanted) - len(queue)
