@@ -117,6 +117,9 @@ function statusLine(f) {
   if (f.data && typeof f.data === 'object' && f.data.marked_by_user === true) {
     return 'marked as theirs by the person at this computer (it was flagged before they marked it)';
   }
+  if (f.data && typeof f.data === 'object' && f.data.mark_unchecked === true) {
+    return 'had been marked as theirs; it could not be checked this time (that does not mean it changed), so it is flagged again';
+  }
   if (f.data && typeof f.data === 'object' && f.data.mark_stale === true) {
     return 'had been marked as theirs, but it changed since, so it is flagged again';
   }

@@ -538,7 +538,8 @@ marked on its own: its maker can't be checked, or an unsigned app's program
 can't be read, or this scan's own limit of 60 maker lookups for entries ran
 out). Rows already marked have `"marked": true` and their saved id. A row
 marked before whose maker or saved line has changed since has `"stale": true`
-and its `id` as it is now (or `null`), so it can be marked again. `markable.items_will_change` is
+and its `id` as it is now (or `null`), so it can be marked again. One marked before whose maker
+couldn't be looked up this time has `"unchecked": true` and `id: null`. `markable.items_will_change` is
 the plain-words text of what marking entries does, for the app to show.
 A key list with any line that doesn't read cleanly (an odd option, a second
 key type, a stray backslash or unusual spacing) has no `items` and can only be
@@ -550,8 +551,9 @@ watch or get into a computer, and asks once, default No.
 
 A partly marked list stays a warning. Its title ends "(N of M not marked as
 yours)", the description lists the entries not marked first, and `data` has
-`partly_marked: true`, `marked_items` and `stale_items` (each
-`{id, entry, shown, marked_at}`), `unmarked` (the entries still flagged) and
+`partly_marked: true`, `marked_items`, `stale_items` and `unchecked_items` (each
+`{id, entry, shown, marked_at}`; `unchecked_items` are marked entries whose maker
+couldn't be looked up this time, which warn again without saying they changed), `unmarked` (the entries still flagged) and
 `entry_kind`. When every entry is marked, the finding is downgraded to `info`
 like a whole-list mark, with `marked_by_user: true` but no `known_item_id`
 (the ids are in `marked_items`; a stale whole-list mark it replaced is in
@@ -594,7 +596,9 @@ SHA-256 of the content of what runs: the program file (with its resolved path)
 and any script file the arguments name in your home folder or a hidden folder.
 Every field must match exactly; the mark id is a hash over all of them. If only
 the content changed, the finding shows again with `data["mark_stale"] = true`
-and a note; mark it again if you updated it yourself. A program that cannot be
+and a note; mark it again if you updated it yourself. If the content couldn't be
+read this time (or the scan's hashing budget ran out), the finding also has
+`data["mark_unchecked"] = true` and says it couldn't be checked, never that it changed. A program that cannot be
 read or is over 200 MB cannot be marked. The task is read from disk when you mark it;
 `add` refuses if no task with that label and program exists, or if the plist is
 outside the three launchd folders. If any pinned part later changes (the

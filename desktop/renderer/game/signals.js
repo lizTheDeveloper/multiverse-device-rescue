@@ -52,9 +52,11 @@ export function buildSignals(city, deck, changedIds = null) {
     for (const m of d.missions || []) {
       if (MONITORING_MODULES.has(m.module)) continue;
       const f = m.primary || {};
-      const stale = !!(f.data && f.data.mark_stale === true);
+      // Couldn't be checked this time (mark_unchecked) is never "changed".
+      const unchecked = !!(f.data && f.data.mark_unchecked === true);
+      const stale = !unchecked && !!(f.data && f.data.mark_stale === true);
       add({ id: m.id, kind: 'real', severity: m.severity, title: m.title, description: m.description || '', districtId: d.id,
-        module: m.module, finding: f, missionId: m.id, fixable: !!m.fixable, marked: !!m.marked && !stale, stale, fp: fingerprint(f), count: 1 });
+        module: m.module, finding: f, missionId: m.id, fixable: !!m.fixable, marked: !!m.marked && !stale && !unchecked, stale, unchecked, fp: fingerprint(f), count: 1 });
     }
     for (const n of d.notes || []) {
       if (MONITORING_MODULES.has(n.module)) continue;

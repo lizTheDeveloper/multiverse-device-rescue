@@ -1051,7 +1051,8 @@ def app_signer(app: str) -> str | None:
     verified Developer ID or App Store signature, "apple" for Apple's own,
     "unsigned:<SHA-256 of its program>" when no signature verifies. None when it can't be checked now
     (not found, or the lookup budget ran out): such an entry can't be marked
-    on its own, and a mark on it shows as changed."""
+    on its own, and a mark on it shows as not checked this time (never as
+    changed: nothing says it changed)."""
     try:
         from rescue import attribution
 
@@ -1146,10 +1147,14 @@ def _entries_line(heading: str, shown: list[str]) -> str:
     return f"{heading} ({len(shown)}): " + ", ".join(shown)
 
 
-def _entries_groups(marked, stale, fresh, entry_kind: str) -> str:
+def _entries_groups(marked, stale, fresh, entry_kind: str, unchecked=()) -> str:
     parts = []
     if fresh:
         parts.append(_entries_line("Not marked as yours", [e["shown"] for e in fresh]))
+    if unchecked:
+        parts.append(_entries_line("Marked as yours before, but not checked this time",
+                                   [e["shown"] for e, _ in unchecked]))
+        parts.append(UNCHECKED_ONE if len(unchecked) == 1 else UNCHECKED_MANY)
     if stale:
         parts.append(_entries_line("Marked as yours before, but changed since", [e["shown"] for e, _ in stale]))
         if len(stale) == 1:
@@ -1165,6 +1170,22 @@ def _entries_groups(marked, stale, fresh, entry_kind: str) -> str:
     if marked:
         parts.append(_entries_line("Marked as yours", [e["shown"] for e, _ in marked]))
     return "\n".join(parts)
+
+
+# A mark whose item couldn't be checked this time (the maker lookup or the
+# scan's hashing budget ran out): its warning is back, but nothing says it
+# changed, and saying so would frighten someone for no reason.
+UNCHECKED_ONE = "We couldn't check this one this time, so its warning is back. That doesn't mean it changed."
+UNCHECKED_MANY = (
+    "We couldn't check these this time, so their warnings are back. That doesn't mean they changed."
+)
+
+
+def unchecked_sentence(item: KnownItem) -> str:
+    when = item.marked_at or "an unknown date"
+    return (
+        f"You marked this as yours on {when}. {UNCHECKED_ONE} The next checkup will try again."
+    )
 
 
 _ENTRY_UNDO = (
@@ -1202,19 +1223,23 @@ def apply_entry_marks(findings: list[Finding], items: list[KnownItem], signer_of
         by_base: dict[str, KnownItem] = {}
         for i in marks:
             by_base.setdefault(i.base_id, i)
-        marked, stale, fresh = [], [], []
+        marked, stale, fresh, unchecked = [], [], [], []
         for entry in entries:
             near = by_base.get(item_id(entry_kind, _entry_base(entry_kind, finding.code, entry)))
             if near is None:
                 fresh.append(entry)
                 continue
             ident = entry_identity(entry_kind, finding.code, entry, signer_of)
-            item = by_id.get(item_id(entry_kind, ident)) if ident else None
+            if ident is None:
+                # Its maker couldn't be looked up now: not checked, not changed.
+                unchecked.append((entry, near))
+                continue
+            item = by_id.get(item_id(entry_kind, ident))
             if item is None:
                 stale.append((entry, near))
             else:
                 marked.append((entry, item))
-        if not marked and not stale:
+        if not marked and not stale and not unchecked:
             continue
         spec = KINDS[entry_kind]
         data["entry_kind"] = entry_kind
@@ -1224,9 +1249,12 @@ def apply_entry_marks(findings: list[Finding], items: list[KnownItem], signer_of
         data["stale_items"] = [
             {"id": i.id, "entry": e["entry"], "shown": e["shown"], "marked_at": i.marked_at} for e, i in stale
         ]
-        warn = fresh + [e for e, _ in stale]
+        data["unchecked_items"] = [
+            {"id": i.id, "entry": e["entry"], "shown": e["shown"], "marked_at": i.marked_at} for e, i in unchecked
+        ]
+        warn = fresh + [e for e, _ in stale] + [e for e, _ in unchecked]
         data["unmarked"] = [e["entry"] for e in warn]
-        groups = _entries_groups(marked, stale, fresh, entry_kind)
+        groups = _entries_groups(marked, stale, fresh, entry_kind, unchecked)
         if finding.severity == Severity.CRITICAL:
             data["user_mark_ignored"] = True
             note = (
@@ -1242,9 +1270,10 @@ def apply_entry_marks(findings: list[Finding], items: list[KnownItem], signer_of
                 old = next((i for i in items if i.id == data["known_item_id"]), None)
                 data["stale_list_mark"] = {"id": data.pop("known_item_id")}
                 data.pop("mark_stale", None)
+                data.pop("mark_unchecked", None)
                 if old is not None:
-                    finding.description = finding.description.replace(
-                        f"\n\n{stale_sentence(old, list_kind)}", "")
+                    for said in (stale_sentence(old, list_kind), unchecked_sentence(old)):
+                        finding.description = finding.description.replace(f"\n\n{said}", "")
             when = max((i.marked_at for _, i in marked), default="") or "an unknown date"
             data.update({
                 "marked_by_user": True,
@@ -1300,6 +1329,7 @@ def entry_offers(finding, list_kind: str, signer_of=None) -> list[dict]:
     data = finding.data
     marked = {m["entry"]: m["id"] for m in data.get("marked_items") or [] if isinstance(m, dict)}
     stale = {m["entry"] for m in data.get("stale_items") or [] if isinstance(m, dict)}
+    unchecked = {m["entry"] for m in data.get("unchecked_items") or [] if isinstance(m, dict)}
     out = []
     for row in rows:
         offer = {"key": row["entry"], "label": row["label"], "detail": row["detail"], "monitoring": True}
@@ -1310,6 +1340,8 @@ def entry_offers(finding, list_kind: str, signer_of=None) -> list[dict]:
             offer["id"] = item_id(entry_kind, ident) if ident else None
             if row["entry"] in stale:
                 offer["stale"] = True
+            elif row["entry"] in unchecked:
+                offer["unchecked"] = True
         out.append(offer)
     return out
 
@@ -1673,9 +1705,12 @@ def apply_marks(
 
     content_of(finding) gives the content hash of what the item runs (only
     asked for findings that already match a mark on everything else, so a scan
-    hashes a handful of files). If it differs from the mark's, or cannot be
-    computed, the finding is not downgraded: it gets data["mark_stale"] and a
-    sentence saying it changed.
+    hashes a handful of files). If it differs from the mark's, the finding is
+    not downgraded: it gets data["mark_stale"] and a sentence saying it
+    changed. If it cannot be computed (unreadable, or the scan's hashing
+    budget is spent), it is not downgraded either, and also gets
+    data["mark_unchecked"] and a sentence saying it couldn't be checked this
+    time, never that it changed.
 
     If the list exists but was not used (unreadable, symlink, wrong owner,
     writable by others), an info finding says so.
@@ -1726,6 +1761,7 @@ def apply_marks(
         if near is None:
             continue
         item = None
+        unchecked = False
         if content_key:
             try:
                 content = content_of(finding) if content_of else None
@@ -1733,8 +1769,17 @@ def apply_marks(
                 content = None
             if isinstance(content, str) and content:
                 item = by_id.get(item_id(kind, dict(identity, **{content_key: content})))
+            else:
+                unchecked = True
         else:
             item = by_id.get(item_id(kind, identity))
+        if item is None and unchecked:
+            # Couldn't be checked this time: the warning is back, but nothing says it changed.
+            finding.data["mark_stale"] = True
+            finding.data["mark_unchecked"] = True
+            finding.data["known_item_id"] = near.id
+            finding.description = f"{finding.description}\n\n{unchecked_sentence(near)}"
+            continue
         if item is None:
             # Same item, but what it runs (or its evidence) changed, or cannot be checked.
             finding.data["mark_stale"] = True

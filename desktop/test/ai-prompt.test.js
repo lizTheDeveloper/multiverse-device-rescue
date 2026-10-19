@@ -118,3 +118,9 @@ test('saved-key comments never leave the app: Copy for any AI, one card or the w
   // A key with no comment stays without one.
   assert.strictEqual(cleanEvidence({ keys: [{ type: 'ssh-rsa', comment: '' }] }, ENV).keys[0].comment, '');
 });
+
+test('a mark that couldn’t be checked this time is never described to an AI as changed', () => {
+  const text = buildAiPrompt({ findings: [{ ...FINDING, data: { mark_stale: true, mark_unchecked: true } }] }, ENV);
+  assert.match(text, /could not be checked this time \(that does not mean it changed\)/);
+  assert.doesNotMatch(text, /changed since/);
+});

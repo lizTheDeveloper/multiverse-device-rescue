@@ -27,6 +27,7 @@ export function signalRow(sig, districtName = () => '') {
     sig.marked ? '<span class="badge yours">MARKED</span>' : '',
     sig.tag === 'closer' ? '<span class="badge cyan">LOOK CLOSER</span>' : '',
     sig.stale ? '<span class="badge warn">CHANGED SINCE YOU MARKED IT</span>' : '',
+    sig.unchecked ? '<span class="badge warn">NOT CHECKED THIS TIME</span>' : '',
     sig.changed ? '<span class="badge warn">CHANGED SINCE YOU TAGGED IT</span>' : '',
   ].join('');
   return `<li><button type="button" class="sig sev-${esc(sig.severity)}${drill ? ' drill' : ''}" data-go="signal:${esc(sig.id)}">

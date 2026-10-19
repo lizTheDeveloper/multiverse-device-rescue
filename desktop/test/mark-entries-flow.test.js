@@ -514,3 +514,11 @@ test('a hand-forged key for a row already marked is never confirmed again', asyn
   assert.strictEqual(c.confirm.hidden, true);
   assert.deepStrictEqual(sent, [[ID_1]]);
 });
+
+test('a row that couldn’t be checked this time says so, never that it changed', () => {
+  const html = MarkFlow.markControlsHtml(finding(entries([{ ...ROWS[0], id: null, unchecked: true }, ROWS[1]])));
+  assert.ok(html.includes(MarkFlow.UNCHECKED_ROW.replace(/’/g, '&rsquo;')) || html.includes(MarkFlow.UNCHECKED_ROW));
+  assert.match(MarkFlow.UNCHECKED_ROW, /We couldn’t check this one this time, so its warning is back\./);
+  assert.ok(!html.includes(MarkFlow.STALE_ROW));
+  assert.ok(!html.includes(MarkFlow.CANT_ALONE));
+});

@@ -308,8 +308,8 @@ def test_exact_match_downgrades():
     assert f.severity == Severity.INFO and f.data["marked_by_user"] is True
 
 
-@pytest.mark.parametrize("content", ["d" * 64, None, "", RuntimeError("unreadable")])
-def test_changed_or_unreadable_content_is_stale_not_downgraded(content):
+@pytest.mark.parametrize("content", ["d" * 64])
+def test_changed_content_is_stale_not_downgraded(content):
     f = _warning()
 
     def content_of(_f):
@@ -326,6 +326,41 @@ def test_changed_or_unreadable_content_is_stale_not_downgraded(content):
         "You marked this as yours on 2026-01-01T00:00:00Z, but the program it runs has changed "
         "since then, so it's shown again. If you updated it yourself, you can mark it again."
     ) in f.description
+    assert "mark_unchecked" not in f.data
+
+
+@pytest.mark.parametrize("content", [None, "", RuntimeError("unreadable")])
+def test_content_that_cannot_be_checked_warns_again_but_never_says_changed(content):
+    f = _warning()
+
+    def content_of(_f):
+        if isinstance(content, Exception):
+            raise content
+        return content
+
+    item = _item()
+    known_items.apply_marks([f], BACKGROUND_TASK, _item_identity, items=[item], content_of=content_of)
+    assert f.severity == Severity.WARNING and "marked_by_user" not in f.data
+    assert f.data["mark_unchecked"] is True and f.data["mark_stale"] is True
+    assert f.data["known_item_id"] == item.id
+    assert "We couldn't check this one this time, so its warning is back." in f.description
+    assert "changed since" not in f.description
+
+
+def test_spent_hashing_budget_is_not_checked_never_changed(tmp_path, monkeypatch):
+    """The scan's hashing budget runs out: the real content hash gives None."""
+    prog = tmp_path / "prog"
+    prog.write_bytes(b"x" * 8)
+    known_items.reset_hash_budget()
+    monkeypatch.setattr(known_items, "_SCAN_HASH_BYTES", 0)
+    try:
+        assert known_items._hash_regular_file(str(prog)) is None
+        f = _warning()
+        known_items.apply_marks([f], BACKGROUND_TASK, _item_identity, items=[_item()],
+                                content_of=lambda _f: known_items._hash_regular_file(str(prog)))
+    finally:
+        known_items.reset_hash_budget()
+    assert f.data["mark_unchecked"] is True and "changed since" not in f.description
 
 
 def test_no_content_callback_never_downgrades():

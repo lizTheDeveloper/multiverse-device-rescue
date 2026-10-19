@@ -114,3 +114,9 @@ test('the Training Grounds offer the DRILL RANGE, with or without a scan', async
   assert.match(html, /data-go="range"[^>]*>DRILL RANGE ▶/);
   assert.match(html, /Nothing in the range touches your computer/);
 });
+
+test('a mark that couldn’t be checked says so, and never that it changed', async () => {
+  const html = await panel({ signal: real({ unchecked: true }) });
+  assert.match(html, /NOT CHECKED THIS TIME[\s\S]*We couldn’t check this one this time, so its warning is back\. That doesn’t mean it changed\./);
+  assert.doesNotMatch(html, /CHANGED SINCE YOU MARKED IT/);
+});

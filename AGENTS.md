@@ -20,7 +20,9 @@ If the person just wants the app, send them to the download buttons in the
    In scan output, a finding with `data.marked_by_user: true` is something
    someone marked on this computer (a background task, a sharing setting, a
    proxy, an extension, a list of apps...). Mention it; don't treat it as
-   cleared. `data.mark_stale: true` means it was marked but has changed since.
+   cleared. `data.mark_stale: true` means it was marked but has changed since, unless
+   `data.mark_unchecked: true` is also set: then it just couldn't be checked
+   this time, and nothing says it changed.
    `data.partly_marked: true` means some entries of a list were marked:
    `data.unmarked` lists the ones still flagged, and `data.marked_items` the
    ones marked.

@@ -25,6 +25,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
   const notes = [
     sig.marked ? '<p class="intel"><span class="badge yours">MARKED</span> You told Reclaim City this is yours. It stays listed.</p>' : '',
     sig.stale ? '<p class="intel"><span class="badge warn">CHANGED SINCE YOU MARKED IT</span> It changed after you marked it, so it’s back in your queue.</p>' : '',
+    sig.unchecked ? '<p class="intel"><span class="badge warn">NOT CHECKED THIS TIME</span> We couldn’t check this one this time, so its warning is back. That doesn’t mean it changed.</p>' : '',
     sig.changed ? '<p class="intel"><span class="badge warn">CHANGED SINCE YOU TAGGED IT</span> It changed since you tagged it, so your old tag was set aside.</p>' : '',
   ].join('');
   let clueHtml;

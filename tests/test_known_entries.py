@@ -125,13 +125,42 @@ def test_a_signer_change_makes_only_that_entry_stale():
     assert "who made it has changed since you marked it" in f.description
 
 
-def test_a_maker_that_cannot_be_checked_now_is_stale_never_marked():
+def test_a_maker_that_cannot_be_checked_now_warns_as_unchecked_never_changed():
     data = _apps("com.example.one")
-    _mark_entries(ACC, data, ["com.example.one"])
+    saved = _mark_entries(ACC, data, ["com.example.one"])
     SIGNERS["com.example.one"] = None
     f = _apply(ACC, data)
     assert f.severity == Severity.WARNING and f.data["marked_items"] == []
-    assert [m["entry"] for m in f.data["stale_items"]] == ["com.example.one"]
+    assert f.data["stale_items"] == []
+    assert [m["entry"] for m in f.data["unchecked_items"]] == ["com.example.one"]
+    assert f.data["unchecked_items"][0]["id"] == saved[0].id
+    assert f.data["unmarked"] == ["com.example.one"]
+    assert "We couldn't check this one this time, so its warning is back." in f.description
+    assert "has changed" not in f.description and "changed since" not in f.description
+
+
+def test_a_spent_lookup_budget_is_unchecked_never_changed(monkeypatch):
+    """The real app_signer with the entry lookup budget spent returns None."""
+    from types import SimpleNamespace
+
+    from rescue import attribution
+
+    data = _apps("com.example.one", "com.example.two")
+    _mark_entries(ACC, data, ["com.example.one", "com.example.two"])
+    monkeypatch.setattr(known_items, "app_signer", _REAL_APP_SIGNER)
+    monkeypatch.setattr(attribution.command, "run",
+                        lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr="", timed_out=False))
+    known_items.reset_hash_budget()
+    att = known_items._entry_attributor()
+    att.lookups = att.max_lookups  # the budget is spent
+    f = _apply(ACC, data)
+    assert sorted(m["entry"] for m in f.data["unchecked_items"]) == ["com.example.one", "com.example.two"]
+    assert f.data["stale_items"] == []
+    assert "We couldn't check these this time, so their warnings are back." in f.description
+    assert "changed since" not in f.description and "has changed on each" not in f.description
+    offers = known_items.entry_offers(f, "app_permissions")
+    assert all(o.get("unchecked") is True and "stale" not in o and o["id"] is None for o in offers)
+    known_items.reset_hash_budget()
 
 
 def test_critical_is_tagged_never_downgraded():
