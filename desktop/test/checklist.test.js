@@ -266,3 +266,16 @@ test('preserveFocus finds the active element through a shadow root', () => {
   });
   assert.strictEqual(shadow.activeElement, again.boxes[1]);
 });
+
+test('labelledBy names the list by a heading already on the page, with no legend', () => {
+  const html = Checklist.html({ id: 'w', legend: 'What’s worrying you?', labelledBy: 'worry-title',
+    items: [{ key: 'a', label: 'A' }], actions: [] });
+  assert.match(html, /<fieldset class="checklist checklist--plain" data-cl-list="w" aria-labelledby="worry-title">/);
+  assert.ok(!html.includes('<legend'));
+  assert.ok(!html.includes('What’s worrying you?'));
+  const odd = Checklist.html({ id: 'w', labelledBy: '"><script>', items: [] });
+  assert.ok(!odd.includes('<script>'), 'the id is made safe');
+  const plain = Checklist.html({ id: 'w', legend: 'Apps', items: [] });
+  assert.match(plain, /<legend class="checklist__legend">Apps<\/legend>/);
+  assert.ok(!plain.includes('aria-labelledby'));
+});

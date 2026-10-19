@@ -110,8 +110,12 @@ const Checklist = (function () {
     const more = items.length > SHOWN
       ? `<button type="button" class="link-button checklist__more" data-cl-more-show>Show all ${items.length}</button>`
       : '';
-    return `<fieldset class="checklist checklist--${theme}" data-cl-list="${listId}">`
-      + `<legend class="checklist__legend">${esc(visible(o.legend))}</legend>`
+    // `labelledBy`: the id of a heading already on the page that names the
+    // list. The fieldset points at it and has no legend, so a screen reader
+    // doesn't read the same words twice.
+    const labelledBy = typeof o.labelledBy === 'string' && o.labelledBy ? safeId(o.labelledBy) : '';
+    return `<fieldset class="checklist checklist--${theme}" data-cl-list="${listId}"${labelledBy ? ` aria-labelledby="${labelledBy}"` : ''}>`
+      + (labelledBy ? '' : `<legend class="checklist__legend">${esc(visible(o.legend))}</legend>`)
       + bulk
       + `<ul class="checklist__items">${items.map((it, i) => rowHtml(elId, it, i)).join('')}</ul>`
       + more

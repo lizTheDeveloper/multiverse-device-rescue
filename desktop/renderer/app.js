@@ -636,7 +636,8 @@ if (typeof document !== 'undefined') {
       const alone = document.getElementById('situations-alone');
       list.innerHTML = Checklist.html({
         id: 'worries',
-        legend: 'What’s worrying you?',
+        // The screen's heading, "What's worrying you?", names the list.
+        labelledBy: 'worry-title',
         items: SITUATIONS.filter((s) => WorryPick.CHECKLIST_IDS.includes(s.id))
           .map((s) => ({ key: s.id, label: s.title, note: s.sub })),
         actions: [{ id: 'start', verb: 'Start the checkup for', noun: ['worry', 'worries'], min: 1 }],
@@ -654,8 +655,6 @@ if (typeof document !== 'undefined') {
             </button>
           </li>`
       ).join('');
-      // The count, the button's words and the arrow keys.
-      Checklist.attach(list, {});
       const start = list.querySelectorAll('[data-cl-action]')[0];
       if (start) {
         start.addEventListener('click', () => {
@@ -1143,6 +1142,9 @@ if (typeof document !== 'undefined') {
       return true;
     }
 
+    // The worry list's count, button words and arrow keys: delegated on its
+    // container once, so redrawing the list on each visit adds no listeners.
+    Checklist.attach(document.getElementById('situations'), {});
     renderSituations();
     // 'city' opens the city first, so the welcome screen never draws on the
     // way. Only while the game's module is still loading (or it declines) does

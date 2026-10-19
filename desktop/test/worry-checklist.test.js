@@ -13,7 +13,8 @@ const profileOf = (id) => SITUATIONS.find((s) => s.id === id).profile;
 test('the worry screen is a checklist of worries, with two on their own', () => {
   const p = page();
   const html = p.byId('situations').innerHTML;
-  assert.match(html, /<fieldset class="checklist checklist--plain" data-cl-list="worries"/);
+  assert.match(html, /<fieldset class="checklist checklist--plain" data-cl-list="worries" aria-labelledby="worry-title">/);
+  assert.ok(!html.includes('<legend'), 'the heading names the list; no second legend');
   for (const id of ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'helping']) {
     assert.match(html, new RegExp(`data-cl-key="${id}"`), id);
   }
@@ -80,4 +81,14 @@ test('"Something changed?" comes back to the worry screen with focus on its link
   p.answer('back');
   assert.deepStrictEqual(p.shown(), ['worry']);
   assert.strictEqual(p.sandbox.document.activeElement, p.byId('btn-something-changed'));
+});
+
+test('redrawing the worry list adds no listeners to its container', () => {
+  const p = page();
+  const root = p.byId('situations');
+  const counts = () => ['change', 'click', 'keydown'].map((t) => (root.listeners[t] || []).length);
+  const before = counts();
+  assert.deepStrictEqual(before, [1, 1, 1], 'the checklist is attached once');
+  for (let i = 0; i < 3; i += 1) { p.byId('btn-get-started').click(); p.byId('btn-play-game').click(); }
+  assert.deepStrictEqual(counts(), before);
 });

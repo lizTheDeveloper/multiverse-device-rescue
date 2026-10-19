@@ -42,10 +42,11 @@ function lessonItem(l, progress, next = false) {
 
 // `lessonsLoaded`: false while the lesson files are still loading, so an empty
 // list isn't yet a failure.
-export function renderTraining({ ordered, progress, worryTitle, scan, scout, pendingCity, lessonsLoaded = false, scanFinished = false }) {
+// `forYou`: city mode, where no worry is named on screen.
+export function renderTraining({ ordered, progress, worryTitle, forYou = false, scan, scout, pendingCity, lessonsLoaded = false, scanFinished = false }) {
   const all = [...ordered.recommended, ...ordered.other];
   const nextLesson = ordered.recommended.find((l) => !lessonDone(progress, l.id)) || all.find((l) => !lessonDone(progress, l.id));
-  const head = worryTitle ? `RECOMMENDED FOR “${esc(String(worryTitle).toUpperCase())}”` : 'START HERE';
+  const head = worryTitle ? `RECOMMENDED FOR “${esc(String(worryTitle).toUpperCase())}”` : forYou ? 'RECOMMENDED FOR YOU' : 'START HERE';
   const failed = scan && scan.error ? `
     <div class="panel fogged" role="alert"><div class="label">THE CHECKUP STOPPED</div>
       <p class="intel">The checkup didn’t finish. This is what it said: ${esc(scan.error)}</p>
