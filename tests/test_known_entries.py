@@ -33,6 +33,7 @@ pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX file perm
 ACC = "security.app_permissions.accessibility_access"
 SSH = "security.session_revocation_scan.ssh_authorized_keys"
 SIGNERS: dict = {}
+_REAL_APP_SIGNER = known_items.app_signer  # before any fixture swaps it
 
 
 @pytest.fixture(autouse=True)
@@ -319,8 +320,10 @@ def real_signer(monkeypatch):
     from rescue import attribution
     from rescue.attribution import MadeBy
 
-    monkeypatch.undo()  # drop the autouse fake; use the real app_signer
-    monkeypatch.setattr(attribution, "identify", lambda app, platform: MadeBy("?", False, "unsigned"))
+    # Put back the real app_signer. Not monkeypatch.undo(): that would also drop
+    # conftest's RESCUE_KNOWN_ITEMS and let marks reach the person's real list.
+    monkeypatch.setattr(known_items, "app_signer", _REAL_APP_SIGNER)
+    monkeypatch.setattr(attribution, "identify", lambda app, platform, **kw: MadeBy("?", False, "unsigned"))
     return known_items.app_signer
 
 
@@ -383,7 +386,30 @@ def hashing(monkeypatch):
     known_items.reset_hash_budget()
 
 
-def test_a_file_is_hashed_once_per_scan(tmp_path, hashing, monkeypatch):
+@pytest.fixture
+def settled(monkeypatch):
+    """Hash as if every file was last changed long ago, so hashes are cached."""
+    import time as real_time
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(known_items, "time", SimpleNamespace(time_ns=lambda: real_time.time_ns() + 10**11))
+
+
+def _rewrite_until_ctime_moves(f, content, before):
+    """Rewrite f with content (same size), restore its mtime, and repeat until
+    the kernel's ctime clock has ticked past `before` (coarse on older Linux)."""
+    import time as real_time
+
+    for _ in range(400):
+        f.write_bytes(content)
+        os.utime(f, ns=(before.st_atime_ns, before.st_mtime_ns))
+        if os.stat(f).st_ctime_ns != before.st_ctime_ns:
+            return
+        real_time.sleep(0.005)
+    pytest.fail("ctime never changed")
+
+
+def test_a_file_is_hashed_once_per_scan(tmp_path, hashing, settled, monkeypatch):
     f = tmp_path / "prog"
     f.write_bytes(b"abc")
     first = hashing._hash_regular_file(str(f))
@@ -395,6 +421,44 @@ def test_a_file_is_hashed_once_per_scan(tmp_path, hashing, monkeypatch):
     assert hashing._hash_state["spent"] == spent
     f.write_bytes(b"abcd")  # size changed: hashed again
     assert hashing._hash_regular_file(str(f)) != first
+
+
+def test_a_rewrite_with_the_same_size_and_a_restored_mtime_is_hashed_again(tmp_path, hashing, settled):
+    # A program can set mtime, but not ctime: the cache must not trust size + mtime.
+    f = tmp_path / "prog"
+    f.write_bytes(b"good")
+    before = os.stat(f)
+    first = hashing._hash_regular_file(str(f))
+    assert len(hashing._hash_state["cache"]) == 1  # cached: the next call could reuse it
+    _rewrite_until_ctime_moves(f, b"evil", before)
+    after = os.stat(f)
+    assert (after.st_size, after.st_mtime_ns) == (before.st_size, before.st_mtime_ns)
+    second = hashing._hash_regular_file(str(f))
+    assert second != first
+    assert second == hashlib.sha256(b"evil").hexdigest()
+
+
+def test_a_just_written_file_is_never_served_from_the_cache(tmp_path, hashing):
+    # Within one tick of a coarse ctime clock a rewrite leaves (ino, size, mtime,
+    # ctime) all the same, so a file changed in the last second is never cached.
+    f = tmp_path / "prog"
+    f.write_bytes(b"good")
+    before = os.stat(f)
+    assert hashing._hash_regular_file(str(f)) == hashlib.sha256(b"good").hexdigest()
+    assert hashing._hash_state["cache"] == {}
+    f.write_bytes(b"evil")
+    os.utime(f, ns=(before.st_atime_ns, before.st_mtime_ns))
+    assert hashing._hash_regular_file(str(f)) == hashlib.sha256(b"evil").hexdigest()
+
+
+def test_the_cache_key_comes_only_from_the_open_handle(tmp_path, hashing, settled, monkeypatch):
+    f = tmp_path / "prog"
+    f.write_bytes(b"abc")
+    monkeypatch.setattr(os.path, "realpath", lambda *a, **k: pytest.fail("realpath after open"))
+    assert hashing._hash_regular_file(str(f)) == hashlib.sha256(b"abc").hexdigest()
+    st = os.stat(f)
+    assert list(hashing._hash_state["cache"]) == [
+        (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)]
 
 
 def test_the_scan_byte_budget_runs_out_and_those_files_get_none(tmp_path, hashing, monkeypatch):
@@ -452,3 +516,60 @@ def test_options_with_a_backslash_outside_quotes_or_odd_whitespace_are_refused()
     assert parse(f'command="a\x0bb" ssh-ed25519 {_blob(1)} me') is None
     assert parse(f"no-pty,\x0cno-x11 ssh-ed25519 {_blob(1)} me") is None
     assert parse(f'command="a\tb" ssh-ed25519 {_blob(1)} me') is not None  # tab is fine
+
+
+# --- fix round: entry offers use their own lookup budget ----------------------------
+
+
+def test_entry_offers_have_their_own_small_lookup_budget_per_scan(hashing):
+    from rescue import attribution
+
+    att = known_items._entry_attributor()
+    assert att.max_lookups == known_items.ENTRY_MAX_LOOKUPS == 60
+    assert att is known_items._entry_attributor()
+    assert att is not attribution._DEFAULT.get(sys.platform)
+    known_items.KnownItemsStore().load_for_scan()  # a new scan starts a new budget
+    assert known_items._entry_attributor() is not att
+
+
+def test_spent_entry_budget_leaves_made_by_attribution_alone(tmp_path, hashing, monkeypatch):
+    from types import SimpleNamespace
+
+    from rescue import attribution
+    from rescue.models import CheckResult
+
+    calls = []
+
+    def fake_run(args, timeout=None):
+        calls.append(args)
+        return SimpleNamespace(returncode=1, stdout="", stderr="", timed_out=False)
+
+    monkeypatch.setattr(known_items, "app_signer", _REAL_APP_SIGNER)
+    monkeypatch.setattr(attribution, "_DEFAULT", {})
+    monkeypatch.setattr(attribution.command, "run", fake_run)
+    att = known_items._entry_attributor()
+    att.lookups = att.max_lookups  # entry offers spent their whole budget
+    assert [known_items.app_signer(f"com.example.app{i}") for i in range(80)] == [None] * 80
+    assert not calls and attribution._DEFAULT == {}  # nothing borrowed from the shared budget
+    prog = tmp_path / "prog"
+    prog.write_bytes(b"x")
+    finding = Finding(title="t", description="d", severity=Severity.WARNING, category="security",
+                      data={"program": str(prog)})
+
+    class _Mod:
+        name = "launch_agents_audit"
+
+    attribution.compute_made_by([(_Mod(), CheckResult("launch_agents_audit", [finding]))], "darwin")
+    assert calls  # made_by still looked the program up
+
+
+def test_the_isolation_guard_catches_a_test_that_drops_it(tmp_path_factory, monkeypatch):
+    from tests.conftest import assert_known_items_isolated
+
+    base = tmp_path_factory.getbasetemp()
+    assert_known_items_isolated(base)  # as every test starts
+    saved = os.environ["RESCUE_KNOWN_ITEMS"]
+    monkeypatch.delenv("RESCUE_KNOWN_ITEMS")  # what monkeypatch.undo() would do
+    with pytest.raises(AssertionError, match="real marked-as-mine list"):
+        assert_known_items_isolated(base)
+    monkeypatch.setenv("RESCUE_KNOWN_ITEMS", saved)  # put it back so teardown passes

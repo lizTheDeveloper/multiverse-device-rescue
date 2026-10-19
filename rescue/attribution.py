@@ -799,20 +799,25 @@ def _is_script(path: str) -> bool:
 _DEFAULT: dict[str, Attributor] = {}
 
 
-def identify(path_or_label: str, platform: str) -> MadeBy | None:
-    """Identify one subject with a shared per-platform cache and budget."""
+def _default_attributor(platform: str) -> Attributor:
     att = _DEFAULT.get(platform)
     if att is None:
         att = _DEFAULT[platform] = Attributor(platform)
+    return att
+
+
+def identify(path_or_label: str, platform: str, attributor: Attributor | None = None) -> MadeBy | None:
+    """Identify one subject with a shared per-platform cache and budget, or
+    with `attributor`'s own when given."""
+    att = attributor or _default_attributor(platform)
     return att.identify(path_or_label)
 
 
-def resolve_app(subject: str, platform: str) -> str | None:
+def resolve_app(subject: str, platform: str, attributor: Attributor | None = None) -> str | None:
     """The .app (or file) path for a bundle id, name or path, with the shared
-    cache and budget. None if it can't be found or the budget ran out."""
-    att = _DEFAULT.get(platform)
-    if att is None:
-        att = _DEFAULT[platform] = Attributor(platform)
+    cache and budget (or `attributor`'s). None if it can't be found or the
+    budget ran out."""
+    att = attributor or _default_attributor(platform)
     if not att._can_lookup():
         att.skipped += 1
         return None

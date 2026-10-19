@@ -56,11 +56,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import plistlib
 import stat
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,6 +70,8 @@ from typing import Callable, Iterable
 
 from rescue.app_names import app_rows, display_name
 from rescue.models import Finding, Severity
+
+logger = logging.getLogger(__name__)
 
 ENV_PATH = "RESCUE_KNOWN_ITEMS"
 SCHEMA_VERSION = 1
@@ -950,13 +954,34 @@ del _kind, _spec
 
 _MAX_PROGRAM_BYTES = 128 * 1024 * 1024
 _SCAN_HASH_BYTES = 1024 * 1024 * 1024
+# git's "racy" rule: a file changed this close to when it was hashed may change
+# again within one tick of a coarse ctime clock, so its hash is never cached.
+_RACY_NS = 1_000_000_000
 _hash_state = {"spent": 0, "cache": {}}
+# Entry offers check each app's maker with their own small lookup budget, so
+# they never use up the one that "made by" attribution relies on.
+ENTRY_MAX_LOOKUPS = 60
+ENTRY_BUDGET_SECONDS = 20.0
+_entry_state: dict = {"attributor": None}
 
 
 def reset_hash_budget() -> None:
-    """Start a scan: forget what was hashed and spend nothing yet."""
+    """Start a scan: forget what was hashed and looked up, and spend nothing yet."""
     _hash_state["spent"] = 0
     _hash_state["cache"] = {}
+    _entry_state["attributor"] = None
+
+
+def _entry_attributor():
+    """This scan's attributor for entry offers (made on first use, so its
+    time budget starts then)."""
+    att = _entry_state["attributor"]
+    if att is None:
+        from rescue import attribution
+
+        att = _entry_state["attributor"] = attribution.Attributor(
+            sys.platform, max_lookups=ENTRY_MAX_LOOKUPS, budget_seconds=ENTRY_BUDGET_SECONDS)
+    return att
 
 
 def _hash_regular_file(path: str) -> str | None:
@@ -971,7 +996,10 @@ def _hash_regular_file(path: str) -> str | None:
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode) or st.st_size > _MAX_PROGRAM_BYTES:
             return None
-        key = (os.path.realpath(path), st.st_size, st.st_mtime_ns)
+        # Keyed only on the open handle's fstat: a program can restore mtime
+        # after a same-size rewrite, but not ctime, which the rewrite changes.
+        # A file changed in the last second is never cached (see _RACY_NS).
+        key = (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
         cache = _hash_state["cache"]
         if key in cache:
             return cache[key]
@@ -988,8 +1016,10 @@ def _hash_regular_file(path: str) -> str | None:
                 return None
             digest.update(chunk)
         _hash_state["spent"] += total
-        cache[key] = digest.hexdigest()
-        return cache[key]
+        result = digest.hexdigest()
+        if time.time_ns() - max(st.st_mtime_ns, st.st_ctime_ns) >= _RACY_NS:
+            cache[key] = result
+        return result
     finally:
         os.close(fd)
 
@@ -1001,7 +1031,7 @@ def _program_sha256(app: str) -> str | None:
     try:
         from rescue import attribution
 
-        path = attribution.resolve_app(app, sys.platform)
+        path = attribution.resolve_app(app, sys.platform, attributor=_entry_attributor())
         if not path:
             return None
         path = os.path.realpath(path)
@@ -1025,7 +1055,7 @@ def app_signer(app: str) -> str | None:
     try:
         from rescue import attribution
 
-        made = attribution.identify(app, sys.platform)
+        made = attribution.identify(app, sys.platform, attributor=_entry_attributor())
     except Exception:
         return None
     if made is None:
@@ -1240,6 +1270,50 @@ def apply_entry_marks(findings: list[Finding], items: list[KnownItem], signer_of
         finding.title = f"{finding.title} ({len(warn)} of {total} not marked as yours)"
 
 
+def entries_will_change(entry_kind: str, chosen: int | None = None, total: int | None = None) -> str:
+    """What marking entries does, in plain words. Without counts it is the
+    app's text ("the ones you choose"); with them, the terminal's."""
+    spec = KINDS[entry_kind]
+    if chosen is None:
+        which = f"the {spec['nouns']} you choose"
+        rest = " The ones you leave unticked keep their warning."
+    else:
+        which = f"the {chosen} {spec['noun'] if chosen == 1 else spec['nouns']} you chose"
+        rest = f" The other {total - chosen} on the list keep their warning." if total and chosen < total else ""
+    return (
+        f"The checkup will stop warning you about {which}. They will still be listed, as "
+        "\"marked as yours\", on every checkup and in anything you export, so anyone helping "
+        f"you can see them.{rest} Anything new on the list is flagged, and if {spec['changed']} "
+        "changes for one of them, its warning comes back."
+    )
+
+
+def entry_offers(finding, list_kind: str, signer_of=None) -> list[dict]:
+    """markable.items for a warning about a list: one row per entry, never
+    dropped. A row's id is what `known add --item` takes; None when the entry
+    can't be pinned now (its maker can't be checked). Rows already marked
+    carry their mark id and "marked": True."""
+    entry_kind = ENTRY_KIND_FOR.get(list_kind)
+    rows = list_entries(list_kind, finding) if entry_kind else None
+    if not rows:
+        return []
+    data = finding.data
+    marked = {m["entry"]: m["id"] for m in data.get("marked_items") or [] if isinstance(m, dict)}
+    stale = {m["entry"] for m in data.get("stale_items") or [] if isinstance(m, dict)}
+    out = []
+    for row in rows:
+        offer = {"key": row["entry"], "label": row["label"], "detail": row["detail"], "monitoring": True}
+        if row["entry"] in marked:
+            offer.update(id=marked[row["entry"]], marked=True)
+        else:
+            ident = entry_identity(entry_kind, finding.code, row, signer_of)
+            offer["id"] = item_id(entry_kind, ident) if ident else None
+            if row["entry"] in stale:
+                offer["stale"] = True
+        out.append(offer)
+    return out
+
+
 def item_kind_for(code) -> str | None:
     """The ITEM_KINDS kind a finding code can be marked under, or None."""
     if not isinstance(code, str):
@@ -1451,7 +1525,7 @@ def item_markable(finding: Finding, module_name: str) -> dict | None:
         shows = [[str(a), str(b)] for a, b in spec["show"](identity, finding)]
     except Exception:
         shows = []
-    return {
+    out = {
         "kind": kind,
         # The engine refuses to save unless a fresh check still gives this id.
         "id": item_id(kind, identity),
@@ -1465,6 +1539,17 @@ def item_markable(finding: Finding, module_name: str) -> dict | None:
         "how_to_undo": list(MARK_HOW_TO_UNDO),
         **({"apps": _apps_rows(finding)} if kind == "app_permissions" else {}),
     }
+    if kind in ENTRY_KIND_FOR:
+        try:
+            offers = entry_offers(finding, kind)
+        except Exception as exc:
+            # Fail safe: the list is still offered whole.
+            logger.debug("entry offers for %s skipped: %r", identity["code"], exc)
+            offers = []
+        if offers:
+            out["items"] = offers
+            out["items_will_change"] = entries_will_change(ENTRY_KIND_FOR[kind])
+    return out
 
 
 def _apps_rows(finding) -> list[dict]:
@@ -1475,13 +1560,9 @@ def _apps_rows(finding) -> list[dict]:
         return []
 
 
-def find_item(code: str, expect_id: str, run_check: Callable[[str], list]) -> tuple[str, dict]:
-    """(kind, identity) of the item a fresh check reports under `code` whose
-    mark id is `expect_id`. Raises KnownItemsError otherwise.
-
-    run_check(module_name) runs that check now and returns its findings, so a
-    mark is only ever saved for what is on the computer at the moment of saving.
-    """
+def _find_fresh(code: str, expect_id: str, run_check: Callable[[str], list]) -> tuple[str, dict, Finding]:
+    """(kind, identity, finding) of the item a fresh check reports under
+    `code` whose mark id is `expect_id`. Raises KnownItemsError otherwise."""
     kind = item_kind_for(code)
     if kind is None:
         raise KnownItemsError(f"'{code}' is not a finding that can be marked as yours.")
@@ -1495,11 +1576,53 @@ def find_item(code: str, expect_id: str, run_check: Callable[[str], list]) -> tu
             continue
         hit = item_identity(f)
         if hit and hit[0] == kind and item_id(kind, hit[1]) == expect_id:
-            return hit
+            return hit[0], hit[1], f
     raise KnownItemsError(
         "This has changed since the checkup, or is no longer there, so nothing was marked. "
         "Run the checkup again."
     )
+
+
+def find_item(code: str, expect_id: str, run_check: Callable[[str], list]) -> tuple[str, dict]:
+    """(kind, identity) of the item a fresh check reports under `code` whose
+    mark id is `expect_id`. Raises KnownItemsError otherwise.
+
+    run_check(module_name) runs that check now and returns its findings, so a
+    mark is only ever saved for what is on the computer at the moment of saving.
+    """
+    kind, identity, _finding = _find_fresh(code, expect_id, run_check)
+    return kind, identity
+
+
+def find_entries(code: str, expect_id: str, wanted: list[str], run_check: Callable[[str], list],
+                 signer_of=None) -> tuple[str, list[tuple[dict, dict, str]], int]:
+    """(entry kind, [(row, identity, item id)] in the order asked, entries on the list).
+
+    The check runs again now: the list must still be the one the checkup
+    showed (expect_id), and every wanted id must still be an entry on it,
+    unchanged. Otherwise KnownItemsError, and nothing is saved.
+    """
+    kind, _identity, finding = _find_fresh(code, expect_id, run_check)
+    entry_kind = ENTRY_KIND_FOR.get(kind)
+    if entry_kind is None:
+        raise KnownItemsError("This finding can only be marked as a whole, not one entry at a time. Nothing was marked.")
+    rows = list_entries(kind, finding)
+    if not rows:
+        raise KnownItemsError(
+            "This list can't be checked one entry at a time right now, so nothing was marked. "
+            "You can still mark the whole list."
+        )
+    offered = {}
+    for row in rows:
+        ident = entry_identity(entry_kind, code, row, signer_of)
+        if ident is not None:
+            offered[item_id(entry_kind, ident)] = (row, ident)
+    if not wanted or any(w not in offered for w in wanted):
+        raise KnownItemsError(
+            "This has changed since the checkup, or is no longer there, so nothing was marked. "
+            "Run the checkup again."
+        )
+    return entry_kind, [(offered[w][0], offered[w][1], w) for w in wanted], len(rows)
 
 
 # --- applying marks to findings ----------------------------------------------
