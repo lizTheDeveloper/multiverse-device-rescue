@@ -1170,6 +1170,11 @@ h3 {
 .link-button:hover, .link-button:focus-visible { opacity: 1; }
 .question-back { margin: 0 0 1rem; }
 
+/* What city mode does: shown once, after switching to it. Calm, short, quick to leave. */
+.aftercare-points { margin: 0 0 1.25rem; padding-left: 1.25rem; display: grid; gap: 0.6rem; line-height: 1.55; }
+.aftercare-help { margin: 0 0 1.25rem; }
+.aftercare-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0 0 0.75rem; }
+
 /* ---------- UX round 1: Plain view ---------- */
 
 /* A heading focused by the app (so a screen reader reads it) is not a control: no ring. */

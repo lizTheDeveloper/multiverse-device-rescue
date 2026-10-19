@@ -35,7 +35,7 @@ class El {
   // button (data-cl-action).
   set innerHTML(html) {
     this._html = String(html);
-    this.kids = [...this._html.matchAll(/data-(situation|answer|cl-key|cl-action)="([^"]+)"/g)].map((m) => {
+    this.kids = [...this._html.matchAll(/data-(situation|answer|cl-key|cl-action|aftercare)="([^"]+)"/g)].map((m) => {
       const b = new El(this.doc); b.dataset[m[1]] = m[2]; b.attrs = { [`data-${m[1]}`]: m[2] }; return b;
     });
   }
@@ -44,7 +44,7 @@ class El {
   addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); }
   click() { (this.listeners.click || []).forEach((fn) => fn({ target: this, preventDefault() {} })); }
   querySelectorAll(sel) {
-    const m = /^\[data-(situation|answer|cl-key|cl-action)\]$/.exec(sel);
+    const m = /^\[data-(situation|answer|cl-key|cl-action|aftercare)\]$/.exec(sel);
     return m ? this.kids.filter((k) => m[1] in k.dataset) : [];
   }
   querySelector() { return null; }
@@ -113,9 +113,10 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   };
   sandbox.RescueGame = { isReady: ready, newWorry: rec('newWorry'), showBoss: rec('showBoss', true),
     showTraining: rec('showTraining', true), showHome: rec('showHome', true), scanEvent() {}, scanDone: rec('scanDone', true),
-    scanFailed: rec('scanFailed', true), show: rec('show', true) };
+    scanFailed: rec('scanFailed', true), show: rec('show', true), resume: rec('resume', true),
+    helpPlace: () => 'Pier 9', openHelpPlace: rec('openHelpPlace', true), backToGame: rec('backToGame') };
   vm.runInNewContext(SRC, sandbox);
-  const shown = () => ['welcome', 'worry', 'question', 'scan', 'results', 'city'].filter((k) => !byId(`screen-${k}`).hidden);
+  const shown = () => ['welcome', 'worry', 'question', 'aftercare', 'scan', 'results', 'city'].filter((k) => !byId(`screen-${k}`).hidden);
   // "Check everything" and the iPhone check are buttons of their own; the
   // other worries are ticked, then "Start the checkup" is pressed.
   const pick = (...ids) => {
@@ -130,6 +131,8 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
     return kids.find((b) => 'cl-action' in b.dataset).click();
   };
   const answer = (id) => byId('question-card').kids.find((b) => b.dataset.answer === id).click();
+  // A button on the note shown after switching to city mode ('go' or 'visit').
+  const aftercare = (id = 'go') => byId('aftercare-card').kids.find((b) => b.dataset.aftercare === id).click();
   const fire = (type) => (winListeners[type] || []).forEach((fn) => fn({ type }));
   // A key pressed on the page (document keydown listeners).
   const key = (k) => (docListeners.keydown || []).forEach((fn) => fn({ type: 'keydown', key: k, defaultPrevented: false, preventDefault() {} }));
@@ -140,7 +143,7 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   // Reads a top-level name from the page's scripts (a const isn't on window).
   const run = (code) => vm.runInContext(code, sandbox);
   const revealed = () => doc.revealed.slice();
-  return { byId, calls, sandbox, storage, shown, pick, answer, fire, key, finish, fail, emit, activeDot, run, revealed };
+  return { byId, calls, sandbox, storage, shown, pick, answer, aftercare, fire, key, finish, fail, emit, activeDot, run, revealed };
 }
 
 const clean = { schema_version: 1, platform: 'darwin', modules: [] };

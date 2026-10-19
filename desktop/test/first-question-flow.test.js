@@ -51,7 +51,11 @@ test('"Something changed?" opens the question again, then back to the worry scre
   assert.deepStrictEqual(p.shown(), ['question']);
   p.answer('yes');
   assert.deepStrictEqual(modeWrites(p), [[KEY, 'city']]);
-  assert.deepStrictEqual(p.shown(), ['worry']);
+  // A switch into city mode: the note on what it does first, then the city's deck.
+  assert.deepStrictEqual(p.shown(), ['aftercare']);
+  p.aftercare('go');
+  assert.deepStrictEqual(p.shown(), ['city']);
+  assert.strictEqual(p.calls.last.name, 'showHome');
 });
 
 test('monitoring software in a standard-mode scan: the follow-up, once a session', async () => {
