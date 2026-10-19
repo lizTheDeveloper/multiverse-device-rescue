@@ -335,25 +335,35 @@ class Module(ModuleBase):
             rest_skip += ["-path", str(folder), "-o"]
 
         searches = [
-            (label, ["find", str(path), "-xdev", "(", *skip[:-1], ")", "-prune",
-                     "-o", "-type", "f", "-size", "+1G", "-print"])
+            (label, path, ["find", str(path), "-xdev", "(", *skip[:-1], ")", "-prune",
+                           "-o", "-type", "f", "-size", "+1G", "-print"])
             for label, path in likely
         ]
         searches.append(
-            ("the rest of your home folder",
+            ("the rest of your home folder", home,
              ["find", str(home), "-xdev", "(", *rest_skip[:-1], ")", "-prune",
               "-o", "-type", "f", "-size", "+1G", "-print"])
         )
 
         paths: list[str] = []
-        for label, cmd in searches:
+        for label, root, cmd in searches:
             remaining = deadline - time.monotonic()
             if remaining < 0.5:
                 self._unfinished_folders.append(label)
                 continue
             result = run(cmd, timeout=min(remaining, _PER_FOLDER_TIMEOUT_S))
             output = result.stdout
-            if result.timed_out or result.error or result.returncode is None:
+            if _top_folder_unreadable(result.stderr, root):
+                # Without Full Disk Access, macOS refuses the folder itself:
+                # find prints nothing and exits 1. That is not "searched, empty".
+                self._unfinished_folders.append(f"{label} (couldn't be opened)")
+                continue
+            if (
+                result.timed_out
+                or result.truncated
+                or result.error
+                or result.returncode is None
+            ):
                 self._unfinished_folders.append(label)
                 # Anything printed before it was stopped is real, except a
                 # last line that may have been cut off.
@@ -456,6 +466,16 @@ class Module(ModuleBase):
 
         # Remove empty categories
         return {k: v for k, v in categories.items() if v}
+
+
+def _top_folder_unreadable(stderr: str, root: Path) -> bool:
+    """True if find reported that it could not open ``root`` itself."""
+    for line in (stderr or "").splitlines():
+        line = line.strip()
+        for problem in ("Operation not permitted", "Permission denied"):
+            if line == f"find: {root}: {problem}":
+                return True
+    return False
 
 
 def _fmt_bytes(n: int) -> str:

@@ -424,14 +424,14 @@ class TestLargeFilesFinderErrorHandling:
             assert isinstance(result.findings, list)
 
 
-def _cmd(stdout="", returncode=0, timed_out=False):
+def _cmd(stdout="", returncode=0, timed_out=False, stderr="", truncated=False):
     from rescue.command import CommandResult
 
     return CommandResult(
         args=["find"], returncode=None if timed_out else returncode, stdout=stdout,
-        stderr="", timed_out=timed_out,
+        stderr=stderr, timed_out=timed_out,
         error="timed out after 1s" if timed_out else None,
-        duration_s=0.0, truncated=False,
+        duration_s=0.0, truncated=truncated,
     )
 
 
@@ -585,3 +585,60 @@ class TestLargeFilesFinderTimeBudget:
         with patch.object(Path, "home", return_value=home), _patch_run(mod, return_value=_cmd("")):
             result = mod.check(_make_profile())
         assert not any(f.data.get("type") == "search_incomplete" for f in result.findings)
+
+
+class TestLargeFilesFinderUnreadable:
+    """Review: a folder find couldn't open, or a run cut short, was counted as searched."""
+
+    def test_top_folder_without_access_is_not_searched(self, tmp_path):
+        mod = _get_module()
+        home = tmp_path / "home"
+        for name in ("Desktop", "Documents"):
+            (home / name).mkdir(parents=True)
+        docs = home / "Documents"
+
+        def fake(cmd, timeout, **kw):
+            if cmd[1] == str(docs):
+                return _cmd("", returncode=1, stderr=f"find: {docs}: Operation not permitted\n")
+            return _cmd("")
+
+        with _patch_run(mod, side_effect=fake):
+            mod._find_large_files(home)
+        assert mod._unfinished_folders == ["~/Documents (couldn't be opened)"]
+        assert mod._search_incomplete is True
+
+    def test_unreadable_subfolder_still_counts_as_searched(self, tmp_path):
+        mod = _get_module()
+        home = tmp_path / "home"
+        (home / "Desktop").mkdir(parents=True)
+        big = home / "Desktop" / "big.bin"
+        big.write_text("x")
+        sub = home / "Desktop" / "Private"
+
+        def fake(cmd, timeout, **kw):
+            if cmd[1] == str(home / "Desktop"):
+                return _cmd(f"{big}\n", returncode=1,
+                            stderr=f"find: {sub}: Permission denied\n")
+            return _cmd("")
+
+        with _patch_run(mod, side_effect=fake):
+            files = mod._find_large_files(home)
+        assert [f["path"] for f in files] == [str(big)]
+        assert mod._unfinished_folders == []
+
+    def test_truncated_output_is_unfinished(self, tmp_path):
+        mod = _get_module()
+        home = tmp_path / "home"
+        (home / "Desktop").mkdir(parents=True)
+        big = home / "Desktop" / "big.bin"
+        big.write_text("x")
+
+        def fake(cmd, timeout, **kw):
+            if cmd[1] == str(home / "Desktop"):
+                return _cmd(f"{big}\n{home}/Desktop/cut", truncated=True)
+            return _cmd("")
+
+        with _patch_run(mod, side_effect=fake):
+            files = mod._find_large_files(home)
+        assert mod._unfinished_folders == ["~/Desktop"]
+        assert [f["path"] for f in files] == [str(big)]
