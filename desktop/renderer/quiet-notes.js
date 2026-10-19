@@ -201,7 +201,49 @@ const QuietNotes = (function () {
   function noteFor(mode, finding) {
     if (isDetection(finding)) return mode === 'city' ? 'held' : 'line';
     if (!carriesAlert(finding)) return 'none';
-    return mode === 'city' ? 'full' : 'line';
+    // A safety control: city mode always shows the full note, and an
+    // explicit engine safety note (or one already kept as quiet_full) always
+    // shows. Only a warning inferred from description or step text may be
+    // left off, and only when the finding plainly can't be monitoring
+    // software: not a monitoring-capable check AND no way to remove it on
+    // the card. A verified signature never suppresses it. In doubt: shown.
+    if (mode === 'city') return 'full';
+    if (hasExplicitNote(finding)) return 'line';
+    return inferredOnlyNoise(finding) ? 'none' : 'line';
+  }
+  function hasExplicitNote(f) {
+    if (!f || typeof f !== 'object') return false;
+    if (Array.isArray(f.quiet_full) && f.quiet_full.length) return true;
+    return !!(f.remediation && typeof f.remediation === 'object' && f.remediation.safety_note);
+  }
+  function inferredOnlyNoise(f) {
+    const x = f || {};
+    return !MONITOR_CAPABLE.has(x.module) && !offersRemoval(x);
+  }
+
+  // Checks whose findings can be monitoring software: things that start on
+  // their own, give remote access or can watch. Used only to leave off a
+  // warning that was inferred from text (see noteFor).
+  const MONITOR_CAPABLE = new Set([
+    'launch_agent_audit', 'launchd_persistence_audit', 'scheduled_tasks_audit', 'cron_jobs_audit', 'login_items',
+    'startup_auditor', 'ai_worm_persistence', 'crypto_miner_persistence', 'linux_persistence_audit',
+    'remote_login_check', 'sharing_services', 'sharing_preferences_audit', 'ssh_key_audit', 'session_revocation_scan',
+    'network_proxy', 'network_proxy_check', 'network_proxy_detect', 'browser_extension_audit', 'chrome_extensions',
+    'safari_extensions', 'system_extensions', 'kernel_extensions_audit', 'mdm_enrollment', 'mdm_enrollment_check',
+    'certificate_trust_audit', 'win_autorun', 'win_autoruns_audit', 'win_scheduled_tasks', 'win_scheduled_tasks_security',
+    'win_services_audit', 'win_services_security_audit', 'win_rdp_check', 'win_remote_access_audit', 'win_proxy_detect',
+  ]);
+  const REMOVAL = /\b(?:remov\w*|uninstall\w*|delet\w*|disabl\w*|unload\w*|bootout|quarantin\w*|revok\w*|(?:turn|switch)\w*\s+(?:\S+\s+){0,3}?off)\b/i;
+  function offersRemoval(f) {
+    if (f.fixable && typeof f.fixable === 'object') return true;
+    const rem = f.remediation && typeof f.remediation === 'object' ? f.remediation : null;
+    if (rem && Array.isArray(rem.steps) && rem.steps.some((st) => st && REMOVAL.test(`${st.title || ''} ${st.body || ''}`))) return true;
+    return /(^|\n)\s*what to do:[^\n]*/i.test(String(f.description || ''))
+      && REMOVAL.test((/(?:^|\n)\s*what to do:([^\n]*)/i.exec(String(f.description || '')) || [])[1] || '');
+  }
+  function canMonitor(finding) {
+    const f = finding || {};
+    return !inferredOnlyNoise(f);
   }
 
   function fullNote(f) {
@@ -298,7 +340,7 @@ const QuietNotes = (function () {
       category: f.category, code: f.code };
   }
 
-  return { MONITORING_MODULES, NOT_DETECTIONS, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
+  return { MONITORING_MODULES, NOT_DETECTIONS, MONITOR_CAPABLE, canMonitor, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

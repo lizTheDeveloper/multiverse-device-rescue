@@ -26,7 +26,7 @@ test('controls show the button and a hidden confirmation with will-change and un
   const html = FixFlow.fixControlsHtml({ module: 'firewall_audit', fixable: FIXABLE });
   assert.match(html, /data-fix-module="firewall_audit"/);
   assert.match(html, /Fix it for me/);
-  assert.match(html, /This will:/);
+  assert.match(html, /What changes:/);
   assert.match(html, /To undo later:/);
   assert.match(html, /Yes, fix it/);
   assert.match(html, /Cancel/);
@@ -272,7 +272,35 @@ test('onResult hears an Undo as kind "undo"', async () => {
 test('describeFixResult: a check afterwards that didn’t finish is “couldn’t confirm”, never fixed, and starts no re-check', () => {
   const r = FixFlow.describeFixResult({ applied: true, verified: false, status: 'unconfirmed', how_to_undo: ['Do x.'] });
   assert.strictEqual(r.tone, 'warning');
-  assert.match(r.headline, /couldn’t confirm it worked/);
+  assert.match(r.headline, /The fix ran, but the re-check couldn’t confirm it/);
   assert.doesNotMatch(r.headline + r.detail, /fixed|still shows/i);
   assert.deepStrictEqual(r.undo, ['Do x.']);
+});
+
+test('round 3: after a fix was applied, a re-check that fails never says "Nothing was changed"', () => {
+  const after = FixFlow.recheckFailedText({ fixApplied: true });
+  assert.doesNotMatch(after.headline + after.detail, /Nothing was changed/);
+  assert.match(after.headline, /The change was made/);
+  assert.match(after.detail, /can’t confirm/);
+  const before = FixFlow.recheckFailedText({ fixApplied: false });
+  assert.match(before.headline, /couldn’t check again/);
+  // Every answer where the engine applied the change: never "Nothing was changed".
+  for (const r of [{ applied: true, status: 'unconfirmed' }, { applied: true, verified: false, status: 'still_present' },
+    { applied: true, status: 'unconfirmed', error: 'scan_running' }, { applied: true, error: 'not_allowed' }]) {
+    const d = FixFlow.describeFixResult(r);
+    assert.doesNotMatch(`${d.headline} ${d.detail}`, /Nothing was changed/, JSON.stringify(r));
+  }
+});
+
+test('round 3: a fix with its own Undo says so in one line; the manual ways back are for a tech helper', () => {
+  const html = FixFlow.fixControlsHtml({ module: 'launch_agent_audit', fixable: Object.assign({}, FIXABLE,
+    { action: 'disable_launch_agent', target: '/Users/ann/Library/LaunchAgents/x.plist', how_to_undo: ['Open Reclaim City and choose Undo.', 'Move the file back.'] }) });
+  assert.match(html, /<strong>To undo:<\/strong> Undo is on this item\./);
+  assert.doesNotMatch(html, /To undo later/);
+  assert.doesNotMatch(html, /<ol class="fix-undo">/, 'no numbered alternatives');
+  assert.match(html, /For tech helpers: undo it by hand<\/summary><p>Open Reclaim City and choose Undo\.<\/p><p>Move the file back\./);
+  const done = FixFlow.resultHtml({ action: 'disable_launch_agent', applied: true, verified: true, status: 'fixed',
+    quarantine_id: '20261019T101010Z-x.plist', how_to_undo: ['Open Reclaim City and choose Undo.'] });
+  assert.match(done, /data-fix-undo/);
+  assert.doesNotMatch(done, /To undo later/, 'not beside an Undo button');
 });

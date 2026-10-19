@@ -631,23 +631,155 @@ function mergeKey(f) {
   if (label) t = t.split(label.toLowerCase()).join(' ');
   return `${f.severity}|${label}|${t.replace(/[^a-z0-9]+/g, ' ').trim()}`;
 }
+/**
+ * The same fact in different words from different checks: one crashing app
+ * ("keeps crashing", "crashed 50 times"), the volume at 0%, swap in use, the
+ * screensaver delay, no backup destination, the screen never turning off, the
+ * same count of apps that can control the Mac. Keyed by what the data says,
+ * never by the title. null: no family, only the title rule applies.
+ */
+function sameFactKey(f) {
+  const d = f && f.data && typeof f.data === 'object' ? f.data : null;
+  if (!d) return null;
+  const check = typeof d.check === 'string' ? d.check : '';
+  if (typeof d.app_name === 'string' && d.app_name && d.crash_count != null) return `crash:${d.app_name}`;
+  if (typeof d.volume_percent === 'number') return `volume:${d.volume_percent}`;
+  if (typeof d.swap_used_mb === 'number') return `swap:${Math.round(d.swap_used_mb)}`;
+  if (/screensaver/.test(check)) {
+    const min = typeof d.minutes === 'number' ? d.minutes : typeof d.value === 'number' ? d.value : null;
+    if (min != null) return `screensaver:${min}`;
+  }
+  if (/^no_destination/.test(check) || (f.module === 'time_machine_check' && check === 'not_configured')) return 'backup:no-destination';
+  if (check === 'display_sleep' || check === 'display_sleep_disabled') return 'display:never-off';
+  if (check === 'excessive_accessibility' || check === 'accessibility_access') {
+    const n = typeof d.count === 'number' ? d.count : Array.isArray(d.apps) ? d.apps.length : null;
+    if (n != null) return `accessibility:${n}`;
+  }
+  return null;
+}
+const hasControls = (f) => !!(f && ((f.fixable && typeof f.fixable === 'object') || (f.markable && typeof f.markable === 'object')));
 function mergeAcrossChecks(findings) {
   const out = [];
   const seen = new Map();
   for (const f of findings || []) {
     if (!f || ALWAYS_SAFETY_MODULES.has(f.module)) { out.push(f); continue; }
-    const key = mergeKey(f);
-    const first = seen.get(key);
+    const fact = sameFactKey(f);
+    const keys = [mergeKey(f), ...(fact ? [`${f.severity}|fact|${fact}`] : [])];
+    const first = keys.map((k) => seen.get(k)).find(Boolean);
     if (first && !first.seen_in.includes(f.module)) {
-      first.seen_in.push(f.module);
-      first.also.push(f);
+      if (hasControls(f) && !hasControls(first)) {
+        // The card keeps the controls: one that can be fixed or marked leads.
+        const { seen_in: was, also, ...rest } = first;
+        Object.keys(first).forEach((k) => { delete first[k]; });
+        Object.assign(first, f, { seen_in: [f.module, ...was], also: [rest, ...also] });
+      } else {
+        first.seen_in.push(f.module);
+        first.also.push(f);
+      }
+      keys.forEach((k) => { if (!seen.has(k)) seen.set(k, first); });
       continue;
     }
     const card = Object.assign({}, f, { seen_in: [f.module], also: [] });
-    if (!first) seen.set(key, card);
+    keys.forEach((k) => { if (!seen.has(k)) seen.set(k, card); });
     out.push(card);
   }
   return out;
+}
+
+/**
+ * Within one level, what to look at first: something we can fix for you,
+ * then the signs someone got in (a redirected website, a saved key that lets
+ * another computer in, the router open, unknown DNS, new listening ports or
+ * startup items, connections waiting from outside), then security lists to
+ * review, then the rest of security, then network, then everything else.
+ * Ties keep the checkup's own order (higher confidence first).
+ */
+const SIGNAL_MODULES = [
+  'hosts_file_check', 'session_revocation_scan', 'router_security_audit', 'dns_config', 'security_baseline_diff',
+  'suspicious_connections', 'dns_poisoning_check', 'browser_hijack_check', 'network_proxy', 'network_proxy_check',
+  'network_proxy_detect', 'arp_spoof_check', 'remote_login_check', 'sharing_services', 'ssh_key_audit',
+  'certificate_trust_audit', 'rootkit_check', 'malware_scan_indicators', 'crypto_miner_persistence',
+];
+function importanceRank(f) {
+  if (!f) return [9, 0];
+  if (f.fixable && typeof f.fixable === 'object') return [0, 0];
+  const signal = SIGNAL_MODULES.indexOf(f.module);
+  if (signal >= 0) return [1, signal];
+  if (f.category === 'security' && f.markable && typeof f.markable === 'object') return [2, 0];
+  if (f.category === 'security') return [3, 0];
+  if (f.category === 'network') return [4, 0];
+  return [5, 0];
+}
+function sortByImportance(findings) {
+  return (findings || []).map((f, i) => ({ f, i, r: importanceRank(f), c: f && typeof f.confidence === 'number' ? f.confidence : 0 }))
+    .sort((a, b) => a.r[0] - b.r[0] || a.r[1] - b.r[1] || b.c - a.c || a.i - b.i)
+    .map((x) => x.f);
+}
+
+/**
+ * Good to know, one box per check: its name, how many notes, and each note
+ * as one line (the cards themselves open from there). Checks in the order
+ * the checkup ran them.
+ */
+function groupByCheck(findings, mode, doc) {
+  const by = new Map();
+  for (const f of findings || []) {
+    const key = f && f.module ? f.module : '';
+    if (!by.has(key)) by.set(key, []);
+    by.get(key).push(f);
+  }
+  return [...by.entries()].map(([module, list]) => ({ module, name: checkName(module, mode, doc), findings: list }));
+}
+
+/**
+ * Checks that are waiting for the person to start them, not checks that
+ * couldn't run: the iPhone backup scan reads a backup only when asked, so
+ * finding one ("scan available") means it can be started.
+ * TODO(round-3 integration): not-checked.js (Group C) is moving this rule
+ * into NotChecked as "not started"; use its field once it lands.
+ */
+const NOT_STARTED_CODES = new Set(['security.mvt_spyware_scan.mvt_scan_available']);
+function notStartedModules(doc) {
+  const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
+  return mods.filter((m) => m && m.status !== 'error' && m.supported !== false
+    && (m.findings || []).some((f) => f && NOT_STARTED_CODES.has(f.code))
+    && !(m.findings || []).some((f) => f && QuietNotesRule().isDetection(Object.assign({ module: m.name }, f))))
+    .map((m) => m.name);
+}
+function QuietNotesRule() { return typeof QuietNotes !== 'undefined' ? QuietNotes : require('./quiet-notes.js'); }
+
+/**
+ * A check run on its own after the checkup (the iPhone backup scan): its
+ * entries replace the same checks' entries in the checkup, everything else
+ * stays as it was.
+ */
+function mergeModules(base, extra) {
+  const add = extra && Array.isArray(extra.modules) ? extra.modules.filter((m) => m && typeof m.name === 'string') : [];
+  if (!base || !Array.isArray(base.modules)) return extra;
+  const names = new Set(add.map((m) => m.name));
+  const kept = base.modules.map((m) => (m && names.has(m.name) ? add.find((x) => x.name === m.name) : m));
+  const extraOnly = add.filter((m) => !base.modules.some((b) => b && b.name === m.name));
+  return Object.assign({}, base, { modules: [...kept, ...extraOnly] });
+}
+
+// The line for a check that waits to be started. City mode names nothing.
+const PHONE_WAITING_LINE = 'Not started \u2014 your iPhone backup can be checked for spyware. This is a long scan.';
+const WAITING_LINE_CITY = 'A check is waiting for you to start it. It only runs when you ask.';
+function notStartedLine(names, mode) {
+  if (!names || !names.length) return '';
+  if (mode === 'city') return WAITING_LINE_CITY;
+  return names.includes('mvt_spyware_scan') ? PHONE_WAITING_LINE : WAITING_LINE_CITY;
+}
+
+/** What wasn't fully checked, with checks waiting to be started taken out of "couldn't run". */
+function plainNotChecked(doc) {
+  const parts = NotCheckedRule.notCheckedParts(doc);
+  const waiting = Array.isArray(parts.notStarted) ? parts.notStarted.map((m) => m.name || m) : notStartedModules(doc);
+  const couldntRun = parts.couldntRun.filter((m) => !waiting.includes(m.name));
+  const sum = NotCheckedRule.notCheckedSummary(doc);
+  const summary = Object.assign({}, sum, { couldntRun: couldntRun.length,
+    count: couldntRun.length + parts.unfinished.length + parts.partly.length });
+  return { couldntRun, unfinished: parts.unfinished, partly: parts.partly, notStarted: waiting, summary };
 }
 
 /**
@@ -666,7 +798,10 @@ const ALERT_SENTENCE = /\b(?:remov(?:e|es|ed|ing|al)|uninstall\w*|delet\w*|disab
 function evidenceStrings(data) {
   const out = [];
   const add = (v) => {
-    if (typeof v === 'string' && v.length >= 4 && !/\s/.test(v) && /[/._-]/.test(v)) out.push(v);
+    if (typeof v !== 'string' || v.length < 4) return;
+    // A path is shown in the evidence even with spaces in it ("/Applications/Baba Is You.app").
+    if (/^[/~]/.test(v) && !/\n/.test(v)) out.push(v);
+    else if (!/\s/.test(v) && /[/._-]/.test(v)) out.push(v);
   };
   for (const v of Object.values(data && typeof data === 'object' ? data : {})) {
     if (Array.isArray(v)) v.forEach(add); else add(v);
@@ -748,6 +883,14 @@ function partialDocOf(state, platform) {
     partial: { done: state.done, total: state.total } };
 }
 
+// A checkup that stopped before the end: what arrived, marked stopped.
+function stoppedDocOf(state, platform) {
+  const doc = partialDocOf(state, platform);
+  doc.partial.stopped = true;
+  return doc;
+}
+const STOPPED_LINE = 'The checkup stopped before it finished. Nothing on your computer was changed.';
+
 function isPartialDoc(doc) {
   return !!(doc && doc.partial && typeof doc.partial === 'object');
 }
@@ -761,6 +904,13 @@ const WAIT_FOR_CHANGE_TEXT = 'Waiting for the change you asked for to finish, th
 function partialCountText(partial) {
   const done = partial && partial.done > 0 ? partial.done : 0;
   const total = partial && partial.total > 0 ? partial.total : 0;
+  // TODO(round-3 integration): if engine-runner (Group C) resolves a stopped
+  // scan as a document, mark it with partial.stopped so it reads like this.
+  if (partial && partial.stopped) {
+    if (total && done >= total) return 'Every check ran, but the checkup stopped at the very end, before it could put the results together. This is what the checks found.';
+    return total ? `The checkup stopped before it finished: ${done} of ${total} checks done. This is only what they found.`
+      : 'The checkup stopped before it finished. This is only what it found before then.';
+  }
   if (!total) return 'The checkup is still running.';
   if (done >= total) return LOOKUP_TEXT;
   return `The checkup is still running: ${done} of ${total} checks done.`;
@@ -768,12 +918,17 @@ function partialCountText(partial) {
 
 // The sentence at the top of partial results. Never an all-clear: the
 // checks still running haven't looked yet. `worth` = warnings and criticals.
-function partialSummaryText({ worth = 0, other = 0 } = {}) {
+function partialSummaryText({ worth = 0, other = 0, stopped = false } = {}) {
+  if (stopped) {
+    return worth > 0 ? `${worth} thing${worth === 1 ? '' : 's'} worth a look in the part that ran. The rest wasn’t checked.`
+      : 'Nothing worth a look in the part that ran. The rest wasn’t checked, so this isn’t a clean bill of health.';
+  }
   if (worth > 0) return `So far, ${worth} thing${worth === 1 ? '' : 's'} worth a look. More may turn up.`;
   if (other > 0) return 'Nothing worth a look so far. The checkup isn’t finished, so more may turn up.';
   return 'Nothing to show yet. The checkup isn’t finished.';
 }
 
+const STOPPED_ACTIONS_TEXT = 'Fixes and “It’s mine” open after a checkup that finishes.';
 const PARTIAL_ACTIONS_TEXT = 'Fixes and “It’s mine” open when the checkup is done.';
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -784,6 +939,8 @@ if (typeof module !== 'undefined' && module.exports) {
     applyPartialEvent,
     partialDocOf,
     isPartialDoc,
+    stoppedDocOf,
+    STOPPED_LINE,
     partialCountText,
     partialSummaryText,
     PARTIAL_ACTIONS_TEXT,
@@ -798,6 +955,15 @@ if (typeof module !== 'undefined' && module.exports) {
     couldntCheckGroups,
     cardEvidenceRows,
     mergeAcrossChecks,
+    sameFactKey,
+    sortByImportance,
+    importanceRank,
+    groupByCheck,
+    notStartedModules,
+    plainNotChecked,
+    mergeModules,
+    notStartedLine,
+    PHONE_WAITING_LINE,
     cardProse,
     lessonFor,
     errorKind,
@@ -958,6 +1124,12 @@ if (typeof document !== 'undefined') {
       // The display preference and the install's seed, for the game.
       mode() { return mode; },
       citySeed() { return citySeed; },
+      // What the person did on this list (fixed, marked as yours, said they did), for "Your progress".
+      listCounts() {
+        const p = clearList.progress();
+        const by = p.by || {};
+        return { fixed: by.fixed || 0, marked: (by.marked || 0) + (by.marked_before || 0), did: by.did || 0 };
+      },
       // What wasn't fully checked, counted the same way the list counts it, so both views agree.
       notChecked(doc) { return notCheckedSummary(doc || lastScanDoc); },
       startCheckup() { runCheckup({ game: true }); },
@@ -1147,7 +1319,7 @@ if (typeof document !== 'undefined') {
       single.hidden = several;
       list.hidden = !several;
       list.innerHTML = several
-        ? guideLinks.map((g, i) => `<li><button type="button" class="btn btn--primary" data-guide-index="${i}">${escapeHtml(g.name)}</button></li>`).join('')
+        ? guideLinks.map((g, i) => `<li><button type="button" class="btn btn--secondary" data-guide-index="${i}">${escapeHtml(g.name)}</button></li>`).join('')
         : '';
       text.textContent = several
         ? 'There’s a step-by-step guide for each part of your situation. Each opens in your web browser.'
@@ -1246,8 +1418,9 @@ if (typeof document !== 'undefined') {
       if (findings.length === 0) return '';
       // City mode: the fix panel's extra warning about whoever set something up.
       const watched = mode === 'city';
-      const items = findings
-        .map((finding, index) => {
+      // Good to know: one line per note, opened one at a time; no paging.
+      const note = severity === 'info';
+      const cardHtml = (finding, index) => {
           const key = String(nextCardKey++);
           // What this card may say (QuietNotes). Standard: no hotline text, and the one
           // line wherever removing something can alert someone. City: everything, unquieted.
@@ -1258,9 +1431,12 @@ if (typeof document !== 'undefined') {
           // City mode never offers a fix or a mark on these checks, even on a
           // status line that found nothing ("No device backups found").
           const noControls = partial || held || (mode === 'city' && QuietNotes.isMonitoring(finding));
-          // Nor does an AI get its removal steps or evidence: only the card's own text.
-          const pick = held ? QuietNotes.heldPick(card, finding) : copyAiPick(finding);
-          cardPicks.set(key, pick);
+          // City mode: nothing from a monitoring check goes to the clipboard or
+          // to a website (monitoring apps can read the clipboard), and the
+          // whole-report copy leaves it out.
+          const noClipboard = held || (mode === 'city' && QuietNotes.isMonitoring(finding));
+          const pick = noClipboard ? null : copyAiPick(finding);
+          if (pick) cardPicks.set(key, pick);
           cardTech.set(key, {
             check: finding.seen_in && finding.seen_in.length > 1 ? finding.seen_in : finding.module,
             code: finding.code || null,
@@ -1290,13 +1466,12 @@ if (typeof document !== 'undefined') {
           const lesson = held ? '' : lessonFor(finding);
           // Ticking selects the card for the actions above the list; it changes nothing by itself.
           const pickBox = counts && !partial ? `<input type="checkbox" class="finding-card__pick" data-card-pick aria-label="${escapeHtml(`Select: ${finding.title || 'this finding'}`)}">` : '';
-          return `
-            <li class="finding-card finding-card--${severity}" data-card-key="${key}" data-finding-key="${escapeHtml(`${finding.module}|${finding.code || ''}|${finding.title || ''}`).replace(/"/g, '&quot;')}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}${index >= PAGE ? ' data-card-more hidden' : ''}>
-              <div class="finding-card__header">
-                ${pickBox}
-                <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
-                <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
-              </div>
+          // "Ask about this" sends what the card shows: the evidence first, then the why.
+          const askFinding = Object.assign({}, finding, {
+            description: [rows.length ? `Evidence:\n${EvidenceRule.evidenceText(rows)}` : '', prose.why || card.description || ''].filter(Boolean).join('\n\n'),
+          });
+          const title = `<h3 tabindex="-1">${escapeHtml(finding.title || 'Untitled finding')}</h3>`;
+          const body = `
               <div class="cleared-note" data-cleared-note role="status" aria-live="polite" hidden></div>
               <div class="evidence-slot" data-evidence-slot>${EvidenceRule.renderEvidence(rows)}</div>
               ${prose.why || lesson ? `<p class="finding-card__why">${escapeHtml(prose.why)}${lesson ? `${prose.why ? ' ' : ''}<button type="button" class="link-button finding-card__lesson" data-lesson-link="${lesson}">What does this mean?</button>` : ''}</p>` : ''}
@@ -1316,50 +1491,72 @@ if (typeof document !== 'undefined') {
                     </li>`).join('')}
                 </ol>
               </details>` : ''}
+              ${noClipboard ? '' : `
               <details class="get-help">
                 <summary>Get help with this</summary>
-                ${askButtonHtml(held ? QuietNotes.heldAsk(card, finding) : finding)}
+                ${askButtonHtml(askFinding)}
                 ${copyAiButtonHtml(finding, pick)}
-              </details>
+              </details>`}
               <details class="tech-details">
                 <summary>Technical details</summary>
                 ${held || !card.description ? '' : `<div class="tech-details__about">${descriptionHtml(card.description, escapeHtml)}</div>`}
                 <pre class="tech-log" data-tech-log>${escapeHtml(techText(key, null))}</pre>
-              </details>
-            </li>
-          `;
-        })
-        .join('');
+              </details>`;
+          const attrs = `class="finding-card finding-card--${severity}${note ? ' finding-card--note' : ''}" data-card-key="${key}" data-finding-key="${escapeHtml(`${finding.module}|${finding.code || ''}|${finding.title || ''}`).replace(/"/g, '&quot;')}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}${!note && index >= PAGE ? ' data-card-more hidden' : ''}`;
+          // The level's chip only shows once a card is in "Cleared" (its group says it otherwise).
+          const chip = `<span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>`;
+          if (note) {
+            return `
+            <li ${attrs}>
+              <details class="finding-note"><summary class="finding-note__summary">${chip}${title}</summary>${body}</details>
+            </li>`;
+          }
+          return `
+            <li ${attrs}>
+              <div class="finding-card__header">
+                ${pickBox}
+                <div class="finding-card__titles">${chip}${title}</div>
+              </div>${body}
+            </li>`;
+      };
 
-      const more = findings.length > PAGE
-        ? `<button type="button" class="btn btn--secondary btn--small results-group__more" data-show-more>${escapeHtml(moreLabel(findings.length - PAGE))}</button>` : '';
-      const list = `
-          <p class="muted results-group__empty" data-group-empty hidden>Nothing left here. Everything in this group is in “Cleared” below.</p>
-          <ul class="findings-list" data-group-list>${items}</ul>
-          ${more}`;
-      // Good to know: one closed box with its count. Nothing in it needs doing.
-      if (severity === 'info') {
+      // Good to know: one closed box, then one closed box per check with its
+      // count, each note one line until opened. Nothing in it needs doing.
+      if (note) {
+        const checks = groupByCheck(findings, mode, shownDoc);
+        const boxes = checks.map((c) => `
+            <li class="info-check">
+              <details class="info-check__fold">
+                <summary><span class="info-check__name">${escapeHtml(c.name)}</span> <span class="results-group__count">${c.findings.length}</span></summary>
+                <ul class="findings-list findings-list--notes" data-group-list>${c.findings.map((f, i) => cardHtml(f, i)).join('')}</ul>
+              </details>
+            </li>`).join('');
         return `
         <section class="results-group results-group--info" data-results-group="info">
           <details class="results-group__fold">
             <summary><span class="chip chip--info">${escapeHtml(SEVERITY_LABELS.info)}</span>
               <span class="results-group__count">${findings.length}</span>
-              <span class="muted">${escapeHtml(SEVERITY_DESCRIPTIONS.info)}</span></summary>
-            ${list}
+              <span class="muted">${escapeHtml(`${SEVERITY_DESCRIPTIONS.info} Grouped by check (${checks.length}).`)}</span></summary>
+            <ul class="info-checks">${boxes}</ul>
           </details>
         </section>`;
       }
+
+      const items = findings.map(cardHtml).join('');
+      const more = findings.length > PAGE
+        ? `<button type="button" class="btn btn--secondary btn--small results-group__more" data-show-more>${escapeHtml(moreLabel(findings.length - PAGE))}</button>` : '';
       return `
         <section class="results-group results-group--${severity}" data-results-group="${severity}">
           <h2>
             <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
             <span class="results-group__count">${findings.length}</span>
           </h2>
-          ${list}
+          <p class="muted results-group__empty" data-group-empty hidden>Nothing left here. Everything in this group is in “Cleared” below.</p>
+          <ul class="findings-list" data-group-list>${items}</ul>
+          ${more}
         </section>
       `;
     }
-
     function moreLabel(left) {
       return left > PAGE ? `Show ${PAGE} more (${left} not shown)` : `Show the last ${left}`;
     }
@@ -1434,9 +1631,13 @@ if (typeof document !== 'undefined') {
       resultsPartial = !!partial;
       if (partial) {
         document.getElementById('results-running-text').textContent = partialCountText(partial);
-        document.getElementById('results-running-actions').textContent = PARTIAL_ACTIONS_TEXT;
+        document.getElementById('results-running-actions').textContent = partial.stopped ? STOPPED_ACTIONS_TEXT : PARTIAL_ACTIONS_TEXT;
       }
-      document.getElementById('results-title').textContent = partial ? 'What we\u2019ve found so far' : 'Here\'s what we found';
+      const stopped = !!(partial && partial.stopped);
+      const back = document.getElementById('btn-back-to-scan');
+      if (back) back.textContent = stopped ? 'Back to run it again' : 'Show the checkup\u2019s progress';
+      document.getElementById('results-title').textContent = stopped ? 'What the checkup found before it stopped'
+        : partial ? 'What we\u2019ve found so far' : 'Here\'s what we found';
       // The whole-report copies would read as the full checkup: only once it's done.
       document.getElementById('results-copy-all').hidden = !!partial;
       document.getElementById('results-tech').hidden = !!partial;
@@ -1452,11 +1653,16 @@ if (typeof document !== 'undefined') {
     function renderResults(doc) {
       const partial = isPartialDoc(doc) ? doc.partial : null;
       renderResultsFrame(partial);
-      const { groups, erroredModules, unfinishedModules, partlyChecked } = groupFindingsBySeverity(doc);
-      // The same finding from several checks is one card.
+      const { groups, unfinishedModules, partlyChecked } = groupFindingsBySeverity(doc);
+      // The same finding from several checks is one card; the most important first.
       SEVERITY_ORDER.forEach((sev) => { groups[sev] = mergeAcrossChecks(groups[sev]); });
-      // One count, the same one the city shows (notCheckedSummary).
-      const notChecked = notCheckedSummary(doc);
+      groups.critical = sortByImportance(groups.critical);
+      groups.warning = sortByImportance(groups.warning);
+      // One count, the same one the city shows (notCheckedSummary), with a
+      // check that waits for the person to start it kept apart from "couldn't run".
+      const plain = plainNotChecked(doc);
+      const erroredModules = plain.couldntRun;
+      const notChecked = plain.summary;
       const notFullyChecked = notChecked.count;
       const total = SEVERITY_ORDER.reduce((sum, sev) => sum + groups[sev].length, 0);
 
@@ -1501,7 +1707,7 @@ if (typeof document !== 'undefined') {
         // Never an all-clear while checks are still running.
         document.getElementById('results-progress').hidden = true;
         summaryEl.innerHTML = `<p>${escapeHtml(partialSummaryText({
-          worth: groups.critical.length + groups.warning.length, other: groups.info.length }))}</p>`;
+          worth: groups.critical.length + groups.warning.length, other: groups.info.length, stopped: !!partial.stopped }))}</p>`;
       } else if ((total === 0 || !said) && notFullyChecked > 0) {
         // Never an all-clear while a check couldn't run or didn't finish.
         summaryEl.innerHTML = '<p>The checks that finished found nothing worth a look.</p>';
@@ -1514,6 +1720,7 @@ if (typeof document !== 'undefined') {
 
       document.getElementById('results-lessons').hidden = total === 0;
       renderCouldntCheck(doc, { notChecked, erroredModules, unfinishedModules, partlyChecked, partial: !!partial });
+      renderNotStarted(plain.notStarted, !!partial);
       if (!partial) fillCommands(doc);
     }
 
@@ -1538,11 +1745,25 @@ if (typeof document !== 'undefined') {
         + (g.kind === 'permission' && mac ? ` <button type="button" class="btn btn--secondary btn--small" data-setting-url="${FDA_URL}">Open the setting</button>` : '')
         + (g.kind === 'slow' && !partial && window.rescue && typeof window.rescue.recheckModule === 'function'
           ? ` <button type="button" class="btn btn--secondary btn--small" data-rerun-slow>Run ${g.names.length === 1 ? 'it' : 'them'} again</button>` : '')
-        + (g.notes.length ? `<details class="errors-list__partly"><summary>${escapeHtml(g.line)}</summary><ul>${g.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul></details>` : '')
+        + (g.notes.length ? `<details class="errors-list__partly"><summary>${escapeHtml(`See what was only partly checked (${g.notes.length})`)}</summary><ul>${g.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul></details>` : '')
         + '</li>').join('');
       tech.hidden = !raw;
       document.getElementById('results-errors-raw').textContent = raw;
       errorsSection.hidden = false;
+    }
+
+    // A check waiting for the person to start it (the iPhone backup scan):
+    // one line and a Start button that asks first. Never in "couldn't run".
+    function renderNotStarted(names, partial) {
+      const box = document.getElementById('results-waiting');
+      if (!box) return;
+      const line = notStartedLine(names, mode);
+      box.hidden = !line;
+      document.getElementById('results-waiting-line').textContent = line;
+      // City mode names nothing, so it offers nothing to start here either.
+      const canStart = !!line && !partial && mode !== 'city' && names.includes('mvt_spyware_scan');
+      document.getElementById('btn-phone-start').hidden = !canStart;
+      document.getElementById('phone-start-confirm').hidden = true;
     }
 
     // Run the checks that took too long again, one at a time (main runs one
@@ -1608,18 +1829,32 @@ if (typeof document !== 'undefined') {
       runButton.hidden = isBusy;
       progress.hidden = !isBusy;
       document.getElementById('scan-intro').hidden = isBusy;
+      document.getElementById('scan-keep-open').hidden = false;
       document.getElementById('scan-title').textContent = isBusy
         ? 'Your checkup is running'
         : 'Ready for your checkup';
       if (isBusy) errorNote.hidden = true;
     }
 
+    // One plain line; the engine's own words only under "For tech helpers".
     function showScanError(message) {
       const errorNote = document.getElementById('scan-error');
-      const errorText = document.getElementById('scan-error-text');
-      errorText.textContent =
-        message || "We couldn't finish the checkup. Please try again.";
+      document.getElementById('scan-error-text').textContent = message || '';
+      document.getElementById('scan-error-tech').hidden = !message;
+      document.getElementById('btn-scan-sofar').hidden = !stoppedDoc;
+      // One way to run it again: the box's own button.
+      document.getElementById('btn-run-scan').hidden = true;
+      document.getElementById('scan-intro').hidden = true;
+      document.getElementById('scan-title').textContent = 'The checkup stopped';
+      document.getElementById('scan-keep-open').hidden = true;
       errorNote.hidden = false;
+    }
+    // The results the stopped checkup sent before it stopped, or null.
+    let stoppedDoc = null;
+    function showStopped() {
+      if (!stoppedDoc) return;
+      renderResults(stoppedDoc);
+      showScreen('results');
     }
 
     let lastScanDoc = null;
@@ -1630,7 +1865,8 @@ if (typeof document !== 'undefined') {
     const partialShowing = () => !!partialScan && scanRunning;
     // What the results screen shows: the running scan's results so far, or the last scan.
     function currentResultsDoc() {
-      return partialShowing() ? partialDocOf(partialScan, currentPlatform()) : lastScanDoc;
+      if (partialShowing()) return partialDocOf(partialScan, currentPlatform());
+      return resultsPartial && stoppedDoc ? stoppedDoc : lastScanDoc;
     }
     function viewingPartial() {
       return partialShowing() && !screens.results.hidden;
@@ -1730,11 +1966,15 @@ if (typeof document !== 'undefined') {
       const inGame = !!(opts && opts.game === true && window.RescueGame && window.RescueGame.isReady);
       if (inGame) leftGame = false;
       const scanSituation = situation;
+      // One check run after the checkup (the iPhone backup scan): its result
+      // joins the checkup's instead of replacing it.
+      const mergeInto = opts && opts.mergeInto && !inGame ? opts.mergeInto : null;
       setScanBusy(true);
       resetProgress();
       fdaNeeded = false;
+      stoppedDoc = null;
       if (permissionsContent) renderScanTips(permissionsContent, detectOS(lastKnownPlatform));
-      partialScan = partialScanState();
+      partialScan = mergeInto ? null : partialScanState();
       updatePartialStatus();
       if (inGame) window.RescueGame.showBoss();
       const unsubscribe = window.rescue.onScanEvent((ev) => {
@@ -1743,7 +1983,8 @@ if (typeof document !== 'undefined') {
       });
       try {
         // One profile, the union of several (one --profile each), or null for every check.
-        const doc = await window.rescue.runScan(WorryPick.scanProfile(situation));
+        const ran = await window.rescue.runScan(mergeInto ? opts.profile : WorryPick.scanProfile(situation));
+        const doc = mergeInto ? mergeModules(mergeInto, ran) : ran;
         if (doc && typeof doc.platform === 'string') {
           lastKnownPlatform = doc.platform;
         }
@@ -1758,6 +1999,7 @@ if (typeof document !== 'undefined') {
         setScanBusy(false);
         renderCitySwitch(doc);
         const land = () => {
+          if (mergeInto) { showScreen('results'); return; }
           const view = postScanView({
             inGame, left: leftGame, wantsCity, rememberedCity: rememberedView() === 'city',
             offered: gameOfferedFor(situation), ready: !!(window.RescueGame && window.RescueGame.isReady), mode,
@@ -1785,6 +2027,9 @@ if (typeof document !== 'undefined') {
         // Results so far go: the list shows the last finished checkup again,
         // and the error shows where the checkup's progress was.
         const wasViewing = viewingPartial();
+        // What arrived before it stopped is kept, behind "See what it found
+        // so far": marked as stopped, so it never reads as the whole checkup.
+        stoppedDoc = partialScan && partialScan.modules.length ? stoppedDocOf(partialScan, currentPlatform()) : null;
         endPartial();
         if (lastScanDoc) {
           renderResults(lastScanDoc);
@@ -1815,6 +2060,9 @@ if (typeof document !== 'undefined') {
       runButton.hidden = false;
       document.getElementById('scan-progress').hidden = true;
       document.getElementById('scan-error').hidden = true;
+      document.getElementById('scan-intro').hidden = false;
+      document.getElementById('scan-title').textContent = 'Ready for your checkup';
+      document.getElementById('scan-keep-open').hidden = false;
       situation = null;
       wantsCity = false;
       leftGame = false;
@@ -1938,7 +2186,7 @@ if (typeof document !== 'undefined') {
     document.getElementById('btn-copy-json').addEventListener('click', async () => {
       const status = document.getElementById('copy-json-status');
       try {
-        await navigator.clipboard.writeText(technicalReportText(lastScanDoc));
+        await navigator.clipboard.writeText(technicalReportText(lastScanDoc, { cover: mode === 'city' }));
         status.textContent = ' Copied.';
       } catch (err) {
         status.textContent = ` Couldn\u2019t copy (${err && err.message ? err.message : err}).`;
@@ -1962,6 +2210,25 @@ if (typeof document !== 'undefined') {
     document.getElementById('btn-back-to-scan').addEventListener('click', () => showScreen('scan'));
     document.getElementById('btn-run-scan').addEventListener('click', runCheckup);
     document.getElementById('btn-scan-retry').addEventListener('click', runCheckup);
+    document.getElementById('btn-scan-sofar').addEventListener('click', showStopped);
+    // The iPhone backup scan: asked first, then run on its own; its result joins this checkup.
+    document.getElementById('btn-phone-start').addEventListener('click', () => {
+      document.getElementById('phone-start-confirm').hidden = false;
+      const yes = document.getElementById('btn-phone-start-yes');
+      if (yes && typeof yes.focus === 'function') yes.focus();
+    });
+    document.getElementById('btn-phone-start-no').addEventListener('click', () => {
+      document.getElementById('phone-start-confirm').hidden = true;
+      const back = document.getElementById('btn-phone-start');
+      if (back && typeof back.focus === 'function') back.focus();
+    });
+    document.getElementById('btn-phone-start-yes').addEventListener('click', () => {
+      document.getElementById('phone-start-confirm').hidden = true;
+      if (scanRunning || !lastScanDoc) return;
+      document.getElementById('scan-situation').textContent = 'Checking the iPhone backup on this computer';
+      showScreen('scan');
+      runCheckup({ profile: 'iphone_spyware_check', mergeInto: lastScanDoc });
+    });
     // Start over throws these results away: asked first, as the city asks.
     document.getElementById('btn-start-over').addEventListener('click', () => {
       document.getElementById('btn-start-over').hidden = true;

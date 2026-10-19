@@ -46,14 +46,15 @@ const ClearList = (function () {
         let cleared = 0;
         let did = 0;
         let clearedAll = 0;
+        const by = { did: 0, marked: 0, marked_before: 0, fixed: 0 };
         for (const c of cards.values()) {
-          if (c.how) clearedAll += 1;
+          if (c.how) { clearedAll += 1; by[c.how] += 1; }
           if (!c.counts) continue;
           total += 1;
           if (c.how) cleared += 1;
           if (c.how === 'did') did += 1;
         }
-        return { total, cleared, did, clearedAll };
+        return { total, cleared, did, clearedAll, by };
       },
     };
   }
@@ -268,6 +269,17 @@ const ClearList = (function () {
       setNote(card, how);
       renderProgress();
       if (typeof o.onChange === 'function') o.onChange(card, how);
+      // Focus stays where the card was: on its stub's Undo (or the stub).
+      // Not for cards cleared as the list is drawn (marked on an earlier checkup).
+      if (how !== 'marked_before') focusStub(slots.get(key));
+    }
+
+    function focusStub(slot) {
+      if (!slot || slot.hidden) return;
+      const undoBtn = typeof slot.querySelector === 'function' ? slot.querySelector('[data-stub-undo]') : null;
+      if (undoBtn && typeof undoBtn.focus === 'function') { undoBtn.focus(); return; }
+      if (typeof slot.setAttribute === 'function') slot.setAttribute('tabindex', '-1');
+      if (typeof slot.focus === 'function') slot.focus();
     }
 
     function restore(card) {
@@ -287,6 +299,12 @@ const ClearList = (function () {
       setNote(card, null);
       renderProgress();
       if (typeof o.onChange === 'function') o.onChange(card, null);
+      // Back in its place: focus on its title, so the person carries on there.
+      const title = card.querySelector('h3');
+      if (title && typeof title.focus === 'function') {
+        if (typeof title.setAttribute === 'function' && !title.hasAttribute('tabindex')) title.setAttribute('tabindex', '-1');
+        title.focus();
+      }
     }
 
     function undo(card) {

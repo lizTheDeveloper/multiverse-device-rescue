@@ -88,7 +88,7 @@
             When you click below, Reclaim City will look through your system for anything
             worth your attention. Nothing will be changed &mdash; this is just a look-around.
           </p>
-          <p class="muted">You can keep this window open while it runs.</p>
+          <p id="scan-keep-open" class="muted">You can keep this window open while it runs.</p>
 
           <button id="btn-run-scan" class="btn btn--primary btn--large" type="button">Run checkup</button>
 
@@ -108,8 +108,15 @@
           </div>
 
           <div id="scan-error" class="error-note" role="alert" hidden>
-            <p id="scan-error-text"></p>
-            <button id="btn-scan-retry" class="btn btn--secondary" type="button">Try again</button>
+            <p id="scan-error-line"><strong>The checkup stopped before it finished.</strong> Nothing on your computer was changed.</p>
+            <p class="error-note__actions">
+              <button id="btn-scan-sofar" class="btn btn--secondary" type="button" hidden>See what it found so far</button>
+              <button id="btn-scan-retry" class="btn btn--secondary" type="button">Run it again</button>
+            </p>
+            <details id="scan-error-tech" class="tech-details" hidden>
+              <summary>For tech helpers</summary>
+              <pre id="scan-error-text" class="tech-log"></pre>
+            </details>
           </div>
         </div>
 
@@ -128,7 +135,12 @@
       <!-- Screen 4: Results -->
       <section id="screen-results" class="screen" data-screen="results" aria-labelledby="results-title" hidden>
         <div class="card card--wide">
-          <h1 id="results-title">Here's what we found</h1>
+          <div class="results-head">
+            <h1 id="results-title">Here's what we found</h1>
+            <p id="results-city-switch" class="results-city-switch" hidden>
+              <button id="btn-see-city" class="link-button" type="button">See it as a city</button>
+            </p>
+          </div>
           <p class="lede">Nothing has been changed. You decide what to do about each item.</p>
 
           <div id="results-running" class="results-running" role="status" aria-live="polite" hidden>
@@ -146,25 +158,31 @@
               <pre id="results-errors-raw" class="tech-log"></pre>
             </details>
           </section>
+          <section id="results-waiting" class="results-waiting" hidden>
+            <p id="results-waiting-line"></p>
+            <button id="btn-phone-start" class="btn btn--secondary btn--small" type="button" hidden>Start the iPhone backup check</button>
+            <div id="phone-start-confirm" class="start-over-confirm" role="group" aria-label="Start the iPhone backup check?" hidden>
+              <p>Start it now? It only reads the backup; nothing is changed. Your results here stay as they are, and its result is added to them.</p>
+              <button id="btn-phone-start-yes" class="btn btn--primary btn--small" type="button">Yes, start it</button>
+              <button id="btn-phone-start-no" class="btn btn--secondary btn--small" type="button">Not now</button>
+            </div>
+          </section>
           <div id="results-progress" class="results-progress" role="status" aria-live="polite" hidden></div>
-          <p id="results-city-switch" hidden>
-            <button id="btn-see-city" class="btn btn--game" type="button">See it as a city</button>
-          </p>
+
+          <div id="results-groups"></div>
+
+          <section id="results-next" class="results-next" hidden>
+            <h2>What to do next</h2>
+            <p id="results-next-text" class="muted">There&rsquo;s a step-by-step guide for your situation. It opens in your web browser.</p>
+            <button id="btn-open-guide" class="btn btn--secondary" type="button">Open the step-by-step guide</button>
+            <ul id="results-guides" class="guide-links" hidden></ul>
+          </section>
           <p id="progress-link" class="results-progress-link" hidden>
             <button id="btn-your-progress" class="btn btn--secondary btn--small" type="button" hidden>Your progress</button>
           </p>
           <dialog id="progress-dialog" class="progress-dialog" aria-labelledby="profile-title" tabindex="-1">
             <div id="progress-dialog-body"></div>
           </dialog>
-
-          <section id="results-next" class="results-next" hidden>
-            <h2>What to do next</h2>
-            <p id="results-next-text" class="muted">There&rsquo;s a step-by-step guide for your situation. It opens in your web browser.</p>
-            <button id="btn-open-guide" class="btn btn--primary" type="button">Open the step-by-step guide</button>
-            <ul id="results-guides" class="guide-links" hidden></ul>
-          </section>
-
-          <div id="results-groups"></div>
 
           <details id="results-lessons" class="results-lessons">
             <summary>How to read these cards</summary>

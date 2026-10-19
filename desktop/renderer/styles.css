@@ -1559,3 +1559,48 @@ h3[tabindex="-1"]:focus {
 .scan-tips__needed { margin: 0.6rem 0; }
 .scan-tips__needed p { margin: 0 0 0.4rem; }
 .errors-list__partly > summary { cursor: pointer; }
+
+/* ---------- UX round 3 (Plain) ---------- */
+/* Title with the quiet "See it as a city" link beside it. */
+.results-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1rem; }
+.results-head h1 { margin-bottom: 0; }
+.results-city-switch { margin: 0; }
+.results-city-switch[hidden], .results-waiting[hidden] { display: none; }
+/* A check waiting to be started: not a problem, not "couldn't run". */
+.results-waiting {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+.results-waiting > p { margin: 0 0 0.5rem; }
+.results-waiting .start-over-confirm { margin-top: 0.6rem; }
+.error-note__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0 0.5rem; }
+.error-note .tech-log { white-space: pre-wrap; word-break: break-word; max-height: 16rem; overflow: auto; }
+
+/* The checkbox in its own column, so a long title never wraps under it. */
+.finding-card__header { flex-wrap: nowrap; align-items: flex-start; }
+.finding-card__header .finding-card__pick { margin-top: 0.2rem; }
+.finding-card__titles { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; min-width: 0; }
+.finding-card__titles h3 { margin: 0; }
+.finding-card h3:focus { outline: none; }
+.finding-card h3:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+/* Each group's header names its level: a card's own chip only shows in Cleared. */
+.results-group .finding-card .chip { display: none; }
+.results-cleared .finding-card .chip { display: inline-flex; }
+
+/* No empty gap above "I did this": the answers row spaces itself. */
+.card-answers { margin-top: 0.6rem; }
+.card-answers > .fix-it, .card-answers > .mark-mine, .card-answers > .did-this { margin-top: 0; }
+
+/* Good to know: one box per check, each note one line until opened. */
+.info-checks { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.info-check__fold > summary { cursor: pointer; padding: 0.35rem 0; font-weight: 600; }
+.info-check__fold > summary .results-group__count { margin-left: 0.3rem; }
+.findings-list--notes { gap: 0.4rem; margin: 0.25rem 0 0.6rem; }
+.finding-card--note { padding: 0.5rem 0.9rem; }
+.finding-note > summary { cursor: pointer; margin-bottom: 0; }
+.finding-note > summary h3 { display: inline; font-size: 0.98rem; font-weight: 600; }
+.finding-note[open] > summary { margin-bottom: 0.5rem; }
+.results-cleared .finding-card--note[data-cleared]:not([data-show-details]) > details { display: block; }
