@@ -89,6 +89,7 @@ test('a tampered critical never leads with the reinstall, even without removal_a
         assert.deepStrictEqual(ids(d), ['closer', 'mine', 'reinstall'], `${name} ${mode}`);
         assert.strictEqual(d[2].effect.kind, 'link');
         assert.strictEqual(d[2].effect.removal, true, 'the reinstall confirm carries the removal warning');
+        assert.strictEqual(d[2].effect.warning, true, 'R6: the runner shows the removal warning before acting');
       }
     }
   }
@@ -100,6 +101,7 @@ test('labels: Reinstall from the maker / Mine, I know why / Look closer', async 
   assert.deepStrictEqual(ids(d), ['reinstall', 'mine', 'closer']);
   assert.deepStrictEqual(d.map((x) => x.label.standard), ['Reinstall from the maker', 'Mine, I know why', 'Look closer']);
   assert.strictEqual(d[0].effect.removal, false);
+  assert.strictEqual(d[0].effect.warning, false);
 });
 
 test('reinstall looks up the maker’s site only when the maker is verified, else the app’s name', async () => {
@@ -139,6 +141,7 @@ test('added root certificates: Look closer first, Not mine last with the removal
     const d = G.decisions(byCode(items(C, 'seal-mac.json'), suffix), C.testContext());
     assert.deepStrictEqual(ids(d), ['closer', 'mine', 'not-mine']);
     assert.strictEqual(d[2].effect.removal, true);
+    assert.strictEqual(d[2].effect.warning, true);
     assert.notStrictEqual(d[2].effect.kind, 'fix');
   }
 });
@@ -311,4 +314,16 @@ test('seal.css exists, closes its blocks, and uses the game’s variables', () =
   assert.strictEqual(depth, 0);
   assert.match(css, /var\(--cyan\)/);
   assert.match(css, /\.seal-compare/);
+});
+
+test('R1: render draws only the seal card, no buttons, evidence rows, links or the warning line', async () => {
+  const { C, G } = await load();
+  const ctx = C.testContext({ evidenceRows: () => [{ label: 'Checked with', value: 'codesign-marker-xyz' }] });
+  for (const item of [...items(C, 'seal-mac.json'), ...items(C, 'seal-win.json')]) {
+    const r = G.research(item, ctx);
+    const html = G.render({ item, research: r, decisions: G.decisions(item, ctx), index: 0, total: 1 }, ctx);
+    assert.doesNotMatch(html, /<button|<a\b|href=|<details|codesign-marker-xyz/i, item.key);
+    assert.doesNotMatch(html, /Reinstall from the maker|Look closer/, item.key);
+    assert.match(html, /seal-compare/);
+  }
 });

@@ -18,6 +18,9 @@
 // the reinstall goes last and its effect says `removal: true` (controller ruling). Added root certificates follow
 // the same rule with "Not mine".
 //
+// render() draws only the seal card (ruling R1): the runner draws the decisions, the removal-warning line, the
+// evidence rows, `what` and the links. Effects that replace or untrust something carry `warning: true` (R6).
+//
 // Pure: no DOM, storage, globals, network or clipboard. Every scan value goes through ctx.esc. The engine's own
 // description is never shown: it can carry help-line sentences that city mode must not show.
 
@@ -354,19 +357,19 @@ export function decisions(item, ctx) {
   if (v.kind === 'app') {
     const reinstall = {
       id: 'reinstall', label: D.reinstall,
-      effect: { kind: 'link', link: lookupFor(v), steps: v.win ? STEPS.winApp : STEPS.macApp, removal: alert },
+      effect: { kind: 'link', link: lookupFor(v), steps: v.win ? STEPS.winApp : STEPS.macApp, removal: alert, warning: alert },
     };
     return alert ? [look, mine, reinstall] : [reinstall, mine, look];
   }
   if (v.kind === 'driver') {
-    const update = { id: 'update', label: D.update, effect: { kind: 'link', link: { kind: 'settings', pane: 'windows-update' }, steps: STEPS.driver, removal: alert } };
+    const update = { id: 'update', label: D.update, effect: { kind: 'link', link: { kind: 'settings', pane: 'windows-update' }, steps: STEPS.driver, removal: alert, warning: alert } };
     return alert ? [look, mine, update] : [update, mine, look];
   }
   if (v.kind === 'cert') {
     if (v.verdict === 'expired') return [{ id: 'leave', label: D.leave, effect: { kind: 'keep', reason: 'expired' } }, look];
     const notMine = {
       id: 'not-mine', label: D.notMine,
-      effect: { kind: 'link', link: { kind: 'lookup', source: 'apple-support', query: 'Keychain Access delete a certificate' }, steps: STEPS.cert, removal: true },
+      effect: { kind: 'link', link: { kind: 'lookup', source: 'apple-support', query: 'Keychain Access delete a certificate' }, steps: STEPS.cert, removal: true, warning: true },
     };
     return [look, mine, notMine];
   }
@@ -438,19 +441,11 @@ const HEAD = {
   maker: t('What the maker signed', 'The maker’s seal'),
   disk: t('What’s on disk', 'What’s here now'),
   kicker: t('App seal', 'Seal Check'),
-  evidence: t('What the check saw', 'Clues'),
   unfinished: t('This check didn’t finish, so it may have missed things.', 'This check didn’t finish, so it may have missed things.'),
   signer: t('Says it’s from', 'Seal says'),
   verified: t('verified', 'checked'),
   notVerified: t('not verified', 'not checked'),
 };
-
-function rowsHtml(rows, ctx) {
-  const list = (Array.isArray(rows) ? rows : []).filter(isObj);
-  if (!list.length) return '';
-  const body = list.map((r) => `<dt>${ctx.esc(r.label)}</dt><dd${r.mono ? ' class="seal-mono"' : ''}>${ctx.esc(r.value)}</dd>`).join('');
-  return `<details class="seal-evidence"><summary>${ctx.esc(say(HEAD.evidence, ctx))}</summary><dl>${body}</dl></details>`;
-}
 
 export function render(view, ctx) {
   const item = (view && view.item) || {};
@@ -481,8 +476,6 @@ export function render(view, ctx) {
     `<p class="seal-means">${e(say(v.means, ctx))}</p>`,
     r.coverage ? `<p class="seal-coverage">${e(r.coverage)}</p>` : '',
     r.unfinished ? `<p class="seal-unfinished">${e(say(HEAD.unfinished, ctx))}</p>` : '',
-    r.what ? `<p class="seal-what">${e(r.what)}</p>` : '',
-    rowsHtml(r.rows, ctx),
     view && view.step && view.step.say ? `<p class="seal-step" role="note">${e(say(view.step.say, ctx))}</p>` : '',
     '</article>',
   ];
