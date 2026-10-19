@@ -446,3 +446,13 @@ test('values wrap between names, the label column is capped, and narrow blocks s
   assert.match(E.CSS, /@media \(max-width:800px\)\{\.evidence-grid\{grid-template-columns:1fr/);
   assert.doesNotMatch(E.CSS, /max-content/);
 });
+
+test('P2-4: no engine words: confidence left out, code words in words, a target that repeats the port dropped', () => {
+  const rows = E.evidenceRows({ module: 'router_security_audit', data: { check: 'admin_service_open', target: '22', gateway_ip: '192.0.2.1',
+    port: 22, service: 'SSH', confidence: 'high' } });
+  const labels = rows.map((r) => r.label);
+  assert.ok(!labels.includes('Confidence') && !labels.includes('Target'), labels.join(','));
+  assert.strictEqual(rows.find((r) => r.label === 'Router').value, '192.0.2.1');
+  const kind = E.evidenceRows({ module: 'ai_worm_shell', data: { kind: 'pipe_to_shell' } }).find((r) => r.label === 'Kind');
+  assert.strictEqual(kind.value, 'pipe to shell');
+});

@@ -443,7 +443,9 @@ const Evidence = (function () {
   // Keys that are the engine's own bookkeeping, not evidence ("Check type:
   // suspicious_dns", "Source: filesystem").
   const SKIP = new Set(['check', 'severity_level', 'marked_by_user', 'mark_stale', 'mark_id', 'original_title',
-    'used_pct', 'is_system_app', 'source', 'known_item_id', 'original_severity']);
+    'used_pct', 'is_system_app', 'source', 'known_item_id', 'original_severity',
+    // The engine's own certainty ("medium"): a word for code, not evidence (P2-4).
+    'confidence']);
   const skipKey = (key) => SKIP.has(key) || /_type$/.test(key) || /^check_/.test(key);
   // An empty value says nothing: never a row.
   const isEmpty = (v) => v == null || (typeof v === 'string' && v.trim() === '')
@@ -461,8 +463,10 @@ const Evidence = (function () {
     baseline_captured_at: 'Last snapshot', apps: 'Apps', keys: 'Keys', confidence: 'Confidence',
     interval_seconds: 'Every (seconds)', bundle_id: 'Bundle id', team_id: 'Team id', signer: 'Signed by',
     servers: 'DNS servers', dns_servers: 'DNS servers', providers: 'Provider', provider: 'Provider',
-    profile_ids: 'Profile id',
+    profile_ids: 'Profile id', gateway_ip: 'Router', service: 'Service', kind: 'Kind',
   };
+  // A value written for code ("pipe_to_shell") in words ("pipe to shell").
+  const CODE_WORD = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
   const MONO_KEYS = new Set(['pid', 'port', 'ports', 'ip', 'hostname', 'dest', 'remote', 'label', 'process',
     'bundle_id', 'team_id', 'command', 'device', 'value', 'keys', 'apps', 'detail', 'servers', 'dns_servers', 'profile_ids']);
 
@@ -470,7 +474,10 @@ const Evidence = (function () {
     const rows = [];
     for (const [key, v] of Object.entries(data)) {
       if (used.has(key) || skipKey(key) || isEmpty(v)) continue;
+      // "Target 22" beside "Port 22" says nothing new.
+      if (key === 'target' && data.port != null && String(v) === String(data.port)) continue;
       const label = LABELS[key] || humanize(key);
+      if (key === 'kind' && typeof v === 'string' && CODE_WORD.test(v)) { rows.push(row(label, v.replace(/_/g, ' '))); continue; }
       if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(label, v));
       else if (/_bytes$/.test(key) && typeof v === 'number') rows.push(row(label, bytes(v)));
       else if (/(^|_)(date|at|time|since)$/.test(key) && typeof v === 'string') rows.push(row(label, plainDay(v)));
