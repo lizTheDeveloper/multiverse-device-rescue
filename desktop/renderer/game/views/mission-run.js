@@ -140,7 +140,7 @@ export function renderMissionScreen(o) {
     }
     // The game's card shows the step's line itself (most do): the banner then doesn't repeat it.
     const sayText = words(step.say, mode);
-    const sayHtml = sayText ? `<p class="say">${esc(sayText)}</p>` : '';
+    const sayHtml = sayText && !cardSays(cardHtml, esc(sayText)) ? `<p class="say">${esc(sayText)}</p>` : '';
     // A step with no expected move only explains: one GOT IT, nothing to get right or wrong.
     const moves = view.explain ? `<div class="mx-decisions">${nextBtn(last ? 'GOT IT · TO THE REAL ONES ▶' : 'GOT IT ▶')}</div>`
       : decisionButtons(view.decisions || [], mode, 'mx-practice-move');

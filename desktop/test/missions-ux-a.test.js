@@ -131,3 +131,24 @@ test('practice: `expect` may list every move that fits; a step’s `why` follows
   assert.strictEqual(w.answer.right, false);
   assert.match(text(practiceScreen(k, g2, w.run, ctx).html), /Not quite\. Here the move is later\. Either is safe: nothing changes\./);
 });
+
+test('practice: the step line shows once — in the card when the game draws it, else in the banner', async () => {
+  const k = await kit();
+  for (const mode of ['standard', 'city']) {
+    const ctx = ctxOf(k.C, k.R, mode);
+    for (const game of Object.values(k.games)) {
+      if (!game.practice || !game.practice.script) continue;
+      let run = practiceRun(k, game);
+      for (let i = 0; i < game.practice.script.length; i += 1) {
+        const step = game.practice.script[i];
+        const say = step.say && step.say[mode];
+        if (say) {
+          const { html } = practiceScreen(k, game, run, ctx);
+          const n = text(html).split(say.replace(/\s+/g, ' ')).length - 1;
+          assert.strictEqual(n, 1, `${game.type} step ${i} (${mode}) says it ${n} times`);
+        }
+        run = k.Run.nextPracticeStep(run, game);
+      }
+    }
+  }
+});
