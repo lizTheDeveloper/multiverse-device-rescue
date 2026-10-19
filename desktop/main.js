@@ -7,6 +7,7 @@ const { handleRecheck } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
+const { routerUrlFor, browserDisplayName } = require('./router-url');
 const { isAllowedMissionLink } = require('./mission-links');
 const { APP_ORIGIN, serveApp } = require('./app-protocol');
 
@@ -91,6 +92,22 @@ app.whenReady().then(() => {
     }
     shell.openExternal(url);
     return true;
+  });
+  // The router's sign-in page. Only an IP address crosses IPC; the URL is
+  // built here, for private home-network addresses only (router-url.js).
+  ipcMain.handle('open-router', (_e, ip) => {
+    const url = routerUrlFor(ip);
+    if (!url) return false;
+    shell.openExternal(url);
+    return true;
+  });
+  // The default browser's name ("Safari"), so the router button can say where it opens.
+  ipcMain.handle('default-browser', () => {
+    try {
+      return browserDisplayName(app.getApplicationNameForProtocol('http://'));
+    } catch {
+      return null;
+    }
   });
   // Redacted text for the person to paste into any AI; nothing is sent.
   ipcMain.handle('ai-prompt', (_e, payload) => buildAiPrompt(payload));

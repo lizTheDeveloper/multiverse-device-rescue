@@ -7,7 +7,7 @@ const path = require('path');
 const vm = require('vm');
 
 // The classic scripts index.html loads before app.js, in one global scope.
-const SRC = ['ask.js', 'copy-ai.js', 'setting-panes.js', 'app.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', 'renderer', f), 'utf8')).join('\n;\n');
+const SRC = ['ask.js', 'copy-ai.js', 'setting-panes.js', 'router-link.js', 'app.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', 'renderer', f), 'utf8')).join('\n;\n');
 const { SITUATIONS } = require('../renderer/app.js');
 const tick = () => new Promise((r) => setTimeout(r, 0));
 

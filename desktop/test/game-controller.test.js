@@ -984,3 +984,44 @@ test('finishing a sweep lesson after the checkup is done goes to the city, not t
   assert.match(t.html(), /YOUR COMPUTER/);
   assert.doesNotMatch(t.html(), /Your checkup is done\./, 'the banner has done its job');
 });
+
+// "Open your router's settings" on a router mission: only the address goes to window.rescue.
+async function routerSetup(extraMods = []) {
+  const { createController } = await import('../renderer/game/controller.js');
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const net = (check, severity, data = {}) => ({ title: check, description: 'd', severity, category: 'network',
+    code: `network.router_security_audit.${check}`, data: { check, gateway_ip: '192.168.0.1', ...data } });
+  const doc = scan({ ...mod('router_security_audit', [net('upnp_enabled', 'warning'), net('router_manual_review', 'info')]), category: 'network' }, ...extraMods);
+  const city = findingsToCity(doc);
+  const m = city.districts.flatMap((d) => d.missions).find((x) => x.module === 'router_security_audit');
+  const stub = stubWin([]);
+  stub.win.RouterLink = require('../renderer/router-link.js');
+  const opened = [];
+  stub.win.rescue.openRouter = async (ip) => { opened.push(ip); return true; };
+  stub.win.rescue.defaultBrowser = async () => 'Safari';
+  const ctl = createController({ win: stub.win, storage: memStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}) });
+  await tick();
+  ctl.show(doc, { id: 'wifi' });
+  stub.click({ 'data-go': `mission:${m.id}` });
+  return { ...stub, opened, html: () => stub.frame.innerHTML };
+}
+
+test('a router mission offers OPEN YOUR ROUTER and sends only the address', async () => {
+  const t = await routerSetup();
+  assert.match(t.html(), /data-act="open-router"/);
+  assert.match(t.html(), /in Safari/);
+  t.click({ 'data-act': 'open-router' });
+  await tick();
+  assert.deepStrictEqual(t.opened, ['192.168.0.1']);
+});
+
+test('no router button when the ARP check says the router may be impersonated', async () => {
+  const arp = { title: 'imp', description: 'd', severity: 'critical', category: 'network',
+    code: 'network.arp_spoof_check.gateway_impersonation', data: { check: 'gateway_impersonation' } };
+  const t = await routerSetup([{ ...mod('arp_spoof_check', [arp]), category: 'network' }]);
+  assert.doesNotMatch(t.html(), /data-act="open-router"/);
+  assert.match(t.html(), /pretending to be your router/);
+  t.click({ 'data-act': 'open-router' });
+  await tick();
+  assert.deepStrictEqual(t.opened, []);
+});

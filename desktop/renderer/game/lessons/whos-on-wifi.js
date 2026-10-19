@@ -38,6 +38,7 @@ export default {
     {
       teach: 'The checkup lists devices that have recently talked to this computer, so its list can be incomplete. The router’s own admin page is the full list, including devices this computer hasn’t spoken to.',
       prompt: 'Where is the full list of devices on your network?',
+      router: true,
       options: [
         { text: 'The router’s own admin page', correct: true,
           feedback: 'Right. Compare it with the checkup’s list. Anything on the router’s list you can’t account for is the thing to focus on.' },
