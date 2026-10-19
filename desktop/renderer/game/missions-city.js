@@ -182,8 +182,8 @@ export function createMissionDesk(deps) {
         return;
       }
       if (url && mode() === 'city') { d.notice = act.text || 'Search for it on another device.'; return; }
+      // The runner already put the decision's steps on screen (run.guide).
       d.notice = act.text || (url ? `Search in your browser: ${url}` : (act.steps && act.steps.length ? '' : 'There is no page to open for this one.'));
-      if (act.steps && act.steps.length) d.run = { ...d.run, guide: { key: act.item.key, steps: act.steps, checklist: [], hint: '', focus: '' } };
       return;
     }
     if (act.kind === 'lesson') { deps.openConcept(act.concept); return; }
@@ -323,9 +323,14 @@ export function createMissionDesk(deps) {
       const mid = d.run.results.slice();
       Promise.resolve(carryOut(r.act)).then(() => { afterResults(mid); deps.render(); });
     } else if (act === 'mx-confirm') {
-      const r = Run.confirmPending(d.run);
+      const r = Run.confirmPending(d.run, game, ctx);
       d.run = r.run;
-      carryOut(r.act);
+      afterResults(before);
+      const mid = d.run.results.slice();
+      Promise.resolve(carryOut(r.act)).then(() => { afterResults(mid); deps.render(); });
+    } else if (act === 'mx-continue') {
+      d.run = Run.proceed(d.run);
+      afterResults(before);
     } else if (act === 'mx-cancel') {
       d.act = null; d.run = Run.cancelPending(d.run);
     } else if (act === 'mx-skip') {

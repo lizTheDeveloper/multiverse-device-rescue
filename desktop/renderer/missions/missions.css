@@ -21,6 +21,8 @@
 .mx-link-text { font-family: var(--font-mono); font-size: 13px; color: var(--offwhite); overflow-wrap: anywhere; }
 .mx-guide ol { margin: 6px 0 0; padding-left: 20px; }
 .mx-guide li { margin: 4px 0; overflow-wrap: anywhere; }
+.mx-guide .mx-guide-head { margin: 10px 0 0; }
+.mx-guide .mx-guide-head:first-child { margin-top: 0; }
 .mx-decisions { display: flex; flex-wrap: wrap; gap: 10px; }
 .mx-decisions button { min-height: 44px; white-space: normal; }
 .mx-confirm, .mx-act { border: 1px solid var(--amber); padding: 14px; background: var(--panel); }

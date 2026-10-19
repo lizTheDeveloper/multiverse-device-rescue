@@ -9,7 +9,9 @@
 //   decisionsFor(run, game, item, ctx) -> Decision[]   checked, safe default first, closer dropped while looking closer
 //   viewFor(run, game, ctx, research) -> view          what the screen draws (game.render gets the same view)
 //   choose(run, id, game, ctx) -> { run, act }         act: null | { kind: mark|fix|settings|link|recheck|lesson|odd, … }
-//   confirmPending(run) / cancelPending(run)           the warning-before-acting step (R6)
+//   confirmPending(run, game, ctx) / cancelPending(run) the warning-before-acting step (R6)
+//   proceed(run)                                       past an answered item whose steps are on screen
+//   guideOf(item, decision, mode)                      steps, checklist, hint, focus, off a decision shows
 //   settle(run, outcome)                               a mark/fix/recheck flow finished: 'done' | 'cancelled'
 //   startPractice / choosePractice / skipPractice      the self-teaching round
 //   practiceDue(record, conceptStates) -> boolean
@@ -60,9 +62,10 @@ const answered = (run, key) => run.results.some((r) => r.key === key);
 
 // The next unanswered item from `from`, else the summary.
 function advance(run, from = run.index) {
-  for (let i = from; i < run.items.length; i += 1) if (!answered(run, run.items[i].key)) return { ...run, index: i, phase: 'item', pending: null };
-  for (let i = 0; i < from && i < run.items.length; i += 1) if (!answered(run, run.items[i].key)) return { ...run, index: i, phase: 'item', pending: null };
-  return { ...run, phase: 'summary', pending: null };
+  const fresh = { ...run, pending: null, showing: null, guide: null };
+  for (let i = from; i < run.items.length; i += 1) if (!answered(run, run.items[i].key)) return { ...fresh, index: i, phase: 'item' };
+  for (let i = 0; i < from && i < run.items.length; i += 1) if (!answered(run, run.items[i].key)) return { ...fresh, index: i, phase: 'item' };
+  return { ...fresh, phase: 'summary' };
 }
 
 export const currentItem = (run) => (run && run.items[run.index]) || null;
@@ -93,14 +96,16 @@ export function viewFor(run, game, ctx, research) {
     const step = game.practice.script[run.practice.step] || null;
     const item = step ? game.practice.items[step.item] : null;
     return { item, research, decisions: item ? decisionsFor(null, game, item, ctx) : [], index: run.practice.step,
-      total: game.practice.script.length, practice: true, step, warning: item && alerting(item) ? REMOVAL_WARNING : '',
+      total: game.practice.script.length, practice: true, step, warning: item && alerting(item) ? REMOVAL_WARNING : '', siblings: [], results: [],
       answer: run.practice.answers[run.practice.step] || null };
   }
   const item = currentItem(run);
   const pending = run.pending;
   return { item, research, decisions: item ? decisionsFor(run, game, item, ctx) : [], index: run.index, total: run.items.length,
-    practice: false, warning: item && (alerting(item) || (pending && pending.warning)) ? REMOVAL_WARNING : '',
+    practice: false, warning: item && (alerting(item) || (pending && pending.warning) || (run.guide && run.guide.key === item.key && run.guide.warning)) ? REMOVAL_WARNING : '',
     closer: !!(item && run.closer[item.key]), confirming: run.phase === 'confirm' ? pending : null, done: doneCount(run),
+    // Answered, its steps on screen until NEXT.
+    showing: !!(item && run.showing && run.showing.key === item.key),
     siblings: run.items.filter((x) => x !== item), results: summaryResults(run),
     // What the last state-only move asked to show (a checklist, steps, a focus).
     guide: item && run.guide && run.guide.key === item.key ? run.guide : null };
@@ -116,52 +121,95 @@ const modulesOf = (effect, item) => {
   return (list.length ? list : (item.seen_in || [item.finding && item.finding.module])).filter(Boolean).filter((x, i, a) => a.indexOf(x) === i);
 };
 
+// Text lists an effect carries: string[] or { standard: string[], city: string[] }
+// (the person's mode). Only strings; the screen escapes them.
+export function textList(v, mode) {
+  const list = Array.isArray(v) ? v : v && typeof v === 'object' ? v[mode === 'city' ? 'city' : 'standard'] : null;
+  return Array.isArray(list) ? list.filter((x) => typeof x === 'string' && x.trim()) : [];
+}
+const textOf = (v, mode) => (typeof v === 'string' ? v : v && typeof v === 'object' && typeof v[mode === 'city' ? 'city' : 'standard'] === 'string' ? v[mode === 'city' ? 'city' : 'standard'] : '');
+
+// What a decision asks to show with it (R9, R10): steps, a checklist, a hint,
+// a focus (which part of the job the steps are for) and `off` (switch-off steps).
+export function guideOf(item, d, mode) {
+  const e = d.effect || {};
+  const steps = textList(e.steps, mode);
+  const checklist = textList(e.checklist, mode);
+  const hint = textOf(e.hint, mode) || textOf(d.hint, mode);
+  const focus = typeof e.focus === 'string' && /^[a-z][a-z-]{0,30}$/.test(e.focus) ? e.focus : '';
+  const off = e.off === true;
+  if (!steps.length && !checklist.length && !hint) return null;
+  return { key: item.key, decision: d.id, steps, checklist, hint, focus, off, warning: e.warning === true };
+}
+
+// Effects that answer the item without the computer being touched. With
+// something to show (steps, a checklist), the item stays on screen, answered,
+// until NEXT (proceed); otherwise the next item comes straight away.
+const ANSWERS = new Set(['later', 'keep', 'note', 'odd']);
+const confirmed = (run, item, d) => !!(run.pending && run.pending.confirmed && run.pending.key === item.key && run.pending.decision.id === d.id);
+
 // `ctx.resolve(intent)`: research.js resolveLink with the mode and platform.
 export function choose(run, id, game, ctx) {
   if (run.phase !== 'item' && run.phase !== 'confirm') return { run, act: null };
+  if (run.showing) return { run, act: null };
   const item = currentItem(run);
   if (!item) return { run, act: null };
   const d = decisionsFor(run, game, item, ctx).find((x) => x.id === id);
   if (!d) return { run, act: null };
   const e = d.effect;
-  const steps = Array.isArray(e.steps) ? e.steps.filter((x) => typeof x === 'string') : [];
-  const checklist = Array.isArray(e.checklist) ? e.checklist.filter((x) => typeof x === 'string') : [];
-  const hint = typeof e.hint === 'string' ? e.hint : typeof d.hint === 'string' ? d.hint : '';
-  const focus = typeof e.focus === 'string' ? e.focus : '';
-  const guide = steps.length || checklist.length || hint || focus ? { key: item.key, steps, checklist, hint, focus } : null;
+  const mode = ctx && ctx.mode === 'city' ? 'city' : 'standard';
+  const guide = guideOf(item, d, mode);
+  const steps = guide ? guide.steps : [];
+  // R6: a warned effect shows the removal warning first and acts only after
+  // the person has read it (a fix's own confirm is FixFlow's panel).
+  if (e.warning === true && e.kind !== 'fix' && !confirmed(run, item, d)) {
+    return { run: { ...run, phase: 'confirm', pending: { key: item.key, decision: d, warning: true, deferred: d.id } }, act: null };
+  }
+  const base = { ...run, phase: 'item', pending: null };
   switch (e.kind) {
-    case 'later': case 'keep': case 'note':
-      return { run: advance(record(run, item, d)), act: guide ? { kind: 'steps', ...guide } : null };
-    case 'odd':
-      return { run: advance(record(run, item, d)), act: { kind: 'odd', item, module: e.module || item.finding.module, code: e.code || item.finding.code || null, key: e.key || item.key } };
+    case 'later': case 'keep': case 'note': case 'odd': {
+      const odd = e.kind === 'odd' ? { kind: 'odd', item, module: e.module || item.finding.module, code: e.code || item.finding.code || null, key: e.key || item.key } : null;
+      const answered = record(base, item, d);
+      if (guide && (guide.steps.length || guide.checklist.length)) {
+        return { run: { ...answered, guide, showing: { key: item.key } }, act: odd || { kind: 'steps', ...guide } };
+      }
+      return { run: advance(answered), act: odd };
+    }
     case 'closer':
-      return { run: { ...run, closer: { ...run.closer, [item.key]: true }, guide }, act: guide ? { kind: 'steps', ...guide } : null };
+      return { run: { ...base, closer: { ...run.closer, [item.key]: true }, guide }, act: guide ? { kind: 'steps', ...guide } : null };
     case 'mark':
-      return { run: { ...run, pending: { key: item.key, decision: d } }, act: { kind: 'mark', item, steps } };
+      return { run: { ...base, guide, pending: { key: item.key, decision: d } }, act: { kind: 'mark', item, steps } };
     case 'fix':
       // Always a confirm with the warning first (FixFlow's own panel is that confirm).
       return { run: { ...run, phase: 'confirm', pending: { key: item.key, decision: d, warning: alerting(item) } },
         act: { kind: 'fix', item, options: fixOptions(item, ctx.mode) } };
     case 'settings': case 'link': {
-      const resolved = ctx.resolve ? ctx.resolve(e.kind === 'settings' ? { kind: 'settings', pane: e.pane, permission: e.permission } : e.link || e) : null;
-      const act = { kind: e.kind === 'settings' ? 'settings' : 'link', item, url: resolved ? resolved.url : null, text: resolved ? resolved.text : '', steps };
-      if (e.warning === true && !(run.pending && run.pending.confirmed && run.pending.key === item.key && run.pending.decision.id === d.id)) {
-        return { run: { ...run, phase: 'confirm', pending: { key: item.key, decision: d, warning: true, act } }, act: null };
-      }
-      return { run: { ...run, phase: 'item', pending: null, opened: { ...run.opened, [item.key]: d.id } }, act };
+      const intent = e.kind === 'settings' ? { kind: 'settings', pane: e.pane, permission: e.permission } : e.link || e;
+      const resolved = ctx.resolve ? ctx.resolve(intent) : null;
+      const act = { kind: e.kind === 'settings' || (resolved && resolved.kind === 'settings') ? 'settings' : 'link', item,
+        url: resolved ? resolved.url : null, text: resolved ? resolved.text : '', steps };
+      return { run: { ...base, guide, opened: { ...run.opened, [item.key]: d.id } }, act };
     }
     case 'recheck':
-      return { run: { ...run, pending: { key: item.key, decision: d } }, act: { kind: 'recheck', item, modules: modulesOf(e, item), steps } };
+      return { run: { ...base, guide, pending: { key: item.key, decision: d } }, act: { kind: 'recheck', item, modules: modulesOf(e, item), steps } };
     default:
       return { run, act: null };
   }
 }
 
-// The warning was read: carry the act out.
-export function confirmPending(run) {
+// After an answered item's steps: on to the next one.
+export function proceed(run) {
+  if (!run || !run.showing) return run;
+  return advance({ ...run, showing: null, guide: null }, run.index + 1);
+}
+
+// The warning was read: carry the decision out (`game`, `ctx` as for choose).
+export function confirmPending(run, game = null, ctx = {}) {
   const p = run.pending;
-  if (run.phase !== 'confirm' || !p || !p.act) return { run, act: null };
-  return { run: { ...run, phase: 'item', pending: null, opened: { ...run.opened, [p.key]: p.decision.id } }, act: p.act };
+  if (run.phase !== 'confirm' || !p) return { run, act: null };
+  if (p.act) return { run: { ...run, phase: 'item', pending: null, opened: { ...run.opened, [p.key]: p.decision.id } }, act: p.act };
+  if (p.deferred && game) return choose({ ...run, pending: { ...p, confirmed: true } }, p.deferred, game, ctx);
+  return { run, act: null };
 }
 export function cancelPending(run) {
   return { ...run, phase: run.phase === 'confirm' ? 'item' : run.phase, pending: null };

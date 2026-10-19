@@ -95,7 +95,7 @@ test('R6: a settings decision with warning: true shows the warning before the pa
   assert.strictEqual(r.act, null);
   assert.strictEqual(r.run.phase, 'confirm');
   assert.strictEqual(Run.viewFor(r.run, g, ctxOf(C, R), {}).warning, Run.REMOVAL_WARNING);
-  r = Run.confirmPending(r.run);
+  r = Run.confirmPending(r.run, g, ctxOf(C, R));
   assert.strictEqual(r.act.kind, 'settings');
   assert.ok(r.act.url.startsWith('x-apple.systempreferences:'));
   assert.strictEqual(r.run.index, 0, 'the item stays open after the pane opens');

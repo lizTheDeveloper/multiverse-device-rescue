@@ -42,14 +42,17 @@ export function renderMissionRows(missions, { mode = 'standard', status = () => 
     ? `<div class="label mx-notes-label">${esc(mode === 'city' ? 'SIGNAL OR NOISE (OPTIONAL)' : 'GOOD TO KNOW (OPTIONAL)')}</div><ul class="missions mx-list">${notes.map(row).join('')}</ul>` : ''}`;
 }
 
-const listHtml = (items, cls) => (items && items.length ? `<ol class="${cls}">${items.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : '');
+// Lines a game wrote can carry scan values: control and bidi characters are shown, never obeyed.
+const visible = (s) => String(s == null ? '' : s).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
+const vesc = (s) => esc(visible(s));
+const listHtml = (items, cls) => (items && items.length ? `<ol class="${cls}">${items.map((s) => `<li>${vesc(s)}</li>`).join('')}</ol>` : '');
 
 function linksHtml(links, mode) {
   if (!links || !links.length) return '';
   const rows = links.map((l, i) => {
     if (l.kind === 'lesson') return `<li><button type="button" class="btn-t" data-act="mx-lesson:${esc(l.concept)}">${esc(words(l.label, mode))} ▶</button></li>`;
     if (l.url) return `<li><button type="button" class="btn-t" data-act="mx-link:${i}">${esc(words(l.label, mode))} ▶</button></li>`;
-    return l.text ? `<li class="mx-link-text">${esc(l.text)}</li>` : '';
+    return l.text ? `<li class="mx-link-text">${vesc(l.text)}</li>` : '';
   }).join('');
   return rows ? `<div class="mx-links"><div class="label">${esc(mode === 'city' ? 'INTEL' : 'CHECK IT YOURSELF')}</div><ul>${rows}</ul></div>` : '';
 }
@@ -60,9 +63,26 @@ function warningHtml(warning, mode, place) {
   return `<div class="panel safety mx-warning" role="note"><p class="intel"><b>${esc(warning)}</b></p></div>`;
 }
 
-function guideHtml(g) {
+// What a decision's focus says the steps are for (runner.js guideOf). Fixed
+// words only: a focus id the screen doesn't know gets the plain heading.
+const FOCUS = {
+  check: { standard: 'What to check', city: 'What to look for' },
+  'move-aside': { standard: 'To move it aside', city: 'To set it aside' },
+  stop: { standard: 'To stop it', city: 'To shut it down' },
+  'turn-off': { standard: 'To switch it off', city: 'To switch it off' },
+};
+const OFF = { standard: 'To switch it off', city: 'To shut it out' };
+const CHECK = { standard: 'What to check', city: 'What to look for' };
+const STEPS = { standard: 'Steps', city: 'The moves' };
+
+// A decision's steps, checklist and hint (R9, R10), every line escaped.
+function guideHtml(g, mode) {
   if (!g) return '';
-  return `<div class="panel mx-guide" role="note">${g.hint ? `<p class="intel">${esc(g.hint)}</p>` : ''}${listHtml(g.checklist, 'mx-checklist')}${listHtml(g.steps, 'mx-steps')}</div>`;
+  const m = mode === 'city' ? 'city' : 'standard';
+  const head = (FOCUS[g.focus] || (g.off ? OFF : null));
+  const h = (t) => `<p class="label mx-guide-head">${esc(t[m])}</p>`;
+  const lists = `${g.checklist && g.checklist.length ? `${h(head || CHECK)}${listHtml(g.checklist, 'mx-checklist')}` : ''}${g.steps && g.steps.length ? `${h(g.checklist && g.checklist.length ? STEPS : head || STEPS)}${listHtml(g.steps, 'mx-steps')}` : ''}`;
+  return `<div class="panel mx-guide" role="note"${g.focus && FOCUS[g.focus] ? ` data-focus="${esc(g.focus)}"` : ''}>${g.hint ? `<p class="intel">${vesc(g.hint)}</p>` : ''}${lists}</div>`;
 }
 
 const decisionButtons = (decisions, mode, act, disabled = false) => `<div class="mx-decisions" role="group" aria-label="Your decision">${decisions
@@ -82,7 +102,7 @@ export function renderMissionScreen(o) {
     <h2 class="m-title">${esc(title)}${part ? ` <small class="mx-part">${esc(part)}</small>` : ''}</h2>`;
   const practiceBtn = canPractice && run.phase !== 'practice' && run.phase !== 'offer'
     ? '<button type="button" class="btn-t mx-practice" data-act="mx-practice">PRACTICE ▶</button>' : '';
-  const said = notice ? `<p class="intel mx-notice" role="status">${esc(notice)}</p>` : '';
+  const said = notice ? `<p class="intel mx-notice" role="status">${vesc(notice)}</p>` : '';
   const checking = busy ? '<p class="checking" role="status" aria-live="polite">Checking again… This only looks; it doesn’t change anything.</p>' : '';
 
   if (run.phase === 'offer') {
@@ -125,12 +145,13 @@ export function renderMissionScreen(o) {
     ${said}${checking}
     ${warningHtml(view.warning, mode, place)}
     <div class="mx-card">${cardHtml}</div>
-    ${unfinished}${guideHtml(view.guide)}
+    ${unfinished}${guideHtml(view.guide, mode)}
     ${view.closer || research.open ? evidenceHtml : `<details class="mx-evidence"><summary class="label">${esc(mode === 'city' ? 'WHAT THE SWEEP SAW' : 'WHAT THE CHECK SAW')}</summary>${evidenceHtml}</details>`}
     ${linksHtml(research.links, mode)}
     ${confirm}${act}
-    ${confirming || actHtml || busy ? '' : decisionButtons(view.decisions || [], mode, 'mx-decide')}
-    ${confirming || actHtml || busy ? '' : '<button type="button" class="btn-t" data-act="mx-skip">SKIP FOR NOW</button>'}
+    ${view.showing && !busy ? `<div class="row"><button type="button" class="btn-p" data-act="mx-continue">${esc(view.index + 1 < view.total ? 'NEXT ▶' : 'FINISH ▶')}</button></div>` : ''}
+    ${confirming || actHtml || busy || view.showing ? '' : decisionButtons(view.decisions || [], mode, 'mx-decide')}
+    ${confirming || actHtml || busy || view.showing ? '' : '<button type="button" class="btn-t" data-act="mx-skip">SKIP FOR NOW</button>'}
   </section>`;
 }
 
