@@ -696,10 +696,23 @@ function sortByImportance(findings) {
 }
 
 /**
- * Good to know, one box per check: its name, how many notes, and each note
- * as one line (the cards themselves open from there). Checks in the order
- * the checkup ran them.
+ * Good to know, by area: one closed box per area (the city's districts, in
+ * plain words) with its count; inside, a check with several notes is its own
+ * closed box, and a check's single note is one line. Areas in a fixed order,
+ * checks in the order the checkup ran them. The area is the check's category
+ * (as NotChecked.scanCounts' byDistrict counts it).
  */
+const NOTE_AREAS = [
+  { id: 'security', name: 'Security' },
+  { id: 'network', name: 'Network' },
+  { id: 'integrity', name: 'Updates and system files' },
+  { id: 'performance', name: 'Speed and storage' },
+  { id: 'bloatware', name: 'Clutter' },
+  { id: 'other', name: 'Everything else' },
+];
+function noteAreaOf(category) {
+  return NOTE_AREAS.some((a) => a.id === category && a.id !== 'other') ? category : 'other';
+}
 function groupByCheck(findings, mode, doc) {
   const by = new Map();
   for (const f of findings || []) {
@@ -708,6 +721,14 @@ function groupByCheck(findings, mode, doc) {
     by.get(key).push(f);
   }
   return [...by.entries()].map(([module, list]) => ({ module, name: checkName(module, mode, doc), findings: list }));
+}
+function groupByArea(findings, mode, doc) {
+  const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
+  const cat = new Map(mods.filter(Boolean).map((m) => [m.name, m.category]));
+  const checks = groupByCheck(findings, mode, doc);
+  return NOTE_AREAS.map((a) => ({ id: a.id, name: a.name,
+    checks: checks.filter((c) => noteAreaOf(cat.get(c.module) || null) === a.id) }))
+    .filter((a) => a.checks.length);
 }
 
 /**
@@ -931,6 +952,8 @@ if (typeof module !== 'undefined' && module.exports) {
     sortByImportance,
     importanceRank,
     groupByCheck,
+    groupByArea,
+    noteAreaOf,
     plainNotChecked,
     mergeModules,
     notStartedLine,
@@ -1388,7 +1411,7 @@ if (typeof document !== 'undefined') {
     // `partial`: the scan is still running. The cards are the same, with
     // nothing on them that changes the computer or the list (main refuses
     // those mid-scan too: scan-gate.js).
-    function renderSeverityGroup(severity, findings, partial = false, shownDoc = null) {
+    function renderSeverityGroup(severity, findings, partial = false, shownDoc = null, counts = null) {
       if (findings.length === 0) return '';
       // City mode: the fix panel's extra warning about whoever set something up.
       const watched = mode === 'city';
@@ -1495,24 +1518,38 @@ if (typeof document !== 'undefined') {
             </li>`;
       };
 
-      // Good to know: one closed box, then one closed box per check with its
-      // count, each note one line until opened. Nothing in it needs doing.
+      // Good to know: one closed box, then one closed box per area with its
+      // count; inside, a closed box per check with several notes, and a
+      // check's one note as its line. Nothing in it needs doing.
       if (note) {
-        const checks = groupByCheck(findings, mode, shownDoc);
-        const boxes = checks.map((c) => `
-            <li class="info-check">
-              <details class="info-check__fold">
-                <summary><span class="info-check__name">${escapeHtml(c.name)}</span> <span class="results-group__count">${c.findings.length}</span></summary>
-                <ul class="findings-list findings-list--notes" data-group-list>${c.findings.map((f, i) => cardHtml(f, i)).join('')}</ul>
+        const areas = groupByArea(findings, mode, shownDoc);
+        // The numbers are scanCounts' (byDistrict, by area).
+        const byArea = NotCheckedRule.scanCounts(shownDoc, { mode: mode === 'city' ? 'city' : 'standard', districtOf: noteAreaOf }).byDistrict;
+        // TODO(C5): scanCounts' byDistrict has no `info` yet; until it does, the area's own notes are counted.
+        const areaCount = (a) => (byArea[a.id] && typeof byArea[a.id].info === 'number' ? byArea[a.id].info
+          : a.checks.reduce((n, c) => n + c.findings.length, 0));
+        const checkHtml = (c) => (c.findings.length === 1 ? cardHtml(c.findings[0], 0) : `
+                <li class="info-check">
+                  <details class="info-check__fold">
+                    <summary><span class="info-check__name">${escapeHtml(c.name)}</span> <span class="results-group__count">${c.findings.length}</span></summary>
+                    <ul class="findings-list findings-list--notes" data-group-list>${c.findings.map((f, i) => cardHtml(f, i)).join('')}</ul>
+                  </details>
+                </li>`);
+        // Checks with several notes first, then the single notes.
+        const boxes = areas.map((a) => `
+            <li class="info-area">
+              <details class="info-area__fold">
+                <summary><span class="info-area__name">${escapeHtml(a.name)}</span> <span class="results-group__count">${areaCount(a)}</span></summary>
+                <ul class="info-checks">${[...a.checks.filter((c) => c.findings.length > 1), ...a.checks.filter((c) => c.findings.length === 1)].map(checkHtml).join('')}</ul>
               </details>
             </li>`).join('');
         return `
         <section class="results-group results-group--info" data-results-group="info">
           <details class="results-group__fold">
             <summary><span class="chip chip--info">${escapeHtml(SEVERITY_LABELS.info)}</span>
-              <span class="results-group__count">${findings.length}</span>
-              <span class="muted">${escapeHtml(`${SEVERITY_DESCRIPTIONS.info} Grouped by check (${checks.length}).`)}</span></summary>
-            <ul class="info-checks">${boxes}</ul>
+              <span class="results-group__count">${counts ? counts.info : findings.length}</span>
+              <span class="muted">${escapeHtml(SEVERITY_DESCRIPTIONS.info)}</span></summary>
+            <ul class="info-areas">${boxes}</ul>
           </details>
         </section>`;
       }
@@ -1674,7 +1711,7 @@ if (typeof document !== 'undefined') {
       // carries it; those cards keep the one bold line. City mode: every
       // card keeps its note in full, as before.
       safetyCards = mode === 'city' ? null : [];
-      const cardsHtml = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial, doc)).join('');
+      const cardsHtml = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial, doc, counts)).join('');
       const banner = safetyCards ? QuietNotes.bannerHtml(QuietNotes.bannerNotes(safetyCards), escapeHtml) : '';
       safetyCards = null;
       keepFocus(groupsEl, () => {

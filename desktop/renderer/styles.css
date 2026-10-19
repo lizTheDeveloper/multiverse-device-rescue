@@ -1595,6 +1595,10 @@ h3[tabindex="-1"]:focus {
 .card-answers > .fix-it, .card-answers > .mark-mine, .card-answers > .did-this { margin-top: 0; }
 
 /* Good to know: one box per check, each note one line until opened. */
+.info-areas { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.info-area__fold > summary { cursor: pointer; padding: 0.4rem 0; font-weight: 600; font-size: 1.02rem; }
+.info-area__fold > summary .results-group__count { margin-left: 0.3rem; }
+.info-area__fold > .info-checks { margin-left: 1rem; }
 .info-checks { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .info-check__fold > summary { cursor: pointer; padding: 0.35rem 0; font-weight: 600; }
 .info-check__fold > summary .results-group__count { margin-left: 0.3rem; }

@@ -181,3 +181,31 @@ for (const file of ['replay-full.json', 'replay-errors.json', 'replay-held.json'
     await tick();
   });
 }
+
+// ---------------------------------------------------------------------------
+// (3) Good to know: a few areas, not one box per check.
+// ---------------------------------------------------------------------------
+test('Good to know on the full replay: a handful of areas, each counted, all closed', async () => {
+  const doc = fixture('replay-full.json');
+  const p = page();
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  p.byId('btn-run-scan').click();
+  await p.finish(doc);
+  if (p.shown().includes('question')) p.answer('known');
+  const info = p.byId('results-groups').innerHTML.split('data-results-group="info"')[1];
+  const areas = [...info.matchAll(/<span class="info-area__name">([^<]+)<\/span> <span class="results-group__count">(\d+)<\/span>/g)];
+  assert.ok(areas.length >= 2 && areas.length <= 6, `${areas.length} areas`);
+  const c = NC.scanCounts(doc);
+  assert.strictEqual(areas.reduce((n, a) => n + Number(a[2]), 0), c.info, 'the areas add up to the notes count');
+  assert.doesNotMatch(info, /<details[^>]* open/, 'everything starts closed');
+  await tick();
+});
+
+test('a note’s area is its check’s category; anything unknown goes to “Everything else”', () => {
+  const app = require('../renderer/app.js');
+  const doc = { modules: [{ name: 'a', category: 'network' }, { name: 'b', category: 'weird' }, { name: 'c', category: 'security' }] };
+  const areas = app.groupByArea([{ module: 'a' }, { module: 'b' }, { module: 'c' }, { module: 'c' }], 'standard', doc);
+  assert.deepStrictEqual(areas.map((a) => [a.name, a.checks.map((x) => x.findings.length)]),
+    [['Security', [2]], ['Network', [1]], ['Everything else', [1]]]);
+});

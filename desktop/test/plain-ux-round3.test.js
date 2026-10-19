@@ -218,7 +218,7 @@ test('P1-1: a stopped checkup says so in one plain line, keeps the raw text for 
 // ---------------------------------------------------------------------------
 // P2-7: Good to know, grouped by check.
 // ---------------------------------------------------------------------------
-test('P2-7: Good to know is one box per check with its count, each note one line until opened', async () => {
+test('P2-7 (round 5): Good to know is one box per area, a box per check with several notes, each note one line until opened', async () => {
   const note = (t) => ({ title: t, severity: 'info', category: 'integrity', description: 'x', data: { path: '/tmp/x' } });
   const p = await results({ schema_version: 1, platform: 'darwin', modules: [
     mod('font_issues', [note('Font A'), note('Font B'), note('Font C')], { check_name: 'Fonts' }),
@@ -226,8 +226,10 @@ test('P2-7: Good to know is one box per check with its count, each note one line
   ] });
   const html = p.byId('results-groups').innerHTML;
   const info = html.split('data-results-group="info"')[1];
+  assert.match(info, /<span class="info-area__name">Security<\/span> <span class="results-group__count">4<\/span>/);
   assert.match(info, /<span class="info-check__name">Fonts<\/span> <span class="results-group__count">3<\/span>/);
-  assert.match(info, /<span class="info-check__name">Login items<\/span> <span class="results-group__count">1<\/span>/);
+  assert.doesNotMatch(info, /info-check__name">Login items/, 'a check with one note is just that note');
+  assert.match(info, /Login item: Amical/);
   assert.match(info, /<details class="finding-note"><summary class="finding-note__summary">[\s\S]*?<h3[^>]*>Font A<\/h3><\/summary>/,
     'the title is the line; its evidence opens with it');
   assert.doesNotMatch(info, /data-show-more/);
