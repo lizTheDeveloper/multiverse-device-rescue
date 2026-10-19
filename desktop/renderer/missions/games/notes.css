@@ -1,0 +1,31 @@
+/* Signal or Noise, in batches: the notes game. One game skin; uses the city's CSS variables
+   (game.css) and the Signal or Noise clue classes (.clues, .clue.open, .clue-line, .say, .points). */
+.nt-card { display: grid; gap: 10px; align-content: start; padding: 16px 18px; background: #0d1018;
+  border: 1px solid rgba(0, 229, 255, 0.45); max-width: 560px; }
+.nt-card.nt-practice { border: 2px solid var(--lime);
+  background-image: repeating-linear-gradient(45deg, rgba(198, 255, 0, 0.06) 0 8px, transparent 8px 16px); }
+.nt-banner { margin: 0; font-size: 14px; color: var(--offwhite); }
+.nt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+.nt-head small { color: var(--dim); font-size: 13px; }
+.nt-count { margin-left: auto; font-family: var(--font-mono); font-size: 13px; color: var(--cyan); letter-spacing: 1px; }
+.nt-title { margin: 0; overflow-wrap: anywhere; }
+.nt-clues { margin: 0; }
+.nt-clue .label { font-family: var(--font-display); font-size: 11px; letter-spacing: 1px; color: var(--cyan); }
+.nt-tell { margin: 0; padding: 8px 12px; border-left: 2px solid var(--amber); background: rgba(255, 159, 0, 0.08); font-size: 15px; }
+.nt-lean { margin: 0; font-size: 14px; color: var(--dim); }
+.nt-unfinished { margin: 0; font-size: 15px; }
+.nt-step { margin: 0; }
+.nt-step .say { margin: 0; flex: 1 1 auto; border-color: var(--lime); }
+
+.nt-summary { display: grid; gap: 8px; padding: 16px 18px; border: 1px solid var(--line); background: var(--panel); max-width: 560px; }
+.nt-summary .label { font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; color: var(--cyan); }
+.nt-summary .intel { margin: 0; font-size: 15px; }
+.nt-summary .faint { color: var(--dim); }
+.nt-points, .nt-bonus { margin: 0; font-family: var(--font-mono); font-size: 16px; color: var(--lime); }
+.nt-progress { margin: 0; font-family: var(--font-mono); font-size: 18px; color: var(--offwhite); }
+.nt-area { font-family: var(--font-mono); }
+
+@media (max-width: 800px) {
+  .nt-card, .nt-summary { max-width: none; padding: 14px; }
+  .nt-count { margin-left: 0; }
+}
