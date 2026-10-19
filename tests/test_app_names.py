@@ -1,6 +1,9 @@
 """Bundle id -> app name, read from Info.plist fixtures."""
 
 import plistlib
+import sys
+
+import pytest
 
 from rescue import app_names
 from rescue.app_names import app_rows, build_index, display_name
@@ -44,6 +47,7 @@ def test_unknown_bundle_id_keeps_its_id(tmp_path):
     assert display_name("com.example.notinstalled", idx) == "com.example.notinstalled"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="app bundles live at POSIX paths; tmp_path on Windows is C:\\...")
 def test_path_entries_read_that_apps_plist(tmp_path):
     app = _app(tmp_path, "Tool.app", {"CFBundleIdentifier": "com.example.tool", "CFBundleName": "Tool"})
     assert display_name(str(app) + "/Contents/MacOS/tool", {}) == "Tool"

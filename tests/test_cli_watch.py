@@ -1,4 +1,5 @@
 import json
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -90,6 +91,9 @@ def test_human_summary_without_json():
     assert "Watched" in result.output
 
 
+# On Windows os.kill(..., SIGTERM) is TerminateProcess: it ends pytest itself.
+# The desktop app stops a watch through stdin there, which other tests cover.
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGTERM terminates the process on Windows")
 def test_signals_set_the_stop_flag_and_handlers_are_restored():
     import os
     import signal
