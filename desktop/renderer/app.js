@@ -1394,7 +1394,7 @@ if (typeof document !== 'undefined') {
           // City mode: nothing from a monitoring check goes to the clipboard or
           // to a website (monitoring apps can read the clipboard), and the
           // whole-report copy leaves it out.
-          const noClipboard = held || (mode === 'city' && QuietNotes.isMonitoring(finding));
+          const noClipboard = held || EvidenceRule.noClipboard(mode, finding.seen_in || finding.module);
           const pick = noClipboard ? null : copyAiPick(finding);
           if (pick) cardPicks.set(key, pick);
           cardTech.set(key, {
@@ -1433,7 +1433,7 @@ if (typeof document !== 'undefined') {
           const title = `<h3 tabindex="-1">${escapeHtml(finding.title || 'Untitled finding')}</h3>`;
           const body = `
               <div class="cleared-note" data-cleared-note role="status" aria-live="polite" hidden></div>
-              <div class="evidence-slot" data-evidence-slot>${EvidenceRule.renderEvidence(rows)}</div>
+              <div class="evidence-slot" data-evidence-slot>${EvidenceRule.renderEvidence(rows, { copy: !noClipboard })}</div>
               ${prose.why || lesson ? `<p class="finding-card__why">${escapeHtml(prose.why)}${lesson ? `${prose.why ? ' ' : ''}<button type="button" class="link-button finding-card__lesson" data-lesson-link="${lesson}">What does this mean?</button>` : ''}</p>` : ''}
               ${prose.todo ? `<p class="finding-card__todo"><strong>What to do:</strong> ${escapeHtml(prose.todo)}</p>` : ''}
               ${QuietNotes.lineHtml(card, escapeHtml, { first: !!(fix || mark) })}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
@@ -1777,7 +1777,10 @@ if (typeof document !== 'undefined') {
       for (const [key, { finding, held }] of cardFindings) {
         if (!(finding.seen_in || [finding.module]).some((m) => got.some(([g, c]) => g === m && c.length))) continue;
         const slot = root.querySelector(`[data-card-key="${key}"] [data-evidence-slot]`);
-        if (slot) slot.innerHTML = EvidenceRule.renderEvidence(cardEvidenceRows(finding, { mode, held, doc, commands: moduleCommandCache }));
+        if (slot) {
+          slot.innerHTML = EvidenceRule.renderEvidence(cardEvidenceRows(finding, { mode, held, doc, commands: moduleCommandCache }),
+            { copy: !EvidenceRule.noClipboard(mode, finding.seen_in || finding.module) });
+        }
       }
     }
 

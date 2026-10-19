@@ -15,6 +15,8 @@
  *     must not show (keyboard access, every maker verified): show the rows
  *   Evidence.evidenceText(rows) -> "Label: value" lines, what "Copy all" copies
  *   Evidence.wireCopy(root, write) -> click handling for the copy buttons
+ *   Evidence.noClipboard(mode, modules) -> true in city mode for a monitoring
+ *     check's finding: render it with { copy: false }
  *
  * `value` is what shows; `copy` is the full value (a whole hash, a whole path).
  * Home folders read "~" in both, so a pasted block doesn't carry the account
@@ -546,6 +548,17 @@ const Evidence = (function () {
   const PAPER_LINE = 'Write this on paper or on another device.';
 
   /**
+   * City mode: nothing from a monitoring check goes to the clipboard, held or
+   * not (monitoring apps can read it). `modules`: the check's name, or the
+   * names of every check that saw the finding. The one rule for the list,
+   * the game and Copy for any AI.
+   */
+  function noClipboard(mode, modules) {
+    const names = Array.isArray(modules) ? modules : [modules];
+    return mode === 'city' && names.some((m) => MONITORING_MODULES.has(m));
+  }
+
+  /**
    * An escaped value with a line-break chance after each "/", "\\" and "." of
    * a path or id, so a long value wraps between its names, not mid-name
    * (the CSS's overflow-wrap:anywhere is only the last resort).
@@ -628,7 +641,7 @@ const Evidence = (function () {
 
   return {
     MONITORING_MODULES, ADAPTERS, CSS, PAPER_LINE,
-    evidenceRows, renderEvidence, evidenceText, wireCopy, replacesDescription,
+    evidenceRows, renderEvidence, evidenceText, wireCopy, replacesDescription, noClipboard,
     plainDay, shortHash, shortPath, homeRelative, bytes, makersVerified, makerText, checkLabel, commandLine, shortCommand,
     appSubject, breakable,
   };

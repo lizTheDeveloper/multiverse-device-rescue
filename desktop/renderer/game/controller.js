@@ -1070,11 +1070,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return (r) => !(kinds.has('maker') && /^Made by/.test(r.label)) && !(kinds.has('saw') && r.label === 'Signature check said')
       && !said.has(EV.homeRelative(String(r.value == null ? '' : r.value)).trim());
   }
+  // City mode: no clipboard for any monitoring check's evidence (Evidence.noClipboard).
+  const evidenceOpts = (module) => ({ copy: !EV.noClipboard(inCity() ? 'city' : 'standard', module) });
   function evidenceOf(finding, module, keep = null) {
     const all = evidenceRowsOf(finding, module);
     const rows = keep ? Object.assign(all.filter(keep), { replacesDescription: all.replacesDescription }) : all;
     shownEv.set(module, { finding, keep });
-    return { html: `<div data-ev-module="${esc(module)}">${EV.renderEvidence(rows)}</div>`,
+    return { html: `<div data-ev-module="${esc(module)}">${EV.renderEvidence(rows, evidenceOpts(module))}</div>`,
       thin: rows.every((r) => BOOKKEEPING.has(r.label)), replaces: rows.replacesDescription === true };
   }
   function redrawEvidence(module) {
@@ -1084,7 +1086,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const all = evidenceRowsOf(shown.finding, module);
       const rows = shown.keep ? all.filter(shown.keep) : all;
       for (const el of frame.querySelectorAll('[data-ev-module]')) {
-        if (el.getAttribute('data-ev-module') === module) el.innerHTML = EV.renderEvidence(rows);
+        if (el.getAttribute('data-ev-module') === module) el.innerHTML = EV.renderEvidence(rows, evidenceOpts(module));
       }
     } catch (_) { /* the next render draws it */ }
   }
