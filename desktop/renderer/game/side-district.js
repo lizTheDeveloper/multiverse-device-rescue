@@ -49,7 +49,7 @@ export const SIX_ROSES = {
   name: 'The Story of Six Roses', url: 'https://themultiverse.school/x/six-roses', source: SIX,
   text: 'How a Gluten Free, Dairy Free Rose Apple Tart Saved My Life',
   quotes: ['How a Gluten Free, Dairy Free Rose Apple Tart Saved My Life'],
-  note: { source: SIX, text: 'It opens in your web browser and reads like a recipe. Delete this from your browser history after reading.',
+  note: { source: SIX, text: 'It opens in your web browser. The title looks like a recipe, but the page is a safety guide, so open it when you’re alone or on a device that’s yours. Delete this from your browser history after reading.',
     quotes: ['Delete this from your browser history after reading'] },
 };
 

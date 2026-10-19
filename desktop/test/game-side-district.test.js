@@ -21,7 +21,10 @@ const JOINING = 0;
 const OWN_WORDING = {
   'to look these up.': 'OPEN_NOTE: joins the library-computer advice to the list above',
   'first.': 'HELD.heading / HELD_LINE: the one word around its two quotes',
-  'it opens in your web browser and reads like a recipe. .': 'what the guide button does',
+  // Not "it reads like a recipe": only the title does. Right under it the page
+  // says it is a safety guide, with the hotline, so the person is told when to open it.
+  "it opens in your web browser. the title looks like a recipe, but the page is a safety guide, so open it when you're alone or on a device that's yours. .":
+    'what the guide button does, and that only the title looks like a recipe',
   'open the city to see how to keep a quiet record of it.': 'HELD_MORE: where the record steps are',
   'how to keep a quiet record, and who can help': 'HELD_HELP_TITLE: the label of the details',
   'if someone close to you may have installed it, talk to an . , .': 'DEFAULT_FULL: who the hotline sentence is for',
@@ -169,4 +172,16 @@ test('the list’s interim help is the sources’ own words too, every number in
     assert.doesNotMatch(item.text, TIME_WORDS, item.text);
     assert.doesNotMatch(item.text, /^(remove|uninstall|delete|turn off|reset)/i, item.text);
   }
+});
+
+// Fix round 2: the page only looks like a recipe by its title. Its next lines
+// say what it is, so the district says so, and when to open it.
+test('the guide button tells the truth about the page: only its title looks like a recipe', async () => {
+  const c = await load('side-district.js');
+  const note = c.SIX_ROSES.note.text;
+  assert.doesNotMatch(note, /reads like a recipe/i);
+  assert.match(note, /The title looks like a recipe, but the page is a safety guide, so open it when you’re alone or on a device that’s yours\./);
+  const page = source('six-roses');
+  assert.ok(page.includes(norm('a Digital Safety Guide for Domestic Violence Survivors')), 'the page says it is a safety guide');
+  assert.ok(page.includes(norm('How a Gluten Free, Dairy Free Rose Apple Tart Saved My Life')), 'its title is the recipe');
 });
