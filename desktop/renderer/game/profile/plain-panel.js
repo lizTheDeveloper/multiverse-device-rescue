@@ -17,6 +17,14 @@ import { buildPayload, publishOffered, PUBLISH_FIELDS, PUBLISH_READY } from './p
 import { renderProfile, renderPublishSheet, focusProfile } from '../views/profile.js';
 
 const FIELD_IDS = new Set(PUBLISH_FIELDS.map((f) => f.id));
+export const SAVED_FORMAT = 'Saved-progress format';
+
+// "On this checkup: 1 fixed · 2 marked as yours · 0 you said you did", from the host's list.
+export function plainCountsLine(c) {
+  if (!c || typeof c !== 'object') return '';
+  const n = (v) => (Number.isInteger(v) && v > 0 ? v : 0);
+  return `On this checkup: ${n(c.fixed)} fixed · ${n(c.marked)} marked as yours · ${n(c.did)} you said you did`;
+}
 
 // Specifiers resolve the way the game's own loaders expect: lessons against
 // training.js, drills against drills.js.
@@ -51,6 +59,9 @@ export function attachPlainPanel({ win, storage, loadBank = defaultLoadBank, pub
   const bank = () => (bankP = bankP || Promise.resolve().then(loadBank).then((b) => ({ b, failed: false }))
     .catch(() => { bankP = null; return { b: buildBank([], []), failed: true }; }));
   const st = { profile: null, bank: null, bankFailed: false, confirming: false, publish: null };
+  const listLine = () => {
+    try { return win.RescueHost && typeof win.RescueHost.listCounts === 'function' ? plainCountsLine(win.RescueHost.listCounts()) : ''; } catch (_) { return ''; }
+  };
 
   function draw() {
     const sum = summary(st.profile, st.bank);
@@ -73,7 +84,17 @@ export function attachPlainPanel({ win, storage, loadBank = defaultLoadBank, pub
       if (name === 'Lessons' && !panel.querySelector('[data-plain-where]')) {
         panel.insertAdjacentHTML('beforeend', '<p class="muted" data-plain-where>Lessons are played in the city view.</p>');
       }
+      // The list's own answers, from the same ledger the list keeps: a mark
+      // or a fix made here shows here (the profile counts only the city's).
+      if (name === 'Your checkups') {
+        const line = listLine();
+        const p = line ? panel.querySelector('p') : null;
+        if (p) p.textContent = line;
+      }
     }
+    // "Data history" is about the saved progress, not the computer.
+    const history = typeof root.querySelector === 'function' ? root.querySelector('footer details > summary') : null;
+    if (history && history.textContent.trim() === 'Data history') history.textContent = SAVED_FORMAT;
   }
   // Focus after a draw: an element by id, or a control by selector, else the
   // Start over question (data-autofocus) or the heading.

@@ -79,12 +79,21 @@ function withoutKeyCommentsDeep(value, depth = 0) {
   return out;
 }
 
-function technicalReportText(doc) {
-  return JSON.stringify(withoutKeyCommentsDeep(doc), null, 2);
+// City mode: the monitoring checks are left out of the copy entirely (names,
+// ids and findings), since monitoring software can read the clipboard.
+const COVER_LEFT_OUT = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+function withoutMonitoring(doc) {
+  if (!doc || !Array.isArray(doc.modules)) return doc;
+  return Object.assign({}, doc, { modules: doc.modules.filter((m) => !(m && COVER_LEFT_OUT.has(m.name))) });
+}
+
+function technicalReportText(doc, opts) {
+  const shown = opts && opts.cover ? withoutMonitoring(doc) : doc;
+  return JSON.stringify(withoutKeyCommentsDeep(shown), null, 2);
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { copyAiPanelHtml, copyAiPick, COPY_AI_INTRO, technicalReportText, KEY_COMMENT_LEFT_OUT };
+  module.exports = { copyAiPanelHtml, copyAiPick, COPY_AI_INTRO, technicalReportText, KEY_COMMENT_LEFT_OUT, withoutMonitoring };
 }
 
 if (typeof document !== 'undefined') {

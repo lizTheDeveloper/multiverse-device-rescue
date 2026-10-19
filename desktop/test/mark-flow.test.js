@@ -27,10 +27,18 @@ test('the button opens a hidden confirmation that says it stays listed and how t
   assert.ok(!html.includes('data-mark-program'), 'only the id is carried back');
   assert.match(html, /data-mark-panel hidden/);
   assert.match(html, /marked as yours/);
-  assert.match(html, /To undo later:/);
-  assert.match(html, /Stop treating this as mine/);
+  // Round 3: one line on its face; the engine's paragraph and the undo steps under For tech helpers.
+  assert.match(html, /Reclaim City stops warning about this task\. It stays listed as yours, and the warning comes back if the task changes\./);
+  assert.match(html, /<summary>For tech helpers<\/summary>[\s\S]*Stop treating this as mine/);
+  assert.doesNotMatch(html, /This will:|To undo later:/);
   assert.match(html, /Yes, it’s mine/);
   assert.ok(html.includes('Only do this if you set this up yourself.'));
+});
+
+test('round 3: the task confirm shows the program the way the card does, with ~ for the home folder', () => {
+  const html = MarkFlow.markControlsHtml({ markable: { ...MARKABLE, program: '/Users/annhoward/.hermes/venv/bin/python' } });
+  assert.match(html, /<dt>Program<\/dt><dd>~\/\.hermes\/venv\/bin\/python<\/dd>/);
+  assert.doesNotMatch(html, /annhoward/);
 });
 
 test('a marked finding offers unmark instead', () => {

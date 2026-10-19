@@ -55,6 +55,15 @@ const FixFlow = (function () {
       + (tech.length ? `<details class="tech-details"><summary>For tech helpers</summary>${tech.map((s) => `<p>${esc(s)}</p>`).join('')}</details>` : '');
   }
 
+  // A fix with an engine action has its own Undo button on the item, so the
+  // manual ways back are for a tech helper, not two numbered "steps".
+  const UNDO_HERE = 'Undo is on this item.';
+  function techUndoHtml(steps) {
+    const all = (steps || []).map(appWords).filter((x) => typeof x === 'string' && x.trim());
+    if (!all.length) return '';
+    return `<details class="tech-details"><summary>For tech helpers: undo it by hand</summary>${all.map((x) => `<p>${esc(x)}</p>`).join('')}</details>`;
+  }
+
   // Markup placed inside a finding card. The confirmation panel is rendered
   // hidden; opening it is a separate, deliberate click.
   // A fixable that names an engine action must also name a plausible target.
@@ -87,9 +96,9 @@ const FixFlow = (function () {
         <button type="button" class="btn btn--secondary btn--small" data-fix-open>Fix it for me</button>
         <div class="fix-panel" data-fix-panel hidden role="group" aria-label="Confirm fix">
           ${watched}
-          <p class="fix-panel__line"><strong>This will:</strong> ${esc(appWords(fixable.will_change))}</p>
-          <p class="fix-panel__line"><strong>To undo later:</strong></p>
-          ${undoListHtml(fixable.how_to_undo)}
+          <p class="fix-panel__line"><strong>What changes:</strong> ${esc(appWords(fixable.will_change))}</p>
+          ${act ? `<p class="fix-panel__line"><strong>To undo:</strong> ${esc(UNDO_HERE)}</p>${techUndoHtml(fixable.how_to_undo)}`
+    : `<p class="fix-panel__line"><strong>To undo later:</strong></p>${undoListHtml(fixable.how_to_undo)}`}
           <p class="muted fix-panel__note">Nothing else on your computer will be changed.</p>
           <div class="fix-panel__actions">
             <button type="button" class="btn btn--primary btn--small" data-fix-confirm>Yes, fix it</button>
@@ -128,8 +137,8 @@ const FixFlow = (function () {
     if (r.applied === true && r.status === 'unconfirmed') {
       return {
         tone: 'warning',
-        headline: 'We made the change, but couldn’t confirm it worked.',
-        detail: 'The check afterwards didn’t finish. Run the checkup again to see where things stand. You can undo the change with the steps below.',
+        headline: 'The fix ran, but the re-check couldn’t confirm it.',
+        detail: 'The change was made. The check afterwards didn’t finish, so we can’t say yet whether it worked. Run the checkup again to see where things stand. You can undo the change with the steps below.',
         undo,
       };
     }
@@ -164,6 +173,22 @@ const FixFlow = (function () {
     };
   }
 
+  /**
+   * A re-check that couldn't run, in words. After a fix that was applied,
+   * never "Nothing was changed": the change was made (Undo is on the item),
+   * the re-check just couldn't confirm it. The engine runner's own sentence
+   * says "Nothing was changed", so it is never shown after a fix.
+   * TODO(round-3 integration): the city's re-check result (game/views/outcome.js,
+   * Group B) and engine-runner's RECHECK_FAILED_MESSAGE (Group C) should use this.
+   */
+  function recheckFailedText({ fixApplied = false } = {}) {
+    if (fixApplied) {
+      return { headline: 'The change was made, but we couldn’t check it again just now.',
+        detail: 'The re-check couldn’t run, so we can’t confirm the fix yet. Undo is on this item. You can try the re-check again.' };
+    }
+    return { headline: 'We couldn’t check again just now.', detail: 'You can try again.' };
+  }
+
   function resultHtml(result) {
     const d = describeFixResult(result);
     return `
@@ -171,8 +196,8 @@ const FixFlow = (function () {
         <p class="fix-status__headline"><strong>${esc(d.headline)}</strong></p>
         ${d.detail ? `<p class="fix-status__detail">${esc(d.detail)}</p>` : ''}
         ${d.engine ? `<details class="tech-details"><summary>For tech helpers</summary><p>${esc(d.engine)}</p></details>` : ''}
-        ${d.undoId ? `<p><button type="button" class="btn btn--secondary btn--small" data-fix-undo data-quarantine-id="${esc(d.undoId)}">Undo</button></p>` : ''}
-        ${d.undo.length ? `<p class="fix-status__detail"><strong>To undo later:</strong></p>${undoListHtml(d.undo)}` : ''}
+        ${d.undoId ? `<p><button type="button" class="btn btn--secondary btn--small" data-fix-undo data-quarantine-id="${esc(d.undoId)}">Undo</button></p>${techUndoHtml(d.undo)}`
+    : d.undo.length ? `<p class="fix-status__detail"><strong>To undo later:</strong></p>${undoListHtml(d.undo)}` : ''}
       </div>`;
   }
 
@@ -284,6 +309,7 @@ const FixFlow = (function () {
         const result = action ? await api.runAction(action, actionTarget) : await api.runFix(name);
         status.innerHTML = resultHtml(result);
         const d = describeFixResult(result);
+        focusResult(card, status);
         notify('fix', card, result, d);
         state.delete(card);
         const others = action && (d.tone === 'success' || d.tone === 'info') ? markHandledElsewhere(card) : [];
@@ -294,6 +320,17 @@ const FixFlow = (function () {
         status.innerHTML = errorHtml();
         state.delete(card);
         if (open) open.hidden = false;
+        focusResult(card, status);
+      }
+    }
+
+    // Focus stays with the person: on Undo when there is one, else the answer.
+    function focusResult(card, status) {
+      const undoBtn = status && typeof status.querySelector === 'function' ? status.querySelector('[data-fix-undo]') : null;
+      if (undoBtn && typeof undoBtn.focus === 'function') { undoBtn.focus(); return; }
+      if (status && typeof status.focus === 'function') {
+        if (typeof status.setAttribute === 'function') status.setAttribute('tabindex', '-1');
+        status.focus();
       }
     }
 
@@ -311,6 +348,7 @@ const FixFlow = (function () {
         notify('undo', card, result, d);
         if (d.restored === true) {
           if (open) open.hidden = false;
+          if (open && typeof open.focus === 'function') open.focus();
           const others = unmarkHandledElsewhere(card);
           if (typeof on.onRestored === 'function') on.onRestored([card, ...others]);
         }
@@ -333,10 +371,17 @@ const FixFlow = (function () {
         if (status) { status.hidden = true; status.innerHTML = ''; }
         if (panel) panel.hidden = false;
         state.set(card, 'confirming');
+        // Focus moves to the confirmation (not its Yes button), so it is read first.
+        if (panel && typeof panel.focus === 'function') {
+          if (typeof panel.setAttribute === 'function') panel.setAttribute('tabindex', '-1');
+          panel.focus();
+        }
         return undefined;
       }
       if (target.hasAttribute('data-fix-cancel')) {
         closePanel(card);
+        const open = card.querySelector('[data-fix-open]');
+        if (open && typeof open.focus === 'function') open.focus();
         return undefined;
       }
       if (target.hasAttribute('data-fix-undo')) return undo(card, target);
@@ -354,7 +399,7 @@ const FixFlow = (function () {
     });
   }
 
-  return { WATCHED_WARNING, appWords, undoListHtml, fixableOf, fixControlsHtml, describeFixResult, resultHtml, attach, esc };
+  return { WATCHED_WARNING, UNDO_HERE, recheckFailedText, appWords, undoListHtml, fixableOf, fixControlsHtml, describeFixResult, resultHtml, attach, esc };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

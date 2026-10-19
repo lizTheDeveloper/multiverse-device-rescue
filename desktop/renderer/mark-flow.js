@@ -86,6 +86,15 @@ const MarkFlow = (function () {
   const STALE_ROW = 'Marked as yours before, but it has changed since.';
   // The engine couldn't look this one up this time: never say it changed.
   const UNCHECKED_ROW = 'Marked as yours before. We couldn’t check this one this time, so its warning is back. That doesn’t mean it changed. For now it can only be marked with the whole list.';
+  // A row the engine can't pin on its own, while a maker is shown for it: no
+  // "we couldn't check who made this one" beside "Made by X (verified)".
+  const ALONE_ONLY = 'This one can only be marked with the whole list.';
+  // The one line in a background task's confirm.
+  const TASK_LINE = 'Reclaim City stops warning about this task. It stays listed as yours, and the warning comes back if the task changes.';
+  // Home folders read "~", as on the card.
+  function homeRelative(p) {
+    return String(p).replace(/^\/Users\/[^/]+(?=\/|$)/, '~').replace(/^\/home\/[^/]+(?=\/|$)/, '~');
+  }
   const WHOLE_BUTTON = 'The whole list is mine';
   const WHOLE_HEAD = 'You’re saying the whole list is yours, as one answer:';
   const WHOLE_CHANGES = 'If anything on this list changes, its warning comes back.';
@@ -265,7 +274,7 @@ const MarkFlow = (function () {
     const apps = appRowsOf(m, rows);
     if (apps) return appsHtml(apps, finding && finding.made_by, String(apps.length));
     if (m.kind === 'background_task') {
-      rows.unshift(['Task', m.label], ['Program', m.program]);
+      rows.unshift(['Task', m.label], ['Program', homeRelative(m.program)]);
     }
     if (!rows.length) return '';
     return `<p class="fix-panel__line"><strong>What you are saying is yours:</strong></p>
@@ -344,7 +353,7 @@ const MarkFlow = (function () {
             <p class="fix-panel__line"><strong data-mark-whole-head tabindex="-1">${esc(WHOLE_HEAD)}</strong></p>
             ${showsHtml(m, finding)}
             ${alone > 0 ? `<p class="fix-panel__line">${esc(wholeIncludes(alone))}</p>` : ''}
-            <p class="fix-panel__line"><strong>This will:</strong> ${esc(appWords(m.will_change))}</p>
+            <p class="fix-panel__line"><strong>What changes:</strong> ${esc(appWords(m.will_change))}</p>
             <p class="fix-panel__line">${esc(WHOLE_CHANGES)}</p>
             <p class="fix-panel__line"><strong>To undo later:</strong></p>
             ${undoListHtml(m.how_to_undo)}
@@ -375,7 +384,7 @@ const MarkFlow = (function () {
         detail: e.detail && e.detail !== e.label ? e.detail : '',
         evidenceHtml: entryEvidence(m, finding, e),
         disabled: !e.id,
-        note: e.unchecked === true ? UNCHECKED_ROW : !e.id ? CANT_ALONE : (e.stale ? STALE_ROW : ''),
+        note: e.unchecked === true ? UNCHECKED_ROW : !e.id ? (makerText(makerEntry(finding && finding.made_by, e.key)) ? ALONE_ONLY : CANT_ALONE) : (e.stale ? STALE_ROW : ''),
       })),
       actions: [{ id: 'mark', verb: 'Mark', noun, suffix: 'as mine', min: 1 }],
       selectAll: true,
@@ -405,7 +414,7 @@ const MarkFlow = (function () {
           <div data-mark-items-confirm hidden>
             <p class="fix-panel__line"><strong data-mark-items-head tabindex="-1">You’re saying these are yours:</strong></p>
             <ul class="mark-apps">${confirmRows}</ul>
-            <p class="fix-panel__line"><strong>This will:</strong> ${esc(appWords(m.items_will_change || m.will_change))}</p>
+            <p class="fix-panel__line"><strong>What changes:</strong> ${esc(appWords(m.items_will_change || m.will_change))}</p>
             <p class="fix-panel__line"><strong>To undo later:</strong></p>
             ${undoListHtml(m.how_to_undo)}
             <p class="fix-panel__line fix-panel__warning"><strong>${esc(ONLY_IF_YOURS)}</strong></p>
@@ -453,12 +462,33 @@ const MarkFlow = (function () {
       if (entries) return entryControlsHtml(m, finding, entries, opts);
       const group = groupOf(m.id, m.ids);
       const strong = needsStrongConfirm(m, opts);
+      // A background task: what it is (the same ~ paths as the card), one
+      // line of what marking does, the warning; the rest for a tech helper.
+      if (m.kind === 'background_task') {
+        return `
+      <div class="mark-mine" data-mark-card data-mark-kind="${esc(m.kind)}" data-mark-id="${esc(m.id)}" data-mark-group="${esc(group.join(' '))}">
+        <button type="button" class="btn btn--secondary btn--small" data-mark-open>${esc(buttonLabel(m))}</button>
+        <div class="fix-panel" data-mark-panel hidden role="group" aria-label="Confirm this is yours">
+          ${showsHtml(m, finding)}
+          <p class="fix-panel__line">${esc(TASK_LINE)}</p>
+          ${coversHtml(group.length, m.kind)}
+          <p class="fix-panel__line fix-panel__warning"><strong>${esc(ONLY_IF_YOURS)}</strong></p>
+          <details class="tech-details"><summary>For tech helpers</summary>
+            <p>${esc(appWords(m.will_change))}</p>${undoListHtml(m.how_to_undo)}</details>
+          <div class="fix-panel__actions">
+            <button type="button" class="btn btn--primary btn--small" data-mark-confirm>Yes, it’s mine</button>
+            <button type="button" class="btn btn--secondary btn--small" data-mark-cancel>Cancel</button>
+          </div>
+        </div>
+        <div class="fix-status" data-mark-status role="status" aria-live="polite" tabindex="-1" hidden></div>
+      </div>`;
+      }
       return `
       <div class="mark-mine" data-mark-card data-mark-kind="${esc(m.kind)}" data-mark-id="${esc(m.id)}" data-mark-group="${esc(group.join(' '))}">
         <button type="button" class="btn btn--secondary btn--small" data-mark-open>${esc(buttonLabel(m))}</button>
         <div class="fix-panel" data-mark-panel hidden role="group" aria-label="Confirm this is yours">
           ${showsHtml(m, finding)}
-          <p class="fix-panel__line"><strong>This will:</strong> ${esc(appWords(m.will_change))}</p>
+          <p class="fix-panel__line"><strong>What changes:</strong> ${esc(appWords(m.will_change))}</p>
           ${coversHtml(group.length, m.kind)}
           <p class="fix-panel__line"><strong>To undo later:</strong></p>
           ${undoListHtml(m.how_to_undo)}

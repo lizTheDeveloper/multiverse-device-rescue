@@ -289,9 +289,10 @@ test('the list in city mode: the hold line with its help, no points, and no remo
   assert.match(spyCard, /How to keep a quiet record, and who can help/);
   assert.doesNotMatch(spyCard, /\[FIX IT\]|\[IT IS MINE\]|Uninstall|Show me how|What to do/);
   assert.match(list, /data-card-counts="1"[\s\S]*Remote Login is on/, 'other findings still count');
+  // Round 3: nothing from it goes to the clipboard or a website at all.
   const picks = JSON.parse(p.run('JSON.stringify(copyAiRegistry)'));
-  const spy = picks.find((x) => x.module === 'stalkerware_scan');
-  assert.ok(spy && !('remediation' in spy) && !('data' in spy), 'its copy has no removal steps and no evidence');
+  assert.ok(!picks.some((x) => x.module === 'stalkerware_scan'), 'no copy of it at all');
+  assert.doesNotMatch(spyCard, /data-copy-ai|data-ask-id|Get help with this/);
 });
 
 // Fix round 1.
@@ -375,7 +376,12 @@ test('"Copy for any AI" and "Ask about this" on a held card: the card’s own te
   assert.strictEqual(HELD_NOTE, NOTE);
   assert.strictEqual(Q.HELD_AI_NOTE, NOTE);
   const picks = JSON.parse(p.run('JSON.stringify(copyAiRegistry)'));
-  const spy = picks.find((x) => x.module === 'stalkerware_scan');
+  // Round 3: the list offers no copy or ask for it in city mode; the pick
+  // QuietNotes would give (still used where a copy is ever made) stays safe.
+  assert.ok(!picks.some((x) => x.module === 'stalkerware_scan'));
+  const spyFinding = spyDoc().modules.find((m) => m.name === 'stalkerware_scan').findings.find((f) => /mSpy/.test(f.title));
+  const heldCard = Q.cardText('city', Object.assign({ module: 'stalkerware_scan' }, spyFinding));
+  const spy = Q.heldPick(heldCard, Object.assign({ module: 'stalkerware_scan' }, spyFinding));
   assert.deepStrictEqual(Object.keys(spy).sort(), ['category', 'code', 'description', 'held', 'module', 'severity', 'title']);
   const text = buildAiPrompt({ findings: [spy], platform: 'darwin' }, { home: '/Users/x', user: 'x', hostnames: [] });
   assert.ok(text.includes(`Please note: ${NOTE}`), 'the copy carries the instruction');
@@ -384,7 +390,8 @@ test('"Copy for any AI" and "Ask about this" on a held card: the card’s own te
   const remote = buildAiPrompt({ findings: [picks.find((x) => x.module === 'remote_login_check')] }, { home: '/Users/x', user: 'x', hostnames: [] });
   assert.ok(!remote.includes('Please note:'), 'other findings are as before');
   const asks = JSON.parse(p.run('JSON.stringify(askRegistry)'));
-  const ask = asks.find((x) => /mSpy/.test(x.title));
+  assert.ok(!asks.some((x) => /mSpy/.test(x.title)), 'no ask for it in city mode');
+  const ask = Q.heldAsk(heldCard, Object.assign({ module: 'stalkerware_scan' }, spyFinding));
   assert.ok(ask.description.endsWith(NOTE), 'the ask carries the instruction');
   assert.ok(!ask.description.includes(SPY_PATH) && !/Uninstall/.test(ask.description));
   const body = buildAskBody({ finding: ask }, { home: '/Users/x', user: 'x', hostnames: [] });
