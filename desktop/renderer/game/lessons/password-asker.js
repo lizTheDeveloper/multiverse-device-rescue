@@ -14,6 +14,8 @@ export default {
   whatTheScanLooksFor: 'On Windows, the checkup looks for remote-access tools like TeamViewer, AnyDesk and VNC, which are common leftovers from “tech support” phone scams.',
   questions: [
     {
+      key: 'scam-popup',
+      concept: 'remote-access-scams',
       teach: 'Be wary of an unexpected call or pop-up telling you to install remote-access software (a tool that lets someone else control your computer). Scammers use that to take over your screen.',
       prompt: 'A pop-up claims a virus was found and gives you a number to call for help. What should you do?',
       options: [
@@ -24,8 +26,36 @@ export default {
         { text: 'Read them the code your phone just got, to prove it’s you', correct: false,
           feedback: 'Never read a code to anyone who contacted you. Reclaim City never asks for a one-time code.' },
       ],
+      variants: [
+        {
+          key: 'scam-popup-2',
+          prompt: 'Someone phones, says they’re from tech support, and asks you to install a program so they can fix your computer. What should you do?',
+          options: [
+            { text: 'Hang up', correct: true,
+              feedback: 'Right. Legitimate support (your bank, Microsoft, your ISP) does not cold-call you asking you to install remote-access software.' },
+            { text: 'Install it, because they sound official', correct: false,
+              feedback: 'Sounding official is part of the scam. Legitimate support does not cold-call you asking you to install remote-access software.' },
+            { text: 'Install it, then uninstall it when they hang up', correct: false,
+              feedback: 'Once it’s in, they can control your screen, and scammers may add another tool to keep access. Hang up instead.' },
+          ],
+        },
+        {
+          key: 'scam-popup-3',
+          prompt: 'The checkup finds two different remote-access tools on a Windows computer, and nobody knows why either is there. What does that pattern often mean?',
+          options: [
+            { text: 'A tech-support scam: another tool keeps access if the first is removed', correct: true,
+              feedback: 'Right. Several remote-access tools installed together is a well-known hallmark of tech-support scams. Check each one with anyone else who uses the computer.' },
+            { text: 'Nothing. Windows installs these tools itself.', correct: false,
+              feedback: 'The checkup looks for third-party tools that someone installed. Several together is a well-known hallmark of tech-support scams.' },
+            { text: 'Each one probably belongs to a different family member, so nothing needs checking', correct: false,
+              feedback: 'Don’t assume. Confirm each tool with whoever uses the computer, because several together is a well-known hallmark of tech-support scams.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'fake-prompt',
+      concept: 'password-prompts',
       teach: 'Your computer may ask for its own administrator password, in its own window. Reclaim City never sees what you type there, and it never asks you to type a password into it. If something claiming to be Reclaim City asks you to type a password into it, it is not Reclaim City.',
       prompt: 'A box that says it’s from Reclaim City asks for your email password to “finish the scan”. What is it?',
       options: [
@@ -33,6 +63,32 @@ export default {
           feedback: 'Reclaim City has no prompt like that anywhere. Its checks never need your email password.' },
         { text: 'Something pretending to be Reclaim City. Don’t type anything, and close it.', correct: true,
           feedback: 'Right. Your computer may ask for its own administrator password in its own window, but Reclaim City never asks you to type a password into it.' },
+      ],
+      variants: [
+        {
+          key: 'fake-prompt-2',
+          prompt: 'During the checkup, a window from macOS itself asks for your Mac’s administrator password. What is that?',
+          options: [
+            { text: 'Your Mac asking, in its own window. Reclaim City never sees what you type there.', correct: true,
+              feedback: 'Right. Your Mac may show its own administrator prompt for some checks or fixes, in its own window.' },
+            { text: 'Reclaim City asking for your email password', correct: false,
+              feedback: 'Reclaim City never asks for your email password. This is macOS asking for its own administrator password, in its own window.' },
+            { text: 'Reclaim City asking you to type a password into it', correct: false,
+              feedback: 'Reclaim City never asks you to type a password into it. This is macOS asking, in its own window.' },
+          ],
+        },
+        {
+          key: 'fake-prompt-3',
+          prompt: 'Which of these will Reclaim City ask you to type into it?',
+          options: [
+            { text: 'None of them', correct: true,
+              feedback: 'Right. There is no prompt in the tool for an account password, a one-time code, a recovery code, a seed phrase, or a password-manager master password.' },
+            { text: 'A one-time code from your phone', correct: false,
+              feedback: 'Never. There is no prompt in the tool for a one-time code.' },
+            { text: 'Your password-manager master password', correct: false,
+              feedback: 'Never. There is no prompt in the tool for a password-manager master password.' },
+          ],
+        },
       ],
     },
   ],
