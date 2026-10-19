@@ -4,7 +4,9 @@
 // tagging after looking. A drill (invented, clearly marked) scores right or
 // wrong. A confirmed fix (a re-check proved it) scores most; a reported step
 // scores less and is labelled YOU REPORTED. Nothing scores for deleting
-// anything, for speed, or for anything touching monitoring software.
+// anything, for speed, or for anything touching monitoring software. The
+// connection watch scores nothing either, and its tags are kept in memory only
+// (sessionTag), so nothing about it reaches the progress store.
 //
 // Every award has a key, and a key pays once: lifetime keys (fix, report,
 // drill) or keys for the current sweep (clue, tag bonus, clean sweep). So
@@ -21,6 +23,8 @@ export const RANKS = [
 ];
 // The same three checks app.js's gate watches (ALWAYS_SAFETY_MODULES). A test keeps them equal.
 export const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+// The connection watch's module (desktop/watch.js WATCH_MODULE).
+export const WATCH_MODULE = 'connection_watch';
 export const MAX_SWEEPS = 20;
 const LIFETIME = new Set(['fix', 'report', 'drill']);
 const PER_SWEEP = new Set(['clue', 'tagBonus', 'clean']);
@@ -34,6 +38,10 @@ export function moduleOfKey(key) {
   const k = String(key == null ? '' : key).split('#')[0];
   return k.startsWith('couldnt|') ? k.slice(8) : k.split('|')[0];
 }
+
+// Keys that never score and are never stored: monitoring software and the watch.
+const unscored = (key) => MONITORING_MODULES.has(moduleOfKey(key)) || moduleOfKey(key) === WATCH_MODULE;
+export const isWatchKey = (key) => moduleOfKey(key) === WATCH_MODULE;
 
 export function rankIndexFor(points) {
   let i = 0;
@@ -54,7 +62,7 @@ export function rankOf(deck) {
 export function award(deck, kind, key, extra = 0) {
   const d = deckOf(deck);
   if (!LIFETIME.has(kind) && !PER_SWEEP.has(kind)) return none(d);
-  if (typeof key !== 'string' || key === '' || MONITORING_MODULES.has(moduleOfKey(key))) return none(d);
+  if (typeof key !== 'string' || key === '' || unscored(key)) return none(d);
   const k = `${kind}:${key}`;
   const lifetime = LIFETIME.has(kind);
   if (lifetime ? d.once[k] : d.sweep.keys[k]) return none(d);
@@ -74,9 +82,20 @@ export function award(deck, kind, key, extra = 0) {
 // finding's fingerprint (signals.js): when it changes, the tag stops applying.
 export function setTag(deck, id, tag, fp, now) {
   const d = deckOf(deck);
-  if (typeof id !== 'string' || id === '' || !TAGS.has(tag) || MONITORING_MODULES.has(moduleOfKey(id))) return d;
+  if (typeof id !== 'string' || id === '' || !TAGS.has(tag) || unscored(id)) return d;
   return { ...d, tags: { ...d.tags, [id]: { tag, at: String(now), fp: String(fp == null ? '' : fp) } } };
 }
+
+// A watch finding's tag: the same record, in a map kept in memory for this
+// session. `withSessionTags` lays them over the deck's own for display.
+export function sessionTag(session, id, tag, fp, now) {
+  if (!isWatchKey(id) || !TAGS.has(tag)) return session || {};
+  return { ...(session || {}), [id]: { tag, at: String(now), fp: String(fp == null ? '' : fp) } };
+}
+export const withSessionTags = (deck, session) => {
+  const d = deckOf(deck);
+  return session && Object.keys(session).length ? { ...d, tags: { ...d.tags, ...session } } : d;
+};
 
 export function recordDrill(deck, right) {
   const d = deckOf(deck);
@@ -87,7 +106,7 @@ export function recordDrill(deck, right) {
 // once per finding, ever.
 export function confirmFix(deck, id, now) {
   const d = deckOf(deck);
-  if (typeof id !== 'string' || id === '' || MONITORING_MODULES.has(moduleOfKey(id))) return none(d);
+  if (typeof id !== 'string' || id === '' || unscored(id)) return none(d);
   return award({ ...d, confirmed: { ...d.confirmed, [id]: String(now) } }, 'fix', id);
 }
 

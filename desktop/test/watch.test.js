@@ -120,7 +120,7 @@ test('a re-check that lands during the watch is kept', async () => {
 
 test('a watch that fails or comes back without the module changes nothing', async () => {
   for (const runWatchFn of [async () => { throw new Error('engine exited 2'); }, async () => ({ modules: [] }), async () => null]) {
-    const t = deps({ runWatch: runWatchFn });
+    const t = deps({ runWatch: runWatchFn, logError: () => {} });
     const r = await handleWatch(5, t.d);
     assert.strictEqual(r.ok, false);
     assert.strictEqual(r.reason, 'failed');
@@ -254,11 +254,30 @@ test('watch.js is packaged', () => {
   assert.ok(JSON.parse(read('package.json')).build.files.includes('watch.js'));
 });
 
-test('main and the game ledger agree on the monitoring modules', () => {
-  const ledger = read('renderer/game/ledger.js');
-  const m = ledger.match(/export const MONITORING_MODULES = new Set\(\[([^\]]*)\]\)/);
-  assert.ok(m, 'ledger.js declares MONITORING_MODULES');
-  const names = [...m[1].matchAll(/'([a-z0-9_]+)'/g)].map((x) => x[1]).sort();
-  assert.ok(names.length > 0);
-  assert.deepStrictEqual([...MONITORING_MODULES].sort(), names);
+test('a failed watch logs the engine’s error; the person gets the plain message', async () => {
+  const logged = [];
+  const err = new Error('rescue exited with code 2: Traceback (most recent call last)');
+  const t = deps({ runWatch: async () => { throw err; }, logError: (...a) => logged.push(a) });
+  const r = await handleWatch(5, t.d);
+  assert.strictEqual(r.reason, 'failed');
+  assert.doesNotMatch(r.message, /Traceback|code 2/);
+  assert.deepStrictEqual(logged, [['The connection watch failed:', err]]);
+  // A document without the module isn't an engine error: nothing is logged.
+  const quiet = [];
+  await handleWatch(5, deps({ runWatch: async () => ({ modules: [] }), logError: (...a) => quiet.push(a) }).d);
+  assert.deepStrictEqual(quiet, []);
+});
+
+test('main, its engine runner and the game ledger agree on the monitoring modules', () => {
+  const copies = [
+    ['renderer/game/ledger.js', /export const MONITORING_MODULES = new Set\(\[([^\]]*)\]\)/],
+    ['engine-runner.js', /const NEVER_MARKABLE_MODULES = new Set\(\[([^\]]*)\]\)/],
+  ];
+  for (const [file, re] of copies) {
+    const m = read(file).match(re);
+    assert.ok(m, `${file} declares its monitoring list`);
+    const names = [...m[1].matchAll(/'([a-z0-9_]+)'/g)].map((x) => x[1]).sort();
+    assert.ok(names.length > 0, file);
+    assert.deepStrictEqual([...MONITORING_MODULES].sort(), names, file);
+  }
 });

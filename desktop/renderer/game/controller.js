@@ -5,11 +5,14 @@
 import { findingsToCity, DISTRICTS } from './findings-to-city.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts } from './signals.js';
-import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
+import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES,
+  isWatchKey, sessionTag, withSessionTags } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './drills.js';
 import { renderDeck } from './views/deck.js';
 import { renderInstruments } from './views/instruments.js';
+import { renderWatch, watchOffered, idleWatch, watchStarted, watchProgress, watchFinished, watchProgressText,
+  WATCH_MINUTES } from './views/watch.js';
 import { renderSignalPanel, renderRange } from './views/signal.js';
 import { renderHud } from './views/hud.js';
 import { renderMap } from './views/map.js';
@@ -98,7 +101,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit(),
     // The command center. The ops log is kept in memory only.
     signal: null, filter: null, lowOpen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
-    drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null };
+    drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null,
+    // The connection watch, and its findings' tags (memory only: ledger sessionTag).
+    watch: idleWatch(), watchTags: {} };
   let drawnScreen = null; // the screen the last render drew
 
   // loadLessons never rejects: a lesson that fails to load is left out.
@@ -270,7 +275,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     return r.points || 0;
   }
-  const signalsNow = () => (s.city ? buildSignals(s.city, s.progress.deck, s.changedTags) : []);
+  const signalsNow = () => (s.city ? buildSignals(s.city, withSessionTags(s.progress.deck, s.watchTags), s.changedTags) : []);
   // This sweep's drills: about one per four real signals, from their districts.
   function sweepDrillsNow() {
     const real = queueOf(signalsNow(), null).urgent.filter((x) => x.kind === 'real');
@@ -326,9 +331,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known, ...q.noted],
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
-        history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
+        history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) })
+        + (watchOffered(s.doc) ? renderWatch(s.watch) : ''),
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
-      scanRunning: s.scan.running, districtName: nameOf, notice: s.linkNotice });
+      scanRunning: s.scan.running, watching: s.watch.state === 'running', districtName: nameOf, notice: s.linkNotice });
   }
 
   function openSignal(id) {
@@ -381,6 +387,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     focusEl(findByAttr(frame, 'data-go', 'range'));
   }
 
+  // A watch finding's tag is kept in memory only; every other tag goes in the deck.
+  function tagOne(deck, sig, tag) {
+    if (!isWatchKey(sig.id)) return setTag(deck, sig.id, tag, sig.fp, now());
+    s.watchTags = sessionTag(s.watchTags, sig.id, tag, sig.fp, now());
+    return deck;
+  }
+
   // A tag is game sorting only. The bonus is for looking first (two or more
   // clues), never for which tag was picked.
   function tagSignal(tag) {
@@ -388,7 +401,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (!sig) return;
     if (sig.kind === 'drill') { answerDrill(sig, tag); return; }
     if (!(sig.kind === 'couldnt' ? ['noted'] : ['mine', 'threat', 'closer']).includes(tag)) return;
-    commitDeck(setTag(s.progress.deck, sig.id, tag, sig.fp, now()));
+    commitDeck(tagOne(s.progress.deck, sig, tag));
     s.changedTags.delete(sig.id);
     if (sig.kind === 'real' && openedFor(sig.id).length >= 2) s.signal.points += commitAward(award(s.progress.deck, 'tagBonus', sig.id));
     s.signal = { ...s.signal, tagged: tag, read: sig.kind === 'couldnt' ? COULDNT_READ : scoutRead(sig, tag) };
@@ -430,7 +443,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const { q } = deckQueue();
     if (q.low.length) {
       let deck = s.progress.deck;
-      for (const sig of q.low) deck = setTag(deck, sig.id, 'mine', sig.fp, now());
+      for (const sig of q.low) deck = tagOne(deck, sig, 'mine');
       commitDeck(deck);
       logEntry('TAG', `${q.low.length} low-priority signal${q.low.length === 1 ? '' : 's'} sorted as fine`);
     }
@@ -459,6 +472,45 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.opened = {};
     s.drillAnswers = {};
     s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
+    // A new checkup replaces the watch's results (one can't start while a watch runs).
+    if (s.watch.state !== 'running') s.watch = idleWatch(s.watch.minutes);
+    s.watchTags = {};
+  }
+
+  // WATCH CONNECTIONS: only the minutes go to main, which refuses with a message
+  // (no checkup, monitoring software, busy). The result comes back the way a
+  // re-check's does; it is the same checkup, so not a new sweep. A redraw waits
+  // while a signal or another screen is open, so it can't wipe a question there.
+  async function startWatch() {
+    if (s.watch.state === 'running' || !watchOffered(s.doc)) return;
+    s.watch = watchStarted(s.watch);
+    render();
+    focusEl(findByAttr(frame, 'data-act', 'watch-stop'));
+    let r;
+    try { r = await win.rescue.runWatch(s.watch.minutes); } catch (_) { r = null; }
+    s.watch = watchFinished(s.watch, r);
+    if (r && r.ok) {
+      if (!win.RescueHost.docChanged(r.doc)) return; // the gate closed: app.js showed the list
+      rebuild(r.doc);
+      s.sweptDoc = r.doc;
+    }
+    if (s.screen !== 'map' || s.signal) return;
+    const stopFocused = (focusKey(shadow.activeElement) || {}).v === 'watch-stop';
+    render();
+    if (stopFocused) focusEl(findByAttr(frame, 'data-act', 'watch-start'));
+  }
+  if (win.rescue && typeof win.rescue.onWatchEvent === 'function') {
+    win.rescue.onWatchEvent((ev) => {
+      s.watch = watchProgress(s.watch, ev);
+      const line = s.watch.state === 'running' ? frame.querySelector('[data-watch="progress"]') : null;
+      if (line) line.textContent = watchProgressText(s.watch);
+    });
+  }
+  function watchAct(act) {
+    if (act === 'watch-start') { startWatch(); return; }
+    if (act === 'watch-stop') { Promise.resolve().then(() => win.rescue.stopWatch()).catch(() => {}); return; }
+    const m = act.startsWith('watch-minutes:') ? Number(act.slice(14)) : NaN;
+    if (WATCH_MINUTES.includes(m) && s.watch.state !== 'running') { s.watch = idleWatch(m); render(); }
   }
 
   // A district that had something open and now has nothing open in the checks that ran.
@@ -655,11 +707,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (ctx && !ctx.blocked) Promise.resolve().then(() => win.rescue.openRouter(ctx.ip)).catch(() => {});
       return;
     }
+    // The connection watch runs alongside everything else, re-checks included.
+    if (act && act.startsWith('watch-')) { watchAct(act); return; }
     if (s.busy) return;
     if (go) s.linkNotice = '';
     // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
     // gate decides where it lands (monitoring software: the plain list).
-    if (act === 'resweep') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
+    // (Main refuses a checkup while a watch runs, so the deck doesn't offer one.)
+    if (act === 'resweep') { if (!s.scan.running && s.watch.state !== 'running') win.RescueHost.startCheckup(); return; }
     // The DRILL RANGE: more drills, with or without a scan.
     if (go === 'range') { s.signal = null; s.range = { order: [], i: 0 }; s.screen = 'range'; render(); return; }
     if (act === 'next-drill' && s.range) { s.range = { ...s.range, i: s.range.i + 1 }; s.signal = null; render(); return; }

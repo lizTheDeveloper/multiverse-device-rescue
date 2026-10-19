@@ -30,7 +30,9 @@ function foundMonitoring(doc) {
 
 // Pure handler behind ipcMain.handle('run-watch'). Never throws. `runWatch`
 // resolves with the engine's document; `isBusy` covers checkups and watches.
-async function handleWatch(minutes, { getLastDoc, setLastDoc, runWatch, policies, isBusy, onEvent }) {
+// `logError` gets the engine's own error (exit code, last stderr lines) when a
+// watch fails; the person sees only the plain message.
+async function handleWatch(minutes, { getLastDoc, setLastDoc, runWatch, policies, isBusy, onEvent, logError = console.error }) {
   if (!WATCH_MINUTES.includes(minutes)) return fail('bad_minutes', 'Pick how long to watch from the list.');
   if (isBusy()) return fail('busy', 'Something is already running. Try again when it finishes.');
   const last = getLastDoc();
@@ -41,7 +43,8 @@ async function handleWatch(minutes, { getLastDoc, setLastDoc, runWatch, policies
   let result;
   try {
     result = await runWatch(minutes, onEvent);
-  } catch (_) {
+  } catch (err) {
+    logError('The connection watch failed:', err);
     result = null;
   }
   // Merge into the checkup as it is now: a re-check may have landed meanwhile.

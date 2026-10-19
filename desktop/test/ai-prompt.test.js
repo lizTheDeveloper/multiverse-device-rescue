@@ -105,3 +105,13 @@ test('connection-watch findings are left out of the copied text, with a note say
   assert.ok(!buildAiPrompt({ findings: [FINDING] }, ENV).includes('connection-watch'), 'no note when nothing was dropped');
   assert.strictEqual(buildAiPrompt({ findings: [watch('destinations')] }, ENV), null, 'nothing else to copy');
 });
+
+test('no per-card "Copy for any AI" button on connection-watch findings', () => {
+  const { copyAiButtonHtml, COPY_AI_WATCH_CODE_PREFIX } = require('../renderer/copy-ai.js');
+  assert.strictEqual(copyAiButtonHtml({ ...FINDING, code: 'network.connection_watch.watch_summary' }), '');
+  assert.strictEqual(copyAiButtonHtml({ ...FINDING, code: null, module: 'connection_watch' }), '');
+  // Other findings, including other network checks, keep it.
+  assert.match(copyAiButtonHtml({ ...FINDING, code: 'network.arp_spoof_check.duplicate_mac', module: 'arp_spoof_check' }), /Copy for any AI/);
+  assert.match(copyAiButtonHtml(FINDING), /data-copy-ai="\d+"/);
+  assert.strictEqual(COPY_AI_WATCH_CODE_PREFIX, require('../ask-about').WATCH_CODE_PREFIX);
+});

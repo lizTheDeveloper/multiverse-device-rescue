@@ -119,3 +119,21 @@ test('the monitoring list matches the app’s safety gate', async () => {
   const { ALWAYS_SAFETY_MODULES } = require('../renderer/app.js');
   assert.deepStrictEqual([...MONITORING_MODULES].sort(), [...ALWAYS_SAFETY_MODULES].sort());
 });
+
+test('the connection watch scores nothing and its tags never reach the deck', async () => {
+  const { award, setTag, confirmFix, sessionTag, withSessionTags, isWatchKey } = await import('../renderer/game/ledger.js');
+  const { emptyDeck } = await import('../renderer/game/progress.js');
+  const id = 'connection_watch|network.connection_watch.watch_summary|target=Safari';
+  const d = emptyDeck();
+  assert.ok(isWatchKey(id) && isWatchKey('couldnt|connection_watch') && !isWatchKey('a_mod|x'));
+  for (const kind of ['clue', 'tagBonus', 'fix', 'report']) assert.strictEqual(award(d, kind, `${id}#what`).points, 0, kind);
+  assert.strictEqual(confirmFix(d, id, 'now').points, 0);
+  assert.deepStrictEqual(setTag(d, id, 'mine', 'fp', 'now').tags, {});
+  const session = sessionTag({}, id, 'closer', 'fp', 'now');
+  assert.deepStrictEqual(session, { [id]: { tag: 'closer', at: 'now', fp: 'fp' } });
+  assert.deepStrictEqual(sessionTag(session, 'a_mod|x', 'mine', 'fp', 'now'), session, 'only watch findings are kept here');
+  assert.deepStrictEqual(sessionTag({}, id, 'bogus', 'fp', 'now'), {});
+  const shown = withSessionTags(setTag(d, 'a_mod|x', 'mine', 'f', 'now'), session);
+  assert.deepStrictEqual(Object.keys(shown.tags).sort(), ['a_mod|x', id]);
+  assert.strictEqual(withSessionTags(d, {}), d);
+});
