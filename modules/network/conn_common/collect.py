@@ -340,7 +340,8 @@ def snapshot(platform: str, run=command.run) -> dict:
             out["error"] = _unreadable(result, out["records"])
             if out["error"]:
                 return out
-        if os.geteuid() != 0:
+        # geteuid is POSIX-only; tests replay macOS output on any system.
+        if getattr(os, "geteuid", lambda: 0)() != 0:
             out["limits"].append(
                 "macOS shows connections only for programs running as you unless "
                 "the check runs as admin."
@@ -441,24 +442,46 @@ def _windows_dir() -> str:
     return "C:\\Windows"
 
 
+def _win_allowed(port: int) -> tuple[str, ...]:
+    """The service programs a clean Windows install listens with on ``port``."""
+    if port in _WIN_FIXED_PORTS:
+        return _WIN_FIXED_PORTS[port]
+    if 49664 <= port <= 49699:
+        return _WIN_SERVICE_HOSTS
+    return ()
+
+
+def _win_exe_name(record: dict) -> str:
+    name = (record.get("process") or "").lower()
+    return name if name.endswith(".exe") else name + ".exe"
+
+
 def _win_expected(record: dict, port: int, windows_dir: str | None) -> bool:
     if port in _WIN_SYSTEM_PORTS:
         return record.get("pid") == _SYSTEM_PID
-    if port in _WIN_FIXED_PORTS:
-        allowed = _WIN_FIXED_PORTS[port]
-    elif 49664 <= port <= 49699:
-        allowed = _WIN_SERVICE_HOSTS
-    else:
-        return False
+    allowed = _win_allowed(port)
     exe = (record.get("exe") or "").replace("/", "\\").lower()
-    if exe:
-        base = (windows_dir or _windows_dir()).replace("/", "\\").rstrip("\\").lower()
-        return any(exe == f"{base}\\system32\\{name}" for name in allowed)
-    # Without admin, Windows hides the path of service programs. A program run
-    # as the person always shows its path, so a pathless one must be a service
-    # and is judged by its name.
-    name = (record.get("process") or "").lower()
-    return (name if name.endswith(".exe") else name + ".exe") in allowed
+    # Without a path there is nothing to verify, so it is never expected;
+    # ``claims_expected_service`` tells the caller it merely looks like one.
+    if not allowed or not exe:
+        return False
+    base = (windows_dir or _windows_dir()).replace("/", "\\").rstrip("\\").lower()
+    return any(exe == f"{base}\\system32\\{name}" for name in allowed)
+
+
+def claims_expected_service(platform: str, record: dict) -> bool:
+    """True when a Windows listener has no path but carries a service's name.
+
+    Without admin, Windows hides the path of service programs, so an ordinary
+    svchost listener looks like this. The name alone proves nothing, so the
+    caller notes it (info) rather than calling it expected or raising a warning.
+    """
+    port = record.get("local_port")
+    if platform != "win32" or port is None or record.get("exe"):
+        return False
+    if port in _WIN_SYSTEM_PORTS:
+        return False
+    return _win_exe_name(record) in _win_allowed(port)
 
 
 def is_expected_listener(

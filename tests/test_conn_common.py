@@ -189,9 +189,9 @@ def test_lsof_exit_one_without_output_means_no_connections():
 
 def test_darwin_limit_when_not_admin(monkeypatch):
     run = lambda a, **k: result(fx("lsof_mac.txt"))  # noqa: E731
-    monkeypatch.setattr(C.os, "geteuid", lambda: 501)
+    monkeypatch.setattr(C.os, "geteuid", lambda: 501, raising=False)
     assert any("programs running as you" in s for s in C.snapshot("darwin", run=run)["limits"])
-    monkeypatch.setattr(C.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(C.os, "geteuid", lambda: 0, raising=False)
     assert not any("programs running as you" in s for s in C.snapshot("darwin", run=run)["limits"])
 
 
@@ -264,10 +264,30 @@ def test_expected_windows_listeners_without_paths():
     recs = C.parse_win_connections(fx("clean_win_listen.json"), "[]", fx("win_proc_nopath.json"))
     listeners = [r for r in recs if r["state"] == "LISTEN"]
     assert all(r["exe"] is None for r in listeners)
-    assert all(C.is_expected_listener("win32", r) for r in listeners)
-    # a pathless program that is not a service host is not expected
-    odd = {**listeners[0], "process": "chrome", "pid": 5120}
+    # Fail closed: only PID 4 (System) is expected without a path...
+    expected = [r for r in listeners if C.is_expected_listener("win32", r)]
+    assert {r["local_port"] for r in expected} == {139, 445}
+    assert all(r["pid"] == 4 for r in expected)
+    # ...and the pathless svchost listeners only claim to be services.
+    svchost = [r for r in listeners if r["pid"] == 1044]
+    assert len(svchost) == 3
+    assert all(C.claims_expected_service("win32", r) for r in svchost)
+    assert not any(C.claims_expected_service("win32", r) for r in expected)
+    # a pathless program that is not a service host claims nothing
+    odd = {**svchost[0], "process": "chrome", "pid": 5120}
     assert not C.is_expected_listener("win32", odd)
+    assert not C.claims_expected_service("win32", odd)
+
+
+def test_claims_expected_service_needs_windows_no_path_and_allowlisted_name():
+    rec = {"local_port": 49670, "pid": 900, "process": "lsass", "exe": None, "local_addr": "0.0.0.0"}
+    assert C.claims_expected_service("win32", rec)
+    assert not C.claims_expected_service("win32", {**rec, "process": "rundll32"})
+    assert not C.claims_expected_service("win32", {**rec, "exe": "C:\\Windows\\System32\\lsass.exe"})
+    assert not C.claims_expected_service("win32", {**rec, "local_port": 8080})
+    assert not C.claims_expected_service("win32", {**rec, "local_port": 445, "process": "svchost"})
+    assert not C.claims_expected_service("linux", rec)
+    assert not C.claims_expected_service("darwin", rec)
 
 
 def test_windows_expected_needs_exact_system32_program():
