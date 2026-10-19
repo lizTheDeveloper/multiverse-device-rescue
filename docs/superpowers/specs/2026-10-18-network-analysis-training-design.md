@@ -233,9 +233,12 @@ large dependency and a model download.
   person signs in to their router themselves and exports or reads back what's
   there.
 - **Outbound lookups are disclosures.** An OSINT lookup tells the lookup
-  service which address the person is curious about. Lookups are per-item and
-  explicit, only for public addresses and domains (never private ranges or the
-  person's own IP), and the provider is named on the button.
+  service which address the person is curious about. Owner's decision
+  (2026-10-19): the connection watch looks up who runs each address
+  automatically, with an off switch (see
+  `2026-10-19-n4-who-is-on-the-other-end-design.md`). Lookups are only for
+  public addresses and domains (never private ranges or the person's own IP),
+  and the services are named where the person starts them.
 - Couldn't-check is never clean: unsupported platforms and failed watches show
   as fog / COULDN'T CHECK.
 - Monitoring-software gate carries over: if stalkerware or monitoring appears,
