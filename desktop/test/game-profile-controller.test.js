@@ -333,7 +333,7 @@ test('a wrong drill on a concept the person said they knew offers 2 questions; Y
   await tick();
   t.click({ 'data-go': 'signal:drill:upd8r-hidden-cache' });
   t.click({ 'data-act': 'tag:mine' });
-  assert.match(t.html(), /Want the 2 questions on where it lives\?/);
+  assert.match(t.html(), /Want the 2 questions on Where it lives\?/);
   assert.match(t.html(), /data-act="offer-yes:where-it-lives"/);
   t.click({ 'data-act': 'offer-yes:where-it-lives' });
   assert.match(t.html(), /QUESTION 1 OF 2/);
@@ -388,4 +388,97 @@ test('city mode: an offer and its questions write nothing forbidden, come back t
   t.click({ 'data-act': 'offer-yes:cut-off-order' });
   assert.doesNotMatch(t.html(), /QUESTION 1 OF/);
   assert.deepStrictEqual(forbiddenWrites(storage), []);
+});
+
+test('re-tagging the same finding in a sweep notes one call gap, not one per tag', async () => {
+  const t = await setup();
+  const { buildSignals } = await import('../renderer/game/signals.js');
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const id = buildSignals(findingsToCity(DOC), null).find((x) => x.kind === 'real').id;
+  t.click({ 'data-go': `signal:${id}` });
+  t.click({ 'data-act': 'clue:maker' });
+  t.click({ 'data-act': 'tag:mine' });
+  t.click({ 'data-act': 'tag:closer' });
+  t.click({ 'data-act': 'tag:mine' });
+  assert.strictEqual(savedProfile(t.storage).concepts['who-made-it'].gaps.call, 1);
+});
+
+test('a drill answered again in the range is practice: only its first answer this sweep is evidence', async () => {
+  const t = await setup();
+  t.click({ 'data-go': 'range' });
+  await tick();
+  t.click({ 'data-act': 'tag:mine' });
+  t.click({ 'data-act': 'next-drill' });
+  t.click({ 'data-act': 'next-drill' }); // two drills: back to the first one
+  t.click({ 'data-act': 'tag:threat' });
+  const p = savedProfile(t.storage);
+  const total = Object.values(p.drills.calls).flatMap((row) => Object.values(row)).reduce((a, b) => a + b, 0);
+  assert.strictEqual(total, 1);
+  assert.strictEqual(p.drills.recent.length, 1);
+});
+
+test('city mode: a call gap from the lessons behind a finding never touches the hidden concept', async () => {
+  const doc = scan(mod('lan_device_inventory', [f('Unknown device on the network', 'critical', { ip: '192.168.1.40' })]));
+  const t = await setup({ mode: 'city', doc });
+  const { buildSignals } = await import('../renderer/game/signals.js');
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const id = buildSignals(findingsToCity(doc), null).find((x) => x.kind === 'real').id;
+  t.click({ 'data-go': `signal:${id}` });
+  t.click({ 'data-act': 'tag:mine' }); // no clues opened: the concepts of the lessons that teach this module
+  const p = savedProfile(t.storage);
+  assert.strictEqual(p.concepts['wifi-and-mining'].gaps.call, 1);
+  assert.ok(!(p.concepts['cut-off-order'] && p.concepts['cut-off-order'].gaps));
+  assert.doesNotMatch(t.html(), /offer-yes:cut-off-order/);
+  assert.deepStrictEqual(forbiddenWrites(t.storage), []);
+});
+
+test('monitoring software gives no call gap and no offer, even from a made-up click', async () => {
+  const doc = scan(mod('stalkerware_scan', [f('Monitoring app found', 'critical', { program: '/tmp/m' })]),
+    mod('launch_agent_audit', [f('Unsigned helper', 'critical', { program: '/tmp/x' })]));
+  const t = await setup({ doc });
+  const { buildSignals } = await import('../renderer/game/signals.js');
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const city = findingsToCity(doc);
+  assert.ok(!buildSignals(city, null).some((x) => x.module === 'stalkerware_scan'));
+  for (const m of city.districts.flatMap((d) => d.missions || []).filter((x) => x.module === 'stalkerware_scan')) {
+    t.click({ 'data-go': `signal:${m.id}` });
+    t.click({ 'data-act': 'clue:maker' });
+    t.click({ 'data-act': 'tag:mine' });
+  }
+  const { callConcepts } = await import('../renderer/game/profile/player-profile.js');
+  const { buildBank } = await import('../renderer/game/profile/item-bank.js');
+  assert.deepStrictEqual(callConcepts(buildBank(t.lessons, DRILLS), 'stalkerware_scan', ['maker', 'where']), []);
+  const p = savedProfile(t.storage);
+  assert.ok(Object.values(p.concepts).every((c) => !c.gaps && !c.offered));
+  assert.doesNotMatch(t.html(), /offer-yes/);
+});
+
+test('an offer answer that isn’t the offer on screen does nothing', async () => {
+  const { saveProfile, markKnown, emptyProfile } = await import('../renderer/game/profile/player-profile.js');
+  const storage = recordingStore();
+  saveProfile(storage, markKnown(emptyProfile('2026-10-18T00:00:00.000Z'), ['where-it-lives', 'who-made-it'], '2026-10-18T00:00:00.000Z'), { seed: 99 });
+  const t = await setup({ storage });
+  // Stale: nothing offered yet.
+  t.click({ 'data-act': 'offer-no:where-it-lives' });
+  assert.ok(!(savedProfile(t.storage).concepts['where-it-lives'] || {}).offered);
+  t.click({ 'data-go': 'range' });
+  await tick();
+  t.click({ 'data-go': 'signal:drill:upd8r-hidden-cache' });
+  t.click({ 'data-act': 'tag:mine' });
+  // Mismatched: the offer is on where it lives.
+  t.click({ 'data-act': 'offer-no:who-made-it' });
+  t.click({ 'data-act': 'offer-yes:who-made-it' });
+  assert.match(t.html(), /data-act="offer-yes:where-it-lives"/);
+  assert.doesNotMatch(t.html(), /QUESTION 1 OF/);
+  const p = savedProfile(t.storage);
+  assert.ok(!(p.concepts['who-made-it'] || {}).offered);
+  assert.strictEqual(p.concepts['where-it-lives'].offered.declined, 0);
+});
+
+test('drill items are the same in the full bank and the city bank, so drill evidence is measured alike', async () => {
+  const { cityLessons } = await game('controller.js');
+  const { buildBank } = await import('../renderer/game/profile/item-bank.js');
+  const t = await setup({ doc: null });
+  const drills = (b) => [...b.items].filter(([k]) => k.startsWith('drill:'));
+  assert.deepStrictEqual(drills(buildBank(cityLessons(t.lessons), DRILLS)), drills(buildBank(t.lessons, DRILLS)));
 });

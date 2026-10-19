@@ -46,7 +46,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     : `<div class="row tags">${TAG_BUTTONS.map(([t, label]) => `<button type="button" class="btn-s tag-${t}" data-act="tag:${t}"${current === t ? ' aria-pressed="true"' : ''}${drill && tagged ? ' aria-disabled="true" disabled' : ''}>${label}</button>`).join('')}</div>`;
   const after = !tagged ? '' : `
     <div class="scout-row">${scout(drill && !right ? 'thinkingA' : 'happy', 54)}<p class="say">${esc(read)}</p></div>
-    ${offer ? `<div class="panel offer" role="note"><p class="intel">Want the 2 questions on ${esc(offer.title.toLowerCase())}?</p>
+    ${offer ? `<div class="panel offer" role="note"><p class="intel">Want the 2 questions on ${esc(offer.title)}?</p>
       <div class="row"><button type="button" class="btn-s" data-act="offer-yes:${esc(offer.id)}">YES</button>
         <button type="button" class="btn-t" data-act="offer-no:${esc(offer.id)}">STILL KNOW IT</button></div></div>` : ''}
     ${points > 0 ? `<p class="points">+${esc(points)} POINTS${drill ? '' : ' for the clues you checked'}</p>` : ''}

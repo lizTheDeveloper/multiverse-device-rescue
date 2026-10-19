@@ -148,6 +148,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit(),
     // The command center. The ops log is kept in memory only.
     signal: null, filter: null, lowOpen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
+    // This sweep's evidence, memory only: real findings already counted as a
+    // call gap, and drills whose first answer was recorded (a re-try after the
+    // right answer was shown is practice, not evidence).
+    gapped: new Set(), drillEvidence: new Set(),
     drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null,
     // The generated district. Memory only, like the ops log; nothing about it is stored.
     sideTicket: 0, sideNotice: false, heldOpen: false,
@@ -589,9 +593,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.signal = { ...s.signal, tagged: tag, read: sig.kind === 'couldnt' ? COULDNT_READ : scoutRead(sig, tag), offer: null };
     // Scout reading it another way is a sign a lesson might help (never "wrong").
     // Only the concepts are kept, never the finding; monitoring checks give none.
-    if (sig.kind === 'real' && !scoutAgrees(sig, tag)) {
+    // One gap per finding per sweep, however often it is re-tagged.
+    if (sig.kind === 'real' && !scoutAgrees(sig, tag) && !s.gapped.has(sig.id)) {
       const cs = callConcepts(drawBank(), sig.module, openedFor(sig.id)).filter(askable);
-      if (cs.length) { keepProfile(recordGap(s.profile, cs, 'call', now())); s.signal.offer = offerFor(cs); }
+      if (cs.length) { s.gapped.add(sig.id); keepProfile(recordGap(s.profile, cs, 'call', now())); s.signal.offer = offerFor(cs); }
     }
     logEntry('TAG', `${TAG_WORD[tag]}: ${sig.title}`);
     render();
@@ -619,10 +624,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const right = tag === d.answer;
     commitDeck(recordDrill(s.progress.deck, right));
     const points = right ? commitAward(award(s.progress.deck, 'drill', d.id, openedFor(sig.id).length >= 2 ? POINTS.drillClueBonus : 0)) : 0;
-    // The same answer is evidence on the drill's concept, and a cell in the calls matrix.
-    keepProfile(recordDrillCall(s.profile, s.bank, d, tag, now()));
+    // A drill's first answer this sweep is evidence on its concept, and a cell in the calls matrix.
+    const first = !s.drillEvidence.has(d.id);
+    if (first) { s.drillEvidence.add(d.id); keepProfile(recordDrillCall(s.profile, s.bank, d, tag, now())); }
     const it = s.bank.items.get(`drill:${d.id}`);
-    const offer = !right && it && it.concept ? offerFor([it.concept]) : null;
+    const offer = first && !right && it && it.concept ? offerFor([it.concept]) : null;
     if (!range) s.drillAnswers[d.id] = { tag, right };
     s.signal = { ...s.signal, tagged: tag, right, points, read: drillRead(d, right), offer };
     logEntry('DRILL', `${right ? 'Right' : 'Not this time'}: ${d.title}`);
@@ -677,6 +683,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     s.opened = {};
     s.drillAnswers = {};
+    s.gapped = new Set();
+    s.drillEvidence = new Set();
     s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
   }
 

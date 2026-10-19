@@ -125,7 +125,7 @@ test('an offer is one line with two answers, after Scout’s read', async () => 
   const { renderSignalPanel } = await import('../renderer/game/views/signal.js');
   const sig = { id: 'drill:x', kind: 'drill', severity: 'warning', title: 'A drill', districtId: 'gatehouse', drill: { setup: '' } };
   const html = renderSignalPanel({ signal: sig, tagged: 'mine', read: 'Not this time.', scout: () => '', offer: { id: 'where-it-lives', title: 'Where it lives' } });
-  assert.match(html, /Want the 2 questions on where it lives\?/);
+  assert.match(html, /Want the 2 questions on Where it lives\?/);
   assert.match(html, /data-act="offer-yes:where-it-lives"/);
   assert.match(html, /data-act="offer-no:where-it-lives"[^>]*>STILL KNOW IT/);
   assert.ok(html.indexOf('Not this time.') < html.indexOf('Want the 2 questions'));
