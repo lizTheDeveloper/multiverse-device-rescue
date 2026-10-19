@@ -16,6 +16,8 @@ export default {
   whatTheScanLooksFor: 'After the checkup, anything that couldn’t run is listed by name, so you know exactly what wasn’t looked at.',
   questions: [
     {
+      key: 'fog-means',
+      concept: 'couldnt-check',
       teach: 'A check that couldn’t run checked nothing, so it isn’t a clean bill of health. Reclaim City says so instead of pretending everything is fine. In the city, those places show as fog, or are marked COULDN’T CHECK.',
       prompt: 'A district on your map is covered in fog. What does that mean?',
       options: [
@@ -26,8 +28,36 @@ export default {
         { text: 'Something bad is hiding there', correct: false,
           feedback: 'Fog doesn’t mean danger either. It means a check couldn’t look.' },
       ],
+      variants: [
+        {
+          key: 'fog-means-2',
+          prompt: 'After the checkup, one check is listed as one that couldn’t run. Is that part of the computer clean?',
+          options: [
+            { text: 'Nobody knows: that check looked at nothing', correct: true,
+              feedback: 'Right. A check that couldn’t run isn’t a clean bill of health.' },
+            { text: 'Yes. Nothing was found there.', correct: false,
+              feedback: 'Nothing was found because nothing was looked at. A check that couldn’t run isn’t a clean bill of health.' },
+            { text: 'No. Something is wrong there.', correct: false,
+              feedback: 'It doesn’t mean that either. It means the check couldn’t look.' },
+          ],
+        },
+        {
+          key: 'fog-means-3',
+          prompt: 'Why does a check often fail to run?',
+          options: [
+            { text: 'A permission or a tool is missing', correct: true,
+              feedback: 'Right. Reclaim City lists each one by name, so you know exactly what wasn’t looked at.' },
+            { text: 'Something is hiding from it', correct: false,
+              feedback: 'Usually it’s simpler: a permission or a tool is missing.' },
+            { text: 'The computer is badly infected', correct: false,
+              feedback: 'A check that couldn’t run looked at nothing, so it says nothing about infection either way. Often it just means a permission or a tool is missing.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'nothing-found',
+      concept: 'clean-isnt-certain',
       teach: 'Even a checkup that finds nothing lowers the odds of a problem without ruling one out.',
       prompt: 'The checkup found nothing at all. What can you say?',
       options: [
@@ -35,6 +65,32 @@ export default {
           feedback: 'Right. A clean checkup lowers the odds without ruling a problem out.' },
         { text: 'This computer is definitely clean', correct: false,
           feedback: 'A checkup can’t promise that. It lowers the odds; it doesn’t rule a problem out.' },
+      ],
+      variants: [
+        {
+          key: 'nothing-found-2',
+          prompt: 'A friend says a clean checkup proves their laptop is fine. What would you tell them?',
+          options: [
+            { text: 'It lowers the odds of a problem, but it can’t rule one out', correct: true,
+              feedback: 'Right. That’s true of any checkup.' },
+            { text: 'They’re right. It’s a guarantee.', correct: false,
+              feedback: 'A checkup can’t promise that. It lowers the odds without ruling a problem out.' },
+            { text: 'They’re wrong. A clean checkup tells you nothing.', correct: false,
+              feedback: 'It does tell you something: a clean checkup lowers the odds of a problem, without ruling one out.' },
+          ],
+        },
+        {
+          key: 'nothing-found-3',
+          prompt: 'The checkup found nothing, but a few checks couldn’t run. What can you say?',
+          options: [
+            { text: 'Only the checks that ran looked, and they lower the odds without ruling a problem out', correct: true,
+              feedback: 'Right. The ones that couldn’t run are listed by name, so you know what wasn’t looked at.' },
+            { text: 'Everything is clean', correct: false,
+              feedback: 'The checks that couldn’t run looked at nothing, and the ones that ran lower the odds without ruling a problem out.' },
+            { text: 'Something is wrong in the checks that couldn’t run', correct: false,
+              feedback: 'Nothing says that. A check that couldn’t run just looked at nothing, often because a permission or a tool is missing.' },
+          ],
+        },
       ],
     },
   ],
