@@ -189,3 +189,104 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.sharing_preferences_audit.") for c in declared)
+
+
+# --- Regression: macOS 26.3.1 ---------------------------------------------------
+# A non-admin `launchctl list` shows the per-user Screen Sharing helpers that
+# every Mac runs; a substring test reported "Screen Sharing is enabled" with
+# the com.apple.screensharing daemon not loaded.
+
+_LAUNCHCTL_USER_MACOS26 = (
+    "PID\tStatus\tLabel\n"
+    "-\t0\tcom.apple.screensharing.agent\n"
+    "-\t0\tcom.apple.screensharing.menuextra\n"
+    "-\t0\tcom.apple.screensharing.MessagesAgent\n"
+)
+
+
+def _fake_macos26(daemon_loaded=False):
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if cmd_str == "launchctl list":
+            return _make_subprocess_result(_LAUNCHCTL_USER_MACOS26)
+        if cmd_str == "launchctl print system/com.apple.screensharing":
+            if daemon_loaded:
+                return _make_subprocess_result(
+                    "system/com.apple.screensharing = {\n\tactive count = 0\n}\n")
+            return _make_subprocess_result(
+                'Bad request.\nCould not find service "com.apple.screensharing" '
+                "in domain for system\n", returncode=113)
+        if cmd_str.startswith("launchctl print"):
+            return _make_subprocess_result("Bad request.\n", returncode=113)
+        if "cupsctl" in cmd_str:
+            return _make_subprocess_result("_share_printers=0\n")
+        if "DiscoverableMode" in cmd_str:
+            return _make_subprocess_result("ContactsOnly\n")
+        return _make_subprocess_result()
+    return fake_run
+
+
+def test_macos26_user_screensharing_helpers_are_not_screen_sharing():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    assert not any(f.data.get("service") == "screen_sharing" for f in result.findings)
+
+
+def test_screensharing_daemon_loaded_is_reported():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26(daemon_loaded=True)):
+        result = mod.check(_make_profile())
+    assert any(f.data.get("service") == "screen_sharing" for f in result.findings)
+
+
+# --- Review fix: Remote Login without admin --------------------------------------
+
+def _fake_remote_login(sshd_loaded=None):
+    """sshd_loaded: True / False, or None for 'launchctl print' failing."""
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if cmd_str == "launchctl print system/com.openssh.sshd":
+            if sshd_loaded is None:
+                raise OSError("launchctl unavailable")
+            if sshd_loaded:
+                return _make_subprocess_result("system/com.openssh.sshd = {\n\tstate = running\n}\n")
+            return _make_subprocess_result(
+                'Bad request.\nCould not find service "com.openssh.sshd" in domain for system\n',
+                returncode=113)
+        if cmd_str.startswith("launchctl print"):
+            return _make_subprocess_result("Bad request.\n", returncode=113)
+        if cmd_str == "launchctl list":
+            return _make_subprocess_result(_LAUNCHCTL_USER_MACOS26)
+        if cmd[0] == "systemsetup":
+            return _make_subprocess_result(
+                "You need administrator access to run this tool... exiting!\n")
+        if "cupsctl" in cmd_str:
+            return _make_subprocess_result("_share_printers=0\n")
+        if "DiscoverableMode" in cmd_str:
+            return _make_subprocess_result("ContactsOnly\n")
+        return _make_subprocess_result()
+    return fake_run
+
+
+def test_remote_login_on_seen_without_admin():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_remote_login(True)):
+        result = mod.check(_make_profile())
+    assert any(f.data.get("service") == "remote_login" for f in result.findings)
+
+
+def test_remote_login_off_without_admin_is_secure():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_remote_login(False)):
+        result = mod.check(_make_profile())
+    assert [f.code for f in result.findings] == ["security.sharing_preferences_audit.config_secure"]
+
+
+def test_remote_login_unreadable_is_couldnt_check():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_remote_login(None)):
+        result = mod.check(_make_profile())
+    codes = {f.code for f in result.findings}
+    assert "security.sharing_preferences_audit.sharing_unknown" in codes
+    assert "security.sharing_preferences_audit.config_secure" not in codes

@@ -4,13 +4,17 @@ estimated_time: "15 minutes"
 platforms: [macos]
 remediates:
   - security.firewall_rules_audit.alf_disabled
+  - security.firewall_rules_audit.alf_unknown
   - security.firewall_rules_audit.stealth_disabled
+  - security.firewall_rules_audit.stealth_unknown
   - security.firewall_rules_audit.too_many_apps
   - security.firewall_rules_audit.allow_signed_enabled
   - security.firewall_rules_audit.firewall_summary
 steps_for:
   security.firewall_rules_audit.alf_disabled: [1, 5]
+  security.firewall_rules_audit.alf_unknown: [1, 5]
   security.firewall_rules_audit.stealth_disabled: [2, 5]
+  security.firewall_rules_audit.stealth_unknown: [2, 5]
   security.firewall_rules_audit.too_many_apps: [3, 5]
   security.firewall_rules_audit.allow_signed_enabled: [4, 5]
   security.firewall_rules_audit.firewall_summary: [5]

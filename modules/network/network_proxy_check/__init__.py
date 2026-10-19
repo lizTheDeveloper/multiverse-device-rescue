@@ -23,6 +23,16 @@ class Module(ModuleBase):
     priority = 50
     depends_on = []
     estimated_duration = "3s"
+    emits_codes = [
+        "network.network_proxy_check.network_query_failed",
+        "network.network_proxy_check.remote_pac_url",
+        "network.network_proxy_check.pac_url_detected",
+        "network.network_proxy_check.suspicious_localhost_proxy",
+        "network.network_proxy_check.proxy_enabled",
+        "network.network_proxy_check.proxy_bypass_domains",
+        "network.network_proxy_check.proxy_config_summary",
+        "network.network_proxy_check.no_proxies",
+    ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
@@ -36,6 +46,7 @@ class Module(ModuleBase):
                     description="Could not query network services using networksetup.",
                     severity=Severity.INFO,
                     category=self.category,
+                    code="network.network_proxy_check.network_query_failed",
                     data={"check": "network_query_failed"},
                 )
             ])
@@ -73,9 +84,11 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.CRITICAL,
                             category=self.category,
+                            code="network.network_proxy_check.remote_pac_url",
                             data={
                                 "check": "remote_pac_url",
                                 "interface": interface,
+                                "target": interface,
                                 "pac_url": pac_url,
                             },
                         )
@@ -98,9 +111,11 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.WARNING,
                             category=self.category,
+                            code="network.network_proxy_check.pac_url_detected",
                             data={
                                 "check": "pac_url_detected",
                                 "interface": interface,
+                                "target": interface,
                                 "pac_url": pac_url,
                             },
                         )
@@ -148,9 +163,11 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="network.network_proxy_check.suspicious_localhost_proxy",
                         data={
                             "check": "suspicious_localhost_proxy",
                             "interface": interface,
+                            "target": interface,
                             "proxies": suspicious_localhost_proxies,
                         },
                     )
@@ -173,9 +190,11 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
+                        code="network.network_proxy_check.proxy_enabled",
                         data={
                             "check": "proxy_enabled",
                             "interface": interface,
+                            "target": interface,
                             "enabled_proxies": enabled_proxies,
                             "http_server": proxy_config.get("http_server"),
                             "https_server": proxy_config.get("https_server"),
@@ -197,9 +216,11 @@ class Module(ModuleBase):
                             ),
                             severity=Severity.INFO,
                             category=self.category,
+                            code="network.network_proxy_check.proxy_bypass_domains",
                             data={
                                 "check": "proxy_bypass_domains",
                                 "interface": interface,
+                                "target": interface,
                                 "bypass_domains": bypass_domains,
                             },
                         )
@@ -223,6 +244,7 @@ class Module(ModuleBase):
                         ),
                         severity=Severity.INFO,
                         category=self.category,
+                        code="network.network_proxy_check.proxy_config_summary",
                         data={
                             "check": "proxy_config_summary",
                             "interfaces": list(proxy_configs_found.keys()),
@@ -241,6 +263,7 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
+                    code="network.network_proxy_check.no_proxies",
                     data={"check": "no_proxies"},
                 )
             )

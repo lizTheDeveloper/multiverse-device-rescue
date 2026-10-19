@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from rescue.models import (
@@ -26,25 +27,28 @@ class Module(ModuleBase):
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
-        # Check if Handoff is enabled
+        # Each reading is True (on), False (off) or None (couldn't tell). On
+        # macOS 26 several of the old places these settings lived are gone
+        # (com.apple.Bluetooth ControllerPowerState, the "com.apple.iCloud"
+        # domain); a value that couldn't be read is "couldn't check", never "off".
         handoff_enabled = self._is_handoff_enabled()
-
-        # Check if Bluetooth is on (required for Handoff)
         bluetooth_on = self._is_bluetooth_on()
-
-        # Check if Wi-Fi is on (required for AirDrop/Continuity)
         wifi_on = self._is_wifi_on()
-
-        # Check if iCloud is signed in (required for Handoff between devices)
         icloud_signed_in = self._is_icloud_signed_in()
 
-        # Report Handoff configuration
+        handoff_word = (
+            "couldn't be checked" if handoff_enabled is None
+            else ("enabled" if handoff_enabled else "disabled")
+        )
         findings.append(
             Finding(
-                title=f"Handoff is {'enabled' if handoff_enabled else 'disabled'}",
+                title=(
+                    "Couldn't check whether Handoff is on" if handoff_enabled is None
+                    else f"Handoff is {handoff_word}"
+                ),
                 description=(
                     "Handoff allows you to start a task on one device and continue it on another. "
-                    f"Currently: {'enabled' if handoff_enabled else 'disabled'}."
+                    f"Currently: {handoff_word}."
                 ),
                 severity=Severity.INFO,
                 category=self.category,
@@ -52,65 +56,106 @@ class Module(ModuleBase):
             )
         )
 
-        # Report Bluetooth status
-        findings.append(
-            Finding(
-                title=f"Bluetooth is {'on' if bluetooth_on else 'off'}",
-                description=(
-                    f"Your Mac's Bluetooth is currently {'on' if bluetooth_on else 'off'}. "
-                    "This setting controls whether your Mac can connect to nearby devices "
-                    "for features like AirDrop or Handoff. If it is off, those features "
-                    "simply won't work until you turn it back on.\n\n"
-                    "What to do: Nothing is needed if you are happy with the current "
-                    "state. If you want to use AirDrop or Handoff, open System Settings "
-                    "> Bluetooth and turn it on."
-                ),
-                severity=Severity.INFO if bluetooth_on else Severity.WARNING,
-                category=self.category,
-                data={"check": "bluetooth_status", "enabled": bluetooth_on},
+        if bluetooth_on is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether Bluetooth is on",
+                    description=(
+                        "Reclaim City couldn't read your Mac's Bluetooth setting. This "
+                        "is not a sign that anything is wrong. To see for yourself, open "
+                        "System Settings > Bluetooth."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={"check": "bluetooth_unknown", "enabled": None},
+                )
             )
-        )
+        else:
+            findings.append(
+                Finding(
+                    title=f"Bluetooth is {'on' if bluetooth_on else 'off'}",
+                    description=(
+                        f"Your Mac's Bluetooth is currently {'on' if bluetooth_on else 'off'}. "
+                        "This setting controls whether your Mac can connect to nearby devices "
+                        "for features like AirDrop or Handoff. If it is off, those features "
+                        "simply won't work until you turn it back on.\n\n"
+                        "What to do: Nothing is needed if you are happy with the current "
+                        "state. If you want to use AirDrop or Handoff, open System Settings "
+                        "> Bluetooth and turn it on."
+                    ),
+                    severity=Severity.INFO if bluetooth_on else Severity.WARNING,
+                    category=self.category,
+                    data={"check": "bluetooth_status", "enabled": bluetooth_on},
+                )
+            )
 
-        # Report Wi-Fi status
-        findings.append(
-            Finding(
-                title=f"Wi-Fi is {'on' if wifi_on else 'off'}",
-                description=(
-                    f"Your Mac's Wi-Fi is currently {'on' if wifi_on else 'off'}. This "
-                    "setting controls whether your Mac can connect to wireless networks. "
-                    "If it is off, you won't be able to use the internet or features "
-                    "like AirDrop until you turn it back on.\n\n"
-                    "What to do: Nothing is needed if you are happy with the current "
-                    "state. If you want to connect to a network, open System Settings "
-                    "> Wi-Fi and turn it on."
-                ),
-                severity=Severity.INFO if wifi_on else Severity.WARNING,
-                category=self.category,
-                data={"check": "wifi_status", "enabled": wifi_on},
+        if wifi_on is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether Wi-Fi is on",
+                    description=(
+                        "Reclaim City couldn't read your Mac's Wi-Fi setting. This is "
+                        "not a sign that anything is wrong."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={"check": "wifi_unknown", "enabled": None},
+                )
             )
-        )
+        else:
+            findings.append(
+                Finding(
+                    title=f"Wi-Fi is {'on' if wifi_on else 'off'}",
+                    description=(
+                        f"Your Mac's Wi-Fi is currently {'on' if wifi_on else 'off'}. This "
+                        "setting controls whether your Mac can connect to wireless networks. "
+                        "If it is off, you won't be able to use the internet or features "
+                        "like AirDrop until you turn it back on.\n\n"
+                        "What to do: Nothing is needed if you are happy with the current "
+                        "state. If you want to connect to a network, open System Settings "
+                        "> Wi-Fi and turn it on."
+                    ),
+                    severity=Severity.INFO if wifi_on else Severity.WARNING,
+                    category=self.category,
+                    data={"check": "wifi_status", "enabled": wifi_on},
+                )
+            )
 
-        # Report iCloud sign-in status
-        findings.append(
-            Finding(
-                title=f"iCloud is {'signed in' if icloud_signed_in else 'not signed in'}",
-                description=(
-                    f"Your Mac is currently {'signed in' if icloud_signed_in else 'not signed in'} "
-                    "to iCloud. iCloud is Apple's service that syncs your data, like "
-                    "photos and notes, across your devices. If you are not signed in, "
-                    "features like Handoff won't work between your Apple devices.\n\n"
-                    "What to do: Nothing is needed if you are happy with the current "
-                    "state. If you want to sync your data, open System Settings > Apple "
-                    "Account and sign in."
-                ),
-                severity=Severity.INFO if icloud_signed_in else Severity.WARNING,
-                category=self.category,
-                data={"check": "icloud_status", "signed_in": icloud_signed_in},
+        if icloud_signed_in is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether iCloud is signed in",
+                    description=(
+                        "Reclaim City couldn't read your iCloud account settings. This is "
+                        "not a sign that anything is wrong. To see for yourself, open "
+                        "System Settings and look for your name at the top."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={"check": "icloud_unknown", "signed_in": None},
+                )
             )
-        )
+        else:
+            findings.append(
+                Finding(
+                    title=f"iCloud is {'signed in' if icloud_signed_in else 'not signed in'}",
+                    description=(
+                        f"Your Mac is currently {'signed in' if icloud_signed_in else 'not signed in'} "
+                        "to iCloud. iCloud is Apple's service that syncs your data, like "
+                        "photos and notes, across your devices. If you are not signed in, "
+                        "features like Handoff won't work between your Apple devices.\n\n"
+                        "What to do: Nothing is needed if you are happy with the current "
+                        "state. If you want to sync your data, open System Settings > Apple "
+                        "Account and sign in."
+                    ),
+                    severity=Severity.INFO if icloud_signed_in else Severity.WARNING,
+                    category=self.category,
+                    data={"check": "icloud_status", "signed_in": icloud_signed_in},
+                )
+            )
 
         # Flag WARNING if Bluetooth is off
-        if not bluetooth_on:
+        if bluetooth_on is False:
             findings.append(
                 Finding(
                     title="Bluetooth is off, so some Apple features won't work",
@@ -128,7 +173,7 @@ class Module(ModuleBase):
             )
 
         # Flag WARNING if Handoff is disabled but iCloud is signed in
-        if not handoff_enabled and icloud_signed_in:
+        if handoff_enabled is False and icloud_signed_in is True:
             findings.append(
                 Finding(
                     title="Handoff is turned off, even though you are signed in to iCloud",
@@ -298,60 +343,83 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _is_handoff_enabled(self) -> bool:
-        """Check if Handoff is enabled."""
+    @staticmethod
+    def _safe(call):
+        """Run ``call()`` (a subprocess.run), returning None if it couldn't run."""
         try:
-            result = subprocess.run(
-                ["defaults", "read", "com.apple.coreservices.useractivityd", "ActivityReceivingAllowed"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip() == "1"
-        except OSError:
-            pass
-        return False
+            return call()
+        except (OSError, subprocess.SubprocessError):
+            return None
 
-    def _is_bluetooth_on(self) -> bool:
-        """Check if Bluetooth is on."""
-        try:
-            result = subprocess.run(
-                ["defaults", "read", "/Library/Preferences/com.apple.Bluetooth", "ControllerPowerState"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                return int(result.stdout.strip()) == 1
-        except (OSError, ValueError):
-            pass
-        return False
+    def _is_handoff_enabled(self) -> bool | None:
+        """Is Handoff on? None if the setting couldn't be read."""
+        result = self._safe(lambda: subprocess.run(
+            ["defaults", "read", "com.apple.coreservices.useractivityd", "ActivityReceivingAllowed"],
+            capture_output=True, text=True, timeout=20,
+        ))
+        if result is None or result.returncode != 0 or not isinstance(result.stdout, str):
+            return None
+        value = result.stdout.strip()
+        if value in ("1", "0"):
+            return value == "1"
+        return None
 
-    def _is_wifi_on(self) -> bool:
-        """Check if Wi-Fi is on."""
-        try:
-            result = subprocess.run(
-                ["networksetup", "-getairportpower", "en0"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                # Output format: "AirPort Power (en0): On" or "AirPort Power (en0): Off"
-                return "On" in result.stdout
-        except OSError:
-            pass
-        return False
+    def _is_bluetooth_on(self) -> bool | None:
+        """Is Bluetooth on? None if it couldn't be read.
 
-    def _is_icloud_signed_in(self) -> bool:
-        """Check if iCloud is signed in."""
-        try:
-            result = subprocess.run(
-                ["defaults", "read", "com.apple.iCloud.plist", "MobileMeAccounts"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                # If we get output, iCloud is signed in
-                return True
-        except OSError:
-            pass
-        return False
+        Older macOS kept ControllerPowerState in com.apple.Bluetooth; macOS 26
+        does not, and system_profiler's "State: On" is the source of truth.
+        """
+        result = self._safe(lambda: subprocess.run(
+            ["defaults", "read", "/Library/Preferences/com.apple.Bluetooth", "ControllerPowerState"],
+            capture_output=True, text=True, timeout=20,
+        ))
+        if result is not None and result.returncode == 0 and isinstance(result.stdout, str):
+            value = result.stdout.strip()
+            if value in ("1", "0"):
+                return value == "1"
+        result = self._safe(lambda: subprocess.run(
+            ["system_profiler", "SPBluetoothDataType"],
+            capture_output=True, text=True, timeout=20,
+        ))
+        if result is None or result.returncode != 0 or not isinstance(result.stdout, str):
+            return None
+        match = re.search(r"^\s*(?:State|Bluetooth Power):\s*(On|Off)\b", result.stdout,
+                          re.MULTILINE | re.IGNORECASE)
+        if not match:
+            return None
+        return match.group(1).lower() == "on"
+
+    def _is_wifi_on(self) -> bool | None:
+        """Is Wi-Fi on? None if it couldn't be read."""
+        result = self._safe(lambda: subprocess.run(
+            ["networksetup", "-getairportpower", "en0"],
+            capture_output=True, text=True, timeout=20,
+        ))
+        if result is None or result.returncode != 0 or not isinstance(result.stdout, str):
+            return None
+        # "Wi-Fi Power (en0): On" (older: "AirPort Power (en0): On")
+        match = re.search(r"Power \([^)]*\):\s*(On|Off)\b", result.stdout)
+        if not match:
+            return None
+        return match.group(1) == "On"
+
+    def _is_icloud_signed_in(self) -> bool | None:
+        """Is an iCloud account signed in? None if it couldn't be read.
+
+        The accounts live in the MobileMeAccounts domain; the old read of a
+        "com.apple.iCloud.plist" domain never existed and always said "not
+        signed in".
+        """
+        result = self._safe(lambda: subprocess.run(
+            ["defaults", "read", "MobileMeAccounts", "Accounts"],
+            capture_output=True, text=True, timeout=20,
+        ))
+        if result is None or result.returncode != 0 or not isinstance(result.stdout, str):
+            return None
+        out = result.stdout
+        if re.search(r"\b(AccountID|AccountDSID|MobileMeAccountDisplay)\b", out):
+            return True
+        if re.fullmatch(r"\s*\(\s*\)\s*", out):
+            return False  # the list exists and is empty: signed out
+        return None

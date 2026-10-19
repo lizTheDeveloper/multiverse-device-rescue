@@ -81,6 +81,14 @@ what a real security tool never asks you for, what starts on its own, what
 there, and the checkup itself is the final boss. A lesson only teaches; it
 never counts as a fix, and nothing in the city lights up because of one.
 
+In the game, the city's home is a command center. Each finding arrives as a
+signal to sort. Open its clues (who made it, where it lives, what it does),
+then call it MINE, LOOK CLOSER or THREAT. Tags only sort the game. They
+change nothing on your computer, and a real change still asks you first.
+Points come from looking closely, never from deleting anything or from
+speed. Practice drills are mixed in, clearly marked and never about your
+computer, and the Drill Range has more whenever you want them.
+
 A building only lights up once Reclaim City has checked again and the problem
 is gone. If you've said someone may be watching you, the app doesn't offer the
 game, and if monitoring software turns up during a checkup, the game stays

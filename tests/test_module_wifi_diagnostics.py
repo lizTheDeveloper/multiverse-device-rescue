@@ -111,13 +111,14 @@ def _fake_run_low_tx_rate_wifi():
 
 
 def _fake_run_wifi_off():
-    """Mock subprocess when Wi-Fi is off."""
+    """Mock subprocess when Wi-Fi is off (no airport tool, as on macOS 14.4+)."""
     def fake_run(cmd, **kwargs):
         result = MagicMock()
-        result.returncode = 1
-        result.stderr = "Error: airport is not running"
-        if "airport" in cmd or (isinstance(cmd, list) and "airport" in cmd[0]):
-            result.stdout = ""
+        if "airport" in cmd[0]:
+            raise FileNotFoundError(cmd[0])
+        result.returncode = 0
+        result.stderr = ""
+        result.stdout = "Wi-Fi:\n\n      Interfaces:\n        en0:\n          Status: Off\n"
         return result
     return fake_run
 
@@ -215,3 +216,66 @@ def test_wifi_diagnostics_fix_wifi_off():
         fix = mod.fix(check, Mode.MANUAL)
     assert fix.all_succeeded
     assert any("Wi-Fi" in a.title or "wifi" in a.title.lower() for a in fix.actions)
+
+
+# --- Regression: macOS 26.3.1 has no airport tool -----------------------------
+# The airport utility was removed in macOS 14.4; its absence used to be
+# reported as "Wi-Fi is off or unavailable" on a Mac connected over Wi-Fi.
+
+_SP_AIRPORT_MACOS26 = """Wi-Fi:
+
+      Interfaces:
+        en0:
+          Card Type: Wi-Fi  (0x14E4, 0x4388)
+          MAC Address: REDACTED
+          Status: Connected
+          Current Network Information:
+            <redacted>:
+              PHY Mode: 802.11ac
+              Channel: 149 (5GHz, 80MHz)
+              Security: WPA/WPA2 Personal
+              Signal / Noise: -39 dBm / -92 dBm
+              Transmit Rate: 866
+              MCS Index: 9
+          Other Local Wi-Fi Networks:
+            <redacted>:
+              Channel: 6 (2GHz, 20MHz)
+              Signal / Noise: -85 dBm / -92 dBm
+"""
+
+
+def _fake_no_airport(sp_stdout=_SP_AIRPORT_MACOS26, sp_rc=0):
+    def fake_run(cmd, **kwargs):
+        if "airport" in cmd[0]:
+            raise FileNotFoundError(cmd[0])
+        result = MagicMock()
+        result.returncode = sp_rc
+        result.stderr = ""
+        result.stdout = sp_stdout
+        return result
+    return fake_run
+
+
+def test_macos26_connected_wifi_without_airport_tool_is_healthy():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_no_airport()):
+        result = mod.check(_make_profile())
+    assert not result.has_issues
+
+
+def test_macos26_weak_signal_read_from_current_network_only():
+    mod = _get_module()
+    weak = _SP_AIRPORT_MACOS26.replace("-39 dBm / -92 dBm", "-82 dBm / -92 dBm")
+    with patch("subprocess.run", side_effect=_fake_no_airport(weak)):
+        result = mod.check(_make_profile())
+    info = mod._parse_system_profiler_output(weak)
+    assert info["rssi"] == -82 and info["mcs"] == 9 and info["band"] == "5GHz"
+    assert result.has_issues
+
+
+def test_nothing_readable_is_couldnt_check_not_off():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_no_airport("", sp_rc=1)):
+        result = mod.check(_make_profile())
+    assert [f.data["check"] for f in result.findings] == ["wifi_unknown"]
+    assert result.findings[0].severity == Severity.INFO

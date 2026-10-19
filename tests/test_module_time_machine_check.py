@@ -326,3 +326,40 @@ def test_time_machine_fix_stale_has_remediation():
     # Should mention backup now or reconnect
     description = action.description.lower()
     assert "backup now" in description or "connect" in description or "backup" in description
+
+
+# --- Regression: macOS 26.3.1, no backup disk -----------------------------------
+# com.apple.TimeMachine.plist exists on every Mac (PreferencesVersion only), so
+# "readable" used to mean "set up" and the check said "We could not check your
+# last backup date" instead of reporting that no backup disk is set up.
+
+
+def _fake_macos26_no_destination(cmd, **kwargs):
+    if cmd[0] == "tmutil" and "destinationinfo" in cmd:
+        return _make_subprocess_result(stdout="tmutil: No destinations configured.\n")
+    if cmd[0] == "defaults" and "ExcludeByPath" not in cmd:
+        return _make_subprocess_result(stdout="{\n    PreferencesVersion = 6;\n}\n")
+    if cmd[0] == "tmutil" and "latestbackup" in cmd:
+        return _make_subprocess_result(
+            stderr="Failed to mount backup destination, error: ...", returncode=1)
+    return _make_subprocess_result(stdout="", returncode=1)
+
+
+def test_macos26_preferences_without_destination_is_not_configured():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26_no_destination):
+        result = mod.check(_make_profile())
+    checks = [f.data.get("check") for f in result.findings]
+    assert checks == ["not_configured"]
+
+
+def test_tm_unreadable_is_couldnt_check():
+    mod = _get_module()
+
+    def failing(cmd, **kwargs):
+        raise OSError("not permitted")
+
+    with patch("subprocess.run", side_effect=failing):
+        result = mod.check(_make_profile())
+    assert [f.data.get("check") for f in result.findings] == ["tm_unknown"]
+    assert result.findings[0].severity == Severity.INFO

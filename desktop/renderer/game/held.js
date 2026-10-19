@@ -22,6 +22,13 @@ export function splitHeld(doc) {
   return { doc: { ...doc, modules }, held };
 }
 
+// `doc` with only those findings: what integrity still counts as open. Kept
+// in memory by the controller, never stored or scored.
+export function heldOnly(doc) {
+  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.modules)) return doc;
+  return { ...doc, modules: doc.modules.filter((m) => m && HELD_MODULES.has(m.name)) };
+}
+
 // What a briefing says about a finding that is monitoring software, from the
 // list's own QuietNotes (`Q`). 'held' (city): the hold line and the help, and
 // nothing to act on. 'line' (standard): the one line with the full note

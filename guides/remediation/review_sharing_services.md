@@ -6,6 +6,7 @@ remediates:
   - security.sharing_preferences_audit.screen_sharing
   - security.sharing_preferences_audit.file_sharing
   - security.sharing_preferences_audit.remote_login
+  - security.sharing_preferences_audit.sharing_unknown
   - security.sharing_preferences_audit.remote_management
   - security.sharing_preferences_audit.printer_sharing
   - security.sharing_preferences_audit.airdrop_everyone
@@ -14,12 +15,14 @@ remediates:
   - security.sharing_services.screen_sharing
   - security.sharing_services.file_sharing
   - security.sharing_services.remote_login
+  - security.sharing_services.sharing_unknown
   - security.sharing_services.remote_management
   - security.sharing_services.printer_sharing
 steps_for:
   security.sharing_preferences_audit.screen_sharing: [1, 6]
   security.sharing_preferences_audit.file_sharing: [2, 6]
   security.sharing_preferences_audit.remote_login: [3, 6]
+  security.sharing_preferences_audit.sharing_unknown: [3, 6]
   security.sharing_preferences_audit.remote_management: [4, 6]
   security.sharing_preferences_audit.printer_sharing: [4, 6]
   security.sharing_preferences_audit.airdrop_everyone: [5, 6]
@@ -28,6 +31,7 @@ steps_for:
   security.sharing_services.screen_sharing: [1]
   security.sharing_services.file_sharing: [2]
   security.sharing_services.remote_login: [3]
+  security.sharing_services.sharing_unknown: [3]
   security.sharing_services.remote_management: [4]
   security.sharing_services.printer_sharing: [4]
 automatable_steps: []

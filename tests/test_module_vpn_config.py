@@ -340,3 +340,26 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.vpn_config.") for c in declared)
+
+
+# --- Regression: real `scutil --nc list` on macOS 26.3.1 (names redacted) -------
+# Every enabled service line starts with "*", and the old parser skipped all
+# of them, so a Mac with a VPN app's profile was told "No VPN configured".
+
+_NC_LIST_MACOS26 = (
+    "Available network connection services in the current set (*=enabled):\n"
+    '* (Disconnected)   00000000-1111-4222-8333-444444444444 PPP --> USB JTAG/serial debug unit '
+    '"Debug Unit"   [PPP:Modem]\n'
+    '* (Disconnected)   AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE VPN (com.connectify.Speedify) '
+    '"Speedify"                       [VPN:com.connectify.Speedify]\n'
+)
+
+
+def test_macos26_vpn_app_profile_is_found():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_scutil_run(_NC_LIST_MACOS26)):
+        result = mod.check(_make_profile())
+    assert not any(f.code == "security.vpn_config.no_vpn" for f in result.findings)
+    assert mod._parse_nc_line(_NC_LIST_MACOS26.splitlines()[2]) == (
+        "Speedify", "com.connectify.Speedify")
+    assert mod._parse_nc_line(_NC_LIST_MACOS26.splitlines()[1]) is None  # a modem, not a VPN

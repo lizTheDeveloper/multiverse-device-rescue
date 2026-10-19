@@ -41,11 +41,13 @@ export function districtLine(d, reclaimed = 0) {
   return d.blurb;
 }
 
-export function renderMap({ city, progress, cameBack, scout }) {
+// `goFor(d)`: what a district card opens (the deck filters its queue instead).
+// `heat`: districtId → 'hot' | 'warn' for open signals. `selected`: the filtered district.
+export function renderMap({ city, progress, cameBack, scout, goFor = (d) => `district:${d.id}`, heat = {}, selected = null }) {
   const cards = city.districts.map((d) => {
     const reclaimed = progress ? reclaimedIn(progress, d).length : 0;
     return `
-      <button type="button" class="district ${esc(d.status)}" data-go="district:${esc(d.id)}">
+      <button type="button" class="district ${esc(d.status)}${heat[d.id] ? ` heat-${esc(heat[d.id])}` : ''}" data-go="${esc(goFor(d))}"${selected === d.id ? ' aria-current="true"' : ''}>
         <h4>${esc(d.name.toUpperCase())}</h4>
         ${skyline(d.status)}
         <p>${esc(districtLine(d, reclaimed))}</p>

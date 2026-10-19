@@ -27,7 +27,7 @@ def _get_module():
     return next(m for m in modules if m.name == "appleid_security_check")
 
 
-def _write_appleid_plist(tmp_path, signed_in=True):
+def _write_appleid_plist(tmp_path, signed_in=True, keychain=True):
     """Write a real MobileMeAccounts.plist and return its path.
 
     The module opens this file directly, so patching plistlib.load alone was not
@@ -35,7 +35,8 @@ def _write_appleid_plist(tmp_path, signed_in=True):
     FileNotFoundError, which the module swallows as "not signed in". Writing a
     real fixture exercises the actual plist parsing instead.
     """
-    accounts = [{"AccountID": "user@icloud.com"}] if signed_in else []
+    services = [{"Name": "KEYCHAIN_SYNC", "Enabled": keychain}]
+    accounts = [{"AccountID": "user@icloud.com", "Services": services}] if signed_in else []
     path = tmp_path / "MobileMeAccounts.plist"
     with open(path, "wb") as f:
         plistlib.dump({"Accounts": accounts}, f)
@@ -101,10 +102,12 @@ def _make_run_result(
 
         # Check automatic updates
         elif "com.apple.SoftwareUpdate" in cmd_str:
-            if autoupdate_enabled:
-                result.stdout = "1\n"
-            else:
-                result.returncode = 1
+            flag = "1" if autoupdate_enabled else "0"
+            result.stdout = (
+                "{\n    AutomaticDownload = 1;\n"
+                f"    AutomaticallyInstallMacOSUpdates = {flag};\n"
+                f"    CriticalUpdateInstall = {flag};\n}}\n"
+            )
 
         return result
 
@@ -167,7 +170,7 @@ def test_appleid_keychain_disabled(tmp_path):
         keychain_enabled=False,
     )
 
-    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True)
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True, keychain=False)
     with patch("subprocess.run", side_effect=fake_run):
         result = mod.check(_make_profile())
 
@@ -236,7 +239,7 @@ def test_appleid_fix_keychain(tmp_path):
     mod = _get_module()
     fake_run = _make_run_result(keychain_enabled=False)
 
-    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True)
+    mod.mobileme_plist_path = _write_appleid_plist(tmp_path, True, keychain=False)
     with patch("subprocess.run", side_effect=fake_run):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
@@ -308,3 +311,120 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.appleid_security_check.") for c in declared)
+
+
+# --- Regression: macOS 26.3.1 (account details redacted) ---------------------
+# iCloud Keychain was read from a com.apple.iCloudKeychain domain macOS never
+# creates, and auto-update from AutomaticCheckEnabled, which is absent until
+# someone changes it. Both read as "off" on a Mac with both on.
+
+_SOFTWAREUPDATE_MACOS26 = """{
+    AutoInstallProductKeys =     (
+        "REDACTED"
+    );
+    AutomaticDownload = 1;
+    AutomaticallyInstallMacOSUpdates = 1;
+    ConfigDataInstall = 1;
+    CriticalUpdateInstall = 1;
+    DidSkipBackgroundDownloadLackingDiskSpace = 0;
+}
+"""
+
+
+def _fake_macos26(softwareupdate=_SOFTWAREUPDATE_MACOS26, rc=0):
+    def fake_run(cmd, **kwargs):
+        result = MagicMock()
+        result.stderr = ""
+        cmd_str = " ".join(cmd)
+        if "com.apple.SoftwareUpdate" in cmd_str:
+            result.returncode = rc
+            result.stdout = softwareupdate
+        else:
+            result.returncode = 1
+            result.stdout = ""
+        return result
+    return fake_run
+
+
+def _write_macos26_plist(tmp_path, services):
+    path = tmp_path / "MobileMeAccounts.plist"
+    with open(path, "wb") as f:
+        plistlib.dump({"Accounts": [{
+            "AccountID": "REDACTED", "AccountDSID": "REDACTED",
+            "Services": services,
+        }]}, f)
+    return path
+
+
+def test_macos26_keychain_on_and_auto_install_on(tmp_path):
+    mod = _get_module()
+    mod.mobileme_plist_path = _write_macos26_plist(tmp_path, [
+        {"Name": "MOBILE_DOCUMENTS", "Enabled": True},
+        {"Name": "KEYCHAIN_SYNC", "Enabled": True},
+    ])
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    codes = {f.code for f in result.findings}
+    assert "security.appleid_security_check.icloud_keychain" not in codes
+    assert "security.appleid_security_check.autoupdate_disabled" not in codes
+    summary = next(f for f in result.findings if f.data.get("check") == "appleid_summary")
+    assert summary.data["keychain_enabled"] is True
+    assert summary.data["autoupdate_enabled"] is True
+
+
+def test_keychain_service_missing_is_couldnt_check(tmp_path):
+    mod = _get_module()
+    mod.mobileme_plist_path = _write_macos26_plist(tmp_path, [])
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    codes = {f.code for f in result.findings}
+    assert "security.appleid_security_check.icloud_keychain" not in codes
+    assert "security.appleid_security_check.icloud_keychain_unknown" in codes
+
+
+def test_softwareupdate_unreadable_is_couldnt_check(tmp_path):
+    mod = _get_module()
+    mod.mobileme_plist_path = _write_macos26_plist(tmp_path, [
+        {"Name": "KEYCHAIN_SYNC", "Enabled": True}])
+    with patch("subprocess.run", side_effect=_fake_macos26("", rc=1)):
+        result = mod.check(_make_profile())
+    codes = {f.code for f in result.findings}
+    assert "security.appleid_security_check.autoupdate_disabled" not in codes
+    assert "security.appleid_security_check.autoupdate_unknown" in codes
+
+
+def test_check_disabled_explicitly_still_warns(tmp_path):
+    mod = _get_module()
+    mod.mobileme_plist_path = _write_macos26_plist(tmp_path, [
+        {"Name": "KEYCHAIN_SYNC", "Enabled": True}])
+    off = _SOFTWAREUPDATE_MACOS26.replace("    AutomaticDownload = 1;",
+                                          "    AutomaticCheckEnabled = 0;")
+    with patch("subprocess.run", side_effect=_fake_macos26(off)):
+        result = mod.check(_make_profile())
+    assert any(f.code == "security.appleid_security_check.autoupdate_disabled"
+               for f in result.findings)
+
+
+def test_critical_updates_only_says_security_updates_only(tmp_path):
+    """Review fix: CriticalUpdateInstall=1 alone is not 'Enabled' for everything."""
+    mod = _get_module()
+    mod.mobileme_plist_path = _write_macos26_plist(tmp_path, [
+        {"Name": "KEYCHAIN_SYNC", "Enabled": True}])
+    only = ("{\n    AutomaticallyInstallMacOSUpdates = 0;\n"
+            "    CriticalUpdateInstall = 1;\n}\n")
+    with patch("subprocess.run", side_effect=_fake_macos26(only)):
+        result = mod.check(_make_profile())
+    summary = next(f for f in result.findings if f.data.get("check") == "appleid_summary")
+    assert "Automatic updates: Security updates only" in summary.description
+    assert not any(f.code == "security.appleid_security_check.autoupdate_disabled"
+                   for f in result.findings)
+
+
+def test_all_updates_on_says_enabled(tmp_path):
+    mod = _get_module()
+    mod.mobileme_plist_path = _write_macos26_plist(tmp_path, [
+        {"Name": "KEYCHAIN_SYNC", "Enabled": True}])
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    summary = next(f for f in result.findings if f.data.get("check") == "appleid_summary")
+    assert "Automatic updates: Enabled" in summary.description

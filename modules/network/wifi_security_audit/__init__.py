@@ -24,6 +24,16 @@ class Module(ModuleBase):
     priority = 50
     depends_on = []
     estimated_duration = "5s"
+    emits_codes = [
+        "network.wifi_security_audit.wep_connected",
+        "network.wifi_security_audit.open_network_connected",
+        "network.wifi_security_audit.wpa2_only",
+        "network.wifi_security_audit.hidden_network",
+        "network.wifi_security_audit.wep_saved",
+        "network.wifi_security_audit.open_saved",
+        "network.wifi_security_audit.wifi_summary",
+        "network.wifi_security_audit.security_unknown",
+    ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
@@ -244,6 +254,7 @@ class Module(ModuleBase):
         if "wep" in security:
             findings.append(
                 Finding(
+                    code="network.wifi_security_audit.wep_connected",
                     title=f"Your Wi-Fi '{network_name}' uses WEP, which is easy to break",
                     description=(
                         f"Your Mac is connected to '{network_name}', which uses WEP. WEP "
@@ -266,9 +277,33 @@ class Module(ModuleBase):
             )
 
         # Check for open/none security
-        elif "none" in security or "open" in security or security == "unknown":
+        elif security == "unknown":
             findings.append(
                 Finding(
+                    title="Couldn't read your Wi-Fi's security type",
+                    description=(
+                        f"Your Mac is connected to '{network_name}', but Reclaim City "
+                        "could not read what kind of security it uses. The security "
+                        "type was not checked, so this result does not say whether the "
+                        "network is protected or not.\n\n"
+                        "What to do: Open System Settings > Wi-Fi and look at the "
+                        "network's details to see its security type yourself."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="network.wifi_security_audit.security_unknown",
+                    data={
+                        "check": "security_unknown",
+                        "network": network_name,
+                    },
+                )
+            )
+
+        # Check for open/none security
+        elif "none" in security or "open" in security:
+            findings.append(
+                Finding(
+                    code="network.wifi_security_audit.open_network_connected",
                     title=f"You are connected to an open Wi-Fi network: '{network_name}'",
                     description=(
                         f"Your Mac is connected to '{network_name}', which has no encryption. "
@@ -292,6 +327,7 @@ class Module(ModuleBase):
         elif "wpa2" in security and "wpa3" not in security:
             findings.append(
                 Finding(
+                    code="network.wifi_security_audit.wpa2_only",
                     title="Your Wi-Fi uses WPA2, which is secure but older",
                     description=(
                         f"You are connected to '{network_name}' using WPA2. This is a "
@@ -315,6 +351,7 @@ class Module(ModuleBase):
         if current_network.get("is_hidden"):
             findings.append(
                 Finding(
+                    code="network.wifi_security_audit.hidden_network",
                     title=f"Connected to hidden network: {network_name}",
                     description=(
                         f"'{network_name}' is a hidden network (SSID not broadcast). "
@@ -350,6 +387,7 @@ class Module(ModuleBase):
         if weak_networks["wep"]:
             findings.append(
                 Finding(
+                    code="network.wifi_security_audit.wep_saved",
                     title=(
                         f"Your Mac remembers {len(weak_networks['wep'])} Wi-Fi networks with weak WEP"
                     ),
@@ -374,6 +412,7 @@ class Module(ModuleBase):
         if weak_networks["open"]:
             findings.append(
                 Finding(
+                    code="network.wifi_security_audit.open_saved",
                     title=(
                         f"Your Mac remembers {len(weak_networks['open'])} open Wi-Fi networks"
                     ),
@@ -415,6 +454,7 @@ class Module(ModuleBase):
         description = "\n".join(summary_parts)
 
         return Finding(
+            code="network.wifi_security_audit.wifi_summary",
             title="Your Wi-Fi security settings",
             description=description,
             severity=Severity.INFO,

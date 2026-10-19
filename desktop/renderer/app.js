@@ -417,6 +417,7 @@ if (typeof module !== 'undefined' && module.exports) {
     stepTitle,
     learnMoreFor,
     mayBeWatched,
+    ALWAYS_SAFETY_MODULES,
     gameOfferedFor,
     gameScanFirst,
     worryStartsGameScan,

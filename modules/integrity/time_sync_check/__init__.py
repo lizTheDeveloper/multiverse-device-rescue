@@ -1,3 +1,4 @@
+import re
 import subprocess
 from datetime import datetime
 
@@ -43,6 +44,22 @@ class Module(ModuleBase):
                     severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "ntp_enabled", "enabled": False},
+                )
+            )
+
+        elif ntp_enabled is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether your clock sets itself",
+                    description=(
+                        "Reading the 'Set time and date automatically' setting needs "
+                        "administrator access, so Reclaim City couldn't check it. This "
+                        "is not a sign that anything is wrong. To see for yourself, open "
+                        "System Settings > General > Date & Time."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={"check": "ntp_unknown", "enabled": None},
                 )
             )
 
@@ -114,10 +131,16 @@ class Module(ModuleBase):
                 capture_output=True,
                 text=True,
             )
-            output = result.stdout.strip()
-            return "On" in output
+            output = result.stdout.strip() if isinstance(result.stdout, str) else ""
         except (OSError, subprocess.SubprocessError):
             return None
+        # "Network Time: On" / "Network Time: Off". Without admin rights
+        # systemsetup prints "You need administrator access to run this
+        # tool... exiting!" instead, which used to read as "off".
+        match = re.search(r"Network Time:\s*(On|Off)\b", output)
+        if not match:
+            return None
+        return match.group(1) == "On"
 
     def _get_ntp_server(self) -> str | None:
         """Get configured NTP server."""
@@ -142,8 +165,12 @@ class Module(ModuleBase):
                 capture_output=True,
                 text=True,
             )
+            if result.returncode != 0 or not isinstance(result.stdout, str):
+                return None  # key absent (never changed) or unreadable
             output = result.stdout.strip()
-            return output == "1"
+            if output in ("0", "1"):
+                return output == "1"
+            return None
         except (OSError, subprocess.SubprocessError):
             return None
 

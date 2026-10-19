@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from rescue.models import (
@@ -233,25 +234,51 @@ class Module(ModuleBase):
             if result.returncode != 0:
                 return vpn_configs
 
-            # Parse output looking for VPN entries
-            lines = result.stdout.split("\n")
-            for line in lines:
-                line = line.strip()
-                # Skip empty lines and headers
-                if not line or line.startswith("*"):
+            # Real lines (macOS 26) look like:
+            #   * (Disconnected)   <UUID> VPN (com.connectify.Speedify) "Speedify"  [VPN:com.connectify.Speedify]
+            #   * (Disconnected)   <UUID> IPSec "Office"                            [IPSec]
+            # The leading "*" marks an enabled service. Skipping every line that
+            # starts with "*" skipped every service, and the bracketed type is
+            # where the VPN kind is, so a Mac with a VPN set up was told
+            # "No VPN configured".
+            for line in result.stdout.split("\n"):
+                parsed = self._parse_nc_line(line)
+                if parsed:
+                    vpn_name, vpn_type = parsed
+                    vpn_configs[vpn_name] = vpn_type
                     continue
-
-                # Lines with VPN configs look like: "x. ServiceName : IPv4, IPv6, DNS, WINS"
-                # But we care about the ones that mention VPN types
-                if "IKEv2" in line or "L2TP" in line or "PPTP" in line or "OpenVPN" in line:
-                    vpn_name = self._extract_vpn_name(line)
-                    vpn_type = self._extract_vpn_type(line)
+                # Older "N. Name : Type" layout
+                stripped = line.strip()
+                if stripped and not stripped.startswith("*") and any(
+                    t in stripped for t in ("IKEv2", "L2TP", "PPTP", "OpenVPN")
+                ):
+                    vpn_name = self._extract_vpn_name(stripped)
+                    vpn_type = self._extract_vpn_type(stripped)
                     if vpn_name and vpn_type:
                         vpn_configs[vpn_name] = vpn_type
 
             return vpn_configs
         except Exception:
             return vpn_configs
+
+    @staticmethod
+    def _parse_nc_line(line: str) -> tuple[str, str] | None:
+        """(name, type) for a VPN line of `scutil --nc list`, else None."""
+        match = re.match(
+            r'^\s*\*?\s*\([^)]*\)\s+[0-9A-Fa-f-]{36}\s+.*?"(?P<name>[^"]+)"\s*\[(?P<type>[^\]]+)\]',
+            line,
+        )
+        if not match:
+            return None
+        kind = match.group("type")
+        upper = kind.upper()
+        if upper.startswith("VPN:"):
+            return match.group("name"), kind.split(":", 1)[1]
+        for known in ("IKEV2", "IPSEC", "L2TP", "PPTP", "OPENVPN"):
+            if known in upper:
+                return match.group("name"), {"IKEV2": "IKEv2", "IPSEC": "IPSec",
+                                             "OPENVPN": "OpenVPN"}.get(known, known)
+        return None
 
     def _extract_vpn_name(self, line: str) -> str | None:
         """Extract VPN name from a scutil line."""

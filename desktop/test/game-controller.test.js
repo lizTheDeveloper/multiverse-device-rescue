@@ -343,7 +343,7 @@ test('if the game can’t load, the computer’s districts still work', async ()
     await tick();
   } finally { console.error = orig; }
   assert.match(stub.frame.innerHTML, /couldn’t load\. Your computer’s districts still work/);
-  assert.match(stub.frame.innerHTML, /data-go="district:/);
+  assert.match(stub.frame.innerHTML, /data-go="filter:/, 'the deck’s city filters the queue');
   assert.strictEqual(errors.length, 1);
 });
 
@@ -355,7 +355,7 @@ test('blocked storage: the map still renders from the scan, with the game starti
   try {
     const t = await rcSetup({ storage: throwing });
     assert.match(t.html(), /YOUR ACCOUNTS/);
-    assert.match(t.html(), /data-go="district:/);
+    assert.match(t.html(), /data-go="filter:/);
     t.click({ 'data-go': 'rc:#/district/master-keys' });
     assert.match(t.html(), /data-action="toggle-account"/);
     t.click({ 'data-action': 'toggle-account', 'data-account': 'gmail' });
@@ -454,6 +454,28 @@ test('FINISH FROM THE CHECKUP shows only when every step is confirmed, and count
   const again = await rcSetup({ doc: allMac, storage: (() => { const st = memStore(); st.setItem(RC_KEY, t.storage.getItem(RC_KEY)); return st; })() });
   assert.strictEqual(hudCount(again.html(), 'CONFIRMED'), 0);
   assert.strictEqual(hudCount(again.html(), 'YOU REPORTED'), 1);
+});
+
+test('SUBMIT REPORT is logged as YOU REPORTED and pays the smaller amount, once', async () => {
+  const t = await rcSetup();
+  t.click({ 'data-go': `rc:#/mission/${FC}/debrief` });
+  t.form.action = 'completed';
+  t.click({ 'data-action': 'submit-debrief', 'data-mission': FC });
+  assert.strictEqual(JSON.parse(t.storage.getItem('device-rescue.game.v1')).deck.points, 20);
+  t.click({ href: '#/city' }, 'A');
+  assert.match(t.html(), /YOU REPORTED<\/span> [^<]+/);
+  assert.strictEqual(hudCount(t.html(), 'YOU REPORTED'), 1);
+  assert.strictEqual(hudCount(t.html(), 'CONFIRMED'), 0);
+});
+
+test('FINISH FROM THE CHECKUP is logged as CONFIRMED and pays the fix amount', async () => {
+  const t = await rcSetup({ doc: allMac });
+  t.click({ 'data-go': `rc:#/mission/${FC}/briefing` });
+  t.click({ 'data-act': 'confirm-from-scan' });
+  assert.strictEqual(JSON.parse(t.storage.getItem('device-rescue.game.v1')).deck.points, 50);
+  t.click({ href: '#/city' }, 'A');
+  assert.match(t.html(), /CONFIRMED<\/span> [^<]+/);
+  assert.strictEqual(hudCount(t.html(), 'CONFIRMED'), 1);
 });
 
 test('the person filed Done and the scan disagrees: both show, and the game state is unchanged', async () => {
@@ -811,7 +833,8 @@ test('clicking a district opens its lesson; finishing it mid-scan goes back to t
     t.click({ 'data-act': n === all.length - 1 ? 'finish-lesson' : 'next-question' });
   });
   assert.match(t.html(), /THE SWEEP/);
-  assert.match(t.html(), /data-go="learn:wires"[\s\S]*?DONE ✓/);
+  assert.match(t.html(), /<h4>THE WIRES[\s\S]*?DONE ✓[\s\S]*?data-go="review:wires"/);
+  assert.doesNotMatch(t.html(), /data-go="learn:wires"/, 'a DONE district is no longer a lesson button');
   // The Gatehouse has several lessons, in this worry's order: the next unfinished one each time.
   t.click({ 'data-go': 'learn:gatehouse' });
   assert.match(t.html(), /The tool that asks for your password/);
@@ -873,4 +896,91 @@ test('a lesson’s OPEN IN SYSTEM SETTINGS opens that pane through window.rescue
   await tick();
   assert.deepStrictEqual(opened, ['x-apple.systempreferences:com.apple.Software-Update-Settings.extension']);
   assert.match(t.html(), /data-act="open-setting:softwareUpdate"/, 'opening a page leaves the lesson as it was');
+});
+
+// The tester: "It keeps taking me back to the lessons even when I have done them before."
+const HACKED = { id: 'hacked', title: 'I think I’ve been hacked' };
+const answerAll = (t, id, { finish = true } = {}) => t.lesson(id).questions.forEach((q, n, all) => {
+  t.click({ 'data-act': `answer:${correctIndex(q)}` });
+  if (n < all.length - 1) t.click({ 'data-act': 'next-question' });
+  else if (finish) t.click({ 'data-act': 'finish-lesson' });
+});
+const GATEHOUSE = ['password-asker', 'starts-on-its-own', 'browser-add-ons', 'locked-door', 'poisoned-packages'];
+
+test('a DONE ✓ district mid-scan opens no quiz; the review is a separate, optional button', async () => {
+  const storage = memStore();
+  let t = await sweepSetup({ storage, situation: HACKED });
+  // The Gatehouse's lessons, each opened from its card ("the next unfinished one").
+  for (let i = 0; i < GATEHOUSE.length; i += 1) {
+    t.click({ 'data-go': 'learn:gatehouse' });
+    const open = t.lessons.find((l) => GATEHOUSE.includes(l.id) && t.html().includes(l.title.replace(/[<>&"]/g, '')));
+    answerAll(t, open.id);
+  }
+  // An app restart, the same storage, the same worry: the sweep is running again.
+  t = await sweepSetup({ storage, situation: HACKED });
+  t.ctl.scanEvent(prog('done', 1, 4, 'security'));
+  const html = t.html();
+  assert.match(html, /class="district learned[^"]*"><h4>THE GATEHOUSE[\s\S]*?DONE ✓/);
+  assert.doesNotMatch(html, /data-go="learn:gatehouse"/, 'the DONE card is not a lesson button');
+  assert.match(html, /data-go="review:gatehouse"[^>]*>REVIEW ONE\? \(OPTIONAL\)/);
+  assert.match(html, /data-go="review:gatehouse" aria-label="Review one\? \(optional\): a lesson about/i, 'the accessible name starts with the visible words');
+  t.click({ 'data-go': 'learn:gatehouse' }); // a stale click
+  assert.match(t.html(), /THE SWEEP/);
+  assert.doesNotMatch(t.html(), /QUESTION \d+ OF/, 'no quiz');
+  t.click({ 'data-go': 'review:gatehouse' });
+  assert.match(t.html(), /QUESTION 1 OF/, 'reviewing is still possible, when asked for');
+  t.click({ 'data-go': 'boss' });
+  assert.match(t.html(), /THE SWEEP/);
+});
+
+test('REVIEW rotates through a district’s done lessons, least recently reviewed first, in memory only', async () => {
+  const storage = memStore();
+  let t = await sweepSetup({ storage, situation: HACKED });
+  for (let i = 0; i < GATEHOUSE.length; i += 1) {
+    t.click({ 'data-go': 'learn:gatehouse' });
+    const open = t.lessons.find((l) => GATEHOUSE.includes(l.id) && t.html().includes(l.title.replace(/[<>&"]/g, '')));
+    answerAll(t, open.id);
+  }
+  t = await sweepSetup({ storage, situation: HACKED });
+  t.ctl.scanEvent(prog('done', 1, 4, 'security'));
+  const before = storage.getItem('device-rescue.game.v1');
+  const seen = [];
+  for (let i = 0; i < GATEHOUSE.length + 1; i += 1) {
+    t.click({ 'data-go': 'review:gatehouse' });
+    const open = t.lessons.find((l) => GATEHOUSE.includes(l.id) && t.html().includes(l.title.replace(/[<>&"]/g, '')));
+    seen.push(open.id);
+    t.click({ 'data-go': 'boss' });
+  }
+  assert.strictEqual(new Set(seen.slice(0, GATEHOUSE.length)).size, GATEHOUSE.length, 'each lesson once before any repeats');
+  assert.strictEqual(seen[GATEHOUSE.length], seen[0], 'then the least recently reviewed again');
+  assert.strictEqual(storage.getItem('device-rescue.game.v1'), before, 'nothing saved');
+});
+
+test('answering every question counts as done, even when the person leaves before FINISH, and survives a restart', async () => {
+  const storage = memStore();
+  let t = await sweepSetup({ storage });
+  t.click({ 'data-go': 'learn:wires' });
+  answerAll(t, 'whos-on-wifi', { finish: false });
+  t.click({ 'data-go': 'boss' }); // BACK TO THE CHECKUP, no FINISH
+  assert.match(t.html(), /data-go="review:wires"/);
+  assert.ok(JSON.parse(storage.getItem('device-rescue.game.v1')).lessons['whos-on-wifi'].completedAt);
+  // The scan finishes mid-lesson; the person answers the last one and takes SEE YOUR CITY.
+  t.click({ 'data-go': 'learn:gatehouse' });
+  t.ctl.scanDone(scan(mod('mod_a', [finding('A')])), WIFI);
+  answerAll(t, 'password-asker', { finish: false });
+  t.click({ 'data-go': 'city' });
+  t = await sweepSetup({ storage });
+  assert.match(t.html(), /data-go="review:wires"/, 'remembered after a restart');
+  const saved = JSON.parse(storage.getItem('device-rescue.game.v1'));
+  assert.deepStrictEqual(Object.keys(saved.lessons).sort(), ['password-asker', 'whos-on-wifi']);
+});
+
+test('finishing a sweep lesson after the checkup is done goes to the city, not the Training Grounds', async () => {
+  const t = await sweepSetup();
+  t.click({ 'data-go': 'learn:gatehouse' });
+  t.ctl.scanDone(scan(mod('mod_a', [finding('A')])), WIFI);
+  answerAll(t, 'password-asker');
+  assert.doesNotMatch(t.html(), /THE TRAINING GROUNDS/);
+  assert.match(t.html(), /YOUR COMPUTER/);
+  assert.doesNotMatch(t.html(), /Your checkup is done\./, 'the banner has done its job');
 });

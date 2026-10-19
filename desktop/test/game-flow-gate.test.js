@@ -107,3 +107,15 @@ test('the game never makes a mission of monitoring software, so nothing about it
   assert.doesNotMatch(JSON.stringify(store.data), /mSpy|stalkerware/i);
   assert.deepStrictEqual(splitHeld(null), { doc: null, held: [] });
 });
+
+test('a RE-SWEEP from the deck is the same game scan: monitoring software in it keeps the city on, and is remembered', () => {
+  const unsure = byId('unsure');
+  const monitoring = { modules: [{ name: 'stalkerware_scan', findings: [{ severity: 'warning' }] }] };
+  const seen = noteMonitoring(false, monitoring);
+  assert.strictEqual(seen, true);
+  for (const mode of ['city', 'standard']) {
+    assert.strictEqual(postScanView({ inGame: true, left: false, wantsCity: true, rememberedCity: true,
+      offered: gameOfferedFor(unsure), ready: true, mode }), 'boss-city', mode);
+  }
+  assert.strictEqual(noteMonitoring(seen, { modules: [] }), true, 'a clean re-sweep doesn’t forget it');
+});

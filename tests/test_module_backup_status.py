@@ -242,7 +242,10 @@ def test_backup_status_unknown_status():
     with patch("subprocess.run", side_effect=_fake_run_timemachine_status_unknown()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    assert any(f.data.get("check") == "timemachine_status_unknown" for f in result.findings)
+    unknown = [f for f in result.findings if f.data.get("check") == "timemachine_status_unknown"]
+    assert unknown
+    # "Couldn't check" is information, not a warning about the Mac.
+    assert all(f.severity == Severity.INFO for f in unknown)
 
 
 def test_backup_status_fix_is_informational():

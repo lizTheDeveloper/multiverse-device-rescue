@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import Mode, Platform, RiskLevel, Severity, SystemProfile
 from rescue.registry import discover_modules
+from tests.test_network_codes import assert_codes_match_check
 
 HEALTHY_ARP = """\
 192.168.1.1 dev wlan0 lladdr 00:1c:42:00:00:08 REACHABLE
@@ -156,3 +157,41 @@ def test_fix_leads_with_containment_and_is_guidance_only():
 def test_fix_does_nothing_on_a_healthy_network():
     mod, result = _check(HEALTHY_ARP)
     assert mod.fix(result, Mode.CLI).actions == []
+
+
+def test_every_finding_carries_its_check_code():
+    findings = []
+    for arp, route in (
+        (SPOOFED_ARP, ONE_GATEWAY),
+        (DUPLICATE_ARP, ONE_GATEWAY),
+        (LOCAL_MAC_ARP, ONE_GATEWAY),
+        (HEALTHY_ARP, TWO_GATEWAYS),
+    ):
+        findings.extend(_check(arp, route)[1].findings)
+    assert {f.data["check"] for f in findings} == {
+        "gateway_impersonation",
+        "duplicate_mac",
+        "locally_administered_gateway",
+        "multiple_gateways",
+    }
+    assert_codes_match_check(findings, "arp_spoof_check")
+
+
+def test_duplicate_mac_findings_have_distinct_targets():
+    arp = DUPLICATE_ARP + (
+        "192.168.1.30 dev wlan0 lladdr 52:54:00:aa:bb:cc REACHABLE\n"
+        "192.168.1.31 dev wlan0 lladdr 52:54:00:aa:bb:cc REACHABLE\n"
+        "192.168.1.32 dev wlan0 lladdr 52:54:00:aa:bb:cc REACHABLE\n"
+    )
+    _, result = _check(arp)
+    dups = [f for f in result.findings if f.data["check"] == "duplicate_mac"]
+    assert len(dups) == 2
+    targets = {f.data["target"] for f in dups}
+    assert targets == {"52:54:00:12:34:56", "52:54:00:aa:bb:cc"}
+
+
+def test_per_instance_findings_name_their_target():
+    _, spoof = _check(SPOOFED_ARP)
+    assert spoof.findings[0].data["target"] == "de:ad:be:ef:00:01"
+    _, local = _check(LOCAL_MAC_ARP)
+    assert local.findings[0].data["target"] == "192.168.1.1"

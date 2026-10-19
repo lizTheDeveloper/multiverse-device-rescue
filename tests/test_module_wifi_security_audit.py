@@ -321,3 +321,42 @@ class TestWiFiSecurityAudit:
             info_findings = [f for f in result.findings if f.severity == Severity.INFO]
             assert len(info_findings) > 0
             assert any("wi-fi security settings" in f.title.lower() for f in info_findings)
+
+
+def _saved_sec(security_by_name):
+    mod = _get_module()
+    mod._get_network_security_info = lambda n: {"security": security_by_name[n]}
+    return mod
+
+
+def test_every_finding_carries_its_check_code():
+    from tests.test_network_codes import assert_codes_match_check
+
+    mod = _get_module()
+    findings = []
+    findings += mod._check_current_connection(
+        {"name": "A", "security": "WEP", "is_hidden": True}
+    )
+    findings += mod._check_current_connection({"name": "B", "security": "None"})
+    findings += mod._check_current_connection({"name": "C", "security": "WPA2 Personal"})
+    findings += mod._check_current_connection({"name": "D", "security": "Unknown"})
+    mod = _saved_sec({"w": "WEP", "o": "None"})
+    findings += mod._check_saved_networks([{"name": "w"}, {"name": "o"}])
+    findings.append(mod._get_summary({"name": "A", "security": "WEP"}, [{"name": "w"}]))
+    assert_codes_match_check(findings, "wifi_security_audit")
+    assert {f.data["check"] for f in findings} == {
+        c.rsplit(".", 1)[1] for c in mod.emits_codes
+    }
+
+
+def test_unknown_security_is_not_open():
+    mod = _get_module()
+    findings = mod._check_current_connection({"name": "Cafe", "security": "Unknown"})
+    assert not [f for f in findings if f.data["check"] == "open_network_connected"]
+    unknown = [f for f in findings if f.data["check"] == "security_unknown"]
+    assert len(unknown) == 1
+    f = unknown[0]
+    assert f.severity == Severity.INFO
+    assert f.title == "Couldn't read your Wi-Fi's security type"
+    assert "not checked" in f.description.lower()
+    assert "safe" not in f.description.lower().replace("not safe", "")

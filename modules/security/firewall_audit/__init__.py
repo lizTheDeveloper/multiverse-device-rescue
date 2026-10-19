@@ -12,9 +12,8 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue.macos_firewall import parse_global_state, parse_stealth_mode
 from rescue.module_base import ModuleBase
-
-SOCKETFILTERFW = "/usr/libexec/ApplicationFirewall/socketfilterfw"
 
 
 class Module(ModuleBase):
@@ -29,13 +28,36 @@ class Module(ModuleBase):
     emits_codes = [
         "security.firewall_audit.global_state",
         "security.firewall_audit.stealth_mode",
+        "security.firewall_audit.global_state_unknown",
+        "security.firewall_audit.stealth_mode_unknown",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
-        global_state = self._run_socketfilterfw("--getglobalstate")
-        if "disabled" in global_state.lower():
+        # Each reading is True (on), False (off) or None (couldn't tell). An
+        # unreadable answer is "couldn't check", never "off".
+        global_state = parse_global_state(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate"],
+            capture_output=True, text=True, timeout=15)))
+        if global_state is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether your Mac's firewall is on",
+                    description=(
+                        "Reclaim City couldn't read your Mac's firewall setting, so it "
+                        "doesn't know whether the firewall is on or off. This is not a "
+                        "sign that anything is wrong.\n\n"
+                        "To see for yourself: open System Settings, click Network, then "
+                        "look at Firewall."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.firewall_audit.global_state_unknown",
+                    data={"check": "global_state_unknown"},
+                )
+            )
+        elif global_state is False:
             findings.append(
                 Finding(
                     title="Your Mac's firewall is turned off",
@@ -54,8 +76,26 @@ class Module(ModuleBase):
                 )
             )
 
-        stealth_state = self._run_socketfilterfw("--getstealthmode")
-        if "disabled" in stealth_state.lower():
+        # macOS 15+ says "Firewall stealth mode is off", which the old
+        # "disabled" substring test never matched.
+        stealth_state = parse_stealth_mode(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getstealthmode"],
+            capture_output=True, text=True, timeout=15)))
+        if stealth_state is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check your firewall's stealth mode",
+                    description=(
+                        "Reclaim City couldn't read whether your Mac's firewall "
+                        "'stealth mode' is on. This is not a sign that anything is wrong."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.firewall_audit.stealth_mode_unknown",
+                    data={"check": "stealth_mode_unknown"},
+                )
+            )
+        elif stealth_state is False:
             findings.append(
                 Finding(
                     title="Your Mac responds to network pings",
@@ -87,11 +127,18 @@ class Module(ModuleBase):
             else:
                 continue
             try:
-                result = subprocess.run(
-                    [SOCKETFILTERFW, flag, "on"],
-                    capture_output=True,
-                    text=True,
-                )
+                if flag == "--setglobalstate":
+                    result = subprocess.run(
+                        ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--setglobalstate", "on"],
+                        capture_output=True,
+                        text=True,
+                    )
+                else:
+                    result = subprocess.run(
+                        ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--setstealthmode", "on"],
+                        capture_output=True,
+                        text=True,
+                    )
                 success = result.returncode == 0
                 error = None if success else (
                     result.stderr.strip()
@@ -113,10 +160,14 @@ class Module(ModuleBase):
             )
         return FixResult(module_name=self.name, actions=actions)
 
-    def _run_socketfilterfw(self, flag: str) -> str:
-        result = subprocess.run(
-            [SOCKETFILTERFW, flag],
-            capture_output=True,
-            text=True,
-        )
+    # Commands are written out in full so docs/commands.md lists them.
+    @staticmethod
+    def _stdout(call) -> str | None:
+        """stdout of ``call()`` (a subprocess.run), or None if it couldn't run."""
+        try:
+            result = call()
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if result.returncode != 0:
+            return None
         return result.stdout

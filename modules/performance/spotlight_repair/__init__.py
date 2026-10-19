@@ -44,16 +44,44 @@ class Module(ModuleBase):
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             status_output = ""
 
-        # Parse mdutil output
+        # Parse mdutil output. Only "Indexing disabled" means off. macOS 26
+        # answers "Index is read-only." for / and /System/Volumes/Data while
+        # Spotlight search works; that, an empty answer, or anything else new
+        # is "couldn't confirm", not "turned off".
+        indexing_disabled = False
         for line in status_output.split("\n"):
             if "Indexing enabled" in line:
                 indexing_enabled = True
                 # Check if actively indexing
                 if "waiting" not in line.lower():
                     indexing_active = True
+            elif "Indexing disabled" in line or "Indexing and searching disabled" in line:
+                indexing_disabled = True
+
+        if not indexing_enabled and not indexing_disabled:
+            findings.append(
+                Finding(
+                    title="Couldn't confirm Spotlight indexing on your main drive",
+                    description=(
+                        "Reclaim City couldn't tell from macOS whether Spotlight is "
+                        "indexing your main drive"
+                        + (f" (macOS said: \"{status_output.splitlines()[-1].strip()}\")"
+                           if status_output.strip() else "")
+                        + ". This is not a sign that anything is wrong. If searching "
+                        "with Spotlight finds your files, it is working."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={
+                        "indexing_enabled": None,
+                        "issue_type": "indexing_unknown",
+                        "status": status_output[:200],
+                    },
+                )
+            )
 
         # Flag if Spotlight is disabled on boot volume
-        if not indexing_enabled:
+        if indexing_disabled and not indexing_enabled:
             findings.append(
                 Finding(
                     title="Spotlight search is turned off on your main drive",

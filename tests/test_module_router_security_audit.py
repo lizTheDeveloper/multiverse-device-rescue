@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import Mode, Platform, RiskLevel, Severity, SystemProfile
 from rescue.registry import discover_modules
+from tests.test_network_codes import assert_codes_match_check
 
 ROUTE_OUTPUT = "default via 192.168.1.1 dev wlan0 proto dhcp metric 600\n"
 
@@ -116,3 +117,23 @@ def test_fix_does_not_ask_to_disable_the_expected_admin_page():
     mod, result = _check(open_ports=(443,))
     fix = mod.fix(result, Mode.CLI)
     assert not any(action.data.get("port") == 443 for action in fix.actions)
+
+
+def test_every_finding_carries_its_check_code():
+    _, result = _check(open_ports=(23, 443), upnp="HTTP/1.1 200 OK")
+    checks = {f.data["check"] for f in result.findings}
+    assert checks == {"admin_service_open", "upnp_enabled", "router_manual_review"}
+    assert_codes_match_check(result.findings, "router_security_audit")
+
+
+def test_admin_ports_have_distinct_targets():
+    _, result = _check(open_ports=(23, 80))
+    admin = [f for f in result.findings if f.data["check"] == "admin_service_open"]
+    assert {f.data["target"] for f in admin} == {"23", "80"}
+
+
+def test_info_admin_port_still_coded():
+    _, result = _check(open_ports=(443,))
+    admin = next(f for f in result.findings if f.data["check"] == "admin_service_open")
+    assert admin.severity == Severity.INFO
+    assert admin.code == "network.router_security_audit.admin_service_open"

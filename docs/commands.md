@@ -213,6 +213,7 @@ df -i /
 diskutil apfs list
 diskutil info /
 diskutil verifyVolume /
+fdesetup status
 ```
 
 ### `font_issues`
@@ -232,9 +233,10 @@ system_profiler SPDisplaysDataType
 
 ```text
 defaults read /Library/Preferences/com.apple.Bluetooth ControllerPowerState
+defaults read MobileMeAccounts Accounts
 defaults read com.apple.coreservices.useractivityd ActivityReceivingAllowed
-defaults read com.apple.iCloud.plist MobileMeAccounts
 networksetup -getairportpower en0
+system_profiler SPBluetoothDataType
 ```
 
 ### `homebrew_health`
@@ -256,8 +258,8 @@ scutil --get …
 
 ```text
 defaults read '~/Library/Preferences/com.apple.iCloud.plist' ForceSyncEnabled
+defaults read MobileMeAccounts Accounts
 defaults read com.apple.iCloud.plist Enabled
-defaults read com.apple.iCloud.plist MobileMeAccounts
 defaults read com.apple.iCloud.plist iCloudDrive
 ```
 
@@ -384,8 +386,12 @@ networksetup -listnetworkserviceorder
 
 ### `network_proxy_detect`
 
-
-Plus 1 command(s) built at runtime.
+```text
+networksetup -getautoproxyurl …
+networksetup -getsecurewebproxy …
+networksetup -getsocksfirewallproxy …
+networksetup -getwebproxy …
+```
 
 ### `network_speed_test`
 
@@ -606,6 +612,9 @@ dscl . -read … UserShell
 
 ### `wifi_diagnostics`
 
+```text
+system_profiler SPAirPortDataType
+```
 
 Plus 1 command(s) built at runtime.
 
@@ -866,7 +875,15 @@ winmgmt /verifyrepository
 
 ### `arp_spoof_check`
 
-Runs no external commands; reads files and system APIs only.
+```text
+arp -a
+arp -a -n
+arp -an
+ip neigh show
+ip route show default
+route -n get default
+route print -4
+```
 
 ### `dns_over_https_check`
 
@@ -887,24 +904,52 @@ system_profiler SPEthernetDataType
 
 ### `lan_common`
 
-
-Plus 1 command(s) built at runtime.
+```text
+arp -a
+arp -a -n
+arp -an
+ip neigh show
+ip route show default
+route -n get default
+route print -4
+```
 
 ### `lan_device_inventory`
 
-Runs no external commands; reads files and system APIs only.
+```text
+arp -a
+arp -a -n
+arp -an
+ip neigh show
+ip route show default
+route -n get default
+route print -4
+```
 
 ### `network_proxy_check`
 
 ```text
+networksetup -getautoproxyurl …
+networksetup -getproxybypassdomains …
+networksetup -getsecurewebproxy …
+networksetup -getsocksfirewallproxy …
+networksetup -getwebproxy …
 networksetup -listallnetworkservices
 ```
 
-Plus 1 command(s) built at runtime.
-
 ### `router_security_audit`
 
-Runs no external commands; reads files and system APIs only.
+```text
+arp -a
+arp -a -n
+arp -an
+ip neigh show
+ip route show default
+route -n get default
+route print -4
+```
+
+Also opens network connections directly from Python (sockets), without an external command.
 
 ### `vpn_leak_check`
 
@@ -1320,6 +1365,7 @@ systemctl --user stop …
 defaults read /Library/Preferences/com.apple.Bluetooth ControllerPowerState
 defaults read com.apple.sharingd DiscoverableMode
 networksetup -getairportpower en0
+system_profiler SPBluetoothDataType
 ```
 
 ### `airdrop_security_check`
@@ -1350,9 +1396,8 @@ sqlite3 … 'SELECT client, service, auth_value FROM access WHERE auth_value=2'
 ### `appleid_security_check`
 
 ```text
-defaults read /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled
+defaults read /Library/Preferences/com.apple.SoftwareUpdate
 defaults read com.apple.mail-shared MailPrivacyProtectionEnabled
-defaults read …
 defaults read … AppleIDAccount
 defaults read … ICloudPrivateRelayEnabled
 system_profiler SPiCloudDataType
@@ -1458,8 +1503,11 @@ ps aux
 
 ### `crypto_miner_persistence`
 
-
-Plus 1 command(s) built at runtime.
+```text
+crontab -l
+reg query …
+schtasks /query /fo csv /v
+```
 
 ### `cryptojacking_iocs`
 
@@ -1516,17 +1564,21 @@ system_profiler SPHardwareDataType
 
 ### `firewall_audit`
 
-
-Plus 2 command(s) built at runtime.
+```text
+/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode
+/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
+/usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on
+```
 
 ### `firewall_rules_audit`
 
 ```text
 /usr/libexec/ApplicationFirewall/socketfilterfw --getallowsigned
 /usr/libexec/ApplicationFirewall/socketfilterfw --getblockall
+/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode
 /usr/libexec/ApplicationFirewall/socketfilterfw --listapps
-defaults read /Library/Preferences/com.apple.alf globalstate
-defaults read /Library/Preferences/com.apple.alf stealthenabled
 ```
 
 ### `firmware_password`
@@ -1638,6 +1690,7 @@ system_profiler SPHardwareDataType
 defaults read com.apple.screensaver askForPassword
 defaults read com.apple.screensaver askForPasswordDelay
 pmset -g
+sysadminctl -screenLock status
 ```
 
 ### `login_password_policy`
@@ -1695,8 +1748,13 @@ lsof -i -nP
 
 ### `network_proxy`
 
-
-Plus 1 command(s) built at runtime.
+```text
+networksetup -getautoproxyurl …
+networksetup -getproxyautodiscovery …
+networksetup -getsecurewebproxy …
+networksetup -getsocksfirewallproxy …
+networksetup -getwebproxy …
+```
 
 ### `open_ports_scan`
 
@@ -1721,6 +1779,9 @@ sqlite3 …
 ```text
 defaults read /Library/Preferences/com.apple.RemoteDesktop
 defaults read /Library/Preferences/com.apple.RemoteManagement ARD_AllLocalUsers
+launchctl print system/com.apple.AEServer
+launchctl print system/com.apple.screensharing
+launchctl print system/com.openssh.sshd
 systemsetup -getremoteappleevents
 systemsetup -getremotelogin
 ```
@@ -1799,16 +1860,20 @@ defaults read MobileMeAccounts Accounts
 cupsctl
 defaults read com.apple.sharingd DiscoverableMode
 launchctl list
+launchctl print system/com.apple.screensharing
+launchctl print system/com.apple.smbd
+launchctl print system/com.openssh.sshd
 systemsetup -getremotelogin
 ```
 
 ### `sharing_services`
 
 ```text
-defaults read /Library/Preferences/com.apple.AppleFileServer
-defaults read /Library/Preferences/com.apple.AppleFileServer guestAccess
+cupsctl
 launchctl list
-systemsetup -getremotelogin
+launchctl print system/com.apple.screensharing
+launchctl print system/com.apple.smbd
+launchctl print system/com.openssh.sshd
 ```
 
 ### `sip_gatekeeper`
@@ -1833,8 +1898,9 @@ ssh-keygen -l -f …
 
 ### `stalkerware_scan`
 
-
-Plus 1 command(s) built at runtime.
+```text
+reg query … /s /v DisplayName
+```
 
 ### `sudo_config_audit`
 
@@ -1951,8 +2017,10 @@ wmic computersystem get partofdomain
 
 ### `win_crypto_miner_detect`
 
-
-Plus 1 command(s) built at runtime.
+```text
+netstat -ano
+powershell -NoProfile -NonInteractive -Command …
+```
 
 ### `win_defender`
 

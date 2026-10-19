@@ -68,5 +68,40 @@ Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENG
     Run with `RESCUE_ENGINE=/tmp/fake-rescue`, click **Play it as a game** and pick **I’m not sure — check everything**. The sweep runs, and when it finishes the list results show, not the city. Click **Start over**. The welcome screen no longer shows **Play it as a game**. Quit and delete `/tmp/fake-rescue` afterwards.
 12. DevTools → Network: every request is `app://rescue/…`, including `rc/data/phishing.js`.
 13. Clean up the test launch agent as in "Game mode, end to end", step 8.
+14. Network findings. On a Mac with a proxy configured (System Settings → Network → your connection → Details → Proxies), run a checkup and open The Wires. The proxy mission shows walkthrough steps and an **Open in System Settings** button that opens Network › Proxies. A router, ARP or LAN mission has no such button. After upgrading from a build without network codes, any network mission previously marked "later" reopens once, because its saved progress was keyed by the old title-based identity. That is accepted, not migrated.
+
+## Command center (the deck)
+
+Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start`, with DevTools open, and check:
+1. Click **Play it as a game**, then **I'm not sure**. When the sweep finishes, the deck appears: **INCOMING SIGNALS** on the left, the city in the middle, **CITY INTEGRITY**, **SIGNALS** and **RANK** on the right, and the **OPS LOG** at the bottom with a SWEEP line. The top bar shows RANK, LAST SWEEP with the check count, and **RE-SWEEP ⟳**. There is no separate HUD row.
+2. Click **INVESTIGATE NEXT ▶**. The most important signal opens in a panel. Its clues are **SCAN CLUE** buttons, and each opens with a "How to read this" line. For the `com.devicerescue.qa.helper` signal, **WHERE IT LIVES** names its folder under Application Support, with the note "Where apps keep their own files. An unfamiliar name here is worth a look."
+3. Tag it **THREAT**. Scout's read appears. It says whether the scan agrees and why, and never says you're wrong. Close the panel: the signal is on the **THREAT BOARD** with **SEE THE STEPS ▶** or **SEE THE FIX ▶**. In Terminal, `ls ~/Library/LaunchAgents/com.devicerescue.qa.helper.plist` still finds the file, because a tag changes nothing.
+4. Open it again and tag it **MINE**. **OPTIONAL: TELL DEVICE RESCUE TOO** shows the "It's mine" button. Press it: its own confirmation question appears. Press **Cancel**. Nothing was marked.
+5. Click **The Gatehouse** in the city. The queue shows only its signals, with **SHOW ALL** and **OPEN THE DISTRICT ▶**. Click **SHOW ALL**.
+6. Open **LOW-PRIORITY SIGNALS (N)**. At most 50 show, plus "And N more" if there are more. Click **THESE ARE ALL FINE**. The row goes, SORTED goes up, and the points under RANK don't change.
+7. If a **DRILL** row is in the queue, it has a hatched lime border and the DRILL stamp, and its panel says "Practice. This isn't on your computer." Answer it. A right answer adds points and a DRILL line in the log. A wrong one shows "The tell:" and adds nothing. CITY INTEGRITY doesn't move either way. A drill pays once ever: if you already got that drill right (on an earlier sweep or in the Drill Range), answering it again adds no points.
+8. From the threat board, open the helper's steps, click **Fix it for me**, then **Yes, fix it**. After **RECLAIMED**, go back to the city. CONFIRMED reads 1, the log has a CONFIRMED line, and if nothing else was open in The Gatehouse, a **DISTRICT SECURED** banner shows once. Turn on System Settings → Accessibility → Display → Reduce motion and repeat with another fix: the banner appears without moving.
+9. Click **RE-SWEEP ⟳**. The sweep screen runs the same checkup. Back on the deck, there's another SWEEP line, the sparkline has two points, and the sentence under it says "up from", "down from" or "the same as" last sweep. A finding you tagged that is still there keeps its tag. If one is gone, the log says "NO LONGER SEEN", and CONFIRMED doesn't go up for it.
+10. Click **DRILL RANGE ▶**. A drill opens. **NEXT DRILL ▶** moves on, and **BACK TO THE DECK** returns. A drill you already got right can come round again to practise, and it adds no points. Then click **Start over**, **Play it as a game** and a worry, and click **ALL LESSONS** on the sweep: the Training Grounds offer **DRILL RANGE ▶** too, before the checkup has finished, and its back button reads **BACK TO THE TRAINING GROUNDS**.
+11. Make the window narrow (about 700 px wide). The panels stack in this order: queue, city, instruments, log. The Signal panel fits the width with no sideways scrolling.
+12. Keyboard and VoiceOver: Tab reaches each queue row as a button, Enter opens it, and focus stays put when a clue opens or a tag is set. VoiceOver reads the sentence under CITY INTEGRITY, for example "City integrity 50%, up from 0% last sweep."
+13. DevTools → Application → Local Storage → `device-rescue.game.v1`: `version` is 3, `deck.sweeps` entries have only `at` and numbers, `deck.tags` keys look like `launch_agent_audit|…`, and nothing anywhere says `monitoringSeen`.
+14. Monitoring software in a re-sweep. Quit, save this as `/tmp/fake-rescue`, and run `chmod +x /tmp/fake-rescue`:
+    ```sh
+    #!/bin/sh
+    # The first scan is the real engine; every scan after that "finds" monitoring software.
+    case " $* " in
+      *" scan "*)
+        if [ -f /tmp/fake-rescue.ran ]; then
+          echo '{"schema_version":1,"platform":"darwin","modules":[{"name":"stalkerware_scan","category":"security","status":"ok","error":null,"supported":true,"findings":[{"title":"Monitoring app found (test)","description":"Test only.","severity":"critical","category":"security","data":{}}]}]}'
+          exit 0
+        fi
+        touch /tmp/fake-rescue.ran ;;
+    esac
+    exec "$REAL_RESCUE" "$@"
+    ```
+    Run `rm -f /tmp/fake-rescue.ran; REAL_RESCUE="$PWD/.venv/bin/rescue" RESCUE_ENGINE=/tmp/fake-rescue npm --prefix desktop start`. Play it as a game with **I'm not sure**. When the deck appears, click **RE-SWEEP ⟳**. When it finishes, the plain list results show, not the deck. **Start over** no longer offers **Play it as a game**. Quit, then delete `/tmp/fake-rescue` and `/tmp/fake-rescue.ran`.
+15. On Windows or Linux (if available), the same deck appears, and there are no **OPEN IN SYSTEM SETTINGS** buttons.
+16. Clean up the test launch agent as in "Game mode, end to end", step 8.
 
 Record anything that doesn't match as a bug and fix it before the release goes out.

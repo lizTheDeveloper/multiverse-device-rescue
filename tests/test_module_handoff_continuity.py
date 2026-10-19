@@ -271,3 +271,78 @@ def test_handoff_continuity_actions_have_descriptions():
         assert action.description
         # Description should contain actionable guidance
         assert len(action.description) > 20
+
+
+# --- Regression: macOS 26.3.1 (account details redacted) ---------------------
+# ControllerPowerState is gone from com.apple.Bluetooth, the old iCloud read
+# used a domain that never existed, and Handoff's key is absent until toggled.
+# All three used to read as "off", giving "Bluetooth is off" and "iCloud is
+# not signed in" on a Mac with Bluetooth on and iCloud signed in.
+
+_SP_BLUETOOTH_MACOS26 = """Bluetooth:
+
+      Bluetooth Controller:
+          Address: REDACTED
+          State: On
+          Chipset: BCM_4388C2
+"""
+
+_MOBILEME_MACOS26 = """(
+        {
+        AccountAlternateDSID = "REDACTED";
+        AccountDSID = REDACTED;
+        AccountDescription = iCloud;
+        AccountID = "REDACTED";
+        LoggedIn = 1;
+    }
+)
+"""
+
+
+def _fake_macos26(bluetooth=_SP_BLUETOOTH_MACOS26, mobileme=_MOBILEME_MACOS26):
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd)
+        if "ActivityReceivingAllowed" in cmd_str or "ControllerPowerState" in cmd_str:
+            return _make_subprocess_result("", returncode=1)  # key does not exist
+        if "SPBluetoothDataType" in cmd_str:
+            return _make_subprocess_result(bluetooth)
+        if "getairportpower" in cmd_str:
+            return _make_subprocess_result("Wi-Fi Power (en0): On\n")
+        if "MobileMeAccounts" in cmd_str:
+            return _make_subprocess_result(mobileme)
+        return _make_subprocess_result()
+    return fake_run
+
+
+def test_macos26_bluetooth_on_and_icloud_signed_in():
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_macos26()):
+        result = mod.check(_make_profile())
+    assert not [f for f in result.findings if f.severity == Severity.WARNING]
+    by_check = {f.data["check"]: f for f in result.findings}
+    assert by_check["bluetooth_status"].data["enabled"] is True
+    assert by_check["wifi_status"].data["enabled"] is True
+    assert by_check["icloud_status"].data["signed_in"] is True
+    assert by_check["handoff_status"].data["enabled"] is None
+
+
+def test_macos26_bluetooth_really_off_still_warns():
+    mod = _get_module()
+    off = _SP_BLUETOOTH_MACOS26.replace("State: On", "State: Off")
+    with patch("subprocess.run", side_effect=_fake_macos26(bluetooth=off)):
+        result = mod.check(_make_profile())
+    assert any(f.data["check"] == "bluetooth_warning" for f in result.findings)
+
+
+def test_unreadable_settings_are_couldnt_check_not_off():
+    mod = _get_module()
+
+    def failing(cmd, **kwargs):
+        return _make_subprocess_result("", returncode=1)
+
+    with patch("subprocess.run", side_effect=failing):
+        result = mod.check(_make_profile())
+    assert all(f.severity == Severity.INFO for f in result.findings)
+    checks = {f.data["check"] for f in result.findings}
+    assert {"bluetooth_unknown", "wifi_unknown", "icloud_unknown"} <= checks
+    assert "bluetooth_warning" not in checks

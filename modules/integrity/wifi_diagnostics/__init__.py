@@ -1,3 +1,4 @@
+import re
 import subprocess
 from typing import Optional
 
@@ -41,7 +42,24 @@ class Module(ModuleBase):
         wifi_info = self._get_wifi_info()
 
         if wifi_info is None:
-            # Wi-Fi is not available
+            # Neither the airport tool (removed in macOS 14.4) nor
+            # system_profiler gave an answer: that is "couldn't check", not
+            # "Wi-Fi is off".
+            findings.append(
+                Finding(
+                    title="Couldn't check your Wi-Fi",
+                    description=(
+                        "Reclaim City couldn't read your Mac's Wi-Fi status, so it "
+                        "doesn't know whether Wi-Fi is on. This is not a sign that "
+                        "anything is wrong."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={"check": "wifi_unknown"},
+                )
+            )
+        elif wifi_info.get("power") is False:
+            # Wi-Fi is off
             findings.append(
                 Finding(
                     title="Wi-Fi is off or unavailable",
@@ -158,10 +176,15 @@ class Module(ModuleBase):
         return FixResult(module_name=self.name, actions=actions)
 
     def _get_wifi_info(self) -> Optional[dict]:
-        """Get Wi-Fi information using airport command.
+        """Get Wi-Fi information.
 
-        Returns dict with keys: connected, state, ssid, rssi, channel, mcs, band, snr
-        Returns None if Wi-Fi is off or airport command fails.
+        Returns dict with keys: power, connected, state, ssid, rssi, channel,
+        mcs, band, snr. ``power`` is False when Wi-Fi is switched off.
+        Returns None if nothing could be read.
+
+        The ``airport`` tool was removed in macOS 14.4, so on current macOS
+        this falls back to ``system_profiler SPAirPortDataType``. Treating the
+        missing tool as "Wi-Fi is off" reported a connected Mac as offline.
         """
         try:
             result = subprocess.run(
@@ -170,20 +193,56 @@ class Module(ModuleBase):
                 text=True,
                 timeout=5,
             )
-
-            if result.returncode != 0:
-                # Wi-Fi is off or airport command failed
-                return None
-
-            output = result.stdout
-            if not output or not output.strip():
-                return None
-
-            wifi_info = self._parse_airport_output(output)
-            return wifi_info
-
+            output = result.stdout if result.returncode == 0 else ""
+            if isinstance(output, str) and output.strip():
+                if re.search(r"AirPort:\s*Off", output):
+                    return {"power": False, "connected": False, "state": "off"}
+                wifi_info = self._parse_airport_output(output)
+                wifi_info.setdefault("power", True)
+                return wifi_info
         except (subprocess.TimeoutExpired, OSError, FileNotFoundError):
+            pass
+
+        try:
+            result = subprocess.run(
+                ["system_profiler", "SPAirPortDataType"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (subprocess.SubprocessError, OSError):
             return None
+        if result.returncode != 0 or not isinstance(result.stdout, str):
+            return None
+        return self._parse_system_profiler_output(result.stdout)
+
+    @staticmethod
+    def _parse_system_profiler_output(output: str) -> Optional[dict]:
+        """Parse the first Wi-Fi interface in ``system_profiler SPAirPortDataType``."""
+        status = re.search(r"^\s*Status:\s*(.+?)\s*$", output, re.MULTILINE)
+        if not status:
+            return None
+        state = status.group(1)
+        lowered = state.lower()
+        if lowered == "off":
+            return {"power": False, "connected": False, "state": "off"}
+        info: dict = {"power": True, "state": state, "connected": lowered == "connected"}
+        if not info["connected"]:
+            return info
+        current = output.split("Current Network Information:", 1)
+        section = current[1].split("Other Local Wi-Fi Networks:", 1)[0] if len(current) > 1 else ""
+        sn = re.search(r"Signal / Noise:\s*(-?\d+)\s*dBm\s*/\s*(-?\d+)\s*dBm", section)
+        if sn:
+            info["rssi"] = int(sn.group(1))
+            info["snr"] = int(sn.group(1)) - int(sn.group(2))
+        mcs = re.search(r"MCS Index:\s*(\d+)", section)
+        if mcs:
+            info["mcs"] = int(mcs.group(1))
+        channel = re.search(r"Channel:\s*(\d+)\s*\((\d)GHz", section)
+        if channel:
+            info["channel"] = int(channel.group(1))
+            info["band"] = {"2": "2.4GHz", "5": "5GHz", "6": "6GHz"}.get(channel.group(2))
+        return info
 
     def _parse_airport_output(self, output: str) -> dict:
         """Parse airport -I output and extract Wi-Fi information."""

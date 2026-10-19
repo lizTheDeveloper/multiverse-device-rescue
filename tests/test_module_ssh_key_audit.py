@@ -500,3 +500,50 @@ def test_ssh_non_key_files_not_checked_as_keys(tmp_path):
     home = _real_ssh_home(tmp_path, 0o700, {"config.backup": (0o644, "Host x\n")})
     result = _run_real(home)
     assert not [f for f in result.findings if f.data.get("check") == "bad_key_perms"]
+
+
+# --- Regression: real ~/.ssh on macOS 26.3.1 (hostnames redacted) ----------------
+# gcloud's google_compute_known_hosts (mode 644) holds other machines' public
+# host keys. `ssh-keygen -l` fingerprints it, so it was reported as "Your
+# private key google_compute_known_hosts is open to other users".
+
+_KNOWN_HOSTS_LINE = (
+    "compute.REDACTED ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIREDACTEDREDACTEDREDACTED\n"
+)
+_PUB_LINE = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIREDACTED user@host\n"
+
+
+def _keygen_ok(cmd, **kwargs):
+    result = MagicMock()
+    result.returncode = 0
+    result.stdout = "256 SHA256:REDACTED compute.REDACTED (ED25519)\n"
+    result.stderr = ""
+    return result
+
+
+@_POSIX_MODES
+def test_google_compute_known_hosts_is_not_a_private_key(tmp_path):
+    home = _real_ssh_home(tmp_path, 0o700, {
+        "google_compute_known_hosts": (0o644, _KNOWN_HOSTS_LINE),
+        "config.llmtutor": (0o644, _PUB_LINE),
+        "google_compute_engine": (0o600, _KEY),
+    })
+    mod = _get_module()
+    with patch("pathlib.Path.home", return_value=home):
+        with patch("subprocess.run", side_effect=_keygen_ok):
+            result = mod.check(_make_profile())
+    assert not [f for f in result.findings if f.data.get("check") == "bad_key_perms"]
+
+
+@_POSIX_MODES
+def test_open_private_key_still_flagged_next_to_known_hosts(tmp_path):
+    home = _real_ssh_home(tmp_path, 0o700, {
+        "google_compute_known_hosts": (0o644, _KNOWN_HOSTS_LINE),
+        "id_ed25519": (0o644, _KEY),
+    })
+    mod = _get_module()
+    with patch("pathlib.Path.home", return_value=home):
+        with patch("subprocess.run", side_effect=_keygen_ok):
+            result = mod.check(_make_profile())
+    flagged = [f.data["key_file"] for f in result.findings if f.data.get("check") == "bad_key_perms"]
+    assert flagged == ["id_ed25519"]

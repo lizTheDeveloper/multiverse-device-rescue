@@ -76,8 +76,10 @@ function guideSteps(body) {
 // The test's own sentence cut, plain on purpose and independent of the module's.
 // Independent of QuietNotes.MARKERS on purpose, and narrower: case-sensitive,
 // no bare "DV" (the /i flag made that match `codesign -dv`). A sentence this
-// skips is one the module may take out; everything else must survive.
-const GUIDE_DV = /799-7233|88788|text START to|DV Hotline|\b[Aa]dvocates?\b|[Dd]omestic [Vv]iolence/;
+// skips is one the module may take out; everything else must survive. The
+// network guides' "someone you know (a partner, an ex, a housemate...)"
+// safety sentence is the module's to take out in standard mode too.
+const GUIDE_DV = /799-7233|88788|text START to|DV Hotline|\b[Aa]dvocates?\b|[Dd]omestic [Vv]iolence|partner,\s+an\s+ex\b|\bhousemates?\b/;
 const norm = (t) => String(t).replace(/^\s*(?:[-*]|\d{1,3}\.)\s+/gm, ' ').replace(/\s+/g, ' ').trim();
 const cut = (t) => norm(t).split(/(?<=[.!?][)"'”’*`]*)\s+(?=[A-Z(*`"“])/).filter(Boolean);
 const guides = () => {

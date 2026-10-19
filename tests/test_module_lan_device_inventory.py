@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.models import Mode, Platform, RiskLevel, Severity, SystemProfile
 from rescue.registry import discover_modules
+from tests.test_network_codes import assert_codes_match_check
 
 ARP_OUTPUT = """\
 192.168.1.1 dev wlan0 lladdr 00:1c:42:00:00:08 REACHABLE
@@ -136,3 +137,32 @@ def test_fix_does_nothing_without_findings():
     with patch("subprocess.run", side_effect=OSError("command not found")):
         result = mod.check(_make_profile())
     assert mod.fix(result, Mode.CLI).actions == []
+
+
+def test_every_finding_carries_its_check_code():
+    mod = _get_module()
+    mod.configure({"known_macs": ["a4:83:e7:1b:2c:3d"], "expected_device_count": 1})
+    with patch("subprocess.run", side_effect=_fake_commands()):
+        result = mod.check(_make_profile())
+    checks = {f.data["check"] for f in result.findings}
+    assert checks == {"lan_inventory", "unrecognised_device", "device_count_exceeded"}
+    assert_codes_match_check(result.findings, "lan_device_inventory")
+
+
+def test_unrecognised_devices_have_distinct_targets():
+    mod = _get_module()
+    mod.configure({"known_macs": ["00:1c:42:00:00:08"]})
+    arp = (
+        "192.168.1.1 dev wlan0 lladdr 00:1c:42:00:00:08 REACHABLE\n"
+        "192.168.1.20 dev wlan0 lladdr a4:83:e7:1b:2c:3d REACHABLE\n"
+        "192.168.1.31 dev wlan0 lladdr de:ad:be:ef:00:01 STALE\n"
+    )
+    with patch("subprocess.run", side_effect=_fake_commands(arp=arp)):
+        result = mod.check(_make_profile())
+    unknown = [f for f in result.findings if f.data["check"] == "unrecognised_device"]
+    assert len(unknown) == 2
+    assert {f.data["target"] for f in unknown} == {
+        "a4:83:e7:1b:2c:3d",
+        "de:ad:be:ef:00:01",
+    }
+    assert all(f.data["target"] == f.data["mac"] for f in unknown)

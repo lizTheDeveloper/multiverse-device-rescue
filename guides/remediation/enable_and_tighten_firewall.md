@@ -4,10 +4,14 @@ estimated_time: "5 minutes"
 platforms: [macos]
 remediates:
   - security.firewall_audit.global_state
+  - security.firewall_audit.global_state_unknown
   - security.firewall_audit.stealth_mode
+  - security.firewall_audit.stealth_mode_unknown
 steps_for:
   security.firewall_audit.global_state: [1]
+  security.firewall_audit.global_state_unknown: [1]
   security.firewall_audit.stealth_mode: [2]
+  security.firewall_audit.stealth_mode_unknown: [2]
 automatable_steps: []
 human_only_steps: [1, 2]
 ---

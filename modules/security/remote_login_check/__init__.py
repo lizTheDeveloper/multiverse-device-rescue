@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from rescue.models import (
@@ -11,6 +12,7 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue.macos_launchd import REMOTE_LOGIN, SCREEN_SHARING, parse_result
 from rescue.module_base import ModuleBase
 
 
@@ -29,13 +31,25 @@ class Module(ModuleBase):
         "security.remote_login_check.remote_management_enabled",
         "security.remote_login_check.remote_apple_events_enabled",
         "security.remote_login_check.all_disabled",
+        "security.remote_login_check.remote_access_unknown",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
+        # True (on) / False (off) / None (couldn't tell). systemsetup needs
+        # admin; without it Remote Login used to read as "off" -- the miss
+        # direction for a security check.
+        ssh_state = self._is_ssh_enabled()
+        apple_events_state = self._is_remote_apple_events_enabled()
+        unknown = [
+            label for state, label in (
+                (ssh_state, "Remote Login (SSH)"),
+                (apple_events_state, "Remote Apple Events"),
+            ) if state is None
+        ]
 
         # Check SSH (Remote Login)
-        if self._is_ssh_enabled():
+        if ssh_state is True:
             findings.append(
                 Finding(
                     title="Remote Login is turned on",
@@ -60,7 +74,7 @@ class Module(ModuleBase):
             )
 
         # Check Screen Sharing (VNC)
-        if self._is_screen_sharing_enabled():
+        if self._is_screen_sharing_enabled() or self._screen_sharing_daemon_loaded():
             findings.append(
                 Finding(
                     title="Screen Sharing is turned on",
@@ -107,7 +121,7 @@ class Module(ModuleBase):
             )
 
         # Check Remote Apple Events
-        if self._is_remote_apple_events_enabled():
+        if apple_events_state is True:
             findings.append(
                 Finding(
                     title="Remote Apple Events is turned on",
@@ -126,6 +140,23 @@ class Module(ModuleBase):
                     category=self.category,
                     code="security.remote_login_check.remote_apple_events_enabled",
                     data={"service": "remote_apple_events"},
+                )
+            )
+
+        if unknown:
+            findings.append(
+                Finding(
+                    title="Couldn't check some remote access settings",
+                    description=(
+                        "Reclaim City couldn't read whether these are on: "
+                        + ", ".join(unknown)
+                        + ". This is not a sign that anything is wrong. To see for "
+                        "yourself, open System Settings > General > Sharing."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.remote_login_check.remote_access_unknown",
+                    data={"check": "remote_access_unknown", "services": unknown},
                 )
             )
 
@@ -192,20 +223,48 @@ class Module(ModuleBase):
             )
         return FixResult(module_name=self.name, actions=actions)
 
-    def _is_ssh_enabled(self) -> bool:
-        """Check if SSH (Remote Login) is enabled via systemsetup."""
+    def _is_ssh_enabled(self) -> bool | None:
+        """Is Remote Login on? `launchctl print system/com.openssh.sshd` answers
+        without admin; systemsetup (admin only) is the fallback. None if
+        neither could tell."""
         try:
             result = subprocess.run(
-                ["systemsetup", "-getremotelogin"],
+                ["launchctl", "print", "system/com.openssh.sshd"],
                 capture_output=True,
                 text=True,
                 timeout=5,
             )
-            if result.returncode == 0:
-                return "on" in result.stdout.lower()
+        except (OSError, subprocess.SubprocessError):
+            result = None
+        state = parse_result(REMOTE_LOGIN, result)
+        if state is not None:
+            return state
+        return self._systemsetup_on_off(["systemsetup", "-getremotelogin"], "Remote Login")
+
+    @staticmethod
+    def _systemsetup_on_off(cmd: list[str], label: str) -> bool | None:
+        """'<label>: On/Off' from systemsetup; None for the admin refusal etc."""
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        out = result.stdout if isinstance(result.stdout, str) else ""
+        match = re.search(rf"{re.escape(label)}:\s*(On|Off)\b", out)
+        if result.returncode != 0 or not match:
+            return None
+        return match.group(1) == "On"
+
+    def _screen_sharing_daemon_loaded(self) -> bool:
+        try:
+            result = subprocess.run(
+                ["launchctl", "print", "system/com.apple.screensharing"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
             return False
-        except (OSError, subprocess.TimeoutExpired):
-            return False
+        return parse_result(SCREEN_SHARING, result) is True
 
     def _is_screen_sharing_enabled(self) -> bool:
         """Check if Screen Sharing (VNC) is enabled via defaults."""
@@ -248,17 +307,20 @@ class Module(ModuleBase):
         except (OSError, subprocess.TimeoutExpired):
             return False
 
-    def _is_remote_apple_events_enabled(self) -> bool:
-        """Check if Remote Apple Events is enabled via systemsetup."""
+    def _is_remote_apple_events_enabled(self) -> bool | None:
+        """Is Remote Apple Events on? The AEServer daemon is loaded only while it
+        is; systemsetup (admin only) is the fallback."""
         try:
             result = subprocess.run(
-                ["systemsetup", "-getremoteappleevents"],
+                ["launchctl", "print", "system/com.apple.AEServer"],
                 capture_output=True,
                 text=True,
                 timeout=5,
             )
-            if result.returncode == 0:
-                return "on" in result.stdout.lower()
-            return False
-        except (OSError, subprocess.TimeoutExpired):
-            return False
+        except (OSError, subprocess.SubprocessError):
+            result = None
+        state = parse_result("com.apple.AEServer", result)
+        if state is not None:
+            return state
+        return self._systemsetup_on_off(
+            ["systemsetup", "-getremoteappleevents"], "Remote Apple Events")

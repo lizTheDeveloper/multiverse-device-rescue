@@ -75,7 +75,7 @@ class Module(ModuleBase):
                         "somewhere safe. If you can't find it, the steps below show how "
                         "to make a new one."
                     ),
-                    severity=Severity.WARNING,
+                    severity=Severity.INFO,  # couldn't check is not a problem
                     category=self.category,
                     code="security.filevault_recovery.recovery_key_unknown",
                     data={
@@ -158,8 +158,8 @@ class Module(ModuleBase):
                 title="FileVault recovery status",
                 description=(
                     f"FileVault is enabled. "
-                    f"Personal recovery key: {'present' if has_personal_key else 'not found'}. "
-                    f"Institutional recovery key: {'present' if has_institutional_key else 'not found'}. "
+                    f"Personal recovery key: {_key_word(has_personal_key)}. "
+                    f"Institutional recovery key: {_key_word(has_institutional_key)}. "
                     f"Enabled users: {', '.join(sorted(enabled_set)) if enabled_users else 'none detected'}."
                 ),
                 severity=Severity.INFO,
@@ -316,3 +316,13 @@ class Module(ModuleBase):
             return []
         except Exception:
             return []
+
+
+def _key_word(state) -> str:
+    """True / False / "unknown" -> words. "unknown" (e.g. fdesetup needs root)
+    used to be truthy and read as "present"."""
+    if state is True:
+        return "present"
+    if state is False:
+        return "not found"
+    return "couldn't check"

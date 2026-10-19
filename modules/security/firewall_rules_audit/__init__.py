@@ -10,6 +10,13 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue.macos_firewall import (
+    parse_allow_signed,
+    parse_block_all,
+    parse_global_state,
+    parse_listapps,
+    parse_stealth_mode,
+)
 from rescue.module_base import ModuleBase
 
 
@@ -28,20 +35,42 @@ class Module(ModuleBase):
         "security.firewall_rules_audit.too_many_apps",
         "security.firewall_rules_audit.allow_signed_enabled",
         "security.firewall_rules_audit.firewall_summary",
+        "security.firewall_rules_audit.alf_unknown",
+        "security.firewall_rules_audit.stealth_unknown",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
-        # Check ALF (Application Layer Firewall) status
+        # Each setting reads as True (on), False (off) or None (couldn't tell).
+        # macOS 15+ no longer keeps the state in com.apple.alf.plist (on macOS
+        # 26 the file doesn't exist), so reading that plist turned every Mac
+        # into "Your Mac's firewall is turned off". socketfilterfw is the
+        # source of truth, and an unreadable answer is "couldn't check".
         alf_enabled = self._get_alf_status()
         stealth_enabled = self._get_stealth_mode()
         allowed_apps = self._get_allowed_apps()
         block_all = self._get_block_all_incoming()
         allow_signed = self._get_allow_signed_software()
 
-        # Flag CRITICAL if firewall is completely off
-        if not alf_enabled:
+        if alf_enabled is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check whether your Mac's firewall is on",
+                    description=(
+                        "Reclaim City couldn't read your Mac's firewall setting, so it "
+                        "doesn't know whether the firewall is on or off. This is not a "
+                        "sign that anything is wrong.\n\n"
+                        "To see for yourself: open System Settings, click Network, then "
+                        "look at Firewall."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.firewall_rules_audit.alf_unknown",
+                    data={"check": "alf_unknown", "alf_enabled": None},
+                )
+            )
+        elif alf_enabled is False:
             findings.append(
                 Finding(
                     title="Your Mac's firewall is turned off",
@@ -61,8 +90,8 @@ class Module(ModuleBase):
                 )
             )
 
-        # Flag WARNING if stealth mode is disabled
-        if alf_enabled and not stealth_enabled:
+        # Stealth mode only matters while the firewall is on.
+        if alf_enabled is True and stealth_enabled is False:
             findings.append(
                 Finding(
                     title="Your Mac responds to network pings",
@@ -81,10 +110,25 @@ class Module(ModuleBase):
                     data={"check": "stealth_disabled"},
                 )
             )
+        elif alf_enabled is True and stealth_enabled is None:
+            findings.append(
+                Finding(
+                    title="Couldn't check your firewall's stealth mode",
+                    description=(
+                        "Your firewall is on, but Reclaim City couldn't read whether "
+                        "'stealth mode' is on. This is not a sign that anything is wrong."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.firewall_rules_audit.stealth_unknown",
+                    data={"check": "stealth_unknown", "stealth_enabled": None},
+                )
+            )
 
         # Flag WARNING if >30 apps are allowed through
-        app_count = len(allowed_apps)
-        if app_count > 30:
+        app_count = len(allowed_apps) if allowed_apps is not None else None
+        allowed_apps = allowed_apps or []
+        if app_count is not None and app_count > 30:
             findings.append(
                 Finding(
                     title=f"Many apps are allowed through your firewall ({app_count})",
@@ -106,7 +150,7 @@ class Module(ModuleBase):
             )
 
         # Flag WARNING if "automatically allow signed software" is on
-        if allow_signed:
+        if allow_signed is True:
             findings.append(
                 Finding(
                     title="Firewall automatically allows signed apps",
@@ -126,12 +170,17 @@ class Module(ModuleBase):
             )
 
         # Flag INFO with firewall configuration summary
-        config_items = []
-        config_items.append(f"ALF Status: {'Enabled' if alf_enabled else 'Disabled'}")
-        config_items.append(f"Stealth Mode: {'Enabled' if stealth_enabled else 'Disabled'}")
-        config_items.append(f"Block All Incoming: {'Yes' if block_all else 'No'}")
-        config_items.append(f"Allow Signed Software: {'Yes' if allow_signed else 'No'}")
-        config_items.append(f"Allowed Applications: {app_count}")
+        def _say(value, on="On", off="Off"):
+            return "Couldn't check" if value is None else (on if value else off)
+
+        config_items = [
+            f"Firewall: {_say(alf_enabled)}",
+            f"Stealth Mode: {_say(stealth_enabled)}",
+            f"Block All Incoming: {_say(block_all, 'Yes', 'No')}",
+            f"Allow Signed Software: {_say(allow_signed, 'Yes', 'No')}",
+            "Allowed Applications: "
+            + ("Couldn't check" if app_count is None else str(app_count)),
+        ]
 
         findings.append(
             Finding(
@@ -222,83 +271,45 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _get_alf_status(self) -> bool:
-        """Check if ALF is enabled via defaults read."""
+    # Each command is written out in full (not built from a flag) so
+    # docs/commands.md and `rescue scan --trace` list exactly what runs.
+    @staticmethod
+    def _stdout(call) -> str | None:
+        """stdout of ``call()`` (a subprocess.run), or None if it couldn't run."""
         try:
-            result = subprocess.run(
-                ["defaults", "read", "/Library/Preferences/com.apple.alf", "globalstate"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                return False
-            return result.stdout.strip() == "1"
-        except Exception:
-            return False
+            result = call()
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if result.returncode != 0:
+            return None
+        return result.stdout
 
-    def _get_stealth_mode(self) -> bool:
-        """Check if stealth mode is enabled via defaults read."""
-        try:
-            result = subprocess.run(
-                ["defaults", "read", "/Library/Preferences/com.apple.alf", "stealthenabled"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                return False
-            return result.stdout.strip() == "1"
-        except Exception:
-            return False
+    def _get_alf_status(self) -> bool | None:
+        """Is the Application Firewall on? None if it couldn't be read."""
+        return parse_global_state(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate"],
+            capture_output=True, text=True, timeout=15)))
 
-    def _get_allowed_apps(self) -> list[str]:
-        """List applications allowed through firewall via socketfilterfw."""
-        try:
-            result = subprocess.run(
-                ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--listapps"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                return []
-            apps = []
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
-                if not line or line.startswith("Automatically allow"):
-                    continue
-                # Filter out lines that are not app names (e.g., status lines)
-                if "(" in line and ")" in line:
-                    # Extract app name before the status
-                    app_name = line.split("(")[0].strip()
-                    if app_name:
-                        apps.append(app_name)
-            return apps
-        except Exception:
-            return []
+    def _get_stealth_mode(self) -> bool | None:
+        """Is stealth mode on? None if it couldn't be read."""
+        return parse_stealth_mode(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getstealthmode"],
+            capture_output=True, text=True, timeout=15)))
 
-    def _get_block_all_incoming(self) -> bool:
-        """Check if 'Block all incoming connections' is on."""
-        try:
-            result = subprocess.run(
-                ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getblockall"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                return False
-            return "1" in result.stdout or "enabled" in result.stdout.lower()
-        except Exception:
-            return False
+    def _get_allowed_apps(self) -> list[str] | None:
+        """Apps allowed through the firewall; None if the list couldn't be read."""
+        return parse_listapps(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--listapps"],
+            capture_output=True, text=True, timeout=15)))
 
-    def _get_allow_signed_software(self) -> bool:
-        """Check if 'Automatically allow signed software' is on."""
-        try:
-            result = subprocess.run(
-                ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getallowsigned"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                return False
-            return "1" in result.stdout or "enabled" in result.stdout.lower()
-        except Exception:
-            return False
+    def _get_block_all_incoming(self) -> bool | None:
+        """Is 'Block all incoming connections' on? None if it couldn't be read."""
+        return parse_block_all(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getblockall"],
+            capture_output=True, text=True, timeout=15)))
+
+    def _get_allow_signed_software(self) -> bool | None:
+        """Is 'Automatically allow signed software' on? None if unreadable."""
+        return parse_allow_signed(self._stdout(lambda: subprocess.run(
+            ["/usr/libexec/ApplicationFirewall/socketfilterfw", "--getallowsigned"],
+            capture_output=True, text=True, timeout=15)))

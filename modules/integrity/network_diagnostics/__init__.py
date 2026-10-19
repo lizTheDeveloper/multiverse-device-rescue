@@ -213,7 +213,7 @@ class Module(ModuleBase):
                 # Interface lines start without leading whitespace
                 if line and not line[0].isspace():
                     # Process previous interface
-                    if current_interface and not interface_up:
+                    if current_interface and not interface_up and not _is_pseudo_interface(current_interface):
                         findings.append(
                             Finding(
                                 title=f"Your {current_interface} connection is off",
@@ -242,7 +242,7 @@ class Module(ModuleBase):
                     interface_up = "UP" in line and "RUNNING" in line
 
             # Process last interface
-            if current_interface and not interface_up:
+            if current_interface and not interface_up and not _is_pseudo_interface(current_interface):
                 findings.append(
                     Finding(
                         title=f"Your {current_interface} connection is off",
@@ -316,3 +316,13 @@ class Module(ModuleBase):
             pass
 
         return None
+
+
+# Tunnel pseudo-interfaces every Mac has (gif0: generic IPv4/IPv6 tunnel,
+# stf0: 6to4). They stay down unless someone configures a tunnel, so "Your
+# gif0 connection is off" described nothing a person could act on.
+_PSEUDO_INTERFACE_PREFIXES = ("gif", "stf")
+
+
+def _is_pseudo_interface(name: str) -> bool:
+    return name.rstrip("0123456789") in _PSEUDO_INTERFACE_PREFIXES

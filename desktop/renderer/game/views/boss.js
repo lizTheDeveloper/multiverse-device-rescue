@@ -15,12 +15,21 @@ function districtCard(d, learn) {
   const l = learn ? learn(d.id) : null;
   if (!l) return `<div class="district ${d.state}">${head}<span class="d-foot">${badge}</span></div>`;
   const now = d.state === 'sweeping';
-  const progress = l.count > 1 && !l.done ? ` <small>${esc(l.finished)}/${esc(l.count)} DONE</small>` : '';
+  // Every lesson for it is finished: the card itself opens nothing, so DONE
+  // never drops the person into a quiz. A review is a separate, optional button.
+  if (l.done) {
+    return `
+      <div class="district learned ${d.state}">${head}
+        <span class="d-foot" id="sweep-${esc(d.id)}">${badge}<span class="cue">DONE ✓</span></span>
+        <p>You’ve done ${l.count === 1 ? 'this lesson' : 'these lessons'}.
+          <button type="button" class="btn-t" data-go="review:${esc(d.id)}" aria-label="Review one? (optional): a lesson about ${esc(d.name)}">REVIEW ONE? (OPTIONAL)</button></p></div>`;
+  }
+  const progress = l.count > 1 ? ` <small>${esc(l.finished)}/${esc(l.count)} DONE</small>` : '';
   return `
-      <button type="button" class="district learnable ${d.state}${now ? ' suggested' : ''}${l.done ? ' learned' : ''}" data-go="learn:${esc(d.id)}"
+      <button type="button" class="district learnable ${d.state}${now ? ' suggested' : ''}" data-go="learn:${esc(d.id)}"
         aria-label="Learn about ${esc(d.name)}" aria-describedby="${now ? `now-${esc(d.id)} ` : ''}sweep-${esc(d.id)}">${head}
         ${now ? `<span class="now" id="now-${esc(d.id)}">Scanning now — learn about it</span>` : ''}
-        <span class="d-foot" id="sweep-${esc(d.id)}">${badge}<span class="cue">${l.done ? 'DONE ✓' : 'LEARN ▶'}</span>${progress}</span></button>`;
+        <span class="d-foot" id="sweep-${esc(d.id)}">${badge}<span class="cue">LEARN ▶</span>${progress}</span></button>`;
 }
 
 // `tipsOpen`: the pop-up tips stay as the person left them across redraws.

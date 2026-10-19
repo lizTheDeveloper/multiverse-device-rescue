@@ -84,6 +84,13 @@ test('identity is stable across scans and comes from what the finding is about',
   assert.strictEqual(findingIdentity(a), 'm|security.m.x|plist=/x.plist');
 });
 
+test('identity keeps two instances of one network code apart by data.target', async () => {
+  const { findingIdentity } = await load();
+  const dev = (target) => ({ ...f('warning', { code: 'network.lan_device_inventory.unrecognised_device', data: { target } }), module: 'lan_device_inventory' });
+  assert.notStrictEqual(findingIdentity(dev('192.168.1.20')), findingIdentity(dev('192.168.1.21')));
+  assert.strictEqual(findingIdentity(dev('192.168.1.20')), findingIdentity(dev('192.168.1.20')));
+});
+
 test('identity ignores the mark id, which changes when the program changes', async () => {
   // rescue/known_items.py hashes content_sha256 and arguments_sha256 into the
   // mark id. Same plist with a new program must stay the same mission, or the
