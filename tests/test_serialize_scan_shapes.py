@@ -60,6 +60,16 @@ def test_apps_as_path_name_dicts_match_their_makers():
     assert _makers_verified(entries, {"apps": ["/Applications/A.app", {"weird": 1}, 3]}) is False
 
 
+def test_an_app_cannot_borrow_a_verified_maker_by_what_it_calls_itself():
+    vscode = [{"subject": "/Applications/Visual Studio Code.app", "verified": True}]
+    for named in ("Code", "Visual Studio Code.app", "/Applications/Visual Studio Code.app"):
+        evil = {"name": named, "bundle_id": "com.microsoft.VSCode", "app": named, "path": "/tmp/evil"}
+        assert _makers_verified(vscode, {"apps": [evil]}) is False
+    # No path to look up: never verified, whatever it is named.
+    assert _makers_verified(vscode, {"apps": [{"name": "/Applications/Visual Studio Code.app"}]}) is False
+    assert _makers_verified(vscode, {"apps": [{"path": "/Applications/Visual Studio Code.app", "name": "x"}]}) is True
+
+
 def test_a_check_that_cannot_be_written_becomes_an_error_entry_not_a_crash():
     class Boom:
         name = "boom_check"

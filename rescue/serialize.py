@@ -109,23 +109,25 @@ def _makers_verified(entries, data) -> bool:
     apps = data.get("apps") if isinstance(data, dict) else None
     if isinstance(apps, list):
         subjects = {e.get("subject") for e in entries if isinstance(e.get("subject"), str)}
-        # An app is a name, or a {path, name} dict (suspicious_processes): it is
-        # covered when one of the strings it is named by has a verified maker.
-        return all(any(n in subjects for n in _app_names(a)) for a in apps)
+        # Each app is matched only by the subject attribution actually looked
+        # up for it, never by a name it reports about itself.
+        return all((s := _app_subject(a)) is not None and s in subjects for a in apps)
     return True
 
 
-def _app_names(app) -> list[str]:
-    """The strings an app in a finding's "apps" list can be looked up by."""
+def _app_subject(app) -> str | None:
+    """The one string attribution identifies an app in "apps" by: the app
+    itself when it is a string, else its path (rescue.attribution._candidates,
+    first entry) for a {path, name} dict. A self-reported name, bundle id or
+    "app" field never counts: a process can call itself anything."""
     if isinstance(app, str):
-        return [app]
+        return app
     if isinstance(app, dict):
         from rescue.attribution import _candidates
 
-        names = list(_candidates(app))
-        names += [v for k, v in app.items() if k in ("name", "bundle_id", "app") and isinstance(v, str)]
-        return names
-    return []
+        found = _candidates(app)
+        return found[0] if found else None
+    return None
 
 
 def _dedupe(findings: list) -> list:
