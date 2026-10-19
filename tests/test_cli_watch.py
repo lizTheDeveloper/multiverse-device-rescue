@@ -114,7 +114,6 @@ def test_every_watch_code_is_in_the_catalog():
     assert {r["module"] for r in rows} == {"connection_watch"}
 
 
-@pytest.mark.xfail(strict=True, reason="Task 6 writes read_a_connection_watch.md")
 def test_every_watch_code_has_a_walkthrough():
     from rescue.cli import _get_guides_dir
 

@@ -3,12 +3,15 @@ from pathlib import Path
 from rescue.cli import _get_guides_dir, _get_modules_dir
 from rescue.guides import load_guide
 from rescue.registry import discover_modules
+from rescue.watch import WATCH_CODES
 
 REM_DIR = _get_guides_dir() / "remediation"
 
 
 def test_every_remediates_code_is_declared_by_some_module():
-    declared = set()
+    # The connection watch is a command, not a module, so its codes are listed
+    # in WATCH_CODES (rescue validate counts them the same way).
+    declared = set(WATCH_CODES)
     for mod in discover_modules(_get_modules_dir()):
         declared.update(getattr(mod, "emits_codes", []))
     if not REM_DIR.is_dir():

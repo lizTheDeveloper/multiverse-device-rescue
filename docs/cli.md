@@ -197,6 +197,18 @@ result is still printed, with `stopped_early: true` in each finding's `data`.
 End of standard input is not a stop. The "who made it" lookups that `scan`
 adds are not done for the watch.
 
+Every finding is `info`, with a `network.connection_watch.*` code:
+`watch_summary` (one per program), `regular_checkins`, `new_listener`,
+`upload_heavy`, `dns_lookups` (Windows only), `dns_not_visible` (macOS and
+Linux, or Windows when the list of looked-up names couldn't be read) and
+`watch_incomplete` (what this computer couldn't show, such as data volumes
+on Windows, other accounts' programs, a stop before the end, or a hit
+storage limit). The watch keeps at most 2,000 program-and-destination pairs
+and 200 timings per pair; beyond that it counts without storing. Addresses
+stay numeric: the watch looks nothing up. Each code points to the "Read a
+connection watch" walkthrough. If the connection reader can't load, the
+module's `status` is `error` and nothing was checked.
+
 ---
 
 ## `rescue run` — specific modules
