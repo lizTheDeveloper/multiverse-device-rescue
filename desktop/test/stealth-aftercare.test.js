@@ -27,6 +27,7 @@ test('"Yes, that’s part of it" shows the note on what city mode does, before a
   assert.deepStrictEqual(buttons(p), ['go', 'visit']);
   p.aftercare('go');
   assert.deepStrictEqual(p.shown(), ['city']);
+  assert.strictEqual(note(p), '', 'the note’s wording doesn’t stay in the hidden section');
   assert.deepStrictEqual(p.calls.game, ['newWorry', 'showBoss']);
   assert.deepStrictEqual(p.calls.scans, ['home_network_intrusion']);
 });
@@ -114,6 +115,7 @@ test('Esc on the note goes straight to the deck, with nothing started', () => {
   p.answer('yes');
   p.key('Escape');
   assert.deepStrictEqual(p.shown(), ['city']);
+  assert.strictEqual(note(p), '', 'Esc clears the note too');
   assert.deepStrictEqual(p.calls.game, ['showHome']);
   assert.strictEqual(p.calls.last.args[0].id, 'hacked', 'the worry is kept for the deck’s sweep');
   assert.deepStrictEqual(p.calls.scans, []);

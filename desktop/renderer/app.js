@@ -1119,7 +1119,8 @@ if (typeof document !== 'undefined') {
       const canVisit = !!(game && typeof game.openHelpPlace === 'function');
       const card = document.getElementById('aftercare-card');
       card.innerHTML = StealthAftercare.html({ place, again, canVisit }, escapeHtml);
-      const leave = (fn) => () => { if (!aftercare) return; aftercare = null; fn(); };
+      // Leaving clears the card: its help wording doesn't stay in a hidden section of the page.
+      const leave = (fn) => () => { if (!aftercare) return; aftercare = null; card.innerHTML = ''; fn(); };
       const visit = () => { panic(); if (!screens.city.hidden) game.openHelpPlace(); };
       aftercare = { panic: leave(panic) };
       const acts = { go: leave(go), visit: leave(visit) };
