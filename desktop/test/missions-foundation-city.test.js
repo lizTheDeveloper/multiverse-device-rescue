@@ -269,6 +269,16 @@ test('a settings decision opens the pane through the setting allowlist', async (
   await tick();
   assert.deepStrictEqual(t.calls.openSetting, ['x-apple.systempreferences:com.apple.Network-Settings.extension?Firewall']);
   assert.match(t.html(), /You make the change there/);
+  // Main refused (or it failed): never "Opened".
+  const u = await setup(doc(), { games: lockGame });
+  u.win.rescue.openSetting = async (x) => { u.calls.openSetting.push(x); return false; };
+  u.click({ 'data-go': 'mx:simple:gatehouse:2' });
+  u.click({ 'data-act': 'mx-know' });
+  u.click({ 'data-act': 'mx-decide:on' });
+  await tick(); await tick();
+  assert.strictEqual(u.calls.openSetting.length, 1);
+  assert.doesNotMatch(u.html(), /Opened in Settings/);
+  assert.match(u.html(), /Settings didn’t open\. Open them yourself/);
 });
 
 test('practice on request: made-up items, a move, and the round recorded as played', async () => {

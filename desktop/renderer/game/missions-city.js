@@ -179,7 +179,14 @@ export function createMissionDesk(deps) {
     if (act.kind === 'odd') return;
     if (act.kind === 'settings' || act.kind === 'link') {
       const url = act.url;
-      if (url && SETTING_SCHEME.test(url)) { Promise.resolve().then(() => w.rescue.openSetting(url)).catch(() => {}); d.notice = mode() === 'city' ? 'Opened the settings. Make the change there, then come back.' : 'Opened in Settings. You make the change there, then come back here.'; return; }
+      if (url && SETTING_SCHEME.test(url)) {
+        // Said only once main has opened it (false: refused or failed).
+        let ok = false;
+        try { ok = (await w.rescue.openSetting(url)) !== false; } catch (_) { ok = false; }
+        if (ok) d.notice = mode() === 'city' ? 'Opened the settings. Make the change there, then come back.' : 'Opened in Settings. You make the change there, then come back here.';
+        else d.notice = mode() === 'city' ? 'The settings didn’t open. Open them yourself, then come back.' : 'Settings didn’t open. Open them yourself, then come back here.';
+        return;
+      }
       // Standard mode: a look-up opens in the browser (main re-checks it against
       // research.js's templates). City mode never opens one: a watched computer
       // keeps browser history, so it is words to search somewhere else.
