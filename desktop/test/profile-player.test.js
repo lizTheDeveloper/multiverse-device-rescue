@@ -465,25 +465,79 @@ test('an old document that is not JSON starts fresh, says so, and is never lost'
   assert.strictEqual(m.rb.decode(store.data[m.BACKUP_KEY]), '{not json');
 });
 
-test('a box that will not decode is never overwritten: with every spare slot taken, the save writes nothing', async () => {
+// Fix round 1, item 1: spares never fill up for good.
+test('three salvage loads, then a garbage box, then a save: the save succeeds', async () => {
   const m = await load();
-  const store = recordingStore({ [m.PROFILE_KEY]: 'foreign 1' });
-  assert.ok(m.saveProfile(store, m.emptyProfile(NOW), { seed: 9 }), 'one bad box: kept aside, then the save goes ahead');
-  assert.strictEqual(store.data[m.SPARE_KEY], 'foreign 1');
-  store.data[m.PROFILE_KEY] = 'foreign 2';
-  m.loadProfile(store, NOW);
-  store.data[m.PROFILE_KEY] = 'foreign 3';
-  assert.ok(m.saveProfile(store, m.emptyProfile(NOW), { seed: 9 }));
-  store.data[m.PROFILE_KEY] = 'foreign 4';
-  const before = store.writes.length;
-  assert.strictEqual(m.saveProfile(store, m.emptyProfile(NOW), { seed: 9 }), false, 'no room to keep it aside: no save');
-  assert.strictEqual(store.data[m.PROFILE_KEY], 'foreign 4');
-  assert.strictEqual(store.writes.length, before);
-  const spares = Object.entries(store.data).filter(([k]) => k.startsWith(m.SPARE_KEY)).map(([, v]) => v).sort();
-  assert.deepStrictEqual(spares, ['foreign 1', 'foreign 2', 'foreign 3']);
+  const problems = [];
+  const onProblem = (c) => problems.push(c);
+  const good = m.recordAnswer(m.emptyProfile(NOW), m.bank, 'a1', true, NOW);
+  const store = recordingStore();
+  for (let i = 0; i < 3; i += 1) {
+    const damaged = m.rb.encode({ ...good, items: { ...good.items, [`broken-${i}`]: { b: 'x' } } }, 31);
+    store.data[m.PROFILE_KEY] = damaged;
+    m.loadProfile(store, NOW, { onProblem });
+    assert.strictEqual(store.data[m.SALVAGED_KEY], damaged, 'a decodable box with drops goes to its own slot, overwritten each time');
+  }
+  assert.ok(m.SPARE_KEYS.every((k) => store.data[k] === undefined), 'decodable boxes never take a spare');
+  store.data[m.PROFILE_KEY] = 'garbage';
+  const p = m.loadProfile(store, NOW, { onProblem });
+  assert.strictEqual(store.data[m.SPARE_KEY], 'garbage');
+  assert.strictEqual(m.saveProfile(store, p, { seed: 31, onProblem }), true);
+  assert.ok(m.rb.decode(store.data[m.PROFILE_KEY]));
+  assert.deepStrictEqual(problems, []);
 });
 
-test('a v4 box with an unreadable record: the rest loads, the drop is logged, and the box is kept aside', async () => {
+test('when every spare is taken the oldest is freed, said once, and the save still goes ahead', async () => {
+  const m = await load();
+  const problems = [];
+  const onProblem = (c) => problems.push(c);
+  const store = recordingStore();
+  for (let i = 1; i <= 4; i += 1) {
+    store.data[m.PROFILE_KEY] = `foreign ${i}`;
+    assert.strictEqual(m.saveProfile(store, m.emptyProfile(NOW), { seed: 9, onProblem }), true, `save ${i}`);
+  }
+  const spares = m.SPARE_KEYS.map((k) => store.data[k]);
+  assert.deepStrictEqual(spares, [`foreign ${5 - m.SPARE_KEYS.length}`, 'foreign 4'].slice(-m.SPARE_KEYS.length), 'the newest kept, oldest first');
+  assert.deepStrictEqual(problems, ['spare-full'], 'said once');
+});
+
+test('a box from a newer build met at save time is kept aside, by a cheap check of its head', async () => {
+  const m = await load();
+  const newer = m.rb.encode({ version: 5, whatever: true }, 321);
+  const store = recordingStore({ [m.PROFILE_KEY]: newer });
+  assert.ok(m.saveProfile(store, m.emptyProfile(NOW), { seed: 9 }));
+  assert.strictEqual(store.data[m.SPARE_KEY], newer);
+  const ours = store.data[m.PROFILE_KEY];
+  assert.ok(m.saveProfile(store, m.recordAnswer(m.emptyProfile(NOW), m.bank, 'a1', true, NOW), { seed: 9 }));
+  assert.ok(store.data[m.PROFILE_KEY] !== ours);
+  assert.ok(!Object.values(store.data).includes(ours), 'our own box is simply replaced');
+});
+
+test('a save that fails says so once, through onProblem, until a save works again', async () => {
+  const m = await load();
+  const problems = [];
+  const onProblem = (c) => problems.push(c);
+  let full = true;
+  const data = {};
+  const store = { getItem: (k) => (k in data ? data[k] : null), setItem: (k, v) => { if (full) throw new Error('QuotaExceededError'); data[k] = String(v); }, removeItem: (k) => { delete data[k]; } };
+  assert.strictEqual(m.saveProfile(store, m.emptyProfile(NOW), { seed: 5, onProblem }), false);
+  assert.strictEqual(m.saveProfile(store, m.emptyProfile(NOW), { seed: 5, onProblem }), false);
+  assert.deepStrictEqual(problems, ['write']);
+  assert.strictEqual(m.saveProfile(store, m.emptyProfile(NOW), { seed: 0, onProblem }), false);
+  assert.deepStrictEqual(problems, ['write', 'encode']);
+  full = false;
+  assert.strictEqual(m.saveProfile(store, m.emptyProfile(NOW), { seed: 5, onProblem }), true);
+  full = true;
+  assert.strictEqual(m.saveProfile(store, m.emptyProfile(NOW), { seed: 5, onProblem }), false);
+  assert.deepStrictEqual(problems, ['write', 'encode', 'write'], 'a new failure after a good save is said again');
+  // A spare that can't be written refuses the save rather than overwrite the box, and says so.
+  data[m.PROFILE_KEY] = 'foreign';
+  assert.strictEqual(m.saveProfile(store, m.emptyProfile(NOW), { seed: 5, onProblem }), false);
+  assert.strictEqual(data[m.PROFILE_KEY], 'foreign');
+  assert.strictEqual(problems.at(-1), 'spare');
+});
+
+test('a v4 box with an unreadable record: the rest loads, the drop is logged, and the box is kept in its own slot', async () => {
   const m = await load();
   const good = m.recordAnswer(m.emptyProfile(NOW), m.bank, 'a1', true, NOW);
   const damaged = m.rb.encode({ ...good, items: { ...good.items, broken: { b: 'x' } } }, 31);
@@ -491,7 +545,42 @@ test('a v4 box with an unreadable record: the rest loads, the drop is logged, an
   const p = m.loadProfile(store, NOW);
   assert.deepStrictEqual(p.concepts, good.concepts);
   assert.deepStrictEqual(p.migrations.at(-1).changes, ['records: 1 dropped']);
-  assert.strictEqual(store.raw[m.SPARE_KEY], damaged);
+  assert.strictEqual(store.raw[m.SALVAGED_KEY], damaged);
+  assert.strictEqual(store.raw[m.SPARE_KEY], undefined);
+});
+
+// Fix round 1, item 3: headroom.
+test('worst case: every slot this code writes is capped, and all of them together stay well under 5M characters', async () => {
+  const m = await load();
+  const CHROMIUM_PER_ORIGIN = 5000000;
+  assert.ok(m.STORAGE_WORST <= 0.65 * CHROMIUM_PER_ORIGIN, `${m.STORAGE_WORST}`);
+  // Drive every slot: migration, salvaged box, spares (more than fit), city-mode backup, big boxes.
+  const problems = [];
+  const onProblem = (c) => problems.push(c);
+  const store = recordingStore({ [m.OLD_KEY]: JSON.stringify(V3) });
+  const bank = await wideBank();
+  let p = m.loadProfile(store, NOW, { onProblem });
+  p = heavy(m, bank, p);
+  assert.ok(m.saveProfile(store, p, { seed: 7, mode: 'city', onProblem }));
+  const good = m.rb.decode(store.data[m.PROFILE_KEY]);
+  store.data[m.PROFILE_KEY] = m.rb.encode({ ...good, items: { ...good.items, broken: 1 } }, 7);
+  p = m.loadProfile(store, NOW, { onProblem });
+  for (let i = 0; i < 4; i += 1) {
+    store.data[m.PROFILE_KEY] = `{"kitchen":"x","cards":[${'0,'.repeat(250000 + i)}0]}`;
+    p = m.loadProfile(store, NOW, { onProblem });
+    assert.ok(m.saveProfile(store, p, { seed: 7, mode: 'city', onProblem }));
+  }
+  store.data[m.PROFILE_KEY] = 'y'.repeat(m.MAX_BOX_CHARS + 1); // too big to copy: reported, not silently lost
+  assert.ok(m.saveProfile(store, p, { seed: 7, mode: 'city', onProblem }));
+  assert.ok(problems.includes('unreadable-too-big'));
+  const allowed = new Set([m.PROFILE_KEY, m.SALVAGED_KEY, m.BACKUP_KEY, m.SEED_KEY, ...m.SPARE_KEYS]);
+  for (const [k, v] of store.writes) {
+    assert.ok(allowed.has(k), k);
+    assert.ok(v.length <= m.MAX_BOX_CHARS, `${k}: ${v.length}`);
+  }
+  const total = Object.entries(store.data).reduce((a, [k, v]) => a + k.length + v.length, 0);
+  assert.ok(total <= m.STORAGE_WORST + 1000, `${total}`);
+  assert.ok(store.data[m.SALVAGED_KEY] && store.data[m.BACKUP_KEY] && m.SPARE_KEYS.every((k) => store.data[k]), 'every slot was used');
 });
 
 // 5. Size.
@@ -505,46 +594,71 @@ const wideBank = async () => {
     variants: [2, 3].map((v) => ({ key: `${c.id}-question-${f}-variant-${v}`, prompt: 'p', options: opts() })) })) }));
   return ib.buildBank(lessons, Object.keys(DRILL_CONCEPTS).map((id) => ({ id, answer: 'threat' })));
 };
-
-test('a long session on every concept stays capped per concept and well under the box limit', async () => {
-  const m = await load();
-  const bank = await wideBank();
+// 3000 answers over every item, a quarter wrong, plus 60 missions.
+function heavy(m, bank, p) {
   const keys = [...bank.items.keys()];
-  let p = m.loadProfile(memStore({ [m.OLD_KEY]: JSON.stringify(V3) }), NOW);
   for (let i = 0; i < 3000; i += 1) {
     const k = keys[(i * 7) % keys.length];
     const t = `2026-10-${String(1 + (i % 28)).padStart(2, '0')}T12:00:00.000Z`;
     p = k.startsWith('drill:') ? m.recordDrillCall(p, bank, { id: k.slice(6), answer: 'threat' }, i % 4 ? 'threat' : 'mine', t) : m.recordAnswer(p, bank, k, i % 4 !== 0, t);
   }
   for (let i = 0; i < 60; i += 1) p.missions[`launch_agent_audit|security.launch_agent_audit.item${i}|/Library/LaunchAgents/com.example.helper${i}.plist`] = { status: 'later', module: 'launch_agent_audit', title: `A helper ${i}`, updatedAt: NOW };
+  return p;
+}
+const states = (m, bank, p) => [...bank.concepts.keys()].map((c) => [c, m.conceptState(p, bank, c), m.conceptEstimate(p, bank, c)]);
+
+test('a long session on every concept stays capped per concept and under the box limit, with every state intact', async () => {
+  const m = await load();
+  const bank = await wideBank();
+  const p = heavy(m, bank, m.loadProfile(memStore({ [m.OLD_KEY]: JSON.stringify(V3) }), NOW));
   assert.ok(Object.values(p.concepts).every((c) => !c.seen || c.seen.length <= m.MAX_SEEN));
   assert.ok(Object.values(p.concepts).filter((c) => c.seen && c.seen.length === m.MAX_SEEN).length >= 14, 'the cap was reached');
   const store = memStore();
   assert.ok(m.saveProfile(store, p, { seed: 11, mode: 'standard' }));
   const size = store.raw[m.PROFILE_KEY].length;
   assert.ok(size < m.MAX_BOX_CHARS, `${size} characters`);
-  assert.deepStrictEqual(m.loadProfile(store, NOW), p, 'nothing trimmed at this size');
+  const back = m.loadProfile(store, NOW);
+  assert.deepStrictEqual(states(m, bank, back), states(m, bank, p));
+  assert.deepStrictEqual(back.missions, p.missions);
+  assert.deepStrictEqual(m.summary(back, bank), m.summary(p, bank));
 });
 
-test('a box over the limit is written with fewer, newest answers per concept, and learned stays learned', async () => {
+// Fix round 1, item 4: compacting never changes a state.
+test('a box over the limit compacts older answers; learned with mixed recent answers stays learned, and nothing else moves', async () => {
   const m = await load();
+  const bank = await wideBank();
   let p = m.emptyProfile(NOW);
-  p = answer(m, p, m.bank, ['a1', 'a1-2', 'a1-3', 'a1', 'a1-2', 'a1-3'], [true, true, true, true, true, true]);
-  // Padding: many concepts' worth of evidence, far over the limit.
-  for (let i = 0; i < 100; i += 1) p.concepts[`extra-${i}`] = { seen: Array.from({ length: m.MAX_SEEN }, (_, j) => [`extra-item-${j}`, 1, NOW, 'lesson']) };
+  const k = (c, n) => [`${c}-question-1`, `${c}-question-2`, `${c}-question-3`][n % 3];
+  // Learned early, then a mixed run that hysteresis carries.
+  p = answer(m, p, bank, [0, 1, 2, 3, 4].map((n) => k('who-made-it', n)), [true, true, true, true, true]);
+  for (let i = 0; i < 25; i += 1) p = m.recordAnswer(p, bank, k('who-made-it', i), i % 3 !== 0, at(10 + (i % 40)));
+  assert.strictEqual(m.conceptState(p, bank, 'who-made-it'), 'learned');
+  const irt = await irtMod();
+  assert.strictEqual(irt.isLearned(m.conceptEstimate(p, bank, 'who-made-it')), false, 'learned only through hysteresis');
+  const cut = { ...p, concepts: { ...p.concepts, 'who-made-it': { ...p.concepts['who-made-it'], seen: p.concepts['who-made-it'].seen.slice(-irt.MIN_RESPONSES) } } };
+  assert.strictEqual(m.conceptState(cut, bank, 'who-made-it'), 'refresher', 'the old trim (newest MIN_RESPONSES kept) would have flipped it');
+  // A refresher and a started concept too.
+  p = answer(m, p, bank, [0, 1, 2, 3, 4].map((n) => k('lock-screen', n)), [true, true, true, true, true]);
+  for (let i = 0; i < 12; i += 1) p = m.recordAnswer(p, bank, k('lock-screen', i), false, at(i));
+  assert.strictEqual(m.conceptState(p, bank, 'lock-screen'), 'refresher');
+  p = answer(m, p, bank, [0, 1, 2].map((n) => k('auto-updates', n)), [true, false, true]);
+  // Padding to push the box over the limit.
+  const big = { ...p, missions: { ...p.missions } };
+  for (let i = 0; i < 220; i += 1) big.missions[`launch_agent_audit|security.launch_agent_audit.item${i}|/Library/LaunchAgents/com.example.helper${i}.plist`] = { status: 'later', module: 'launch_agent_audit', title: `A helper ${i}`, updatedAt: NOW };
+  assert.ok(m.rb.encode(big, 11).length > m.MAX_BOX_CHARS, 'the test really is over the limit');
   const store = memStore();
-  assert.ok(m.rb.encode(p, 11).length > m.MAX_BOX_CHARS, 'the test really is over the limit');
-  assert.ok(m.saveProfile(store, p, { seed: 11 }));
+  assert.ok(m.saveProfile(store, big, { seed: 11 }));
   assert.ok(store.raw[m.PROFILE_KEY].length <= m.MAX_BOX_CHARS, `${store.raw[m.PROFILE_KEY].length}`);
   const back = m.loadProfile(store, NOW);
-  const trimmed = back.concepts['extra-0'].seen;
-  assert.ok(trimmed.length >= 4 && trimmed.length < m.MAX_SEEN, `${trimmed.length} kept`);
-  const kept = back.concepts['who-made-it'].seen;
-  assert.ok(kept.length >= 4);
-  assert.deepStrictEqual(kept, p.concepts['who-made-it'].seen.slice(-kept.length), 'the newest are kept');
-  assert.ok(back.concepts['who-made-it'].learnedAt);
-  assert.strictEqual(m.conceptState(back, m.bank, 'who-made-it'), 'learned');
-  assert.deepStrictEqual(back.missions, p.missions);
+  assert.ok(back.concepts['who-made-it'].older, 'older answers were compacted');
+  assert.strictEqual(back.concepts['who-made-it'].seen.length, 8);
+  assert.deepStrictEqual(back.concepts['who-made-it'].seen, p.concepts['who-made-it'].seen.slice(-8), 'the newest kept as they were');
+  assert.deepStrictEqual(states(m, bank, back), states(m, bank, big), 'every state and estimate unchanged');
+  assert.deepStrictEqual(m.historyFor(back, bank), m.historyFor(big, bank));
+  assert.deepStrictEqual(back.missions, big.missions);
+  // And the next answer windows the same way it would have without compacting.
+  const next = (q) => m.recordAnswer(q, bank, k('who-made-it', 0), false, at(59));
+  assert.deepStrictEqual(states(m, bank, next(back)), states(m, bank, next(big)));
 });
 
 // 6. "I know this" is skipped; every gap signal can offer it again; monitoring never does.

@@ -144,3 +144,25 @@ export function decode(text) {
 export function seedOf(text) {
   try { return seedFrom(JSON.parse(text).kitchen); } catch (_) { return null; }
 }
+
+// The first characters of what a box holds (after the magic prefix), read
+// from the first card only, without parsing or decoding the rest: a cheap
+// probe for "is this a box, and of which version". Null when the head isn't
+// one this code wrote. Up to CARD_SIZE - 4 characters (ASCII heads only).
+const HEAD_RE = /^\{"kitchen":"([a-z]+(?: [a-z]+){3})","cards":\[\{"dish":"[a-z]+ [a-z]+","serves":\d+,"ingredients":\[((?:"[a-z]+",?)+)\]/;
+export function peek(text, n = CARD_SIZE - MAGIC.length) {
+  if (typeof text !== 'string') return null;
+  const m = HEAD_RE.exec(text.slice(0, 1200));
+  const seed = m ? seedFrom(m[1]) : null;
+  if (seed === null) return null;
+  const order = wordOrder(seed);
+  const back = new Map(order.map((w, b) => [WORDS[w], b]));
+  const ks = keystream(seed);
+  let out = '';
+  for (const w of m[2].split(',').map((x) => x.replace(/"/g, ''))) {
+    if (!back.has(w)) return null;
+    out += String.fromCharCode(back.get(w) ^ ks());
+  }
+  if (!out.startsWith(MAGIC)) return null;
+  return out.slice(MAGIC.length, MAGIC.length + n);
+}

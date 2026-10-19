@@ -6,7 +6,7 @@
 //
 // State shown on screen is derived from the record, never stored (MVProfile's
 // rule): see conceptState and lessonState.
-import { encode, decode, seedOf, validSeed } from './recipe-box.js';
+import { encode, decode, seedOf, validSeed, peek } from './recipe-box.js';
 import { estimate, isLearned, levelB, updateDifficulty, PRIOR, BEFORE_PRIOR, MIN_RESPONSES } from './irt.js';
 import { lessonsWithConcept } from './item-bank.js';
 import { CONCEPTS, SKILLS, CLUE_CONCEPTS, isHidden, conceptById } from './skills.js';
@@ -14,7 +14,7 @@ import { STORE_KEY as OLD_KEY, TAGS, SWEEP_FIELDS } from '../progress.js';
 import { MONITORING_MODULES, RANKS, rankOf, sweepPercent, MAX_SWEEPS } from '../ledger.js';
 
 export const PROFILE_KEY = 'device-rescue.recipe-box.v1';
-// A box that wouldn't decode is moved here once, never thrown away.
+// Boxes that wouldn't decode are moved here (see the storage section).
 export const SPARE_KEY = 'device-rescue.recipe-box.v1.spare';
 export { OLD_KEY };
 export const VERSION = 4;
@@ -92,11 +92,44 @@ function salvageDrills(d) {
   return out;
 }
 
+// `older`: answers older than `seen`, in order, without their time or source:
+// { keys: [itemKey, …], seq: [keyIndex * 2 + x, …] }. Written only when a box
+// is over MAX_BOX_CHARS (see boxText). The estimate reads them exactly as it
+// reads `seen`, so compacting never changes a concept's state.
+function olderPairs(rec) {
+  const o = rec && rec.older;
+  return o ? o.seq.map((v) => [o.keys[v >> 1], v & 1]) : [];
+}
+function makeOlder(pairs) {
+  if (!pairs.length) return null;
+  const keys = [...new Set(pairs.map(([k]) => k))];
+  const at = new Map(keys.map((k, i) => [k, i]));
+  return { keys, seq: pairs.map(([k, x]) => at.get(k) * 2 + x) };
+}
+// Every answer on a concept, oldest first, as [itemKey, x].
+const answersOf = (rec) => [...olderPairs(rec), ...((rec && rec.seen) || []).map(([k, x]) => [k, x])];
+
+// Keeps at most MAX_SEEN answers in all, dropping the oldest (from `older` first).
+function windowed(older, seen) {
+  let over = older.length + seen.length - MAX_SEEN;
+  const o = over > 0 ? older.slice(Math.min(over, older.length)) : older;
+  over -= older.length - o.length;
+  return { older: o, seen: over > 0 ? seen.slice(over) : seen };
+}
+
+function salvageOlder(o) {
+  if (!plainObject(o) || !Array.isArray(o.keys) || !o.keys.every(str) || !Array.isArray(o.seq)) return [];
+  return o.seq.filter((v) => count(v) && v >> 1 < o.keys.length).map((v) => [o.keys[v >> 1], v & 1]);
+}
+
 function salvageConcept(r) {
   if (!plainObject(r)) return null;
   const out = {};
   const seen = (Array.isArray(r.seen) ? r.seen : []).filter((e) => Array.isArray(e) && e.length === 4 && str(e[0]) && (e[1] === 0 || e[1] === 1) && str(e[2]) && SOURCES.has(e[3]));
-  if (seen.length) out.seen = seen.slice(-MAX_SEEN).map((e) => [e[0], e[1], e[2], e[3]]);
+  const w = windowed(salvageOlder(r.older), seen);
+  const older = makeOlder(w.older);
+  if (older) out.older = older;
+  if (w.seen.length) out.seen = w.seen.map((e) => [e[0], e[1], e[2], e[3]]);
   if (str(r.self)) out.self = r.self;
   if (str(r.learnedAt)) out.learnedAt = r.learnedAt;
   if (plainObject(r.gaps) && count(r.gaps.n) && str(r.gaps.at)) out.gaps = { n: r.gaps.n, at: r.gaps.at, ...obj(GAP_KINDS.map((k) => [k, count(r.gaps[k]) ? r.gaps[k] : 0])) };
@@ -159,35 +192,80 @@ export function salvage(raw, now) {
 
 // --- storage ---
 //
-// Nothing stored is ever dropped without a copy:
-// - a box that won't decode (damaged, or from a newer build) is moved to a
-//   spare slot before anything can overwrite it, and a save that finds such a
-//   box and has no free slot for it writes nothing;
+// Nothing stored is dropped without a copy, or without saying so:
+// - a box that won't decode (damaged, or from a newer build) is copied to a
+//   spare slot before anything overwrites it. There are SPARE_KEYS.length
+//   slots; when they are full the oldest is freed (and that is reported);
+// - a box that decodes but had records it couldn't read gets one slot of its
+//   own (SALVAGED_KEY), overwritten each time that happens;
 // - the old literal document (OLD_KEY) is never changed. In standard mode it
 //   stays where it is, for an older build. In city mode it is first copied,
 //   disguised like the box, to BACKUP_KEY, and removed only once that copy
 //   reads back exactly.
-const SPARE_KEYS = [SPARE_KEY, `${SPARE_KEY}.2`, `${SPARE_KEY}.3`];
+// Anything that goes wrong is passed, once, to the caller's `onProblem(code)`.
+//
+// Downgrades (for the release notes):
+// - after city mode has saved, an older build finds no old document (only the
+//   disguised backup, which it can't read) and starts fresh;
+// - in standard mode an older build reads and writes the old document, frozen
+//   at the upgrade. Back on this build, the box is read first, so progress
+//   made in the older build meanwhile is outranked by the box and not merged.
+export const SPARE_KEYS = Object.freeze([SPARE_KEY, `${SPARE_KEY}.2`]);
+export const SALVAGED_KEY = 'device-rescue.recipe-box.v1.salvaged';
 export const BACKUP_KEY = 'device-rescue.recipe-box.v1.backup';
-// The codec makes the text about 13 times the JSON. A box over this is
-// written with less evidence per concept (newest kept), never less of
-// anything else.
-export const MAX_BOX_CHARS = 1000000;
-const TRIM_STEPS = [15, 8, MIN_RESPONSES];
+// Each slot this code writes holds at most this many characters. The codec
+// makes the text about 13 times the JSON; a box over it is written with older
+// answers compacted (see boxText). Worst case for everything here: the box,
+// the salvaged slot, the spares and the backup, each full, STORAGE_WORST in
+// all, well under Chromium's ~5M characters per origin.
+export const MAX_BOX_CHARS = 600000;
+export const STORAGE_WORST = (3 + SPARE_KEYS.length) * MAX_BOX_CHARS;
+// Answers kept with their time and source when a box is compacted.
+const KEEP_LITERAL = 8;
+const FAILURES = new Set(['encode', 'too-big', 'spare', 'write']);
 
 function read(storage, key) {
   try { return storage ? storage.getItem(key) : null; } catch (_) { return null; }
 }
+function write(storage, key, text) {
+  try { storage.setItem(key, text); } catch (_) { return false; }
+  return read(storage, key) === text;
+}
 
-const isBox = (text) => { const v = decode(text); return plainObject(v) && v.version === VERSION; };
+// Problems already reported, per storage, so each is said once.
+const reported = new WeakMap();
+function report(storage, onProblem, code) {
+  if (typeof onProblem !== 'function') return;
+  const key = storage && typeof storage === 'object' ? storage : report;
+  if (!reported.has(key)) reported.set(key, new Set());
+  const said = reported.get(key);
+  if (said.has(code)) return;
+  said.add(code);
+  try { onProblem(code); } catch (_) { /* the caller's problem */ }
+}
+function clearFailures(storage) {
+  const said = storage && typeof storage === 'object' ? reported.get(storage) : null;
+  if (said) for (const c of FAILURES) said.delete(c);
+}
 
-// Keeps `text` in a spare slot. True once it is safely held in one.
+// A cheap check that `text` is a box this version wrote: its head only.
+const isOurBox = (text) => peek(text, 13) === `{"version":${VERSION},`;
+
+// Copies an undecodable box to a spare slot, freeing the oldest when all are
+// taken. { ok, problem }: ok is false only when nothing could be written.
 function stash(storage, text) {
-  if (SPARE_KEYS.some((k) => read(storage, k) === text)) return true;
-  const free = SPARE_KEYS.find((k) => read(storage, k) === null);
-  if (!free) return false;
-  try { storage.setItem(free, text); } catch (_) { return false; }
-  return read(storage, free) === text;
+  if (SPARE_KEYS.some((k) => read(storage, k) === text)) return { ok: true, problem: null };
+  if (text.length > MAX_BOX_CHARS) return { ok: true, problem: 'unreadable-too-big' };
+  let slot = SPARE_KEYS.find((k) => read(storage, k) === null);
+  let problem = null;
+  if (!slot) {
+    for (let i = 0; i + 1 < SPARE_KEYS.length; i += 1) {
+      if (!write(storage, SPARE_KEYS[i], read(storage, SPARE_KEYS[i + 1]))) return { ok: false, problem: 'spare' };
+    }
+    slot = SPARE_KEYS[SPARE_KEYS.length - 1];
+    problem = 'spare-full';
+  }
+  return write(storage, slot, text) ? { ok: true, problem } : { ok: false, problem: 'spare' };
 }
 
 // The old document's text: the literal key, else the disguised backup city mode made.
@@ -200,21 +278,25 @@ function oldText(storage) {
 
 // Never throws. A box that won't decode is kept aside (see stash); then the
 // old document is read, as on a first run. Records a v4 box held that could
-// not be read are listed in a migration entry, and the box is kept aside too.
-export function loadProfile(storage, now) {
+// not be read are listed in a migration entry, and that box is kept in
+// SALVAGED_KEY.
+export function loadProfile(storage, now, { onProblem } = {}) {
+  const say = (code) => report(storage, onProblem, code);
   const box = read(storage, PROFILE_KEY);
   if (box) {
     const v = decode(box);
     if (plainObject(v) && v.version === VERSION) {
       const { profile, changes } = salvage(v, now);
       if (changes.length) {
-        stash(storage, box);
+        if (box.length > MAX_BOX_CHARS || !write(storage, SALVAGED_KEY, box)) say('salvaged');
         profile.migrations = [...profile.migrations, { v: VERSION, from: VERSION, at: String(now), changes }].slice(-MAX_MIGRATIONS);
       }
       return profile;
     }
-    stash(storage, box);
+    const s = stash(storage, box);
+    if (s.problem) say(s.problem);
   }
+  // First run of this build (or the box was unreadable): migrate the old document.
   const old = oldText(storage);
   if (!old) return emptyProfile(now);
   let raw = null;
@@ -241,39 +323,56 @@ export function profileSeed(storage, displayMode, random = Math.random) {
   return seed;
 }
 
-// The box's text, trimmed to MAX_BOX_CHARS by keeping fewer (the newest)
-// answers per concept. Learned stays learned (learnedAt is kept), and never
-// fewer than MIN_RESPONSES answers are kept. Throws when it can't be encoded.
+// The box's text. Over MAX_BOX_CHARS, each concept keeps its newest
+// KEEP_LITERAL answers as they are and the rest compacted into `older`
+// (order and right/wrong kept, time and source dropped), so no estimate and
+// no state changes; then migrations are cut to the last 5. Throws when it
+// can't be encoded. May still be over the limit: the caller checks.
 export function boxText(p, seed) {
-  let text = encode(p, seed);
-  for (const keep of TRIM_STEPS) {
-    if (text.length <= MAX_BOX_CHARS) break;
-    const concepts = obj(Object.entries(p.concepts).map(([id, c]) => [id, c.seen ? { ...c, seen: c.seen.slice(-keep) } : c]));
-    text = encode({ ...p, concepts, migrations: p.migrations.slice(-5) }, seed);
-  }
-  return text;
+  const text = encode(p, seed);
+  if (text.length <= MAX_BOX_CHARS) return text;
+  const concepts = obj(Object.entries(p.concepts).map(([id, c]) => {
+    const seen = c.seen || [];
+    const cut = Math.max(0, seen.length - KEEP_LITERAL);
+    if (!cut) return [id, c];
+    const rec = { ...c, older: makeOlder([...olderPairs(c), ...seen.slice(0, cut).map(([k, x]) => [k, x])]), seen: seen.slice(cut) };
+    return [id, rec];
+  }));
+  return encode({ ...p, concepts, migrations: p.migrations.slice(-5) }, seed);
 }
 
 // In city mode: copy the old literal document, disguised, then remove it.
+// Returns a problem code when the literal document had to stay.
 function retireOld(storage, seed) {
   const old = read(storage, OLD_KEY);
-  if (old === null) return;
+  if (old === null) return null;
   let kept = decode(read(storage, BACKUP_KEY)) === old;
   if (!kept) {
-    try { storage.setItem(BACKUP_KEY, encode(old, seed)); kept = decode(read(storage, BACKUP_KEY)) === old; } catch (_) { kept = false; }
+    let text = null;
+    try { text = encode(old, seed); } catch (_) { text = null; }
+    kept = !!text && text.length <= MAX_BOX_CHARS && write(storage, BACKUP_KEY, text) && decode(read(storage, BACKUP_KEY)) === old;
   }
-  if (kept) { try { storage.removeItem(OLD_KEY); } catch (_) { /* it stays */ } }
+  if (!kept) return 'old-kept';
+  try { storage.removeItem(OLD_KEY); } catch (_) { return 'old-kept'; }
+  return null;
 }
 
-// Writes the box. Returns whether the box was written; when it wasn't,
-// nothing was removed.
-export function saveProfile(storage, profile, { seed, mode } = {}) {
+// Writes the box. Returns whether it was written; when it wasn't, nothing was
+// removed, and `onProblem` hears why (once).
+export function saveProfile(storage, profile, { seed, mode, onProblem } = {}) {
+  const say = (code) => report(storage, onProblem, code);
   let text;
-  try { text = boxText(salvage(profile, profile && profile.since).profile, seed); } catch (_) { return false; }
+  try { text = boxText(salvage(profile, profile && profile.since).profile, seed); } catch (_) { say('encode'); return false; }
+  if (text.length > MAX_BOX_CHARS) { say('too-big'); return false; }
   const current = read(storage, PROFILE_KEY);
-  if (current && current !== text && !isBox(current) && !stash(storage, current)) return false;
-  try { storage.setItem(PROFILE_KEY, text); } catch (_) { return false; }
-  if (mode === 'city') retireOld(storage, seed);
+  if (current && current !== text && !isOurBox(current)) {
+    const s = stash(storage, current);
+    if (s.problem) say(s.problem);
+    if (!s.ok) return false;
+  }
+  try { storage.setItem(PROFILE_KEY, text); } catch (_) { say('write'); return false; }
+  clearFailures(storage);
+  if (mode === 'city') { const r = retireOld(storage, seed); if (r) say(r); }
   return true;
 }
 
@@ -293,7 +392,7 @@ function lessonFlag(p, bank, conceptId, flag) {
 
 export function conceptEstimate(p, bank, conceptId) {
   const b = bOf(p, bank);
-  const responses = (conceptRec(p, conceptId).seen || [])
+  const responses = answersOf(conceptRec(p, conceptId))
     .filter(([key]) => bank.items.has(key))
     .map(([key, x]) => ({ key, x, b: b(key), c: bank.items.get(key).c }));
   return estimate(responses, lessonFlag(p, bank, conceptId, 'before') ? BEFORE_PRIOR : PRIOR);
@@ -334,7 +433,7 @@ export function lessonState(p, bank, lessonId) {
   else if (states.some((s) => s !== 'not-yet')) state = 'measuring';
   else state = 'not-yet';
   const mine = new Set(l.keys);
-  const answers = l.concepts.flatMap((c) => (conceptRec(p, c).seen || []).filter(([key]) => mine.has(key)));
+  const answers = l.concepts.flatMap((c) => answersOf(conceptRec(p, c)).filter(([key]) => mine.has(key)));
   return { state, done: state === 'learned' || !!(p.lessons[lessonId] && p.lessons[lessonId].visited),
     answered: new Set(answers.map(([key]) => key)).size, right: answers.filter(([, x]) => x === 1).length,
     concepts: l.concepts.map((c, i) => ({ id: c, state: states[i] })) };
@@ -345,7 +444,7 @@ export const LESSON_STATES = LESSON_ORDER;
 export function historyFor(p, bank) {
   const out = {};
   for (const c of bank.concepts.keys()) {
-    const seen = conceptRec(p, c).seen || [];
+    const seen = answersOf(conceptRec(p, c));
     out[c] = { mean: conceptEstimate(p, bank, c).mean, learned: conceptState(p, bank, c) === 'learned',
       recent: seen.map(([key]) => key), seen: new Set(seen.map(([key]) => key)) };
   }
@@ -358,7 +457,7 @@ export const difficultyOf = bOf;
 export function teachShown(p, bank, itemKey) {
   const it = bank.items.get(itemKey);
   if (!it || !it.teach) return false;
-  return !(conceptRec(p, it.concept).seen || []).some(([key, x]) => x === 1 && bank.items.has(key) && bank.items.get(key).family === it.family);
+  return !answersOf(conceptRec(p, it.concept)).some(([key, x]) => x === 1 && bank.items.has(key) && bank.items.get(key).family === it.family);
 }
 
 // --- writes: each returns a new profile ---
@@ -373,7 +472,10 @@ function withEvidence(p, bank, itemKey, right, now, src) {
   const before = conceptEstimate(p, bank, it.concept);
   const next = clone(p);
   const rec = { ...(next.concepts[it.concept] || {}) };
-  rec.seen = [...(rec.seen || []), [itemKey, right ? 1 : 0, String(now), src]].slice(-MAX_SEEN);
+  const w = windowed(olderPairs(rec), [...(rec.seen || []), [itemKey, right ? 1 : 0, String(now), src]]);
+  rec.seen = w.seen;
+  const older = makeOlder(w.older);
+  if (older) rec.older = older; else delete rec.older;
   next.concepts[it.concept] = rec;
   const prev = next.items[itemKey] || {};
   next.items[itemKey] = updateDifficulty({ b: prev.b, n: prev.n }, right ? 1 : 0, before.mean, it.c, it.level);
