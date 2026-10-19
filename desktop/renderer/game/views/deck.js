@@ -136,7 +136,7 @@ export function preSweepCityHtml(districts, learn = () => null) {
     const l = learn(d.id);
     const action = !l ? ''
       : l.done ? `<button type="button" class="btn-t" data-go="review:${esc(d.id)}" aria-label="Review one? (optional): a lesson about ${esc(d.name)}">REVIEW ONE? (OPTIONAL)</button>`
-        : `<button type="button" class="btn-t" data-go="learn:${esc(d.id)}" aria-label="Learn about ${esc(d.name)}">LEARN ABOUT IT ▶</button>`;
+        : `<button type="button" class="btn-s" data-go="learn:${esc(d.id)}" aria-label="Learn about ${esc(d.name)}">LEARN ABOUT IT ▶</button>`;
     return `<div class="district none"><h4>${esc(String(d.name).toUpperCase())}</h4><p>${esc(d.blurb || '')}</p>${action}</div>`;
   };
   return `<section class="map" aria-label="The city"><div class="districts">${(districts || []).map(card).join('')}</div></section>`;

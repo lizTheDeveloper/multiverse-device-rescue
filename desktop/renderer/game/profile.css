@@ -1,10 +1,16 @@
 /* YOUR FILE (views/profile.js), game style, and the publish sheet. */
-.profile { display: grid; gap: 12px; padding: 16px; max-width: 1100px; margin: 0 auto; }
+.profile { display: grid; gap: 12px; padding: 16px; max-width: 1100px; margin: 0 auto; align-items: start; }
 @media (min-width: 900px) {
   .profile { grid-template-columns: 1fr 1fr; }
   .profile > h2, .profile > footer, .profile > [role="alertdialog"] { grid-column: 1 / -1; }
 }
-.profile h2 { font-family: var(--font-display); color: var(--cyan); letter-spacing: 2px; margin: 0; }
+.profile h2 { font-family: var(--font-display); color: var(--cyan); letter-spacing: 2px; margin: 0; width: fit-content; }
+/* Focus lands on the heading when YOUR FILE opens; it isn't a control. */
+.profile h2[tabindex="-1"]:focus { outline: none; }
+.profile h2[tabindex="-1"]:focus-visible { outline: 1px dashed rgba(0,229,255,0.5); outline-offset: 4px; }
+.profile-skills li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(10em, auto); justify-content: start; gap: 4px 10px; align-items: center; }
+.profile-game .profile-skills li > span:last-child { font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+.profile .unread { color: var(--dim); }
 .profile-lessons, .profile-skills { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .profile-lesson { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; }
 .profile-lesson small { grid-column: 2 / 3; color: var(--dim); }
@@ -16,6 +22,7 @@
 .meter i.on { background: var(--cyan); }
 .rank-chip { cursor: pointer; }
 .rank-chip:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+.rank-chip:hover { border-color: var(--lime); }
 .sheet { position: fixed; inset: 5% 10%; overflow: auto; background: var(--charcoal); border: 1px solid var(--line); padding: 20px; z-index: 10; }
 @media (max-width: 600px) { .sheet { inset: 8px; } }
 .pub-fields { list-style: none; padding: 0; display: grid; gap: 6px; }

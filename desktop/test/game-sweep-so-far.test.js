@@ -122,3 +122,19 @@ test('a swept district whose only findings are held gets the same neutral line a
   assert.ok(last.includes(LOOKUP_LINE.replace(/’/g, '’')));
   assert.doesNotMatch(LOOKUP_LINE, /\b(seconds?|minutes?|hours?|program|scan)\b/i);
 });
+
+test('a long district list shows its first few titles and how many more; the badge keeps the full count', async () => {
+  const { bossInit, bossApply } = await boss();
+  const { renderBoss, PREVIEW_SHOWN } = await view();
+  const city = await toCity();
+  const n = PREVIEW_SHOWN + 4;
+  let b = bossApply(bossInit(), plan('security'));
+  b = bossApply(b, prog('done', 1, 1, 'security'));
+  b = bossApply(b, entry('launch_agents_audit', 'security', Array.from({ length: n }, (_, i) => warn(`Helper ${i}`))));
+  const html = renderBoss({ boss: b, scout, tips: [], toCity: city });
+  const preview = /<section class="panel sweep-so-far"[\s\S]*?<\/section>/.exec(html)[0];
+  assert.match(preview, new RegExp(`${n} MISSIONS WAITING`));
+  assert.strictEqual((preview.match(/<li>Helper \d+<\/li>/g) || []).length, PREVIEW_SHOWN);
+  assert.match(preview, /AND 4 MORE/);
+  assert.doesNotMatch(preview, /<button/);
+});

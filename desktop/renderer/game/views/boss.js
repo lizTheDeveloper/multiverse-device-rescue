@@ -34,6 +34,8 @@ function districtCard(d, learn) {
 }
 
 export const NO_MISSION_LINE = 'No missions from here yet.';
+// Mission titles shown per swept district before "AND N MORE".
+export const PREVIEW_SHOWN = 6;
 // After the last check, before the city: the engine's "who made it" lookups.
 export const LOOKUP_LINE = 'Every district is checked. I’m finding out who built what. I’ll call you when the city is ready.';
 
@@ -47,13 +49,15 @@ function previewHtml(preview) {
     const fog = d.fog ? `${d.fog} COULDN’T CHECK` : '';
     // No mission from it: one neutral line, the same whatever it found (some
     // of it may be held), so it is never blank and never reads as "clear".
-    const titles = n ? `<ul class="notes">${d.missions.map((m) => `<li>${esc(m.title)}</li>`).join('')}</ul>`
+    // A long list shows its first few titles; the count above says how many in all.
+    const more = n > PREVIEW_SHOWN ? `<li class="more">AND ${n - PREVIEW_SHOWN} MORE</li>` : '';
+    const titles = n ? `<ul class="notes">${d.missions.slice(0, PREVIEW_SHOWN).map((m) => `<li>${esc(m.title)}</li>`).join('')}${more}</ul>`
       : `<p class="intel">${esc(NO_MISSION_LINE)}</p>`;
     return `<li><strong>${esc(d.name.toUpperCase())}</strong>${said ? ` <span class="badge skip">${esc(said)}</span>` : ''}${fog ? ` <span class="badge fog">${esc(fog)}</span>` : ''}${titles}</li>`;
   }).join('');
   return `
     <section class="panel sweep-so-far" aria-label="Swept so far"><h3 class="label">SWEPT SO FAR</h3>
-      <p class="say">Missions open when the sweep is done.</p>
+      <p class="intel">Missions open when the sweep is done.</p>
       <ul class="notes">${rows}</ul></section>`;
 }
 
@@ -80,11 +84,11 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, t
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="--pct: ${pct}%"></i></div>
         <div class="bar-meta"><span>${boss.total ? `${esc(boss.index)} / ${esc(boss.total)} CHECKS` : 'GETTING READY'}</span>
           ${boss.found ? `<span>${esc(boss.found)} THING${boss.found === 1 ? '' : 'S'} NOTED SO FAR</span>` : ''}</div></div></div>
+    <div class="row boss-say"><p class="say">${esc(line)}</p>
+      <button type="button" class="btn-s lime" data-go="training">ALL LESSONS</button>
+      <button type="button" class="btn-t" data-act="leave">PLAIN VIEW</button></div>
     ${tipList}
     <div class="districts sweep">${ds.map((d) => districtCard(d, learn)).join('')}</div>
     ${previewHtml(bossPreview(boss, toCity))}
-    <div class="row"><p class="say">${esc(line)}</p>
-      <button type="button" class="btn-s lime" data-go="training">ALL LESSONS</button>
-      <button type="button" class="btn-t" data-act="leave">PLAIN VIEW</button></div>
   </section>`;
 }
