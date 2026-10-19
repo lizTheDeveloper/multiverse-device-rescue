@@ -683,3 +683,31 @@ test('more moments than fit: the oldest go first, and the rank-up stays', async 
     assert.match(t.html(), new RegExp(`SECURED</span> ${name}`), `${name} is still in the log`);
   }
 });
+
+// The merge of the command center into Reclaim City: in city mode a monitoring
+// finding is held. The deck gives it no signal, so no MINE or THREAT and no
+// points, yet city integrity still counts its district as open.
+test('city mode: a held monitoring finding has no signal and no points, and integrity still counts it as open', async () => {
+  const held = scan(mod('stalkerware_scan', [f('Monitoring app', 'critical', { path: '/m' })]));
+  const id = (await ids(held))[0];
+  assert.match(id, /^stalkerware_scan\|/);
+  const t = await deckSetup(null);
+  t.win.RescueHost.mode = () => 'city';
+  t.ctl.show(held, { id: 'unsure' });
+  assert.match(t.html(), /INCOMING SIGNALS/, 'the game stays on');
+  assert.doesNotMatch(queueOf(t.html()), /Monitoring app|stalkerware/);
+  assert.doesNotMatch(t.html(), /Monitoring app/);
+  // Asking for its signal opens nothing, so there is nothing to tag MINE or THREAT.
+  t.click({ 'data-go': `signal:${id}` });
+  assert.doesNotMatch(t.html(), /id="sig-title"|data-act="tag:/);
+  t.click({ 'data-act': 'tag:mine' });
+  t.click({ 'data-act': 'tag:threat' });
+  assert.strictEqual(t.saved().deck.points, 0);
+  assert.deepStrictEqual(t.saved().deck.tags, {});
+  assert.doesNotMatch(JSON.stringify(t.saved()), /stalkerware|Monitoring app/);
+  // Integrity: its district was checked and is not secure while it is there.
+  assert.match(t.html(), /<b>0%<\/b>/);
+  assert.match(t.html(), /City integrity 0%/);
+  t.ctl.show(scan(mod('stalkerware_scan', [])), { id: 'unsure' });
+  assert.match(t.html(), /<b>100%<\/b>/, 'once it is gone, the district is secure');
+});
