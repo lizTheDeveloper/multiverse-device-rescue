@@ -267,7 +267,9 @@ class KnownItemsStore:
         """(marks a check may honour, why the list was ignored or None).
 
         Any doubt means no marks, so every finding shows as it normally would.
+        Called once per scan, so it also starts a fresh program-hashing budget.
         """
+        reset_hash_budget()
         try:
             return self.load(), None
         except KnownItemsError as exc:
@@ -946,12 +948,56 @@ for _kind, _spec in ENTRY_KINDS.items():
 del _kind, _spec
 
 
-_MAX_PROGRAM_BYTES = 256 * 1024 * 1024
+_MAX_PROGRAM_BYTES = 128 * 1024 * 1024
+_SCAN_HASH_BYTES = 1024 * 1024 * 1024
+_hash_state = {"spent": 0, "cache": {}}
+
+
+def reset_hash_budget() -> None:
+    """Start a scan: forget what was hashed and spend nothing yet."""
+    _hash_state["spent"] = 0
+    _hash_state["cache"] = {}
+
+
+def _hash_regular_file(path: str) -> str | None:
+    """SHA-256 of a regular file, read at most _MAX_PROGRAM_BYTES. The file is
+    opened without blocking and checked on the open handle, so a pipe or device
+    swapped in after a check can't hang the scan. None if it isn't a regular
+    file, is too big (now or by the time it is read), or the scan's total
+    hashing budget is spent."""
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open(path, flags)
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_size > _MAX_PROGRAM_BYTES:
+            return None
+        key = (os.path.realpath(path), st.st_size, st.st_mtime_ns)
+        cache = _hash_state["cache"]
+        if key in cache:
+            return cache[key]
+        if _hash_state["spent"] + st.st_size > _SCAN_HASH_BYTES:
+            return None
+        digest = hashlib.sha256()
+        total = 0
+        while True:
+            chunk = os.read(fd, 1 << 20)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > _MAX_PROGRAM_BYTES:
+                return None
+            digest.update(chunk)
+        _hash_state["spent"] += total
+        cache[key] = digest.hexdigest()
+        return cache[key]
+    finally:
+        os.close(fd)
 
 
 def _program_sha256(app: str) -> str | None:
     """SHA-256 of an app's main program file (read-only), or None if it can't
-    be found or is too large to read quickly."""
+    be found, isn't a plain file, is too large, or the scan's hashing budget is
+    spent: such an entry isn't offered for marking, and is never a match."""
     try:
         from rescue import attribution
 
@@ -965,13 +1011,7 @@ def _program_sha256(app: str) -> str | None:
             if not isinstance(exe, str) or not exe or "/" in exe or exe.startswith("."):
                 return None
             path = os.path.realpath(os.path.join(path, "Contents", "MacOS", exe))
-        if not os.path.isfile(path) or os.path.getsize(path) > _MAX_PROGRAM_BYTES:
-            return None
-        digest = hashlib.sha256()
-        with open(path, "rb") as handle:
-            for chunk in iter(lambda: handle.read(1 << 20), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
+        return _hash_regular_file(path)
     except Exception:
         return None
 

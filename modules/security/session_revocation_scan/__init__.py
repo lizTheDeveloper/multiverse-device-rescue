@@ -59,8 +59,15 @@ def _parse_key_line(line: str) -> dict | None:
     `ssh-keygen -l` fingerprints) and of the whole line (so a change to its
     options or comment shows), its type and its comment. Never the key itself.
     None if the line isn't a key this can read."""
+    # sshd separates fields by space or tab only; any other whitespace (a
+    # vertical tab, a form feed...) is read differently by str.split().
+    if any(ch.isspace() and ch not in " \t" for ch in line):
+        return None
     options, rest = _split_options(line)
     if rest is None:
+        return None
+    # A backslash outside quotes is something sshd might read differently from us.
+    if _odd_options(options):
         return None
     # A key-type word hidden in the options (say inside command="...") or
     # repeated later could make us fingerprint a different key than sshd uses.
@@ -85,6 +92,23 @@ def _parse_key_line(line: str) -> dict | None:
         "line_sha256": hashlib.sha256(line.encode("utf-8", "replace")).hexdigest(),
         "comment": comment,
     }
+
+
+def _odd_options(options: str) -> bool:
+    in_quote = False
+    i = 0
+    while i < len(options):
+        ch = options[i]
+        if ch == "\\":
+            if not in_quote:
+                return True
+            if i + 1 < len(options) and options[i + 1] == '"':
+                i += 2
+                continue
+        elif ch == '"':
+            in_quote = not in_quote
+        i += 1
+    return False
 
 
 def _split_options(line: str) -> tuple[str, str | None]:

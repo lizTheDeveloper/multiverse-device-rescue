@@ -10,6 +10,7 @@ checks, and a mark retired only when a clean run no longer lists its entry.
 import base64
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -370,3 +371,84 @@ def test_critical_with_only_stale_marks_does_not_say_some_are_marked():
     SIGNERS["com.example.one"] = "team:ZZZZZ99999"
     f = _apply(ACC, data, Severity.CRITICAL)
     assert f.severity == Severity.CRITICAL and "Some of these are marked" not in f.description
+
+
+# --- fix round 2: hashing budget, racing files, odd option bytes -----------------------
+
+
+@pytest.fixture
+def hashing(monkeypatch):
+    known_items.reset_hash_budget()
+    yield known_items
+    known_items.reset_hash_budget()
+
+
+def test_a_file_is_hashed_once_per_scan(tmp_path, hashing, monkeypatch):
+    f = tmp_path / "prog"
+    f.write_bytes(b"abc")
+    first = hashing._hash_regular_file(str(f))
+    spent = hashing._hash_state["spent"]
+    calls = []
+    real = os.read
+    monkeypatch.setattr(os, "read", lambda fd, n: (calls.append(1), real(fd, n))[1])
+    assert hashing._hash_regular_file(str(f)) == first and not calls
+    assert hashing._hash_state["spent"] == spent
+    f.write_bytes(b"abcd")  # size changed: hashed again
+    assert hashing._hash_regular_file(str(f)) != first
+
+
+def test_the_scan_byte_budget_runs_out_and_those_files_get_none(tmp_path, hashing, monkeypatch):
+    monkeypatch.setattr(known_items, "_SCAN_HASH_BYTES", 10)
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.write_bytes(b"x" * 8)
+    b.write_bytes(b"y" * 8)
+    assert hashing._hash_regular_file(str(a)) is not None
+    assert hashing._hash_regular_file(str(b)) is None
+    known_items.reset_hash_budget()  # a new scan starts fresh
+    assert hashing._hash_regular_file(str(b)) is not None
+
+
+def test_the_per_file_cap_is_128_mb_and_holds_even_if_the_file_grows(tmp_path, hashing, monkeypatch):
+    assert known_items._MAX_PROGRAM_BYTES == 128 * 1024 * 1024
+    monkeypatch.setattr(known_items, "_MAX_PROGRAM_BYTES", 100)
+    big = tmp_path / "big"
+    big.write_bytes(b"z" * 101)
+    assert hashing._hash_regular_file(str(big)) is None
+    grows = tmp_path / "grows"
+    grows.write_bytes(b"z" * 50)
+    real_fstat = os.fstat
+
+    def lying(fd):
+        st = real_fstat(fd)
+        grows.write_bytes(b"z" * 5000)  # grows after the size was read
+        return os.stat_result((st.st_mode, st.st_ino, st.st_dev, st.st_nlink, st.st_uid, st.st_gid,
+                               50, st.st_atime, st.st_mtime, st.st_ctime))
+
+    monkeypatch.setattr(os, "fstat", lying)
+    assert hashing._hash_regular_file(str(grows)) is None
+
+
+def test_a_fifo_swapped_in_does_not_block_and_is_not_hashed(tmp_path, hashing):
+    fifo = tmp_path / "fifo"
+    os.mkfifo(fifo)
+    assert hashing._hash_regular_file(str(fifo)) is None
+
+
+def test_resolve_app_by_path_respects_the_lookup_budget(tmp_path, monkeypatch):
+    from rescue import attribution
+
+    att = attribution.Attributor("darwin", max_lookups=1)
+    monkeypatch.setitem(attribution._DEFAULT, "darwin", att)
+    p = tmp_path / "x"
+    p.write_text("x")
+    assert attribution.resolve_app(str(p), "darwin") == str(p)
+    assert attribution.resolve_app(str(p), "darwin") is None
+
+
+def test_options_with_a_backslash_outside_quotes_or_odd_whitespace_are_refused():
+    parse = _parser()
+    assert parse(f"no-pty\\x ssh-ed25519 {_blob(1)} me") is None
+    assert parse(f'command="a\\"b" ssh-ed25519 {_blob(1)} me') is not None  # escaped quote inside quotes
+    assert parse(f'command="a\x0bb" ssh-ed25519 {_blob(1)} me') is None
+    assert parse(f"no-pty,\x0cno-x11 ssh-ed25519 {_blob(1)} me") is None
+    assert parse(f'command="a\tb" ssh-ed25519 {_blob(1)} me') is not None  # tab is fine

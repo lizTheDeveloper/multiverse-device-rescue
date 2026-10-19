@@ -813,11 +813,13 @@ def resolve_app(subject: str, platform: str) -> str | None:
     att = _DEFAULT.get(platform)
     if att is None:
         att = _DEFAULT[platform] = Attributor(platform)
+    if not att._can_lookup():
+        att.skipped += 1
+        return None
     if "/" in subject:
+        att.lookups += 1
         path = os.path.expanduser(subject)
         return path if os.path.exists(path) else None
-    if not att._can_lookup():
-        return None
     return att._resolve_app(subject, os.path.exists)
 
 
