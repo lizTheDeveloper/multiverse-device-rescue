@@ -21,15 +21,21 @@ const load = async () => {
   return { ...views, pub, summary: pp.summary(p, bank) };
 };
 
-test('both themes show rank, lessons, skills, drills and city counts, with a heading the section is named by', async () => {
+test('both themes show rank, lessons, drills and city counts (skills in the game), with a heading the section is named by', async () => {
   const { renderProfile, summary } = await load();
   for (const theme of ['game', 'plain']) {
     const html = renderProfile({ summary, theme });
     assert.match(html, /aria-labelledby="profile-title"/);
     assert.match(html, /<h2 id="profile-title" tabindex="-1">/);
     assert.ok(html.includes('Lesson A') && html.includes('Lesson B'));
-    assert.ok(html.includes('Honest results'));
-    assert.match(html, /<span>[^<]+ \(step [123] of 3\)<\/span>/, 'the meter has a text equivalent');
+    if (theme === 'game') {
+      assert.ok(html.includes('Honest results'));
+      assert.match(html, /<span>[^<]+ \(step [123] of 3\)<\/span>/, 'the meter has a text equivalent');
+    } else {
+      // P3-34: Skills repeats Lessons, and none can be started from Plain view: it says where they are.
+      assert.ok(!html.includes('Honest results') && !/<h3 class="label">Skills</.test(html));
+      assert.ok(html.includes('Lessons are played in the city view.'));
+    }
     assert.ok(!html.includes('Developer packages'), 'a skill with nothing to measure in this bank is left out');
     assert.ok(html.includes('1 set aside for later'));
     assert.doesNotMatch(html, TIME_WORDS);

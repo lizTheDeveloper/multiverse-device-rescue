@@ -79,6 +79,11 @@ export const START_OVER = 'Start over? This clears your lessons, drills, rank an
 // Plain view's words: the results screen has its own "Start over" (a new checkup).
 export const CLEAR_PROGRESS = 'Clear your progress? This clears your lessons, drills, rank and missions here. Nothing on your computer changes.';
 
+// Plain view: none of the lessons can be started from there, so it says where
+// they are played, and Skills (read from the same lessons, so it repeats
+// them) isn't shown.
+export const PLAIN_WHERE = 'Lessons are played in the city view.';
+
 // Said instead of a count when the lessons couldn't be loaded: never "0 of 0 learned".
 export const LESSONS_UNREAD = 'Couldn’t read your lessons. Closing this and opening it again tries once more.';
 export const SKILLS_UNREAD = 'Your skills come from your lessons, so they can’t be shown either.';
@@ -102,8 +107,8 @@ export function createProfileRenderer(ready) {
     <h2 id="profile-title" tabindex="-1">${esc(w.title)}</h2>
     <div class="panel"><h3 class="label">${esc(w.rank)}</h3>${rankHtml(s, w, theme)}</div>
     <div class="panel"><h3 class="label">${esc(w.training)}</h3>${lessonsUnread ? `<p class="unread" role="note">${esc(LESSONS_UNREAD)}</p>`
-    : `<p>${esc(lessonsLearned(s))} of ${esc(shown.length)} learned</p><ul class="profile-lessons">${lessons}</ul>`}</div>
-    <div class="panel"><h3 class="label">${esc(w.skills)}</h3>${lessonsUnread ? `<p class="unread">${esc(SKILLS_UNREAD)}</p>` : `<ul class="profile-skills">${skills}</ul>`}</div>
+    : `<p>${esc(lessonsLearned(s))} of ${esc(shown.length)} learned</p><ul class="profile-lessons">${lessons}</ul>`}${theme === 'plain' ? `<p class="muted" data-plain-where>${esc(PLAIN_WHERE)}</p>` : ''}</div>
+    ${theme === 'plain' ? '' : `<div class="panel"><h3 class="label">${esc(w.skills)}</h3>${lessonsUnread ? `<p class="unread">${esc(SKILLS_UNREAD)}</p>` : `<ul class="profile-skills">${skills}</ul>`}</div>`}
     <div class="panel"><h3 class="label">${esc(w.drills)}</h3>${drillsHtml(s.drills)}</div>
     <div class="panel"><h3 class="label">${esc(w.city)}</h3>
       <p>${esc(c.reclaimed)} fixed and confirmed · ${esc(c.later)} set aside for later · ${esc(c.yours)} marked as yours${c.lastSweep === null ? '' : ` · last checkup: ${esc(c.lastSweep)}% of districts secured`}</p></div>
