@@ -3,7 +3,7 @@
 // delivered as elements with attributes.
 const test = require('node:test');
 const assert = require('node:assert');
-const { PROFILE_KEY, savedProfile, savedAsV3 } = require('./profile-read.js');
+const { savedProfile, savedAsV3 } = require('./profile-read.js');
 
 const STORE = 'device-rescue.game.v1';
 const memStore = () => { const s = {}; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };

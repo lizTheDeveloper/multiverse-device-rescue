@@ -33,8 +33,10 @@ function stub(mode) {
   const frame = { innerHTML: '', addEventListener: (type, fn) => { if (type === 'click') listeners.push(fn); },
     querySelector: () => null, querySelectorAll: () => [] };
   const shadow = { activeElement: null, getElementById: () => frame, addEventListener: () => {} };
+  const view = { hidden: false };
+  const host = { attachShadow: () => shadow, closest: (sel) => (sel === '[hidden]' && view.hidden ? host : null) };
   const win = {
-    document: { getElementById: () => ({ attachShadow: () => shadow }) },
+    document: { getElementById: () => host },
     FixFlow: { attach: () => {}, fixControlsHtml: () => '', resultHtml: () => '' },
     MarkFlow: { attach: () => {}, markControlsHtml: () => '' },
     RescueHost: { mode: () => mode.now, showList() {}, docChanged: () => true, wantsSafety: () => false, startCheckup() {}, scanTips: async () => [], leaveGame() {} },
@@ -44,7 +46,7 @@ function stub(mode) {
     const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
     listeners.forEach((fn) => fn({ target: { closest: () => el } }));
   };
-  return { win, frame, click };
+  return { win, frame, click, view };
 }
 
 async function setup({ storage = recordingStore(), mode = 'standard', doc = DOC, loadDrillBank = async () => DRILLS } = {}) {
@@ -200,7 +202,7 @@ test('a save that fails says so on screen, calmly; in city mode only in game wor
     return s;
   };
   const city = await setup({ storage: broken(), mode: 'city' });
-  assert.match(city.html(), /The city couldn’t save your last move just now/);
+  assert.match(city.html(), /The city couldn’t save your last move\. It tries again with your next one\./);
   const notice = (/<p class="link-notice save-notice"[\s\S]*?<\/p>/.exec(city.html()) || [''])[0];
   assert.ok(notice);
   assert.doesNotMatch(notice.replace(/<[^>]+>/g, ' '), FORBIDDEN_ON_DISK);
@@ -209,11 +211,12 @@ test('a save that fails says so on screen, calmly; in city mode only in game wor
   const { saveProblemText } = await game('controller.js');
   for (const code of ['encode', 'too-big', 'spare', 'write', 'salvaged', 'spare-full', 'unreadable-too-big', 'old-kept', 'anything-else']) {
     assert.doesNotMatch(saveProblemText(code, true), /profile|progress|safety|monitor|partner|\bsafe\b|watch|stalk/i, code);
+    assert.doesNotMatch(saveProblemText(code, true) + saveProblemText(code, false), /just now|next time/i, code);
   }
   city.click({ 'data-act': 'dismiss-save-notice' });
   assert.doesNotMatch(city.html(), /couldn’t save/);
   const std = await setup({ storage: broken(), mode: 'standard' });
-  assert.match(std.html(), /Your progress couldn’t be saved just now/);
+  assert.match(std.html(), /Your progress couldn’t be saved\. It tries again with your next move\./);
 });
 
 test('a save that works again clears the save notice', async () => {
@@ -228,4 +231,74 @@ test('a save that works again clears the save notice', async () => {
   t.click({ 'data-act': 'answer:0' });
   assert.doesNotMatch(t.html(), /couldn’t be saved/);
   assert.ok(savedProfile(s).concepts['auto-updates']);
+});
+
+// Every concept learned by evidence alone, saved to a fresh store.
+async function learnedStore(lessons) {
+  const [pp, ib] = await Promise.all([game('profile/player-profile.js'), game('profile/item-bank.js')]);
+  const bank = ib.buildBank(lessons, DRILLS);
+  let p = pp.emptyProfile(NOW);
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const [key, it] of bank.items) if (it.kind === 'lesson') p = pp.recordAnswer(p, bank, key, true, NOW);
+  }
+  const storage = recordingStore();
+  pp.saveProfile(storage, p, { seed: 4242, mode: 'city' });
+  return storage;
+}
+
+test('city mode opens on the command deck, with or without learned concepts; the sweep is the main action and nothing routes to lessons', async () => {
+  const training = await game('training.js');
+  const lessons = await training.loadLessons(importModule);
+  for (const storage of [recordingStore(), await learnedStore(lessons)]) {
+    const t = await setup({ storage, mode: 'city', doc: null });
+    t.ctl.showHome({ id: 'city', title: 'Take back the city' });
+    const home = t.html();
+    assert.match(home, /NO SWEEP YET/);
+    assert.match(home, /class="btn-p" data-act="start-checkup"/, 'the sweep is the main action');
+    assert.match(home, /<button type="button" data-go="training">TRAINING<\/button>/, 'Training is reachable from the deck');
+    assert.doesNotMatch(home, /QUESTION \d+ OF|class="lesson[ "]/, 'not a lesson, not the Training Grounds');
+    assert.doesNotMatch(home, KNOWN_PERSON);
+    // A district's lesson is a visit from the deck, and finishing it comes back to the deck.
+    const learn = /data-go="(learn|review):([a-z-]+)"/.exec(home);
+    assert.ok(learn, 'districts link their lessons');
+    t.click({ 'data-go': `${learn[1]}:${learn[2]}` });
+    assert.match(t.html(), /QUESTION 1 OF/);
+    answerVisit(t);
+    assert.match(t.html(), /NO SWEEP YET/, 'back on the deck');
+    // Leaving the DRILL RANGE and a failed checkup also come back to the deck.
+    t.click({ 'data-go': 'range' });
+    t.click({ 'data-act': 'leave-range' });
+    assert.match(t.html(), /NO SWEEP YET/);
+    t.ctl.showBoss();
+    t.ctl.scanFailed('The checkup stopped.');
+    assert.match(t.html(), /NO SWEEP YET[\s\S]*The checkup stopped\./);
+  }
+  // With every concept learned, every district offers only the optional review.
+  const t = await setup({ storage: await learnedStore(lessons), mode: 'city', doc: null });
+  t.ctl.showHome({ id: 'city', title: 'Take back the city' });
+  assert.doesNotMatch(t.html(), /data-go="learn:/);
+  assert.match(t.html(), /data-go="review:gatehouse"/);
+});
+
+test('no display mode chosen yet: the families about someone the person knows stay hidden', async () => {
+  const t = await setup({ mode: null });
+  const l = t.lesson('whos-on-wifi');
+  t.click({ 'data-go': 'lesson:whos-on-wifi' });
+  assert.strictEqual(qCount(t.html()), l.questions.length - 2);
+  assert.doesNotMatch(t.html(), KNOWN_PERSON);
+  answerVisit(t);
+  assert.doesNotMatch(t.html(), KNOWN_PERSON);
+});
+
+test('profileModeChanged saves, but draws only while the city is on screen', async () => {
+  const t = await setup();
+  t.click({ 'data-go': 'training' });
+  t.view.hidden = true;
+  t.frame.innerHTML = 'untouched';
+  t.mode.now = 'city';
+  t.ctl.profileModeChanged();
+  assert.strictEqual(t.html(), 'untouched');
+  t.view.hidden = false;
+  t.ctl.profileModeChanged();
+  assert.notStrictEqual(t.html(), 'untouched');
 });

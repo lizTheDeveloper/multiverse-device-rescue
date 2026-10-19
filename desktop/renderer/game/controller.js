@@ -12,7 +12,7 @@ import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepC
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './drills.js';
-import { renderDeck } from './views/deck.js';
+import { renderDeck, preSweepCityHtml } from './views/deck.js';
 import { renderInstruments } from './views/instruments.js';
 import { renderSignalPanel, renderRange } from './views/signal.js';
 import { renderHud } from './views/hud.js';
@@ -44,8 +44,9 @@ const loadLessonsHere = () => loadLessons((spec) => import(spec));
 const idleScan = () => ({ running: false, index: 0, total: 0, error: null });
 const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
 // Screens drawn without a city, and screens whose redraws keep keyboard focus.
-const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range']);
-const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range']);
+// 'home': the deck before any sweep this session (city mode's landing screen).
+const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range', 'home']);
+const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range', 'home']);
 const LOG_MAX = 100;
 const MOMENTS_MAX = 4;
 const TAG_WORD = { mine: 'MINE', threat: 'THREAT', closer: 'LOOK CLOSER', noted: 'NOTED' };
@@ -69,16 +70,16 @@ const SAVE_CODES = new Set(['encode', 'too-big', 'spare', 'write']);
 const READ_CODES = new Set(['salvaged', 'spare-full', 'unreadable-too-big']);
 export function saveProblemText(code, city) {
   if (SAVE_CODES.has(code)) {
-    return city ? 'The city couldn’t save your last move just now. Keep playing: it tries again with your next one.'
-      : 'Your progress couldn’t be saved just now. Nothing is lost from this session, and it tries again the next time something changes.';
+    return city ? 'The city couldn’t save your last move. It tries again with your next one.'
+      : 'Your progress couldn’t be saved. It tries again with your next move.';
   }
   if (READ_CODES.has(code)) {
     return city ? 'Part of your saved city couldn’t be read, so the game picked up from what it could.'
       : 'Part of your saved progress couldn’t be read, so the game picked up from what it could.';
   }
   if (code === 'old-kept') {
-    return city ? 'An older save couldn’t be tidied away. The city tries again next time it saves.'
-      : 'An older copy of your progress couldn’t be tidied away. It tries again next time it saves.';
+    return city ? 'An older save couldn’t be tidied away. The city tries again when it saves.'
+      : 'An older copy of your progress couldn’t be tidied away. It tries again when it saves.';
   }
   return city ? 'The city had trouble with its save. Keep playing.' : 'There was a problem with your saved progress. You can keep going.';
 }
@@ -146,7 +147,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     signal: null, filter: null, lowOpen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
     drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null,
     // The generated district. Memory only, like the ops log; nothing about it is stored.
-    sideTicket: 0, sideNotice: false, heldOpen: false };
+    sideTicket: 0, sideNotice: false, heldOpen: false,
+    // Opened from city mode's home (showHome): with no sweep yet, the deck is
+    // where the person lands and comes back to, never the Training Grounds.
+    homeFirst: false };
+  const noCity = () => (s.homeFirst ? 'home' : 'training');
   let drawnScreen = null; // the screen the last render drew
 
   // The generated district (city mode only): help that looks like the rest of the city.
@@ -173,7 +178,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.lessons = Array.isArray(ls) ? ls : [];
     s.lessonsLoaded = true;
     refreshBank();
-    if (TRAINING_SCREENS.has(s.screen)) render();
+    if (TRAINING_SCREENS.has(s.screen) || s.screen === 'home') render();
   });
 
   // The drill bank, the same way: a drill file that fails to load is left out.
@@ -218,8 +223,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // The bank the game measures with, and the one city mode draws from.
   // City mode never asks the families about someone the person knows, and the
   // v3 view (which lessons are done) is read without them.
-  // A host that can't say counts as city mode, as for held software.
-  const coverMode = () => hostMode() === 'city';
+  // Anything but standard mode counts as city mode here: a host that can't
+  // say, and a mode not chosen yet (null), hide the families about someone
+  // the person knows until it is known they are safe to show.
+  const coverMode = () => hostMode() !== 'standard';
   const drawBank = () => (coverMode() ? s.cityBank : s.bank);
   const viewOf = (p) => toProgress(p, drawBank());
   // A v3 view changed by progress.js or ledger.js: folded into the profile,
@@ -492,6 +499,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
+  // The deck before any sweep: the sweep to start, the city's districts with
+  // their lessons as visits, and the ops log.
+  function homeHtml() {
+    const deck = s.progress.deck;
+    return renderDeck({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', rank: rankOf(deck),
+      lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
+      preSweep: !s.scan.running, scanRunning: s.scan.running, scanError: s.scan.error || '',
+      cityHtml: sideTile() + preSweepCityHtml(DISTRICTS, s.lessonsLoaded ? learnFor() : () => null),
+      log: s.log, notice: heldNotice() + s.linkNotice, districtName: nameOf });
+  }
+
   function openSignal(id) {
     const sig = findSignal(id);
     s.signal = sig ? { id: sig.id, tagged: null, right: false, read: '', points: 0 } : null;
@@ -678,9 +696,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function screenHtml() {
     if (s.screen === 'side') {
       if (inCity()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout });
-      s.screen = s.city ? 'map' : 'training';
+      s.screen = s.city ? 'map' : noCity();
     }
     if (s.screen === 'range') return rangeHtml();
+    if (s.screen === 'home') {
+      if (s.city) { s.screen = 'map'; return deckHtml(); }
+      return homeHtml();
+    }
     if (s.screen === 'training') {
       return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, worryIdsOf(s.situation)), progress: s.progress,
         // City mode is the cover: no worry's words on a game screen ("…watching
@@ -751,7 +773,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function render() {
     try {
       // No city yet (the scan hasn't finished): the Training Grounds.
-      if (!s.city && !NO_CITY_SCREENS.has(s.screen) && s.screen !== 'side') s.screen = 'training';
+      if (!s.city && !NO_CITY_SCREENS.has(s.screen) && s.screen !== 'side') s.screen = noCity();
       // A redraw of the same screen (a progress event, an answer, a clue, a
       // tag) mustn't lose keyboard or screen-reader focus.
       const keep = KEEP_FOCUS.has(s.screen) && s.screen === drawnScreen ? focusKey(shadow.activeElement) : null;
@@ -849,7 +871,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function leaveSide() {
     s.sideTicket += 1; // a guide still opening says nothing afterwards
     s.sideNotice = false;
-    s.screen = s.city ? 'map' : 'training';
+    s.screen = s.city ? 'map' : noCity();
     render();
     const first = s.city && s.city.districts.length ? s.city.districts[0] : null;
     const target = first
@@ -916,7 +938,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // The DRILL RANGE: more drills, with or without a scan.
     if (go === 'range') { s.signal = null; s.range = { order: [], i: 0 }; s.screen = 'range'; render(); return; }
     if (act === 'next-drill' && s.range) { s.range = { ...s.range, i: s.range.i + 1 }; s.signal = null; render(); return; }
-    if (act === 'leave-range') { s.range = null; s.signal = null; s.screen = s.city ? 'map' : 'training'; render(); return; }
+    if (act === 'leave-range') { s.range = null; s.signal = null; s.screen = s.city ? 'map' : noCity(); render(); return; }
     // The deck: the queue, the Signal or Noise panel, and the district filter.
     if (go && go.startsWith('signal:')) { openSignal(go.slice(7)); return; }
     if (go && go.startsWith('filter:')) {
@@ -936,7 +958,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'toggle-low') { s.lowOpen = !s.lowOpen; render(); return; }
     if (act === 'batch-fine') { batchFine(); return; }
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
-    if (go === 'boss') { s.screen = s.scan.running ? 'boss' : 'training'; render(); return; }
+    if (go === 'boss') { s.screen = s.scan.running ? 'boss' : noCity(); render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
     if (go && go.startsWith('lesson:')) { startVisit(go.slice(7)); return; }
     // A district on the sweep: the lesson for that area. Finishing it comes back here.
@@ -989,7 +1011,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // checkup has finished, to the city: never the Training Grounds' list.
       const fromSweep = s.lesson.fromSweep;
       // One opened from elsewhere (s.lesson.back) goes back there.
-      s.screen = s.lesson.back ? s.lesson.back : !fromSweep ? 'training' : s.scan.running ? 'boss' : s.city ? 'map' : 'training';
+      s.screen = s.lesson.back ? s.lesson.back : !fromSweep ? 'training' : s.scan.running ? 'boss' : s.city ? 'map' : noCity();
+      if (s.screen === 'range' && !s.range) s.screen = s.city ? 'map' : noCity();
       if (s.screen === 'map') s.pendingCity = false;
       s.lesson = null;
       render();
@@ -1190,8 +1213,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       persist();
       s.progress = viewOf(s.profile);
       // A visit drawn for the other mode isn't carried on (city mode skips some items).
-      if (s.screen === 'lesson') { s.lesson = null; s.screen = 'training'; }
-      if (drawnScreen !== null) render();
+      if (s.screen === 'lesson') { s.lesson = null; s.screen = s.city ? 'map' : noCity(); }
+      // Only while the city is on screen: otherwise the next show draws it.
+      if (drawnScreen !== null && cityShown()) render();
     },
     show(doc, situation) {
       s.situation = situation;
@@ -1207,7 +1231,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // A new worry's Training Grounds.
     showTraining(situation) {
       newWorry(situation);
+      s.homeFirst = false;
       s.screen = 'training';
+      return render();
+    },
+    // City mode's home: the command deck, before any sweep this session. The
+    // sweep is its main action; lessons are visits from its districts, and
+    // the Training Grounds is a button on its top bar, never the landing.
+    showHome(situation) {
+      newWorry(situation);
+      s.homeFirst = true;
+      s.screen = 'home';
       return render();
     },
     showBoss() {
@@ -1227,7 +1261,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (!s.scan.running) return;
       s.boss = bossApply(s.boss, ev);
       s.scan = { ...s.scan, index: s.boss.index, total: s.boss.total };
-      if (s.screen === 'boss' || s.screen === 'training') render();
+      if (s.screen === 'boss' || s.screen === 'training' || s.screen === 'home') render();
     },
     // Mid-lesson, the person stays in the lesson with a banner; otherwise the city.
     scanDone(doc, situation) {
@@ -1244,7 +1278,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     scanFailed(message) {
       s.boss = bossFinish(s.boss);
       s.scan = { running: false, index: 0, total: 0, error: String(message || 'The checkup stopped.') };
-      if (s.screen !== 'lesson') s.screen = 'training';
+      if (s.screen !== 'lesson') s.screen = noCity();
       return render();
     },
   };

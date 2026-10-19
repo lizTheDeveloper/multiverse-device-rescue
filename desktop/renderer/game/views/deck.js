@@ -45,7 +45,7 @@ export function nextMoveHtml(sig) {
 
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
-  districtName = () => '', notice = '', heldLine = '' }) {
+  districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '' }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -55,7 +55,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     <span class="hud-title">${esc(title)}</span>
     <span class="stat lime"><small>RANK</small> ${esc(rank.name)}</span>
     <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(lastSweep.checks)} CHECKS` : '<small>NO SWEEP YET</small>'}</span>
-    ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>' : '<button type="button" class="btn-s" data-act="resweep">RE-SWEEP ⟳</button>'}
+    ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>' : preSweep ? '' : '<button type="button" class="btn-s" data-act="resweep">RE-SWEEP ⟳</button>'}
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
   const head = filter ? `
@@ -64,7 +64,12 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
         <button type="button" class="btn-t" data-go="district:${esc(filter.id)}">OPEN THE DISTRICT ▶</button></div>` : '';
   const anything = items.length > 0 || low.length > 0;
   let blank = '';
-  if (nothingChecked) {
+  if (preSweep) {
+    // Before any sweep this session: the sweep is the one main action.
+    blank = `<div class="panel pre-sweep"><div class="label">NO SWEEP YET</div>
+      ${scanError ? `<p class="intel">${esc(scanError)}</p>` : ''}
+      <button type="button" class="btn-p" data-act="start-checkup">START THE SWEEP ▶</button></div>`;
+  } else if (nothingChecked) {
     blank = '<div class="panel fogged" role="note"><div class="label">NOTHING COULD BE CHECKED</div><p class="intel">None of the checks could run, so nothing was looked at. That doesn’t mean it’s safe.</p></div>';
   } else if (!anything && filter) {
     blank = '<p class="intel">Nothing to sort here.</p>';
@@ -113,4 +118,18 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     ${logHtml}
   </div>
   ${panelHtml}`;
+}
+
+// The city before any sweep this session: its districts, each with the lesson
+// that teaches it as a visit (never a gate). `learn(id)`: training.js
+// districtLesson's answer ({ done }), or null when no lesson teaches it.
+export function preSweepCityHtml(districts, learn = () => null) {
+  const card = (d) => {
+    const l = learn(d.id);
+    const action = !l ? ''
+      : l.done ? `<button type="button" class="btn-t" data-go="review:${esc(d.id)}" aria-label="Review one? (optional): a lesson about ${esc(d.name)}">REVIEW ONE? (OPTIONAL)</button>`
+        : `<button type="button" class="btn-t" data-go="learn:${esc(d.id)}" aria-label="Learn about ${esc(d.name)}">LEARN ABOUT IT ▶</button>`;
+    return `<div class="district none"><h4>${esc(String(d.name).toUpperCase())}</h4><p>${esc(d.blurb || '')}</p>${action}</div>`;
+  };
+  return `<section class="map" aria-label="The city"><div class="districts">${(districts || []).map(card).join('')}</div></section>`;
 }

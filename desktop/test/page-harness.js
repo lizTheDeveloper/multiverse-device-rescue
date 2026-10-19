@@ -108,7 +108,7 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
     return typeof ret === 'function' ? ret(...args) : ret;
   };
   sandbox.RescueGame = { isReady: ready, newWorry: rec('newWorry'), showBoss: rec('showBoss', true),
-    showTraining: rec('showTraining', true), scanEvent() {}, scanDone: rec('scanDone', true),
+    showTraining: rec('showTraining', true), showHome: rec('showHome', true), scanEvent() {}, scanDone: rec('scanDone', true),
     scanFailed: rec('scanFailed', true), show: rec('show', true) };
   vm.runInNewContext(SRC, sandbox);
   const shown = () => ['welcome', 'worry', 'question', 'scan', 'results', 'city'].filter((k) => !byId(`screen-${k}`).hidden);

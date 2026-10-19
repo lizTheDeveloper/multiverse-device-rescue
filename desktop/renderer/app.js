@@ -1205,14 +1205,15 @@ if (typeof document !== 'undefined') {
     document.getElementById('btn-scan-retry').addEventListener('click', runCheckup);
     document.getElementById('btn-start-over').addEventListener('click', resetToWelcome);
 
-    // 'city' opens straight into the game: the Training Grounds until a sweep
-    // has run. Plain view, Start over and every worry still work from there.
+    // 'city' opens straight into the game: the command deck, with the sweep
+    // as its main action until one has run this session. Plain view, Start
+    // over, TRAINING and every worry still work from there.
     function openCityHome() {
       if (!(window.RescueGame && window.RescueGame.isReady)) return false;
       situation = CITY_SITUATION;
       wantsCity = true;
       leftGame = false;
-      if (window.RescueGame.showTraining(situation) !== false) showScreen('city');
+      if (window.RescueGame.showHome(situation) !== false) showScreen('city');
       return true;
     }
 

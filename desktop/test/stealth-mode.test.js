@@ -10,7 +10,7 @@ const KEY = 'device-rescue.display';
 test('city mode opens straight into the game, under a plain title', () => {
   const p = page({ store: { [KEY]: 'city' } });
   assert.deepStrictEqual(p.shown(), ['city']);
-  assert.deepStrictEqual(p.calls.game, ['showTraining']);
+  assert.deepStrictEqual(p.calls.game, ['showHome']);
   const [situation] = p.calls.last.args;
   assert.strictEqual(situation.id, 'city');
   assert.doesNotMatch(situation.title, /watch|partner|safe/i);

@@ -3,7 +3,7 @@
 // held findings' place on the map, in integrity and in sweeps.
 const test = require('node:test');
 const assert = require('node:assert');
-const { PROFILE_KEY, savedProfile, savedAsV3 } = require('./profile-read.js');
+const { savedAsV3 } = require('./profile-read.js');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const Q = require('../renderer/quiet-notes.js');

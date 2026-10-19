@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { PROFILE_KEY, savedProfile, savedAsV3 } = require('./profile-read.js');
+const { savedAsV3 } = require('./profile-read.js');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { recordingStore, forbiddenWrites } = require('./disk-words.js');
