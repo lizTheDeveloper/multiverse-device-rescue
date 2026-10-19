@@ -22,6 +22,27 @@
 //   view     = { item, research, decisions, index, total, practice, step? }
 //
 // Games are pure: no DOM, no storage, no window/globals, no network, no clipboard. Only what ctx hands them.
+//
+// Rulings (binding; the runner is missions/runner.js):
+//   R1 The RUNNER draws the decision buttons, the removal-warning line, the evidence rows (research.rows through
+//      Evidence.renderEvidence) and the links (intents through research.js). render(view, ctx) returns ONLY the
+//      game's own item card; it needs no buttons, rows or links.
+//   R2 Items carry `unfinished: true` when one of their checks has complete:false (groupMissions sets it); the
+//      runner then shows "This check didn't finish" with the research.
+//   R3 research may return `copy: false`: the evidence is drawn with no clipboard. In city mode a monitoring
+//      check's evidence never has one (Evidence.noClipboard), whatever the game says.
+//   R5 A settings intent may carry `permission` (camera, microphone, location, contacts, screen, full-disk,
+//      keyboard, accessibility, automation, screen-time) so research.js opens the exact Windows privacy page.
+//   R6 A decision whose effect carries `warning: true` shows the removal warning before it acts (a settings pane
+//      opens only after the person has read it), as every `fix` confirm does.
+//   R8 An info finding from a Lock Run module that says it couldn't check (code ending _unknown, _failed,
+//      _unavailable, _permission_denied) is a Lock Run item, never a mere note.
+//   R9 covers may narrow by `checks` (data.check values) for a module that emits no codes:
+//      { module, checks: ['unsigned_drivers'] }. Effects may carry `steps` (instructions when a page can't be
+//      linked); the runner shows them, escaped. A recheck effect is { kind: 'recheck', module?, modules? }.
+//      summary(results, ctx) receives [{ item, decision, effect, points? }] (decision: the Decision's id).
+//   covers: [{ module, codes?, checks? }]; the notes game's wildcard { module: '*', severities: ['info'] } means every
+//      note no other game claims; it is matched last and never counts as a double claim.
 
 export const TYPE_IDS = ['door', 'keyring', 'loadout', 'seal', 'switchboard', 'locker', 'locks', 'junkyard', 'notes', 'simple'];
 
@@ -37,7 +58,8 @@ export const SETTINGS_PANES = [
   'privacy-microphone', 'privacy-full-disk', 'privacy-location', 'privacy-automation', 'network', 'firewall', 'sharing',
   'software-update', 'filevault', 'lock-screen', 'users-groups', 'storage', 'battery', 'extensions-browser',
   'profiles', 'time-machine', 'apple-id', 'vpn', 'dns', 'startup-apps', 'windows-security', 'windows-update',
-  'windows-privacy', 'windows-storage', 'windows-firewall', 'windows-apps',
+  'windows-privacy', 'windows-storage', 'windows-firewall', 'windows-apps', 'privacy-contacts', 'screen-time',
+  'windows-bitlocker', 'windows-signin', 'windows-backup', 'windows-findmydevice',
 ];
 export const LOOKUP_SOURCES = ['web', 'apple-support', 'chrome-web-store', 'maker-site', 'microsoft-support'];
 
@@ -73,7 +95,62 @@ export function validateGame(game) {
   const pr = game.practice;
   if (!pr || !Array.isArray(pr.items) || pr.items.length < 2 || pr.items.length > 3) p.push('practice.items must hold 2–3 synthetic items');
   if (!pr || !Array.isArray(pr.script) || pr.script.length < 1) p.push('practice.script must have at least one step');
+  if ('covers' in game) p.push(...checkCovers(game));
   return p;
+}
+
+// `covers`: [{ module, codes? }] — the engine modules (macOS and Windows) a
+// game claims, `codes` narrowing a shared module to finding-code prefixes.
+export function checkCovers(game) {
+  const c = game && game.covers;
+  if (!Array.isArray(c)) return ['covers must be an array of { module, codes? }'];
+  const p = [];
+  c.forEach((x, i) => {
+    if (x && x.module === '*') {
+      if (!Array.isArray(x.severities) || !x.severities.length || !x.severities.every((v) => ['critical', 'warning', 'info'].includes(v))) {
+        p.push(`covers ${i}: the wildcard needs severities (critical, warning, info)`);
+      }
+      return;
+    }
+    if (!x || typeof x.module !== 'string' || !/^[a-z0-9_]+$/.test(x.module)) { p.push(`covers ${i}: module must be an engine module name`); return; }
+    for (const field of ['codes', 'checks']) {
+      if (field in x && (!Array.isArray(x[field]) || !x[field].length || !x[field].every((k) => typeof k === 'string' && k.length > 0))) {
+        p.push(`covers ${i} (${x.module}): ${field} must be a non-empty list of strings`);
+      }
+    }
+  });
+  return p;
+}
+
+// Two claims on one module conflict when both are whole, or both have codes
+// and one code is a prefix of the other (the same finding claimed twice). A
+// whole claim and a code claim don't: the code claim is more specific.
+// `byType`: { [type]: [{ module, codes? }] }.
+export function claimConflicts(byType) {
+  const out = [];
+  const claims = [];
+  for (const [type, list] of Object.entries(byType || {})) for (const c of Array.isArray(list) ? list : []) if (c && c.module && c.module !== '*') claims.push({ type, ...c });
+  for (let i = 0; i < claims.length; i += 1) {
+    for (let j = i + 1; j < claims.length; j += 1) {
+      const a = claims[i]; const b = claims[j];
+      if (a.module !== b.module) continue;
+      const narrowA = a.codes || a.checks; const narrowB = b.codes || b.checks;
+      if (!narrowA && !narrowB) { out.push(`${a.module} is claimed whole by ${a.type} and ${b.type}`); continue; }
+      if (a.checks && b.checks) for (const x of a.checks) if (b.checks.includes(x)) out.push(`${a.module} check ${x} is claimed by ${a.type} and ${b.type}`);
+      if (!a.codes || !b.codes) continue;
+      for (const x of a.codes) for (const y of b.codes) {
+        if (x.startsWith(y) || y.startsWith(x)) out.push(`${a.module} code ${x.length > y.length ? x : y} is claimed by ${a.type} and ${b.type}`);
+      }
+    }
+  }
+  return out;
+}
+
+// No two registered games claim the same (module, code).
+export function noDoubleClaims(games) {
+  const byType = {};
+  for (const g of games || []) if (g && Array.isArray(g.covers)) byType[g.type] = [...(byType[g.type] || []), ...g.covers];
+  return claimConflicts(byType);
 }
 
 // Validate the decisions a game returns for one item.

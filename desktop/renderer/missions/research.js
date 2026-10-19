@@ -55,6 +55,25 @@ export const PANE_URLS = Object.freeze({
   'windows-storage': { darwin: `${MAC}com.apple.settings.Storage`, win32: 'ms-settings:storagesense' },
   'windows-firewall': { darwin: `${MAC}com.apple.Network-Settings.extension?Firewall`, win32: 'ms-settings:windowsdefender' },
   'windows-apps': { darwin: null, win32: 'ms-settings:appsfeatures' },
+  'privacy-contacts': { darwin: `${SEC}?Privacy_Contacts`, win32: 'ms-settings:privacy-contacts' },
+  'screen-time': { darwin: `${MAC}com.apple.Screen-Time-Settings.extension`, win32: 'ms-settings:family-group' },
+  'windows-bitlocker': { darwin: `${SEC}?FileVault`, win32: 'ms-settings:deviceencryption' },
+  'windows-signin': { darwin: `${MAC}com.apple.Lock-Screen-Settings.extension`, win32: 'ms-settings:signinoptions' },
+  'windows-backup': { darwin: `${MAC}com.apple.Time-Machine-Settings.extension`, win32: 'ms-settings:backup' },
+  'windows-findmydevice': { darwin: `${MAC}com.apple.systempreferences.AppleIDSettings`, win32: 'ms-settings:findmydevice' },
+});
+
+// R5: a settings intent's `permission` picks the exact Windows privacy page.
+// Keyring's key ids and the kTCCService names both work.
+export const WINDOWS_PERMISSION_PANES = Object.freeze({
+  camera: 'ms-settings:privacy-webcam', microphone: 'ms-settings:privacy-microphone', location: 'ms-settings:privacy-location',
+  contacts: 'ms-settings:privacy-contacts', screen: 'ms-settings:privacy-graphicscaptureprogrammatic',
+  'full-disk': 'ms-settings:privacy-broadfilesystemaccess', keyboard: 'ms-settings:privacy', accessibility: 'ms-settings:privacy',
+  automation: 'ms-settings:privacy', 'screen-time': 'ms-settings:family-group',
+  kTCCServiceCamera: 'ms-settings:privacy-webcam', kTCCServiceMicrophone: 'ms-settings:privacy-microphone',
+  kTCCServiceAddressBook: 'ms-settings:privacy-contacts', kTCCServiceScreenCapture: 'ms-settings:privacy-graphicscaptureprogrammatic',
+  kTCCServiceSystemPolicyAllFiles: 'ms-settings:privacy-broadfilesystemaccess', kTCCServiceListenEvent: 'ms-settings:privacy',
+  kTCCServiceAccessibility: 'ms-settings:privacy', kTCCServiceAppleEvents: 'ms-settings:privacy',
 });
 
 // Panes with no settings page to open, and why (the game says what to do instead).
@@ -75,6 +94,8 @@ const PANE_LABEL = {
   'software-update': 'Software Update', 'windows-update': 'Windows Update', filevault: 'FileVault', 'lock-screen': 'Lock Screen',
   'users-groups': 'Users', storage: 'Storage', 'windows-storage': 'Storage', battery: 'Battery', profiles: 'Profiles',
   'time-machine': 'Backups', 'apple-id': 'Your account', vpn: 'VPN', dns: 'DNS', 'windows-security': 'Security',
+  'privacy-contacts': 'Contacts', 'screen-time': 'Screen Time', 'windows-bitlocker': 'Device encryption',
+  'windows-signin': 'Sign-in', 'windows-backup': 'Backup', 'windows-findmydevice': 'Find my device',
   'windows-privacy': 'Privacy', 'windows-apps': 'Apps',
 };
 
@@ -123,10 +144,12 @@ export function resolveLink(l, { mode = 'standard', platform = null } = {}) {
   const city = mode === 'city';
   if (l.kind === 'settings') {
     if (!SETTINGS_PANES.includes(l.pane)) return null;
-    const url = paneUrl(l.pane, platform);
+    const perm = typeof l.permission === 'string' && own(WINDOWS_PERMISSION_PANES, l.permission) ? WINDOWS_PERMISSION_PANES[l.permission] : null;
+    const url = platform === 'win32' && perm ? perm : paneUrl(l.pane, platform);
     const name = PANE_LABEL[l.pane] || 'Settings';
     const label = { standard: `Open ${name} settings`, city: 'Open the settings' };
-    return { kind: 'settings', pane: l.pane, url, label, text: url ? '' : (NO_PANE[l.pane] && NO_PANE[l.pane][platform]) || '' };
+    return { kind: 'settings', pane: l.pane, url, label, text: url ? '' : (NO_PANE[l.pane] && NO_PANE[l.pane][platform]) || '',
+      ...(l.warning === true ? { warning: true } : {}) };
   }
   if (l.kind === 'lookup') {
     const q = cleanQuery(l.query);

@@ -15,7 +15,7 @@
 //
 // Built only from NotChecked.displayItems, so a mission never counts anything
 // the list doesn't. Pure; no DOM, no storage.
-import { TYPE_IDS } from './contract.js';
+import { TYPE_IDS, claimConflicts } from './contract.js';
 import { districtIdFor, DISTRICTS, OUTSKIRTS } from '../game/findings-to-city.js';
 
 const NC = globalThis.NotChecked;
@@ -116,9 +116,15 @@ export const ODD_JOBS = Object.freeze([
   'security_baseline_diff',
 ]);
 
+// A wildcard ({ module: '*', severities }) is kept but never matched here:
+// every info item goes to the notes missions anyway, and it claims nothing
+// another game claims (contract.js claimConflicts skips it).
 const cleanCovers = (covers) => (Array.isArray(covers) ? covers : [])
   .filter((c) => c && typeof c.module === 'string' && c.module)
-  .map((c) => (Array.isArray(c.codes) && c.codes.length ? { module: c.module, codes: c.codes.filter((x) => typeof x === 'string' && x) } : { module: c.module }));
+  .map((c) => (c.module === '*' ? { module: '*', severities: Array.isArray(c.severities) ? c.severities.slice() : [] }
+    : { module: c.module,
+      ...(Array.isArray(c.codes) && c.codes.length ? { codes: c.codes.filter((x) => typeof x === 'string' && x) } : {}),
+      ...(Array.isArray(c.checks) && c.checks.length ? { checks: c.checks.filter((x) => typeof x === 'string' && x) } : {}) }));
 
 // { [type]: [{ module, codes? }] }. `games`: registered game modules (or
 // anything with { type, covers }); a game with `covers` replaces its type's entry.
@@ -133,25 +139,9 @@ export function buildTable(games = []) {
 
 const DEFAULT_TABLE = buildTable();
 
-// Two claims on one module conflict when both are whole, or both have codes
-// and one code is a prefix of the other. A whole claim and a code claim
-// don't: the code claim is more specific and wins for its findings.
+// Two types claiming the same (module, code): contract.js claimConflicts.
 export function doubleClaims(table) {
-  const out = [];
-  const claims = [];
-  for (const t of TYPE_IDS) for (const c of (table && table[t]) || []) claims.push({ type: t, ...c });
-  for (let i = 0; i < claims.length; i += 1) {
-    for (let j = i + 1; j < claims.length; j += 1) {
-      const a = claims[i]; const b = claims[j];
-      if (a.module !== b.module) continue;
-      if (!a.codes && !b.codes) { out.push(`${a.module} is claimed whole by ${a.type} and ${b.type}`); continue; }
-      if (!a.codes || !b.codes) continue;
-      for (const x of a.codes) for (const y of b.codes) {
-        if (x.startsWith(y) || y.startsWith(x)) out.push(`${a.module} code ${x.length > y.length ? x : y} is claimed by ${a.type} and ${b.type}`);
-      }
-    }
-  }
-  return out;
+  return claimConflicts(table);
 }
 
 // The type a finding's to-do belongs to, ignoring its severity (a note the
@@ -159,16 +149,19 @@ export function doubleClaims(table) {
 export function claimedType(finding, table = DEFAULT_TABLE) {
   const module = finding && finding.module;
   const code = finding && typeof finding.code === 'string' ? finding.code : '';
+  const check = finding && finding.data && typeof finding.data.check === 'string' ? finding.data.check : '';
   let wholeType = null;
   let best = null;
+  let byCheck = null;
   for (const t of TYPE_IDS) {
     for (const c of table[t] || []) {
-      if (c.module !== module) continue;
+      if (c.module === '*' || c.module !== module) continue;
+      if (c.checks && !c.codes) { if (check && c.checks.includes(check) && !byCheck) byCheck = t; continue; }
       if (!c.codes) { if (!wholeType) wholeType = t; continue; }
       for (const p of c.codes) if (code && code.startsWith(p) && (!best || p.length > best.len)) best = { type: t, len: p.length };
     }
   }
-  return best ? best.type : wholeType || 'simple';
+  return best ? best.type : byCheck || wholeType || 'simple';
 }
 
 export function typeOf(finding, table = DEFAULT_TABLE) {
@@ -177,6 +170,7 @@ export function typeOf(finding, table = DEFAULT_TABLE) {
 }
 
 const RANK = { critical: 2, warning: 1, info: 0 };
+const NOT_CHECKED_CODE = /_(?:unknown|failed|unavailable|permission_denied)$/;
 const ORDER_OF_DISTRICT = new Map([...DISTRICTS.map((d) => d.id), OUTSKIRTS.id].map((id, i) => [id, i]));
 const isAlerting = (f) => !!f && (f.removal_alert === true || !!(f.remediation && f.remediation.safety_note));
 const isFixable = (f) => !!(f && f.fixable && typeof f.fixable === 'object');
@@ -200,46 +194,122 @@ function partsOf(items, size) {
 }
 
 /*
- * groupMissions(doc, { mode, table }) -> Mission[]
+ * groupMissions(doc, { mode, table, odd, batchNotes }) -> Mission[]
  * - To-do items (critical, warning; stale marks as normal items) by (type,
  *   district), worst first, alerting or fixable first, at most MAX_ITEMS each.
- * - Notes (info) by district, NOTES_BATCH each, after every to-do mission.
+ * - Keyring findings (one per permission, listing apps) become one item per
+ *   app (R4), carrying its keys; `sourceKeys` says which list items it came from.
+ * - Notes (info) by district, NOTES_BATCH each (or the notes game's own
+ *   `batchNotes`), after every to-do mission. A note the person called odd
+ *   (`odd`: a Set of item keys) is an item of its own type instead.
+ * - Every item: `district`, `removal_alert`, and `unfinished` when one of its
+ *   checks didn't finish (R2).
  * - City mode: held items are in displayItems' `held` list, never here.
  */
-export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE } = {}) {
+export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE, odd = null, batchNotes = null } = {}) {
   const list = NC.displayItems(doc, { mode });
-  const cats = new Map((doc && Array.isArray(doc.modules) ? doc.modules : []).filter(Boolean).map((m) => [m.name, m.category]));
-  const todo = [...list.critical, ...list.warning, ...list.marked.filter(isStale)].map(withAlert);
+  const mods = (doc && Array.isArray(doc.modules) ? doc.modules : []).filter(Boolean);
+  const cats = new Map(mods.map((m) => [m.name, m.category]));
+  const unfinished = new Set(NC.notCheckedParts(doc).unfinished.map((x) => x.name));
+  const dress = (item) => ({ ...withAlert(item), district: districtOfItem(item, cats), unfinished: item.seen_in.some((m) => unfinished.has(m)) });
+  const oddSet = odd instanceof Set ? odd : new Set(odd || []);
+  // R8: a Lock Run check's "couldn't check" note is a Lock Run item.
+  const lockNote = (i) => claimedType(i.finding, table) === 'locks' && NOT_CHECKED_CODE.test(String(i.finding.code || ''));
+  const promoted = new Set(list.info.filter((i) => oddSet.has(i.key) || lockNote(i)).map((i) => i.key));
+  const oddNotes = list.info.filter((i) => promoted.has(i.key)).map((i) => ({ ...i, fromNote: true }));
+  const todo = [...list.critical, ...list.warning, ...list.marked.filter(isStale), ...oddNotes].map(dress);
   const groups = new Map();
   for (const item of todo) {
-    const type = typeOf({ ...item.finding, severity: item.severity }, table);
-    const district = districtOfItem(item, cats);
-    const k = `${type}|${district}`;
-    if (!groups.has(k)) groups.set(k, { type, district, items: [] });
+    const type = item.fromNote ? claimedType(item.finding, table) : typeOf({ ...item.finding, severity: item.severity }, table);
+    const k = `${type}|${item.district}`;
+    if (!groups.has(k)) groups.set(k, { type, district: item.district, items: [] });
     groups.get(k).items.push(item);
   }
   const missions = [];
   for (const g of groups.values()) {
-    const sorted = g.items.map((it, i) => ({ it, i }))
+    const items = g.type === 'keyring' ? perApp(g.items) : g.items;
+    const sorted = items.map((it, i) => ({ it, i }))
       .sort((a, b) => (RANK[b.it.severity] - RANK[a.it.severity]) || (leads(b.it) - leads(a.it)) || (a.i - b.i)).map((x) => x.it);
     const parts = partsOf(sorted, MAX_ITEMS);
-    parts.forEach((items, n) => missions.push(mission(g.type, g.district, items, n + 1, parts.length, false)));
+    parts.forEach((part, n) => missions.push(mission(g.type, g.district, part, n + 1, parts.length, false)));
   }
   missions.sort((a, b) => (RANK[b.severity] - RANK[a.severity]) || (leadsMission(b) - leadsMission(a))
     || (TYPE_IDS.indexOf(a.type) - TYPE_IDS.indexOf(b.type))
     || ((ORDER_OF_DISTRICT.get(a.district) ?? 99) - (ORDER_OF_DISTRICT.get(b.district) ?? 99)) || (a.part - b.part));
-  const notesBy = new Map();
-  for (const item of list.info.map(withAlert)) {
-    const d = districtOfItem(item, cats);
-    if (!notesBy.has(d)) notesBy.set(d, []);
-    notesBy.get(d).push(item);
-  }
-  const notes = [...notesBy.entries()].sort(([a], [b]) => (ORDER_OF_DISTRICT.get(a) ?? 99) - (ORDER_OF_DISTRICT.get(b) ?? 99));
-  for (const [district, items] of notes) {
-    const parts = partsOf(items, NOTES_BATCH);
-    parts.forEach((batch, n) => missions.push(mission('notes', district, batch, n + 1, parts.length, true)));
-  }
+  const notes = list.info.filter((i) => !promoted.has(i.key)).map(dress);
+  for (const b of notesBatches(notes, batchNotes)) missions.push(mission('notes', b.area, b.items, b.part, b.parts, true));
   return missions;
+}
+
+const districtRank = (d) => ORDER_OF_DISTRICT.get(d) ?? 99;
+function notesBatches(notes, batchNotes) {
+  if (typeof batchNotes === 'function') {
+    try {
+      const got = batchNotes(notes, { areaOf: (i) => i.district, size: NOTES_BATCH });
+      if (Array.isArray(got) && got.reduce((n, b) => n + ((b && b.items && b.items.length) || 0), 0) === notes.length) {
+        return got.map((b) => ({ area: b.area, part: b.part, parts: b.parts, items: b.items }));
+      }
+    } catch (_) { /* the foundation's own batches */ }
+  }
+  const by = new Map();
+  for (const item of notes) { if (!by.has(item.district)) by.set(item.district, []); by.get(item.district).push(item); }
+  const out = [];
+  for (const [area, items] of [...by.entries()].sort(([a], [b]) => districtRank(a) - districtRank(b))) {
+    const parts = partsOf(items, NOTES_BATCH);
+    parts.forEach((batch, n) => out.push({ area, part: n + 1, parts: parts.length, items: batch }));
+  }
+  return out;
+}
+
+// R4: the apps a permission finding lists (data.apps as paths, ids or
+// {path, bundle_id, id, name}; data.processes; or one data.bundle_id).
+function appSubjects(f) {
+  const d = f && f.data && typeof f.data === 'object' ? f.data : {};
+  const out = [];
+  for (const a of Array.isArray(d.apps) ? d.apps : []) {
+    if (typeof a === 'string' && a) out.push({ subject: a, name: '' });
+    else if (a && typeof a === 'object') {
+      const subject = [a.path, a.bundle_id, a.id, a.name].find((x) => typeof x === 'string' && x);
+      if (subject) out.push({ subject, name: typeof a.name === 'string' ? a.name : '' });
+    }
+  }
+  for (const p of Array.isArray(d.processes) ? d.processes : []) if (typeof p === 'string' && p) out.push({ subject: p, name: '' });
+  if (!out.length && typeof d.bundle_id === 'string' && d.bundle_id) out.push({ subject: d.bundle_id, name: '' });
+  return out;
+}
+const permissionOf = (f) => (f && f.data && typeof f.data.service === 'string' && f.data.service) || (f && f.code) || (f && f.title) || '';
+
+// One item per app, each with its keys (every permission finding that lists
+// it). The original findings stay on the item (marks, evidence). A finding
+// that names no app stays one item.
+function perApp(items) {
+  const apps = new Map();
+  const out = [];
+  for (const item of items) {
+    let named = false;
+    for (const f of item.findings) {
+      for (const a of appSubjects(f)) {
+        named = true;
+        const k = `${item.district}|${a.subject}`;
+        let app = apps.get(k);
+        if (!app) {
+          app = { ...item, key: `app|${a.subject}`, app: { subject: a.subject, name: a.name }, finding: f, findings: [], seen_in: [], keys: [], sourceKeys: [] };
+          apps.set(k, app);
+          out.push(app);
+        }
+        if (!app.findings.includes(f)) app.findings.push(f);
+        if (!app.seen_in.includes(f.module)) app.seen_in.push(f.module);
+        if (!app.keys.some((x) => x.finding === f)) app.keys.push({ permission: permissionOf(f), finding: f });
+        if (!app.sourceKeys.includes(item.key)) app.sourceKeys.push(item.key);
+        if (RANK[item.severity] > RANK[app.severity]) { app.severity = item.severity; app.finding = f; }
+        app.removal_alert = app.removal_alert || item.removal_alert;
+        app.unfinished = app.unfinished || item.unfinished;
+        app.marked = app.marked && item.marked;
+      }
+    }
+    if (!named) out.push(item);
+  }
+  return out;
 }
 
 function leadsMission(m) {
@@ -251,8 +321,14 @@ function mission(type, district, items, part, of, notes) {
   return { id: `${type}:${district}:${part}`, type, district, severity, items, title: { ...TYPE_TITLES[type] }, part, of, notes };
 }
 
+// The list's numbers: an app item made from several permission findings
+// counts each list item once (sourceKeys), so todo equals scanCounts.todo; a
+// note made an item (odd, or a Lock Run "couldn't check") still counts as a note.
 export function missionCounts(missions) {
-  let todo = 0; let notes = 0;
-  for (const m of missions || []) { if (m.notes) notes += m.items.length; else todo += m.items.length; }
-  return { todo, notes };
+  const todo = new Set(); let notes = 0;
+  for (const m of missions || []) {
+    if (m.notes) { notes += m.items.length; continue; }
+    for (const i of m.items) { if (i.fromNote) { notes += 1; continue; } for (const k of i.sourceKeys || [i.key]) todo.add(k); }
+  }
+  return { todo: todo.size, notes };
 }

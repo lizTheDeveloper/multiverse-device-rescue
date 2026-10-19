@@ -170,3 +170,61 @@ test('every macOS module that can raise a warning is mapped or listed in ODD_JOB
   assert.deepStrictEqual(missing, []);
   for (const name of T.ODD_JOBS) assert.strictEqual(T.typeOf({ module: name, severity: 'warning' }), 'simple', `${name} is listed but mapped`);
 });
+
+// Rulings from the game tracks (contract.js header).
+test('R2: an item from a check that didn’t finish carries unfinished: true', async () => {
+  const T = await load();
+  const doc = scan(mod('launch_agent_audit', [f('Agent', 'warning', { plist: '/L/a.plist' })], { complete: false }),
+    mod('cron_jobs_audit', [f('Job', 'warning', { path: '/c' })]));
+  const items = T.groupMissions(doc, { mode: 'standard' }).flatMap((m) => m.items);
+  assert.strictEqual(items.find((i) => i.finding.title === 'Agent').unfinished, true);
+  assert.strictEqual(items.find((i) => i.finding.title === 'Job').unfinished, false);
+});
+
+test('R4: keyring findings become one item per app, each with its keys; counts stay the list’s', async () => {
+  const T = await load();
+  const doc = scan(mod('app_permissions', [
+    f('Camera access', 'warning', { service: 'kTCCServiceCamera', apps: ['/Applications/A.app', '/Applications/B.app'] }, { code: 'security.app_permissions.camera' }),
+    f('Screen access', 'warning', { service: 'kTCCServiceScreenCapture', apps: ['/Applications/A.app'] }, { code: 'security.app_permissions.screen' }),
+    f('Mic, nobody named', 'warning', {}, { code: 'security.app_permissions.mic' }),
+  ]));
+  const ms = T.groupMissions(doc, { mode: 'standard' }).filter((m) => m.type === 'keyring');
+  const items = ms.flatMap((m) => m.items);
+  const a = items.find((i) => i.app && i.app.subject === '/Applications/A.app');
+  assert.deepStrictEqual(a.keys.map((k) => k.permission), ['kTCCServiceCamera', 'kTCCServiceScreenCapture']);
+  assert.strictEqual(a.findings.length, 2, 'the original findings stay on the item');
+  assert.ok(items.find((i) => i.app && i.app.subject === '/Applications/B.app'));
+  assert.ok(items.find((i) => !i.app && i.finding.title === 'Mic, nobody named'));
+  assert.strictEqual(T.missionCounts(ms).todo, NotChecked.scanCounts(doc, { mode: 'standard' }).todo);
+});
+
+test('notes: the wildcard cover is never a double claim; odd notes become items of their type', async () => {
+  const T = await load();
+  const table = T.buildTable([{ type: 'notes', covers: [{ module: '*', severities: ['info'] }] }, { type: 'door', covers: [{ module: 'launch_agent_audit' }] }]);
+  assert.deepStrictEqual(T.doubleClaims(table), []);
+  const doc = scan(mod('launch_agent_audit', [f('Quiet agent', 'info', { plist: '/L/q.plist' }), f('Other', 'info', { plist: '/L/o.plist' })]));
+  const key = NotChecked.displayItems(doc).info[0].key;
+  const ms = T.groupMissions(doc, { mode: 'standard', table, odd: new Set([key]) });
+  assert.strictEqual(ms.find((m) => m.type === 'door').items[0].finding.title, 'Quiet agent');
+  assert.strictEqual(ms.find((m) => m.type === 'notes').items.length, 1);
+  const c = T.missionCounts(ms);
+  assert.deepStrictEqual(c, { todo: 0, notes: 2 }, 'an odd note still counts as a note');
+  const batched = T.groupMissions(doc, { mode: 'standard', batchNotes: (items) => [{ area: 'gatehouse', part: 1, parts: 1, items }] });
+  assert.strictEqual(batched.find((m) => m.type === 'notes').items.length, 2, 'the notes game’s own batches are used');
+});
+
+test('R8: a Lock Run check that couldn’t check is a Lock Run item, not a note', async () => {
+  const T = await load();
+  const doc = scan(mod('firewall_audit', [f('Firewall state unknown', 'info', {}, { code: 'security.firewall_audit.global_state_unknown' })]));
+  const ms = T.groupMissions(doc, { mode: 'standard' });
+  assert.deepStrictEqual(ms.map((m) => m.type), ['locks']);
+  assert.strictEqual(T.missionCounts(ms).notes, NotChecked.scanCounts(doc).notes);
+});
+
+test('R9: a cover can narrow by data.check for a module with no codes', async () => {
+  const T = await load();
+  const table = T.buildTable([{ type: 'seal', covers: [{ module: 'win_driver_check', checks: ['unsigned_drivers'] }] }]);
+  assert.strictEqual(T.typeOf({ module: 'win_driver_check', severity: 'warning', data: { check: 'unsigned_drivers' } }, table), 'seal');
+  assert.strictEqual(T.typeOf({ module: 'win_driver_check', severity: 'warning', data: { check: 'old_driver' } }, table), 'simple');
+  assert.ok(T.doubleClaims(T.buildTable([{ type: 'seal', covers: [{ module: 'm', checks: ['a'] }] }, { type: 'door', covers: [{ module: 'm', checks: ['a'] }] }])).length);
+});

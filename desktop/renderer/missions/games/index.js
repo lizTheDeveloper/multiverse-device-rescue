@@ -1,0 +1,47 @@
+// The mini-game registry: games/<type>.js for every TYPE_IDS entry. A game
+// that is missing (still being built), fails to load, or breaks the contract's
+// shape falls back to Odd Jobs (simple.js), so the registry works with only
+// simple present.
+//
+//   loadGames({ importer }) -> Promise<{ games: {[type]: game}, own: Set<type>, problems: [string] }>
+//   gameFor(registry, type) -> game (simple when none)
+//   ownGames(registry) -> the games that loaded for their own type (their `covers` feed types.buildTable)
+import simple from './simple.js';
+import { TYPE_IDS, validateGame, noDoubleClaims } from '../contract.js';
+
+const here = (type) => new URL(`./${type}.js`, import.meta.url).href;
+
+export async function loadGames({ importer = (spec) => import(spec) } = {}) {
+  const games = { simple };
+  const own = new Set(['simple']);
+  const problems = [];
+  await Promise.all(TYPE_IDS.filter((t) => t !== 'simple').map(async (type) => {
+    let game = null;
+    try {
+      const mod = await importer(here(type));
+      game = mod && mod.default;
+    } catch (_) {
+      games[type] = simple; // not built yet
+      return;
+    }
+    const shape = validateGame(game);
+    if (game && game.type !== type) shape.push(`exports type "${game && game.type}"`);
+    if (shape.length) { problems.push(`${type}: ${shape.join('; ')}`); games[type] = simple; return; }
+    games[type] = game;
+    own.add(type);
+  }));
+  // Two games claiming one finding: both keep loading, the problem is reported
+  // (types.js resolves it the same way every time; the test suite fails on it).
+  problems.push(...noDoubleClaims([...own].map((t) => games[t])));
+  return { games, own, problems };
+}
+
+export function gameFor(registry, type) {
+  return (registry && registry.games && registry.games[type]) || simple;
+}
+
+export function ownGames(registry) {
+  return registry && registry.own ? [...registry.own].map((t) => registry.games[t]).filter(Boolean) : [];
+}
+
+export { simple };

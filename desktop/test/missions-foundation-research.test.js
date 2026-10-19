@@ -92,3 +92,23 @@ test('assemble: rows, what, resolved links, and "This check didn’t finish" for
   const broken = R.assemble({ research: () => { throw new Error('x'); } }, item, C.testContext(), {});
   assert.deepStrictEqual(broken.links, [], 'a game that throws gives no links, not a crash');
 });
+
+test('R5: a settings intent’s permission picks the exact Windows privacy page; new panes resolve', async () => {
+  const [R] = await load();
+  const win = (permission) => R.resolveLink({ kind: 'settings', pane: 'windows-privacy', permission }, { platform: 'win32' }).url;
+  assert.strictEqual(win('camera'), 'ms-settings:privacy-webcam');
+  assert.strictEqual(win('kTCCServiceMicrophone'), 'ms-settings:privacy-microphone');
+  assert.strictEqual(win('location'), 'ms-settings:privacy-location');
+  assert.strictEqual(win('nonsense'), 'ms-settings:privacy');
+  assert.strictEqual(R.resolveLink({ kind: 'settings', pane: 'privacy-camera', permission: 'camera' }, { platform: 'darwin' }).url,
+    'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera', 'macOS keeps its own pane');
+  for (const p of ['privacy-contacts', 'screen-time', 'windows-bitlocker', 'windows-signin', 'windows-backup', 'windows-findmydevice']) {
+    assert.ok(R.paneUrl(p, 'win32').startsWith('ms-settings:'), p);
+  }
+});
+
+test('R6: a settings intent with warning: true keeps it through resolution', async () => {
+  const [R] = await load();
+  assert.strictEqual(R.resolveLink({ kind: 'settings', pane: 'privacy-camera', warning: true }, { platform: 'darwin' }).warning, true);
+  assert.ok(!('warning' in R.resolveLink({ kind: 'settings', pane: 'privacy-camera' }, { platform: 'darwin' })));
+});
