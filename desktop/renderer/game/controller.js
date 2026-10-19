@@ -260,6 +260,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const quietDoc = (d) => (win.QuietNotes ? win.QuietNotes.quietDoc(d, hostMode()) : d);
   // City mode: the fix and "It's mine" panels carry the extra warning about whoever set something up.
   const watchedOpts = () => ({ watched: hostMode() === 'city' });
+  // The fix confirm says the removal warning under the list's own rule
+  // (app.js): wherever the card shows the line or the full note, unless the
+  // watched confirm (city mode) says it its own way.
+  const fixOpts = (note) => {
+    const o = watchedOpts();
+    const alerts = !!note && (note.kind === 'line' || note.kind === 'full');
+    return { ...o, safety: alerts && !o.watched && win.QuietNotes ? win.QuietNotes.LINE_SHORT : '' };
+  };
   // Without the host's answer, assume 'city': monitoring software is then held
   // (nothing to act on) rather than shown with its removal steps.
   const hostMode = () => (win.RescueHost && typeof win.RescueHost.mode === 'function' ? win.RescueHost.mode() : 'city');
@@ -1012,7 +1020,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const wantsSafety = win.RescueHost.wantsSafety(m0.primary);
       const { mission: m, cityWarn } = cityBriefing(m0, note, wantsSafety);
       const controls = note.kind === 'held' || s.stopped ? ''
-        : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, { ...watchedOpts(), theme: 'game' })}${routerHtml(m.primary)}`;
+        : `${win.FixFlow.fixControlsHtml(m.primary, fixOpts(note))}${win.MarkFlow.markControlsHtml(m.primary, { ...watchedOpts(), theme: 'game' })}${routerHtml(m.primary)}`;
       const ev = evidenceOf(m.primary || {}, m.module);
       return renderBriefing({ mission: homeText(m), status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
         scout, busy: s.busy, scanRunning: sweeping(), wantsSafety, learned: lessonForModule(s.lessons, s.progress, m.module), note,

@@ -153,3 +153,29 @@ test('I3: the "It’s mine" panel uses the same shared rule', () => {
   const index = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'index.html'), 'utf8');
   assert.ok(index.indexOf('visible-text.js') < index.indexOf('mark-flow.js'), 'loaded before its users');
 });
+
+// ---- I4: the game's fix confirm carries the removal warning in standard mode ---
+
+const LAUNCH = { title: "Background task 'ai.x' runs from a hidden folder", severity: 'warning', category: 'security',
+  code: 'security.launch_agent_audit.hidden_dir', description: 'It runs from a hidden folder.',
+  data: { label: 'ai.x', program: '/Users/ann/.x/python', plist: '/Users/ann/Library/LaunchAgents/ai.x.plist' },
+  remediation: { title: 'Review background tasks', safety_note: 'Removing this can alert whoever installed it.', steps: [] } };
+const HOG = { title: 'opencode is using a lot of power', severity: 'warning', category: 'performance', description: 'Busy.',
+  data: { pid: 1, name: 'opencode', cpu_percent: 200 } };
+
+test('I4: standard mode: the fix confirm says "Removing this can alert…" where the list would', async () => {
+  const QN = require('../renderer/quiet-notes.js');
+  const doc = { schema_version: 1, platform: 'darwin', modules: [mod('launch_agent_audit', [LAUNCH]), mod('resource_hog_identifier', [HOG], { category: 'performance' })] };
+  const ms = await missionsOf(doc);
+  const opts = (mode, title) => setup(doc, { mode, fixControlsHtml: (f, o) => { seen.push({ title: f.title, o }); return ''; } })
+    .then((t) => { t.click({ 'data-go': `mission:${ms.find((m) => m.title === title).id}` }); return seen.filter((x) => x.title === title).pop().o; });
+  let seen = [];
+  // The list's rule, for the same finding.
+  assert.strictEqual(QN.cardText('standard', { ...LAUNCH, module: 'launch_agent_audit' }).note, 'line');
+  const std = await opts('standard', LAUNCH.title);
+  assert.deepStrictEqual(std, { watched: false, safety: QN.LINE_SHORT });
+  seen = [];
+  assert.deepStrictEqual(await opts('standard', HOG.title), { watched: false, safety: '' }, 'nothing to warn about');
+  seen = [];
+  assert.deepStrictEqual(await opts('city', LAUNCH.title), { watched: true, safety: '' }, 'the watched confirm says it its own way');
+});
