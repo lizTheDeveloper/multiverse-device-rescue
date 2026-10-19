@@ -65,6 +65,11 @@
       </section>
 
       <!-- Screen 3: Scan -->
+      <!-- Screen 2c: what city mode does, once, right after switching to it. Filled in by the app at run time. -->
+      <section id="screen-aftercare" class="screen" data-screen="aftercare" aria-labelledby="aftercare-title" hidden>
+        <div id="aftercare-card" class="card card--wide aftercare"></div>
+      </section>
+
       <section id="screen-scan" class="screen" data-screen="scan" aria-labelledby="scan-title" hidden>
         <div class="scan-layout">
         <div class="card card--hero">
@@ -222,6 +227,7 @@
   <script src="router-link.js"></script>
   <script src="display-mode.js"></script>
   <script src="first-question.js"></script>
+  <script src="stealth-aftercare.js"></script>
   <script src="quiet-notes.js"></script>
   <script src="worries.js"></script>
   <script src="not-checked.js"></script>

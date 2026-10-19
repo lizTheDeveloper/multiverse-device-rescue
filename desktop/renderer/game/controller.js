@@ -1421,6 +1421,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'list') { win.RescueHost.showList(); return; }
     // Always works, like LIST: back to the ordinary game.
     if (act === 'side-back') { leaveSide(); return; }
+    // The district's own notes, on app.js's screens: what this mode does, and "Something changed?".
+    if (act === 'side-about-mode' || act === 'side-change') {
+      const fn = act === 'side-change' ? 'somethingChanged' : 'aboutCityMode';
+      if (s.screen === 'side' && inCity() && win.RescueHost && typeof win.RescueHost[fn] === 'function') win.RescueHost[fn]();
+      return;
+    }
     // Opens a System Settings page through main's allowlist; it changes nothing, so it's fine mid-re-check.
     if (act && act.startsWith('open-setting:')) {
       const url = win.SettingPanes ? win.SettingPanes.urlFor(act.slice(13)) : null;
@@ -1792,6 +1798,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // answer: false means the screen couldn't be drawn and the person was sent to the list.
   return {
     isReady: true,
+    // The generated district, for app.js's note on what city mode does ('' outside city mode).
+    helpPlace() { return inCity() ? side().name : ''; },
+    // Straight into the district (that note's "Show me … first"); false outside city mode.
+    openHelpPlace() { if (!inCity()) return false; openSide(); return true; },
+    // The panic key's way out, from app.js's screens too: the ordinary game, focus on the map.
+    backToGame() { leaveSide(); },
     // The display mode changed: save once now, so city mode retires the old
     // store at once, and the lessons are read for the new mode.
     profileModeChanged() {

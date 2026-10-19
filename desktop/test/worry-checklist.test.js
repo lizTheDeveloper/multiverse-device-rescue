@@ -41,6 +41,7 @@ test('"watching me" among several worries goes straight to city mode, without as
   p.pick('hacked', 'watched');
   assert.ok(!p.shown().includes('question'));
   assert.deepStrictEqual(modeWrites(p), [[KEY, 'city']]);
+  p.aftercare('go');
   assert.deepStrictEqual(p.calls.game, ['newWorry', 'showBoss']);
   assert.deepStrictEqual(p.calls.scans, ['digital_security_reset'], 'one profile, run once');
 });

@@ -63,5 +63,7 @@ export function renderSide({ district, held = [], notice = false, scout = () => 
     <div class="panel"><p class="intel"><b>${esc(LEAVING.text)}</b></p></div>
     <p class="say">${esc(v.bye)}</p>
     <p class="intel">Press Esc to go back to the game.</p>
+    <p class="intel side-notes"><button type="button" class="btn-s" data-act="side-about-mode">WHAT THIS MODE DOES</button>
+      <button type="button" class="btn-s" data-act="side-change">SOMETHING CHANGED?</button></p>
   </section>`;
 }

@@ -1037,6 +1037,7 @@ if (typeof document !== 'undefined') {
       welcome: document.getElementById('screen-welcome'),
       worry: document.getElementById('screen-worry'),
       question: document.getElementById('screen-question'),
+      aftercare: document.getElementById('screen-aftercare'),
       scan: document.getElementById('screen-scan'),
       results: document.getElementById('screen-results'),
       city: document.getElementById('screen-city'),
@@ -1086,13 +1087,17 @@ if (typeof document !== 'undefined') {
 
     // One question on its own screen (FirstQuestion): the answer picks the
     // display preference, then `then` carries on where the person was going.
-    function ask(kind, then) {
+    // An answer that switches to 'city' shows the note on what that does
+    // first (StealthAftercare); `note` overrides its ways on.
+    function ask(kind, then, note = {}) {
       const card = document.getElementById('question-card');
       card.innerHTML = FirstQuestion.questionHtml(kind, escapeHtml);
       card.querySelectorAll('[data-answer]').forEach((btn) => {
         btn.addEventListener('click', () => {
+          const before = mode;
           const next = FirstQuestion.modeFor(kind, btn.dataset.answer);
           if (next) setMode(next);
+          if (StealthAftercare.due(before, mode)) { showAftercare({ go: then, ...note }); return; }
           then();
         });
       });
@@ -1100,6 +1105,53 @@ if (typeof document !== 'undefined') {
       // Move focus to the question so a screen reader announces it.
       const title = document.getElementById('question-title');
       if (title && typeof title.focus === 'function') title.focus();
+    }
+
+    // The note on what city mode does, once per switch into it (StealthAftercare).
+    // go: the person's way on. panic (Esc): a game screen at once, nothing
+    // started. "Show me … first": the panic screen, then the district on top.
+    // `again`: opened from the district itself. Nothing here is stored.
+    let aftercare = null;
+    function showAftercare({ go, panic = go, again = false }) {
+      const game = window.RescueGame && window.RescueGame.isReady ? window.RescueGame : null;
+      let place = '';
+      try { place = game && typeof game.helpPlace === 'function' ? String(game.helpPlace() || '') : ''; } catch (_) { place = ''; }
+      const canVisit = !!(game && typeof game.openHelpPlace === 'function');
+      const card = document.getElementById('aftercare-card');
+      card.innerHTML = StealthAftercare.html({ place, again, canVisit }, escapeHtml);
+      const leave = (fn) => () => { if (!aftercare) return; aftercare = null; fn(); };
+      const visit = () => { panic(); if (!screens.city.hidden) game.openHelpPlace(); };
+      aftercare = { panic: leave(panic) };
+      const acts = { go: leave(go), visit: leave(visit) };
+      card.querySelectorAll('[data-aftercare]').forEach((btn) => btn.addEventListener('click', acts[btn.dataset.aftercare]));
+      showScreen('aftercare');
+      const title = document.getElementById('aftercare-title');
+      if (title && typeof title.focus === 'function') title.focus();
+    }
+    // Esc on the note: straight to the game, as from the district.
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !aftercare || !screens.aftercare || screens.aftercare.hidden) return;
+      if (typeof event.preventDefault === 'function') event.preventDefault();
+      aftercare.panic();
+    });
+    // The deck for a worry, its sweep not started (the deck's main action).
+    function deckFor(picked) {
+      return () => {
+        if (window.RescueGame && window.RescueGame.isReady && window.RescueGame.showHome(picked) !== false) {
+          leftGame = false;
+          showScreen('city');
+          return;
+        }
+        startWorry();
+      };
+    }
+    // Back into the city from app.js's screens: the district, or the game at once.
+    function cityAgain(toDistrict) {
+      showScreen('city');
+      const game = window.RescueGame;
+      if (!game) return;
+      if (toDistrict && mode === 'city' && typeof game.openHelpPlace === 'function') game.openHelpPlace();
+      else if (typeof game.backToGame === 'function') game.backToGame();
     }
 
     function cityAvailable() {
@@ -1174,6 +1226,10 @@ if (typeof document !== 'undefined') {
       // The display preference and the install's seed, for the game.
       mode() { return mode; },
       citySeed() { return citySeed; },
+      // The district's "What this mode does": the note again, back to the district after.
+      aboutCityMode() { showAftercare({ again: true, go: () => cityAgain(true), panic: () => cityAgain(false) }); },
+      // The district's "Something changed?": the question again, then back where they were.
+      somethingChanged() { ask('change', () => cityAgain(true), { panic: () => cityAgain(false) }); },
       // What wasn't fully checked, counted the same way the list counts it, so both views agree.
       notChecked(doc) { return notCheckedSummary(doc || lastScanDoc); },
       startCheckup() { runCheckup({ game: true }); },
@@ -1205,8 +1261,8 @@ if (typeof document !== 'undefined') {
         if (!screens[key]) return;
         screens[key].hidden = key !== name;
       });
-      // The question screen keeps the step the person was on (worry, or the checkup's follow-up).
-      const dotName = name === 'question' ? activeDot : name === 'city' ? 'results' : name;
+      // The question screen (and the note after it) keeps the step the person was on (worry, or the checkup's follow-up).
+      const dotName = name === 'question' || name === 'aftercare' ? activeDot : name === 'city' ? 'results' : name;
       activeDot = dotName;
       // The city has its own screens: the setup steps would label its sweep "Results".
       if (stepsBar) stepsBar.hidden = name === 'city';
@@ -1321,8 +1377,10 @@ if (typeof document !== 'undefined') {
     function chooseWorry(picked) {
       situation = picked;
       const next = FirstQuestion.afterWorry(situation, mode);
-      if (next === 'ask') { ask('first', startWorry); return; }
+      if (next === 'ask') { ask('first', startWorry, { panic: deckFor(picked) }); return; }
+      const before = mode;
       if (next !== mode) setMode(next);
+      if (StealthAftercare.due(before, mode)) { showAftercare({ go: startWorry, panic: deckFor(picked) }); return; }
       startWorry();
     }
 
@@ -2098,7 +2156,7 @@ if (typeof document !== 'undefined') {
         showScreen('worry');
         const back = document.getElementById('btn-something-changed');
         if (back && typeof back.focus === 'function') back.focus();
-      });
+      }, { go: () => { if (!openCityHome()) showScreen('worry'); } });
     });
     document.getElementById('btn-back-city').addEventListener('click', backToCity);
 

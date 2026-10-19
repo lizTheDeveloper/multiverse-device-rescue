@@ -32,7 +32,7 @@ async function listAfterSweep(doc, mode = 'standard') {
 test('every element app.js reads is on the page (or drawn by it)', () => {
   const src = read('app.js');
   const html = read('index.html');
-  const drawn = new Set(['question-title', 'results-safety']);
+  const drawn = new Set(['question-title', 'aftercare-title', 'results-safety']);
   const ids = [...new Set([...src.matchAll(/getElementById\('([^']+)'\)/g)].map((m) => m[1]))];
   assert.deepStrictEqual(ids.filter((id) => !drawn.has(id) && !html.includes(`id="${id}"`)), []);
 });

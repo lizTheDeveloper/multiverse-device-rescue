@@ -46,6 +46,8 @@ test('"I think someone is watching me" goes straight into the game, without the 
   p.byId('btn-get-started').click();
   p.pick('watched');
   assert.deepStrictEqual(p.storage.writes.filter(([k]) => k === KEY), [[KEY, 'city']]);
+  assert.deepStrictEqual(p.shown(), ['aftercare'], 'the note on what city mode does, first');
+  p.aftercare('go');
   assert.deepStrictEqual(p.calls.game, ['newWorry', 'showBoss']);
   assert.deepStrictEqual(p.shown(), ['city']);
 });
@@ -86,6 +88,8 @@ test('rather not say, then monitoring software: asked once, and "No, I don’t" 
   assert.ok(!p.calls.game.includes('scanDone'), 'nothing lands until they answer');
   p.answer('unknown');
   assert.strictEqual(p.storage.getItem(KEY), 'city');
+  assert.deepStrictEqual(p.shown(), ['aftercare'], 'a switch into city mode: the note first');
+  p.aftercare('go');
   assert.ok(p.calls.game.includes('scanDone'));
   assert.deepStrictEqual(p.shown(), ['city']);
   const list = p.byId('results-groups').innerHTML;

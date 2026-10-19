@@ -421,3 +421,6 @@ h2[tabindex="-1"]:focus, h2[tabindex="-1"]:focus-visible { outline: none; }
 .deck-queue .repeats { margin: 4px 0 8px; font-size: 12px; }
 .deck-top .sweep-stat { font-size: 11px; gap: 4px; }
 .deck-top .sweep-stat .btn-t { font-size: 11px; margin-left: 4px; padding: 0 4px; }
+
+/* The district's own notes: what this mode does, and "Something changed?". Quiet, at the bottom. */
+.side-notes { display: flex; flex-wrap: wrap; gap: 0.5rem; }
