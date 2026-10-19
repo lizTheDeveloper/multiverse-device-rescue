@@ -152,3 +152,22 @@ test('practice: the step line shows once — in the card when the game draws it,
     }
   }
 });
+
+// --- P2-3: severity beside "ITEM n OF m" ---
+
+test('an item screen shows its severity beside ITEM n OF m (critical and warning differ), both modes', async () => {
+  const k = await kit();
+  for (const mode of ['standard', 'city']) {
+    const ctx = ctxOf(k.C, k.R, mode);
+    const g = { ...k.games.simple, decisions: () => [D('later', 'later'), D('keep', 'keep')] };
+    const crit = k.C.makeItem({ module: 'hosts_file_check', title: 'Redirect', severity: 'critical' });
+    const warn = k.C.makeItem({ module: 'firewall_rules_audit', title: 'Rule', severity: 'warning' }, { key: 'w' });
+    let run = k.Run.startRun({ id: 'm', items: [crit, warn] });
+    const one = screen(k, run, k.Run.viewFor(run, g, ctx, {}), { mode });
+    assert.match(one, /OF 2<\/span><span class="badge crit">CRITICAL<\/span>/);
+    run = k.Run.choose(run, 'later', g, ctx).run;
+    const two = screen(k, run, k.Run.viewFor(run, g, ctx, {}), { mode });
+    assert.match(two, /2 OF 2<\/span><span class="badge warn">WARNING<\/span>/);
+    if (mode === 'city') assert.deepStrictEqual(k.C.checkCityWords(one), []);
+  }
+});

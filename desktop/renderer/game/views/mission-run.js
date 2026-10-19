@@ -162,6 +162,9 @@ export function renderMissionScreen(o) {
   }
   // An item (and the confirm step before a fix or a warned settings page).
   const confirming = run.phase === 'confirm';
+  // How serious this one is, beside "ITEM 2 OF 4" (a critical redirect mustn't look like a warning).
+  const it = view.item || {};
+  const sev = SEV[it.severity || (it.finding && it.finding.severity)] || '';
   const unfinished = research.unfinished ? `<p class="intel mx-unfinished"><span class="badge fog">DIDN’T FINISH</span> ${esc(research.unfinished)}</p>` : '';
   const confirm = confirming && !actHtml ? `<div class="panel mx-confirm" role="group" aria-label="Before you go on">
       <p class="intel">${esc(run.pending && run.pending.ask === 'keep'
@@ -170,7 +173,7 @@ export function renderMissionScreen(o) {
       <div class="row"><button type="button" class="btn-p" data-act="mx-confirm">YES, GO ON</button><button type="button" class="btn-s" data-act="mx-cancel">CANCEL</button></div></div>` : '';
   const act = actHtml ? `<div class="mx-act">${actHtml}<button type="button" class="btn-t" data-act="mx-cancel">NOT NOW</button></div>` : '';
   return `<section class="mx-screen">${head}
-    <div class="row mx-progress"><span class="label">${esc(mode === 'city' ? 'TARGET' : 'ITEM')} ${esc(view.index + 1)} OF ${esc(view.total)}</span>${practiceBtn}</div>
+    <div class="row mx-progress"><span class="mx-where"><span class="label">${esc(mode === 'city' ? 'TARGET' : 'ITEM')} ${esc(view.index + 1)} OF ${esc(view.total)}</span>${sev}</span>${practiceBtn}</div>
     ${said}${checking}
     ${warningHtml(view.warning, mode, place, safetyHtml)}
     <div class="mx-card">${cardHtml}</div>

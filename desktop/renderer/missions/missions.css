@@ -12,6 +12,7 @@
 .mx-screen { display: flex; flex-direction: column; gap: 14px; max-width: 860px; }
 .mx-screen .m-title .mx-part { font-family: var(--font-mono); font-size: 12px; color: var(--dim); letter-spacing: 1px; margin-left: 8px; }
 .mx-progress { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mx-where { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .mx-card { min-width: 0; }
 .mx-warning { border-color: var(--amber); }
 .mx-what { color: var(--offwhite); }
