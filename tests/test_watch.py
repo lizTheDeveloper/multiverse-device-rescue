@@ -540,9 +540,15 @@ def test_hidden_owner_named_later_is_not_a_takeover():
 def test_nat64_classified_by_embedded_ipv4():
     public = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote="64:ff9b::808:808"))
     assert len(by_code(public, "regular_checkins")) == 1
-    for remote in ("64:ff9b::c0a8:10a", "64:ff9b:1::a00:1"):
-        result = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote=remote))
-        assert by_code(result, "regular_checkins") == [], remote
+    private = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote="64:ff9b::c0a8:10a"))
+    assert by_code(private, "regular_checkins") == []
+
+
+def test_local_use_nat64_is_not_unwrapped():
+    # 64:ff9b:1::/48's prefix length varies, so the embedded address (10.0.0.1
+    # under a /96 reading) isn't trusted: the address counts as public.
+    result = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote="64:ff9b:1::a00:1"))
+    assert len(by_code(result, "regular_checkins")) == 1
 
 
 def test_ipv6_public_address_not_dropped_as_reserved():
@@ -571,3 +577,30 @@ def test_bytes_baseline_is_first_snapshot_only():
     ])
     [summary] = by_code(darwin, "watch_summary")
     assert (summary.data["bytes_in"], summary.data["bytes_out"]) == (100, 200)
+
+
+def test_shared_listening_port_is_not_new():
+    shared = [listener("sh", 8000, pid=10), listener("node", 8000, pid=11)]
+    result = watch([snap(shared)] * 4)
+    assert by_code(result, "new_listener") == []
+    summaries = {f.data["target"]: f for f in by_code(result, "watch_summary")}
+    assert summaries == {}
+
+
+def test_second_program_joining_a_port_is_new_once():
+    sh = listener("sh", 8000, pid=10)
+    nc = listener("nc", 8000, pid=12)
+    result = watch([snap([sh]), snap([sh, nc]), snap([nc, sh]), snap([sh])])
+    [found] = by_code(result, "new_listener")
+    assert found.data["target"] == "nc"
+    summaries = {f.data["target"]: f for f in by_code(result, "watch_summary")}
+    assert summaries["nc"].data["listeners_opened"] == [8000]
+    assert summaries["nc"].data["listeners_closed"] == [8000]
+    assert "sh" not in summaries
+
+
+def test_hidden_owner_on_a_port_open_from_the_start_is_not_new():
+    hidden = dict(listener("cupsd", 631), process=None, pid=None)
+    result = watch([snap([hidden]), snap([listener("cupsd", 631)])], platform="linux",
+                   dns=lambda p: {"names": None, "reason": "Hidden."})
+    assert by_code(result, "new_listener") == []

@@ -48,7 +48,10 @@ _UNSTORED_LIMIT = 10 * MAX_PAIRS
 # Shared address space used by carrier-grade NAT; not a destination on the internet.
 _CGNAT = ipaddress.ip_network("100.64.0.0/10")
 
-_NAT64 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
+# The well-known NAT64 prefix only. In the local-use 64:ff9b:1::/48 the
+# prefix length (and so where the IPv4 address sits) varies (RFC 6052 / 8215),
+# so those addresses are left as they are and count as public: fail closed.
+_NAT64_WKP = ipaddress.ip_network("64:ff9b::/96")
 
 _PRIVATE_NETWORKS = tuple(
     ipaddress.ip_network(n)
@@ -82,9 +85,9 @@ def _ip(addr: str | None):
     if ip.version == 6:
         if ip.ipv4_mapped is not None:
             return ip.ipv4_mapped
-        if any(ip in net for net in _NAT64):
-            # NAT64 (RFC 6052 / RFC 8215) puts the IPv4 address in the last 32
-            # bits with the usual /96 prefix, so classify by that address.
+        if ip in _NAT64_WKP:
+            # The well-known NAT64 prefix carries the IPv4 address in the last
+            # 32 bits, so classify by that address.
             return ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
     return ip
 
@@ -127,17 +130,18 @@ class _Gathered:
         self.unstored_capped = False
         self.loopback: dict[str, int] = {}
         self.previous_open: set[tuple] | None = None
-        # Listeners: (proto, local_addr, local_port) -> record. The owner is
-        # left out of the key because Linux without admin shows it only some
-        # of the time; ``listener_owner`` keeps the best name seen.
-        self.first_listeners: dict[tuple, dict] | None = None
-        self.last_listeners: dict[tuple, dict] = {}
-        # Each listener that opened during the watch: {"key", "owner", "record"}.
-        # A port taken over by a different named program counts as a new one.
+        # Listeners are keyed (proto, local_addr, local_port). Several programs
+        # can hold one port at once (an inherited socket, SO_REUSEPORT), and
+        # Linux without admin shows the owner only some of the time, so each
+        # key keeps the SET of names seen in earlier snapshots. A missing name
+        # never counts as a different owner.
+        self.listener_snapshots = 0
+        self.owners_seen: dict[tuple, set[str]] = {}
+        self.last_owners: dict[tuple, set[str]] = {}
+        # Each listener that opened during the watch: {"key", "owner", "record"},
+        # at most one per (key, owner) for the whole watch.
         self.new_listeners: list[dict] = []
-        self._latest_new: dict[tuple, dict] = {}
-        self.listener_owner: dict[tuple, str] = {}
-        self.changed_owner: list[tuple[str, int]] = []
+        self._unnamed_new: dict[tuple, dict] = {}
         # Byte counters: key (pid or 4-tuple) -> {"process", "first", "last"}
         self.counters: dict = {}
         self.bytes_seen = False
@@ -213,42 +217,45 @@ class _Gathered:
         self.previous_open = open_now
 
     def _add_listeners(self, records: list[dict]) -> None:
-        now: dict[tuple, dict] = {}
+        # Gather the whole snapshot first, so names in one snapshot are never
+        # compared with each other: name -> a record for it, per key.
+        now: dict[tuple, dict[str | None, dict]] = {}
         for record in records:
             if record.get("state") != "LISTEN":
                 continue
             key = (record.get("proto"), record.get("local_addr"), record.get("local_port"))
-            now[key] = record
-            self._note_owner(key, record)
-        if self.first_listeners is None:
-            self.first_listeners = now
-        self.last_listeners = now
+            now.setdefault(key, {}).setdefault(record.get("process") or None, record)
+        baseline = self.listener_snapshots == 0
+        self.listener_snapshots += 1
+        for key, by_name in now.items():
+            names = {n for n in by_name if n}
+            seen = self.owners_seen.get(key)
+            if not baseline:
+                self._note_new_owners(key, by_name, names, seen)
+            self.owners_seen[key] = (seen or set()) | names
+        self.last_owners = {key: {n for n in by_name if n} for key, by_name in now.items()}
 
-    def _note_owner(self, key: tuple, record: dict) -> None:
-        name = record.get("process")
-        known = self.listener_owner.get(key)
-        if known is None:
-            self.listener_owner[key] = name or _UNKNOWN
-            if self.first_listeners is not None:
-                self._add_new_listener(key, name or _UNKNOWN, record)
-        elif not name or name == known:
+    def _note_new_owners(self, key, by_name, names, seen) -> None:
+        if seen is None and not names:
+            # A port nobody had open before, owner not shown: new, owner unknown.
+            entry = self._add_new_listener(key, _UNKNOWN, by_name[None])
+            self._unnamed_new[key] = entry
             return
-        elif known == _UNKNOWN:
-            # A name that was hidden before (Linux without admin) is the same owner.
-            self.listener_owner[key] = name
-            latest = self._latest_new.get(key)
-            if latest is not None and latest["owner"] == _UNKNOWN:
-                latest["owner"] = name
-        else:
-            # A different program now holds the port: a new listener.
-            self.changed_owner.append((known, key[2]))
-            self.listener_owner[key] = name
-            self._add_new_listener(key, name, record)
+        for name in sorted(names - (seen or set())):
+            pending = self._unnamed_new.pop(key, None)
+            if pending is not None:
+                # The owner of a port that opened unnamed is now shown: same listener.
+                pending["owner"] = name
+            elif seen is None or seen:
+                # A port that's new, or a named program not seen on it before.
+                self._add_new_listener(key, name, by_name[name])
+            # else: the port was there from earlier with its owner hidden; a
+            # name showing up now isn't a new listener.
 
-    def _add_new_listener(self, key: tuple, owner: str, record: dict) -> None:
+    def _add_new_listener(self, key: tuple, owner: str, record: dict) -> dict:
         entry = {"key": key, "owner": owner, "record": record}
         self.new_listeners.append(entry)
-        self._latest_new[key] = entry
+        return entry
 
     def listeners_by_owner(self) -> tuple[dict[str, list], dict[str, list]]:
         """Ports opened during the watch, and ports closed by its end, per program."""
@@ -256,11 +263,17 @@ class _Gathered:
         closed: dict[str, list] = {}
         for entry in self.new_listeners:
             opened.setdefault(entry["owner"], []).append(entry["key"][2])
-        for owner, port in self.changed_owner:
-            closed.setdefault(owner, []).append(port)
-        for key in self.listener_owner:
-            if key not in self.last_listeners:
-                closed.setdefault(self.listener_owner[key], []).append(key[2])
+        for key, seen in self.owners_seen.items():
+            if key not in self.last_owners:
+                gone = seen or {_UNKNOWN}
+            elif self.last_owners[key]:
+                # Still open, under names that leave some earlier owners out.
+                gone = seen - self.last_owners[key]
+            else:
+                # Still open with its owner hidden: no claim about who left.
+                gone = set()
+            for owner in sorted(gone):
+                closed.setdefault(owner, []).append(key[2])
         return opened, closed
 
     def _add_bytes(self, counts, records: list[dict]) -> None:
