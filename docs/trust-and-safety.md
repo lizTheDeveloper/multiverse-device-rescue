@@ -420,7 +420,10 @@ Stated plainly, because you should know before you rely on them.
     (see `docs/cli.md` for the table): a proxy's host and port, an
     extension's id and team, a SHA-256 of the list of apps or keys. When the
     evidence changes, the finding comes back at its normal severity with
-    `mark_stale` and "has changed since you marked it". When a mark is saved,
+    `mark_stale` and "has changed since you marked it". (A mark whose item
+    couldn't be checked this time, such as an app whose maker couldn't be
+    looked up, also warns again, but says so and never claims a change: the
+    entry is in `unchecked_items`, not `stale_items`.) When a mark is saved,
     the engine runs the check again and refuses unless it still reports the
     same item.
 
@@ -474,7 +477,9 @@ Stated plainly, because you should know before you rely on them.
     the script behind it, and the warning would stay quiet. If the content
     changes, the finding is shown again at its normal severity with
     `data["mark_stale"] = true` and a sentence saying it changed since it was
-    marked. That is noisy for developers (rebuilding a virtualenv or updating
+    marked. If the content can't be hashed this time (unreadable, or the scan's
+    hashing budget is spent), the finding also has `data["mark_unchecked"] = true`
+    and says it couldn't be checked this time, never that it changed. That is noisy for developers (rebuilding a virtualenv or updating
     a tool brings the warning back until they mark it again), and that noise is
     the intended trade for people who may be being watched. A program that
     cannot be hashed (missing, unreadable, or over 200 MB) cannot be marked,

@@ -1168,7 +1168,7 @@ if (typeof document !== 'undefined') {
     document.getElementById('btn-copy-json').addEventListener('click', async () => {
       const status = document.getElementById('copy-json-status');
       try {
-        await navigator.clipboard.writeText(JSON.stringify(lastScanDoc, null, 2));
+        await navigator.clipboard.writeText(technicalReportText(lastScanDoc));
         status.textContent = ' Copied.';
       } catch (err) {
         status.textContent = ` Couldn\u2019t copy (${err && err.message ? err.message : err}).`;
