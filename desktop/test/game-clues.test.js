@@ -127,18 +127,16 @@ const app = (target, destinations, extra = {}) => ({ module: 'connection_watch',
   title: `${target}: ${destinations.length} destinations during the watch`, severity: 'info',
   data: { target, destinations, more: 0, not_stored: 0, lookup_sources: SOURCES, ...extra } });
 const SOURCES = ['reverse DNS (your computer’s own resolver)', 'RIPE NCC (stat.ripe.net)', 'rdap.org and the regional registry it redirects to'];
-const group = (...watch) => ({ module: 'connection_watch', code: 'network.connection_watch.group', watch });
+const group = (...watch) => ({ module: 'connection_watch', code: 'network.connection_watch.group', watch, incomplete: [] });
+const gaps = (finding, incomplete) => ({ ...finding, incomplete });
 
 test('WHERE THEY WENT: one clue, the rollup by apps, each app busiest first, the gaps and the sources', async () => {
   const { cluesFor, READING } = await load();
-  const clues = cluesFor(group(
+  const clues = cluesFor(gaps(group(
     app('Mail', [dst('17.1.1.1', 993, 3, APPLE), dst('104.16.1.1', 443, 1, CF)]),
     app('Safari', [dst('17.1.1.2', 443, 9, APPLE), dst('8.8.8.8', 443, 2, GOOGLE), dst('104.16.1.2', 443, 2, CF)]),
     app('Music', [dst('17.1.1.3', 443, 1, APPLE)]),
-    { module: 'connection_watch', code: 'network.connection_watch.watch_incomplete', title: 'Parts…', severity: 'info',
-      data: { reasons: ['Looking up stopped early.', 'Only the busiest 150 addresses were looked up.'] } },
-    { module: 'connection_watch', code: 'network.connection_watch.dns_not_visible', title: 'Couldn’t see which names were looked up', data: {} },
-  ));
+  ), ['Looking up stopped early.', 'Only the busiest 150 addresses were looked up.']));
   assert.strictEqual(clues.length, 1);
   const [c] = clues;
   assert.deepStrictEqual([c.kind, c.label], ['went', 'WHERE THEY WENT']);
@@ -186,9 +184,10 @@ test('WHERE THEY WENT: at most 8 places an app and 25 apps; top 5 owners; lookup
   assert.strictEqual(d.lines[0], 'App00: 8.8.4.4:53', 'no owner known: no rollup line');
   assert.strictEqual(d.lines[24], 'App24: 8.8.4.4:53');
   assert.strictEqual(d.lines[25], 'And 2 more apps.');
-  const [off] = cluesFor(group(app('Mail', [dst('17.1.1.1', 993, 3)], { lookup_sources: [] }),
-    { module: 'connection_watch', code: 'network.connection_watch.watch_incomplete', data: { reasons: ['Looking up who runs each address was turned off.'] } }));
-  assert.deepStrictEqual(off.lines, ['Mail: 17.1.1.1:993', 'Looking up who runs each address was turned off.', 'Not looked up (turned off).']);
+  const [off] = cluesFor(gaps(group(app('Mail', [dst('17.1.1.1', 993, 3)], { lookup_sources: [] })),
+    ['Looking up who runs each address was turned off.', 'The watch was stopped early, after 0.5 of 1 minute(s).']));
+  assert.deepStrictEqual(off.lines, ['Mail: 17.1.1.1:993', 'The watch was stopped early, after 0.5 of 1 minute(s).', 'Not looked up (turned off).'],
+    'turned off: said once');
   const [unknown] = cluesFor(group(app('unknown', [])));
   assert.strictEqual(unknown.lines[0], 'A program Reclaim City couldn’t name: no places listed');
 });
@@ -201,4 +200,6 @@ test('WHERE THEY WENT: registry and DNS text is capped and stripped of control c
   assert.ok(name.length <= 80, `${name.length}`);
   assert.ok(name.endsWith('…'));
   assert.doesNotMatch(c.lines.join('\n'), /\u0007/);
+  const [g] = cluesFor(gaps(group(app('A', [dst('1.1.1.1', 443, 1)], { lookup_sources: ['RIPE\u0000 NCC\u001b[31m'] })), ['Stopped\u0007 early.']));
+  assert.deepStrictEqual(g.lines.slice(1), ['Stopped early.', 'Looked up with: RIPE NCC [31m.'], 'gaps and sources too');
 });

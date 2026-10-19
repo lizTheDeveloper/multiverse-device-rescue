@@ -4,8 +4,9 @@
 // never MINE or THREAT. A finding the person marked as theirs arrives
 // pre-tagged MINE; one that changed since (data.mark_stale) is back in the
 // queue. Monitoring checks are never signals: the game isn't offered when they
-// find something, and nothing about them is scored. Everything the connection
-// watch noted is one signal (its clue lists each app: clues.js).
+// find something, and nothing about them is scored. The connection watch's
+// per-app summaries are one signal (its clue lists each app: clues.js); its
+// other notes stay their own.
 import { findingIdentity, DISTRICTS, OUTSKIRTS } from './findings-to-city.js';
 import { MONITORING_MODULES, WATCH_MODULE } from './ledger.js';
 
@@ -29,26 +30,31 @@ export function fingerprint(finding) {
 export const WATCH_GROUP_ID = `${WATCH_MODULE}|group`;
 export const WATCH_GROUP_CODE = 'network.connection_watch.group';
 export const WATCH_SUMMARY_CODE = 'network.connection_watch.watch_summary';
+const WATCH_INCOMPLETE_CODE = 'network.connection_watch.watch_incomplete';
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const count = (n) => Math.max(0, Math.floor(Number(n) || 0));
+const dataOf = (n) => (n && n.data && typeof n.data === 'object' ? n.data : {});
 
-// The watch's notes as one info signal. A place is an address, port and
-// protocol, the way the engine counts them; each app's unlisted ones are added.
-function watchSignal(notes, districtId) {
-  const apps = notes.filter((n) => n.code === WATCH_SUMMARY_CODE);
+// The watch's per-app summaries as one info signal. Places are the distinct
+// addresses listed; "+" when an app had more than its list holds. The clue
+// also needs the watch's gaps (`incomplete`, from watch_incomplete's reasons),
+// which stay their own signal too.
+function watchSignal(apps, incomplete, districtId) {
   const places = new Set();
-  let unlisted = 0;
+  let unlisted = false;
   for (const n of apps) {
-    const d = n.data && typeof n.data === 'object' ? n.data : {};
+    const d = dataOf(n);
     for (const x of Array.isArray(d.destinations) ? d.destinations : []) {
-      if (x && typeof x === 'object') places.add(`${x.address}|${x.port}|${x.protocol}`);
+      if (x && typeof x === 'object') places.add(String(x.address));
     }
-    unlisted += count(d.more);
+    if (Number(d.more) > 0 || Number(d.not_stored) > 0) unlisted = true;
   }
+  const where = unlisted ? `${places.size}+ places` : plural(places.size, 'place');
+  const reasons = incomplete.flatMap((n) => (Array.isArray(dataOf(n).reasons) ? dataOf(n).reasons : []));
   return { id: WATCH_GROUP_ID, kind: 'real', severity: 'info',
-    title: `Connection watch: ${plural(apps.length, 'app')} talked to ${plural(places.size + unlisted, 'place')}`,
-    description: '', districtId, module: WATCH_MODULE, finding: { module: WATCH_MODULE, code: WATCH_GROUP_CODE, watch: notes },
-    missionId: null, fixable: false, marked: false, stale: false, fp: notes.map(fingerprint).join('.'), count: 1 };
+    title: `Connection watch: ${plural(apps.length, 'app')} talked to ${where}`,
+    description: '', districtId, module: WATCH_MODULE,
+    finding: { module: WATCH_MODULE, code: WATCH_GROUP_CODE, watch: apps, incomplete: reasons },
+    missionId: null, fixable: false, marked: false, stale: false, fp: apps.map(fingerprint).join('.'), count: 1 };
 }
 
 // `changedIds`: tags the controller set aside this session, so the
@@ -74,7 +80,8 @@ export function buildSignals(city, deck, changedIds = null) {
     }
     byId.set(sig.id, full);
   };
-  const watchNotes = [];
+  const watchApps = [];
+  const watchGaps = [];
   let watchDistrict = null;
   for (const d of (city && city.districts) || []) {
     for (const m of d.missions || []) {
@@ -86,7 +93,8 @@ export function buildSignals(city, deck, changedIds = null) {
     }
     for (const n of d.notes || []) {
       if (MONITORING_MODULES.has(n.module)) continue;
-      if (n.module === WATCH_MODULE) { watchNotes.push(n); watchDistrict = watchDistrict || d.id; continue; }
+      if (n.module === WATCH_MODULE && n.code === WATCH_INCOMPLETE_CODE) watchGaps.push(n);
+      if (n.module === WATCH_MODULE && n.code === WATCH_SUMMARY_CODE) { watchApps.push(n); watchDistrict = watchDistrict || d.id; continue; }
       add({ id: findingIdentity(n), kind: 'real', severity: 'info', title: n.title || 'Something the checkup noted',
         description: n.description || '', districtId: d.id, module: n.module, finding: n, missionId: null, fixable: false,
         marked: false, stale: false, fp: fingerprint(n), count: 1 });
@@ -98,7 +106,7 @@ export function buildSignals(city, deck, changedIds = null) {
         missionId: null, fixable: false, marked: false, stale: false, fp: 'couldnt', count: 1 });
     }
   }
-  if (watchNotes.length) add(watchSignal(watchNotes, watchDistrict));
+  if (watchApps.length) add(watchSignal(watchApps, watchGaps, watchDistrict));
   return out;
 }
 

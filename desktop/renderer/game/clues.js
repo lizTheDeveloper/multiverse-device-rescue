@@ -139,9 +139,11 @@ const MAX_APPS = 25;
 const MAX_PLACES = 8;
 const MAX_OWNERS = 5;
 const UNNAMED = 'unknown'; // rescue/watch.py _UNKNOWN
-const shown = (v) => {
+// rescue/watch.py _look_up's reason when lookups are off; the clue says it once, its own way.
+const TURNED_OFF = 'Looking up who runs each address was turned off.';
+const shown = (v, max = SHOWN_MAX) => {
   const s = String(v).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim();
-  return s.length > SHOWN_MAX ? `${s.slice(0, SHOWN_MAX - 1)}…` : s;
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 };
 const textOf = (v) => (typeof v === 'string' && v.trim() ? shown(v) || null : null);
 const whole = (n) => Math.max(0, Math.floor(Number(n) || 0));
@@ -175,7 +177,8 @@ function placeOf(x) {
   return name ? `${name} (${at})` : at;
 }
 
-function wentClue(notes) {
+// `notes`: the watch_summary findings; `gaps`: watch_incomplete's reasons.
+function wentClue(notes, gaps) {
   const apps = notes.filter((n) => n && n.code === WATCH_SUMMARY_CODE).map((n) => {
     const d = dataOf(n);
     const places = (Array.isArray(d.destinations) ? d.destinations : []).filter((x) => x && typeof x === 'object');
@@ -201,13 +204,9 @@ function wentClue(notes) {
     lines.push(`${a.name}: ${listed || 'no places listed'}${more ? `, and ${more} more` : ''}`);
   }
   if (apps.length > MAX_APPS) lines.push(`And ${plural(apps.length - MAX_APPS, 'more app')}.`);
-  for (const n of notes) {
-    if (!n || n.code !== 'network.connection_watch.watch_incomplete') continue;
-    const reasons = Array.isArray(dataOf(n).reasons) ? dataOf(n).reasons : [];
-    for (const r of reasons) if (typeof r === 'string' && r.trim()) lines.push(r.trim().slice(0, 400));
-  }
+  for (const r of gaps) if (typeof r === 'string' && r.trim() && r.trim() !== TURNED_OFF) lines.push(shown(r, 400));
   const said = apps.filter((a) => Array.isArray(a.sources));
-  const sources = [...new Set(said.flatMap((a) => a.sources).filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim().slice(0, 200)))];
+  const sources = [...new Set(said.flatMap((a) => a.sources).filter((x) => typeof x === 'string' && x.trim()).map((x) => shown(x, 200)))];
   if (sources.length) lines.push(`Looked up with: ${sources.join('; ')}.`);
   else if (said.length) lines.push('Not looked up (turned off).');
   return { kind: 'went', label: CLUE_LABEL.went, lines, reading: READING.went };
@@ -215,7 +214,9 @@ function wentClue(notes) {
 
 export function cluesFor(finding) {
   if (!finding || typeof finding !== 'object') return [];
-  if (finding.code === WATCH_GROUP_CODE) return [wentClue(Array.isArray(finding.watch) ? finding.watch : [])];
+  if (finding.code === WATCH_GROUP_CODE) {
+    return [wentClue(Array.isArray(finding.watch) ? finding.watch : [], Array.isArray(finding.incomplete) ? finding.incomplete : [])];
+  }
   const out = [];
   const entries = Array.isArray(finding.made_by) ? finding.made_by.filter((e) => e && typeof e === 'object') : [];
   if (entries.length) out.push(makerClue(entries));
