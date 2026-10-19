@@ -732,8 +732,12 @@ export function markLessonKnown(p, lessonId, now) {
 // Offer the questions again for a skipped concept that signals say is worth a
 // look: at most once per sweep, and after two "Still know it" answers only
 // when a drill on it has gone wrong since.
-export function shouldOffer(p, bank, conceptId, sweepAt) {
-  if (isHidden(conceptId) || conceptState(p, bank, conceptId) !== 'worth-a-look') return false;
+// `unsure`: the person asked to LOOK CLOSER at a real finding, saying
+// themselves they aren't sure: then a concept they only said they knew
+// ('skipped') may be offered too. No gap is recorded for it; it isn't evidence.
+export function shouldOffer(p, bank, conceptId, sweepAt, { unsure = false } = {}) {
+  const state = isHidden(conceptId) ? null : conceptState(p, bank, conceptId);
+  if (state !== 'worth-a-look' && !(unsure && state === 'skipped')) return false;
   const rec = conceptRec(p, conceptId);
   const o = rec.offered;
   if (o && sweepAt && o.at >= sweepAt) return false;

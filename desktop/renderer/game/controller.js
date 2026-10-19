@@ -11,7 +11,7 @@ import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, record
 import { conceptById, isHidden } from './profile/skills.js';
 import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, PUBLISH_FIELDS } from './profile/publish.js';
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, todoCount, repeatsMerged, cityCounts } from './signals.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, todoCount, repeatsMerged, cityCounts, WAITING_TITLE } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, drillSignal, pickDrills } from './drills.js';
@@ -200,6 +200,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // where the person lands and comes back to, never the Training Grounds.
     homeFirst: false };
   const noCity = () => (s.homeFirst ? 'home' : 'training');
+  // A sweep is running: the checkup, or the phone backup's long sweep. Main
+  // refuses changes and re-checks until it is done.
+  const sweeping = () => !!s.scan.running || s.phone === 'running';
   let drawnScreen = null; // the screen the last render drew
 
   // The generated district (city mode only): help that looks like the rest of the city.
@@ -498,9 +501,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     && (drawBank().concepts.get(c) || []).some((k) => (s.bank.items.get(k) || {}).kind === 'lesson');
   // "Want the 2 questions on this?": for a concept the person said they knew,
   // once per sweep (or per session before any sweep), by the profile's rules.
-  function offerFor(concepts) {
+  function offerFor(concepts, opts = {}) {
     const sweepAt = s.progress.deck.sweep.at || sessionStart;
-    const c = (concepts || []).find((x) => askable(x) && shouldOffer(s.profile, drawBank(), x, sweepAt));
+    const c = (concepts || []).find((x) => askable(x) && shouldOffer(s.profile, drawBank(), x, sweepAt, opts));
     if (!c) return null;
     keepProfile(noteOffered(s.profile, c, now()));
     return { id: c, title: conceptById(c).title };
@@ -548,13 +551,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const sig = s.signal && findSignal(s.signal.id);
     if (!sig) { s.signal = null; return ''; }
     // The real "It's mine" step, offered only for a finding that has one. MarkFlow asks its own question.
-    const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, { ...watchedOpts(), theme: 'game' }) : '';
+    // A stopped checkup offers nothing to change (its marks are refused anyway).
+    const mine = sig.kind === 'real' && sig.missionId && !sig.marked && !s.stopped ? win.MarkFlow.markControlsHtml(sig.finding, { ...watchedOpts(), theme: 'game' }) : '';
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
       range: s.screen === 'range' ? { hasCity: !!s.city } : null, offer: s.signal.offer || null,
       tagNote: Object.keys(s.progress.deck.tags || {}).length === 0,
+      waiting: sig.kind === 'waiting' ? { confirming: !!s.signal.confirming, running: s.phone === 'running', failed: s.phone === 'failed' } : null,
       // LOOK CLOSER: what the scan actually saw, under the next move.
-      evidenceHtml: sig.kind === 'real' && s.signal.tagged === 'closer' ? evidenceOf(sig.finding || {}, sig.module).html : '' });
+      // Only what the clues didn't already show (P2-8): no maker, path or
+      // "what the check saw" again.
+      evidenceHtml: sig.kind === 'real' && s.signal.tagged === 'closer' ? evidenceOf(sig.finding || {}, sig.module, notInClues(sig)).html : '' });
   }
 
   function deckHtml() {
@@ -592,7 +599,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
         history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null, learned: learnedCount(),
-      scanRunning: s.scan.running, districtName: nameOf, notice: heldNotice() + s.linkNotice,
+      scanRunning: sweeping(), districtName: nameOf, notice: heldNotice() + s.linkNotice,
       // With something held, an empty queue points to it instead of saying "clear".
       notChecked: notCheckedLine(s.counts), todo: todoCount(sigs), repeats: repeatsMerged(s.city),
       sweepNow: s.counts, stopped: s.stopped,
@@ -666,6 +673,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const sig = s.signal && findSignal(s.signal.id);
     if (!sig) return;
     if (sig.kind === 'drill') { answerDrill(sig, tag); return; }
+    // An optional sweep waiting for a go-ahead is started or left, never tagged.
+    if (sig.kind === 'waiting') return;
     if (!(sig.kind === 'couldnt' ? ['noted'] : ['mine', 'threat', 'closer']).includes(tag)) return;
     // A monitoring check that couldn't run is never sorted or stored.
     if (sig.monitoring) return;
@@ -679,6 +688,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (sig.kind === 'real' && !scoutAgrees(sig, tag) && !s.gapped.has(sig.id)) {
       const cs = callConcepts(drawBank(), sig.module, openedFor(sig.id)).filter(askable);
       if (cs.length) { s.gapped.add(sig.id); keepProfile(recordGap(s.profile, cs, 'call', now())); s.signal.offer = offerFor(cs); }
+    }
+    // LOOK CLOSER is the person saying they aren't sure. Scout usually agrees
+    // with that on a warning, so no gap is noted, but the refresher on what
+    // they opened (or the check's lessons) is offered once per sweep when they
+    // had said they knew it. (The audit couldn't make this line appear: it was
+    // only ever offered when Scout read the finding differently.)
+    if (sig.kind === 'real' && tag === 'closer' && !s.signal.offer) {
+      s.signal.offer = offerFor(callConcepts(drawBank(), sig.module, openedFor(sig.id)).filter(askable), { unsure: true });
     }
     logEntry('TAG', `${TAG_WORD[tag]}: ${sig.title}`);
     render();
@@ -969,7 +986,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'district' && district(s.districtId)) {
       return renderDistrict({ district: district(s.districtId), progress: s.progress, scout, message: s.districtMsg || '', busy: s.busy,
-        scanRunning: !!s.scan.running, detail: rowDetail });
+        scanRunning: sweeping(), detail: rowDetail, allOpen: !!s.districtOpen, waitingTitle: coverMode() ? WAITING_TITLE.cover : WAITING_TITLE.plain });
     }
     // During an Undo re-check the mission was reclaimed, so it isn't in the
     // city: show the checking briefing from the mission we last showed.
@@ -981,7 +998,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const ev = evidenceOf(m.primary || {}, m.module);
       return renderBriefing({ mission: homeText(m), status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: '',
         scout, busy: true, wantsSafety, note, cityWarn, modules: scanModules(), platform: s.doc && s.doc.platform,
-        evidenceHtml: ev.html, thin: ev.thin, replaces: ev.replaces });
+        evidenceHtml: ev.html, thin: ev.thin, replaces: ev.replaces, shown: shownStrings(m.primary), checkNames: checkNames() });
     }
     if (s.screen === 'mission' && mission(s.missionId)) {
       const m0 = mission(s.missionId);
@@ -991,23 +1008,26 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const note = briefingNote(win.QuietNotes, hostMode(), m0.primary);
       const wantsSafety = win.RescueHost.wantsSafety(m0.primary);
       const { mission: m, cityWarn } = cityBriefing(m0, note, wantsSafety);
-      const controls = note.kind === 'held' ? ''
+      const controls = note.kind === 'held' || s.stopped ? ''
         : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, { ...watchedOpts(), theme: 'game' })}${routerHtml(m.primary)}`;
       const ev = evidenceOf(m.primary || {}, m.module);
       return renderBriefing({ mission: homeText(m), status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
-        scout, busy: s.busy, scanRunning: !!s.scan.running, wantsSafety, learned: lessonForModule(s.lessons, s.progress, m.module), note,
-        cityWarn, modules: scanModules(), platform: s.doc && s.doc.platform, evidenceHtml: ev.html, thin: ev.thin, replaces: ev.replaces });
+        scout, busy: s.busy, scanRunning: sweeping(), wantsSafety, learned: lessonForModule(s.lessons, s.progress, m.module), note,
+        cityWarn, modules: scanModules(), platform: s.doc && s.doc.platform, evidenceHtml: ev.html, thin: ev.thin, replaces: ev.replaces,
+        stopped: !!s.stopped, shown: shownStrings(m.primary), checkNames: checkNames() });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the
       // RECLAIMED screen of the mission that fix was for. FixFlow handles the
       // click, because this sits inside a [data-fix-module] card on the frame.
       const lf = s.lastFix;
-      const undoHtml = s.outcome === 'reclaimed' && lf && lf.result && lf.result.quarantine_id
+      const undoHtml = (s.outcome === 'reclaimed' || (s.outcome === 'couldnt' && s.fixApplied)) && lf && lf.result && lf.result.quarantine_id
         && s.outcomeMission && lf.missionId === s.outcomeMission.id
         ? `<div class="fix-it" data-fix-module="${esc(lf.module)}"><div class="fix-status" data-fix-status>${win.FixFlow.resultHtml(lf.result)}</div></div>`
         : '';
-      return renderOutcome({ kind: s.outcome, mission: s.outcomeMission, scout, message: s.message, undoHtml });
+      return renderOutcome({ kind: s.outcome, mission: s.outcomeMission, scout, message: s.message, undoHtml,
+        failed: s.outcome === 'couldnt' && win.FixFlow && typeof win.FixFlow.recheckFailedText === 'function'
+          ? win.FixFlow.recheckFailedText({ fixApplied: !!s.fixApplied }) : null, fixApplied: !!s.fixApplied });
     }
     s.screen = 'map';
     return deckHtml();
@@ -1019,7 +1039,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // check per scan; when they arrive, the block on screen is redrawn in place
   // (a whole redraw would move keyboard focus).
   let commands = new Map();
-  const shownEv = new Map(); // module -> finding, for the blocks on screen
+  const shownEv = new Map(); // module -> { finding, keep }, for the blocks on screen
   function commandsFor(module) {
     if (commands.has(module)) return commands.get(module);
     commands.set(module, []);
@@ -1039,18 +1059,29 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       checkName: EV.checkLabel(module, s.doc), commands: withCommands ? commandsFor(module) : [] });
   }
   const BOOKKEEPING = new Set(['Check', 'Checked with', 'When', 'Seen']);
-  function evidenceOf(finding, module) {
-    const rows = evidenceRowsOf(finding, module);
-    shownEv.set(module, finding);
+  // A row filter for LOOK CLOSER: rows the signal's clues already said.
+  function notInClues(sig) {
+    const clues = cluesOf(sig);
+    const said = new Set(clues.flatMap((c) => c.lines).map((l) => EV.homeRelative(String(l)).trim()));
+    const kinds = new Set(clues.map((c) => c.kind));
+    return (r) => !(kinds.has('maker') && /^Made by/.test(r.label)) && !(kinds.has('saw') && r.label === 'Signature check said')
+      && !said.has(EV.homeRelative(String(r.value == null ? '' : r.value)).trim());
+  }
+  function evidenceOf(finding, module, keep = null) {
+    const all = evidenceRowsOf(finding, module);
+    const rows = keep ? Object.assign(all.filter(keep), { replacesDescription: all.replacesDescription }) : all;
+    shownEv.set(module, { finding, keep });
     return { html: `<div data-ev-module="${esc(module)}">${EV.renderEvidence(rows)}</div>`,
       thin: rows.every((r) => BOOKKEEPING.has(r.label)), replaces: rows.replacesDescription === true };
   }
   function redrawEvidence(module) {
-    const f = shownEv.get(module);
-    if (!f || typeof frame.querySelectorAll !== 'function') return;
+    const shown = shownEv.get(module);
+    if (!shown || typeof frame.querySelectorAll !== 'function') return;
     try {
+      const all = evidenceRowsOf(shown.finding, module);
+      const rows = shown.keep ? all.filter(shown.keep) : all;
       for (const el of frame.querySelectorAll('[data-ev-module]')) {
-        if (el.getAttribute('data-ev-module') === module) el.innerHTML = EV.renderEvidence(evidenceRowsOf(f, module));
+        if (el.getAttribute('data-ev-module') === module) el.innerHTML = EV.renderEvidence(rows);
       }
     } catch (_) { /* the next render draws it */ }
   }
@@ -1063,6 +1094,26 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // A briefing's text: home folders as "~" (the evidence block's rule).
   const homeText = (m) => ({ ...m, description: EV.homeRelative(m.description) });
 
+  // What a finding's evidence block already says: its path-like values and
+  // ids, as written and with the home folder as "~". The mission's "why" line
+  // leaves a sentence out that only repeats one (P2-2).
+  function shownStrings(f) {
+    const out = new Set();
+    const add = (v) => {
+      if (typeof v !== 'string') return;
+      const t = v.trim();
+      if (t.length < 4 || t.length > 1024) return;
+      if (/^[~/]/.test(t) || /^[A-Za-z]:\\/.test(t) || (!/\s/.test(t) && /[./]/.test(t))) { out.add(t); out.add(EV.homeRelative(t)); }
+    };
+    const d = f && f.data && typeof f.data === 'object' ? f.data : {};
+    for (const v of Object.values(d)) {
+      if (Array.isArray(v)) v.slice(0, 50).forEach((x) => (x && typeof x === 'object' ? Object.values(x).forEach(add) : add(x)));
+      else add(v);
+    }
+    return [...out];
+  }
+  const checkNames = () => Object.fromEntries((s.doc && Array.isArray(s.doc.modules) ? s.doc.modules : [])
+    .filter((x) => x && typeof x.check_name === 'string' && x.check_name.trim() && !HELD_MODULES.has(x.name)).map((x) => [x.name, x.check_name]));
   const scanModules = () => (s.doc && Array.isArray(s.doc.modules) ? s.doc.modules.map((x) => x && x.name).filter(Boolean) : []);
   // City mode: the help lives in the help district, so a mission carries no
   // hotline or advocate wording (QuietNotes.quiet, the list's own stripping),
@@ -1143,10 +1194,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   async function recheck(missionId, trigger = 'i-did-it', also = []) {
     const m = mission(missionId) || s.outcomeMission;
     // Main refuses a re-check while a sweep runs; never start one then.
-    if (!m || s.busy || s.scan.running) return;
+    if (!m || s.busy || sweeping()) return;
     const putBack = trigger === 'undo' || trigger === 'unmark';
     const shownAt = s.shown;
-    const modules = [m.module, ...also.filter((x, i, a) => x !== m.module && a.indexOf(x) === i)];
+    // A mission several checks reported (same_key) is checked again in each of them.
+    const theirs = (m.findings || []).map((f) => f && f.module).filter(Boolean);
+    const modules = [m.module, ...[...theirs, ...also].filter((x, i, a) => x !== m.module && a.indexOf(x) === i)];
     s.trigger = trigger; s.recheckModules = modules.slice(1);
     s.busy = true; s.screen = 'mission'; s.missionId = m.id; render();
     let res = null;
@@ -1176,8 +1229,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.outcomeMission = mission(m.id) || m;
     s.message = res && !res.ok ? res.message || ''
       : res && res.module && res.module.complete === false ? UNFINISHED_RECHECK : '';
+    // A fix ran before this re-check: never "Nothing was changed" (FixFlow.recheckFailedText).
+    const lf = s.lastFix;
+    s.fixApplied = trigger === 'fix' && !!(lf && lf.missionId === m.id && lf.result && lf.result.applied === true);
     s.screen = 'outcome';
     render();
+    // Keyboard and screen-reader users land on what happened.
+    focusHeading(frame);
   }
 
   // District missions ticked for a bulk move (read from the page; the
@@ -1196,7 +1254,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // I DID THESE MYSELF: each ticked mission's check once, then what's gone is
   // CONFIRMED (and paid, as for one), and the district says how many.
   async function recheckMany(ids) {
-    if (s.busy || s.scan.running) return;
+    if (s.busy || sweeping()) return;
     const ms = ids.map(mission).filter(Boolean);
     const modules = ms.map((m) => m.module).filter((x, i, a) => a.indexOf(x) === i);
     const shownAt = s.shown;
@@ -1226,6 +1284,39 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (couldnt) parts.push(`${couldnt} couldn’t be checked again, so not confirmed`);
     s.districtMsg = parts.join(', ') + '.';
     if (s.shown !== shownAt) { render(); return; }
+    render();
+  }
+
+  // The phone backup's long sweep: only after the person said yes to it on
+  // its own question. Its result joins this checkup (its check's entry is
+  // replaced), the list is kept in step, and the city is drawn again.
+  const PHONE_PROFILE = 'iphone_spyware_check';
+  function mergeModules(base, extra) {
+    const add = extra && Array.isArray(extra.modules) ? extra.modules.filter((m) => m && typeof m.name === 'string') : [];
+    const names = new Set(add.map((m) => m.name));
+    const kept = base.modules.map((m) => (m && names.has(m.name) ? add.find((x) => x.name === m.name) : m));
+    return { ...base, modules: [...kept, ...add.filter((m) => !base.modules.some((b) => b && b.name === m.name))] };
+  }
+  async function startPhoneSweep() {
+    if (sweeping() || s.busy || !s.doc || s.stopped || !win.rescue || typeof win.rescue.runScan !== 'function') return;
+    s.phone = 'running';
+    s.signal = s.signal ? { ...s.signal, confirming: false } : null;
+    logEntry('LONG SWEEP', 'Started.');
+    render();
+    focusEl(frame.querySelector('.sig-panel .checking'));
+    let ran = null;
+    try { ran = await win.rescue.runScan(PHONE_PROFILE); } catch (_) { ran = null; }
+    if (!ran || !Array.isArray(ran.modules) || !ran.modules.length || ran.stopped || !s.doc) {
+      s.phone = 'failed';
+      logEntry('LONG SWEEP', 'Stopped before it finished.');
+      render();
+      return;
+    }
+    s.phone = null;
+    const merged = mergeModules(s.doc, ran);
+    logEntry('LONG SWEEP', 'Finished.');
+    if (win.RescueHost && typeof win.RescueHost.docChanged === 'function' && !win.RescueHost.docChanged(merged)) return;
+    rebuild(merged);
     render();
   }
 
@@ -1309,7 +1400,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
     // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
     // gate decides where it lands (monitoring software: the plain list).
-    if (act === 'resweep') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
+    if (act === 'resweep') { if (!sweeping()) win.RescueHost.startCheckup(); return; }
     // The DRILL RANGE: more drills, with or without a scan.
     if (go === 'range') { s.signal = null; s.range = { order: [], i: 0 }; s.screen = 'range'; render(); return; }
     if (act === 'next-drill' && s.range) { s.range = { ...s.range, i: s.range.i + 1 }; s.signal = null; render(); return; }
@@ -1330,6 +1421,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act && act.startsWith('clue:')) { scanClue(act.slice(5)); return; }
     if (act && act.startsWith('tag:')) { tagSignal(act.slice(4)); return; }
     if (act === 'close-signal') { closeSignal(); return; }
+    if (act === 'waiting-start' && s.signal) { s.signal = { ...s.signal, confirming: true }; render(); focusEl(findByAttr(frame, 'data-act', 'waiting-yes')); return; }
+    if (act === 'waiting-no' && s.signal) { s.signal = { ...s.signal, confirming: false }; render(); focusEl(findByAttr(frame, 'data-act', 'waiting-start')); return; }
+    if (act === 'waiting-yes' && s.signal && s.signal.confirming) { startPhoneSweep(); return; }
     if (act === 'toggle-low') { s.lowOpen = !s.lowOpen; render(); return; }
     if (act === 'toggle-queue') { s.queueOpen = !s.queueOpen; render(); focusEl(findByAttr(frame, 'data-act', 'toggle-queue')); return; }
     if (act && act.startsWith('sev:')) {
@@ -1379,7 +1473,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (l) startVisit(nextReview(l.list || [l.lesson]).id, { fromSweep: true });
       return;
     }
-    if (act === 'start-checkup') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
+    if (act === 'start-checkup') { if (!sweeping()) win.RescueHost.startCheckup(); return; }
     if (act && act.startsWith('answer:')) {
       if (s.lesson && s.lesson.picked == null) {
         const list = questionsOf(s.lesson);
@@ -1396,6 +1490,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
         if (s.lesson.q >= list.length - 1 && !s.lesson.concept) next = recordVisit(next, s.lesson.id, now());
         if (next !== s.profile) keepProfile(next);
         render();
+        // The answer's buttons are now inert: land on what it says (P2-13).
+        const fb = frame.querySelector('.feedback');
+        if (fb) { if (typeof fb.setAttribute === 'function') fb.setAttribute('tabindex', '-1'); focusEl(fb); }
       }
       return;
     }
@@ -1425,7 +1522,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go && go.startsWith('rc:')) { if (s.rc) goRc(go.slice(3)); return; }
     if (act === 'confirm-from-scan') { if (s.rc) confirmFromScan(); return; }
     if (go === 'map') { s.screen = 'map'; s.signal = null; render(); return; }
-    if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); s.districtMsg = ''; render(); focusHeading(frame); return; }
+    if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); s.districtMsg = ''; s.districtOpen = false; render(); focusHeading(frame); return; }
+    if (act === 'toggle-district' && s.screen === 'district') { s.districtOpen = !s.districtOpen; render(); focusEl(findByAttr(frame, 'data-act', 'toggle-district')); return; }
     if (act === 'bulk-did' || act === 'bulk-later') {
       const ids = ticked();
       if (!ids.length || s.screen !== 'district') return;
@@ -1626,7 +1724,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (doc !== s.sweptDoc) newSweep(doc, prev);
     s.screen = stay ? 'side' : 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
     s.lesson = null; s.pendingCity = false;
-    s.signal = null; s.filter = null; s.lowOpen = false; s.range = null; s.queueOpen = false; s.sev = null;
+    s.signal = null; s.filter = null; s.lowOpen = false; s.range = null; s.queueOpen = false; s.sev = null; s.districtOpen = false;
+    if (s.phone !== 'running') s.phone = null;
     // A new sweep that holds something says NEW on the tile again.
     if (doc !== s.sweptDocSeen) { s.sideSeen = false; s.sweptDocSeen = doc; }
     s.focusPending = !stay;

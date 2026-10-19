@@ -60,7 +60,7 @@ test('clues come only from evidence the finding has, in a fixed order', async ()
     made_by: [{ subject: '/tmp/x', name: 'Unknown maker', verified: false, how: 'unsigned', location_note: '' }] });
   assert.deepStrictEqual(full.map((c) => c.kind), ['maker', 'where', 'what', 'when']);
   assert.deepStrictEqual(full.map((c) => c.label), ['WHO MADE IT', 'WHERE IT LIVES', 'WHAT IT DOES', 'WHEN IT SHOWED UP']);
-  assert.deepStrictEqual(full[0].lines, ['Unknown maker, not verified (unsigned)']);
+  assert.deepStrictEqual(full[0].lines, ['Unknown maker · not verified · unsigned']);
   assert.strictEqual(full[0].reading, READING.unverified);
   assert.deepStrictEqual(full[1].lines, ['/tmp/x', placeFor('/tmp/x').note]);
   assert.strictEqual(full[1].reading, READING.place);
@@ -80,12 +80,12 @@ test('no made_by, no path, no date: only the clue it can support; no description
 test('who made it: verified, Apple, several programs, and the program’s description only when verified', async () => {
   const { cluesFor, READING } = await load();
   const v = cluesFor({ made_by: [{ name: 'Google LLC', verified: true, how: 'Developer ID signature', what: 'Chrome: a browser.' }] })[0];
-  assert.deepStrictEqual(v.lines, ['Google LLC, verified (Developer ID signature)', 'Chrome: a browser.']);
+  assert.deepStrictEqual(v.lines, ['Google LLC · verified · Developer ID signature', 'Chrome: a browser.']);
   assert.strictEqual(v.reading, READING.verified);
   assert.strictEqual(cluesFor({ made_by: [{ name: 'Apple', verified: true, how: 'Apple system file' }] })[0].reading, READING.apple);
   const two = cluesFor({ made_by: [{ subject: '/Applications/A.app', name: 'A Co', verified: true, how: 'Developer ID signature' },
     { subject: '/tmp/b', name: '', verified: false, how: 'unsigned', what: 'never shown' }] })[0];
-  assert.deepStrictEqual(two.lines, ['A.app: A Co, verified (Developer ID signature)', 'b: Unknown maker, not verified (unsigned)']);
+  assert.deepStrictEqual(two.lines, ['A.app: A Co · verified · Developer ID signature', 'b: Unknown maker · not verified · unsigned']);
   assert.strictEqual(two.reading, READING.unverified);
 });
 

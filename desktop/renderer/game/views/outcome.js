@@ -1,7 +1,10 @@
 import { esc } from '../escape.js';
 import { SCOUT } from '../scout-lines.js';
 
-export function renderOutcome({ kind, mission: m, scout, message, undoHtml }) {
+// `failed`: FixFlow.recheckFailedText's { headline, detail } for a re-check
+// that couldn't run. `fixApplied`: a fix ran first, so the text says the
+// change was made (with Undo here) and never that nothing was changed.
+export function renderOutcome({ kind, mission: m, scout, message, undoHtml, failed = null, fixApplied = false }) {
   if (kind === 'reclaimed') {
     return `
     <section class="outcome o-win">
@@ -44,11 +47,17 @@ export function renderOutcome({ kind, mission: m, scout, message, undoHtml }) {
       <button type="button" class="btn-s" data-go="mission:${esc(m.id)}">BACK TO THE STEPS</button>
     </section>`;
   }
+  // One heading, one explanation. The engine's own message only when it says
+  // something else (a sweep running), never the generic "couldn't check" again.
+  const head = fixApplied && failed ? failed.headline : SCOUT.couldnt;
+  const detail = fixApplied && failed ? failed.detail : 'You can try again. The building stays dark until a check can see it.';
+  const extra = message && !/couldn[’']t (?:check|re-check)|nothing was changed/i.test(message) ? message : '';
   return `
     <section class="outcome o-err">
-      <span class="badge fog">COULDN’T RE-CHECK</span><h2>COULDN’T RE-CHECK</h2>
-      <p>${esc(SCOUT.couldnt)} The building stays dark until a check can see it.</p>
-      ${message ? `<p class="from">${esc(message)}</p>` : ''}
+      <h2>COULDN’T RE-CHECK</h2>
+      <p>${esc(head)} ${esc(detail)}</p>
+      ${fixApplied && undoHtml ? undoHtml : ''}
+      ${extra ? `<p class="from">${esc(extra)}</p>` : ''}
       <div class="row"><button type="button" class="btn-s" data-act="recheck">TRY THE RE-CHECK AGAIN</button>
       <button type="button" class="btn-t" data-go="mission:${esc(m.id)}">BACK TO THE STEPS</button></div>
     </section>`;

@@ -3,6 +3,7 @@
 // city. Right: the instruments. Bottom: the ops log. Every string from the
 // engine or the drill bank is escaped.
 import { esc } from '../escape.js';
+import { STOPPED_LINE } from './training.js';
 
 export const SEV_BADGE = {
   critical: '<span class="badge crit">CRITICAL</span>',
@@ -119,7 +120,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     // Before any sweep this session: the sweep is the one main action. The
     // label claims nothing about earlier sweeps (the top bar says those).
     blank = `<div class="panel pre-sweep"><div class="label">SWEEP THE CITY</div>
-      ${scanError ? `<p class="intel">${esc(scanError)}</p>` : ''}
+      ${scanError ? `<p class="intel" role="alert">${esc(STOPPED_LINE)}</p>` : ''}
       <button type="button" class="btn-p" data-act="start-checkup">START THE SWEEP ▶</button></div>`;
   } else if (nothingChecked) {
     blank = '<div class="panel fogged" role="note"><div class="label">NOTHING COULD BE CHECKED</div><p class="intel">None of the checks could run, so nothing was looked at. That doesn’t mean it’s safe.</p></div>';

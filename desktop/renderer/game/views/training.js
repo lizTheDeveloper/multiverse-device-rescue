@@ -6,6 +6,8 @@ export function lessonText(s) {
   return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
+export const STOPPED_LINE = 'It stopped before it finished. Nothing on your computer was changed. You can start it again whenever you’re ready.';
+
 export function cityBanner() {
   return `<div class="banner" role="status"><span>Your checkup is done.</span>
     <button type="button" class="btn-p" data-go="city">SEE YOUR CITY ▶</button></div>`;
@@ -48,10 +50,11 @@ export function renderTraining({ ordered, progress, worryTitle, forYou = false, 
   const all = [...ordered.recommended, ...ordered.other];
   const nextLesson = ordered.recommended.find((l) => !lessonDone(progress, l.id)) || all.find((l) => !lessonDone(progress, l.id));
   const head = worryTitle ? `RECOMMENDED FOR “${esc(String(worryTitle).toUpperCase())}”` : forYou ? 'RECOMMENDED FOR YOU' : 'START HERE';
+  // The engine's own words never show here (they can hold a traceback and
+  // home folders): one plain line, and the way to start again below.
   const failed = scan && scan.error ? `
-    <div class="panel fogged" role="alert"><div class="label">THE CHECKUP STOPPED</div>
-      <p class="intel">The checkup didn’t finish. This is what it said: ${esc(scan.error)}</p>
-      <p class="intel">Nothing on your computer was changed. You can start it again whenever you’re ready.</p></div>` : '';
+    <div class="panel fogged" role="alert"><div class="label">${forYou ? 'THE SWEEP STOPPED' : 'THE CHECKUP STOPPED'}</div>
+      <p class="intel">${esc(STOPPED_LINE)}</p></div>` : '';
   return `
   ${trainingHud(progress, all)}
   ${sideHtml ? `<div class="train-side">${sideHtml}</div>` : ''}

@@ -78,7 +78,8 @@ test('a mission: WHAT IT IS is the evidence block and one line; no walkthrough s
   assert.match(what, /class="evidence"/);
   assert.match(what, /<dt>Background task<\/dt><dd><code class="evidence-mono">ai\.hermes\.gateway-deflock<\/code>/);
   assert.match(what, /<dt>Runs<\/dt><dd><code class="evidence-mono">~\/\.hermes\/venv\/bin\/python<\/code>/);
-  assert.match(html, /<p class="intel why">The background task &#39;ai\.hermes\.gateway-deflock&#39; runs a program from ~\/\.hermes\/venv\/bin\/python, which is inside a hidden folder\.<\/p>/);
+  // The description's first sentence only repeats the block (its label and path): left out (round 3, P2-2).
+  assert.doesNotMatch(html, /<p class="intel why">[^<]*~\/\.hermes\/venv\/bin\/python/);
   assert.doesNotMatch(html, /\/Users\/ann/, 'home folders read ~');
   assert.doesNotMatch(html, /Hidden folders are often used|not automatically dangerous/, 'the generic prose goes to the lesson');
   assert.doesNotMatch(html, /From the walkthrough/);
