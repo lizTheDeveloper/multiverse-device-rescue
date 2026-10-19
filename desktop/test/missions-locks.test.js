@@ -161,13 +161,30 @@ test('research: what it protects, where the switch is, allowlisted link intents 
   for (const l of game.research(hostile, C.testContext()).links) if (l.kind === 'lookup') assert.doesNotMatch(l.query, /evil|<b>/);
 });
 
-test('research rows come from ctx.evidenceRows and are escaped in render', async () => {
+test('research rows come from ctx.evidenceRows; render leaves evidence, buttons and links to the runner', async () => {
   const { C, game, mac } = await setup();
-  const ctx = C.testContext({ evidenceRows: () => [{ label: 'File', value: '<img src=x onerror=alert(1)>', mono: true }] });
+  const ctx = C.testContext({ evidenceRows: () => [{ label: 'File', value: 'EVIDENCE-ROW-VALUE', mono: true }] });
   const item = find(mac, 'session_revocation_scan');
-  const html = game.render({ item, research: game.research(item, ctx), decisions: game.decisions(item, ctx), index: 0, total: 1 }, ctx);
-  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
-  assert.deepStrictEqual(C.checkInert(html), []);
+  const r = game.research(item, ctx);
+  assert.strictEqual(r.rows[0].value, 'EVIDENCE-ROW-VALUE');
+  const html = game.render({ item, research: r, decisions: game.decisions(item, ctx), index: 0, total: 1 }, ctx);
+  assert.doesNotMatch(html, /EVIDENCE-ROW-VALUE|<button|<a\b|href=/);
+});
+
+test('the saved-keys lock asks the runner for the removal warning (warning: true)', async () => {
+  const { C, game, mac } = await setup();
+  const d = game.decisions(find(mac, 'session_revocation_scan'), C.testContext());
+  assert.strictEqual(d[0].effect.warning, true);
+  assert.ok(!game.decisions(find(mac, 'firewall_audit'), C.testContext())[0].effect.warning);
+});
+
+test('an item the foundation marks unfinished shows "This check didn\'t finish"', async () => {
+  const { C, game, mac } = await setup();
+  const item = { ...find(mac, 'firewall_audit'), unfinished: true };
+  const ctx = C.testContext();
+  const t = textOf(game.render({ item, research: game.research(item, ctx), decisions: game.decisions(item, ctx), index: 0, total: 1 }, ctx));
+  assert.match(t, /This check didn’t finish/);
+  assert.match(t, /Not checked/);
 });
 
 test('render: a row of locks with the current one marked, the lock\'s name, state and what it protects', async () => {

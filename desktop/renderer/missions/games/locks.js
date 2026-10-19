@@ -214,7 +214,7 @@ export function lockOf(finding) {
 export function couldntCheck(item) {
   const f = (item && item.finding) || {};
   const d = dataOf(f);
-  if (item && (item.incomplete === true || item.complete === false)) return true;
+  if (item && (item.unfinished === true || item.incomplete === true || item.complete === false)) return true;
   if (COULDNT_TITLE.test(String(f.title || ''))) return true;
   if (COULDNT_CHECKS.has(String(d.check || ''))) return true;
   if (COULDNT_CODE.test(String(f.code || ''))) return true;
@@ -237,6 +237,10 @@ const modules = (item) => {
   return [...new Set([lead, ...seen].filter((m) => typeof m === 'string' && m))];
 };
 
+const alerting = (item) => !!(item && (item.removal_alert || (item.finding && (item.finding.removal_alert || (item.finding.remediation && item.finding.remediation.safety_note)))));
+
+// The runner draws the buttons, the removal-warning line, the evidence rows and the links (ruling R1); render
+// returns only the lock card.
 export function decisions(item, ctx) {
   const { lock, place } = lockFor(item, ctx);
   const unknown = couldntCheck(item);
@@ -256,6 +260,9 @@ export function decisions(item, ctx) {
     effect: recheck,
     hint: 'Runs this check again to see the change.',
   };
+  // A lock on something that can alert whoever set it up (saved sign-in keys): the runner shows the removal
+  // warning before it opens the steps or the page (controller ruling R6).
+  if (alerting(item)) on.effect.warning = true;
   return [on, done, later];
 }
 
@@ -316,7 +323,6 @@ export function render(view, ctx) {
   const unknown = couldntCheck(item);
   const state = unknown ? 'unknown' : 'open';
   const pos = `${Number(v.index) + 1 || 1} of ${Number(v.total) || 1}`;
-  const rows = (r.rows || []).slice(0, 8).map((x) => `<div class="lk-ev__row"><dt>${e(x && x.label)}</dt><dd${x && x.mono ? ' class="lk-mono"' : ''}>${e(x && x.value)}</dd></div>`).join('');
   const steps = (r.steps || []).map((s) => `<li>${e(s)}</li>`).join('');
   const step = v.step && v.step.say ? `<p class="lk-coach">${e(v.step.say[mode] || v.step.say.standard || '')}</p>` : '';
   return `<section class="lk lk--${state}${v.practice ? ' lk--practice' : ''}" data-lock="${e(r.lock || '')}">
@@ -335,7 +341,6 @@ export function render(view, ctx) {
     ${r.notChecked ? `<p class="lk-note lk-note--fog">${e(r.notChecked)}</p>` : ''}
     ${r.neverPaste ? `<p class="lk-note lk-note--key"><strong>${e('Your recovery key stays with you.')}</strong> ${e(r.neverPaste)}</p>` : ''}
     ${steps ? `<ol class="lk-steps">${steps}</ol>` : ''}
-    ${rows ? `<details class="lk-ev"><summary>${e(mode === 'city' ? 'What the scout saw' : 'What the check saw')}</summary><dl>${rows}</dl></details>` : ''}
   </div>
 </section>`;
 }

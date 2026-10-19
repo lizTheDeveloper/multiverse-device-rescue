@@ -38,14 +38,6 @@
 .lk-steps li { padding: 2px 0; }
 .lk-steps li::marker { color: var(--cyan); font-family: var(--font-mono); }
 
-.lk-ev { font-size: 14px; color: var(--dim); }
-.lk-ev summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75); }
-.lk-ev dl { display: grid; gap: 6px; margin: 8px 0 0; padding: 12px 14px; border: 1px solid var(--line); background: rgba(9,11,16,0.55); }
-.lk-ev__row { display: grid; grid-template-columns: max-content 1fr; gap: 16px; }
-.lk-ev dt { color: var(--dim); }
-.lk-ev dd { margin: 0; color: var(--offwhite); overflow-wrap: anywhere; }
-.lk-mono { font-family: var(--font-mono); font-size: 13px; }
-
 .lk-sum { display: grid; gap: 6px; }
 .lk-sum p { margin: 0; }
 
