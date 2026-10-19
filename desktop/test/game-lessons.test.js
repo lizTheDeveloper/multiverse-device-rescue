@@ -22,12 +22,15 @@ const PATH_RE = new RegExp(`${SEG}(?: (?:>|→) ${SEG})+`, 'g');
 const TICKS_RE = /`([^`]+)`/g;
 const norm = (s) => String(s).replace(/\s+/g, ' ');
 
+// A question and each of its variants: the items item response theory measures.
+const itemsOf = (q) => [q, ...(Array.isArray(q.variants) ? q.variants : [])];
+
 function ownText(lesson) {
   // For the phishing lesson, the messages and their tells are Reclaim City's
   // content. Only Device Rescue's wrapper text is checked here.
-  const qs = lesson.questions.flatMap((q) => (lesson.type === 'phishing'
-    ? [q.prompt, q.teach]
-    : [q.prompt, q.teach, ...q.options.flatMap((o) => [o.text, o.feedback])]));
+  const qs = lesson.questions.flatMap((q) => [q.teach, ...itemsOf(q).flatMap((it) => (lesson.type === 'phishing'
+    ? [it.prompt]
+    : [it.prompt, ...it.options.flatMap((o) => [o.text, o.feedback])]))]);
   return [lesson.title, lesson.briefing, lesson.whatTheScanLooksFor, ...qs].filter((t) => t != null);
 }
 
@@ -117,7 +120,7 @@ test('every question has two or more options, exactly one right answer, and feed
   const { lessons } = await loadAll();
   for (const l of lessons) {
     assert.ok(l.questions.length >= 1 && l.questions.length <= 5, `${l.id}: 1–5 questions`);
-    for (const q of l.questions) {
+    for (const q of l.questions.flatMap(itemsOf)) {
       assert.ok(q.options.length >= 2, `${l.id}: "${q.prompt}" needs options`);
       assert.strictEqual(q.options.filter((o) => o.correct === true).length, 1, `${l.id}: "${q.prompt}" needs exactly one right answer`);
       for (const o of q.options) assert.ok(typeof o.feedback === 'string' && o.feedback.trim(), `${l.id}: "${o.text}" has no feedback`);
@@ -150,4 +153,67 @@ test('each question carries its own what-to-know, and the accuracy check reads i
   const fake = { title: 'T', briefing: 'B', whatTheScanLooksFor: 'W',
     questions: [{ teach: 'Open System Settings > Make Me Safe.', prompt: 'P', options: [] }] };
   assert.ok(ownText(fake).includes('Open System Settings > Make Me Safe.'));
+});
+
+// The item bank (docs/superpowers/plans/2026-10-18-player-profile-and-irt.md):
+// every item a lesson can ask has a stable key and the concept it measures.
+const { FORBIDDEN_ON_DISK } = require('./disk-words.js');
+const KEY_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+test('item keys are stable slugs, unique across every lesson, and safe to store', async () => {
+  const { lessons } = await loadAll();
+  const seen = new Map();
+  for (const l of lessons) {
+    for (const q of l.questions) {
+      for (const it of itemsOf(q).filter((x) => x.key !== undefined)) {
+        assert.match(it.key, KEY_RE, `${l.id}: key "${it.key}"`);
+        assert.doesNotMatch(it.key, FORBIDDEN_ON_DISK, `${l.id}: key "${it.key}"`);
+        assert.ok(!seen.has(it.key), `${l.id}: key "${it.key}" is also used in ${seen.get(it.key)}`);
+        seen.set(it.key, l.id);
+      }
+      if (Array.isArray(q.variants) && q.variants.length) {
+        assert.ok(typeof q.key === 'string', `${l.id}: "${q.prompt}" has variants but no key`);
+        for (const v of q.variants) assert.ok(typeof v.key === 'string', `${l.id}: a variant of "${q.prompt}" has no key`);
+      }
+    }
+  }
+});
+
+test('every concept a question names exists, and variants share their question’s concept', async () => {
+  const { lessons } = await loadAll();
+  const { conceptById } = await import(pathToFileURL(path.join(GAME, 'profile', 'skills.js')).href);
+  for (const l of lessons) {
+    for (const q of l.questions.filter((x) => x.concept !== undefined)) {
+      assert.ok(conceptById(q.concept), `${l.id}: no concept ${q.concept}`);
+      for (const v of q.variants || []) assert.strictEqual(v.concept, undefined, `${l.id}: ${v.key} names its own concept; it takes its question’s`);
+    }
+  }
+});
+
+// Two options carry too little information for item response theory, so every
+// variant (an item added for the bank) offers at least three. A lesson's own
+// first question may still offer two.
+test('every variant offers at least three options', async () => {
+  const { lessons } = await loadAll();
+  for (const l of lessons) {
+    for (const q of l.questions) {
+      for (const v of Array.isArray(q.variants) ? q.variants : []) {
+        assert.ok(Array.isArray(v.options) && v.options.length >= 3, `${l.id}: variant ${v.key} has ${(v.options || []).length} options; it needs at least 3`);
+      }
+    }
+  }
+});
+
+// Nothing in the bank is about monitoring software or being watched: an item
+// the profile measures and stores must never be about that.
+test('no variant is about monitoring software', async () => {
+  const { lessons } = await loadAll();
+  for (const l of lessons) {
+    for (const q of l.questions) {
+      for (const v of Array.isArray(q.variants) ? q.variants : []) {
+        const text = [v.prompt, v.message, ...(v.options || []).flatMap((o) => [o.text, o.feedback])].filter((t) => t != null).join(' ');
+        assert.doesNotMatch(text, /stalk|monitor|spy|being watched|keylog/i, `${l.id}: variant ${v.key}`);
+      }
+    }
+  }
 });

@@ -42,3 +42,16 @@ test('every drill in the bank is mapped (to a concept, or to null), and only to 
   }
   for (const c of Object.values(CLUE_CONCEPTS)) assert.ok(conceptById(c));
 });
+
+test('skill ids are unique, and no skill or concept title uses a word that must not reach the disk', async () => {
+  const { SKILLS, CONCEPTS } = await imp('profile/skills.js');
+  assert.strictEqual(new Set(SKILLS.map((s) => s.id)).size, SKILLS.length, 'skill ids are unique');
+  for (const s of SKILLS) assert.doesNotMatch(s.title, FORBIDDEN_ON_DISK, s.id);
+  for (const c of CONCEPTS) assert.doesNotMatch(c.title, FORBIDDEN_ON_DISK, c.id);
+});
+
+test('a drill id that names an Object.prototype property maps to no concept in the bank', async () => {
+  const { buildBank } = await imp('profile/item-bank.js');
+  const bank = buildBank([], [{ id: 'constructor' }, { id: 'toString' }, { id: '__proto__' }]);
+  for (const id of ['constructor', 'toString', '__proto__']) assert.strictEqual(bank.items.get(`drill:${id}`).concept, null, id);
+});
