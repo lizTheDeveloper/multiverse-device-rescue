@@ -329,6 +329,28 @@ test('after a restart, held software gone is still no CLEAN SWEEP and no points;
   }
 });
 
+test('a sweep where a monitoring check timed out or couldn’t look keeps the mark; one where it ran and found nothing clears it', async () => {
+  const TIMED_OUT = () => ({ ...mod('stalkerware_scan', []), status: 'error', error: 'Module check timed out: stalkerware_scan' });
+  const REMOTE = () => mod('remote_login_check', [finding('Remote Login is on', 'warning')]);
+  for (const mode of ['city', 'none']) {
+    const storage = recordingStore();
+    const a = await setup({ mode, storage }, scan(SPY(), REMOTE()));
+    assert.strictEqual(a.saved().deck.sweep.carry, true, `${mode}: held, marked`);
+    // The check timed out: nothing is known about it, so the mark stays.
+    a.ctl.show(scan(TIMED_OUT(), REMOTE()), { id: 'city' });
+    assert.strictEqual(a.saved().deck.sweep.carry, true, `${mode}: a timeout keeps the mark`);
+    // A check that couldn't run here at all doesn't clear it either, on its own.
+    a.ctl.show(scan({ ...mod('stalkerware_scan', []), supported: false }, REMOTE()), { id: 'city' });
+    assert.strictEqual(a.saved().deck.sweep.carry, true, `${mode}: couldn’t look keeps the mark`);
+    // Then everything clean: no CLEAN SWEEP, as the sweep before still carried it.
+    a.ctl.show(scan(NONE(), mod('remote_login_check', [])), { id: 'city' });
+    assert.doesNotMatch(a.html(), /CLEAN SWEEP/, mode);
+    assert.strictEqual(a.saved().deck.points, 0, mode);
+    assert.strictEqual(a.saved().deck.sweep.carry, undefined, `${mode}: ran ok and found nothing, so it clears`);
+    assert.deepStrictEqual(forbiddenWrites(storage), [], mode);
+  }
+});
+
 test('recordSweep: a sweep that carries held software, or follows one, pays no clean bonus; the flag survives a reload', async () => {
   const { recordSweep } = await game('ledger.js');
   const { emptyDeck, cleanDeck, validDeck } = await game('progress.js');

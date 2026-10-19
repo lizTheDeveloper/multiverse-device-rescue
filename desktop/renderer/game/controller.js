@@ -3,7 +3,7 @@
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
 import { findingsToCity, DISTRICTS } from './findings-to-city.js';
-import { splitHeld, heldOnly, briefingNote, heldPanelHtml } from './held.js';
+import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
@@ -489,11 +489,23 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // the clean-sweep bonus when this re-sweep cleared the board, and new drills.
   // A sweep where held monitoring software is, or was in the last sweep, is
   // recorded but never scored or called clean: its going is not a win.
+  // Every monitoring check in this scan that can run here ran ok (none timed
+  // out or failed), and at least one did. Whether any of them holds something
+  // is heldCity's to say.
+  function monitoringRanClear(doc) {
+    const mods = (doc && Array.isArray(doc.modules) ? doc.modules : []).filter((m) => m && HELD_MODULES.has(m.name) && m.supported !== false);
+    const ok = ranOkModules(doc);
+    return mods.length > 0 && mods.every((m) => ok.has(m.name));
+  }
+
   function newSweep(doc, prev) {
     s.sweptDoc = doc;
     const sigs = signalsNow();
     const counts = sweepCounts(doc, s.city, cityIntegrity(s.city, sigs, s.heldCity), s.heldCity);
-    const r = recordSweep(s.progress.deck, counts, now(), { carry: heldDistrictIds(s.heldCity).size > 0 });
+    // The mark stays until the monitoring checks ran and found nothing held:
+    // a sweep where one timed out or couldn't look (fog) keeps it.
+    const carry = heldDistrictIds(s.heldCity).size > 0 || (s.progress.deck.sweep.carry === true && !monitoringRanClear(doc));
+    const r = recordSweep(s.progress.deck, counts, now(), { carry });
     commitAward(r);
     logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check.`);
     if (r.clean) {
