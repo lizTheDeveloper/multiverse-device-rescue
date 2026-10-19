@@ -231,11 +231,11 @@ test('a finished checkup with a check that didn’t finish is never all-clear, a
   assert.deepStrictEqual(p.shown(), ['results']);
   const summary = p.byId('results-summary').innerHTML;
   assert.doesNotMatch(summary, ALL_CLEAR);
-  // The honesty line sits at the top of the list, with the checks behind "See which".
+  // The honesty line sits at the top of the list, with one line per cause under it.
   assert.match(p.byId('results-errors-line').textContent, /1 check didn.t finish, and 1 thing was only partly checked, so this isn.t a clean bill of health\./);
   assert.strictEqual(p.byId('results-errors').hidden, false);
   const list = p.byId('results-errors-list').innerHTML;
-  assert.match(list, /<strong>Update checker<\/strong> &mdash; It didn’t finish, so it may have missed something\./);
+  assert.match(list, /1 check didn’t finish, so it may have missed something: Update checker\./);
   assert.doesNotMatch(list, /update_checker/);
 });
 

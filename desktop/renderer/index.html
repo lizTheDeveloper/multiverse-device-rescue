@@ -116,6 +116,7 @@
         <aside id="scan-tips" class="card scan-tips" aria-labelledby="scan-tips-title" hidden>
           <h2 id="scan-tips-title">Pop-ups you might see</h2>
           <p id="scan-tips-line">Your computer may ask for permission. Click Allow. We never ask for your password.</p>
+          <div id="scan-tips-needed" class="scan-tips__needed" hidden></div>
           <details class="scan-tips__more">
             <summary>What each pop-up means</summary>
             <div id="scan-tips-list"></div>
@@ -138,10 +139,11 @@
           <div id="results-summary" class="results-summary"></div>
           <section id="results-errors" class="results-errors" hidden>
             <p class="results-errors__line"><strong id="results-errors-line"></strong></p>
-            <details class="results-errors__which">
-              <summary>See which</summary>
-              <ul id="results-errors-list" class="errors-list"></ul>
-              <p class="muted">Often it just means a permission or tool is missing.</p>
+            <ul id="results-errors-list" class="errors-list"></ul>
+            <p id="results-errors-rerun" class="muted" role="status" aria-live="polite"></p>
+            <details id="results-errors-tech" class="tech-details" hidden>
+              <summary>For tech helpers</summary>
+              <pre id="results-errors-raw" class="tech-log"></pre>
             </details>
           </section>
           <div id="results-progress" class="results-progress" role="status" aria-live="polite" hidden></div>
@@ -163,6 +165,23 @@
           </section>
 
           <div id="results-groups"></div>
+
+          <details id="results-lessons" class="results-lessons">
+            <summary>How to read these cards</summary>
+            <section id="lesson-evidence" data-lesson="evidence" tabindex="-1">
+              <h3>Evidence</h3>
+              <p>Each card starts with what the checkup actually saw: the file or program, where it is, who made it, and which check found it. Paths and names are copied exactly, so you or a helper can look them up. A path starting with <code>~</code> is in your home folder.</p>
+            </section>
+            <section id="lesson-makers" data-lesson="makers" tabindex="-1">
+              <h3>Made by, verified or not</h3>
+              <p>Programs can be digitally signed by the company that made them, like a seal on a package. <strong>Verified</strong> means the seal is real and names the maker. <strong>Not verified</strong> is not proof of anything bad, but nobody has vouched for it, so be more careful, especially if it runs from a temporary folder or one you did not install into.</p>
+            </section>
+            <section id="lesson-background" data-lesson="background" tabindex="-1">
+              <h3>Background tasks and hidden folders</h3>
+              <p>A background task is a program your computer starts by itself, at login or on a schedule. Most come from apps you installed: updaters, sync tools, developer tools. Its settings file says which program runs and how.</p>
+              <p>A folder whose name starts with a dot is hidden. Developer tools often use them, but they can also hide unwanted software. A task is not dangerous just because it is listed: it is worth a look when you don&rsquo;t recognise its name, its maker isn&rsquo;t verified, or the file it runs is missing. If you didn&rsquo;t install it, that is the one to ask about.</p>
+            </section>
+          </details>
 
           <section id="results-copy-all" class="copy-ai-all">
             <h2>Ask your own AI</h2>
@@ -215,6 +234,7 @@
   <script src="worries.js"></script>
   <script src="not-checked.js"></script>
   <script src="step-fill.js"></script>
+  <script src="evidence.js"></script>
   <script src="app.js"></script>
   <script type="module" src="game/boot.js"></script>
   <script type="module" src="game/profile/plain-panel.js"></script>

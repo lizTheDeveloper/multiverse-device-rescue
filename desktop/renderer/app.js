@@ -409,9 +409,22 @@ function detectOS(platformHint) {
  * this OS except the install-time ones (Gatekeeper, SmartScreen), which the
  * person has already got past by the time the app is open.
  */
-function duringScanTips(content, osKey) {
+function duringScanTips(content, osKey, { fdaNeeded = false } = {}) {
   const steps = (content && content[osKey]) || [];
-  return steps.filter((step) => step && step.stage !== 'install');
+  // Full Disk Access only once a check actually needed it (a permission error).
+  return steps.filter((step) => step && step.stage !== 'install' && (fdaNeeded || !isFdaTip(step)));
+}
+function isFdaTip(step) {
+  return !!step && /Privacy_AllFiles/.test(String(step.setting_url || ''));
+}
+// Whether a scan event says a check was stopped by a missing permission.
+function needsFda(ev) {
+  if (!ev) return false;
+  if (ev.type === 'module' && ev.result) {
+    const r = ev.result;
+    return r.error_kind === 'permission' || (r.status === 'error' && errorKind(r.error) === 'permission');
+  }
+  return ev.type === 'progress' && ev.phase === 'done' && !!ev.error && errorKind(ev.error) === 'permission';
 }
 
 // Only these kinds of finding can be "Needs attention now". A crashing app,
@@ -461,6 +474,34 @@ function groupFindingsBySeverity(doc) {
   return { groups, erroredModules, unfinishedModules, partlyChecked };
 }
 
+// The Evidence block (evidence.js): what each finding actually saw.
+const EvidenceRule = typeof Evidence !== 'undefined' ? Evidence : require('./evidence.js');
+
+/**
+ * One card's Evidence rows. A card that merged several checks says
+ * "Seen by" with each check's name, and lists the commands of all of them.
+ * A held card (city) gets only what to write down, with no clipboard.
+ */
+function cardEvidenceRows(finding, { mode, held, doc, commands } = {}) {
+  const f = finding || {};
+  const seenIn = Array.isArray(f.seen_in) && f.seen_in.length ? f.seen_in : [f.module];
+  const cmds = [];
+  for (const m of seenIn) for (const c of (commands && commands.get ? commands.get(m) : null) || []) cmds.push(c);
+  const rows = EvidenceRule.evidenceRows(f, {
+    mode: mode === 'city' ? 'city' : 'standard',
+    held: !!held,
+    checkName: checkName(f.module, mode, doc),
+    commands: cmds,
+  });
+  if (seenIn.length > 1 && !rows.held) {
+    const at = rows.findIndex((r) => r.label === 'Check');
+    const names = seenIn.map((m) => checkName(m, mode, doc)).join(', ');
+    const seen = { label: 'Seen by', value: names, mono: false, copy: names };
+    if (at >= 0) rows.splice(at, 1, seen); else rows.push(seen);
+  }
+  return rows;
+}
+
 // One count of what wasn't fully checked, the same one the city shows.
 const notCheckedSummary = NotCheckedRule.notCheckedSummary;
 // The top line when something wasn't fully checked. Never an all-clear.
@@ -479,8 +520,12 @@ const safePlaceholderValue = StepFillRule.safeValue;
  * the same words the progress line uses. Never the raw id. In city mode a
  * monitoring check is never named: just "A check".
  */
-function checkName(module, mode) {
+function checkName(module, mode, doc) {
   if (mode === 'city' && ALWAYS_SAFETY_MODULES.has(module)) return 'A check';
+  // The engine's own name for the check, when it gives one.
+  const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
+  const hit = mods.find((m) => m && m.name === module);
+  if (hit && typeof hit.check_name === 'string' && hit.check_name.trim()) return hit.check_name.trim();
   const words = String(module || '').replace(/_/g, ' ').trim();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'A check';
 }
@@ -490,8 +535,8 @@ function checkName(module, mode) {
  * parentheses (an AI can look the id up). In city mode a monitoring check is
  * "A check", with no id.
  */
-function aiCheckLabel(module, mode) {
-  const words = checkName(module, mode);
+function aiCheckLabel(module, mode, doc) {
+  const words = checkName(module, mode, doc);
   if (mode === 'city' && ALWAYS_SAFETY_MODULES.has(module)) return words;
   return `${words} (${String(module || '')})`;
 }
@@ -499,8 +544,11 @@ function aiCheckLabel(module, mode) {
 const UNFINISHED_LINE = 'It didn’t finish, so it may have missed something.';
 
 // The engine's error, in words: needs a permission, took too long, or
-// couldn't run. The raw text goes under "For tech helpers".
-function errorKind(error) {
+// couldn't run. The raw text goes under "For tech helpers". The engine's
+// own `error_kind` decides when it gives one; the text is the fallback.
+const ENGINE_KINDS = { permission: 'permission', timeout: 'slow' };
+function errorKind(error, engineKind) {
+  if (engineKind && ENGINE_KINDS[engineKind]) return ENGINE_KINDS[engineKind];
   const e = String(error || '');
   if (/PermissionError|Operation not permitted|Errno 1\b|not permitted|Full Disk Access/i.test(e)) return 'permission';
   if (/timed out|timeout/i.test(e)) return 'slow';
@@ -517,18 +565,146 @@ const ERROR_WORDS = {
  * that didn't finish. In city mode a monitoring check's reason isn't shown
  * either (it can name what it looked for).
  */
-function couldntCheckItems(erroredModules, unfinishedModules, mode, partlyChecked) {
+function couldntCheckItems(erroredModules, unfinishedModules, mode, partlyChecked, doc) {
   const hide = (name) => mode === 'city' && ALWAYS_SAFETY_MODULES.has(name);
+  const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
+  const engineKind = (name) => { const m = mods.find((x) => x && x.name === name); return m ? m.error_kind : null; };
   return [
     ...erroredModules.map((m) => {
-      const kind = errorKind(m.error);
-      return { name: checkName(m.name, mode), kind,
-        reason: hide(m.name) ? '' : m.error ? ERROR_WORDS[kind] : '', raw: hide(m.name) ? '' : m.error || '' };
+      // City mode: a monitoring check's cause can say what it looked for.
+      const kind = hide(m.name) ? 'failed' : errorKind(m.error, engineKind(m.name));
+      return { name: checkName(m.name, mode, doc), kind,
+        reason: hide(m.name) ? '' : m.error || kind !== 'failed' ? ERROR_WORDS[kind] : '', raw: hide(m.name) ? '' : m.error || '' };
     }),
-    ...unfinishedModules.map((m) => ({ name: checkName(m.name, mode), kind: 'unfinished', reason: UNFINISHED_LINE, raw: '' })),
-    ...(partlyChecked || []).map((m) => ({ name: checkName(m.name, mode), kind: 'partly',
+    ...unfinishedModules.map((m) => ({ name: checkName(m.name, mode, doc), kind: 'unfinished', reason: UNFINISHED_LINE, raw: '' })),
+    ...(partlyChecked || []).map((m) => ({ name: checkName(m.name, mode, doc), kind: 'partly',
       reason: hide(m.name) ? '' : m.title, raw: '' })),
   ];
+}
+
+/**
+ * The couldn't-check box, by cause: one line per cause with the check names
+ * inline and at most one button ("Open the setting" for Full Disk Access,
+ * "Run them again" for the slow ones). Partly-checked notes keep their own
+ * words, one per line. `raw`: every engine message, for the one
+ * "For tech helpers" under the whole box.
+ */
+const CAUSE_ORDER = ['permission', 'slow', 'failed', 'unfinished', 'partly'];
+function couldntCheckGroups(items) {
+  const by = new Map();
+  for (const it of items || []) {
+    if (!by.has(it.kind)) by.set(it.kind, []);
+    by.get(it.kind).push(it);
+  }
+  const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+  const names = (list) => [...new Set(list.map((i) => i.name))].join(', ');
+  const groups = [];
+  for (const kind of CAUSE_ORDER) {
+    const list = by.get(kind);
+    if (!list || !list.length) continue;
+    const c = list.length;
+    let line;
+    if (kind === 'permission') line = `${n(c, 'check needs', 'checks need')} Full Disk Access: ${names(list)}.`;
+    else if (kind === 'slow') line = `${n(c, 'check', 'checks')} took too long: ${names(list)}.`;
+    else if (kind === 'failed') line = `${n(c, 'check', 'checks')} couldn’t run: ${names(list)}.`;
+    else if (kind === 'unfinished') line = `${n(c, 'check', 'checks')} didn’t finish, so ${c === 1 ? 'it' : 'they'} may have missed something: ${names(list)}.`;
+    else line = `${n(c, 'thing was', 'things were')} only partly checked`;
+    groups.push({ kind, line, names: list.map((i) => i.name),
+      notes: kind === 'partly' ? list.map((i) => (i.reason ? `${i.name}: ${i.reason}` : i.name)) : [] });
+  }
+  const raw = (items || []).filter((i) => i.raw).map((i) => `${i.name}: ${i.raw}`).join('\n');
+  return { groups, raw };
+}
+
+/**
+ * The same finding from different checks ("Your Mac is set to never sleep"
+ * from three energy checks, one background task from two persistence
+ * checks) is one card. Same shown severity, same background task (or none),
+ * and the same title once the task's label and punctuation are taken out.
+ * The first one keeps its controls; `seen_in` lists every check that saw it.
+ * Within one check nothing merges (two items can share a name), and
+ * monitoring checks never merge.
+ */
+function mergeKey(f) {
+  const label = f && f.data && typeof f.data.label === 'string' ? f.data.label : '';
+  let t = String((f && f.title) || '').toLowerCase();
+  if (label) t = t.split(label.toLowerCase()).join(' ');
+  return `${f.severity}|${label}|${t.replace(/[^a-z0-9]+/g, ' ').trim()}`;
+}
+function mergeAcrossChecks(findings) {
+  const out = [];
+  const seen = new Map();
+  for (const f of findings || []) {
+    if (!f || ALWAYS_SAFETY_MODULES.has(f.module)) { out.push(f); continue; }
+    const key = mergeKey(f);
+    const first = seen.get(key);
+    if (first && !first.seen_in.includes(f.module)) {
+      first.seen_in.push(f.module);
+      first.also.push(f);
+      continue;
+    }
+    const card = Object.assign({}, f, { seen_in: [f.module], also: [] });
+    if (!first) seen.set(key, card);
+    out.push(card);
+  }
+  return out;
+}
+
+/**
+ * What a card says in prose, beside its Evidence block. `why`: at most two
+ * sentences of the description, leaving out what the evidence already shows
+ * (a sentence quoting a path or id from `data`), the removal warning when the
+ * card shows it in its own box (`alertShown`), generic explanations (those
+ * live in the lessons), and the "What to do:" paragraph. `todo`: that
+ * paragraph, only when the card has no steps (otherwise the steps say it).
+ */
+const GENERIC = [
+  /\bnot automatically (?:dangerous|bad|a sign)\b/i,
+  /\bhidden folders are often used\b/i,
+];
+const ALERT_SENTENCE = /\b(?:remov(?:e|es|ed|ing|al)|uninstall\w*|delet\w*|disabl\w*|(?:switch|turn)\w*\s+(?:\S+\s+){0,3}?off)\b[^.!?]*?\b(?:can|may|could|might|will|would)\s+(?:alert|tip\s+off|notify|warn)\b/i;
+function evidenceStrings(data) {
+  const out = [];
+  const add = (v) => {
+    if (typeof v === 'string' && v.length >= 4 && !/\s/.test(v) && /[/._-]/.test(v)) out.push(v);
+  };
+  for (const v of Object.values(data && typeof data === 'object' ? data : {})) {
+    if (Array.isArray(v)) v.forEach(add); else add(v);
+  }
+  return out;
+}
+function splitSentences(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim()
+    .split(/(?<=[.!?])\s+(?=[A-Z'‘“(])/).map((s) => s.trim()).filter(Boolean);
+}
+function cardProse(description, finding, { steps = 0, alertShown = false } = {}) {
+  const f = finding || {};
+  const paras = String(description || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  let todo = '';
+  const about = [];
+  for (const p of paras) {
+    const m = p.match(/^what to do:\s*/i);
+    if (m) { if (!todo) todo = p.slice(m[0].length); continue; }
+    about.push(p);
+  }
+  const shown = evidenceStrings(f.data);
+  const why = about.flatMap(splitSentences).filter((s) => !GENERIC.some((re) => re.test(s))
+    && !(alertShown && ALERT_SENTENCE.test(s))
+    && !shown.some((v) => s.includes(v)));
+  return { why: why.slice(0, 2).join(' '), todo: steps ? '' : todo };
+}
+
+/**
+ * "What does this mean?": taught once, in the "How to read these cards" box
+ * under the list. A card links to the part that explains it.
+ */
+const BACKGROUND_MODULES = new Set(['launch_agent_audit', 'launchd_persistence_audit', 'scheduled_tasks_audit',
+  'ai_worm_persistence', 'startup_optimizer', 'crypto_miner_persistence', 'linux_persistence_audit', 'login_items']);
+function lessonFor(finding) {
+  const f = finding || {};
+  if (BACKGROUND_MODULES.has(f.module)) return 'background';
+  if (Array.isArray(f.made_by) && f.made_by.length) return 'makers';
+  return '';
 }
 
 // The scan events the game's sweep screen follows.
@@ -614,10 +790,16 @@ if (typeof module !== 'undefined' && module.exports) {
     LOOKUP_TEXT,
     WAIT_FOR_CHANGE_TEXT,
     duringScanTips,
+    needsFda,
     groupFindingsBySeverity,
     checkName,
     aiCheckLabel,
     couldntCheckItems,
+    couldntCheckGroups,
+    cardEvidenceRows,
+    mergeAcrossChecks,
+    cardProse,
+    lessonFor,
     errorKind,
     notCheckedSummary,
     notCheckedLine,
@@ -673,8 +855,11 @@ if (typeof document !== 'undefined') {
       city: document.getElementById('screen-city'),
     };
     const stepDots = document.querySelectorAll('[data-step-dot]');
+    const stepsBar = typeof document.querySelector === 'function' ? document.querySelector('.steps') : null;
 
     let permissionsContent = null;
+    // A check in this scan was stopped by missing Full Disk Access (needsFda).
+    let fdaNeeded = false;
     let lastKnownPlatform = null; // e.g. "darwin" | "win32" | "linux", once we have a scan result
     // The scan's own platform once there is one; before that, what preload says.
     const currentPlatform = () => lastKnownPlatform || (window.rescue && window.rescue.platform) || null;
@@ -756,6 +941,7 @@ if (typeof document !== 'undefined') {
       // no longer closes the city; in standard mode it brings the follow-up once.
       docChanged(doc) {
         lastScanDoc = doc;
+        moduleCommandCache = new Map();
         monitoringSeen = noteMonitoring(monitoringSeen, doc);
         renderResults(doc);
         renderLearnMore(doc);
@@ -779,7 +965,7 @@ if (typeof document !== 'undefined') {
       async scanTips() {
         try {
           const content = await loadPermissionsContent();
-          return duringScanTips(content, detectOS(lastKnownPlatform)).map((t) => ({ title: t.title, body: t.body }));
+          return duringScanTips(content, detectOS(lastKnownPlatform), { fdaNeeded }).map((t) => ({ title: t.title, body: t.body }));
         } catch (_) {
           return [];
         }
@@ -805,6 +991,8 @@ if (typeof document !== 'undefined') {
       // The question screen keeps the step the person was on (worry, or the checkup's follow-up).
       const dotName = name === 'question' ? activeDot : name === 'city' ? 'results' : name;
       activeDot = dotName;
+      // The city has its own screens: the setup steps would label its sweep "Results".
+      if (stepsBar) stepsBar.hidden = name === 'city';
       stepDots.forEach((dot) => {
         dot.classList.toggle('step-dot--active', dot.dataset.stepDot === dotName);
       });
@@ -830,36 +1018,39 @@ if (typeof document !== 'undefined') {
     function renderScanTips(content, osKey) {
       const aside = document.getElementById('scan-tips');
       const container = document.getElementById('scan-tips-list');
-      const steps = duringScanTips(content, osKey);
+      const steps = duringScanTips(content, osKey, { fdaNeeded });
       aside.hidden = steps.length === 0;
       if (steps.length === 0) return;
       // One line on its face; what each pop-up means is behind "What each pop-up means".
       const who = osKey === 'windows' ? 'Windows' : osKey === 'linux' ? 'Your computer' : 'Your Mac';
       document.getElementById('scan-tips-line').textContent = `${who} may ask for permission. Click Allow. We never ask for your password.`;
 
-      const stepsHtml = steps
-        .map((step) => {
-          const button =
-            step.setting_url && step.action_label
-              ? `<button type="button" class="btn btn--secondary btn--small" data-setting-url="${escapeHtml(step.setting_url)}">${escapeHtml(step.action_label)}</button>`
-              : '';
-          return `
+      const card = (step) => {
+        const button =
+          step.setting_url && step.action_label
+            ? `<button type="button" class="btn btn--secondary btn--small" data-setting-url="${escapeHtml(step.setting_url)}">${escapeHtml(step.action_label)}</button>`
+            : '';
+        return `
             <li class="tip-card">
               <h3>${escapeHtml(step.title)}</h3>
               <p>${escapeHtml(step.body)}</p>
               ${button}
             </li>
           `;
-        })
-        .join('');
+      };
+      // Full Disk Access, once a check needed it, is on the face: it is the one to act on.
+      const fda = steps.find(isFdaTip);
+      const needed = document.getElementById('scan-tips-needed');
+      needed.hidden = !fda;
+      needed.innerHTML = fda ? `<p><strong>A check needs Full Disk Access.</strong></p>`
+        + `<button type="button" class="btn btn--secondary btn--small" data-setting-url="${escapeHtml(fda.setting_url)}">${escapeHtml(fda.action_label || 'Open the setting')}</button>` : '';
+      container.innerHTML = `<ul class="tip-list">${steps.map(card).join('')}</ul>`;
 
-      container.innerHTML = `<ul class="tip-list">${stepsHtml}</ul>`;
-
-      container.querySelectorAll('[data-setting-url]').forEach((btn) => {
+      [container, needed].forEach((root) => root.querySelectorAll('[data-setting-url]').forEach((btn) => {
         btn.addEventListener('click', () => {
           window.rescue.openSetting(btn.getAttribute('data-setting-url'));
         });
-      });
+      }));
     }
 
     // The worries: a checklist of the ones that combine, unticked, and a
@@ -1041,13 +1232,17 @@ if (typeof document !== 'undefined') {
 
     // How many cards each group shows before "Show more".
     const PAGE = 10;
-    // "What does this mean?" under the made-by line: on the first card only.
-    let madeByExplained = false;
+    // Each check's traced commands from the last finished scan, for the
+    // Evidence block: fetched once per check, cleared when a new scan lands.
+    let moduleCommandCache = new Map();
+    // Per card: the finding (and whether it is held), to redraw its Evidence
+    // block once the commands are in. Reset on every render.
+    let cardFindings = new Map();
 
     // `partial`: the scan is still running. The cards are the same, with
     // nothing on them that changes the computer or the list (main refuses
     // those mid-scan too: scan-gate.js).
-    function renderSeverityGroup(severity, findings, partial = false) {
+    function renderSeverityGroup(severity, findings, partial = false, shownDoc = null) {
       if (findings.length === 0) return '';
       // City mode: the fix panel's extra warning about whoever set something up.
       const watched = mode === 'city';
@@ -1067,7 +1262,7 @@ if (typeof document !== 'undefined') {
           const pick = held ? QuietNotes.heldPick(card, finding) : copyAiPick(finding);
           cardPicks.set(key, pick);
           cardTech.set(key, {
-            check: finding.module,
+            check: finding.seen_in && finding.seen_in.length > 1 ? finding.seen_in : finding.module,
             code: finding.code || null,
             category: finding.category,
             confidence: finding.confidence == null ? null : finding.confidence,
@@ -1083,10 +1278,16 @@ if (typeof document !== 'undefined') {
           const alerts = card.note === 'line' || card.note === 'full';
           const fix = noControls ? '' : FixFlow.fixControlsHtml(finding, { watched, safety: alerts && !watched ? QuietNotes.LINE_SHORT : '' });
           const mark = noControls ? '' : MarkFlow.markControlsHtml(finding, { watched });
-          const explain = !madeByExplained;
-          const madeBy = madeByHtml(finding.made_by, escapeHtml, { explain });
-          if (madeBy) madeByExplained = true;
           const steps = card.steps.map((step) => ({ title: step.title, body: fillPlaceholders(step.body, finding.data, { platform: currentPlatform() }) }));
+          // Evidence first; then at most two sentences of why, never what the
+          // evidence, the warning box, the steps or a lesson already say.
+          const rows = cardEvidenceRows(finding, { mode, held, doc: shownDoc, commands: moduleCommandCache });
+          cardFindings.set(key, { finding, held });
+          const warned = alerts || (card.note === 'full' && card.full.length > 0);
+          const prose = held ? { why: card.description, todo: '' }
+            : EvidenceRule.replacesDescription(finding) ? { why: '', todo: '' }
+              : cardProse(card.description, finding, { steps: steps.length, alertShown: warned });
+          const lesson = held ? '' : lessonFor(finding);
           // Ticking selects the card for the actions above the list; it changes nothing by itself.
           const pickBox = counts && !partial ? `<input type="checkbox" class="finding-card__pick" data-card-pick aria-label="${escapeHtml(`Select: ${finding.title || 'this finding'}`)}">` : '';
           return `
@@ -1097,20 +1298,16 @@ if (typeof document !== 'undefined') {
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
               <div class="cleared-note" data-cleared-note role="status" aria-live="polite" hidden></div>
-              ${descriptionHtml(card.description, escapeHtml)}
-              ${madeBy}
+              <div class="evidence-slot" data-evidence-slot>${EvidenceRule.renderEvidence(rows)}</div>
+              ${prose.why || lesson ? `<p class="finding-card__why">${escapeHtml(prose.why)}${lesson ? `${prose.why ? ' ' : ''}<button type="button" class="link-button finding-card__lesson" data-lesson-link="${lesson}">What does this mean?</button>` : ''}</p>` : ''}
+              ${prose.todo ? `<p class="finding-card__todo"><strong>What to do:</strong> ${escapeHtml(prose.todo)}</p>` : ''}
               ${QuietNotes.lineHtml(card, escapeHtml, { first: !!(fix || mark) })}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
               ${fix || mark || did ? `<div class="card-answers">${fix}${mark}${did}</div>` : ''}
-              ${steps.length ? `
-              <div class="next-steps">
-                <h4>What to do</h4>
-                <ol>${steps.map((step) => `<li>${escapeHtml(stepTitle(step.title))}</li>`).join('')}</ol>
-              </div>` : ''}
               ${held ? '' : SettingPanes.findingButtonHtml(finding, currentPlatform())}
               ${held ? '' : RouterLink.findingLinkHtml(finding, routerCtx)}
-              ${finding.remediation && !held && steps.length ? `
+              ${!held && steps.length ? `
               <details class="fix-steps">
-                <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}</summary>
+                <summary>${fix ? 'Or fix it yourself, step by step' : 'Show me how, step by step'} (${steps.length})</summary>
                 <ol class="fix-steps__list">
                   ${steps.map((step) => `
                     <li>
@@ -1126,6 +1323,7 @@ if (typeof document !== 'undefined') {
               </details>
               <details class="tech-details">
                 <summary>Technical details</summary>
+                ${held || !card.description ? '' : `<div class="tech-details__about">${descriptionHtml(card.description, escapeHtml)}</div>`}
                 <pre class="tech-log" data-tech-log>${escapeHtml(techText(key, null))}</pre>
               </details>
             </li>
@@ -1255,6 +1453,8 @@ if (typeof document !== 'undefined') {
       const partial = isPartialDoc(doc) ? doc.partial : null;
       renderResultsFrame(partial);
       const { groups, erroredModules, unfinishedModules, partlyChecked } = groupFindingsBySeverity(doc);
+      // The same finding from several checks is one card.
+      SEVERITY_ORDER.forEach((sev) => { groups[sev] = mergeAcrossChecks(groups[sev]); });
       // One count, the same one the city shows (notCheckedSummary).
       const notChecked = notCheckedSummary(doc);
       const notFullyChecked = notChecked.count;
@@ -1268,19 +1468,19 @@ if (typeof document !== 'undefined') {
         findings: reportFindings,
         situation: copyAiSituation(situation, mode),
         platform: doc && doc.platform,
-        couldNotCheck: [...erroredModules, ...unfinishedModules, ...partlyChecked].map((m) => aiCheckLabel(m.name, mode)),
+        couldNotCheck: [...erroredModules, ...unfinishedModules, ...partlyChecked].map((m) => aiCheckLabel(m.name, mode, doc)),
       });
       cardPicks = new Map();
       cardTech = new Map();
+      cardFindings = new Map();
       nextCardKey = 0;
-      madeByExplained = false;
       routerCtx = RouterLink.contextFrom(doc, browserName);
       const groupsEl = document.getElementById('results-groups');
       const wasOpen = partial ? openDetailsIn(groupsEl) : new Set();
       const anchor = partial ? readingAnchor(groupsEl) : null;
       keepFocus(groupsEl, () => {
         groupsEl.innerHTML = (partial ? '' : BULK_HTML)
-          + SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial)).join('')
+          + SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial, doc)).join('')
           + ClearList.sectionHtml();
       });
       reopenDetailsIn(groupsEl, wasOpen);
@@ -1312,21 +1512,91 @@ if (typeof document !== 'undefined') {
         summaryEl.innerHTML = `<p>${escapeHtml(said)}</p>`;
       }
 
+      document.getElementById('results-lessons').hidden = total === 0;
+      renderCouldntCheck(doc, { notChecked, erroredModules, unfinishedModules, partlyChecked, partial: !!partial });
+      if (!partial) fillCommands(doc);
+    }
+
+    // The couldn't-check box: one line per cause, with the check names inline
+    // and one button per cause; one "For tech helpers" for the whole box.
+    function renderCouldntCheck(doc, { notChecked, erroredModules, unfinishedModules, partlyChecked, partial }) {
       const errorsSection = document.getElementById('results-errors');
       const errorsList = document.getElementById('results-errors-list');
-      if (notFullyChecked > 0) {
-        document.getElementById('results-errors-line').textContent = notCheckedLine(notChecked);
-        const mac = currentPlatform() === 'darwin';
-        errorsList.innerHTML = couldntCheckItems(erroredModules, unfinishedModules, mode, partlyChecked)
-          .map((item) => `<li><strong>${escapeHtml(item.name)}</strong>${item.reason ? ` &mdash; ${escapeHtml(item.reason)}` : ''}`
-            + (item.kind === 'permission' && mac ? ` <button type="button" class="btn btn--secondary btn--small" data-setting-url="${FDA_URL}">Open the setting</button>` : '')
-            + (item.raw ? `<details class="tech-details"><summary>For tech helpers</summary><pre class="tech-log">${escapeHtml(item.raw)}</pre></details>` : '')
-            + '</li>')
-          .join('');
-        errorsSection.hidden = false;
-      } else {
+      const tech = document.getElementById('results-errors-tech');
+      if (notChecked.count === 0) {
         errorsSection.hidden = true;
         errorsList.innerHTML = '';
+        tech.hidden = true;
+        return;
+      }
+      document.getElementById('results-errors-line').textContent = notCheckedLine(notChecked);
+      const mac = currentPlatform() === 'darwin';
+      const { groups, raw } = couldntCheckGroups(couldntCheckItems(erroredModules, unfinishedModules, mode, partlyChecked, doc));
+      // "Run them again": only the checks that took too long, and not while a scan runs.
+      slowModules = erroredModules.filter((m) => couldntCheckItems([m], [], mode, [], doc)[0].kind === 'slow').map((m) => m.name);
+      errorsList.innerHTML = groups.map((g) => `<li data-cause="${g.kind}">${g.notes.length ? '' : `<span>${escapeHtml(g.line)}</span>`}`
+        + (g.kind === 'permission' && mac ? ` <button type="button" class="btn btn--secondary btn--small" data-setting-url="${FDA_URL}">Open the setting</button>` : '')
+        + (g.kind === 'slow' && !partial && window.rescue && typeof window.rescue.recheckModule === 'function'
+          ? ` <button type="button" class="btn btn--secondary btn--small" data-rerun-slow>Run ${g.names.length === 1 ? 'it' : 'them'} again</button>` : '')
+        + (g.notes.length ? `<details class="errors-list__partly"><summary>${escapeHtml(g.line)}</summary><ul>${g.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul></details>` : '')
+        + '</li>').join('');
+      tech.hidden = !raw;
+      document.getElementById('results-errors-raw').textContent = raw;
+      errorsSection.hidden = false;
+    }
+
+    // Run the checks that took too long again, one at a time (main runs one
+    // change at a time). Each one that comes back replaces its entry; the
+    // list then redraws from the merged scan, as after any re-check.
+    let slowModules = [];
+    let rerunning = false;
+    async function rerunSlow() {
+      if (rerunning || scanRunning || !slowModules.length) return;
+      rerunning = true;
+      const status = document.getElementById('results-errors-rerun');
+      const names = slowModules.slice();
+      status.textContent = `Running ${names.length === 1 ? 'it' : `${names.length} checks`} again\u2026`;
+      let doc = null;
+      let stillSlow = 0;
+      for (const name of names) {
+        try {
+          const res = await window.rescue.recheckModule(name);
+          if (res && res.ok && res.doc) doc = res.doc; else stillSlow += 1;
+        } catch (_) {
+          stillSlow += 1;
+        }
+      }
+      rerunning = false;
+      if (doc) {
+        moduleCommandCache = new Map();
+        window.RescueHost.docChanged(doc);
+      }
+      document.getElementById('results-errors-rerun').textContent = stillSlow
+        ? `${stillSlow === names.length ? 'Still' : `${stillSlow} of ${names.length}`} couldn\u2019t finish. A tech helper can look at why below.`
+        : 'Done. Those checks finished this time.';
+    }
+
+    // The Evidence block's "Checked with" row: each check's traced commands,
+    // fetched once per check after the cards are drawn, then put into the
+    // cards that show that check. Nothing changes when there are none.
+    async function fillCommands(doc) {
+      if (!window.rescue || typeof window.rescue.moduleCommands !== 'function') return;
+      const root = document.getElementById('results-groups');
+      const want = new Set();
+      for (const { finding } of cardFindings.values()) {
+        for (const m of finding.seen_in || [finding.module]) if (!moduleCommandCache.has(m)) want.add(m);
+      }
+      if (!want.size) return;
+      const got = await Promise.all([...want].map((m) => Promise.resolve()
+        .then(() => window.rescue.moduleCommands(m)).then((c) => [m, Array.isArray(c) ? c : []], () => [m, []])));
+      // A newer scan or render may have landed meanwhile: only fill this one's cards.
+      if (doc !== currentResultsDoc()) return;
+      got.forEach(([m, c]) => moduleCommandCache.set(m, c));
+      if (!got.some(([, c]) => c.length) || typeof root.querySelector !== 'function') return;
+      for (const [key, { finding, held }] of cardFindings) {
+        if (!(finding.seen_in || [finding.module]).some((m) => got.some(([g, c]) => g === m && c.length))) continue;
+        const slot = root.querySelector(`[data-card-key="${key}"] [data-evidence-slot]`);
+        if (slot) slot.innerHTML = EvidenceRule.renderEvidence(cardEvidenceRows(finding, { mode, held, doc, commands: moduleCommandCache }));
       }
     }
 
@@ -1407,6 +1677,10 @@ if (typeof document !== 'undefined') {
     }
 
     function onScanEvent(ev) {
+      if (!fdaNeeded && needsFda(ev)) {
+        fdaNeeded = true;
+        if (permissionsContent) renderScanTips(permissionsContent, detectOS(lastKnownPlatform));
+      }
       if (partialScan) {
         const changed = applyPartialEvent(partialScan, ev);
         updatePartialStatus();
@@ -1458,6 +1732,8 @@ if (typeof document !== 'undefined') {
       const scanSituation = situation;
       setScanBusy(true);
       resetProgress();
+      fdaNeeded = false;
+      if (permissionsContent) renderScanTips(permissionsContent, detectOS(lastKnownPlatform));
       partialScan = partialScanState();
       updatePartialStatus();
       if (inGame) window.RescueGame.showBoss();
@@ -1472,6 +1748,7 @@ if (typeof document !== 'undefined') {
           lastKnownPlatform = doc.platform;
         }
         lastScanDoc = doc;
+        moduleCommandCache = new Map();
         monitoringSeen = noteMonitoring(monitoringSeen, doc);
         lastScanSituation = scanSituation;
         endPartial();
@@ -1584,6 +1861,17 @@ if (typeof document !== 'undefined') {
     document.getElementById('results-errors-list').addEventListener('click', (event) => {
       const btn = event.target.closest && event.target.closest('[data-setting-url]');
       if (btn) window.rescue.openSetting(btn.getAttribute('data-setting-url'));
+      if (event.target.closest && event.target.closest('[data-rerun-slow]')) rerunSlow();
+    });
+    // "What does this mean?": opens the one place it is taught, at that part.
+    resultsRoot.addEventListener('click', (event) => {
+      const link = event.target.closest && event.target.closest('[data-lesson-link]');
+      if (!link) return;
+      const box = document.getElementById('results-lessons');
+      const part = document.getElementById(`lesson-${link.getAttribute('data-lesson-link')}`);
+      box.open = true;
+      if (part && typeof part.scrollIntoView === 'function') part.scrollIntoView({ block: 'start' });
+      if (part && typeof part.focus === 'function') part.focus();
     });
 
     // "Open in System Settings": opens the page and nothing else; main allowlists the URL.
@@ -1594,6 +1882,8 @@ if (typeof document !== 'undefined') {
       const router = event.target.closest && event.target.closest('[data-router-ip]');
       if (router && resultsRoot.contains(router)) window.rescue.openRouter(router.getAttribute('data-router-ip'));
     });
+    // The Evidence block's Copy buttons (none on a held card: renderEvidence leaves them out).
+    EvidenceRule.wireCopy(document, (t) => navigator.clipboard.writeText(t));
     // "Fix it for me": delegated, so it keeps working when results are re-rendered.
     FixFlow.attach(resultsRoot, window.rescue, {
       onFixed: (els) => cardsOf(els).forEach((card) => clearList.clear(card, 'fixed')),

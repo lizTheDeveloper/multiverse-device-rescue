@@ -1515,3 +1515,47 @@ h3[tabindex="-1"]:focus {
 .start-over-confirm p { margin: 0; flex-basis: 100%; }
 
 .scan-tips__more > summary { cursor: pointer; font-weight: 600; margin: 0.4rem 0; }
+
+/* ---------- Evidence block (renderer/evidence.js: the same rules as Evidence.CSS) ---------- */
+:root { --evidence-border: var(--border); --evidence-mono-bg: var(--surface-muted); }
+.evidence{margin:.6rem 0;padding:.55rem .8rem;border:1px solid var(--evidence-border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:.92rem}
+.evidence-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.3rem}
+.evidence-title{font-weight:600;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.evidence-grid{display:grid;grid-template-columns:fit-content(13rem) minmax(0,1fr);gap:.25rem .9rem;margin:0}
+.evidence-grid dt{color:var(--text-muted);overflow-wrap:anywhere}
+.evidence-grid dd{margin:0;display:flex;gap:.5rem;align-items:baseline;min-width:0}
+.evidence-grid dd>code,.evidence-grid dd>span{overflow-wrap:anywhere;min-width:0}
+.evidence-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;background:var(--evidence-mono-bg);padding:0 .3em;border-radius:4px}
+.evidence-copy{font:inherit;font-size:.78em;padding:.05em .55em;margin-left:auto;cursor:pointer;flex:none;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--text-muted)}
+.evidence-copy:hover{color:var(--text);border-color:var(--text-muted)}
+.evidence--held{font-size:1.15em;line-height:1.5}
+.evidence--held .evidence-grid{gap:.5rem 1rem}
+.evidence-paper{margin:.25rem 0 .5rem;font-weight:600}
+@media (max-width:600px){.evidence-grid{grid-template-columns:1fr}.evidence-grid dd{margin-bottom:.3rem}}
+
+/* A card's one line of why, with its way into the lesson. */
+.finding-card .finding-card__why { margin-top: 0.5rem; }
+.finding-card__lesson { font-size: 0.9rem; }
+.finding-card .fix-steps > summary { font-weight: 600; }
+.tech-details__about p { margin: 0.4rem 0; }
+
+/* "How to read these cards": taught once, under the list. */
+.results-lessons { margin: 1.5rem 0 0; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-muted); }
+.results-lessons > summary { cursor: pointer; font-weight: 600; }
+.results-lessons section { margin-top: 0.8rem; }
+.results-lessons section:focus { outline: none; }
+.results-lessons h3 { margin: 0 0 0.3rem; font-size: 1rem; }
+.results-lessons p { margin: 0 0 0.5rem; color: var(--text-muted); line-height: 1.55; }
+
+/* The couldn't-check box: one line per cause. */
+.results-errors .errors-list { padding-left: 1.1rem; }
+.results-errors .errors-list > li { margin: 0.25rem 0; }
+.results-errors .errors-list ul { margin: 0.2rem 0 0; padding-left: 1.1rem; }
+#results-errors-rerun:empty { display: none; }
+#results-errors-rerun { margin: 0.4rem 0 0; }
+.results-errors > .tech-details { margin-top: 0.5rem; }
+
+/* The scan screen: Full Disk Access on the face, once a check needed it. */
+.scan-tips__needed { margin: 0.6rem 0; }
+.scan-tips__needed p { margin: 0 0 0.4rem; }
+.errors-list__partly > summary { cursor: pointer; }
