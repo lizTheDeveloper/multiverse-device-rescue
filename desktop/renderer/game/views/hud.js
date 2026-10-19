@@ -12,9 +12,9 @@ import { countReclaimed } from '../progress.js';
 export function renderHud({ title, city, progress, counts, rank = null, todo = null, notChecked = null }) {
   const t = (city && city.totals) || { critical: 0, warning: 0, fog: 0 };
   const open = Number.isInteger(todo) ? todo : ((city && city.districts) || []).reduce((n, d) => n + d.missions.length, 0);
-  // COULDN'T CHECK is the deck's chip: checks that couldn't run, and one
-  // waiting for a go-ahead (not checked either, but never "couldn't run").
-  const fog = notChecked ? (Number(notChecked.couldntRun) || 0) + (Number(notChecked.notStarted) || 0) : t.fog;
+  // NOT CHECKED is the deck's chip, from NotChecked.scanCounts: checks that
+  // couldn't run, didn't finish, or wait for a go-ahead.
+  const fog = notChecked ? (Number(notChecked.couldntRun) || 0) + (Number(notChecked.unfinished) || 0) + (Number(notChecked.notStarted) || 0) : t.fog;
   const done = countReclaimed(progress);
   return `
   <header class="hud">
@@ -28,7 +28,7 @@ export function renderHud({ title, city, progress, counts, rank = null, todo = n
     ${Number(counts.reported) ? `<span class="stat cyan"><b>${Number(counts.reported)}</b> <small>YOU REPORTED</small></span>` : ''}`
       : `<span class="stat lime"><b>${done}</b> <small>RECLAIMED</small></span>`}
     ${open ? `<span class="stat grey"><b>${open}</b> <small>TO DO</small></span>` : ''}
-    ${fog ? `<span class="stat grey"><b>${fog}</b> <small>COULDN’T CHECK</small></span>` : ''}
+    ${fog ? `<span class="stat grey"><b>${fog}</b> <small>${notChecked ? 'NOT CHECKED' : 'COULDN’T CHECK'}</small></span>` : ''}
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
 }

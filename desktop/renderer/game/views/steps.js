@@ -99,15 +99,21 @@ export function splitBody(body) {
 // The steps list. `data`: the finding's evidence (fills the placeholders,
 // on `platform` darwin or linux only);
 // `modules`: the scan's check ids (made into words).
+// One step's body: what everyone sees, then FOR TECH HELPERS.
+export function stepBodyHtml(step, { data = null, modules = [], platform = null, names = {} } = {}) {
+  const prep = (t) => fillStep(wordsForModules(t, modules, names), data, platform);
+  const [plain, tech] = splitBody(prep(step && step.body));
+  return (plain ? `<div class="step-body">${miniMarkdown(plain)}</div>` : '')
+    + (tech ? `<details class="tech"><summary>FOR TECH HELPERS</summary><div class="step-body">${miniMarkdown(tech)}</div></details>` : '');
+}
+
 export function stepsHtml(steps, { data = null, modules = [], platform = null, names = {} } = {}) {
   return (steps || []).map((s) => {
     // Check names first, then the placeholders: a filled path that holds a
     // check's id (…/login_items.plist) stays the path the command needs.
     const prep = (t) => fillStep(wordsForModules(t, modules, names), data, platform);
     const title = prep(s.title).replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
-    const [plain, tech] = splitBody(prep(s.body));
-    const body = (plain ? `<div class="step-body">${miniMarkdown(plain)}</div>` : '')
-      + (tech ? `<details class="tech"><summary>FOR TECH HELPERS</summary><div class="step-body">${miniMarkdown(tech)}</div></details>` : '');
+    const body = stepBodyHtml(s, { data, modules, platform, names });
     return `
       <li class="step"><span class="step-n">${esc(s.number)}</span>
         <span class="step-t">${esc(title)}${body}</span></li>`;

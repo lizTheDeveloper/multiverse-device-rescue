@@ -1,6 +1,6 @@
 import { esc } from '../escape.js';
 import { SCOUT } from '../scout-lines.js';
-import { stepsHtml, descriptionHtml, miniMarkdown } from './steps.js';
+import { stepsHtml, stepBodyHtml, descriptionHtml, miniMarkdown } from './steps.js';
 
 export const SWEEP_RUNNING = 'The sweep is still running. You can act on this once it’s done.';
 // A checkup that stopped before its report was done: shown, never acted on.
@@ -50,6 +50,20 @@ export function missionText(text, shown = []) {
   return { why, lead, todo };
 }
 
+// YOUR MOVE's body: `todo` (the finding's "What to do" prose) or the steps.
+export function yourMove(steps, todo, opts = {}) {
+  const list = Array.isArray(steps) ? steps : [];
+  if (!todo) return `<ol class="steps">${stepsHtml(list, opts)}</ol>`;
+  const prose = `<div class="step-body todo">${miniMarkdown(todo)}</div>`;
+  if (!list.length) return prose;
+  // One step with nothing for everyone but a command: only its FOR TECH
+  // HELPERS fold (its title is the prose said generically).
+  const detail = list.length === 1 ? stepBodyHtml(list[0], opts) : '';
+  if (detail && !/^\s*<div class="step-body">/.test(detail)) return `${prose}<div class="step-detail">${detail}</div>`;
+  if (list.length === 1 && !detail) return prose;
+  return `${prose}<details class="tech steps-more"><summary>STEP BY STEP (${list.length})</summary><ol class="steps">${stepsHtml(list, opts)}</ol></details>`;
+}
+
 // `evidenceHtml`: the shared evidence block (Evidence.renderEvidence) for the
 // mission's finding; `thin` when it holds nothing but which check found it.
 // Then WHAT IT IS is the block and one line. `replaces`: the finding's own
@@ -57,13 +71,16 @@ export function missionText(text, shown = []) {
 export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety, learned, note, scanRunning = false,
   cityWarn = null, modules = [], platform = null, evidenceHtml = '', thin = false, replaces = false, stopped = false, shown = [], checkNames = {} }) {
   const held = !!note && note.kind === 'held';
-  const steps = stepsHtml(m.steps, { data: m.primary && m.primary.data, modules, platform, names: checkNames });
+  const stepOpts = { data: m.primary && m.primary.data, modules, platform, names: checkNames };
   const text = missionText(m.description, shown);
-  // The steps came from a walkthrough: the description's own "What to do"
-  // leads them (once). Otherwise the steps already are that text.
+  // YOUR MOVE is the finding's own "What to do" prose OR the numbered steps,
+  // never both. The prose names this finding (its label, its setting), so it
+  // leads when there is one; a walkthrough's steps then go behind STEP BY
+  // STEP (one step: only its detail, without the generic title that repeats
+  // the prose). Without prose, the steps are the move.
   const rem = m.primary && m.primary.remediation;
   const walkthrough = !!(rem && Array.isArray(rem.steps) && rem.steps.length);
-  const todo = walkthrough && text.todo ? `<div class="step-body todo">${miniMarkdown(text.todo)}</div>` : '';
+  const move = yourMove(m.steps, walkthrough ? text.todo : '', stepOpts);
   const what = held ? `<p class="intel">${esc(note.description)}</p>`
     : replaces ? evidenceHtml
     : evidenceHtml && !thin ? `${evidenceHtml}${text.why ? `<p class="intel why">${esc(text.why)}</p>` : ''}`
@@ -94,8 +111,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
       ${learned ? `<p class="from"><button type="button" class="link" data-go="lesson:${esc(learned.id)}">You learned about this in the Training Grounds: ${esc(learned.title)} →</button></p>` : ''}
       ${safety}
       ${held ? '' : `<div class="panel active"><div class="label">YOUR MOVE</div>
-        ${todo}
-        <ol class="steps">${steps}</ol></div>`}
+        ${move}</div>`}
       ${also}
       <div class="controls" ${busy ? 'hidden' : ''}>${held || scanRunning || stopped ? '' : controlsHtml}</div>
       ${actions}

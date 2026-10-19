@@ -2,7 +2,7 @@
 // "city" screen and wires clicks, fixes, marks and re-checks. With Reclaim City
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
-import { findingsToCity, DISTRICTS } from './findings-to-city.js';
+import { findingsToCity, findingIdentity, DISTRICTS } from './findings-to-city.js';
 import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
 import { reconcile, setStatus, ranOkModules, recheckOutcome, setDeck } from './progress.js';
 import { buildBank, drawLessonVisit, drawConcept } from './profile/item-bank.js';
@@ -11,7 +11,7 @@ import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, record
 import { conceptById, isHidden } from './profile/skills.js';
 import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, PUBLISH_FIELDS } from './profile/publish.js';
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, todoCount, cityCounts, WAITING_TITLE } from './signals.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, notCheckedParts, todoFrom, notCheckedChip, cityCounts, WAITING_TITLE } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ, pathOf } from './clues.js';
 import { loadDrills, chooseDrills, drillSignal, pickDrills } from './drills.js';
@@ -318,6 +318,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function rebuild(doc, putBack = null) {
     const before = s.city ? cityIntegrity(s.city, signalsNow(), s.heldCity) : null;
     const heldBefore = heldDistrictIds(s.heldCity);
+    // Which mission each finding belonged to before (progress.js reconcile):
+    // one item reported by several checks keeps one record as they drop out.
+    const sameAsBefore = new Map();
+    for (const d of (s.city && s.city.districts) || []) {
+      for (const m of d.missions || []) for (const f of m.findings || []) sameAsBefore.set(findingIdentity(f), m.id);
+    }
     s.doc = doc;
     // Each scan (or re-check) has its own record of the commands it ran.
     commands = new Map();
@@ -338,14 +344,20 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // stoppedDocOf): what it found is shown, nothing is acted on, and no
     // district reads as clear.
     s.stopped = stoppedOf(doc);
+    // Checks NotChecked counts as unfinished (the engine's complete: false),
+    // even when they also carry a partly-checked note: each gets its NOT CHECKED row.
+    const unfinishedNow = new Set(notCheckedParts(doc).unfinished.map((x) => x.name));
     for (const d of s.city.districts) {
-      d.unfinished = (d.unfinished || []).map((x) => (folded.partly.has(x.module) ? { ...x, titles: folded.partly.get(x.module) } : x));
+      d.unfinished = (d.unfinished || []).map((x) => {
+        const y = unfinishedNow.has(x.module) ? { ...x, stoppedEarly: true } : x;
+        return folded.partly.has(x.module) ? { ...y, titles: folded.partly.get(x.module) } : y;
+      });
       d.counts = s.counts.byDistrict[d.id] || null;
       if (s.stopped) { d.stopped = true; if (d.status === 'clear' || d.status === 'none') d.status = d.checksRan > 0 ? 'partial' : d.status; }
     }
     // A stopped checkup proves nothing gone: nothing is reclaimed, dropped or confirmed from it.
     const ranOk = s.stopped ? new Set() : ranOkModules(doc);
-    const r = reconcile(s.progress, s.city, ranOk, now());
+    const r = reconcile(s.progress, s.city, ranOk, now(), sameAsBefore);
     s.cameBack = r.cameBack.filter((id) => id !== putBack);
     // The deck follows the scan too: a changed finding's tag is set aside, a
     // gone one's is dropped, and a confirmed fix that came back no longer counts.
@@ -609,10 +621,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null, learned: learnedCount(),
       scanRunning: sweeping(), districtName: nameOf, notice: heldNotice() + s.linkNotice,
       // With something held, an empty queue points to it instead of saying "clear".
-      notChecked: notCheckedLine(s.counts), todo: todoCount(sigs),
+      notChecked: notCheckedLine(s.counts), todo: todoFrom(s.counts, sigs), notCheckedChip: notCheckedChip(s.counts),
       // Missions now merge exactly as the list counts items (NotChecked.itemKey), so no "repeats" note.
       repeats: 0,
       sweepNow: s.counts, stopped: s.stopped,
+      // The list's good-to-know number, once NotChecked.scanCounts gives it.
+      // TODO(C5 integration): the shared count's field name for the notes
+      // (assumed `notes`); until then the rows' own count.
+      lowCount: s.counts && Number.isInteger(s.counts.notes) ? s.counts.notes : null,
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
@@ -1099,11 +1115,39 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       }
     } catch (_) { /* the next render draws it */ }
   }
-  // A district row's one line of evidence: the first path, name or id the
-  // scan recorded, so two rows with the same title can be told apart.
+  // A district row's one line of evidence, so two rows with the same title
+  // can be told apart. One thing (a task, a file): its path, name or id. A
+  // list of apps ("Many apps can use your microphone"): the apps' names,
+  // the named ones first ("Amical, Caffeine, ChatGPT Classic and 38 more"),
+  // never whichever path or bare id happens to come first.
   function rowDetail(m) {
-    const r = evidenceRowsOf(m.primary || {}, m.module, false).find((x) => x.mono && !BOOKKEEPING.has(x.label));
+    const f = m.primary || {};
+    const rows = evidenceRowsOf(f, m.module, false).filter((x) => !BOOKKEEPING.has(x.label));
+    const byLabel = new Map();
+    for (const r of rows) byLabel.set(r.label, (byLabel.get(r.label) || 0) + 1);
+    // "Made by" repeats for one thing too (the program and its settings file): not a list.
+    const listLabel = [...byLabel.entries()].find(([label, n]) => n > 1 && !/^Made by/.test(label));
+    if (listLabel) {
+      const items = rows.filter((r) => r.label === listLabel[0]);
+      const named = items.filter((r) => !r.mono).map((r) => listName(r.value)).filter(Boolean);
+      const rest = items.filter((r) => r.mono).map((r) => listName(r.value)).filter(Boolean);
+      const names = [...named, ...rest];
+      const d = f.data && typeof f.data === 'object' ? f.data : {};
+      const total = Math.max(names.length, Number.isInteger(d.count) ? d.count : 0, Array.isArray(d.apps) ? d.apps.length : 0);
+      const shown = names.slice(0, 3);
+      if (!shown.length) return '';
+      return { text: `${shown.join(', ')}${total > shown.length ? ` and ${total - shown.length} more` : ''}`, mono: false };
+    }
+    const r = rows.find((x) => x.mono);
     return r ? r.value : '';
+  }
+  // "Amical (ai.amical.desktop) — Exa Labs LLC · verified" -> "Amical";
+  // "/opt/homebrew/Cellar/bash/5.3.3/bin/bash — Homebrew…" -> "bash".
+  function listName(value) {
+    const v = String(value == null ? '' : value).split(' — ')[0].trim();
+    const named = v.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    if (/^[~/]/.test(named)) return named.split('/').filter(Boolean).pop() || '';
+    return named;
   }
   // A briefing's text: home folders as "~" (the evidence block's rule).
   const homeText = (m) => ({ ...m, description: EV.homeRelative(m.description) });
@@ -1187,7 +1231,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), rank: rankOf(s.progress.deck),
-          todo: s.city ? todoCount(signalsNow()) : null, notChecked: s.counts }) + s.linkNotice;
+          todo: s.city ? todoFrom(s.counts, signalsNow()) : null, notChecked: s.counts }) + s.linkNotice;
       frame.innerHTML = saveNoticeHtml() + hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
@@ -1774,6 +1818,22 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.lesson = null;
   }
 
+  // A stopped checkup's document (engine-runner stoppedDocOf), with what it found.
+  function isStopped(doc) {
+    return !!(doc && typeof doc === 'object' && doc.stopped && typeof doc.stopped === 'object'
+      && Array.isArray(doc.modules) && doc.modules.length > 0);
+  }
+  function scanDone(doc, situation) {
+    s.boss = bossFinish(s.boss);
+    s.scan = { running: false, index: s.boss.total, total: s.boss.total, error: null };
+    if (situation) s.situation = situation;
+    const inLesson = afterScanDone(s.screen) === 'banner';
+    const lesson = s.lesson;
+    showCityFrom(doc);
+    if (inLesson) { s.lesson = lesson; s.screen = 'lesson'; s.pendingCity = true; s.focusPending = false; }
+    return render();
+  }
+
   // show, showTraining, showBoss, scanDone and scanFailed return render()'s
   // answer: false means the person is already back on Plain view's screens.
   return {
@@ -1844,18 +1904,19 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (s.screen === 'boss' || s.screen === 'training' || s.screen === 'home') render();
     },
     // Mid-lesson, the person stays in the lesson with a banner; otherwise the city.
+    // A stopped checkup's document (engine-runner stoppedDocOf: `stopped`
+    // {stage, done, total}) is shown here too: the deck's THE SWEEP STOPPED
+    // banner, what it found, and nothing to fix or mark.
     scanDone(doc, situation) {
-      s.boss = bossFinish(s.boss);
-      s.scan = { running: false, index: s.boss.total, total: s.boss.total, error: null };
-      if (situation) s.situation = situation;
-      const inLesson = afterScanDone(s.screen) === 'banner';
-      const lesson = s.lesson;
-      showCityFrom(doc);
-      if (inLesson) { s.lesson = lesson; s.screen = 'lesson'; s.pendingCity = true; s.focusPending = false; }
-      return render();
+      return scanDone(doc, situation);
     },
-    // Never a frozen boss screen: back to the Training Grounds with the error.
-    scanFailed(message) {
+    // The checkup stopped. With `stoppedDoc` (what it found so far, from
+    // engine-runner's stoppedDocOf or app.js's own), the city shows that, as
+    // scanDone does: never the Training Grounds with nothing to see. Without
+    // one (nothing arrived), back to the Training Grounds with the error.
+    // app.js: RescueGame.scanFailed(message, stoppedDoc).
+    scanFailed(message, stoppedDoc = null) {
+      if (isStopped(stoppedDoc)) return scanDone(stoppedDoc);
       s.boss = bossFinish(s.boss);
       s.scan = { running: false, index: 0, total: 0, error: String(message || 'The checkup stopped.') };
       if (s.screen !== 'lesson') s.screen = noCity();

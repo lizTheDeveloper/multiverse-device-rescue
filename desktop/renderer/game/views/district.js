@@ -43,13 +43,18 @@ export function renderDistrict({ district: d, progress, scout, message = '', bus
   const titles = new Map();
   for (const m of d.missions) titles.set(m.title, (titles.get(m.title) || 0) + 1);
   const seen = new Map();
+  // `detail` gives a string (a path or id, drawn as code) or { text, mono: false } (names).
   const rowLine = (m) => {
     let line = '';
-    try { line = String(detail(m) || ''); } catch (_) { line = ''; }
+    let mono = true;
+    try {
+      const got = detail(m);
+      if (got && typeof got === 'object') { line = String(got.text || ''); mono = got.mono !== false; } else line = String(got || '');
+    } catch (_) { line = ''; }
     const n = (seen.get(m.title) || 0) + 1;
     seen.set(m.title, n);
     const of = titles.get(m.title) > 1 && !line ? ` (${n} of ${titles.get(m.title)})` : '';
-    return `${esc(of)}${line ? `<small class="mission-detail"><code>${esc(line)}</code></small>` : ''}`;
+    return `${esc(of)}${line ? `<small class="mission-detail">${mono ? `<code>${esc(line)}</code>` : esc(line)}</small>` : ''}`;
   };
   const shownMissions = allOpen ? d.missions : d.missions.slice(0, DISTRICT_SHOWN);
   const moreRow = d.missions.length > DISTRICT_SHOWN ? `
@@ -92,10 +97,12 @@ export function renderDistrict({ district: d, progress, scout, message = '', bus
   // Waiting for the person's go-ahead (the long phone-backup sweep): offered, never "couldn't check".
   const waiting = d.fog.filter((x) => x.notStarted).map((x) => `<li><button type="button" class="btn-t" data-go="signal:${esc(waitingId(d.id, x.module))}">${esc(waitingTitle)} ▶</button></li>`).join('');
   // Ran, but stopped before the end (the engine's "complete": false).
-  const unfinished = (d.unfinished || []).filter((x) => !(Array.isArray(x.titles) && x.titles.length))
-    .map((x) => `<li><strong>${esc(checkWords(x.module, x.checkName))}</strong></li>`).join('');
+  // `stoppedEarly`: NotChecked counts it as unfinished, even with a partly-checked note (its titles shown with it).
+  const hasTitles = (x) => Array.isArray(x.titles) && x.titles.length > 0;
+  const unfinished = (d.unfinished || []).filter((x) => !hasTitles(x) || x.stoppedEarly === true)
+    .map((x) => `<li><strong>${esc(checkWords(x.module, x.checkName))}</strong>${hasTitles(x) && !HELD_MODULES.has(x.module) ? `: ${esc(x.titles.join('; '))}` : ''}</li>`).join('');
   // A note said part of it couldn't look (`titles`, signals.js foldPartly).
-  const partly = (d.unfinished || []).filter((x) => Array.isArray(x.titles) && x.titles.length)
+  const partly = (d.unfinished || []).filter((x) => hasTitles(x) && x.stoppedEarly !== true)
     .map((x) => `<li><strong>${esc(checkWords(x.module, x.checkName))}</strong>${HELD_MODULES.has(x.module) ? '' : `: ${esc(x.titles.join('; '))}`}</li>`).join('');
   return `
   <section class="district-screen">

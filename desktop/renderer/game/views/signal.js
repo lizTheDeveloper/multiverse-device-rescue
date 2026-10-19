@@ -38,7 +38,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
   let clueHtml;
   if (couldnt) {
     clueHtml = `<p class="intel">${esc(sig.description || 'This check couldn’t run.')}</p>
-      <p class="intel">A check that couldn’t run checked nothing. That doesn’t mean it’s safe.</p>`;
+      <p class="intel">${sig.unfinished ? 'What it didn’t get to wasn’t checked.' : 'A check that couldn’t run checked nothing.'} That doesn’t mean it’s safe.</p>`;
   } else if (clues.length) {
     clueHtml = `<ul class="clues">${clues.map((c) => clueItem(c, opened)).join('')}</ul>`;
   } else {

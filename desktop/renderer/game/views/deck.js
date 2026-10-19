@@ -11,6 +11,7 @@ export const SEV_BADGE = {
   info: '<span class="badge skip">LOW PRIORITY</span>',
   waiting: '<span class="badge cyan">NOT STARTED</span>',
   couldnt: '<span class="badge fog">COULDN’T CHECK</span>',
+  unfinished: '<span class="badge fog">DIDN’T FINISH</span>',
 };
 export const LOW_SHOWN = 50;
 // The queue is a few little missions at a time: this many rows, then "AND N MORE".
@@ -32,7 +33,7 @@ export function signalRow(sig, districtName = () => '') {
   const drill = sig.kind === 'drill';
   const badges = [
     drill ? '<span class="badge drill-stamp">DRILL</span>' : '',
-    sig.kind === 'waiting' ? SEV_BADGE.waiting : SEV_BADGE[sig.severity] || '',
+    sig.kind === 'waiting' ? SEV_BADGE.waiting : sig.unfinished ? SEV_BADGE.unfinished : SEV_BADGE[sig.severity] || '',
     sig.marked ? '<span class="badge yours">MARKED</span>' : '',
     sig.tag === 'closer' ? '<span class="badge cyan">LOOK CLOSER</span>' : '',
     sig.stale ? '<span class="badge warn">CHANGED SINCE YOU MARKED IT</span>' : '',
@@ -88,7 +89,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
   districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '', learned = null,
   queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', notChecked = '', todo = null, repeats = 0,
-  sweepNow = null, stopped = null }) {
+  sweepNow = null, stopped = null, notCheckedChip = '', lowCount = null }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -107,7 +108,10 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   const counts = sevCounts || {};
   const total = SEV_FILTERS.reduce((n, [k]) => n + (Number(counts[k]) || 0), 0);
   const chip = (attr, label, on) => `<button type="button" class="chip" ${attr}${on ? ' aria-pressed="true"' : ' aria-pressed="false"'}>${esc(label)}</button>`;
-  const sevChips = SEV_FILTERS.filter(([k]) => counts[k]).map(([k, label]) => chip(`data-act="sev:${k}"`, `${label} ${counts[k]}`, sev === k));
+  // NOT CHECKED says what kind (signals.js notCheckedChip, from NotChecked):
+  // "4 DIDN'T FINISH · 1 NOT STARTED", never one number that hides a part.
+  const chipText = (k, label) => (k === 'couldnt' && notCheckedChip ? `NOT CHECKED: ${notCheckedChip}` : `${label} ${counts[k]}`);
+  const sevChips = SEV_FILTERS.filter(([k]) => counts[k]).map(([k, label]) => chip(`data-act="sev:${k}"`, chipText(k, label), sev === k));
   const filters = total && (sevChips.length > 1 || sev || filter) ? `
       <div class="chips" role="group" aria-label="Show only">${chip('data-act="sev:all"', 'ALL', !sev && !filter)}${sevChips.join('')}</div>` : '';
   const head = filter ? `
@@ -144,7 +148,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
       <li><button type="button" class="sig practice-row" data-go="signal:${esc(drills[0].id)}"><span class="sig-badges"><span class="badge drill-stamp">DRILL</span></span><span class="sig-title">${esc(`${drills.length} practice signal${drills.length === 1 ? '' : 's'}`)}</span><small>Made up, not on your computer</small></button></li>` : '';
   const lowHtml = low.length ? `
       <li class="low-group">
-        <button type="button" class="sig low-row" data-act="toggle-low" aria-expanded="${lowOpen ? 'true' : 'false'}">LOW-PRIORITY SIGNALS (${low.length})</button>
+        <button type="button" class="sig low-row" data-act="toggle-low" aria-expanded="${lowOpen ? 'true' : 'false'}">LOW-PRIORITY SIGNALS (${Number.isInteger(lowCount) ? lowCount : low.length})</button>
         ${lowOpen ? `<ul class="queue">${low.slice(0, LOW_SHOWN).map((x) => signalRow(x, dn)).join('')}</ul>
         ${low.length > LOW_SHOWN ? `<p class="intel">And ${low.length - LOW_SHOWN} more. THESE ARE ALL FINE sorts all ${low.length}, including the ones not shown.</p>` : ''}
         <button type="button" class="btn-s" data-act="batch-fine">THESE ARE ALL FINE</button>

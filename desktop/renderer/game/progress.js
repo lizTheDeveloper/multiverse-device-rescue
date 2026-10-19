@@ -162,15 +162,33 @@ export function setDeck(progress, deck) {
 // Monitoring software is never recorded: the controller already holds it out
 // of the city (held.js), and this skips it again, and drops any older record
 // of it, so nothing about it is ever written.
-export function reconcile(progress, city, ranOk, now) {
+//
+// `sameAs` (Map: a finding's identity -> the id of the mission it belonged to
+// in the city shown before this one) keeps one record per item: a mission
+// several checks reported (same_key) takes its id from its first finding, so
+// when a re-check of one check drops that finding, the item is still there
+// under another finding's id. Its record moves to the new id instead of
+// reading as reclaimed while a second record starts, which counted one fix
+// twice ("2 fixed and confirmed").
+export function reconcile(progress, city, ranOk, now, sameAs = null) {
   const next = base(progress);
   for (const [id, rec] of Object.entries(next.missions)) {
     if (HELD_MODULES.has(rec.module)) delete next.missions[id];
   }
   const cameBack = [];
   const present = new Set();
-  for (const m of allMissions(city)) {
-    if (HELD_MODULES.has(m.module)) continue;
+  const missionsNow = allMissions(city).filter((m) => !HELD_MODULES.has(m.module));
+  const idsNow = new Set(missionsNow.map((m) => m.id));
+  if (sameAs instanceof Map) {
+    for (const m of missionsNow) {
+      if (next.missions[m.id]) continue;
+      const old = sameAs.get(m.id);
+      if (!old || old === m.id || idsNow.has(old) || !next.missions[old]) continue;
+      next.missions[m.id] = next.missions[old];
+      delete next.missions[old];
+    }
+  }
+  for (const m of missionsNow) {
     present.add(m.id);
     const prev = next.missions[m.id];
     let status;

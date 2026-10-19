@@ -183,7 +183,7 @@ test('deck filters are kinds only; the districts are reached from their cards', 
   assert.match(t.html(), /data-go="district:gatehouse"/);
 });
 
-test('TO DO follows the deck: tagging NOTED (or MINE) takes a row off the HUD as off the chip', async () => {
+test('TO DO is the list’s items: NOTED on a not-checked row leaves it, MINE on a finding takes one off, on the HUD too', async () => {
   const doc = load('replay-full.json');
   const t = await setup({}, doc);
   const num = (html, re) => { const m = re.exec(html); return m ? Number(m[1]) : 0; };
@@ -205,6 +205,14 @@ test('TO DO follows the deck: tagging NOTED (or MINE) takes a row off the HUD as
   t.click({ 'data-act': 'tag:noted' });
   t.click({ 'data-act': 'close-signal' });
   t.click({ 'data-act': 'sev:all' });
+  assert.strictEqual(todoDeck(), before);
+  assert.strictEqual(hudTodo(), before);
+  t.click({ 'data-go': 'map' });
+  const real = /data-go="signal:([^"|]+\|[^"]+)"/.exec(t.html().replace(/data-go="signal:couldnt\|[^"]+"/g, ''));
+  assert.ok(real, 'a finding to sort');
+  t.click({ 'data-go': `signal:${real[1]}` });
+  t.click({ 'data-act': 'tag:mine' });
+  t.click({ 'data-act': 'close-signal' });
   assert.strictEqual(todoDeck(), before - 1);
   assert.strictEqual(hudTodo(), before - 1);
   // Repeats count once here: said in one short line when it makes the list's count larger.
