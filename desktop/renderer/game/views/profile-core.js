@@ -14,7 +14,7 @@ const WORDS = {
   },
   plain: {
     title: 'Your progress', rank: 'Points', training: 'Lessons', skills: 'Skills', drills: 'Practice drills', city: 'Your checkups',
-    history: 'Data history', startOver: 'Start over', publish: 'Add to my school profile', back: 'Close',
+    history: 'Data history', startOver: 'Clear my progress', publish: 'Add to my school profile', back: 'Close',
     stamp: { learned: 'Learned', measuring: 'In progress', skipped: 'Skipped — you said you know this', 'worth-a-look': 'Skipped — a refresher may help', refresher: 'Worth a refresher', 'not-yet': 'Not started' },
     depth: { 'not-yet': 'Not yet', introduced: 'Introduced', practiced: 'Practiced' },
   },
@@ -76,6 +76,8 @@ function historyHtml(s, w) {
 }
 
 export const START_OVER = 'Start over? This clears your lessons, drills, rank and missions here. Nothing on your computer changes.';
+// Plain view's words: the results screen has its own "Start over" (a new checkup).
+export const CLEAR_PROGRESS = 'Clear your progress? This clears your lessons, drills, rank and missions here. Nothing on your computer changes.';
 
 // `publish`: whether the "Add to my school profile" control exists (publishOffered).
 // `confirming`: the person pressed Start over and is being asked to be sure.
@@ -99,8 +101,8 @@ export function createProfileRenderer(ready) {
     <div class="panel"><h3 class="label">${esc(w.drills)}</h3>${drillsHtml(s.drills)}</div>
     <div class="panel"><h3 class="label">${esc(w.city)}</h3>
       <p>${esc(c.reclaimed)} fixed and confirmed · ${esc(c.later)} set aside for later · ${esc(c.yours)} marked as yours${c.lastSweep === null ? '' : ` · last checkup ${esc(c.lastSweep)}% secured`}</p></div>
-    ${confirming ? `<div class="panel" role="alertdialog" aria-labelledby="start-over-q"><p id="start-over-q">${esc(START_OVER)}</p>
-      <div class="row"><button type="button" class="btn-s" data-act="profile-start-over-yes">${esc(theme === 'plain' ? 'Yes, start over' : 'YES, START OVER')}</button>
+    ${confirming ? `<div class="panel" role="alertdialog" aria-labelledby="start-over-q"><p id="start-over-q">${esc(theme === 'plain' ? CLEAR_PROGRESS : START_OVER)}</p>
+      <div class="row"><button type="button" class="btn-s" data-act="profile-start-over-yes">${esc(theme === 'plain' ? 'Yes, clear it' : 'YES, START OVER')}</button>
         <button type="button" class="btn-t" data-act="profile-start-over-no" data-autofocus>${esc(theme === 'plain' ? 'Keep my progress' : 'KEEP MY PROGRESS')}</button></div></div>` : ''}
     <footer class="row">${historyHtml(s, w)}
       ${publish && ready === true ? `<button type="button" class="btn-s" data-act="profile-publish">${esc(w.publish)}</button>` : ''}

@@ -98,6 +98,13 @@ export function attachPlainPanel({ win, storage, loadBank = defaultLoadBank, pub
     win.setTimeout(() => win.URL.revokeObjectURL(url), 0);
   }
 
+  // The button exists only in standard mode; the host says when the mode changes.
+  function syncButton() {
+    button.hidden = !standard();
+    if (!standard() && (dialog.open || st.profile)) shut();
+  }
+  syncButton();
+  if (typeof win.addEventListener === 'function') win.addEventListener('rescue-mode-changed', syncButton);
   button.addEventListener('click', () => { open(); });
   // Escape: the sheet or the Start over question first, then the dialog.
   dialog.addEventListener('cancel', (e) => {
@@ -140,7 +147,7 @@ export function attachPlainPanel({ win, storage, loadBank = defaultLoadBank, pub
     if (act === 'publish-save') { handOver('file'); return; }
     if (act === 'publish-copy') { handOver('copy'); }
   });
-  return { open };
+  return { open, syncButton };
 }
 
 function safeStorage() {

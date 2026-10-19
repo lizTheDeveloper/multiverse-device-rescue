@@ -528,6 +528,8 @@ if (typeof document !== 'undefined') {
       // The game saves its profile once in the new mode (city mode retires the old store).
       if (changed && window.RescueGame && typeof window.RescueGame.profileModeChanged === 'function') window.RescueGame.profileModeChanged();
       if (changed && lastScanDoc) renderResults(lastScanDoc);
+      // "Your progress" (game/profile/plain-panel.js) shows only in standard mode.
+      if (changed && typeof window.dispatchEvent === 'function' && typeof Event === 'function') window.dispatchEvent(new Event('rescue-mode-changed'));
     }
     // Made once per install for the game's own use, and written for everyone alike.
     const citySeed = DisplayMode.ensureSeed(store);

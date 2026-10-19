@@ -29,14 +29,19 @@ async function setup({ mode = 'standard', publishReady = false, storage = record
   const els = { 'btn-your-progress': el('b'), 'progress-dialog': el('d'), 'progress-dialog-body': el('body'), 'profile-title': el('h') };
   const calls = { reload: 0, clipboard: [] };
   const m = { now: mode };
+  const winListeners = {};
+  const seeds = [];
   const win = { document: { getElementById: (id) => els[id] || null, createElement: () => ({ click() {} }) },
+    addEventListener: (t, fn) => { (winListeners[t] = winListeners[t] || []).push(fn); },
+    DisplayMode: { ensureSeed: () => { seeds.push(1); return 4242; } },
     RescueGame: { reloadProfile: () => { calls.reload += 1; } },
     navigator: { clipboard: { writeText: async (t) => { calls.clipboard.push(t); } } } };
   if (host) win.RescueHost = { mode: () => m.now };
   const panel = attachPlainPanel({ win, storage, loadBank: loadBank || (async () => buildBank(LESSONS, DRILLS)), publishReady });
   const click = (act, checked = false) => els['progress-dialog-body'].fire('click', { target: { closest: () => ({ checked, getAttribute: () => act }) } });
   const openIt = async () => { els['btn-your-progress'].fire('click'); await tick(); await tick(); };
-  return { els, calls, panel, click, storage, mode: m, openIt, body: () => els['progress-dialog-body'].innerHTML };
+  const setMode = (next) => { m.now = next; (winListeners['rescue-mode-changed'] || []).forEach((fn) => fn({})); };
+  return { els, calls, panel, click, storage, mode: m, setMode, seeds, openIt, body: () => els['progress-dialog-body'].innerHTML };
 }
 
 test('the button opens a modal dialog with the plain view of the profile, its heading focused', async () => {
@@ -51,14 +56,20 @@ test('the button opens a modal dialog with the plain view of the profile, its he
   assert.strictEqual(t.els['btn-your-progress'].focused, 1, 'focus goes back to the button');
 });
 
-test('Start over in plain view asks first, saves through the profile, and tells the game to read it again', async () => {
+test('Clear my progress in plain view asks first, saves through the profile, and tells the game to read it again', async () => {
   const t = await setup();
   await t.openIt();
+  assert.match(t.body(), />Clear my progress<\/button>/);
+  assert.doesNotMatch(t.body(), /Start over/, 'the results screen has its own Start over');
   t.click('profile-start-over-yes');
   assert.strictEqual(t.calls.reload, 0, 'not without being asked first');
   t.click('profile-start-over');
   assert.match(t.body(), /role="alertdialog"/);
+  assert.ok(t.body().includes('Clear your progress? This clears your lessons, drills, rank and missions here. Nothing on your computer changes.'));
+  assert.match(t.body(), />Yes, clear it<\/button>/);
+  assert.doesNotMatch(t.body(), /Start over/);
   t.click('profile-start-over-yes');
+  assert.strictEqual(t.seeds.length, 1, 'the seed comes from window.DisplayMode when there is no box yet');
   assert.strictEqual(savedProfile(t.storage).rank.points, 0);
   assert.strictEqual(t.calls.reload, 1);
   assert.ok(t.body().includes('Points: 0 (level 1 of 5)'));
@@ -191,4 +202,37 @@ test('no app code passes a publishing seam: only controller.js and the tests nam
   // And plain-panel.js attaches itself without the seam.
   const auto = /attachPlainPanel\(\{ win: window, storage: safeStorage\(\) \}\)/;
   assert.match(fs.readFileSync(path.join(root, 'renderer/game/profile/plain-panel.js'), 'utf8'), auto);
+});
+
+test('the button is hidden in any mode but standard, and follows the mode as it changes', async () => {
+  const t = await setup({ mode: 'city' });
+  assert.strictEqual(t.els['btn-your-progress'].hidden, true);
+  t.setMode('standard');
+  assert.strictEqual(t.els['btn-your-progress'].hidden, false);
+  await t.openIt();
+  assert.strictEqual(t.els['progress-dialog'].open, true);
+  t.setMode('city');
+  assert.strictEqual(t.els['btn-your-progress'].hidden, true);
+  assert.strictEqual(t.els['progress-dialog'].open, false, 'an open dialog closes');
+  assert.strictEqual(t.body(), '');
+  const none = await setup({ host: false });
+  assert.strictEqual(none.els['btn-your-progress'].hidden, true, 'a host that can\'t say');
+});
+
+test('app.js tells the panel when the mode changes', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'app.js'), 'utf8');
+  const setMode = /function setMode\(next\) \{[\s\S]*?\n {4}\}/.exec(src);
+  assert.ok(setMode, 'setMode found');
+  assert.match(setMode[0], /dispatchEvent\(new Event\('rescue-mode-changed'\)\)/);
+});
+
+test('display-mode.js puts DisplayMode on window, where the game\'s modules (controller, panel) read it', () => {
+  const vm = require('node:vm');
+  const window = {};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'renderer', 'display-mode.js'), 'utf8'), { window });
+  assert.ok(window.DisplayMode, 'window.DisplayMode');
+  assert.strictEqual(typeof window.DisplayMode.ensureSeed, 'function');
+  for (const f of ['renderer/game/controller.js', 'renderer/game/profile/plain-panel.js']) {
+    assert.match(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), /profileSeed\(storage, win\.DisplayMode\)/, f);
+  }
 });

@@ -3,6 +3,6 @@
 import { PUBLISH_READY } from '../profile/publish.js';
 import { createProfileRenderer, createPublishSheet } from './profile-core.js';
 
-export { START_OVER, focusProfile, profileKeyAct } from './profile-core.js';
+export { START_OVER, CLEAR_PROGRESS, focusProfile, profileKeyAct } from './profile-core.js';
 export const renderProfile = createProfileRenderer(PUBLISH_READY);
 export const renderPublishSheet = createPublishSheet(PUBLISH_READY);
