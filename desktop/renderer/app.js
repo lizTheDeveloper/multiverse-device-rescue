@@ -18,7 +18,7 @@ const SEVERITY_LABELS = {
 const SEVERITY_DESCRIPTIONS = {
   critical: 'These are the most important findings from your checkup.',
   warning: 'These are worth reviewing when you have a moment.',
-  info: 'Background details and reassurance-level notes.',
+  info: 'Things we noticed. Nothing to do.',
 };
 
 /**
@@ -49,7 +49,7 @@ const SITUATIONS = [
     sub: 'A friendly tune-up and safety check on someone else\u2019s computer',
     profile: 'home_for_the_holidays', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/home-for-the-holidays/' },
   { id: 'unsure', icon: '\u{1F937}', title: 'I\u2019m not sure \u2014 check everything',
-    sub: 'The full checkup. It takes longer: often 10 minutes or more',
+    sub: 'The full checkup: every check there is.',
     profile: null, guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/' },
 ];
 
@@ -77,13 +77,11 @@ function formatExec(ev) {
  *  -> { headline: 'Looking for security problems', detail: 'Launch agent audit · check 23 of 120', percent: 18 }
  */
 function describeProgress(ev) {
-  const words = String(ev.module || '').replace(/_/g, ' ');
-  const name = words.charAt(0).toUpperCase() + words.slice(1);
-  // (checkName says the same, for the "couldn't check these" list.)
+  // No check id on screen ("Smcreset guide"): the count is what helps.
   const done = ev.phase === 'done' ? ev.index : ev.index - 1;
   return {
     headline: CATEGORY_PHRASES[ev.category] || 'Checking your computer',
-    detail: `${name} \u00b7 check ${ev.index} of ${ev.total}`,
+    detail: `Check ${ev.index} of ${ev.total}`,
     percent: ev.total ? Math.round((done / ev.total) * 100) : 0,
   };
 }
@@ -152,7 +150,9 @@ function describeMadeBy(entry) {
   return { tone: 'warn', text: `⚠ ${head}: ${reason}.${note ? ' ' + note : ''}`, subject };
 }
 
-function madeByHtml(entries, esc) {
+// `opts.explain: false` leaves out "What does this mean?": it is taught once,
+// on the first card that has a made-by line.
+function madeByHtml(entries, esc, opts) {
   if (!Array.isArray(entries) || entries.length === 0) return '';
   const lines = entries.map((entry) => {
     const d = describeMadeBy(entry);
@@ -160,6 +160,7 @@ function madeByHtml(entries, esc) {
     const what = d.what ? `<span class="made-by__what"> \u2014 ${esc(d.what)}</span>` : '';
     return `<li class="made-by__line made-by__line--${d.tone}">${who}${esc(d.text)}${what}</li>`;
   }).join('');
+  if (opts && opts.explain === false) return `<div class="made-by"><ul class="made-by__list">${lines}</ul></div>`;
   return `<div class="made-by"><ul class="made-by__list">${lines}</ul>
     <details class="made-by__explainer"><summary>What does this mean?</summary>
       <p>Programs can be digitally signed by the company that made them, like a seal on a package. A <strong>verified signature</strong> means the seal is real and names the maker. An <strong>unknown maker</strong> is not proof of anything bad, but nobody has vouched for it, so be more careful, especially if it runs from a temporary folder or one you did not install into. For some well-known programs we also say what they are for, but only when the signature proves which program it is.</p>
@@ -413,6 +414,25 @@ function duringScanTips(content, osKey) {
   return steps.filter((step) => step && step.stage !== 'install');
 }
 
+// Only these kinds of finding can be "Needs attention now". A crashing app,
+// a missing backup or a busy program is worth a look, not an alarm.
+const ALARM_CATEGORIES = new Set(['security', 'network']);
+function shownSeverity(finding) {
+  const sev = finding && Object.prototype.hasOwnProperty.call(SEVERITY_LABELS, finding.severity) ? finding.severity : 'info';
+  return sev === 'critical' && !ALARM_CATEGORIES.has(finding.category) ? 'warning' : sev;
+}
+
+// A note that says part of a check couldn't look ("We couldn't list your USB
+// devices", "Checked 16 of 110 app signatures"). It belongs with the checks
+// that couldn't run, not among the good-to-know notes.
+const COULDNT_TITLE = /^(?:we\s+)?(?:couldn[’']t|could\s+not)\s+(?:check|list|read|see|tell|find\s+out)\b/i;
+function isPartlyChecked(finding) {
+  if (!finding || finding.severity !== 'info') return false;
+  const title = String(finding.title || '');
+  if (COULDNT_TITLE.test(title)) return true;
+  return !!(finding.data && finding.data.incomplete) && /^checked\s+\d+\s+of\s+\d+/i.test(title);
+}
+
 /**
  * Group every finding across every module by severity, and collect the
  * modules that failed to run at all. Unknown/missing severities fall back
@@ -423,12 +443,15 @@ function duringScanTips(content, osKey) {
  * engine's "complete": false). Their findings are listed, but what's missing
  * from them may not have been looked at, so they are never a clean result.
  *
- * @returns {{groups: {critical: Array, warning: Array, info: Array}, erroredModules: Array<{name:string,error:?string}>, unfinishedModules: Array<{name:string}>}}
+ * @returns {{groups: {critical: Array, warning: Array, info: Array}, erroredModules: Array<{name:string,error:?string}>, unfinishedModules: Array<{name:string}>, partlyChecked: Array<{name:string,title:string}>}}
  */
 function groupFindingsBySeverity(doc) {
   const groups = { critical: [], warning: [], info: [] };
   const erroredModules = [];
   const unfinishedModules = [];
+  // Findings that say part of a check couldn't look: listed with the checks
+  // that couldn't run (partlyChecked), not as notes.
+  const partlyChecked = [];
   const modules = (doc && doc.modules) || [];
 
   for (const mod of modules) {
@@ -442,14 +465,94 @@ function groupFindingsBySeverity(doc) {
     }
     const findings = (mod && mod.findings) || [];
     for (const finding of findings) {
-      const sev = Object.prototype.hasOwnProperty.call(groups, finding.severity)
-        ? finding.severity
-        : 'info';
-      groups[sev].push(Object.assign({}, finding, { module: mod.name }));
+      if (isPartlyChecked(finding)) {
+        partlyChecked.push({ name: mod.name, title: String(finding.title || '') });
+        continue;
+      }
+      groups[shownSeverity(finding)].push(Object.assign({}, finding, { module: mod.name }));
     }
   }
 
-  return { groups, erroredModules, unfinishedModules };
+  return { groups, erroredModules, unfinishedModules, partlyChecked };
+}
+
+/**
+ * One count of what wasn't fully checked, for the list and the city alike:
+ * checks that couldn't run or didn't finish, plus notes that say part of a
+ * check couldn't look. `checks` is every check in the scan.
+ */
+function notCheckedSummary(doc) {
+  const { erroredModules, unfinishedModules, partlyChecked } = groupFindingsBySeverity(doc);
+  const checks = ((doc && doc.modules) || []).length;
+  return {
+    checks,
+    couldntRun: erroredModules.length,
+    unfinished: unfinishedModules.length,
+    partly: partlyChecked.length,
+    count: erroredModules.length + unfinishedModules.length + partlyChecked.length,
+  };
+}
+
+// The top line when something wasn't fully checked. Never an all-clear.
+function notCheckedLine(sum) {
+  const s = sum || {};
+  const ran = (s.couldntRun || 0) + (s.unfinished || 0);
+  const how = s.couldntRun && s.unfinished ? 'couldn’t run or didn’t finish' : s.couldntRun ? 'couldn’t run' : 'didn’t finish';
+  const parts = [];
+  if (ran) parts.push(`${ran} ${ran === 1 ? 'check' : 'checks'} ${how}`);
+  if (s.partly) parts.push(`${s.partly} ${s.partly === 1 ? 'thing was' : 'things were'} only partly checked`);
+  if (!parts.length) return '';
+  return `${parts.join(', and ')}, so this isn’t a clean bill of health.`;
+}
+
+/**
+ * The engine's walkthroughs say `<path-to-plist>` or `<label>` where the scan
+ * already knows the value. The person may copy these steps into Terminal, and
+ * scan data (paths, labels, program names) can be chosen by whoever put the
+ * thing there, so a value is filled in only when it can't run as code or
+ * change the step's markup:
+ *   - pid: digits only;
+ *   - label, bundle id: letters, digits, dot, underscore, hyphen;
+ *   - path, program: no quote, $, backtick, backslash, ; | & < > ( ) * ? [ ] { } ~ !,
+ *     # or control character, and always single-quoted (quotes the template
+ *     put around the placeholder are replaced, never doubled).
+ * Anything else leaves the placeholder as written. Windows walkthroughs are
+ * never filled. The step is HTML-escaped afterwards (renderMiniMarkdown).
+ */
+const PLACEHOLDERS = {
+  'path-to-plist': { keys: ['plist', 'plist_path'], kind: 'path' },
+  plist: { keys: ['plist', 'plist_path'], kind: 'path' },
+  path: { keys: ['path', 'location'], kind: 'path' },
+  program: { keys: ['program'], kind: 'path' },
+  label: { keys: ['label'], kind: 'name' },
+  'bundle-id': { keys: ['bundle_id'], kind: 'name' },
+  pid: { keys: ['pid'], kind: 'pid' },
+};
+const SAFE_NAME = /^[A-Za-z0-9._-]{1,256}$/;
+const UNSAFE_PATH = /['"`$\\;|&<>()*?[\]{}~!#]|[\p{Cc}\p{Cf}]/u;
+function safePlaceholderValue(kind, value) {
+  if (kind === 'pid') {
+    const v = typeof value === 'number' && Number.isInteger(value) && value > 0 ? String(value) : String(value == null ? '' : value);
+    return /^\d{1,10}$/.test(v) ? v : null;
+  }
+  if (typeof value !== 'string') return null;
+  if (kind === 'name') return SAFE_NAME.test(value) && !value.startsWith('-') ? value : null;
+  if (!value.startsWith('/') || value.length > 1024 || UNSAFE_PATH.test(value)) return null;
+  return `'${value}'`;
+}
+function fillPlaceholders(text, data, opts) {
+  const src = String(text == null ? '' : text);
+  if (opts && opts.platform === 'win32') return src;
+  const d = data && typeof data === 'object' ? data : {};
+  return src.replace(/(['"]?)<([a-z-]+)>\1/g, (all, quote, name) => {
+    const spec = PLACEHOLDERS[name];
+    if (!spec) return all;
+    for (const k of spec.keys) {
+      const safe = safePlaceholderValue(spec.kind, d[k]);
+      if (safe !== null) return spec.kind === 'path' ? safe : `${quote}${safe}${quote}`;
+    }
+    return all;
+  });
 }
 
 /**
@@ -476,16 +579,36 @@ function aiCheckLabel(module, mode) {
 
 const UNFINISHED_LINE = 'It didn’t finish, so it may have missed something.';
 
+// The engine's error, in words: needs a permission, took too long, or
+// couldn't run. The raw text goes under "For tech helpers".
+function errorKind(error) {
+  const e = String(error || '');
+  if (/PermissionError|Operation not permitted|Errno 1\b|not permitted|Full Disk Access/i.test(e)) return 'permission';
+  if (/timed out|timeout/i.test(e)) return 'slow';
+  return 'failed';
+}
+const ERROR_WORDS = {
+  permission: 'Needs permission (Full Disk Access).',
+  slow: 'Took too long.',
+  failed: 'Couldn’t run.',
+};
+
 /**
  * The "couldn't check these" list: checks that couldn't run, then checks
  * that didn't finish. In city mode a monitoring check's reason isn't shown
  * either (it can name what it looked for).
  */
-function couldntCheckItems(erroredModules, unfinishedModules, mode) {
+function couldntCheckItems(erroredModules, unfinishedModules, mode, partlyChecked) {
   const hide = (name) => mode === 'city' && ALWAYS_SAFETY_MODULES.has(name);
   return [
-    ...erroredModules.map((m) => ({ name: checkName(m.name, mode), reason: hide(m.name) ? '' : m.error || '' })),
-    ...unfinishedModules.map((m) => ({ name: checkName(m.name, mode), reason: UNFINISHED_LINE })),
+    ...erroredModules.map((m) => {
+      const kind = errorKind(m.error);
+      return { name: checkName(m.name, mode), kind,
+        reason: hide(m.name) ? '' : m.error ? ERROR_WORDS[kind] : '', raw: hide(m.name) ? '' : m.error || '' };
+    }),
+    ...unfinishedModules.map((m) => ({ name: checkName(m.name, mode), kind: 'unfinished', reason: UNFINISHED_LINE, raw: '' })),
+    ...(partlyChecked || []).map((m) => ({ name: checkName(m.name, mode), kind: 'partly',
+      reason: hide(m.name) ? '' : m.title, raw: '' })),
   ];
 }
 
@@ -576,6 +699,13 @@ if (typeof module !== 'undefined' && module.exports) {
     checkName,
     aiCheckLabel,
     couldntCheckItems,
+    errorKind,
+    notCheckedSummary,
+    notCheckedLine,
+    isPartlyChecked,
+    shownSeverity,
+    fillPlaceholders,
+    safePlaceholderValue,
     UNFINISHED_LINE,
     SITUATIONS,
     describeProgress,
@@ -723,6 +853,8 @@ if (typeof document !== 'undefined') {
       // The display preference and the install's seed, for the game.
       mode() { return mode; },
       citySeed() { return citySeed; },
+      // What wasn't fully checked, counted the same way the list counts it, so both views agree.
+      notChecked(doc) { return notCheckedSummary(doc || lastScanDoc); },
       startCheckup() { runCheckup({ game: true }); },
       // The OS pop-ups the person may see during the scan, for the boss screen.
       async scanTips() {
@@ -782,6 +914,9 @@ if (typeof document !== 'undefined') {
       const steps = duringScanTips(content, osKey);
       aside.hidden = steps.length === 0;
       if (steps.length === 0) return;
+      // One line on its face; what each pop-up means is behind "What each pop-up means".
+      const who = osKey === 'windows' ? 'Windows' : osKey === 'linux' ? 'Your computer' : 'Your Mac';
+      document.getElementById('scan-tips-line').textContent = `${who} may ask for permission. Click Allow. We never ask for your password.`;
 
       const stepsHtml = steps
         .map((step) => {
@@ -944,7 +1079,51 @@ if (typeof document !== 'undefined') {
       }
       const pre = card.querySelector('[data-tech-log]');
       if (pre) pre.textContent = techText(key, how);
+      const box = card.querySelector('[data-card-pick]');
+      if (box && how) box.checked = false;
+      // A card past "Show more" can be cleared too (marked on an earlier checkup): in Cleared it shows.
+      if (how && card.hasAttribute('data-card-more')) { card.hidden = false; card.removeAttribute('data-card-more'); }
+      const root = document.getElementById('results-groups');
+      topUp(root);
+      updateBulk();
     }
+
+    const FDA_URL = 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles';
+    // The actions on ticked cards. Ticking changes nothing; these buttons do, and only to the ticked cards.
+    const BULK_HTML = `
+      <div class="results-bulk" data-bulk role="group" aria-label="Ticked cards" hidden>
+        <span class="results-bulk__count" data-bulk-count aria-live="polite"></span>
+        <button type="button" class="btn btn--secondary btn--small" data-bulk-did></button>
+        <button type="button" class="btn btn--secondary btn--small" data-bulk-copy data-copy-ai="sel:">Copy these for any AI</button>
+        <button type="button" class="link-button" data-bulk-none>Untick all</button>
+        <div class="copy-ai__slot" data-bulk-slot data-copy-ai-slot="sel:" aria-live="polite"></div>
+      </div>`;
+
+    // The bulk bar follows the ticks: how many, and what each button would do.
+    function updateBulk() {
+      const root = document.getElementById('results-groups');
+      const bar = root && root.querySelector('[data-bulk]');
+      if (!bar) return;
+      const ticked = Array.from(root.querySelectorAll('[data-card-pick]')).filter((b) => b.checked && !b.closest('[data-cleared]'));
+      bar.hidden = ticked.length === 0;
+      bar.querySelector('[data-bulk-count]').textContent = `${ticked.length} ticked`;
+      const canDid = ticked.filter((b) => b.closest('[data-card-key]').querySelector('[data-clear-did]:not([hidden])'));
+      const did = bar.querySelector('[data-bulk-did]');
+      did.hidden = canDid.length === 0;
+      did.textContent = canDid.length === 1 ? 'I did this one' : `I did these ${canDid.length}`;
+      const ids = ticked.map((b) => b.closest('[data-card-key]').querySelector('[data-copy-ai]'))
+        .filter(Boolean).map((btn) => btn.getAttribute('data-copy-ai')).join(',');
+      const copy = bar.querySelector('[data-bulk-copy]');
+      const slot = bar.querySelector('[data-bulk-slot]');
+      if (copy.getAttribute('data-copy-ai') !== `sel:${ids}`) slot.innerHTML = '';
+      copy.setAttribute('data-copy-ai', `sel:${ids}`);
+      slot.setAttribute('data-copy-ai-slot', `sel:${ids}`);
+    }
+
+    // How many cards each group shows before "Show more".
+    const PAGE = 10;
+    // "What does this mean?" under the made-by line: on the first card only.
+    let madeByExplained = false;
 
     // `partial`: the scan is still running. The cards are the same, with
     // nothing on them that changes the computer or the list (main refuses
@@ -954,7 +1133,7 @@ if (typeof document !== 'undefined') {
       // City mode: the fix panel's extra warning about whoever set something up.
       const watched = mode === 'city';
       const items = findings
-        .map((finding) => {
+        .map((finding, index) => {
           const key = String(nextCardKey++);
           // What this card may say (QuietNotes). Standard: no hotline text, and the one
           // line wherever removing something can alert someone. City: everything, unquieted.
@@ -978,41 +1157,54 @@ if (typeof document !== 'undefined') {
           const marked = !!(finding.data && finding.data.marked_by_user === true);
           // On the list: everything worth acting on, plus what was marked as yours.
           const counts = !held && (severity === 'critical' || severity === 'warning' || marked);
+          // Monitoring software never gets "I did this": it reads as "I removed it".
+          const did = marked || held || partial || QuietNotes.isDetection(finding)
+            ? '' : ClearList.didControlsHtml(finding, severity, escapeHtml);
+          // Whether removing this can alert someone: said before any fix or mark, and in the fix confirm.
+          const alerts = card.note === 'line' || card.note === 'full';
+          const fix = noControls ? '' : FixFlow.fixControlsHtml(finding, { watched, safety: alerts && !watched ? QuietNotes.LINE_SHORT : '' });
+          const mark = noControls ? '' : MarkFlow.markControlsHtml(finding, { watched });
+          const explain = !madeByExplained;
+          const madeBy = madeByHtml(finding.made_by, escapeHtml, { explain });
+          if (madeBy) madeByExplained = true;
+          const steps = card.steps.map((step) => ({ title: step.title, body: fillPlaceholders(step.body, finding.data, { platform: currentPlatform() }) }));
+          // Ticking selects the card for the actions above the list; it changes nothing by itself.
+          const pickBox = counts && !partial ? `<input type="checkbox" class="finding-card__pick" data-card-pick aria-label="${escapeHtml(`Select: ${finding.title || 'this finding'}`)}">` : '';
           return `
-            <li class="finding-card finding-card--${severity}" data-card-key="${key}" data-finding-key="${escapeHtml(`${finding.module}|${finding.code || ''}|${finding.title || ''}`).replace(/"/g, '&quot;')}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}>
+            <li class="finding-card finding-card--${severity}" data-card-key="${key}" data-finding-key="${escapeHtml(`${finding.module}|${finding.code || ''}|${finding.title || ''}`).replace(/"/g, '&quot;')}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}${index >= PAGE ? ' data-card-more hidden' : ''}>
               <div class="finding-card__header">
+                ${pickBox}
                 <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
               </div>
               <div class="cleared-note" data-cleared-note role="status" aria-live="polite" hidden></div>
               ${descriptionHtml(card.description, escapeHtml)}
-              ${madeByHtml(finding.made_by, escapeHtml)}
-              <div class="card-answers">
-              ${noControls ? '' : FixFlow.fixControlsHtml(finding, { watched })}
-              ${noControls ? '' : MarkFlow.markControlsHtml(finding, { watched })}
-              ${marked || held || partial ? '' : ClearList.didControlsHtml(finding, severity, escapeHtml)}
-              </div>
-              ${QuietNotes.lineHtml(card, escapeHtml)}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
-              ${card.steps.length ? `
+              ${madeBy}
+              ${QuietNotes.lineHtml(card, escapeHtml, { first: !!(fix || mark) })}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
+              ${fix || mark || did ? `<div class="card-answers">${fix}${mark}${did}</div>` : ''}
+              ${steps.length ? `
               <div class="next-steps">
                 <h4>What to do</h4>
-                <ol>${card.steps.map((step) => `<li>${escapeHtml(stepTitle(step.title))}</li>`).join('')}</ol>
+                <ol>${steps.map((step) => `<li>${escapeHtml(stepTitle(step.title))}</li>`).join('')}</ol>
               </div>` : ''}
               ${held ? '' : SettingPanes.findingButtonHtml(finding, currentPlatform())}
               ${held ? '' : RouterLink.findingLinkHtml(finding, routerCtx)}
-              ${finding.remediation && !held ? `
+              ${finding.remediation && !held && steps.length ? `
               <details class="fix-steps">
                 <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}</summary>
                 <ol class="fix-steps__list">
-                  ${card.steps.map((step) => `
+                  ${steps.map((step) => `
                     <li>
                       <h4>${escapeHtml(step.title)}</h4>
                       <div class="fix-steps__body">${renderMiniMarkdown(step.body)}</div>
                     </li>`).join('')}
                 </ol>
               </details>` : ''}
-              ${askButtonHtml(held ? QuietNotes.heldAsk(card, finding) : finding)}
-              ${copyAiButtonHtml(finding, pick)}
+              <details class="get-help">
+                <summary>Get help with this</summary>
+                ${askButtonHtml(held ? QuietNotes.heldAsk(card, finding) : finding)}
+                ${copyAiButtonHtml(finding, pick)}
+              </details>
               <details class="tech-details">
                 <summary>Technical details</summary>
                 <pre class="tech-log" data-tech-log>${escapeHtml(techText(key, null))}</pre>
@@ -1022,17 +1214,59 @@ if (typeof document !== 'undefined') {
         })
         .join('');
 
+      const more = findings.length > PAGE
+        ? `<button type="button" class="btn btn--secondary btn--small results-group__more" data-show-more>${escapeHtml(moreLabel(findings.length - PAGE))}</button>` : '';
+      const list = `
+          <p class="muted results-group__empty" data-group-empty hidden>Nothing left here. Everything in this group is in “Cleared” below.</p>
+          <ul class="findings-list" data-group-list>${items}</ul>
+          ${more}`;
+      // Good to know: one closed box with its count. Nothing in it needs doing.
+      if (severity === 'info') {
+        return `
+        <section class="results-group results-group--info" data-results-group="info">
+          <details class="results-group__fold">
+            <summary><span class="chip chip--info">${escapeHtml(SEVERITY_LABELS.info)}</span>
+              <span class="results-group__count">${findings.length}</span>
+              <span class="muted">${escapeHtml(SEVERITY_DESCRIPTIONS.info)}</span></summary>
+            ${list}
+          </details>
+        </section>`;
+      }
       return `
         <section class="results-group results-group--${severity}" data-results-group="${severity}">
           <h2>
             <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
             <span class="results-group__count">${findings.length}</span>
           </h2>
-          <p class="muted">${escapeHtml(SEVERITY_DESCRIPTIONS[severity])}</p>
-          <p class="muted results-group__empty" data-group-empty hidden>Nothing left here. Everything in this group is in “Cleared” below.</p>
-          <ul class="findings-list" data-group-list>${items}</ul>
+          ${list}
         </section>
       `;
+    }
+
+    function moreLabel(left) {
+      return left > PAGE ? `Show ${PAGE} more (${left} not shown)` : `Show the last ${left}`;
+    }
+
+    // Each group keeps PAGE cards on show: a cleared card's place goes to the next one.
+    function topUp(root) {
+      root.querySelectorAll('[data-results-group]').forEach((group) => {
+        const list = group.querySelector('[data-group-list]');
+        if (!list) return;
+        const cards = Array.from(list.querySelectorAll(':scope > [data-card-key]'));
+        let shown = cards.filter((c) => !c.hidden).length;
+        for (const c of cards) {
+          if (shown >= PAGE) break;
+          if (c.hidden && c.hasAttribute('data-card-more')) { c.hidden = false; c.removeAttribute('data-card-more'); shown += 1; }
+        }
+        updateMore(group);
+      });
+    }
+    function updateMore(group) {
+      const btn = group.querySelector('[data-show-more]');
+      if (!btn) return;
+      const left = group.querySelectorAll('[data-group-list] > [data-card-more]').length;
+      btn.hidden = left === 0;
+      btn.textContent = moreLabel(left);
     }
 
     // A re-check redraws the list; focus stays on the same checklist row.
@@ -1089,6 +1323,9 @@ if (typeof document !== 'undefined') {
       // The whole-report copies would read as the full checkup: only once it's done.
       document.getElementById('results-copy-all').hidden = !!partial;
       document.getElementById('results-tech').hidden = !!partial;
+      // "Your progress" waits for the finished checkup too (plain-panel.js shows it in standard mode).
+      const progressBtn = document.getElementById('btn-your-progress');
+      document.getElementById('progress-link').hidden = !!partial || !progressBtn || progressBtn.hidden;
       if (partial) {
         document.getElementById('results-learn').hidden = true;
         document.getElementById('results-city-switch').hidden = true;
@@ -1098,10 +1335,11 @@ if (typeof document !== 'undefined') {
     function renderResults(doc) {
       const partial = isPartialDoc(doc) ? doc.partial : null;
       renderResultsFrame(partial);
-      const { groups, erroredModules, unfinishedModules } = groupFindingsBySeverity(doc);
-      const notFullyChecked = erroredModules.length + unfinishedModules.length;
+      const { groups, erroredModules, unfinishedModules, partlyChecked } = groupFindingsBySeverity(doc);
+      // One count, the same one the city shows (notCheckedSummary).
+      const notChecked = notCheckedSummary(doc);
+      const notFullyChecked = notChecked.count;
       const total = SEVERITY_ORDER.reduce((sum, sev) => sum + groups[sev].length, 0);
-
 
       // Before the cards render: it resets the per-finding copy registry. The
       // whole-report copy uses the same per-card objects, so an answer given
@@ -1111,17 +1349,19 @@ if (typeof document !== 'undefined') {
         findings: reportFindings,
         situation: copyAiSituation(situation, mode),
         platform: doc && doc.platform,
-        couldNotCheck: [...erroredModules, ...unfinishedModules].map((m) => aiCheckLabel(m.name, mode)),
+        couldNotCheck: [...erroredModules, ...unfinishedModules, ...partlyChecked].map((m) => aiCheckLabel(m.name, mode)),
       });
       cardPicks = new Map();
       cardTech = new Map();
       nextCardKey = 0;
+      madeByExplained = false;
       routerCtx = RouterLink.contextFrom(doc, browserName);
       const groupsEl = document.getElementById('results-groups');
       const wasOpen = partial ? openDetailsIn(groupsEl) : new Set();
       const anchor = partial ? readingAnchor(groupsEl) : null;
       keepFocus(groupsEl, () => {
-        groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial)).join('')
+        groupsEl.innerHTML = (partial ? '' : BULK_HTML)
+          + SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial)).join('')
           + ClearList.sectionHtml();
       });
       reopenDetailsIn(groupsEl, wasOpen);
@@ -1131,6 +1371,8 @@ if (typeof document !== 'undefined') {
       // Items marked as yours on an earlier checkup start out cleared.
       clearList.reset({ couldNotCheck: notFullyChecked });
       groupsEl.querySelectorAll('[data-marked-before]').forEach((card) => clearList.clear(card, 'marked_before'));
+      topUp(groupsEl);
+      updateBulk();
 
       // The sentence at the top counts what the progress bar counts.
       const summaryEl = document.getElementById('results-summary');
@@ -1143,8 +1385,7 @@ if (typeof document !== 'undefined') {
           worth: groups.critical.length + groups.warning.length, other: groups.info.length }))}</p>`;
       } else if ((total === 0 || !said) && notFullyChecked > 0) {
         // Never an all-clear while a check couldn't run or didn't finish.
-        summaryEl.innerHTML =
-          '<p>Some checks couldn\'t run or didn\'t finish on this computer &mdash; they\'re listed at the bottom. The checks that finished found nothing worth a look.</p>';
+        summaryEl.innerHTML = '<p>The checks that finished found nothing worth a look.</p>';
       } else if (total === 0 || !said) {
         summaryEl.innerHTML =
           '<p class="results-summary__all-clear">Nothing stood out during this checkup. Nice and tidy.</p>';
@@ -1155,11 +1396,13 @@ if (typeof document !== 'undefined') {
       const errorsSection = document.getElementById('results-errors');
       const errorsList = document.getElementById('results-errors-list');
       if (notFullyChecked > 0) {
-        errorsList.innerHTML = couldntCheckItems(erroredModules, unfinishedModules, mode)
-          .map(
-            (item) =>
-              `<li><strong>${escapeHtml(item.name)}</strong>${item.reason ? ` &mdash; ${escapeHtml(item.reason)}` : ''}</li>`
-          )
+        document.getElementById('results-errors-line').textContent = notCheckedLine(notChecked);
+        const mac = currentPlatform() === 'darwin';
+        errorsList.innerHTML = couldntCheckItems(erroredModules, unfinishedModules, mode, partlyChecked)
+          .map((item) => `<li><strong>${escapeHtml(item.name)}</strong>${item.reason ? ` &mdash; ${escapeHtml(item.reason)}` : ''}`
+            + (item.kind === 'permission' && mac ? ` <button type="button" class="btn btn--secondary btn--small" data-setting-url="${FDA_URL}">Open the setting</button>` : '')
+            + (item.raw ? `<details class="tech-details"><summary>For tech helpers</summary><pre class="tech-log">${escapeHtml(item.raw)}</pre></details>` : '')
+            + '</li>')
           .join('');
         errorsSection.hidden = false;
       } else {
@@ -1393,6 +1636,37 @@ if (typeof document !== 'undefined') {
     });
     const cardsOf = (els) => els.map((el) => clearList.cardOf(el)).filter(Boolean);
 
+    // Ticking a card: only the bulk bar changes.
+    resultsRoot.addEventListener('change', (event) => {
+      if (event.target && event.target.hasAttribute && event.target.hasAttribute('data-card-pick')) updateBulk();
+    });
+    resultsRoot.addEventListener('click', (event) => {
+      const t = event.target && event.target.closest ? event.target.closest('[data-show-more],[data-bulk-did],[data-bulk-none]') : null;
+      if (!t) return;
+      if (t.hasAttribute('data-show-more')) {
+        const group = t.closest('[data-results-group]');
+        Array.from(group.querySelectorAll('[data-group-list] > [data-card-more]')).slice(0, PAGE).forEach((c) => {
+          c.hidden = false; c.removeAttribute('data-card-more');
+        });
+        updateMore(group);
+        return;
+      }
+      const ticked = Array.from(resultsRoot.querySelectorAll('[data-card-pick]')).filter((b) => b.checked);
+      if (t.hasAttribute('data-bulk-did')) {
+        ticked.forEach((b) => {
+          const card = b.closest('[data-card-key]');
+          if (card && card.querySelector('[data-clear-did]:not([hidden])')) { b.checked = false; clearList.clear(card, 'did'); }
+        });
+      } else {
+        ticked.forEach((b) => { b.checked = false; });
+      }
+      updateBulk();
+    });
+    document.getElementById('results-errors-list').addEventListener('click', (event) => {
+      const btn = event.target.closest && event.target.closest('[data-setting-url]');
+      if (btn) window.rescue.openSetting(btn.getAttribute('data-setting-url'));
+    });
+
     // "Open in System Settings": opens the page and nothing else; main allowlists the URL.
     resultsRoot.addEventListener('click', (event) => {
       const btn = event.target.closest && event.target.closest('[data-setting-url]');
@@ -1479,7 +1753,34 @@ if (typeof document !== 'undefined') {
     document.getElementById('btn-back-to-scan').addEventListener('click', () => showScreen('scan'));
     document.getElementById('btn-run-scan').addEventListener('click', runCheckup);
     document.getElementById('btn-scan-retry').addEventListener('click', runCheckup);
-    document.getElementById('btn-start-over').addEventListener('click', resetToWelcome);
+    // Start over throws these results away: asked first, as the city asks.
+    document.getElementById('btn-start-over').addEventListener('click', () => {
+      document.getElementById('btn-start-over').hidden = true;
+      document.getElementById('start-over-confirm').hidden = false;
+      const yes = document.getElementById('btn-start-over-yes');
+      if (yes && typeof yes.focus === 'function') yes.focus();
+    });
+    function closeStartOver() {
+      document.getElementById('btn-start-over').hidden = false;
+      document.getElementById('start-over-confirm').hidden = true;
+    }
+    document.getElementById('btn-start-over-yes').addEventListener('click', () => { closeStartOver(); resetToWelcome(); });
+    document.getElementById('btn-start-over-no').addEventListener('click', () => {
+      closeStartOver();
+      const back = document.getElementById('btn-start-over');
+      if (back && typeof back.focus === 'function') back.focus();
+    });
+
+    // City mode: Esc on the list goes back to the city, as it does from the
+    // help district. Not when Esc just closed a confirm panel or a dialog.
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (mode !== 'city' || !screens.results || screens.results.hidden) return;
+      const dialog = document.getElementById('progress-dialog');
+      if (dialog && dialog.open) return;
+      if (!lastScanDoc || scanRunning || !cityAvailable()) return;
+      showCity(lastScanDoc);
+    });
 
     // 'city' opens straight into the game: the command deck, with the sweep
     // as its main action until one has run this session. Plain view, Start

@@ -37,8 +37,22 @@ const FixFlow = (function () {
     return f;
   }
 
+  // The engine's wording names the command-line tool; the app is Reclaim City.
+  function appWords(s) {
+    // Never inside a path: the folder on disk keeps its real name.
+    return String(s == null ? '' : s).replace(/(?<![/\w])Device Rescue\b(?!\/)/g, 'Reclaim City');
+  }
+
+  // A line for people at a command line ("rescue undo …").
+  const CLI_LINE = /\bcommand line\b|^\s*rescue\s|`rescue\s/i;
+
+  // The undo steps. Command-line ones go under "For tech helpers".
   function undoListHtml(steps) {
-    return `<ol class="fix-undo">${(steps || []).map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`;
+    const all = (steps || []).map(appWords);
+    const plain = all.filter((s) => !CLI_LINE.test(s));
+    const tech = all.filter((s) => CLI_LINE.test(s));
+    return `<ol class="fix-undo">${plain.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`
+      + (tech.length ? `<details class="tech-details"><summary>For tech helpers</summary>${tech.map((s) => `<p>${esc(s)}</p>`).join('')}</details>` : '');
   }
 
   // Markup placed inside a finding card. The confirmation panel is rendered
@@ -53,6 +67,8 @@ const FixFlow = (function () {
 
   // opts.watched (city mode): every fix confirmation, with or without an
   // engine action, says it may be noticed. Any change to the computer can be.
+  // opts.safety: the finding's own warning ("Removing this can alert whoever
+  // installed it."), shown before the confirm button.
   function fixControlsHtml(finding, opts) {
     const fixable = fixableOf(finding);
     if (!fixable || typeof finding.module !== 'string' || !MODULE_NAME.test(finding.module)) return '';
@@ -63,15 +79,17 @@ const FixFlow = (function () {
       : '';
     const watched = opts && opts.watched
       ? `<p class="fix-panel__line fix-panel__warning"><strong>${esc(WATCHED_WARNING)}</strong></p>`
-      : '';
+      : opts && typeof opts.safety === 'string' && opts.safety
+        ? `<p class="fix-panel__line fix-panel__warning" data-fix-safety><strong>${esc(opts.safety)}</strong></p>`
+        : '';
     return `
       <div class="fix-it" data-fix-module="${esc(finding.module)}"${attrs}>
         <button type="button" class="btn btn--secondary btn--small" data-fix-open>Fix it for me</button>
         <div class="fix-panel" data-fix-panel hidden role="group" aria-label="Confirm fix">
-          <p class="fix-panel__line"><strong>This will:</strong> ${esc(fixable.will_change)}</p>
+          ${watched}
+          <p class="fix-panel__line"><strong>This will:</strong> ${esc(appWords(fixable.will_change))}</p>
           <p class="fix-panel__line"><strong>To undo later:</strong></p>
           ${undoListHtml(fixable.how_to_undo)}
-          ${watched}
           <p class="muted fix-panel__note">Nothing else on your computer will be changed.</p>
           <div class="fix-panel__actions">
             <button type="button" class="btn btn--primary btn--small" data-fix-confirm>Yes, fix it</button>
@@ -139,7 +157,9 @@ const FixFlow = (function () {
     return {
       tone: 'error',
       headline: 'The fix didn’t go through.',
-      detail: `${said ? said + ' ' : ''}Run the checkup again to see where things stand. The "How to fix this" steps still work.`.trim(),
+      detail: 'Run the checkup again to see where things stand. The step-by-step instructions still work.',
+      // The engine's own words, for a tech helper: never run into the app's sentence.
+      engine: said,
       undo: [],
     };
   }
@@ -150,6 +170,7 @@ const FixFlow = (function () {
       <div class="fix-status--${d.tone} fix-status__box">
         <p class="fix-status__headline"><strong>${esc(d.headline)}</strong></p>
         ${d.detail ? `<p class="fix-status__detail">${esc(d.detail)}</p>` : ''}
+        ${d.engine ? `<details class="tech-details"><summary>For tech helpers</summary><p>${esc(d.engine)}</p></details>` : ''}
         ${d.undoId ? `<p><button type="button" class="btn btn--secondary btn--small" data-fix-undo data-quarantine-id="${esc(d.undoId)}">Undo</button></p>` : ''}
         ${d.undo.length ? `<p class="fix-status__detail"><strong>To undo later:</strong></p>${undoListHtml(d.undo)}` : ''}
       </div>`;
@@ -325,11 +346,15 @@ const FixFlow = (function () {
     root.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
       const card = cardOf(event.target);
-      if (card && state.get(card) === 'confirming') closePanel(card);
+      if (card && state.get(card) === 'confirming') {
+        closePanel(card);
+        // Handled: the page's own Esc (back to the city) leaves it alone.
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+      }
     });
   }
 
-  return { WATCHED_WARNING, fixableOf, fixControlsHtml, describeFixResult, resultHtml, attach, esc };
+  return { WATCHED_WARNING, appWords, undoListHtml, fixableOf, fixControlsHtml, describeFixResult, resultHtml, attach, esc };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

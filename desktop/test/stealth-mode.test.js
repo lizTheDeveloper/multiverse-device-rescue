@@ -103,7 +103,7 @@ test('rather not say, then "Yes, I know about it": still standard, the game stay
   p.answer('known');
   assert.strictEqual(p.storage.getItem(KEY), 'standard');
   assert.deepStrictEqual(p.shown(), ['city']);
-  assert.match(p.byId('results-groups').innerHTML, /Removing this can alert whoever installed it\. Read this first\./);
+  assert.match(p.byId('results-groups').innerHTML, /Removing this can alert whoever installed it\./);
 });
 
 test('nothing the app writes says why, on any route', async () => {

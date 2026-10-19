@@ -43,7 +43,7 @@
               <span>Reclaim City only looks &mdash; it never changes anything on your device without your explicit OK.</span>
             </div>
           </div>
-          <h2 class="route-prompt">How would you like to play?</h2>
+          <h2 class="route-prompt">How would you like to see it?</h2>
           <div class="route-choice">
             <button id="btn-get-started" class="route route--check" type="button">
               <span class="route__eyebrow">Plain view</span>
@@ -115,8 +115,11 @@
 
         <aside id="scan-tips" class="card scan-tips" aria-labelledby="scan-tips-title" hidden>
           <h2 id="scan-tips-title">Pop-ups you might see</h2>
-          <p class="muted">Your computer may ask for permission while the checkup runs. Here&rsquo;s what each one means.</p>
-          <div id="scan-tips-list"></div>
+          <p id="scan-tips-line">Your computer may ask for permission. Click Allow. We never ask for your password.</p>
+          <details class="scan-tips__more">
+            <summary>What each pop-up means</summary>
+            <div id="scan-tips-list"></div>
+          </details>
         </aside>
         </div>
       </section>
@@ -125,10 +128,7 @@
       <section id="screen-results" class="screen" data-screen="results" aria-labelledby="results-title" hidden>
         <div class="card card--wide">
           <h1 id="results-title">Here's what we found</h1>
-          <p class="lede">
-            This is guidance, not action &mdash; Reclaim City hasn't changed anything on your
-            device. Review each item and decide what, if anything, you'd like to do about it.
-          </p>
+          <p class="lede">Nothing has been changed. You decide what to do about each item.</p>
 
           <div id="results-running" class="results-running" role="status" aria-live="polite" hidden>
             <p id="results-running-text"></p>
@@ -136,6 +136,14 @@
             <button id="btn-back-to-scan" class="btn btn--secondary btn--small" type="button">Show the checkup&rsquo;s progress</button>
           </div>
           <div id="results-summary" class="results-summary"></div>
+          <section id="results-errors" class="results-errors" hidden>
+            <p class="results-errors__line"><strong id="results-errors-line"></strong></p>
+            <details class="results-errors__which">
+              <summary>See which</summary>
+              <ul id="results-errors-list" class="errors-list"></ul>
+              <p class="muted">Often it just means a permission or tool is missing.</p>
+            </details>
+          </section>
           <div id="results-progress" class="results-progress" role="status" aria-live="polite" hidden></div>
           <p id="results-city-switch" hidden>
             <button id="btn-see-city" class="btn btn--game" type="button">See it as a city</button>
@@ -147,8 +155,6 @@
             <div id="progress-dialog-body"></div>
           </dialog>
 
-          <div id="results-groups"></div>
-
           <section id="results-next" class="results-next" hidden>
             <h2>What to do next</h2>
             <p id="results-next-text" class="muted">There&rsquo;s a step-by-step guide for your situation. It opens in your web browser.</p>
@@ -156,11 +162,7 @@
             <ul id="results-guides" class="guide-links" hidden></ul>
           </section>
 
-          <section id="results-errors" class="results-errors" hidden>
-            <h2>Couldn't fully check these</h2>
-            <p class="muted">These parts of the checkup couldn&rsquo;t run or didn&rsquo;t finish, so they aren&rsquo;t a clean bill of health. Often it just means a permission or tool is missing.</p>
-            <ul id="results-errors-list" class="errors-list"></ul>
-          </section>
+          <div id="results-groups"></div>
 
           <section id="results-copy-all" class="copy-ai-all">
             <h2>Ask your own AI</h2>
@@ -184,6 +186,11 @@
           </details>
 
           <button id="btn-start-over" class="btn btn--secondary" type="button">Start over</button>
+          <div id="start-over-confirm" class="start-over-confirm" role="group" aria-label="Start over?" hidden>
+            <p>Start over? These results will be cleared from the screen.</p>
+            <button id="btn-start-over-yes" class="btn btn--primary btn--small" type="button">Yes, start over</button>
+            <button id="btn-start-over-no" class="btn btn--secondary btn--small" type="button">Cancel</button>
+          </div>
         </div>
       </section>
 

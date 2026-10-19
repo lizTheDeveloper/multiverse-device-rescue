@@ -30,7 +30,7 @@ test('the progress line: N of M, then all clear, honest about what was not check
   assert.strictEqual(ClearList.progressText({ total: 0, cleared: 0, did: 0 }), null);
   const start = ClearList.progressText({ total: 12, cleared: 0, did: 0 });
   assert.strictEqual(start.headline, '0 of 12 cleared');
-  assert.match(start.detail, /I did this/);
+  assert.match(start.detail, /tick several/);
   const mid = ClearList.progressText({ total: 12, cleared: 3, did: 2 }, { couldNotCheck: 1 });
   assert.strictEqual(mid.headline, '3 of 12 cleared');
   assert.match(mid.detail, /2 things you said you did will be checked again/);
@@ -65,7 +65,9 @@ test('"I did this" where there are steps, "I’ve looked at this" for other warn
   assert.strictEqual(ClearList.didLabel(steps, 'critical'), 'I did this');
   assert.strictEqual(ClearList.didLabel({ description: 'Known virus.' }, 'critical'), null, 'a look never clears a critical');
   assert.strictEqual(ClearList.didLabel(steps, 'info'), null);
-  assert.match(ClearList.didControlsHtml(steps, 'warning', esc), /For this checkup only/);
+  // Taught once, in Cleared: not repeated on every card.
+  assert.doesNotMatch(ClearList.didControlsHtml(steps, 'warning', esc), /For this checkup only/);
+  assert.match(ClearList.sectionHtml(), /“I did this” lasts for this checkup only/);
 });
 
 test('the AI text says what the person said, never more', () => {

@@ -75,7 +75,10 @@ test('describeFixResult: refusals and failures are in plain words, with the engi
   assert.match(refused.detail, /How to fix this/);
   const failed = FixFlow.describeFixResult({ applied: false, status: 'failed', message: 'The change did not go through: must be root' });
   assert.strictEqual(failed.tone, 'error');
-  assert.match(failed.detail, /must be root/);
+  // The engine's words are kept for a tech helper, never run into the app's sentence.
+  assert.match(failed.engine, /must be root/);
+  assert.doesNotMatch(failed.detail, /must be root/);
+  assert.match(FixFlow.resultHtml({ applied: false, status: 'failed', message: 'must be root' }), /For tech helpers<\/summary><p>must be root/);
   const crash = FixFlow.describeFixResult({ applied: false, error: 'engine_error', message: 'spawn ENOENT' });
   assert.strictEqual(crash.tone, 'error');
 });

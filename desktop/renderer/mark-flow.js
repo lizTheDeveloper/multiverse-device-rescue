@@ -166,8 +166,21 @@ const MarkFlow = (function () {
     return `<p class="fix-panel__line">That is ${count} warnings about ${what} on this checkup; one answer covers them all.</p>`;
   }
 
+  // The engine's wording names the command-line tool; the app is Reclaim City.
+  function appWords(s) {
+    // Never inside a path: the folder on disk keeps its real name.
+    return String(s == null ? '' : s).replace(/(?<![/\w])Device Rescue\b(?!\/)/g, 'Reclaim City');
+  }
+  // A line for people at a command line ("rescue known remove <id>").
+  const CLI_LINE = /\bcommand line\b|^\s*rescue\s|`rescue\s/i;
+
+  // The undo steps. Command-line ones go under "For tech helpers".
   function undoListHtml(steps) {
-    return `<ol class="fix-undo">${(steps || []).map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`;
+    const all = (steps || []).map(appWords);
+    const plain = all.filter((s) => !CLI_LINE.test(s));
+    const tech = all.filter((s) => CLI_LINE.test(s));
+    return `<ol class="fix-undo">${plain.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`
+      + (tech.length ? `<details class="tech-details"><summary>For tech helpers</summary>${tech.map((s) => `<p>${esc(s)}</p>`).join('')}</details>` : '');
   }
 
   // Control and format characters (bidi overrides, zero-width spaces) shown as
@@ -331,7 +344,7 @@ const MarkFlow = (function () {
             <p class="fix-panel__line"><strong data-mark-whole-head tabindex="-1">${esc(WHOLE_HEAD)}</strong></p>
             ${showsHtml(m, finding)}
             ${alone > 0 ? `<p class="fix-panel__line">${esc(wholeIncludes(alone))}</p>` : ''}
-            <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.will_change)}</p>
+            <p class="fix-panel__line"><strong>This will:</strong> ${esc(appWords(m.will_change))}</p>
             <p class="fix-panel__line">${esc(WHOLE_CHANGES)}</p>
             <p class="fix-panel__line"><strong>To undo later:</strong></p>
             ${undoListHtml(m.how_to_undo)}
@@ -392,7 +405,7 @@ const MarkFlow = (function () {
           <div data-mark-items-confirm hidden>
             <p class="fix-panel__line"><strong data-mark-items-head tabindex="-1">You’re saying these are yours:</strong></p>
             <ul class="mark-apps">${confirmRows}</ul>
-            <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.items_will_change || m.will_change)}</p>
+            <p class="fix-panel__line"><strong>This will:</strong> ${esc(appWords(m.items_will_change || m.will_change))}</p>
             <p class="fix-panel__line"><strong>To undo later:</strong></p>
             ${undoListHtml(m.how_to_undo)}
             <p class="fix-panel__line fix-panel__warning"><strong>${esc(ONLY_IF_YOURS)}</strong></p>
@@ -445,7 +458,7 @@ const MarkFlow = (function () {
         <button type="button" class="btn btn--secondary btn--small" data-mark-open>${esc(buttonLabel(m))}</button>
         <div class="fix-panel" data-mark-panel hidden role="group" aria-label="Confirm this is yours">
           ${showsHtml(m, finding)}
-          <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.will_change)}</p>
+          <p class="fix-panel__line"><strong>This will:</strong> ${esc(appWords(m.will_change))}</p>
           ${coversHtml(group.length, m.kind)}
           <p class="fix-panel__line"><strong>To undo later:</strong></p>
           ${undoListHtml(m.how_to_undo)}
@@ -896,7 +909,11 @@ const MarkFlow = (function () {
       if (event.key !== 'Escape') return;
       const card = cardOf(event.target);
       const s = card && state.get(card);
-      if (s === 'confirming' || s === 'confirming-items' || s === 'confirming-whole') closeByPerson(card);
+      if (s === 'confirming' || s === 'confirming-items' || s === 'confirming-whole') {
+        closeByPerson(card);
+        // Handled: the page's own Esc (back to the city) leaves it alone.
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+      }
     });
 
     return { unmark };

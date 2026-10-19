@@ -1414,3 +1414,104 @@ h3 {
 .link-button { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; opacity: 0.75; }
 .link-button:hover, .link-button:focus-visible { opacity: 1; }
 .question-back { margin: 0 0 1rem; }
+
+/* ---------- UX round 1: Plain view ---------- */
+
+/* A heading focused by the app (so a screen reader reads it) is not a control: no ring. */
+h1[tabindex="-1"]:focus,
+h2[tabindex="-1"]:focus,
+h3[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* What wasn't fully checked: at the top, one line, the checks behind "See which". */
+.results-errors {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--warning-border);
+  border-top: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+}
+.results-errors__line { margin: 0 0 0.4rem; color: var(--warning-text); }
+.results-errors__which > summary { cursor: pointer; font-weight: 600; }
+.results-errors .errors-list .btn { margin-left: 0.4rem; }
+.results-errors .errors-list .tech-details { margin: 0.25rem 0 0.5rem; }
+
+.results-next { margin: 0 0 1.5rem; }
+
+/* Each card's checkbox: selects it for the bar above the list. */
+.finding-card__pick {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 0;
+}
+.finding-card__pick:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.results-cleared .finding-card__pick { display: none; }
+
+.results-bulk {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.results-bulk[hidden] { display: none; }
+.results-bulk__count { font-weight: 700; }
+.results-bulk .copy-ai__slot { flex-basis: 100%; }
+
+.results-group__more { margin-top: 0.75rem; }
+.results-group__fold > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-size: 1.05rem;
+  padding: 0.4rem 0;
+}
+
+/* The warning on its face, before the fix and mark buttons. */
+.finding-card__note--first > p { color: inherit; }
+.finding-card__note--first > details > summary { cursor: pointer; margin-top: 0.3rem; }
+.finding-card__note--first > details > p { margin-top: 0.4rem; color: inherit; }
+
+/* "Get help with this": both AI options in one place, each saying where it goes. */
+.get-help { margin-top: 0.75rem; }
+.get-help > summary { cursor: pointer; font-weight: 600; color: var(--text-muted); }
+.get-help .ask, .get-help .copy-ai { margin-top: 0.6rem; }
+.get-help__where { display: block; font-size: 0.85rem; margin-top: 0.2rem; }
+
+/* Where a cleared card was: one line saying what happened, with Undo. */
+.cleared-stub {
+  list-style: none;
+  padding: 0.6rem 0.9rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+}
+.cleared-stub__tick { color: var(--brand-strong); font-weight: 700; }
+
+.start-over-confirm {
+  margin-top: 1.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.start-over-confirm[hidden] { display: none; }
+.start-over-confirm p { margin: 0; flex-basis: 100%; }
+
+.scan-tips__more > summary { cursor: pointer; font-weight: 600; margin: 0.4rem 0; }
