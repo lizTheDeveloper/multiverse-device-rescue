@@ -335,6 +335,23 @@ def test_expected_outbound_windows_fail_closed():
     assert not C.claims_expected_outbound("linux", pathless)
 
 
+def test_expected_outbound_needs_a_local_remote_address():
+    smb = {"proto": "tcp", "state": "ESTABLISHED", "local_addr": "192.168.1.40", "local_port": 50101,
+           "remote_addr": "192.168.1.10", "remote_port": 445, "pid": 4, "process": "System", "exe": None}
+    assert C.is_expected_outbound("win32", smb)
+    assert not C.is_expected_outbound("win32", {**smb, "remote_addr": "203.0.113.5"})
+    svc = {**smb, "remote_addr": "198.51.100.7", "remote_port": 7680, "pid": 1044,
+           "process": "svchost", "exe": "C:\\Windows\\System32\\svchost.exe"}
+    assert not C.is_expected_outbound("win32", svc, windows_dir="C:\\Windows")
+    assert C.is_expected_outbound("win32", {**svc, "remote_addr": "10.1.2.3"}, windows_dir="C:\\Windows")
+    pathless = {**svc, "exe": None}
+    assert not C.claims_expected_outbound("win32", pathless)
+    assert C.claims_expected_outbound("win32", {**pathless, "remote_addr": "fe80::1"})
+    assert C.claims_expected_outbound("win32", {**pathless, "remote_addr": "fd00::5"})
+    assert not C.is_expected_outbound("win32", {**smb, "remote_addr": "2001:db8::1"})
+    assert not C.is_expected_outbound("win32", {**smb, "remote_addr": None})
+
+
 def test_snapshot_without_bytes_skips_data_count_commands():
     seen = []
 

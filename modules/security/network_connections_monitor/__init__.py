@@ -1,7 +1,6 @@
-import subprocess
-import re
 from collections import defaultdict
 
+from rescue import command
 from rescue.models import (
     Action,
     CheckResult,
@@ -14,6 +13,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.runtime import load_content_module
 
 
 # Known backdoor ports - should be flagged as CRITICAL
@@ -29,6 +29,7 @@ WELL_KNOWN_REMOTE_PORTS = {5228, 5223}
 BROWSER_PREFIXES = (
     "google", "chrome", "safari", "firefox", "brave", "arc", "opera",
     "vivaldi", "msedge", "microsoft\\x20edge", "com.apple.webkit",
+    "chromium",
 )
 BROWSER_CONNECTION_THRESHOLD = 300
 
@@ -47,8 +48,21 @@ def _is_link_local_v6(addr: str) -> bool:
     return addr.lower().startswith("fe80")
 
 
-def _threshold_for(process: str) -> int:
+_COLLECT_KEY = "rescue_conn_common_collect"
+
+
+def _collect_module():
+    return load_content_module("modules/network/conn_common/collect.py", _COLLECT_KEY)
+
+
+def _match_name(process: str) -> str:
+    """The lower-case program name without a Windows ".exe", for prefix matching."""
     name = process.lower()
+    return name[:-4] if name.endswith(".exe") else name
+
+
+def _threshold_for(process: str) -> int:
+    name = _match_name(process)
     if name.startswith(BROWSER_PREFIXES):
         return BROWSER_CONNECTION_THRESHOLD
     if name.startswith(DEV_TOOL_PREFIXES):
@@ -81,10 +95,133 @@ PRIVATE_IP_RANGES = [
 ]
 
 
+def _numbered(steps: list[str]) -> str:
+    return "\n".join(f"{n}. {step}" for n, step in enumerate(steps, 1))
+
+
+def _backdoor_steps(platform: str) -> list[str]:
+    if platform == "win32":
+        return [
+            "Open Resource Monitor (type \"Resource Monitor\" in the Start menu) and "
+            "look on the Network tab for the program named above",
+            "In Task Manager's Details tab, right-click the program and choose "
+            "Open file location to see where it lives",
+            "Right-click the file, choose Properties, and look at the Digital "
+            "Signatures tab to see who made it",
+            "Run a full scan with Windows Security",
+            "If it looks suspicious, write down the name and location and ask a "
+            "trusted professional before removing anything",
+        ]
+    if platform == "linux":
+        return [
+            "Run `ss -tnap` to see each connection with the program that opened it",
+            "Run `ls -l /proc/<PID>/exe` to see where that program lives",
+            "Run `dpkg -S <path>` or `rpm -qf <path>` to see whether a package "
+            "installed it",
+            "Run a full malware scan, for example with ClamAV",
+            "If it looks suspicious, write down the name and location and ask a "
+            "trusted professional before removing anything",
+        ]
+    return [
+        "Use `lsof -p <PID>` to see all connections for this process",
+        "Check the process binary: `ps -p <PID> -o comm=`",
+        "Verify if the binary is signed: `codesign -v /path/to/binary`",
+        "Check the process in Activity Monitor",
+        "If it looks suspicious, write down the name and location and ask a "
+        "trusted professional before removing anything",
+        "Run a full malware scan",
+    ]
+
+
+def _high_count_steps(platform: str) -> list[str]:
+    if platform == "win32":
+        return [
+            "Open Resource Monitor and look at the Network tab for the program",
+            "In Task Manager's Details tab, right-click it and choose Open file "
+            "location to see where it lives",
+            "Look at the remote addresses it talks to in Resource Monitor",
+            "If suspicious, research the program name and file online",
+        ]
+    if platform == "linux":
+        return [
+            "See the program's connections: `ss -tnap | grep pid=<PID>`",
+            "Check what it is: `ps -p <PID> -o args=`",
+            "Look at the remote addresses in the `ss` output",
+            "If suspicious, research the program name and file online",
+        ]
+    return [
+        "Check process details: `ps aux | grep <PID>`",
+        "View connections: `lsof -p <PID>`",
+        "Check remote IPs: `lsof -i -nP | grep <PID>`",
+        "If suspicious, research the process name/binary",
+    ]
+
+
+def _unusual_port_steps(platform: str) -> list[str]:
+    if platform == "win32":
+        return [
+            "Research the port number online",
+            "Check if the program is expected to use this port",
+            "In Resource Monitor's Network tab, look under TCP Connections for "
+            "the program using the port",
+            "Verify the remote IP/domain",
+        ]
+    if platform == "linux":
+        return [
+            "Research the port number online",
+            "Check if the program is expected to use this port",
+            "Run `ss -tnap` to see what is using the port",
+            "Verify the remote IP/domain",
+        ]
+    return [
+        "Research the port number online",
+        "Check if the process is expected to use this port",
+        "Use `lsof -i :<port>` to see what's using the port",
+        "Verify the remote IP/domain",
+    ]
+
+
+def _private_ip_how_to(platform: str) -> str:
+    if platform == "win32":
+        return (
+            "To view them: open Resource Monitor, go to the Network tab and look "
+            "under TCP Connections for remote addresses starting 10., 172.16 to "
+            "172.31, or 192.168."
+        )
+    if platform == "linux":
+        return (
+            "Command to view all private IP connections:\n"
+            "  ss -tnp | grep -E '(10\\.|172\\.|192\\.168)'"
+        )
+    return (
+        "Command to view all private IP connections:\n"
+        "  lsof -i -nP | grep -E '(10\\.|172\\.|192\\.168)'"
+    )
+
+
+def _monitor_steps(platform: str) -> list[str]:
+    if platform == "win32":
+        return [
+            "Open Resource Monitor (type \"Resource Monitor\" in the Start menu) "
+            "and go to the Network tab",
+            "Task Manager's Performance tab shows live network use",
+        ]
+    if platform == "linux":
+        return [
+            "View all connections with their programs: `ss -tnap`",
+            "Only established ones: `ss -tnap state established`",
+        ]
+    return [
+        "View all connections: `netstat -anp tcp`",
+        "View connections by process: `lsof -i -nP`",
+        "Filter established: `netstat -anp tcp | grep ESTABLISHED`",
+    ]
+
+
 class Module(ModuleBase):
     name = "network_connections_monitor"
     category = "security"
-    platforms = [Platform.DARWIN]
+    platforms = [Platform.DARWIN, Platform.LINUX, Platform.WIN32]
     risk_level = RiskLevel.SAFE
     priority = 50
     depends_on = []
@@ -96,17 +233,28 @@ class Module(ModuleBase):
         "security.network_connections_monitor.unusual_ports",
         "security.network_connections_monitor.private_ip_connections",
         "security.network_connections_monitor.connection_summary",
+        "security.network_connections_monitor.couldnt_check",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
+        platform = profile.platform.value
 
-        # Get active connections from netstat and lsof
-        connections = self._get_active_connections()
+        collect = _collect_module()
+        if collect is None:
+            return self._couldnt_check("The connection helper could not be loaded.")
+        snap = collect.snapshot(platform, run=command.run, with_bytes=False)
+        if snap["error"]:
+            return self._couldnt_check(snap["error"])
 
-        if not connections:
-            # No connections found or error getting them
+        all_connections = self._connections(snap["records"])
+        if not all_connections:
             return CheckResult(module_name=self.name, findings=findings)
+
+        # A connection whose program this check couldn't see is noted below as
+        # info; it never counts towards a warning about a named program.
+        connections = [c for c in all_connections if c["process"] is not None]
+        unseen = [c for c in all_connections if c["process"] is None]
 
         # Check for connections on backdoor ports
         backdoor_connections = []
@@ -137,7 +285,11 @@ class Module(ModuleBase):
                     severity=Severity.CRITICAL,
                     category=self.category,
                     code="security.network_connections_monitor.backdoor_ports",
-                    data={"check": "backdoor_ports", "connections": backdoor_connections},
+                    data={
+                        "check": "backdoor_ports",
+                        "connections": backdoor_connections,
+                        "platform": platform,
+                    },
                 )
             )
 
@@ -199,18 +351,33 @@ class Module(ModuleBase):
                     severity=Severity.WARNING,
                     category=self.category,
                     code="security.network_connections_monitor.high_connection_count",
-                    data={"check": "high_connection_count", "processes": high_conn_processes},
+                    data={
+                        "check": "high_connection_count",
+                        "processes": high_conn_processes,
+                        "platform": platform,
+                    },
                 )
             )
 
         # Check for connections on unusual ports from unknown processes
         unusual_port_connections = []
         push_port_connections = []
+        familiar_port_connections = []
+        claimed_connections = []
         for conn in connections:
             port = conn["port"]
             # Flag if on unusual port (not in legitimate list) and not a system port (< 1024)
             if _is_loopback(conn["remote_addr"]) or _is_link_local_v6(conn["remote_addr"]):
                 continue  # stays on this computer or the local link
+            # The operating system's own, verified traffic (Windows file sharing
+            # and update sharing on the local network) is not worth a line.
+            if collect.is_expected_outbound(platform, conn["record"]):
+                continue
+            if collect.claims_expected_outbound(platform, conn["record"]):
+                claimed_connections.append(
+                    f"{conn['process']} -> {conn['remote_addr']}:{port}"
+                )
+                continue
             if port in WELL_KNOWN_REMOTE_PORTS:
                 # Push-notification ports are common, but a port number is chosen
                 # by the program, so list these as info instead of skipping them.
@@ -220,9 +387,34 @@ class Module(ModuleBase):
                 continue
             if port not in LEGITIMATE_PORTS and port not in BACKDOOR_PORTS:
                 if port > 1024:  # Skip system ports
-                    unusual_port_connections.append(
-                        f"{conn['process']} -> {conn['remote_addr']}:{port}"
-                    )
+                    line = f"{conn['process']} -> {conn['remote_addr']}:{port}"
+                    # A browser's name is chosen by the program, so it is listed
+                    # as info rather than skipped, but is not treated as odd.
+                    if _match_name(conn["process"]).startswith(BROWSER_PREFIXES):
+                        familiar_port_connections.append(line)
+                    else:
+                        unusual_port_connections.append(line)
+
+        if familiar_port_connections or claimed_connections:
+            lines = familiar_port_connections + claimed_connections
+            findings.append(
+                Finding(
+                    title=f"Connections on uncommon ports from familiar-looking programs: {len(lines)}",
+                    description=(
+                        "These programs have a familiar name (a web browser, or a "
+                        "Windows service) and use a port that is not one of the "
+                        "everyday ones. That is common for video calls, games and "
+                        "Windows' own services. This tool has not verified who made "
+                        "them, because a program can pick any name, and Windows "
+                        "hides where its services live unless the check runs as "
+                        f"admin:\n{chr(10).join(lines[:20])}"
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.network_connections_monitor.unusual_ports",
+                    data={"check": "familiar_port_connections", "connections": lines},
+                )
+            )
 
         if push_port_connections:
             findings.append(
@@ -265,6 +457,7 @@ class Module(ModuleBase):
                     data={
                         "check": "unusual_ports",
                         "connections": unusual_port_connections,
+                        "platform": platform,
                     },
                 )
             )
@@ -296,33 +489,88 @@ class Module(ModuleBase):
                     severity=Severity.INFO,
                     category=self.category,
                     code="security.network_connections_monitor.private_ip_connections",
-                    data={"check": "private_ip_connections", "count": len(private_ip_connections)},
+                    data={
+                        "check": "private_ip_connections",
+                        "count": len(private_ip_connections),
+                        "platform": platform,
+                    },
+                )
+            )
+
+        if unseen:
+            lines = [f"{c['remote_addr']}:{c['port']}" for c in unseen]
+            findings.append(
+                Finding(
+                    title=f"{len(unseen)} connection(s) whose program couldn't be seen",
+                    description=(
+                        "This check couldn't see which program owns these connections "
+                        "without admin rights, so it can't say whether they are "
+                        f"expected: {', '.join(lines[:20])}"
+                        f"{' and more' if len(lines) > 20 else ''}."
+                        + (
+                            "\n\n" + " ".join(snap["limits"])
+                            if snap["limits"] else ""
+                        )
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.network_connections_monitor.unusual_ports",
+                    data={
+                        "check": "unnamed_connections",
+                        "count": len(unseen),
+                        "connections": lines,
+                        "limits": list(snap["limits"]),
+                    },
                 )
             )
 
         # Summary report
-        if connections:
+        if all_connections:
             findings.append(
                 Finding(
-                    title=f"Current network connections: {len(connections)}",
+                    title=f"Current network connections: {len(all_connections)}",
                     description=(
-                        f"System has {len(connections)} active network connection(s). "
+                        f"System has {len(all_connections)} active network connection(s). "
                         f"Review above findings for any suspicious activity."
                     ),
                     severity=Severity.INFO,
                     category=self.category,
                     code="security.network_connections_monitor.connection_summary",
-                    data={"check": "connection_summary", "total_count": len(connections)},
+                    data={
+                        "check": "connection_summary",
+                        "total_count": len(all_connections),
+                        "platform": platform,
+                    },
                 )
             )
 
         return CheckResult(module_name=self.name, findings=findings)
+
+    def _couldnt_check(self, reason: str) -> CheckResult:
+        return CheckResult(
+            module_name=self.name,
+            findings=[
+                Finding(
+                    title="Couldn't check this computer's network connections",
+                    description=(
+                        "This check couldn't read the list of network connections, so "
+                        "it hasn't checked anything. That is not the same as a clean "
+                        f"result. {reason}"
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.network_connections_monitor.couldnt_check",
+                    data={"check": "couldnt_check", "reason": reason},
+                )
+            ],
+        )
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []
 
         for finding in findings.findings:
             check = finding.data.get("check")
+            platform = finding.data.get("platform", "darwin")
 
             if check == "backdoor_ports":
                 connections = finding.data.get("connections", [])
@@ -336,14 +584,9 @@ class Module(ModuleBase):
                         description=(
                             f"Connections found on backdoor ports:\n{conn_str}\n\n"
                             "Steps to investigate:\n"
-                            "1. Use `lsof -p <PID>` to see all connections for this process\n"
-                            "2. Check the process binary: `ps -p <PID> -o comm=`\n"
-                            "3. Verify if the binary is signed: `codesign -v /path/to/binary`\n"
-                            "4. Check process in Activity Monitor\n"
-                            "5. If suspicious, terminate the process and quarantine it\n"
-                            "6. Run a full malware scan\n\n"
-                            "DO NOT kill the process without investigation as it may be "
-                            "legitimate development/testing."
+                            + _numbered(_backdoor_steps(platform))
+                            + "\n\nDo not remove anything without investigating first, "
+                            "as it may be legitimate development/testing."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -361,16 +604,13 @@ class Module(ModuleBase):
                     Action(
                         title="Investigate processes with high connection count",
                         description=(
-                            f"Processes with >20 connections:\n{proc_str}\n\n"
+                            f"Programs with many open connections:\n{proc_str}\n\n"
                             "This may indicate:\n"
                             "- Botnet/malware activity\n"
                             "- Network scanner/port scanner\n"
                             "- Legitimate high-traffic service\n\n"
                             "To investigate:\n"
-                            "1. Check process details: `ps aux | grep <PID>`\n"
-                            "2. View connections: `lsof -p <PID>`\n"
-                            "3. Check remote IPs: `lsof -i -nP | grep <PID>`\n"
-                            "4. If suspicious, research the process name/binary"
+                            + _numbered(_high_count_steps(platform))
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -390,11 +630,8 @@ class Module(ModuleBase):
                         description=(
                             f"Connections on non-standard ports:\n{conn_str}\n\n"
                             "To investigate:\n"
-                            "1. Research the port number online\n"
-                            "2. Check if the process is expected to use this port\n"
-                            "3. Use `lsof -i :<port>` to see what's using the port\n"
-                            "4. Verify the remote IP/domain\n\n"
-                            "Common suspicious ports: 4444, 5555, 8080, 8888, 1337, 31337"
+                            + _numbered(_unusual_port_steps(platform))
+                            + "\n\nCommon suspicious ports: 4444, 5555, 8080, 8888, 1337, 31337"
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -412,9 +649,8 @@ class Module(ModuleBase):
                             "These are typically expected in corporate/home networks, but verify:\n"
                             "1. They match your expected network topology\n"
                             "2. They are to trusted internal IPs\n"
-                            "3. The processes making these connections are expected\n\n"
-                            "Command to view all private IP connections:\n"
-                            "  lsof -i -nP | grep -E '(10\\.|172\\.|192\\.168)'"
+                            "3. The programs making these connections are expected\n\n"
+                            + _private_ip_how_to(platform)
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -429,12 +665,9 @@ class Module(ModuleBase):
                         title=f"Monitor {count} active network connection(s)",
                         description=(
                             f"Your system has {count} active network connection(s).\n\n"
-                            "Regular monitoring commands:\n"
-                            "1. View all connections: `netstat -anp tcp`\n"
-                            "2. View connections by process: `lsof -i -nP`\n"
-                            "3. Monitor in real-time: `netstat -anp tcp | watch`\n"
-                            "4. Filter established: `netstat -anp tcp | grep ESTABLISHED`\n\n"
-                            "Review regularly for unauthorized outbound connections."
+                            "Ways to look at them:\n"
+                            + _numbered(_monitor_steps(platform))
+                            + "\n\nReview regularly for unauthorized outbound connections."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -444,108 +677,22 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _get_active_connections(self) -> list[dict]:
-        """
-        Get active network connections using lsof.
-
-        Returns list of dicts with keys:
-        - process (str): process name
-        - pid (int): process ID
-        - remote_addr (str): remote IP address
-        - port (int): remote port
-        - state (str): connection state (ESTABLISHED, etc.)
-
-        Returns empty list on any failure.
-        """
-        try:
-            result = subprocess.run(
-                ["lsof", "-i", "-nP"],
-                capture_output=True,
-                text=True,
-                timeout=10,
+    def _connections(self, records: list[dict]) -> list[dict]:
+        """The open (not just listening) connections, in the shape check() uses."""
+        connections = []
+        for record in records:
+            remote = record.get("remote_addr")
+            port = record.get("remote_port")
+            if not remote or not port or record.get("state") == "LISTEN":
+                continue
+            connections.append(
+                {
+                    "process": record.get("process"),
+                    "pid": record.get("pid"),
+                    "remote_addr": remote,
+                    "port": port,
+                    "state": record.get("state") or "ESTABLISHED",
+                    "record": record,
+                }
             )
-
-            if result.returncode != 0:
-                return []
-
-            connections = []
-            lines = result.stdout.strip().split("\n")
-
-            # Skip header line
-            for line in lines[1:]:
-                if not line.strip():
-                    continue
-
-                # Parse lsof output format
-                # COMMAND  PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
-                # Example: Chrome 1234 user 42u IPv4 0x123456 0t0 TCP 192.168.1.100:54321->8.8.8.8:443 (ESTABLISHED)
-                parts = line.split()
-                if len(parts) < 9:
-                    continue
-
-                command = parts[0]
-                pid = parts[1]
-                # NAME field is second to last
-                name_field = parts[-2] if len(parts) > 8 else ""
-
-                # Parse connection info from name field
-                # Format: local_ip:local_port->remote_ip:remote_port (STATE)
-                # or IPv6 format with []
-                try:
-                    pid_int = int(pid)
-
-                    if "->" not in name_field:
-                        continue
-
-                    # Split on ->
-                    addr_parts = name_field.split("->")
-                    if len(addr_parts) != 2:
-                        continue
-
-                    remote_part = addr_parts[1]
-
-                    # Extract remote IP and port
-                    # Handle IPv6 addresses with []
-                    if "[" in remote_part:
-                        # IPv6 format: [ipv6]:port
-                        if "]:" in remote_part:
-                            ip_part, port_part = remote_part.rsplit("]:", 1)
-                            remote_ip = ip_part.lstrip("[")
-                            remote_port = int(port_part)
-                        else:
-                            continue
-                    else:
-                        # IPv4 format: ip:port
-                        if ":" in remote_part:
-                            ip_parts = remote_part.rsplit(":", 1)
-                            remote_ip = ip_parts[0]
-                            remote_port = int(ip_parts[1])
-                        else:
-                            continue
-
-                    # Determine state - usually in last part
-                    state = "ESTABLISHED"
-                    if len(parts) > 0:
-                        last_part = parts[-1]
-                        if last_part.startswith("(") and last_part.endswith(")"):
-                            state = last_part.strip("()")
-
-                    connections.append({
-                        "process": command,
-                        "pid": pid_int,
-                        "remote_addr": remote_ip,
-                        "port": remote_port,
-                        "state": state,
-                    })
-
-                except (ValueError, IndexError):
-                    continue
-
-            return connections
-
-        except subprocess.TimeoutExpired:
-            return []
-        except FileNotFoundError:
-            return []
-        except Exception:
-            return []
+        return connections

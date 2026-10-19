@@ -1,9 +1,13 @@
+import json
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from rescue.command import CommandResult
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
 
@@ -26,37 +30,33 @@ def _get_module():
     return next(m for m in modules if m.name == "network_connections_monitor")
 
 
-def _make_run_result(connections=None, expect_clean=False):
-    """Create a fake subprocess.run that returns lsof output.
+def _result(stdout="", returncode=0, error=None):
+    return CommandResult(
+        args=[], returncode=returncode, stdout=stdout, stderr="",
+        timed_out=False, error=error, duration_s=0.0, truncated=False,
+    )
 
-    Args:
-        connections: List of connection tuples (process, pid, remote_ip, port, state)
-        expect_clean: If True, return empty connections by default
+
+def _make_run_result(connections=None, expect_clean=False):
+    """A stand-in for rescue.command.run that answers lsof.
+
+    connections: tuples of (process, pid, remote_ip, port, state).
     """
 
     def fake_run(cmd, **kwargs):
-        result = MagicMock()
-        result.returncode = 0
-        result.stderr = ""
-        result.stdout = ""
-
-        cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
-
-        # lsof command
-        if "lsof" in cmd_str and "-i" in cmd_str:
-            lines = [
-                "COMMAND  PID  USER  FD  TYPE             DEVICE SIZE/OFF NODE NAME"
-            ]
-
-            if connections:
-                for proc, pid, remote_ip, port, state in connections:
-                    # Format: process pid user fd type device size node remote_ip:remote_port (state)
-                    line = f"{proc:<8} {pid:<5} user  42u IPv4 0x123456 0t0 TCP 127.0.0.1:12345->{remote_ip}:{port} ({state})"
-                    lines.append(line)
-
-            result.stdout = "\n".join(lines)
-
-        return result
+        if cmd[0] != "lsof":
+            return _result(returncode=1)
+        if not connections:
+            # Real lsof prints nothing and exits 1 when no program has a socket open.
+            return _result(returncode=1)
+        lines = ["COMMAND  PID  USER  FD  TYPE             DEVICE SIZE/OFF NODE NAME"]
+        for proc, pid, remote_ip, port, state in connections or []:
+            host = f"[{remote_ip}]" if ":" in remote_ip else remote_ip
+            lines.append(
+                f"{proc:<8} {pid:<5} user  42u IPv4 0x123456 0t0 TCP "
+                f"127.0.0.1:12345->{host}:{port} ({state})"
+            )
+        return _result("\n".join(lines))
 
     return fake_run
 
@@ -73,7 +73,7 @@ def test_network_connections_monitor_clean():
     """Test when no suspicious connections are found."""
     mod = _get_module()
     fake_run = _make_run_result(expect_clean=True)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     # Should have no findings if clean
     assert not result.has_issues
@@ -88,7 +88,7 @@ def test_network_connections_monitor_legitimate_connections():
         ("SSH", 789, "192.168.1.100", 22, "ESTABLISHED"),  # SSH
     ]
     fake_run = _make_run_result(connections=connections)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     # Should only have INFO for connection summary
     assert result.has_issues
@@ -106,7 +106,7 @@ def test_network_connections_monitor_backdoor_ports():
         ("normal.app", 9999, "93.184.216.34", 443, "ESTABLISHED"),  # Legitimate
     ]
     fake_run = _make_run_result(connections=connections)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.data.get("check") == "backdoor_ports" for f in result.findings)
@@ -129,7 +129,7 @@ def test_network_connections_monitor_high_connection_count():
     connections.append(("Safari", 456, "93.184.216.34", 443, "ESTABLISHED"))
 
     fake_run = _make_run_result(connections=connections)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.data.get("check") == "high_connection_count" for f in result.findings)
@@ -143,7 +143,7 @@ def test_browser_named_process_with_many_connections_is_listed_not_dropped():
     # A botnet can call itself "chrome"; below the browser limit it is info, not silence.
     mod = _get_module()
     connections = [("chrome", 3000, f"93.184.{i // 200}.{i % 200 + 1}", 443, "ESTABLISHED") for i in range(100)]
-    with patch("subprocess.run", side_effect=_make_run_result(connections=connections)):
+    with patch("rescue.command.run", side_effect=_make_run_result(connections=connections)):
         result = mod.check(_make_profile())
     listed = [f for f in result.findings if f.data.get("check") == "many_connections_familiar_name"]
     assert len(listed) == 1 and listed[0].severity == Severity.INFO
@@ -154,7 +154,7 @@ def test_browser_named_process_with_many_connections_is_listed_not_dropped():
 def test_push_port_connections_are_listed_not_dropped():
     mod = _get_module()
     connections = [("backdoor", 9, "93.184.216.34", 5228, "ESTABLISHED")]
-    with patch("subprocess.run", side_effect=_make_run_result(connections=connections)):
+    with patch("rescue.command.run", side_effect=_make_run_result(connections=connections)):
         result = mod.check(_make_profile())
     listed = [f for f in result.findings if f.data.get("check") == "push_port_connections"]
     assert len(listed) == 1 and listed[0].severity == Severity.INFO
@@ -171,7 +171,7 @@ def test_network_connections_monitor_unusual_ports():
         ("Chrome", 3333, "8.8.8.8", 53, "ESTABLISHED"),  # Legitimate (DNS)
     ]
     fake_run = _make_run_result(connections=connections)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     # Should have unusual_ports warning (and backdoor_ports critical for 8888)
@@ -187,7 +187,7 @@ def test_network_connections_monitor_private_ips():
         ("browser", 333, "93.184.216.34", 443, "ESTABLISHED"),  # Public IP
     ]
     fake_run = _make_run_result(connections=connections)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     assert any(f.data.get("check") == "private_ip_connections" for f in result.findings)
@@ -230,7 +230,7 @@ def test_network_connections_monitor_multiple_issues():
         ("Safari", 400, "93.184.216.34", 443, "ESTABLISHED"),
     ]
     fake_run = _make_run_result(connections=connections)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     checks = [f.data.get("check") for f in result.findings]
@@ -248,7 +248,7 @@ def test_network_connections_monitor_fix_backdoor():
         ("suspect", 123, "10.0.0.50", 4444, "ESTABLISHED"),
     ]
     fake_run = _make_run_result(connections=connections)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
     assert len(fix.actions) > 0
@@ -264,7 +264,7 @@ def test_network_connections_monitor_fix_high_connections():
         connections.append(("malware", 200, f"10.0.0.{i+1}", 1000 + i, "ESTABLISHED"))
 
     fake_run = _make_run_result(connections=connections)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
     assert len(fix.actions) > 0
@@ -272,51 +272,56 @@ def test_network_connections_monitor_fix_high_connections():
     assert len(high_conn_actions) > 0
 
 
-def test_network_connections_monitor_subprocess_error():
-    """Test graceful handling of subprocess errors."""
+def test_network_connections_monitor_command_error_is_couldnt_check():
+    """A failed lsof is not a clean result."""
     mod = _get_module()
 
     def error_run(cmd, **kwargs):
-        raise OSError("Command failed")
+        return _result(returncode=None, error="Command failed")
 
-    with patch("subprocess.run", side_effect=error_run):
+    with patch("rescue.command.run", side_effect=error_run):
         result = mod.check(_make_profile())
-    # Should complete without crashing
-    assert isinstance(result.findings, list)
+    assert len(result.findings) == 1
+    assert result.findings[0].severity == Severity.INFO
+    assert result.findings[0].data["check"] == "couldnt_check"
+    assert "not the same as a clean result" in result.findings[0].description
 
 
-def test_network_connections_monitor_timeout():
-    """Test graceful handling of subprocess timeout."""
+def test_lsof_failure_is_couldnt_check():
     mod = _get_module()
-
-    def timeout_run(cmd, **kwargs):
-        raise Exception("Timeout")
-
-    with patch("subprocess.run", side_effect=timeout_run):
+    failed = CommandResult(
+        args=[], returncode=2, stdout="", stderr="lsof: permission denied",
+        timed_out=False, error=None, duration_s=0.0, truncated=False,
+    )
+    with patch("rescue.command.run", return_value=failed):
         result = mod.check(_make_profile())
-    # Should complete without crashing
-    assert isinstance(result.findings, list)
+    assert len(result.findings) == 1
+    assert result.findings[0].data["check"] == "couldnt_check"
+    assert result.findings[0].severity == Severity.INFO
+
+
+def test_network_connections_monitor_timeout_is_couldnt_check():
+    mod = _get_module()
+    timed_out = CommandResult(
+        args=[], returncode=None, stdout="", stderr="",
+        timed_out=True, error=None, duration_s=30.0, truncated=False,
+    )
+    with patch("rescue.command.run", return_value=timed_out):
+        result = mod.check(_make_profile())
+    assert result.findings[0].data["check"] == "couldnt_check"
 
 
 def test_network_connections_monitor_ipv6_connections():
     """Test parsing of IPv6 connections."""
     mod = _get_module()
-
-    def ipv6_run(cmd, **kwargs):
-        result = MagicMock()
-        result.returncode = 0
-        result.stderr = ""
-        # IPv6 format with brackets
-        result.stdout = (
-            "COMMAND  PID  USER  FD  TYPE             DEVICE SIZE/OFF NODE NAME\n"
-            "Safari   123  user  42u IPv6 0x123456 0t0 TCP [::1]:54321->[2001:4860:4860::8888]:443 (ESTABLISHED)\n"
-        )
-        return result
-
-    with patch("subprocess.run", side_effect=ipv6_run):
+    lsof = (
+        "COMMAND  PID  USER  FD  TYPE             DEVICE SIZE/OFF NODE NAME\n"
+        "Safari   123  user  42u IPv6 0x123456 0t0 TCP [::1]:54321->[2001:4860:4860::8888]:443 (ESTABLISHED)\n"
+    )
+    with patch("rescue.command.run", return_value=_result(lsof)):
         result = mod.check(_make_profile())
-    # Should parse without error
-    assert isinstance(result.findings, list)
+    summary = [f for f in result.findings if f.data.get("check") == "connection_summary"]
+    assert summary and summary[0].data["total_count"] == 1
 
 
 def test_network_connections_monitor_all_ports_and_states():
@@ -329,7 +334,7 @@ def test_network_connections_monitor_all_ports_and_states():
         ("proc4", 400, "192.168.1.1", 80, "ESTABLISHED"),
     ]
     fake_run = _make_run_result(connections=connections)
-    with patch("subprocess.run", side_effect=fake_run):
+    with patch("rescue.command.run", side_effect=fake_run):
         result = mod.check(_make_profile())
     # All are legitimate ports, should only have connection_summary
     assert result.has_issues
@@ -343,3 +348,168 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.network_connections_monitor.") for c in declared)
+
+
+# --- every platform ------------------------------------------------------------
+
+FIX = Path(__file__).parent / "fixtures" / "conn"
+
+
+def _profile_for(platform):
+    return SystemProfile(
+        platform=platform, os_name="x", os_version="1", architecture="x86_64",
+        cpu_model="x", cpu_cores=4, ram_bytes=8 * 1024**3,
+    )
+
+
+def _win_output(tcp, proc, udp="[]"):
+    return "\n".join(part.strip() for part in (tcp, udp, proc)) + "\n"
+
+
+def _check(platform, ss="", win=None, error=None):
+    def run(args, **kwargs):
+        if error:
+            return _result(returncode=None, error=error)
+        if args[0] == "ss" and "-tunapH" in args:
+            return _result(ss)
+        if args[0] == "powershell" and win is not None:
+            return _result(win)
+        return _result(returncode=1)
+
+    with patch("rescue.command.run", side_effect=run):
+        return _get_module().check(_profile_for(platform))
+
+
+def _warnings(result):
+    return [f for f in result.findings if f.severity in (Severity.WARNING, Severity.CRITICAL)]
+
+
+def test_runs_on_every_platform():
+    assert set(_get_module().platforms) == {Platform.DARWIN, Platform.LINUX, Platform.WIN32}
+
+
+def test_linux_clean_machine_no_warnings():
+    for name in ("clean_linux_ss.txt", "clean_linux_ss_outbound.txt"):
+        result = _check(Platform.LINUX, ss=(FIX / name).read_text())
+        assert not _warnings(result), name
+
+
+def test_windows_clean_machine_no_warnings():
+    proc = (FIX / "win_proc.json").read_text()
+    for name in ("clean_win_listen.json", "clean_win_outbound.json"):
+        result = _check(Platform.WIN32, win=_win_output((FIX / name).read_text(), proc))
+        assert not _warnings(result), name
+
+
+def test_windows_pathless_service_outbound_is_not_a_warning():
+    win = _win_output(
+        (FIX / "clean_win_outbound.json").read_text(), (FIX / "win_proc_nopath.json").read_text()
+    )
+    assert not _warnings(_check(Platform.WIN32, win=win))
+
+
+@pytest.mark.parametrize("platform", [Platform.LINUX, Platform.WIN32])
+def test_collector_error_is_couldnt_check(platform):
+    result = _check(platform, error="not found")
+    assert len(result.findings) == 1
+    assert result.findings[0].severity == Severity.INFO
+    assert "not the same as a clean result" in result.findings[0].description
+
+
+def test_unnamed_connection_is_info_never_warning():
+    ss = (
+        "tcp   ESTAB  0      0       192.168.1.30:51050   203.0.113.10:4444\n"
+        "tcp   ESTAB  0      0       192.168.1.30:51051   203.0.113.10:9999\n"
+    )
+    result = _check(Platform.LINUX, ss=ss)
+    assert not _warnings(result)
+    noted = [f for f in result.findings if f.data.get("check") == "unnamed_connections"]
+    assert len(noted) == 1 and noted[0].severity == Severity.INFO
+    assert "couldn't see which program" in noted[0].description
+    assert "203.0.113.10:4444" in noted[0].description
+
+
+def test_exe_suffix_is_ignored_when_matching_names():
+    import importlib
+
+    module = importlib.import_module(type(_get_module()).__module__)
+    assert module._threshold_for("msedge.exe") == module.BROWSER_CONNECTION_THRESHOLD
+    assert module._threshold_for("Firefox.EXE") == module.BROWSER_CONNECTION_THRESHOLD
+    assert module._threshold_for("chrome.exe") == module.BROWSER_CONNECTION_THRESHOLD
+    assert module._threshold_for("node.exe") == module.DEV_TOOL_CONNECTION_THRESHOLD
+    assert module._threshold_for("unknown.exe") == module.DEFAULT_CONNECTION_THRESHOLD
+
+
+def test_windows_browser_with_many_connections_is_not_warned():
+    tcp = json.dumps([
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50000 + i,
+         "RemoteAddress": f"203.0.113.{i % 200 + 1}",
+         "RemotePort": 443, "State": 5, "OwningProcess": 5120}
+        for i in range(100)
+    ])
+    result = _check(Platform.WIN32, win=_win_output(tcp, (FIX / "win_proc.json").read_text()))
+    assert not _warnings(result)
+    assert [f for f in result.findings if f.data.get("check") == "many_connections_familiar_name"]
+
+
+def _backdoor_result(platform):
+    if platform == Platform.DARWIN:
+        lsof = (
+            "COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\n"
+            "backdoor 9 u 4u IPv4 0x1 0t0 TCP 192.168.1.5:50000->203.0.113.10:4444 (ESTABLISHED)\n"
+        )
+        with patch("rescue.command.run", return_value=_result(lsof)):
+            return _get_module().check(_profile_for(platform))
+    ss = 'tcp   ESTAB  0 0 192.168.1.30:51050 203.0.113.10:4444 users:(("backdoor",pid=9,fd=4))\n'
+    tcp = json.dumps([
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50712, "RemoteAddress": "203.0.113.10",
+         "RemotePort": 4444, "State": 5, "OwningProcess": 9},
+    ])
+    proc = json.dumps([{"Id": 9, "ProcessName": "backdoor", "Path": "C:\\Users\\sam\\backdoor.exe"}])
+    return _check(platform, ss=ss, win=_win_output(tcp, proc))
+
+
+@pytest.mark.parametrize("platform", [Platform.LINUX, Platform.WIN32, Platform.DARWIN])
+def test_backdoor_fix_advice_is_per_platform(platform):
+    result = _backdoor_result(platform)
+    assert any(f.severity == Severity.CRITICAL for f in result.findings)
+    fix = _get_module().fix(result, Mode.MANUAL)
+    text = "\n".join(a.description for a in fix.actions).lower()
+    assert text
+    for word in ("kill", "terminate", "end task"):
+        assert word not in text
+    if platform == Platform.WIN32:
+        for bad in ("netstat", "lsof", "ps aux", "activity monitor", "`"):
+            assert bad not in text
+        assert "resource monitor" in text and "task manager" in text
+    elif platform == Platform.LINUX:
+        for bad in ("netstat", "lsof", "ps aux", "activity monitor", "codesign"):
+            assert bad not in text
+        assert "ss -tnap" in text
+    else:
+        assert "activity monitor" in text
+
+
+@pytest.mark.parametrize("platform", [Platform.LINUX, Platform.WIN32])
+def test_every_fix_action_avoids_macos_tools(platform):
+    tcp_rows = [
+        {"LocalAddress": "192.168.1.40", "LocalPort": 40000 + i, "RemoteAddress": f"10.0.0.{i + 1}",
+         "RemotePort": 9000 + i, "State": 5, "OwningProcess": 9}
+        for i in range(25)
+    ]
+    ss = "".join(
+        f'tcp ESTAB 0 0 192.168.1.30:{40000 + i} 10.0.0.{i + 1}:{9000 + i} users:(("p",pid=9,fd=4))\n'
+        for i in range(25)
+    )
+    proc = json.dumps([{"Id": 9, "ProcessName": "p", "Path": "C:\\Users\\p.exe"}])
+    result = _check(platform, ss=ss, win=_win_output(json.dumps(tcp_rows), proc))
+    checks = {f.data.get("check") for f in result.findings}
+    assert {"high_connection_count", "unusual_ports", "private_ip_connections",
+            "connection_summary"} <= checks
+    fix = _get_module().fix(result, Mode.MANUAL)
+    assert len(fix.actions) >= 4
+    text = "\n".join(a.description for a in fix.actions).lower()
+    for bad in ("netstat -anp tcp", "ps aux", "activity monitor", "lsof", "codesign"):
+        assert bad not in text
+    for word in ("kill", "terminate", "end task"):
+        assert word not in text

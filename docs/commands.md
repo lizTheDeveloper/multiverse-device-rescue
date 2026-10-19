@@ -1753,7 +1753,11 @@ Plus 1 command(s) built at runtime.
 ### `network_connections_monitor`
 
 ```text
-lsof -i -nP
+lsof -i -n -P
+nettop -P -L 1 -n -x -J bytes_in,bytes_out
+powershell -NoProfile -NonInteractive -Command …
+ss -tniH
+ss -tunapH
 ```
 
 ### `network_proxy`

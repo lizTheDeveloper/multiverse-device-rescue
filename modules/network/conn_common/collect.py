@@ -13,6 +13,7 @@ result).
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import re
@@ -499,15 +500,36 @@ def _win_system32(record: dict, allowed: tuple[str, ...], windows_dir: str | Non
     return any(exe == f"{base}\\system32\\{name}" for name in allowed)
 
 
+_LOCAL_NETWORKS = tuple(
+    ipaddress.ip_network(n)
+    for n in (
+        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16",
+        "fe80::/10", "fc00::/7",
+    )
+)
+
+
+def _is_local_remote(addr: str | None) -> bool:
+    """True for a private or link-local remote address (the home or office network)."""
+    try:
+        ip = ipaddress.ip_address((addr or "").split("%")[0])
+    except ValueError:
+        return False
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return any(ip in net for net in _LOCAL_NETWORKS if net.version == ip.version)
+
+
 def is_expected_outbound(platform: str, record: dict, windows_dir: str | None = None) -> bool:
     """True for an outgoing connection a normal, healthy install of the OS makes.
 
     Windows only, and fail-closed like listeners: SMB from PID 4, and
     Delivery Optimization from svchost with its exact System32 path. A
-    pathless svchost only claims it (``claims_expected_outbound``).
+    pathless svchost only claims it (``claims_expected_outbound``). Both are
+    local-network traffic only: the same port to a public address is not expected.
     """
     port = record.get("remote_port")
-    if platform != "win32" or port is None:
+    if platform != "win32" or port is None or not _is_local_remote(record.get("remote_addr")):
         return False
     if port in _WIN_OUTBOUND_SYSTEM_PORTS:
         return record.get("pid") == _SYSTEM_PID
@@ -518,6 +540,8 @@ def claims_expected_outbound(platform: str, record: dict) -> bool:
     """A pathless Windows connection carrying the name of the service that makes it."""
     port = record.get("remote_port")
     if platform != "win32" or port is None or record.get("exe"):
+        return False
+    if not _is_local_remote(record.get("remote_addr")):
         return False
     return _win_exe_name(record) in _WIN_OUTBOUND_PORTS.get(port, ())
 
