@@ -33,10 +33,28 @@ _BY_CHECK = {
     # The Mac answers pings (firewall stealth mode off).
     "stealth_mode": "firewall:answers_pings",
     "stealth_disabled": "firewall:answers_pings",
-    # Many apps allowed to control the Mac (Accessibility). The list of apps
-    # someone may not recognise is its own finding (it can be marked).
+    # Apps allowed to control the Mac (Accessibility): the count, the list,
+    # and the list of apps someone may not recognise are one item (the one
+    # that can be marked leads it on the screens).
     "excessive_accessibility": "permissions:accessibility",
     "accessibility_access": "permissions:accessibility",
+    "suspicious_accessibility": "permissions:accessibility",
+    # Time Machine is not backing up because no destination is set up.
+    "not_configured": "backup:no_destination",
+    # The Mac never sleeps / the screen never turns off.
+    "computer_sleep_disabled": "power:never_sleep",
+    "display_sleep_disabled": "display:never_off",
+    "display_sleep": "display:never_off",
+}
+
+# data["check"] values that mean different things in different modules: only
+# these modules may use the key above.
+_CHECK_MODULES = {
+    "not_configured": {"time_machine_check"},
+    "display_sleep": {"lock_screen_check"},
+    "display_sleep_disabled": {"energy_saver_check"},
+    "computer_sleep_disabled": {"energy_saver_check"},
+    "suspicious_accessibility": {"accessibility_permissions"},
 }
 
 # Checks about one app's crashes; the app's name is the identity.
@@ -50,6 +68,11 @@ def _text(v) -> str:
     return v.strip() if isinstance(v, str) else ""
 
 
+def _severity(finding: dict) -> str:
+    sev = finding.get("severity")
+    return str(getattr(sev, "value", sev) or "")
+
+
 def _norm(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
 
@@ -59,8 +82,28 @@ def same_key(module: str, finding: dict) -> str | None:
         return None
     data = finding.get("data") if isinstance(finding.get("data"), dict) else {}
     check = _text(data.get("check"))
-    if check in _BY_CHECK:
+    if check in _BY_CHECK and module in _CHECK_MODULES.get(check, {module}):
         return _BY_CHECK[check]
+    # "Your Mac is set to never sleep" from the power and energy checks.
+    if module in ("energy_settings", "power_settings") and data.get("setting") == "sleep" \
+            and str(data.get("value")) == "0":
+        return "power:never_sleep"
+    # Two counts of the same system log errors in one check.
+    if module == "system_log_errors" and ("known_bad_count" in data or "top_sources" in data) \
+            and _severity(finding) != "info":
+        return "logs:errors"
+    # Many apps start automatically: the login-items count and the
+    # background-items list.
+    if (module == "login_items_cleanup" and data.get("type") == "excessive_login_items") \
+            or (module == "startup_optimizer" and isinstance(data.get("items"), list) and _severity(finding) != "info"):
+        return "startup:many_items"
+    # One running program using a lot of the processor, seen by a performance
+    # check and the miner check: the same process id in the same scan.
+    pid = data.get("pid")
+    if isinstance(pid, int) and not isinstance(pid, bool) and (
+            module == "resource_hog_identifier" and isinstance(data.get("cpu_percent"), (int, float))
+            or module == "crypto_miner_detect" and check == "high_cpu_process"):
+        return f"process:{pid}:high_cpu"
     if check in ("volume_low", "volume_zero") and data.get("volume_percent") == 0:
         return "audio:volume_zero"
     if module in _CRASH_MODULES:
