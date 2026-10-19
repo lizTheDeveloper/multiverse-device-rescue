@@ -294,17 +294,23 @@ test('a command flag like -dv is not hotline wording', () => {
   assert.strictEqual(Q.quiet('Keep it. US National DV Hotline: call 1-800-799-7233.'), 'Keep it.');
 });
 
-test('round 3: the removal warning only where the finding could be monitoring software and the card offers removal', () => {
+test('round 3: the removal warning is a safety control: an explicit note always shows; only an inferred one can be left off', () => {
   const sn = { safety_note: 'Removing this can alert whoever installed it.', steps: [{ title: 'Remove the app', body: 'Drag it to the Trash.' }] };
-  // A stale app signature: not something that watches; no warning.
-  assert.strictEqual(Q.noteFor('standard', { module: 'code_signature_audit', remediation: sn, made_by: [{ name: 'Unknown maker', verified: false }] }), 'none');
-  // A permission list with nothing to remove: none.
-  assert.strictEqual(Q.noteFor('standard', { module: 'remote_login_check', remediation: { safety_note: 'x can alert them', steps: [{ title: 'Look', body: 'Have a look.' }] } }), 'none');
-  // A background task from a verified maker: none. Unverified: the line.
-  const task = { module: 'launch_agent_audit', remediation: sn, fixable: FIXABLE };
-  assert.strictEqual(Q.noteFor('standard', Object.assign({ made_by: [{ name: 'Dropbox, Inc.', verified: true }] }, task)), 'none');
-  assert.strictEqual(Q.noteFor('standard', Object.assign({ made_by: [{ name: 'Unknown maker', verified: false }] }, task)), 'line');
-  assert.strictEqual(Q.noteFor('city', task), 'full');
+  // A verified maker with an explicit safety note: shown.
+  assert.strictEqual(Q.noteFor('standard', { module: 'launch_agent_audit', remediation: sn, made_by: [{ name: 'Dropbox, Inc.', verified: true }] }), 'line');
+  // A check outside the monitoring-capable list with an explicit safety note: shown.
+  assert.strictEqual(Q.noteFor('standard', { module: 'code_signature_audit', remediation: { safety_note: 'x', steps: [] } }), 'line');
+  // City mode: always the full note whenever it carries one.
+  assert.strictEqual(Q.noteFor('city', { module: 'code_signature_audit', remediation: { safety_note: 'x', steps: [] } }), 'full');
+  assert.strictEqual(Q.noteFor('city', { module: 'font_issues', description: 'On.\n\nRemoving it can alert them.' }), 'full');
+  // Inferred from text only: left off only when the check can't be monitoring
+  // software and the card offers nothing to remove.
+  const inferred = 'On.\n\nRemoving it can alert them.';
+  assert.strictEqual(Q.noteFor('standard', { module: 'font_issues', description: inferred }), 'none');
+  assert.strictEqual(Q.noteFor('standard', { module: 'font_issues', description: inferred, fixable: FIXABLE }), 'line', 'in doubt: shown');
+  assert.strictEqual(Q.noteFor('standard', { module: 'remote_login_check', description: inferred }), 'line');
+  assert.strictEqual(Q.noteFor('standard', { module: 'remote_login_check', description: inferred, made_by: [{ name: 'Apple', verified: true }] }), 'line',
+    'a verified signature never suppresses it');
   // Monitoring software itself always keeps it.
   assert.strictEqual(Q.noteFor('standard', { module: 'stalkerware_scan', code: 'security.stalkerware_scan.found', severity: 'critical' }), 'line');
 });

@@ -200,16 +200,30 @@ const QuietNotes = (function () {
   // 'none': nothing more to say.
   function noteFor(mode, finding) {
     if (isDetection(finding)) return mode === 'city' ? 'held' : 'line';
-    if (!carriesAlert(finding) || !canMonitor(finding)) return 'none';
-    return mode === 'city' ? 'full' : 'line';
+    if (!carriesAlert(finding)) return 'none';
+    // A safety control: city mode always shows the full note, and an
+    // explicit engine safety note (or one already kept as quiet_full) always
+    // shows. Only a warning inferred from description or step text may be
+    // left off, and only when the finding plainly can't be monitoring
+    // software: not a monitoring-capable check AND no way to remove it on
+    // the card. A verified signature never suppresses it. In doubt: shown.
+    if (mode === 'city') return 'full';
+    if (hasExplicitNote(finding)) return 'line';
+    return inferredOnlyNoise(finding) ? 'none' : 'line';
+  }
+  function hasExplicitNote(f) {
+    if (!f || typeof f !== 'object') return false;
+    if (Array.isArray(f.quiet_full) && f.quiet_full.length) return true;
+    return !!(f.remediation && typeof f.remediation === 'object' && f.remediation.safety_note);
+  }
+  function inferredOnlyNoise(f) {
+    const x = f || {};
+    return !MONITOR_CAPABLE.has(x.module) && !offersRemoval(x);
   }
 
-  // The removal warning only where it means something (it reads as
-  // boilerplate otherwise, which weakens it where it matters): a finding
-  // that could be monitoring software, i.e. something that starts on its own,
-  // gives remote access or can watch, whose maker isn't verified, on a card
-  // that offers a way to remove or turn it off. An app whose signature is
-  // stale, or a list of permissions with nothing to remove, doesn't get it.
+  // Checks whose findings can be monitoring software: things that start on
+  // their own, give remote access or can watch. Used only to leave off a
+  // warning that was inferred from text (see noteFor).
   const MONITOR_CAPABLE = new Set([
     'launch_agent_audit', 'launchd_persistence_audit', 'scheduled_tasks_audit', 'cron_jobs_audit', 'login_items',
     'startup_auditor', 'ai_worm_persistence', 'crypto_miner_persistence', 'linux_persistence_audit',
@@ -220,10 +234,6 @@ const QuietNotes = (function () {
     'win_services_audit', 'win_services_security_audit', 'win_rdp_check', 'win_remote_access_audit', 'win_proxy_detect',
   ]);
   const REMOVAL = /\b(?:remov\w*|uninstall\w*|delet\w*|disabl\w*|unload\w*|bootout|quarantin\w*|revok\w*|(?:turn|switch)\w*\s+(?:\S+\s+){0,3}?off)\b/i;
-  function makerUnverified(f) {
-    const mb = Array.isArray(f.made_by) ? f.made_by.filter(Boolean) : [];
-    return !mb.length || mb.some((e) => e.verified !== true);
-  }
   function offersRemoval(f) {
     if (f.fixable && typeof f.fixable === 'object') return true;
     const rem = f.remediation && typeof f.remediation === 'object' ? f.remediation : null;
@@ -233,7 +243,7 @@ const QuietNotes = (function () {
   }
   function canMonitor(finding) {
     const f = finding || {};
-    return MONITOR_CAPABLE.has(f.module) && makerUnverified(f) && offersRemoval(f);
+    return !inferredOnlyNoise(f);
   }
 
   function fullNote(f) {
