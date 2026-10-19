@@ -92,3 +92,38 @@ test('redrawing the worry list adds no listeners to its container', () => {
   for (let i = 0; i < 3; i += 1) { p.byId('btn-get-started').click(); p.byId('btn-play-game').click(); }
   assert.deepStrictEqual(counts(), before);
 });
+
+// Copy for any AI goes to the clipboard, which a clipboard-history app can
+// save to disk: under the city cover it never names "watching me".
+const { copyAiSituation } = require('../renderer/app.js');
+const Worries = require('../renderer/worries.js');
+const ONE_FINDING = { schema_version: 1, platform: 'darwin', modules: [{ name: 'x', category: 'security', status: 'ok', supported: true,
+  findings: [{ severity: 'warning', title: 'T', description: 'd', category: 'security', data: {} }] }] };
+
+test('copy for any AI: no worry title in city mode when "watching me" is among the worries', () => {
+  const watched = Worries.combine(['hacked', 'watched'], SITUATIONS);
+  const alone = Worries.combine(['watched'], SITUATIONS);
+  const hacked = Worries.combine(['hacked', 'wifi'], SITUATIONS);
+  assert.strictEqual(copyAiSituation(watched, 'city'), undefined);
+  assert.strictEqual(copyAiSituation(alone, 'city'), undefined);
+  assert.strictEqual(copyAiSituation(hacked, 'city'), hacked.title);
+  assert.strictEqual(copyAiSituation(watched, 'standard'), watched.title);
+  assert.strictEqual(copyAiSituation(null, 'city'), undefined);
+});
+
+test('copy for any AI, on the page: the city results carry no "watching me" title', async () => {
+  const p = page({ store: { [KEY]: 'city' }, ready: false });
+  p.byId('btn-get-started').click();
+  p.pick('hacked', 'watched');
+  if (p.shown().includes('scan')) p.byId('btn-run-scan').click();
+  await p.finish(ONE_FINDING);
+  assert.deepStrictEqual(p.shown(), ['results']);
+  assert.strictEqual(p.run('copyAiReport.findings.length'), 1, 'the report was built');
+  assert.strictEqual(p.run('copyAiReport.situation'), undefined);
+  const q = page({ store: { [KEY]: 'standard' } });
+  q.byId('btn-get-started').click();
+  q.pick('hacked', 'wifi');
+  q.byId('btn-run-scan').click();
+  await q.finish(ONE_FINDING);
+  assert.match(q.run('copyAiReport.situation'), /hacked/);
+});

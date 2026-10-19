@@ -279,6 +279,17 @@ function scanErrorText(message) {
     .trim();
 }
 
+/**
+ * The worry line "Copy for any AI" puts on the clipboard. In city mode, when
+ * "someone is watching me" is among the worries, none: a clipboard-history
+ * app can save the text to disk, where whoever is watching could read it.
+ */
+function copyAiSituation(situation, mode) {
+  if (!situation || typeof situation.title !== 'string') return undefined;
+  if (opensInGame(mode) && (situation.safety || WorryPick.has(situation, 'watched'))) return undefined;
+  return situation.title;
+}
+
 /** The worry click: its scan starts at once in the game, or the plain scan screen. */
 function worryStartsGameScan({ situation, wantsCity, mode, ready }) {
   return gameScanFirst({ wantsCity: !!wantsCity || opensInGame(mode), offered: gameOfferedFor(situation), ready });
@@ -425,6 +436,7 @@ if (typeof module !== 'undefined' && module.exports) {
     gameOfferedFor,
     gameScanFirst,
     worryStartsGameScan,
+    copyAiSituation,
     noteMonitoring,
     opensInGame,
     CITY_SITUATION,
@@ -847,7 +859,7 @@ if (typeof document !== 'undefined') {
       const reportFindings = [];
       setCopyAiReport({
         findings: reportFindings,
-        situation: situation ? situation.title : undefined,
+        situation: copyAiSituation(situation, mode),
         platform: doc && doc.platform,
         couldNotCheck: erroredModules.map((m) => m.name),
       });
