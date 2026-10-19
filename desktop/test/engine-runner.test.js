@@ -107,19 +107,26 @@ test('runScan: an engine that stops leaves what it found; tracebacks never reach
   const doc = await runScan(fake({ code: 1, modules: [entry('b_check'), entry('a_check')], plan }), null, (ev) => events.push(ev));
   assert.ok(isStoppedDoc(doc));
   assert.deepStrictEqual(doc.modules.map((m) => m.name), ['a_check', 'b_check', 'c_check'], 'in plan order');
-  assert.deepStrictEqual(doc.stopped, { reason: 'exit', exit_code: 1, done: 2, total: 3 });
+  assert.deepStrictEqual(doc.stopped, { stage: 'early', reason: 'exit', exit_code: 1, done: 2, total: 3 });
+  assert.deepStrictEqual(doc.partial, { done: 2, total: 3, stopped: 'early' });
   const never = doc.modules[2];
   assert.strictEqual(never.status, 'error');
   assert.strictEqual(never.complete, false);
   assert.strictEqual(never.error_kind, 'stopped');
   assert.strictEqual(never.check_name, 'Check c_check');
-  assert.ok(!('partial' in doc), 'stopped is not "still running"');
   assert.ok(!JSON.stringify(doc).includes('Traceback'), 'the traceback is not in the document');
   assert.ok(events.some((e) => e.type === 'log' && /Traceback/.test(e.line)), 'the traceback goes to the technical log');
+
+  // Every planned check reported; only the report couldn't be put together.
+  const all = await runScan(fake({ code: 1, modules: [entry('a_check'), entry('b_check'), entry('c_check')], plan }), null, () => {});
+  assert.strictEqual(all.stopped.stage, 'assembly');
+  assert.deepStrictEqual(all.partial, { done: 3, total: 3, stopped: 'assembly' });
+  assert.ok(all.modules.every((m) => m.error_kind !== 'stopped'));
 
   // Exit 0 but stdout cut short: the same partial document.
   const cut = await runScan(fake({ code: 0, stdout: '{"schema_version":1,"modu', modules: [entry('a_check')] }), null, () => {});
   assert.strictEqual(cut.stopped.reason, 'unreadable');
+  assert.strictEqual(cut.stopped.stage, 'early', 'no plan: never claims everything ran');
   assert.deepStrictEqual(cut.modules.map((m) => m.name), ['a_check']);
 
   // A whole document with a non-zero exit is still the whole document.

@@ -126,9 +126,14 @@ const SCAN_STOPPED_MESSAGE = 'The checkup stopped before it finished. Nothing on
  * nothing reads as checked that wasn't. Marked `stopped` (never `partial`,
  * which means "still running"): the views say "The checkup stopped before it
  * finished", count it as not a clean bill of health, and offer no fixes or
- * marks from it (main.js doesn't hand it to the fix and mark policies).
+ * marks from it (the fix and mark policies ignore it: actionableDoc).
  *
- *   stopped: { reason: 'exit' | 'unreadable', exit_code, done, total }
+ *   stopped: { stage, reason: 'exit' | 'unreadable', exit_code, done, total }
+ *   partial: { done, total, stopped: stage }   (the Plain list's partial frame)
+ *
+ * `stage` is 'assembly' when every planned check reported and only the final
+ * report couldn't be put together ("All 196 checks ran, but the report
+ * couldn't be put together"), and 'early' when some checks never ran.
  */
 function stoppedDocOf(streamed, plan, info = {}) {
   const got = new Map();
@@ -155,16 +160,21 @@ function stoppedDocOf(streamed, plan, info = {}) {
   }
   for (const [name, m] of got) if (!seen.has(name)) modules.push(m);
   const total = Math.max(planned.length, modules.length);
+  const done = got.size;
+  // Without a plan we can't know what didn't run: never claim all of it did.
+  const stage = planned.length > 0 && done >= total ? 'assembly' : 'early';
   return {
     schema_version: 1,
     platform: info.platform || process.platform,
     modules,
     stopped: {
+      stage,
       reason: info.reason === 'unreadable' ? 'unreadable' : 'exit',
       exit_code: Number.isInteger(info.code) ? info.code : null,
-      done: got.size,
+      done,
       total,
     },
+    partial: { done, total, stopped: stage },
   };
 }
 
