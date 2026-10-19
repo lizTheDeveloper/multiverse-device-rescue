@@ -1,0 +1,137 @@
+{
+  "_note": "Synthetic findings shaped like the engine's locker modules (macOS). Made-up paths under /Users/example; no real scan data.",
+  "platform": "darwin",
+  "findings": [
+    {
+      "id": "dev-script",
+      "module": "ai_worm_filesystem",
+      "title": "Script downloads and runs code: install.sh",
+      "description": "A script in a folder we check downloads code and runs it straight away.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": { "check": "obfuscated_script", "kind": "pipe_to_shell", "confidence": 0.5, "path": "/Users/example/Projects/my-site/scripts/install.sh", "pattern": "curl -fsSL https://example.com/setup | sh" }
+    },
+    {
+      "id": "temp-dropper",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: run.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": { "check": "obfuscated_script", "kind": "atob_eval", "confidence": 0.6, "path": "/private/var/tmp/.cache-x1/run.js", "pattern": "eval(atob(" }
+    },
+    {
+      "id": "known-hash",
+      "module": "ai_worm_filesystem",
+      "title": "Known malicious file found: bundle.js",
+      "description": "This file is an exact copy of a known harmful file.",
+      "severity": "critical",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.known_hash_match",
+      "data": { "check": "known_hash_match", "confidence": 1.0, "path": "/Users/example/.config/npm-helper/bundle.js", "sha256": "0000000000000000000000000000000000000000000000000000000000000001", "threat": "Example Worm" }
+    },
+    {
+      "id": "ssh-keys",
+      "module": "ai_worm_git_ssh",
+      "title": "A file that allows remote login was changed recently",
+      "description": "The list of keys that can log in to this computer changed.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_git_ssh.ssh_authorized_keys_recent",
+      "removal_alert": true,
+      "remediation": { "safety_note": "Removing this can alert whoever set it up." },
+      "data": { "check": "ssh_authorized_keys_recent", "confidence": 0.5, "path": "/Users/example/.ssh/authorized_keys", "key_count": 2, "modified_days_ago": 3 }
+    },
+    {
+      "id": "launchagent-fixable",
+      "module": "ai_threat_indicators",
+      "title": "Background item com.example.helper.plist references an AI service",
+      "description": "A background item mentions an AI service.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_threat_indicators.launchagent_ai",
+      "data": { "check": "launchagent_ai", "plist_path": "/Users/example/Library/LaunchAgents/com.example.helper.plist" },
+      "fixable": {
+        "action": "disable_launch_agent",
+        "target": "/Users/example/Library/LaunchAgents/com.example.helper.plist",
+        "will_change": "Stops the background job 'com.example.helper' and moves its settings file to Reclaim City's quarantine folder. Nothing is deleted.",
+        "how_to_undo": ["Open Reclaim City and choose Undo on this item"]
+      }
+    },
+    {
+      "id": "cron-markable",
+      "module": "ai_threat_indicators",
+      "title": "A scheduled task is calling an AI service",
+      "description": "A scheduled task calls an AI service on a timer.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_threat_indicators.cron_ai_call",
+      "data": { "check": "cron_ai_call", "cron_entry": "0 * * * * /usr/bin/python3 /Users/example/bin/summarise.py", "entry_sha256": "0000000000000000000000000000000000000000000000000000000000000002" },
+      "markable": { "kind": "ai_tooling", "id": "ai_tooling:0000000000000000", "code": "security.ai_threat_indicators.cron_ai_call" }
+    },
+    {
+      "id": "known-miner",
+      "module": "crypto_miner_detect",
+      "title": "A known crypto miner is running: xmrig",
+      "description": "A program that matches a known crypto miner is running.",
+      "severity": "critical",
+      "category": "security",
+      "code": "security.crypto_miner_detect.known_miner",
+      "data": { "check": "known_miner", "pid": 4242, "process": "xmrig", "command": "/Users/example/.local/bin/xmrig --donate-level 1" }
+    },
+    {
+      "id": "safari-ext",
+      "module": "malware_scan_indicators",
+      "title": "Unwanted Safari extension: Example Search Helper",
+      "description": "This Safari extension is known as unwanted software.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.malware_scan_indicators.browser_extension",
+      "data": { "check": "browser_extension", "extension_name": "Example Search Helper", "browser": "Safari", "item_key": "safari:example-search-helper" }
+    },
+    {
+      "id": "sip-off",
+      "module": "rootkit_check",
+      "title": "System Integrity Protection (SIP) is turned off",
+      "description": "A core protection on your Mac is turned off.",
+      "severity": "critical",
+      "category": "security",
+      "code": "security.rootkit_check.sip_disabled",
+      "data": { "check": "sip_disabled" }
+    },
+    {
+      "id": "hidden-root",
+      "module": "rootkit_check",
+      "title": "Unusual hidden files found in your Mac's main folder (2)",
+      "description": "Two hidden items sit at the top of your disk.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.rootkit_check.hidden_files",
+      "removal_alert": true,
+      "data": { "check": "hidden_files", "files": [".example-agent", ".x1"] }
+    },
+    {
+      "id": "clamav-missing",
+      "module": "clamav_scanner",
+      "title": "You don't have ClamAV antivirus installed",
+      "description": "ClamAV is a free virus scanner.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.clamav_scanner.clamav_not_installed",
+      "data": { "check": "clamav_not_installed" }
+    },
+    {
+      "id": "signed-app",
+      "module": "malware_scan_indicators",
+      "title": "App with a suspicious ID found: com.example.*",
+      "description": "An app uses an ID that unwanted software often uses.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.malware_scan_indicators.suspicious_bundle_id",
+      "data": { "check": "suspicious_bundle_id", "bundle_id": "com.example.cleaner", "path": "/Applications/Example Cleaner.app", "item_key": "bundle:com.example.cleaner" },
+      "made_by": [ { "subject": "/Applications/Example Cleaner.app", "name": "Example Software Ltd", "verified": true, "how": "Developer ID signature", "location_note": "", "what": "Example Cleaner: a disk cleaning app." } ]
+    }
+  ]
+}
