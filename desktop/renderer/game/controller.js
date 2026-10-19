@@ -909,7 +909,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const wantsSafety = win.RescueHost.wantsSafety(m0.primary);
       const { mission: m, cityWarn } = cityBriefing(m0, note, wantsSafety);
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: '',
-        scout, busy: true, wantsSafety, note, cityWarn, modules: scanModules() });
+        scout, busy: true, wantsSafety, note, cityWarn, modules: scanModules(), platform: s.doc && s.doc.platform });
     }
     if (s.screen === 'mission' && mission(s.missionId)) {
       const m0 = mission(s.missionId);
@@ -923,7 +923,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
         : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, { ...watchedOpts(), theme: 'game' })}${routerHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
         scout, busy: s.busy, scanRunning: !!s.scan.running, wantsSafety, learned: lessonForModule(s.lessons, s.progress, m.module), note,
-        cityWarn, modules: scanModules() });
+        cityWarn, modules: scanModules(), platform: s.doc && s.doc.platform });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the

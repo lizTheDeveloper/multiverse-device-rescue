@@ -46,17 +46,30 @@ function valueOf(data, keys) {
   return null;
 }
 
-// `<path-to-plist>` -> the plist the scan found. A value with spaces or shell
-// characters is single-quoted, unless the text already quotes it.
-export function fillPlaceholders(text, data) {
+// Scan data (file names, plist paths, labels) can be chosen by whoever put
+// the thing there, and these steps are pasted into a terminal. A value is
+// filled in only when it is plainly safe there: letters (any script), digits,
+// spaces and / . - _ + , : @ % = ~, not starting with "-". It is then always
+// single-quoted, and any quotes the template put round the placeholder are
+// dropped. Anything else leaves the placeholder as it was (the value still
+// shows, escaped, in the finding's own text).
+const SAFE_VALUE = /^[\p{L}\p{N} /._+,:@%=~-]+$/u;
+export const shellSafe = (v) => typeof v === 'string' && v !== '' && SAFE_VALUE.test(v) && !v.startsWith('-') && v.trim() === v;
+
+// `<path-to-plist>` -> '/the/plist/the/scan/found'. Only for a POSIX shell
+// (macOS, Linux): `platform` anything else (Windows' PowerShell quotes
+// differently, or not known) fills nothing.
+export function fillPlaceholders(text, data, platform = null) {
+  const t = String(text == null ? '' : text);
+  if (platform !== 'darwin' && platform !== 'linux') return t;
   const d = data && typeof data === 'object' ? data : {};
-  return String(text == null ? '' : text).replace(/<([a-zA-Z][a-zA-Z0-9_ -]*)>/g, (all, name, at, whole) => {
+  return t.replace(/(["'\u2018\u2019\u201c\u201d]?)<([a-zA-Z][a-zA-Z0-9_ -]*)>(["'\u2018\u2019\u201c\u201d]?)/g, (all, q1, name, q2) => {
     const keys = FILL[name.toLowerCase()];
     const v = keys ? valueOf(d, keys) : null;
-    if (v == null) return all;
-    const before = whole.charAt(at - 1);
-    const quoted = before === '"' || before === '\'';
-    return !quoted && /[\s'"$`\\;&|()<>*?]/.test(v) ? `'${v.replace(/'/g, '\'\\\'\'')}'` : v;
+    if (!shellSafe(v)) return all;
+    // Matching quotes round the placeholder are the template's: dropped, ours used instead.
+    const wrapped = q1 && q2;
+    return `${wrapped ? '' : q1}'${v}'${wrapped ? '' : q2}`;
   });
 }
 
@@ -122,11 +135,12 @@ export function splitBody(body) {
   return [blocks.filter((_, i) => !tech[i]).join('\n\n'), blocks.filter((_, i) => tech[i]).join('\n\n')];
 }
 
-// The steps list. `data`: the finding's evidence (fills the placeholders);
+// The steps list. `data`: the finding's evidence (fills the placeholders,
+// on `platform` darwin or linux only);
 // `modules`: the scan's check ids (made into words).
-export function stepsHtml(steps, { data = null, modules = [] } = {}) {
+export function stepsHtml(steps, { data = null, modules = [], platform = null } = {}) {
   return (steps || []).map((s) => {
-    const prep = (t) => wordsForModules(fillPlaceholders(t, data), modules);
+    const prep = (t) => wordsForModules(fillPlaceholders(t, data, platform), modules);
     const title = prep(s.title).replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
     const [plain, tech] = splitBody(prep(s.body));
     const body = (plain ? `<div class="step-body">${miniMarkdown(plain)}</div>` : '')

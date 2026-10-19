@@ -22,9 +22,9 @@ export function cityWarnHtml(place) {
     <button type="button" class="btn-t" data-go="side">GO THERE ▶</button></p></div>`;
 }
 export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety, learned, note, scanRunning = false,
-  cityWarn = null, modules = [] }) {
+  cityWarn = null, modules = [], platform = null }) {
   const held = !!note && note.kind === 'held';
-  const steps = stepsHtml(m.steps, { data: m.primary && m.primary.data, modules });
+  const steps = stepsHtml(m.steps, { data: m.primary && m.primary.data, modules, platform });
   const also = m.findings.length > 1
     ? `<div class="panel"><div class="label">ALSO REPORTED AS</div><ul class="notes">${m.findings.slice(1).map((f) => `<li>${esc(f.title)}</li>`).join('')}</ul></div>` : '';
   const safety = cityWarn ? cityWarnHtml(cityWarn.place)
