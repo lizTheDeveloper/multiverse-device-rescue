@@ -133,7 +133,7 @@ export function renderMissionScreen(o) {
     let feedback = '';
     if (a) {
       const said = a.right === false
-        ? `${city ? 'Not the move here.' : 'Not quite.'}${fits ? ` ${city ? 'The move here is' : 'Here the move is'} ${fits}.` : ''} ${why || (city ? 'Look again at what the step points to.' : 'Look again at what the step points to.')}`
+        ? `Not quite.${fits ? ` ${city ? 'The move here is' : 'Here the move is'} ${fits}.` : ''} ${why || 'Look again at what the step points to.'}`
         : `${city ? 'Good move.' : 'That’s the move.'}${why ? ` ${why}` : ''}`;
       feedback = `<p class="say mx-feedback${a.right === false ? ' mx-not-quite' : ''}" role="status">${vesc(said)}</p>
       ${nextBtn(last ? 'TO THE REAL ONES ▶' : 'NEXT ▶')}`;

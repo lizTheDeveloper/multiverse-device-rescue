@@ -229,3 +229,16 @@ test('the decisions, the confirm and NEXT sit in the sticky decision bar; the sc
   assert.match(css, /\.mx-bar \{ position: sticky; bottom: 0;/);
   assert.match(css, /\.mx-screen \{[^}]*padding: 22px 18px 0/);
 });
+
+test('city practice: a wrong move reads "Not quite." once, then the move that fits', async () => {
+  const k = await kit();
+  const ctx = ctxOf(k.C, k.R, 'city');
+  const game = k.games.door;
+  const at = game.practice.script.findIndex((s) => s.expect === 'not-mine');
+  let run = practiceRun(k, game);
+  for (let i = 0; i < at; i += 1) run = k.Run.nextPracticeStep(run, game);
+  const html = practiceScreen(k, game, k.Run.choosePractice(run, game, 'mine').run, ctx).html;
+  assert.match(text(html), /Not quite\. The move here is Bar the door\./);
+  assert.doesNotMatch(text(html), /move here\. The move here/);
+  assert.deepStrictEqual(k.C.checkCityWords(html), []);
+});
