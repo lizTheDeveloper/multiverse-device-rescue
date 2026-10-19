@@ -68,22 +68,13 @@ export function lessonsWithConcept(bank, conceptId) {
 }
 
 // `history[conceptId]`: { mean, learned, recent: [itemKey, …] newest last, seen: Set<itemKey> }.
+// `seen` may also be an array (as it comes back from storage).
 // `bOf(key)`: the item's current difficulty.
-function pick(bank, conceptIds, history, max, bOf, only) {
+const seenSet = (h) => (h && h.seen instanceof Set ? h.seen : new Set(h && Array.isArray(h.seen) ? h.seen : []));
+
+function fill(bank, lists, max) {
   const out = [];
   const families = new Set();
-  const lists = conceptIds.map((c) => {
-    const h = history[c] || { mean: 0, recent: [], seen: new Set() };
-    const recent = new Set((h.recent || []).slice(-RECENT));
-    const keys = (bank.concepts.get(c) || []).filter((k) => {
-      const it = bank.items.get(k);
-      return it.kind === 'lesson' && (!only || only(it)) && !recent.has(k);
-    });
-    const seen = h.seen || new Set();
-    // Unseen items first; then the most informative at the current estimate; then bank order.
-    return keys.map((k, i) => ({ k, i, unseen: seen.has(k) ? 0 : 1, info: information(h.mean || 0, bOf(k), bank.items.get(k).c) }))
-      .sort((a, b) => (b.unseen - a.unseen) || (b.info - a.info) || (a.i - b.i)).map((x) => x.k);
-  });
   // One item per family first; then, if there is room, another variant of a family already asked.
   for (const oneEach of [true, false]) {
     while (out.length < max) {
@@ -99,6 +90,35 @@ function pick(bank, conceptIds, history, max, bOf, only) {
   return out;
 }
 
+function pick(bank, conceptIds, history, max, bOf, only) {
+  const candidates = conceptIds.map((c) => {
+    const h = history[c] || { mean: 0, recent: [], seen: [] };
+    const keys = (bank.concepts.get(c) || []).filter((k) => {
+      const it = bank.items.get(k);
+      return it.kind === 'lesson' && (!only || only(it));
+    });
+    return { h, keys, recentList: Array.isArray(h.recent) ? h.recent : [] };
+  });
+  const lists = candidates.map(({ h, keys, recentList }) => {
+    const recent = new Set(recentList.slice(-RECENT));
+    const seen = seenSet(h);
+    // Unseen items first; then the most informative at the current estimate; then bank order.
+    return keys.filter((k) => !recent.has(k))
+      .map((k, i) => ({ k, i, unseen: seen.has(k) ? 0 : 1, info: information(h.mean || 0, bOf(k), bank.items.get(k).c) }))
+      .sort((a, b) => (b.unseen - a.unseen) || (b.info - a.info) || (a.i - b.i)).map((x) => x.k);
+  });
+  const out = fill(bank, lists, max);
+  if (out.length || max < 1) return out;
+  // Every item was asked just now: rather than an empty visit, ask the one
+  // asked least recently on each concept (the earliest last appearance in `recent`).
+  const oldest = candidates.map(({ keys, recentList }) => {
+    const last = (k) => recentList.lastIndexOf(k);
+    const sorted = keys.map((k, i) => ({ k, i, at: last(k) })).sort((a, b) => (a.at - b.at) || (a.i - b.i));
+    return sorted.length ? [sorted[0].k] : [];
+  });
+  return fill(bank, oldest, max);
+}
+
 const defaultB = (bank) => (k) => levelB(bank.items.get(k).level);
 
 // The items for one visit to a lesson. The first visit (nothing answered on
@@ -108,7 +128,7 @@ const defaultB = (bank) => (k) => levelB(bank.items.get(k).level);
 export function drawLessonVisit(bank, lessonId, history, { max = VISIT_MAX, bOf = defaultB(bank) } = {}) {
   const l = bank.lessons.get(lessonId);
   if (!l) return [];
-  const answered = l.concepts.some((c) => history[c] && history[c].seen && history[c].seen.size);
+  const answered = l.concepts.some((c) => history[c] && seenSet(history[c]).size > 0);
   if (!answered) return l.families.map((f) => l.keys.find((k) => bank.items.get(k).family === f && bank.items.get(k).first)).filter(Boolean);
   const open = l.concepts.filter((c) => !(history[c] && history[c].learned));
   return pick(bank, open.length ? open : l.concepts, history, max, bOf, (it) => it.lessonId === lessonId);

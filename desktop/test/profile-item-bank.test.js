@@ -71,3 +71,23 @@ test('Learn this draws at most two items on one concept, and never a drill', asy
   assert.ok(keys.every((k) => !k.startsWith('drill:')));
   assert.deepStrictEqual(drawConcept(bank, 'lock-screen', hist()), []);
 });
+
+test('when every item on a concept was just asked, the one asked least recently comes back rather than nothing', async () => {
+  const { buildBank, drawConcept, drawLessonVisit } = await load();
+  const three = () => [{ text: 'A', correct: true, feedback: 'A.' }, { text: 'B', correct: false, feedback: 'B.' }, { text: 'C', correct: false, feedback: 'C.' }];
+  const small = [{ id: 'lesson-z', title: 'Z', questions: [{ key: 'z1', concept: 'lock-screen', teach: 'T', prompt: 'P', options: three(),
+    variants: [{ key: 'z1-2', prompt: 'P2', options: three() }] }] }];
+  const bank = buildBank(small, []);
+  const h = { 'lock-screen': { mean: 0, learned: false, recent: ['z1-2', 'z1', 'z1-2'], seen: new Set(['z1', 'z1-2']) } };
+  assert.deepStrictEqual(drawConcept(bank, 'lock-screen', h), ['z1']);
+  assert.deepStrictEqual(drawLessonVisit(bank, 'lesson-z', h), ['z1']);
+});
+
+test('seen may be an array, as it comes back from storage', async () => {
+  const { buildBank, drawLessonVisit } = await load();
+  const bank = buildBank(LESSONS, DRILLS);
+  const h = hist({ 'who-made-it': { mean: 0.2, learned: false, recent: ['a1'], seen: ['a1'] } });
+  assert.deepStrictEqual(drawLessonVisit(bank, 'lesson-a', h), ['a1-2', 'a2', 'a1-3']);
+  const none = hist({ 'who-made-it': { mean: 0, learned: false, recent: [], seen: [] } });
+  assert.deepStrictEqual(drawLessonVisit(bank, 'lesson-a', none), ['a1', 'a2'], 'an empty array is nothing answered yet');
+});

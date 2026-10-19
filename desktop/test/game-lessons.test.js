@@ -190,30 +190,63 @@ test('every concept a question names exists, and variants share their questionâ€
   }
 });
 
-// Two options carry too little information for item response theory, so every
-// variant (an item added for the bank) offers at least three. A lesson's own
-// first question may still offer two.
-test('every variant offers at least three options', async () => {
-  const { lessons } = await loadAll();
-  for (const l of lessons) {
-    for (const q of l.questions) {
-      for (const v of Array.isArray(q.variants) ? q.variants : []) {
-        assert.ok(Array.isArray(v.options) && v.options.length >= 3, `${l.id}: variant ${v.key} has ${(v.options || []).length} options; it needs at least 3`);
+// What a lesson's bank items must not do. Every item with a key (a keyed
+// question, and each of its variants) is measured and stored, so:
+// - a variant offers at least three options: two carry too little information
+//   for item response theory (a lesson's own first question may still offer two);
+// - no bank item is about monitoring software or being watched, in its
+//   prompt, message, options, feedback or its family's teach. The words are
+//   FORBIDDEN_ON_DISK's monitoring words plus a few phrasings it implies.
+const MONITORING_RE = /stalk|monitor|spy|watch|stealth|keylog|tracking you|being followed/i;
+// Fixed, sourced copy that may name these words anyway, by exact text, with
+// the reason. Empty for now; an entry needs a cited source (a project guide or
+// the Six Roses excerpt) and must never suggest removing anything.
+const MONITORING_OK = new Map([]);
+
+function bankItemText(q, it) {
+  const msg = it.message && typeof it.message === 'object' ? [it.message.subject, it.message.body] : [it.message];
+  return [it.prompt, ...msg, ...(Array.isArray(it.options) ? it.options : []).flatMap((o) => [o && o.text, o && o.feedback]), q.teach]
+    .filter((t) => typeof t === 'string' && t.trim());
+}
+
+function variantProblems(lesson) {
+  const problems = [];
+  for (const q of Array.isArray(lesson.questions) ? lesson.questions : []) {
+    const variants = Array.isArray(q.variants) ? q.variants : [];
+    for (const v of variants) {
+      const n = Array.isArray(v.options) ? v.options.length : 0;
+      if (n < 3) problems.push(`variant ${v.key}: ${n} options; it needs at least 3`);
+    }
+    const items = [...(q.key !== undefined ? [q] : []), ...variants];
+    for (const it of items) {
+      for (const t of bankItemText(q, it)) {
+        if (MONITORING_RE.test(t) && !MONITORING_OK.has(t)) problems.push(`item ${it.key}: about monitoring: "${t}"`);
       }
     }
   }
+  return problems;
+}
+
+test('every bank item passes: variants offer at least three options, and none is about monitoring', async () => {
+  const { lessons } = await loadAll();
+  for (const l of lessons) assert.deepStrictEqual(variantProblems(l), [], l.id);
 });
 
-// Nothing in the bank is about monitoring software or being watched: an item
-// the profile measures and stores must never be about that.
-test('no variant is about monitoring software', async () => {
-  const { lessons } = await loadAll();
-  for (const l of lessons) {
-    for (const q of l.questions) {
-      for (const v of Array.isArray(q.variants) ? q.variants : []) {
-        const text = [v.prompt, v.message, ...(v.options || []).flatMap((o) => [o.text, o.feedback])].filter((t) => t != null).join(' ');
-        assert.doesNotMatch(text, /stalk|monitor|spy|being watched|keylog/i, `${l.id}: variant ${v.key}`);
-      }
-    }
+test('the bank item check rejects a two-option variant and monitoring wording, wherever it sits', () => {
+  const three = (fb = 'Fine.') => [{ text: 'A', correct: true, feedback: fb }, { text: 'B', correct: false, feedback: 'No.' }, { text: 'C', correct: false, feedback: 'No.' }];
+  const lesson = (q) => ({ id: 'fake', questions: [{ key: 'f1', concept: 'lock-screen', teach: 'T', prompt: 'P', options: three(), ...q }] });
+  assert.deepStrictEqual(variantProblems(lesson({ variants: [{ key: 'f1-2', prompt: 'P2', options: three() }] })), []);
+  const two = lesson({ variants: [{ key: 'f1-2', prompt: 'P2', options: three().slice(0, 2) }] });
+  assert.strictEqual(variantProblems(two).length, 1, 'two options');
+  for (const words of ['Is there spy software here?', 'Someone may be watching you.', 'It watches what you type.', 'A stealth app hides itself.',
+    'Is it being watched?', 'An app tracking your location.', 'Check the monitoring app.', 'A keylogger records keys.']) {
+    assert.strictEqual(variantProblems(lesson({ variants: [{ key: 'f1-2', prompt: words, options: three() }] })).length, 1, `variant prompt: ${words}`);
+    assert.strictEqual(variantProblems(lesson({ prompt: words })).length, 1, `keyed question prompt: ${words}`);
+    assert.strictEqual(variantProblems(lesson({ teach: words })).length, 1, `teach: ${words}`);
+    assert.strictEqual(variantProblems(lesson({ options: three(words) })).length, 1, `feedback: ${words}`);
   }
+  const phish = lesson({ variants: [{ key: 'f1-2', prompt: 'P2', message: { type: 'email', from: 'x', subject: 'We are watching your account', body: 'B' }, options: three() }] });
+  assert.strictEqual(variantProblems(phish).length, 1, 'a message subject');
+  // An unkeyed question is not a bank item, so its wording is the accuracy gate's business, not this check's.
+  assert.deepStrictEqual(variantProblems({ id: 'old', questions: [{ teach: 'T', prompt: 'Is it watching?', options: [] }] }), []);
 });
