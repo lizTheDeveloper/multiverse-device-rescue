@@ -459,3 +459,68 @@ def test_advice_names_platform_tool():
         assert "System Settings" not in f.description
         assert "kill" not in f.description.lower()
         assert "end task" not in f.description.lower()
+
+
+def test_linux_clean_machine_outbound_no_warnings():
+    result = _check(Platform.LINUX, ss=(FIX / "clean_linux_ss_outbound.txt").read_text())
+    assert not _warnings(result)
+    familiar = [f for f in result.findings if f.data.get("check") == "familiar_connections"]
+    # still listed: a name proves nothing, but a browser on an odd port is no alarm
+    assert {i["process"] for i in familiar[0].data["items"]} == {"firefox", "chrome", "chromium"}
+
+
+def test_windows_clean_machine_outbound_no_warnings():
+    win = _win_output((FIX / "clean_win_outbound.json").read_text(), (FIX / "win_proc.json").read_text())
+    result = _check(Platform.WIN32, win=win)
+    assert not _warnings(result)
+    # System's file sharing and svchost's updates are the OS's own: not even noted
+    noted = [f for f in result.findings if f.data.get("check") == "unnamed_connections"]
+    assert not noted
+
+
+def test_windows_pathless_update_service_is_noted_not_warned():
+    win = _win_output(
+        (FIX / "clean_win_outbound.json").read_text(), (FIX / "win_proc_nopath.json").read_text()
+    )
+    result = _check(Platform.WIN32, win=win)
+    assert not _warnings(result)
+    noted = [f for f in result.findings if f.data.get("check") == "unnamed_connections"]
+    assert len(noted) == 1
+    assert [i["port"] for i in noted[0].data["items"]] == [7680]
+    assert "couldn't confirm which program" in noted[0].description
+    assert "limits" in noted[0].data
+
+
+def test_windows_smb_from_other_program_still_warns():
+    tcp = json.dumps([
+        {"LocalAddress": "0.0.0.0", "LocalPort": 135, "RemoteAddress": "0.0.0.0",
+         "RemotePort": 0, "State": 2, "OwningProcess": 1044},
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50101, "RemoteAddress": "203.0.113.50",
+         "RemotePort": 445, "State": 5, "OwningProcess": 7000},
+    ])
+    proc = json.dumps([{"Id": 7000, "ProcessName": "updater", "Path": "C:\\Users\\sam\\updater.exe"}])
+    warned = _warnings(_check(Platform.WIN32, win=_win_output(tcp, proc)))
+    assert [f.data["process"] for f in warned] == ["updater"]
+
+
+def test_unnamed_listener_title_counts_ports():
+    ss = (
+        "tcp   LISTEN 0 128 0.0.0.0:8000 0.0.0.0:*\n"
+        "tcp   LISTEN 0 128 [::]:8000 [::]:*\n"
+    )
+    result = _check(Platform.LINUX, ss=ss)
+    noted = [f for f in result.findings if f.data.get("check") == "unnamed_listeners"]
+    assert noted[0].title.startswith("1 listening port(s)")
+
+
+def test_skips_data_count_commands():
+    seen = []
+    fake = _fake_run(ss=(FIX / "clean_linux_ss.txt").read_text())
+
+    def run(args, **kw):
+        seen.append(args)
+        return fake(args, **kw)
+
+    with patch("rescue.command.run", side_effect=run):
+        _get_module().check(_make_profile(Platform.LINUX))
+    assert seen == [["ss", "-tunapH"]]

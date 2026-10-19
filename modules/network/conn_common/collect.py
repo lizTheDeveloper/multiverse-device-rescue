@@ -316,13 +316,14 @@ def _unreadable(result, records: list[dict]) -> str | None:
     return None
 
 
-def snapshot(platform: str, run=command.run) -> dict:
+def snapshot(platform: str, run=command.run, with_bytes: bool = True) -> dict:
     """Collect connections now.
 
     Returns ``{"records", "bytes", "limits", "error"}``. ``error`` is set (and
     ``records`` empty) when the connection command could not run; ``bytes`` is
     None whenever per-connection data counts are not available, which is
-    reported in ``limits`` rather than failing the snapshot.
+    reported in ``limits`` rather than failing the snapshot. ``with_bytes=False``
+    skips the data-count command for callers that don't use it.
     """
     out: dict = {"records": [], "bytes": None, "limits": [], "error": None}
 
@@ -346,6 +347,8 @@ def snapshot(platform: str, run=command.run) -> dict:
                 "macOS shows connections only for programs running as you unless "
                 "the check runs as admin."
             )
+        if not with_bytes:
+            return out
         sent = run(NETTOP_ARGS, timeout=_TIMEOUT)
         if _failure(sent) is None:
             out["bytes"] = parse_nettop(sent.stdout)
@@ -365,6 +368,8 @@ def snapshot(platform: str, run=command.run) -> dict:
                 "Linux shows which program owns a connection only for your own "
                 "programs unless the check runs as admin."
             )
+        if not with_bytes:
+            return out
         sent = run(SS_BYTES_ARGS, timeout=_TIMEOUT)
         if _failure(sent) is None:
             out["bytes"] = parse_ss_bytes(sent.stdout)
@@ -383,6 +388,8 @@ def snapshot(platform: str, run=command.run) -> dict:
             out["error"] = "Windows didn't return the list of connections."
             return out
         out["records"] = parse_win_connections(lines[0], lines[1], lines[2])
+        if not with_bytes:
+            return out
         out["limits"].append(
             "Windows doesn't show how much data each connection carried without admin."
         )
@@ -421,6 +428,10 @@ _WIN_FIXED_PORTS = {
     5040: ("svchost.exe",),
 }
 _WIN_SYSTEM_PORTS = {139, 445, 5357}
+# Outbound: file sharing (SMB) is opened by the System process itself, and
+# Delivery Optimization's peer-to-peer updates by a System32 svchost.
+_WIN_OUTBOUND_SYSTEM_PORTS = {139, 445}
+_WIN_OUTBOUND_PORTS = {7680: ("svchost.exe",)}
 _LINUX_PRIVILEGED = {
     ("sshd", 22), ("systemd-resolve", 53), ("cupsd", 631),
     ("chronyd", 123), ("ntpd", 123),
@@ -459,14 +470,9 @@ def _win_exe_name(record: dict) -> str:
 def _win_expected(record: dict, port: int, windows_dir: str | None) -> bool:
     if port in _WIN_SYSTEM_PORTS:
         return record.get("pid") == _SYSTEM_PID
-    allowed = _win_allowed(port)
-    exe = (record.get("exe") or "").replace("/", "\\").lower()
     # Without a path there is nothing to verify, so it is never expected;
     # ``claims_expected_service`` tells the caller it merely looks like one.
-    if not allowed or not exe:
-        return False
-    base = (windows_dir or _windows_dir()).replace("/", "\\").rstrip("\\").lower()
-    return any(exe == f"{base}\\system32\\{name}" for name in allowed)
+    return _win_system32(record, _win_allowed(port), windows_dir)
 
 
 def claims_expected_service(platform: str, record: dict) -> bool:
@@ -482,6 +488,38 @@ def claims_expected_service(platform: str, record: dict) -> bool:
     if port in _WIN_SYSTEM_PORTS:
         return False
     return _win_exe_name(record) in _win_allowed(port)
+
+
+def _win_system32(record: dict, allowed: tuple[str, ...], windows_dir: str | None) -> bool:
+    """True only when ``exe`` is exactly <WindowsDir>\\System32\\<one of allowed>."""
+    exe = (record.get("exe") or "").replace("/", "\\").lower()
+    if not allowed or not exe:
+        return False
+    base = (windows_dir or _windows_dir()).replace("/", "\\").rstrip("\\").lower()
+    return any(exe == f"{base}\\system32\\{name}" for name in allowed)
+
+
+def is_expected_outbound(platform: str, record: dict, windows_dir: str | None = None) -> bool:
+    """True for an outgoing connection a normal, healthy install of the OS makes.
+
+    Windows only, and fail-closed like listeners: SMB from PID 4, and
+    Delivery Optimization from svchost with its exact System32 path. A
+    pathless svchost only claims it (``claims_expected_outbound``).
+    """
+    port = record.get("remote_port")
+    if platform != "win32" or port is None:
+        return False
+    if port in _WIN_OUTBOUND_SYSTEM_PORTS:
+        return record.get("pid") == _SYSTEM_PID
+    return _win_system32(record, _WIN_OUTBOUND_PORTS.get(port, ()), windows_dir)
+
+
+def claims_expected_outbound(platform: str, record: dict) -> bool:
+    """A pathless Windows connection carrying the name of the service that makes it."""
+    port = record.get("remote_port")
+    if platform != "win32" or port is None or record.get("exe"):
+        return False
+    return _win_exe_name(record) in _WIN_OUTBOUND_PORTS.get(port, ())
 
 
 def is_expected_listener(

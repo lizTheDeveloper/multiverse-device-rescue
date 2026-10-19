@@ -5,7 +5,6 @@ import posixpath
 from collections import defaultdict
 
 from rescue import command
-
 from rescue.models import (
     Action,
     CheckResult,
@@ -81,7 +80,15 @@ KNOWN_SAFE_PROCESSES = {
     "node",
     "java",
     "python",
+    # Browsers as Linux and Windows name them
+    "chromium",
+    "chromium-browser",
+    "google-chrome",
+    "msedge",
 }
+
+# Compared case-insensitively: Linux and Windows write "firefox" and "chrome".
+_KNOWN_SAFE_LOWER = {name.lower() for name in KNOWN_SAFE_PROCESSES}
 
 
 # Remote ports that are normal for everyday software
@@ -148,8 +155,6 @@ def _outbound_what_to_do(platform: str, process: str) -> str:
     )
 
 
-
-
 class Module(ModuleBase):
     name = "suspicious_connections"
     category = "security"
@@ -173,7 +178,7 @@ class Module(ModuleBase):
         collect = _collect_module()
         if collect is None:
             return self._couldnt_check("The connection helper could not be loaded.")
-        snap = collect.snapshot(platform, run=command.run)
+        snap = collect.snapshot(platform, run=command.run, with_bytes=False)
         if snap["error"]:
             return self._couldnt_check(snap["error"])
 
@@ -243,10 +248,13 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=(
-                        f"{len(unnamed_listeners)} listening port(s) whose program "
+                        f"{len({i['port'] for i in unnamed_listeners})} listening port(s) "
+                        "whose program "
                         "couldn't be confirmed"
                     ),
-                    description=self._unnamed_description(platform, unnamed_listeners),
+                    description=self._unnamed_description(
+                        platform, unnamed_listeners, "listening port(s)"
+                    ),
                     severity=Severity.INFO,
                     category=self.category,
                     code="security.suspicious_connections.unusual_listening_port",
@@ -283,7 +291,7 @@ class Module(ModuleBase):
         # Unusual established connections, one finding per process
         out_by_proc: dict[tuple, dict] = {}
         familiar: dict[tuple, dict] = {}
-        unnamed_out = 0
+        unnamed_out: list[dict] = []
         for conn in connections:
             if conn["type"] != "ESTABLISHED":
                 continue
@@ -294,12 +302,20 @@ class Module(ModuleBase):
                 conn.get("remote_host") or conn["local_host"]
             ):
                 continue
-            # Only an Apple-signed program in a SIP folder is skipped outright.
+            # Only the operating system's own, verified programs are skipped
+            # outright: an Apple-signed program in a SIP folder on macOS, or
+            # Windows' file sharing and update services.
             if platform == "darwin" and self._is_apple_system_process(conn["pid"]):
                 continue
-            # Without a program name there is nothing to look up; counted below.
-            if conn["process"] is None:
-                unnamed_out += 1
+            if collect.is_expected_outbound(platform, conn["record"]):
+                continue
+            # No name, or a service's name without a path to check: noted below.
+            if conn["process"] is None or collect.claims_expected_outbound(
+                platform, conn["record"]
+            ):
+                unnamed_out.append(
+                    {"process": conn["process"], "pid": conn["pid"], "port": port}
+                )
                 continue
             # A familiar process name or a push-notification port is shown to
             # the person, but is not a reason to treat the connection as odd.
@@ -373,18 +389,21 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=(
-                        f"{unnamed_out} connection(s) on uncommon ports from programs this "
-                        "check couldn't see"
+                        f"{len(unnamed_out)} connection(s) on uncommon ports whose program "
+                        "couldn't be confirmed"
                     ),
-                    description=(
-                        "This check couldn't see which program owns these connections "
-                        "without admin rights, so it can't say whether they are expected. "
-                        + " ".join(snap["limits"])
-                    ).strip(),
+                    description=self._unnamed_description(
+                        platform, unnamed_out, "connections to port(s)"
+                    ),
                     severity=Severity.INFO,
                     category=self.category,
                     code="security.suspicious_connections.unusual_outbound_connection",
-                    data={"check": "unnamed_connections", "count": unnamed_out},
+                    data={
+                        "check": "unnamed_connections",
+                        "count": len(unnamed_out),
+                        "items": unnamed_out,
+                        "limits": list(snap["limits"]),
+                    },
                 )
             )
 
@@ -449,13 +468,13 @@ class Module(ModuleBase):
             return "unnamed"
         return "flag"
 
-    def _unnamed_description(self, platform: str, items: list[dict]) -> str:
+    def _unnamed_description(self, platform: str, items: list[dict], what: str) -> str:
         unseen = sorted({i["port"] for i in items if i["process"] is None})
         claimed = [i for i in items if i["process"] is not None]
         parts = []
         if unseen:
             parts.append(
-                "This check couldn't see which program owns the listening port(s) "
+                f"This check couldn't see which program owns the {what} "
                 f"{', '.join(str(p) for p in unseen)} without admin rights, so it can't "
                 "say whether they are expected."
             )
@@ -463,18 +482,18 @@ class Module(ModuleBase):
             names = sorted({i["process"] for i in claimed})
             ports = sorted({i["port"] for i in claimed})
             parts.append(
-                "This check couldn't confirm which program owns the listening port(s) "
+                f"This check couldn't confirm which program owns the {what} "
                 f"{', '.join(str(p) for p in ports)}. They carry the name of a Windows "
                 f"service ({', '.join(names)}) and Windows hides where the program lives "
                 "unless the check runs as admin. That is normal for Windows' own "
                 "services, but a name alone doesn't prove it."
             )
         if platform == "linux":
-            parts.append("An administrator can see every owner with `ss -tlnp`.")
+            parts.append("An administrator can see every owner with `ss -tnap`.")
         elif platform == "win32":
             parts.append(
-                "Resource Monitor's Network tab, under Listening Ports, shows each "
-                "program and where it lives."
+                "Resource Monitor's Network tab shows each program, where it lives, "
+                "and the connections and listening ports it has open."
             )
         return "\n\n".join(parts)
 
@@ -627,7 +646,7 @@ class Module(ModuleBase):
         """Check if process is in known safe list."""
         # Extract the process name from full path if needed
         process_name = process.split("/")[-1] if "/" in process else process
-        return process_name in KNOWN_SAFE_PROCESSES
+        return process_name.lower() in _KNOWN_SAFE_LOWER
 
     def _count_connections_by_process(self, connections: list[dict]) -> dict[str, int]:
         """Count total network connections per process."""

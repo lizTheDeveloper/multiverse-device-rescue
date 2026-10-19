@@ -243,7 +243,7 @@ def test_linux_exposed_database_warns():
 
 def test_unnamed_listener_is_info():
     ss = (FIX / "ss_tunap_linux_nonroot.txt").read_text() + (
-        "tcp   LISTEN 0      128          0.0.0.0:5432       0.0.0.0:*\n"
+        "tcp   LISTEN 0      128          0.0.0.0:8000       0.0.0.0:*\n"
     )
     result = _check(Platform.LINUX, ss=ss)
     assert not _warnings(result)
@@ -285,3 +285,32 @@ def test_advice_names_platform_tool():
         assert "Activity Monitor" not in text
         assert "lsof" not in text
         assert "kill" not in text.lower()
+
+
+def test_exposed_database_warns_even_when_program_not_visible():
+    ss = "tcp   LISTEN 0      128          0.0.0.0:5432       0.0.0.0:*\n"
+    warned = _warnings(_check(Platform.LINUX, ss=ss))
+    assert len(warned) == 1 and warned[0].data["check"] == "exposed_risky_ports"
+    assert "program not visible" in warned[0].description
+
+
+def test_listener_without_address_is_not_exposed():
+    mod = _get_module()
+    rec = {"proto": "tcp", "state": "LISTEN", "local_addr": None, "local_port": 5432,
+           "remote_addr": None, "remote_port": None, "pid": 9, "process": "postgres", "exe": None}
+    ports = mod._listening_ports([rec])
+    assert ports[0]["address"] not in ("0.0.0.0", "*", "::")
+
+
+def test_skips_data_count_commands():
+    seen = []
+    ss = 'tcp   LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=8,fd=3))\n'
+    fake = _fake_run(ss=ss)
+
+    def run(args, **kw):
+        seen.append(args)
+        return fake(args, **kw)
+
+    with patch("rescue.command.run", side_effect=run):
+        _get_module().check(_make_profile(Platform.LINUX))
+    assert seen == [["ss", "-tunapH"]]

@@ -91,7 +91,7 @@ class Module(ModuleBase):
         collect = _collect_module()
         if collect is None:
             return self._couldnt_check("The connection helper could not be loaded.")
-        snap = collect.snapshot(platform, run=command.run)
+        snap = collect.snapshot(platform, run=command.run, with_bytes=False)
         if snap["error"]:
             return self._couldnt_check(snap["error"])
 
@@ -100,9 +100,8 @@ class Module(ModuleBase):
         if not listening_ports:
             return CheckResult(module_name=self.name, findings=findings)
 
-        # Flag WARNING for risky ports exposed to 0.0.0.0. A listener whose
-        # program couldn't be seen is listed below instead (info), since this
-        # check can't say what it is.
+        # Flag WARNING for risky ports exposed to 0.0.0.0. The exposure is
+        # visible even when the program that owns the port isn't.
         exposed_risky = []
         for port_info in listening_ports:
             port = port_info["port"]
@@ -110,9 +109,9 @@ class Module(ModuleBase):
             process = port_info["process"]
 
             # Check if risky database port is exposed to all interfaces
-            if port in RISKY_PORTS and address in ALL_INTERFACES and process is not None:
+            if port in RISKY_PORTS and address in ALL_INTERFACES:
                 exposed_risky.append(
-                    f"{port} ({process}) listening on {address}"
+                    f"{port} ({process or 'program not visible'}) listening on {address}"
                 )
 
         if exposed_risky:
@@ -251,7 +250,8 @@ class Module(ModuleBase):
                 continue
             ports.append({
                 "port": record["local_port"],
-                "address": record.get("local_addr") or "*",
+                # A missing address is listed but never counted as exposed.
+                "address": record.get("local_addr") or "",
                 "process": record.get("process"),
                 "pid": record.get("pid"),
             })

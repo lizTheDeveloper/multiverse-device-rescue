@@ -315,3 +315,41 @@ def test_unexpected_listener():
     assert not C.is_expected_listener("win32", {**app, "exe": "C:\\Windows\\SysWOW64\\svchost.exe"})
     assert not C.is_expected_listener("win32", {**app, "exe": "C:\\Windows\\System32\\svchost.exe", "local_port": 8080})
     assert not C.is_expected_listener("darwin", py)
+
+
+def test_expected_outbound_windows_fail_closed():
+    recs = C.parse_win_connections(fx("clean_win_outbound.json"), "[]", fx("win_proc.json"))
+    out = {r["remote_port"]: r for r in recs if r["state"] == "ESTABLISHED"}
+    assert C.is_expected_outbound("win32", out[445], windows_dir="C:\\Windows")
+    assert C.is_expected_outbound("win32", out[7680], windows_dir="C:\\Windows")
+    assert not C.is_expected_outbound("win32", out[443])
+    # SMB is the System process only; 7680 needs svchost's exact System32 path
+    assert not C.is_expected_outbound("win32", {**out[445], "pid": 5120})
+    assert not C.is_expected_outbound("win32", {**out[7680], "exe": "C:\\Users\\x\\svchost.exe"})
+    pathless = {**out[7680], "exe": None}
+    assert not C.is_expected_outbound("win32", pathless)
+    assert C.claims_expected_outbound("win32", pathless)
+    assert not C.claims_expected_outbound("win32", {**pathless, "process": "rundll32"})
+    assert not C.claims_expected_outbound("win32", {**pathless, "remote_port": 9999})
+    assert not C.is_expected_outbound("linux", out[445])
+    assert not C.claims_expected_outbound("linux", pathless)
+
+
+def test_snapshot_without_bytes_skips_data_count_commands():
+    seen = []
+
+    def run(args, **kw):
+        seen.append(args)
+        if args[0] == "ss":
+            return result(fx("ss_tunap_linux.txt"))
+        if args[0] == "lsof":
+            return result(fx("lsof_mac.txt"))
+        return result(fx("win_tcp.json").strip() + "\n[]\n" + fx("win_proc.json"))
+
+    for platform in ("darwin", "linux", "win32"):
+        seen.clear()
+        snap = C.snapshot(platform, run=run, with_bytes=False)
+        assert snap["error"] is None and snap["records"]
+        assert snap["bytes"] is None
+        assert len(seen) == 1
+        assert not any("data" in s for s in snap["limits"])
