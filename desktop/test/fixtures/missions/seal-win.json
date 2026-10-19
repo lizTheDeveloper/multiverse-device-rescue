@@ -1,0 +1,28 @@
+{
+  "_comment": "Synthetic seal findings (Windows Authenticode and drivers). Made-up programs; no real scan data.",
+  "findings": [
+    { "module": "code_signature_audit", "severity": "critical", "removal_alert": true,
+      "code": "security.code_signature_audit.tampered_binary",
+      "title": "App ExampleSync was changed after it was signed",
+      "data": { "check": "tampered_binary", "path": "C:\\Program Files\\Example\\ExampleSync.exe", "name": "ExampleSync",
+        "detail": "Get-AuthenticodeSignature reported HashMismatch: the file was modified after signing",
+        "apps_checked": 60, "apps_total": 214 } },
+    { "module": "code_signature_audit", "severity": "warning",
+      "code": "security.code_signature_audit.unsigned_system_app",
+      "title": "Unsigned app ExampleHelper is installed for all users",
+      "data": { "check": "unsigned_system_app", "path": "C:\\Program Files (x86)\\Example\\ExampleHelper.exe", "name": "ExampleHelper",
+        "detail": "Get-AuthenticodeSignature reported NotSigned", "apps_checked": 60, "apps_total": 214 } },
+    { "module": "code_signature_audit", "severity": "warning",
+      "code": "security.code_signature_audit.gatekeeper_rejected",
+      "title": "macOS blocks ExampleViewer from running",
+      "data": { "check": "gatekeeper_rejected", "path": "C:\\Program Files\\Example\\ExampleViewer.exe", "name": "ExampleViewer",
+        "detail": "Get-AuthenticodeSignature reported NotTrusted", "apps_checked": 60, "apps_total": 214 } },
+    { "module": "win_rootkit_check", "severity": "warning",
+      "code": "security.win_rootkit_check.unsigned_drivers",
+      "title": "Found 2 driver(s) without a security signature",
+      "data": { "check": "unsigned_drivers", "drivers": ["exampledrv.sys", "examplefilter.sys"] } },
+    { "module": "win_driver_check", "severity": "warning",
+      "title": "1 driver(s) on your PC are not digitally signed",
+      "data": { "check": "unsigned_drivers", "count": 1, "drivers": ["ExampleAudio"] } }
+  ]
+}
