@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="checklist.css" />
   <link rel="stylesheet" href="game-fonts.css" />
+  <link rel="stylesheet" href="profile.css" />
 </head>
 <body>
   <div id="app">
@@ -131,6 +132,12 @@
           <p id="results-city-switch" hidden>
             <button id="btn-see-city" class="btn btn--game" type="button">See it as a city</button>
           </p>
+          <p class="results-progress-link">
+            <button id="btn-your-progress" class="btn btn--secondary" type="button">Your progress</button>
+          </p>
+          <dialog id="progress-dialog" class="progress-dialog" aria-labelledby="profile-title">
+            <div id="progress-dialog-body"></div>
+          </dialog>
 
           <div id="results-groups"></div>
 
@@ -193,5 +200,6 @@
   <script src="worries.js"></script>
   <script src="app.js"></script>
   <script type="module" src="game/boot.js"></script>
+  <script type="module" src="game/profile/plain-panel.js"></script>
 </body>
 </html>

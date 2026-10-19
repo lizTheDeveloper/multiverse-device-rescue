@@ -9,7 +9,7 @@ import { buildBank, drawLessonVisit, drawConcept } from './profile/item-bank.js'
 import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, recordAnswer, recordVisit, recordDrillCall, recordGap,
   callConcepts, shouldOffer, noteOffered, declineOffer, historyFor, difficultyOf, teachShown, summary, emptyProfile } from './profile/player-profile.js';
 import { conceptById, isHidden } from './profile/skills.js';
-import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY } from './profile/publish.js';
+import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, PUBLISH_FIELDS } from './profile/publish.js';
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
@@ -828,8 +828,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return true;
     }
     if (act.startsWith('pub-toggle:')) {
-      if (!view.publish || !canPublish()) { render(); return true; }
       const id = act.slice(11);
+      if (!view.publish || !canPublish() || !PUBLISH_FIELDS.some((f) => f.id === id)) { render(); return true; }
       const rest = view.publish.ticked.filter((x) => x !== id);
       s.profileView = { ...view, publish: { ...view.publish, ticked: el && el.checked ? [...rest, id] : rest } };
       render(); return true;
@@ -1402,6 +1402,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // A visit drawn for the other mode isn't carried on (city mode skips some items).
       if (s.screen === 'lesson') { s.lesson = null; s.screen = s.city ? 'map' : noCity(); }
       // Only while the city is on screen: otherwise the next show draws it.
+      if (drawnScreen !== null && cityShown()) render();
+    },
+    // Plain view changed the profile (Start over in "Your progress"): read it
+    // again, so the game's next save doesn't put the old one back.
+    reloadProfile() {
+      s.profile = loadProfile(storage, now(), { onProblem: (code) => { s.saveNotice = noticeFor(code); } });
+      s.progress = viewOf(s.profile);
+      if (s.screen === 'profile') s.profileView = { ...(s.profileView || { from: 'map' }), confirming: false, publish: null };
       if (drawnScreen !== null && cityShown()) render();
     },
     show(doc, situation) {

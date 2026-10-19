@@ -1,0 +1,19 @@
+/* "Your progress" (views/profile.js, plain theme) in its dialog on the results screen. */
+.results-progress-link { margin: 8px 0; }
+.progress-dialog { max-width: 760px; width: calc(100% - 32px); border: 1px solid var(--border); border-radius: 12px; padding: 0; background: var(--surface); color: var(--text); }
+.progress-dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+.profile-plain { display: grid; gap: 12px; padding: 20px; }
+.profile-plain h2 { margin: 0; }
+.profile-plain .panel { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface-muted); }
+.profile-plain .label { font-size: 1rem; margin: 0 0 6px; }
+.profile-plain ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.profile-plain .stamp { display: inline-block; min-width: 9em; color: var(--text-muted); }
+.profile-plain small { display: block; color: var(--text-muted); }
+.profile-plain .meter { display: inline-flex; gap: 3px; vertical-align: middle; }
+.profile-plain .meter i { width: 14px; height: 6px; border: 1px solid var(--border); }
+.profile-plain .meter i.on { background: var(--brand); }
+.profile-plain .row, .progress-dialog .sheet .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.profile-plain button, .progress-dialog .sheet button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.profile-plain button:focus-visible, .progress-dialog .sheet button:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.progress-dialog .sheet { padding: 20px; border-top: 1px solid var(--border); }
+.progress-dialog .pub-preview { white-space: pre-wrap; background: var(--surface-muted); padding: 10px; border-radius: 6px; max-height: 240px; overflow: auto; }
