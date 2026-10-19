@@ -12,11 +12,28 @@ export function heldNoticeHtml(district) {
   return `<p class="link-notice" role="status">Something new in ${esc(district.name)}. <button type="button" class="btn-t" data-go="side">GO THERE ▶</button></p>`;
 }
 
-export function renderSide({ district, held = [], notice = false, scout = () => '' }) {
+// One held item as what to write down: its name, where it was found, how,
+// who made it, and the date. `date`: today, as the person would write it.
+export function heldRows(h, date) {
+  return [['Name', h.name || h.title], ['Where found', h.where], ['Found as', h.how], ['Made by', h.maker], ['Date', date]]
+    .filter(([, v]) => typeof v === 'string' && v.trim() !== '');
+}
+export function heldText(h, date) {
+  return heldRows(h, date).map(([k, v]) => `${k}: ${v}`).join('\n');
+}
+const MONO = new Set(['Where found']);
+
+// `copied`: the index of the item just copied, or -1 when copying failed.
+export function renderSide({ district, held = [], notice = false, scout = () => '', date = '', copied = null }) {
   const v = district.voice;
+  const item = (h, i) => `<li class="held-item"><h4>${esc(h.title)}</h4>
+        <dl class="evidence">${heldRows(h, date).map(([k, val]) => `<dt>${esc(k)}</dt><dd${MONO.has(k) ? ' class="mono"' : ''}>${esc(val)}</dd>`).join('')}</dl>
+        <button type="button" class="btn-s" data-act="side-copy:${i}">COPY TO WRITE DOWN</button>
+        ${copied === i ? '<p class="intel" role="status">Copied. Paste it somewhere that’s only yours.</p>'
+    : copied === -(i + 1) ? '<p class="intel" role="status">It couldn’t be copied. Write it down from here.</p>' : ''}</li>`;
   const heldHtml = held.length ? `
-    <div class="panel active" role="note"><h3 class="label">${esc(HELD.heading.text)}</h3>
-      <ul class="notes">${held.map((h) => `<li>${esc(h.title)}</li>`).join('')}</ul>
+    <div class="panel active" role="note"><h3 class="side-h">${esc(HELD.heading.text)}</h3>
+      <ul class="held-items">${held.map(item).join('')}</ul>
       <ol class="side-steps">${HELD.steps.map((x) => `<li>${esc(x.text)}</li>`).join('')}</ol></div>` : '';
   const help = HELP.map((r) => `<li>${esc(r.text)}${r.url ? ` <code>${esc(r.url)}</code>` : ''}</li>`).join('');
   return `
@@ -25,11 +42,11 @@ export function renderSide({ district, held = [], notice = false, scout = () => 
       <button type="button" class="btn-p" data-act="side-back">BACK TO THE GAME</button></header>
     <div class="scout-row">${scout('happy', 54)}<p class="say">${esc(v.hello)}</p></div>
     ${heldHtml}
-    <div class="panel"><h3 class="label">QUIET FIRST STEPS</h3>
+    <div class="panel"><h3 class="side-h">Quiet first steps</h3>
       <ol class="side-steps">${FIRST_STEPS.map((x) => `<li><b>${esc(x.title)}</b> ${esc(x.text)}</li>`).join('')}</ol></div>
-    <div class="panel"><h3 class="label">WHO CAN HELP</h3><ul class="notes">${help}</ul>
+    <div class="panel"><h3 class="side-h">Who can help</h3><ul class="notes">${help}</ul>
       <p class="intel">${esc(OPEN_NOTE.text)}</p></div>
-    <div class="panel"><h3 class="label">${esc(SIX_ROSES.name.toUpperCase())}</h3>
+    <div class="panel"><h3 class="side-h">${esc(SIX_ROSES.name)}</h3>
       <p class="intel">${esc(SIX_ROSES.text)}</p><p class="intel">${esc(SIX_ROSES.note.text)}</p>
       <button type="button" class="btn-s" data-act="side-open-guide">OPEN IT IN YOUR BROWSER</button>
       ${notice ? `<p class="link-notice" role="status">${esc('It couldn’t be opened from here.')}</p>` : ''}</div>

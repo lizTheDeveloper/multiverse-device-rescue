@@ -40,7 +40,7 @@ import { renderLesson } from './views/lesson.js';
 import { renderBoss } from './views/boss.js';
 import { pickDistrict, seedFrom } from './district-names.js';
 import { SIX_ROSES } from './side-district.js';
-import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
+import { renderSide, sideTileHtml, heldNoticeHtml, heldText } from './views/side-district.js';
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
@@ -876,7 +876,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function screenHtml() {
     if (s.screen === 'profile') return profileHtml();
     if (s.screen === 'side') {
-      if (inCity()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout });
+      if (inCity()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout, date: today(), copied: s.sideCopied });
       s.screen = s.city ? 'map' : noCity();
     }
     if (s.screen === 'range') return rangeHtml();
@@ -1065,7 +1065,23 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     render();
   }
 
+  const today = () => new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+  // "Copy to write down": the held item's rows, to the clipboard only (never to disk).
+  function copyHeld(i) {
+    const h = s.held[i];
+    if (!h || s.screen !== 'side') return;
+    const ticket = s.sideTicket;
+    const done = (ok) => {
+      if (ticket !== s.sideTicket || s.screen !== 'side') return;
+      s.sideCopied = ok ? i : -(i + 1);
+      render();
+      focusEl(findByAttr(frame, 'data-act', `side-copy:${i}`));
+    };
+    Promise.resolve().then(() => win.navigator.clipboard.writeText(heldText(h, today()))).then(() => done(true), () => done(false));
+  }
+
   function openSide() {
+    s.sideCopied = null;
     s.signal = null; // a Signal or Noise panel left open closes
     s.sideNotice = false;
     s.sideSeen = true;
@@ -1080,7 +1096,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   // The panic key and BACK TO THE GAME: the ordinary game at once, focus on the map.
   function leaveSide() {
-    s.sideTicket += 1; // a guide still opening says nothing afterwards
+    s.sideTicket += 1; // a guide still opening (or a copy) says nothing afterwards
+    s.sideCopied = null;
     s.sideNotice = false;
     s.screen = s.city ? 'map' : noCity();
     render();
@@ -1143,6 +1160,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go) s.linkNotice = '';
     if (go === 'side') { if (inCity()) openSide(); return; }
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
+    if (act && act.startsWith('side-copy:')) { copyHeld(Number(act.slice(10))); return; }
     // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
     // gate decides where it lands (monitoring software: the plain list).
     if (act === 'resweep') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }

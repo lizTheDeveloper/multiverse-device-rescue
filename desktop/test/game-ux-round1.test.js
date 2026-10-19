@@ -129,3 +129,44 @@ test('P1-4: the deck controller filters by kind, opens the rest, and a district 
   assert.strictEqual(rows(), 5);
   assert.match(html, /class="district [^"]*" data-go="district:gatehouse"/);
 });
+
+test('P1-11: a familiar app with a verified maker at info is a calm note, never held; unverified or warning stays held', async () => {
+  const { splitHeld, heldOnly, familiarVerified } = await game('held.js');
+  const KB = 'security.keylogger_indicators.suspicious_input_monitoring';
+  const verified = [{ subject: 'com.microsoft.VSCode', name: 'Microsoft Corporation', verified: true }, { subject: 'com.valvesoftware.steam', name: 'Valve Corporation', verified: true }];
+  const kb = (severity, made_by) => ({ title: 'Keyboard access: 2 app(s) with familiar names', severity, code: KB, data: { apps: ['com.microsoft.VSCode', 'com.valvesoftware.steam'] }, made_by });
+  const doc = (f) => ({ modules: [{ name: 'keylogger_indicators', category: 'security', status: 'ok', supported: true, findings: [f] }] });
+  assert.strictEqual(familiarVerified(kb('info', verified)), true);
+  let r = splitHeld(doc(kb('info', verified)));
+  assert.deepStrictEqual(r.held, []);
+  assert.strictEqual(r.doc.modules[0].findings.length, 1, 'kept as an ordinary note');
+  assert.deepStrictEqual(heldOnly(doc(kb('info', verified))).modules[0].findings, []);
+  for (const f of [kb('info', [verified[0], { ...verified[1], verified: false }]), kb('info', []), kb('info', undefined), kb('warning', verified), kb('critical', verified)]) {
+    r = splitHeld(doc(f));
+    assert.strictEqual(r.held.length, 1, JSON.stringify(f).slice(0, 120));
+    assert.deepStrictEqual(r.doc.modules[0].findings, []);
+  }
+});
+
+test('P1-11: each held item shows what to write down (name, where, how, maker, date) with COPY TO WRITE DOWN', async () => {
+  const { splitHeld } = await game('held.js');
+  const { renderSide, heldText } = await game('views/side-district.js');
+  const { pickDistrict } = await game('district-names.js');
+  const mspy = { title: 'mSpy is on this computer (app)', severity: 'critical', code: 'security.stalkerware_scan.monitoring_software_found',
+    data: { stalkerware_name: 'mSpy', detected_as: 'app', location: '/Applications/<b>mSpy.app' },
+    made_by: [{ subject: '/Applications/mSpy.app', name: 'Unknown maker', verified: false }] };
+  const { held } = splitHeld({ modules: [{ name: 'stalkerware_scan', status: 'ok', findings: [mspy] }] });
+  assert.deepStrictEqual(held, [{ module: 'stalkerware_scan', title: mspy.title, name: 'mSpy', where: '/Applications/<b>mSpy.app', how: 'app', maker: 'Unknown maker (not verified)' }]);
+  const html = renderSide({ district: pickDistrict(1), held, date: '18 October 2026' });
+  assert.match(html, /<dt>Name<\/dt><dd>mSpy<\/dd>/);
+  assert.match(html, /<dt>Where found<\/dt><dd class="mono">\/Applications\/&lt;b&gt;mSpy.app<\/dd>/);
+  assert.match(html, /<dt>Made by<\/dt><dd>Unknown maker \(not verified\)<\/dd>/);
+  assert.match(html, /<dt>Date<\/dt><dd>18 October 2026<\/dd>/);
+  assert.match(html, /data-act="side-copy:0"/);
+  assert.strictEqual(heldText(held[0], '18 October 2026'),
+    'Name: mSpy\nWhere found: /Applications/<b>mSpy.app\nFound as: app\nMade by: Unknown maker (not verified)\nDate: 18 October 2026');
+  assert.match(html, /<h3 class="side-h">/);
+  assert.match(renderSide({ district: pickDistrict(1), held, date: 'd', copied: 0 }), /role="status">Copied\./);
+  assert.match(renderSide({ district: pickDistrict(1), held, date: 'd', copied: -1 }), /couldn’t be copied/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../renderer/game/game.css'), 'utf8'), /\.side-steps \{ list-style-position: inside;/);
+});

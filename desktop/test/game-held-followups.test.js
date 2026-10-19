@@ -426,8 +426,9 @@ test('the district: its sections are h3 headings under its h2, and opening it fo
   t.click({ 'data-go': 'side' });
   const html = t.html();
   assert.match(html, /<h2 class="hud-title" id="side-title" tabindex="-1">/);
-  for (const label of ['QUIET FIRST STEPS', 'WHO CAN HELP', 'THE STORY OF SIX ROSES', 'Don’t remove it yet. Talk to an advocate first.']) {
-    assert.ok(html.includes(`<h3 class="label">${label}</h3>`), label);
+  // Body-size headings (UX round 1, P1-11), not the tiny letter-spaced label font.
+  for (const label of ['Quiet first steps', 'Who can help', 'The Story of Six Roses', 'Don’t remove it yet. Talk to an advocate first.']) {
+    assert.ok(html.includes(`<h3 class="side-h">${label}</h3>`), label);
   }
   assert.doesNotMatch(html, /<div class="label">/);
   assert.ok(t.focused.includes('#side-title'), t.focused.join(', '));
