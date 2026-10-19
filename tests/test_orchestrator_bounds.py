@@ -358,3 +358,120 @@ def test_a_command_started_as_its_check_is_stopped_is_reaped(monkeypatch):
     _worker(guard, check).join(5)
     assert errors and "ran out of time" in str(errors[0])
     assert 1 in waited
+
+
+# --- Windows: a check's command leads its own process group, and stopping
+# it kills the whole tree with taskkill (falling back to the direct child).
+
+def test_windows_command_gets_its_own_process_group():
+    from rescue.orchestrator import _own_group_kwargs
+
+    kwargs = {}
+    assert _own_group_kwargs(kwargs, "nt") is True
+    assert kwargs["creationflags"] & 0x00000200  # CREATE_NEW_PROCESS_GROUP
+    kwargs = {"creationflags": 0x08000000}  # CREATE_NO_WINDOW kept
+    _own_group_kwargs(kwargs, "nt")
+    assert kwargs["creationflags"] == 0x08000000 | 0x00000200
+
+
+def test_posix_respects_a_caller_chosen_session():
+    from rescue.orchestrator import _own_group_kwargs
+
+    kwargs = {"start_new_session": False}
+    assert _own_group_kwargs(kwargs, "posix") is False
+    assert kwargs == {"start_new_session": False}
+
+
+class _FakeProc:
+    def __init__(self, pid=4242):
+        self.pid = pid
+        self.killed = False
+        self._rescue_own_group = True
+
+    def poll(self):
+        return None
+
+    def kill(self):
+        self.killed = True
+
+
+def test_windows_stop_kills_the_tree_with_taskkill():
+    from rescue import orchestrator
+
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    proc = _FakeProc()
+    with patch.object(orchestrator.subprocess, "run", side_effect=fake_run):
+        orchestrator._stop(proc, os_name="nt")
+    assert calls == [["taskkill", "/T", "/F", "/PID", "4242"]]
+    assert proc.killed is False
+
+
+def test_windows_stop_falls_back_to_the_direct_child():
+    from rescue import orchestrator
+
+    proc = _FakeProc()
+    with patch.object(orchestrator.subprocess, "run",
+                      return_value=subprocess.CompletedProcess([], 128)):
+        orchestrator._stop(proc, os_name="nt")
+    assert proc.killed is True
+
+
+# --- Cancel: the desktop cancels a scan by killing the engine (SIGTERM). The
+# commands checks had started must not be left running.
+
+_SIGNAL_CHILD = r"""
+import subprocess, sys, threading, time
+from rescue import orchestrator
+
+orchestrator._GUARD.ensure_installed()
+orchestrator.stop_commands_on_signals()
+
+def check():
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    print(p.pid, flush=True)
+    p.wait()
+
+t = threading.Thread(target=check, daemon=True)
+orchestrator._GUARD.register_worker(t)
+t.start()
+t.join()
+"""
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
+@pytest.mark.parametrize("signame", ["SIGTERM", "SIGHUP"])
+def test_signal_stops_check_commands_before_exit(signame):
+    import os
+    import signal
+
+    root = str(Path(__file__).resolve().parent.parent)
+    engine = subprocess.Popen(
+        [sys.executable, "-c", _SIGNAL_CHILD],
+        stdout=subprocess.PIPE, text=True, cwd=root,
+        env={**os.environ, "PYTHONPATH": root},
+    )
+    try:
+        command_pid = int(engine.stdout.readline())
+        assert _alive(command_pid)
+        engine.send_signal(getattr(signal, signame))
+        assert engine.wait(10) == 128 + getattr(signal, signame)
+        deadline = time.monotonic() + 5
+        while _alive(command_pid) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert not _alive(command_pid)
+    finally:
+        if engine.poll() is None:
+            engine.kill()
+
+
+def test_scan_command_installs_the_signal_handler():
+    import inspect
+
+    from rescue import cli
+
+    assert "stop_commands_on_signals()" in inspect.getsource(cli.scan.callback)

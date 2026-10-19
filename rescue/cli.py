@@ -14,7 +14,7 @@ from rescue.app_fixes import AppFixesError, load_app_actions, load_app_fixes
 from rescue.case import RescueCase, write_case
 from rescue.guides import discover_guides
 from rescue.models import ActionKind, CheckResult, Mode, RiskLevel
-from rescue.orchestrator import Orchestrator
+from rescue.orchestrator import Orchestrator, stop_commands_on_signals
 from rescue.profiler.base import detect_platform, gather_profile
 from rescue.profiles import Profile, ProfileValidationError, discover_profiles, validate_profile_modules
 from rescue.registry import discover_modules
@@ -191,6 +191,7 @@ def scan(as_json, profile_name, module_names, progress, trace, no_attribution):
         threat_profile = _load_profile_or_exit(profile_name) if profile_name else None
     profile = gather_profile()
     orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile)
+    stop_commands_on_signals()  # a cancelled scan leaves no check commands behind
     if trace:
         results = _run_traced(orch)
     elif progress:

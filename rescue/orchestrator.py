@@ -89,12 +89,20 @@ class _AbandonGuard:
     by object, not ident (idents are reused), and only the worker thread
     itself; threads a check starts on its own are not.
 
-    On macOS and Linux a command started from a check's worker thread gets
-    its own session (unless the caller set one up), so stopping it kills the
-    programs it started too, not just the direct child. That also means it
-    has no terminal to ask for a password on: it fails instead of waiting.
-    Because those groups no longer get the terminal's Ctrl-C, any still
-    running are killed when the process exits.
+    A command started from a check's worker thread gets its own process
+    group, so stopping it kills the programs it started too, not just the
+    direct child: on macOS and Linux a new session (unless the caller set one
+    up), killed with killpg; on Windows CREATE_NEW_PROCESS_GROUP, killed with
+    `taskkill /T /F` (falling back to killing the direct child). On macOS and
+    Linux that also means the command has no terminal to ask for a password
+    on: it fails instead of waiting.
+
+    Those groups no longer get the terminal's Ctrl-C, so the commands still
+    running are killed by :func:`stop_all_commands`: at normal interpreter
+    exit (atexit, which also covers Ctrl-C) and, in `rescue scan`, on SIGTERM
+    or SIGHUP (:func:`stop_commands_on_signals`). Nothing can run on SIGKILL,
+    or when Windows ends the process with TerminateProcess; then they are
+    left to finish or hit their own timeouts.
     """
 
     def __init__(self) -> None:
@@ -122,13 +130,10 @@ class _AbandonGuard:
             _stop(proc)
 
     def _own_session(self, kwargs: dict) -> bool:
-        """Give a check's command its own session, if nothing else asked."""
-        if os.name != "posix" or threading.current_thread() not in self._workers:
+        """Give a check's command its own process group, if nothing else asked."""
+        if threading.current_thread() not in self._workers:
             return False
-        if any(k in kwargs for k in ("start_new_session", "process_group", "preexec_fn")):
-            return False
-        kwargs["start_new_session"] = True
-        return True
+        return _own_group_kwargs(kwargs, os.name)
 
     def _admit(self, proc) -> None:
         thread = threading.current_thread()
@@ -172,24 +177,88 @@ class _AbandonGuard:
         subprocess.Popen = GuardedPopen
 
 
-def _stop(proc) -> None:
+# subprocess.CREATE_NEW_PROCESS_GROUP exists only on Windows builds.
+_CREATE_NEW_PROCESS_GROUP = 0x00000200
+
+
+def _own_group_kwargs(kwargs: dict, os_name: str) -> bool:
+    """Set Popen kwargs so the command leads its own process group.
+
+    Returns False (kwargs untouched) where the caller already chose how the
+    child is grouped, or on an OS this doesn't handle.
+    """
+    if os_name == "posix":
+        if any(k in kwargs for k in ("start_new_session", "process_group", "preexec_fn")):
+            return False
+        kwargs["start_new_session"] = True
+        return True
+    if os_name == "nt":
+        flags = kwargs.get("creationflags", 0) or 0
+        kwargs["creationflags"] = flags | _CREATE_NEW_PROCESS_GROUP
+        return True
+    return False
+
+
+def _stop(proc, os_name: str | None = None) -> None:
     """Kill a still-running command, with everything it started if it leads
     its own process group."""
+    os_name = os_name or os.name
     try:
         if proc.poll() is not None:
             return
         if getattr(proc, "_rescue_own_group", False):
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-                return
-            except (OSError, AttributeError):
-                pass
+            if os_name == "posix":
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    return
+                except (OSError, AttributeError):
+                    pass
+            elif os_name == "nt":
+                try:
+                    done = subprocess.run(
+                        ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                        capture_output=True,
+                        timeout=5,
+                    )
+                    if done.returncode == 0:
+                        return
+                except (OSError, subprocess.SubprocessError):
+                    pass
         proc.kill()
     except (OSError, ValueError):
         pass
 
 
 _GUARD = _AbandonGuard()
+
+
+def stop_all_commands() -> None:
+    """Kill every command a check is still running (see :class:`_AbandonGuard`)."""
+    _GUARD._stop_all()
+
+
+def stop_commands_on_signals() -> None:
+    """On SIGTERM (and SIGHUP on macOS/Linux), stop every running check
+    command, then exit with 128 + the signal number.
+
+    The desktop app cancels a scan by killing the engine (SIGTERM on macOS);
+    without this the commands checks had started kept running. Call it from
+    the main thread, as `rescue scan` does.
+    """
+
+    def handler(signum, frame):
+        stop_all_commands()
+        raise SystemExit(128 + signum)
+
+    names = ["SIGTERM"] + (["SIGHUP"] if os.name == "posix" else [])
+    for name in names:
+        sig = getattr(signal, name, None)
+        if sig is None:
+            continue
+        try:
+            signal.signal(sig, handler)
+        except (ValueError, OSError):
+            pass  # not the main thread, or not allowed here
 
 
 def _call_with_timeout(
