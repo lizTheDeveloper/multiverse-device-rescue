@@ -84,6 +84,7 @@ const MAX_LIST = 4;
 
 const firstString = (d, keys) => { for (const k of keys) if (str(d[k])) return d[k]; return ''; };
 
+const baseOf = (p) => String(p).split(/[\\/]/).filter(Boolean).pop() || '';
 export const nameOf = (f) => firstString(dataOf(f), NAME_KEYS) || String((f && f.title) || '');
 
 export function runsOf(f) {
@@ -279,7 +280,8 @@ export function research(item, ctx) {
   const links = [];
   const pane = PANE[kind];
   if (pane) links.push({ kind: 'settings', pane });
-  const name = nameOf(f);
+  // Search the item's own name (label, task, service, bundle id), never the finding's title sentence.
+  const name = firstString(dataOf(f), NAME_KEYS) || (runsOf(f) ? baseOf(runsOf(f)) : '');
   if (isVerified(m) && what && str(m.name)) links.push({ kind: 'lookup', source: 'maker-site', query: m.name });
   else if (name) {
     links.push({ kind: 'lookup', source: isApple(m) ? 'apple-support' : 'web', query: name });

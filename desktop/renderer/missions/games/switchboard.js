@@ -567,7 +567,14 @@ export function redirectsElsewhere(f) {
 
 // ---- Research ----
 
+// A look-up searches a name (a program, a provider, a server), never the finding's title sentence.
 function lookupFor(kind, f, t, ctx) {
+  const l = lookupOf(kind, f, t, ctx);
+  const title = String((f && f.title) || '').trim();
+  return l && title && String(l.query).includes(title) ? null : l;
+}
+
+function lookupOf(kind, f, t, ctx) {
   const d = isObj(f.data) ? f.data : {};
   const first = t.lines[0] || {};
   const win = plat(ctx) === 'win32';

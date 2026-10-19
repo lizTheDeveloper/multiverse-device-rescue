@@ -116,12 +116,19 @@ export function paneFor(finding, platform) {
 
 function lookupName(f) {
   const d = dataOf(f);
-  for (const k of ['label', 'bundle_id', 'name', 'app']) {
+  for (const k of ['label', 'bundle_id', 'extension_id', 'name', 'app']) {
     const v = str(d[k]).trim();
     if (v && v.length <= 200) return v;
   }
-  const t = str(f.title).trim();
-  return t && t.length <= 200 ? t : '';
+  // One app named in a list: its name. Never the note's title (a sentence, not a name to search for).
+  const apps = Array.isArray(d.apps) ? d.apps : [];
+  if (apps.length === 1) {
+    const a = apps[0];
+    const v = (typeof a === 'string' ? a : a && typeof a === 'object' ? str(a.name) || str(a.bundle_id) || str(a.path) : '').trim();
+    const base = v.split(/[\\/]/).filter(Boolean).pop() || '';
+    if (base && base.length <= 200) return base.replace(/\.app$/i, '');
+  }
+  return '';
 }
 
 function whatOf(f) {

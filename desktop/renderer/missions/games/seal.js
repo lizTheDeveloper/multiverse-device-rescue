@@ -216,7 +216,7 @@ export function classify(finding) {
     if (o.disk) words.disk = o.disk;
     if (o.means) words.means = o.means;
   }
-  return { verdict, kind, win, sip: extra.includes('sip'), subject: subjectOf(f), maker: makerOf(f), ...words };
+  return { verdict, kind, win, sip: extra.includes('sip'), subject: subjectOf(f), search: searchName(f), maker: makerOf(f), ...words };
 }
 
 // ---- decisions --------------------------------------------------------------
@@ -354,9 +354,19 @@ function closer(v, ctx) {
   return { id: 'closer', label: D.closer, effect: { kind: 'closer', checklist: say(list, ctx).slice() } };
 }
 
+// What to search for: the item's own name (one app, driver or certificate), never the finding's title sentence.
+function searchName(f) {
+  const d = isObj(f && f.data) ? f.data : {};
+  if (d.name) return str(d.name);
+  const many = names(d.certs).length ? names(d.certs) : names(d.certificates).length ? names(d.certificates)
+    : names(d.drivers).length ? names(d.drivers) : names(d.apps);
+  if (many.length) return many[0];
+  return str(d.path).split(/[\\/]/).filter(Boolean).pop() || '';
+}
+
 function lookupFor(v) {
   if (v.maker && v.maker.verified) return { kind: 'lookup', source: 'maker-site', query: v.maker.name };
-  return { kind: 'lookup', source: 'web', query: v.subject };
+  return v.search ? { kind: 'lookup', source: 'web', query: v.search } : null;
 }
 
 // The first decision is the default: a move that leaves the item as it is ("Mine", "Leave it", "Looks normal")
@@ -380,7 +390,7 @@ function baseDecisions(item, ctx) {
   if (v.kind === 'app') {
     const reinstall = {
       id: 'reinstall', label: D.reinstall,
-      effect: { kind: 'link', link: lookupFor(v), steps: v.win ? STEPS.winApp : STEPS.macApp, removal: alert, warning: alert },
+      effect: { kind: 'link', link: lookupFor(v) || { kind: 'lookup', source: v.win ? 'microsoft-support' : 'apple-support', query: 'reinstall an app' }, steps: v.win ? STEPS.winApp : STEPS.macApp, removal: alert, warning: alert },
     };
     return alert ? [look, mine, reinstall] : [reinstall, mine, look];
   }
@@ -441,15 +451,15 @@ export function research(item, ctx) {
   const notDone = unfinished(item);
   const links = [];
   if (v.kind === 'app') {
-    links.push(lookupFor(v));
+    if (lookupFor(v)) links.push(lookupFor(v));
     if (v.win) links.push({ kind: 'settings', pane: 'windows-apps' });
     if (v.win && v.verdict === 'tampered') links.push({ kind: 'settings', pane: 'windows-security' });
   } else if (v.kind === 'driver') {
     links.push({ kind: 'settings', pane: 'windows-update' });
-    if (v.subject) links.push({ kind: 'lookup', source: 'web', query: v.subject });
+    if (v.search) links.push({ kind: 'lookup', source: 'web', query: v.search });
   } else if (v.kind === 'cert') {
     links.push({ kind: 'lookup', source: 'apple-support', query: 'Keychain Access certificates' });
-    if (v.subject) links.push({ kind: 'lookup', source: 'web', query: v.subject });
+    if (v.search) links.push({ kind: 'lookup', source: 'web', query: v.search });
   } else if (v.kind === 'checker') {
     links.push({ kind: 'lookup', source: 'apple-support', query: v.sip ? 'System Integrity Protection' : 'Gatekeeper' });
   }
