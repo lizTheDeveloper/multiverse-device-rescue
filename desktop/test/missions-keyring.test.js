@@ -121,9 +121,10 @@ test('keyboard access by an unconfirmed maker always carries the removal warning
       const it = mode === 'city' ? { ...found, held: false } : found;
       const ctx = C.testContext({ mode });
       const html = G.render(view(it, G, ctx), ctx);
-      assert.match(html, /kr-warn/, `${code} ${mode}`);
+      // A monitoring check's own finding: the runner's removal warning (contract.js isAlertingItem), not the card's.
+      assert.ok(C.isAlertingItem(it), `${code} ${mode}: the runner warns`);
+      assert.doesNotMatch(html, /kr-warn/, `${code} ${mode}: one warning, the runner's`);
       if (mode === 'city') assert.deepStrictEqual(C.checkCityWords(html), []);
-      else assert.match(text(html), /can alert whoever set it up/);
       assert.notStrictEqual(G.decisions(it, ctx)[0].id, 'hand_back');
     }
   }
@@ -240,9 +241,9 @@ test('per app (R4): the exploded item names only its app, with every key it hold
       pf('contacts_access', 'kTCCServiceAddressBook', ['com.example.solo'], { markable: { id: 'k-con', kind: 'app_permissions' } }),
     ] }] };
   const items = T.groupMissions(doc, { mode: 'standard', table: T.buildTable([G]) }).filter((m) => m.type === 'keyring').flatMap((m) => m.items);
-  const alpha = items.find((i) => i.key === 'app|com.example.alpha');
-  const beta = items.find((i) => i.key === 'app|com.example.beta');
-  const solo = items.find((i) => i.key === 'app|com.example.solo');
+  const alpha = items.find((i) => i.key === `app|${i.district}|com.example.alpha`);
+  const beta = items.find((i) => i.key === `app|${i.district}|com.example.beta`);
+  const solo = items.find((i) => i.key === `app|${i.district}|com.example.solo`);
   assert.ok(alpha && beta && solo, items.map((i) => i.key).join(', '));
   assert.deepStrictEqual(alpha.keys.map((k) => k.permission), ['kTCCServiceCamera', 'kTCCServiceMicrophone']);
   for (const mode of ['standard', 'city']) {

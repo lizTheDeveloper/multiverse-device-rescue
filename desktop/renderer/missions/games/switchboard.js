@@ -18,6 +18,7 @@
 //
 // Pure module: everything comes in through ctx (esc, visible, evidenceRows, mode, platform). City mode never prints
 // a finding's own title or description; it uses game words around the traced values.
+import { isAlertingItem } from '../contract.js';
 
 const MAX_LINES = 4;
 const MAX_VALUE = 120;
@@ -525,7 +526,7 @@ export function decisions(item, ctx) {
     hint = city ? 'Shows the steps to cut it.' : 'Shows the steps to remove it.';
   }
   // R6: a change to something that can alert whoever set it up carries the removal warning (settings too).
-  const alerting = !!(item && (item.removal_alert || f.removal_alert || (f.remediation && f.remediation.safety_note)));
+  const alerting = isAlertingItem(item);
   if (alerting) effect.warning = true;
   const odd = { id: 'odd', label: profile ? W('Not mine — undo', 'Cut the relay') : W('Odd — close it', 'Cut the line'), effect, hint };
 

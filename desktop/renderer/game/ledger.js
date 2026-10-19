@@ -27,7 +27,9 @@ export const RANKS = [
   { name: 'CITY WARDEN', min: 1500 },
 ];
 // The same three checks app.js's gate watches (ALWAYS_SAFETY_MODULES). A test keeps them equal.
-export const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+// The one monitoring set (missions/contract.js).
+import { MONITORING_MODULES } from '../missions/contract.js';
+export { MONITORING_MODULES };
 export const MAX_SWEEPS = 20;
 const LIFETIME = new Set(['fix', 'report', 'drill', 'decide', 'mission', 'confirmed', 'notesBatch']);
 const PER_SWEEP = new Set(['clue', 'tagBonus', 'clean', 'notesArea']);

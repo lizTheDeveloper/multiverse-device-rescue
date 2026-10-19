@@ -198,3 +198,46 @@ test('Odd Jobs runs end to end through the runner', async () => {
   run = Run.settle(r.run, 'done');
   assert.match(S.default.summary(Run.summaryResults(run), C.testContext()), /1 decided/);
 });
+
+test('a research link opens at once on a plain item, and waits behind the warning on a warned one', async () => {
+  const [Run, C, R] = await load();
+  const ctx = ctxOf(C, R);
+  const act = (item) => ({ kind: 'settings', url: 'x-apple.systempreferences:com.apple.LoginItems-Settings.extension', text: '', item, steps: [] });
+  const plain = gameWith(() => [D('keep', 'keep'), D('later', 'later')]);
+  let run = Run.startRun(mission(C, 1));
+  let r = Run.openLink(run, plain, ctx, act(run.items[0]));
+  assert.ok(r.act, 'opens straight away');
+  assert.strictEqual(r.run.phase, 'item');
+  // A decision on the item is warned (R6): its links wait too.
+  const warnedGame = gameWith(() => [D('keep', 'keep'), D('off', 'settings', { pane: 'login-items', warning: true })]);
+  r = Run.openLink(run, warnedGame, ctx, act(run.items[0]));
+  assert.strictEqual(r.act, null);
+  assert.strictEqual(r.run.phase, 'confirm');
+  assert.strictEqual(Run.viewFor(r.run, warnedGame, ctx, {}).warning, Run.REMOVAL_WARNING);
+  const done = Run.confirmPending(r.run, warnedGame, ctx);
+  assert.strictEqual(done.act.kind, 'settings');
+  assert.strictEqual(done.run.phase, 'item');
+  // An alerting item.
+  run = Run.startRun(mission(C, 1, { removal_alert: true }));
+  r = Run.openLink(run, plain, ctx, act(run.items[0]));
+  assert.strictEqual(r.act, null);
+  assert.strictEqual(Run.cancelPending(r.run).phase, 'item');
+});
+
+test('Keep on an item that warns asks a one-line confirm first; on a plain item it is one click', async () => {
+  const [Run, C, R] = await load();
+  const ctx = ctxOf(C, R);
+  const g = gameWith(() => [D('keep', 'keep'), D('later', 'later')]);
+  let run = Run.startRun(mission(C, 2, { removal_alert: true }));
+  let r = Run.choose(run, 'keep', g, ctx);
+  assert.strictEqual(r.run.phase, 'confirm');
+  assert.strictEqual(r.run.pending.ask, 'keep');
+  assert.strictEqual(Run.doneCount(r.run), 0, 'nothing kept yet');
+  assert.strictEqual(Run.cancelPending(r.run).phase, 'item');
+  const ok = Run.confirmPending(r.run, g, ctx);
+  assert.strictEqual(Run.doneCount(ok.run), 1);
+  assert.strictEqual(ok.run.results[0].decision, 'keep');
+  run = Run.startRun(mission(C, 2));
+  r = Run.choose(run, 'keep', g, ctx);
+  assert.strictEqual(Run.doneCount(r.run), 1, 'a plain item keeps at once');
+});

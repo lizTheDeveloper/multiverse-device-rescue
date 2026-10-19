@@ -15,11 +15,12 @@
 //
 // Pure module (missions/contract.js): no DOM, storage, globals or network. Step and checklist texts in effects are
 // PLAIN TEXT (scan values passed through ctx.visible); whoever shows them must escape them.
+import { makerFor, isAlertingItem } from '../contract.js';
 
 const MODULES = [
   'ai_worm_filesystem', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
   'malware_scan_indicators', 'crypto_miner_detect', 'rootkit_check',
-  'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check', 'suspicious_processes',
+  'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check', 'suspicious_processes', 'win_suspicious_processes',
 ];
 
 // Shared modules, narrowed by finding code: win_rootkit_check's unsigned_drivers belongs to the seal game and
@@ -31,6 +32,8 @@ const CODES_BY_MODULE = {
   suspicious_processes: ['known_malware', 'suspicious_paths', 'suspicious_names', 'high_cpu'].map((c) => `security.suspicious_processes.${c}`),
   win_rootkit_check: ['alternate_data_streams', 'hidden_services', 'boot_tampering', 'all_passed']
     .map((c) => `security.win_rootkit_check.${c}`),
+  // Windows running programs that look harmful; one running from an odd folder or with no file is the seal game's.
+  win_suspicious_processes: ['known_malware', 'encoded_powershell', 'mining_software'].map((c) => `security.win_suspicious_processes.${c}`),
 };
 
 const KIND_BY_CHECK = {
@@ -45,6 +48,7 @@ const KIND_BY_CHECK = {
   token_harvesting_subprocess: 'process', ai_api_connection: 'process', python_node_ai_process: 'process',
   known_miner: 'process', high_cpu_process: 'process', mining_pool_connection: 'process',
   known_malware: 'process', suspicious_paths: 'process', suspicious_names: 'process', high_cpu: 'process',
+  mining_software: 'process', encoded_powershell: 'process',
   // browser add-ons
   browser_extension: 'extension',
   // settings and tools
@@ -59,7 +63,7 @@ const KIND_BY_CHECK = {
   secure_boot_disabled: 'system', hidden_services: 'system', boot_tampering: 'system',
 };
 
-const MINER_CHECKS = new Set(['known_miner', 'high_cpu_process', 'mining_pool_connection']);
+const MINER_CHECKS = new Set(['known_miner', 'high_cpu_process', 'mining_pool_connection', 'mining_software']);
 
 // What matched, in a few words, by check. [standard, city]
 const WHY = {
@@ -91,6 +95,8 @@ const WHY = {
   high_cpu_process: ['Using a lot of power', 'Running the generators hot'],
   mining_pool_connection: ['Connecting to a crypto mining server', 'Calling a mining base'],
   browser_extension: ['An add-on known as unwanted software', 'A gadget known as a pest'],
+  mining_software: ['Matches crypto mining software', 'Matches a known miner'],
+  encoded_powershell: ['PowerShell running a hidden, scrambled command', 'A scrambled order running in the shell'],
 };
 const WHY_DEFAULT = ['Matched a warning sign the checkup looks for', 'Matched a known sign'];
 
@@ -212,9 +218,13 @@ function fmtBytes(n) {
   return i === 0 ? `${Math.round(x)} bytes` : `${x.toFixed(x < 10 ? 1 : 0)} ${u[i]}`;
 }
 
+// The maker of the file the item is about; another file's entry shows its
+// claimed name only, never as verified (contract.js makerFor).
 function makerOf(f, path, v) {
   const list = Array.isArray(f.made_by) ? f.made_by.filter((m) => m && typeof m === 'object') : [];
-  const m = list.find((x) => x.subject === path) || list[0];
+  const own = path ? makerFor(f, path) : makerFor(f);
+  const first = list.find((x) => typeof x.name === 'string' && x.name);
+  const m = own || (first ? { name: first.name, verified: false, what: '' } : null);
   if (!m || !m.name) return null;
   // Scan data like every other field: control and bidi characters made visible, length capped.
   return { name: v(clip(str(m.name), 120)), verified: m.verified === true, what: m.verified === true ? v(clip(str(m.what), 300)) : '' };
@@ -262,7 +272,7 @@ export function tagOf(item, ctx) {
     win: isWin(ctx, f),
     markable: !!(f.markable && typeof f.markable === 'object'),
     fixable: hasEngineFix(f),
-    alerting: !!(item && (item.removal_alert || f.removal_alert || (f.remediation && f.remediation.safety_note))),
+    alerting: isAlertingItem(item),
     unfinished: !!((item && item.unfinished) || d.incomplete),
     stale: d.mark_stale === true,
   };

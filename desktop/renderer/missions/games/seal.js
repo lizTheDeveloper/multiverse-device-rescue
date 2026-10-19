@@ -23,6 +23,7 @@
 //
 // Pure: no DOM, storage, globals, network or clipboard. Every scan value goes through ctx.esc. The engine's own
 // description is never shown: it can carry help-line sentences that city mode must not show.
+import { makerFor, isAlertingItem } from '../contract.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const t = (standard, city) => ({ standard, city });
@@ -60,13 +61,12 @@ function subjectOf(f) {
   return str(f.title);
 }
 
-// The maker named by the engine's attribution, and whether it verified it.
+// The maker named by the engine's attribution for this item's program, and
+// whether that program's own entry verified it (contract.js makerFor): never
+// another program's maker on a finding that names several.
 function makerOf(f) {
-  const entries = Array.isArray(f.made_by) ? f.made_by.filter(isObj) : [];
-  const verified = entries.find((e) => e.verified === true && e.name);
-  if (verified) return { name: str(verified.name), verified: true, what: str(verified.what) };
-  const claimed = entries.find((e) => e.name);
-  return claimed ? { name: str(claimed.name), verified: false, what: '' } : null;
+  const m = makerFor(f);
+  return m ? { name: str(m.name), verified: m.verified, what: m.verified ? str(m.what) : '' } : null;
 }
 
 const CODE = (f) => str(f.code).replace(/^security\./, '');
@@ -137,6 +137,17 @@ const VERDICTS = {
 
 // Words that replace a verdict's defaults for some kinds of item.
 const OVERRIDES = {
+  'win-odd-folder': {
+    disk: t('Running from a temporary or personal folder, not where installed programs live.', 'Running from a back room, not where settled gear lives.'),
+    means: t('Some updaters run from these folders for a moment. A program that stays there, or that you don’t know, is worth checking.',
+      'Some fixers pass through back rooms. Gear that stays there, or that you don’t know, is worth a look.'),
+  },
+  'win-no-file': {
+    maker: t('Windows gave no file for this running program, so its signature couldn’t be read.', 'No file to read a seal from.'),
+    disk: t('No file on disk was found for it.', 'Nothing on the shelf to check.'),
+    means: t('System programs sometimes show no file. One with a name you don’t know is worth checking.',
+      'City workers sometimes show no file. A name you don’t know is worth a look.'),
+  },
   driver: { disk: t('Loaded as a driver, deep inside Windows.', 'Runs deep under the streets.') },
   'win-app': {
     maker: t('Signed, but Windows can’t vouch for the signer.', 'Sealed by a maker the gate doesn’t know.'),
@@ -185,6 +196,8 @@ export function classify(finding) {
   else if (c === 'code_signature_audit.unsigned_system_app') { verdict = 'unsigned'; kind = 'app'; if (win) extra.push('win-unsigned'); }
   else if (c === 'code_signature_audit.gatekeeper_rejected') { verdict = 'unknown-maker'; kind = 'app'; extra.push(win ? 'win-app' : 'mac-rejected'); }
   else if (c === 'suspicious_processes.unsigned_apps') { verdict = 'unknown-maker'; kind = 'app'; extra.push('no-bundle'); }
+  else if (c === 'win_suspicious_processes.suspicious_path') { verdict = 'unknown-maker'; kind = 'app'; extra.push('win-app', 'win-odd-folder'); }
+  else if (c === 'win_suspicious_processes.no_file_path') { verdict = 'unknown-maker'; kind = 'app'; extra.push('win-app', 'win-no-file'); }
   else if (c === 'win_rootkit_check.unsigned_drivers' || (f.module === 'win_driver_check' && d.check === 'unsigned_drivers')) {
     verdict = 'unsigned'; kind = 'driver'; extra.push('driver');
   } else if (c === 'certificate_trust_audit.suspicious_certificates') { verdict = 'unknown-maker'; kind = 'cert'; extra.push('cert-intercept'); }
@@ -209,8 +222,7 @@ export function classify(finding) {
 // ---- decisions --------------------------------------------------------------
 
 function alerting(item, v) {
-  const f = item.finding || {};
-  return !!(v.verdict === 'tampered' || item.removal_alert || f.removal_alert || (isObj(f.remediation) && f.remediation.safety_note));
+  return v.verdict === 'tampered' || isAlertingItem(item);
 }
 
 const STEPS = {
@@ -574,6 +586,8 @@ export default {
     { module: 'win_rootkit_check', codes: ['security.win_rootkit_check.unsigned_drivers'] },
     // win_driver_check emits no codes: its unsigned-driver finding by data.check (R9).
     { module: 'win_driver_check', checks: ['unsigned_drivers'] },
+    // A running program from an odd folder or with no file: whose seal is it? (Harmful ones are the Locker's.)
+    { module: 'win_suspicious_processes', codes: ['security.win_suspicious_processes.suspicious_path', 'security.win_suspicious_processes.no_file_path'] },
   ],
   classify,
   decisions,

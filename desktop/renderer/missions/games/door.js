@@ -12,6 +12,7 @@
 // scan value goes through ctx.esc. Decision buttons and the removal warning are
 // the runner's chrome; render() draws the card only.
 import { placeFor } from '../../game/clues.js';
+import { makerFor, isAlertingItem } from '../contract.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const dataOf = (f) => (f && isObj(f.data) ? f.data : {});
@@ -138,12 +139,17 @@ export function appearedOf(f) {
   return base ? { day: base, since: true } : null;
 }
 
-// The made_by entry for the program it runs (else the first one), or null.
+// The made_by entry for the program it runs. Another program's entry (the
+// first one, when none is the program's own) shows its claimed name only,
+// never as verified, and never its "what it is" line.
 export function makerOf(f) {
   const entries = Array.isArray(f && f.made_by) ? f.made_by.filter(isObj) : [];
   if (!entries.length) return null;
   const runs = runsOf(f);
-  return entries.find((e) => runs && e.subject === runs) || entries[0];
+  const own = runs ? makerFor(f, runs) : makerFor(f);
+  if (own) return own;
+  const first = entries.find((e) => str(e.name)) || entries[0];
+  return { name: str(first.name), verified: false, what: '', how: str(first.how), subject: str(first.subject) };
 }
 
 const isVerified = (m) => !!(m && m.verified === true);
@@ -158,10 +164,8 @@ export function whatOf(f) {
   return '';
 }
 
-function alerting(item) {
-  const f = (item && item.finding) || {};
-  return !!(item && (item.removal_alert || f.removal_alert || (isObj(f.remediation) && f.remediation.safety_note)));
-}
+// contract.js's one monitoring rule.
+const alerting = (item) => isAlertingItem(item);
 
 const unfinished = (item) => {
   const f = (item && item.finding) || {};

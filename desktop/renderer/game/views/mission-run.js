@@ -57,7 +57,11 @@ function linksHtml(links, mode) {
   return rows ? `<div class="mx-links"><div class="label">${esc(mode === 'city' ? 'INTEL' : 'CHECK IT YOURSELF')}</div><ul>${rows}</ul></div>` : '';
 }
 
-function warningHtml(warning, mode, place) {
+// `safetyHtml` (standard mode): the list's safety note for the item, already
+// built by QuietNotes (the one line, "Read this first", the note behind it).
+// It replaces the bare line; city mode keeps its one line and the way to help.
+function warningHtml(warning, mode, place, safetyHtml = '') {
+  if (mode !== 'city' && safetyHtml) return `<div class="panel safety mx-warning" role="note">${safetyHtml}</div>`;
   if (!warning) return '';
   if (mode === 'city' && place) return cityWarnHtml(place);
   return `<div class="panel safety mx-warning" role="note"><p class="intel"><b>${esc(warning)}</b></p></div>`;
@@ -89,11 +93,11 @@ const decisionButtons = (decisions, mode, act, disabled = false) => `<div class=
   .map((d, i) => `<button type="button" class="${i === 0 ? 'btn-p' : 'btn-s'}" data-act="${act}:${esc(d.id)}"${disabled ? ' disabled' : ''}>${esc(words(d.label, mode))}</button>`).join('')}</div>`;
 
 /*
- * renderMissionScreen({ mission, run, view, mode, districtName, cardHtml, evidenceHtml, research, actHtml,
+ * renderMissionScreen({ mission, run, view, mode, districtName, cardHtml, safetyHtml, evidenceHtml, research, actHtml,
  *   notice, summaryHtml, points, nextMission, place, busy, canPractice })
  */
 export function renderMissionScreen(o) {
-  const { mission: m, run, view = {}, mode = 'standard', districtName = '', cardHtml = '', evidenceHtml = '', research = {},
+  const { mission: m, run, view = {}, mode = 'standard', districtName = '', cardHtml = '', evidenceHtml = '', research = {}, safetyHtml = '',
     actHtml = '', notice = '', summaryHtml = '', points = 0, nextMission = null, place = '', busy = false, canPractice = true } = o;
   const title = words(m.title, mode);
   const part = partLabel(m);
@@ -137,13 +141,15 @@ export function renderMissionScreen(o) {
   const confirming = run.phase === 'confirm';
   const unfinished = research.unfinished ? `<p class="intel mx-unfinished"><span class="badge fog">DIDN’T FINISH</span> ${esc(research.unfinished)}</p>` : '';
   const confirm = confirming && !actHtml ? `<div class="panel mx-confirm" role="group" aria-label="Before you go on">
-      <p class="intel">${esc(mode === 'city' ? 'Read the line above first. Go on?' : 'Read the warning above first. Go on?')}</p>
+      <p class="intel">${esc(run.pending && run.pending.ask === 'keep'
+    ? (mode === 'city' ? 'Only if it’s yours. Keep it?' : 'Keep it only if you know it’s yours. Keep it?')
+    : (mode === 'city' ? 'Read the line above first. Go on?' : 'Read the warning above first. Go on?'))}</p>
       <div class="row"><button type="button" class="btn-p" data-act="mx-confirm">YES, GO ON</button><button type="button" class="btn-s" data-act="mx-cancel">CANCEL</button></div></div>` : '';
   const act = actHtml ? `<div class="mx-act">${actHtml}<button type="button" class="btn-t" data-act="mx-cancel">NOT NOW</button></div>` : '';
   return `<section class="mx-screen">${head}
     <div class="row mx-progress"><span class="label">${esc(mode === 'city' ? 'TARGET' : 'ITEM')} ${esc(view.index + 1)} OF ${esc(view.total)}</span>${practiceBtn}</div>
     ${said}${checking}
-    ${warningHtml(view.warning, mode, place)}
+    ${warningHtml(view.warning, mode, place, safetyHtml)}
     <div class="mx-card">${cardHtml}</div>
     ${unfinished}${guideHtml(view.guide, mode)}
     ${view.closer || research.open ? evidenceHtml : `<details class="mx-evidence"><summary class="label">${esc(mode === 'city' ? 'WHAT THE SWEEP SAW' : 'WHAT THE CHECK SAW')}</summary>${evidenceHtml}</details>`}

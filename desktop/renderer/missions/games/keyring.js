@@ -12,7 +12,7 @@
 // Pure: no DOM, no storage, no globals. Every scan value goes through ctx.esc. Scan titles and descriptions are never
 // rendered (they carry engine words that don't belong in the city).
 
-const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+import { isMonitoringModule, isAlertingItem } from '../contract.js';
 
 // key id -> words and where its switch lives. pane: macOS settings pane (null: no pane in the allowlist; Hand back
 // then shows where the switch is). Windows uses its privacy page with the key as the permission hint.
@@ -194,13 +194,9 @@ function appsIn(item) {
   return [...out.values()];
 }
 
-const isMonitoring = (item) => findingsOf(item).some((f) => MONITORING_MODULES.has(moduleOf(f)));
+const isMonitoring = (item) => findingsOf(item).some((f) => isMonitoringModule(moduleOf(f)));
 // The runner shows the removal warning for these itself.
-const runnerWarns = (item) => {
-  const it = obj(item);
-  const f = obj(it.finding);
-  return !!(it.removal_alert || f.removal_alert || obj(f.remediation).safety_note);
-};
+const runnerWarns = (item) => isAlertingItem(item);
 const unconfirmed = (apps) => apps.some((a) => !a.confirmed);
 // The game's own warning line, where the runner won't show one: monitoring checks and keyboard access by an app
 // whose maker isn't confirmed (keyboard access with no app named counts as unconfirmed).
@@ -270,10 +266,21 @@ export function decisions(item, ctx) {
 export function research(item, ctx) {
   const c = obj(ctx);
   const m = words(ctx);
-  const f = obj(obj(item).finding);
-  let rows = [];
-  try { rows = typeof c.evidenceRows === 'function' ? c.evidenceRows(f, { mode: m }) || [] : []; } catch (_) { rows = []; }
-  if (!Array.isArray(rows)) rows = [];
+  // Evidence for every finding on the app's item (the lead's first), not only the lead's.
+  const lead = obj(obj(item).finding);
+  const rowsOf = (f) => {
+    let r = [];
+    try { r = typeof c.evidenceRows === 'function' ? c.evidenceRows(f, { mode: m }) || [] : []; } catch (_) { r = []; }
+    return Array.isArray(r) ? r : [];
+  };
+  const all = [lead, ...findingsOf(item).filter((f) => f !== lead)].filter((f) => Object.keys(f).length);
+  const parts = all.map(rowsOf);
+  let rows = parts[0] || [];
+  if (parts.length > 1) {
+    const seen = new Set();
+    rows = parts.flat().filter((r) => { const k = JSON.stringify([r && r.label, r && r.value]); if (seen.has(k)) return false; seen.add(k); return true; });
+    if (parts.some((p) => p.held)) Object.defineProperty(rows, 'held', { value: true, enumerable: false });
+  }
   const keys = itemKeys(item);
   const apps = appsOf(item);
   const links = [];
@@ -293,7 +300,8 @@ export function research(item, ctx) {
   if (known.length) what = known.join(' ');
   else if (apps.length) what = m === 'city' ? 'Maker unconfirmed.' : 'Maker not confirmed.';
   else what = (keys[0] || KEYS.other).does[m];
-  return { rows, what, links, keys: keys.map((k) => k.id), unfinished: unfinished(item), checklist: checklist(ctx) };
+  return { rows, what, links, keys: keys.map((k) => k.id), unfinished: unfinished(item), checklist: checklist(ctx),
+    ...(m === 'city' && isMonitoring(item) ? { copy: false } : {}) };
 }
 
 const MAX_APPS = 8;

@@ -13,6 +13,7 @@
 // macOS and Windows: Chrome, Edge, Brave, Vivaldi, Chromium, Firefox, Safari. The engine's in-browser
 // mining check names a Chromium browser by its profile folder, which is "User Data" on Windows, so the
 // browser is read from the finding's path there.
+import { makerFor, isAlertingItem } from '../contract.js';
 
 const ID_RE = /^[a-p]{32}$/;
 const HOST_RE = /^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/i;
@@ -291,7 +292,7 @@ function decisions(item, ctx) {
   const id = idOf(f);
   const closer = { id: 'closer', label: L('Look closer'), effect: { kind: 'closer', checklist: closerList(kind, b, ctx) } };
   // R6: a removing or trimming move on an item with the removal warning asks the runner to show it first.
-  const alerting = !!(item && (item.removal_alert || f.removal_alert || (f.remediation && f.remediation.safety_note)));
+  const alerting = isAlertingItem(item);
   const warn = (e) => (alerting ? { ...e, warning: true } : e);
   const removeEffect = (steps) => warn(f.fixable ? { kind: 'fix' } : { kind: 'note', note: 'remove', steps });
   const keep = (standard, city) => ({ id: 'keep', label: L(standard, city), effect: keepOf(item) });
@@ -334,7 +335,9 @@ function decisions(item, ctx) {
 function whatOf(item, kind, b, ctx) {
   const f = item.finding || {};
   const d = dataOf(f);
-  const made = Array.isArray(f.made_by) ? f.made_by.find((m) => m && m.verified === true && typeof m.what === 'string' && m.what) : null;
+  // Only this add-on's own verified entry (contract.js makerFor), never another program's.
+  const own = makerFor(f);
+  const made = own && own.verified && own.what ? own : null;
   const pm = b.store && PASSWORD_MANAGERS[idOf(f)];
   const B = b.name || words(ctx, 'Your browser', 'Your browser');
   switch (kind) {

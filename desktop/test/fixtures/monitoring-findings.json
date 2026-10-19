@@ -1,0 +1,107 @@
+{
+ "stalkerware_scan": {
+  "name": "stalkerware_scan",
+  "check_name": "Monitoring apps",
+  "category": "security",
+  "status": "ok",
+  "error": null,
+  "supported": true,
+  "unsupported_reason": null,
+  "complete": true,
+  "not_started": false,
+  "error_kind": null,
+  "findings": [
+   {
+    "title": "FlexiSPY is on this computer (installed application)",
+    "description": "Covert monitoring software that captures messages, calls, location, and ambient audio, and is marketed explicitly for monitoring partners.\n\nFound as installed application: /Applications/FlexiSPY.app.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first.",
+    "severity": "critical",
+    "category": "security",
+    "data": {
+     "check": "monitoring_software_found",
+     "stalkerware_name": "FlexiSPY",
+     "stalkerware_category": "stalkerware",
+     "detected_as": "installed application",
+     "location": "/Applications/FlexiSPY.app",
+     "confidence": "high"
+    },
+    "confidence": null,
+    "collected_at": null,
+    "code": "security.stalkerware_scan.monitoring_software_found",
+    "remediation": {
+     "title": "What to do about monitoring software",
+     "estimated_time": "",
+     "steps": [
+      {
+       "number": 1,
+       "title": "Decide whether it's safe to remove",
+       "body": "If you installed it yourself and use it (for example, remote support you\nset up, or a parental-control app on your child's computer), you can stop here.\n\nOtherwise, assume the person who installed it may notice when it stops\nworking. If that person is a partner, ex or family member, talk to a domestic\nviolence advocate before you remove anything; an advocate can help you plan\nfor what happens next. In the US: National Domestic Violence Hotline 1-800-799-7233,\nor text START to 88788. Use a phone or computer the other person can't reach."
+      },
+      {
+       "number": 2,
+       "title": "Keep a record",
+       "body": "On paper or on another device, write down the name the scan found, where it\nwas found, and today's date. Take a photo of the scan result with your phone.\nThat record can matter later, for a protective order or a police report, and\nremoving the software erases most of it."
+      },
+      {
+       "number": 3,
+       "title": "Secure your accounts from a different device",
+       "body": "Monitoring software can see what you type on this computer, including new\npasswords. Using a phone or computer the other person has never had access to:\n\n1. Change the password for your email first, then your Apple Account or\n   Microsoft account, then banking and social media.\n2. Turn on two-step sign-in for each of them.\n3. Sign out of every other session (most services have \"Sign out of all\n   devices\" in their security settings)."
+      },
+      {
+       "number": 4,
+       "title": "Remove it when it's safe",
+       "body": "1. Use the program's own uninstaller if it has one. Deleting only the files you\n   can see often leaves a background copy that puts it back.\n2. Run the checkup again. These products often install a background service\n   and a startup item as well; the new scan shows anything left behind.\n3. On a Mac, also look in System Settings > General > Login Items & Extensions,\n   and in System Settings > Privacy & Security under Accessibility, Screen\n   Recording and Input Monitoring, and turn off anything you don't recognize.\n4. On Windows, also look in Task Manager > Startup apps."
+      },
+      {
+       "number": 5,
+       "title": "Consider a fresh start",
+       "body": "The most reliable way to be sure monitoring software is gone is to back up\nyour documents and photos (not apps), erase the computer and reinstall the\noperating system. Think about this if anything still feels wrong after\nremoval, or if you can't tell what else was changed."
+      }
+     ],
+     "all_steps": true
+    }
+   }
+  ]
+ },
+ "keylogger_indicators": {
+  "name": "keylogger_indicators",
+  "check_name": "Keyboard access",
+  "category": "security",
+  "status": "ok",
+  "error": null,
+  "supported": true,
+  "unsupported_reason": null,
+  "complete": true,
+  "not_started": false,
+  "error_kind": null,
+  "findings": [
+   {
+    "title": "Unrecognized apps have keyboard access: com.example.keys",
+    "description": "1 app has permission to see your keyboard input, but we don't recognize them: com.example.keys. Many normal tools (like keyboard remappers or game launchers) ask for this, so it is not automatically a sign of spying. However, if you do not remember installing one, it is worth checking.\n\nIf you think someone close to you set this up to monitor you, removing it can alert them. Talk to an advocate first (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Go to System Settings > Privacy & Security > Input Monitoring. Turn off access for any app you don't recognize or didn't install yourself.",
+    "severity": "warning",
+    "category": "security",
+    "data": {
+     "check": "suspicious_input_monitoring",
+     "apps": [
+      "com.example.keys"
+     ]
+    },
+    "confidence": null,
+    "collected_at": null,
+    "code": "security.keylogger_indicators.suspicious_input_monitoring",
+    "remediation": {
+     "title": "Investigate keylogger indicators",
+     "estimated_time": "25 minutes",
+     "steps": [
+      {
+       "number": 3,
+       "title": "Check unrecognized apps with keyboard access",
+       "body": "Distinct from Step 2 — this is for apps that aren't on the known-keylogger\nlist but also aren't a recognized system app or common developer tool.\n\n1. Look up the app's bundle identifier and name; check its install location\n   (`/Applications`, `~/Applications`, or somewhere unusual like `/tmp` or\n   `~/Library/Application Support`).\n2. Search the exact bundle ID / name online for reports of it being\n   adware, spyware, or a \"stalkerware\" product (these are often disguised as\n   parental-control or \"find my phone\" apps).\n3. If you can't establish it's legitimate, revoke its Input Monitoring\n   access in System Settings > Privacy & Security, then quarantine the app\n   the same way as Step 2 rather than deleting immediately.\n4. If revoking access breaks functionality you actually rely on, that's a\n   signal it may be legitimate — restore access and move on, but keep a\n   note of what it was for future reference."
+      }
+     ],
+     "all_steps": false,
+     "safety_note": "Before you remove or turn anything off: if you think someone close to you set this up to watch you, removing it can alert them. Talk to an advocate first. In the US: National Domestic Violence Hotline, 1-800-799-7233, or text START to 88788."
+    }
+   }
+  ]
+ }
+}

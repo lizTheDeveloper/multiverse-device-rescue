@@ -4,6 +4,7 @@
 //   TYPE_TITLES[type] -> { standard, city }
 //   BASE_COVERS[type] -> [{ module, codes? }]   the spec's table, macOS and Windows
 //   ODD_JOBS                                   modules that can warn on macOS and go to Odd Jobs on purpose
+//   WIN_ODD_JOBS                               the same on Windows
 //   buildTable(games) -> table                 a registered game's `covers` replaces its type's entry
 //   doubleClaims(table) -> [problem]            two types claiming the same (module, code)
 //   typeOf(finding, table) -> type id           info -> 'notes'; unmapped -> 'simple'
@@ -15,7 +16,7 @@
 //
 // Built only from NotChecked.displayItems, so a mission never counts anything
 // the list doesn't. Pure; no DOM, no storage.
-import { TYPE_IDS, claimConflicts } from './contract.js';
+import { TYPE_IDS, claimConflicts, isMonitoringFinding } from './contract.js';
 import { districtIdFor, DISTRICTS, OUTSKIRTS } from '../game/findings-to-city.js';
 
 const NC = globalThis.NotChecked;
@@ -46,7 +47,7 @@ export const BASE_COVERS = Object.freeze({
     ...whole('launch_agent_audit', 'launchd_persistence_audit', 'login_items_cleanup', 'login_items', 'scheduled_tasks_audit',
       'cron_jobs_audit', 'startup_optimizer', 'startup_auditor', 'ai_worm_persistence', 'crypto_miner_persistence', 'kext_audit',
       'kernel_extensions_audit', 'system_extensions_check', 'system_extensions',
-      'win_autorun', 'win_autoruns_audit', 'win_scheduled_tasks', 'win_scheduled_tasks_security', 'win_startup',
+      'win_autoruns_audit', 'win_scheduled_tasks', 'win_scheduled_tasks_security', 'win_startup',
       'win_startup_programs_audit', 'win_services_audit', 'win_services_security_audit'),
     { module: 'security_baseline_diff', codes: [`${SBD}new_persistence`] },
   ],
@@ -56,8 +57,10 @@ export const BASE_COVERS = Object.freeze({
     ...whole('chrome_extensions', 'safari_extensions', 'browser_extension_audit', 'browser_hijack_check', 'browser_cryptojacking_check'),
     { module: 'security_baseline_diff', codes: [`${SBD}new_browser_extension`] },
   ],
-  seal: whole('code_signature_audit', 'gatekeeper_quarantine_check', 'suspicious_processes', 'certificate_audit',
-    'certificate_trust_audit', 'win_suspicious_processes'),
+  seal: [
+    ...whole('code_signature_audit', 'gatekeeper_quarantine_check', 'suspicious_processes', 'certificate_audit', 'certificate_trust_audit'),
+    { module: 'win_suspicious_processes', codes: ['security.win_suspicious_processes.suspicious_path', 'security.win_suspicious_processes.no_file_path'] },
+  ],
   switchboard: [
     ...whole('firewall_rules_audit', 'open_ports_scan', 'network_connections_monitor', 'suspicious_connections',
       'dns_config', 'dns_poisoning_check', 'dns_over_https_check', 'hosts_file_check', 'network_proxy', 'network_proxy_check',
@@ -70,13 +73,14 @@ export const BASE_COVERS = Object.freeze({
   locker: whole('ai_worm_filesystem', 'ai_worm_iocs', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
     'malware_scan_indicators', 'cryptojacking_iocs', 'crypto_miner_detect', 'rootkit_check',
     'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check'),
+  // (win_suspicious_processes' harmful programs: the Locker game claims them by code.)
   locks: [
     ...whole('automatic_updates', 'update_checker', 'encryption_check', 'filevault_recovery', 'screen_lock_check', 'lock_screen_check',
       'find_my_mac_check', 'guest_account_check', 'firmware_password', 'login_password_policy', 'antivirus_status',
       'macos_version_support', 'macos_eol_check', 'backup_status', 'time_machine_check', 'session_revocation_scan',
       'appleid_security_check',
       'win_defender', 'win_defender_deep_check', 'win_antivirus_status', 'win_bitlocker', 'win_bitlocker_check', 'win_firewall',
-      'win_updates', 'win_windows_update_status', 'win_uac_check'),
+      'win_updates', 'win_windows_update_status', 'win_uac_check', 'win_autorun', 'win_local_admin_audit', 'win_credential_manager_audit'),
     ...whole('firewall_audit', 'clamav_scanner', 'browser_privacy_check', 'default_browser'),
     { module: 'firewall_rules_audit', codes: ['security.firewall_rules_audit.alf_', 'security.firewall_rules_audit.stealth_'] },
     { module: 'rootkit_check', codes: ['security.rootkit_check.sip_disabled'] },
@@ -117,6 +121,21 @@ export const ODD_JOBS = Object.freeze([
   'usb_device_audit', 'user_account_audit', 'vpn_config', 'xprotect_status', 'screen_time_parental',
   // Split by code above; its other warnings (none today) would be Odd Jobs.
   'security_baseline_diff',
+]);
+
+// The same on Windows: checks that can warn on Windows and go to Odd Jobs on
+// purpose (hardware, repair tools and system health with no mini-game; the
+// monitoring checks, as on macOS). Shared modules listed in ODD_JOBS count too.
+export const WIN_ODD_JOBS = Object.freeze([
+  'win_activation', 'win_activation_check', 'win_audio_check', 'win_battery', 'win_bluetooth_check', 'win_boot_config_check',
+  'win_boot_time', 'win_disk_health', 'win_dism_health', 'win_display_check', 'win_event_log_health', 'win_memory_diagnostics',
+  'win_network_adapters', 'win_network_diag', 'win_network_reset', 'win_print_spooler_check', 'win_printer_check',
+  'win_printer_issues', 'win_recovery_options', 'win_safe_mode_check', 'win_search_index', 'win_sfc_check', 'win_startup_repair',
+  'win_user_profiles', 'win_wifi_diagnostics', 'win_winsock_check', 'win_wmi_health',
+  // Its unsigned drivers are Seal Check's (by data.check); its other warnings are driver health.
+  'win_driver_check',
+  // Telemetry and advertising settings (its location switch is the Keyring's), and domain policy notes.
+  'win_cortana_telemetry', 'win_group_policy_audit',
 ]);
 
 // A wildcard ({ module: '*', severities }) is kept but never matched here:
@@ -175,12 +194,11 @@ export function typeOf(finding, table = DEFAULT_TABLE) {
 const RANK = { critical: 2, warning: 1, info: 0 };
 const NOT_CHECKED_CODE = /_(?:unknown|failed|unavailable|permission_denied)$/;
 const ORDER_OF_DISTRICT = new Map([...DISTRICTS.map((d) => d.id), OUTSKIRTS.id].map((id, i) => [id, i]));
-const isAlerting = (f) => !!f && (f.removal_alert === true || !!(f.remediation && f.remediation.safety_note));
 const isFixable = (f) => !!(f && f.fixable && typeof f.fixable === 'object');
 const isStale = (item) => item.findings.some((f) => f && f.data && f.data.mark_stale === true);
 
 function withAlert(item) {
-  return { ...item, removal_alert: item.findings.some(isAlerting) };
+  return { ...item, removal_alert: item.findings.some(isMonitoringFinding) };
 }
 const leads = (item) => (item.removal_alert || item.findings.some(isFixable) ? 1 : 0);
 
@@ -284,19 +302,25 @@ const permissionOf = (f) => (f && f.data && typeof f.data.service === 'string' &
 
 // One item per app, each with its keys (every permission finding that lists
 // it). The original findings stay on the item (marks, evidence). A finding
-// that names no app stays one item.
+// that names no app stays one item. Monitoring comes from ALL the findings
+// (contract.js isMonitoringFinding): one monitoring finding makes the app's
+// item warn and lead with that finding (so it pays nothing and is remembered
+// for the session only), and one held finding holds it. The key carries the
+// district, as the grouping does, so the same app in two districts is two items.
 function perApp(items) {
   const apps = new Map();
+  const sev = new Map(); // finding -> the list severity of the item it came in
   const out = [];
   for (const item of items) {
     let named = false;
+    for (const f of item.findings) sev.set(f, item.severity);
     for (const f of item.findings) {
       for (const a of appSubjects(f)) {
         named = true;
         const k = `${item.district}|${a.subject}`;
         let app = apps.get(k);
         if (!app) {
-          app = { ...item, key: `app|${a.subject}`, app: { subject: a.subject, name: a.name }, finding: f, findings: [], seen_in: [], keys: [], sourceKeys: [] };
+          app = { ...item, key: `app|${item.district}|${a.subject}`, app: { subject: a.subject, name: a.name }, finding: f, findings: [], seen_in: [], keys: [], sourceKeys: [] };
           apps.set(k, app);
           out.push(app);
         }
@@ -304,8 +328,12 @@ function perApp(items) {
         if (!app.seen_in.includes(f.module)) app.seen_in.push(f.module);
         if (!app.keys.some((x) => x.finding === f)) app.keys.push({ permission: permissionOf(f), finding: f });
         if (!app.sourceKeys.includes(item.key)) app.sourceKeys.push(item.key);
-        if (RANK[item.severity] > RANK[app.severity]) { app.severity = item.severity; app.finding = f; }
-        app.removal_alert = app.removal_alert || item.removal_alert;
+        if (RANK[item.severity] > RANK[app.severity]) app.severity = item.severity;
+        const watched = isMonitoringFinding(f);
+        const leadWatched = isMonitoringFinding(app.finding);
+        if ((watched && !leadWatched) || (watched === leadWatched && RANK[item.severity] > RANK[sev.get(app.finding) || 'info'])) app.finding = f;
+        app.removal_alert = app.removal_alert || item.removal_alert || watched;
+        app.held = app.held || item.held === true;
         app.unfinished = app.unfinished || item.unfinished;
         app.marked = app.marked && item.marked;
       }

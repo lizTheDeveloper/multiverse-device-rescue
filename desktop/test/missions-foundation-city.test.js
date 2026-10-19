@@ -18,9 +18,9 @@ const CITY_FORBIDDEN = /partner|stalk|abuse|violence|advocate|hotline|799-7233|8
 
 // Five unmapped warnings, a fixable alerting critical and a markable one: seven
 // Odd Jobs items in the Gatehouse, so a mission of 4 (the critical first) and one of 3.
-function doc({ path: p = '/opt/x/a.bin' } = {}) {
+function doc({ path: p = '/opt/x/a.bin', part = 'part' } = {}) {
   return scan(
-    mod('battery_health', Array.from({ length: 5 }, (_, i) => f(`Worn part ${i}`, 'warning', { name: `part${i}` }))),
+    mod('battery_health', Array.from({ length: 5 }, (_, i) => f(`Worn part ${i}`, 'warning', { name: `${part}${i}` }))),
     mod('sudo_config_audit', [f('Odd sudo rule', 'critical', { path: p }, { removal_alert: true, fixable: { will_change: 'Turns it off.', how_to_undo: ['Turn it on.'] } })]),
     mod('ssh_key_audit', [f('An extra key', 'warning', { path: '/etc/ssh/k' }, { markable: { id: 'm1', kind: 'background_task' } })]),
   );
@@ -112,9 +112,25 @@ test('a fix decision opens FixFlow’s own confirm with the warning; a re-check 
   await tick(); await tick();
   assert.deepStrictEqual(t.calls.recheck, ['sudo_config_audit']);
   const p = savedProfile(t.storage);
-  assert.ok(p.rank.points - before >= 75, `CONFIRMED pays (${p.rank.points - before})`);
-  assert.match(t.html(), /it’s gone/);
+  // A warned item (contract.js isAlertingItem) pays nothing, as a monitoring check's never did.
+  assert.strictEqual(p.rank.points - before, 0, 'a warned item pays no points');
+  assert.match(t.html(), /Checked again: it’s gone\.</);
   assert.match(t.html(), /ITEM \d OF \d/);
+});
+
+test('a fix whose re-check finds the scan unchanged ends the confirm: still there, decisions back', async () => {
+  const t = await setup(doc(), { recheckDocs: [doc()] });
+  t.win.RescueHost.docChanged = () => false;
+  t.click({ 'data-go': 'district:gatehouse' });
+  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:fix' });
+  t.hooks.fix.onResult({ kind: 'fix', module: 'sudo_config_audit', result: { applied: true }, described: { tone: 'success' } });
+  await tick(); await tick();
+  const h = t.html();
+  assert.doesNotMatch(h, /Read the warning above first/, 'not stuck on the confirm');
+  assert.match(h, /Checked again: it’s still there, so it stays open\./);
+  assert.match(h, /data-act="mx-decide:/);
 });
 
 test('deciding moves on; the summary pays the mission bonus once and offers the next mission', async () => {
@@ -176,18 +192,71 @@ test('remembered answers survive a new scan with the same evidence, and drop whe
   a.click({ 'data-go': 'mx:simple:gatehouse:1' });
   a.click({ 'data-act': 'mx-know' });
   a.click({ 'data-act': 'mx-decide:ok' });
+  // Keeping a warned item asks first, in one line.
+  assert.match(a.html(), /Keep it only if you know it’s yours\. Keep it\?/);
+  assert.match(a.html(), /ITEM 1 OF 4/);
+  a.click({ 'data-act': 'mx-confirm' });
   assert.match(a.html(), /ITEM 2 OF 4/);
-  const pts = savedProfile(s2).rank.points;
-  assert.strictEqual(pts, 5, 'a decided item pays');
-  // Same evidence on the next app start: the first item is answered.
+  assert.strictEqual(savedProfile(s2).rank.points, 0, 'the warned sudo rule pays nothing');
+  a.click({ 'data-act': 'mx-decide:ok' });
+  assert.match(a.html(), /ITEM 3 OF 4/);
+  assert.strictEqual(savedProfile(s2).rank.points, 5, 'a decided item pays');
+  // Same evidence on the next app start: the warned item is asked again (its answer was this
+  // session's only); the other one is remembered and skipped.
   const b = await setup(doc(), { storage: s2, games: keepGame });
   b.click({ 'data-go': 'mx:simple:gatehouse:1' });
-  assert.match(b.html(), /ITEM 2 OF 4/, 'the remembered item is skipped');
-  // The path changed: asked again.
-  const c = await setup(doc({ path: '/opt/y/b.bin' }), { storage: s2, games: keepGame });
+  assert.match(b.html(), /ITEM 1 OF 4/, 'a warned item is never remembered across scans');
+  b.click({ 'data-act': 'mx-decide:ok' });
+  b.click({ 'data-act': 'mx-confirm' });
+  assert.match(b.html(), /ITEM 3 OF 4/, 'the remembered item is skipped');
+  // Its evidence changed: asked again.
+  const c = await setup(doc({ part: 'piece' }), { storage: s2, games: keepGame });
   c.click({ 'data-go': 'mx:simple:gatehouse:1' });
-  assert.match(c.html(), /ITEM 1 OF 4/);
+  c.click({ 'data-act': 'mx-decide:ok' });
+  c.click({ 'data-act': 'mx-confirm' });
+  assert.match(c.html(), /ITEM 2 OF 4/);
   assert.ok(t);
+});
+
+test('a keyring app also flagged by the keylogger check: Keep pays nothing and is not remembered across scans', async () => {
+  const REAL = require('./fixtures/monitoring-findings.json');
+  const perm = mod('app_permissions', [f('11 app(s) can control your Mac', 'warning', { check: 'accessibility_access', apps: ['com.example.keys'] },
+    { code: 'security.app_permissions.accessibility_access' })]);
+  const d = () => scan(perm, JSON.parse(JSON.stringify(REAL.keylogger_indicators)));
+  const real = async () => { const I = await import('../renderer/missions/games/index.js'); return I.loadGames(); };
+  const storage = memStore();
+  const a = await setup(d(), { storage, games: real });
+  a.click({ 'data-go': 'mx:keyring:gatehouse:1' });
+  if (/PRACTICE FIRST/.test(a.html())) a.click({ 'data-act': 'mx-know' });
+  assert.match(a.html(), /ITEM 1 OF 1/);
+  assert.match(a.html(), /Removing this can alert whoever installed it\./, 'the runner warns');
+  a.click({ 'data-act': 'mx-decide:keep' });
+  if (/data-act="mx-confirm"/.test(a.html())) a.click({ 'data-act': 'mx-confirm' });
+  await tick();
+  assert.strictEqual(savedProfile(storage).rank.points, 0, 'no points for it');
+  const b = await setup(d(), { storage, games: real });
+  b.click({ 'data-go': 'mx:keyring:gatehouse:1' });
+  if (/PRACTICE FIRST/.test(b.html())) b.click({ 'data-act': 'mx-know' });
+  assert.match(b.html(), /ITEM 1 OF 1/, 'asked again on the next scan');
+});
+
+test('a link under Check it yourself on a warned item waits for the warning, like Hand back', async () => {
+  const REAL = require('./fixtures/monitoring-findings.json');
+  const d = scan(JSON.parse(JSON.stringify(REAL.keylogger_indicators)));
+  const real = async () => { const I = await import('../renderer/missions/games/index.js'); return I.loadGames(); };
+  const t = await setup(d, { games: real });
+  t.click({ 'data-go': 'mx:keyring:gatehouse:1' });
+  if (/PRACTICE FIRST/.test(t.html())) t.click({ 'data-act': 'mx-know' });
+  assert.match(t.html(), /data-act="mx-link:0"/);
+  t.click({ 'data-act': 'mx-link:0' });
+  await tick();
+  assert.deepStrictEqual(t.calls.openSetting, [], 'nothing opens before the warning is read');
+  assert.match(t.html(), /Read the warning above first\. Go on\?/);
+  assert.match(t.html(), /Removing this can alert whoever installed it\./);
+  t.click({ 'data-act': 'mx-confirm' });
+  await tick();
+  assert.strictEqual(t.calls.openSetting.length, 1);
+  assert.match(t.calls.openSetting[0], /^x-apple\.systempreferences:/);
 });
 
 test('a settings decision opens the pane through the setting allowlist', async () => {
@@ -206,6 +275,16 @@ test('a settings decision opens the pane through the setting allowlist', async (
   await tick();
   assert.deepStrictEqual(t.calls.openSetting, ['x-apple.systempreferences:com.apple.Network-Settings.extension?Firewall']);
   assert.match(t.html(), /You make the change there/);
+  // Main refused (or it failed): never "Opened".
+  const u = await setup(doc(), { games: lockGame });
+  u.win.rescue.openSetting = async (x) => { u.calls.openSetting.push(x); return false; };
+  u.click({ 'data-go': 'mx:simple:gatehouse:2' });
+  u.click({ 'data-act': 'mx-know' });
+  u.click({ 'data-act': 'mx-decide:on' });
+  await tick(); await tick();
+  assert.strictEqual(u.calls.openSetting.length, 1);
+  assert.doesNotMatch(u.html(), /Opened in Settings/);
+  assert.match(u.html(), /Settings didn’t open\. Open them yourself/);
 });
 
 test('practice on request: made-up items, a move, and the round recorded as played', async () => {

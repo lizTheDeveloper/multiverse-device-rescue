@@ -10,7 +10,8 @@ import * as Run from '../missions/runner.js';
 import { renderMissionRows, renderMissionScreen, nextMissionLine } from './views/mission-run.js';
 import { roundOf, markRound, recordRound, keepAnswer, recallAnswer, decisionHash, conceptState } from './profile/player-profile.js';
 import { conceptById } from './profile/skills.js';
-import { award, confirmItem, missionKey, MONITORING_MODULES } from './ledger.js';
+import { award, confirmItem, missionKey } from './ledger.js';
+import { isAlertingItem } from '../missions/contract.js';
 import { esc } from './escape.js';
 
 const visible = (s) => String(s == null ? '' : s).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
@@ -21,6 +22,7 @@ const SETTING_SCHEME = /^(?:x-apple\.systempreferences:|ms-settings:)/;
  *   win, mode() -> 'standard'|'city', platform(), districtName(id), place() -> help district name (city) or '',
  *   getProfile(), keepProfile(p), bank(), commitAward(result) -> points, logEntry(kind, text), now(),
  *   evidenceRows(finding, mode), renderEvidence(rows, module, gameCopy) (the controller's clipboard rule),
+ *   safetyNote(finding) -> HTML (standard mode: the list's safety note for it, or ''),
  *   rebuild(doc), docChanged(doc), sweeping(), stopped(), render(), focusHeading(), watchedOpts(),
  *   openConcept(concept) -> boolean, deck() -> the ledger's deck, setScreen(name), modulesCoveredBy(markIds),
  *   onGames(registry)?, loadMissionGames?
@@ -74,6 +76,8 @@ export function createMissionDesk(deps) {
     const out = {};
     for (const item of m.items) {
       if (d.answered.has(item.key)) { out[item.key] = d.answered.get(item.key); continue; }
+      // A monitoring item's answer is the session's only (contract.js isAlertingItem).
+      if (isAlertingItem(item)) continue;
       const h = recallAnswer(p, item.key, Run.fingerprint(item));
       if (!h) continue;
       let id = 'kept';
@@ -126,10 +130,11 @@ export function createMissionDesk(deps) {
     for (const r of fresh) {
       if (!r.effect || r.effect.kind === 'later') continue;
       d.answered.set(r.key, r.decision);
-      if (Run.remembers(r)) deps.keepProfile(keepAnswer(deps.getProfile(), r.key, Run.fingerprint(r.item), r.decision, deps.now()));
+      const watched = isAlertingItem(r.item);
+      if (Run.remembers(r) && !watched) deps.keepProfile(keepAnswer(deps.getProfile(), r.key, Run.fingerprint(r.item), r.decision, deps.now()));
       // Notes pay per batch; every other decided item pays once, ever. A
-      // monitoring check's item pays nothing, whatever was decided.
-      if (m && !m.notes) {
+      // monitoring (or warned) item pays nothing, whatever was decided.
+      if (m && !m.notes && !watched) {
         const pts = deps.commitAward(award(deps.deck(), 'decide', missionKey(r.item.finding.module, r.key)));
         if (pts) d.run = Run.addPoints(d.run, r.key, pts);
       }
@@ -143,8 +148,9 @@ export function createMissionDesk(deps) {
     d.paidSummary.add(m.id + d.run.results.map((r) => r.key).join('|'));
     const allDecided = m.items.every((i) => d.run.results.some((r) => r.key === i.key && r.decision !== 'later'));
     if (!allDecided) return;
-    // The lead module is a monitoring check's whenever one is in the mission: then no bonus.
-    const lead = (m.items.find((i) => MONITORING_MODULES.has(i.finding.module)) || m.items[0]).finding.module;
+    // A mission with a monitoring (or warned) item in it pays no bonus.
+    if (m.items.some(isAlertingItem)) return regroupOdd();
+    const lead = m.items[0].finding.module;
     const keys = m.items.map((i) => i.key).sort();
     if (m.notes) {
       const pts = deps.commitAward(award(deps.deck(), 'notesBatch', missionKey(lead, ...keys)));
@@ -156,7 +162,10 @@ export function createMissionDesk(deps) {
     } else {
       deps.commitAward(award(deps.deck(), 'mission', missionKey(lead, ...keys)));
     }
-    // Notes the person called odd become items of their own type now.
+    regroupOdd();
+  }
+  // Notes the person called odd become items of their own type now.
+  function regroupOdd() {
     const odd = d.run.results.filter((r) => r.effect && r.effect.kind === 'odd').map((r) => r.key);
     if (odd.length) { odd.forEach((k) => d.odd.add(k)); regroup(); }
   }
@@ -170,7 +179,14 @@ export function createMissionDesk(deps) {
     if (act.kind === 'odd') return;
     if (act.kind === 'settings' || act.kind === 'link') {
       const url = act.url;
-      if (url && SETTING_SCHEME.test(url)) { Promise.resolve().then(() => w.rescue.openSetting(url)).catch(() => {}); d.notice = mode() === 'city' ? 'Opened the settings. Make the change there, then come back.' : 'Opened in Settings. You make the change there, then come back here.'; return; }
+      if (url && SETTING_SCHEME.test(url)) {
+        // Said only once main has opened it (false: refused or failed).
+        let ok = false;
+        try { ok = (await w.rescue.openSetting(url)) !== false; } catch (_) { ok = false; }
+        if (ok) d.notice = mode() === 'city' ? 'Opened the settings. Make the change there, then come back.' : 'Opened in Settings. You make the change there, then come back here.';
+        else d.notice = mode() === 'city' ? 'The settings didn’t open. Open them yourself, then come back.' : 'Settings didn’t open. Open them yourself, then come back here.';
+        return;
+      }
       // Standard mode: a look-up opens in the browser (main re-checks it against
       // research.js's templates). City mode never opens one: a watched computer
       // keeps browser history, so it is words to search somewhere else.
@@ -222,10 +238,9 @@ export function createMissionDesk(deps) {
       let r = null;
       try { r = await deps.win.rescue.recheckModule(name); } catch (_) { r = null; }
       if (!r || !r.ok || (r.module && r.module.complete === false)) ok = false;
-      if (r && r.ok) {
-        if (!deps.docChanged(r.doc)) { d.busy = false; return; }
-        deps.rebuild(r.doc);
-      }
+      // An unchanged scan means the item is still there: carry on to the answer
+      // below rather than leaving the confirm waiting for nothing.
+      if (r && r.ok && deps.docChanged(r.doc)) deps.rebuild(r.doc);
     }
     d.busy = false;
     const still = d.missions.some((m) => m.items.some((i) => i.key === item.key || (i.sourceKeys || []).includes(item.key)));
@@ -235,8 +250,9 @@ export function createMissionDesk(deps) {
       if (why === 'mark') d.run = Run.settle(d.run, 'done', item); else d.run = Run.settle(d.run, 'cancelled', item);
     } else if (!still) {
       if (why !== 'mark') {
-        const pts = deps.commitAward(confirmItem(deps.deck(), missionKey(item.finding.module, item.key), deps.now()));
-        if (!MONITORING_MODULES.has(item.finding.module)) deps.logEntry('CONFIRMED', item.finding.title || '');
+        const watched = isAlertingItem(item);
+        const pts = watched ? 0 : deps.commitAward(confirmItem(deps.deck(), missionKey(item.finding.module, item.key), deps.now()));
+        if (!watched) deps.logEntry('CONFIRMED', item.finding.title || '');
         d.notice = mode() === 'city' ? `Confirmed: the sweep doesn’t see it any more.${pts ? ` +${pts}` : ''}` : `Checked again: it’s gone.${pts ? ` +${pts} points` : ''}`;
       } else d.notice = '';
       d.run = Run.settle(d.run, 'done', item);
@@ -302,7 +318,12 @@ export function createMissionDesk(deps) {
     }
     const points = run.results.reduce((n, r) => n + (r.points || 0), 0);
     const next = unfinishedMissions().find((x) => x.id !== m.id) || null;
-    return renderMissionScreen({ mission: m, run, view: pv, mode: mode(), districtName: deps.districtName(m.district), cardHtml: card,
+    // Standard mode: the list's own safety note for the item (the first of its findings that has one).
+    let safetyHtml = '';
+    if (item && !practice && typeof deps.safetyNote === 'function') {
+      for (const f of [item.finding, ...(item.findings || [])]) { try { safetyHtml = deps.safetyNote(f) || ''; } catch (_) { safetyHtml = ''; } if (safetyHtml) break; }
+    }
+    return renderMissionScreen({ mission: m, run, view: pv, mode: mode(), districtName: deps.districtName(m.district), cardHtml: card, safetyHtml,
       evidenceHtml: evidence, research, actHtml: d.act ? d.act.html : '', notice: d.notice, summaryHtml: summary, points,
       nextMission: next, place: deps.place(), busy: d.busy, canPractice: !!(game.practice && game.practice.script && game.practice.script.length) });
   }
@@ -363,7 +384,13 @@ export function createMissionDesk(deps) {
       const item = Run.currentItem(d.run);
       const links = item ? assemble(game, item, ctx, { unfinished: d.unfinished }).links : [];
       const l = links[Number(act.slice(8))];
-      if (l) carryOut({ kind: l.kind === 'settings' ? 'settings' : 'link', url: l.url, text: l.text, item, steps: [] });
+      if (l) {
+        // R6 for links too: a warned item's page opens only after the warning was read.
+        const r = Run.openLink(d.run, game, ctx, { kind: l.kind === 'settings' ? 'settings' : 'link', url: l.url, text: l.text, item, steps: [],
+          ...(l.warning === true ? { warning: true } : {}) });
+        d.run = r.run;
+        if (r.act) Promise.resolve(carryOut(r.act)).then(() => deps.render());
+      }
     } else if (act.startsWith('mx-lesson:')) {
       keepRun();
       deps.openConcept(act.slice(10));

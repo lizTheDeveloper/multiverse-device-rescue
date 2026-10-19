@@ -10,6 +10,7 @@
 //   viewFor(run, game, ctx, research) -> view          what the screen draws (game.render gets the same view)
 //   choose(run, id, game, ctx) -> { run, act }         act: null | { kind: mark|fix|settings|link|recheck|lesson|odd, … }
 //   confirmPending(run, game, ctx) / cancelPending(run) the warning-before-acting step (R6)
+//   openLink(run, game, ctx, act) -> { run, act }       a research link; behind the confirm when the item warns
 //   proceed(run)                                       past an answered item whose steps are on screen
 //   guideOf(item, decision, mode)                      steps, checklist, hint, focus, off a decision shows
 //   settle(run, outcome)                               a mark/fix/recheck flow finished: 'done' | 'cancelled'
@@ -22,16 +23,14 @@
 // Phases: 'offer' (first time: practice or "I know this"), 'practice',
 // 'item', 'confirm' (the removal warning before a fix or a warned settings
 // pane), 'summary'.
-import { EFFECT_KINDS, MIN_DECISIONS, MAX_DECISIONS, REMOVING_KINDS, checkDecisions } from './contract.js';
+import { EFFECT_KINDS, MIN_DECISIONS, MAX_DECISIONS, REMOVING_KINDS, checkDecisions, isAlertingItem } from './contract.js';
 import { shortHash } from '../game/folded.js';
 
 export const REMOVAL_WARNING = 'Removing this can alert whoever installed it.';
 
-export function alerting(item) {
-  if (!item) return false;
-  const fs = [item.finding, ...(Array.isArray(item.findings) ? item.findings : [])].filter(Boolean);
-  return item.removal_alert === true || fs.some((f) => f.removal_alert === true || !!(f.remediation && f.remediation.safety_note));
-}
+// contract.js's one rule: a monitoring check's own finding always warns, as
+// does any finding carrying removal_alert or a safety note.
+export const alerting = (item) => isAlertingItem(item);
 
 // The fix confirm's options for FixFlow.fixControlsHtml: city mode's watched
 // warning, else the removal line whenever the item warns. Games can't change it.
@@ -160,6 +159,11 @@ export function choose(run, id, game, ctx) {
   const mode = ctx && ctx.mode === 'city' ? 'city' : 'standard';
   const guide = guideOf(item, d, mode);
   const steps = guide ? guide.steps : [];
+  // Keeping ("Mine") an item that warns is one click the person may regret:
+  // a one-line "only if it's yours" confirm first (MarkFlow's own mark has one).
+  if (e.kind === 'keep' && alerting(item) && !confirmed(run, item, d)) {
+    return { run: { ...run, phase: 'confirm', pending: { key: item.key, decision: d, warning: true, deferred: d.id, ask: 'keep' } }, act: null };
+  }
   // R6: a warned effect shows the removal warning first and acts only after
   // the person has read it (a fix's own confirm is FixFlow's panel).
   if (e.warning === true && e.kind !== 'fix' && !confirmed(run, item, d)) {
@@ -195,6 +199,18 @@ export function choose(run, id, game, ctx) {
     default:
       return { run, act: null };
   }
+}
+
+// A link under "Check it yourself" (a settings page or a look-up). On an item
+// that warns, or whose decisions are warned (R6), it waits behind the same
+// confirm as a warned decision; otherwise it opens straight away.
+export function openLink(run, game, ctx, act) {
+  const item = currentItem(run);
+  if (!item || !act) return { run, act: null };
+  const warned = alerting(item) || act.warning === true
+    || decisionsFor(run, game, item, ctx).some((x) => x.effect && x.effect.warning === true);
+  if (!warned) return { run, act };
+  return { run: { ...run, phase: 'confirm', pending: { key: item.key, decision: { id: 'link' }, warning: true, act } }, act: null };
 }
 
 // After an answered item's steps: on to the next one.

@@ -9,8 +9,14 @@
 //   https://chromewebstore.google.com/detail/<32 letters a-p>
 //
 // The name: 1-120 characters, no quote, no control, format or separator
-// characters (newlines, bidi overrides, zero-width), no leading, trailing or
-// doubled spaces: research.js cleanQuery's output.
+// characters (newlines, bidi overrides, zero-width), no "!" or "\\"
+// (DuckDuckGo's bangs and "first result" jump would open some other page), no
+// leading, trailing or doubled spaces: research.js cleanQuery's output.
+//
+// City mode never opens a look-up (the renderer shows it as text). Main has no
+// display-mode signal of its own (the setting lives in the renderer's storage
+// and no IPC reports it), so it can't refuse here by mode; a value the renderer
+// sent with the request would be no more trustworthy than the URL itself.
 
 const SEARCH = /^https:\/\/duckduckgo\.com\/\?q=([A-Za-z0-9\-_.!~*'()%]+)$/;
 const STORE = /^https:\/\/chromewebstore\.google\.com\/detail\/[a-p]{32}$/;
@@ -18,7 +24,7 @@ const QUERY = /^(?:site:support\.(?:apple|microsoft)\.com )?"([^"]+)"$/;
 const MAX_QUERY = 120;
 
 function cleanName(q) {
-  return q.length <= MAX_QUERY && !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(q) && q === q.trim() && !/\s{2}/.test(q) && q.length > 0;
+  return q.length <= MAX_QUERY && !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}!\\]/u.test(q) && q === q.trim() && !/\s{2}/.test(q) && q.length > 0;
 }
 
 function isAllowedLookupUrl(url) {
