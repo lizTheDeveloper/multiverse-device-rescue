@@ -1,0 +1,19 @@
+{
+ "schema_version": 1,
+ "platform": "win32",
+ "modules": [
+  {
+   "name": "win_cortana_telemetry", "category": "security", "status": "ok", "error": null,
+   "supported": true, "complete": true,
+   "findings": [
+    {
+     "title": "Location services are enabled",
+     "description": "Windows Location services are enabled.",
+     "severity": "warning", "category": "security",
+     "code": "security.win_cortana_telemetry.location_services",
+     "data": { "check": "location_services", "value": "Allow" }
+    }
+   ]
+  }
+ ]
+}
