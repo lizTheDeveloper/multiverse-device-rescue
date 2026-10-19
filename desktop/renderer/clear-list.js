@@ -199,6 +199,8 @@ const ClearList = (function () {
       }
       // Each severity group's count is what is still on it.
       root.querySelectorAll('[data-results-group]').forEach((group) => {
+        // Good to know keeps the notes count it was drawn with (scanCounts.info): nothing in it is on the list.
+        if (group.getAttribute && group.getAttribute('data-results-group') === 'info') return;
         const n = group.querySelectorAll('[data-group-list] > [data-card-key]').length;
         const count = group.querySelector('.results-group__count');
         if (count) count.textContent = String(n);

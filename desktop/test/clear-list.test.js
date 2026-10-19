@@ -353,3 +353,15 @@ test('earlier marks start short too; Undo on a mark opens the card so the answer
   assert.strictEqual(m.parentNode, p.clearedList, 'a refused unmark keeps it cleared');
   assert.match(btn(m, '[data-mark-status]').innerHTML, /couldn’t mark|didn’t go through|Nothing was changed/);
 });
+
+test('round 5: Good to know keeps the notes count it was drawn with (scanCounts.info)', () => {
+  const p = page();
+  p.card('warning');
+  p.card('info');
+  const count = p.root.querySelector('[data-results-group="info"] .results-group__count');
+  count.textContent = '382';
+  const { ctl } = wire(p);
+  ctl.reset({ couldNotCheck: 0 });
+  assert.strictEqual(count.textContent, '382');
+  assert.strictEqual(p.root.querySelector('[data-results-group="warning"] .results-group__count').textContent, '1');
+});
