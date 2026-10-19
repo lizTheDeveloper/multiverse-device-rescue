@@ -250,6 +250,74 @@ def test_windows_powershell_failure_is_tolerated(mod):
     result = _run_with(mod, lambda args, **kw: _Result(ok=False), Platform.WIN32)
     inventory = _finding(result, "inventory")
     assert inventory.data["examined"] == 0
+    # A folder that could not be read is not checked, never "all checked".
+    assert inventory.data["unread_folders"] == [r"C:\Program Files"]
+    assert inventory.data["coverage_capped"] is True
+    assert "All applications in the scanned locations were checked" not in inventory.description
+    assert r"could not be read" in inventory.description
+
+
+def test_windows_timed_out_folder_is_not_checked_and_others_kept(mod):
+    mod.app_dirs = [r"C:\Program Files", r"C:\Program Files (x86)"]
+
+    def handler(args, timeout, **kw):
+        assert timeout <= 25  # two folders together stay under the engine's 60 s
+        if "(x86)" in args[-1]:
+            return _Result(ok=False, timed_out=True)
+        return _Result(ok=True, stdout="C:\\Program Files\\Good\\good.exe|Valid|CN=Vendor\n")
+
+    result = _run_with(mod, handler, Platform.WIN32)
+    inventory = _finding(result, "inventory")
+    assert inventory.data["examined"] == 1
+    assert inventory.data["unread_folders"] == [r"C:\Program Files (x86)"]
+    assert inventory.data["stopped_by_time_limit"] is True
+    assert "All applications in the scanned locations were checked" not in inventory.description
+
+
+def test_windows_folders_share_one_time_budget(mod):
+    import time
+
+    mod.app_dirs = [r"C:\A", r"C:\B", r"C:\C"]
+    mod.time_budget_s = 1.0
+    seen = []
+
+    def slow(args, timeout, **kw):
+        seen.append(timeout)
+        time.sleep(1.1)
+        return _Result(ok=False, timed_out=True)
+
+    start = time.monotonic()
+    result = _run_with(mod, slow, Platform.WIN32)
+    assert time.monotonic() - start < 3
+    inventory = _finding(result, "inventory")
+    # The first folder used up the budget; the rest were not started.
+    assert len(seen) == 1 and seen[0] <= 1.0
+    assert inventory.data["unread_folders"] == [r"C:\A", r"C:\B", r"C:\C"]
+
+
+def test_finished_results_after_a_skipped_app_are_kept(mod):
+    """A finished check (here a tampered one) is never dropped because an
+    earlier app was skipped for time."""
+    for name in ("A", "B", "C"):
+        _install(mod, name)
+    module = _module_object(mod)
+
+    def handler(args, **kw):
+        if "C.app" in args[-1] and args[0] == "codesign":
+            return _Result(ok=False, stderr="a sealed resource is missing or invalid")
+        return _Result(ok=True)
+
+    # B is skipped as if the budget had run out when it came up.
+    def skipping_map(self, fn, apps):
+        return [None if app.stem == "B" else fn(app) for app in apps]
+
+    with patch.object(module.ThreadPoolExecutor, "map", skipping_map):
+        result = _run_with(mod, handler)
+
+    inventory = _finding(result, "inventory")
+    assert inventory.data["examined"] == 2
+    assert inventory.data["stopped_by_time_limit"] is True
+    assert _finding(result, "tampered_binary").data["name"] == "C"
 
 
 def test_unsupported_platform_says_so(mod):

@@ -55,6 +55,8 @@ _MAX_BINARIES = 60
 _PER_COMMAND_TIMEOUT = 10
 _TIME_BUDGET_S = 40.0
 _WORKERS = 3
+# One PowerShell listing per Windows folder, all inside the same budget.
+_WIN_FOLDER_TIMEOUT = 25
 
 _DARWIN_APP_DIRS = ["/Applications", "~/Applications"]
 _SYSTEM_WIDE_PREFIXES = ("/Applications",)
@@ -114,11 +116,11 @@ class Module(ModuleBase):
                 ),
             )
 
-        out_of_time = False
         if profile.platform == Platform.DARWIN:
             results, examined, total, out_of_time = self._audit_darwin()
+            unread: list[str] = []
         else:
-            results, examined, total = self._audit_windows()
+            results, examined, total, out_of_time, unread = self._audit_windows()
 
         findings: list[Finding] = []
 
@@ -225,9 +227,9 @@ class Module(ModuleBase):
         valid = len(results) - len(tampered) - len(unsigned) - len(rejected) - len(incomplete)
         if capped and out_of_time:
             coverage = (
-                f"COVERAGE LIMIT: the scan stopped after {examined} applications because "
+                f"COVERAGE LIMIT: only {examined} applications were checked because "
                 "signature checks took too long. This is not a full-disk audit, and the "
-                "applications after that were not checked at all.\n\n"
+                "other applications were not checked at all.\n\n"
             )
         elif capped:
             coverage = (
@@ -238,8 +240,15 @@ class Module(ModuleBase):
             )
         elif incomplete:
             coverage = "Every application was looked at, but some checks did not finish.\n\n"
+        elif unread:
+            coverage = ""
         else:
             coverage = "All applications in the scanned locations were checked.\n\n"
+        if unread:
+            coverage = (
+                "COVERAGE LIMIT: these folders could not be read, so the applications "
+                "in them were not checked at all: " + ", ".join(unread) + ".\n\n"
+            ) + coverage
         unfinished = (
             f"Could not finish: {len(incomplete)} ("
             + ", ".join(r["name"] for r in incomplete[:10])
@@ -271,9 +280,10 @@ class Module(ModuleBase):
                     "check": "inventory",
                     "examined": examined,
                     "total_present": total,
-                    "coverage_capped": capped,
+                    "coverage_capped": capped or bool(unread),
                     "cap": self.max_binaries,
                     "stopped_by_time_limit": out_of_time,
+                    "unread_folders": unread,
                     "time_budget_s": self.time_budget_s,
                     "tampered": len(tampered),
                     "unsigned": len(unsigned),
@@ -413,7 +423,8 @@ class Module(ModuleBase):
 
         Returns (results, examined, total, out_of_time). Apps not started
         before the budget ran out are left out of ``results`` (not examined);
-        an app whose own command ran out of time is "incomplete".
+        an app whose own command ran out of time is "incomplete". Every app
+        that did finish is kept, even after one that was skipped.
         """
         apps = self._collect_darwin_apps()
         total = len(apps)
@@ -425,15 +436,14 @@ class Module(ModuleBase):
                 return None
             return self._check_darwin_app(app, deadline)
 
+        # These pool threads are not the engine's worker thread, so the
+        # engine's abandon guard does not cover them if this check is stopped.
+        # They stay bounded on their own: every command is capped at what is
+        # left of this check's deadline, and nothing starts after it.
         with ThreadPoolExecutor(max_workers=_WORKERS) as pool:
             checked = list(pool.map(check_one, apps[: self.max_binaries]))
-        # Keep a contiguous prefix so "the first N apps" stays true.
-        results: list[dict] = []
-        for entry in checked:
-            if entry is None:
-                break
-            results.append(entry)
-        out_of_time = len(results) < min(total, self.max_binaries)
+        results = [entry for entry in checked if entry is not None]
+        out_of_time = len(results) < len(checked)
         return results, len(results), total, out_of_time
 
     def _check_darwin_app(self, app: Path, deadline: float) -> dict:
@@ -491,17 +501,33 @@ class Module(ModuleBase):
                 )
         return entry
 
-    def _audit_windows(self) -> tuple[list[dict], int, int]:
+    def _audit_windows(self) -> tuple[list[dict], int, int, bool, list[str]]:
+        """Returns (results, examined, total, out_of_time, unread_folders).
+
+        A folder whose listing failed, timed out or was never started for
+        lack of time is in ``unread_folders``: not checked, never "clean".
+        """
         results: list[dict] = []
         total = 0
+        unread: list[str] = []
+        out_of_time = False
+        deadline = time.monotonic() + self.time_budget_s
 
         for raw_dir in self._app_dirs(Platform.WIN32):
+            remaining = deadline - time.monotonic()
+            if remaining < 0.5:
+                out_of_time = True
+                unread.append(raw_dir)
+                continue
             command = _powershell_signature_command(raw_dir, self.max_binaries)
             result = run(
                 ["powershell", "-NoProfile", "-Command", command],
-                timeout=_PER_COMMAND_TIMEOUT * 4,
+                timeout=min(_WIN_FOLDER_TIMEOUT, remaining),
             )
             if not result.ok:
+                if result.timed_out:
+                    out_of_time = True
+                unread.append(raw_dir)
                 continue
 
             for line in result.stdout.splitlines():
@@ -543,4 +569,4 @@ class Module(ModuleBase):
                     )
                 results.append(entry)
 
-        return results, len(results), max(total, len(results))
+        return results, len(results), max(total, len(results)), out_of_time, unread
