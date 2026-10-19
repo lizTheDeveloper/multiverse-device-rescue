@@ -133,6 +133,9 @@ def module_entry(mod, check, walkthroughs=None, app_fixes=None, made_by=None, ap
         # False means the check could not run here: not a clean result.
         "supported": getattr(check, "supported", True),
         "unsupported_reason": getattr(check, "unsupported_reason", None),
+        # False means the check ran but didn't finish its job, so something it
+        # didn't report may still be there: never read it as clean.
+        "complete": bool(getattr(check, "complete", True)),
         "findings": [
             _finding(
                 f, walkthroughs, offer, made_by,
@@ -169,7 +172,7 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
     Returns:
         JSON string with schema_version, platform, and modules array.
         Each module entry has name, category, status, error, supported,
-        unsupported_reason, findings.
+        unsupported_reason, complete, findings.
     """
     modules = [
         module_entry(mod, check, walkthroughs, app_fixes, made_by, app_actions)

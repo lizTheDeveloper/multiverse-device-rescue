@@ -423,6 +423,7 @@ class TestStorageCleanupTimeBudget:
         assert "real amount is larger" in note.description
         # What did not need the budget is still reported.
         assert by_type["dmg_files"].data["size_bytes"] == 100
+        assert result.complete is False
 
     def test_slow_walk_stops_at_the_deadline(self, tmp_path):
         mod = _get_module()
@@ -448,6 +449,9 @@ class TestStorageCleanupTimeBudget:
         assert by_type["app_support"].title.startswith("Data from uninstalled apps: at least ")
         assert by_type["app_support"].data["incomplete"] is True
         assert " has at least " in by_type["total_reclaimable"].title
+        assert result.complete is False
+        # The code keeps one identity while the title's size and "at least" change.
+        assert by_type["total_reclaimable"].code == "performance.storage_cleanup.total_reclaimable"
 
     def test_finished_measurement_has_no_note(self, tmp_path):
         mod = _get_module()
@@ -456,5 +460,6 @@ class TestStorageCleanupTimeBudget:
             result = mod.check(_make_profile())
         types = {f.data.get("type") for f in result.findings}
         assert "measurement_incomplete" not in types
+        assert result.complete is True
         app = next(f for f in result.findings if f.data.get("type") == "app_support")
         assert app.data["size_bytes"] == 2000 * 10

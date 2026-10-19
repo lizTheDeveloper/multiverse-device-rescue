@@ -42,6 +42,7 @@ class Module(ModuleBase):
     priority = 70
     depends_on = []
     estimated_duration = "15s"
+    emits_codes = ["performance.storage_cleanup.total_reclaimable"]
 
     size_budget_s: float = SIZE_BUDGET_S
 
@@ -197,6 +198,9 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
+                    # A stable code, so the finding keeps one identity while its
+                    # size (and an "at least") in the title changes.
+                    code="performance.storage_cleanup.total_reclaimable",
                     data={
                         "type": "total_reclaimable",
                         "size_bytes": total_reclaimable,
@@ -234,7 +238,8 @@ class Module(ModuleBase):
                 )
             )
 
-        return CheckResult(module_name=self.name, findings=findings)
+        # Sizes that stopped early are only part of the real amount.
+        return CheckResult(module_name=self.name, findings=findings, complete=not cut_short)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []

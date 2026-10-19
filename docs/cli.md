@@ -143,6 +143,9 @@ The JSON shape is `schema_version` 1:
       "category": "integrity",
       "status": "ok",
       "error": null,
+      "supported": true,
+      "unsupported_reason": null,
+      "complete": true,
       "findings": [
         {
           "title": "1 package update(s) available",
@@ -167,9 +170,13 @@ The JSON shape is `schema_version` 1:
     [`rescue export`](#rescue-export-redacted-case-report) instead, which
     redacts.
 
-    Note also that `status` here is only `"ok"` or `"error"` — this serializer
-    does not distinguish *unsupported* from *healthy*. The human report and the
-    case export both do.
+    Note also that `status` here is only `"ok"` or `"error"`. A check that
+    could not run here has `"supported": false`, and a check that ran but
+    stopped before finishing its job (for example, a search that ran out of
+    its time budget) has `"complete": false`. Neither is a clean result: a
+    problem missing from an incomplete check's findings may not have been
+    looked at. `complete` defaults to `true` and appears both in the final
+    document and in each streamed `--progress` entry.
 
 ---
 

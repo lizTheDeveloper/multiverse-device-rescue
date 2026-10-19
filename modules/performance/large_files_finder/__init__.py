@@ -231,7 +231,10 @@ class Module(ModuleBase):
                 )
             )
 
-        return CheckResult(module_name=self.name, findings=findings)
+        # Folders not searched to the end may hold big files this didn't list.
+        return CheckResult(
+            module_name=self.name, findings=findings, complete=not self._search_incomplete
+        )
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []

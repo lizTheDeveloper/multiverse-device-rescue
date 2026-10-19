@@ -560,6 +560,7 @@ class TestLargeFilesFinderTimeBudget:
         assert "didn't finish" in note.title
         assert "~/Downloads" in note.data["unfinished"]
         assert "may be missing" in note.description
+        assert result.complete is False
 
     def test_real_hanging_command_is_stopped(self, tmp_path):
         """With the real command runner, a find that never ends is killed."""
@@ -577,6 +578,7 @@ class TestLargeFilesFinderTimeBudget:
             result = mod.check(_make_profile())
         assert time.monotonic() - start < 6
         assert any(f.data.get("type") == "search_incomplete" for f in result.findings)
+        assert result.complete is False
 
     def test_finished_search_has_no_incomplete_note(self, tmp_path):
         mod = _get_module()
@@ -585,6 +587,7 @@ class TestLargeFilesFinderTimeBudget:
         with patch.object(Path, "home", return_value=home), _patch_run(mod, return_value=_cmd("")):
             result = mod.check(_make_profile())
         assert not any(f.data.get("type") == "search_incomplete" for f in result.findings)
+        assert result.complete is True
 
 
 class TestLargeFilesFinderUnreadable:

@@ -74,6 +74,7 @@ def test_update_checker_healthy():
     with patch("subprocess.run", side_effect=_fake_run(SOFTWAREUPDATE_NONE, BREW_OUTDATED_NONE)):
         result = mod.check(_make_profile())
     assert not result.has_issues
+    assert result.complete is True
 
 
 def test_update_checker_pending_os_updates():
@@ -155,6 +156,8 @@ def test_hanging_softwareupdate_is_not_checked_and_brew_still_runs():
     assert "os_updates" not in by_check
     # What it could check is kept.
     assert "brew_outdated" in by_check
+    # An update may still be waiting: the result must not read as clean.
+    assert result.complete is False
 
 
 def test_failed_softwareupdate_is_not_read_as_no_updates():
@@ -171,6 +174,7 @@ def test_failed_softwareupdate_is_not_read_as_no_updates():
     with patch.object(sp, "run", side_effect=fake):
         result = mod.check(_make_profile())
     assert [f.data["check"] for f in result.findings] == ["os_updates_not_checked"]
+    assert result.complete is False
 
 
 def test_hanging_brew_is_not_checked():
@@ -187,3 +191,4 @@ def test_hanging_brew_is_not_checked():
     with patch.object(sp, "run", side_effect=fake):
         result = mod.check(_make_profile())
     assert [f.data["check"] for f in result.findings] == ["brew_not_checked"]
+    assert result.complete is False

@@ -242,6 +242,7 @@ def _entry_to_dict(entry: CaseEntry, extra: list[tuple[re.Pattern[str], str]]) -
         "status": check.status.value,
         "error": redact(check.error, extra) if check.error else None,
         "unsupported_reason": redact(check.unsupported_reason or "", extra) or None,
+        "complete": bool(getattr(check, "complete", True)),
         "findings": [
             {
                 "title": redact(f.title, extra),
@@ -337,6 +338,17 @@ def case_to_markdown(case: RescueCase) -> str:
         for module in failed:
             reason = module["error"] or module["unsupported_reason"] or "no reason given"
             lines.append(f"- {module['module']}: {module['status']} — {reason}")
+        lines.append("")
+
+    unfinished = [
+        m for m in data["modules"]
+        if m.get("complete") is False and m["status"] not in ("failed", "unsupported")
+    ]
+    if unfinished:
+        # Ran, but stopped before the end: what it didn't report may be there.
+        lines += ["## Checks that did not finish", ""]
+        for module in unfinished:
+            lines.append(f"- {module['module']}: stopped before it finished; not a clean result")
         lines.append("")
 
     actions = [

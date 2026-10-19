@@ -108,6 +108,11 @@ class CheckResult:
     # (falsely healthy) result. Backward compatible: defaults keep old behavior.
     supported: bool = True
     unsupported_reason: str | None = None
+    # False when the check ran but stopped before finishing its job (a time
+    # budget ran out, a folder could not be read, a command was stopped). Its
+    # findings are real, but a problem missing from them may simply not have
+    # been looked at: an incomplete result is never a clean one.
+    complete: bool = True
 
     @property
     def has_issues(self) -> bool:

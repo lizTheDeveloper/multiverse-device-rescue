@@ -107,6 +107,7 @@ def test_all_valid_signatures_produce_no_warnings(mod):
     inventory = _finding(result, "inventory")
     assert inventory.data["examined"] == 2
     assert inventory.data["tampered"] == 0
+    assert result.complete is True
 
 
 def test_broken_signature_is_critical(mod):
@@ -194,6 +195,7 @@ def test_timed_out_check_is_not_reported_as_tampering(mod):
 
     assert _finding(result, "tampered_binary") is None
     assert _finding(result, "unsigned_system_app") is None
+    assert result.complete is False
 
 
 def test_scan_is_capped_and_says_so(mod):
@@ -208,6 +210,8 @@ def test_scan_is_capped_and_says_so(mod):
     assert inventory.data["total_present"] == 10
     assert inventory.data["coverage_capped"] is True
     assert "COVERAGE LIMIT" in inventory.description
+    # Apps past the cap weren't looked at: not a clean result.
+    assert result.complete is False
 
 
 def test_uncapped_scan_states_full_coverage(mod):
@@ -216,6 +220,7 @@ def test_uncapped_scan_states_full_coverage(mod):
     inventory = _finding(result, "inventory")
     assert inventory.data["coverage_capped"] is False
     assert "All applications in the scanned locations were checked" in inventory.description
+    assert result.complete is True
 
 
 def test_missing_application_directory_is_tolerated(mod):
@@ -255,6 +260,7 @@ def test_windows_powershell_failure_is_tolerated(mod):
     assert inventory.data["coverage_capped"] is True
     assert "All applications in the scanned locations were checked" not in inventory.description
     assert r"could not be read" in inventory.description
+    assert result.complete is False
 
 
 def test_windows_timed_out_folder_is_not_checked_and_others_kept(mod):
@@ -398,6 +404,7 @@ def test_slow_signature_checks_stop_at_the_time_budget(mod):
     assert "signature checks took too long" in inventory.description
     assert "second" not in inventory.description
     assert "not checked at all" in inventory.description
+    assert result.complete is False
 
 
 def test_hanging_signature_check_is_not_counted_as_valid(mod):
@@ -430,6 +437,7 @@ def test_unread_folders_never_claim_every_app_was_looked_at(mod):
     text = _finding(result, "inventory").description
     assert "could not be read" in text
     assert "Every application was looked at" not in text
+    assert result.complete is False
     assert "All applications in the scanned locations were checked" not in text
 
 

@@ -29,7 +29,9 @@ If the person just wants the app, send them to the download buttons in the
 2. **Never ask for a password, a one-time code, or a recovery code.** The tool
    never needs one, so don't ask the person to paste one into the chat.
 3. **"Couldn't run" doesn't mean "clean."** A module with `"supported": false`
-   or `"status": "error"` checked nothing. Say so.
+   or `"status": "error"` checked nothing. Say so. A module with
+   `"complete": false` ran but stopped before finishing, so something it
+   didn't report may still be there. Say that too.
 4. **Check before removing stalkerware.** If the person thinks a partner, ex,
    or housemate is monitoring them, removing that software can alert the
    person who installed it. Before suggesting removal, give them the safety
@@ -88,6 +90,7 @@ normal.
       "error": null,
       "supported": true,              // false = could not run here; NOT clean
       "unsupported_reason": null,
+      "complete": true,               // false = ran but didn't finish; NOT clean
       "findings": [
         {
           "title": "…",

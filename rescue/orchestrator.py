@@ -241,9 +241,11 @@ def stop_commands_on_signals() -> None:
     """On SIGTERM (and SIGHUP on macOS/Linux), stop every running check
     command, then exit with 128 + the signal number.
 
-    The desktop app cancels a scan by killing the engine (SIGTERM on macOS);
-    without this the commands checks had started kept running. Call it from
-    the main thread, as `rescue scan` does.
+    The desktop app has no cancel button; when it quits mid-scan it sends the
+    engine SIGTERM (desktop/engine-runner.js stopRunningScans, on Electron's
+    before-quit). Without this handler the commands checks had started kept
+    running. On Windows that kill is TerminateProcess, which no handler sees.
+    Call it from the main thread, as `rescue scan` does.
     """
 
     def handler(signum, frame):

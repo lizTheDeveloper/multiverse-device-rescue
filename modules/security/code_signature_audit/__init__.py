@@ -294,7 +294,13 @@ class Module(ModuleBase):
             )
         )
 
-        return CheckResult(module_name=self.name, findings=findings)
+        # Apps left unexamined, folders not read, or checks that were stopped
+        # may hide a broken or unsigned app this didn't report.
+        return CheckResult(
+            module_name=self.name,
+            findings=findings,
+            complete=not (capped or unread or incomplete or out_of_time),
+        )
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions: list[Action] = []

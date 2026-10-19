@@ -389,6 +389,7 @@ def test_system_profiler_runs_once_however_many_networks_are_saved():
     assert sum(1 for c in calls if c[0] == "system_profiler") == 1
     summary = next(f for f in result.findings if f.data["check"] == "wifi_summary")
     assert summary.data["saved_networks_count"] == 200
+    assert result.complete is True
 
 
 def test_hanging_system_profiler_is_unknown_not_safe_and_runs_once():
@@ -423,3 +424,5 @@ def test_hanging_system_profiler_is_unknown_not_safe_and_runs_once():
     assert "open_saved" not in checks
     # ...and what it could read is kept.
     assert "wifi_summary" in checks
+    # Security types weren't read: not a clean result.
+    assert result.complete is False

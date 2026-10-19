@@ -193,12 +193,14 @@ def test_scan_json_attaches_the_fix_walkthrough_to_coded_findings():
     assert "remediation" not in findings[1]
 
 
-def _streaming_scan(args, findings_by_module):
-    """Run `rescue scan` with fake modules; returns (result, stderr JSON lines)."""
+def _streaming_scan(args, findings_by_module, incomplete=()):
+    """Run `rescue scan` with fake modules; returns (result, stderr JSON lines).
+    Modules named in ``incomplete`` report a check that didn't finish."""
     mods = [type('MockModule', (), {'name': name, 'category': 'security',
                                     'report': lambda self, check, fix=None: ''})()
             for name in findings_by_module]
-    checks = [CheckResult(module_name=m.name, findings=findings_by_module[m.name]) for m in mods]
+    checks = [CheckResult(module_name=m.name, findings=findings_by_module[m.name],
+                          complete=m.name not in incomplete) for m in mods]
 
     def fake_run_checks(on_progress=None, on_plan=None):
         if on_plan:
@@ -248,3 +250,20 @@ def test_scan_progress_without_json_streams_no_entries():
     result, lines = _streaming_scan(["scan", "--progress"], {'only': []})
     assert result.exit_code == 0, result.output
     assert {next(iter(l)) for l in lines} == {'plan', 'progress'}
+
+
+def test_scan_json_marks_a_check_that_did_not_finish_in_both_places():
+    # A check that ran but stopped before the end (a time budget ran out) must
+    # say so, or the app reads a problem it never looked at as gone. The
+    # streamed entry and the final document carry the same field.
+    result, lines = _streaming_scan(["scan", "--json", "--progress", "--no-attribution"],
+                                    {'cut_short': [], 'finished': []}, incomplete={'cut_short'})
+    assert result.exit_code == 0, result.output
+    doc = json.loads(result.stdout)
+    assert doc["schema_version"] == 1
+    by_name = {m["name"]: m for m in doc["modules"]}
+    assert by_name["cut_short"]["complete"] is False
+    assert by_name["finished"]["complete"] is True
+    streamed = {l['module']['name']: l['module'] for l in lines if 'module' in l}
+    assert streamed["cut_short"]["complete"] is False
+    assert streamed["finished"]["complete"] is True

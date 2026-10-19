@@ -110,7 +110,12 @@ class Module(ModuleBase):
                     )
                 )
 
-        return CheckResult(module_name=self.name, findings=findings)
+        # A part that couldn't be asked means an update may still be waiting.
+        not_checked = any(
+            f.data.get("check") in ("os_updates_not_checked", "brew_not_checked")
+            for f in findings
+        )
+        return CheckResult(module_name=self.name, findings=findings, complete=not not_checked)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []

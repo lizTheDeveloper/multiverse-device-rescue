@@ -62,7 +62,9 @@ class Module(ModuleBase):
         if summary:
             findings.append(summary)
 
-        return CheckResult(module_name=self.name, findings=findings)
+        # The Wi-Fi report couldn't be read: security types were not checked.
+        report_failed = getattr(self, "_airport_report", _UNREAD) is None
+        return CheckResult(module_name=self.name, findings=findings, complete=not report_failed)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         """Provide informational guidance on Wi-Fi security improvements."""
