@@ -1,0 +1,23 @@
+{
+  "note": "Synthetic Lock Run findings (made up; shapes copied from the engine modules' Finding calls).",
+  "platform": "darwin",
+  "findings": [
+    { "module": "automatic_updates", "code": "security.automatic_updates.critical_update", "severity": "critical", "title": "Your Mac is not installing critical security updates automatically", "data": { "check": "critical_update" } },
+    { "module": "update_checker", "code": null, "severity": "warning", "title": "2 macOS update(s) available", "data": { "check": "os_updates", "updates": ["macOS Example 99.1", "Example Safari 99"] } },
+    { "module": "update_checker", "code": null, "severity": "warning", "title": "3 outdated Homebrew package(s)", "data": { "check": "brew_outdated", "packages": ["examplepkg", "sample-tool", "demo"] } },
+    { "module": "time_machine_check", "code": null, "severity": "warning", "title": "We could not check your last backup date", "data": { "check": "no_backup_date" } },
+    { "module": "encryption_check", "code": "security.encryption_check.filevault_disabled", "severity": "critical", "title": "Your Mac's disk encryption is off", "data": { "fdesetup_output": "FileVault is Off." } },
+    { "module": "filevault_recovery", "code": "security.filevault_recovery.no_recovery_key", "severity": "critical", "title": "Your Mac is encrypted, but there's no recovery key", "data": { "check": "no_recovery_key", "personal": false, "institutional": false } },
+    { "module": "firewall_audit", "code": "security.firewall_audit.global_state", "severity": "critical", "title": "Your Mac's firewall is turned off", "data": { "check": "global_state" } },
+    { "module": "screen_lock_check", "code": "security.screen_lock_check.screen_lock_required", "severity": "critical", "title": "Your Mac does not lock after sleeping", "data": { "check": "screen_lock_required", "value": "0" } },
+    { "module": "login_password_policy", "code": "security.login_password_policy.auto_login", "severity": "critical", "title": "Your Mac logs in automatically as example", "data": { "check": "auto_login", "user": "example" } },
+    { "module": "find_my_mac_check", "code": "security.find_my_mac_check.find_my_mac_disabled", "severity": "critical", "title": "Find My Mac is turned off", "data": { "find_my_mac_enabled": false } },
+    { "module": "guest_account_check", "code": "security.guest_account_check.guest_smb_access", "severity": "warning", "title": "Guest users can open your shared folders", "data": { "check": "guest_smb_access" } },
+    { "module": "firmware_password", "code": "security.firmware_password.firmware_password_not_set", "severity": "warning", "title": "Your Mac's startup security is not locked", "data": { "check": "firmware_password_not_set" } },
+    { "module": "antivirus_status", "code": "security.antivirus_status.av_not_running", "severity": "warning", "title": "Your antivirus ExampleAV is installed but not running", "data": { "check": "av_not_running", "av_name": "ExampleAV" } },
+    { "module": "macos_eol_check", "code": null, "severity": "warning", "title": "Your macOS Example no longer gets security updates", "data": { "version": "99.0", "build": "00A000", "model": "Mac0,0", "status": "unsupported" } },
+    { "module": "backup_status", "code": null, "severity": "critical", "title": "Your Mac is not making automatic backups", "data": { "check": "timemachine_disabled" } },
+    { "module": "session_revocation_scan", "code": "security.session_revocation_scan.ssh_authorized_keys", "severity": "warning", "removal_alert": true, "title": "2 saved key(s) could let another computer log in to this one", "data": { "check": "ssh_authorized_keys", "file": "~/.ssh/authorized_keys", "key_count": 2 } },
+    { "module": "appleid_security_check", "code": "security.appleid_security_check.icloud_keychain", "severity": "warning", "title": "iCloud Keychain is disabled", "data": { "check": "icloud_keychain" } }
+  ]
+}

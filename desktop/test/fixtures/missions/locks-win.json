@@ -1,0 +1,16 @@
+{
+  "note": "Synthetic Lock Run findings for Windows (made up; shapes copied from the engine's win_* modules).",
+  "platform": "win32",
+  "findings": [
+    { "module": "win_windows_update_status", "code": null, "severity": "warning", "title": "Windows Update is paused", "data": { "check": "updates_paused", "expiry": "2099-01-01" } },
+    { "module": "win_update_history", "code": null, "severity": "warning", "title": "Could not check Windows Update status", "data": { "check": "service_check_failed" } },
+    { "module": "win_bitlocker_check", "code": "security.win_bitlocker_check.os_drive_not_encrypted", "severity": "critical", "title": "Your main Windows drive (C:) is not encrypted", "data": { "mount_point": "C:", "status": "FullyDecrypted", "is_os_drive": true } },
+    { "module": "win_bitlocker", "code": "security.win_bitlocker.no_recovery_key", "severity": "warning", "title": "No backup recovery key for D:", "data": { "mount_point": "D:", "key_protectors": ["Tpm"] } },
+    { "module": "win_defender", "code": "security.win_defender.realtime_protection", "severity": "critical", "title": "Your computer is not checking files as you use them", "data": { "check": "realtime_protection" } },
+    { "module": "win_firewall", "code": "security.win_firewall.public_profile_disabled", "severity": "critical", "title": "Your Public Profile firewall is off", "data": { "profile_name": "Public Profile" } },
+    { "module": "win_uac_check", "code": "security.win_uac_check.uac_never_notify", "severity": "warning", "title": "Your computer won't ask permission for big changes", "data": { "setting": "ConsentPromptBehaviorAdmin", "value": 0 } },
+    { "module": "win_user_accounts", "code": "security.win_user_accounts.guest_account_enabled", "severity": "warning", "title": "Your computer's Guest account is turned on", "data": { "check": "guest_enabled" } },
+    { "module": "win_credential_guard", "code": "security.win_credential_guard.password_min_length_below_threshold", "severity": "warning", "title": "Your password rules allow very short passwords (0 characters)", "data": { "check": "password_min_length", "current_length": 0 } },
+    { "module": "win_restore_points", "code": null, "severity": "critical", "title": "System Restore is turned off", "data": { "check": "restore_disabled" } }
+  ]
+}
