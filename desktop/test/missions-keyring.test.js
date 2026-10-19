@@ -226,3 +226,43 @@ test('summary counts the keys and never says all clear', async () => {
   assert.doesNotMatch(c, /all clear/i);
   assert.strictEqual(typeof G.summary([], C.testContext()), 'string');
 });
+
+// R4: groupMissions explodes permission lists into one item per app; the game decides and draws per app.
+test('per app (R4): the exploded item names only its app, with every key it holds, and decides for that app', async () => {
+  const { C, G } = await load();
+  const T = await import(pathToFileURL(path.join(R, 'types.js')).href);
+  const pf = (code, service, apps, extra = {}) => ({ title: `${service} list`, description: 'x', severity: 'warning', category: 'security',
+    code: `security.app_permissions.${code}`, data: { service, apps }, ...extra });
+  const doc = { schema_version: 1, platform: 'darwin', modules: [{ name: 'app_permissions', category: 'security', status: 'ok', error: null, supported: true,
+    findings: [
+      pf('camera_access', 'kTCCServiceCamera', ['com.example.alpha', 'com.example.beta'], { markable: { id: 'k-cam', kind: 'app_permissions' } }),
+      pf('microphone_access', 'kTCCServiceMicrophone', ['com.example.alpha']),
+      pf('contacts_access', 'kTCCServiceAddressBook', ['com.example.solo'], { markable: { id: 'k-con', kind: 'app_permissions' } }),
+    ] }] };
+  const items = T.groupMissions(doc, { mode: 'standard', table: T.buildTable([G]) }).filter((m) => m.type === 'keyring').flatMap((m) => m.items);
+  const alpha = items.find((i) => i.key === 'app|com.example.alpha');
+  const beta = items.find((i) => i.key === 'app|com.example.beta');
+  const solo = items.find((i) => i.key === 'app|com.example.solo');
+  assert.ok(alpha && beta && solo, items.map((i) => i.key).join(', '));
+  assert.deepStrictEqual(alpha.keys.map((k) => k.permission), ['kTCCServiceCamera', 'kTCCServiceMicrophone']);
+  for (const mode of ['standard', 'city']) {
+    const ctx = C.testContext({ mode });
+    const html = G.render(view(alpha, G, ctx), ctx);
+    assert.match(html, /com\.example\.alpha/);
+    assert.doesNotMatch(html, /com\.example\.beta/, 'the other holder of the camera key is its own item');
+    assert.strictEqual((html.match(/class="kr-app"/g) || []).length, 1);
+    assert.deepStrictEqual([...html.matchAll(/data-key="([^"]+)"/g)].map((x) => x[1]), ['camera', 'microphone']);
+    assert.doesNotMatch(G.render(view(beta, G, ctx), ctx), /data-key="microphone"/);
+    if (mode === 'city') assert.deepStrictEqual(C.checkCityWords(html), []);
+  }
+  const ctx = C.testContext();
+  const d = G.decisions(alpha, ctx);
+  const back = d.find((x) => x.id === 'hand_back').effect;
+  assert.strictEqual(back.pane, 'privacy-camera');
+  assert.ok(back.steps.some((x) => /Microphone/.test(x) && /com\.example\.alpha/.test(x)), back.steps.join(' | '));
+  assert.strictEqual(d[0].effect.kind, 'keep', 'marking the camera list would mark beta too');
+  assert.strictEqual(G.decisions(solo, ctx)[0].effect.kind, 'mark', 'a list of one app is marked through MarkFlow');
+  const looks = G.research(alpha, ctx).links.filter((l) => l.kind === 'lookup').map((l) => l.query);
+  assert.deepStrictEqual(looks, ['com.example.alpha']);
+  assert.deepStrictEqual(C.runContractChecks(G, [alpha, beta, solo]), []);
+});

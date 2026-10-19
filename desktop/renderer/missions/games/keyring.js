@@ -116,10 +116,23 @@ const findingsOf = (item) => {
   return list.filter((f) => f && typeof f === 'object');
 };
 
+// R4: groupMissions hands over one item per app: { app: { subject, name },
+// keys: [{ permission, finding }], findings } — every permission finding that
+// lists the app. The game then decides and draws for that app alone.
+const appOfItem = (item) => {
+  const a = obj(obj(item).app);
+  return str(a.subject) ? { subject: str(a.subject), name: str(a.name) } : null;
+};
+const keyFindings = (item) => {
+  const ks = Array.isArray(obj(item).keys) ? obj(item).keys : [];
+  const fs = ks.map((k) => obj(k).finding).filter((f) => f && typeof f === 'object');
+  return fs.length ? fs : findingsOf(item);
+};
+
 // The item's keys, without repeats.
 function itemKeys(item) {
   const seen = new Map();
-  for (const f of findingsOf(item)) for (const k of keysOf(f)) if (!seen.has(k.id)) seen.set(k.id, k);
+  for (const f of keyFindings(item)) for (const k of keysOf(f)) if (!seen.has(k.id)) seen.set(k.id, k);
   return [...seen.values()];
 }
 
@@ -132,9 +145,20 @@ const baseName = (p) => {
 };
 
 // The apps (and running programs) the item names, each with the keys it holds and its maker.
+// A per-app item (R4) names only its own app.
 export function appsOf(item) {
+  const all = appsIn(item);
+  const one = appOfItem(item);
+  if (!one) return all;
+  const hit = all.filter((a) => a.subject === one.subject);
+  if (hit.length) return hit;
+  return [{ subject: one.subject, kind: isPath(one.subject) ? 'path' : 'id', name: isPath(one.subject) ? baseName(one.subject) : (one.name || one.subject),
+    maker: '', confirmed: false, what: '', keys: itemKeys(item) }];
+}
+
+function appsIn(item) {
   const out = new Map();
-  for (const f of findingsOf(item)) {
+  for (const f of keyFindings(item)) {
     const d = obj(f.data);
     const entries = [];
     for (const a of Array.isArray(d.apps) ? d.apps : []) {
@@ -214,19 +238,28 @@ export function decisions(item, ctx) {
   const keys = itemKeys(item);
   const first = keys[0] || { id: 'other', ...KEYS.other };
   const apps = appsOf(item);
+  // A mark covers a whole finding, so a per-app item marks only when each of
+  // its findings lists this app alone; otherwise Keep is remembered by the runner.
+  const one = appOfItem(item);
+  const alone = !one || keyFindings(item).every((x) => appsIn({ findings: [x] }).length <= 1);
   const out = [{
     id: 'keep',
     label: { standard: 'Keep', city: 'Keep the key' },
-    effect: f.markable && typeof f.markable === 'object' ? { kind: 'mark' } : { kind: 'keep' },
+    effect: alone && f.markable && typeof f.markable === 'object' ? { kind: 'mark' } : { kind: 'keep' },
   }];
   const pane = paneIntent(first, ctx);
   const warn = runnerWarns(item) || gameWarns(item);
+  const m = words(ctx);
+  const who = one ? (apps[0] && apps[0].name) || one.subject : '';
+  // An app holding more than one key: the first key's page opens, and the steps name the others.
+  const also = keys.slice(1).map((k) => (m === 'city' ? `Also hand back ${k.name.city}${who ? ` from ${who}` : ''} in ${isWin(ctx) ? 'Settings' : k.where}.`
+    : `Also switch off ${k.name.standard}${who ? ` for ${who}` : ''} in ${isWin(ctx) ? 'Settings > Privacy' : k.where}.`));
   out.push({
     id: 'hand_back',
     label: { standard: 'Hand back', city: 'Hand it back' },
     effect: pane
-      ? { ...pane, key: first.id, ...(warn ? { warning: true } : {}) }
-      : { kind: 'closer', key: first.id, steps: [`Open ${first.where}.`, 'Switch it off there.'], ...(warn ? { warning: true } : {}) },
+      ? { ...pane, key: first.id, ...(also.length ? { steps: also } : {}), ...(warn ? { warning: true } : {}) }
+      : { kind: 'closer', key: first.id, steps: [`Open ${first.where}.`, `Switch it off there${who ? ` for ${who}` : ''}.`, ...also], ...(warn ? { warning: true } : {}) },
   });
   if ((apps.length && unconfirmed(apps)) || (isMonitoring(item) && !apps.length)) {
     out.push({ id: 'closer', label: { standard: 'Look closer', city: 'Look closer' }, effect: { kind: 'closer', checklist: checklist(ctx) } });
