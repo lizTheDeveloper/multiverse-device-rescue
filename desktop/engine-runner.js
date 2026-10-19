@@ -69,6 +69,8 @@ function createExecLog(limits = EXEC_LIMITS) {
   let byModule = new Map();
   return {
     reset() { byModule = new Map(); },
+    // One check's commands, before it is run again on its own.
+    resetModule(name) { if (typeof name === 'string') byModule.delete(name); },
     add(ev) {
       if (!ev || ev.type !== 'exec' || typeof ev.module !== 'string' || !EXEC_MODULE.test(ev.module)) return false;
       if (!Array.isArray(ev.argv) || !ev.argv.length) return false;

@@ -103,3 +103,74 @@ test('a full scan that lands during the re-check wins: the stale result is not m
   assert.strictEqual(t.last, NEWER);
   assert.strictEqual(t.remembered.length, 0);
 });
+
+// ---------------------------------------------------------------------------
+// The optional iPhone backup sweep joins the last full scan (main.js run-scan).
+// ---------------------------------------------------------------------------
+const { applyScanResult, joinsLastScan } = require('../recheck');
+const { createFixPolicy } = require('../fix-policy');
+const { createMarkPolicy } = require('../mark-policy');
+const { createExecLog } = require('../engine-runner');
+
+const FIXABLE = { will_change: 'Turns on the firewall.', how_to_undo: ['Open Settings.'] };
+const FULL = { schema_version: 1, platform: 'darwin', modules: [
+  { name: 'firewall_audit', category: 'security', status: 'ok', supported: true, findings: [{ title: 'Firewall is off', fixable: FIXABLE }] },
+  { name: 'mvt_spyware_scan', category: 'security', status: 'ok', supported: true, not_started: true, findings: [{ title: 'backup found', severity: 'info' }] },
+] };
+const PHONE = { schema_version: 1, platform: 'darwin', modules: [
+  { name: 'mvt_spyware_scan', category: 'security', status: 'ok', supported: true, findings: [{ title: 'No known spyware found', severity: 'info' }] },
+] };
+const policies = () => { const fix = createFixPolicy(); const mark = createMarkPolicy(); return { fix, mark, list: [fix, mark] }; };
+
+test('the phone sweep replaces only its own module in the last scan and keeps the rest', () => {
+  const p = policies();
+  p.fix.remember(FULL);
+  const next = applyScanResult({ profile: 'iphone_spyware_check', lastDoc: FULL, doc: PHONE, policies: p.list });
+  assert.deepStrictEqual(next.modules.map((m) => m.name), ['firewall_audit', 'mvt_spyware_scan']);
+  assert.strictEqual(next.modules[0], FULL.modules[0]);
+  assert.strictEqual(next.modules[1].findings[0].title, 'No known spyware found');
+  assert.strictEqual(FULL.modules[1].findings[0].title, 'backup found', 'input not mutated');
+});
+
+test('after the phone sweep, a fix for another check is still allowed', () => {
+  const p = policies();
+  p.fix.remember(FULL);
+  assert.strictEqual(p.fix.isAllowed('firewall_audit'), true);
+  applyScanResult({ profile: 'iphone_spyware_check', lastDoc: FULL, doc: PHONE, policies: p.list });
+  assert.strictEqual(p.fix.isAllowed('firewall_audit'), true);
+  // Without merging (the old behaviour) it would have been refused.
+  const old = createFixPolicy();
+  old.remember(PHONE);
+  assert.strictEqual(old.isAllowed('firewall_audit'), false);
+});
+
+test('a stopped phone sweep never arms a policy and leaves the last full scan alone', () => {
+  const p = policies();
+  p.fix.remember(FULL);
+  const stopped = { ...PHONE, stopped: { stage: 'early', reason: 'exit' }, partial: { done: 0, total: 1, stopped: 'early' } };
+  const next = applyScanResult({ profile: 'iphone_spyware_check', lastDoc: FULL, doc: stopped, policies: p.list });
+  assert.strictEqual(next, FULL);
+  assert.strictEqual(p.fix.isAllowed('firewall_audit'), true, 'the full scan’s allowance stands');
+  // A stopped doc that does replace the last scan (a full sweep) arms nothing.
+  const fullStopped = { ...FULL, stopped: { stage: 'assembly', reason: 'exit' } };
+  const after = applyScanResult({ profile: null, lastDoc: FULL, doc: fullStopped, policies: p.list });
+  assert.strictEqual(after, fullStopped);
+  assert.strictEqual(p.fix.isAllowed('firewall_audit'), false);
+});
+
+test('with no full last scan, or a full sweep, the result replaces the last scan as before', () => {
+  const p = policies();
+  assert.strictEqual(joinsLastScan('iphone_spyware_check', null), false);
+  assert.strictEqual(applyScanResult({ profile: 'iphone_spyware_check', lastDoc: null, doc: PHONE, policies: p.list }), PHONE);
+  assert.strictEqual(applyScanResult({ profile: 'iphone_spyware_check', lastDoc: { ...FULL, stopped: {} }, doc: PHONE, policies: p.list }), PHONE);
+  assert.strictEqual(applyScanResult({ profile: null, lastDoc: FULL, doc: PHONE, policies: p.list }), PHONE);
+});
+
+test('the commands log forgets one check without touching the others', () => {
+  const log = createExecLog();
+  log.add({ type: 'exec', module: 'firewall_audit', argv: ['ls'] });
+  log.add({ type: 'exec', module: 'mvt_spyware_scan', argv: ['mvt'] });
+  log.resetModule('mvt_spyware_scan');
+  assert.strictEqual(log.get('mvt_spyware_scan').length, 0);
+  assert.strictEqual(log.get('firewall_audit').length, 1);
+});

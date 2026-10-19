@@ -19,6 +19,7 @@ const launchAgent = (title) => ({
   severity: 'warning',
   category: 'security',
   code: 'security.launch_agent_audit.hidden_folder',
+  same_key: `task:${LABEL}:hidden_folder`,
   description: `The background task '${LABEL}' runs a program from ${PROGRAM}, which is inside a hidden folder. Hidden folders are often used by developers, but they can also be used to hide unwanted software.\n\nThis is not automatically dangerous, but you should verify that you installed this app.\n\nIf you think someone close to you set this up to monitor you, removing it can alert them.\n\nWhat to do: Open System Settings > General > Login Items & Extensions. Turn it off if you don't recognise it.`,
   data: { label: LABEL, program: PROGRAM, plist: PLIST },
   made_by: [{ subject: PROGRAM, name: 'Unknown maker', verified: false, how: 'ad-hoc signed', location_note: '' }],
@@ -40,10 +41,10 @@ test('a card’s prose: no sentence the evidence, the warning box, the steps or 
 });
 
 test('the same finding from several checks is one card that says which checks saw it', () => {
-  const sleep = (m) => ({ module: m, title: 'Your Mac is set to never sleep', severity: 'warning', data: { setting: 'sleep', value: 0 } });
+  const sleep = (m) => ({ module: m, title: 'Your Mac is set to never sleep', severity: 'warning', same_key: 'display:never_off', data: { setting: 'sleep', value: 0 } });
   const a = { module: 'launch_agent_audit', ...launchAgent(`Background task '${LABEL}' runs from a hidden folder`) };
   const b = { module: 'launchd_persistence_audit', ...launchAgent(`Background task runs from a hidden folder: ${LABEL}`) };
-  const other = { module: 'launch_agent_audit', ...launchAgent('Background task \'other\' runs from a hidden folder'), data: { label: 'other' } };
+  const other = { module: 'launch_agent_audit', ...launchAgent('Background task \'other\' runs from a hidden folder'), same_key: 'task:other:hidden_folder', data: { label: 'other' } };
   const sameCheck = [{ module: 'login_items', title: 'Login item: Amical', severity: 'info' }, { module: 'login_items', title: 'Login item: Amical', severity: 'info' }];
   const mon = [{ module: 'stalkerware_scan', title: 'mSpy', severity: 'critical' }, { module: 'keylogger_indicators', title: 'mSpy', severity: 'critical' }];
   const merged = app.mergeAcrossChecks([sleep('energy_saver_check'), a, sleep('energy_settings'), b, other, sleep('power_settings'), ...sameCheck, ...mon]);

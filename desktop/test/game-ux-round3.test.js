@@ -10,6 +10,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const NotChecked = require('../renderer/not-checked.js');
 const app = require('../renderer/app.js');
+const { page } = require('./page-harness.js');
 
 const game = (f) => import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', f)).href);
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -92,6 +93,25 @@ test('the fresh scan: every city number is the list’s number (NotChecked.scanC
   const h = t.html();
   assert.strictEqual(hud(h, 'TO DO'), todo);
   assert.strictEqual(hud(h, 'COULDN’T CHECK'), plain.couldntRun + plain.notStarted);
+});
+
+test('Plain’s own “N things on your list” is the city’s mission count on the same scan', async () => {
+  const doc = load('fresh-round3.json');
+  const p = page({ store: { 'device-rescue.display': 'standard' } });
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  p.byId('btn-run-scan').click();
+  await p.finish(doc);
+  if (p.shown().includes('question')) p.answer('known');
+  // Plain's own rendered list: the cards in its critical and warning groups.
+  const groups = p.byId('results-groups').innerHTML.split('data-results-group="').slice(1);
+  const listed = groups.filter((g) => /^(critical|warning)"/.test(g))
+    .reduce((n, g) => n + g.split('<li class="finding-card').length - 1, 0);
+  assert.ok(listed > 0, 'Plain lists cards');
+  const { findingsToCity } = await game('findings-to-city.js');
+  const missions = findingsToCity(doc).districts.flatMap((d) => d.missions);
+  assert.strictEqual(listed, missions.length);
+  assert.strictEqual(listed, NotChecked.scanCounts(doc, { mode: 'city' }).items);
 });
 
 test('one item reported by several checks (same_key) is one mission, re-checked in each; severity is the list’s', async () => {

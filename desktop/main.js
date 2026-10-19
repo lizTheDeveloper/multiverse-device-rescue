@@ -3,7 +3,7 @@ const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
 const { createExecLog, runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck, stopRunningScans } = require('./engine-runner');
-const { handleRecheck } = require('./recheck');
+const { handleRecheck, applyScanResult, joinsLastScan } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { createScanGate, fixRefusal, markRefusal, recheckRefusal } = require('./scan-gate');
@@ -55,16 +55,17 @@ app.whenReady().then(() => {
   // The commands each check ran in the last scan (engine-runner.js createExecLog).
   const execLog = createExecLog();
   ipcMain.handle('run-scan', (e, profile) => gate.runScan(async () => {
-    execLog.reset();
+    // One optional check on its own (the iPhone backup sweep) joins the last
+    // full scan instead of replacing it, and keeps the other checks' commands.
+    const joins = joinsLastScan(profile, lastDoc);
+    if (joins) execLog.resetModule('mvt_spyware_scan'); else execLog.reset();
     const doc = await runScan(undefined, profile, (ev) => {
       if (ev.type === 'exec') execLog.add(ev);
       if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
     });
     // A checkup that stopped before the end is shown, never acted on: the
     // policies themselves ignore it (actionableDoc), whoever calls remember.
-    fixPolicy.remember(doc);
-    markPolicy.remember(doc);
-    lastDoc = doc;
+    lastDoc = applyScanResult({ profile, lastDoc, doc, policies: [fixPolicy, markPolicy] });
     return doc;
   }, () => { if (!e.sender.isDestroyed()) e.sender.send('scan-event', { type: 'wait', reason: 'change' }); }));
   // Read-only: what one check ran, for its findings' Evidence block.

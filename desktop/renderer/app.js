@@ -632,49 +632,25 @@ function mergeKey(f) {
   if (label) t = t.split(label.toLowerCase()).join(' ');
   return `${f.severity}|${label}|${t.replace(/[^a-z0-9]+/g, ' ').trim()}`;
 }
-/**
- * The same fact in different words from different checks: one crashing app
- * ("keeps crashing", "crashed 50 times"), the volume at 0%, swap in use, the
- * screensaver delay, no backup destination, the screen never turning off, the
- * same count of apps that can control the Mac. Keyed by what the data says,
- * never by the title. null: no family, only the title rule applies.
- */
-function sameFactKey(f) {
-  const d = f && f.data && typeof f.data === 'object' ? f.data : null;
-  if (!d) return null;
-  const check = typeof d.check === 'string' ? d.check : '';
-  if (typeof d.app_name === 'string' && d.app_name && d.crash_count != null) return `crash:${d.app_name}`;
-  if (typeof d.volume_percent === 'number') return `volume:${d.volume_percent}`;
-  if (typeof d.swap_used_mb === 'number') return `swap:${Math.round(d.swap_used_mb)}`;
-  if (/screensaver/.test(check)) {
-    const min = typeof d.minutes === 'number' ? d.minutes : typeof d.value === 'number' ? d.value : null;
-    if (min != null) return `screensaver:${min}`;
-  }
-  if (/^no_destination/.test(check) || (f.module === 'time_machine_check' && check === 'not_configured')) return 'backup:no-destination';
-  if (check === 'display_sleep' || check === 'display_sleep_disabled') return 'display:never-off';
-  if (check === 'excessive_accessibility' || check === 'accessibility_access') {
-    const n = typeof d.count === 'number' ? d.count : Array.isArray(d.apps) ? d.apps.length : null;
-    if (n != null) return `accessibility:${n}`;
-  }
-  return null;
-}
 const hasControls = (f) => !!(f && ((f.fixable && typeof f.fixable === 'object') || (f.markable && typeof f.markable === 'object')));
 function mergeAcrossChecks(findings) {
   const out = [];
   const seen = new Map();
   for (const f of findings || []) {
     if (!f || ALWAYS_SAFETY_MODULES.has(f.module)) { out.push(f); continue; }
-    const fact = sameFactKey(f);
-    const keys = [mergeKey(f), ...(fact ? [`${f.severity}|fact|${fact}`] : [])];
+    // The city's own key (NotChecked.itemKey, the engine's same_key), so the
+    // list and the city count the same items.
+    const itemK = `${f.severity}|item|${NotCheckedRule.itemKey(f, f.module)}`;
+    const keys = [itemK];
     const first = keys.map((k) => seen.get(k)).find(Boolean);
-    if (first && !first.seen_in.includes(f.module)) {
+    if (first && (!first.seen_in.includes(f.module) || (f.severity !== 'info' && seen.get(itemK) === first))) {
       if (hasControls(f) && !hasControls(first)) {
         // The card keeps the controls: one that can be fixed or marked leads.
         const { seen_in: was, also, ...rest } = first;
         Object.keys(first).forEach((k) => { delete first[k]; });
         Object.assign(first, f, { seen_in: [f.module, ...was], also: [rest, ...also] });
       } else {
-        first.seen_in.push(f.module);
+        if (!first.seen_in.includes(f.module)) first.seen_in.push(f.module);
         first.also.push(f);
       }
       keys.forEach((k) => { if (!seen.has(k)) seen.set(k, first); });
@@ -940,7 +916,6 @@ if (typeof module !== 'undefined' && module.exports) {
     couldntCheckGroups,
     cardEvidenceRows,
     mergeAcrossChecks,
-    sameFactKey,
     sortByImportance,
     importanceRank,
     groupByCheck,

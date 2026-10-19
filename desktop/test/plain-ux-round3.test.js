@@ -71,7 +71,7 @@ test('P1-2: "Copy everything for an AI" in city mode leaves held items out entir
 // P1-4: order by importance; the audit's security items on the first page.
 // ---------------------------------------------------------------------------
 test('P1-4: on the fresh scan, criticals first, then the fixes and the signs someone got in, all in the first 10', async () => {
-  const p = await results(FRESH);
+  const p = await results(withSameKeys(FRESH));
   const html = p.byId('results-groups').innerHTML;
   const groups = html.split('data-results-group="');
   const warn = groups.find((g) => g.startsWith('warning'));
@@ -99,8 +99,31 @@ test('P1-4: sortByImportance: fixable, then signals, then security lists, securi
     'chrome_extensions', 'vpn_leak_check', 'font_issues']);
 });
 
+// The engine stamps same_key on these (the fixture predates it): stamp it the way the engine does.
+function withSameKeys(doc) {
+  const key = (f) => {
+    const d = f.data || {}; const check = d.check || '';
+    if (typeof d.label === 'string' && /hidden/i.test(f.title || '')) return `task:${d.label}:hidden_folder`;
+    if (d.app_name && d.crash_count != null) return `crashes:${d.app_name}`;
+    if (typeof d.volume_percent === 'number') return `audio:volume_${d.volume_percent}`;
+    if (typeof d.swap_used_mb === 'number') return `memory:swap_${Math.round(d.swap_used_mb)}`;
+    if (/screensaver/.test(check)) return `screen_lock:screensaver_${d.minutes ?? d.value}`;
+    if (/^no_destination/.test(check) || (f.module === 'time_machine_check' && check === 'not_configured')) return 'backup:no_destination';
+    if (check === 'display_sleep' || check === 'display_sleep_disabled') return 'display:never_off';
+    if (check === 'excessive_accessibility' || check === 'accessibility_access') {
+      const n = typeof d.count === 'number' ? d.count : Array.isArray(d.apps) ? d.apps.length : null;
+      if (n != null) return `permissions:accessibility_${n}`;
+    }
+    return null;
+  };
+  return { ...doc, modules: doc.modules.map((m) => ({ ...m, findings: (m.findings || []).map((f) => {
+    const k = key({ ...f, module: m.name });
+    return k ? { ...f, same_key: k } : f;
+  }) })) };
+}
+
 test('P1-4: near-duplicates from different checks merge by what the data says (crash, volume, swap, backups, screensaver)', async () => {
-  const p = await results(FRESH);
+  const p = await results(withSameKeys(FRESH));
   const titles = cardsOf(p.byId('results-groups').innerHTML).map((c) => /<h3[^>]*>([^<]*)</.exec(c)[1]);
   const count = (re) => titles.filter((t) => re.test(t)).length;
   assert.strictEqual(count(/chrome_crashpad_handler/), 1);
@@ -111,8 +134,8 @@ test('P1-4: near-duplicates from different checks merge by what the data says (c
   assert.strictEqual(count(/control your Mac/), 2, 'the 14 merge; the 11 unrecognised stay their own list');
   // The merged card keeps the one with controls (the markable list) and says who saw it.
   const merged = app.mergeAcrossChecks([
-    { module: 'accessibility_permissions', severity: 'warning', title: 'Many apps can control your Mac (14)', data: { check: 'excessive_accessibility', count: 14 } },
-    { module: 'app_permissions', severity: 'warning', title: '14 apps can control your Mac', markable: { id: 'a' }, data: { check: 'accessibility_access', apps: new Array(14).fill('x') } },
+    { module: 'accessibility_permissions', severity: 'warning', title: 'Many apps can control your Mac (14)', same_key: 'permissions:accessibility_14', data: { check: 'excessive_accessibility', count: 14 } },
+    { module: 'app_permissions', severity: 'warning', title: '14 apps can control your Mac', markable: { id: 'a' }, same_key: 'permissions:accessibility_14', data: { check: 'accessibility_access', apps: new Array(14).fill('x') } },
   ]);
   assert.strictEqual(merged.length, 1);
   assert.strictEqual(merged[0].module, 'app_permissions');

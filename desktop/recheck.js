@@ -57,4 +57,40 @@ async function handleRecheck(name, { getLastDoc, setLastDoc, runRecheck, policie
   return { ok: true, doc, module };
 }
 
-module.exports = { mergeModuleResult, handleRecheck };
+// An optional one-check sweep (the iPhone backup) is not a new checkup: when
+// it comes back, its entry replaces that module's entry in the last full scan
+// and everything else stays. null when it must not merge (no full last scan, a
+// stopped or partial result on either side, or more than one module), so the
+// caller keeps its old behaviour.
+function isActionable(doc) {
+  return !!doc && Array.isArray(doc.modules) && !(doc.stopped && typeof doc.stopped === 'object') && !(doc.partial && typeof doc.partial === 'object');
+}
+function mergeSingleModuleScan(lastDoc, doc) {
+  if (!isActionable(lastDoc) || !isActionable(doc)) return null;
+  const mods = doc.modules.filter(Boolean);
+  if (mods.length !== 1 || typeof mods[0].name !== 'string' || !MODULE_NAME.test(mods[0].name)) return null;
+  return mergeModuleResult(lastDoc, doc, mods[0].name).doc;
+}
+
+// Optional one-check sweeps that join the last full scan instead of replacing it.
+const OPTIONAL_SWEEPS = new Set(['iphone_spyware_check']);
+const joinsLastScan = (profile, lastDoc) => OPTIONAL_SWEEPS.has(profile) && isActionable(lastDoc);
+
+// What run-scan does with a finished scan: returns the new "last scan" and
+// re-arms the policies from it. A stopped or partial document never arms
+// them (the policies' own filter stays), and a stopped one-check sweep leaves
+// the last full scan alone.
+function applyScanResult({ profile, lastDoc, doc, policies }) {
+  if (joinsLastScan(profile, lastDoc)) {
+    if (!isActionable(doc)) return lastDoc;
+    const merged = mergeSingleModuleScan(lastDoc, doc);
+    if (merged) {
+      for (const p of policies) p.remember(merged);
+      return merged;
+    }
+  }
+  for (const p of policies) p.remember(doc);
+  return doc;
+}
+
+module.exports = { mergeModuleResult, mergeSingleModuleScan, applyScanResult, joinsLastScan, handleRecheck };
