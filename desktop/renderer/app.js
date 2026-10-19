@@ -2123,10 +2123,11 @@ if (typeof document !== 'undefined') {
         const message = scanErrorText(err && err.message ? err.message : String(err));
         if (inGame && !leftGame && stoppedDoc) {
           // What the stopped checkup found goes to the city, which shows it as
-          // stopped (its own deck, nothing to act on). The list behind the
+          // stopped (its stopped deck, nothing to act on). The list behind the
           // city's "see it in the list" shows the same stopped results.
           renderResults(stoppedDoc);
-          if (window.RescueGame.scanDone(stoppedDoc, scanSituation) === false) {
+          // The city's own entry for it (B5): scanFailed with the stopped doc.
+          if (window.RescueGame.scanFailed(message, stoppedDoc) === false) {
             showScreen('scan');
             showScanError(message);
           } else {
