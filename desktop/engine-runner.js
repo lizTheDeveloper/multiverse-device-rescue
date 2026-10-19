@@ -16,13 +16,20 @@ function parseEngineOutput(stdout) { return JSON.parse(stdout); }
 // than passed to the engine, since the value arrives over IPC.
 const PROFILE_NAME = /^[a-z0-9_]+$/;
 
+// Several worries run the union of their profiles: one --profile each.
+const MAX_PROFILES = 8;
+
 function scanArgs(profile) {
   const args = ['scan', '--json'];
   if (profile == null) return args;
-  if (typeof profile !== 'string' || !PROFILE_NAME.test(profile)) {
-    throw new Error(`invalid profile name: ${profile}`);
+  const names = Array.isArray(profile) ? profile : [profile];
+  if (names.length === 0 || names.length > MAX_PROFILES) throw new Error('invalid profile list');
+  for (const name of names) {
+    if (typeof name !== 'string' || !PROFILE_NAME.test(name)) {
+      throw new Error(`invalid profile name: ${name}`);
+    }
   }
-  return args.concat(['--profile', profile]);
+  return args.concat(...[...new Set(names)].map((name) => ['--profile', name]));
 }
 
 // With --trace, stderr carries one {"progress": {...}} JSON line per check,
@@ -142,8 +149,30 @@ const ITEM_KINDS = new Set([
 ]);
 const NEVER_MARKABLE_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
 
+// Lists that can be marked entry by entry, and how many entries at most
+// (rescue/known_items.py ENTRY_KIND_FOR and MAX_LIST_ENTRIES).
+const ENTRY_LIST_KINDS = new Set(['app_permissions', 'ssh_authorized_keys']);
+const MAX_ENTRIES = 60;
+
+// Some entries of one list: the list's own code and id, then one --item each.
+function entryMarkArgs(t) {
+  if (!ENTRY_LIST_KINDS.has(t.kind)) throw new Error('not a list');
+  if (typeof t.code !== 'string' || !MARK_CODE.test(t.code)) throw new Error('invalid code');
+  if (NEVER_MARKABLE_MODULES.has(t.code.split('.')[1])) throw new Error('not markable');
+  if (typeof t.id !== 'string' || !MARK_ID.test(t.id)) throw new Error('invalid id');
+  const chosen = Array.isArray(t.chosen) ? t.chosen : [];
+  if (!chosen.length || chosen.length > MAX_ENTRIES) throw new Error('invalid items');
+  if (new Set(chosen).size !== chosen.length) throw new Error('invalid items');
+  if (!chosen.every((x) => typeof x === 'string' && MARK_ID.test(x)) || chosen.includes(t.id)) throw new Error('invalid items');
+  // The person confirmed in the app. The engine runs the check again and
+  // saves none of them unless every entry is still there, unchanged.
+  return ['known', 'add', '--code', t.code, '--expect-id', t.id,
+    ...chosen.flatMap((x) => ['--item', x]), '--json', '--i-understand'];
+}
+
 function markArgs(target) {
   const t = target || {};
+  if (t.chosen !== undefined) return entryMarkArgs(t);
   const item = ITEM_KINDS.has(t.kind);
   if (!item) {
     if (t.kind !== 'background_task') throw new Error('invalid kind');
