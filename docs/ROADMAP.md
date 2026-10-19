@@ -145,7 +145,7 @@ isolated checks:
 | Backup and restore validation | Backup presence does not prove recovery is possible. | Backup freshness, encryption, destination capacity, restore-point inventory, sampled restore drill, and recovery-key handling without collecting secrets. |
 | Transactional remediation | Rescue actions must be reviewable and reversible. | Action plan, preflight backup/snapshot where supported, least-privilege elevation, change journal, rollback, and post-action recheck. |
 | Account and browser recovery | Security-reset guidance currently promises capabilities that do not exist. | Human-led account inventory, password-manager migration checklist, session/device review links, extension inventory, and secure deletion guidance. Never collect account passwords or tokens. |
-| Hardware recovery workflow | Device rescue also needs to distinguish hardware faults from software issues. | Unified storage, battery, thermal, memory, display, input, and network-adapter evidence with vendor diagnostics and repair/escalation thresholds. |
+| Hardware recovery workflow | Reclaim City also needs to distinguish hardware faults from software issues. | Unified storage, battery, thermal, memory, display, input, and network-adapter evidence with vendor diagnostics and repair/escalation thresholds. |
 | Cross-platform recovery | Linux is inoperable and mobile is only mentioned in guides. | Finish Linux first; then build separate, permission-aware Android/iOS companion workflows instead of pretending desktop modules apply to mobile. |
 
 ## Phased delivery plan

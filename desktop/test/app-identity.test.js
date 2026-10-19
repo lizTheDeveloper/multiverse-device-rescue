@@ -16,7 +16,8 @@ test('the app is called Reclaim City everywhere the installer and the OS show it
   assert.strictEqual(pkg.build.nsis.shortcutName, 'Reclaim City');
   assert.strictEqual(pkg.build.mac.artifactName, 'ReclaimCity-mac-${arch}.${ext}');
   assert.strictEqual(pkg.build.win.artifactName, 'ReclaimCity-windows-${arch}.${ext}');
-  assert.doesNotMatch(JSON.stringify(pkg), /Device ?Rescue/);
+  // Any case (DEVICE RESCUE counts); the appId is the one slug kept on purpose.
+  assert.doesNotMatch(JSON.stringify(pkg).replace('"school.themultiverse.devicerescue"', ''), /Device ?Rescue/i);
 });
 
 test('the installer id does not change, so updates and OS permissions carry over', () => {
@@ -43,13 +44,13 @@ test('the window, About and page titles are the new name, with no shield', () =>
   assert.match(html, /<title>Reclaim City<\/title>/);
   assert.match(html, /<span class="brand-name">Reclaim City<\/span>/);
   assert.match(html, /<span class="route__eyebrow">Plain view<\/span>/);
-  assert.doesNotMatch(html, /Device Rescue/);
+  assert.doesNotMatch(html, /Device ?Rescue/i);
   assert.doesNotMatch(html, /&#128737;/, 'no shield in the header');
 });
 
 test('the release workflow uploads, checksums and names the new artifacts', () => {
   const wf = read('.github/workflows/release.yml');
-  assert.doesNotMatch(wf.replace('used to be called Device Rescue', ''), /DeviceRescue|Device Rescue/);
+  assert.doesNotMatch(wf.replace('used to be called Device Rescue', ''), /Device ?Rescue/i);
   assert.ok(wf.includes('desktop/dist/ReclaimCity-*.dmg'));
   assert.ok(wf.includes('desktop/dist/ReclaimCity-*.exe'));
   assert.ok(wf.includes('sha256sum ReclaimCity-* > SHA256SUMS.txt'));

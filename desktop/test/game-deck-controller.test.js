@@ -154,7 +154,7 @@ test('MINE offers the real “It’s mine” step only for a finding that has on
   const t = await deckSetup(doc);
   t.click({ 'data-go': `signal:${im}` });
   t.click({ 'data-act': 'tag:mine' });
-  assert.match(t.html(), /OPTIONAL: TELL DEVICE RESCUE TOO[\s\S]*MARK IT/);
+  assert.match(t.html(), /OPTIONAL: TELL RECLAIM CITY TOO[\s\S]*MARK IT/);
   t.click({ 'data-go': `signal:${ip}` });
   t.click({ 'data-act': 'tag:mine' });
   assert.doesNotMatch(t.html(), /MARK IT/);

@@ -178,8 +178,8 @@ def ascii_text(text: str) -> str:
 def start_here_txt(tag: str, steps: dict[str, str], with_cli: bool, has_tools: bool) -> str:
     mac_arm, mac_intel, win = (folder for _, folder in INSTALLERS)
     text = f"""\
-DEVICE RESCUE
-=============
+RECLAIM CITY
+============
 
 This drive has a free program called Reclaim City on it. It looks over
 your computer and tells you, in plain words, what it found and what to do
@@ -487,8 +487,8 @@ unless you pass --auto or --yes. Don't. See AGENTS.md in the repository.
 
 
 QUICK_REFERENCE = f"""\
-DEVICE RESCUE -- QUICK REFERENCE
-================================
+RECLAIM CITY -- QUICK REFERENCE
+===============================
 
 WHAT IT IS
   A free program that checks your computer and tells you what it found.

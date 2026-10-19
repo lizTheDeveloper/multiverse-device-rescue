@@ -30,8 +30,13 @@ ALLOWED = [
     "Multiverse Device Rescue — Auto Mode",     # `rescue --auto` output, quoted in the docs
     "Multiverse Device Rescue — system diagnostic and repair toolkit",  # `rescue --help` output
     "used to be called Device Rescue",          # one line for people upgrading
+    '"appId": "school.themultiverse.devicerescue"',  # kept so updates and OS permissions carry over
 ]
-OLD = re.compile(r"Device ?Rescue")
+# Matched without regard to case, so DEVICE RESCUE in a heading counts too.
+# Slugs that must stay never match: `device-rescue` (URLs, paths, the
+# `device-rescue.game.v1` store, endpoints) has a hyphen, and the appId above
+# is allow-listed.
+OLD = re.compile(r"Device ?Rescue", re.I)
 TEXT = {".md", ".html", ".json", ".js", ".mjs", ".py", ".css", ".sh", ".bat", ".yml", ".yaml", ".txt"}
 CODE = {".js", ".mjs", ".py", ".css", ".sh", ".bat", ".yml", ".yaml"}
 COMMENT = re.compile(r"^\s*(//|/\*|\*|#|<!--|REM\b)")
@@ -67,6 +72,14 @@ def test_no_shipped_copy_says_device_rescue():
                 continue  # a code comment is never shown
             bad.append(f"{rel}:{n}: {line.strip()}")
     assert bad == [], "still says Device Rescue:\n" + "\n".join(bad)
+
+
+def test_the_check_ignores_case_but_not_the_kept_slugs():
+    assert OLD.search("OPTIONAL: TELL DEVICE RESCUE TOO")
+    assert OLD.search("devicerescue")
+    for kept in ["https://themultiverse.school/x/device-rescue", "device-rescue.game.v1",
+                 '"appId": "school.themultiverse.devicerescue"']:
+        assert not OLD.search(_without_allowed(kept)), kept
 
 
 def _strings(obj):

@@ -44,7 +44,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
   const after = !tagged ? '' : `
     <div class="scout-row">${scout(drill && !right ? 'thinkingA' : 'happy', 54)}<p class="say">${esc(read)}</p></div>
     ${points > 0 ? `<p class="points">+${esc(points)} POINTS${drill ? '' : ' for the clues you checked'}</p>` : ''}
-    ${!drill && tagged === 'mine' && mineHtml ? `<div class="panel"><div class="label">OPTIONAL: TELL DEVICE RESCUE TOO</div>
+    ${!drill && tagged === 'mine' && mineHtml ? `<div class="panel"><div class="label">OPTIONAL: TELL RECLAIM CITY TOO</div>
       <p class="intel">The MINE pile is the game’s sorting. This asks Reclaim City itself to remember it’s yours, so it stops flagging it. It asks first, and you can undo it.</p>${mineHtml}</div>` : ''}
     ${!drill && tagged === 'threat' ? `<div class="panel"><div class="label">ON YOUR THREAT BOARD</div><p class="intel">Your next move:</p>${nextMoveHtml(sig)}</div>` : ''}
     ${!drill && tagged === 'closer' ? '<p class="intel">It stays in your queue. Open its clues again any time, or use LIST for every detail the scan recorded.</p>' : ''}`;

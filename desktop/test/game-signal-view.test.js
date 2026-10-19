@@ -72,7 +72,7 @@ test('after tagging: Scout’s read, the points, and each tag’s next step', as
   const mine = await panel({ tagged: 'mine', read: 'The checkup marked this critical.', points: 20, mineHtml: '<div data-mark-card>MARK IT</div>' });
   assert.match(mine, /The checkup marked this critical\./);
   assert.match(mine, /\+20 POINTS for the clues you checked/);
-  assert.match(mine, /OPTIONAL: TELL DEVICE RESCUE TOO[\s\S]*It asks first, and you can undo it\.[\s\S]*MARK IT/);
+  assert.match(mine, /OPTIONAL: TELL RECLAIM CITY TOO[\s\S]*It asks first, and you can undo it\.[\s\S]*MARK IT/);
   assert.match(mine, /data-act="tag:mine" aria-pressed="true"/);
   const threat = await panel({ tagged: 'threat', read: 'r' });
   assert.match(threat, /ON YOUR THREAT BOARD[\s\S]*data-go="mission:m\|c\|program=\/tmp\/x"[^>]*>SEE THE FIX ▶/);
