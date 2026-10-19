@@ -70,8 +70,8 @@ const SAVE_CODES = new Set(['encode', 'too-big', 'spare', 'write']);
 const READ_CODES = new Set(['salvaged', 'spare-full', 'unreadable-too-big']);
 export function saveProblemText(code, city) {
   if (SAVE_CODES.has(code)) {
-    return city ? 'The city couldn’t save your last move. It tries again with your next one.'
-      : 'Your progress couldn’t be saved. It tries again with your next move.';
+    return city ? 'The city couldn’t save your last move. It keeps trying.'
+      : 'Your progress couldn’t be saved. It keeps trying.';
   }
   if (READ_CODES.has(code)) {
     return city ? 'Part of your saved city couldn’t be read, so the game picked up from what it could.'
@@ -716,7 +716,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (l) return renderLesson({ lesson: writtenOf(l), items: items.length ? items : null, qIndex: s.lesson.q, picked: s.lesson.picked,
         showTeach: s.lesson.showTeach !== false, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor,
         routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') });
-      s.screen = 'training';
+      s.screen = noCity();
       return screenHtml();
     }
     if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor() });
@@ -1197,6 +1197,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // A new worry: no city until its scan finishes.
   function newWorry(situation) {
     s.situation = situation;
+    // Only city mode's own home lands on the deck before a sweep (showHome).
+    if (!isCityHome(situation)) s.homeFirst = false;
     s.city = null; s.doc = null;
     s.scan = idleScan();
     s.pendingCity = false;

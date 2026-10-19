@@ -65,8 +65,9 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   const anything = items.length > 0 || low.length > 0;
   let blank = '';
   if (preSweep) {
-    // Before any sweep this session: the sweep is the one main action.
-    blank = `<div class="panel pre-sweep"><div class="label">NO SWEEP YET</div>
+    // Before any sweep this session: the sweep is the one main action. The
+    // label claims nothing about earlier sweeps (the top bar says those).
+    blank = `<div class="panel pre-sweep"><div class="label">SWEEP THE CITY</div>
       ${scanError ? `<p class="intel">${esc(scanError)}</p>` : ''}
       <button type="button" class="btn-p" data-act="start-checkup">START THE SWEEP ▶</button></div>`;
   } else if (nothingChecked) {

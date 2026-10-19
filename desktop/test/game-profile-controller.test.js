@@ -202,7 +202,7 @@ test('a save that fails says so on screen, calmly; in city mode only in game wor
     return s;
   };
   const city = await setup({ storage: broken(), mode: 'city' });
-  assert.match(city.html(), /The city couldn’t save your last move\. It tries again with your next one\./);
+  assert.match(city.html(), /The city couldn’t save your last move\. It keeps trying\./);
   const notice = (/<p class="link-notice save-notice"[\s\S]*?<\/p>/.exec(city.html()) || [''])[0];
   assert.ok(notice);
   assert.doesNotMatch(notice.replace(/<[^>]+>/g, ' '), FORBIDDEN_ON_DISK);
@@ -211,12 +211,12 @@ test('a save that fails says so on screen, calmly; in city mode only in game wor
   const { saveProblemText } = await game('controller.js');
   for (const code of ['encode', 'too-big', 'spare', 'write', 'salvaged', 'spare-full', 'unreadable-too-big', 'old-kept', 'anything-else']) {
     assert.doesNotMatch(saveProblemText(code, true), /profile|progress|safety|monitor|partner|\bsafe\b|watch|stalk/i, code);
-    assert.doesNotMatch(saveProblemText(code, true) + saveProblemText(code, false), /just now|next time/i, code);
+    assert.doesNotMatch(saveProblemText(code, true) + saveProblemText(code, false), /just now|next/i, code);
   }
   city.click({ 'data-act': 'dismiss-save-notice' });
   assert.doesNotMatch(city.html(), /couldn’t save/);
   const std = await setup({ storage: broken(), mode: 'standard' });
-  assert.match(std.html(), /Your progress couldn’t be saved\. It tries again with your next move\./);
+  assert.match(std.html(), /Your progress couldn’t be saved\. It keeps trying\./);
 });
 
 test('a save that works again clears the save notice', async () => {
@@ -253,7 +253,7 @@ test('city mode opens on the command deck, with or without learned concepts; the
     const t = await setup({ storage, mode: 'city', doc: null });
     t.ctl.showHome({ id: 'city', title: 'Take back the city' });
     const home = t.html();
-    assert.match(home, /NO SWEEP YET/);
+    assert.match(home, /class="panel pre-sweep"/);
     assert.match(home, /class="btn-p" data-act="start-checkup"/, 'the sweep is the main action');
     assert.match(home, /<button type="button" data-go="training">TRAINING<\/button>/, 'Training is reachable from the deck');
     assert.doesNotMatch(home, /QUESTION \d+ OF|class="lesson[ "]/, 'not a lesson, not the Training Grounds');
@@ -264,14 +264,14 @@ test('city mode opens on the command deck, with or without learned concepts; the
     t.click({ 'data-go': `${learn[1]}:${learn[2]}` });
     assert.match(t.html(), /QUESTION 1 OF/);
     answerVisit(t);
-    assert.match(t.html(), /NO SWEEP YET/, 'back on the deck');
+    assert.match(t.html(), /class="panel pre-sweep"/, 'back on the deck');
     // Leaving the DRILL RANGE and a failed checkup also come back to the deck.
     t.click({ 'data-go': 'range' });
     t.click({ 'data-act': 'leave-range' });
-    assert.match(t.html(), /NO SWEEP YET/);
+    assert.match(t.html(), /class="panel pre-sweep"/);
     t.ctl.showBoss();
     t.ctl.scanFailed('The checkup stopped.');
-    assert.match(t.html(), /NO SWEEP YET[\s\S]*The checkup stopped\./);
+    assert.match(t.html(), /class="panel pre-sweep"[\s\S]*The checkup stopped\./);
   }
   // With every concept learned, every district offers only the optional review.
   const t = await setup({ storage: await learnedStore(lessons), mode: 'city', doc: null });
@@ -301,4 +301,25 @@ test('profileModeChanged saves, but draws only while the city is on screen', asy
   t.view.hidden = false;
   t.ctl.profileModeChanged();
   assert.notStrictEqual(t.html(), 'untouched');
+});
+
+test('the pre-sweep panel and the top bar agree, with or without an earlier sweep', async () => {
+  const v3 = JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { points: 0, rank: 0, drills: { right: 0, tried: 0 }, tags: {}, confirmed: {}, once: {},
+    sweep: { at: '2026-10-17T09:00:00.000Z', keys: {} }, sweeps: [{ at: '2026-10-17T09:00:00.000Z', checks: 40, critical: 0, warning: 1, fog: 0, open: 1, secured: 3, districts: 5 }] } });
+  for (const storage of [recordingStore(), recordingStore({ [OLD_KEY]: v3 })]) {
+    const t = await setup({ storage, mode: 'city', doc: null });
+    t.ctl.showHome({ id: 'city', title: 'Take back the city' });
+    assert.ok((t.html().match(/NO SWEEP YET/g) || []).length <= 1, 'said once at most');
+    assert.match(t.html(), /class="panel pre-sweep"><div class="label">SWEEP THE CITY</);
+  }
+});
+
+test('a standard-mode worry after the city home: a failed scan lands on the Training Grounds, not the deck', async () => {
+  const t = await setup({ mode: 'standard', doc: null });
+  t.ctl.showHome({ id: 'city', title: 'Take back the city' });
+  t.ctl.newWorry({ id: 'wifi', title: 'Wi-Fi' });
+  t.ctl.showBoss();
+  t.ctl.scanFailed('The checkup stopped.');
+  assert.doesNotMatch(t.html(), /class="panel pre-sweep"/);
+  assert.match(t.html(), /data-go="lesson:/, 'the Training Grounds');
 });
