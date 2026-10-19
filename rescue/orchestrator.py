@@ -1,7 +1,10 @@
 from pathlib import Path
+import errno
 import logging
+import subprocess
 import threading
 import time
+import weakref
 from typing import Callable, TypeVar
 
 from rescue.models import CheckResult, FixResult, Mode, RiskLevel
@@ -55,13 +58,97 @@ class _Timeout(Exception):
     """A module check exceeded its per-module time budget."""
 
 
-def _call_with_timeout(fn: Callable[[], _T], timeout: float) -> _T:
+# What a person reads when a check ran out of time. The technical detail stays
+# in brackets after it, so nothing is hidden from someone who wants it.
+TIMEOUT_PLAIN = "This check took too long, so it was stopped. It may work next time."
+
+
+def timeout_message(timeout: float) -> str:
+    return f"{TIMEOUT_PLAIN} (timed out after {timeout}s)"
+
+
+class _AbandonGuard:
+    """Stop a check that ran out of time from running any more commands.
+
+    Python cannot kill the abandoned worker thread, so without this it carries
+    on in the background: on a real Mac one timed-out Wi-Fi check went on to
+    run `system_profiler` 75 more times during the checks after it, slowing
+    them down until they timed out too. The guard kills the commands an
+    abandoned worker is running and refuses to start new ones (Popen raises
+    OSError, which checks already handle as "command failed").
+
+    It wraps ``subprocess.Popen`` once per process and stays: an abandoned
+    worker can outlive the scan that abandoned it. For every other thread the
+    wrapper only records the process and passes through. Threads are tracked
+    by object, not ident (idents are reused), and only the worker thread
+    itself; threads a check starts on its own are not.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._abandoned: weakref.WeakSet = weakref.WeakSet()
+        self._live: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+    def abandon(self, thread: threading.Thread) -> None:
+        with self._lock:
+            self._abandoned.add(thread)
+            procs = list(self._live.pop(thread, ()))
+        for proc in procs:
+            try:
+                if proc.poll() is None:
+                    proc.kill()
+            except (OSError, ValueError):
+                pass
+
+    def _admit(self, proc) -> None:
+        thread = threading.current_thread()
+        with self._lock:
+            if thread in self._abandoned:
+                raise OSError(errno.ECANCELED, "not started: this check ran out of time")
+            if proc is not None:
+                self._live.setdefault(thread, weakref.WeakSet()).add(proc)
+
+    def ensure_installed(self) -> None:
+        """Wrap whatever ``subprocess.Popen`` is now, unless already wrapped."""
+        current = subprocess.Popen
+        if getattr(current, "_rescue_abandon_guard", None) is self:
+            return
+        guard = self
+
+        class GuardedPopen(current):  # type: ignore[misc, valid-type]
+            _rescue_abandon_guard = guard
+
+            def __init__(self, *args, **kwargs):
+                guard._admit(None)
+                super().__init__(*args, **kwargs)
+                try:
+                    guard._admit(self)
+                except OSError:
+                    # Abandoned while it was starting: stop it straight away.
+                    try:
+                        self.kill()
+                    except OSError:
+                        pass
+                    raise
+
+        subprocess.Popen = GuardedPopen
+
+
+_GUARD = _AbandonGuard()
+
+
+def _call_with_timeout(
+    fn: Callable[[], _T],
+    timeout: float,
+    on_abandon: Callable[[threading.Thread], None] | None = None,
+) -> _T:
     """Run ``fn`` on a daemon thread, abandoning it if it exceeds ``timeout``.
 
     Python cannot forcibly kill a thread stuck in a blocking syscall (e.g. a
     ``subprocess.run`` with no timeout), so on timeout the worker is left as a
     daemon and the caller moves on. This bounds the *session* even when an
-    individual command cannot be interrupted.
+    individual command cannot be interrupted. ``on_abandon`` gets the worker
+    thread so its commands can be stopped (see :class:`_AbandonGuard`).
     """
     box: dict[str, object] = {}
 
@@ -75,7 +162,9 @@ def _call_with_timeout(fn: Callable[[], _T], timeout: float) -> _T:
     worker.start()
     worker.join(timeout)
     if worker.is_alive():
-        raise _Timeout(f"timed out after {timeout}s")
+        if on_abandon is not None:
+            on_abandon(worker)
+        raise _Timeout(timeout_message(timeout))
     if "error" in box:
         raise box["error"]  # type: ignore[misc]
     return box["value"]  # type: ignore[return-value]
@@ -116,12 +205,17 @@ class Orchestrator:
 
         modules = topological_sort(modules)
 
+        # Installed inside any --trace wrapper, so traced commands are guarded too.
+        _GUARD.ensure_installed()
+        return self._run_sorted(modules, profile, report=on_progress)
+
+    def _run_sorted(self, modules, profile, *, report):
         results = []
         marks = None  # the "marked as yours" list, read once when first needed
         start = time.monotonic()
         budget_exhausted = False
         total = len(modules)
-        report = on_progress or (lambda *args: None)
+        report = report or (lambda *args: None)
         for index, mod in enumerate(modules, start=1):
             if budget_exhausted or (
                 self._total_budget is not None
@@ -142,7 +236,9 @@ class Orchestrator:
             report("start", index, total, mod, None)
             try:
                 check = _call_with_timeout(
-                    lambda m=mod: m.check(profile), self._module_timeout
+                    lambda m=mod: m.check(profile),
+                    self._module_timeout,
+                    on_abandon=_GUARD.abandon,
                 )
             except _Timeout as exc:
                 logger.warning("Module check timed out: %s", mod.name)
