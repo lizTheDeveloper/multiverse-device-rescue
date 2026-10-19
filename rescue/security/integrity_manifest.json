@@ -67,6 +67,7 @@
     "update/sideload.py": "cf94e79dbc85ebe604ce268f170d5ecc9d1ec082417b7dd6e9f42c57b6d9354e",
     "update/verify.py": "d902798e797833a54e550ca01a9d0961bfbf29614a2f831a412eed450b680f7a",
     "validate.py": "0015bb87a7ebd7f3085af48a7b4c25619d05c01a6b9307c17570eb97298671b8",
-    "watch.py": "c34d1eb3442ae6c681115fa2245f66d79ac961170dee886ae96dfc8c4cb65f7f"
+    "watch.py": "c34d1eb3442ae6c681115fa2245f66d79ac961170dee886ae96dfc8c4cb65f7f",
+    "whois.py": "be4c21904f137d29c3a400e96a4ac9638761b9d1ce0977344a145a49f9525e09"
   }
 }
