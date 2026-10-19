@@ -22,7 +22,7 @@ export const VERSION = 4;
 export const MAX_SEEN = 30;
 export const MAX_MIGRATIONS = 20;
 const STATUSES = new Set(['open', 'later', 'yours', 'reclaimed']);
-const SOURCES = new Set(['lesson', 'drill']);
+const SOURCES = new Set(['lesson', 'drill', 'round']);
 const CALLS = ['threat', 'mine', 'closer'];
 const GAP_KINDS = ['drill', 'call', 'reopen'];
 
@@ -45,7 +45,12 @@ export function emptyProfile(now) {
     drills: emptyDrills(), rank: { points: 0, index: 0 }, deck: emptyDeckPart(), missions: {},
     // Reclaimed missions folded into a count per district (see boxText), and
     // short hashes of their ids, so one that comes back isn't counted twice.
-    reclaimedEarlierBy: {}, foldedMissions: '' };
+    reclaimedEarlierBy: {}, foldedMissions: '',
+    // Little missions: each mini-game's practice round (played or skipped),
+    // and remembered answers by short hash of the item's key (kept), each with
+    // the evidence fingerprint and a short hash of the decision id. Nothing
+    // here names a finding, a path or a decision.
+    rounds: {}, kept: {} };
 }
 
 // --- salvage: each record on its own; a bad one is dropped, never its neighbours ---
@@ -167,6 +172,20 @@ function salvageLessonRecord(r) {
   return Object.keys(out).length ? out : null;
 }
 
+// --- little missions: practice rounds and remembered answers ---
+export const ROUND_TYPES = Object.freeze(['door', 'keyring', 'loadout', 'seal', 'switchboard', 'locker', 'locks', 'junkyard', 'notes', 'simple']);
+export const MAX_KEPT = 2000;
+const HASH7 = new RegExp(`^[012345679bcdfghjklmnpqrstvwxz_.-]{${SHORT_HASH_CHARS}}$`);
+function salvageRounds(r) {
+  return obj(entries(r).filter(([t, v]) => ROUND_TYPES.includes(t) && plainObject(v) && (v.how === 'played' || v.how === 'skipped') && str(v.at))
+    .map(([t, v]) => [t, { how: v.how, at: v.at }]));
+}
+function salvageKept(k) {
+  const ok = entries(k).filter(([h, v]) => HASH7.test(h) && plainObject(v) && HASH7.test(str(v.d) ? v.d : '') && HASH7.test(str(v.f) ? v.f : '') && str(v.at))
+    .sort(([, a], [, b]) => String(a.at).localeCompare(String(b.at))).slice(-MAX_KEPT);
+  return obj(ok.map(([h, v]) => [h, { d: v.d, f: v.f, at: v.at }]));
+}
+
 // Any stored document (v1, v2, v3 from the old key, or v4 from the box) -> a
 // clean v4 profile, plus a line per thing kept or dropped.
 export function salvage(raw, now) {
@@ -190,6 +209,8 @@ export function salvage(raw, now) {
     p.deck = salvageDeck(raw.deck, changes);
     p.reclaimedEarlierBy = obj(entries(raw.reclaimedEarlierBy).filter(([, n]) => Number.isInteger(n) && n > 0));
     if (validFolded(raw.foldedMissions)) p.foldedMissions = raw.foldedMissions;
+    p.rounds = salvageRounds(raw.rounds);
+    p.kept = salvageKept(raw.kept);
     return { profile: p, changes };
   }
   if (![1, 2, 3].includes(raw.version)) return { profile: p, changes: ['unknown version: started fresh'] };
@@ -760,6 +781,54 @@ export function declineOffer(p, conceptId, now) {
   next.concepts[conceptId] = rec;
   return next;
 }
+
+// --- little missions ---
+
+// The practice round of a type: { how: 'played'|'skipped', at } or null.
+export function roundOf(p, type) {
+  return (p.rounds && p.rounds[type]) || null;
+}
+export function markRound(p, type, how, now) {
+  if (!ROUND_TYPES.includes(type) || (how !== 'played' && how !== 'skipped')) return p;
+  const next = clone(p);
+  next.rounds[type] = { how, at: String(now) };
+  return next;
+}
+// One practice move: evidence (source 'round') on each of the game's
+// concepts, through the bank's `round:<type>:<step>:<concept>` items
+// (item-bank.js buildBank's third argument). Right or wrong, it is evidence.
+export const roundKey = (type, step, concept) => `round:${type}:${step}:${concept}`;
+export function recordRound(p, bank, type, step, concepts, right, now) {
+  let next = p;
+  for (const c of concepts || []) {
+    const key = roundKey(type, step, c);
+    const it = bank.items.get(key);
+    if (it && it.kind === 'round') next = withEvidence(next, bank, key, right === true, now, 'round');
+  }
+  return next;
+}
+// A remembered answer: kept until the evidence fingerprint changes.
+export function keepAnswer(p, itemKey, fp, decisionId, now) {
+  if (!str(itemKey) || !HASH7.test(str(fp) ? fp : '') || !str(decisionId)) return p;
+  const next = clone(p);
+  next.kept[shortHash(itemKey)] = { d: shortHash(decisionId), f: fp, at: String(now) };
+  next.kept = salvageKept(next.kept);
+  return next;
+}
+// The short hash of the decision remembered for this item with this
+// evidence, or null (none, or the evidence changed).
+export function recallAnswer(p, itemKey, fp) {
+  const rec = p.kept && p.kept[shortHash(String(itemKey))];
+  return rec && rec.f === fp ? rec.d : null;
+}
+export function forgetAnswer(p, itemKey) {
+  const h = shortHash(String(itemKey));
+  if (!p.kept || !p.kept[h]) return p;
+  const next = clone(p);
+  delete next.kept[h];
+  return next;
+}
+export const decisionHash = (id) => shortHash(String(id));
 
 // --- the v3 view the game's existing transforms work on ---
 

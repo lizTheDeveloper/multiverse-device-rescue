@@ -41,6 +41,7 @@
 //      { module, checks: ['unsigned_drivers'] }. Effects may carry `steps` (instructions when a page can't be
 //      linked); the runner shows them, escaped. A recheck effect is { kind: 'recheck', module?, modules? }.
 //      summary(results, ctx) receives [{ item, decision, effect, points? }] (decision: the Decision's id).
+//   R10 Any effect may carry `steps`; a link effect may carry its look-up intent in `effect.link`.
 //   covers: [{ module, codes?, checks? }]; the notes game's wildcard { module: '*', severities: ['info'] } means every
 //      note no other game claims; it is matched last and never counts as a double claim.
 
@@ -59,7 +60,7 @@ export const SETTINGS_PANES = [
   'software-update', 'filevault', 'lock-screen', 'users-groups', 'storage', 'battery', 'extensions-browser',
   'profiles', 'time-machine', 'apple-id', 'vpn', 'dns', 'startup-apps', 'windows-security', 'windows-update',
   'windows-privacy', 'windows-storage', 'windows-firewall', 'windows-apps', 'privacy-contacts', 'screen-time',
-  'windows-bitlocker', 'windows-signin', 'windows-backup', 'windows-findmydevice',
+  'windows-bitlocker', 'windows-signin', 'windows-backup', 'windows-findmydevice', 'windows-power',
 ];
 export const LOOKUP_SOURCES = ['web', 'apple-support', 'chrome-web-store', 'maker-site', 'microsoft-support'];
 

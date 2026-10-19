@@ -100,7 +100,10 @@ export function viewFor(run, game, ctx, research) {
   const pending = run.pending;
   return { item, research, decisions: item ? decisionsFor(run, game, item, ctx) : [], index: run.index, total: run.items.length,
     practice: false, warning: item && (alerting(item) || (pending && pending.warning)) ? REMOVAL_WARNING : '',
-    closer: !!(item && run.closer[item.key]), confirming: run.phase === 'confirm' ? pending : null, done: doneCount(run) };
+    closer: !!(item && run.closer[item.key]), confirming: run.phase === 'confirm' ? pending : null, done: doneCount(run),
+    siblings: run.items.filter((x) => x !== item), results: summaryResults(run),
+    // What the last state-only move asked to show (a checklist, steps, a focus).
+    guide: item && run.guide && run.guide.key === item.key ? run.guide : null };
 }
 
 function record(run, item, d, outcome = 'done') {
@@ -122,15 +125,19 @@ export function choose(run, id, game, ctx) {
   if (!d) return { run, act: null };
   const e = d.effect;
   const steps = Array.isArray(e.steps) ? e.steps.filter((x) => typeof x === 'string') : [];
+  const checklist = Array.isArray(e.checklist) ? e.checklist.filter((x) => typeof x === 'string') : [];
+  const hint = typeof e.hint === 'string' ? e.hint : typeof d.hint === 'string' ? d.hint : '';
+  const focus = typeof e.focus === 'string' ? e.focus : '';
+  const guide = steps.length || checklist.length || hint || focus ? { key: item.key, steps, checklist, hint, focus } : null;
   switch (e.kind) {
     case 'later': case 'keep': case 'note':
-      return { run: advance(record(run, item, d)), act: null };
+      return { run: advance(record(run, item, d)), act: guide ? { kind: 'steps', ...guide } : null };
     case 'odd':
       return { run: advance(record(run, item, d)), act: { kind: 'odd', item, module: e.module || item.finding.module, code: e.code || item.finding.code || null, key: e.key || item.key } };
     case 'closer':
-      return { run: { ...run, closer: { ...run.closer, [item.key]: true } }, act: steps.length ? { kind: 'steps', steps } : null };
+      return { run: { ...run, closer: { ...run.closer, [item.key]: true }, guide }, act: guide ? { kind: 'steps', ...guide } : null };
     case 'mark':
-      return { run: { ...run, pending: { key: item.key, decision: d } }, act: { kind: 'mark', item } };
+      return { run: { ...run, pending: { key: item.key, decision: d } }, act: { kind: 'mark', item, steps } };
     case 'fix':
       // Always a confirm with the warning first (FixFlow's own panel is that confirm).
       return { run: { ...run, phase: 'confirm', pending: { key: item.key, decision: d, warning: alerting(item) } },
@@ -144,7 +151,7 @@ export function choose(run, id, game, ctx) {
       return { run: { ...run, phase: 'item', pending: null, opened: { ...run.opened, [item.key]: d.id } }, act };
     }
     case 'recheck':
-      return { run: { ...run, pending: { key: item.key, decision: d } }, act: { kind: 'recheck', item, modules: modulesOf(e, item) } };
+      return { run: { ...run, pending: { key: item.key, decision: d } }, act: { kind: 'recheck', item, modules: modulesOf(e, item), steps } };
     default:
       return { run, act: null };
   }

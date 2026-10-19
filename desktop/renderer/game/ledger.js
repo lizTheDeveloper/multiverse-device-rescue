@@ -10,9 +10,15 @@
 // drill) or keys for the current sweep (clue, tag bonus, clean sweep). So
 // re-tagging, re-opening or re-sweeping can't farm points.
 import { emptyDeck, TAGS, SWEEP_FIELDS, validDeck } from './progress.js';
-import { bloomHas, takeHash } from './folded.js';
+import { bloomHas, takeHash, shortHash } from './folded.js';
 
-export const POINTS = { clue: 5, tagBonus: 10, drill: 15, drillClueBonus: 5, fix: 50, report: 20, clean: 40 };
+// Little missions: `decide` per decided item, `mission` when a mission is
+// finished, `confirmed` when a re-check proves a mission's fix (more than the
+// signal deck's `fix`), `notesBatch` per sorted batch of notes and `notesArea`
+// for clearing an area's notes. Keys start with the module (missionKey), so
+// a monitoring check's item never pays, whatever was decided.
+export const POINTS = { clue: 5, tagBonus: 10, drill: 15, drillClueBonus: 5, fix: 50, report: 20, clean: 40,
+  decide: 5, mission: 20, confirmed: 75, notesBatch: 10, notesArea: 40 };
 export const RANKS = [
   { name: 'ROOKIE', min: 0 },
   { name: 'SIGNAL ANALYST', min: 100 },
@@ -23,8 +29,14 @@ export const RANKS = [
 // The same three checks app.js's gate watches (ALWAYS_SAFETY_MODULES). A test keeps them equal.
 export const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
 export const MAX_SWEEPS = 20;
-const LIFETIME = new Set(['fix', 'report', 'drill']);
-const PER_SWEEP = new Set(['clue', 'tagBonus', 'clean']);
+const LIFETIME = new Set(['fix', 'report', 'drill', 'decide', 'mission', 'confirmed', 'notesBatch']);
+const PER_SWEEP = new Set(['clue', 'tagBonus', 'clean', 'notesArea']);
+
+// An award key for missions: "<module>|<short hash>", so moduleOfKey finds
+// the module (and refuses monitoring checks) and nothing on disk names the item.
+export function missionKey(module, ...parts) {
+  return `${String(module || 'x')}|${shortHash(parts.map(String).join('\n'))}`;
+}
 
 const deckOf = (deck) => (validDeck(deck) ? deck : emptyDeck());
 const none = (deck) => ({ deck, points: 0, rankUp: false });
@@ -92,6 +104,14 @@ export function confirmFix(deck, id, now) {
   const d = deckOf(deck);
   if (typeof id !== 'string' || id === '' || MONITORING_MODULES.has(moduleOfKey(id))) return none(d);
   return award({ ...d, confirmed: { ...d.confirmed, [id]: String(now) } }, 'fix', id);
+}
+
+// A re-check proved a mission item's fix: CONFIRMED, paying POINTS.confirmed
+// once per item, ever. `key`: missionKey(module, itemKey).
+export function confirmItem(deck, key, now) {
+  const d = deckOf(deck);
+  if (typeof key !== 'string' || key === '' || MONITORING_MODULES.has(moduleOfKey(key))) return none(d);
+  return award({ ...d, confirmed: { ...d.confirmed, [key]: String(now) } }, 'confirmed', key);
 }
 
 export const sweepPercent = (w) => (w && w.checked > 0 ? Math.round((w.secured / w.checked) * 100) : null);

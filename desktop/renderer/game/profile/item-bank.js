@@ -35,9 +35,25 @@ function drillItem(d) {
   return { key: `drill:${d.id}`, family: `drill:${d.id}`, concept, lessonId: null, kind: 'drill', first: true, level: 'medium', c: guessFloor(3) };
 }
 
+// A mini-game's practice step on one of its concepts (missions/runner.js):
+// measured like any item, never drawn into a lesson visit (kind 'round').
+function roundItems(r) {
+  const out = [];
+  const steps = Number.isInteger(r && r.steps) && r.steps > 0 ? Math.min(r.steps, 10) : 0;
+  for (let i = 0; i < steps; i += 1) {
+    for (const c of Array.isArray(r.concepts) ? r.concepts : []) {
+      if (typeof c !== 'string' || !c) continue;
+      out.push({ key: `round:${r.type}:${i}:${c}`, family: `round:${r.type}:${i}`, concept: c, lessonId: null, kind: 'round', first: true,
+        level: 'easy', c: guessFloor(Math.max(2, Number(r.options) || 2)) });
+    }
+  }
+  return out;
+}
+
 // `lessons`: as training.loadLessons returns them. `drills`: as drills.loadDrills does.
+// `rounds`: [{ type, concepts, steps, options? }], one per mini-game with a practice round.
 // The first item with a key wins; a later duplicate is left out.
-export function buildBank(lessons, drills) {
+export function buildBank(lessons, drills, rounds = []) {
   const items = new Map();
   const byLesson = new Map();
   const byConcept = new Map();
@@ -58,6 +74,7 @@ export function buildBank(lessons, drills) {
     byLesson.set(l.id, { id: l.id, title: l.title, concepts, families, keys, modules: l.modules || [], recommendedFor: l.recommendedFor || [] });
   }
   for (const d of Array.isArray(drills) ? drills : []) if (d && typeof d.id === 'string') add(drillItem(d));
+  for (const r of Array.isArray(rounds) ? rounds : []) if (r && typeof r.type === 'string') roundItems(r).forEach(add);
   return { items, lessons: byLesson, concepts: byConcept };
 }
 

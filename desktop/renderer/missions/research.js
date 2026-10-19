@@ -61,6 +61,7 @@ export const PANE_URLS = Object.freeze({
   'windows-signin': { darwin: `${MAC}com.apple.Lock-Screen-Settings.extension`, win32: 'ms-settings:signinoptions' },
   'windows-backup': { darwin: `${MAC}com.apple.Time-Machine-Settings.extension`, win32: 'ms-settings:backup' },
   'windows-findmydevice': { darwin: `${MAC}com.apple.systempreferences.AppleIDSettings`, win32: 'ms-settings:findmydevice' },
+  'windows-power': { darwin: `${MAC}com.apple.Battery-Settings.extension`, win32: 'ms-settings:powersleep' },
 });
 
 // R5: a settings intent's `permission` picks the exact Windows privacy page.
@@ -95,7 +96,7 @@ const PANE_LABEL = {
   'users-groups': 'Users', storage: 'Storage', 'windows-storage': 'Storage', battery: 'Battery', profiles: 'Profiles',
   'time-machine': 'Backups', 'apple-id': 'Your account', vpn: 'VPN', dns: 'DNS', 'windows-security': 'Security',
   'privacy-contacts': 'Contacts', 'screen-time': 'Screen Time', 'windows-bitlocker': 'Device encryption',
-  'windows-signin': 'Sign-in', 'windows-backup': 'Backup', 'windows-findmydevice': 'Find my device',
+  'windows-signin': 'Sign-in', 'windows-backup': 'Backup', 'windows-findmydevice': 'Find my device', 'windows-power': 'Power',
   'windows-privacy': 'Privacy', 'windows-apps': 'Apps',
 };
 
