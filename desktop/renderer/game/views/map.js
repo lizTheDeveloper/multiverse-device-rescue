@@ -43,8 +43,10 @@ export function districtBadges(d, reclaimed = 0) {
   const out = [];
   if (crit) out.push(`<span class="badge crit">${crit} CRITICAL</span>`);
   if (warn) out.push(`<span class="badge warn">${warn} WARNING</span>`);
-  if (d.notes.length) out.push(`<span class="badge skip">${d.notes.length} NOTES</span>`);
   const c = d.counts;
+  // NOTES is the list's count of good-to-know items here (scanCounts), as the deck's and the missions' are.
+  const notes = c && Number.isInteger(c.notes) ? c.notes : d.notes.length;
+  if (notes) out.push(`<span class="badge skip">${notes} NOTES</span>`);
   const fog = c ? c.couldntRun : d.fog.length;
   const unfinished = c ? c.unfinished : (d.unfinished || []).length;
   const partly = c ? Math.max(0, c.notFully - c.couldntRun - c.unfinished - c.notStarted) : 0;
@@ -52,6 +54,9 @@ export function districtBadges(d, reclaimed = 0) {
   if (unfinished) out.push(`<span class="badge fog">${unfinished} DIDN’T FINISH</span>`);
   if (partly) out.push(`<span class="badge fog">${partly} PARTLY CHECKED</span>`);
   if (c && c.notStarted) out.push(`<span class="badge fog">${c.notStarted} NOT STARTED</span>`);
+  // How much of it the person has decided in missions (missions-city.js progress): decided, not fixed.
+  const p = d.decided;
+  if (p && p.total > 0 && p.decided > 0) out.push(`<span class="badge cyan">${Number(p.decided)}/${Number(p.total)} DECIDED</span>`);
   if (d.stopped) return out.join('');
   if (d.held) return out.join('');
   if (reclaimed) out.push(`<span class="badge safe">${reclaimed} RECLAIMED</span>`);

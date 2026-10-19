@@ -9,7 +9,9 @@ import { countReclaimed } from '../progress.js';
 // `todo` (signals.js todoCount) and `notChecked` (NotChecked.scanCounts of
 // the scan, city mode) are the deck's own counts, so the HUD on a mission says what the deck
 // and the list say. Without them, the city's own totals.
-// `missions`: { done, total } of the little missions (to-dos only), shown as MISSIONS 3/12.
+// `missions`: { done, total, decided } of the little missions (the district list's rows, to-dos only),
+// shown as MISSIONS 3/12 and, once anything is decided, 7 DECIDED beside TO DO (decided isn't fixed:
+// TO DO stays the scan's count).
 export function renderHud({ title, city, progress, counts, rank = null, todo = null, notChecked = null, missions = null }) {
   const t = (city && city.totals) || { critical: 0, warning: 0, fog: 0 };
   const open = Number.isInteger(todo) ? todo : ((city && city.districts) || []).reduce((n, d) => n + d.missions.length, 0);
@@ -30,6 +32,7 @@ export function renderHud({ title, city, progress, counts, rank = null, todo = n
       : `<span class="stat lime"><b>${done}</b> <small>RECLAIMED</small></span>`}
     ${open ? `<span class="stat grey"><b>${open}</b> <small>TO DO</small></span>` : ''}
     ${missions && missions.total ? `<span class="stat cyan"><b>${Number(missions.done) || 0}/${Number(missions.total)}</b> <small>MISSIONS</small></span>` : ''}
+    ${missions && Number(missions.decided) > 0 ? `<span class="stat cyan"><b>${Number(missions.decided)}</b> <small>DECIDED</small></span>` : ''}
     ${fog ? `<span class="stat grey"><b>${fog}</b> <small>${notChecked ? 'NOT CHECKED' : 'COULDN’T CHECK'}</small></span>` : ''}
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;

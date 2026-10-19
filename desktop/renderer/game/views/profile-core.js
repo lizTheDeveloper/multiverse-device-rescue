@@ -92,11 +92,36 @@ export const PLAIN_WHERE = 'Lessons are played in the city view.';
 export const LESSONS_UNREAD = 'Couldn’t read your lessons. Closing this and opening it again tries once more.';
 export const SKILLS_UNREAD = 'Your skills come from your lessons, so they can’t be shown either.';
 
+// The little missions as YOUR FILE reads them (UX audit P1-1): how far
+// along they are, what was decided this session by kind, what was marked on
+// this computer, and the practice rounds. Counts only, never a finding's name.
+// `m`: { rows, rowsDone, decided, total, later, keep, mark, fix, fixedGone,
+// confirmed, markedHere, rounds: { played, skipped, of } }.
+export const DECIDED_NOT_FIXED = 'Decided isn’t fixed: only a re-check confirms a fix.';
+const n = (x) => (Number.isInteger(x) && x > 0 ? x : 0);
+function missionsHtml(m, theme) {
+  if (!m) return '';
+  const plain = theme === 'plain';
+  const head = plain ? 'Missions' : 'MISSIONS';
+  const lines = [];
+  if (n(m.rows) || n(m.total)) lines.push(`${n(m.rowsDone)} of ${n(m.rows)} missions done · ${n(m.decided)} of ${n(m.total)} things decided`);
+  else lines.push(plain ? 'No missions from this checkup yet.' : 'No missions from this sweep yet.');
+  const session = [[m.keep, 'kept'], [m.mark, 'marked as yours'], [m.fix, 'fixed'], [m.later, 'set aside for later']]
+    .filter(([x]) => n(x)).map(([x, w]) => `${n(x)} ${w}`);
+  if (session.length) lines.push(`This session: ${session.join(' · ')}`);
+  if (n(m.confirmed)) lines.push(`${n(m.confirmed)} checked again and gone`);
+  if (n(m.markedHere)) lines.push(`${n(m.markedHere)} marked as yours on this computer`);
+  const r = m.rounds || {};
+  if (n(r.of)) lines.push(`Practice rounds: ${n(r.played)} played${n(r.skipped) ? `, ${n(r.skipped)} skipped (you said you know it)` : ''}, of ${n(r.of)}`);
+  return `<div class="panel profile-missions"><h3 class="label">${esc(head)}</h3>${lines.map((l) => `<p>${esc(l)}</p>`).join('')}
+    ${n(m.decided) ? `<p class="intel faint">${esc(DECIDED_NOT_FIXED)}</p>` : ''}</div>`;
+}
+
 // `publish`: whether the "Add to my school profile" control exists (publishOffered).
 // `confirming`: the person pressed Start over and is being asked to be sure.
 // `lessonsUnread`: the lessons failed to load, so there is nothing true to count.
 export function createProfileRenderer(ready) {
-  return function renderProfile({ summary: s, theme = 'game', publish = false, confirming = false, lessonsUnread = false }) {
+  return function renderProfile({ summary: s, theme = 'game', publish = false, confirming = false, lessonsUnread = false, missions = null }) {
   const w = WORDS[theme === 'plain' ? 'plain' : 'game'];
   const shown = s.lessons.map(shownLesson).filter(Boolean);
   const lessons = shown.map((l) => `
@@ -114,8 +139,9 @@ export function createProfileRenderer(ready) {
     : `<p>${esc(lessonsLearned(s))} of ${esc(shown.length)} learned</p><ul class="profile-lessons">${lessons}</ul>`}${theme === 'plain' ? `<p class="muted" data-plain-where>${esc(PLAIN_WHERE)}</p>` : ''}</div>
     ${theme === 'plain' ? '' : `<div class="panel"><h3 class="label">${esc(w.skills)}</h3>${lessonsUnread ? `<p class="unread">${esc(SKILLS_UNREAD)}</p>` : `<ul class="profile-skills">${skills}</ul>`}</div>`}
     <div class="panel"><h3 class="label">${esc(w.drills)}</h3>${drillsHtml(s.drills)}</div>
+    ${missionsHtml(missions, theme)}
     <div class="panel"><h3 class="label">${esc(w.city)}</h3>
-      <p>${esc(c.reclaimed)} fixed and confirmed · ${esc(c.later)} set aside for later · ${esc(c.yours)} marked as yours${c.lastSweep === null ? '' : ` · last checkup: ${esc(c.lastSweep)}% of districts secured`}</p></div>
+      <p>${esc(c.reclaimed)} fixed and confirmed${missions ? '' : ` · ${esc(c.later)} set aside for later · ${esc(c.yours)} marked as yours`}${c.lastSweep === null ? '' : ` · last checkup: ${esc(c.lastSweep)}% of districts secured`}</p></div>
     ${confirming ? `<div class="panel" role="alertdialog" aria-labelledby="start-over-q"><p id="start-over-q">${esc(theme === 'plain' ? CLEAR_PROGRESS : START_OVER)}</p>
       <div class="row"><button type="button" class="btn-s" data-act="profile-start-over-yes">${esc(theme === 'plain' ? 'Yes, clear it' : 'YES, START OVER')}</button>
         <button type="button" class="btn-t" data-act="profile-start-over-no" data-autofocus>${esc(theme === 'plain' ? 'Keep my progress' : 'KEEP MY PROGRESS')}</button></div></div>` : ''}

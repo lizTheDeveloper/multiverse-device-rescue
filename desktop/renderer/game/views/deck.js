@@ -89,7 +89,8 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
   districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '', learned = null,
   queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', notChecked = '', todo = null, repeats = 0,
-  sweepNow = null, stopped = null, notCheckedChip = '', lowCount = null, nextLine = '', missionsLeft = false }) {
+  sweepNow = null, stopped = null, notCheckedChip = '', lowCount = null, nextLine = '', missionsLeft = false,
+  missionsHtml = '', decided = 0, progressHtml = '', signalsOpen = false }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -138,6 +139,8 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     blank = '<div class="panel clear-board"><div class="label">CLEAR BOARD</div><p class="intel">Nothing to sort from this checkup. A clean checkup lowers the odds of a problem; it doesn’t rule one out. Want practice? Try the DRILL RANGE below.</p></div>';
   }
   const next = anything ? `<button type="button" class="btn-p" data-act="investigate-next">INVESTIGATE NEXT ▶</button>${nextLine}` : '';
+  // With little missions (UX audit P2-1) the queue under INVESTIGATE NEXT is
+  // the next missions; the signals themselves fold behind SEE ALL SIGNALS.
   const shown = queueOpen ? items.slice(0, LOW_SHOWN) : items.slice(0, QUEUE_SHOWN);
   const hidden = items.length - shown.length;
   const more = items.length > QUEUE_SHOWN ? `
@@ -175,8 +178,11 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   return `${top}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
-      <div class="label">INCOMING SIGNALS${Number.isInteger(todo) && todo ? ` · ${esc(todo)} TO DO` : ''}</div>${stoppedBanner(stopped)}${notChecked ? `<div class="panel fogged not-checked" role="note"><p class="intel">${esc(notChecked)}</p>${counts.couldnt ? '<button type="button" class="btn-t" data-act="sev:couldnt">SEE WHICH ▶</button>' : ''}</div>` : ''}${scoutHtml}${filters}${repeats > 0 && filters ? `<p class="intel faint repeats">${esc(REPEATS_LINE)}</p>` : ''}${head}${blank}${next}
-      <ul class="queue">${shown.map((x) => signalRow(x, dn)).join('')}${more}${practice}${lowHtml}</ul>
+      <div class="label">INCOMING SIGNALS${Number.isInteger(todo) && todo ? ` · ${esc(todo)} TO DO` : ''}${Number.isInteger(decided) && decided > 0 ? ` · ${esc(decided)} DECIDED` : ''}</div>${progressHtml}${stoppedBanner(stopped)}${notChecked ? `<div class="panel fogged not-checked" role="note"><p class="intel">${esc(notChecked)}</p>${counts.couldnt ? '<button type="button" class="btn-t" data-act="sev:couldnt">SEE WHICH ▶</button>' : ''}</div>` : ''}${scoutHtml}${filters}${repeats > 0 && filters ? `<p class="intel faint repeats">${esc(REPEATS_LINE)}</p>` : ''}${head}${blank}${next}
+      ${missionsHtml && !filter && !sev && shown.length
+    ? `${missionsHtml}<details class="all-signals"${signalsOpen ? ' open' : ''}><summary class="label">SEE ALL SIGNALS (${esc(items.length)})</summary><ul class="queue">${shown.map((x) => signalRow(x, dn)).join('')}${more}</ul></details>
+      <ul class="queue">${practice}${lowHtml}</ul>`
+    : `${missionsHtml && !filter && !sev ? missionsHtml : ''}<ul class="queue">${shown.map((x) => signalRow(x, dn)).join('')}${more}${practice}${lowHtml}</ul>`}
       ${threatHtml}${knownHtml}
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>
     </aside>

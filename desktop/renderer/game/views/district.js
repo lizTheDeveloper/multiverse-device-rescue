@@ -63,6 +63,7 @@ export function renderMissionList(missions, { mode = 'standard', status = () => 
     ? `<div class="label mx-notes-label">${esc(mode === 'city' ? 'SIGNAL OR NOISE (OPTIONAL)' : 'GOOD TO KNOW (OPTIONAL)')}</div><ul class="missions mx-list">${notes.map(row).join('')}</ul>` : ''}`;
 }
 
+// (Its notes are a mission row then, GOOD TO KNOW, so the old NOTES list isn't drawn twice.)
 // `missionsHtml`: the district's little missions (missions-city.js, by kind,
 // a few items each; renderMissionList draws them); the mission flow is the only flow. `message`: what the
 // last move here found. `busy`: a re-check is running.
@@ -111,7 +112,7 @@ export function renderDistrict({ district: d, progress, scout, message = '', bus
     ${unfinished ? `<div class="panel fogged"><div class="label">DIDN’T FINISH HERE</div><p class="intel">These checks stopped before the end, so they may have missed something. That doesn’t mean it’s safe.</p><ul class="fog-list">${unfinished}</ul></div>` : ''}
     ${partly ? `<div class="panel fogged"><div class="label">ONLY PARTLY CHECKED HERE</div><p class="intel">These checks couldn’t look at everything. That doesn’t mean it’s safe.</p><ul class="fog-list">${partly}</ul></div>` : ''}
     ${waiting ? `<div class="panel"><div class="label">WAITING FOR YOUR GO-AHEAD</div><ul class="fog-list">${waiting}</ul></div>` : ''}
-    ${notes ? `<details class="panel"><summary class="label">NOTES (${d.notes.length})</summary><ul class="notes">${notes}</ul></details>` : ''}
+    ${notes && !String(missionsHtml).includes('mx-notes-label') ? `<details class="panel"><summary class="label">NOTES (${d.notes.length})</summary><ul class="notes">${notes}</ul></details>` : ''}
     <div class="scout-row">${scout('happy', 54)}<p class="say">${esc(missionsHtml ? 'Pick one. You can stop after any of them.' : 'Nothing to do here right now.')}</p></div>
   </section>`;
 }
