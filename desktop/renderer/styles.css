@@ -1620,3 +1620,8 @@ h3[tabindex="-1"]:focus {
 }
 .results-safety > p + p { margin-top: 0.4rem; }
 .results-safety:focus { outline: 2px solid var(--warning-border); outline-offset: 2px; }
+
+/* After the list: one next step, then everything else in one closed box. */
+.results-more { margin: 1.25rem 0; }
+.results-more > summary { cursor: pointer; font-weight: 600; padding: 0.4rem 0; }
+.results-more > :not(summary) { margin-top: 0.9rem; }

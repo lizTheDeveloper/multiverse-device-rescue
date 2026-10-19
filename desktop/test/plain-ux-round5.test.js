@@ -209,3 +209,22 @@ test('a note’s area is its check’s category; anything unknown goes to “Eve
   assert.deepStrictEqual(areas.map((a) => [a.name, a.checks.map((x) => x.findings.length)]),
     [['Security', [2]], ['Network', [1]], ['Everything else', [1]]]);
 });
+
+// ---------------------------------------------------------------------------
+// (4) After the list: one next step, the rest in one closed box.
+// ---------------------------------------------------------------------------
+test('after the list: the guide is the one next step; lessons, progress, AI copy, the web game and the report are in one closed box', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'index.html'), 'utf8');
+  const after = html.slice(html.indexOf('<div id="results-groups">'), html.indexOf('id="btn-start-over"'));
+  const more = /<details id="results-more"[^>]*>([\s\S]*)<\/details>\s*<dialog/.exec(after);
+  assert.ok(more, 'one closed box');
+  assert.doesNotMatch(/<details id="results-more"[^>]*>/.exec(after)[0], /\bopen\b/);
+  for (const id of ['results-lessons', 'progress-link', 'results-copy-all', 'results-learn', 'results-tech']) {
+    assert.ok(more[1].includes(`id="${id}"`), `${id} is inside it`);
+  }
+  const outside = after.replace(more[0], '');
+  assert.match(outside, /id="results-next"/);
+  assert.match(outside, /id="btn-open-guide" class="btn btn--primary"/, 'the one primary button after the list');
+  assert.strictEqual((outside.match(/btn--primary/g) || []).length, 1);
+  assert.doesNotMatch(more[1], /<dialog/, 'the progress dialog isn’t inside a closed box');
+});

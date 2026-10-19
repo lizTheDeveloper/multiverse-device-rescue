@@ -174,53 +174,53 @@
           <section id="results-next" class="results-next" hidden>
             <h2>What to do next</h2>
             <p id="results-next-text" class="muted">There&rsquo;s a step-by-step guide for your situation. It opens in your web browser.</p>
-            <button id="btn-open-guide" class="btn btn--secondary" type="button">Open the step-by-step guide</button>
+            <button id="btn-open-guide" class="btn btn--primary" type="button">Open the step-by-step guide</button>
             <ul id="results-guides" class="guide-links" hidden></ul>
           </section>
-          <p id="progress-link" class="results-progress-link" hidden>
-            <button id="btn-your-progress" class="btn btn--secondary btn--small" type="button" hidden>Your progress</button>
-          </p>
+          <!-- After the list: one next step (the guide, above); everything else in one closed box. -->
+          <details id="results-more" class="results-more">
+            <summary>More: how to read the cards, your progress, ask an AI</summary>
+            <details id="results-lessons" class="results-lessons">
+              <summary>How to read these cards</summary>
+              <section id="lesson-evidence" data-lesson="evidence" tabindex="-1">
+                <h3>Evidence</h3>
+                <p>Each card starts with what the checkup actually saw: the file or program, where it is, who made it, and which check found it. Paths and names are copied exactly, so you or a helper can look them up. A path starting with <code>~</code> is in your home folder.</p>
+              </section>
+              <section id="lesson-makers" data-lesson="makers" tabindex="-1">
+                <h3>Made by, verified or not</h3>
+                <p>Programs can be digitally signed by the company that made them, like a seal on a package. <strong>Verified</strong> means the seal is real and names the maker. <strong>Not verified</strong> is not proof of anything bad, but nobody has vouched for it, so be more careful, especially if it runs from a temporary folder or one you did not install into.</p>
+              </section>
+              <section id="lesson-background" data-lesson="background" tabindex="-1">
+                <h3>Background tasks and hidden folders</h3>
+                <p>A background task is a program your computer starts by itself, at login or on a schedule. Most come from apps you installed: updaters, sync tools, developer tools. Its settings file says which program runs and how.</p>
+                <p>A folder whose name starts with a dot is hidden. Developer tools often use them, but they can also hide unwanted software. A task is not dangerous just because it is listed: it is worth a look when you don&rsquo;t recognise its name, its maker isn&rsquo;t verified, or the file it runs is missing. If you didn&rsquo;t install it, that is the one to ask about.</p>
+              </section>
+            </details>
+            <p id="progress-link" class="results-progress-link" hidden>
+              <button id="btn-your-progress" class="btn btn--secondary btn--small" type="button" hidden>Your progress</button>
+            </p>
+            <section id="results-copy-all" class="copy-ai-all">
+              <h2>Ask your own AI</h2>
+              <p class="muted">Get everything above as one message to paste into ChatGPT, Claude, Gemini or another AI assistant. You'll see the full text before anything is copied.</p>
+              <button type="button" class="btn btn--secondary" data-copy-ai="all">Copy everything for an AI</button>
+              <div class="copy-ai__slot" data-copy-ai-slot="all" aria-live="polite"></div>
+            </section>
+            <section id="results-learn" class="results-learn" hidden>
+              <h2>Want to learn this properly?</h2>
+              <p id="results-learn-text" class="muted"></p>
+              <p class="muted">You don&rsquo;t need an account, and your progress stays in your browser. It&rsquo;s there whenever you&rsquo;re ready; nothing above depends on it.</p>
+              <button id="btn-open-game" class="btn btn--secondary" type="button">Open the web version in your browser</button>
+            </section>
+            <details id="results-tech" class="tech-details">
+              <summary>For tech helpers: full technical report</summary>
+              <p class="muted">Every check that ran, with its raw evidence, as JSON. Everything is included except saved-key labels, so only paste it to someone you trust who is helping you.</p>
+              <button id="btn-copy-json" class="btn btn--secondary btn--small" type="button">Copy technical report</button>
+              <span id="copy-json-status" class="muted" role="status"></span>
+            </details>
+          </details>
           <dialog id="progress-dialog" class="progress-dialog" aria-labelledby="profile-title" tabindex="-1">
             <div id="progress-dialog-body"></div>
           </dialog>
-
-          <details id="results-lessons" class="results-lessons">
-            <summary>How to read these cards</summary>
-            <section id="lesson-evidence" data-lesson="evidence" tabindex="-1">
-              <h3>Evidence</h3>
-              <p>Each card starts with what the checkup actually saw: the file or program, where it is, who made it, and which check found it. Paths and names are copied exactly, so you or a helper can look them up. A path starting with <code>~</code> is in your home folder.</p>
-            </section>
-            <section id="lesson-makers" data-lesson="makers" tabindex="-1">
-              <h3>Made by, verified or not</h3>
-              <p>Programs can be digitally signed by the company that made them, like a seal on a package. <strong>Verified</strong> means the seal is real and names the maker. <strong>Not verified</strong> is not proof of anything bad, but nobody has vouched for it, so be more careful, especially if it runs from a temporary folder or one you did not install into.</p>
-            </section>
-            <section id="lesson-background" data-lesson="background" tabindex="-1">
-              <h3>Background tasks and hidden folders</h3>
-              <p>A background task is a program your computer starts by itself, at login or on a schedule. Most come from apps you installed: updaters, sync tools, developer tools. Its settings file says which program runs and how.</p>
-              <p>A folder whose name starts with a dot is hidden. Developer tools often use them, but they can also hide unwanted software. A task is not dangerous just because it is listed: it is worth a look when you don&rsquo;t recognise its name, its maker isn&rsquo;t verified, or the file it runs is missing. If you didn&rsquo;t install it, that is the one to ask about.</p>
-            </section>
-          </details>
-
-          <section id="results-copy-all" class="copy-ai-all">
-            <h2>Ask your own AI</h2>
-            <p class="muted">Get everything above as one message to paste into ChatGPT, Claude, Gemini or another AI assistant. You'll see the full text before anything is copied.</p>
-            <button type="button" class="btn btn--secondary" data-copy-ai="all">Copy everything for an AI</button>
-            <div class="copy-ai__slot" data-copy-ai-slot="all" aria-live="polite"></div>
-          </section>
-
-          <section id="results-learn" class="results-learn" hidden>
-            <h2>Want to learn this properly?</h2>
-            <p id="results-learn-text" class="muted"></p>
-            <p class="muted">You don&rsquo;t need an account, and your progress stays in your browser. It&rsquo;s there whenever you&rsquo;re ready; nothing above depends on it.</p>
-            <button id="btn-open-game" class="btn btn--secondary" type="button">Open the web version in your browser</button>
-          </section>
-
-          <details id="results-tech" class="tech-details">
-            <summary>For tech helpers: full technical report</summary>
-            <p class="muted">Every check that ran, with its raw evidence, as JSON. Everything is included except saved-key labels, so only paste it to someone you trust who is helping you.</p>
-            <button id="btn-copy-json" class="btn btn--secondary btn--small" type="button">Copy technical report</button>
-            <span id="copy-json-status" class="muted" role="status"></span>
-          </details>
 
           <button id="btn-start-over" class="btn btn--secondary" type="button">Start over</button>
           <div id="start-over-confirm" class="start-over-confirm" role="group" aria-label="Start over?" hidden>

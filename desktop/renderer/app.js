@@ -2177,6 +2177,8 @@ if (typeof document !== 'undefined') {
       if (!link) return;
       const box = document.getElementById('results-lessons');
       const part = document.getElementById(`lesson-${link.getAttribute('data-lesson-link')}`);
+      const more = document.getElementById('results-more');
+      if (more) more.open = true;
       box.open = true;
       if (part && typeof part.scrollIntoView === 'function') part.scrollIntoView({ block: 'start' });
       if (part && typeof part.focus === 'function') part.focus();
