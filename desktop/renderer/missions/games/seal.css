@@ -1,0 +1,41 @@
+/* Seal Check (the `seal` mini-game): one item, two sides of a seal. Uses the game's variables
+   (renderer/game/game.css :host): --cyan --magenta --lime --amber --panel --line --dim --font-*. */
+.seal-card { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--line); background: var(--panel); }
+.seal-head { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 12px; }
+.seal-kicker { grid-column: 1 / -1; margin: 0; font-family: var(--font-display); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+.seal-name { margin: 0; font-family: var(--font-display); font-size: 18px; letter-spacing: 1px; overflow-wrap: anywhere; }
+.seal-verdict { font-family: var(--font-display); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 10px; border: 1px solid currentColor; color: var(--amber); white-space: nowrap; }
+.seal--tampered .seal-verdict { color: var(--magenta); }
+.seal--old-format .seal-verdict, .seal--expired .seal-verdict, .seal--no-tag .seal-verdict { color: var(--cyan); }
+.seal--checker-off .seal-verdict { color: var(--magenta); }
+
+.seal-compare { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: stretch; }
+.seal-side { padding: 12px 14px; border: 1px solid var(--line); background: rgba(9, 11, 16, 0.45); min-width: 0; }
+.seal-side h4 { margin: 0 0 6px; font-family: var(--font-display); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); }
+.seal-side p { margin: 0 0 6px; }
+.seal-side--disk { border-color: rgba(255, 159, 0, 0.35); }
+.seal--tampered .seal-side--disk, .seal--checker-off .seal-side--disk { border-color: rgba(255, 45, 155, 0.5); }
+.seal-vs { align-self: center; font-family: var(--font-display); font-size: 22px; color: var(--dim); }
+.seal-signer { font-size: 13px; color: var(--dim); }
+.seal-signer b { color: var(--offwhite); font-weight: 600; }
+.seal-mono, .seal-path { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; color: var(--dim); }
+
+.seal-means { margin: 0; }
+.seal-coverage, .seal-unfinished { margin: 0; padding: 8px 12px; border-left: 3px solid var(--amber); background: rgba(255, 159, 0, 0.08); font-size: 14px; }
+.seal-what { margin: 0; font-size: 13px; color: var(--dim); }
+.seal-step { margin: 0; padding: 10px 14px; border: 1px dashed var(--lime); color: var(--lime); }
+
+.seal-evidence summary { cursor: pointer; font-family: var(--font-display); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); }
+.seal-evidence dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0 0; font-size: 13px; }
+.seal-evidence dt { color: var(--dim); }
+.seal-evidence dd { margin: 0; overflow-wrap: anywhere; }
+
+.seal-summary { margin: 0 0 6px; }
+.seal-teach { margin: 0; font-size: 13px; color: var(--dim); }
+
+@media (max-width: 560px) {
+  .seal-compare { grid-template-columns: 1fr; }
+  .seal-vs { justify-self: center; }
+  .seal-head { grid-template-columns: 1fr; }
+  .seal-verdict { justify-self: start; }
+}
