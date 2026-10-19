@@ -228,3 +228,41 @@ test('after the list: the guide is the one next step; lessons, progress, AI copy
   assert.strictEqual((outside.match(/btn--primary/g) || []).length, 1);
   assert.doesNotMatch(more[1], /<dialog/, 'the progress dialog isn’t inside a closed box');
 });
+
+// ---------------------------------------------------------------------------
+// (5) The stopped scan screen: the line by how it stopped; tech helpers get what it doesn't say.
+// ---------------------------------------------------------------------------
+async function stoppedScreen(stage, { log } = {}) {
+  const p = page();
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  p.byId('btn-run-scan').click();
+  if (log) p.emit({ type: 'log', line: log });
+  await p.finish(stoppedDoc(stage));
+  return p;
+}
+test('the stopped scan screen: an assembly stop says every check ran; tech helpers don’t get the line again', async () => {
+  const p = await stoppedScreen('assembly');
+  const line = p.byId('scan-error-line').innerHTML;
+  assert.match(line, /All 3 checks ran, but the report couldn’t be put together/);
+  assert.doesNotMatch(line, /stopped before it finished/);
+  assert.doesNotMatch(p.byId('scan-error-text').textContent, /stopped before it finished/);
+  assert.strictEqual(p.byId('scan-error-tech').hidden, true, 'nothing more to say, so no fold');
+  await tick();
+});
+test('the stopped scan screen: an early stop says how far it got; tech helpers get the end of the log', async () => {
+  const p = await stoppedScreen('early', { log: 'Traceback (most recent call last): KeyError: apps' });
+  assert.match(p.byId('scan-error-line').innerHTML, /stopped before it finished<\/strong> \(1 of 3 checks done\)/);
+  const tech = p.byId('scan-error-text').textContent;
+  assert.match(tech, /KeyError: apps/);
+  assert.doesNotMatch(tech, /stopped before it finished/);
+  assert.strictEqual(p.byId('scan-error-tech').hidden, false);
+  await tick();
+});
+test('the log tail keeps the last lines only', () => {
+  const app = require('../renderer/app.js');
+  const text = Array.from({ length: 100 }, (_, i) => `line ${i}`).join('\n');
+  const tail = app.logTail(text).split('\n');
+  assert.strictEqual(tail.length, 40);
+  assert.strictEqual(tail[39], 'line 99');
+});

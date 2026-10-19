@@ -882,6 +882,32 @@ function stoppedDocOf(state, platform) {
   return doc;
 }
 const STOPPED_LINE = 'The checkup stopped before it finished. Nothing on your computer was changed.';
+// The plain lines a stop arrives with (this file's, and engine-runner's
+// SCAN_STOPPED_MESSAGE): already said on screen, so never under "For tech helpers".
+const PLAIN_STOP_LINES = new Set([STOPPED_LINE]);
+
+// The scan screen's line when the checkup stopped, by how it stopped
+// (doc.stopped: { stage, done, total }), the same words as the results' line.
+function stoppedScreenLine(stopped, esc) {
+  const e = esc || ((x) => String(x));
+  const after = ' Nothing on your computer was changed.';
+  const total = stopped && stopped.total > 0 ? stopped.total : 0;
+  const done = stopped && stopped.done > 0 ? stopped.done : 0;
+  if (stopped && stopped.stage === 'assembly' && total) {
+    return `<strong>${e(`All ${total} checks ran, but the report couldn\u2019t be put together.`)}</strong>${e(after)}`;
+  }
+  if (stopped && total) {
+    return `<strong>${e('The checkup stopped before it finished')}</strong>${e(` (${done} of ${total} checks done).${after}`)}`;
+  }
+  return `<strong>${e('The checkup stopped before it finished.')}</strong>${e(after)}`;
+}
+
+// The end of the technical log, for tech helpers: the last lines, where the traceback is.
+const LOG_TAIL_LINES = 40;
+function logTail(text) {
+  const lines = String(text || '').split('\n').filter((l) => l.trim());
+  return lines.slice(-LOG_TAIL_LINES).join('\n');
+}
 
 function isPartialDoc(doc) {
   return !!(doc && doc.partial && typeof doc.partial === 'object');
@@ -934,6 +960,8 @@ if (typeof module !== 'undefined' && module.exports) {
     partialDocOf,
     isPartialDoc,
     stoppedDocOf,
+    stoppedScreenLine,
+    logTail,
     STOPPED_LINE,
     partialCountText,
     partialSummaryText,
@@ -1868,11 +1896,16 @@ if (typeof document !== 'undefined') {
       if (isBusy) errorNote.hidden = true;
     }
 
-    // One plain line; the engine's own words only under "For tech helpers".
+    // One plain line, saying which way it stopped; under "For tech helpers"
+    // only what the line doesn't say: the engine's own words and the end of
+    // the technical log. Never the plain line again.
     function showScanError(message) {
       const errorNote = document.getElementById('scan-error');
-      document.getElementById('scan-error-text').textContent = message || '';
-      document.getElementById('scan-error-tech').hidden = !message;
+      document.getElementById('scan-error-line').innerHTML = stoppedScreenLine(stoppedDoc && stoppedDoc.stopped, escapeHtml);
+      const raw = PLAIN_STOP_LINES.has(String(message || '').trim()) ? '' : String(message || '');
+      const tech = [raw, logTail(document.getElementById('scan-log').textContent)].filter(Boolean).join('\n\n');
+      document.getElementById('scan-error-text').textContent = tech;
+      document.getElementById('scan-error-tech').hidden = !tech;
       document.getElementById('btn-scan-sofar').hidden = !stoppedDoc;
       // One way to run it again: the box's own button.
       document.getElementById('btn-run-scan').hidden = true;
