@@ -99,10 +99,15 @@ test('the game, standard mode: the briefing keeps the one line with the warning 
   assert.deepStrictEqual(seen, [['fix', false], ['mark', false]]);
 });
 
-test('the game, city mode: the briefing is unquieted, shows the safety note, and the fix panel carries the extra warning', async () => {
+test('the game, city mode: the help lives in the help district; the mission keeps one warning line before the fix, and the fix panel the extra warning', async () => {
   const { html, seen } = await gameBriefing('city');
-  assert.match(html, /If you think a partner, ex, or family member installed this to monitor you, removing it can alert them\./);
-  assert.match(html, /<div class="panel safety"><div class="finding-card__note" role="note"><p>Before you remove or turn anything off/);
+  // UX round 1 ruling (P1-3): no hotline or advocate wording in a city mission.
+  // (The fix panel's own WATCHED_WARNING is fix-flow.js's, asked for only after the person opens it.)
+  assert.doesNotMatch(html.split(FixFlow.WATCHED_WARNING).join(''), DV);
+  assert.match(html, /<b>Removing this can alert whoever installed it\.<\/b>/);
+  assert.match(html, /data-go="side"/, 'the way to the help district');
+  assert.ok(html.indexOf('Removing this can alert whoever installed it') < html.indexOf('data-fix-module'), 'the warning comes before the fix');
+  assert.match(html, /TeamViewer is installed/);
   assert.ok(html.includes(FixFlow.WATCHED_WARNING), 'WATCHED_WARNING in the fix panel');
   assert.deepStrictEqual(seen, [['fix', true], ['mark', true]]);
 });

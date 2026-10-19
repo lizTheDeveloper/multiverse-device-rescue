@@ -904,20 +904,26 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // During an Undo re-check the mission was reclaimed, so it isn't in the
     // city: show the checking briefing from the mission we last showed.
     if (s.screen === 'mission' && s.busy && !mission(s.missionId) && s.outcomeMission && s.outcomeMission.id === s.missionId) {
-      const m = s.outcomeMission;
+      const m0 = s.outcomeMission;
+      const note = briefingNote(win.QuietNotes, hostMode(), m0.primary);
+      const wantsSafety = win.RescueHost.wantsSafety(m0.primary);
+      const { mission: m, cityWarn } = cityBriefing(m0, note, wantsSafety);
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: '',
-        scout, busy: true, wantsSafety: win.RescueHost.wantsSafety(m.primary), note: briefingNote(win.QuietNotes, hostMode(), m.primary) });
+        scout, busy: true, wantsSafety, note, cityWarn, modules: scanModules() });
     }
     if (s.screen === 'mission' && mission(s.missionId)) {
-      const m = mission(s.missionId);
+      const m0 = mission(s.missionId);
       // Monitoring software is held (rebuild), so it shouldn't reach here; if it
       // ever does, the briefing carries the list's own note, and in city mode
       // nothing to act on.
-      const note = briefingNote(win.QuietNotes, hostMode(), m.primary);
+      const note = briefingNote(win.QuietNotes, hostMode(), m0.primary);
+      const wantsSafety = win.RescueHost.wantsSafety(m0.primary);
+      const { mission: m, cityWarn } = cityBriefing(m0, note, wantsSafety);
       const controls = note.kind === 'held' ? ''
         : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, { ...watchedOpts(), theme: 'game' })}${routerHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
-        scout, busy: s.busy, scanRunning: !!s.scan.running, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note });
+        scout, busy: s.busy, scanRunning: !!s.scan.running, wantsSafety, learned: lessonForModule(s.lessons, s.progress, m.module), note,
+        cityWarn, modules: scanModules() });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the
@@ -932,6 +938,25 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     s.screen = 'map';
     return deckHtml();
+  }
+
+  const scanModules = () => (s.doc && Array.isArray(s.doc.modules) ? s.doc.modules.map((x) => x && x.name).filter(Boolean) : []);
+  // City mode: the help lives in the help district, so a mission carries no
+  // hotline or advocate wording (QuietNotes.quiet, the list's own stripping),
+  // and a finding that warns about removal gets the one warning line with the
+  // way there, in place of the full safety note. Its own sentence saying the
+  // same is dropped from the description. Copies only; the scan is unchanged.
+  function cityBriefing(m, note, wantsSafety) {
+    const Q = win.QuietNotes;
+    if (!inCity() || !Q || note.kind === 'held') return { mission: m, cityWarn: null };
+    const warn = note.kind === 'full' || (wantsSafety && !!m.safetyNote);
+    const sentences = (t) => String(t || '').split(/(?<=[.!?])\s+/);
+    const desc = Q.quiet(m.description);
+    const description = warn && Q.ALERTS
+      ? desc.split(/\n\s*\n/).map((p) => sentences(p).filter((x) => !Q.ALERTS.test(x)).join(' ')).filter((p) => p.trim()).join('\n\n')
+      : desc;
+    const steps = (m.steps || []).map((x) => (x && typeof x === 'object' ? { ...x, title: Q.quiet(x.title), body: Q.quiet(x.body) } : x));
+    return { mission: { ...m, description, steps, safetyNote: null }, cityWarn: warn ? { place: side().name } : null };
   }
 
   // A save or read problem, said once, calmly, until dismissed (or, for a

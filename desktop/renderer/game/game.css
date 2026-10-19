@@ -138,6 +138,15 @@ button.district { display: grid; width: 100%; }
 .step-n { font-family: var(--font-mono); font-weight: 700; color: var(--cyan); text-align: center; text-shadow: 0 0 8px rgba(0,229,255,0.4); }
 .step-t { font-size: 14px; line-height: 1.5; }
 .step-t small { display: block; color: var(--dim); font-size: 12.5px; margin-top: 2px; }
+.step-body { color: rgba(237,239,243,0.78); font-size: 14px; }
+.step-body p, .step-body ul, .step-body ol { margin: 6px 0 0; }
+.step-body ul, .step-body ol { padding-left: 20px; }
+.step-body strong, .intel strong { color: var(--offwhite); }
+.step-body code, .step-body pre { overflow-wrap: anywhere; white-space: pre-wrap; }
+details.tech { margin-top: 8px; }
+details.tech > summary { cursor: pointer; font-family: var(--font-display); font-size: 10px; letter-spacing: 1.5px; color: var(--dim); }
+details.tech > summary:hover, details.tech > summary:focus-visible { color: var(--offwhite); }
+.panel.safety .btn-t { font-family: var(--font-display); font-size: 11px; letter-spacing: 1px; color: var(--amber); }
 @media (max-width: 520px) { .step { grid-template-columns: 24px minmax(0,1fr); } .step .badge { grid-column: 2; justify-self: start; } }
 .outcome { background: #0b0e15; padding: 20px; display: grid; gap: 12px; align-content: start; justify-items: start; }
 .outcome h5 { margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 900; letter-spacing: 2px; }
@@ -344,3 +353,4 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .side h3.label { margin: 0 0 8px; }
 .sweep-so-far .notes .notes li.more { font-family: var(--font-mono); font-size: 11px; color: var(--faint); border-left-color: transparent; }
 .pre-sweep .btn-p { width: 100%; text-align: left; }
+.panel > .intel:first-child, .panel > p:first-child { margin-top: 0; }
