@@ -100,6 +100,24 @@ const PANE_LABEL = {
   'windows-privacy': 'Privacy', 'windows-apps': 'Apps',
 };
 
+// City mode: the same panes in game words, one name each so two buttons on
+// one item never read alike (keyring's key names where there is one). No
+// page or permission names: "Input Monitoring" never shows in the city.
+const CITY_PANE_LABEL = {
+  'login-items': 'start-up roster', 'startup-apps': 'start-up list', 'privacy-accessibility': 'control key',
+  'privacy-input-monitoring': 'keyboard key', 'privacy-screen-recording': 'window key', 'privacy-camera': 'lens key',
+  'privacy-microphone': 'ear key', 'privacy-full-disk': 'vault key', 'privacy-location': 'map key',
+  'privacy-automation': 'puppet key', 'privacy-contacts': 'address key', 'screen-time': 'curfew',
+  network: 'street wiring', firewall: 'outer wall', 'windows-firewall': 'city wall', sharing: 'shared doors',
+  'software-update': 'repair crew', 'windows-update': 'repair schedule', filevault: 'vault lock',
+  'windows-bitlocker': 'strongbox lock', 'lock-screen': 'front door', 'windows-signin': 'sign-in desk',
+  'users-groups': 'residents', storage: 'storeroom', 'windows-storage': 'warehouse', battery: 'power plant',
+  'windows-power': 'power grid', profiles: 'rule book', 'time-machine': 'archive', 'windows-backup': 'backup vault',
+  'apple-id': 'resident card', vpn: 'tunnel', dns: 'street directory', 'windows-security': 'guard post',
+  'windows-privacy': 'key cabinet', 'windows-apps': 'building list', 'windows-findmydevice': 'lost and found',
+  'extensions-browser': 'add-on shelf',
+};
+
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
 export function paneUrl(pane, platform) {
@@ -142,6 +160,17 @@ const LOOKUP_LABEL = {
   'maker-site': { standard: 'Search for the maker', city: 'Search the maker' },
 };
 
+// The words to type, quoted once: a game's own "exact name" quotes become
+// curly ones (“babylon” Firefox add-on); a query with none is quoted whole;
+// a stray quote is dropped.
+export function cityQuote(q) {
+  const s = String(q);
+  const n = (s.match(/"/g) || []).length;
+  if (n === 0 || n % 2) return `“${s.replace(/"/g, '').trim()}”`;
+  let open = true;
+  return s.replace(/"/g, () => { const c = open ? '“' : '”'; open = !open; return c; });
+}
+
 export function resolveLink(l, { mode = 'standard', platform = null } = {}) {
   if (!l || typeof l !== 'object' || !LINK_KINDS.includes(l.kind) || 'href' in l || 'url' in l) return null;
   const city = mode === 'city';
@@ -150,7 +179,7 @@ export function resolveLink(l, { mode = 'standard', platform = null } = {}) {
     const perm = typeof l.permission === 'string' && own(WINDOWS_PERMISSION_PANES, l.permission) ? WINDOWS_PERMISSION_PANES[l.permission] : null;
     const url = platform === 'win32' && perm ? perm : paneUrl(l.pane, platform);
     const name = PANE_LABEL[l.pane] || 'Settings';
-    const label = { standard: `Open ${name} settings`, city: 'Open the settings' };
+    const label = { standard: `Open ${name} settings`, city: `Open the ${CITY_PANE_LABEL[l.pane] || 'city'} settings` };
     return { kind: 'settings', pane: l.pane, url, label, text: url ? '' : (NO_PANE[l.pane] && NO_PANE[l.pane][platform]) || '',
       ...(l.warning === true ? { warning: true } : {}) };
   }
@@ -160,7 +189,7 @@ export function resolveLink(l, { mode = 'standard', platform = null } = {}) {
     const label = LOOKUP_LABEL[l.source] || LOOKUP_LABEL.web;
     // A watched computer keeps browser history: in city mode the search is
     // words to type somewhere else, never a link.
-    if (city) return { kind: 'lookup', source: l.source, url: null, label, text: `Search for “${q}” on another device.` };
+    if (city) return { kind: 'lookup', source: l.source, url: null, label, text: `Search for ${cityQuote(q)} on another device.` };
     return { kind: 'lookup', source: l.source, url: lookupUrl(l.source, q), label, text: '' };
   }
   if (typeof l.concept !== 'string' || !l.concept) return null;

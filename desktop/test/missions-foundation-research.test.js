@@ -121,3 +121,33 @@ test('R6: a settings intent with warning: true keeps it through resolution', asy
   assert.strictEqual(R.resolveLink({ kind: 'settings', pane: 'privacy-camera', warning: true }, { platform: 'darwin' }).warning, true);
   assert.ok(!('warning' in R.resolveLink({ kind: 'settings', pane: 'privacy-camera' }, { platform: 'darwin' })));
 });
+
+test('P2-12: city settings buttons name their pane in game words, one name per pane', async () => {
+  const [R, C] = await load();
+  const labels = C.SETTINGS_PANES.map((pane) => R.resolveLink({ kind: 'settings', pane }, { mode: 'city', platform: 'darwin' }).label.city);
+  assert.strictEqual(new Set(labels).size, labels.length, `two panes read alike: ${labels.join(' / ')}`);
+  for (const l of labels) {
+    assert.match(l, /^Open the [a-z -]+ settings$/, l);
+    assert.notStrictEqual(l, 'Open the settings');
+    assert.doesNotMatch(l, /monitor|recording|spy|stalk|watch|track/i, l);
+    assert.doesNotMatch(l, C.CITY_FORBIDDEN, l);
+  }
+  // Keyring's two keys on one item: the buttons can be told apart.
+  const two = R.resolveLinks([{ kind: 'settings', pane: 'privacy-accessibility' }, { kind: 'settings', pane: 'privacy-input-monitoring' }],
+    { mode: 'city', platform: 'darwin' });
+  assert.deepStrictEqual(two.map((l) => l.label.city), ['Open the control key settings', 'Open the keyboard key settings']);
+  assert.strictEqual(two[0].label.standard, 'Open Accessibility settings', 'standard words unchanged');
+});
+
+test('P2-12: a city look-up quotes the words once', async () => {
+  const [R] = await load();
+  const text = (query) => R.resolveLink({ kind: 'lookup', source: 'web', query }, { mode: 'city' }).text;
+  assert.strictEqual(text('Example Notes'), 'Search for “Example Notes” on another device.');
+  assert.strictEqual(text('"Example Worm"'), 'Search for “Example Worm” on another device.');
+  assert.strictEqual(text('"babylon" Firefox add-on'), 'Search for “babylon” Firefox add-on on another device.');
+  assert.strictEqual(text('part"1'), 'Search for “part1” on another device.', 'a stray quote is dropped');
+  for (const q of ['Example Notes', '"Example Worm"', '"babylon" Firefox add-on', 'a"b"c"d']) {
+    assert.doesNotMatch(text(q), /“"|"”|""|“\s*“/, q);
+    assert.ok(!text(q).includes('"'), `no straight quote left: ${text(q)}`);
+  }
+});
