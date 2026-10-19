@@ -19,6 +19,9 @@
 img { image-rendering: pixelated; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: inherit; }
 button.district { display: grid; width: 100%; }
+/* A shadow root doesn't get styles.css's [hidden] rule, and component rules
+   (.fix-panel's display: grid) would otherwise beat the attribute. */
+[hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 /* The app's own fix and mark controls, in the city's colors */
