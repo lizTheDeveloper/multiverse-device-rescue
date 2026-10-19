@@ -89,7 +89,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><div class="frame" id="frame"></div>';
+  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="checklist.css"><div class="frame" id="frame"></div>';
   const frame = shadow.getElementById('frame');
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
@@ -335,7 +335,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const sig = s.signal && findSignal(s.signal.id);
     if (!sig) { s.signal = null; return ''; }
     // The real "It's mine" step, offered only for a finding that has one. MarkFlow asks its own question.
-    const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, watchedOpts()) : '';
+    const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, { ...watchedOpts(), theme: 'game' }) : '';
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
       range: s.screen === 'range' ? { hasCity: !!s.city } : null });
@@ -599,7 +599,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // nothing to act on.
       const note = briefingNote(win.QuietNotes, hostMode(), m.primary);
       const controls = note.kind === 'held' ? ''
-        : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, watchedOpts())}`;
+        : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, { ...watchedOpts(), theme: 'game' })}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
         scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note });
     }

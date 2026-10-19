@@ -76,6 +76,18 @@ const MarkFlow = (function () {
     ssh_authorized_keys: 'I added these keys — they’re mine',
     ai_tooling: 'I set this up — it’s mine',
   };
+  // Lists that can be marked entry by entry (rescue/known_items.py ENTRY_KIND_FOR).
+  const ENTRY_LIST_KINDS = new Set(['app_permissions', 'ssh_authorized_keys']);
+  const ENTRY_NOUNS = { app_permissions: ['app', 'apps'], ssh_authorized_keys: ['key', 'keys'] };
+  const ENTRY_BUTTON = { app_permissions: 'Some of these apps are mine', ssh_authorized_keys: 'Some of these keys are mine' };
+  const ENTRY_LEGEND = { app_permissions: 'Tick the apps you know and use', ssh_authorized_keys: 'Tick the keys you added yourself' };
+  const ENTRY_REASON = 'We ask so the list stays accurate: anything you leave unticked, or that appears later, keeps its warning.';
+  const CANT_ALONE = 'We couldn’t check who made this one just now, so it can only be marked with the whole list.';
+  const STALE_ROW = 'Marked as yours before, but it has changed since.';
+  const WHOLE_BUTTON = 'The whole list is mine';
+  // The shared checklist (checklist.js): a global in the page, required in Node.
+  const CL = typeof Checklist !== 'undefined' ? Checklist
+    : (typeof require === 'function' ? require('./checklist.js') : null);
 
   function esc(value) {
     return String(value == null ? '' : value)
@@ -222,10 +234,14 @@ const MarkFlow = (function () {
           </details>`;
   }
 
-  function showsHtml(m, finding) {
-    const rows = Array.isArray(m.shows)
+  function shownRowsOf(m) {
+    return Array.isArray(m.shows)
       ? m.shows.filter((r) => Array.isArray(r) && r.length === 2 && typeof r[0] === 'string' && typeof r[1] === 'string')
       : [];
+  }
+
+  function showsHtml(m, finding) {
+    const rows = shownRowsOf(m);
     const apps = appRowsOf(m, rows);
     if (apps) return appsHtml(apps, finding && finding.made_by, String(apps.length));
     if (m.kind === 'background_task') {
@@ -247,10 +263,171 @@ const MarkFlow = (function () {
     return lines.map((t) => `<p class="fix-panel__line">${esc(t)}</p>`).join('');
   }
 
+  // One row of the engine's markable.items, or false if anything is off.
+  function validEntry(it) {
+    if (!it || typeof it !== 'object') return false;
+    if (typeof it.key !== 'string' || !it.key || it.key.length > MAX_APP_ID || it.key.includes('\0')) return false;
+    if (typeof it.label !== 'string' || !it.label.trim()) return false;
+    if (it.label !== it.key && (it.label.length > MAX_APP_NAME || CONTROL_OR_FORMAT.test(it.label))) return false;
+    if (it.detail != null && (typeof it.detail !== 'string' || it.detail.length > MAX_APP_ID || it.detail.includes('\0'))) return false;
+    if (it.marked === true) return typeof it.id === 'string' && MARK_ID.test(it.id);
+    return it.id === null || (typeof it.id === 'string' && MARK_ID.test(it.id));
+  }
+
+  // The engine's entries for a list, or null when the panel must show the
+  // whole list as before: no checklist component, a malformed row, a repeat,
+  // or rows that don't line up with the apps (or keys) the engine counted.
+  function entryRowsOf(m, rows) {
+    if (!CL || !m || !ENTRY_LIST_KINDS.has(m.kind) || !Array.isArray(m.items) || !m.items.length) return null;
+    if (!m.items.every(validEntry)) return null;
+    const keys = m.items.map((i) => i.key);
+    if (new Set(keys).size !== keys.length) return null;
+    const ids = m.items.map((i) => i.id).filter((x) => x);
+    if (new Set(ids).size !== ids.length || ids.includes(m.id)) return null;
+    if (m.kind === 'app_permissions') {
+      const appRows = appRowsOf(m, rows);
+      if (!appRows || appRows.length !== keys.length || !appRows.every((a) => keys.includes(a.id))) return null;
+    } else {
+      const count = (rows.find(([k]) => k === 'Saved keys') || [])[1];
+      if (!/^\d+$/.test(count || '') || Number(count) !== keys.length) return null;
+    }
+    return m.items;
+  }
+
+  function rowText(e) {
+    return e.detail && e.detail !== e.label ? `${e.label} · ${e.detail}` : e.label;
+  }
+
+  // The maker line and the name/maker flag for one app row (none for keys).
+  function entryEvidence(m, finding, e) {
+    if (m.kind !== 'app_permissions') return '';
+    const maker = makerEntry(finding && finding.made_by, e.key);
+    const text = makerText(maker);
+    return (text ? `<span class="mark-apps__maker">${esc(visible(text))}</span>` : '')
+      + (nameContradictsMaker(e.label, maker) ? `<span class="mark-apps__flag">${esc(NAME_MAKER_MISMATCH)}</span>` : '');
+  }
+
+  // A row with its own "Stop treating this as mine".
+  function unmarkRowHtml(id, text, attrs) {
+    return `<li class="mark-apps__row" data-mark-entry="${esc(id)}"${attrs || ''}>`
+      + `<span class="mark-apps__who">${esc(visible(text))}</span>`
+      + `<button type="button" class="btn btn--secondary btn--small" data-unmark-item="${esc(id)}">Stop treating this as mine</button>`
+      + '<span class="fix-status" data-unmark-item-status role="status" aria-live="polite" hidden></span></li>';
+  }
+
+  // The whole list as one answer, as before: only offered when a row can't be
+  // marked on its own, so that row still has a way to be marked.
+  function wholeConfirmHtml(m, finding) {
+    const reasons = [COULD_WATCH, ...(LIST_KINDS.has(m.kind) ? [LIST_REASON] : [])];
+    return `
+          <div data-mark-whole-confirm hidden>
+            ${showsHtml(m, finding)}
+            <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.will_change)}</p>
+            <p class="fix-panel__line"><strong>To undo later:</strong></p>
+            ${undoListHtml(m.how_to_undo)}
+            <p class="fix-panel__line fix-panel__warning"><strong>${esc(ONLY_IF_YOURS)}</strong></p>
+            ${reasons.map((t) => `<p class="fix-panel__line">${esc(t)}</p>`).join('')}
+            <p class="muted fix-panel__note">Nothing on your computer is changed or turned off.</p>
+            <div class="fix-panel__actions">
+              <button type="button" class="btn btn--primary btn--small" data-mark-confirm>Yes, the whole list is mine</button>
+              <button type="button" class="btn btn--secondary btn--small" data-mark-items-back>Back</button>
+            </div>
+          </div>`;
+  }
+
+  function entryControlsHtml(m, finding, entries, opts) {
+    const noun = ENTRY_NOUNS[m.kind];
+    const marked = entries.filter((e) => e.marked === true);
+    const open = entries.filter((e) => e.marked !== true);
+    const selectable = open.filter((e) => e.id);
+    const alone = open.length - selectable.length; // rows only the whole list can mark
+    const checklist = CL.html({
+      id: `mark-${m.id}`,
+      // Element ids distinct per panel, even if two checks show the same list.
+      scope: typeof m.code === 'string' && m.code ? m.code : m.kind,
+      legend: `${ENTRY_LEGEND[m.kind]} (${open.length} not marked as yours yet)`,
+      items: open.map((e, i) => ({
+        key: e.id || `none-${i}`,
+        label: e.label,
+        detail: e.detail && e.detail !== e.label ? e.detail : '',
+        evidenceHtml: entryEvidence(m, finding, e),
+        disabled: !e.id,
+        note: !e.id ? CANT_ALONE : (e.stale ? STALE_ROW : ''),
+      })),
+      actions: [{ id: 'mark', verb: 'Mark', noun, suffix: 'as mine', min: 1 }],
+      selectAll: true,
+      theme: opts && opts.theme === 'game' ? 'game' : 'plain',
+    });
+    const already = marked.length
+      ? `<p class="fix-panel__line"><strong>Already marked as yours (${marked.length}):</strong></p>
+          <ul class="mark-apps">${marked.map((e) => unmarkRowHtml(e.id, rowText(e))).join('')}</ul>`
+      : '';
+    const confirmRows = selectable.map((e) => `<li class="mark-apps__row" data-mark-items-row="${esc(e.id)}" hidden>`
+      + `<span class="mark-apps__who">${esc(visible(rowText(e)))}</span>${entryEvidence(m, finding, e)}</li>`).join('');
+    const doneRows = selectable.map((e) => unmarkRowHtml(e.id, rowText(e), ` data-mark-items-done-row="${esc(e.id)}" hidden`)).join('');
+    const openLabel = selectable.length ? ENTRY_BUTTON[m.kind] : buttonLabel(m);
+    return `
+      <div class="mark-mine" data-mark-card data-mark-entries data-mark-kind="${esc(m.kind)}" data-mark-id="${esc(m.id)}" data-mark-group="${esc(m.id)}" data-mark-selectable="${selectable.length}" data-mark-alone="${alone}">
+        ${already}
+        ${open.length ? `<button type="button" class="btn btn--secondary btn--small" data-mark-open>${esc(openLabel)}</button>` : ''}
+        <div class="fix-panel" data-mark-panel hidden role="group" aria-label="Choose which are yours">
+          <div data-mark-items-pick>
+            ${checklist}
+            <p class="muted fix-panel__note">Ticking changes nothing. You’ll see what you picked before anything is saved.</p>
+            <div class="fix-panel__actions">
+              ${alone ? `<button type="button" class="btn btn--secondary btn--small" data-mark-whole-open>${esc(WHOLE_BUTTON)}</button>` : ''}
+              <button type="button" class="btn btn--secondary btn--small" data-mark-cancel>Cancel</button>
+            </div>
+          </div>
+          <div data-mark-items-confirm hidden>
+            <p class="fix-panel__line"><strong data-mark-items-head>You’re saying these are yours:</strong></p>
+            <ul class="mark-apps">${confirmRows}</ul>
+            <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.items_will_change || m.will_change)}</p>
+            <p class="fix-panel__line"><strong>To undo later:</strong></p>
+            ${undoListHtml(m.how_to_undo)}
+            <p class="fix-panel__line fix-panel__warning"><strong>${esc(ONLY_IF_YOURS)}</strong></p>
+            <p class="fix-panel__line">${esc(COULD_WATCH)}</p>
+            <p class="fix-panel__line">${esc(ENTRY_REASON)}</p>
+            <p class="muted fix-panel__note">Nothing on your computer is changed or turned off.</p>
+            <div class="fix-panel__actions">
+              <button type="button" class="btn btn--primary btn--small" data-mark-items-yes>Yes, these are mine</button>
+              <button type="button" class="btn btn--secondary btn--small" data-mark-items-back>Back</button>
+            </div>
+          </div>
+          ${alone ? wholeConfirmHtml(m, finding) : ''}
+        </div>
+        <div class="fix-status" data-mark-status role="status" aria-live="polite" hidden></div>
+        <ul class="mark-apps" data-mark-items-done hidden>${doneRows}</ul>
+      </div>`;
+  }
+
+  // A list marked entry by entry (every entry): data.marked_items, or null.
+  function markedEntriesOf(finding) {
+    const d = finding && finding.data;
+    if (!d || d.marked_by_user !== true || !Array.isArray(d.marked_items) || !d.marked_items.length) return null;
+    if (NEVER_MARKABLE_MODULES.has(finding.module)) return null;
+    const ok = d.marked_items.every((x) => x && typeof x.id === 'string' && MARK_ID.test(x.id)
+      && typeof x.shown === 'string' && x.shown.trim() !== '' && x.shown.length <= 1200 && !x.shown.includes('\0'));
+    return ok ? d.marked_items : null;
+  }
+
+  function markedEntriesHtml(list) {
+    const ids = list.map((x) => x.id);
+    return `
+      <div class="mark-mine" data-mark-card data-mark-entries-done>
+        <p class="fix-panel__line"><strong>Marked as yours (${list.length}):</strong></p>
+        <ul class="mark-apps">${list.map((x) => unmarkRowHtml(x.id, x.shown)).join('')}</ul>
+        ${list.length > 1 ? `<button type="button" class="btn btn--secondary btn--small" data-unmark-items="${esc(ids.join(' '))}">Stop treating all of these as mine</button>` : ''}
+        <div class="fix-status" data-mark-status role="status" aria-live="polite" hidden></div>
+      </div>`;
+  }
+
   // opts.watched: the person said "I think someone is watching me".
   function markControlsHtml(finding, opts) {
     const m = markableOf(finding);
     if (m) {
+      const entries = entryRowsOf(m, shownRowsOf(m));
+      if (entries) return entryControlsHtml(m, finding, entries, opts);
       const group = groupOf(m.id, m.ids);
       const strong = needsStrongConfirm(m, opts);
       return `
@@ -273,6 +450,8 @@ const MarkFlow = (function () {
         <div class="fix-status" data-mark-status role="status" aria-live="polite" hidden></div>
       </div>`;
     }
+    const done = markedEntriesOf(finding);
+    if (done) return markedEntriesHtml(done);
     const id = markedIdOf(finding);
     if (id) {
       const group = groupOf(id, finding.marked_ids);
@@ -341,30 +520,69 @@ const MarkFlow = (function () {
       </div>`;
   }
 
+  // After some entries were marked: how many, and what happens to the rest.
+  function itemsResultHtml(n, rest, undo) {
+    const detail = rest > 0
+      ? `The other ${rest} keep their warning. From your next checkup, the ones you marked are listed as “marked as yours”.`
+      : 'From your next checkup the whole list is listed as “marked as yours” instead of being flagged.';
+    return `
+      <div class="fix-status--success fix-status__box">
+        <p class="fix-status__headline"><strong>${esc(`Marked ${n} as yours.`)}</strong></p>
+        <p class="fix-status__detail">${esc(detail)}</p>
+        ${undo && undo.length ? `<p class="fix-status__detail"><strong>To undo later:</strong></p>${undoListHtml(undo)}` : ''}
+      </div>`;
+  }
+
   function idsAttr(card, name) {
     return String(card.getAttribute(name) || '').split(/\s+/).filter((x) => MARK_ID.test(x));
   }
 
-  const CLICK_TARGETS = '[data-mark-open],[data-mark-confirm],[data-mark-cancel],[data-unmark]';
+  const CLICK_TARGETS = '[data-mark-open],[data-mark-confirm],[data-mark-cancel],[data-unmark],'
+    + '[data-unmark-items],[data-unmark-item],[data-mark-items-yes],[data-mark-items-back],[data-mark-whole-open]';
+
+  function splitIds(value) {
+    return String(value || '').split(/\s+/).filter((x) => MARK_ID.test(x));
+  }
 
   // Delegated handlers on a container that survives re-renders. `api` is the
-  // preload bridge: api.markMine(id), api.unmarkMine(id). `hooks` (optional):
+  // preload bridge: api.markMine(id, itemIds?), api.unmarkMine(idOrIds). `hooks` (optional):
   // onMarked(cards) and onUnmarked(cards) after the engine saved or removed
   // marks, with every card the answer covered. Returns {unmark(card)} so the
   // "Cleared" list can offer Undo.
   // onResult({kind, result, described}) after the engine answers (game mode).
   function attach(root, api, hooks) {
     const onResult = hooks && typeof hooks.onResult === 'function' ? hooks.onResult : null;
-    const state = new WeakMap(); // card -> 'confirming' | 'running'
+    const state = new WeakMap(); // card -> 'confirming' | 'confirming-items' | 'confirming-whole' | 'running'
+    const rowState = new WeakMap(); // entry row -> true while its undo runs
     const on = hooks || {};
+    let clApi = null; // the checklist's handlers, set below
 
     function cardOf(el) {
       return el && el.closest ? el.closest('[data-mark-card]') : null;
     }
 
+    function showPick(card) {
+      const pick = card.querySelector('[data-mark-items-pick]');
+      const confirm = card.querySelector('[data-mark-items-confirm]');
+      const whole = card.querySelector('[data-mark-whole-confirm]');
+      if (pick) pick.hidden = false;
+      if (confirm) confirm.hidden = true;
+      if (whole) whole.hidden = true;
+    }
+
+    // Closing the panel forgets the ticks: it opens again with nothing ticked.
+    function untick(card) {
+      card.querySelectorAll('[data-cl-list]').forEach((list) => {
+        list.querySelectorAll('[data-cl-item]').forEach((b) => { b.checked = false; });
+        if (clApi) clApi.update(list);
+      });
+    }
+
     function closePanel(card) {
       const panel = card.querySelector('[data-mark-panel]');
       if (panel) panel.hidden = true;
+      showPick(card);
+      untick(card);
       state.delete(card);
     }
 
@@ -419,7 +637,8 @@ const MarkFlow = (function () {
       return touched;
     }
 
-    async function send(card, call, kind) {
+    // kind: 'marked', 'removed', or 'marked-items' (some entries; `chosen` are their ids).
+    async function send(card, call, kind, chosen) {
       state.set(card, 'running');
       const panel = card.querySelector('[data-mark-panel]');
       const status = card.querySelector('[data-mark-status]');
@@ -441,10 +660,28 @@ const MarkFlow = (function () {
           becomeMarked(card, saved.length ? saved : [own]);
           if (typeof on.onMarked === 'function') on.onMarked([card, ...others]);
         }
+        if (kind === 'marked-items' && (r.status === 'marked' || r.status === 'already_marked')) {
+          const saved = Array.isArray(r.ids) ? r.ids.filter((x) => MARK_ID.test(x) && (chosen || []).includes(x)) : [];
+          const open = Number(card.getAttribute('data-mark-selectable')) || 0;
+          // Rows only the whole list can mark keep their warning too.
+          const alone = Number(card.getAttribute('data-mark-alone')) || 0;
+          const rest = Math.max(0, open - saved.length) + alone;
+          status.innerHTML = itemsResultHtml(saved.length, rest, d.undo);
+          const done = card.querySelector('[data-mark-items-done]');
+          if (done) done.hidden = saved.length === 0;
+          card.querySelectorAll('[data-mark-items-done-row]').forEach((row) => {
+            row.hidden = !saved.includes(row.getAttribute('data-mark-items-done-row'));
+          });
+          // Every entry it could mark is now marked: the card leaves the list, as a whole mark would.
+          if (saved.length && rest === 0 && typeof on.onMarked === 'function') on.onMarked([card]);
+        }
         if (kind === 'removed' && r.status === 'removed') {
           const others = updateSiblings(card, kind, r);
           state.delete(card);
           becomeUnmarked(card);
+          if (card.hasAttribute && card.hasAttribute('data-mark-entries-done')) {
+            card.querySelectorAll('[data-unmark-items],[data-unmark-item]').forEach((b) => { b.hidden = true; });
+          }
           if (typeof on.onUnmarked === 'function') on.onUnmarked([card, ...others]);
         }
       } catch (_) {
@@ -462,14 +699,74 @@ const MarkFlow = (function () {
       return send(card, () => api.unmarkMine(id), 'removed');
     }
 
+    // "Stop treating this as mine" on one entry: only that entry's mark.
+    async function unmarkItem(btn) {
+      const row = btn.closest ? btn.closest('[data-mark-entry]') : null;
+      const id = btn.getAttribute('data-unmark-item');
+      if (!row || rowState.get(row) || typeof id !== 'string' || !MARK_ID.test(id)) return undefined;
+      rowState.set(row, true);
+      const status = row.querySelector('[data-unmark-item-status]');
+      btn.hidden = true;
+      if (status) { status.hidden = false; status.textContent = 'Saving…'; }
+      let ok = false;
+      try {
+        const r = await api.unmarkMine([id]);
+        ok = !!r && r.status === 'removed';
+        const d = describeMarkResult(r);
+        if (status) status.textContent = ok ? 'No longer marked as yours. Its warning comes back on your next checkup.' : d.headline;
+        if (onResult) { try { onResult({ kind: 'removed', result: r, described: d }); } catch (_) { /* never break an undo */ } }
+        // A card cleared as fully marked comes back to the list.
+        const card = cardOf(row);
+        if (ok && card && typeof on.onUnmarked === 'function') on.onUnmarked([card]);
+      } catch (_) {
+        if (status) status.textContent = describeMarkResult(null).headline;
+      }
+      rowState.delete(row);
+      if (!ok) btn.hidden = false;
+      return undefined;
+    }
+
+    // The checklist's button: show exactly the ticked rows the panel rendered, and ask.
+    function openItemsConfirm(card, keys) {
+      const rows = Array.from(card.querySelectorAll('[data-mark-items-row]'));
+      const allowed = new Set(rows.map((r) => r.getAttribute('data-mark-items-row')));
+      const ids = [...new Set(keys)].filter((k) => MARK_ID.test(k) && allowed.has(k));
+      const confirm = card.querySelector('[data-mark-items-confirm]');
+      if (!ids.length || !confirm) return;
+      rows.forEach((row) => { row.hidden = !ids.includes(row.getAttribute('data-mark-items-row')); });
+      const head = card.querySelector('[data-mark-items-head]');
+      if (head) head.textContent = ids.length === 1 ? 'You’re saying this one is yours:' : `You’re saying these ${ids.length} are yours:`;
+      const yes = card.querySelector('[data-mark-items-yes]');
+      if (yes) yes.textContent = ids.length === 1 ? 'Yes, this one is mine' : `Yes, these ${ids.length} are mine`;
+      confirm.setAttribute('data-mark-items-chosen', ids.join(' '));
+      const pick = card.querySelector('[data-mark-items-pick]');
+      if (pick) pick.hidden = true;
+      confirm.hidden = false;
+      state.set(card, 'confirming-items');
+    }
+
+    // The checklist listens first: some callers' roots keep only the last click handler.
+    if (CL) {
+      clApi = CL.attach(root, {
+        onAction(listId, actionId, keys) {
+          if (actionId !== 'mark' || typeof listId !== 'string' || !listId.startsWith('mark-')) return;
+          const id = listId.slice('mark-'.length);
+          const card = Array.from(root.querySelectorAll('[data-mark-entries]')).find((c) => c.getAttribute('data-mark-id') === id);
+          if (card && state.get(card) === 'confirming') openItemsConfirm(card, keys);
+        },
+      });
+    }
+
     root.addEventListener('click', (event) => {
       const target = event.target && event.target.closest ? event.target.closest(CLICK_TARGETS) : null;
+      if (target && target.hasAttribute('data-unmark-item')) return unmarkItem(target);
       const card = cardOf(target);
       if (!target || !card || state.get(card) === 'running') return undefined;
       if (target.hasAttribute('data-mark-open')) {
         const panel = card.querySelector('[data-mark-panel]');
         const status = card.querySelector('[data-mark-status]');
         if (status) { status.hidden = true; status.innerHTML = ''; }
+        showPick(card);
         if (panel) panel.hidden = false;
         state.set(card, 'confirming');
         return undefined;
@@ -479,7 +776,36 @@ const MarkFlow = (function () {
         return undefined;
       }
       if (target.hasAttribute('data-unmark')) return unmark(card);
-      if (state.get(card) !== 'confirming') return undefined;
+      if (target.hasAttribute('data-unmark-items')) {
+        const ids = splitIds(target.getAttribute('data-unmark-items'));
+        return ids.length ? send(card, () => api.unmarkMine(ids), 'removed') : undefined;
+      }
+      if (target.hasAttribute('data-mark-items-back')) {
+        const s = state.get(card);
+        if (s === 'confirming-items' || s === 'confirming-whole') { showPick(card); state.set(card, 'confirming'); }
+        return undefined;
+      }
+      if (target.hasAttribute('data-mark-whole-open')) {
+        const whole = card.querySelector('[data-mark-whole-confirm]');
+        const pick = card.querySelector('[data-mark-items-pick]');
+        if (state.get(card) !== 'confirming' || !whole) return undefined;
+        if (pick) pick.hidden = true;
+        whole.hidden = false;
+        state.set(card, 'confirming-whole');
+        return undefined;
+      }
+      if (target.hasAttribute('data-mark-items-yes')) {
+        if (state.get(card) !== 'confirming-items') return undefined;
+        const confirm = card.querySelector('[data-mark-items-confirm]');
+        const ids = splitIds(confirm && confirm.getAttribute('data-mark-items-chosen'));
+        const id = card.getAttribute('data-mark-id');
+        if (!ids.length || typeof id !== 'string' || !MARK_ID.test(id)) return undefined;
+        // The finding's id and the ticked entry ids only; main checks each against its scan.
+        return send(card, () => api.markMine(id, ids), 'marked-items', ids);
+      }
+      // On a checklist card the whole-list "Yes" counts only from its own confirmation.
+      const asked = card.hasAttribute('data-mark-entries') ? 'confirming-whole' : 'confirming';
+      if (!target.hasAttribute('data-mark-confirm') || state.get(card) !== asked) return undefined;
       // Only the engine's id is sent; the main process looks up what it showed.
       const id = card.getAttribute('data-mark-id');
       if (typeof id !== 'string' || !MARK_ID.test(id)) return undefined;
@@ -489,14 +815,16 @@ const MarkFlow = (function () {
     root.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
       const card = cardOf(event.target);
-      if (card && state.get(card) === 'confirming') closePanel(card);
+      const s = card && state.get(card);
+      if (s === 'confirming' || s === 'confirming-items' || s === 'confirming-whole') closePanel(card);
     });
 
     return { unmark };
   }
 
   return {
-    ONLY_IF_YOURS, COULD_WATCH, LIST_REASON, NOT_SURE_LIST, NAME_MAKER_MISMATCH, MAX_APP_NAME, BUTTON, NEVER_MARKABLE_MODULES, groupOf, markableOf, markedIdOf,
+    ONLY_IF_YOURS, COULD_WATCH, LIST_REASON, NOT_SURE_LIST, NAME_MAKER_MISMATCH, MAX_APP_NAME, BUTTON, NEVER_MARKABLE_MODULES,
+    ENTRY_REASON, CANT_ALONE, STALE_ROW, ENTRY_BUTTON, WHOLE_BUTTON, groupOf, markableOf, markedIdOf,
     needsStrongConfirm, markControlsHtml, describeMarkResult, resultHtml, attach, esc,
   };
 })();

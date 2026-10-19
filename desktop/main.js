@@ -64,10 +64,10 @@ app.whenReady().then(() => {
   ipcMain.handle('undo-fix', (_e, quarantineId) =>
     handleRunUndo(quarantineId, { policy: fixPolicy, runUndo }));
   // Only an id crosses IPC; the main process uses the target it stored from its own scan.
-  ipcMain.handle('mark-mine', (_e, id) =>
-    handleMark(id, { policy: markPolicy, runMark }));
-  ipcMain.handle('unmark-mine', (_e, id) =>
-    handleUnmark(id, { policy: markPolicy, runUnmark }));
+  ipcMain.handle('mark-mine', (_e, id, itemIds) =>
+    handleMark(id, { policy: markPolicy, runMark }, itemIds));
+  ipcMain.handle('unmark-mine', (_e, idOrIds) =>
+    handleUnmark(idOrIds, { policy: markPolicy, runUnmark }));
   ipcMain.handle('recheck-module', (_e, name) =>
     handleRecheck(name, {
       getLastDoc: () => lastDoc,

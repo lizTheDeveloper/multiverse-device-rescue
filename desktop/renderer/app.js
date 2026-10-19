@@ -800,6 +800,9 @@ if (typeof document !== 'undefined') {
       `;
     }
 
+    // A re-check redraws the list; focus stays on the same checklist row.
+    const keepFocus = (root, render) => (typeof Checklist !== 'undefined' ? Checklist.preserveFocus(root, render) : render());
+
     function renderResults(doc) {
       const { groups, erroredModules } = groupFindingsBySeverity(doc);
       const total = SEVERITY_ORDER.reduce((sum, sev) => sum + groups[sev].length, 0);
@@ -819,8 +822,10 @@ if (typeof document !== 'undefined') {
       cardTech = new Map();
       nextCardKey = 0;
       const groupsEl = document.getElementById('results-groups');
-      groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev])).join('')
-        + ClearList.sectionHtml();
+      keepFocus(groupsEl, () => {
+        groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev])).join('')
+          + ClearList.sectionHtml();
+      });
       reportFindings.push(...cardPicks.values());
 
       // Items marked as yours on an earlier checkup start out cleared.
