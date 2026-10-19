@@ -21,9 +21,38 @@
  *   NotChecked.isPartlyChecked(finding) -> boolean
  *   NotChecked.couldntLook(module) -> boolean
  *   NotChecked.notStarted(module) -> boolean
- *   NotChecked.notCheckedParts(doc) -> { couldntRun: [{name, error}], unfinished: [{name}],
- *       notStarted: [{name}], partly: [{name, title}] }
- *   NotChecked.notCheckedSummary(doc) -> { checks, couldntRun, unfinished, notStarted, partly, count }
+ *   notReached  checks a stopped checkup never got to (engine-runner's
+ *               error_kind "stopped"): not "couldn't run", they weren't tried.
+ *
+ *   NotChecked.notCheckedParts(doc) -> { couldntRun: [{name, error}], notReached: [{name}],
+ *       unfinished: [{name}], notStarted: [{name}], partly: [{name, title}] }
+ *   NotChecked.notCheckedSummary(doc) -> { checks, couldntRun, notReached, unfinished, notStarted, partly, count }
+ *   NotChecked.namesLine(names, { max = 5 }) -> { inline, count, all, folded }:
+ *       names inline up to `max`, else none inline and `all` under a fold.
+ *   NotChecked.fmt(n) -> '4,837'
+ *
+ * THE NUMBERS BOTH VIEWS SHOW (UX round 5; render only these, never count locally):
+ *   todo          "N things on your list" / "N TO DO": critical + warning
+ *                 items, duplicates merged (displayItems). Never checks.
+ *   notes         "N good-to-know notes" / "LOW PRIORITY (N)": info items, merged.
+ *   markedItems   items marked as yours (not in todo or notes).
+ *   heldItems     held monitoring items. In 'city' they are in no other
+ *                 number; in 'standard' they stay in todo/notes (Plain shows
+ *                 them). That is the only difference between the two modes.
+ *   couldntCheck  "COULDN'T CHECK N": checks that checked nothing:
+ *                 couldntRun + notReached + notStarted.
+ *   unfinished    "DIDN'T FINISH N": ran but didn't finish (their findings
+ *                 are listed; what's missing may not have been looked at).
+ *   notChecked    couldntCheck + unfinished: every check not fully done.
+ *   partly        notes saying part of a check couldn't look.
+ *   (didntFinish = couldntRun + notReached + unfinished and items, the older
+ *   itemKey count, stay for older callers.)
+ *
+ *   NotChecked.displayItems(doc, { mode }) -> { critical, warning, info, marked, held }:
+ *       the merged list both views render; see the rule above the function.
+ *   NotChecked.mergeKey(finding, module) -> the merge key displayItems uses.
+ *   NotChecked.listSeverity(finding, category) -> severity an item is listed at.
+ *   NotChecked.asCard(item) -> Plain's card ({...lead, seen_in, also}).
  *   NotChecked.notCheckedLine(summary) -> the top line, '' when everything was checked
  *
  * One count for both views (so LAST SWEEP, the chips, the district badges,
@@ -116,15 +145,20 @@ const NotChecked = (function () {
     return mod.name === 'mvt_spyware_scan' && fs.some((f) => f.code === NOT_STARTED_CODE);
   }
 
+  // A check a stopped checkup never got to (engine-runner stoppedDocOf).
+  const notReachedMod = (mod) => !!mod && mod.status === 'error' && mod.error_kind === 'stopped';
+
   function notCheckedParts(doc) {
     const couldntRun = [];
+    const notReached = [];
     const unfinished = [];
     const started = [];
     const partly = [];
     const modules = doc && Array.isArray(doc.modules) ? doc.modules : [];
     for (const mod of modules) {
       if (!mod) continue;
-      if (mod.status === 'error') couldntRun.push({ name: mod.name, error: mod.error || null });
+      if (notReachedMod(mod)) notReached.push({ name: mod.name });
+      else if (mod.status === 'error') couldntRun.push({ name: mod.name, error: mod.error || null });
       else if (mod.supported === false) couldntRun.push({ name: mod.name, error: mod.unsupported_reason || null });
       else if (notStarted(mod)) started.push({ name: mod.name });
       else if (couldntLook(mod)) couldntRun.push({ name: mod.name, error: COULDNT_LOOK_REASON });
@@ -133,7 +167,7 @@ const NotChecked = (function () {
         if (isPartlyChecked(f)) partly.push({ name: mod.name, title: String(f.title || '') });
       }
     }
-    return { couldntRun, unfinished, notStarted: started, partly };
+    return { couldntRun, notReached, unfinished, notStarted: started, partly };
   }
 
   function notCheckedSummary(doc) {
@@ -142,11 +176,25 @@ const NotChecked = (function () {
     return {
       checks,
       couldntRun: p.couldntRun.length,
+      notReached: p.notReached.length,
       unfinished: p.unfinished.length,
       notStarted: p.notStarted.length,
       partly: p.partly.length,
-      count: p.couldntRun.length + p.unfinished.length + p.notStarted.length + p.partly.length,
+      count: p.couldntRun.length + p.notReached.length + p.unfinished.length + p.notStarted.length + p.partly.length,
     };
+  }
+
+  // A number as people read it: 4,837.
+  const fmt = (n) => Number(n || 0).toLocaleString('en-US');
+
+  // Names in a sentence: up to `max` inline; past that, none inline (the
+  // views put `all` under a fold) so a stopped checkup never reads as a wall.
+  //   namesLine(names, { max = 5 }) -> { inline: 'A, B and C' | '', count, all: [...], folded: boolean }
+  function namesLine(names, { max = 5 } = {}) {
+    const all = [...new Set((names || []).map((x) => String(x)).filter(Boolean))];
+    if (!all.length || all.length > max) return { inline: '', count: all.length, all, folded: all.length > max };
+    const inline = all.length === 1 ? all[0] : `${all.slice(0, -1).join(', ')} and ${all[all.length - 1]}`;
+    return { inline, count: all.length, all, folded: false };
   }
 
   // The top line when something wasn't fully checked. Never an all-clear.
@@ -155,7 +203,8 @@ const NotChecked = (function () {
     const ran = (s.couldntRun || 0) + (s.unfinished || 0);
     const how = s.couldntRun && s.unfinished ? 'couldn’t run or didn’t finish' : s.couldntRun ? 'couldn’t run' : 'didn’t finish';
     const parts = [];
-    if (ran) parts.push(`${ran} ${ran === 1 ? 'check' : 'checks'} ${how}`);
+    if (s.notReached) parts.push(`${fmt(s.notReached)} ${s.notReached === 1 ? 'check' : 'checks'} didn’t get to run because the checkup stopped`);
+    if (ran) parts.push(`${fmt(ran)} ${ran === 1 ? 'check' : 'checks'} ${how}`);
     if (s.notStarted) parts.push(`${s.notStarted} ${s.notStarted === 1 ? 'check waits' : 'checks wait'} for your go-ahead`);
     if (s.partly) parts.push(`${s.partly} ${s.partly === 1 ? 'thing was' : 'things were'} only partly checked`);
     if (!parts.length) return '';
@@ -195,7 +244,9 @@ const NotChecked = (function () {
   }
 
   const SUBJECT_KEYS = ['label', 'plist', 'path', 'program', 'bundle_id', 'extension_id', 'name', 'target', 'id'];
-  const norm = (t) => String(t || '').toLowerCase().replace(/\(\d+(?: of \d+)?\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+  // A count in brackets ("(11)", "(16 of 110)") doesn't make it another item.
+  const norm = (t) => String(t || '').toLowerCase().replace(/\(\d[\d,]*(?: of \d[\d,]*)?\)/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ').trim();
   function itemKey(f, module = f && f.module) {
     const fd = f || {};
     const data = fd.data && typeof fd.data === 'object' ? fd.data : {};
@@ -207,6 +258,110 @@ const NotChecked = (function () {
     return `${module}|${what}|${subject}`;
   }
 
+  // ---- The one list both views render (UX round 5) ----
+  //
+  // mergeKey(finding, module): when two findings are one item. The engine's
+  // same_key (one thing seen by several checks); else the check, the code (or
+  // title) and the thing it names (a label, path, extension...), and when it
+  // names nothing, its title: "Extension with broad permissions: OneTab" and
+  // "...: LastPass" are two items with one code. Counts in brackets ("(11)")
+  // don't make another item. Monitoring findings never merge (displayItems).
+  const MERGE_SUBJECT_KEYS = ['label', 'plist', 'path', 'program', 'bundle_id', 'extension_id', 'extension', 'name', 'target', 'id'];
+  function mergeKey(f, module = f && f.module) {
+    const fd = f || {};
+    if (typeof fd.same_key === 'string' && fd.same_key && !MONITORING_MODULES.has(module)) return `same|${fd.same_key}`;
+    const data = fd.data && typeof fd.data === 'object' ? fd.data : {};
+    let subject = '';
+    for (const k of MERGE_SUBJECT_KEYS) if (typeof data[k] === 'string' && data[k] !== '') { subject = `${k}=${data[k]}`; break; }
+    if (!subject) subject = `title=${norm(fd.title)}`;
+    return `${module}|${fd.code || norm(fd.title)}|${subject}`;
+  }
+
+  const isMarked = (f) => !!(f && f.data && f.data.marked_by_user === true);
+  // The severity an item is listed at: the list's rule (shownSeverity); a
+  // finding marked as yours comes back from the engine as info with its old
+  // severity kept, and is listed at that (it is still the same item).
+  function listSeverity(f, category) {
+    const withCat = f && !f.category && category ? { ...f, category } : f;
+    if (isMarked(f)) {
+      const o = f.data.original_severity;
+      return shownSeverity({ ...withCat, severity: o === 'critical' || o === 'warning' ? o : 'warning' });
+    }
+    return shownSeverity(withCat);
+  }
+  const RANK = { critical: 2, warning: 1, info: 0 };
+  const acts = (f) => !!(f && ((f.fixable && typeof f.fixable === 'object') || (f.markable && typeof f.markable === 'object')));
+
+  /*
+   * displayItems(doc, { mode }) -> {
+   *   critical: [item], warning: [item],   the to-do list (todo = their total)
+   *   info: [item],                        good-to-know notes (notes)
+   *   marked: [item],                      every finding in it marked as yours
+   *   held: [item],                        city only: held monitoring software
+   * }
+   * Each item is in exactly one list:
+   *   { key, severity, finding, findings, seen_in, marked, held }
+   *   finding: the lead finding (a copy, with .module); findings: all of the
+   *   item's findings, lead first; seen_in: their checks, lead's first.
+   * The rule: partly-checked notes are not items (they count as not fully
+   * checked). Findings with the same mergeKey are one item when both are
+   * to-dos (critical or warning, by listSeverity) or both are notes; a to-do
+   * never merges with a note. Monitoring findings never merge. The lead is
+   * the worst; at the same severity the one that can be fixed or marked;
+   * else the first. An item is marked only when all of its findings are. In
+   * 'standard' held findings stay in critical/warning (Plain shows them with
+   * the one line); in 'city' they go to `held` only. Doc order is kept: each
+   * view sorts its own lists.
+   */
+  function displayItems(doc, { mode = 'standard' } = {}) {
+    const city = mode === 'city';
+    const out = { critical: [], warning: [], info: [], marked: [], held: [] };
+    const all = [];
+    const byKey = new Map();
+    let n = 0;
+    const modules = doc && Array.isArray(doc.modules) ? doc.modules.filter(Boolean) : [];
+    for (const mod of modules) {
+      for (const raw of Array.isArray(mod.findings) ? mod.findings : []) {
+        if (!raw || typeof raw !== 'object' || isPartlyChecked(raw)) continue;
+        const f = { ...raw, module: mod.name };
+        const sev = listSeverity(f, mod.category);
+        const held = isHeld(raw, mod.name);
+        const cls = sev === 'info' ? 'note' : 'todo';
+        const key = MONITORING_MODULES.has(mod.name) ? `m|${(n += 1)}|${itemKey(f, mod.name)}` : `${cls}|${mergeKey(f, mod.name)}`;
+        const have = byKey.get(key);
+        if (!have) {
+          const item = { key, severity: sev, finding: f, findings: [f], seen_in: [mod.name], marked: isMarked(f), held };
+          byKey.set(key, item);
+          all.push(item);
+          continue;
+        }
+        const leads = RANK[sev] > RANK[have.severity] || (RANK[sev] === RANK[have.severity] && acts(f) && !acts(have.finding));
+        if (leads) {
+          have.findings.unshift(f);
+          have.finding = f;
+          have.severity = sev;
+          have.seen_in = [mod.name, ...have.seen_in.filter((m) => m !== mod.name)];
+        } else {
+          have.findings.push(f);
+          if (!have.seen_in.includes(mod.name)) have.seen_in.push(mod.name);
+        }
+        have.marked = have.marked && isMarked(f);
+      }
+    }
+    for (const item of all) {
+      if (item.held && city) out.held.push(item);
+      else if (item.marked) out.marked.push(item);
+      else out[item.severity].push(item);
+    }
+    return out;
+  }
+
+  // Plain's card shape for an item (app.js mergeAcrossChecks): the lead
+  // finding with `seen_in` and `also` (the other findings).
+  function asCard(item) {
+    return Object.assign({}, item.finding, { seen_in: item.seen_in.slice(), also: item.findings.slice(1) });
+  }
+
   function scanCounts(doc, { mode = 'standard', districtOf = (c) => c || 'other' } = {}) {
     const city = mode === 'city';
     const modules = doc && Array.isArray(doc.modules) ? doc.modules.filter(Boolean) : [];
@@ -214,27 +369,39 @@ const NotChecked = (function () {
     const cats = new Map(modules.map((m) => [m.name, m.category]));
     const out = {
       checks: modules.length, ran: 0,
-      couldntRun: p.couldntRun.length, unfinished: p.unfinished.length,
+      couldntRun: p.couldntRun.length, notReached: p.notReached.length, unfinished: p.unfinished.length,
       notStarted: p.notStarted.length, partly: p.partly.length,
-      didntFinish: p.couldntRun.length + p.unfinished.length, notFully: 0,
+      couldntCheck: p.couldntRun.length + p.notReached.length + p.notStarted.length,
+      notChecked: p.couldntRun.length + p.notReached.length + p.notStarted.length + p.unfinished.length,
+      didntFinish: p.couldntRun.length + p.notReached.length + p.unfinished.length, notFully: 0,
+      todo: 0, notes: 0, markedItems: 0, heldItems: 0,
       critical: 0, warning: 0, info: 0, items: 0, marked: 0, held: 0, byDistrict: {},
     };
-    out.ran = out.checks - out.couldntRun - out.notStarted;
+    out.ran = out.checks - out.couldntRun - out.notReached - out.notStarted;
     const district = (name) => {
       const id = districtOf(cats.get(name) || null);
-      if (!out.byDistrict[id]) out.byDistrict[id] = { couldntRun: 0, unfinished: 0, notStarted: 0, partly: 0, notFully: 0, critical: 0, warning: 0, items: 0 };
+      if (!out.byDistrict[id]) {
+        out.byDistrict[id] = { couldntRun: 0, notReached: 0, unfinished: 0, notStarted: 0, partly: 0, notFully: 0,
+          couldntCheck: 0, notChecked: 0, critical: 0, warning: 0, items: 0, todo: 0, notes: 0 };
+      }
       return out.byDistrict[id];
     };
     const notFully = new Set();
-    for (const [part, list] of [['couldntRun', p.couldntRun], ['unfinished', p.unfinished], ['notStarted', p.notStarted]]) {
-      for (const x of list) { district(x.name)[part] += 1; notFully.add(x.name); }
+    for (const [part, list] of [['couldntRun', p.couldntRun], ['notReached', p.notReached], ['unfinished', p.unfinished], ['notStarted', p.notStarted]]) {
+      for (const x of list) {
+        const d = district(x.name);
+        d[part] += 1;
+        d.notChecked += 1;
+        if (part !== 'unfinished') d.couldntCheck += 1;
+        notFully.add(x.name);
+      }
     }
     const partlyMods = new Set(p.partly.map((x) => x.name));
     for (const name of partlyMods) { district(name).partly += 1; notFully.add(name); }
     for (const name of notFully) district(name).notFully += 1;
     out.notFully = notFully.size;
 
-    const keys = new Map(); // itemKey -> district id
+    const keys = new Map(); // itemKey -> district id (the older `items`)
     for (const mod of modules) {
       for (const f of Array.isArray(mod.findings) ? mod.findings : []) {
         if (!f || typeof f !== 'object' || isPartlyChecked(f)) continue;
@@ -253,6 +420,15 @@ const NotChecked = (function () {
     }
     out.items = keys.size;
     for (const name of keys.values()) district(name).items += 1;
+
+    const list = displayItems(doc, { mode });
+    out.todo = list.critical.length + list.warning.length;
+    out.notes = list.info.length;
+    out.markedItems = list.marked.length;
+    out.heldItems = city ? list.held.length
+      : [...list.critical, ...list.warning, ...list.info, ...list.marked].filter((x) => x.held).length;
+    for (const item of [...list.critical, ...list.warning]) district(item.finding.module).todo += 1;
+    for (const item of list.info) district(item.finding.module).notes += 1;
     return out;
   }
 
@@ -260,6 +436,7 @@ const NotChecked = (function () {
     MONITORING_MODULES, NOT_DETECTIONS, COULDNT_LOOK, COULDNT_LOOK_REASON, NOT_STARTED_CODE,
     isPartlyChecked, isDetection, couldntLook, notStarted, notCheckedParts, notCheckedSummary, notCheckedLine,
     shownSeverity, familiarVerified, isPathSubject, isHeld, itemKey, scanCounts,
+    mergeKey, listSeverity, displayItems, asCard, namesLine, fmt,
   };
 })();
 

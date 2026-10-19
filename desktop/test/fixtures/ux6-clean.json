@@ -1,0 +1,144 @@
+{
+ "schema_version": 1,
+ "platform": "darwin",
+ "synthetic": true,
+ "modules": [
+  {
+   "name": "dns_config",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "DNS configuration",
+     "severity": "info",
+     "category": "integrity",
+     "code": null,
+     "description": "DNS configuration.",
+     "data": {}
+    }
+   ]
+  },
+  {
+   "name": "firewall_audit",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": []
+  },
+  {
+   "name": "login_items",
+   "category": "bloatware",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Login item: Example One",
+     "severity": "info",
+     "category": "bloatware",
+     "code": null,
+     "description": "Login item: Example One.",
+     "data": {
+      "item_name": "Example One"
+     }
+    },
+    {
+     "title": "Login item: Example Two",
+     "severity": "info",
+     "category": "bloatware",
+     "code": null,
+     "description": "Login item: Example Two.",
+     "data": {
+      "item_name": "Example Two"
+     }
+    },
+    {
+     "title": "Login item: Example Three",
+     "severity": "info",
+     "category": "bloatware",
+     "code": null,
+     "description": "Login item: Example Three.",
+     "data": {
+      "item_name": "Example Three"
+     }
+    }
+   ]
+  },
+  {
+   "name": "disk_space",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": []
+  },
+  {
+   "name": "hosts_file_check",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "A custom hosts entry found",
+     "severity": "info",
+     "category": "security",
+     "code": null,
+     "description": "A custom hosts entry found.",
+     "data": {
+      "check": "custom"
+     }
+    }
+   ]
+  },
+  {
+   "name": "update_checker",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": false,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Couldn't check for macOS updates",
+     "severity": "info",
+     "category": "integrity",
+     "code": null,
+     "description": "Couldn't check for macOS updates.",
+     "data": {}
+    }
+   ]
+  },
+  {
+   "name": "time_machine_check",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": false,
+   "unsupported_reason": "This check doesn't run on this computer.",
+   "complete": true,
+   "error_kind": null,
+   "findings": []
+  }
+ ]
+}

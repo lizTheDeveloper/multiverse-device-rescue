@@ -1,0 +1,234 @@
+{
+ "schema_version": 1,
+ "platform": "darwin",
+ "synthetic": true,
+ "modules": [
+  {
+   "name": "hosts_file_check",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "1 website name is being redirected",
+     "severity": "warning",
+     "category": "security",
+     "code": null,
+     "description": "1 website name is being redirected.",
+     "data": {
+      "check": "redirect"
+     }
+    },
+    {
+     "title": "A custom hosts entry found",
+     "severity": "info",
+     "category": "security",
+     "code": null,
+     "description": "A custom hosts entry found.",
+     "data": {
+      "check": "custom"
+     }
+    }
+   ]
+  },
+  {
+   "name": "dns_config",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "DNS configuration",
+     "severity": "info",
+     "category": "integrity",
+     "code": null,
+     "description": "DNS configuration.",
+     "data": {}
+    }
+   ]
+  },
+  {
+   "name": "firewall_audit",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac responds to network pings",
+     "severity": "warning",
+     "category": "security",
+     "code": null,
+     "description": "Your Mac responds to network pings.",
+     "data": {
+      "check": "stealth_mode"
+     },
+     "same_key": "firewall:answers_pings"
+    }
+   ]
+  },
+  {
+   "name": "login_items",
+   "category": "bloatware",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Login item: Example One",
+     "severity": "info",
+     "category": "bloatware",
+     "code": null,
+     "description": "Login item: Example One.",
+     "data": {
+      "item_name": "Example One"
+     }
+    },
+    {
+     "title": "Known extra software starts at login: Example Sync",
+     "severity": "warning",
+     "category": "bloatware",
+     "code": null,
+     "description": "Known extra software starts at login: Example Sync.",
+     "data": {
+      "item_name": "Example Sync"
+     }
+    },
+    {
+     "title": "Login item: Example Two",
+     "severity": "info",
+     "category": "bloatware",
+     "code": null,
+     "description": "Login item: Example Two.",
+     "data": {
+      "item_name": "Example Two"
+     }
+    },
+    {
+     "title": "Login item: Example Three",
+     "severity": "info",
+     "category": "bloatware",
+     "code": null,
+     "description": "Login item: Example Three.",
+     "data": {
+      "item_name": "Example Three"
+     }
+    }
+   ]
+  },
+  {
+   "name": "disk_space",
+   "category": "performance",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your disk is 92% full",
+     "severity": "warning",
+     "category": "performance",
+     "code": null,
+     "description": "Your disk is 92% full.",
+     "data": {
+      "used_pct": 0.92
+     }
+    }
+   ]
+  },
+  {
+   "name": "code_signature_audit",
+   "category": "security",
+   "status": "error",
+   "error": "code_signature_audit failed (timeout)",
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": "timeout",
+   "findings": []
+  },
+  {
+   "name": "launch_agent_audit",
+   "category": "security",
+   "status": "error",
+   "error": "launch_agent_audit failed (permission)",
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": "permission",
+   "findings": []
+  },
+  {
+   "name": "keylogger_indicators",
+   "category": "security",
+   "status": "error",
+   "error": "keylogger_indicators failed (timeout)",
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": "timeout",
+   "findings": []
+  },
+  {
+   "name": "session_revocation_scan",
+   "category": "security",
+   "status": "error",
+   "error": "session_revocation_scan failed (permission)",
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": true,
+   "error_kind": "permission",
+   "findings": []
+  },
+  {
+   "name": "stalkerware_scan",
+   "category": "security",
+   "status": "ok",
+   "error": null,
+   "supported": false,
+   "unsupported_reason": "This check doesn't run on this computer.",
+   "complete": true,
+   "error_kind": null,
+   "findings": []
+  },
+  {
+   "name": "time_machine_check",
+   "category": "integrity",
+   "status": "ok",
+   "error": null,
+   "supported": true,
+   "unsupported_reason": null,
+   "complete": false,
+   "error_kind": null,
+   "findings": [
+    {
+     "title": "Your Mac is not automatically backing up your files",
+     "severity": "warning",
+     "category": "integrity",
+     "code": null,
+     "description": "Your Mac is not automatically backing up your files.",
+     "data": {
+      "check": "not_configured"
+     },
+     "same_key": "backup:no_destination"
+    }
+   ]
+  }
+ ]
+}
