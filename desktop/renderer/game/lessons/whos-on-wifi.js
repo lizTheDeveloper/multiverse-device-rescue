@@ -34,7 +34,7 @@ export default {
             { text: 'Cryptocurrency mining: a program using its power to make money for someone else', correct: true,
               feedback: 'Right. Mining is what a hot, loud, slow machine usually turns out to be.' },
             { text: 'Too many devices on the Wi-Fi', correct: false,
-              feedback: 'Other devices on the Wi-Fi don’t heat this computer up. Mining running on the computer itself usually does.' },
+              feedback: 'Other devices on the Wi-Fi don’t heat this computer up. Mining running on the computer itself can.' },
             { text: 'An old router', correct: false,
               feedback: 'The router is a separate check. A hot, loud, slow computer usually turns out to be mining running on it.' },
           ],
@@ -45,8 +45,8 @@ export default {
           options: [
             { text: 'What starts it again: a startup item, scheduled task or other startup entry', correct: true,
               feedback: 'Right. Stopping a miner achieves nothing if a startup entry launches it again, and that is the normal arrangement.' },
-            { text: 'A faster computer', correct: false,
-              feedback: 'Speed isn’t the problem. Something is starting the miner again, so look for the startup entry that launches it.' },
+            { text: 'Which devices are on the Wi-Fi list', correct: false,
+              feedback: 'The device list is a separate check. The miner comes back because a startup entry launches it again, so look for that entry.' },
             { text: 'A new Wi-Fi passphrase', correct: false,
               feedback: 'The passphrase controls who joins the Wi-Fi. The miner comes back because a startup entry launches it again.' },
           ],
@@ -79,7 +79,7 @@ export default {
         },
         {
           key: 'more-devices-3',
-          prompt: 'Your phone doesn’t match the hardware address printed on its box. Why?',
+          prompt: 'The address your router lists for your phone doesn’t match the Wi-Fi address in the phone’s settings. Why?',
           options: [
             { text: 'Modern phones use a different, randomly generated address on each network', correct: true,
               feedback: 'Right. That is privacy behaviour, not an intruder.' },
@@ -133,13 +133,13 @@ export default {
     {
       key: 'cut-off-order',
       concept: 'cut-off-order',
-      teach: 'If the person you’re worried about is someone you know, like a partner, an ex or a housemate, stop before you cut them off. Cutting off someone’s access tells them they’ve been found out. If they have ever frightened you, it’s worth getting help to plan the safest order.',
+      teach: 'If the person you’re worried about is someone you know, like a partner, an ex or a housemate, stop before you cut them off. Cutting off someone’s access tells them they’ve been found out. If they have ever frightened you, it’s worth getting help to plan the safest order. If it’s someone you know, stop and read the safety note before you change it.',
       prompt: 'You think a housemate who has frightened you is on your Wi-Fi. What comes first?',
       options: [
         { text: 'Get help planning the safest order before you cut them off', correct: true,
-          feedback: 'Right. Cutting someone off tells them they’ve been found out, so the safe order matters more than speed.' },
+          feedback: 'Right. Cutting someone off tells them they’ve been found out, so the safe order matters more than speed. If it’s someone you know, stop and read the safety note before you change it.' },
         { text: 'Change the Wi-Fi passphrase straight away', correct: false,
-          feedback: 'That tells them they’ve been found out. When it’s someone who has frightened you, get help planning the safest order first.' },
+          feedback: 'That tells them they’ve been found out. When it’s someone who has frightened you, get help planning the safest order first. If it’s someone you know, stop and read the safety note before you change it.' },
       ],
       variants: [
         {
@@ -147,23 +147,23 @@ export default {
           prompt: 'The person you’re worried about is an ex. Why can changing the Wi-Fi passphrase straight away be risky?',
           options: [
             { text: 'Cutting off their access tells them they’ve been found out', correct: true,
-              feedback: 'Right. If they have ever frightened you, get help planning the safest order first.' },
+              feedback: 'Right. If they have ever frightened you, get help planning the safest order first. If it’s someone you know, stop and read the safety note before you change it.' },
             { text: 'It isn’t risky. Always do it first.', correct: false,
-              feedback: 'With someone you know, it can be. Cutting off their access tells them they’ve been found out, so plan the order first.' },
+              feedback: 'With someone you know, it can be. Cutting off their access tells them they’ve been found out, so plan the order first. If it’s someone you know, stop and read the safety note before you change it.' },
             { text: 'It deletes everyone’s files', correct: false,
-              feedback: 'It doesn’t delete anything. The risk is that cutting off their access tells them they’ve been found out.' },
+              feedback: 'It doesn’t delete anything. The risk is that cutting off their access tells them they’ve been found out. If it’s someone you know, stop and read the safety note before you change it.' },
           ],
         },
         {
           key: 'cut-off-order-3',
-          prompt: 'The person you’re worried about is a stranger or a neighbour, not someone you know. What order do the steps go in?',
+          prompt: 'A family member who has frightened you may have got into your Wi-Fi. Before you cut off their access, what comes first?',
           options: [
-            { text: 'Reclaim the network, then clean the devices, then rebuild the accounts', correct: true,
-              feedback: 'Right. Changing passwords first, on a computer that isn’t clean yet, can hand over the new ones.' },
-            { text: 'Change every password first, from this computer', correct: false,
-              feedback: 'Don’t change important passwords from a computer you haven’t cleaned yet. The order is the network, then the devices, then the accounts.' },
-            { text: 'Clean the devices, then reconnect them and carry on', correct: false,
-              feedback: 'Cleaning a laptop first and reconnecting it to a network someone else still controls means starting again. Reclaim the network first.' },
+            { text: 'Get help planning the safest order', correct: true,
+              feedback: 'Right. Cutting off someone’s access tells them they’ve been found out, so with someone you know the order is worth planning. If it’s someone you know, stop and read the safety note before you change it.' },
+            { text: 'Follow the technical order: the network, then the devices, then the accounts', correct: false,
+              feedback: 'With someone you know who has frightened you, the safest order is different from the technical one. Get help planning it first. If it’s someone you know, stop and read the safety note before you change it.' },
+            { text: 'Write down what made you suspicious, then change the passphrase', correct: false,
+              feedback: 'Writing it down is useful, but changing the passphrase tells them they’ve been found out. Get help planning the safest order first. If it’s someone you know, stop and read the safety note before you change it.' },
           ],
         },
       ],
@@ -171,7 +171,7 @@ export default {
     {
       key: 'remove-everyone',
       concept: 'wifi-and-mining',
-      teach: 'The Wi-Fi passphrase is what devices use to join. Update the router’s firmware (its built-in software) first, because if the router has a known weakness, a new passphrase doesn’t help. Turn off WPS too, or its PIN gets around the new passphrase.',
+      teach: 'The Wi-Fi passphrase is what devices use to join. Update the router’s firmware (its built-in software) first, because if the router has a known weakness, a new passphrase doesn’t help. Turn off WPS too, or its PIN gets around the new passphrase. If it’s someone you know, stop and read the safety note before you change it.',
       prompt: 'What actually removes everyone you haven’t allowed onto your Wi-Fi?',
       options: [
         { text: 'A new Wi-Fi passphrase', correct: true,
@@ -187,11 +187,11 @@ export default {
           prompt: 'Before you set a new Wi-Fi passphrase, what should you do first on the router?',
           options: [
             { text: 'Update its firmware', correct: true,
-              feedback: 'Right. If the router has a known weakness, new passwords don’t help.' },
+              feedback: 'Right. If the router has a known weakness, a new passphrase doesn’t help. If it’s someone you know, stop and read the safety note before you change it.' },
             { text: 'Turn WPS on', correct: false,
-              feedback: 'WPS should be off: its PIN gets around the passphrase. Update the router’s firmware first.' },
+              feedback: 'WPS should be off: its PIN gets around the passphrase. Update the router’s firmware first. If it’s someone you know, stop and read the safety note before you change it.' },
             { text: 'Restore a saved settings backup', correct: false,
-              feedback: 'A saved backup can bring back an intruder’s changes along with yours. Update the router’s firmware first.' },
+              feedback: 'A saved backup can bring back an intruder’s changes along with yours. Update the router’s firmware first. If it’s someone you know, stop and read the safety note before you change it.' },
           ],
         },
         {
@@ -199,11 +199,11 @@ export default {
           prompt: 'You’ve set a strong new Wi-Fi passphrase. Why turn off WPS as well?',
           options: [
             { text: 'Its PIN can be broken, and it gets around the new passphrase', correct: true,
-              feedback: 'Right. Leaving it on makes the strong passphrase you just set irrelevant.' },
+              feedback: 'Right. Leaving it on makes the strong passphrase you just set irrelevant. If it’s someone you know, stop and read the safety note before you change it.' },
             { text: 'WPS makes the Wi-Fi slower', correct: false,
-              feedback: 'The problem is its PIN, which can be broken and gets around the passphrase.' },
+              feedback: 'The problem is its PIN, which can be broken and gets around the passphrase. If it’s someone you know, stop and read the safety note before you change it.' },
             { text: 'WPS is the passphrase', correct: false,
-              feedback: 'WPS lets a device join with a PIN instead of the passphrase, and that PIN can be broken. Turn it off.' },
+              feedback: 'WPS lets a device join with a PIN instead of the passphrase, and that PIN can be broken. Turn it off. If it’s someone you know, stop and read the safety note before you change it.' },
           ],
         },
       ],
