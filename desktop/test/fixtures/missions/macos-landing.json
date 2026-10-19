@@ -139,7 +139,7 @@
   "security.chrome_extensions.extension_bloat": "loadout"
  },
  "clamav_scanner": {
-  "security.clamav_scanner.clamav_not_installed": "locks",
+  "security.clamav_scanner.clamav_not_installed": "notes",
   "security.clamav_scanner.clamav_outdated_definitions": "locks",
   "security.clamav_scanner.clamd_not_running": "locks",
   "security.clamav_scanner.freshclam_not_installed": "locks"
@@ -234,10 +234,10 @@
   "security.encryption_check.filevault_disabled": "locks"
  },
  "energy_saver_check": {
-  "(no code)": "junkyard"
+  "(no code)": "simple"
  },
  "energy_settings": {
-  "(no code)": "junkyard"
+  "(no code)": "simple"
  },
  "ethernet_diagnostics": {
   "network.ethernet_diagnostics.high_packet_errors": "simple",
@@ -476,7 +476,7 @@
   "(no code)": "simple"
  },
  "power_settings": {
-  "(no code)": "junkyard"
+  "(no code)": "simple"
  },
  "pram_nvram_check": {
   "(no code)": "simple"
