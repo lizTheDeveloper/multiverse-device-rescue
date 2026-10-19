@@ -5,6 +5,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { savedProfile } = require('./profile-read.js');
+const RealFix = require('../renderer/fix-flow.js');
+const RealMark = require('../renderer/mark-flow.js');
 
 const memStore = () => { const s = {}; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); }, removeItem: (k) => { delete s[k]; } }; };
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -19,7 +21,7 @@ function doc({ part = 'part' } = {}) {
     mod('battery_health', Array.from({ length: 5 }, (_, i) => f(`Worn part ${i}`, 'warning', { name: `${part}${i}` }))),
     mod('sudo_config_audit', [f('Odd sudo rule', 'critical', { path: '/opt/x/a.bin' }, { removal_alert: true,
       fixable: { will_change: 'Turns it off.', how_to_undo: ['Turn it on.'], action: 'disable_launch_agent', target: '/Library/LaunchDaemons/x.plist' } })]),
-    mod('ssh_key_audit', [f('An extra key', 'warning', { path: '/etc/ssh/k' }, { markable: { id: 'm1', kind: 'background_task' } })]),
+    mod('ssh_key_audit', [f('An extra key', 'warning', { path: '/etc/ssh/k' }, { markable: { id: 'abcdef012345', kind: 'background_task', label: 'com.example.task', program: '/opt/x/task', plist: '/Library/LaunchAgents/com.example.task.plist', will_change: 'Remembers it as yours.', how_to_undo: ['Stop treating it as mine.'] } })]),
   );
 }
 
@@ -38,10 +40,12 @@ function stub(recheckDocs = []) {
   const hooks = {};
   const win = {
     document: { getElementById: () => ({ attachShadow: () => shadow }) },
-    FixFlow: { attach: (_r, _a, h) => { hooks.fix = h; }, resultHtml: (r) => (r && r.quarantine_id ? `<button data-fix-undo data-quarantine-id="${r.quarantine_id}">Undo</button>` : ''),
+    FixFlow: { attach: (_r, _a, h) => { hooks.fix = h; }, resultHtml: () => '',
+      describeFixResult: RealFix.describeFixResult, undoListHtml: RealFix.undoListHtml, UNDO_HERE: RealFix.UNDO_HERE,
       fixControlsHtml: (finding, opts) => { calls.fixHtml.push(opts); return finding.fixable ? `<div class="fix-it" data-fix-module="${finding.module}"><button type="button" data-fix-open>Fix it for me</button><div class="fix-panel" data-fix-panel hidden><p class="fix-panel__line"><strong>To undo:</strong> Undo is on this item.</p><button data-fix-confirm>Yes, fix it</button><button data-fix-cancel>Cancel</button></div></div>` : ''; } },
+    // The real MarkFlow's markup: its open/confirm/cancel controls, and the unmark control for a marked finding.
     MarkFlow: { attach: (_r, _a, h) => { hooks.mark = h; },
-      markControlsHtml: (finding) => { calls.markHtml.push(finding.title); return finding.markable ? '<div class="mark-mine" data-mark-card><button type="button" data-mark-open>I set this up</button><div class="fix-panel" data-mark-panel hidden><button data-mark-confirm>Yes, it’s mine</button><button data-mark-cancel>Cancel</button></div></div>' : ''; } },
+      markControlsHtml: (finding, opts) => { calls.markHtml.push(finding.title); return RealMark.markControlsHtml(finding, opts); } },
     RescueHost: { showList() {}, docChanged: () => true, wantsSafety: () => false, startCheckup() {}, scanTips: async () => [], leaveGame() {}, mode: () => 'standard' },
     rescue: {
       recheckModule: async (name) => {
@@ -113,3 +117,195 @@ test('points ruling: a warned remote-access item pays and is remembered; a monit
   assert.strictEqual(Object.keys(savedProfile(s2).kept).length, 0);
 });
 
+
+// --- P2-4: one-step decisions ---
+
+test('Not mine (a fix) opens FixFlow at its confirm in the decision bar: one Yes left, its Cancel cancels, no extra NOT NOW', async () => {
+  const t = await setup(doc());
+  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:fix' });
+  const h = t.html();
+  const bar = h.split('class="mx-bar"')[1] || '';
+  assert.match(bar, /class="mx-act"[\s\S]*data-fix-confirm/, 'the confirm sits in the decision bar');
+  assert.match(h, /data-fix-open hidden>/, 'FixFlow’s own open button is hidden');
+  assert.ok(t.calls.clicked.includes('fix-open'), 'and pressed for the person, so its confirm is open');
+  assert.match(h, /data-fix-cancel data-act="mx-cancel">/, 'its Cancel also cancels the decision');
+  assert.doesNotMatch(h, /NOT NOW/, 'no second way out');
+  // P1-5: "To undo" points where Undo really is.
+  assert.doesNotMatch(h, /Undo is on this item\./);
+  assert.match(h, /Undo is right here in this mission, and on the district’s list under DONE THIS SESSION\./);
+  t.click({ 'data-act': 'mx-cancel' });
+  assert.match(t.html(), /data-act="mx-decide:fix"/, 'cancelled: the decisions are back');
+});
+
+test('Mine (a mark) opens MarkFlow at its confirm with focus on it', async () => {
+  const t = await setup(doc());
+  t.click({ 'data-go': 'mx:simple:gatehouse:2' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:later' });
+  t.click({ 'data-act': 'mx-decide:later' });
+  t.click({ 'data-act': 'mx-decide:mine' });
+  const h = t.html();
+  assert.match(h, /data-mark-open hidden>/);
+  assert.match(h, /data-mark-cancel data-act="mx-cancel">/);
+  assert.ok(t.calls.clicked.includes('mark-open'));
+  assert.ok(t.calls.focused.includes('mx-act'), 'focus moves to the confirm');
+  assert.doesNotMatch(h, /NOT NOW/);
+});
+
+// --- P1-5: Undo inside missions ---
+
+const QID = '20261019T120000Z-com.example.task.plist';
+const fixedResult = { action: 'disable_launch_agent', applied: true, verified: true, status: 'fixed', quarantine_id: QID, how_to_undo: ['Undo it.'] };
+
+test('a fix done from a mission shows DONE · UNDO in the mission and in the district; Undo puts the item back open', async () => {
+  const fixed = doc();
+  fixed.modules[1].findings = [];
+  const storage = memStore();
+  const t = await setup(doc(), { storage, recheckDocs: [fixed, doc()] });
+  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:fix' });
+  t.hooks.fix.onResult({ kind: 'fix', module: 'sudo_config_audit', result: fixedResult, described: { tone: 'success' } });
+  await tick(); await tick();
+  let h = t.html();
+  assert.match(h, /Odd sudo rule: Checked again: it’s gone\. \+75 points/, 'the notice names the item (P2-5)');
+  assert.match(h, /DONE THIS SESSION[\s\S]*badge safe">DONE[\s\S]*Odd sudo rule[\s\S]*Fixed, and checked again: it’s gone\.[\s\S]*data-act="mx-undo:u1"[\s\S]*data-fix-undo data-quarantine-id="20261019T120000Z-com\.example\.task\.plist">UNDO/);
+  t.click({ 'data-go': 'district:gatehouse' });
+  h = t.html();
+  assert.match(h, /DONE THIS SESSION[\s\S]*data-fix-undo/, 'and on the district’s list');
+  // Undo: FixFlow carries it out; the desk only notes which one (no redraw under it).
+  const before = t.html();
+  t.click({ 'data-act': 'mx-undo:u1' });
+  assert.strictEqual(t.html(), before);
+  t.hooks.fix.onResult({ kind: 'undo', module: 'sudo_config_audit', result: { action: 'undo_disable_launch_agent', applied: true, status: 'restored' }, described: { tone: 'info', restored: true } });
+  await tick(); await tick(); await tick();
+  h = t.html();
+  assert.doesNotMatch(h, /DONE THIS SESSION/);
+  assert.match(h, /Odd sudo rule: Put back\. It’s on the list again\./);
+  assert.deepStrictEqual(t.calls.recheck, ['sudo_config_audit', 'sudo_config_audit']);
+  t.click({ 'data-go': 'mx:simple:gatehouse:1' });
+  assert.match(t.html(), /ITEM \d OF 4/, 'its mission has it again');
+  for (let i = 0; i < 3; i += 1) if (!/Odd sudo rule/.test(t.html().split('mx-card')[1] || '')) t.click({ 'data-act': 'mx-skip' });
+  assert.match(t.html().split('mx-card')[1] || '', /Odd sudo rule/, 'open again, to decide');
+});
+
+test('a fix the engine can’t undo lists its undo steps instead of an Undo button', async () => {
+  const fixed = doc();
+  fixed.modules[1].findings = [];
+  const t = await setup(doc(), { recheckDocs: [fixed] });
+  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:fix' });
+  t.hooks.fix.onResult({ kind: 'fix', result: { applied: true, verified: true, status: 'fixed', how_to_undo: ['Turn it on again in Settings.'] }, described: { tone: 'success' } });
+  await tick(); await tick();
+  const h = t.html();
+  assert.match(h, /DONE THIS SESSION[\s\S]*To undo it[\s\S]*Turn it on again in Settings\./);
+  assert.doesNotMatch(h, /data-fix-undo/);
+});
+
+test('a mark done from a mission shows DONE · UNDO (MarkFlow’s own unmark); Undo puts it back', async () => {
+  const marked = doc();
+  marked.modules[2].findings[0] = { ...marked.modules[2].findings[0], markable: undefined, severity: 'info', data: { path: '/etc/ssh/k', marked_by_user: true, known_item_id: 'abcdef012345', original_severity: 'warning' } };
+  const t = await setup(doc(), { recheckDocs: [marked, doc()] });
+  t.click({ 'data-go': 'mx:simple:gatehouse:2' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:later' });
+  t.click({ 'data-act': 'mx-decide:later' });
+  t.click({ 'data-act': 'mx-decide:mine' });
+  t.hooks.mark.onResult({ kind: 'marked', result: { status: 'marked', ids: ['abcdef012345'] }, described: { done: true } });
+  await tick(); await tick();
+  let h = t.html();
+  assert.match(h, /DONE THIS SESSION[\s\S]*Marked as yours\. Nothing on your computer changed\.[\s\S]*data-unmark-id="abcdef012345"[\s\S]*>UNDO</);
+  t.click({ 'data-act': 'mx-undo:u1' });
+  t.hooks.mark.onResult({ kind: 'removed', result: { status: 'removed' }, described: { done: true } });
+  await tick(); await tick(); await tick();
+  h = t.html();
+  assert.doesNotMatch(h, /DONE THIS SESSION/);
+  assert.match(h, /An extra key: Put back\./);
+});
+
+// --- P1-1: progress that moves ---
+
+test('deciding moves the city: DECIDED beside TO DO, MISSIONS by rows, the district bar and badge; TO DO stays the scan’s', async () => {
+  const t = await setup(doc(), { games: keepGame });
+  const todo = (h) => Number((h.match(/(\d+) TO DO/) || [])[1]);
+  const deck0 = t.html();
+  const todo0 = todo(deck0);
+  assert.ok(todo0 > 0);
+  assert.doesNotMatch(deck0, /DECIDED/);
+  t.click({ 'data-go': 'mx:simple:gatehouse:2' });
+  t.click({ 'data-act': 'mx-know' });
+  for (let i = 0; i < 3; i += 1) t.click({ 'data-act': 'mx-decide:ok' });
+  let h = t.html();
+  assert.match(h, /<b>1\/2<\/b> <small>MISSIONS/, 'MISSIONS counts the district list’s rows');
+  assert.match(h, /<b>3<\/b> <small>DECIDED/);
+  t.click({ 'data-go': 'district:gatehouse' });
+  h = t.html();
+  assert.match(h, /1 of 2 missions done · 3 of 7 decided/);
+  assert.match(h, /aria-valuenow="3"/);
+  assert.match(h, /Decided isn’t fixed: only a re-check confirms a fix\./);
+  t.click({ 'data-go': 'map' });
+  h = t.html();
+  assert.strictEqual(todo(h), todo0, 'TO DO is still the scan’s count');
+  assert.match(h, /· 3 DECIDED/);
+  assert.match(h, /3\/7 DECIDED/, 'the district’s badge');
+  assert.match(h, /<b>3<\/b> <small>SORTED/, 'the SORTED bar moves');
+});
+
+test('YOUR FILE reads the missions: done, decided, kept, set aside, practice rounds', async () => {
+  const t = await setup(doc(), { games: keepGame });
+  t.click({ 'data-go': 'mx:simple:gatehouse:2' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:ok' });
+  t.click({ 'data-act': 'mx-decide:later' });
+  t.click({ 'data-act': 'mx-decide:ok' });
+  t.click({ 'data-go': 'profile' });
+  const h = t.html();
+  assert.match(h, /MISSIONS<\/h3><p>0 of 2 missions done · 2 of 7 things decided<\/p>/);
+  assert.match(h, /This session: 2 kept · 1 set aside for later/);
+  assert.match(h, /Practice rounds: 0 played, 1 skipped \(you said you know it\)/);
+  assert.match(h, /Decided isn’t fixed/);
+  assert.doesNotMatch(h, /0 set aside for later · 0 marked as yours/, 'no stale zeros from the old flow');
+});
+
+// --- P2-1: the deck shows missions ---
+
+test('the deck lists the next missions under INVESTIGATE NEXT; the signals fold behind SEE ALL SIGNALS', async () => {
+  const t = await setup(doc());
+  const h = t.html();
+  assert.match(h, /data-act="investigate-next"[\s\S]*NEXT MISSIONS[\s\S]*data-go="mx:simple:gatehouse:1"[\s\S]*Other[\s\S]*The Gatehouse · 4 items left · Odd sudo rule[\s\S]*data-go="mx:simple:gatehouse:2"/);
+  assert.match(h, /<details class="all-signals"><summary class="label">SEE ALL SIGNALS \(\d+\)<\/summary><ul class="queue">[\s\S]*data-go="signal:/);
+});
+
+// --- P2-8: one count source ---
+
+test('standard mode: TO DO is the list’s count, held monitoring items included (they are missions there); city mode leaves them out', async () => {
+  const REAL = require('./fixtures/monitoring-findings.json');
+  const d = () => { const x = doc(); x.modules.push(JSON.parse(JSON.stringify(REAL.stalkerware_scan))); return x; };
+  const NC = require('../renderer/not-checked.js');
+  const std = NC.scanCounts(d(), { mode: 'standard' }).todo;
+  const cty = NC.scanCounts(d(), { mode: 'city' }).todo;
+  assert.ok(std > cty, 'the fixture has a held item');
+  const a = await setup(d());
+  assert.match(a.html(), new RegExp(`INCOMING SIGNALS · ${std} TO DO`));
+  const b = await setup(d(), { mode: 'city' });
+  assert.match(b.html(), new RegExp(`INCOMING SIGNALS · ${cty} TO DO`));
+});
+
+test('a district’s NOTES badge is the list’s count; its notes are one GOOD TO KNOW row, not listed twice', async () => {
+  const notes = mod('login_items', Array.from({ length: 3 }, (_, i) => f(`Login item ${i}`, 'info', { name: `l${i}` })));
+  const x = doc();
+  x.modules.push(notes);
+  const NC = require('../renderer/not-checked.js');
+  const want = NC.scanCounts(x, { mode: 'city', districtOf: (await import('../renderer/game/findings-to-city.js')).districtIdFor }).byDistrict;
+  const t = await setup(x);
+  const id = Object.keys(want).find((k) => want[k].notes > 0);
+  assert.ok(id);
+  assert.match(t.html(), new RegExp(`${want[id].notes} NOTES`));
+  t.click({ 'data-go': `district:${id}` });
+  const h = t.html();
+  assert.match(h, /GOOD TO KNOW \(OPTIONAL\)/);
+  assert.doesNotMatch(h, /<summary class="label">NOTES \(/, 'the old NOTES list isn’t drawn as well');
+});

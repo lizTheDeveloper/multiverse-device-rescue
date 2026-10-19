@@ -31,6 +31,16 @@
   background: var(--charcoal); border-top: 1px solid var(--line); padding: 12px 0 14px; margin-top: 4px; }
 .mx-bar .mx-decisions { flex: 1 1 auto; }
 .mx-bar .mx-confirm { flex: 1 1 100%; }
+/* A fix or mark confirm opens here, where the decision was made (UX audit P2-4); a long one scrolls inside the bar. */
+.mx-bar .mx-act { flex: 1 1 100%; max-height: 60vh; overflow-y: auto; }
+.mx-act:focus, .mx-act [data-mark-panel]:focus, .mx-act [data-fix-panel]:focus { outline: 2px solid var(--cyan); outline-offset: 2px; }
+/* Done this session, with Undo (P1-5); and a district's progress (P1-1). */
+.mx-undo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 0; }
+.mx-undo-row .mission-text { flex: 1 1 240px; }
+.mx-undo-wrap .fix-it, .mx-undo-wrap .mark-mine { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mx-done-panel { border-color: var(--lime); }
+.mx-progress-line { margin: 0 0 10px; }
+.mx-progress-line .bar { margin: 4px 0; }
 .mx-bar .mx-feedback { flex: 1 1 100%; }
 .mx-decisions button { min-height: 44px; white-space: normal; }
 .mx-confirm, .mx-act { border: 1px solid var(--amber); padding: 14px; background: var(--panel); }

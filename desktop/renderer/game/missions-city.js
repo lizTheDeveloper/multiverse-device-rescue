@@ -3,13 +3,13 @@
 // act out through the paths the city already has (MarkFlow, FixFlow, the
 // re-check, open-setting). The controller owns the DOM, the profile and the
 // deck; it hands this desk what it needs as `deps`.
-import { groupMissions, buildTable, missionCounts } from '../missions/types.js';
+import { groupMissions, buildTable, missionCounts, missionRows } from '../missions/types.js';
 import { loadGames, gameFor, ownGames } from '../missions/games/index.js';
 import { assemble, resolveLink, unfinishedModules } from '../missions/research.js';
 import * as Run from '../missions/runner.js';
 import { renderMissionScreen, nextMissionLine } from './views/mission-run.js';
 import { renderMissionList } from './views/district.js';
-import { roundOf, markRound, recordRound, keepAnswer, recallAnswer, decisionHash, conceptState } from './profile/player-profile.js';
+import { roundOf, markRound, recordRound, keepAnswer, recallAnswer, forgetAnswer, decisionHash, conceptState } from './profile/player-profile.js';
 import { conceptById } from './profile/skills.js';
 import { award, confirmItem, missionKey } from './ledger.js';
 import { isMonitoringModule } from '../missions/contract.js';
@@ -39,8 +39,10 @@ const SETTING_SCHEME = /^(?:x-apple\.systempreferences:|ms-settings:)/;
  * }
  */
 export function createMissionDesk(deps) {
+  // `done`: fixes and marks made from a mission this session, each with its
+  // Undo (UX audit P1-5). `undoing`: the one whose Undo is running.
   const d = { reg: null, missions: [], run: null, runs: new Map(), answered: new Map(), odd: new Set(), notice: '', act: null,
-    busy: false, doc: null, unfinished: new Set(), paidSummary: new Set() };
+    busy: false, doc: null, unfinished: new Set(), paidSummary: new Set(), done: [], doneSeq: 0, undoing: null, laterKeys: new Set() };
   const mode = () => (deps.mode() === 'standard' ? 'standard' : 'city');
   const table = () => buildTable(ownGames(d.reg));
   const notesModule = () => (d.reg && d.reg.modules && d.reg.modules.notes) || null;
@@ -113,6 +115,178 @@ export function createMissionDesk(deps) {
       batchPoints: 0, cleared, bonus: 0 };
   }
 
+  // --- progress (UX audit P1-1, P2-8) ---
+  // What the person has decided, counted on TO DO's own unit: the list's items
+  // (an item's sourceKeys, as types.js missionCounts counts them), so DECIDED
+  // can sit beside TO DO and never pass it. Decided is not fixed: TO DO stays
+  // the scan's count, and only a re-check takes something off it.
+  // `district`: one district's, or every district's. Rows are the district
+  // list's (types.js missionRows), so "3 of 9 missions" counts what it shows.
+  function progress(district = null) {
+    const all = new Set(); const decided = new Set();
+    let notes = 0; let notesSorted = 0;
+    const here = d.missions.filter((m) => !district || m.district === district);
+    for (const m of here) {
+      const rec = recalledFor(m);
+      for (const i of m.items) {
+        const todo = m.notes ? i.asNote === true : !i.fromNote;
+        if (!todo) { notes += 1; if (rec[i.key]) notesSorted += 1; continue; }
+        for (const k of i.sourceKeys || [i.key]) { all.add(k); if (rec[i.key]) decided.add(k); }
+      }
+    }
+    const rows = missionRows(here.filter((m) => !m.notes));
+    const rowsDone = rows.filter((r) => r.missions.every((m) => statusOf(m).done)).length;
+    return { decided: decided.size, total: all.size, rows: rows.length, rowsDone, notes, notesSorted };
+  }
+
+  // A notice about one item names it, so it can't be read as being about the
+  // next one on screen (UX audit P2-5).
+  const nameOf = (item) => {
+    const t = visible((item && item.finding && item.finding.title) || '').trim();
+    return t.length > 70 ? `${t.slice(0, 69)}…` : t;
+  };
+  const about = (item, text) => (nameOf(item) ? `${nameOf(item)}: ${text}` : text);
+
+  // The deck's next missions (UX audit P2-1): the district list's rows not
+  // done yet, the one INVESTIGATE NEXT opens first, then by where their next
+  // part is in the mission order. Each with its district, size and first
+  // undecided item's name.
+  function nextRows(limit = 5) {
+    const at = new Map(d.missions.map((m, i) => [m.id, i]));
+    const rows = missionRows(d.missions.filter((m) => !m.notes)).map((r) => {
+      const open = r.missions.find((m) => !statusOf(m).done);
+      return open ? { r, open, at: at.get(open.id) } : null;
+    }).filter(Boolean).sort((a, b) => a.at - b.at);
+    return { rows: rows.slice(0, limit), more: Math.max(0, rows.length - limit) };
+  }
+  const titleOf = (t, md) => (t && typeof t === 'object' ? t[md === 'city' ? 'city' : 'standard'] : String(t == null ? '' : t));
+  function deckMissionsHtml(limit = 5) {
+    const { rows, more } = nextRows(limit);
+    if (!rows.length) return '';
+    const md = mode();
+    const SEV = { critical: '<span class="badge crit">CRITICAL</span>', warning: '<span class="badge warn">WARNING</span>' };
+    const li = ({ r, open }) => {
+      const rec = recalledFor(open);
+      const first = open.items.find((i) => !rec[i.key]) || open.items[0];
+      const left = r.missions.reduce((k, m) => k + m.items.length - statusOf(m).decided, 0);
+      const detail = [deps.districtName(r.district), `${left} ${left === 1 ? 'item' : 'items'} left`, nameOf(first)].filter(Boolean).join(' · ');
+      return `<li><button type="button" class="sig mx-deck-row sev-${esc(r.severity)}" data-go="mx:${esc(open.id)}"><span class="sig-badges">${SEV[r.severity] || ''}</span>
+        <span class="sig-title">${esc(titleOf(r.title, md))}</span><small>${esc(detail)}</small></button></li>`;
+    };
+    return `<div class="label mx-deck-label">${esc(md === 'city' ? 'NEXT MISSIONS' : 'NEXT MISSIONS')}</div><ul class="queue mx-deck-missions">${rows.map(li).join('')}</ul>${more
+      ? `<p class="intel faint">${esc(`And ${more} more mission${more === 1 ? '' : 's'} in the districts.`)}</p>` : ''}`;
+  }
+
+  // --- one-step decisions (UX audit P2-4) ---
+  // The decision already chose to fix or to mark, so its flow opens at its own
+  // confirm: the flow's open button is hidden and pressed for the person
+  // after each draw (afterRender), so FixFlow's or MarkFlow's own confirm is
+  // the one click left. Cancel there cancels the decision too.
+  function undoWhere() {
+    return mode() === 'city' ? 'Once it’s patched, Undo is right here, and on the district’s list under DONE THIS SWEEP.'
+      : 'Once it’s done, Undo is right here in this mission, and on the district’s list under DONE THIS SESSION.';
+  }
+  function oneStep(html, kind) {
+    let h = String(html || '');
+    if (kind === 'fix') {
+      h = h.replace(/(<button\b[^>]*\bdata-fix-open)>/, '$1 hidden>').replace(/(\bdata-fix-cancel)>/, '$1 data-act="mx-cancel">');
+      // FixFlow's "Undo is on this item." points at the outcome screen's Undo; in a mission it is the done list.
+      const here = deps.win.FixFlow && deps.win.FixFlow.UNDO_HERE;
+      if (here) h = h.split(esc(here)).join(esc(undoWhere()));
+    } else {
+      h = h.replace(/(<button\b[^>]*\bdata-mark-open)>/, '$1 hidden>').replace(/(\bdata-mark-cancel)>/g, '$1 data-act="mx-cancel">');
+    }
+    return h;
+  }
+  // After the screen is drawn: open the act's confirm and move focus to it.
+  function afterRender(root) {
+    if (!d.act || !d.act.open || !root || typeof root.querySelector !== 'function') return;
+    const fix = d.act.kind === 'fix';
+    const btn = root.querySelector(fix ? '.mx-act [data-fix-open]' : '.mx-act [data-mark-open]');
+    if (btn && typeof btn.click === 'function') btn.click();
+    // FixFlow moves focus to its confirm itself; MarkFlow doesn't.
+    if (fix) return;
+    const panel = root.querySelector('.mx-act [data-mark-panel]') || root.querySelector('.mx-act');
+    if (panel && typeof panel.focus === 'function') {
+      if (typeof panel.setAttribute === 'function') panel.setAttribute('tabindex', '-1');
+      panel.focus();
+    }
+  }
+
+  // --- done, with Undo (UX audit P1-5) ---
+  // A fix or a mark made from a mission is listed as done in its mission and
+  // on its district's list, with the existing Undo: FixFlow's (an engine fix
+  // with a quarantine id) or MarkFlow's "Stop treating this as mine". A fix the
+  // engine can't undo shows its own undo steps instead.
+  function addDone(kind, item, result) {
+    const W = deps.win;
+    const m = d.run ? mission(d.run.missionId) : null;
+    let undo = '';
+    if (kind === 'fix') {
+      const said = W.FixFlow && typeof W.FixFlow.describeFixResult === 'function' ? W.FixFlow.describeFixResult(result) : null;
+      const qid = said && said.undoId;
+      const steps = (result && Array.isArray(result.how_to_undo) && result.how_to_undo.length ? result.how_to_undo
+        : (item.finding.fixable && item.finding.fixable.how_to_undo) || []).filter((x) => typeof x === 'string');
+      if (qid) {
+        undo = `<div class="fix-it mx-undo" data-fix-module="${esc(item.finding.module)}"><button type="button" class="btn-s" data-fix-undo data-quarantine-id="${esc(qid)}">UNDO</button><div class="fix-status" data-fix-status role="status" aria-live="polite"></div></div>`;
+      } else if (steps.length && W.FixFlow && typeof W.FixFlow.undoListHtml === 'function') {
+        undo = `<details class="mx-undo-steps"><summary>${esc(mode() === 'city' ? 'How to undo it' : 'To undo it')}</summary>${W.FixFlow.undoListHtml(steps)}</details>`;
+      }
+    } else {
+      const id = item.finding.markable && typeof item.finding.markable.id === 'string' ? item.finding.markable.id : '';
+      const html = id && W.MarkFlow ? W.MarkFlow.markControlsHtml({ module: item.finding.module, data: { marked_by_user: true, known_item_id: id } }, { ...deps.watchedOpts(), theme: 'game' }) : '';
+      undo = String(html || '').replace(/(\bdata-unmark)>Stop treating this as mine</, '$1 aria-label="Undo: stop treating this as mine">UNDO<');
+    }
+    d.done = d.done.filter((x) => x.key !== item.key);
+    d.done.push({ id: `u${d.doneSeq += 1}`, key: item.key, kind, item, state: kind === 'fix' ? 'checking' : 'marked',
+      missionId: m ? m.id : (d.run && d.run.missionId) || '', district: m ? m.district : '', modules: item.seen_in && item.seen_in.length ? item.seen_in : [item.finding.module], undo });
+  }
+  const DONE_WORDS = {
+    gone: { badge: 'DONE', standard: 'Fixed, and checked again: it’s gone.', city: 'Patched, and the sweep doesn’t see it any more.' },
+    still: { badge: 'CHANGED', standard: 'The change was made, but the re-check still shows it.', city: 'Changed, but the sweep still shows it.' },
+    checking: { badge: 'CHANGED', standard: 'The change was made. It isn’t confirmed yet.', city: 'Changed. Not confirmed yet.' },
+    marked: { badge: 'DONE', standard: 'Marked as yours. Nothing on your computer changed.', city: 'Marked as yours. Nothing changed on the computer.' },
+  };
+  function doneHtml(list) {
+    if (!list.length) return '';
+    const md = mode();
+    const row = (e) => {
+      const w = DONE_WORDS[e.state] || DONE_WORDS.checking;
+      return `<li class="mx-row mx-done mx-undo-row"><span class="badge safe">${esc(w.badge)}</span>
+        <span class="mission-text">${esc(nameOf(e.item))}<small class="mission-detail">${esc(w[md])}</small></span>
+        ${e.undo ? `<span class="mx-undo-wrap" data-act="mx-undo:${esc(e.id)}">${e.undo}</span>` : ''}</li>`;
+    };
+    return `<div class="label mx-done-label">${esc(md === 'city' ? 'DONE THIS SWEEP' : 'DONE THIS SESSION')}</div><ul class="missions mx-list mx-done-list">${list.map(row).join('')}</ul>`;
+  }
+  // Undo went through: the item is open again (its answer forgotten, its
+  // mission no longer counts it), and its checks run again to show it.
+  // Points are never taken back (ledger.js).
+  async function afterUndo(e) {
+    d.undoing = null;
+    d.done = d.done.filter((x) => x.id !== e.id);
+    d.answered.delete(e.key);
+    deps.keepProfile(forgetAnswer(deps.getProfile(), e.key));
+    const drop = (run) => (run && run.results.some((r) => r.key === e.key) ? { ...run, results: run.results.filter((r) => r.key !== e.key) } : run);
+    for (const [id, run] of d.runs) d.runs.set(id, drop(run));
+    d.run = drop(d.run);
+    d.notice = about(e.item, mode() === 'city' ? 'Put back. Checking again…' : 'Put back the way it was. Checking again…');
+    d.listNotice = d.notice;
+    deps.render();
+    const ok = await recheckModules(e.modules);
+    // The current run picks the item up again (from the summary too).
+    if (d.run && d.run.phase === 'summary' && mission(d.run.missionId)) {
+      const m = mission(d.run.missionId);
+      d.run = { ...d.run, items: m.items };
+      if (m.items.some((i) => !d.run.results.some((r) => r.key === i.key))) d.run = Run.skip({ ...d.run, index: -1 });
+      keepRun();
+    }
+    d.notice = about(e.item, ok ? (mode() === 'city' ? 'Put back. It’s on the board again.' : 'Put back. It’s on the list again.')
+      : 'Put back, but the check couldn’t run to the end.');
+    // Said on the district's list too, where its Undo may have been.
+    d.listNotice = d.notice;
+    deps.render();
+  }
+
   // --- opening a mission ---
   function open(id) {
     const m = mission(id);
@@ -120,8 +294,12 @@ export function createMissionDesk(deps) {
     const game = gameOf(m.type);
     const p = deps.getProfile();
     const was = d.runs.get(id);
-    if (was && was.phase !== 'summary') d.run = was;
-    else {
+    if (was && was.phase !== 'summary') {
+      // A run kept from before a re-check or an Undo follows the mission as it is now.
+      d.run = { ...was, items: m.items, index: Math.min(was.index, Math.max(0, m.items.length - 1)) };
+      const cur = Run.currentItem(d.run);
+      if (d.run.phase === 'item' && !d.run.pending && (!cur || d.run.results.some((r) => r.key === cur.key))) d.run = Run.skip({ ...d.run, index: d.run.index - 1 });
+    } else {
       const concepts = (game.concepts || []).filter((c) => conceptById(c));
       const due = !!(game.practice && game.practice.script && game.practice.script.length)
         && Run.practiceDue(roundOf(p, m.type), concepts.map((c) => conceptState(p, deps.bank(), c)));
@@ -223,25 +401,24 @@ export function createMissionDesk(deps) {
       // is kept here instead (remembered while the evidence holds), so the
       // item is never a dead end. Nothing on the computer changes.
       if (!html) {
-        d.notice = mode() === 'city' ? 'Noted as yours here. The sweep will still show it.' : 'Noted as yours in this app. The checkup will still list it.';
+        d.notice = about(act.item, mode() === 'city' ? 'Noted as yours here. The sweep will still show it.' : 'Noted as yours in this app. The checkup will still list it.');
         d.run = Run.settle(d.run, 'done', act.item);
         return;
       }
-      d.act = { kind: 'mark', html, item: act.item };
+      d.act = { kind: 'mark', html: oneStep(html, 'mark'), item: act.item, open: /\bdata-mark-open\b/.test(html) };
       return;
     }
     if (act.kind === 'fix') {
       const html = w.FixFlow.fixControlsHtml({ ...act.item.finding }, { ...act.options, ...(act.options && act.options.watched ? { place: deps.place() } : {}) });
       if (!html) { d.notice = mode() === 'city' ? 'No patch the city can make for this one.' : 'There’s no fix the app can make for this one.'; d.run = Run.cancelPending(d.run); return; }
-      d.act = { kind: 'fix', html, item: act.item };
+      d.act = { kind: 'fix', html: oneStep(html, 'fix'), item: act.item, open: /\bdata-fix-open\b/.test(html) };
       return;
     }
     if (act.kind === 'recheck') await recheckItem(act.item, act.modules, 'recheck');
   }
 
-  // Re-check an item's checks. 'gone' only when every check ran to the end.
-  async function recheckItem(item, modules, why) {
-    if (d.busy || deps.sweeping()) { d.notice = 'A sweep is running. Try again when it’s done.'; d.run = Run.cancelPending(d.run); return; }
+  // Run checks again; true when every one ran to the end.
+  async function recheckModules(modules) {
     d.busy = true; deps.render();
     let ok = true;
     for (const name of modules) {
@@ -253,23 +430,31 @@ export function createMissionDesk(deps) {
       if (r && r.ok && deps.docChanged(r.doc)) deps.rebuild(r.doc);
     }
     d.busy = false;
+    return ok;
+  }
+  // Re-check an item's checks. 'gone' only when every check ran to the end.
+  async function recheckItem(item, modules, why) {
+    if (d.busy || deps.sweeping()) { d.notice = 'A sweep is running. Try again when it’s done.'; d.run = Run.cancelPending(d.run); return; }
+    const ok = await recheckModules(modules);
     const still = d.missions.some((m) => m.items.some((i) => i.key === item.key || (i.sourceKeys || []).includes(item.key)));
     const before = d.run ? d.run.results.slice() : [];
+    const entry = why === 'fix' ? d.done.find((x) => x.key === item.key && x.kind === 'fix') : null;
+    if (entry) entry.state = !ok ? 'checking' : still ? 'still' : 'gone';
     if (!ok) {
-      d.notice = mode() === 'city' ? 'That check couldn’t run to the end, so this wasn’t confirmed.' : 'That check couldn’t run to the end, so this isn’t confirmed.';
+      d.notice = about(item, mode() === 'city' ? 'That check couldn’t run to the end, so this wasn’t confirmed.' : 'That check couldn’t run to the end, so this isn’t confirmed.');
       if (why === 'mark') d.run = Run.settle(d.run, 'done', item); else d.run = Run.settle(d.run, 'cancelled', item);
     } else if (!still) {
       if (why !== 'mark') {
         const watched = isMonitoringItem(item);
         const pts = watched ? 0 : deps.commitAward(confirmItem(deps.deck(), missionKey(item.finding.module, item.key), deps.now()));
         if (!watched) deps.logEntry('CONFIRMED', item.finding.title || '');
-        d.notice = mode() === 'city' ? `Confirmed: the sweep doesn’t see it any more.${pts ? ` +${pts}` : ''}` : `Checked again: it’s gone.${pts ? ` +${pts} points` : ''}`;
+        d.notice = about(item, mode() === 'city' ? `Confirmed: the sweep doesn’t see it any more.${pts ? ` +${pts}` : ''}` : `Checked again: it’s gone.${pts ? ` +${pts} points` : ''}`);
       } else d.notice = '';
       d.run = Run.settle(d.run, 'done', item);
     } else if (why === 'mark') {
       d.run = Run.settle(d.run, 'done', item);
     } else {
-      d.notice = mode() === 'city' ? 'Still showing after the check. It stays on the board.' : 'Checked again: it’s still there, so it stays open.';
+      d.notice = about(item, mode() === 'city' ? 'Still showing after the check. It stays on the board.' : 'Checked again: it’s still there, so it stays open.');
       d.run = Run.settle(d.run, 'cancelled', item);
     }
     afterResults(before);
@@ -278,11 +463,19 @@ export function createMissionDesk(deps) {
 
   // FixFlow / MarkFlow results while a mission's act is open. True when handled here.
   function onFlowResult(kind, payload) {
-    if (!d.run || !d.act || !d.run.pending) return false;
     const { described, result } = payload || {};
+    // An Undo from the done list (its own FixFlow or MarkFlow card).
+    if (d.undoing && d.undoing.kind === kind) {
+      const e = d.undoing;
+      const back = kind === 'fix' ? !!(described && described.restored) : !!(described && described.done && result && result.status === 'removed');
+      if (back) afterUndo(e); else d.undoing = null;
+      return true;
+    }
+    if (!d.run || !d.act || !d.run.pending) return false;
     if (kind === 'fix' && d.act.kind === 'fix') {
       if (described && (described.tone === 'success' || described.tone === 'info')) {
         const item = d.act.item; d.act = null;
+        if (described.tone === 'success') addDone('fix', item, result);
         recheckItem(item, item.seen_in && item.seen_in.length ? item.seen_in : [item.finding.module], 'fix');
       }
       return true;
@@ -290,6 +483,7 @@ export function createMissionDesk(deps) {
     if (kind === 'mark' && d.act.kind === 'mark') {
       if (described && described.done) {
         const item = d.act.item; d.act = null;
+        addDone('mark', item, result);
         const also = deps.modulesCoveredBy(result && result.ids);
         recheckItem(item, [...new Set([...(item.seen_in || [item.finding.module]), ...also])], 'mark');
       }
@@ -333,20 +527,44 @@ export function createMissionDesk(deps) {
     if (item && !practice && typeof deps.safetyNote === 'function') {
       for (const f of [item.finding, ...(item.findings || [])]) { try { safetyHtml = deps.safetyNote(f) || ''; } catch (_) { safetyHtml = ''; } if (safetyHtml) break; }
     }
-    return renderMissionScreen({ mission: m, run, view: pv, mode: mode(), districtName: deps.districtName(m.district), cardHtml: card, safetyHtml,
+    // This mission's fixes and marks, each with its Undo.
+    const doneHere = doneHtml(d.done.filter((e) => e.missionId === m.id || run.results.some((r) => r.key === e.key)));
+    return renderMissionScreen({ mission: m, run, view: pv, mode: mode(), districtName: deps.districtName(m.district), cardHtml: card, safetyHtml, doneHtml: doneHere,
       evidenceHtml: evidence, research, actHtml: d.act ? d.act.html : '', notice: d.notice, summaryHtml: summary, points,
       nextMission: next, place: deps.place(), busy: d.busy, canPractice: !!(game.practice && game.practice.script && game.practice.script.length) });
   }
 
+  // A district's list: how far along it is, its rows, then what was done here with Undo.
   function districtMissionsHtml(districtId) {
     const list = d.missions.filter((m) => m.district === districtId);
-    if (!list.length) return '';
-    return renderMissionList(list, { mode: mode(), status: statusOf });
+    const done = doneHtml(d.done.filter((e) => e.district === districtId));
+    const said = d.listNotice ? `<p class="intel mx-notice" role="status">${esc(d.listNotice)}</p>` : '';
+    if (!list.length) return said + done;
+    return `${said}${progressLine(progress(districtId))}${renderMissionList(list, { mode: mode(), status: statusOf })}${done}`;
+  }
+  // "2 of 5 missions done · 7 of 18 decided": a bar that moves as items are
+  // decided, with the honest line that decided isn't fixed.
+  function progressLine(p) {
+    if (!p.total && !p.rows) return '';
+    const pct = p.total ? Math.round((p.decided / p.total) * 100) : 0;
+    const city = mode() === 'city';
+    const parts = [p.rows ? `${p.rowsDone} of ${p.rows} mission${p.rows === 1 ? '' : 's'} done` : '', p.total ? `${p.decided} of ${p.total} decided` : ''].filter(Boolean);
+    return `<div class="mx-progress-line"><p class="intel"><b>${esc(parts.join(' · '))}</b></p>
+      <div class="bar" role="progressbar" aria-label="${esc(city ? 'Moves made' : 'Decided')}" aria-valuemin="0" aria-valuemax="${esc(p.total)}" aria-valuenow="${esc(p.decided)}"><i style="--pct: ${pct}%"></i></div>
+      ${p.decided ? `<p class="intel faint">${esc(city ? 'A move made isn’t a patch: only a sweep that checks again confirms one.' : 'Decided isn’t fixed: only a re-check confirms a fix.')}</p>` : ''}</div>`;
   }
 
   // --- clicks; true when handled ---
   function click(act, go) {
+    if (!(act && act.startsWith('mx-undo:'))) d.listNotice = '';
     if (go && go.startsWith('mx:')) { if (open(go.slice(3))) { deps.setScreen('mx'); deps.render(); deps.focusHeading(); } return true; }
+    // An Undo on the done list: FixFlow or MarkFlow carries it out on this
+    // click; the desk only notes which one, and doesn't redraw under it.
+    if (act && act.startsWith('mx-undo:')) {
+      const e = d.done.find((x) => x.id === act.slice(8));
+      if (e && !d.busy && !deps.sweeping()) d.undoing = e;
+      return true;
+    }
     if (!act || !act.startsWith('mx-') || !d.run) return false;
     const game = gameOf(d.run.type);
     const m = mission(d.run.missionId);
@@ -424,8 +642,25 @@ export function createMissionDesk(deps) {
     counts: () => missionCounts(d.missions),
     nextMission: () => unfinishedMissions()[0] || null,
     nextLine: () => nextMissionLine(unfinishedMissions()[0] || null, mode()),
-    hud: () => { const todo = d.missions.filter((m) => !m.notes); return { done: todo.filter((m) => statusOf(m).done).length, total: todo.length }; },
-    open, click, screenHtml, districtMissionsHtml, onFlowResult,
+    // The HUD's MISSIONS counts the district list's rows (types.js missionRows), not parts.
+    hud: () => { const p = progress(); return { done: p.rowsDone, total: p.rows, decided: p.decided }; },
+    progress, progressLine: (district = null) => progressLine(progress(district)),
+    // YOUR FILE's missions panel: this session's answers by kind, and what was done.
+    tally: () => {
+      const kinds = { later: 0, keep: 0, mark: 0, fix: 0, steps: 0 };
+      const runs = new Map(d.runs);
+      if (d.run) runs.set(d.run.missionId, d.run);
+      for (const run of runs.values()) {
+        for (const r of run.results) {
+          const k = r.effect && r.effect.kind;
+          if (k === 'later') kinds.later += 1; else if (k === 'mark') kinds.mark += 1; else if (k === 'fix') kinds.fix += 1;
+          else if (k === 'keep' || k === 'note' || k === 'odd') kinds.keep += 1; else if (r.outcome === 'done') kinds.steps += 1;
+        }
+      }
+      return { ...progress(), ...kinds, fixedGone: d.done.filter((e) => e.kind === 'fix' && e.state === 'gone').length };
+    },
+    deckMissionsHtml,
+    open, click, screenHtml, districtMissionsHtml, onFlowResult, afterRender,
     active: () => !!d.run,
     rounds: () => ownGames(d.reg).filter((g) => g.practice && g.practice.script).map((g) => ({ type: g.type, concepts: g.concepts || [], steps: g.practice.script.length })),
     ownTypes: () => (d.reg ? [...d.reg.own] : []),

@@ -100,11 +100,15 @@ const decisionButtons = (decisions, mode, act, disabled = false) => `<div class=
 
 /*
  * renderMissionScreen({ mission, run, view, mode, districtName, cardHtml, safetyHtml, evidenceHtml, research, actHtml,
- *   notice, summaryHtml, points, nextMission, place, busy, canPractice })
+ *   notice, summaryHtml, points, nextMission, place, busy, canPractice, doneHtml })
+ * `doneHtml`: this mission's fixes and marks, each with its Undo (missions-city.js).
+ * `actHtml`: a fix or mark flow at its confirm; it sits in the decision bar,
+ * where the decision was made. Its own Cancel (data-act="mx-cancel") is the
+ * way out; NOT NOW is added only for a flow that has none.
  */
 export function renderMissionScreen(o) {
   const { mission: m, run, view = {}, mode = 'standard', districtName = '', cardHtml = '', evidenceHtml = '', research = {}, safetyHtml = '',
-    actHtml = '', notice = '', summaryHtml = '', points = 0, nextMission = null, place = '', busy = false, canPractice = true } = o;
+    actHtml = '', notice = '', summaryHtml = '', points = 0, nextMission = null, place = '', busy = false, canPractice = true, doneHtml = '' } = o;
   const title = words(m.title, mode);
   const part = partLabel(m);
   const head = `
@@ -154,7 +158,7 @@ export function renderMissionScreen(o) {
   }
   if (run.phase === 'summary') {
     const next = nextMission ? `<button type="button" class="btn-p" data-act="mx-next">NEXT MISSION ▶</button>` : '';
-    return `<section class="mx-screen mx-summary">${head}${said}
+    return `<section class="mx-screen mx-summary">${head}${said}${doneHtml ? `<div class="panel mx-done-panel">${doneHtml}</div>` : ''}
       <div class="panel"><div class="label">${esc(mode === 'city' ? 'MISSION DEBRIEF' : 'WHAT YOU DECIDED')}</div>${summaryHtml}
         ${points ? `<p class="intel mx-points">+${esc(points)} points</p>` : ''}
         <p class="intel">${esc(mode === 'city' ? 'A finished mission is the moves you made, not a promise the district is safe.' : 'This is what you decided, not a promise that everything is fine.')}</p></div>
@@ -177,17 +181,16 @@ export function renderMissionScreen(o) {
   const deciding = !(confirming || actHtml || busy || view.showing);
   const bar = `${confirm}${view.showing && !busy ? `<div class="row"><button type="button" class="btn-p" data-act="mx-continue">${esc(view.index + 1 < view.total ? 'NEXT ▶' : 'FINISH ▶')}</button></div>` : ''}${deciding
     ? `${decisionButtons(view.decisions || [], mode, 'mx-decide')}<button type="button" class="btn-t mx-skip" data-act="mx-skip">SKIP FOR NOW</button>` : ''}`;
-  const act = actHtml ? `<div class="mx-act">${actHtml}<button type="button" class="btn-t" data-act="mx-cancel">NOT NOW</button></div>` : '';
+  const act = actHtml ? `<div class="mx-act" role="group" aria-label="${esc(mode === 'city' ? 'Confirm the move' : 'Confirm')}">${actHtml}${/data-act="mx-cancel"/.test(actHtml) ? '' : '<button type="button" class="btn-t" data-act="mx-cancel">NOT NOW</button>'}</div>` : '';
   return `<section class="mx-screen">${head}
     <div class="row mx-progress"><span class="mx-where"><span class="label">${esc(mode === 'city' ? 'TARGET' : 'ITEM')} ${esc(view.index + 1)} OF ${esc(view.total)}</span>${sev}</span>${practiceBtn}</div>
-    ${said}${checking}
+    ${said}${checking}${doneHtml ? `<div class="panel mx-done-panel">${doneHtml}</div>` : ''}
     ${warningHtml(view.warning, mode, place, safetyHtml)}
     <div class="mx-card">${cardHtml}</div>
     ${unfinished}${guideHtml(view.guide, mode)}
     ${view.closer || research.open ? evidenceHtml : `<details class="mx-evidence"><summary class="label">${esc(mode === 'city' ? 'WHAT THE SWEEP SAW' : 'WHAT THE CHECK SAW')}</summary>${evidenceHtml}</details>`}
     ${linksHtml(research.links, mode)}
-    ${act}
-    ${bar ? `<div class="mx-bar">${bar}</div>` : ''}
+    ${bar || act ? `<div class="mx-bar">${act}${bar}</div>` : ''}
   </section>`;
 }
 

@@ -634,6 +634,21 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       evidenceHtml: sig.kind === 'real' && s.signal.tagged === 'closer' ? evidenceOf(sig.finding || {}, sig.module, notInClues(sig)).html : '' });
   }
 
+  // TO DO's count (UX audit P2-8): the list's, in the mode the missions are
+  // in. City mode leaves held monitoring findings out of every number
+  // (s.counts). Standard mode lists them, and they are missions there too, so
+  // its TO DO is the standard list's count and LIST and TO DO agree.
+  let todoMemo = { doc: null, counts: null };
+  function todoCounts() {
+    if (coverMode() || !s.doc || !globalThis.NotChecked) return s.counts;
+    if (todoMemo.doc !== s.doc) {
+      let c = null;
+      try { c = globalThis.NotChecked.scanCounts(s.doc, { mode: 'standard' }); } catch (_) { c = null; }
+      todoMemo = { doc: s.doc, counts: c };
+    }
+    return todoMemo.counts || s.counts;
+  }
+
   function deckHtml() {
     const { sigs, q, items, drills } = deckQueue();
     const integ = cityIntegrity(s.city, sigs, s.heldCity);
@@ -651,15 +666,18 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const heldIn = heldDistrictIds(s.heldCity);
     // City mode has no note above the map: a held district points to the generated one.
     const heldAt = inCity() ? side().name : null;
+    // Each district's badge says how much of it is decided (missions-city.js progress).
+    const cityView = { ...s.city, districts: s.city.districts.map((d) => ({ ...d, decided: desk.progress(d.id) })) };
     const cityHtml = sideTile() + held + (s.rc || s.accountsError
-      ? renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
+      ? renderOneCityMap({ city: cityView, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
         accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
         accountsError: s.accountsError, goFor, heat, selected: s.filter, held: heldIn, heldAt, showScout: false })
-      : renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter, held: heldIn, heldAt, showScout: false }));
+      : renderMap({ city: cityView, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter, held: heldIn, heldAt, showScout: false }));
     // Scout's read sits under the queue's header, where the person starts.
     const scoutHtml = `<div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(mapLine(s.city, s.cameBack, heldIn, heldAt))}</p></div>`;
     const fd = s.filter ? district(s.filter) : null;
     const moments = s.moments;
+    const mp = desk.progress();
     s.moments = []; // a moment shows once
     return renderDeck({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', rank: rankOf(deck),
       lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
@@ -667,11 +685,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       queueOpen: s.queueOpen, sev: s.sev, sevCounts: severityCounts(q.urgent), drills, scoutHtml,
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
-        history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
+        // SORTED: the signals tagged on the deck and the items decided in missions.
+        history, bars: { sorted: sortedCount(sigs) + mp.decided, confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null, learned: learnedCount(),
       scanRunning: sweeping(), districtName: nameOf, notice: heldNotice() + s.linkNotice,
       // With something held, an empty queue points to it instead of saying "clear".
-      notChecked: notCheckedLine(s.counts), todo: todoFrom(s.counts, sigs), notCheckedChip: notCheckedChip(s.counts),
+      notChecked: notCheckedLine(s.counts), todo: todoFrom(todoCounts(), sigs), notCheckedChip: notCheckedChip(s.counts),
       // Missions now merge exactly as the list counts items (NotChecked.itemKey), so no "repeats" note.
       repeats: 0,
       sweepNow: s.counts, stopped: s.stopped,
@@ -680,6 +699,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // (assumed `notes`); until then the rows' own count.
       lowCount: s.counts && Number.isInteger(s.counts.notes) ? s.counts.notes : null,
       nextLine: desk.nextLine(), missionsLeft: !!desk.nextMission(),
+      // The next missions, the signals behind SEE ALL SIGNALS (UX audit P2-1),
+      // and how much is decided beside TO DO (P1-1).
+      missionsHtml: desk.deckMissionsHtml(), signalsOpen: !!s.signalsOpen, decided: mp.decided, progressHtml: desk.progressLine(),
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
@@ -934,11 +956,23 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // The headline count, the rank chip's and the published one: one rule (publish.js).
   const learnedCount = () => lessonsLearned(profileSummary());
   const sheetOpen = () => !!(s.profileView && s.profileView.publish);
+  // YOUR FILE's missions panel (UX audit P1-1): the desk's progress and this
+  // session's answers, CONFIRMED from the deck, what the scan says is marked
+  // as yours, and the practice rounds the profile recorded. Counts only.
+  function missionsFile() {
+    if (!s.city) return null;
+    const t = desk.tally();
+    const types = desk.rounds().map((r) => r.type);
+    const rounds = s.profile.rounds || {};
+    return { ...t, confirmed: counts().confirmed, markedHere: (s.counts && s.counts.markedItems) || 0,
+      rounds: { of: types.length, played: types.filter((x) => rounds[x] && rounds[x].how === 'played').length,
+        skipped: types.filter((x) => rounds[x] && rounds[x].how === 'skipped').length } };
+  }
   function profileHtml() {
     if (sheetOpen() && !canPublish()) s.profileView = { ...s.profileView, publish: null };
     const view = s.profileView || {};
     const sum = profileSummary();
-    const page = pub.renderProfile({ summary: sum, theme: 'game', publish: canPublish(), confirming: !!view.confirming });
+    const page = pub.renderProfile({ summary: sum, theme: 'game', publish: canPublish(), confirming: !!view.confirming, missions: missionsFile() });
     if (!view.publish) return page;
     const sheet = pub.renderPublishSheet({ summary: sum, ticked: view.publish.ticked,
       payload: buildPreview(sum, view.publish) });
@@ -1250,11 +1284,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const knownWasOpen = s.screen === 'map' && drawnScreen === 'map' && !!(frame.querySelector('details.known') || {}).open;
       // The held note's details (standard mode, or a host that can't say), the same way.
       if (s.screen === 'map' && drawnScreen === 'map') s.heldOpen = !!(frame.querySelector('.panel.held details') || {}).open;
+      // SEE ALL SIGNALS (the deck's folded signal list), the same way.
+      if (s.screen === 'map' && drawnScreen === 'map') s.signalsOpen = !!(frame.querySelector('details.all-signals') || {}).open;
       const body = screenHtml();
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), rank: rankOf(s.progress.deck),
-          todo: s.city ? todoFrom(s.counts, signalsNow()) : null, notChecked: s.counts, missions: desk.hud() }) + s.linkNotice;
+          todo: s.city ? todoFrom(todoCounts(), signalsNow()) : null, notChecked: s.counts, missions: desk.hud() }) + s.linkNotice;
       frame.innerHTML = saveNoticeHtml() + hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
@@ -1269,6 +1305,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (known) known.open = true;
       const heldDetails = s.heldOpen && s.screen === 'map' ? frame.querySelector('.panel.held details') : null;
       if (heldDetails) heldDetails.open = true;
+      // A mission's fix or mark opens at its own confirm, with focus on it.
+      if (s.screen === 'mx') desk.afterRender(frame);
       // (screenHtml can move on from a lesson that's gone: then nothing to keep.)
       if (keep && s.screen === drawnScreen) focusEl(findByAttr(frame, keep.k, keep.v));
       drawnScreen = s.screen;
@@ -1747,14 +1785,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const refusedMidScan = (result) => !!(result && result.error === 'scan_running');
   win.FixFlow.attach(frame, win.rescue, { onResult: ({ kind, module, result, described }) => {
     if (refusedMidScan(result)) return;
-    if (s.screen === 'mx' && desk.onFlowResult('fix', { result, described })) return;
+    // A mission's fix, or an Undo on a mission's done list (mission or district screen).
+    if ((s.screen === 'mx' || s.screen === 'district') && desk.onFlowResult('fix', { result, described })) return;
     if (kind === 'fix') s.lastFix = { missionId: s.missionId, module, result };
     if (kind === 'undo' && described && described.restored) s.lastFix = null;
     if (described && (described.tone === 'success' || described.tone === 'info' || described.restored)) recheck(s.missionId, kind === 'undo' ? 'undo' : 'fix');
   } });
   win.MarkFlow.attach(frame, win.rescue, { onResult: ({ kind, result, described }) => {
     if (refusedMidScan(result)) return;
-    if (s.screen === 'mx' && desk.onFlowResult('mark', { result, described })) return;
+    if ((s.screen === 'mx' || s.screen === 'district') && desk.onFlowResult('mark', { result, described })) return;
     if (described && described.done) recheck(s.missionId, kind === 'removed' ? 'unmark' : 'mark', modulesCoveredBy(result && result.ids));
   } });
 
