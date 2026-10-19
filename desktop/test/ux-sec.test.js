@@ -222,3 +222,14 @@ test('I5: a district with a check that couldn’t run, or one waiting, is never 
   const deck = recordSweep({}, { checked: 2, secured: 1 }, '2026-10-18').deck;
   assert.strictEqual(recordSweep(deck, sweepCounts(doc, city, integ), '2026-10-19').clean, true);
 });
+
+// ---- M1: check names are rewritten before the paths are filled ---------------
+
+test('M1: a filled path that holds a check id stays the path', async () => {
+  const { stepsHtml } = await game('views/steps.js');
+  const steps = [{ number: 1, title: 'Open what login_items found', body: 'Run `plutil -p <plist>` in Terminal.' }];
+  const html = stepsHtml(steps, { data: { plist: '/Users/ann/Library/LaunchAgents/login_items.plist' }, modules: ['login_items'], platform: 'darwin' });
+  assert.match(html, /plutil -p &#39;\/Users\/ann\/Library\/LaunchAgents\/login_items\.plist&#39;/, html);
+  assert.doesNotMatch(html, /check\.plist|checkup\.plist/);
+  assert.doesNotMatch(html.split('step-body')[0], /login_items/, 'the step’s own words still get the check’s name');
+});

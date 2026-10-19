@@ -101,7 +101,9 @@ export function splitBody(body) {
 // `modules`: the scan's check ids (made into words).
 export function stepsHtml(steps, { data = null, modules = [], platform = null, names = {} } = {}) {
   return (steps || []).map((s) => {
-    const prep = (t) => wordsForModules(fillStep(t, data, platform), modules, names);
+    // Check names first, then the placeholders: a filled path that holds a
+    // check's id (…/login_items.plist) stays the path the command needs.
+    const prep = (t) => fillStep(wordsForModules(t, modules, names), data, platform);
     const title = prep(s.title).replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
     const [plain, tech] = splitBody(prep(s.body));
     const body = (plain ? `<div class="step-body">${miniMarkdown(plain)}</div>` : '')
