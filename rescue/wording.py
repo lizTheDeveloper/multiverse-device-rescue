@@ -9,6 +9,9 @@ reads the same way:
   (have/are/were) agrees too. With no number before it, "(s)" is plural.
 - "1 times" is "once".
 - An ISO date-time ("2026-10-10T18:44:55+00:00") is a plain day ("10 Oct 2026").
+- A big count of things gets thousands separators: "108966 errors" is
+  "108,966 errors" (only before a counted noun, so ports, ids, phone and
+  text numbers are left alone).
 
 ``data`` is never touched: it keeps the exact values for anyone who wants them.
 """
@@ -30,6 +33,11 @@ _ISO = re.compile(
     r"\b(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?"
 )
 _SINGULAR_VERB = {"have": "has", "are": "is", "were": "was"}
+_NOUNS = (
+    "errors|warnings|files|items|apps|entries|times|crashes|connections|lines|events|"
+    "messages|processes|requests|records|attempts|packets|fonts|folders|programs"
+)
+_BIG_COUNT = re.compile(rf"(?<![\w.,:/#-])(?P<n>\d{{5,}})(?=\s+(?:{_NOUNS})\b)")
 
 
 def _plural(word: str) -> str:
@@ -71,4 +79,5 @@ def tidy(text):
     out = _BARE.sub(lambda m: _plural(m.group("word")), out)
     out = _ONE_TIMES.sub("once", out)
     out = _ISO.sub(plain_day, out)
+    out = _BIG_COUNT.sub(lambda m: f"{int(m.group('n')):,}", out)
     return out

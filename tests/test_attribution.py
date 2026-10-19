@@ -402,8 +402,10 @@ def test_subjects_ignore_non_path_strings():
 
 
 def test_subjects_cap_per_finding():
-    f = _f(apps=[f"/Applications/{i}.app" for i in range(20)])
-    assert len(subjects_for_finding(f)) == 6
+    from rescue.attribution import MAX_SUBJECTS_PER_FINDING
+
+    f = _f(apps=[f"/Applications/{i}.app" for i in range(40)])
+    assert len(subjects_for_finding(f)) == MAX_SUBJECTS_PER_FINDING == 16
 
 
 def test_subjects_from_item_dicts_prefer_the_plist():

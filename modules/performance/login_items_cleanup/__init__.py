@@ -132,7 +132,11 @@ class Module(ModuleBase):
             findings.insert(
                 0,
                 Finding(
-                    title=f"Old startup entries for missing apps ({len(broken_items)})",
+                    title=(
+                        "An old startup entry for a missing app"
+                        if len(broken_items) == 1
+                        else f"{len(broken_items)} old startup entries for missing apps"
+                    ),
                     description=(
                         f"Your Mac is trying to start {', '.join(broken_items)}, but those "
                         "apps are no longer installed. These leftover entries don't cause "

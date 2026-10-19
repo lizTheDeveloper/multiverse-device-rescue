@@ -240,3 +240,38 @@ def test_dns_config_fix_unreachable():
     assert fix.all_succeeded
     assert any("unreachable" in a.title.lower() for a in fix.actions)
     assert all(a.success for a in fix.actions)
+
+
+def test_privacy_dns_providers_are_not_unrecognised():
+    """NextDNS (a real Mac's setting), Mullvad, Control D, AdGuard, Quad9's
+    second address: chosen on purpose, named in the DNS note, never flagged."""
+    from unittest.mock import MagicMock
+
+    servers = ["45.90.28.163", "45.90.30.163", "194.242.2.2", "76.76.2.0", "94.140.14.14", "149.112.112.112", "1.0.0.1"]
+
+    def fake(cmd, *a, **kw):
+        r = MagicMock()
+        r.returncode = 0
+        r.stdout = "\n".join(servers) + "\n" if "-getdnsservers" in cmd else ""
+        if cmd[:2] == ["scutil", "--dns"]:
+            r.stdout = "".join(f"  nameserver[{i}] : {s}\n" for i, s in enumerate(servers))
+        return r
+
+    module = _get_module()
+    with patch("subprocess.run", side_effect=fake):
+        result = module.check(_make_profile())
+    assert not any(f.data.get("check_type") == "suspicious_dns" for f in result.findings)
+    info = next(f for f in result.findings if f.data.get("check_type") == "dns_info")
+    assert info.data["providers"]["45.90.28.163"] == "NextDNS"
+    assert info.data["providers"]["194.242.2.2"] == "Mullvad DNS"
+    assert "NextDNS" in info.description
+
+
+def test_provider_names():
+    from rescue.dns_providers import ROUTER, provider_name
+
+    assert provider_name("45.90.30.163") == "NextDNS"
+    assert provider_name("1.0.0.1") == "Cloudflare DNS"
+    assert provider_name("192.168.1.1") == ROUTER
+    assert provider_name("203.0.113.9") is None
+    assert provider_name("not an ip") is None

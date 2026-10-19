@@ -246,7 +246,11 @@ class Module(ModuleBase):
         if entries:
             findings.append(
                 Finding(
-                    title=f"Custom hosts entries found ({len(entries)})",
+                    title=(
+                        "A custom hosts entry found"
+                        if len(entries) == 1
+                        else f"{len(entries)} custom hosts entries found"
+                    ),
                     description=(
                         f"The hosts file contains {len(entries)} custom entries. "
                         f"First few: {', '.join([e['hostname'] for e in entries[:5]])}"

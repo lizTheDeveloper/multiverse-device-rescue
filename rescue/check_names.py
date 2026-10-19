@@ -326,7 +326,8 @@ _PERMISSION_MARKERS = (
 )
 
 
-def error_kind(error: str | None, supported: bool = True, complete: bool = True) -> str | None:
+def error_kind(error: str | None, supported: bool = True, complete: bool = True,
+               not_started: bool = False) -> str | None:
     """What kind of "couldn't check" a module entry is, or None when it ran.
 
     ``timeout``     it took too long and was stopped
@@ -335,6 +336,7 @@ def error_kind(error: str | None, supported: bool = True, complete: bool = True)
     ``unsupported`` it can't run on this computer
     ``error``       anything else went wrong
     ``unfinished``  it ran but stopped before the end
+    ``not_started`` an opt-in check that can run here but waits for a go-ahead
     """
     if error:
         text = str(error).lower()
@@ -349,4 +351,6 @@ def error_kind(error: str | None, supported: bool = True, complete: bool = True)
         return "unsupported"
     if not complete:
         return "unfinished"
+    if not_started:
+        return "not_started"
     return None

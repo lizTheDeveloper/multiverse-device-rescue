@@ -1928,7 +1928,6 @@ lsof -i -n -P
 ### `suspicious_processes`
 
 ```text
-defaults read … CFBundleIdentifier
 ps aux
 ```
 

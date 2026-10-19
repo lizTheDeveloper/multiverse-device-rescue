@@ -254,3 +254,12 @@ def test_ssh_keys_finding_names_its_file(tmp_path):
     mod = next(m for m in dm(MODULES_DIR) if m.name == "session_revocation_scan")
     data = mod._authorized_keys_data(0)
     assert data["file"] == "~/.ssh/authorized_keys" or data["file"] == str(mod.authorized_keys_path)
+
+
+def test_big_counts_get_thousands_separators_only_before_counted_nouns():
+    from rescue.wording import tidy
+
+    assert tidy("Your Mac logged 108966 errors in the last hour") == "Your Mac logged 108,966 errors in the last hour"
+    for keep in ("text START to 88788).", "Port 62628 (custom)", "Process python (pid 80674) kept",
+                 "snapshot-zsh-1792113144222-fdfa5c.sh", "2026 errors", "BOOKWORM27-377984 files"):
+        assert tidy(keep) == keep

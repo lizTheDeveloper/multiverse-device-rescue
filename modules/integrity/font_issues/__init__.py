@@ -92,8 +92,10 @@ class Module(ModuleBase):
                         else f"{len(duplicates)} fonts are installed in more than one place"
                     ),
                     description=(
-                        f"We found {len(duplicates)} font names that exist in multiple "
-                        f"locations on your Mac: {dup_list}. This can cause text to look "
+                        ("We found 1 font name that exists in more than one place"
+                         if len(duplicates) == 1
+                         else f"We found {len(duplicates)} font names that exist in more than one place")
+                        + f" on your Mac: {dup_list}. This can cause text to look "
                         "slightly different in different apps or slow down font loading.\n\n"
                         "What to do: Open the Font Book app. It can help you identify "
                         "and remove duplicate copies of these fonts to keep your system "

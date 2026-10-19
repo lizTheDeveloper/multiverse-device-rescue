@@ -13,6 +13,7 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue.dns_providers import ROUTER, provider_name
 from rescue.module_base import ModuleBase
 
 
@@ -173,8 +174,12 @@ class Module(ModuleBase):
         suspicious = []
 
         for server in dns_servers:
-            if server not in self.WELL_KNOWN_DNS and server not in ["127.0.0.1"]:
-                suspicious.append(server)
+            # Privacy and filtering resolvers (NextDNS, Mullvad, Quad9, ...)
+            # are chosen on purpose, not suspicious. (A local address is still
+            # reported: this check can't tell a router's DNS from a rogue one.)
+            if server in self.WELL_KNOWN_DNS or server in ["127.0.0.1"] or provider_name(server) not in (None, ROUTER):
+                continue
+            suspicious.append(server)
 
         if suspicious:
             findings.append(
@@ -220,10 +225,13 @@ class Module(ModuleBase):
         for interface, servers in interface_dns.items():
             lines.append(f"{interface} DNS: {', '.join(servers)}")
 
-        # Check if using well-known DNS
-        well_known = [s for s in dns_servers if s in self.WELL_KNOWN_DNS]
-        if well_known:
-            lines.append(f"Using well-known providers: {', '.join([self.WELL_KNOWN_DNS[s] for s in well_known])}")
+        # Which provider each server belongs to, when it is a known one.
+        providers = {s: self.WELL_KNOWN_DNS.get(s) or provider_name(s) for s in dns_servers}
+        providers = {s: n for s, n in providers.items() if n != ROUTER}
+        providers = {s: n for s, n in providers.items() if n}
+        names = list(dict.fromkeys(providers.values()))
+        if names:
+            lines.append(f"Using well-known providers: {', '.join(names)}")
 
         return Finding(
             title="DNS configuration",
@@ -233,6 +241,8 @@ class Module(ModuleBase):
             data={
                 "check_type": "dns_info",
                 "dns_servers": dns_servers,
+                # server -> provider ("NextDNS", "your router"), known ones only.
+                "providers": providers,
                 "interface_dns": interface_dns,
             },
         )

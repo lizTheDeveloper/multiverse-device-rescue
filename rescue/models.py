@@ -113,6 +113,10 @@ class CheckResult:
     # findings are real, but a problem missing from them may simply not have
     # been looked at: an incomplete result is never a clean one.
     complete: bool = True
+    # True for an opt-in check that found what it needs but was not started
+    # (an iPhone backup is here; the long spyware scan asks first). Not
+    # "couldn't run", and never clean: it hasn't looked yet.
+    not_started: bool = False
 
     @property
     def has_issues(self) -> bool:

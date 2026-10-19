@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any
 
 from rescue.check_names import check_name, error_kind
+from rescue.same_finding import same_key
 from rescue.wording import tidy
 
 
@@ -130,6 +131,19 @@ def _app_subject(app) -> str | None:
     return None
 
 
+def _items_made_by(markable, made_by) -> None:
+    """Each entry of a "mark entries" list gets the made_by entry looked up for
+    it (matched by its key, the bundle id or path attribution was given), so
+    the list and the evidence name the same maker for the same app."""
+    items = markable.get("items") if isinstance(markable, dict) else None
+    if not isinstance(items, list):
+        return
+    by_subject = {e.get("subject"): e for e in made_by if isinstance(e, dict) and isinstance(e.get("subject"), str)}
+    for item in items:
+        if isinstance(item, dict) and isinstance(item.get("key"), str) and item["key"] in by_subject:
+            item["made_by"] = by_subject[item["key"]]
+
+
 def _dedupe(findings: list) -> list:
     """One entry per identical finding: a check that reported the same thing
     twice (the same login item listed twice, one program seen as four
@@ -150,8 +164,12 @@ def _dedupe(findings: list) -> list:
     return out
 
 
-def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=None, markable=None) -> dict:
+def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=None, markable=None, module=None) -> dict:
     out = _plain(finding)
+    # The same finding from another check gets the same key (rescue/same_finding.py).
+    key = same_key(module, out) if module else None
+    if key:
+        out["same_key"] = key
     # Plurals that agree, "once", and plain days instead of ISO time stamps (rescue/wording.py).
     for key in ("title", "description"):
         out[key] = tidy(out.get(key))
@@ -165,6 +183,7 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
     if entries:
         out["made_by"] = _plain(entries)
         out["makers_verified"] = _makers_verified(out["made_by"], out.get("data"))
+        _items_made_by(out.get("markable"), out["made_by"])
     guide = walkthroughs.get(getattr(finding, "code", None)) if walkthroughs else None
     if guide is not None:
         out["remediation"] = _remediation(guide, getattr(finding, "code", None))
@@ -227,6 +246,7 @@ def safe_module_entry(mod, check, *args, **kwargs) -> dict:
             "supported": True,
             "unsupported_reason": None,
             "complete": False,
+            "not_started": False,
             "error_kind": "error",
             "findings": [],
         }
@@ -244,11 +264,13 @@ def module_entry(mod, check, walkthroughs=None, app_fixes=None, made_by=None, ap
     offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
     supported = getattr(check, "supported", True)
     complete = bool(getattr(check, "complete", True))
+    not_started = getattr(check, "not_started", False) is True and not check.error and supported
     written = [
         _safe_finding(
             f, walkthroughs, offer, made_by,
             None if check.error else _action_fixable(f, mod.name, app_actions),
             None if check.error else _markable(f, mod.name),
+            mod.name,
         )
         for f in check.findings
     ]
@@ -269,7 +291,10 @@ def module_entry(mod, check, walkthroughs=None, app_fixes=None, made_by=None, ap
         "complete": complete,
         # What kind of "couldn't check" this was, or null when it ran:
         # timeout | permission | skipped | unsupported | error | unfinished.
-        "error_kind": error_kind(check.error, supported, complete),
+        # True for an opt-in check that can run here but wasn't started (it
+        # asks first): not "couldn't run", and not clean either.
+        "not_started": not_started,
+        "error_kind": error_kind(check.error, supported, complete, not_started),
         "findings": _dedupe([f for f, _ in written]),
     }
 

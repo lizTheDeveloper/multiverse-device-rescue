@@ -329,3 +329,34 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.suspicious_processes.") for c in declared)
+
+
+def test_bundle_ids_are_read_from_each_apps_info_plist(tmp_path, monkeypatch):
+    """A real Mac listed 96 of 110 apps (Chrome, Signal...) as having no bundle
+    ID: `defaults read` was pointed at the Contents folder. The plist itself is
+    read now; an unreadable one is not evidence either way."""
+    import plistlib as _plistlib
+    from pathlib import Path as _Path
+
+
+    apps = tmp_path / "Applications"
+
+    def make(name, info):
+        contents = apps / f"{name}.app" / "Contents"
+        contents.mkdir(parents=True)
+        if info is None:
+            (contents / "Info.plist").write_bytes(b"not a plist")
+        else:
+            with open(contents / "Info.plist", "wb") as fh:
+                _plistlib.dump(info, fh)
+
+    make("Chrome", {"CFBundleIdentifier": "com.google.Chrome"})
+    make("NoId", {"CFBundleName": "NoId"})
+    make("Broken", None)
+    mod = _get_module()
+    real_path = _Path
+    import sys
+    module_obj = sys.modules[type(mod).__module__]
+    monkeypatch.setattr(module_obj, "Path", lambda p: apps if p == "/Applications" else real_path(p))
+    got = mod._get_unsigned_apps()
+    assert [n for _, n in got] == ["NoId.app"]

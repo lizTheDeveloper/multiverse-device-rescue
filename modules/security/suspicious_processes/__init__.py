@@ -1,4 +1,5 @@
 import re
+import plistlib
 import subprocess
 from pathlib import Path
 from shlex import quote
@@ -225,10 +226,10 @@ class Module(ModuleBase):
         if unsigned_app_procs:
             findings.append(
                 Finding(
-                    title=f"Apps without a signature: {len(unsigned_app_procs)}",
+                    title=f"Apps without a bundle ID: {len(unsigned_app_procs)}",
                     description=(
                         f"Found {len(unsigned_app_procs)} app(s) in /Applications without a bundle ID "
-                        f"(unsigned or suspicious): "
+                        f"(an app's name for itself; signed apps always have one): "
                         f"{', '.join(p['name'] for p in unsigned_app_procs)}. "
                         "Consider verifying or removing these."
                     ),
@@ -423,21 +424,16 @@ class Module(ModuleBase):
                 # Check if app has a bundle ID by looking at Info.plist
                 info_plist = app_path / "Contents" / "Info.plist"
                 if info_plist.exists():
+                    # Read the app's Info.plist itself. (`defaults read` was
+                    # given the Contents folder, not the plist, so it failed
+                    # for every app and called all of them unsigned.)
                     try:
-                        result = subprocess.run(
-                            [
-                                "defaults",
-                                "read",
-                                str(info_plist.parent.parent),
-                                "CFBundleIdentifier",
-                            ],
-                            capture_output=True,
-                            text=True,
-                        )
-                        if result.returncode != 0:
-                            unsigned_apps.append((str(app_path), app_path.name))
-                    except OSError:
-                        # If we can't read it, consider it unsigned
+                        with open(info_plist, "rb") as fh:
+                            info = plistlib.load(fh)
+                    except (OSError, plistlib.InvalidFileException, ValueError):
+                        continue  # couldn't read it: not evidence of anything
+                    bundle_id = info.get("CFBundleIdentifier") if isinstance(info, dict) else None
+                    if not isinstance(bundle_id, str) or not bundle_id.strip():
                         unsigned_apps.append((str(app_path), app_path.name))
         except OSError:
             pass

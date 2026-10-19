@@ -35,34 +35,9 @@ MALICIOUS_DNS = {
     "127.0.0.1": "Localhost sinkhole",
 }
 
-# Well-known public DNS provider networks (privacy / filtering resolvers are
-# common and intentional: NextDNS, Mullvad, Control D, AdGuard, ...)
-KNOWN_DNS_NETWORKS = [
-    ("NextDNS", "45.90.28.0/24"),
-    ("NextDNS", "45.90.30.0/24"),
-    ("NextDNS", "2a07:a8c0::/32"),
-    ("NextDNS", "2a07:a8c1::/32"),
-    ("Mullvad DNS", "194.242.2.0/24"),
-    ("Mullvad DNS", "2a07:e340::/32"),
-    ("Control D", "76.76.2.0/24"),
-    ("Control D", "76.76.10.0/24"),
-    ("AdGuard DNS", "94.140.14.0/24"),
-    ("AdGuard DNS", "94.140.15.0/24"),
-    ("AdGuard DNS", "2a10:50c0::/32"),
-    ("Quad9", "9.9.9.0/24"),
-    ("Quad9", "149.112.112.0/24"),
-    ("Quad9", "2620:fe::/48"),
-    ("OpenDNS", "208.67.222.0/24"),
-    ("OpenDNS", "208.67.220.0/24"),
-    ("OpenDNS", "2620:119::/48"),
-    ("Cloudflare DNS", "1.1.1.0/24"),
-    ("Cloudflare DNS", "1.0.0.0/24"),
-    ("Cloudflare DNS", "2606:4700:4700::/48"),
-    ("Google DNS", "8.8.8.0/24"),
-    ("Google DNS", "8.8.4.0/24"),
-    ("Google DNS", "2001:4860:4860::/48"),
-]
-_KNOWN_DNS_PARSED = [(n, ipaddress.ip_network(c)) for n, c in KNOWN_DNS_NETWORKS]
+# Well-known public DNS provider networks: one table for every DNS check
+# (rescue/dns_providers.py).
+from rescue.dns_providers import KNOWN_DNS_NETWORKS, KNOWN_DNS_PARSED as _KNOWN_DNS_PARSED  # noqa: E402,F401
 
 # Domains whose public DNS answer should never be a private/internal address.
 # We deliberately do not hard-code "expected" IP ranges: CDN-backed sites move
@@ -71,14 +46,7 @@ _KNOWN_DNS_PARSED = [(n, ipaddress.ip_network(c)) for n, c in KNOWN_DNS_NETWORKS
 CANARY_DOMAINS = ["apple.com", "google.com", "microsoft.com"]
 
 
-# Addresses a home/office router or local network hands out as DNS
-_LOCAL_NETWORKS = [
-    ipaddress.ip_network(n)
-    for n in (
-        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16",
-        "100.64.0.0/10", "fc00::/7", "fe80::/10",
-    )
-]
+from rescue.dns_providers import LOCAL_NETWORKS as _LOCAL_NETWORKS  # noqa: E402
 
 
 def _known_dns_provider(server: str) -> Optional[str]:

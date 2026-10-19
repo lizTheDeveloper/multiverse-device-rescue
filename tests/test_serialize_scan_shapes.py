@@ -116,3 +116,14 @@ def test_one_unwritable_finding_keeps_its_title_and_marks_the_check_unfinished(m
     bad, good = entry["findings"]
     assert bad["title"] == "Bad" and bad["severity"] == "critical" and bad["serialize_error"] is True
     assert "serialize_error" not in good
+
+
+def test_list_entries_carry_the_maker_looked_up_for_them():
+    from rescue.serialize import _items_made_by
+
+    markable = {"items": [{"key": "com.getdropbox.dropbox", "label": "Dropbox"}, {"key": "com.apple.Terminal"}, "odd"]}
+    made_by = [{"subject": "com.getdropbox.dropbox", "name": "Dropbox, Inc.", "verified": True}]
+    _items_made_by(markable, made_by)
+    assert markable["items"][0]["made_by"]["name"] == "Dropbox, Inc."
+    assert "made_by" not in markable["items"][1]
+    _items_made_by(None, made_by)  # nothing to do, no crash

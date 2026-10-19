@@ -147,6 +147,7 @@ The JSON shape is `schema_version` 1:
       "supported": true,
       "unsupported_reason": null,
       "complete": true,
+      "not_started": false,
       "error_kind": null,
       "findings": [
         {
@@ -182,8 +183,13 @@ The JSON shape is `schema_version` 1:
 
     `check_name` is the check's name for people (also on every `plan` and
     `progress` line), and `error_kind` says what kind of "couldn't check" it
-    was: `timeout`, `permission`, `skipped`, `unsupported`, `error` or
-    `unfinished` (`null` when it ran). Titles and descriptions have plurals
+    was: `timeout`, `permission`, `skipped`, `unsupported`, `error`,
+    `unfinished` or `not_started` (`null` when it ran). `not_started: true`
+    marks an opt-in check that can run here but was not started (an iPhone
+    backup is present and its long spyware scan asks first): it hasn't looked,
+    so it is not clean, and it is not "couldn't run" either. Findings that
+    other checks report too (the same task, the volume at 0%, one app's
+    crashes) carry the same `same_key`, so a screen can show them as one item. Titles and descriptions have plurals
     that agree with their numbers and plain days instead of ISO time stamps;
     `data` keeps the exact values. A check that reported the very same
     finding more than once gives it once, with `"repeats": N`. A finding with

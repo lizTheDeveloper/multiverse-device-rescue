@@ -179,7 +179,7 @@ class Module(ModuleBase):
                     },
                 )
             )
-            return CheckResult(module_name=self.name, findings=findings)
+            return CheckResult(module_name=self.name, findings=findings, not_started=True)
 
         any_detected = False
         for backup in backups:

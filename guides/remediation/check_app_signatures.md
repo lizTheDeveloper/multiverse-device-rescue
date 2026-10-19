@@ -6,12 +6,14 @@ remediates:
   - security.code_signature_audit.tampered_binary
   - security.code_signature_audit.unsigned_system_app
   - security.code_signature_audit.gatekeeper_rejected
+  - security.code_signature_audit.old_signature_format
 steps_for:
   security.code_signature_audit.tampered_binary: [1, 2]
   security.code_signature_audit.unsigned_system_app: [1]
   security.code_signature_audit.gatekeeper_rejected: [1, 3]
+  security.code_signature_audit.old_signature_format: [4]
 automatable_steps: []
-human_only_steps: [1, 2, 3]
+human_only_steps: [1, 2, 3, 4]
 ---
 
 Software makers put a digital seal on their apps. The seal proves who made the
@@ -51,3 +53,9 @@ This usually means the app is signed but not approved by Apple, which is normal
 for software from outside the App Store. If you trust where it came from, you can
 leave it. If you aren't sure, install the App Store or maker's current version
 in its place.
+
+## Step 4: Update an app with an old-style signature
+
+The app is signed, but in a format older than current macOS accepts. That is
+not a sign it was changed. Update it from its own menu, or download the current
+version from the maker's website or the App Store and install it over this one.

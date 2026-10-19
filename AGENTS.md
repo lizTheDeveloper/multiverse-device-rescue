@@ -92,7 +92,8 @@ normal.
       "supported": true,              // false = could not run here; NOT clean
       "unsupported_reason": null,
       "complete": true,               // false = ran but didn't finish; NOT clean
-      "error_kind": null,             // timeout | permission | skipped | unsupported | error | unfinished
+      "not_started": false,           // true = opt-in check (iPhone backup scan) not started; NOT clean, ask first
+      "error_kind": null,             // timeout | permission | skipped | unsupported | error | unfinished | not_started
       "findings": [
         {
           "title": "…",
@@ -109,7 +110,8 @@ normal.
                                        // "what" only for known programs whose signed identity was verified
           ],                           // skip with `rescue scan --json --no-attribution`
           "makers_verified": true,     // with made_by: every program named has a verified maker
-          "repeats": 2                 // only when the check reported the same thing more than once
+          "repeats": 2,                // only when the check reported the same thing more than once
+          "same_key": "audio:volume_zero"  // only when other checks report the same thing: one item
         }
       ]
     }

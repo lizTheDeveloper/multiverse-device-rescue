@@ -126,6 +126,28 @@ def test_broken_signature_is_critical(mod):
     assert "Tampered" in finding.title
 
 
+def test_old_signature_format_is_a_warning_not_tampering(mod):
+    """codesign's "resource envelope is obsolete" is an old seal format, not a
+    changed file (Baba Is You on a real Mac): a warning, in plain words."""
+    _install(mod, "Old Game")
+
+    def handler(args, **kw):
+        if args[0] == "codesign":
+            return _Result(ok=False, stderr="/x/Old Game.app: resource envelope is obsolete (custom omit rules)")
+        return _Result(ok=True)
+
+    result = _run_with(mod, handler)
+
+    assert _finding(result, "tampered_binary") is None
+    old = _finding(result, "old_signature_format")
+    assert old.severity == Severity.WARNING
+    assert old.code == "security.code_signature_audit.old_signature_format"
+    assert "old-style signature" in old.title
+    assert "not a sign the app was changed" in old.description
+    assert "obsolete" in old.data["detail"]
+    assert _finding(result, "inventory").data["old_signature_format"] == 1
+
+
 @pytest.mark.skipif(
     os.name != "posix",
     reason=(

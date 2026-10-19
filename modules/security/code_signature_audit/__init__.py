@@ -11,6 +11,9 @@ The severities here are chosen to be defensible rather than alarming:
 - CRITICAL only for a signature that is present and *broken* — the binary has
   been modified since it was signed. That is tampering, not a configuration
   choice, and there is no innocent reading of it.
+- WARNING for a signature in an old format that current macOS no longer
+  accepts ("resource envelope is obsolete"): the seal predates today's rules,
+  which says nothing about the file being changed.
 - WARNING for unsigned or ad-hoc-signed software in a system-wide location,
   where anyone can drop a binary and every user runs it.
 - INFO for the inventory, including the coverage cap.
@@ -83,6 +86,9 @@ def _powershell_signature_command(path: str, limit: int) -> str:
     )
 
 
+# What codesign says about a signature made under the old (version 1) rules.
+_OBSOLETE_FORMAT = "resource envelope is obsolete"
+
 class Module(ModuleBase):
     name = "code_signature_audit"
     category = "security"
@@ -96,6 +102,7 @@ class Module(ModuleBase):
         "security.code_signature_audit.tampered_binary",
         "security.code_signature_audit.unsigned_system_app",
         "security.code_signature_audit.gatekeeper_rejected",
+        "security.code_signature_audit.old_signature_format",
         "security.code_signature_audit.inventory",
     ]
 
@@ -127,6 +134,7 @@ class Module(ModuleBase):
         tampered = [r for r in results if r["status"] == "tampered"]
         unsigned = [r for r in results if r["status"] == "unsigned"]
         rejected = [r for r in results if r["status"] == "gatekeeper_rejected"]
+        old_format = [r for r in results if r["status"] == "old_format"]
         # A check that did not finish is neither a problem nor a pass.
         incomplete = [r for r in results if r["status"] == "incomplete"]
 
@@ -159,6 +167,10 @@ class Module(ModuleBase):
                         "path": entry["path"],
                         "name": entry["name"],
                         "detail": entry["detail"],
+                        # How much of the list this check got through: a
+                        # partial list is said on the finding itself.
+                        "apps_checked": examined,
+                        "apps_total": total,
                     },
                 )
             )
@@ -190,6 +202,10 @@ class Module(ModuleBase):
                         "path": entry["path"],
                         "name": entry["name"],
                         "detail": entry["detail"],
+                        # How much of the list this check got through: a
+                        # partial list is said on the finding itself.
+                        "apps_checked": examined,
+                        "apps_total": total,
                     },
                 )
             )
@@ -219,12 +235,46 @@ class Module(ModuleBase):
                         "path": entry["path"],
                         "name": entry["name"],
                         "detail": entry["detail"],
+                        # How much of the list this check got through: a
+                        # partial list is said on the finding itself.
+                        "apps_checked": examined,
+                        "apps_total": total,
+                    },
+                )
+            )
+
+        for entry in old_format:
+            findings.append(
+                Finding(
+                    title=f"{entry['name']} has an old-style signature",
+                    description=(
+                        f"{entry['path']} is signed, but in an older format that current "
+                        "macOS no longer accepts. That is not a sign the app was changed: "
+                        "its seal is just older than today's rules.\n\n"
+                        "What to do: Update the app, or download its current version from "
+                        "the maker's website or the App Store. A current version has a "
+                        "current signature.\n\n"
+                        f"Reported by: {entry['detail']}"
+                    ),
+                    severity=Severity.WARNING,
+                    category=self.category,
+                    code="security.code_signature_audit.old_signature_format",
+                    data={
+                        "check": "old_signature_format",
+                        "path": entry["path"],
+                        "name": entry["name"],
+                        "detail": entry["detail"],
+                        # How much of the list this check got through: a
+                        # partial list is said on the finding itself.
+                        "apps_checked": examined,
+                        "apps_total": total,
                     },
                 )
             )
 
         capped = total > examined
-        valid = len(results) - len(tampered) - len(unsigned) - len(rejected) - len(incomplete)
+        valid = (len(results) - len(tampered) - len(unsigned) - len(rejected)
+                 - len(incomplete) - len(old_format))
         if capped and out_of_time:
             coverage = (
                 f"COVERAGE LIMIT: only {examined} applications were checked because "
@@ -267,6 +317,7 @@ class Module(ModuleBase):
                     f"Broken signatures: {len(tampered)}\n"
                     f"Unsigned: {len(unsigned)}\n"
                     f"Gatekeeper-rejected: {len(rejected)}\n"
+                    f"Old-style signatures: {len(old_format)}\n"
                     + unfinished
                     + "\n"
                     + coverage
@@ -288,6 +339,7 @@ class Module(ModuleBase):
                     "tampered": len(tampered),
                     "unsigned": len(unsigned),
                     "gatekeeper_rejected": len(rejected),
+                    "old_signature_format": len(old_format),
                     "incomplete": len(incomplete),
                     "incomplete_apps": [r["path"] for r in incomplete],
                 },
@@ -481,6 +533,14 @@ class Module(ModuleBase):
                 entry["status"] = "incomplete"
                 entry["detail"] = "signature check did not complete: " + (
                     verify.error or "timed out"
+                )
+            elif _OBSOLETE_FORMAT in combined:
+                # An old signature format (pre-2014 "version 1" resource
+                # rules, often "custom omit rules"): out of date, not changed.
+                entry["status"] = "old_format"
+                entry["detail"] = (
+                    "codesign --verify: "
+                    + (verify.stderr.strip() or verify.stdout.strip() or "resource envelope is obsolete")
                 )
             else:
                 entry["status"] = "tampered"

@@ -46,7 +46,10 @@ from rescue import command
 LOOKUP_TIMEOUT = 5.0
 DEFAULT_MAX_LOOKUPS = 150
 DEFAULT_BUDGET_SECONDS = 60.0
-MAX_SUBJECTS_PER_FINDING = 6
+# A list of apps (14 that can control the Mac) is marked entry by entry, so
+# each entry needs its maker: enough for a typical permissions list. The whole
+# scan's lookups stay capped by DEFAULT_MAX_LOOKUPS and DEFAULT_BUDGET_SECONDS.
+MAX_SUBJECTS_PER_FINDING = 16
 
 # Finding.data keys that name a program, plist, app or bundle id.
 PROGRAM_KEYS = (
