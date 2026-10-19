@@ -311,3 +311,16 @@ test('the preview shows the redacted fields and the destination, escaped', () =>
   assert.ok(!html.includes('maria'));
   assert.ok(!html.includes('abc123'));
 });
+
+test('Ask never sends evidence, so a saved-key comment cannot go with it', () => {
+  const body = buildAskBody({
+    finding: {
+      title: '3 saved key(s) could let another computer log in to this one',
+      description: 'This computer keeps a list of 3 key(s).',
+      data: { keys: [{ comment: 'mark@marks-macbook' }, { comment: 'mark@laptop' }, { comment: 'Marks MacBook Pro key' }] },
+    },
+  }, ENV);
+  const sent = JSON.stringify(body);
+  for (const c of ['mark@marks-macbook', 'mark@laptop', 'Marks MacBook Pro key']) assert.ok(!sent.includes(c));
+  assert.deepStrictEqual(Object.keys(body.finding).sort(), ['description', 'title']);
+});

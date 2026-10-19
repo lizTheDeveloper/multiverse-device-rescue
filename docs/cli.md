@@ -117,7 +117,7 @@ profile ships a guide, the available walkthroughs are named at the end.
 ## `rescue scan` — read-only checks
 
 ```console
-$ rescue scan [--json] [--profile <name> | --module <name> ...]
+$ rescue scan [--json] [--profile <name> ... | --module <name> ...]
 ```
 
 Runs every check that supports the current platform and prints one report per
@@ -126,7 +126,7 @@ module. Never applies a fix and never prompts.
 | Flag | Effect |
 | --- | --- |
 | `--json` | Emit structured results to stdout instead of the human report. |
-| `--profile <name>` | Only run the modules the named profile selects. Exits `1` on an unknown or invalid profile. |
+| `--profile <name>` | Only run the modules the named profile selects. Repeat it to run every module any of the profiles selects, with each one's module settings; two profiles that set the same module setting differently are refused. Exits `1` on an unknown or invalid profile, or such a conflict. |
 | `--module <name>` | Only run this module. Repeat it to run several. Read-only, same JSON. Exits `1` on an unknown module (the valid names go to stderr), and `2` if combined with `--profile`. The desktop app uses it to re-check one finding after a fix. |
 
 The JSON shape is `schema_version` 1:
@@ -205,7 +205,7 @@ next module rather than aborting the run.
 ## `rescue export` — redacted case report
 
 ```console
-$ rescue export [--profile <name>] [--output <dir>] [--stdout]
+$ rescue export [--profile <name> ...] [--output <dir>] [--stdout]
 ```
 
 Runs read-only checks and writes a **rescue case**: a JSON record for tooling
@@ -215,7 +215,7 @@ someone who can help.
 
 | Flag | Effect |
 | --- | --- |
-| `--profile <name>` | Only run the modules the named profile selects. Exits `1` on an unknown or invalid profile. |
+| `--profile <name>` | Only run the modules the named profile selects. Repeat it to run every module any of them selects; the case's `rescue_profile` is the names joined with `+`. Exits `1` on an unknown or invalid profile, or a conflict between them. |
 | `--output <dir>` | Directory to write into. Default: `~/.rescue/cases`. |
 | `--stdout` | Print the JSON case to stdout instead of writing any files. |
 
@@ -496,6 +496,7 @@ the approval threshold means updates stop applying — which is the safe failure
 ```console
 $ rescue known add --code <finding code> [--expect-id <id>] [--code ... [--expect-id ...]] --label <label> --program <program path> [--plist <path>] [--json]
 $ rescue known add --code <finding code> --expect-id <id> [--code ... --expect-id ...] [--json]
+$ rescue known add --code <finding code> --expect-id <list id> --item <entry id> [--item ...] [--json]
 $ rescue known list [--json]
 $ rescue known remove <id> [<id> ...] [--json]
 ```
@@ -525,7 +526,40 @@ Two families of things can be marked:
 | `browser_extension` | `security.browser_extension_audit.excessive_permissions` | code, browser, extension id, name, the risky permissions | the name or permissions change |
 | `app_permissions` | `app_permissions.accessibility_access`, `privacy_permissions_audit` camera/microphone/combination warnings, `accessibility_permissions.suspicious_accessibility` | code, SHA-256 of the sorted app list, how many | any app is added or removed |
 | `ssh_authorized_keys` | `security.session_revocation_scan.ssh_authorized_keys` | code, SHA-256 of the key lines, how many | any key is added, removed or changed |
+| `app_permission_entry` | one app on an `app_permissions` list (same codes) | code, the app's bundle id or path, who signed it (`team:<Team ID>`, `apple`, or `unsigned:<SHA-256 of its main program>`) | who signed it changes, its program changes (unsigned apps), or it can't be checked |
+| `ssh_authorized_key` | one key on the `ssh_authorized_keys` list | code, SHA-256 of the decoded key, SHA-256 of its whole saved line | the line changes (options or comment) |
 | `ai_tooling` | `ai_threat_indicators.ai_api_key_found`, `ai_threat_indicators.cron_ai_call` | code, the key's name, or a SHA-256 of the whole scheduled line | (a different line is a different item) |
+
+**Marking some entries of a list.** A warning about a list of apps or keys
+carries `markable.items` in `rescue scan --json`: one row per entry, with
+`key` (bundle id or path, or the key's SHA-256), `label`, `detail`, and `id`
+(the entry's mark id, or `null` when it can't be pinned now, so it can't be
+marked on its own: its maker can't be checked, or an unsigned app's program
+can't be read, or this scan's own limit of 60 maker lookups for entries ran
+out). Rows already marked have `"marked": true` and their saved id. A row
+marked before whose maker or saved line has changed since has `"stale": true`
+and its `id` as it is now (or `null`), so it can be marked again. One marked before whose maker
+couldn't be looked up this time has `"unchecked": true` and `id: null`. `markable.items_will_change` is
+the plain-words text of what marking entries does, for the app to show.
+A key list with any line that doesn't read cleanly (an odd option, a second
+key type, a stray backslash or unusual spacing) has no `items` and can only be
+marked whole. Pass the list's `markable.id` as `--expect-id` and one
+`--item` per entry. The check runs again right then; if the list or any
+chosen entry changed, nothing is saved. In a terminal the command lists each
+entry by name and id, adds a caution that things like these can be used to
+watch or get into a computer, and asks once, default No.
+
+A partly marked list stays a warning. Its title ends "(N of M not marked as
+yours)", the description lists the entries not marked first, and `data` has
+`partly_marked: true`, `marked_items`, `stale_items` and `unchecked_items` (each
+`{id, entry, shown, marked_at}`; `unchecked_items` are marked entries whose maker
+couldn't be looked up this time, which warn again without saying they changed), `unmarked` (the entries still flagged) and
+`entry_kind`. When every entry is marked, the finding is downgraded to `info`
+like a whole-list mark, with `marked_by_user: true` but no `known_item_id`
+(the ids are in `marked_items`; a stale whole-list mark it replaced is in
+`stale_list_mark`). A new entry, or one whose maker or saved line changed,
+warns on its own. A key's comment is shown in the app only: it is never in a
+description, and `rescue export` replaces it.
 
 Nothing from `stalkerware_scan`, `mvt_spyware_scan` or `keylogger_indicators`
 can ever be marked, whatever the code.
@@ -550,6 +584,7 @@ A critical finding is never part of the group.
 | | `--program` | Background tasks (required for them): the exact program path the finding shows. |
 | | `--plist` | The task's settings file. Found automatically in `~/Library/LaunchAgents`, `/Library/LaunchAgents` and `/Library/LaunchDaemons` if left out. |
 | | `--expect-id` (repeatable; required for settings and items) | Refuse unless the task, re-read from disk now (or, for a setting or item, the check run again now), still matches this mark id. Several codes for a setting or item must all be about the same one. Give one per `--code`, in the same order. The app passes the ids the scan offered, so a task that changed after the checkup is never marked. If any one does not match, nothing is saved; all the marks are written together or not at all. |
+| | `--item` (repeatable) | Mark only these entries of a list finding: ids from `markable.items`. Needs exactly one `--code` and its `--expect-id`. Not with `--label`, `--program` or `--plist`. Every one must still be on the list, unchanged, or nothing is saved. |
 | | `--json` | Print one JSON document: `status` (`marked`, `already_marked`, `refused`, `cancelled`, `failed`), `id`, `ids`, `label`, `message`, `how_to_undo` (and `kind` for a setting or item). |
 | | `--i-understand` | Skip the typed confirmation. Used by the desktop app after its own confirmation. Never pass it on someone's behalf. |
 | `known list` | `--json` | Print every mark: id, kind, label, what it pins (program and settings file, or the setting's fields), when and how it was marked. |
@@ -561,7 +596,9 @@ SHA-256 of the content of what runs: the program file (with its resolved path)
 and any script file the arguments name in your home folder or a hidden folder.
 Every field must match exactly; the mark id is a hash over all of them. If only
 the content changed, the finding shows again with `data["mark_stale"] = true`
-and a note; mark it again if you updated it yourself. A program that cannot be
+and a note; mark it again if you updated it yourself. If the content couldn't be
+read this time (or the scan's hashing budget ran out), the finding also has
+`data["mark_unchecked"] = true` and says it couldn't be checked, never that it changed. A program that cannot be
 read or is over 200 MB cannot be marked. The task is read from disk when you mark it;
 `add` refuses if no task with that label and program exists, or if the plist is
 outside the three launchd folders. If any pinned part later changes (the

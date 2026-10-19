@@ -21,7 +21,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 button.district { display: grid; width: 100%; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-/* Device Rescue's fix and mark controls, in the city's colors */
+/* The app's own fix and mark controls, in the city's colors */
 .fix-it .btn, .mark-mine .btn { font-family: var(--font-display); font-size: 10px; letter-spacing: 1px; padding: 10px 16px; border: 1px solid rgba(0,229,255,0.3); color: var(--cyan); background: rgba(0,229,255,0.08); }
 .fix-it .btn--primary { background: var(--cyan); color: var(--midnight); }
 .fix-panel { border: 1px solid rgba(0,229,255,0.45); background: rgba(0,229,255,0.05); padding: 16px; margin-top: 10px; display: grid; gap: 8px; }
@@ -238,6 +238,8 @@ button.opt { width: 100%; text-align: left; }
 .banner { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid rgba(198,255,0,0.35); background: rgba(198,255,0,0.06); }
 button.link { color: var(--cyan); text-decoration: underline; padding: 0; }
 code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,255,0.06); padding: 1px 5px; }
+.panel.held { border-color: rgba(255,159,0,0.45); margin-bottom: 14px; display: grid; gap: 8px; }
+.held-more summary { cursor: pointer; }
 
 /* ---------- the command center (the deck) ---------- */
 .deck { display: grid; gap: 14px; padding: 14px 18px; grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr) minmax(220px, 1fr); grid-template-areas: "queue city instruments" "log log log"; }
@@ -307,3 +309,18 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .profile .meter i { width: 14px; height: 6px; border: 1px solid var(--cyan); display: inline-block; }
 .profile .meter i.on { background: var(--cyan); }
 .profile-lessons, .profile-skills { list-style: none; padding: 0; margin: 0; }
+/* The generated district: one of six looks, picked per install (district-names.js). */
+.side { --side-accent: var(--lime); }
+.look-dusk { --side-accent: #B49CFF; }
+.look-harbor { --side-accent: #5EC8FF; }
+.look-brass { --side-accent: #E8B04A; }
+.look-moss { --side-accent: #8FD694; }
+.look-ember { --side-accent: #FF8A5C; }
+.look-neon { --side-accent: #FF5FD2; }
+.side-tile { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; }
+.side-tile .btn-s, .side .hud-title { color: var(--side-accent, var(--lime)); }
+.side-top { display: flex; align-items: center; gap: 12px; }
+.side-steps li { margin: 6px 0; }
+.side-steps b { color: var(--side-accent, var(--lime)); margin-right: 4px; }
+/* The district's section labels are real headings (h3 under its h2), drawn like every .label. */
+.side h3.label { margin: 0 0 8px; }

@@ -282,7 +282,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't read your Wi-Fi's security type",
                     description=(
-                        f"Your Mac is connected to '{network_name}', but Device Rescue "
+                        f"Your Mac is connected to '{network_name}', but Reclaim City "
                         "could not read what kind of security it uses. The security "
                         "type was not checked, so this result does not say whether the "
                         "network is protected or not.\n\n"

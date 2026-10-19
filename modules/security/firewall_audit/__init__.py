@@ -45,7 +45,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check whether your Mac's firewall is on",
                     description=(
-                        "Device Rescue couldn't read your Mac's firewall setting, so it "
+                        "Reclaim City couldn't read your Mac's firewall setting, so it "
                         "doesn't know whether the firewall is on or off. This is not a "
                         "sign that anything is wrong.\n\n"
                         "To see for yourself: open System Settings, click Network, then "
@@ -86,7 +86,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check your firewall's stealth mode",
                     description=(
-                        "Device Rescue couldn't read whether your Mac's firewall "
+                        "Reclaim City couldn't read whether your Mac's firewall "
                         "'stealth mode' is on. This is not a sign that anything is wrong."
                     ),
                     severity=Severity.INFO,

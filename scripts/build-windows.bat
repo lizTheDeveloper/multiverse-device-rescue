@@ -1,5 +1,5 @@
 @echo off
-REM Build the Windows Device Rescue installer on a Windows PC.
+REM Build the Windows Reclaim City installer on a Windows PC.
 REM Prereqs: Python 3.11+ on PATH, Node.js 18+ on PATH, this repo checked out.
 REM Run from anywhere: it cd's to the repo root relative to this script.
 setlocal
@@ -19,7 +19,7 @@ call npm run dist || goto :err
 
 echo.
 echo Build complete. Installer is in desktop\dist\
-echo Next: gh release upload v0.1.0 desktop\dist\DeviceRescue-0.1.0-win-x64.exe
+echo Next: gh release upload v0.1.0 desktop\dist\ReclaimCity-0.1.0-win-x64.exe
 goto :eof
 
 :err

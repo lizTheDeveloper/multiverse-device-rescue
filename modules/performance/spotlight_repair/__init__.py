@@ -63,7 +63,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't confirm Spotlight indexing on your main drive",
                     description=(
-                        "Device Rescue couldn't tell from macOS whether Spotlight is "
+                        "Reclaim City couldn't tell from macOS whether Spotlight is "
                         "indexing your main drive"
                         + (f" (macOS said: \"{status_output.splitlines()[-1].strip()}\")"
                            if status_output.strip() else "")

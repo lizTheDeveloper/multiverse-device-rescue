@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build a Device Rescue USB stick from the released desktop installers.
+# Build a Reclaim City USB stick from the released desktop installers.
 # Thin wrapper around scripts/build_rescue_stick.py; see docs/usb-rescue-stick.md.
 #
 #   ./scripts/build-usb-stick.sh                         # latest release -> dist/rescue-stick/

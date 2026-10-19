@@ -24,11 +24,20 @@ export const DIAGNOSTIC_PHRASES = [
 ];
 export const TIME_WORDS = /\b(seconds?|minutes?|hours?|days?|weeks?)\b/i;
 
-export function orderLessons(lessons, worryId) {
+// The worries a situation stands for: one SITUATIONS entry, or several picked together.
+export function worryIdsOf(situation) {
+  if (!situation) return [];
+  if (Array.isArray(situation.ids)) return situation.ids.filter((x) => typeof x === 'string');
+  return typeof situation.id === 'string' ? [situation.id] : [];
+}
+
+// `worry`: one worry id, or a list of them; a lesson fits if it is recommended for any.
+export function orderLessons(lessons, worry) {
   const list = Array.isArray(lessons) ? lessons : [];
+  const worries = Array.isArray(worry) ? worry : [worry];
   const first = list.filter((l) => l.id === FIRST_LESSON);
   const rest = list.filter((l) => l.id !== FIRST_LESSON);
-  const fits = (l) => (l.recommendedFor || []).includes(worryId);
+  const fits = (l) => (l.recommendedFor || []).some((w) => worries.includes(w));
   return { recommended: [...first, ...rest.filter(fits)], other: rest.filter((l) => !fits(l)) };
 }
 

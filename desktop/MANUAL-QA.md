@@ -8,6 +8,15 @@ Start the app against that engine, not an old build in `desktop/engine/`:
 cd desktop && RESCUE_ENGINE="$PWD/../.venv/bin/rescue" npm start
 ```
 
+The worry screen is a checklist. Where a step below says to pick or click a
+worry, tick it and press **Start the checkup for 1 worry**. **I’m not sure —
+check everything** and the iPhone check are buttons of their own, below the
+list: click them.
+
+The first time a worry is picked on a clean slate, "One more question" appears
+(see "The question and the two modes"). In every section except those two,
+answer **No** to it, so the game runs in standard mode.
+
 ## Game mode, end to end
 
 Set up a harmless test launch agent:
@@ -31,7 +40,7 @@ Then run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` and 
 4. Clear a district: in The Gatehouse (or another district with no **COULDN'T CHECK** panel), fix or do every remaining mission until each re-check says **RECLAIMED** (marking one as yours also counts). After the last one, answer **How did that go?**. The button reads **SEE THE GATEHOUSE**, and it opens **DISTRICT TAKEN BACK** with every fixed mission listed under **FIXED AND CHECKED**. The district screen still lists them, each with a **RECLAIMED** badge, and the map card shows **N RECLAIMED**, not **NOTHING FOUND**. A district with a **COULDN'T CHECK** panel never offers this screen.
 5. Click **LIST**. The finding is gone from the list view too. Click **See it as a city** to go back.
 6. Go back into the city, to the RECLAIMED screen of that mission (do the fix again if needed), and click **Undo**. "Checking again" shows while it re-checks, then **PUT BACK** with "Put back. It’s showing again.", and the building is dark again on the map. Scout doesn't say "Something you fixed came back". Then run a full checkup from the list. The mission is still open, not reclaimed.
-7. Start over, pick **I think someone is watching me**, and run the checkup. No city is offered anywhere.
+7. Start over, pick **I think someone is watching me**, and run the checkup. No question is asked. The checkup runs on the sweep screen, and the city opens with the generated district's tile on it (see "City mode" below).
 8. Clean up: `rm ~/Library/LaunchAgents/com.devicerescue.qa.helper.plist; rm -r ~/Library/Application\ Support/.dr-qa`.
 
 ## One city (Spec B)
@@ -59,13 +68,13 @@ Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENG
 7. Click **TRAINING** in the HUD and finish "Things that start on their own". The banner offers **SEE YOUR CITY ▶**, and the bottom button reads **RUN THE CHECKUP AGAIN ▶**. Open The Gatehouse, then the `com.devicerescue.qa.helper` mission. The briefing shows "You learned about this in the Training Grounds" and links to the lesson.
 8. With the test launch agent still in place, click **LIST** in the HUD, then **Start over**, then **Play it as a game** and **Someone is on my Wi-Fi…**. Click **PLAIN VIEW** on the sweep mid-scan. The plain scan screen shows live progress. When it finishes, the list results show, not the city.
 9. Simulate a failed scan: quit, run with `RESCUE_ENGINE=/usr/bin/false`, click **Play it as a game** and pick a worry. You land in the Training Grounds with "THE CHECKUP STOPPED" and **START THE CHECKUP ▶**.
-10. Start over and pick **I think someone is watching me** after **Play it as a game**. The plain scan screen opens, waiting for **Run checkup**: no sweep, no lessons, and no checkup started for you. Do the same with the iPhone worry.
+10. Start over and pick the iPhone worry after **Play it as a game**. The plain scan screen opens, waiting for **Run checkup**: no sweep, no lessons, and no checkup started for you.
 11. Simulate monitoring software. Quit, save this as `/tmp/fake-rescue`, and run `chmod +x /tmp/fake-rescue`:
     ```sh
     #!/bin/sh
     echo '{"schema_version":1,"platform":"darwin","modules":[{"name":"stalkerware_scan","category":"security","status":"ok","error":null,"supported":true,"findings":[{"title":"Monitoring app found (test)","description":"Test only.","severity":"critical","category":"security","data":{}}]}]}'
     ```
-    Run with `RESCUE_ENGINE=/tmp/fake-rescue`, click **Play it as a game** and pick **I’m not sure — check everything**. The sweep runs, and when it finishes the list results show, not the city. Click **Start over**. The welcome screen no longer shows **Play it as a game**. Quit and delete `/tmp/fake-rescue` afterwards.
+    In DevTools' Console run `localStorage.setItem('device-rescue.display', 'standard')` and reload. Run with `RESCUE_ENGINE=/tmp/fake-rescue`, click **Play it as a game** and pick **I’m not sure — check everything**. When the sweep finishes, "We found something that can be used to watch a computer. Is that something you know about?" appears before anything else. Click **Yes, I know about it**: the city opens, and on the list (**LIST**) the card has one line, "Removing this can alert whoever installed it. Read this first.", which opens to the full note. Keep `/tmp/fake-rescue` for "City mode" below.
 12. DevTools → Network: every request is `app://rescue/…`, including `rc/data/phishing.js`.
 13. Clean up the test launch agent as in "Game mode, end to end", step 8.
 14. Network findings. On a Mac with a proxy configured (System Settings → Network → your connection → Details → Proxies), run a checkup and open The Wires. The proxy mission shows walkthrough steps and an **Open in System Settings** button that opens Network › Proxies. A router, ARP or LAN mission has no such button. After upgrading from a build without network codes, any network mission previously marked "later" reopens once, because its saved progress was keyed by the old title-based identity. That is accepted, not migrated.
@@ -77,7 +86,7 @@ Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENG
 1. Click **Play it as a game**, then **I'm not sure**. When the sweep finishes, the deck appears: **INCOMING SIGNALS** on the left, the city in the middle, **CITY INTEGRITY**, **SIGNALS** and **RANK** on the right, and the **OPS LOG** at the bottom with a SWEEP line. The top bar shows RANK, LAST SWEEP with the check count, and **RE-SWEEP ⟳**. There is no separate HUD row.
 2. Click **INVESTIGATE NEXT ▶**. The most important signal opens in a panel. Its clues are **SCAN CLUE** buttons, and each opens with a "How to read this" line. For the `com.devicerescue.qa.helper` signal, **WHERE IT LIVES** names its folder under Application Support, with the note "Where apps keep their own files. An unfamiliar name here is worth a look."
 3. Tag it **THREAT**. Scout's read appears. It says whether the scan agrees and why, and never says you're wrong. Close the panel: the signal is on the **THREAT BOARD** with **SEE THE STEPS ▶** or **SEE THE FIX ▶**. In Terminal, `ls ~/Library/LaunchAgents/com.devicerescue.qa.helper.plist` still finds the file, because a tag changes nothing.
-4. Open it again and tag it **MINE**. **OPTIONAL: TELL DEVICE RESCUE TOO** shows the "It's mine" button. Press it: its own confirmation question appears. Press **Cancel**. Nothing was marked.
+4. Open it again and tag it **MINE**. **OPTIONAL: TELL RECLAIM CITY TOO** shows the "It's mine" button. Press it: its own confirmation question appears. Press **Cancel**. Nothing was marked.
 5. Click **The Gatehouse** in the city. The queue shows only its signals, with **SHOW ALL** and **OPEN THE DISTRICT ▶**. Click **SHOW ALL**.
 6. Open **LOW-PRIORITY SIGNALS (N)**. At most 50 show, plus "And N more" if there are more. Click **THESE ARE ALL FINE**. The row goes, SORTED goes up, and the points under RANK don't change.
 7. If a **DRILL** row is in the queue, it has a hatched lime border and the DRILL stamp, and its panel says "Practice. This isn't on your computer." Answer it. A right answer adds points and a DRILL line in the log. A wrong one shows "The tell:" and adds nothing. CITY INTEGRITY doesn't move either way. A drill pays once ever: if you already got that drill right (on an earlier sweep or in the Drill Range), answering it again adds no points.
@@ -101,8 +110,80 @@ Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENG
     esac
     exec "$REAL_RESCUE" "$@"
     ```
-    Run `rm -f /tmp/fake-rescue.ran; REAL_RESCUE="$PWD/.venv/bin/rescue" RESCUE_ENGINE=/tmp/fake-rescue npm --prefix desktop start`. Play it as a game with **I'm not sure**. When the deck appears, click **RE-SWEEP ⟳**. When it finishes, the plain list results show, not the deck. **Start over** no longer offers **Play it as a game**. Quit, then delete `/tmp/fake-rescue` and `/tmp/fake-rescue.ran`.
+    In DevTools' Console run `localStorage.setItem('device-rescue.display', 'standard')`. Run `rm -f /tmp/fake-rescue.ran; REAL_RESCUE="$PWD/.venv/bin/rescue" RESCUE_ENGINE=/tmp/fake-rescue npm --prefix desktop start`. Play it as a game with **I'm not sure**. When the deck appears, click **RE-SWEEP ⟳**. When it finishes, "We found something that can be used to watch a computer. Is that something you know about?" appears before anything else. Click **Yes, I know about it**: the deck comes back, the game isn't withdrawn, and **Start over** still offers **Play it as a game**. Quit, then delete `/tmp/fake-rescue` and `/tmp/fake-rescue.ran`.
 15. On Windows or Linux (if available), the same deck appears, and there are no **OPEN IN SYSTEM SETTINGS** buttons.
 16. Clean up the test launch agent as in "Game mode, end to end", step 8.
+
+## Reclaim City: the name
+
+1. Build with `cd desktop && npx electron-builder --mac --publish never -c.mac.identity=-`. `desktop/dist/` holds `ReclaimCity-mac-arm64.dmg` (or `-x64`). Its window title is "Reclaim City".
+2. Install it from the dmg. The app is "Reclaim City" in Applications, the Dock, the menu bar and **Reclaim City → About Reclaim City**. If the owner has added `desktop/build/icon.png`, the Dock shows the game icon; otherwise Electron's default. Never a shield.
+3. On a Mac that had Device Rescue with saved game progress: open Reclaim City. Lessons marked DONE and missions saved for LATER are still there. `~/Library/Application Support/Device Rescue/` is still the folder in use, and no `~/Library/Application Support/Reclaim City/` folder appears.
+4. Search every screen you pass through below for "Device Rescue". It appears nowhere, except where the real folder path `~/Library/Application Support/Device Rescue/Quarantine` is printed in a background job's Undo steps.
+
+## The worry checklist
+
+Start each step from a clean slate: in DevTools' Console run `localStorage.removeItem('device-rescue.display')` and reload. Use the keyboard only for steps 1 to 4, with VoiceOver on (Cmd-F5) for step 1.
+
+1. **Get started**. The worry screen lists six worries as checkboxes under "What’s worrying you?", and none is ticked. The count reads "0 of 6 selected" and the button reads **Select at least one** and can't be pressed. **I’m not sure — check everything** and **I’m worried about spyware on my iPhone** are separate buttons under "Or one of these, on its own:", not in the list. VoiceOver reads the group's name and each worry's title and description.
+2. Tab into the list. Up and Down arrows (and Home, End) move between worries; Space ticks one. Tick **I think I’ve been hacked** and **Someone is on my Wi-Fi…**. The count reads "2 of 6 selected" (VoiceOver announces it) and the button reads **Start the checkup for 2 worries**. Untick one: "1 of 6 selected", **Start the checkup for 1 worry**. Untick it: back to **Select at least one**, disabled.
+3. Tick **I think I’ve been hacked** and **Someone is on my Wi-Fi…** again and press **Start the checkup for 2 worries**. "One more question" appears, with focus on its title. Click **No**. The scan screen reads "Checking for: I think I’ve been hacked and Someone is on my Wi-Fi, or my computer is hot and slow". To see what the engine is asked for without a full scan, quit and run with `RESCUE_ENGINE=/tmp/args-rescue`, a script that writes its arguments down and finds nothing:
+    ```sh
+    #!/bin/sh
+    echo "$@" >> /tmp/rescue-args
+    echo '{"schema_version":1,"platform":"darwin","modules":[]}'
+    ```
+    (`chmod +x /tmp/args-rescue`.) Repeat this step and click **Run checkup**. `/tmp/rescue-args` has one line, with `--profile digital_security_reset --profile home_network_intrusion`. Delete both files afterwards.
+4. **Start over**, **Get started**. Nothing is ticked: each visit starts again.
+5. "Watching me" with another worry: clean slate, **Get started**, tick **I think I’ve been hacked** and **I think someone is watching me**, and press **Start the checkup for 2 worries**. No question is asked, `device-rescue.display` reads `city`, and the checkup runs in the game (the sweep screen). Its title on screen names no worry. On the Training Grounds (**TRAINING** on the deck, or **ALL LESSONS** on the sweep screen) the lesson heading reads **RECOMMENDED FOR YOU**; open the map, the deck, the sweep screen and the generated district too: none shows "I think I’ve been hacked", "I think someone is watching me" or any other worry's words. (In standard mode, the heading names the worries.) The Reclaim City web link and the hotline notes follow the city-mode rules for the whole checkup, not just the "watching" part.
+6. Clean slate, set `device-rescue.display` to `standard`, reload. Tick **Someone stole my identity** and **I think someone is watching me**: still no question, and the mode switches to `city`.
+7. Clean slate. Tick a worry, then click **Something changed?** and **Back**: the tick is still there. Click **I’m not sure — check everything**: the ticked worry is ignored, "One more question" appears, and after **No** the scan screen's checkup runs every check (with `/tmp/args-rescue` from step 3, its line has no `--profile`).
+8. **Start over**, **Get started**, click **I’m worried about spyware on my iPhone**. The plain scan screen waits for **Run checkup**, as before.
+
+## The question and the two modes
+
+Start from a clean slate each time: in DevTools' Console run `localStorage.removeItem('device-rescue.display')` and reload.
+
+1. **Get started**, pick **I think I’ve been hacked**. "One more question" appears with the question and three answers. The title of the question has keyboard focus (VoiceOver reads it first). Click **No**. The scan screen opens. Reload, go back to the worry screen: the question isn't asked again.
+2. On the worry screen, click **Something changed?**. The question appears with a fourth choice, **Back — keep things as they are**. Click **Back**: you're on the worry screen, keyboard focus is on **Something changed?**, any worries you had ticked are still ticked, and nothing changed (`device-rescue.display` has the same value).
+3. Open **Something changed?** again and answer **Yes, that’s part of it**. You're back on the worry screen, and `device-rescue.display` now reads `city`.
+4. With the mode on `city`, open **Something changed?** and click **I’d rather not say**. The mode is still `city`: only an explicit **No** leaves city mode. Open it once more and click **No**. The mode reads `standard`. (On the very first question, **I’d rather not say** gives `standard`.)
+5. DevTools → Application → Local Storage → `app://rescue`. The only new keys are `device-rescue.display` (`city` or `standard`) and `device-rescue.city-seed` (a number). Search every value for "partner", "safety", "stalk", "watch", "advocate" and "hotline": none appear.
+6. Standard mode, a normal checkup: no card, the scan screen or the "What to do next" box mentions a hotline or an advocate. Advice and "stop and read this" notes still show: standard mode quiets only the hotline and DV sentences.
+7. Standard mode, "Copy everything for an AI" and one card's **Copy for any AI**: the text has no note about monitoring software.
+8. Pick **I think someone is watching me**. No question is asked, and the mode reads `city`.
+
+## City mode
+
+Set `device-rescue.display` to `city` in DevTools' Console and quit and reopen the app.
+
+1. It opens straight into the game (the Training Grounds before any sweep), with no welcome screen. Its heading reads "Take back the city", not a worry.
+2. The generated district's tile is there. Note its name, look and wording. Quit, reopen: same name, same colours. On a second Mac (or after deleting `device-rescue.city-seed`), the name is usually different.
+3. Open the district. QUIET FIRST STEPS, WHO CAN HELP, the Six Roses guide and "Leaving is the most dangerous time. Plan carefully with DV advocates." are there. The Six Roses note reads "The title looks like a recipe, but the page is a safety guide, so open it when you’re alone or on a device that’s yours…". Only **OPEN IT IN YOUR BROWSER** opens anything: it opens https://themultiverse.school/x/six-roses, which reads as a recipe.
+4. Press **Esc**. You're back on the deck at once, with keyboard focus on the first district on the map. Open the district again and click **BACK TO THE GAME**: the same. Press **Esc** on the deck itself: nothing happens, and no other screen closes.
+5. Click **OPEN IT IN YOUR BROWSER** and press **Esc** straight away. Back in the app, the deck shows no notice and no address.
+6. Run with `RESCUE_ENGINE=/tmp/fake-rescue` (from "Training Grounds and the final boss", step 11) and start a sweep. When it finishes, the question "We found something that can be used to watch a computer…" is **not** asked (the mode is already `city`). The deck says "Something new in <the district>" and shows nothing named "Monitoring app found". The queue reads "Nothing to sort here right now. Something new in <the district>." and never shows a CLEAR BOARD while that is held. The district shows it under "Don’t remove it yet. Talk to an advocate first.", with how to keep a record of it. On **LIST**, its card has the same line and no **Fix it for me**, no **This is mine**, no step-by-step and no System Settings button (the list stays literal: the card still names what was found). **Copy for any AI** on that card ends with "Don’t suggest removing or disabling it; the person may be at risk if it’s removed. Suggest documenting it and talking to an advocate." Points, CONFIRMED, SORTED and CITY INTEGRITY on the deck didn't change for it, and no signal for it is in the queue.
+7. The ops log reads "Visited <the district>" for each visit, and nothing else about it. The app never shows a notification or bounces the Dock icon.
+8. **PLAIN VIEW**, **Start over**, **Get started**, **Someone is on my Wi-Fi…**: no question, and the checkup runs in the game.
+9. Couldn't look, not clean: on a Mac with no iPhone backup, run the `iphone_spyware_check` module through a sweep (or use an engine that returns its "no backups found" finding). Its district shows **COULDN'T CHECK** with a dashed grey border, never lit and never RECLAIMED.
+10. The carry flag, across a restart. Keep the monitoring-software `/tmp/fake-rescue` from step 6 and note the deck's points and CONFIRMED. Quit. Replace `/tmp/fake-rescue` with a script that finds nothing:
+    ```sh
+    #!/bin/sh
+    echo '{"schema_version":1,"platform":"darwin","modules":[{"name":"stalkerware_scan","category":"security","status":"ok","error":null,"supported":true,"findings":[]}]}'
+    ```
+    Run with `RESCUE_ENGINE=/tmp/fake-rescue` again (the same profile, so saved progress is kept) and click **RE-SWEEP ⟳**. The held software is gone, but the points and CONFIRMED are the same as before, there is no CONFIRMED line or DISTRICT SECURED banner for it, and the log has no reward for it. A second clean re-sweep after this one can score as normal. DevTools → `device-rescue.game.v1`: the only trace is `deck.sweep.carry: true`, a bare boolean, with no title or name.
+11. Hand the app to a "glance test". Open the deck in city mode with the monitoring software held (step 6), and have someone who doesn't know what the app is for look at the screen for a few seconds, then at the Dock and Cmd-Tab. They should see only a game: the window title "Reclaim City", the heading "Take back the city", a map of districts, the generated district's tile with a place-like name, the ops log (SWEEP and "Visited …" lines), and the signals and rank panels. They must not find the words partner, safety, stalking, stalkerware, monitoring, spyware, watching, advocate, hotline or DV on the deck, the map, the window title, the Dock label or Cmd-Tab. The map's note about the held software uses its neutral label ("Something the checkup found") with the rest closed, never the software's name. **Known limit:** the list view (**LIST**) is literal by design, and the district itself names help once opened; the Esc key is the way out.
+12. Quit and delete `/tmp/fake-rescue`. In DevTools, `localStorage.removeItem('device-rescue.display')`.
+
+## Before publishing (the owner's steps, never an agent's)
+
+Each of these is outward-facing. The plan prepares them; the owner does them. Nothing here has been done: nothing is published, tagged or pushed, and the `reclaim-city` branch is not merged.
+1. Supply the game icon as `desktop/build/icon.png`, 1024×1024 (`app-identity.test.js` checks the size). There is no `desktop/build/icon.png` today, so a build uses Electron's default icon until it exists.
+2. Confirm the name of the web version on the download page and the USB stick ("Reclaim City (Web)").
+3. Choose the version in `desktop/package.json` and write the release notes (they begin "Reclaim City used to be called Device Rescue.").
+4. Merge `reclaim-city` into `main` and push the `v*` release tag together. Merging deploys `site/` and the docs with the new `ReclaimCity-*` download links, and those links only work once the release exists. The merge is itself publishing.
+5. Rebuild the `/x/` page with `python scripts/build-standalone-landing.py` (it writes `dist/reclaim-city-landing.html`) and seed it per `~/src/themultiverse.school/docs/AGENT_PUBLISHING_GUIDE.md` Part 2. Decide whether the slug stays `/x/device-rescue`. The Six Roses page that the help district opens is a separate `/x/` page (`/x/six-roses`) and should be live and checked before the release, or the district's link goes nowhere.
+6. Windows: install the new `ReclaimCity-windows-x64.exe` over an existing Device Rescue install, and check that it updates in place (same appId) and keeps saved progress.
+7. Optional, outside this repo: the Six Roses guide's figure cites NPR's 2014 survey now; the spec's suggested note about the removal warning is already addressed on the page.
 
 Record anything that doesn't match as a bug and fix it before the release goes out.

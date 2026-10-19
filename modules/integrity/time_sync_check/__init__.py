@@ -53,7 +53,7 @@ class Module(ModuleBase):
                     title="Couldn't check whether your clock sets itself",
                     description=(
                         "Reading the 'Set time and date automatically' setting needs "
-                        "administrator access, so Device Rescue couldn't check it. This "
+                        "administrator access, so Reclaim City couldn't check it. This "
                         "is not a sign that anything is wrong. To see for yourself, open "
                         "System Settings > General > Date & Time."
                     ),

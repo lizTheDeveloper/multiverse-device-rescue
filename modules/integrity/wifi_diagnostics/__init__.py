@@ -49,7 +49,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check your Wi-Fi",
                     description=(
-                        "Device Rescue couldn't read your Mac's Wi-Fi status, so it "
+                        "Reclaim City couldn't read your Mac's Wi-Fi status, so it "
                         "doesn't know whether Wi-Fi is on. This is not a sign that "
                         "anything is wrong."
                     ),

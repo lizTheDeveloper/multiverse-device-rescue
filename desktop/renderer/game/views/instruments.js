@@ -42,7 +42,7 @@ export function renderInstruments({ integrity, previous, history, bars, rank }) 
     <p class="intel">${esc(integrityText(integrity, previous))}</p>
     <div class="label">SIGNALS</div>
     ${bar(b.sorted, max, 'SORTED', 'cyan')}${bar(b.confirmed, max, 'CONFIRMED', 'lime')}${bar(b.reported, max, 'YOU REPORTED', 'amb')}
-    <p class="intel">Confirmed means Device Rescue checked again and it’s gone. You reported is your word for it. They’re counted apart.</p>
+    <p class="intel">Confirmed means Reclaim City checked again and it’s gone. You reported is your word for it. They’re counted apart.</p>
     <div class="label">RANK</div>
     <p class="rank-name"><b>${esc(rank.name)}</b> <small>${esc(rank.points)} POINTS</small></p>
     <div class="bar" role="progressbar" aria-label="Rank progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${toward}"><i style="--pct: ${toward}%"></i></div>

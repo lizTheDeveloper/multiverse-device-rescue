@@ -1,6 +1,6 @@
 """The allowlist behind the desktop app's "Fix it for me" button.
 
-Device Rescue promises never to change anything without the person's explicit
+Reclaim City promises never to change anything without the person's explicit
 OK, and a wrong automatic fix on a frightened person's computer is worse than
 none. So the app may only offer a fix for a module that:
 

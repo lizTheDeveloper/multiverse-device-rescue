@@ -206,3 +206,26 @@ def test_written_files_are_owner_only(tmp_path):
         return  # POSIX mode bits are not meaningful here
     json_path, _ = write_case(_case_with_finding(), tmp_path, stem="case-perm")
     assert json_path.stat().st_mode & 0o077 == 0
+
+
+def test_marked_entries_show_in_the_export_and_key_comments_never_do():
+    keys = [{"type": "ssh-ed25519", "sha256": "a" * 64, "line_sha256": "b" * 64, "comment": "jo@laptop"}]
+    marked = [{"id": "0123456789ab", "entry": "a" * 64, "shown": "ssh-ed25519 key aaaaaaaaaaaaaaaa…",
+               "marked_at": "2026-10-18T00:00:00Z"}]
+    case = _case_with_finding(
+        code="security.session_revocation_scan.ssh_authorized_keys",
+        description="Marked as yours (1): ssh-ed25519 key aaaaaaaaaaaaaaaa…",
+        data={"check": "ssh_authorized_keys", "key_count": 1, "keys": keys,
+              "marked_items": marked, "unmarked": [],
+              "stale_list_mark": {"id": "fedcba987654"}},
+    )
+    out = case_to_json(case)
+    assert "jo@laptop" not in out
+    assert "[redacted] key comment" in out
+    data = case_to_dict(case)["modules"][0]["findings"][0]["data"]
+    assert data["marked_items"][0]["id"] == "0123456789ab"
+    assert data["stale_list_mark"] == {"id": "fedcba987654"}
+    assert data["keys"][0]["sha256"] == "a" * 64
+    assert "Marked as yours (1)" in case_to_markdown(case)
+    # an email-shaped comment is dropped too, and the caller's data is not mutated
+    assert keys[0]["comment"] == "jo@laptop"

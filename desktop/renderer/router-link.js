@@ -67,7 +67,7 @@ const RouterLink = (function () {
 
   function hintText(ctx) {
     const where = ctx.browser ? `in ${ctx.browser}` : 'in your web browser';
-    return `Opens your router’s sign-in page (http://${ctx.ip}/) ${where}. You sign in there yourself; Device Rescue never sees the password. `
+    return `Opens your router’s sign-in page (http://${ctx.ip}/) ${where}. You sign in there yourself; Reclaim City never sees the password. `
       + `You can also type ${ctx.ip} into any browser’s address bar. If your router is managed by a phone app, use the app instead.`
       + (ctx.unverified ? ' This checkup couldn’t confirm that this address is really your router, so compare it with the address on the router’s label before you sign in.' : '');
   }

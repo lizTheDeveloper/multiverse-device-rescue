@@ -61,7 +61,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check whether Bluetooth is on",
                     description=(
-                        "Device Rescue couldn't read your Mac's Bluetooth setting. This "
+                        "Reclaim City couldn't read your Mac's Bluetooth setting. This "
                         "is not a sign that anything is wrong. To see for yourself, open "
                         "System Settings > Bluetooth."
                     ),
@@ -94,7 +94,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check whether Wi-Fi is on",
                     description=(
-                        "Device Rescue couldn't read your Mac's Wi-Fi setting. This is "
+                        "Reclaim City couldn't read your Mac's Wi-Fi setting. This is "
                         "not a sign that anything is wrong."
                     ),
                     severity=Severity.INFO,
@@ -126,7 +126,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check whether iCloud is signed in",
                     description=(
-                        "Device Rescue couldn't read your iCloud account settings. This is "
+                        "Reclaim City couldn't read your iCloud account settings. This is "
                         "not a sign that anything is wrong. To see for yourself, open "
                         "System Settings and look for your name at the top."
                     ),

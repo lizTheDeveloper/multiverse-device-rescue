@@ -27,11 +27,12 @@ attack.
 
 ## Step 1: Decide whether this is a safety situation first
 
-If the person who may have set this up is someone you know (a partner, an
-ex, a housemate, a family member), stop and read this before doing anything
-else. Cutting off someone's access tells them they have been found out. If
-that person has ever frightened you, the safest order of operations is
-different from the technical one, and it is worth getting help planning it.
+Stop and read this before changing anything. It matters most if the person
+who may have set this up is someone you know (a partner, an ex, a housemate, a
+family member). Cutting off someone's access tells them they have been found
+out. If the person who may have set this up has ever frightened you, the
+safest order of operations is different from the technical one, and it is
+worth getting help planning it.
 
 In the US, the National Domestic Violence Hotline is 1-800-799-7233, or text
 START to 88788. The Coalition Against Stalkerware (stopstalkerware.org) lists

@@ -151,3 +151,14 @@ test('bars with both counts non-zero are reported apart, never summed', async ()
     scanConfirmed: { missions: { [FC]: true } }, doc: d });
   assert.deepStrictEqual(r, { confirmed: 2, reported: 1 });
 });
+
+test('a mark that couldn’t be checked this time is back in the queue, never “changed”', async () => {
+  const unchecked = f('Unchecked', 'warning', { plist: '/u', mark_stale: true, mark_unchecked: true, known_item_id: 'k3' });
+  const { v, sigs } = await build(doc(mod('a_mod', [unchecked])));
+  const q = v.queueOf(sigs);
+  assert.deepStrictEqual(q.urgent.map((x) => [x.title, x.stale, x.unchecked, x.marked]), [['Unchecked', false, true, false]]);
+  const { signalRow } = await import('../renderer/game/views/deck.js');
+  const row = signalRow(q.urgent[0]);
+  assert.match(row, /NOT CHECKED THIS TIME/);
+  assert.doesNotMatch(row, /CHANGED SINCE/);
+});

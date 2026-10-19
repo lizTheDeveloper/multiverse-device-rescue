@@ -83,7 +83,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check whether iCloud Keychain is on",
                     description=(
-                        "Device Rescue couldn't read whether iCloud Keychain (Passwords) "
+                        "Reclaim City couldn't read whether iCloud Keychain (Passwords) "
                         "is turned on for your Apple Account. This is not a sign that "
                         "anything is wrong. To see for yourself, open System Settings, "
                         "click your name, then iCloud, and look at Passwords."
@@ -124,7 +124,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check whether updates install automatically",
                     description=(
-                        "Device Rescue couldn't read your Mac's automatic update settings. "
+                        "Reclaim City couldn't read your Mac's automatic update settings. "
                         "This is not a sign that anything is wrong. To see for yourself, "
                         "open System Settings > General > Software Update."
                     ),

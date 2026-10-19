@@ -18,7 +18,7 @@ const DROP_KEYS = /env|token|secret|passw|pwd|cookie|credential|auth|private|api
 const COMMAND_KEYS = /arg|cmd|command/i;
 
 const PREAMBLE = [
-  'I ran a security checkup app called Device Rescue on my computer. It only looks; it changed nothing.',
+  'I ran a security checkup app called Reclaim City on my computer. It only looks; it changed nothing.',
   'Below is what it found, with my name, computer name, network addresses and anything password-like removed.',
   '',
   'Please:',
@@ -30,6 +30,10 @@ const PREAMBLE = [
   '- If you think someone may be monitoring me, tell me that removing monitoring software can alert',
   '  the person who installed it, and suggest I talk to an advocate first (US: 1-800-799-7233).',
 ].join('\n');
+
+// For an item the app holds back in its quiet display (monitoring software,
+// `held: true`). Fixed here: the page only says which items it applies to.
+const HELD_NOTE = 'Don’t suggest removing or disabling it; the person may be at risk if it’s removed. Suggest documenting it and talking to an advocate.';
 
 const SEVERITY_WORDS = { critical: 'Needs attention now', warning: 'Worth checking', info: 'For your information' };
 
@@ -50,6 +54,17 @@ function programOnly(v, env) {
   return cleanString(parts[0], env) + (rest ? ` [${rest} argument(s) left out]` : '');
 }
 
+// A saved remote-login key's comment is often user@host or a person's name
+// ("Marks MacBook Pro key"). The app shows it on this computer only; nothing
+// copied out carries it, as with the export (rescue/case.py _without_key_comments).
+const KEY_COMMENT_LEFT_OUT = '[left out: key comment]';
+
+function withoutKeyComments(keys) {
+  return keys.map((k) => (k && typeof k === 'object' && !Array.isArray(k) && 'comment' in k
+    ? Object.assign({}, k, { comment: k.comment ? KEY_COMMENT_LEFT_OUT : k.comment })
+    : k));
+}
+
 /** Redact every string in an evidence value; drop risky keys; cap size and depth. */
 function cleanEvidence(value, env, depth = 0) {
   if (value == null || typeof value === 'boolean' || typeof value === 'number') return value;
@@ -66,6 +81,7 @@ function cleanEvidence(value, env, depth = 0) {
       const key = cleanString(k, env);
       if (DROP_KEYS.test(k)) out[key] = '[left out: may contain private data]';
       else if (COMMAND_KEYS.test(k)) out[key] = programOnly(v, env);
+      else if (k === 'keys' && Array.isArray(v)) out[key] = cleanEvidence(withoutKeyComments(v), env, depth + 1);
       else out[key] = cleanEvidence(v, env, depth + 1);
     }
     return out;
@@ -93,13 +109,16 @@ const PERSON_SAID = new Set([
   'the person said they did this (this checkup only; not checked again yet)',
   'marked as theirs by the person just now (kept across checkups)',
   'marked as theirs by the person on an earlier checkup',
-  'fixed by Device Rescue and checked again',
+  'fixed by Reclaim City and checked again',
 ]);
 
 function statusLine(f) {
   if (typeof f.person_said === 'string' && PERSON_SAID.has(f.person_said)) return f.person_said;
   if (f.data && typeof f.data === 'object' && f.data.marked_by_user === true) {
     return 'marked as theirs by the person at this computer (it was flagged before they marked it)';
+  }
+  if (f.data && typeof f.data === 'object' && f.data.mark_unchecked === true) {
+    return 'had been marked as theirs; it could not be checked this time (that does not mean it changed), so it is flagged again';
   }
   if (f.data && typeof f.data === 'object' && f.data.mark_stale === true) {
     return 'had been marked as theirs, but it changed since, so it is flagged again';
@@ -118,6 +137,7 @@ function findingText(f, index, env) {
   if (typeof f.confidence === 'number') lines.push(`Confidence: ${f.confidence}`);
   const status = statusLine(f);
   if (status) lines.push(`Status: ${status}`);
+  if (f.held === true) lines.push(`Please note: ${HELD_NOTE}`);
   if (f.description) lines.push('', cleanString(f.description, env));
   const made = madeByLines(f.made_by, env);
   if (made.length) lines.push('', 'Who made the programs involved:', ...made);
@@ -166,4 +186,4 @@ function buildAiPrompt(payload, env) {
   return text.trimEnd() + '\n';
 }
 
-module.exports = { buildAiPrompt, cleanEvidence, PREAMBLE, MAX_TOTAL_CHARS, PERSON_SAID };
+module.exports = { buildAiPrompt, cleanEvidence, PREAMBLE, MAX_TOTAL_CHARS, PERSON_SAID, HELD_NOTE };

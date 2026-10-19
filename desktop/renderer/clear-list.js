@@ -104,7 +104,7 @@ const ClearList = (function () {
     if (how === 'did') return 'You said you did this. This checkup only: nothing is saved, and your next checkup checks it again.';
     if (how === 'marked') return 'Marked as yours. This is remembered across checkups, and it stays listed as “marked as yours”.';
     if (how === 'marked_before') return 'You marked this as yours on an earlier checkup. It stays listed so anyone helping you can see it.';
-    if (how === 'fixed') return 'Device Rescue changed this and checked again.';
+    if (how === 'fixed') return 'Reclaim City changed this and checked again.';
     return '';
   }
 
@@ -119,7 +119,7 @@ const ClearList = (function () {
     if (how === 'did') return 'the person said they did this (this checkup only; not checked again yet)';
     if (how === 'marked') return 'marked as theirs by the person just now (kept across checkups)';
     if (how === 'marked_before') return 'marked as theirs by the person on an earlier checkup';
-    if (how === 'fixed') return 'fixed by Device Rescue and checked again';
+    if (how === 'fixed') return 'fixed by Reclaim City and checked again';
     return null;
   }
 

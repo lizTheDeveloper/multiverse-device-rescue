@@ -91,3 +91,69 @@ test('the copy panel escapes the text', () => {
   assert.ok(!html.includes('<script>'));
   assert.ok(html.includes('&lt;/textarea&gt;'));
 });
+
+test('saved-key comments never leave the app: Copy for any AI, one card or the whole report', () => {
+  const comments = ['mark@marks-macbook', 'mark@laptop', 'Marks MacBook Pro key'];
+  const keyFinding = {
+    title: '3 saved key(s) could let another computer log in to this one',
+    description: 'This computer keeps a list of 3 key(s).',
+    severity: 'warning',
+    code: 'security.session_revocation_scan.ssh_authorized_keys',
+    data: {
+      key_count: 3,
+      keys: comments.map((comment, i) => ({ type: 'ssh-ed25519', sha256: String(i).repeat(64), line_sha256: 'f'.repeat(64), comment })),
+      nested: { keys: [{ type: 'ssh-rsa', comment: 'mark@laptop' }] },
+    },
+  };
+  const one = buildAiPrompt({ findings: [keyFinding] }, ENV);
+  const all = buildAiPrompt({ findings: [FINDING, keyFinding], situation: 'Something is wrong' }, ENV);
+  for (const text of [one, all]) {
+    for (const c of comments) assert.ok(!text.includes(c), `${c} leaked`);
+    assert.match(text, /left out: key comment/);
+    assert.match(text, /ssh-ed25519/); // the rest of the key's evidence stays
+  }
+  const ev = cleanEvidence(keyFinding.data, ENV);
+  assert.strictEqual(ev.keys.length, 3);
+  assert.ok(ev.keys.every((k) => k.comment === '[left out: key comment]'));
+  // A key with no comment stays without one.
+  assert.strictEqual(cleanEvidence({ keys: [{ type: 'ssh-rsa', comment: '' }] }, ENV).keys[0].comment, '');
+});
+
+test('a mark that couldn’t be checked this time is never described to an AI as changed', () => {
+  const text = buildAiPrompt({ findings: [{ ...FINDING, data: { mark_stale: true, mark_unchecked: true } }] }, ENV);
+  assert.match(text, /could not be checked this time \(that does not mean it changed\)/);
+  assert.doesNotMatch(text, /changed since/);
+});
+
+test('Copy technical report: saved-key comments are left out, in the evidence and the checklist rows', async () => {
+  const { technicalReportText, KEY_COMMENT_LEFT_OUT } = require('../renderer/copy-ai.js');
+  const { page } = require('./page-harness.js');
+  const comments = ['mark@marks-macbook', 'mark@laptop', 'Marks MacBook Pro key'];
+  const keys = comments.map((comment, i) => ({ type: 'ssh-ed25519', sha256: String(i).repeat(64), line_sha256: 'f'.repeat(64), comment, options: false }));
+  const doc = { schema_version: 1, platform: 'darwin', modules: [{ name: 'session_revocation_scan', category: 'security', status: 'ok', error: null, supported: true,
+    findings: [{ title: '3 saved key(s) could let another computer log in to this one', description: 'd', severity: 'warning', category: 'security',
+      code: 'security.session_revocation_scan.ssh_authorized_keys', data: { key_count: 3, keys },
+      markable: { kind: 'ssh_authorized_keys', id: 'a'.repeat(64), items: keys.map((k) => ({ key: k.sha256, label: 'ssh-ed25519 key', detail: k.comment, id: null })) } },
+    { title: 'Apps', description: 'd', severity: 'warning', category: 'security',
+      markable: { kind: 'app_permissions', items: [{ key: 'com.example.one', label: 'One', detail: 'com.example.one' }] } }] }] };
+  const text = technicalReportText(doc);
+  for (const c of comments) assert.ok(!text.includes(c), `${c} leaked`);
+  const back = JSON.parse(text);
+  assert.ok(back.modules[0].findings[0].data.keys.every((k) => k.comment === KEY_COMMENT_LEFT_OUT && k.sha256));
+  assert.ok(back.modules[0].findings[0].markable.items.every((i) => i.detail === KEY_COMMENT_LEFT_OUT));
+  assert.strictEqual(back.modules[0].findings[1].markable.items[0].detail, 'com.example.one', 'an app’s bundle id stays');
+  assert.strictEqual(keys[0].comment, 'mark@marks-macbook', 'the doc on screen is not changed');
+
+  // On the page: the button copies that text.
+  const p = page();
+  const copied = [];
+  p.sandbox.navigator.clipboard = { writeText: async (t) => { copied.push(t); } };
+  p.byId('btn-get-started').click();
+  p.pick('hacked', 'wifi');
+  p.byId('btn-run-scan').click();
+  await p.finish(doc);
+  for (const fn of p.byId('btn-copy-json').listeners.click) await fn({});
+  assert.strictEqual(copied.length, 1);
+  assert.ok(copied[0].includes(KEY_COMMENT_LEFT_OUT));
+  for (const c of comments) assert.ok(!copied[0].includes(c), `${c} leaked from the page`);
+});

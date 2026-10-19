@@ -8,7 +8,7 @@ so this inlines all three and points relative links at the Pages site.
 
 Usage:
     python scripts/build-standalone-landing.py [output.html]
-    (default output: dist/device-rescue-landing.html)
+    (default output: dist/reclaim-city-landing.html)
 """
 
 import json
@@ -50,7 +50,7 @@ def build() -> str:
 
 
 def main() -> int:
-    out = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "dist" / "device-rescue-landing.html"
+    out = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "dist" / "reclaim-city-landing.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(build(), encoding="utf-8")
     print(f"Wrote {out} ({out.stat().st_size} bytes)")

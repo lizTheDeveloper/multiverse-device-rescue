@@ -3,8 +3,9 @@
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
 import { findingsToCity, DISTRICTS } from './findings-to-city.js';
+import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts } from './signals.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './drills.js';
@@ -26,11 +27,14 @@ import { verifyMission, disagreement, loadScanConfirmed, saveScanConfirmed, mark
 import { focusFor, countDeckBars, accountDistrictCards, deviceMissionFor } from './one-city.js';
 import { renderOneCityMap } from './views/one-city-map.js';
 import { renderVerification, renderMilestoneSplit } from './views/verification.js';
-import { loadLessons, orderLessons, lessonForModule, afterScanDone, lessonsByDistrict, districtLesson } from './training.js';
+import { loadLessons, orderLessons, lessonForModule, afterScanDone, lessonsByDistrict, districtLesson, worryIdsOf } from './training.js';
 import { bossInit, bossApply, bossFinish } from './boss.js';
 import { renderTraining } from './views/training.js';
 import { renderLesson } from './views/lesson.js';
 import { renderBoss } from './views/boss.js';
+import { pickDistrict, seedFrom } from './district-names.js';
+import { SIX_ROSES } from './side-district.js';
+import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
@@ -85,12 +89,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><div class="frame" id="frame"></div>';
+  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="checklist.css"><div class="frame" id="frame"></div>';
   const frame = shadow.getElementById('frame');
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
 
-  const s = { doc: null, situation: null, city: null, progress: loadProgress(storage), cameBack: [],
+  const s = { doc: null, held: [], heldCity: null, situation: null, city: null, progress: loadProgress(storage), cameBack: [],
     screen: 'map', districtId: null, missionId: null, outcome: null, outcomeMission: null, lastFix: null, message: '', busy: false,
     trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
     rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
@@ -98,8 +102,28 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit(),
     // The command center. The ops log is kept in memory only.
     signal: null, filter: null, lowOpen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
-    drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null };
+    drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null,
+    // The generated district. Memory only, like the ops log; nothing about it is stored.
+    sideTicket: 0, sideNotice: false, heldOpen: false };
   let drawnScreen = null; // the screen the last render drew
+
+  // The generated district (city mode only): help that looks like the rest of the city.
+  // The game's home when the app opens in city mode (app.js CITY_SITUATION), not a worry.
+  const isCityHome = (situation) => !!situation && situation.id === 'city' && !Array.isArray(situation.ids);
+  const inCity = () => !!(win.RescueHost && typeof win.RescueHost.mode === 'function' && win.RescueHost.mode() === 'city');
+  // Picked once per session from the install's seed (app.js reads it once with
+  // DisplayMode.ensureSeed). A missing or garbled seed gets a random one for
+  // this session (seedFrom), never the same district for every such install.
+  let sideDistrict = null;
+  const side = () => {
+    if (sideDistrict) return sideDistrict;
+    let raw = null;
+    try { raw = win.RescueHost && typeof win.RescueHost.citySeed === 'function' ? win.RescueHost.citySeed() : null; } catch (_) { raw = null; }
+    sideDistrict = pickDistrict(seedFrom(raw));
+    return sideDistrict;
+  };
+  const sideTile = () => (inCity() ? sideTileHtml(side(), s.held.length) : '');
+  const heldNotice = () => (inCity() && s.held.length ? heldNoticeHtml(side()) : '');
 
   // loadLessons never rejects: a lesson that fails to load is left out.
   // Until then the Training Grounds says the lessons are on their way, not that they failed.
@@ -129,10 +153,26 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   // `putBack` is a mission the person just asked to have back (Undo, or "Stop
   // treating this as mine"). Its return is expected, so it isn't "came back".
+  // The same text as the list (QuietNotes): in standard mode no hotline paragraphs in
+  // missions, notes or clues (the one line keeps any removal warning); city mode is never quieted.
+  const quietDoc = (d) => (win.QuietNotes ? win.QuietNotes.quietDoc(d, hostMode()) : d);
+  // City mode: the fix and "It's mine" panels carry the extra warning about whoever set something up.
+  const watchedOpts = () => ({ watched: hostMode() === 'city' });
+  // Without the host's answer, assume 'city': monitoring software is then held
+  // (nothing to act on) rather than shown with its removal steps.
+  const hostMode = () => (win.RescueHost && typeof win.RescueHost.mode === 'function' ? win.RescueHost.mode() : 'city');
+
   function rebuild(doc, putBack = null) {
-    const before = s.city ? cityIntegrity(s.city, signalsNow()) : null;
+    const before = s.city ? cityIntegrity(s.city, signalsNow(), s.heldCity) : null;
+    const heldBefore = heldDistrictIds(s.heldCity);
     s.doc = doc;
-    s.city = findingsToCity(doc);
+    // Monitoring software never becomes a mission or a signal (held.js).
+    const split = splitHeld(doc);
+    s.held = split.held;
+    // Held findings' own districts, in memory only, so integrity and heat
+    // still count them as open while they're never signals, points or stored.
+    s.heldCity = findingsToCity(heldOnly(doc));
+    s.city = findingsToCity(quietDoc(split.doc));
     const ranOk = ranOkModules(doc);
     const r = reconcile(s.progress, s.city, ranOk, now());
     s.cameBack = r.cameBack.filter((id) => id !== putBack);
@@ -140,9 +180,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // gone one's is dropped, and a confirmed fix that came back no longer counts.
     const rd = reconcileDeck(r.progress.deck, buildSignals(s.city, r.progress.deck), ranOk);
     rd.changed.forEach((id) => s.changedTags.add(id));
-    s.progress = setDeck(r.progress, rd.deck);
+    // Held software seen in this sweep (a scan or a re-check) marks it, on disk
+    // as a bare flag, so its going later is never paid, even after a restart.
+    const carrying = heldDistrictIds(s.heldCity).size > 0;
+    s.progress = setDeck(r.progress, carrying && rd.deck.sweep.carry !== true ? { ...rd.deck, sweep: { ...rd.deck.sweep, carry: true } } : rd.deck);
     saveProgress(storage, s.progress);
-    if (before) noteSecured(before, cityIntegrity(s.city, signalsNow()));
+    // A district that held a monitoring finding is never "secured" by its going:
+    // that would reward removing it, and the log line would say where it was.
+    const heldNow = heldDistrictIds(s.heldCity);
+    if (before) noteSecured(before, cityIntegrity(s.city, signalsNow(), s.heldCity), new Set([...heldBefore, ...heldNow]));
   }
 
   // The modules whose findings a mark or unmark covered (by mark id), so each
@@ -209,7 +255,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // to the Training Grounds (the HUD's TRAINING, or a briefing's lesson link).
   const cityWaiting = () => s.pendingCity || (!!s.city && !s.scan.running && !s.scan.error);
   const learnFor = () => {
-    const by = lessonsByDistrict(s.lessons, s.situation && s.situation.id);
+    const by = lessonsByDistrict(s.lessons, worryIdsOf(s.situation));
     return (id) => districtLesson(by, s.progress, id);
   };
 
@@ -299,7 +345,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const sig = s.signal && findSignal(s.signal.id);
     if (!sig) { s.signal = null; return ''; }
     // The real "It's mine" step, offered only for a finding that has one. MarkFlow asks its own question.
-    const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding) : '';
+    const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, { ...watchedOpts(), theme: 'game' }) : '';
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
       range: s.screen === 'range' ? { hasCity: !!s.city } : null });
@@ -307,17 +353,25 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   function deckHtml() {
     const { sigs, q, items } = deckQueue();
-    const integ = cityIntegrity(s.city, sigs);
+    const integ = cityIntegrity(s.city, sigs, s.heldCity);
     const deck = s.progress.deck;
     const history = deck.sweeps.map(sweepPercent);
     const c = counts();
     const goFor = (d) => `filter:${d.id}`;
-    const heat = districtHeat(s.city, sigs);
-    const cityHtml = s.rc || s.accountsError
+    const heat = districtHeat(s.city, sigs, s.heldCity);
+    // Monitoring software the scan found. City mode: the generated district's
+    // tile and a notice that name only the place, and the help is in there.
+    // Otherwise (standard, or a host that can't say): the map's own note.
+    const held = inCity() ? '' : heldPanelHtml({ held: s.held, mode: hostMode(), Q: win.QuietNotes });
+    // Its district reads as checked, never NOTHING FOUND (views/map.js heldView).
+    const heldIn = heldDistrictIds(s.heldCity);
+    // City mode has no note above the map: a held district points to the generated one.
+    const heldAt = inCity() ? side().name : null;
+    const cityHtml = sideTile() + held + (s.rc || s.accountsError
       ? renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
         accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
-        accountsError: s.accountsError, goFor, heat, selected: s.filter })
-      : renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter });
+        accountsError: s.accountsError, goFor, heat, selected: s.filter, held: heldIn, heldAt })
+      : renderMap({ city: s.city, progress: s.progress, cameBack: s.cameBack, scout, goFor, heat, selected: s.filter, held: heldIn, heldAt }));
     const fd = s.filter ? district(s.filter) : null;
     const moments = s.moments;
     s.moments = []; // a moment shows once
@@ -328,7 +382,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
         history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
-      scanRunning: s.scan.running, districtName: nameOf, notice: s.linkNotice });
+      scanRunning: s.scan.running, districtName: nameOf, notice: heldNotice() + s.linkNotice,
+      // With something held, an empty queue points to it instead of saying "clear".
+      heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
   function openSignal(id) {
@@ -441,11 +497,25 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // A finished scan: a date and counts in the store, a SWEEP line in the log,
   // "no longer seen" for what's gone (no points: only a re-check confirms),
   // the clean-sweep bonus when this re-sweep cleared the board, and new drills.
+  // A sweep where held monitoring software is, or was in the last sweep, is
+  // recorded but never scored or called clean: its going is not a win.
+  // Every monitoring check in this scan that can run here ran ok (none timed
+  // out or failed), and at least one did. Whether any of them holds something
+  // is heldCity's to say.
+  function monitoringRanClear(doc) {
+    const mods = (doc && Array.isArray(doc.modules) ? doc.modules : []).filter((m) => m && HELD_MODULES.has(m.name) && m.supported !== false);
+    const ok = ranOkModules(doc);
+    return mods.length > 0 && mods.every((m) => ok.has(m.name));
+  }
+
   function newSweep(doc, prev) {
     s.sweptDoc = doc;
     const sigs = signalsNow();
-    const counts = sweepCounts(doc, s.city, cityIntegrity(s.city, sigs));
-    const r = recordSweep(s.progress.deck, counts, now());
+    const counts = sweepCounts(doc, s.city, cityIntegrity(s.city, sigs, s.heldCity), s.heldCity);
+    // The mark stays until the monitoring checks ran and found nothing held:
+    // a sweep where one timed out or couldn't look (fog) keeps it.
+    const carry = heldDistrictIds(s.heldCity).size > 0 || (s.progress.deck.sweep.carry === true && !monitoringRanClear(doc));
+    const r = recordSweep(s.progress.deck, counts, now(), { carry });
     commitAward(r);
     logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check.`);
     if (r.clean) {
@@ -462,9 +532,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   // A district that had something open and now has nothing open in the checks that ran.
-  function noteSecured(before, after) {
+  function noteSecured(before, after, held = new Set()) {
     for (const id of after.securedIds) {
-      if (before.securedIds.has(id) || !before.checkedIds.has(id)) continue;
+      if (before.securedIds.has(id) || !before.checkedIds.has(id) || held.has(id)) continue;
       const name = nameOf(id) || id;
       addMoment({ kind: 'secured', title: 'DISTRICT SECURED', text: `${name}: nothing critical or warning is open in the checks that ran.` });
       logEntry('SECURED', name);
@@ -501,10 +571,16 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   function screenHtml() {
+    if (s.screen === 'side') {
+      if (inCity()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout });
+      s.screen = s.city ? 'map' : 'training';
+    }
     if (s.screen === 'range') return rangeHtml();
     if (s.screen === 'training') {
-      return renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
-        worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
+      return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, worryIdsOf(s.situation)), progress: s.progress,
+        // City mode is the cover: no worry's words on a game screen ("…watching
+        // me"). Only the city's own home keeps its title, "Take back the city".
+        worryTitle: inCity() && !isCityHome(s.situation) ? null : s.situation && s.situation.title, forYou: inCity(), scan: s.scan, scout, pendingCity: cityWaiting(),
         lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city });
     }
     if (s.screen === 'lesson') {
@@ -527,13 +603,18 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (s.screen === 'mission' && s.busy && !mission(s.missionId) && s.outcomeMission && s.outcomeMission.id === s.missionId) {
       const m = s.outcomeMission;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: '',
-        scout, busy: true, wantsSafety: win.RescueHost.wantsSafety(m.primary) });
+        scout, busy: true, wantsSafety: win.RescueHost.wantsSafety(m.primary), note: briefingNote(win.QuietNotes, hostMode(), m.primary) });
     }
     if (s.screen === 'mission' && mission(s.missionId)) {
       const m = mission(s.missionId);
-      const controls = `${win.FixFlow.fixControlsHtml(m.primary, { watched: false })}${win.MarkFlow.markControlsHtml(m.primary)}${routerHtml(m.primary)}`;
+      // Monitoring software is held (rebuild), so it shouldn't reach here; if it
+      // ever does, the briefing carries the list's own note, and in city mode
+      // nothing to act on.
+      const note = briefingNote(win.QuietNotes, hostMode(), m.primary);
+      const controls = note.kind === 'held' ? ''
+        : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, { ...watchedOpts(), theme: 'game' })}${routerHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
-        scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module) });
+        scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the
@@ -555,18 +636,20 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function render() {
     try {
       // No city yet (the scan hasn't finished): the Training Grounds.
-      if (!s.city && !NO_CITY_SCREENS.has(s.screen)) s.screen = 'training';
+      if (!s.city && !NO_CITY_SCREENS.has(s.screen) && s.screen !== 'side') s.screen = 'training';
       // A redraw of the same screen (a progress event, an answer, a clue, a
       // tag) mustn't lose keyboard or screen-reader focus.
       const keep = KEEP_FOCUS.has(s.screen) && s.screen === drawnScreen ? focusKey(shadow.activeElement) : null;
       // The known pile is a <details>: keep it open if the person opened it.
       const knownWasOpen = s.screen === 'map' && drawnScreen === 'map' && !!(frame.querySelector('details.known') || {}).open;
+      // The held note's details (standard mode, or a host that can't say), the same way.
+      if (s.screen === 'map' && drawnScreen === 'map') s.heldOpen = !!(frame.querySelector('.panel.held details') || {}).open;
       const body = screenHtml();
       // The deck has its own top bar; the training and range screens have theirs.
-      const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' ? ''
+      const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
       frame.innerHTML = hud + body;
-      // No share cards in Device Rescue: they would describe this person's progress.
+      // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
       // No "ALLIED ORGANIZATIONS" either (a district at 100%): one is a donation
       // page, and none are in mission-links.json. Then any other outside link
@@ -577,6 +660,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       frame.querySelectorAll('a[target="_blank"]:not([data-action])').forEach((el) => el.remove());
       const known = knownWasOpen && s.screen === 'map' ? frame.querySelector('details.known') : null;
       if (known) known.open = true;
+      const heldDetails = s.heldOpen && s.screen === 'map' ? frame.querySelector('.panel.held details') : null;
+      if (heldDetails) heldDetails.open = true;
       // (screenHtml can move on from a lesson that's gone: then nothing to keep.)
       if (keep && s.screen === drawnScreen) focusEl(findByAttr(frame, keep.k, keep.v));
       drawnScreen = s.screen;
@@ -609,7 +694,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       try { r = await win.rescue.recheckModule(name); } catch (_) { r = null; }
       if (name === m.module) res = r;
       if (r && r.ok) {
-        if (!win.RescueHost.docChanged(r.doc)) { s.busy = false; return; } // the gate closed: app.js showed the list
+        if (!win.RescueHost.docChanged(r.doc)) { s.busy = false; return; } // app.js asked the follow-up instead
         rebuild(r.doc, putBack ? m.id : null);
       }
     }
@@ -633,6 +718,54 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     render();
   }
 
+  function openSide() {
+    s.signal = null; // a Signal or Noise panel left open closes
+    s.sideNotice = false;
+    s.screen = 'side';
+    // Only where they went: nothing about what is there.
+    logEntry('VISIT', `Visited ${side().name}`);
+    render();
+    // Keyboard and screen-reader users land on the district's name.
+    const title = frame.querySelector('#side-title');
+    if (title && typeof title.focus === 'function') title.focus();
+  }
+
+  // The panic key and BACK TO THE GAME: the ordinary game at once, focus on the map.
+  function leaveSide() {
+    s.sideTicket += 1; // a guide still opening says nothing afterwards
+    s.sideNotice = false;
+    s.screen = s.city ? 'map' : 'training';
+    render();
+    const first = s.city && s.city.districts.length ? s.city.districts[0] : null;
+    const target = first
+      ? frame.querySelector(`[data-go="filter:${first.id}"]`) || frame.querySelector(`[data-go="district:${first.id}"]`)
+      : frame.querySelector('[data-act="start-checkup"]');
+    if (target && typeof target.focus === 'function') target.focus();
+  }
+
+  // Only the Six Roses guide opens, through main's guide allowlist.
+  function openSideGuide() {
+    const ticket = s.sideTicket;
+    Promise.resolve().then(() => win.rescue.openGuide(SIX_ROSES.url)).then((ok) => ok === true, () => false).then((ok) => {
+      if (ok || ticket !== s.sideTicket || s.screen !== 'side') return;
+      s.sideNotice = true;
+      render();
+    });
+  }
+
+  // Esc on the district, wherever focus is, even while something is still
+  // loading. Capture phase, so nothing else sees it first. Only while the city
+  // is on screen: app.js's own screens keep their Esc.
+  const cityShown = () => !(host && typeof host.closest === 'function' && host.closest('[hidden]'));
+  if (typeof win.addEventListener === 'function') {
+    win.addEventListener('keydown', (e) => {
+      if (!e || e.key !== 'Escape' || s.screen !== 'side' || !cityShown()) return;
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      leaveSide();
+    }, true);
+  }
+
   frame.addEventListener('click', (e) => {
     const el = e.target.closest('[data-go],[data-act]');
     if (!el) return;
@@ -643,6 +776,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // Always a way back to the list, even while a re-check runs.
     if (act === 'list') { win.RescueHost.showList(); return; }
     if (act === 'leave') { win.RescueHost.leaveGame(); return; }
+    // Always works, like LIST: back to the ordinary game.
+    if (act === 'side-back') { leaveSide(); return; }
     // Opens a System Settings page through main's allowlist; it changes nothing, so it's fine mid-re-check.
     if (act && act.startsWith('open-setting:')) {
       const url = win.SettingPanes ? win.SettingPanes.urlFor(act.slice(13)) : null;
@@ -657,6 +792,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.busy) return;
     if (go) s.linkNotice = '';
+    if (go === 'side') { if (inCity()) openSide(); return; }
+    if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
     // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
     // gate decides where it lands (monitoring software: the plain list).
     if (act === 'resweep') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
@@ -882,7 +1019,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   shadow.addEventListener('change', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
   shadow.addEventListener('input', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
 
-  // Device Rescue's own fix and mark flows, delegated on the frame so they survive re-renders.
+  // The app's own fix and mark flows (FixFlow, MarkFlow), delegated on the frame so they survive re-renders.
   win.FixFlow.attach(frame, win.rescue, { onResult: ({ kind, module, result, described }) => {
     if (kind === 'fix') s.lastFix = { missionId: s.missionId, module, result };
     if (kind === 'undo' && described && described.restored) s.lastFix = null;
@@ -894,15 +1031,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   // A fresh city from a finished scan: back to the map, forgetting the last screen's state.
   function showCityFrom(doc) {
+    // A sweep that finishes while the person is in the generated district leaves them there.
+    const stay = s.screen === 'side' && inCity();
     s.shown += 1;
     const prev = signalsNow();
     rebuild(doc);
     // A new scan, not the same one shown again, is a sweep.
     if (doc !== s.sweptDoc) newSweep(doc, prev);
-    s.screen = 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
+    s.screen = stay ? 'side' : 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
     s.lesson = null; s.pendingCity = false;
     s.signal = null; s.filter = null; s.lowOpen = false; s.range = null;
-    s.focusPending = true;
+    s.focusPending = !stay;
   }
 
   // A new worry: no city until its scan finishes.
@@ -915,7 +1054,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   // show, showTraining, showBoss, scanDone and scanFailed return render()'s
-  // answer: false means the person is already back on Device Rescue's screens.
+  // answer: false means the person is already back on Plain view's screens.
   return {
     isReady: true,
     show(doc, situation) {

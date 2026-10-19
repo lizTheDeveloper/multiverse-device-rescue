@@ -29,7 +29,7 @@ TEMPLATE = """\
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title} — Device Rescue</title>
+<title>{title} — Reclaim City</title>
 <style>
   :root {{ --bg: #f6f4ef; --text: #23271f; --muted: #565b4f; --accent: #2f6f4f;
           --border: #e0ddd2; --card-bg: #fff; --link: #2f6f4f; }}
@@ -236,7 +236,7 @@ def build_index(all_pages):
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guides — Device Rescue</title>
+<title>Guides — Reclaim City</title>
 <style>
   :root {{ --bg: #f6f4ef; --text: #23271f; --muted: #565b4f; --accent: #2f6f4f;
           --border: #e0ddd2; --card-bg: #fff; --shadow: 0 1px 3px rgba(0,0,0,0.08); }}

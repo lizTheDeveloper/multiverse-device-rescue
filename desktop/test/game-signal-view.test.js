@@ -72,7 +72,7 @@ test('after tagging: Scout’s read, the points, and each tag’s next step', as
   const mine = await panel({ tagged: 'mine', read: 'The checkup marked this critical.', points: 20, mineHtml: '<div data-mark-card>MARK IT</div>' });
   assert.match(mine, /The checkup marked this critical\./);
   assert.match(mine, /\+20 POINTS for the clues you checked/);
-  assert.match(mine, /OPTIONAL: TELL DEVICE RESCUE TOO[\s\S]*It asks first, and you can undo it\.[\s\S]*MARK IT/);
+  assert.match(mine, /OPTIONAL: TELL RECLAIM CITY TOO[\s\S]*It asks first, and you can undo it\.[\s\S]*MARK IT/);
   assert.match(mine, /data-act="tag:mine" aria-pressed="true"/);
   const threat = await panel({ tagged: 'threat', read: 'r' });
   assert.match(threat, /ON YOUR THREAT BOARD[\s\S]*data-go="mission:m\|c\|program=\/tmp\/x"[^>]*>SEE THE FIX ▶/);
@@ -89,7 +89,7 @@ test('a finding with no clues says so, and can still be tagged', async () => {
 });
 
 test('marked, changed since marking, and changed since tagging each say so', async () => {
-  assert.match(await panel({ signal: real({ marked: true, tag: 'mine' }) }), /MARKED<\/span> You told Device Rescue this is yours\. It stays listed\./);
+  assert.match(await panel({ signal: real({ marked: true, tag: 'mine' }) }), /MARKED<\/span> You told Reclaim City this is yours\. It stays listed\./);
   assert.match(await panel({ signal: real({ stale: true }) }), /CHANGED SINCE YOU MARKED IT/);
   assert.match(await panel({ signal: real({ changed: true }) }), /CHANGED SINCE YOU TAGGED IT/);
 });
@@ -113,4 +113,10 @@ test('the Training Grounds offer the DRILL RANGE, with or without a scan', async
     scan: { running: false, index: 0, total: 0, error: null }, scout, lessonsLoaded: true });
   assert.match(html, /data-go="range"[^>]*>DRILL RANGE ▶/);
   assert.match(html, /Nothing in the range touches your computer/);
+});
+
+test('a mark that couldn’t be checked says so, and never that it changed', async () => {
+  const html = await panel({ signal: real({ unchecked: true }) });
+  assert.match(html, /NOT CHECKED THIS TIME[\s\S]*We couldn’t check this one this time, so its warning is back\. That doesn’t mean it changed\./);
+  assert.doesNotMatch(html, /CHANGED SINCE YOU MARKED IT/);
 });

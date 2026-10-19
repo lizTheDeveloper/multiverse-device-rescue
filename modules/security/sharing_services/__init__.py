@@ -171,7 +171,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check some sharing settings",
                     description=(
-                        "Device Rescue couldn't read whether these are on: "
+                        "Reclaim City couldn't read whether these are on: "
                         + ", ".join(unknown)
                         + ". This is not a sign that anything is wrong. To see for "
                         "yourself, open System Settings > General > Sharing."

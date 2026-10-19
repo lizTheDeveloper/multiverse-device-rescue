@@ -21,15 +21,19 @@ function isAllowedSettingUrl(url) {
 const GUIDE_URL_PREFIX = 'https://lizthedeveloper.github.io/multiverse-device-rescue/';
 const GAME_URL_PREFIX = 'https://play.multiversegames.ai/reclaim-city/';
 const ALLOWED_GUIDE_PREFIXES = [GUIDE_URL_PREFIX, GAME_URL_PREFIX];
+// Exact pages, not prefixes: the one guide the game's generated district opens.
+const EXACT_GUIDE_URLS = ['https://themultiverse.school/x/six-roses'];
 
 function isAllowedGuideUrl(url) {
-  return typeof url === 'string' && ALLOWED_GUIDE_PREFIXES.some((prefix) => url.startsWith(prefix));
+  return typeof url === 'string'
+    && (EXACT_GUIDE_URLS.includes(url) || ALLOWED_GUIDE_PREFIXES.some((prefix) => url.startsWith(prefix)));
 }
 
 module.exports = {
   isAllowedSettingUrl,
   ALLOWED_SETTING_SCHEMES,
   isAllowedGuideUrl,
+  EXACT_GUIDE_URLS,
   GUIDE_URL_PREFIX,
   GAME_URL_PREFIX,
 };

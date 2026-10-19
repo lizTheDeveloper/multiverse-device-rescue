@@ -7,8 +7,12 @@ import { VERIFIED_MISSIONS, verifyMission, disagreement, DONE } from './verified
 // The same starting points as the Reclaim City links in LEARN_MORE.
 const FOCUS = { hacked: 'master-keys', identity: 'reclamation' };
 
+// Several worries: the first one (in the worry list's order) that has a district.
 export function focusFor(situation) {
-  return (situation && FOCUS[situation.id]) || 'computer';
+  if (!situation) return 'computer';
+  const ids = Array.isArray(situation.ids) ? situation.ids : [situation.id];
+  for (const id of ids) if (FOCUS[id]) return FOCUS[id];
+  return 'computer';
 }
 
 // verifyMission needs the game mission's step count, or it never confirms.

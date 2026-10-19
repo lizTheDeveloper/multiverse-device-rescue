@@ -73,3 +73,43 @@ def validate_profile_modules(profile: Profile, modules: list[ModuleBase]) -> Non
         raise ProfileValidationError(
             f"Profile '{profile.name}' references unavailable module(s): {', '.join(missing)}"
         )
+
+
+def _selected(profile: Profile, module_names: list[str]) -> list[str]:
+    out = [n for n in module_names if not profile.include_modules or n in profile.include_modules]
+    return [n for n in out if n not in profile.exclude_modules]
+
+
+def merge_profiles(profiles: list[Profile], module_names: list[str]) -> Profile:
+    """One profile that runs every module any of `profiles` selects (the
+    union), in `module_names` order, with each profile's module settings.
+
+    Two profiles giving the same module setting different values is refused
+    rather than guessed: ProfileValidationError.
+    """
+    if not profiles:
+        raise ProfileValidationError("No profiles to combine.")
+    chosen: set[str] = set()
+    config: dict[str, dict[str, Any]] = {}
+    set_by: dict[tuple[str, str], str] = {}
+    for profile in profiles:
+        chosen.update(_selected(profile, module_names))
+        for module, settings in (profile.module_config or {}).items():
+            merged = config.setdefault(module, {})
+            for key, value in (settings or {}).items():
+                if key in merged and merged[key] != value:
+                    raise ProfileValidationError(
+                        f"Profiles '{set_by[(module, key)]}' and '{profile.name}' set {module} "
+                        f"{key} differently, so they can't run together."
+                    )
+                merged[key] = value
+                set_by.setdefault((module, key), profile.name)
+    return Profile(
+        name="+".join(p.name for p in profiles),
+        display_name=" + ".join(p.display_name for p in profiles),
+        description="Every check any of these selects: " + ", ".join(p.display_name for p in profiles) + ".",
+        include_modules=[n for n in module_names if n in chosen],
+        exclude_modules=[],
+        module_config=config,
+        guides=list(dict.fromkeys(g for p in profiles for g in p.guides)),
+    )

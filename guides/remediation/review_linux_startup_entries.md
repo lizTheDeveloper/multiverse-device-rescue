@@ -48,8 +48,8 @@ clean device for that, and change those passwords from there.
 ## Step 4: Back up files and get help to fix the system
 
 Back up your documents (not programs) to an external drive, then ask a
-trusted technical person, a local computer-repair shop, or an advocate to help
-you reinstall the system. Reinstalling is more reliable than trying to remove
+trusted technical person or a local computer-repair shop to help you reinstall
+the system. An advocate can help with this too. Reinstalling is more reliable than trying to remove
 a hidden entry by hand.
 
 For an entry that is only a file anyone can change, you or a technical

@@ -186,7 +186,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check whether Remote Login is on",
                     description=(
-                        "Device Rescue couldn't read your Mac's Remote Login (SSH) "
+                        "Reclaim City couldn't read your Mac's Remote Login (SSH) "
                         "setting. This is not a sign that anything is wrong. To see for "
                         "yourself, open System Settings > General > Sharing."
                     ),

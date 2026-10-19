@@ -47,7 +47,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check whether your Mac asks for a password after the screen saver",
                     description=(
-                        "Device Rescue couldn't read your Mac's lock screen setting. This "
+                        "Reclaim City couldn't read your Mac's lock screen setting. This "
                         "is not a sign that anything is wrong. To see for yourself, open "
                         "System Settings > Lock Screen and look at 'Require password after "
                         "screen saver begins or display is turned off'."

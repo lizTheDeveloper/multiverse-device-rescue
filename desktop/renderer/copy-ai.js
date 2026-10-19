@@ -54,8 +54,36 @@ function copyAiPanelHtml(text, key) {
   </div>`;
 }
 
+// "Copy technical report": the raw scan, except saved-key comments (often
+// user@host or a person's name), as `rescue export` leaves them out. They are
+// in data.keys[].comment and in a key list's markable.items[].detail; the card
+// on screen still shows them.
+const KEY_COMMENT_LEFT_OUT = '[left out: key comment]';
+
+function withoutKeyCommentsDeep(value, depth = 0) {
+  if (!value || typeof value !== 'object' || depth > 12) return value;
+  if (Array.isArray(value)) return value.map((v) => withoutKeyCommentsDeep(v, depth + 1));
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (k === 'keys' && Array.isArray(v)) {
+      out[k] = v.map((key) => (key && typeof key === 'object' && !Array.isArray(key) && key.comment
+        ? Object.assign({}, key, { comment: KEY_COMMENT_LEFT_OUT }) : withoutKeyCommentsDeep(key, depth + 1)));
+    } else if (k === 'markable' && v && typeof v === 'object' && v.kind === 'ssh_authorized_keys' && Array.isArray(v.items)) {
+      out[k] = Object.assign({}, v, { items: v.items.map((it) => (it && typeof it === 'object' && it.detail
+        ? Object.assign({}, it, { detail: KEY_COMMENT_LEFT_OUT }) : it)) });
+    } else {
+      out[k] = withoutKeyCommentsDeep(v, depth + 1);
+    }
+  }
+  return out;
+}
+
+function technicalReportText(doc) {
+  return JSON.stringify(withoutKeyCommentsDeep(doc), null, 2);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { copyAiPanelHtml, copyAiPick, COPY_AI_INTRO };
+  module.exports = { copyAiPanelHtml, copyAiPick, COPY_AI_INTRO, technicalReportText, KEY_COMMENT_LEFT_OUT };
 }
 
 if (typeof document !== 'undefined') {

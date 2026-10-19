@@ -1,4 +1,4 @@
-# Using Device Rescue as an AI assistant
+# Using Reclaim City as an AI assistant
 
 You're helping someone who thinks something is wrong with their computer. They
 may be frightened. This file tells you how to run the scan, read its output,
@@ -11,7 +11,7 @@ If the person just wants the app, send them to the download buttons in the
 
 1. **Look, don't touch.** Use `rescue scan --json`, `rescue export`, and
    `rescue run <module> < /dev/null`. All of these are read-only (the one
-   exception: a scan removes a "marked as yours" entry from Device Rescue's
+   exception: a scan removes a "marked as yours" entry from Reclaim City's
    own list when that item is gone, and says so). Don't pass
    `--auto` or `--yes`, because both apply fixes. A fix needs the person to
    agree to that specific change after you've explained it. `rescue known add`
@@ -20,7 +20,12 @@ If the person just wants the app, send them to the download buttons in the
    In scan output, a finding with `data.marked_by_user: true` is something
    someone marked on this computer (a background task, a sharing setting, a
    proxy, an extension, a list of apps...). Mention it; don't treat it as
-   cleared. `data.mark_stale: true` means it was marked but has changed since.
+   cleared. `data.mark_stale: true` means it was marked but has changed since, unless
+   `data.mark_unchecked: true` is also set: then it just couldn't be checked
+   this time, and nothing says it changed.
+   `data.partly_marked: true` means some entries of a list were marked:
+   `data.unmarked` lists the ones still flagged, and `data.marked_items` the
+   ones marked.
 2. **Never ask for a password, a one-time code, or a recovery code.** The tool
    never needs one, so don't ask the person to paste one into the chat.
 3. **"Couldn't run" doesn't mean "clean."** A module with `"supported": false`
@@ -56,6 +61,7 @@ uv venv && uv pip install .          # or: python3 -m venv .venv && .venv/bin/pi
 | "I installed a bad npm/pip package" / developer machine | `rescue export --profile ai_worm_response --stdout` |
 | "Fix up my parent's laptop" | `rescue export --profile home_for_the_holidays --stdout` |
 | "Is there spyware on my iPhone?" (needs a local backup) | ask first, then `rescue run iphone_spyware_check < /dev/null` |
+| More than one of these at once | repeat the profile: `rescue export --profile digital_security_reset --profile home_network_intrusion --stdout` |
 | Linux machine | `rescue export --profile linux_security_checkup --stdout` |
 
 `rescue profiles` lists all profiles. `rescue guide <profile>` prints the

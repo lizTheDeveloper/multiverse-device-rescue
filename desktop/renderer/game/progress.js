@@ -9,6 +9,7 @@
 // The key keeps its v1 name so a saved Plan A store is found and migrated.
 // monitoringSeen is never stored here: app.js keeps it in memory only.
 import { validBloom, validHashes } from './folded.js';
+import { HELD_MODULES } from './held.js';
 
 export const STORE_KEY = 'device-rescue.game.v1';
 const STATUSES = new Set(['open', 'later', 'yours', 'reclaimed']);
@@ -55,6 +56,7 @@ export function validDeck(d) {
     && plainObject(d.once) && Object.values(d.once).every((v) => v === true)
     && plainObject(d.sweep) && (d.sweep.at === null || typeof d.sweep.at === 'string') && plainObject(d.sweep.keys)
     && (d.sweep.paid === undefined || validBloom(d.sweep.paid))
+    && (d.sweep.carry === undefined || typeof d.sweep.carry === 'boolean')
     && Array.isArray(d.sweeps) && d.sweeps.every(sweepFieldsOk)
     // Kept by the profile when it folds old records to stay small (folded.js):
     // `paid`, lifetime award keys folded out of `once` (and `sweep.paid`,
@@ -79,8 +81,12 @@ export function cleanDeck(d) {
     tags: map(d.tags, (t) => ({ tag: t.tag, at: t.at, fp: t.fp })),
     confirmed: map(d.confirmed, (v) => v),
     once: map(d.once, () => true),
+    // `carry`: this sweep carries something the game holds (held.js). A bare
+    // flag, so the next sweep, even after a restart, isn't paid for its going.
+    // `paid`: this sweep's award keys folded out of `keys` (folded.js).
     sweep: { at: d.sweep.at, keys: Object.fromEntries(Object.entries(d.sweep.keys).filter(([, v]) => v === true)),
-      ...(d.sweep.paid !== undefined ? { paid: d.sweep.paid } : {}) },
+      ...(d.sweep.paid !== undefined ? { paid: d.sweep.paid } : {}),
+      ...(d.sweep.carry === true ? { carry: true } : {}) },
     sweeps: d.sweeps.map((w) => Object.fromEntries([['at', w.at], ...SWEEP_FIELDS.map((k) => [k, w[k]])])),
     ...(d.paid !== undefined ? { paid: d.paid } : {}),
     ...(d.confirmedEarlier !== undefined ? { confirmedEarlier: d.confirmedEarlier } : {}),
@@ -158,11 +164,19 @@ export function setDeck(progress, deck) {
   return next;
 }
 
+// Records keep a mission's title and id, which can name a program and a path.
+// Monitoring software is never recorded: the controller already holds it out
+// of the city (held.js), and this skips it again, and drops any older record
+// of it, so nothing about it is ever written.
 export function reconcile(progress, city, ranOk, now) {
   const next = base(progress);
+  for (const [id, rec] of Object.entries(next.missions)) {
+    if (HELD_MODULES.has(rec.module)) delete next.missions[id];
+  }
   const cameBack = [];
   const present = new Set();
   for (const m of allMissions(city)) {
+    if (HELD_MODULES.has(m.module)) continue;
     present.add(m.id);
     const prev = next.missions[m.id];
     let status;
@@ -187,6 +201,7 @@ export function reconcile(progress, city, ranOk, now) {
 
 // `about` is { districtId, title } of the mission, when known.
 export function setStatus(progress, id, status, module, now, about = {}) {
+  if (HELD_MODULES.has(module)) return base(progress); // never recorded (see reconcile)
   const prev = progress.missions[id] || {};
   const next = base(progress);
   next.missions[id] = { ...prev, ...about, status, module, updatedAt: now };
