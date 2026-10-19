@@ -1018,3 +1018,20 @@ test('a damaged paid filter fails safe: no folded award pays again, drills still
   const next = L.recordSweep(d, { checks: 1, checked: 1, secured: 0 }, NOW).deck;
   assert.ok(L.award(next, 'clue', 'launch_agent_audit|x|y#maker').points > 0);
 });
+
+
+test('an unreadable save file whose copy can’t be written is said as unreadable, not as a failed save', async () => {
+  const m = await load();
+  const problems = [];
+  const store = recordingStore();
+  store.data[m.PROFILE_KEY] = 'garbage';
+  const real = store.setItem.bind(store);
+  store.setItem = (k, v) => { if (m.SPARE_KEYS.includes(k)) throw new Error('full'); return real(k, v); };
+  const p = m.loadProfile(store, NOW, { onProblem: (c) => problems.push(c) });
+  assert.deepStrictEqual(problems, ['unreadable-no-copy']);
+  assert.deepStrictEqual(p.migrations[0].changes, [m.UNREADABLE_NO_ROOM]);
+  const { saveProblemText } = await import('../renderer/game/controller.js');
+  const said = saveProblemText('unreadable-no-copy', true);
+  assert.match(said, /couldn’t be read, and a copy couldn’t be kept/);
+  assert.doesNotMatch(said, /couldn’t save your last move|profile|progress|monitor/i);
+});

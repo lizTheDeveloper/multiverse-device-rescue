@@ -80,6 +80,11 @@ export function saveProblemText(code, city) {
     return city ? 'Your saved city couldn’t be read, so the game started from what it could find. A copy was set aside.'
       : 'Your saved progress couldn’t be read, so the game started from what it could find. A copy was set aside.';
   }
+  // It couldn't be read, and no copy could be kept.
+  if (code === 'unreadable-no-copy') {
+    return city ? 'Your saved city couldn’t be read, and a copy couldn’t be kept. The game started from what it could find.'
+      : 'Your saved progress couldn’t be read, and a copy couldn’t be kept. The game started from what it could find.';
+  }
   // It couldn't be read, and was too big to keep a copy of: said plainly.
   if (code === 'unreadable-too-big') {
     return city ? 'Your saved city couldn’t be read, and it was too big to keep a copy of. The game started from what it could find.'
@@ -692,7 +697,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const carry = heldDistrictIds(s.heldCity).size > 0 || (s.progress.deck.sweep.carry === true && !monitoringRanClear(doc));
     const r = recordSweep(s.progress.deck, counts, now(), { carry });
     commitAward(r);
-    logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check.`);
+    logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check${counts.unfinished ? `, ${counts.unfinished} didn’t finish` : ''}.`);
     if (r.clean) {
       addMoment({ kind: 'clean', title: 'CLEAN SWEEP', text: 'No critical or warning signal is open in any district that could be checked.' });
       logEntry('CLEAN SWEEP', 'Every district that could be checked is secured.');

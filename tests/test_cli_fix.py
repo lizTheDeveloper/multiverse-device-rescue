@@ -323,3 +323,35 @@ def test_scan_json_survives_an_unreadable_allowlist_with_no_fixable_flags():
         res = CliRunner().invoke(main, ["scan", "--json"])
     assert res.exit_code == 0
     assert "fixable" not in json.loads(res.stdout)["modules"][0]["findings"][0]
+
+
+def _not_checked():
+    # update_checker's note when it couldn't ask Apple for updates.
+    return Finding(title="Couldn't check for macOS updates", description="d", severity=Severity.INFO,
+                   category="integrity", data={"check": "os_updates_not_checked", "timeout_s": 40})
+
+
+def test_incomplete_recheck_is_never_verified():
+    mod = MockModule(
+        [CheckResult("mock_fw", [_finding()]),
+         CheckResult("mock_fw", [_not_checked()], complete=False)],
+        FixResult("mock_fw", [_mutation()]),
+    )
+    res = _run(mod)
+    doc = _doc(res)
+    assert doc["applied"] is True
+    assert doc["verified"] is False
+    assert doc["status"] == "unconfirmed"
+    assert "couldn't confirm" in doc["message"]
+    assert "fixed" not in doc["message"].lower()
+    assert res.exit_code == 1
+
+
+def test_incomplete_check_before_with_nothing_found_changes_nothing():
+    mod = MockModule([CheckResult("mock_fw", [], complete=False)], FixResult("mock_fw", [_mutation()]))
+    res = _run(mod)
+    doc = _doc(res)
+    assert doc["error"] == "check_failed"
+    assert doc["verified"] is False
+    assert mod.fix_calls == []
+    assert res.exit_code == 4

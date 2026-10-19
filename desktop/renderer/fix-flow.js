@@ -106,6 +106,15 @@ const FixFlow = (function () {
     if (r.applied === true && r.verified === true && r.status === 'fixed') {
       return { tone: 'success', headline: 'Done, and checked again: fixed ✓', detail: '', undo };
     }
+    // The check afterwards didn't finish: neither fixed nor still showing.
+    if (r.applied === true && r.status === 'unconfirmed') {
+      return {
+        tone: 'warning',
+        headline: 'We made the change, but couldn’t confirm it worked.',
+        detail: 'The check afterwards didn’t finish. Run the checkup again to see where things stand. You can undo the change with the steps below.',
+        undo,
+      };
+    }
     if (r.applied === true) {
       return {
         tone: 'warning',

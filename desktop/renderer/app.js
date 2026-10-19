@@ -463,6 +463,17 @@ function checkName(module, mode) {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'A check';
 }
 
+/**
+ * A check as the copy-for-AI report names it: its words, then its id in
+ * parentheses (an AI can look the id up). In city mode a monitoring check is
+ * "A check", with no id.
+ */
+function aiCheckLabel(module, mode) {
+  const words = checkName(module, mode);
+  if (mode === 'city' && ALWAYS_SAFETY_MODULES.has(module)) return words;
+  return `${words} (${String(module || '')})`;
+}
+
 const UNFINISHED_LINE = 'It didn’t finish, so it may have missed something.';
 
 /**
@@ -563,6 +574,7 @@ if (typeof module !== 'undefined' && module.exports) {
     duringScanTips,
     groupFindingsBySeverity,
     checkName,
+    aiCheckLabel,
     couldntCheckItems,
     UNFINISHED_LINE,
     SITUATIONS,
@@ -1099,7 +1111,7 @@ if (typeof document !== 'undefined') {
         findings: reportFindings,
         situation: copyAiSituation(situation, mode),
         platform: doc && doc.platform,
-        couldNotCheck: [...erroredModules, ...unfinishedModules].map((m) => m.name),
+        couldNotCheck: [...erroredModules, ...unfinishedModules].map((m) => aiCheckLabel(m.name, mode)),
       });
       cardPicks = new Map();
       cardTech = new Map();

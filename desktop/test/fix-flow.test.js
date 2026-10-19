@@ -265,3 +265,11 @@ test('onResult hears an Undo as kind "undo"', async () => {
   assert.strictEqual(heard[0].module, 'firewall_audit');
   assert.strictEqual(heard[0].result, result);
 });
+
+test('describeFixResult: a check afterwards that didn’t finish is “couldn’t confirm”, never fixed, and starts no re-check', () => {
+  const r = FixFlow.describeFixResult({ applied: true, verified: false, status: 'unconfirmed', how_to_undo: ['Do x.'] });
+  assert.strictEqual(r.tone, 'warning');
+  assert.match(r.headline, /couldn’t confirm it worked/);
+  assert.doesNotMatch(r.headline + r.detail, /fixed|still shows/i);
+  assert.deepStrictEqual(r.undo, ['Do x.']);
+});

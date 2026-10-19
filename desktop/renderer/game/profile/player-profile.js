@@ -346,8 +346,10 @@ export function loadProfile(storage, now, { onProblem } = {}) {
     }
     const s = stash(storage, box);
     // Losing the whole box is said, like losing part of it ('salvaged').
-    // ('spare-full' here still kept a copy: the whole box is what was lost.)
-    say(s.problem && s.problem !== 'spare-full' ? s.problem : 'unreadable');
+    // Said as the box being unreadable, whatever happened to its copy: a
+    // copy that couldn't be written ('spare') is not a failed save here, and
+    // 'spare-full' still kept one.
+    say(s.problem === 'unreadable-too-big' ? s.problem : s.ok ? 'unreadable' : 'unreadable-no-copy');
     lost = s.problem === 'unreadable-too-big' ? UNREADABLE_NOT_KEPT : s.ok ? UNREADABLE_KEPT : UNREADABLE_NO_ROOM;
   }
   // First run of this build (or the box was unreadable): migrate the old document.

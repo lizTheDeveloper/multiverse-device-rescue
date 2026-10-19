@@ -763,6 +763,8 @@ test('an open mission and a re-sweep whose check didn’t finish: still open, no
   assert.match(html, /1 DIDN’T FINISH/);
   assert.doesNotMatch(html, /NOTHING FOUND|What was found here before is gone now|CLEAN SWEEP|SECURED<\/span> The Gatehouse/);
   assert.doesNotMatch(html, /NO LONGER SEEN<\/span> A/);
+  assert.match(html, /SWEEP<\/span> 1 check: 0 critical, 0 warning, 0 couldn’t check, 1 didn’t finish\./);
+  assert.ok(saved.deck.sweeps.every((w) => !('unfinished' in w)), 'the count is said, never stored');
 });
 
 test('I DID IT MYSELF, then a re-check whose check didn’t finish: COULDN’T RE-CHECK, no CONFIRMED, still open', async () => {

@@ -248,3 +248,15 @@ test('the couldn’t-check list never shows raw ids, and city mode never names a
   assert.strictEqual(city[0].reason, '', 'a monitoring check’s reason can name what it looked for');
   assert.doesNotMatch(JSON.stringify(city), /stalkerware|mvt|mSpy|_/i);
 });
+
+test('the copy-for-AI list names checks in words with their id; city mode never names a monitoring check', () => {
+  const { aiCheckLabel } = require('../renderer/app.js');
+  assert.strictEqual(aiCheckLabel('update_checker', 'standard'), 'Update checker (update_checker)');
+  assert.strictEqual(aiCheckLabel('stalkerware_scan', 'standard'), 'Stalkerware scan (stalkerware_scan)');
+  assert.strictEqual(aiCheckLabel('stalkerware_scan', 'city'), 'A check');
+  assert.strictEqual(aiCheckLabel('mvt_spyware_scan', 'city'), 'A check');
+  assert.strictEqual(aiCheckLabel('disk_space', 'city'), 'Disk space (disk_space)');
+  const { buildAiPrompt } = require('../ai-prompt.js');
+  const text = buildAiPrompt({ findings: [{ title: 't', severity: 'info' }], couldNotCheck: ['A check', 'Update checker (update_checker)'] });
+  assert.match(text, /could not run or did not finish \(so these are NOT confirmed clean\): A check, Update checker \(update_checker\)/);
+});

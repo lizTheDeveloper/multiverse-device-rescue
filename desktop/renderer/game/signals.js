@@ -161,5 +161,8 @@ export function sweepCounts(doc, city, integrity, held = null) {
     checks: mods.filter((m) => m && m.status === 'ok' && m.supported !== false).length,
     critical: (t.critical || 0) + (h.critical || 0), warning: (t.warning || 0) + (h.warning || 0), info: t.info || 0, fog: t.fog || 0,
     checked: (integrity && integrity.checked) || 0, secured: (integrity && integrity.secured) || 0,
+    // Ran, but stopped before the end ("complete": false): said in the log,
+    // never stored (not one of SWEEP_FIELDS).
+    unfinished: mods.filter((m) => m && m.status === 'ok' && m.supported !== false && m.complete === false).length,
   };
 }

@@ -554,6 +554,14 @@ def _apply_app_fix(module_name: str, acknowledged: bool) -> tuple[dict, int]:
             + (before.error or before.unsupported_reason or "unsupported"),
             how_to_undo=undo,
         ), 4
+    if not before.findings and not getattr(before, "complete", True):
+        # It stopped before the end: "nothing found" isn't "nothing wrong".
+        return _fix_doc(
+            module_name,
+            error="check_failed",
+            message="We couldn't check this all the way, so we changed nothing.",
+            how_to_undo=undo,
+        ), 4
     if not before.findings:
         return _fix_doc(
             module_name,
@@ -587,8 +595,10 @@ def _apply_app_fix(module_name: str, acknowledged: bool) -> tuple[dict, int]:
     except Exception as exc:
         after = CheckResult(module_name=module_name, error=str(exc))
     after_ok = not after.error and after.supported
+    # A re-check that stopped before the end can't show the problem is gone.
+    after_complete = after_ok and getattr(after, "complete", True)
     still = (_finding_keys(before) & _finding_keys(after)) if after_ok else _finding_keys(before)
-    verified = applied and after_ok and not still
+    verified = applied and after_complete and not still
 
     if fix_error is not None:
         status, message = "failed", f"The change did not go through: {fix_error}"
@@ -599,6 +609,12 @@ def _apply_app_fix(module_name: str, acknowledged: bool) -> tuple[dict, int]:
         status, message = "failed", "Nothing was changed."
     elif verified:
         status, message = "fixed", "Done, and checked again: fixed."
+    elif not after_complete and not still:
+        status = "unconfirmed"
+        message = (
+            "We made the change, but we couldn't confirm it worked: the check "
+            "afterwards didn't finish. Run the checkup again to see where things stand."
+        )
     else:
         status = "not_fixed"
         message = "We made the change, but when we checked again the problem still shows."

@@ -241,7 +241,7 @@ test('a save that fails says so on screen, calmly; in city mode only in game wor
   assert.doesNotMatch(notice, /profile|progress|monitor/i);
   // Every message city mode can show is in game words.
   const { saveProblemText } = await game('controller.js');
-  for (const code of ['encode', 'too-big', 'spare', 'write', 'salvaged', 'spare-full', 'unreadable', 'unreadable-too-big', 'old-kept', 'anything-else']) {
+  for (const code of ['encode', 'too-big', 'spare', 'write', 'salvaged', 'spare-full', 'unreadable', 'unreadable-no-copy', 'unreadable-too-big', 'old-kept', 'anything-else']) {
     assert.doesNotMatch(saveProblemText(code, true), /profile|progress|safety|monitor|partner|\bsafe\b|watch|stalk/i, code);
     assert.doesNotMatch(saveProblemText(code, true) + saveProblemText(code, false), /just now|next/i, code);
   }
