@@ -389,3 +389,5 @@ details.reading .link { color: var(--cyan); }
 @media (max-width: 900px) { .sig-panel { left: 12px; width: auto; } }
 .train-side { padding: 12px 18px 0; }
 .train-side .side-tile { margin: 0; }
+/* A heading focused by script (a new screen) needs no ring: it is not a control. */
+h2[tabindex="-1"]:focus, h2[tabindex="-1"]:focus-visible { outline: none; }
