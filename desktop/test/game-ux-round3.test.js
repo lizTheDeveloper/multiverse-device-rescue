@@ -77,14 +77,14 @@ test('the fresh scan: every city number is the list’s number (NotChecked.scanC
   // The banner is the list's own line.
   assert.ok(deck.includes(app.notCheckedLine(app.notCheckedSummary(doc))));
   // The chips: one row per item (same items as the list), plus what wasn't checked.
-  assert.strictEqual(chip(deck, 'CRITICAL') + chip(deck, 'WARNING'), plain.items);
+  assert.strictEqual(chip(deck, 'CRITICAL') + chip(deck, 'WARNING'), plain.todo);
   // NOT CHECKED (round 5): every part named, from NotChecked; TO DO is the list's items.
   const { notCheckedChip } = await game('signals.js');
   assert.ok(deck.includes(`>NOT CHECKED: ${notCheckedChip(city)}<`));
-  const todo = plain.items;
+  const todo = plain.todo;
   assert.match(deck, new RegExp(`INCOMING SIGNALS · ${todo} TO DO`));
   // The ops log's SWEEP line.
-  assert.match(deck, new RegExp(`SWEEP</span> ${plain.checks} checks: ${plain.items} to look at \\(${plain.critical} critical\\), ${plain.didntFinish} couldn’t run or didn’t finish, ${plain.notStarted} waiting for you\\.`));
+  assert.match(deck, new RegExp(`SWEEP</span> ${plain.checks} checks: ${plain.todo} to look at \\(${plain.critical} critical\\), ${plain.didntFinish} couldn’t run or didn’t finish, ${plain.notStarted} waiting for you\\.`));
   // District badges add up to the scan's not-fully-checked checks, each once.
   const badge = (label) => [...deck.matchAll(new RegExp(`(\\d+) ${label}</span>`, 'g'))].reduce((n, m) => n + Number(m[1]), 0);
   assert.strictEqual(badge('DIDN’T FINISH'), plain.unfinished);
@@ -113,7 +113,7 @@ test('Plain’s own “N things on your list” is the city’s mission count on
   const { findingsToCity } = await game('findings-to-city.js');
   const missions = findingsToCity(doc).districts.flatMap((d) => d.missions);
   assert.strictEqual(listed, missions.length);
-  assert.strictEqual(listed, NotChecked.scanCounts(doc, { mode: 'city' }).items);
+  assert.strictEqual(listed, NotChecked.scanCounts(doc, { mode: 'city' }).todo);
 });
 
 test('one item reported by several checks (same_key) is one mission, re-checked in each; severity is the list’s', async () => {

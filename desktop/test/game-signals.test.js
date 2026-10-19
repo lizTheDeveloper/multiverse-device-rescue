@@ -86,7 +86,7 @@ test('every check errored: no reading, nothing checked, only COULDN’T CHECK si
   const i = v.cityIntegrity(city, sigs);
   assert.deepStrictEqual([i.percent, i.checked], [null, 0]);
   assert.ok(sigs.length === 2 && sigs.every((x) => x.kind === 'couldnt'));
-  assert.deepStrictEqual(v.sweepCounts(d, city, i), { checks: 0, critical: 0, warning: 0, info: 0, fog: 2, checked: 0, secured: 0, total: 2, unfinished: 0, couldntRun: 2, notStarted: 0, items: 0 });
+  assert.deepStrictEqual(v.sweepCounts(d, city, i), { checks: 0, critical: 0, warning: 0, info: 0, fog: 2, checked: 0, secured: 0, total: 2, unfinished: 0, couldntRun: 2, notStarted: 0, items: 0, todo: 0 });
 });
 
 test('monitoring checks’ findings never become signals; one that couldn’t run is an unnamed COULDN’T CHECK row', async () => {
@@ -114,7 +114,7 @@ test('hundreds of info findings stay in the one low-priority list', async () => 
 test('sweep counts are counts', async () => {
   const d = doc(mod('a_mod', [f('C', 'critical', { plist: '/c' }), f('W', 'warning', { plist: '/w' }), f('I', 'info')]), mod('gone', [], { status: 'error', error: 'x' }));
   const { v, city, sigs } = await build(d);
-  assert.deepStrictEqual(v.sweepCounts(d, city, v.cityIntegrity(city, sigs)), { checks: 1, critical: 1, warning: 1, info: 1, fog: 1, checked: 1, secured: 0, total: 2, unfinished: 0, couldntRun: 1, notStarted: 0, items: 2 });
+  assert.deepStrictEqual(v.sweepCounts(d, city, v.cityIntegrity(city, sigs)), { checks: 1, critical: 1, warning: 1, info: 1, fog: 1, checked: 1, secured: 0, total: 2, unfinished: 0, couldntRun: 1, notStarted: 0, items: 2, todo: 2 });
 });
 
 test('sweep counts say how many checks ran but didn’t finish', async () => {

@@ -605,9 +605,10 @@ function couldntCheckGroups(items) {
     if (!list || !list.length) continue;
     const c = list.length;
     // A few names stay in the line; more go under a fold (`folded`), and the line ends at the count.
-    const all = uniq(list);
-    const folded = kind !== 'partly' && all.length > NAMES_INLINE;
-    const named = (head) => (folded ? `${head}.` : `${head}: ${all.join(', ')}.`);
+    // NotChecked.namesLine, the one rule for names in a line.
+    const names = NotCheckedRule.namesLine(uniq(list), { max: NAMES_INLINE });
+    const folded = kind !== 'partly' && names.folded;
+    const named = (head) => (folded || !names.inline ? `${head}.` : `${head}: ${names.inline}.`);
     let line;
     if (kind === 'permission') line = named(`${n(c, 'check needs', 'checks need')} Full Disk Access`);
     else if (kind === 'slow') line = named(`${n(c, 'check', 'checks')} took too long`);
@@ -615,7 +616,7 @@ function couldntCheckGroups(items) {
     else if (kind === 'stopped') line = named(`${n(c, 'check', 'checks')} didn’t get to run because the checkup stopped`);
     else if (kind === 'unfinished') line = named(`${n(c, 'check', 'checks')} didn’t finish, so ${c === 1 ? 'it' : 'they'} may have missed something`);
     else line = `${n(c, 'thing was', 'things were')} only partly checked`;
-    groups.push({ kind, line, names: list.map((i) => i.name), folded: folded ? all : [],
+    groups.push({ kind, line, names: list.map((i) => i.name), folded: folded ? names.all : [],
       notes: kind === 'partly' ? list.map((i) => (i.reason ? `${i.name}: ${i.reason}` : i.name)) : [] });
   }
   const raw = (items || []).filter((i) => i.raw).map((i) => `${i.name}: ${i.raw}`).join('\n');
@@ -623,52 +624,23 @@ function couldntCheckGroups(items) {
 }
 
 /**
- * The same finding from different checks ("Your Mac is set to never sleep"
- * from three energy checks, one background task from two persistence
- * checks) is one card. Same shown severity, same background task (or none),
- * and the same title once the task's label and punctuation are taken out.
- * The first one keeps its controls; `seen_in` lists every check that saw it.
- * Within one check nothing merges (two items can share a name), and
- * monitoring checks never merge.
+ * Plain's cards: one per item of NotChecked.displayItems, the list both views
+ * render, so the cards are scanCounts' `todo` (critical + warning) and
+ * `notes` (info). The merge rule lives there (same_key, then the thing the
+ * finding names, then its title; a to-do never merges with a note;
+ * monitoring never merges). Each card is NotChecked.asCard: the lead finding
+ * with `seen_in` (every check that saw it) and `also` (the other findings).
+ * Marked items are listed at their old severity (and start out cleared);
+ * held items (city mode) stay on the list at theirs, out of the numbers.
+ * A card carries the engine's removal warning when any of its findings does.
  */
-function mergeKey(f) {
-  const label = f && f.data && typeof f.data.label === 'string' ? f.data.label : '';
-  let t = String((f && f.title) || '').toLowerCase();
-  if (label) t = t.split(label.toLowerCase()).join(' ');
-  return `${f.severity}|${label}|${t.replace(/[^a-z0-9]+/g, ' ').trim()}`;
-}
-// A merged card's level: the highest any of its checks saw.
-function cardLevel(f) {
-  return [f, ...((f && f.also) || [])].some((x) => shownSeverity(x) === 'critical') ? 'critical' : shownSeverity(f);
-}
-const hasControls = (f) => !!(f && ((f.fixable && typeof f.fixable === 'object') || (f.markable && typeof f.markable === 'object')));
-function mergeAcrossChecks(findings) {
-  const out = [];
-  const seen = new Map();
-  for (const f of findings || []) {
-    if (!f || ALWAYS_SAFETY_MODULES.has(f.module)) { out.push(f); continue; }
-    // The city's own key (NotChecked.itemKey, the engine's same_key), so the
-    // list and the city count the same items: one item whatever its level
-    // (scanCounts.items counts it once), a note only with notes.
-    const itemK = `${shownSeverity(f) === 'info' ? 'info' : 'item'}|${NotCheckedRule.itemKey(f, f.module)}`;
-    const keys = [itemK];
-    const first = keys.map((k) => seen.get(k)).find(Boolean);
-    if (first && (!first.seen_in.includes(f.module) || (f.severity !== 'info' && seen.get(itemK) === first))) {
-      if (hasControls(f) && !hasControls(first)) {
-        // The card keeps the controls: one that can be fixed or marked leads.
-        const { seen_in: was, also, ...rest } = first;
-        Object.keys(first).forEach((k) => { delete first[k]; });
-        Object.assign(first, f, { seen_in: [f.module, ...was], also: [rest, ...also] });
-      } else {
-        if (!first.seen_in.includes(f.module)) first.seen_in.push(f.module);
-        first.also.push(f);
-      }
-      keys.forEach((k) => { if (!seen.has(k)) seen.set(k, first); });
-      continue;
-    }
-    const card = Object.assign({}, f, { seen_in: [f.module], also: [] });
-    keys.forEach((k) => { if (!seen.has(k)) seen.set(k, card); });
-    out.push(card);
+function plainCards(doc, mode) {
+  const list = NotCheckedRule.displayItems(doc, { mode: mode === 'city' ? 'city' : 'standard' });
+  const out = { critical: [], warning: [], info: [] };
+  for (const item of [...list.critical, ...list.warning, ...list.info, ...list.marked, ...list.held]) {
+    const card = NotCheckedRule.asCard(item);
+    if (item.findings.some((f) => f && f.removal_alert === true)) card.removal_alert = true;
+    (out[item.severity] || out.info).push(card);
   }
   return out;
 }
@@ -772,9 +744,16 @@ function notStartedLine(names, mode) {
 function plainNotChecked(doc, mode) {
   const parts = NotCheckedRule.notCheckedParts(doc);
   const counts = NotCheckedRule.scanCounts(doc, { mode: mode === 'city' ? 'city' : 'standard' });
-  const summary = { checks: counts.checks, couldntRun: counts.couldntRun, unfinished: counts.unfinished,
-    notStarted: counts.notStarted, partly: counts.partly };
-  return { couldntRun: parts.couldntRun, unfinished: parts.unfinished, partly: parts.partly,
+  const summary = { checks: counts.checks, couldntRun: counts.couldntRun, notReached: counts.notReached,
+    unfinished: counts.unfinished, notStarted: counts.notStarted, partly: counts.partly };
+  // Checks a stopped checkup never got to are listed with the ones that
+  // couldn't run, under their own cause (error_kind "stopped").
+  const mods = doc && Array.isArray(doc.modules) ? doc.modules.filter(Boolean) : [];
+  const notReached = parts.notReached.map((m) => {
+    const hit = mods.find((x) => x.name === m.name);
+    return { name: m.name, error: hit && hit.error ? hit.error : null };
+  });
+  return { couldntRun: [...parts.couldntRun, ...notReached], unfinished: parts.unfinished, partly: parts.partly,
     notStarted: parts.notStarted.map((m) => m.name), summary, counts };
 }
 
@@ -984,7 +963,7 @@ if (typeof module !== 'undefined' && module.exports) {
     couldntCheckItems,
     couldntCheckGroups,
     cardEvidenceRows,
-    mergeAcrossChecks,
+    plainCards,
     sortByImportance,
     importanceRank,
     groupByCheck,
@@ -1561,9 +1540,7 @@ if (typeof document !== 'undefined') {
         const areas = groupByArea(findings, mode, shownDoc);
         // The numbers are scanCounts' (byDistrict, by area).
         const byArea = NotCheckedRule.scanCounts(shownDoc, { mode: mode === 'city' ? 'city' : 'standard', districtOf: noteAreaOf }).byDistrict;
-        // TODO(C5): scanCounts' byDistrict has no `info` yet; until it does, the area's own notes are counted.
-        const areaCount = (a) => (byArea[a.id] && typeof byArea[a.id].info === 'number' ? byArea[a.id].info
-          : a.checks.reduce((n, c) => n + c.findings.length, 0));
+        const areaCount = (a) => (byArea[a.id] ? byArea[a.id].notes : 0);
         const checkHtml = (c) => (c.findings.length === 1 ? cardHtml(c.findings[0], 0) : `
                 <li class="info-check">
                   <details class="info-check__fold">
@@ -1583,7 +1560,7 @@ if (typeof document !== 'undefined') {
         <section class="results-group results-group--info" data-results-group="info">
           <details class="results-group__fold">
             <summary><span class="chip chip--info">${escapeHtml(SEVERITY_LABELS.info)}</span>
-              <span class="results-group__count">${counts ? counts.info : findings.length}</span>
+              <span class="results-group__count">${counts ? counts.notes : findings.length}</span>
               <span class="muted">${escapeHtml(SEVERITY_DESCRIPTIONS.info)}</span></summary>
             <ul class="info-areas">${boxes}</ul>
           </details>
@@ -1701,15 +1678,10 @@ if (typeof document !== 'undefined') {
     function renderResults(doc) {
       const partial = isPartialDoc(doc) ? doc.partial : null;
       renderResultsFrame(partial);
-      const { groups, unfinishedModules, partlyChecked } = groupFindingsBySeverity(doc);
-      // The same finding from several checks is one card; the most important
-      // first. One card per item (NotChecked.itemKey) at the highest level it
-      // was seen at, so the cards are scanCounts' items. Notes stay one per
-      // finding, as scanCounts.info counts them (and the city's notes).
-      // TODO(C5): if scanCounts comes to count notes by itemKey, merge them here with the same rule.
-      const items = mergeAcrossChecks([...groups.critical, ...groups.warning]);
-      groups.critical = items.filter((f) => cardLevel(f) === 'critical');
-      groups.warning = items.filter((f) => cardLevel(f) === 'warning');
+      const { unfinishedModules, partlyChecked } = groupFindingsBySeverity(doc);
+      // One card per item (NotChecked.displayItems), the same items the city
+      // counts; the most important first. Good to know is grouped by area.
+      const groups = plainCards(doc, mode);
       groups.critical = sortByImportance(groups.critical);
       groups.warning = sortByImportance(groups.warning);
       // One count, the same one the city shows (notCheckedSummary), with a
@@ -1721,7 +1693,7 @@ if (typeof document !== 'undefined') {
       // Never an all-clear while any check wasn't fully checked (scanCounts.notFully).
       const notFullyChecked = counts.notFully;
       // Nothing at all to show (a held card in city mode is left out of the counts, not of the list).
-      const nothing = counts.items === 0 && counts.info === 0 && counts.held === 0;
+      const nothing = counts.todo === 0 && counts.notes === 0 && counts.markedItems === 0 && counts.heldItems === 0;
 
       // Before the cards render: it resets the per-finding copy registry. The
       // whole-report copy uses the same per-card objects, so an answer given
@@ -1766,12 +1738,12 @@ if (typeof document !== 'undefined') {
       // The sentence at the top counts what the progress bar counts.
       const summaryEl = document.getElementById('results-summary');
       // The numbers are scanCounts', the same ones the city shows.
-      const said = ClearList.summaryText(counts.items, counts.info);
+      const said = ClearList.summaryText(counts.todo, counts.notes);
       if (partial) {
         // Never an all-clear while checks are still running.
         document.getElementById('results-progress').hidden = true;
         summaryEl.innerHTML = `<p>${escapeHtml(partialSummaryText({
-          worth: counts.items, other: counts.info, stopped: !!partial.stopped }))}</p>`;
+          worth: counts.todo, other: counts.notes, stopped: !!partial.stopped }))}</p>`;
       } else if ((nothing || !said) && notFullyChecked > 0) {
         // Never an all-clear while a check couldn't run or didn't finish.
         summaryEl.innerHTML = '<p>The checks that finished found nothing worth a look.</p>';

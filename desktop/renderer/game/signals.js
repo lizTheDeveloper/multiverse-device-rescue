@@ -159,12 +159,12 @@ export function queueOf(signals, filter = null) {
   };
 }
 
-// TO DO on the deck and every HUD: the list's number of items
-// (NotChecked.scanCounts `items`, city mode), less the ones already sorted
+// TO DO on the deck and every HUD: the list's number of to-do items
+// (NotChecked.scanCounts `todo`, city mode: displayItems), less the ones already sorted
 // with a tag (MINE, THREAT). Never the couldn't-check rows: those are NOT
 // CHECKED. Before any sorting it is exactly the list's count.
 export function todoFrom(counts, signals) {
-  const items = Number(counts && counts.items) || 0;
+  const items = Number(counts && (typeof counts.todo === 'number' ? counts.todo : counts.items)) || 0;
   const sorted = (signals || []).filter((x) => x.kind === 'real' && x.severity !== 'info' && !x.marked && x.tag && x.tag !== 'closer').length;
   return Math.max(0, items - sorted);
 }
@@ -268,7 +268,7 @@ export function sweepCounts(doc, city, integrity) {
     checks: Math.max(0, c.checks - c.didntFinish), fog: c.didntFinish,
     critical: c.critical, warning: c.warning, info: c.info,
     checked: (integrity && integrity.checked) || 0, secured: (integrity && integrity.secured) || 0,
-    total: c.checks, unfinished: c.unfinished, couldntRun: c.couldntRun, notStarted: c.notStarted, items: c.items,
+    total: c.checks, unfinished: c.unfinished, couldntRun: c.couldntRun, notStarted: c.notStarted, items: c.items, todo: c.todo,
   };
 }
 

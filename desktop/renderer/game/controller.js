@@ -819,7 +819,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // The ops log's SWEEP line: the deck's own numbers (cityCounts), so it says
   // what LAST SWEEP, the chips and the banner say. Held findings are never in it.
   function sweepLogText(c, stopped) {
-    const parts = [`${c.items} to look at (${c.critical} critical)`];
+    const parts = [`${typeof c.todo === 'number' ? c.todo : c.items} to look at (${c.critical} critical)`];
     if (c.fog) parts.push(`${c.fog} couldn’t run or didn’t finish`);
     if (c.notStarted) parts.push(`${c.notStarted} waiting for you`);
     const head = `${c.total} check${c.total === 1 ? '' : 's'}`;

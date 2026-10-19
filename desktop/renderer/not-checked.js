@@ -356,7 +356,7 @@ const NotChecked = (function () {
     return out;
   }
 
-  // Plain's card shape for an item (app.js mergeAcrossChecks): the lead
+  // Plain's card shape for an item (app.js plainCards): the lead
   // finding with `seen_in` and `also` (the other findings).
   function asCard(item) {
     return Object.assign({}, item.finding, { seen_in: item.seen_in.slice(), also: item.findings.slice(1) });

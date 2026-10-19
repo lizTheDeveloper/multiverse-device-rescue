@@ -177,8 +177,8 @@ test('NOT CHECKED: the chip names each part, and its filter reaches every check 
   assert.match(label, new RegExp(`${c.unfinished} DIDN’T FINISH`));
   assert.match(label, new RegExp(`${c.notStarted} NOT STARTED`));
   assert.ok(deck.includes(`>NOT CHECKED: ${label}<`));
-  // TO DO is the list's number of items, never plus the not-checked rows.
-  assert.match(deck, new RegExp(`INCOMING SIGNALS · ${c.items} TO DO`));
+  // TO DO is the list's number of to-do items (scanCounts.todo), never plus the not-checked rows.
+  assert.match(deck, new RegExp(`INCOMING SIGNALS · ${c.todo} TO DO`));
   t.click({ 'data-act': 'sev:couldnt' });
   const rows = [...t.html().matchAll(/data-go="signal:([^"]+)"/g)].map((m) => m[1]);
   assert.strictEqual(rows.length, c.couldntRun + c.unfinished + c.notStarted);
@@ -192,7 +192,7 @@ test('NOT CHECKED: the chip names each part, and its filter reaches every check 
   t.click({ 'data-act': 'close-signal' });
   t.click({ 'data-go': 'district:gatehouse' });
   const h = text(t.html());
-  assert.match(h, new RegExp(`${c.items} TO DO`));
+  assert.match(h, new RegExp(`${c.todo} TO DO`));
   assert.match(h, new RegExp(`${c.couldntRun + c.unfinished + c.notStarted} NOT CHECKED`));
 });
 

@@ -147,25 +147,35 @@ test('a stopped checkup: checks never reached are their own count, and their nam
   assert.strictEqual(NC.fmt(4837), '4,837');
 });
 
-// The views render from displayItems / scanCounts (groups A5 and B5). These
-// run, and flip from todo once each view is wired.
-test('Plain’s list (mergeAcrossChecks) has scanCounts.todo cards', { todo: 'A5: render the list from NotChecked.displayItems' }, () => {
+// The views render from displayItems / scanCounts (groups A5 and B5).
+test('Plain’s list (app.plainCards, from NotChecked.displayItems) has scanCounts.todo cards and scanCounts.notes notes', () => {
   const app = require('../renderer/app.js');
   for (const file of FIXTURES) {
     const doc = load(file);
-    const { groups } = app.groupFindingsBySeverity(doc);
-    const cards = app.mergeAcrossChecks(groups.critical).length + app.mergeAcrossChecks(groups.warning).length;
-    assert.strictEqual(cards, NC.scanCounts(doc).todo, file);
-    assert.strictEqual(app.mergeAcrossChecks(groups.info).length, NC.scanCounts(doc).notes, file);
+    for (const mode of ['standard', 'city']) {
+      const g = app.plainCards(doc, mode);
+      const c = NC.scanCounts(doc, { mode });
+      const unmarked = (list) => list.filter((x) => !(x.data && x.data.marked_by_user === true));
+      // City mode: held cards stay on the list, out of every number.
+      const out = (list) => (mode === 'city' ? list.filter((x) => !NC.isHeld(x, x.module)) : list);
+      assert.strictEqual(out(unmarked([...g.critical, ...g.warning])).length, c.todo, `${file} ${mode}`);
+      assert.strictEqual(out(unmarked(g.info)).length, c.notes, `${file} ${mode}`);
+    }
   }
 });
 
-test('the city’s missions are scanCounts.todo items', { todo: 'B5: build missions from NotChecked.displayItems' }, async () => {
+test('the city’s missions are scanCounts.todo items (plus the ones marked as yours)', async () => {
   const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
   for (const file of FIXTURES) {
     const doc = load(file);
     const city = findingsToCity(doc);
-    const missions = city.districts.reduce((n, d) => n + d.missions.length, 0);
-    assert.strictEqual(missions, NC.scanCounts(doc).todo + NC.scanCounts(doc).markedItems, file);
+    const missions = city.districts.flatMap((d) => d.missions);
+    assert.strictEqual(missions.length, NC.scanCounts(doc).todo + NC.scanCounts(doc).markedItems, file);
+    assert.strictEqual(new Set(missions.map((m) => m.id)).size, missions.length, `${file}: one id per mission`);
+    // Held missions are left out of the city's numbers: what's left is the city's todo.
+    const shown = missions.filter((m) => !m.marked && !m.findings.some((f) => NC.isHeld(f, f.module)));
+    assert.strictEqual(shown.length, NC.scanCounts(doc, { mode: 'city' }).todo, file);
+    const ext = missions.filter((m) => m.code === 'security.chrome_extensions.broad_permissions');
+    if (file === 'ux6-full.json') assert.strictEqual(ext.length, 4, 'four different extensions are four missions');
   }
 });

@@ -105,13 +105,22 @@ test('identity ignores the mark id, which changes when the program changes', asy
   assert.strictEqual(findingIdentity(marked), findingIdentity(before));
 });
 
-test('two findings with one identity become one mission that lists both, at the higher severity', async () => {
+test('two findings about one thing become one mission that lists both, at the higher severity', async () => {
   const { findingsToCity } = await load();
-  const city = findingsToCity({ modules: [mod('a', 'security', [f('warning', { title: 'one' }), f('critical', { title: 'two' })])] });
+  const city = findingsToCity({ modules: [mod('a', 'security', [f('warning', { title: 'one', data: { plist: '/x.plist' } }), f('critical', { title: 'two', data: { plist: '/x.plist' } })])] });
   const gate = city.districts.find((d) => d.id === 'gatehouse');
   assert.strictEqual(gate.missions.length, 1);
   assert.strictEqual(gate.missions[0].severity, 'critical');
   assert.strictEqual(gate.missions[0].findings.length, 2);
+});
+
+test('one code, different things named (four extensions): four missions, each with its own id (NotChecked.displayItems)', async () => {
+  const { findingsToCity } = await load();
+  const ext = (name) => f('warning', { code: 'security.chrome_extensions.broad_permissions', title: `Extension with broad permissions: ${name}`, data: { extension: name } });
+  const city = findingsToCity({ modules: [mod('chrome_extensions', 'security', ['OneTab', 'LastPass', 'Honey', 'Grammarly'].map(ext))] });
+  const missions = city.districts.find((d) => d.id === 'gatehouse').missions;
+  assert.strictEqual(missions.length, 4);
+  assert.strictEqual(new Set(missions.map((m) => m.id)).size, 4, 'mission ids never collide');
 });
 
 test('mission flags: fixable, markable, marked', async () => {

@@ -2,9 +2,9 @@
 // kind of problem, one mission per warning or critical finding, notes for info
 // findings, fog where a check couldn't run, and `unfinished` where a check ran
 // but stopped before the end (the engine's "complete": false). Pure; no DOM.
-// One mission per item: findings that name the same thing (NotChecked.itemKey,
-// the engine's same_key) are one mission, so the city counts what the list
-// counts. Severity is the list's (NotChecked.shownSeverity).
+// One mission per item of NotChecked.displayItems (the engine's same_key,
+// then the thing a finding names, then its title), the list Plain renders
+// too, so the city counts what the list counts (scanCounts.todo).
 // Sets globalThis.NotChecked (a plain script the list loads too).
 import '../not-checked.js';
 
@@ -21,6 +21,14 @@ export const OUTSKIRTS = { id: 'outskirts', category: null, name: 'The Outskirts
 const SEVERITY_RANK = { critical: 2, warning: 1 };
 // Data fields that name the thing a finding is about, most specific first.
 const STABLE_KEYS = ['plist', 'path', 'program', 'label', 'bundle_id', 'extension_id', 'name', 'target', 'id'];
+
+// A finding's level in the city's totals: the list's (NotChecked.listSeverity),
+// so a finding marked as yours counts at its old severity.
+function cityLevel(finding, category) {
+  return NC.listSeverity(finding, category);
+}
+// Each finding's place in the scan, while the missions are built (never kept).
+const ORDER = Symbol('order');
 
 function districtFor(category) {
   return DISTRICTS.find((d) => d.category === category) || OUTSKIRTS;
@@ -72,13 +80,14 @@ function statusOf(d) {
 export function findingsToCity(doc) {
   const byId = new Map([...DISTRICTS, OUTSKIRTS].map((d) => [d.id, emptyDistrict(d)]));
   const missions = new Map();
-  const byKey = new Map();
+  const categoryOf = new Map();
   const totals = { critical: 0, warning: 0, info: 0, fog: 0 };
   const modules = doc && Array.isArray(doc.modules) ? doc.modules : [];
 
   for (const mod of modules) {
     if (!mod || typeof mod.name !== 'string') continue;
     const district = byId.get(districtFor(mod.category).id);
+    categoryOf.set(mod.name, mod.category);
     const named = typeof mod.check_name === 'string' && mod.check_name.trim() ? { checkName: mod.check_name.trim() } : {};
     if (mod.status === 'error' || mod.supported === false) {
       // `notStarted`: an opt-in check that can run here but waits for a
@@ -95,46 +104,41 @@ export function findingsToCity(doc) {
     for (const raw of Array.isArray(mod.findings) ? mod.findings : []) {
       if (!raw || typeof raw !== 'object') continue;
       const finding = { ...raw, module: mod.name };
-      // A finding the person marked as theirs comes back as info (known_items.py),
-      // with its old severity kept. It stays a mission, shown as "yours".
-      const markedByUser = !!(finding.data && finding.data.marked_by_user === true);
-      const original = markedByUser && finding.data.original_severity;
-      const sev = markedByUser
-        ? (SEVERITY_RANK[original] ? original : 'warning')
-        : NC.shownSeverity(finding.category ? finding : { ...finding, category: mod.category });
+      const sev = cityLevel(finding, mod.category);
       totals[sev] += 1;
-      if (sev === 'info') { district.notes.push(finding); continue; }
-      const id = findingIdentity(finding);
-      const key = NC.itemKey(finding, mod.name);
-      // The same item (same_key), or the same identity (the mission's id): one mission.
-      const existing = byKey.get(key) || missions.get(id);
-      if (existing) {
-        if (!byKey.has(key)) byKey.set(key, existing);
-        existing.findings.push(finding);
-        const acts = (x) => !!(x && (x.fixable || x.markable));
-        if (SEVERITY_RANK[sev] > SEVERITY_RANK[existing.severity]) { existing.severity = sev; existing.primary = finding; }
-        // At the same severity, the one that can be fixed or marked leads (as on the list).
-        else if (SEVERITY_RANK[sev] === SEVERITY_RANK[existing.severity] && acts(finding) && !acts(existing.primary)) existing.primary = finding;
-        existing.fixable = existing.fixable || !!finding.fixable;
-        existing.markable = existing.markable || !!finding.markable;
-        existing.marked = existing.marked && !!(finding.data && finding.data.marked_by_user === true);
-        continue;
-      }
-      const mission = {
-        id, module: mod.name, code: finding.code || null, severity: sev, districtId: district.id,
-        title: finding.title || 'Something worth a look',
-        description: finding.description || '',
-        steps: missionSteps(finding),
-        walkthroughTitle: (finding.remediation && finding.remediation.title) || null,
-        safetyNote: (finding.remediation && finding.remediation.safety_note) || null,
-        findings: [finding], primary: finding,
-        fixable: !!finding.fixable, markable: !!finding.markable,
-        marked: !!(finding.data && finding.data.marked_by_user === true),
-      };
-      missions.set(id, mission);
-      byKey.set(key, mission);
-      district.missions.push(mission);
+      if (sev === 'info') district.notes.push(finding);
     }
+  }
+
+  // The missions: one per to-do or marked item of NotChecked.displayItems,
+  // the list both views render (todo + markedItems), so different things
+  // with one code (four Chrome extensions) stay four missions. Held items
+  // stay missions here; the city leaves them out of its numbers (held.js).
+  // A mission's id is its first finding's identity (doc order), as before;
+  // two items that would share one keep apart by their merge key.
+  const ordered = { ...(doc || {}), modules: modules.map((mod, i) => (mod && Array.isArray(mod.findings)
+    ? { ...mod, findings: mod.findings.map((f, j) => (f && typeof f === 'object' ? { ...f, [ORDER]: i * 1e6 + j } : f)) } : mod)) };
+  const list = NC.displayItems(ordered, { mode: 'standard' });
+  for (const item of [...list.critical, ...list.warning, ...list.marked]) {
+    const first = item.findings.reduce((x, f) => (f[ORDER] < x[ORDER] ? f : x), item.findings[0]);
+    const findings = item.findings.map(({ [ORDER]: _o, ...f }) => f);
+    const primary = findings[0];
+    let id = findingIdentity(first);
+    if (missions.has(id)) id = `${id}|${item.key}`;
+    const district = byId.get(districtFor(categoryOf.get(primary.module)).id);
+    const mission = {
+      id, module: primary.module, code: primary.code || null, severity: item.severity, districtId: district.id,
+      title: primary.title || 'Something worth a look',
+      description: primary.description || '',
+      steps: missionSteps(primary),
+      walkthroughTitle: (primary.remediation && primary.remediation.title) || null,
+      safetyNote: (primary.remediation && primary.remediation.safety_note) || null,
+      findings, primary,
+      fixable: findings.some((f) => !!f.fixable), markable: findings.some((f) => !!f.markable),
+      marked: item.marked,
+    };
+    missions.set(id, mission);
+    district.missions.push(mission);
   }
 
   for (const m of missions.values()) {

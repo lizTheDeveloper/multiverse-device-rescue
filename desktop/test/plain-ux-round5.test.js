@@ -114,6 +114,42 @@ test('city mode (the Plain list): no banner; every card keeps its note in full',
   assert.strictEqual(html.split(SN).length, 3);
 });
 
+// The engine decides the warning (rescue/safety_scope.py: removal_alert and
+// safety_note, by finding code); the text inference never takes it away.
+async function listOfDoc(modules) {
+  const p = page({ store: { 'device-rescue.display': 'standard' }, ready: false });
+  p.sandbox.FixFlow.fixControlsHtml = FixFlow.fixControlsHtml;
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  p.byId('btn-run-scan').click();
+  await p.finish({ schema_version: 1, platform: 'darwin', modules });
+  if (p.shown().includes('question')) p.answer('known');
+  return p.byId('results-groups').innerHTML;
+}
+test('the engine’s removal_alert drives the banner and the card’s line, on any check, with no note or warning text', async () => {
+  const flagged = { title: 'Screen Sharing is on', severity: 'warning', category: 'security', description: 'Others can see your screen.',
+    code: 'security.sharing_services.screen_sharing', removal_alert: true, data: {} };
+  const html = await listOfDoc([mod('some_check_nobody_lists', [flagged,
+    { title: 'Disk nearly full', severity: 'warning', category: 'storage', description: 'Low space.', data: {} }])]);
+  assert.strictEqual(html.split('id="results-safety"').length, 2, 'one banner');
+  const card = html.split('<li class="finding-card').find((c) => /Screen Sharing is on/.test(c));
+  assert.match(card, /data-safety-line/);
+  assert.strictEqual(Q.noteFor('standard', { ...flagged, module: 'some_check_nobody_lists' }), 'line', 'never inferred away');
+});
+test('a merged card carries the warning when any of its findings has the engine’s flag', async () => {
+  const a = { title: 'Remote access is on', severity: 'warning', category: 'security', description: 'On.', same_key: 'remote:on', data: {} };
+  const html = await listOfDoc([mod('first_check', [a]), mod('second_check', [{ ...a, removal_alert: true }])]);
+  const cards = html.split('<li class="finding-card').slice(1);
+  assert.strictEqual(cards.length, 1, 'one item');
+  assert.match(cards[0], /data-safety-line/);
+  assert.match(html, /id="results-safety"/);
+});
+test('a warning only inferred from text on a check that can’t monitor and offers no removal stays off', async () => {
+  const html = await listOfDoc([mod('disk_space', [{ title: 'Old crash logs', severity: 'warning', category: 'storage',
+    description: 'Removing them can alert nobody, but deleting them can notify the reporter.', data: {} }], { category: 'performance' })]);
+  assert.doesNotMatch(html, /results-safety|data-safety-line/);
+});
+
 test('the banner helpers: notes said once, nothing without a line card', () => {
   const card = { note: 'line', full: ['A.', 'B.'] };
   assert.deepStrictEqual(Q.bannerNotes([card, { note: 'line', full: ['A.'] }, { note: 'none', full: ['C.'] }]), ['A.', 'B.']);
@@ -176,11 +212,11 @@ for (const file of ['replay-full.json', 'replay-errors.json', 'replay-held.json'
     if (p.shown().includes('question')) p.answer('known');
     const c = NC.scanCounts(doc, { mode: 'standard' });
     const summary = p.byId('results-summary').innerHTML;
-    if (c.items) assert.match(summary, new RegExp(`\\b${c.items} things? on your list`));
-    if (c.info) assert.match(summary, new RegExp(`\\b${c.info} good-to-know notes?`));
+    if (c.todo) assert.match(summary, new RegExp(`\\b${c.todo} things? on your list`));
+    if (c.notes) assert.match(summary, new RegExp(`\\b${c.notes} good-to-know notes?`));
     const html = p.byId('results-groups').innerHTML;
     const counted = (html.match(/data-card-counts="1"/g) || []).length;
-    assert.strictEqual(counted, c.items + (html.match(/finding-card--note"[^>]*data-card-counts="1"/g) || []).length,
+    assert.strictEqual(counted, c.todo + c.markedItems + (html.match(/finding-card--note"[^>]*data-card-counts="1"/g) || []).length,
       'one card on the list per item');
     if (c.didntFinish || c.partly) assert.strictEqual(p.byId('results-errors-line').textContent, NC.notCheckedLine(c));
     await tick();
@@ -202,7 +238,7 @@ test('Good to know on the full replay: a handful of areas, each counted, all clo
   const areas = [...info.matchAll(/<span class="info-area__name">([^<]+)<\/span> <span class="results-group__count">(\d+)<\/span>/g)];
   assert.ok(areas.length >= 2 && areas.length <= 6, `${areas.length} areas`);
   const c = NC.scanCounts(doc);
-  assert.strictEqual(areas.reduce((n, a) => n + Number(a[2]), 0), c.info, 'the areas add up to the notes count');
+  assert.strictEqual(areas.reduce((n, a) => n + Number(a[2]), 0), c.notes, 'the areas add up to the notes count');
   assert.doesNotMatch(info, /<details[^>]* open/, 'everything starts closed');
   await tick();
 });
@@ -297,7 +333,7 @@ test('a few names stay in the line; more than five go under the fold', () => {
   const app = require('../renderer/app.js');
   const item = (name) => ({ name, kind: 'failed', reason: '', raw: '' });
   const few = app.couldntCheckGroups(['A', 'B', 'C'].map(item)).groups[0];
-  assert.strictEqual(few.line, '3 checks couldn’t run: A, B, C.');
+  assert.strictEqual(few.line, '3 checks couldn’t run: A, B and C.');
   assert.deepStrictEqual(few.folded, []);
   const many = app.couldntCheckGroups(['A', 'B', 'C', 'D', 'E', 'F'].map(item)).groups[0];
   assert.strictEqual(many.line, '6 checks couldn’t run.');

@@ -47,15 +47,18 @@ test('the same finding from several checks is one card that says which checks sa
   const other = { module: 'launch_agent_audit', ...launchAgent('Background task \'other\' runs from a hidden folder'), same_key: 'task:other:hidden_folder', data: { label: 'other' } };
   const sameCheck = [{ module: 'login_items', title: 'Login item: Amical', severity: 'info' }, { module: 'login_items', title: 'Login item: Amical', severity: 'info' }];
   const mon = [{ module: 'stalkerware_scan', title: 'mSpy', severity: 'critical' }, { module: 'keylogger_indicators', title: 'mSpy', severity: 'critical' }];
-  const merged = app.mergeAcrossChecks([sleep('energy_saver_check'), a, sleep('energy_settings'), b, other, sleep('power_settings'), ...sameCheck, ...mon]);
-  assert.deepStrictEqual(merged.map((f) => f.title), ['Your Mac is set to never sleep', a.title, other.title, 'Login item: Amical', 'Login item: Amical', 'mSpy', 'mSpy']);
-  assert.deepStrictEqual(merged[0].seen_in, ['energy_saver_check', 'energy_settings', 'power_settings']);
-  assert.deepStrictEqual(merged[1].seen_in, ['launch_agent_audit', 'launchd_persistence_audit']);
-  // Different severities are different findings.
-  assert.strictEqual(app.mergeAcrossChecks([sleep('a'), { ...sleep('b'), severity: 'info' }]).length, 2);
+  // Plain's cards are NotChecked.displayItems' items (app.plainCards), in the checkup's order.
+  const asDoc = (findings) => ({ modules: findings.map(({ module, ...f }) => ({ name: module, category: 'security', status: 'ok', findings: [f] })) });
+  const cardsOf = (findings) => { const g = app.plainCards(asDoc(findings), 'standard'); return [...g.critical, ...g.warning, ...g.info]; };
+  const merged = cardsOf([sleep('energy_saver_check'), a, sleep('energy_settings'), b, other, sleep('power_settings'), ...sameCheck, ...mon]);
+  assert.deepStrictEqual(merged.map((f) => f.title), ['mSpy', 'mSpy', 'Your Mac is set to never sleep', a.title, other.title, 'Login item: Amical']);
+  assert.deepStrictEqual(merged[2].seen_in, ['energy_saver_check', 'energy_settings', 'power_settings']);
+  assert.deepStrictEqual(merged[3].seen_in, ['launch_agent_audit', 'launchd_persistence_audit']);
+  // A to-do never merges with a note.
+  assert.strictEqual(cardsOf([sleep('a'), { ...sleep('b'), severity: 'info' }]).length, 2);
 
   const doc = { modules: [{ name: 'energy_saver_check', check_name: 'Energy saver' }] };
-  const rows = app.cardEvidenceRows(merged[0], { mode: 'standard', doc, commands: new Map([['energy_settings', [['pmset', '-g']]]]) });
+  const rows = app.cardEvidenceRows(merged[2], { mode: 'standard', doc, commands: new Map([['energy_settings', [['pmset', '-g']]]]) });
   const seen = rows.find((r) => r.label === 'Seen by');
   assert.strictEqual(seen.value, 'Energy saver, Energy settings, Power settings');
   assert.ok(!rows.some((r) => r.label === 'Check'), 'one line names the checks');
@@ -74,8 +77,8 @@ test('the couldn’t-check box: one line per cause, check names inline, the engi
   const items = app.couldntCheckItems(g.erroredModules, g.unfinishedModules, 'standard', g.partlyChecked, doc);
   const { groups, raw } = app.couldntCheckGroups(items);
   assert.deepStrictEqual(groups.map((x) => x.line), [
-    '3 checks need Full Disk Access: Background tasks, Stalkerware scan, Time machine check.',
-    '2 checks took too long: Code signature audit, Keylogger indicators.',
+    '3 checks need Full Disk Access: Background tasks, Stalkerware scan and Time machine check.',
+    '2 checks took too long: Code signature audit and Keylogger indicators.',
   ]);
   assert.match(raw, /^Background tasks: PermissionError/m);
   // City mode never says why a monitoring check couldn't run.
@@ -123,7 +126,7 @@ test('the card: title, Evidence, warning, actions; steps, help and technical det
 
   const box = p.byId('results-errors-list').innerHTML;
   assert.strictEqual((box.match(/Open the setting/g) || []).length, 1);
-  assert.match(box, /2 checks need Full Disk Access: A, B\./);
+  assert.match(box, /2 checks need Full Disk Access: A and B\./);
   assert.match(box, /1 check took too long: C\./);
   assert.doesNotMatch(box, /For tech helpers/, 'one for the whole box, outside the list');
   assert.strictEqual(p.byId('results-errors-tech').hidden, false);

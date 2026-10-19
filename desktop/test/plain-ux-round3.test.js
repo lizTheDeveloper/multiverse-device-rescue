@@ -133,10 +133,10 @@ test('P1-4: near-duplicates from different checks merge by what the data says (c
   assert.strictEqual(count(/[Ss]creensaver waits 60/), 1);
   assert.strictEqual(count(/control your Mac/), 2, 'the 14 merge; the 11 unrecognised stay their own list');
   // The merged card keeps the one with controls (the markable list) and says who saw it.
-  const merged = app.mergeAcrossChecks([
-    { module: 'accessibility_permissions', severity: 'warning', title: 'Many apps can control your Mac (14)', same_key: 'permissions:accessibility_14', data: { check: 'excessive_accessibility', count: 14 } },
-    { module: 'app_permissions', severity: 'warning', title: '14 apps can control your Mac', markable: { id: 'a' }, same_key: 'permissions:accessibility_14', data: { check: 'accessibility_access', apps: new Array(14).fill('x') } },
-  ]);
+  const merged = app.plainCards({ modules: [
+    { name: 'accessibility_permissions', category: 'security', status: 'ok', findings: [{ severity: 'warning', title: 'Many apps can control your Mac (14)', same_key: 'permissions:accessibility_14', data: { check: 'excessive_accessibility', count: 14 } }] },
+    { name: 'app_permissions', category: 'security', status: 'ok', findings: [{ severity: 'warning', title: '14 apps can control your Mac', markable: { id: 'a' }, same_key: 'permissions:accessibility_14', data: { check: 'accessibility_access', apps: new Array(14).fill('x') } }] },
+  ] }, 'standard').warning;
   assert.strictEqual(merged.length, 1);
   assert.strictEqual(merged[0].module, 'app_permissions');
   assert.deepStrictEqual(merged[0].seen_in, ['app_permissions', 'accessibility_permissions']);

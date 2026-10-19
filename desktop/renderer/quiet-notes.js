@@ -160,9 +160,8 @@ const QuietNotes = (function () {
   // quieted) the note quietFinding kept for it.
   function carriesAlert(f) {
     if (!f || typeof f !== 'object') return false;
-    if (Array.isArray(f.quiet_full) && f.quiet_full.length) return true;
+    if (hasExplicitNote(f)) return true;
     const rem = f.remediation && typeof f.remediation === 'object' ? f.remediation : null;
-    if (rem && rem.safety_note) return true;
     if (ALERTS.test(String(f.description == null ? '' : f.description))) return true;
     return !!(rem && Array.isArray(rem.steps) && rem.steps.some((s) => s && ALERTS.test(String(s.body == null ? '' : s.body))));
   }
@@ -211,8 +210,11 @@ const QuietNotes = (function () {
     if (hasExplicitNote(finding)) return 'line';
     return inferredOnlyNoise(finding) ? 'none' : 'line';
   }
+  // The engine's own flag (rescue/safety_scope.py): `removal_alert: true`
+  // with `remediation.safety_note`, set by finding code. Never inferred away.
   function hasExplicitNote(f) {
     if (!f || typeof f !== 'object') return false;
+    if (f.removal_alert === true) return true;
     if (Array.isArray(f.quiet_full) && f.quiet_full.length) return true;
     return !!(f.remediation && typeof f.remediation === 'object' && f.remediation.safety_note);
   }
@@ -368,7 +370,7 @@ const QuietNotes = (function () {
       category: f.category, code: f.code };
   }
 
-  return { MONITORING_MODULES, NOT_DETECTIONS, MONITOR_CAPABLE, canMonitor, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml, BANNER_HEAD, bannerNotes, bannerHtml };
+  return { MONITORING_MODULES, NOT_DETECTIONS, MONITOR_CAPABLE, canMonitor, hasExplicitNote, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml, BANNER_HEAD, bannerNotes, bannerHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
