@@ -280,3 +280,18 @@ test('M6: Copy everything for an AI says which checks wait for the go-ahead', as
   // Nothing waiting: no line.
   assert.doesNotMatch(buildAiPrompt({ ...report, notStarted: [] }, {}), /not started yet/);
 });
+
+// ---- M7: one re-check-failed text ----------------------------------------------
+
+test('M7: the re-check-failed words are one text: FixFlow, the city outcome and the engine runner', async () => {
+  const FixFlow = require('../renderer/fix-flow.js');
+  const { RECHECK_FAILED_MESSAGE } = require('../engine-runner.js');
+  const before = FixFlow.recheckFailedText({ fixApplied: false });
+  assert.strictEqual(RECHECK_FAILED_MESSAGE, `${before.headline} ${before.detail}`);
+  const { renderOutcome } = await game('views/outcome.js');
+  const after = FixFlow.recheckFailedText({ fixApplied: true });
+  const html = renderOutcome({ kind: 'couldnt', mission: { title: 'x', module: 'launch_agent_audit' }, scout: () => '', failed: after, fixApplied: true });
+  assert.ok(html.includes(after.headline), html);
+  const fs = require('node:fs');
+  assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', 'renderer', 'fix-flow.js'), 'utf8'), /TODO\(round-3 integration\)/);
+});

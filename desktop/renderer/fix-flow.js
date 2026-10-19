@@ -178,8 +178,9 @@ const FixFlow = (function () {
    * never "Nothing was changed": the change was made (Undo is on the item),
    * the re-check just couldn't confirm it. The engine runner's own sentence
    * says "Nothing was changed", so it is never shown after a fix.
-   * TODO(round-3 integration): the city's re-check result (game/views/outcome.js,
-   * Group B) and engine-runner's RECHECK_FAILED_MESSAGE (Group C) should use this.
+   * The city's re-check result uses it (game/controller.js passes it to
+   * views/outcome.js as `failed`); engine-runner's RECHECK_FAILED_MESSAGE is
+   * the no-fix text (a test keeps them equal).
    */
   function recheckFailedText({ fixApplied = false } = {}) {
     if (fixApplied) {
