@@ -8,8 +8,11 @@
  * and the game, so both show the same facts.
  *
  *   Evidence.evidenceRows(finding, { mode, held, checkName, commands, seen })
- *     -> [{ label, value, mono, copy }]
- *   Evidence.renderEvidence(rows, { title, copy }) -> HTML string (escaped)
+ *     -> [{ label, value, mono, copy }], with array flags `held` and
+ *        `replacesDescription` (non-enumerable)
+ *   Evidence.renderEvidence(rows, { title, copy, held }) -> HTML string (escaped)
+ *   Evidence.replacesDescription(finding) -> true when the finding's prose
+ *     must not show (keyboard access, every maker verified): show the rows
  *   Evidence.evidenceText(rows) -> "Label: value" lines, what "Copy all" copies
  *   Evidence.wireCopy(root, write) -> click handling for the copy buttons
  *
@@ -20,7 +23,8 @@
  *
  * City mode, held monitoring finding: only what the help district asks the
  * person to write down (name, where found, how detected, maker + verified,
- * date). Nothing about fixing, marking or rewards.
+ * date). Nothing about fixing, marking or rewards, and no clipboard: drawn
+ * large, with "Write this on paper or on another device."
  *
  * Loaded as a plain script (global `Evidence`, also on window for the game);
  * tested from Node.
@@ -390,6 +394,20 @@ const Evidence = (function () {
     return rows;
   }
 
+  // ---- the finding's own words ---------------------------------------------
+
+  // The keyboard-access check's "familiar names" finding says the tool "has
+  // not verified who actually made them". When every maker was verified,
+  // that sentence is wrong: show the rows (each app with its verified maker)
+  // in place of the description.
+  const KEYBOARD_FAMILIAR = 'security.keylogger_indicators.suspicious_input_monitoring';
+  function replacesDescription(finding) {
+    const f = isObj(finding) ? finding : {};
+    const keyboard = f.code === KEYBOARD_FAMILIAR
+      || (f.module === 'keylogger_indicators' && isObj(f.data) && f.data.check === 'claimed_vendor_input_monitoring');
+    return keyboard && makersVerified(f);
+  }
+
   // ---- the rows ----------------------------------------------------------------
 
   /**
@@ -397,13 +415,19 @@ const Evidence = (function () {
    * finding (default in city: any finding of a monitoring check). opts.checkName:
    * the check's name for people (else finding.check_name, else its id in
    * words). opts.commands: the commands that check ran (argv arrays, {argv}
-   * events or strings). opts.seen: when (Date or ISO), else "This checkup".
+   * events or strings). opts.seen: when (Date or ISO), else the finding's
+   * collected_at; with neither there is no When row.
+   *
+   * The array also says how to show it: `held: true` (city, held: no
+   * clipboard anywhere, renderEvidence draws it to write down) and
+   * `replacesDescription: true` (the finding's own prose is wrong here: show
+   * these rows instead of it; see replacesDescription).
    */
   function evidenceRows(finding, opts = {}) {
     const f = isObj(finding) ? finding : {};
     const o = isObj(opts) ? opts : {};
     const held = o.mode === 'city' && (typeof o.held === 'boolean' ? o.held : MONITORING_MODULES.has(f.module));
-    if (held) return heldRows(f, o);
+    if (held) return mark(heldRows(f, o), { held: true });
 
     const data = isObj(f.data) ? f.data : {};
     const adapter = ADAPTERS[f.module];
@@ -425,8 +449,15 @@ const Evidence = (function () {
     const cmd = commandRow(o.commands);
     if (cmd) rows.push(cmd);
     if (f.repeats > 1) rows.push(row('Seen', `${f.repeats} times in this check`));
-    rows.push(row('When', o.seen ? plainDay(o.seen) : (f.collected_at ? plainDay(f.collected_at) : 'This checkup')));
-    return rows.slice(0, MAX_ROWS);
+    const when = o.seen || f.collected_at;
+    if (when) rows.push(row('When', plainDay(when)));
+    return mark(rows.slice(0, MAX_ROWS), replacesDescription(f) ? { replacesDescription: true } : {});
+  }
+
+  // Flags on the rows array itself, not on any row (rows stay {label, value, mono, copy}).
+  function mark(rows, flags) {
+    for (const [k, v] of Object.entries(flags)) Object.defineProperty(rows, k, { value: v, enumerable: false });
+    return rows;
   }
 
   /** The text "Copy all" puts on the clipboard: one "Label: value" line per row. */
@@ -434,15 +465,23 @@ const Evidence = (function () {
     return (Array.isArray(rows) ? rows : []).map((r) => `${r.label}: ${r.copy != null ? r.copy : r.value}`).join('\n');
   }
 
+  const PAPER_LINE = 'Write this on paper or on another device.';
+
   /**
    * A compact key/value grid. Values in monospace only for paths, ids,
-   * ports, hashes and commands. opts.copy false leaves the copy buttons out.
+   * ports, hashes and commands, and only those get their own Copy; "Copy all"
+   * copies every row. opts.copy false leaves the copy buttons out.
+   *
+   * Held (opts.held, or rows from evidenceRows' held branch): no clipboard at
+   * all, since monitoring software can read it. The rows are drawn large,
+   * with the one line PAPER_LINE.
    */
   function renderEvidence(rows, opts = {}) {
     const list = Array.isArray(rows) ? rows.filter((r) => r && r.label) : [];
     if (!list.length) return '';
-    const title = opts.title == null ? 'Evidence' : opts.title;
-    const copy = opts.copy !== false;
+    const held = opts.held === true || (Array.isArray(rows) && rows.held === true);
+    const title = opts.title == null ? (held ? 'Write this down' : 'Evidence') : opts.title;
+    const copy = opts.copy !== false && !held;
     const btn = (text, label, aria) => (copy
       ? `<button type="button" class="evidence-copy" data-evidence-copy="${esc(text)}" aria-label="${esc(aria)}">${esc(label)}</button>`
       : '');
@@ -451,11 +490,12 @@ const Evidence = (function () {
       const val = r.mono
         ? `<code class="evidence-mono"${full !== r.value ? ` title="${esc(full)}"` : ''}>${esc(r.value)}</code>`
         : `<span${full !== r.value ? ` title="${esc(full)}"` : ''}>${esc(r.value)}</span>`;
-      return `<dt>${esc(r.label)}</dt><dd>${val}${btn(full, 'Copy', `Copy ${r.label}`)}</dd>`;
+      return `<dt>${esc(r.label)}</dt><dd>${val}${r.mono ? btn(full, 'Copy', `Copy ${r.label}`) : ''}</dd>`;
     }).join('');
-    return `<section class="evidence" data-evidence>`
+    return `<section class="evidence${held ? ' evidence--held' : ''}" data-evidence>`
       + `<div class="evidence-head"><span class="evidence-title">${esc(title)}</span>`
       + `${btn(evidenceText(list), opts.copyAllLabel || 'Copy all', 'Copy all of this')}</div>`
+      + (held ? `<p class="evidence-paper">${esc(PAPER_LINE)}</p>` : '')
       + `<dl class="evidence-grid">${body}</dl></section>`;
   }
 
@@ -492,12 +532,15 @@ const Evidence = (function () {
 .evidence-grid dd>code,.evidence-grid dd>span{overflow-wrap:anywhere;min-width:0}
 .evidence-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;background:var(--evidence-mono-bg,rgba(127,127,127,.12));padding:0 .25em;border-radius:3px}
 .evidence-copy{font:inherit;font-size:.8em;padding:0 .4em;margin-left:auto;cursor:pointer;flex:none}
+.evidence--held{font-size:1.2em;line-height:1.5}
+.evidence--held .evidence-grid{gap:.5rem 1rem}
+.evidence-paper{margin:.25rem 0 .5rem;font-weight:600}
 @media (max-width:600px){.evidence-grid{grid-template-columns:1fr}.evidence-grid dd{margin-bottom:.3rem}}
 `;
 
   return {
-    MONITORING_MODULES, ADAPTERS, CSS,
-    evidenceRows, renderEvidence, evidenceText, wireCopy,
+    MONITORING_MODULES, ADAPTERS, CSS, PAPER_LINE,
+    evidenceRows, renderEvidence, evidenceText, wireCopy, replacesDescription,
     plainDay, shortHash, shortPath, homeRelative, bytes, makersVerified, makerText, checkLabel, commandLine, shortCommand,
   };
 })();

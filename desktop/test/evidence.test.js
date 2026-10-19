@@ -247,12 +247,14 @@ test('odd input never throws', () => {
   assert.strictEqual(E.renderEvidence(null), '');
 });
 
-test('renderEvidence: a grid, monospace only where marked, a copy per row and copy all', () => {
+test('renderEvidence: a grid, monospace only where marked, Copy only on monospace values, and copy all', () => {
   const rows = E.evidenceRows(F.agent);
   const html = E.renderEvidence(rows);
   assert.match(html, /^<section class="evidence" data-evidence>/);
   assert.strictEqual((html.match(/<dt>/g) || []).length, rows.length);
-  assert.strictEqual((html.match(/class="evidence-copy"/g) || []).length, rows.length + 1);
+  assert.ok(rows.some((r) => !r.mono) && rows.some((r) => r.mono));
+  assert.strictEqual((html.match(/class="evidence-copy"/g) || []).length, rows.filter((r) => r.mono).length + 1);
+  assert.doesNotMatch(html, /aria-label="Copy Made by"|aria-label="Copy Check"/, 'no Copy on plain words');
   assert.strictEqual((html.match(/<code class="evidence-mono"/g) || []).length, rows.filter((r) => r.mono).length);
   assert.match(html, /data-evidence-copy="Background task: ai.hermes.gateway-deflock\nRuns: /);
   assert.match(html, /title="78eb25a05b2228/, 'the full hash on hover');
@@ -305,4 +307,43 @@ test('an adapter for every finding in the evidence table of the audit', () => {
     'suspicious_connections', 'resource_hog_identifier', 'security_baseline_diff', 'keylogger_indicators', 'stalkerware_scan']) {
     assert.strictEqual(typeof E.ADAPTERS[m], 'function', m);
   }
+});
+
+test('no filler When row: only a real date', () => {
+  assert.ok(!E.evidenceRows(F.agent).some((r) => r.label === 'When'));
+  assert.ok(!E.evidenceRows(F.agent).some((r) => r.value === 'This checkup'));
+  assert.strictEqual(get(E.evidenceRows(F.agent, { seen: '2026-10-18T23:03:00+00:00' }), 'When').value, '18 Oct 2026');
+  assert.strictEqual(get(E.evidenceRows({ ...F.agent, collected_at: '2026-10-17' }), 'When').value, '17 Oct 2026');
+});
+
+test('city, held: no clipboard at all, drawn large, to write on paper', () => {
+  const rows = E.evidenceRows(F.mspy, { mode: 'city', seen: '2026-10-18' });
+  assert.strictEqual(rows.held, true);
+  for (const html of [E.renderEvidence(rows), E.renderEvidence(rows, { copy: true }), E.renderEvidence([...rows], { held: true })]) {
+    assert.doesNotMatch(html, /<button|data-evidence-copy|Copy/);
+    assert.match(html, /class="evidence evidence--held"/);
+    assert.match(html, /Write this on paper or on another device\./);
+  }
+  assert.match(E.CSS, /\.evidence--held\{font-size:1\.2em/);
+  // Plain, or not held: the copy controls are there.
+  assert.strictEqual(E.evidenceRows(F.mspy, { mode: 'standard' }).held, undefined);
+  assert.match(E.renderEvidence(E.evidenceRows(F.mspy, { mode: 'standard' })), /Copy all/);
+  // Flags never show up as a row's key.
+  assert.deepStrictEqual(Object.keys(rows), rows.map((_, i) => String(i)));
+});
+
+test('keyboard access with every maker verified: the rows replace the "not verified" prose', () => {
+  const kb = { ...F.keyboard, description: 'This tool has not verified who actually made them, because an app can pick any name.' };
+  assert.strictEqual(E.replacesDescription(kb), true);
+  assert.strictEqual(E.evidenceRows(kb, { mode: 'city', held: false }).replacesDescription, true);
+  assert.strictEqual(E.evidenceRows(kb).replacesDescription, true);
+  assert.strictEqual(E.replacesDescription({ ...kb, makers_verified: true, made_by: [] }), true, 'the engine’s own makers_verified');
+  // Not every maker verified, or the engine says not: the prose stays.
+  const one = { ...kb, made_by: [kb.made_by[0], { ...kb.made_by[1], verified: false }] };
+  assert.strictEqual(E.replacesDescription(one), false);
+  assert.strictEqual(E.evidenceRows(one).replacesDescription, undefined);
+  assert.strictEqual(E.replacesDescription({ ...kb, makers_verified: false }), false);
+  // Other findings never.
+  assert.strictEqual(E.replacesDescription(F.tampered), false);
+  assert.strictEqual(E.replacesDescription({ ...F.agent, made_by: [{ subject: 'x', name: 'Apple', verified: true }] }), false);
 });
