@@ -335,6 +335,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     evidenceRows: (f, mode) => EV.evidenceRows({ ...f }, { mode, held: false, checkName: EV.checkLabel(f && f.module, s.doc), commands: [] }),
     // The shared clipboard rule, and a game's own copy: false (R3) on top of it.
     renderEvidence: (rows, module, gameCopy) => EV.renderEvidence(rows, { copy: evidenceOpts(module).copy && gameCopy !== false }),
+    // Standard mode: the list's safety note for a finding, as the safety-question answer has it
+    // (QuietNotes: the one line with "Read this first" behind it). City mode keeps the game's one line.
+    safetyNote: (f) => {
+      if (coverMode() || !f) return '';
+      const n = briefingNote(win.QuietNotes, hostMode(), f);
+      if (n.html) return n.html;
+      const sn = f.remediation && typeof f.remediation.safety_note === 'string' ? f.remediation.safety_note : '';
+      return sn && win.RescueHost && typeof win.RescueHost.wantsSafety === 'function' && win.RescueHost.wantsSafety(f) ? `<p>${esc(sn)}</p>` : '';
+    },
     rebuild: (doc) => rebuild(doc), docChanged: (doc) => win.RescueHost.docChanged(doc),
     sweeping: () => sweeping(), stopped: () => !!s.stopped, render: () => render(), focusHeading: () => focusHeading(frame),
     watchedOpts: () => watchedOpts(), setScreen: (x) => { s.screen = x; }, modulesCoveredBy: (ids) => modulesCoveredBy(ids),

@@ -57,7 +57,11 @@ function linksHtml(links, mode) {
   return rows ? `<div class="mx-links"><div class="label">${esc(mode === 'city' ? 'INTEL' : 'CHECK IT YOURSELF')}</div><ul>${rows}</ul></div>` : '';
 }
 
-function warningHtml(warning, mode, place) {
+// `safetyHtml` (standard mode): the list's safety note for the item, already
+// built by QuietNotes (the one line, "Read this first", the note behind it).
+// It replaces the bare line; city mode keeps its one line and the way to help.
+function warningHtml(warning, mode, place, safetyHtml = '') {
+  if (mode !== 'city' && safetyHtml) return `<div class="panel safety mx-warning" role="note">${safetyHtml}</div>`;
   if (!warning) return '';
   if (mode === 'city' && place) return cityWarnHtml(place);
   return `<div class="panel safety mx-warning" role="note"><p class="intel"><b>${esc(warning)}</b></p></div>`;
@@ -89,11 +93,11 @@ const decisionButtons = (decisions, mode, act, disabled = false) => `<div class=
   .map((d, i) => `<button type="button" class="${i === 0 ? 'btn-p' : 'btn-s'}" data-act="${act}:${esc(d.id)}"${disabled ? ' disabled' : ''}>${esc(words(d.label, mode))}</button>`).join('')}</div>`;
 
 /*
- * renderMissionScreen({ mission, run, view, mode, districtName, cardHtml, evidenceHtml, research, actHtml,
+ * renderMissionScreen({ mission, run, view, mode, districtName, cardHtml, safetyHtml, evidenceHtml, research, actHtml,
  *   notice, summaryHtml, points, nextMission, place, busy, canPractice })
  */
 export function renderMissionScreen(o) {
-  const { mission: m, run, view = {}, mode = 'standard', districtName = '', cardHtml = '', evidenceHtml = '', research = {},
+  const { mission: m, run, view = {}, mode = 'standard', districtName = '', cardHtml = '', evidenceHtml = '', research = {}, safetyHtml = '',
     actHtml = '', notice = '', summaryHtml = '', points = 0, nextMission = null, place = '', busy = false, canPractice = true } = o;
   const title = words(m.title, mode);
   const part = partLabel(m);
@@ -143,7 +147,7 @@ export function renderMissionScreen(o) {
   return `<section class="mx-screen">${head}
     <div class="row mx-progress"><span class="label">${esc(mode === 'city' ? 'TARGET' : 'ITEM')} ${esc(view.index + 1)} OF ${esc(view.total)}</span>${practiceBtn}</div>
     ${said}${checking}
-    ${warningHtml(view.warning, mode, place)}
+    ${warningHtml(view.warning, mode, place, safetyHtml)}
     <div class="mx-card">${cardHtml}</div>
     ${unfinished}${guideHtml(view.guide, mode)}
     ${view.closer || research.open ? evidenceHtml : `<details class="mx-evidence"><summary class="label">${esc(mode === 'city' ? 'WHAT THE SWEEP SAW' : 'WHAT THE CHECK SAW')}</summary>${evidenceHtml}</details>`}

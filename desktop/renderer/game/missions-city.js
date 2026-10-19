@@ -22,6 +22,7 @@ const SETTING_SCHEME = /^(?:x-apple\.systempreferences:|ms-settings:)/;
  *   win, mode() -> 'standard'|'city', platform(), districtName(id), place() -> help district name (city) or '',
  *   getProfile(), keepProfile(p), bank(), commitAward(result) -> points, logEntry(kind, text), now(),
  *   evidenceRows(finding, mode), renderEvidence(rows, module, gameCopy) (the controller's clipboard rule),
+ *   safetyNote(finding) -> HTML (standard mode: the list's safety note for it, or ''),
  *   rebuild(doc), docChanged(doc), sweeping(), stopped(), render(), focusHeading(), watchedOpts(),
  *   openConcept(concept) -> boolean, deck() -> the ledger's deck, setScreen(name), modulesCoveredBy(markIds),
  *   onGames(registry)?, loadMissionGames?
@@ -311,7 +312,12 @@ export function createMissionDesk(deps) {
     }
     const points = run.results.reduce((n, r) => n + (r.points || 0), 0);
     const next = unfinishedMissions().find((x) => x.id !== m.id) || null;
-    return renderMissionScreen({ mission: m, run, view: pv, mode: mode(), districtName: deps.districtName(m.district), cardHtml: card,
+    // Standard mode: the list's own safety note for the item (the first of its findings that has one).
+    let safetyHtml = '';
+    if (item && !practice && typeof deps.safetyNote === 'function') {
+      for (const f of [item.finding, ...(item.findings || [])]) { try { safetyHtml = deps.safetyNote(f) || ''; } catch (_) { safetyHtml = ''; } if (safetyHtml) break; }
+    }
+    return renderMissionScreen({ mission: m, run, view: pv, mode: mode(), districtName: deps.districtName(m.district), cardHtml: card, safetyHtml,
       evidenceHtml: evidence, research, actHtml: d.act ? d.act.html : '', notice: d.notice, summaryHtml: summary, points,
       nextMission: next, place: deps.place(), busy: d.busy, canPractice: !!(game.practice && game.practice.script && game.practice.script.length) });
   }
