@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 const SRC = path.join(__dirname, '..', 'vendor', 'reclaim-city', 'src');
 const need = (rel) => path.join(SRC, rel);
@@ -20,7 +21,7 @@ test('every file game mode loads from the game exists', () => {
 });
 
 test('scoutSprite renders a sheet that exists on disk, for every feeling game mode uses', async () => {
-  const { scoutSprite, FEELINGS } = await import(path.join(SRC, 'components', 'scout.js'));
+  const { scoutSprite, FEELINGS } = await import(pathToFileURL(path.join(SRC, 'components', 'scout.js')).href);
   for (const feeling of ['happy', 'proud', 'wave', 'thinkingA', 'worried']) {
     assert.ok(FEELINGS[feeling], `feeling ${feeling} gone upstream`);
     const html = scoutSprite(feeling, { size: 64 });
@@ -93,7 +94,7 @@ test('every account building is served through app://rescue/assets/ and exists',
 test('Reclaim City’s phishing data is self-contained and has the messages the lesson uses', async () => {
   const file = need('data/phishing.js');
   assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /^\s*import\s/m);
-  const { CURATED_MESSAGES } = await import(file);
+  const { CURATED_MESSAGES } = await import(pathToFileURL(file).href);
   for (const id of [1, 4, 5]) {
     const m = CURATED_MESSAGES.find((x) => x.id === id);
     assert.ok(m, `message ${id} gone upstream`);

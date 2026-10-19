@@ -63,12 +63,12 @@ def main() -> int:
     args = parser.parse_args()
     text = render()
     if args.check:
-        if not OUTPUT_PATH.exists() or OUTPUT_PATH.read_text() != text:
+        if not OUTPUT_PATH.exists() or OUTPUT_PATH.read_text(encoding="utf-8") != text:
             print(f"{OUTPUT_PATH.relative_to(REPO_ROOT)} is stale; run python scripts/remote_access_fixture.py", file=sys.stderr)
             return 1
         return 0
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(text)
+    OUTPUT_PATH.write_text(text, encoding="utf-8")
     return 0
 
 

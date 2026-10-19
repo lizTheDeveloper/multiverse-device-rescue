@@ -19,7 +19,7 @@ def test_remote_access_fixture_is_current():
 
 
 def test_fixture_carries_the_warning_and_the_safety_note():
-    row = json.loads((REPO_ROOT / "desktop" / "test" / "fixtures" / "remote-access-finding.json").read_text())
+    row = json.loads((REPO_ROOT / "desktop" / "test" / "fixtures" / "remote-access-finding.json").read_text(encoding="utf-8"))
     assert row["name"] == "win_remote_access_audit"
     assert "removing it can alert them" in row["finding"]["description"]
     assert "removing it can alert them" in row["finding"]["remediation"]["safety_note"]

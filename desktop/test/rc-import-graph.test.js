@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const RC = require('../rc-files.json');
 const { resolveAppPath, APP_ORIGIN } = require('../app-protocol');
 
@@ -69,8 +70,8 @@ test('payment links live only in the HUD and the allies list, and neither is sho
 });
 
 test('the HUD stand-in exports everything the real HUD does', async () => {
-  const real = await import(path.join(SRC, 'components', 'hud.js'));
-  const stand = await import(path.join(BASE, 'renderer', 'game', 'rc-overrides', 'hud.js'));
+  const real = await import(pathToFileURL(path.join(SRC, 'components', 'hud.js')).href);
+  const stand = await import(pathToFileURL(path.join(BASE, 'renderer', 'game', 'rc-overrides', 'hud.js')).href);
   assert.deepStrictEqual(Object.keys(stand).sort(), Object.keys(real).sort());
   assert.strictEqual(stand.renderHud({}), '');
 });
