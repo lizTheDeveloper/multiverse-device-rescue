@@ -140,15 +140,17 @@ const Evidence = (function () {
    * `copy` as an array: one line each (the commands a check ran), each made
    * visible on its own, so only this file's own line breaks remain.
    */
-  function row(label, value, { mono = false, copy } = {}) {
+  function row(label, value, { mono = false, copy, tech = false } = {}) {
     const shown = clip(VT.visible(value == null ? '' : value), MAX_VALUE);
     const whole = Array.isArray(copy) ? copy.map(VT.visible).join('\n') : VT.visible(copy == null ? (value == null ? '' : value) : copy);
     const full = clip(whole, MAX_COPY);
-    return { label: VT.visible(label), value: shown, mono, copy: full };
+    return { label: VT.visible(label), value: shown, mono, copy: full, ...(tech ? { tech: true } : {}) };
   }
 
   const pathRow = (label, p) => row(label, shortPath(p), { mono: true, copy: homeRelative(p) });
-  const hashRow = (label, h) => row(label, shortHash(h), { mono: true, copy: String(h) });
+  // A hash is for comparing, not reading (P2-11): `tech`, so it sits behind
+  // "Technical details" and at the end of the rows, and Copy keeps it whole.
+  const hashRow = (label, h) => row(label, shortHash(h), { mono: true, copy: String(h), tech: true });
 
   /** A list value: the first MAX_LIST items, then "and N more"; copy has all. */
   function listRow(label, items, { mono = true, fmt = (x) => x } = {}) {
@@ -470,6 +472,9 @@ const Evidence = (function () {
   const MONO_KEYS = new Set(['pid', 'port', 'ports', 'ip', 'hostname', 'dest', 'remote', 'label', 'process',
     'bundle_id', 'team_id', 'command', 'device', 'value', 'keys', 'apps', 'detail', 'servers', 'dns_servers', 'profile_ids']);
 
+  // "file_sha256" -> "File hash", "sha256" -> "Hash".
+  const hashLabel = (key) => (LABELS[key] || humanize(`${key.replace(/_?(sha256|hash)$/, '')} hash`));
+
   function genericRows(data, used) {
     const rows = [];
     for (const [key, v] of Object.entries(data)) {
@@ -478,7 +483,7 @@ const Evidence = (function () {
       if (key === 'target' && data.port != null && String(v) === String(data.port)) continue;
       const label = LABELS[key] || humanize(key);
       if (key === 'kind' && typeof v === 'string' && CODE_WORD.test(v)) { rows.push(row(label, v.replace(/_/g, ' '))); continue; }
-      if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(label, v));
+      if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(hashLabel(key), v));
       else if (/_bytes$/.test(key) && typeof v === 'number') rows.push(row(label, bytes(v)));
       else if (/(^|_)(date|at|time|since)$/.test(key) && typeof v === 'string') rows.push(row(label, plainDay(v)));
       else if (key === 'cpu_percent') rows.push(row(label, `${v}%`));
@@ -589,7 +594,9 @@ const Evidence = (function () {
     if (f.repeats > 1) rows.push(row('Seen', `${f.repeats} times in this check`));
     const when = o.seen || f.collected_at;
     if (when) rows.push(row('When', plainDay(when)));
-    return mark(rows.slice(0, MAX_ROWS), replacesDescription(f) ? { replacesDescription: true } : {});
+    // Technical rows last, so a game that shows only the first few rows never shows a hash.
+    const ordered = [...rows.filter((r) => !r.tech), ...rows.filter((r) => r.tech)];
+    return mark(ordered.slice(0, MAX_ROWS), replacesDescription(f) ? { replacesDescription: true } : {});
   }
 
   // Flags on the rows array itself, not on any row (rows stay {label, value, mono, copy}).
@@ -607,6 +614,7 @@ const Evidence = (function () {
   }
 
   const PAPER_LINE = 'Write this on paper or on another device.';
+  const TECH_TITLE = 'Technical details';
 
   /**
    * City mode: nothing from a monitoring check goes to the clipboard, held or
@@ -646,18 +654,24 @@ const Evidence = (function () {
     const btn = (text, label, aria) => (copy
       ? `<button type="button" class="evidence-copy" data-evidence-copy="${esc(text)}" aria-label="${esc(aria)}">${esc(label)}</button>`
       : '');
-    const body = list.map((r) => {
+    const cell = (r) => {
       const full = r.copy != null ? r.copy : r.value;
       const val = r.mono
         ? `<code class="evidence-mono"${full !== r.value ? ` title="${esc(full)}"` : ''}>${breakable(r.value)}</code>`
         : `<span${full !== r.value ? ` title="${esc(full)}"` : ''}>${breakable(r.value)}</span>`;
       return `<dt>${esc(r.label)}</dt><dd>${val}${r.mono ? btn(full, 'Copy', `Copy ${r.label}`) : ''}</dd>`;
-    }).join('');
+    };
+    // Hashes and the like: folded away under "Technical details" (P2-11).
+    const tech = list.filter((r) => r.tech === true);
+    const body = list.filter((r) => r.tech !== true).map(cell).join('');
+    const techHtml = tech.length
+      ? `<details class="evidence-tech"><summary>${esc(TECH_TITLE)}</summary><dl class="evidence-grid">${tech.map(cell).join('')}</dl></details>`
+      : '';
     return `<section class="evidence${held ? ' evidence--held' : ''}" data-evidence>`
       + `<div class="evidence-head"><span class="evidence-title">${esc(title)}</span>`
       + `${btn(evidenceText(list), opts.copyAllLabel || 'Copy all', 'Copy all of this')}</div>`
       + (held ? `<p class="evidence-paper">${esc(PAPER_LINE)}</p>` : '')
-      + `<dl class="evidence-grid">${body}</dl></section>`;
+      + (body ? `<dl class="evidence-grid">${body}</dl>` : '') + techHtml + '</section>';
   }
 
   /**
@@ -696,6 +710,9 @@ const Evidence = (function () {
 .evidence--held{font-size:1.2em;line-height:1.5}
 .evidence--held .evidence-grid{gap:.5rem 1rem}
 .evidence-paper{margin:.25rem 0 .5rem;font-weight:600}
+.evidence-tech{margin-top:.35rem}
+.evidence-tech>summary{cursor:pointer;font-size:.85em;opacity:.8}
+.evidence-tech>.evidence-grid{margin-top:.25rem}
 @container (max-width:28rem){.evidence-grid{grid-template-columns:1fr;gap:0}.evidence-grid dd{margin-bottom:.35rem}}
 @media (max-width:800px){.evidence-grid{grid-template-columns:1fr;gap:0}.evidence-grid dd{margin-bottom:.35rem}}
 `;

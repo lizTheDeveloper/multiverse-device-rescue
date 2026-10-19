@@ -44,13 +44,14 @@ const F = {
 const get = (rows, label) => rows.find((r) => r.label === label);
 const labels = (rows) => rows.map((r) => r.label);
 
-test('every row has label, value, mono and copy; no row is ever raw JSON', () => {
+test('every row has label, value, mono and copy (and tech: true on a technical row); no row is ever raw JSON', () => {
   for (const [name, f] of Object.entries(F)) {
     for (const mode of ['standard', 'city']) {
       const rows = E.evidenceRows(f, { mode });
       assert.ok(rows.length > 0, name);
       for (const r of rows) {
-        assert.deepStrictEqual(Object.keys(r).sort(), ['copy', 'label', 'mono', 'value'], name);
+        assert.deepStrictEqual(Object.keys(r).sort(), r.tech ? ['copy', 'label', 'mono', 'tech', 'value'] : ['copy', 'label', 'mono', 'value'], name);
+        if ('tech' in r) assert.strictEqual(r.tech, true);
         assert.strictEqual(typeof r.value, 'string');
         assert.strictEqual(typeof r.copy, 'string');
         assert.doesNotMatch(r.value, /^[{[]|":/, `${name}: ${r.value}`);
@@ -73,7 +74,9 @@ test('code signature: app, where, what the signature check said, maker not verif
 
 test('background task: label, program, settings file, hashes shortened with the full hash on copy', () => {
   const rows = E.evidenceRows(F.agent);
-  assert.deepStrictEqual(labels(rows).slice(0, 5), ['Background task', 'Runs', 'Settings file', 'Arguments hash', 'Script hash']);
+  assert.deepStrictEqual(labels(rows).slice(0, 3), ['Background task', 'Runs', 'Settings file']);
+  assert.deepStrictEqual(labels(rows).slice(-2), ['Arguments hash', 'Script hash'], 'hashes come last');
+  assert.ok(get(rows, 'Arguments hash').tech && get(rows, 'Script hash').tech, 'hashes are technical rows');
   assert.strictEqual(get(rows, 'Runs').value, '~/.hermes/hermes-agent/venv/bin/python');
   assert.strictEqual(get(rows, 'Settings file').value, '~/Library/LaunchAgents/ai.hermes.gateway-deflock.plist');
   assert.strictEqual(get(rows, 'Arguments hash').value, '78eb25a0…ca7f0');
@@ -207,7 +210,8 @@ test('generic fallback: scalars, lists, small maps, dates, bytes; bookkeeping ke
   assert.strictEqual(get(rows, 'Free').value, '47.8 GB');
   assert.strictEqual(get(rows, 'Most recent').value, '13 Oct 2026');
   assert.strictEqual(get(rows, 'Arial Unicode.ttf').value, '/Library/Fonts, /System/Library/Fonts');
-  assert.strictEqual(get(rows, 'Content sha256').value, 'e98959b0…f442a');
+  assert.strictEqual(get(rows, 'Content hash').value, 'e98959b0…f442a');
+  assert.strictEqual(get(rows, 'Content hash').tech, true);
   assert.strictEqual(get(rows, 'Enabled').value, 'no');
   for (const l of ['Check', 'Severity level', 'Used pct', 'Nested', 'Empty', 'None']) {
     assert.ok(l === 'Check' ? get(rows, l).value === 'Disk space' : !get(rows, l), l);
@@ -455,4 +459,32 @@ test('P2-4: no engine words: confidence left out, code words in words, a target 
   assert.strictEqual(rows.find((r) => r.label === 'Router').value, '192.0.2.1');
   const kind = E.evidenceRows({ module: 'ai_worm_shell', data: { kind: 'pipe_to_shell' } }).find((r) => r.label === 'Kind');
   assert.strictEqual(kind.value, 'pipe to shell');
+});
+
+test('P2-11: hashes sit behind "Technical details", never in the open rows; Copy keeps them whole', () => {
+  for (const f of [F.agent, F.ssh, { module: 'x_check', data: { path: '/tmp/a', file_sha256: 'a'.repeat(64) } }]) {
+    const rows = E.evidenceRows(f);
+    const html = E.renderEvidence(rows);
+    const open = html.split('<details')[0].split('<dl class="evidence-grid">')[1] || '';
+    assert.ok(open.length > 0, 'the open rows');
+    assert.doesNotMatch(open, /hash/i, 'no hash in the open rows');
+    const hashValue = rows.find((r) => r.tech).value;
+    assert.ok(!open.includes(E.breakable(hashValue)), 'nor its value');
+    assert.match(html, /<details class="evidence-tech"><summary>Technical details<\/summary><dl class="evidence-grid">.*hash/i);
+    // The first eight rows (what a game showing a few rows shows) hold no hash.
+    assert.ok(rows.slice(0, rows.filter((r) => !r.tech).length).every((r) => !/hash/i.test(r.label)));
+    const hash = rows.find((r) => r.tech);
+    assert.ok(E.evidenceText(rows).includes(hash.copy), 'Copy all still has the whole hash');
+  }
+  // City, no clipboard: still folded, and no copy buttons inside the fold.
+  const city = E.renderEvidence(E.evidenceRows(F.agent, { mode: 'city' }), { copy: false });
+  assert.match(city, /evidence-tech/);
+  assert.doesNotMatch(city, /data-evidence-copy/);
+  // Nothing technical: no fold.
+  assert.doesNotMatch(E.renderEvidence(E.evidenceRows(F.hosts)), /evidence-tech/);
+  // A held block never carries a hash.
+  assert.doesNotMatch(E.renderEvidence(E.evidenceRows({ ...F.agent, module: 'stalkerware_scan' }, { mode: 'city' })), /hash|evidence-tech/i);
+  // Escaped like every other row.
+  const evil = E.renderEvidence(E.evidenceRows({ module: 'x', data: { 'evil<b>_hash': '<img src=x>' } }));
+  assert.doesNotMatch(evil, /<img|<b>/);
 });
