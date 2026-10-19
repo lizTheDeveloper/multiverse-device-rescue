@@ -152,7 +152,8 @@ test('P2-12: an iPhone backup that can be scanned is "not started", never "could
     mod('remote_login_check', [{ title: 'Remote Login is on', severity: 'warning', description: 'On.', data: {} }]),
   ] };
   assert.deepStrictEqual(app.plainNotChecked(doc).notStarted, ['mvt_spyware_scan']);
-  assert.strictEqual(app.plainNotChecked(doc).summary.count, 0);
+  assert.strictEqual(app.plainNotChecked(doc).counts.didntFinish, 0);
+  assert.strictEqual(app.plainNotChecked(doc).counts.notStarted, 1);
   const p = await results(doc);
   assert.strictEqual(p.byId('results-errors').hidden, true, 'not in the couldn’t-check box');
   assert.strictEqual(p.byId('results-waiting').hidden, false);

@@ -147,3 +147,37 @@ test('the fix confirm says the warning, and the card’s own line hides meanwhil
   click(els.cancel);
   assert.strictEqual(els.line.hidden, false, 'back on the card once the confirm closes');
 });
+
+// ---------------------------------------------------------------------------
+// (7) Every number on the list comes from NotChecked.scanCounts.
+// ---------------------------------------------------------------------------
+const fs = require('node:fs');
+const path = require('node:path');
+const NC = require('../renderer/not-checked.js');
+const fixture = (f) => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', f), 'utf8'));
+
+for (const file of ['replay-full.json', 'replay-errors.json', 'replay-held.json']) {
+  test(`the list’s numbers are scanCounts’ (${file}): the sentence, the cards and the not-checked line`, async () => {
+    const doc = fixture(file);
+    const p = page();
+    // The real sentence (the harness stubs ClearList's page wiring, not its words).
+    const stub = p.sandbox.ClearList;
+    const real = require('../renderer/clear-list.js');
+    p.sandbox.ClearList = new Proxy(stub, { get: (t, k) => (k === 'summaryText' ? real.summaryText : t[k]) });
+    p.byId('btn-get-started').click();
+    p.pick('hacked');
+    p.byId('btn-run-scan').click();
+    await p.finish(doc);
+    if (p.shown().includes('question')) p.answer('known');
+    const c = NC.scanCounts(doc, { mode: 'standard' });
+    const summary = p.byId('results-summary').innerHTML;
+    if (c.items) assert.match(summary, new RegExp(`\\b${c.items} things? on your list`));
+    if (c.info) assert.match(summary, new RegExp(`\\b${c.info} good-to-know notes?`));
+    const html = p.byId('results-groups').innerHTML;
+    const counted = (html.match(/data-card-counts="1"/g) || []).length;
+    assert.strictEqual(counted, c.items + (html.match(/finding-card--note"[^>]*data-card-counts="1"/g) || []).length,
+      'one card on the list per item');
+    if (c.didntFinish || c.partly) assert.strictEqual(p.byId('results-errors-line').textContent, NC.notCheckedLine(c));
+    await tick();
+  });
+}

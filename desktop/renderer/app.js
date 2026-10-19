@@ -427,16 +427,13 @@ function needsFda(ev) {
   return ev.type === 'progress' && ev.phase === 'done' && !!ev.error && errorKind(ev.error) === 'permission';
 }
 
-// Only these kinds of finding can be "Needs attention now". A crashing app,
-// a missing backup or a busy program is worth a look, not an alarm.
-const ALARM_CATEGORIES = new Set(['security', 'network']);
-function shownSeverity(finding) {
-  const sev = finding && Object.prototype.hasOwnProperty.call(SEVERITY_LABELS, finding.severity) ? finding.severity : 'info';
-  return sev === 'critical' && !ALARM_CATEGORIES.has(finding.category) ? 'warning' : sev;
-}
-
-// What wasn't fully checked: one rule for the list and the city (not-checked.js).
+// Only security and network findings can be "Needs attention now": a
+// crashing app, a missing backup or a busy program is worth a look, not an alarm.
+// What wasn't fully checked, and every number the list shows: one rule for
+// the list and the city (not-checked.js).
 const NotCheckedRule = typeof NotChecked !== 'undefined' ? NotChecked : require('./not-checked.js');
+// The severity rule is the shared one, so the list and the city put a finding at the same level.
+const shownSeverity = NotCheckedRule.shownSeverity;
 const isPartlyChecked = NotCheckedRule.isPartlyChecked;
 
 /**
@@ -632,6 +629,10 @@ function mergeKey(f) {
   if (label) t = t.split(label.toLowerCase()).join(' ');
   return `${f.severity}|${label}|${t.replace(/[^a-z0-9]+/g, ' ').trim()}`;
 }
+// A merged card's level: the highest any of its checks saw.
+function cardLevel(f) {
+  return [f, ...((f && f.also) || [])].some((x) => shownSeverity(x) === 'critical') ? 'critical' : shownSeverity(f);
+}
 const hasControls = (f) => !!(f && ((f.fixable && typeof f.fixable === 'object') || (f.markable && typeof f.markable === 'object')));
 function mergeAcrossChecks(findings) {
   const out = [];
@@ -639,8 +640,9 @@ function mergeAcrossChecks(findings) {
   for (const f of findings || []) {
     if (!f || ALWAYS_SAFETY_MODULES.has(f.module)) { out.push(f); continue; }
     // The city's own key (NotChecked.itemKey, the engine's same_key), so the
-    // list and the city count the same items.
-    const itemK = `${f.severity}|item|${NotCheckedRule.itemKey(f, f.module)}`;
+    // list and the city count the same items: one item whatever its level
+    // (scanCounts.items counts it once), a note only with notes.
+    const itemK = `${shownSeverity(f) === 'info' ? 'info' : 'item'}|${NotCheckedRule.itemKey(f, f.module)}`;
     const keys = [itemK];
     const first = keys.map((k) => seen.get(k)).find(Boolean);
     if (first && (!first.seen_in.includes(f.module) || (f.severity !== 'info' && seen.get(itemK) === first))) {
@@ -733,15 +735,18 @@ function notStartedLine(names, mode) {
   return names.includes('mvt_spyware_scan') ? PHONE_WAITING_LINE : WAITING_LINE_CITY;
 }
 
-/** What wasn't fully checked, with checks waiting to be started taken out of "couldn't run". */
-function plainNotChecked(doc) {
+/**
+ * What wasn't fully checked (the names, for the boxes) and every number the
+ * list shows, all from NotChecked: `counts` is scanCounts (city mode leaves
+ * held findings out, as the city does), `summary` the parts notCheckedLine reads.
+ */
+function plainNotChecked(doc, mode) {
   const parts = NotCheckedRule.notCheckedParts(doc);
-  const waiting = parts.notStarted.map((m) => m.name);
-  const sum = NotCheckedRule.notCheckedSummary(doc);
-  const counts = NotCheckedRule.scanCounts(doc, { mode: 'standard' });
-  const summary = Object.assign({}, sum, { couldntRun: counts.couldntRun, notStarted: counts.notStarted,
-    count: counts.didntFinish + counts.partly });
-  return { couldntRun: parts.couldntRun, unfinished: parts.unfinished, partly: parts.partly, notStarted: waiting, summary };
+  const counts = NotCheckedRule.scanCounts(doc, { mode: mode === 'city' ? 'city' : 'standard' });
+  const summary = { checks: counts.checks, couldntRun: counts.couldntRun, unfinished: counts.unfinished,
+    notStarted: counts.notStarted, partly: counts.partly };
+  return { couldntRun: parts.couldntRun, unfinished: parts.unfinished, partly: parts.partly,
+    notStarted: parts.notStarted.map((m) => m.name), summary, counts };
 }
 
 /**
@@ -1624,17 +1629,26 @@ if (typeof document !== 'undefined') {
       const partial = isPartialDoc(doc) ? doc.partial : null;
       renderResultsFrame(partial);
       const { groups, unfinishedModules, partlyChecked } = groupFindingsBySeverity(doc);
-      // The same finding from several checks is one card; the most important first.
-      SEVERITY_ORDER.forEach((sev) => { groups[sev] = mergeAcrossChecks(groups[sev]); });
+      // The same finding from several checks is one card; the most important
+      // first. One card per item (NotChecked.itemKey) at the highest level it
+      // was seen at, so the cards are scanCounts' items. Notes stay one per
+      // finding, as scanCounts.info counts them (and the city's notes).
+      // TODO(C5): if scanCounts comes to count notes by itemKey, merge them here with the same rule.
+      const items = mergeAcrossChecks([...groups.critical, ...groups.warning]);
+      groups.critical = items.filter((f) => cardLevel(f) === 'critical');
+      groups.warning = items.filter((f) => cardLevel(f) === 'warning');
       groups.critical = sortByImportance(groups.critical);
       groups.warning = sortByImportance(groups.warning);
       // One count, the same one the city shows (notCheckedSummary), with a
       // check that waits for the person to start it kept apart from "couldn't run".
-      const plain = plainNotChecked(doc);
+      const plain = plainNotChecked(doc, mode);
       const erroredModules = plain.couldntRun;
       const notChecked = plain.summary;
-      const notFullyChecked = notChecked.count;
-      const total = SEVERITY_ORDER.reduce((sum, sev) => sum + groups[sev].length, 0);
+      const counts = plain.counts;
+      // Never an all-clear while any check wasn't fully checked (scanCounts.notFully).
+      const notFullyChecked = counts.notFully;
+      // Nothing at all to show (a held card in city mode is left out of the counts, not of the list).
+      const nothing = counts.items === 0 && counts.info === 0 && counts.held === 0;
 
       // Before the cards render: it resets the per-finding copy registry. The
       // whole-report copy uses the same per-card objects, so an answer given
@@ -1671,43 +1685,44 @@ if (typeof document !== 'undefined') {
       reportFindings.push(...cardPicks.values());
 
       // Items marked as yours on an earlier checkup start out cleared.
-      clearList.reset({ couldNotCheck: notFullyChecked });
+      clearList.reset({ couldNotCheck: counts.didntFinish });
       groupsEl.querySelectorAll('[data-marked-before]').forEach((card) => clearList.clear(card, 'marked_before'));
       topUp(groupsEl);
       updateBulk();
 
       // The sentence at the top counts what the progress bar counts.
       const summaryEl = document.getElementById('results-summary');
-      const listCount = clearList.progress().total;
-      const said = ClearList.summaryText(listCount, total - listCount);
+      // The numbers are scanCounts', the same ones the city shows.
+      const said = ClearList.summaryText(counts.items, counts.info);
       if (partial) {
         // Never an all-clear while checks are still running.
         document.getElementById('results-progress').hidden = true;
         summaryEl.innerHTML = `<p>${escapeHtml(partialSummaryText({
-          worth: groups.critical.length + groups.warning.length, other: groups.info.length, stopped: !!partial.stopped }))}</p>`;
-      } else if ((total === 0 || !said) && notFullyChecked > 0) {
+          worth: counts.items, other: counts.info, stopped: !!partial.stopped }))}</p>`;
+      } else if ((nothing || !said) && notFullyChecked > 0) {
         // Never an all-clear while a check couldn't run or didn't finish.
         summaryEl.innerHTML = '<p>The checks that finished found nothing worth a look.</p>';
-      } else if (total === 0 || !said) {
+      } else if (nothing || !said) {
         summaryEl.innerHTML =
           '<p class="results-summary__all-clear">Nothing stood out during this checkup. Nice and tidy.</p>';
       } else {
         summaryEl.innerHTML = `<p>${escapeHtml(said)}</p>`;
       }
 
-      document.getElementById('results-lessons').hidden = total === 0;
-      renderCouldntCheck(doc, { notChecked, erroredModules, unfinishedModules, partlyChecked, partial: !!partial });
+      document.getElementById('results-lessons').hidden = nothing;
+      renderCouldntCheck(doc, { notChecked, counts, erroredModules, unfinishedModules, partlyChecked, partial: !!partial });
       renderNotStarted(plain.notStarted, !!partial);
       if (!partial) fillCommands(doc);
     }
 
     // The couldn't-check box: one line per cause, with the check names inline
     // and one button per cause; one "For tech helpers" for the whole box.
-    function renderCouldntCheck(doc, { notChecked, erroredModules, unfinishedModules, partlyChecked, partial }) {
+    function renderCouldntCheck(doc, { notChecked, counts, erroredModules, unfinishedModules, partlyChecked, partial }) {
       const errorsSection = document.getElementById('results-errors');
       const errorsList = document.getElementById('results-errors-list');
       const tech = document.getElementById('results-errors-tech');
-      if (notChecked.count === 0) {
+      // The box is for what ran and wasn't fully checked; a check waiting to be started has its own line.
+      if (counts.didntFinish === 0 && counts.partly === 0) {
         errorsSection.hidden = true;
         errorsList.innerHTML = '';
         tech.hidden = true;
