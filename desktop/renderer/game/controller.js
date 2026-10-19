@@ -1320,8 +1320,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // its own question. Its result joins this checkup (its check's entry is
   // replaced), the list is kept in step, and the city is drawn again.
   const PHONE_PROFILE = 'iphone_spyware_check';
+  // Main's rule (recheck.js mergeSingleModuleScan, and app.js mergeModules):
+  // only a result of exactly one check joins; anything else stands on its own.
   function mergeModules(base, extra) {
     const add = extra && Array.isArray(extra.modules) ? extra.modules.filter((m) => m && typeof m.name === 'string') : [];
+    if (!base || !Array.isArray(base.modules) || add.length !== 1) return extra;
     const names = new Set(add.map((m) => m.name));
     const kept = base.modules.map((m) => (m && names.has(m.name) ? add.find((x) => x.name === m.name) : m));
     return { ...base, modules: [...kept, ...add.filter((m) => !base.modules.some((b) => b && b.name === m.name))] };

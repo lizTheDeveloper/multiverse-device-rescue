@@ -710,12 +710,14 @@ function groupByCheck(findings, mode, doc) {
 
 /**
  * A check run on its own after the checkup (the iPhone backup scan): its
- * entries replace the same checks' entries in the checkup, everything else
- * stays as it was.
+ * entry replaces the same check's entry in the checkup, everything else
+ * stays as it was. Main's rule (recheck.js mergeSingleModuleScan): only a
+ * result of exactly one check joins; anything else stands on its own, as
+ * main keeps it.
  */
 function mergeModules(base, extra) {
   const add = extra && Array.isArray(extra.modules) ? extra.modules.filter((m) => m && typeof m.name === 'string') : [];
-  if (!base || !Array.isArray(base.modules)) return extra;
+  if (!base || !Array.isArray(base.modules) || add.length !== 1) return extra;
   const names = new Set(add.map((m) => m.name));
   const kept = base.modules.map((m) => (m && names.has(m.name) ? add.find((x) => x.name === m.name) : m));
   const extraOnly = add.filter((m) => !base.modules.some((b) => b && b.name === m.name));
@@ -894,6 +896,7 @@ const PARTIAL_ACTIONS_TEXT = 'Fixes and “It’s mine” open when the checkup 
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    mergeModules,
     detectOS,
     GAME_SCAN_EVENTS,
     partialScanState,

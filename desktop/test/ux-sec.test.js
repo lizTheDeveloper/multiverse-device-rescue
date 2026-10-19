@@ -295,3 +295,24 @@ test('M7: the re-check-failed words are one text: FixFlow, the city outcome and 
   const fs = require('node:fs');
   assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', 'renderer', 'fix-flow.js'), 'utf8'), /TODO\(round-3 integration\)/);
 });
+
+// ---- M5: the phone sweep joins the checkup by main's rule, on both screens ----
+
+test('M5: a one-check sweep joins the checkup; any other result stands alone, as main keeps it', () => {
+  const app = require('../renderer/app.js');
+  const { applyScanResult } = require('../recheck.js');
+  const base = { schema_version: 1, platform: 'darwin', modules: [mod('firewall_check', []), mod('mvt_spyware_scan', [], { not_started: true })] };
+  const one = { schema_version: 1, platform: 'darwin', modules: [mod('mvt_spyware_scan', [])] };
+  const two = { schema_version: 1, platform: 'darwin', modules: [mod('mvt_spyware_scan', []), mod('stalkerware_scan', [])] };
+  const main = (doc) => applyScanResult({ profile: 'iphone_spyware_check', lastDoc: base, doc, policies: [] });
+  for (const ran of [one, two]) {
+    const list = app.mergeModules(base, ran);
+    assert.deepStrictEqual(list.modules.map((m) => m.name), main(ran).modules.map((m) => m.name), `${ran.modules.length} module(s)`);
+  }
+  assert.deepStrictEqual(app.mergeModules(base, one).modules.map((m) => m.name), ['firewall_check', 'mvt_spyware_scan']);
+  assert.strictEqual(app.mergeModules(base, two), two);
+  // The game's copy has the same guard.
+  const fs = require('node:fs');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'game', 'controller.js'), 'utf8');
+  assert.match(src, /function mergeModules\(base, extra\) \{\n[^\n]*\n\s*if \(!base \|\| !Array\.isArray\(base\.modules\) \|\| add\.length !== 1\) return extra;/);
+});
