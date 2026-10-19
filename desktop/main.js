@@ -4,7 +4,7 @@ const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
 const { runScan, runWatch, runFix, runAction, runUndo, runMark, runUnmark, runRecheck } = require('./engine-runner');
 const { handleRecheck } = require('./recheck');
-const { handleWatch, stopActiveWatch, SCAN_BUSY_MESSAGE } = require('./watch');
+const { handleWatch, stopActiveWatch, quitActiveWatch, SCAN_BUSY_MESSAGE } = require('./watch');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
@@ -87,7 +87,7 @@ app.whenReady().then(() => {
         const watch = runWatch(m, onEvent, undefined, { lookups: on });
         activeWatch = watch;
         // The window went away: nobody is left to press Stop.
-        const onGone = () => stopActiveWatch(watch);
+        const onGone = () => quitActiveWatch(watch);
         e.sender.once('destroyed', onGone);
         return watch.promise.finally(() => {
           busy = false;
@@ -171,8 +171,8 @@ app.whenReady().then(() => {
     }));
   createWindow();
 });
-// The watch's engine must not outlive the app: hold the quit, ask it to stop
-// (killed if it hasn't exited within 75 s), then quit for real.
+// The watch's engine must not outlive the app: hold the quit, stop it twice
+// (watching and lookups; killed if it hasn't exited within 5 s), then quit.
 let quitWaiting = false;
 let quitReady = false;
 app.on('before-quit', (event) => {
@@ -180,7 +180,7 @@ app.on('before-quit', (event) => {
   event.preventDefault();
   if (quitWaiting) return;
   quitWaiting = true;
-  stopActiveWatch(activeWatch).then(() => {
+  quitActiveWatch(activeWatch).then(() => {
     quitReady = true;
     app.quit();
   });

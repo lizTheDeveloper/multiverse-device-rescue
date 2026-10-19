@@ -3,7 +3,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
-const { WATCH_MINUTES, handleWatch, stopActiveWatch, SCAN_BUSY_MESSAGE, STOP_GRACE_MS } = require('../watch');
+const { WATCH_MINUTES, handleWatch, stopActiveWatch, quitActiveWatch, SCAN_BUSY_MESSAGE, STOP_GRACE_MS,
+  QUIT_GRACE_MS } = require('../watch');
 const { runWatch } = require('../engine-runner');
 const { MONITORING_MODULES } = require('../mark-policy');
 
@@ -265,13 +266,38 @@ test('stopActiveWatch: stop, and kill only if it has not exited within the grace
   await stopActiveWatch(null); // nothing running
 });
 
+test('quitActiveWatch: on quit nobody reads the result, so stop twice and kill after 5 s', async () => {
+  assert.strictEqual(QUIT_GRACE_MS, 5000);
+  let child;
+  let h = runWatch(5, () => {}, () => (child = fakeChild()));
+  const done = quitActiveWatch(h, { graceMs: 50 });
+  assert.deepStrictEqual(child.written, ['stop\n', 'stop\n'], 'the second stop ends the lookups too');
+  child.stdout.emit('data', DOC_TEXT);
+  child.emit('close', 0);
+  await done;
+  assert.strictEqual(child.killed, 0, 'exited in time: not killed');
+
+  h = runWatch(5, () => {}, () => (child = fakeChild()));
+  h.promise.catch(() => {});
+  await quitActiveWatch(h, { graceMs: 10 });
+  assert.strictEqual(child.killed, 1, 'still running: killed');
+  child.emit('close', null);
+
+  await quitActiveWatch(null); // nothing running
+});
+
 test('stops the watch when the app quits, and when the window goes away', () => {
   const main = read('main.js');
   const quit = main.slice(main.indexOf("app.on('before-quit'"));
   assert.ok(main.includes("app.on('before-quit'"), 'before-quit is handled');
-  assert.match(quit.slice(0, 600), /stopActiveWatch\(/);
+  assert.match(quit.slice(0, 600), /quitActiveWatch\(/);
+  assert.doesNotMatch(quit.slice(0, 600), /stopActiveWatch\(/);
   assert.match(quit.slice(0, 600), /preventDefault\(\)/);
   assert.match(main, /'destroyed'/);
+  assert.match(main, /const onGone = \(\) => quitActiveWatch\(watch\)/, 'the window going away is a quit too');
+  // Only STOP pressed in the panel gets the long grace.
+  const stopHandler = main.slice(main.indexOf("ipcMain.handle('stop-watch'"), main.indexOf("ipcMain.handle('run-fix'"));
+  assert.match(stopHandler, /stopActiveWatch\(activeWatch\)/);
 });
 
 test('one flag covers the checkup and the watch', () => {

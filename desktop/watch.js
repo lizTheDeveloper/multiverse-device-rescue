@@ -16,6 +16,8 @@ const WATCH_MODULE = 'connection_watch';
 // already under way can't be cut short and each of its commands may take up
 // to 30 s; the lookups after a stop get 10 s more.
 const STOP_GRACE_MS = 75000;
+// On quit (or when the window goes away) nobody will read the result.
+const QUIT_GRACE_MS = 5000;
 const SCAN_BUSY_MESSAGE = 'A connection watch is running. Stop it, or let it finish, then run the checkup.';
 
 function fail(reason, message) {
@@ -61,11 +63,11 @@ async function handleWatch(minutes, { lookups = true, getLastDoc, setLastDoc, ru
 }
 
 // Ask a running watch to stop; kill it if it hasn't exited within graceMs.
-// Resolves once it exited or was killed. Used by the Stop button, on quit and
-// when the window goes away, so the engine never outlives the app.
-function stopActiveWatch(handle, { graceMs = STOP_GRACE_MS } = {}) {
+// Resolves once it exited or was killed. Used by the Stop button: the watch
+// finishes what it gathered and looks up briefly.
+function stopActiveWatch(handle, { graceMs = STOP_GRACE_MS, stops = 1 } = {}) {
   if (!handle) return Promise.resolve();
-  handle.stop();
+  for (let i = 0; i < stops; i += 1) handle.stop();
   return new Promise((resolve) => {
     const timer = setTimeout(() => { handle.kill(); resolve(); }, graceMs);
     const done = () => { clearTimeout(timer); resolve(); };
@@ -73,4 +75,11 @@ function stopActiveWatch(handle, { graceMs = STOP_GRACE_MS } = {}) {
   });
 }
 
-module.exports = { WATCH_MINUTES, WATCH_MODULE, SCAN_BUSY_MESSAGE, STOP_GRACE_MS, handleWatch, stopActiveWatch };
+// On quit and when the window goes away, so the engine never outlives the
+// app: a second stop ends the lookups too, and it's killed after QUIT_GRACE_MS.
+function quitActiveWatch(handle, { graceMs = QUIT_GRACE_MS } = {}) {
+  return stopActiveWatch(handle, { graceMs, stops: 2 });
+}
+
+module.exports = { WATCH_MINUTES, WATCH_MODULE, SCAN_BUSY_MESSAGE, STOP_GRACE_MS, QUIT_GRACE_MS, handleWatch,
+  stopActiveWatch, quitActiveWatch };
