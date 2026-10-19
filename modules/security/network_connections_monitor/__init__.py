@@ -23,7 +23,9 @@ BACKDOOR_PORTS = {4444, 5555, 8080, 8888, 1337, 31337}
 LEGITIMATE_PORTS = {80, 443, 53, 22, 993, 587}
 
 # Remote ports normal for everyday software (5228 Google/FCM push, 5223 Apple push)
-WELL_KNOWN_REMOTE_PORTS = {5228, 5223}
+# 8443: the usual alternate HTTPS port (web apps, admin pages, some CDNs);
+# 3478: STUN/TURN, used by video calls and WebRTC in browsers and chat apps.
+WELL_KNOWN_REMOTE_PORTS = {5228, 5223, 8443, 3478}
 
 # Browsers legitimately hold hundreds of connections (tabs, extensions, helpers)
 BROWSER_PREFIXES = (
@@ -181,6 +183,27 @@ def _unusual_port_steps(platform: str) -> list[str]:
     ]
 
 
+def _unnamed_steps(platform: str) -> list[str]:
+    if platform == "win32":
+        return [
+            "Open Resource Monitor (type \"Resource Monitor\" in the Start menu), "
+            "go to the Network tab and look under TCP Connections",
+            "To see every program's connections, run this check again as admin",
+            "If a program there is unfamiliar, search for its name online",
+        ]
+    if platform == "linux":
+        return [
+            "Run `sudo ss -tnap` to see each connection with the program that opened it",
+            "Or run this check again as an administrator",
+            "If a program there is unfamiliar, search for its name online",
+        ]
+    return [
+        "Run `sudo lsof -i -nP` to see every program's connections",
+        "Or run this check again as an administrator",
+        "If a program there is unfamiliar, search for its name online",
+    ]
+
+
 def _private_ip_how_to(platform: str) -> str:
     if platform == "win32":
         return (
@@ -234,6 +257,7 @@ class Module(ModuleBase):
         "security.network_connections_monitor.private_ip_connections",
         "security.network_connections_monitor.connection_summary",
         "security.network_connections_monitor.couldnt_check",
+        "security.network_connections_monitor.unnamed_connections",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
@@ -254,15 +278,22 @@ class Module(ModuleBase):
         # A connection whose program this check couldn't see is noted below as
         # info; it never counts towards a warning about a named program.
         connections = [c for c in all_connections if c["process"] is not None]
-        unseen = [c for c in all_connections if c["process"] is None]
+        # Except a backdoor-port connection: that is critical whoever owns it.
+        unseen = [
+            c for c in all_connections
+            if c["process"] is None and c["port"] not in BACKDOOR_PORTS
+        ]
 
         # Check for connections on backdoor ports
         backdoor_connections = []
-        for conn in connections:
+        for conn in all_connections:
             if conn["port"] in BACKDOOR_PORTS:
-                backdoor_connections.append(
-                    f"{conn['process']} (PID {conn['pid']}) -> {conn['remote_addr']}:{conn['port']}"
+                who = (
+                    f"{conn['process']} (PID {conn['pid']})"
+                    if conn["process"] is not None
+                    else "program not visible"
                 )
+                backdoor_connections.append(f"{who} -> {conn['remote_addr']}:{conn['port']}")
 
         if backdoor_connections:
             findings.append(
@@ -362,7 +393,6 @@ class Module(ModuleBase):
         # Check for connections on unusual ports from unknown processes
         unusual_port_connections = []
         push_port_connections = []
-        familiar_port_connections = []
         claimed_connections = []
         for conn in connections:
             port = conn["port"]
@@ -387,32 +417,32 @@ class Module(ModuleBase):
                 continue
             if port not in LEGITIMATE_PORTS and port not in BACKDOOR_PORTS:
                 if port > 1024:  # Skip system ports
-                    line = f"{conn['process']} -> {conn['remote_addr']}:{port}"
-                    # A browser's name is chosen by the program, so it is listed
-                    # as info rather than skipped, but is not treated as odd.
-                    if _match_name(conn["process"]).startswith(BROWSER_PREFIXES):
-                        familiar_port_connections.append(line)
-                    else:
-                        unusual_port_connections.append(line)
+                    unusual_port_connections.append(
+                        f"{conn['process']} -> {conn['remote_addr']}:{port}"
+                    )
 
-        if familiar_port_connections or claimed_connections:
-            lines = familiar_port_connections + claimed_connections
+        if claimed_connections:
             findings.append(
                 Finding(
-                    title=f"Connections on uncommon ports from familiar-looking programs: {len(lines)}",
+                    title=(
+                        f"{len(claimed_connections)} connection(s) from a Windows service "
+                        "whose location couldn't be confirmed"
+                    ),
                     description=(
-                        "These programs have a familiar name (a web browser, or a "
-                        "Windows service) and use a port that is not one of the "
-                        "everyday ones. That is common for video calls, games and "
-                        "Windows' own services. This tool has not verified who made "
-                        "them, because a program can pick any name, and Windows "
-                        "hides where its services live unless the check runs as "
-                        f"admin:\n{chr(10).join(lines[:20])}"
+                        "These connections carry the name of a Windows service, and "
+                        "Windows hides where the program lives unless the check runs "
+                        "as admin. That is normal for Windows' own services on your "
+                        "local network, but a name alone doesn't prove it:\n"
+                        + "\n".join(claimed_connections[:20])
                     ),
                     severity=Severity.INFO,
                     category=self.category,
-                    code="security.network_connections_monitor.unusual_ports",
-                    data={"check": "familiar_port_connections", "connections": lines},
+                    code="security.network_connections_monitor.unnamed_connections",
+                    data={
+                        "check": "unnamed_connections",
+                        "connections": claimed_connections,
+                        "platform": platform,
+                    },
                 )
             )
 
@@ -422,7 +452,8 @@ class Module(ModuleBase):
                     title=f"Connections for push notifications: {len(push_port_connections)}",
                     description=(
                         "Ports 5223 and 5228 are used for Apple and Google push notifications, "
-                        "so this is normal for chat and mail apps:\n"
+                        "8443 is a common alternate web port and 3478 is used by video "
+                        "calls, so these are normal for chat, mail and browsers:\n"
                         f"{chr(10).join(push_port_connections[:20])}\n\n"
                         "A port number does not prove who is using it; check that you "
                         "recognize the programs listed."
@@ -498,14 +529,18 @@ class Module(ModuleBase):
             )
 
         if unseen:
-            lines = [f"{c['remote_addr']}:{c['port']}" for c in unseen]
+            lines = [
+                f"{c['record'].get('proto')} local port {c['record'].get('local_port')} "
+                f"-> {c['remote_addr']}:{c['port']}"
+                for c in unseen
+            ]
             findings.append(
                 Finding(
                     title=f"{len(unseen)} connection(s) whose program couldn't be seen",
                     description=(
                         "This check couldn't see which program owns these connections "
                         "without admin rights, so it can't say whether they are "
-                        f"expected: {', '.join(lines[:20])}"
+                        f"expected: {'; '.join(lines[:20])}"
                         f"{' and more' if len(lines) > 20 else ''}."
                         + (
                             "\n\n" + " ".join(snap["limits"])
@@ -514,12 +549,13 @@ class Module(ModuleBase):
                     ),
                     severity=Severity.INFO,
                     category=self.category,
-                    code="security.network_connections_monitor.unusual_ports",
+                    code="security.network_connections_monitor.unnamed_connections",
                     data={
                         "check": "unnamed_connections",
                         "count": len(unseen),
                         "connections": lines,
                         "limits": list(snap["limits"]),
+                        "platform": platform,
                     },
                 )
             )
@@ -632,6 +668,25 @@ class Module(ModuleBase):
                             "To investigate:\n"
                             + _numbered(_unusual_port_steps(platform))
                             + "\n\nCommon suspicious ports: 4444, 5555, 8080, 8888, 1337, 31337"
+                        ),
+                        risk_level=RiskLevel.SAFE,
+                        success=True,
+                        error=None,
+                    )
+                )
+
+            elif check == "unnamed_connections":
+                connections = finding.data.get("connections", [])
+                conn_str = "\n".join(connections[:5])
+                if len(connections) > 5:
+                    conn_str += f"\n... and {len(connections) - 5} more"
+                actions.append(
+                    Action(
+                        title="Find out which program owns connections this check couldn't see",
+                        description=(
+                            f"Connections with no program name:\n{conn_str}\n\n"
+                            "To find out who owns them:\n"
+                            + _numbered(_unnamed_steps(platform))
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

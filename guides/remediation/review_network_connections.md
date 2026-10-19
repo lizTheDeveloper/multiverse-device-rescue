@@ -8,12 +8,15 @@ remediates:
   - security.network_connections_monitor.unusual_ports
   - security.network_connections_monitor.private_ip_connections
   - security.network_connections_monitor.connection_summary
+  - security.network_connections_monitor.unnamed_connections
+  - security.network_connections_monitor.couldnt_check
 steps_for:
   security.network_connections_monitor.backdoor_ports: [1]
   security.network_connections_monitor.high_connection_count: [2]
   security.network_connections_monitor.unusual_ports: [3]
   security.network_connections_monitor.private_ip_connections: [4]
   security.network_connections_monitor.connection_summary: [4]
+  security.network_connections_monitor.unnamed_connections: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 monitoring_risk: true

@@ -417,16 +417,59 @@ def test_collector_error_is_couldnt_check(platform):
 
 
 def test_unnamed_connection_is_info_never_warning():
-    ss = (
-        "tcp   ESTAB  0      0       192.168.1.30:51050   203.0.113.10:4444\n"
-        "tcp   ESTAB  0      0       192.168.1.30:51051   203.0.113.10:9999\n"
-    )
+    ss = "tcp   ESTAB  0      0       192.168.1.30:51051   203.0.113.10:9999\n"
     result = _check(Platform.LINUX, ss=ss)
     assert not _warnings(result)
     noted = [f for f in result.findings if f.data.get("check") == "unnamed_connections"]
     assert len(noted) == 1 and noted[0].severity == Severity.INFO
+    assert noted[0].code == "security.network_connections_monitor.unnamed_connections"
     assert "couldn't see which program" in noted[0].description
-    assert "203.0.113.10:4444" in noted[0].description
+    # enough to tell connections apart: protocol, local port, remote address and port
+    assert "tcp local port 51051 -> 203.0.113.10:9999" in noted[0].description
+
+
+def test_unnamed_backdoor_port_connection_is_critical_on_linux_and_windows():
+    ss = "tcp   ESTAB  0      0       192.168.1.30:51050   203.0.113.10:4444\n"
+    tcp = json.dumps([
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50712, "RemoteAddress": "203.0.113.10",
+         "RemotePort": 4444, "State": 5, "OwningProcess": 777},
+    ])
+    for result in (
+        _check(Platform.LINUX, ss=ss),
+        _check(Platform.WIN32, win=_win_output(tcp, "[]")),
+    ):
+        crit = [f for f in result.findings if f.data.get("check") == "backdoor_ports"]
+        assert len(crit) == 1 and crit[0].severity == Severity.CRITICAL
+        assert "program not visible" in crit[0].description
+        assert "203.0.113.10:4444" in crit[0].description
+        assert not [f for f in result.findings if f.data.get("check") == "unnamed_connections"]
+
+
+@pytest.mark.parametrize("name", ["firefox", "chrome.exe", "Safari"])
+def test_browser_named_process_on_uncommon_port_is_still_a_warning(name):
+    ss = f'tcp   ESTAB  0 0 192.168.1.30:51050 203.0.113.10:9999 users:(("{name}",pid=9,fd=4))\n'
+    result = _check(Platform.LINUX, ss=ss)
+    odd = [f for f in result.findings if f.data.get("check") == "unusual_ports"]
+    assert len(odd) == 1 and odd[0].severity == Severity.WARNING
+
+
+def test_unnamed_connections_fix_advice_is_per_platform():
+    ss = "tcp   ESTAB  0      0       192.168.1.30:51051   203.0.113.10:9999\n"
+    tcp = json.dumps([
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50712, "RemoteAddress": "203.0.113.10",
+         "RemotePort": 9999, "State": 5, "OwningProcess": 777},
+    ])
+    mod = _get_module()
+    linux = mod.fix(_check(Platform.LINUX, ss=ss), Mode.MANUAL)
+    win = mod.fix(_check(Platform.WIN32, win=_win_output(tcp, "[]")), Mode.MANUAL)
+    assert len(linux.actions) >= 1 and len(win.actions) >= 1
+    ltext = "\n".join(a.description for a in linux.actions).lower()
+    wtext = "\n".join(a.description for a in win.actions).lower()
+    assert "ss -tnap" in ltext
+    assert "resource monitor" in wtext
+    for text in (ltext, wtext):
+        for bad in ("lsof", "activity monitor", "kill", "terminate", "end task"):
+            assert bad not in text
 
 
 def test_exe_suffix_is_ignored_when_matching_names():
@@ -450,6 +493,13 @@ def test_windows_browser_with_many_connections_is_not_warned():
     result = _check(Platform.WIN32, win=_win_output(tcp, (FIX / "win_proc.json").read_text()))
     assert not _warnings(result)
     assert [f for f in result.findings if f.data.get("check") == "many_connections_familiar_name"]
+
+
+def test_clean_fixtures_stay_quiet_because_of_ports_not_names():
+    # firefox:8443 and chromium:3478 are listed as ordinary web/call ports (info)
+    result = _check(Platform.LINUX, ss=(FIX / "clean_linux_ss_outbound.txt").read_text())
+    pushy = [f for f in result.findings if f.data.get("check") == "push_port_connections"]
+    assert pushy and pushy[0].severity == Severity.INFO
 
 
 def _backdoor_result(platform):
