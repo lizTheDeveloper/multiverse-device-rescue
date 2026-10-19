@@ -19,6 +19,9 @@
 img { image-rendering: pixelated; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: inherit; }
 button.district { display: grid; width: 100%; }
+/* A shadow root doesn't get styles.css's [hidden] rule, and component rules
+   (.fix-panel's display: grid) would otherwise beat the attribute. */
+[hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 /* The app's own fix and mark controls, in the city's colors */
@@ -64,6 +67,7 @@ button.district { display: grid; width: 100%; }
 /* ---------- from the mockups ---------- */
 .hud { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: rgba(9,11,16,0.6); }
 .hud-title { font-family: var(--font-display); font-weight: 800; font-size: 12px; letter-spacing: 3px; color: var(--cyan); margin-right: auto; text-shadow: 0 0 10px rgba(0,229,255,0.35); }
+h2.hud-title { margin-top: 0; margin-bottom: 0; margin-left: 0; }
 .stat { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid; font-family: var(--font-mono); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stat small { font-family: var(--font-display); font-size: 7px; letter-spacing: 1px; font-weight: 600; }
 .stat.lime { color: var(--lime); border-color: rgba(198,255,0,0.3); background: rgba(198,255,0,0.06); }
@@ -135,6 +139,15 @@ button.district { display: grid; width: 100%; }
 .step-n { font-family: var(--font-mono); font-weight: 700; color: var(--cyan); text-align: center; text-shadow: 0 0 8px rgba(0,229,255,0.4); }
 .step-t { font-size: 14px; line-height: 1.5; }
 .step-t small { display: block; color: var(--dim); font-size: 12.5px; margin-top: 2px; }
+.step-body { color: rgba(237,239,243,0.78); font-size: 14px; }
+.step-body p, .step-body ul, .step-body ol { margin: 6px 0 0; }
+.step-body ul, .step-body ol { padding-left: 20px; }
+.step-body strong, .intel strong { color: var(--offwhite); }
+.step-body code, .step-body pre { overflow-wrap: anywhere; white-space: pre-wrap; }
+details.tech { margin-top: 8px; }
+details.tech > summary { cursor: pointer; font-family: var(--font-display); font-size: 10px; letter-spacing: 1.5px; color: var(--dim); }
+details.tech > summary:hover, details.tech > summary:focus-visible { color: var(--offwhite); }
+.panel.safety .btn-t { font-family: var(--font-display); font-size: 11px; letter-spacing: 1px; color: var(--amber); }
 @media (max-width: 520px) { .step { grid-template-columns: 24px minmax(0,1fr); } .step .badge { grid-column: 2; justify-self: start; } }
 .outcome { background: #0b0e15; padding: 20px; display: grid; gap: 12px; align-content: start; justify-items: start; }
 .outcome h5 { margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 900; letter-spacing: 2px; }
@@ -341,3 +354,40 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .side h3.label { margin: 0 0 8px; }
 .sweep-so-far .notes .notes li.more { font-family: var(--font-mono); font-size: 11px; color: var(--faint); border-left-color: transparent; }
 .pre-sweep .btn-p { width: 100%; text-align: left; }
+.panel > .intel:first-child, .panel > p:first-child { margin-top: 0; }
+/* The queue's filters, merged rows, AND N MORE and the practice row. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.5px; padding: 5px 9px; border: 1px solid rgba(0,229,255,0.25); color: var(--dim); }
+.chip[aria-pressed="true"] { border-color: var(--cyan); color: var(--midnight); background: var(--cyan); }
+.chip:hover { color: var(--offwhite); }
+.chip[aria-pressed="true"]:hover { color: var(--midnight); }
+.sig-title .same { font-family: var(--font-mono); font-size: 0.8em; color: var(--dim); margin-left: 4px; }
+.more-row { display: block; width: 100%; padding: 10px 12px; font-family: var(--font-display); font-size: 11px; letter-spacing: 1.5px; border: 1px dashed rgba(0,229,255,0.25); }
+.deck-queue > .scout-row { margin: 0; }
+.accounts-fold > summary { cursor: pointer; list-style: none; }
+.accounts-fold > summary::-webkit-details-marker { display: none; }
+.accounts-fold > summary .label::before { content: '▶ '; }
+.accounts-fold[open] > summary .label::before { content: '▼ '; }
+/* The help district: readable headings, held items with what to write down. */
+.side .side-h { font-family: var(--font-body); font-size: 17px; font-weight: 700; letter-spacing: 0; color: var(--offwhite); margin: 0 0 8px; }
+.side-steps { list-style-position: inside; padding-left: 0; }
+.held-items { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 12px; }
+.held-item h4 { margin: 0 0 6px; font-size: 16px; color: var(--offwhite); }
+.evidence { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0 0 10px; font-size: 14px; }
+.evidence dt { color: var(--dim); }
+.evidence dd { margin: 0; color: var(--offwhite); overflow-wrap: anywhere; }
+.evidence dd.mono { font-family: var(--font-mono); font-size: 13px; }
+/* District missions: a checkbox per row, and moves for the ticked ones. */
+.pick-row { display: flex; gap: 10px; align-items: center; }
+.pick { width: 18px; height: 18px; flex: none; accent-color: var(--cyan); }
+.bulk { margin-top: 12px; align-items: center; }
+.bulk button[disabled] { opacity: 0.45; cursor: default; }
+details.reading { margin-top: 6px; font-size: 13px; color: var(--dim); }
+details.reading > summary { cursor: pointer; }
+details.reading .link { color: var(--cyan); }
+/* Under 900px the signal drawer takes the width, so it never half-covers the queue. */
+@media (max-width: 900px) { .sig-panel { left: 12px; width: auto; } }
+.train-side { padding: 12px 18px 0; }
+.train-side .side-tile { margin: 0; }
+/* A heading focused by script (a new screen) needs no ring: it is not a control. */
+h2[tabindex="-1"]:focus, h2[tabindex="-1"]:focus-visible { outline: none; }

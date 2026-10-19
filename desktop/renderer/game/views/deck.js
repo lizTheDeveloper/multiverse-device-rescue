@@ -11,6 +11,9 @@ export const SEV_BADGE = {
   couldnt: '<span class="badge fog">COULDN’T CHECK</span>',
 };
 export const LOW_SHOWN = 50;
+// The queue is a few little missions at a time: this many rows, then "AND N MORE".
+export const QUEUE_SHOWN = 5;
+const SEV_FILTERS = [['critical', 'CRITICAL'], ['warning', 'WARNING'], ['couldnt', 'COULDN’T CHECK']];
 export const LOG_SHOWN = 12;
 
 function clock(iso, withDate = false) {
@@ -30,8 +33,17 @@ export function signalRow(sig, districtName = () => '') {
     sig.unchecked ? '<span class="badge warn">NOT CHECKED THIS TIME</span>' : '',
     sig.changed ? '<span class="badge warn">CHANGED SINCE YOU TAGGED IT</span>' : '',
   ].join('');
+  const same = sig.same > 1 ? ` <span class="same" aria-label="${esc(sig.same)} like this">×${esc(sig.same)}</span>` : '';
   return `<li><button type="button" class="sig sev-${esc(sig.severity)}${drill ? ' drill' : ''}" data-go="signal:${esc(sig.id)}">
-      <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}</span><small>${esc(districtName(sig.districtId))}</small></button></li>`;
+      <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}${same}</span><small>${esc(districtName(sig.districtId))}</small></button></li>`;
+}
+
+// "11 CHECKS, 6 COULDN'T RUN": every check, never only the ones that worked.
+export function sweepChecks(w) {
+  const ok = Number(w && w.checks) || 0;
+  const fog = Number(w && w.fog) || 0;
+  const all = ok + fog;
+  return `${all} CHECK${all === 1 ? '' : 'S'}${fog ? `, ${fog} COULDN’T RUN` : ''}`;
 }
 
 // THREAT's next move: the finding's own briefing, where any real fix asks first.
@@ -52,7 +64,8 @@ function chipLabel(rank, learned) {
 
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
-  districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '', learned = null }) {
+  districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '', learned = null,
+  queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', districtChips = [], notChecked = '' }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -61,15 +74,23 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   <header class="hud deck-top"${behind}>
     <span class="hud-title">${esc(title)}</span>
     <button type="button" class="stat lime rank-chip" data-go="profile" aria-label="${esc(chipLabel(rank, learned))}"><small>RANK</small> ${esc(rank.name)} · ${esc(rank.points)}</button>
-    <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(lastSweep.checks)} CHECKS` : '<small>NO SWEEP YET</small>'}</span>
+    <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(sweepChecks(lastSweep))}` : '<small>NO SWEEP YET</small>'}</span>
     ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>' : preSweep ? '' : '<button type="button" class="btn-s" data-act="resweep">RE-SWEEP ⟳</button>'}
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
+  // Filters: by kind, and by district (only those with something in the queue).
+  const counts = sevCounts || {};
+  const total = SEV_FILTERS.reduce((n, [k]) => n + (Number(counts[k]) || 0), 0);
+  const chip = (attr, label, on) => `<button type="button" class="chip" ${attr}${on ? ' aria-pressed="true"' : ' aria-pressed="false"'}>${esc(label)}</button>`;
+  const sevChips = SEV_FILTERS.filter(([k]) => counts[k]).map(([k, label]) => chip(`data-act="sev:${k}"`, `${label} ${counts[k]}`, sev === k));
+  const dChips = (districtChips || []).map((d) => chip(`data-go="filter:${esc(d.id)}"`, `${String(d.name).toUpperCase()} ${d.count}`, filter && filter.id === d.id));
+  const filters = total && (sevChips.length > 1 || dChips.length > 1 || sev || filter) ? `
+      <div class="chips" role="group" aria-label="Show only">${chip('data-act="sev:all"', `ALL ${total}`, !sev && !filter)}${sevChips.join('')}${dChips.join('')}</div>` : '';
   const head = filter ? `
       <div class="row"><span class="label">SHOWING ${esc(String(filter.name).toUpperCase())}</span>
         <button type="button" class="btn-t" data-go="filter:all">SHOW ALL</button>
         <button type="button" class="btn-t" data-go="district:${esc(filter.id)}">OPEN THE DISTRICT ▶</button></div>` : '';
-  const anything = items.length > 0 || low.length > 0;
+  const anything = items.length > 0 || low.length > 0 || drills.length > 0;
   let blank = '';
   if (preSweep) {
     // Before any sweep this session: the sweep is the one main action. The
@@ -88,6 +109,15 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     blank = '<div class="panel clear-board"><div class="label">CLEAR BOARD</div><p class="intel">Nothing to sort from this checkup. A clean checkup lowers the odds of a problem; it doesn’t rule one out. Want practice? Try the DRILL RANGE below.</p></div>';
   }
   const next = anything ? '<button type="button" class="btn-p" data-act="investigate-next">INVESTIGATE NEXT ▶</button>' : '';
+  const shown = queueOpen ? items.slice(0, LOW_SHOWN) : items.slice(0, QUEUE_SHOWN);
+  const hidden = items.length - shown.length;
+  const more = items.length > QUEUE_SHOWN ? `
+      <li><button type="button" class="btn-t more-row" data-act="toggle-queue" aria-expanded="${queueOpen ? 'true' : 'false'}">${queueOpen
+    ? (hidden > 0 ? `SHOW FEWER · ${hidden} MORE NOT SHOWN` : 'SHOW FEWER')
+    : `AND ${items.length - QUEUE_SHOWN} MORE ▶`}</button></li>` : '';
+  // Practice drills: one row at the end, never mixed in with what the scan found.
+  const practice = drills.length ? `
+      <li><button type="button" class="sig practice-row" data-go="signal:${esc(drills[0].id)}"><span class="sig-badges"><span class="badge drill-stamp">DRILL</span></span><span class="sig-title">${esc(`${drills.length} practice signal${drills.length === 1 ? '' : 's'}`)}</span><small>Made up, not on your computer</small></button></li>` : '';
   const lowHtml = low.length ? `
       <li class="low-group">
         <button type="button" class="sig low-row" data-act="toggle-low" aria-expanded="${lowOpen ? 'true' : 'false'}">LOW-PRIORITY SIGNALS (${low.length})</button>
@@ -116,8 +146,8 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   return `${top}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
-      <div class="label">INCOMING SIGNALS</div>${head}${blank}${next}
-      <ul class="queue">${items.map((x) => signalRow(x, dn)).join('')}${lowHtml}</ul>
+      <div class="label">INCOMING SIGNALS</div>${notChecked ? `<div class="panel fogged not-checked" role="note"><p class="intel">${esc(notChecked)}</p>${counts.couldnt ? '<button type="button" class="btn-t" data-act="sev:couldnt">SEE WHICH ▶</button>' : ''}</div>` : ''}${scoutHtml}${filters}${head}${blank}${next}
+      <ul class="queue">${shown.map((x) => signalRow(x, dn)).join('')}${more}${practice}${lowHtml}</ul>
       ${threatHtml}${knownHtml}
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>
     </aside>

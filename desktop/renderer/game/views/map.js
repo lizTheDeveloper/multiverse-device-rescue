@@ -68,7 +68,7 @@ export function mapLine(city, cameBack, held, heldAt = null) {
   return line === SCOUT.mapQuiet && held && held.size ? heldScoutLine(heldAt) : line;
 }
 
-export function renderMap({ city, progress, cameBack, scout, goFor = (d) => `district:${d.id}`, heat = {}, selected = null, held = null, heldAt = null }) {
+export function renderMap({ city, progress, cameBack, scout, goFor = (d) => `district:${d.id}`, heat = {}, selected = null, held = null, heldAt = null, showScout = true }) {
   const cards = city.districts.map((d0) => {
     const d = heldView(d0, held);
     const reclaimed = progress ? reclaimedIn(progress, d).length : 0;
@@ -84,6 +84,6 @@ export function renderMap({ city, progress, cameBack, scout, goFor = (d) => `dis
   return `
   <section class="map" aria-label="Your computer as a city">
     <div class="districts">${cards}</div>
-    <div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(line)}</p></div>
+    ${showScout ? `<div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(line)}</p></div>` : ''}
   </section>`;
 }

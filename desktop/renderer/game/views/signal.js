@@ -12,17 +12,21 @@ function clueItem(c, opened) {
     return `<li><button type="button" class="clue locked" data-act="clue:${esc(c.kind)}">SCAN CLUE: ${esc(c.label)} ▶</button></li>`;
   }
   // tabindex -1: focus can land on a clue just opened when none is left locked.
+  // Teach once: the reading folds away, with the lesson that teaches it.
+  const lesson = c.kind === 'maker' || c.kind === 'where' ? ' <button type="button" class="link" data-go="lesson:starts-on-its-own">The lesson ▸</button>' : '';
   return `<li class="clue open" data-clue="${esc(c.kind)}" tabindex="-1"><div class="label">${esc(c.label)}</div>${c.lines.map((l) => `<p class="clue-line">${esc(l)}</p>`).join('')}
-      <p class="reading"><b>How to read this:</b> ${esc(c.reading.text)}</p></li>`;
+      ${c.reading ? `<details class="reading"><summary>How to read this</summary><p>${esc(c.reading.text)}${lesson}</p></details>` : ''}</li>`;
 }
 
 // `offer`: { id, title } of a concept the person said they knew, when a
 // signal suggests a refresher (PlayerProfile.shouldOffer). One line, two answers.
+// `tagNote`: say once that tags change nothing (until the person has tagged something).
 export function renderSignalPanel({ signal: sig, districtName = '', clues = [], opened = [], tagged = null, right = false, read = '',
-  points = 0, scout, mineHtml = '', range = null, offer = null }) {
+  points = 0, scout, mineHtml = '', range = null, offer = null, tagNote = true }) {
   const drill = sig.kind === 'drill';
   const couldnt = sig.kind === 'couldnt';
-  const stamp = drill ? `<p class="drill-banner"><span class="badge drill-stamp">DRILL</span> Practice. This isn’t on your computer.</p>
+  // The range says it's practice once, at the top; a drill from the queue says it here.
+  const stamp = drill ? `<p class="drill-banner"><span class="badge drill-stamp">DRILL</span> ${range ? 'Practice.' : 'Practice. This isn’t on your computer.'}</p>
     ${sig.drill && sig.drill.setup ? `<p class="intel">${esc(sig.drill.setup)}</p>` : ''}` : '';
   const notes = [
     sig.marked ? '<p class="intel"><span class="badge yours">MARKED</span> You told Reclaim City this is yours. It stays listed.</p>' : '',
@@ -53,7 +57,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     ${!drill && tagged === 'mine' && mineHtml ? `<div class="panel"><div class="label">OPTIONAL: TELL RECLAIM CITY TOO</div>
       <p class="intel">The MINE pile is the game’s sorting. This asks Reclaim City itself to remember it’s yours, so it stops flagging it. It asks first, and you can undo it.</p>${mineHtml}</div>` : ''}
     ${!drill && tagged === 'threat' ? `<div class="panel"><div class="label">ON YOUR THREAT BOARD</div><p class="intel">Your next move:</p>${nextMoveHtml(sig)}</div>` : ''}
-    ${!drill && tagged === 'closer' ? '<p class="intel">It stays in your queue. Open its clues again any time, or use LIST for every detail the scan recorded.</p>' : ''}`;
+    ${!drill && tagged === 'closer' ? `<div class="panel"><p class="intel">It stays in your queue.</p>${nextMoveHtml(sig)}</div>` : ''}`;
   const foot = range
     ? `<div class="row"><button type="button" class="btn-p" data-act="next-drill">NEXT DRILL ▶</button>
       <button type="button" class="btn-t" data-act="leave-range">${range.hasCity ? 'BACK TO THE DECK' : 'BACK TO THE TRAINING GROUNDS'}</button></div>`
@@ -66,7 +70,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     ${notes}
     <div class="label">CLUES</div>${clueHtml}
     <div class="label">YOUR CALL</div>${call}
-    <p class="intel faint">${esc(drill ? 'Practice only. A drill never touches your computer.' : TAG_NOTE)}</p>
+    ${!drill && tagNote ? `<p class="intel faint">${esc(TAG_NOTE)}</p>` : ''}
     ${after}
     ${foot}
   </section>`;

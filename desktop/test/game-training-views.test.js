@@ -196,7 +196,7 @@ test('before the lessons arrive, a neutral line; only a finished load with none 
 
 test('after this worry’s checkup finished, the button runs it again rather than skipping to it', async () => {
   const v = await views();
-  const again = /data-act="start-checkup"[^>]*>RUN THE CHECKUP AGAIN ▶/;
+  const again = /data-act="start-checkup"[^>]*>RE-SWEEP ⟳/;
   assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout, scanFinished: true }), again);
   assert.match(v.renderLesson({ lesson: LESSON, qIndex: 0, picked: null, scan: idle, scout, scanFinished: true }), again);
   assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout }), /SKIP TO THE CHECKUP ▶/);

@@ -25,7 +25,7 @@ test('the queue: critical, then warning, then couldn’t check; info is folded a
     mod('broken', [], { status: 'error', error: 'boom' }),
   ));
   const q = v.queueOf(sigs);
-  assert.deepStrictEqual(q.urgent.map((x) => x.title), ['Crit', 'Warn A', 'Warn B', 'A check couldn’t run here']);
+  assert.deepStrictEqual(q.urgent.map((x) => x.title), ['Crit', 'Warn A', 'Warn B', 'Broken couldn’t run here']);
   assert.deepStrictEqual(q.low.map((x) => x.title), ['Note']);
   assert.deepStrictEqual([q.urgent[3].kind, q.urgent[3].id, q.urgent[3].description], ['couldnt', 'couldnt|broken', 'boom']);
   assert.deepStrictEqual(v.queueOf(sigs, 'wires').urgent.map((x) => x.title), ['Warn B'], 'a district filter');

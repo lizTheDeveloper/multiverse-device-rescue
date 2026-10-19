@@ -7,7 +7,8 @@ const pct = (n) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
 
 export function integrityText(current, previous) {
   if (current == null) return 'City integrity: no reading. Nothing could be checked, and fog never counts as secure.';
-  if (previous == null) return `City integrity ${current}%.`;
+  // A first reading is a starting point, not a grade.
+  if (previous == null) return current === 0 ? 'City integrity 0%: a starting point. Each district you secure raises it.' : `City integrity ${current}%.`;
   if (current > previous) return `City integrity ${current}%, up from ${previous}% last sweep.`;
   if (current < previous) return `City integrity ${current}%, down from ${previous}% last sweep.`;
   return `City integrity ${current}%, the same as last sweep.`;

@@ -106,7 +106,7 @@ export function createProfileRenderer(ready) {
     <div class="panel"><h3 class="label">${esc(w.skills)}</h3>${lessonsUnread ? `<p class="unread">${esc(SKILLS_UNREAD)}</p>` : `<ul class="profile-skills">${skills}</ul>`}</div>
     <div class="panel"><h3 class="label">${esc(w.drills)}</h3>${drillsHtml(s.drills)}</div>
     <div class="panel"><h3 class="label">${esc(w.city)}</h3>
-      <p>${esc(c.reclaimed)} fixed and confirmed · ${esc(c.later)} set aside for later · ${esc(c.yours)} marked as yours${c.lastSweep === null ? '' : ` · last checkup ${esc(c.lastSweep)}% secured`}</p></div>
+      <p>${esc(c.reclaimed)} fixed and confirmed · ${esc(c.later)} set aside for later · ${esc(c.yours)} marked as yours${c.lastSweep === null ? '' : ` · last checkup: ${esc(c.lastSweep)}% of districts secured`}</p></div>
     ${confirming ? `<div class="panel" role="alertdialog" aria-labelledby="start-over-q"><p id="start-over-q">${esc(theme === 'plain' ? CLEAR_PROGRESS : START_OVER)}</p>
       <div class="row"><button type="button" class="btn-s" data-act="profile-start-over-yes">${esc(theme === 'plain' ? 'Yes, clear it' : 'YES, START OVER')}</button>
         <button type="button" class="btn-t" data-act="profile-start-over-no" data-autofocus>${esc(theme === 'plain' ? 'Keep my progress' : 'KEEP MY PROGRESS')}</button></div></div>` : ''}

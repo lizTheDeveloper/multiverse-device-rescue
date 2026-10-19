@@ -95,7 +95,8 @@ test('who made it uses the engine’s own words, and every how-to-read line is a
     if (m && !m.verified) assert.ok(m.how in MADE_BY_REASON || m.how === 'script', `${d.id}: "${m.how}" isn’t a reason the app knows`);
     const cs = drillClues(d);
     assert.ok(cs.length >= 2, `${d.id}: at least two clues, so the clue bonus can be earned`);
-    for (const c of cs) assert.ok(lines.has(c.reading), `${d.id}: ${c.kind} has an unsourced reading`);
+    // WHAT IT DOES has no reading (teach once): it is the checkup's own words.
+    for (const c of cs) assert.ok(c.kind === 'what' ? c.reading === null : lines.has(c.reading), `${d.id}: ${c.kind} has an unsourced reading`);
   }
 });
 

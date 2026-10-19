@@ -66,12 +66,23 @@ export function buildSignals(city, deck, changedIds = null) {
     }
     for (const g of d.fog || []) {
       if (MONITORING_MODULES.has(g.module)) continue;
-      add({ id: `couldnt|${g.module}`, kind: 'couldnt', severity: 'couldnt', title: 'A check couldn’t run here',
+      add({ id: `couldnt|${g.module}`, kind: 'couldnt', severity: 'couldnt', title: couldntTitle(g),
         description: String(g.reason == null ? '' : g.reason), districtId: d.id, module: g.module, finding: null,
         missionId: null, fixable: false, marked: false, stale: false, fp: 'couldnt', count: 1 });
     }
   }
   return out;
+}
+
+// A check that couldn't run, named (monitoring checks never get here) with
+// why, in a few words: "Code signature audit took too long".
+export function couldntTitle(g) {
+  const words = String((g && g.module) || '').replace(/_/g, ' ').trim();
+  const name = words ? words.charAt(0).toUpperCase() + words.slice(1) : 'A check';
+  const why = String((g && g.reason) || '');
+  if (/timed?\s*out|took too long/i.test(why)) return `${name} took too long`;
+  if (/permission|not permitted|full disk access|access denied/i.test(why)) return `${name} needed a permission`;
+  return `${name} couldn’t run here`;
 }
 
 export function compareSignals(a, b) {
@@ -165,4 +176,78 @@ export function sweepCounts(doc, city, integrity, held = null) {
     // never stored (not one of SWEEP_FIELDS).
     unfinished: mods.filter((m) => m && m.status === 'ok' && m.supported !== false && m.complete === false).length,
   };
+}
+
+// The queue as rows: signals with the same title and severity in one row,
+// with how many there are (`same`) and the first one's id to open. Order kept.
+export function mergeSame(signals) {
+  const out = [];
+  const at = new Map();
+  for (const x of signals || []) {
+    const k = `${x.kind}|${x.severity}|${x.title}`;
+    const row = at.get(k);
+    if (row && x.kind !== 'drill') { row.same += 1; row.ids.push(x.id); continue; }
+    const r = { ...x, same: 1, ids: [x.id] };
+    at.set(k, r);
+    out.push(r);
+  }
+  return out;
+}
+
+// How many signals of each kind the queue holds, for its filters.
+export function severityCounts(signals) {
+  const out = { critical: 0, warning: 0, couldnt: 0 };
+  for (const x of signals || []) if (x.severity in out) out[x.severity] += 1;
+  return out;
+}
+
+// A note that says part of a check couldn't look ("We couldn't list your USB
+// devices", "Checked 16 of 110 app signatures"). The same rule as the list's
+// (app.js isPartlyChecked), so both views count the same things.
+const COULDNT_TITLE = /^(?:we\s+)?(?:couldn[’']t|could\s+not)\s+(?:check|list|read|see|tell|find\s+out)\b/i;
+export function isPartlyChecked(f) {
+  if (!f || f.severity !== 'info') return false;
+  const title = String(f.title || '');
+  if (COULDNT_TITLE.test(title)) return true;
+  return !!(f.data && f.data.incomplete) && /^checked\s+\d+\s+of\s+\d+/i.test(title);
+}
+
+// One count of what wasn't fully checked, the same as the list's
+// (app.js notCheckedSummary): checks that couldn't run or didn't finish, and
+// notes that say part of a check couldn't look. `checks`: every check.
+export function notCheckedSummary(doc) {
+  const mods = doc && Array.isArray(doc.modules) ? doc.modules.filter(Boolean) : [];
+  const couldntRun = mods.filter((m) => m.status === 'error' || m.supported === false).length;
+  const unfinished = mods.filter((m) => m.status !== 'error' && m.supported !== false && m.complete === false).length;
+  const partly = mods.reduce((n, m) => n + (Array.isArray(m.findings) ? m.findings.filter(isPartlyChecked).length : 0), 0);
+  return { checks: mods.length, couldntRun, unfinished, partly, count: couldntRun + unfinished + partly };
+}
+
+// The deck's top line when something wasn't fully checked. Never an all-clear.
+export function notCheckedLine(sum) {
+  const s = sum || {};
+  const ran = (s.couldntRun || 0) + (s.unfinished || 0);
+  const how = s.couldntRun && s.unfinished ? 'couldn’t run or didn’t finish' : s.couldntRun ? 'couldn’t run' : 'didn’t finish';
+  const parts = [];
+  if (ran) parts.push(`${ran} ${ran === 1 ? 'check' : 'checks'} ${how}`);
+  if (s.partly) parts.push(`${s.partly} ${s.partly === 1 ? 'thing was' : 'things were'} only partly checked`);
+  if (!parts.length) return '';
+  return `${parts.join(', and ')}, so this isn’t a clean bill of health.`;
+}
+
+// The scan as the city reads it: a note saying part of a check couldn't look
+// leaves the notes, and its check counts as not finished (never clear). The
+// titles come back as `partly`, by module. A copy; the scan is unchanged.
+export function foldPartly(doc) {
+  if (!doc || !Array.isArray(doc.modules)) return { doc, partly: new Map() };
+  const partly = new Map();
+  const modules = doc.modules.map((m) => {
+    if (!m || !Array.isArray(m.findings)) return m;
+    const out = m.findings.filter(isPartlyChecked);
+    if (!out.length) return m;
+    partly.set(m.name, out.map((f) => String(f.title || '')));
+    const failed = m.status === 'error' || m.supported === false;
+    return { ...m, findings: m.findings.filter((f) => !isPartlyChecked(f)), ...(failed ? {} : { complete: false }) };
+  });
+  return { doc: { ...doc, modules }, partly };
 }

@@ -40,6 +40,46 @@ export function isDetection(f) {
   return f.severity !== 'info';
 }
 
+// The one finding that may leave the help district: keyboard access for
+// apps with familiar names (keylogger_indicators' claimed_vendor check), at
+// info, when every app in it is a KNOWN program whose signed identity was
+// verified. The engine gives `what` only then (rescue/attribution.py), so
+// each app needs a made_by entry with verified === true and a `what`. A
+// signature alone is cheap, so a signed but unknown maker stays held, and so
+// does anything from the other monitoring checks, at any severity.
+export const FAMILIAR_CODE = 'security.keylogger_indicators.suspicious_input_monitoring';
+export const FAMILIAR_CHECK = 'claimed_vendor_input_monitoring';
+export function familiarVerified(f, module = f && f.module) {
+  if (!f || f.severity !== 'info' || f.code !== FAMILIAR_CODE || module !== 'keylogger_indicators') return false;
+  const d = f.data && typeof f.data === 'object' ? f.data : {};
+  const apps = Array.isArray(d.apps) ? d.apps : [];
+  const mb = Array.isArray(f.made_by) ? f.made_by.filter(Boolean) : [];
+  const known = (m) => m.verified === true && typeof m.what === 'string' && m.what.trim() !== ''
+    && typeof m.name === 'string' && m.name.trim() !== '';
+  return d.check === FAMILIAR_CHECK && apps.length > 0 && mb.length > 0 && mb.every(known)
+    && apps.every((a) => mb.some((m) => m.subject === a));
+}
+const holds = (f, module) => !!f && isDetection(f) && !familiarVerified(f, module);
+
+// What the help district shows about a held finding, so it can be written
+// down: the name, where it was found, how it was found, and who made it. From
+// the finding's own evidence; memory only, never stored.
+export function heldEvidence(f) {
+  const d = f && f.data && typeof f.data === 'object' ? f.data : {};
+  const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : '');
+  const list = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()).join(', ') : '');
+  const mb = Array.isArray(f && f.made_by) ? f.made_by.filter(Boolean) : [];
+  const maker = mb.length ? mb.map((m) => `${str(m.name) || 'Unknown maker'}${m.verified === true ? ' (verified)' : ' (not verified)'}`)
+    .filter((x, i, a) => a.indexOf(x) === i).join('; ') : '';
+  const out = {
+    name: str(d.stalkerware_name) || str(d.name) || str(d.label) || list(d.apps),
+    where: str(d.location) || str(d.path) || str(d.plist) || str(d.program),
+    how: str(d.detected_as),
+    maker,
+  };
+  return Object.fromEntries(Object.entries(out).filter(([, v]) => v));
+}
+
 // `doc` without those findings (their checks still count as having run), and
 // the detections they held, at any severity (an info-level product such as
 // remote-support software is still software on this computer). The scan
@@ -52,14 +92,15 @@ export function splitHeld(doc) {
     const fs = Array.isArray(m.findings) ? m.findings : [];
     let found = false;
     for (const f of fs) {
-      if (f && isDetection(f)) { held.push({ module: m.name, title: String(f.title || '') }); found = true; }
+      if (holds(f, m.name)) { held.push({ module: m.name, title: String(f.title || ''), ...heldEvidence(f) }); found = true; }
     }
     // Nothing found, and it couldn't look: fog, never clear. (With a
     // detection the check did look, and its district stays open for it.)
     if (!found && fs.some((f) => f && COULDNT_LOOK.has(f.code))) {
       return { ...m, findings: [], supported: false, unsupported_reason: COULDNT_LOOK_REASON };
     }
-    return { ...m, findings: [] };
+    // A familiar app with a verified maker stays, as an ordinary note.
+    return { ...m, findings: m.name === 'keylogger_indicators' ? fs.filter((f) => f && isDetection(f) && familiarVerified(f, m.name)) : [] };
   });
   return { doc: { ...doc, modules }, held };
 }
@@ -70,7 +111,7 @@ export function splitHeld(doc) {
 export function heldOnly(doc) {
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.modules)) return doc;
   return { ...doc, modules: doc.modules.filter((m) => m && HELD_MODULES.has(m.name))
-    .map((m) => (Array.isArray(m.findings) ? { ...m, findings: m.findings.filter((f) => !f || isDetection(f)) } : m)) };
+    .map((m) => (Array.isArray(m.findings) ? { ...m, findings: m.findings.filter((f) => !f || holds(f, m.name)) } : m)) };
 }
 
 // What a briefing says about a finding that is monitoring software, from the

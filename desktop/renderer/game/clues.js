@@ -50,6 +50,9 @@ export const PLACES = [
   { id: 'program-files', kind: 'contains', pattern: 'Program Files', risky: false, short: 'Program Files',
     note: 'Where Windows programs are normally installed.',
     source: 'guides/remediation/audit_windows_autoruns.md', quote: 'legitimate installed software runs from `Program Files`' },
+  // Last: any other folder whose name starts with a dot (~/.hermes/…).
+  { id: 'hidden', kind: 'hidden', pattern: '.', risky: true, short: 'a hidden folder',
+    note: 'A hidden folder: its name starts with a dot. Apps keep files in these, and dropped scripts hide in them too.', ...HIDDEN },
 ];
 
 export const READING = {
@@ -63,8 +66,6 @@ export const READING = {
     source: 'guides/remediation/review_launch_persistence.md', quote: 'a program path in `/tmp`, `/var/tmp`, or a hidden directory' },
   placeUnknown: { text: 'This is where the scan found it. Reclaim City has no note about this place, so the other clues matter more.',
     source: 'guides/remediation/review_launch_persistence.md', quote: 'reported in the finding' },
-  what: { text: 'This is the checkup’s own plain-language description of what it found.',
-    source: 'AGENTS.md', quote: 'plain-language explanation' },
   when: { text: 'The date the scan recorded for it. Did you install something around then? If you didn’t, something else may have.',
     source: 'guides/remediation/review_changes_since_baseline.md', quote: "did I install something around then? If you didn't, something else may have." },
 };
@@ -87,10 +88,14 @@ export function homeRelative(p) {
 const underPrefix = (p, prefix) => p === prefix || p.startsWith(`${prefix}/`);
 const hasFolder = (p, part) => `/${p.replace(/\\/g, '/').toLowerCase()}/`.includes(`/${part.replace(/\\/g, '/').toLowerCase()}/`);
 
+// A folder (never the last part, the file itself) whose name starts with a dot.
+const hiddenFolder = (p) => p.replace(/\\/g, '/').split('/').slice(0, -1).some((x) => /^\.[^./]/.test(x));
+
 export function placeFor(path) {
   if (typeof path !== 'string' || path === '') return null;
   const p = homeRelative(path);
-  return PLACES.find((pl) => (pl.kind === 'prefix' ? underPrefix(p, pl.pattern) : hasFolder(p, pl.pattern))) || null;
+  return PLACES.find((pl) => (pl.kind === 'prefix' ? underPrefix(p, pl.pattern)
+    : pl.kind === 'hidden' ? hiddenFolder(p) : hasFolder(p, pl.pattern))) || null;
 }
 
 const dataOf = (finding) => (finding && finding.data && typeof finding.data === 'object' ? finding.data : {});
@@ -140,7 +145,7 @@ export function cluesFor(finding) {
   }
   // The description's first paragraph, before any "What to do".
   const what = String(finding.description || '').split(/\n\s*\n/)[0].split(/what to do:?/i)[0].trim().slice(0, 400);
-  if (what) out.push({ kind: 'what', label: CLUE_LABEL.what, lines: [what], reading: READING.what });
+  if (what) out.push({ kind: 'what', label: CLUE_LABEL.what, lines: [what], reading: null });
   const when = whenOf(finding);
   if (when) out.push({ kind: 'when', label: CLUE_LABEL.when, lines: [when], reading: READING.when });
   return out;

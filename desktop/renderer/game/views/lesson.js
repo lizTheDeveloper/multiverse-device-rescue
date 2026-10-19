@@ -7,6 +7,13 @@ import { lessonText, skipBar, cityBanner, trainingHud } from './training.js';
 // teach, setting, message); without it, the lesson's own questions.
 // `showTeach`: whether this item's "what to know" shows (it hides once the
 // person has got one item in its family right).
+// Feedback says first whether the answer was right, in words, not only a colour.
+const SAYS_ALREADY = /^\s*(?:right|correct|yes|exactly|not quite|nope|no\b)/i;
+export function verdict(answer) {
+  if (!answer || SAYS_ALREADY.test(String(answer.feedback || ''))) return '';
+  return `<b>${answer.correct ? 'Right.' : 'Not quite.'}</b> `;
+}
+
 export function renderLesson({ lesson: l, items = null, qIndex, picked, showTeach = true, scan, scout, pendingCity, scanFinished = false, settingFor = () => null, routerHtml = () => '' }) {
   const list = Array.isArray(items) && items.length ? items : l.questions;
   const i = Math.max(0, Math.min(qIndex, list.length - 1));
@@ -30,7 +37,7 @@ export function renderLesson({ lesson: l, items = null, qIndex, picked, showTeac
       ${q.message.subject ? `<p><strong>${esc(q.message.subject)}</strong></p>` : ''}
       <p>${esc(q.message.body)}</p></div>` : '';
   const after = answer ? `
-    <div class="feedback" role="status">${lessonText(answer.feedback)}</div>
+    <div class="feedback" role="status">${verdict(answer)}${lessonText(answer.feedback)}</div>
     ${last
       ? `<p class="intel"><strong>In the checkup:</strong> ${lessonText(l.whatTheScanLooksFor)}</p>
          <button type="button" class="btn-p" data-act="finish-lesson">FINISH LESSON</button>`

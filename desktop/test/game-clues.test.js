@@ -13,7 +13,7 @@ test('every place note and every how-to-read line is sourced: its file holds its
   const { PLACES, READING } = await load();
   assert.strictEqual(new Set(PLACES.map((p) => p.id)).size, PLACES.length);
   for (const p of PLACES) {
-    assert.ok(['prefix', 'contains'].includes(p.kind), p.id);
+    assert.ok(['prefix', 'contains', 'hidden'].includes(p.kind), p.id);
     assert.ok(fs.existsSync(path.join(ROOT, p.source)), `${p.id}: no ${p.source}`);
     const text = src(p.source);
     assert.ok(text.includes(p.pattern), `${p.id}: "${p.pattern}" isn’t in ${p.source}`);
