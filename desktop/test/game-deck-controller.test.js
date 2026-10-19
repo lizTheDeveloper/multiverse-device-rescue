@@ -3,6 +3,7 @@
 // delivered as elements with attributes.
 const test = require('node:test');
 const assert = require('node:assert');
+const { PROFILE_KEY, savedProfile, savedAsV3 } = require('./profile-read.js');
 
 const STORE = 'device-rescue.game.v1';
 const memStore = () => { const s = {}; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
@@ -72,7 +73,7 @@ async function deckSetup(doc, { storage = memStore(), situation = { id: 'unsure'
     loadTraining: async () => [], loadDrillBank: async () => drills });
   await tick();
   if (doc) ctl.show(doc, situation);
-  return { ...t, ctl, storage, html: () => t.frame.innerHTML, saved: () => JSON.parse(storage.getItem(STORE) || 'null') };
+  return { ...t, ctl, storage, html: () => t.frame.innerHTML, saved: () => savedAsV3(storage) };
 }
 async function ids(doc) {
   const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
@@ -219,7 +220,7 @@ test('monitoring checks never become signals, and nothing about them is stored',
   assert.doesNotMatch(t.html(), /No monitoring apps found/);
   t.click({ 'data-act': 'toggle-low' });
   t.click({ 'data-act': 'batch-fine' });
-  assert.doesNotMatch(t.storage.getItem(STORE), /stalkerware|monitoringSeen/);
+  assert.doesNotMatch(JSON.stringify(savedProfile(t.storage)), /stalkerware|monitoringSeen/);
 });
 
 test('drills join the queue: about one per four real signals, from the same districts, stamped DRILL', async () => {

@@ -8,6 +8,7 @@ const { pathToFileURL } = require('url');
 const Q = require('../renderer/quiet-notes.js');
 const { recordingStore, forbiddenWrites } = require('./disk-words.js');
 const { LESSONS, DRILLS } = require('./profile-fixtures.js');
+const { savedAsV3 } = require('./profile-read.js');
 
 const game = (f) => import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', f)).href);
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -17,7 +18,6 @@ const SPY = () => mod('stalkerware_scan', [{ title: 'Monitoring app', descriptio
   code: 'security.stalkerware_scan.monitoring_software_found', data: { path: '/m' } }]);
 const NONE = () => mod('stalkerware_scan', []);
 const OLD = 'device-rescue.game.v1';
-const NOW = '2026-10-18T12:00:00.000Z';
 const LATER = '2026-10-19T09:00:00.000Z';
 
 function stub() {
@@ -51,7 +51,7 @@ async function run(storage, doc) {
     loadTraining: async () => [], loadDrillBank: async () => [] });
   await tick();
   ctl.show(doc, { id: 'city', title: 'Take back the city' });
-  return { ...t, saved: () => JSON.parse(storage.getItem(OLD) || 'null') };
+  return { ...t, saved: () => savedAsV3(storage) };
 }
 
 test('city mode: held software, a restart through the recipe box, then a sweep without it: no CLEAN SWEEP, no points, carry kept', async () => {
@@ -67,13 +67,9 @@ test('city mode: held software, a restart through the recipe box, then a sweep w
   assert.strictEqual(a.saved().deck.sweep.carry, true, 'the sweep is marked');
   assert.doesNotMatch(a.html(), /CLEAN SWEEP|DISTRICT SECURED/);
 
-  // Into the profile (migrating the v3 document), then saved disguised in city mode.
-  const disk = recordingStore({ [OLD]: first.getItem(OLD) });
-  let p = pp.loadProfile(disk, NOW);
-  p = pp.withProgress(p, a.saved());
-  assert.strictEqual(p.deck.sweep.carry, true, 'carry survives migration into the profile');
-  assert.strictEqual(pp.saveProfile(disk, p, { seed: 4242, mode: 'city' }), true);
-  assert.strictEqual(disk.data[OLD], undefined, 'city mode retires the literal document');
+  // The controller keeps it in the recipe box (city mode: no literal document left).
+  const disk = first;
+  assert.strictEqual(disk.data[OLD], undefined, 'city mode leaves no literal document');
   const box = disk.data[pp.PROFILE_KEY];
   assert.ok(box.startsWith('{"kitchen":'), 'stored as a recipe box');
   assert.doesNotMatch(box, /carry|Monitoring app|stalkerware|"\/m"/, 'the box names nothing');
@@ -83,19 +79,12 @@ test('city mode: held software, a restart through the recipe box, then a sweep w
   const back = pp.loadProfile(disk, LATER);
   assert.strictEqual(back.deck.sweep.carry, true, 'carry intact after the disguised round-trip');
   assert.strictEqual(back.rank.points, 0);
-  const progress = pp.toProgress(back, bank);
-  assert.strictEqual(progress.deck.sweep.carry, true);
-  const second = recordingStore({ [OLD]: JSON.stringify(progress) });
-  const b = await run(second, scan(NONE(), remote()));
+  assert.strictEqual(pp.toProgress(back, bank).deck.sweep.carry, true);
+  const b = await run(disk, scan(NONE(), remote()));
   assert.match(b.html(), /<b>100%<\/b>/, 'the board reads secured');
   assert.doesNotMatch(b.html(), /CLEAN SWEEP|DISTRICT SECURED/, 'its going is not a win');
   assert.strictEqual(b.saved().deck.points, 0, 'no points');
   assert.strictEqual(b.saved().deck.sweep.carry, undefined, 'this sweep holds nothing');
-
-  // And the profile, folded back in and saved again, still pays nothing.
-  const after = pp.withProgress(back, b.saved());
-  assert.strictEqual(after.rank.points, 0);
-  assert.strictEqual(pp.saveProfile(disk, after, { seed: 4242, mode: 'city' }), true);
+  assert.strictEqual(pp.loadProfile(disk, LATER).rank.points, 0, 'the box, read again, still pays nothing');
   assert.deepStrictEqual(forbiddenWrites(disk), []);
-  assert.deepStrictEqual(forbiddenWrites(second), []);
 });

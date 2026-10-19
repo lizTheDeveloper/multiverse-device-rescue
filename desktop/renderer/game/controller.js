@@ -4,7 +4,10 @@
 // screens render here (its app.js is never loaded).
 import { findingsToCity, DISTRICTS } from './findings-to-city.js';
 import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
-import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
+import { reconcile, setStatus, ranOkModules, recheckOutcome, setDeck } from './progress.js';
+import { buildBank, drawLessonVisit } from './profile/item-bank.js';
+import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, recordAnswer, recordVisit,
+  historyFor, difficultyOf, teachShown } from './profile/player-profile.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
@@ -48,6 +51,37 @@ const MOMENTS_MAX = 4;
 const TAG_WORD = { mine: 'MINE', threat: 'THREAT', closer: 'LOOK CLOSER', noted: 'NOTED' };
 // Specifiers resolve against this file, like the lessons'.
 const loadDrillsHere = () => loadDrills((spec) => import(spec));
+
+// Lesson question families that are about someone the person knows (cutting
+// off a partner, a housemate, a family member). City mode is the cover, so
+// they are never asked there: not drawn, not asked as written, and their
+// concept isn't counted as waiting.
+export const CITY_SKIPPED_FAMILIES = new Set(['cut-off-order', 'remove-everyone']);
+export const CITY_SKIPPED_CONCEPTS = new Set(['cut-off-order']);
+const cityShows = (q) => !!q && !CITY_SKIPPED_FAMILIES.has(q.key) && !CITY_SKIPPED_CONCEPTS.has(q.concept);
+// The lessons as city mode may show them.
+export const cityLessons = (lessons) => (lessons || []).map((l) => (l && Array.isArray(l.questions)
+  ? { ...l, questions: l.questions.filter(cityShows) } : l));
+
+// What the person sees when the record couldn't be saved or read: calm, and
+// in city mode only the game's own words. Codes are player-profile.js's.
+const SAVE_CODES = new Set(['encode', 'too-big', 'spare', 'write']);
+const READ_CODES = new Set(['salvaged', 'spare-full', 'unreadable-too-big']);
+export function saveProblemText(code, city) {
+  if (SAVE_CODES.has(code)) {
+    return city ? 'The city couldn’t save your last move just now. Keep playing: it tries again with your next one.'
+      : 'Your progress couldn’t be saved just now. Nothing is lost from this session, and it tries again the next time something changes.';
+  }
+  if (READ_CODES.has(code)) {
+    return city ? 'Part of your saved city couldn’t be read, so the game picked up from what it could.'
+      : 'Part of your saved progress couldn’t be read, so the game picked up from what it could.';
+  }
+  if (code === 'old-kept') {
+    return city ? 'An older save couldn’t be tidied away. The city tries again next time it saves.'
+      : 'An older copy of your progress couldn’t be tidied away. It tries again next time it saves.';
+  }
+  return city ? 'The city had trouble with its save. Keep playing.' : 'There was a problem with your saved progress. You can keep going.';
+}
 
 // The attribute a redraw finds a focused control by again. On the Training
 // Grounds, lesson and boss screens each of these is unique on the screen.
@@ -94,7 +128,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
 
-  const s = { doc: null, held: [], heldCity: null, situation: null, city: null, progress: loadProgress(storage), cameBack: [],
+  // The player profile (profile/player-profile.js) is the record; `progress`
+  // is the v3-shaped view of it that progress.js and ledger.js work on.
+  // A problem reading or writing it shows on screen once (saveProblemText).
+  const noticeFor = (code) => ({ code, kind: SAVE_CODES.has(code) ? 'save' : 'other' });
+  let loadNotice = null;
+  const profile0 = loadProfile(storage, now(), { onProblem: (code) => { loadNotice = noticeFor(code); } });
+  const bank0 = buildBank([], []);
+  const s = { doc: null, held: [], heldCity: null, situation: null, city: null, profile: profile0, bank: bank0, cityBank: bank0,
+    progress: toProgress(profile0, bank0), saveNotice: loadNotice, cameBack: [],
     screen: 'map', districtId: null, missionId: null, outcome: null, outcomeMission: null, lastFix: null, message: '', busy: false,
     trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
     rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
@@ -130,6 +172,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   new Promise((r) => r(loadTraining())).catch(() => []).then((ls) => {
     s.lessons = Array.isArray(ls) ? ls : [];
     s.lessonsLoaded = true;
+    refreshBank();
     if (TRAINING_SCREENS.has(s.screen)) render();
   });
 
@@ -137,6 +180,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   new Promise((r) => r(loadDrillBank())).catch(() => []).then((ds) => {
     s.drillBank = Array.isArray(ds) ? ds : [];
     s.drillsLoaded = true;
+    refreshBank();
     if (s.city && s.sweepDrills === null) s.sweepDrills = sweepDrillsNow();
     if (s.screen === 'range' || (s.screen === 'map' && s.city && !s.busy)) render();
   });
@@ -162,6 +206,47 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // (nothing to act on) rather than shown with its removal steps.
   const hostMode = () => (win.RescueHost && typeof win.RescueHost.mode === 'function' ? win.RescueHost.mode() : 'city');
 
+  // The one place the profile is written: a recipe box in every mode. In city
+  // mode the old literal store goes once the box is written (player-profile.js).
+  // A problem shows on screen; a later save that works clears a save problem.
+  function persist() {
+    const ok = saveProfile(storage, s.profile, { seed: profileSeed(storage, win.DisplayMode), mode: hostMode(),
+      onProblem: (code) => { s.saveNotice = noticeFor(code); } });
+    if (ok && s.saveNotice && s.saveNotice.kind === 'save') s.saveNotice = null;
+    return ok;
+  }
+  // The bank the game measures with, and the one city mode draws from.
+  // City mode never asks the families about someone the person knows, and the
+  // v3 view (which lessons are done) is read without them.
+  // A host that can't say counts as city mode, as for held software.
+  const coverMode = () => hostMode() === 'city';
+  const drawBank = () => (coverMode() ? s.cityBank : s.bank);
+  const viewOf = (p) => toProgress(p, drawBank());
+  // A v3 view changed by progress.js or ledger.js: folded into the profile,
+  // saved, and the view drawn again from the profile.
+  function keep(nextProgress) {
+    s.profile = withProgress(s.profile, nextProgress);
+    persist();
+    s.progress = viewOf(s.profile);
+  }
+  function keepProfile(next) {
+    s.profile = next;
+    persist();
+    s.progress = viewOf(s.profile);
+  }
+  function refreshBank() {
+    s.bank = buildBank(s.lessons, s.drillBank);
+    // Every item stays measurable (the same estimates in both modes); only the
+    // lesson and concept indexes, which say what is drawn and what a lesson
+    // is made of, leave the skipped families out.
+    const c = buildBank(cityLessons(s.lessons), s.drillBank);
+    s.cityBank = { items: s.bank.items, lessons: c.lessons, concepts: c.concepts };
+    s.progress = viewOf(s.profile);
+  }
+  // A first run moves the old store into the box straight away.
+  s.progress = viewOf(s.profile);
+  persist();
+
   function rebuild(doc, putBack = null) {
     const before = s.city ? cityIntegrity(s.city, signalsNow(), s.heldCity) : null;
     const heldBefore = heldDistrictIds(s.heldCity);
@@ -183,8 +268,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // Held software seen in this sweep (a scan or a re-check) marks it, on disk
     // as a bare flag, so its going later is never paid, even after a restart.
     const carrying = heldDistrictIds(s.heldCity).size > 0;
-    s.progress = setDeck(r.progress, carrying && rd.deck.sweep.carry !== true ? { ...rd.deck, sweep: { ...rd.deck.sweep, carry: true } } : rd.deck);
-    saveProgress(storage, s.progress);
+    keep(setDeck(r.progress, carrying && rd.deck.sweep.carry !== true ? { ...rd.deck, sweep: { ...rd.deck.sweep, carry: true } } : rd.deck));
     // A district that held a monitoring finding is never "secured" by its going:
     // that would reward removing it, and the log line would say where it was.
     const heldNow = heldDistrictIds(s.heldCity);
@@ -302,8 +386,29 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.moments = all;
   }
   function commitDeck(deck) {
-    s.progress = setDeck(s.progress, deck);
-    saveProgress(storage, s.progress);
+    keep(setDeck(s.progress, deck));
+  }
+
+  // Lesson visits: a few items from the bank (profile/item-bank.js). Evidence
+  // is measured on the whole bank; what is drawn comes from drawBank().
+  const itemsOf = (keys) => (keys || []).map((k) => s.bank.items.get(k)).filter(Boolean);
+  const teachAt = (keys, i) => (keys && keys.length && keys[i] ? teachShown(s.profile, s.bank, keys[i]) : true);
+  // A lesson with no items in the bank is asked as written (city mode: without the skipped families).
+  const writtenOf = (l) => (coverMode() ? cityLessons([l])[0] : l);
+  const questionsOf = (lesson) => {
+    const items = itemsOf(lesson && lesson.keys);
+    if (items.length) return items;
+    const l = lesson && s.lessons.find((x) => x.id === lesson.id);
+    return l ? writtenOf(l).questions : [];
+  };
+  function openVisit(lessonId, keys, extra = {}) {
+    s.lesson = { id: lessonId, keys, q: 0, picked: null, showTeach: teachAt(keys, 0), ...extra };
+    s.screen = 'lesson';
+    render();
+  }
+  function startVisit(lessonId, extra = {}) {
+    const bank = drawBank();
+    openVisit(lessonId, drawLessonVisit(bank, lessonId, historyFor(s.profile, bank), { bOf: difficultyOf(s.profile, s.bank) }), extra);
   }
   // A ledger result: keep its deck. A rank-up is a moment and a log entry.
   function commitAward(r) {
@@ -585,7 +690,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'lesson') {
       const l = s.lesson && s.lessons.find((x) => x.id === s.lesson.id);
-      if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor,
+      const items = itemsOf(s.lesson.keys);
+      if (l) return renderLesson({ lesson: writtenOf(l), items: items.length ? items : null, qIndex: s.lesson.q, picked: s.lesson.picked,
+        showTeach: s.lesson.showTeach !== false, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor,
         routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') });
       s.screen = 'training';
       return screenHtml();
@@ -631,6 +738,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return deckHtml();
   }
 
+  // A save or read problem, said once, calmly, until dismissed (or, for a
+  // save problem, until a later save works).
+  function saveNoticeHtml() {
+    if (!s.saveNotice) return '';
+    return `<p class="link-notice save-notice" role="status">${esc(saveProblemText(s.saveNotice.code, coverMode()))}
+      <button type="button" class="btn-t" data-act="dismiss-save-notice">OK</button></p>`;
+  }
+
   // false when the screen couldn't be drawn and the person was sent to the list,
   // so app.js doesn't then show the (empty) city screen.
   function render() {
@@ -648,7 +763,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
-      frame.innerHTML = hud + body;
+      frame.innerHTML = saveNoticeHtml() + hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
       // No "ALLIED ORGANIZATIONS" either (a district at 100%): one is a donation
@@ -790,6 +905,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (ctx && !ctx.blocked) Promise.resolve().then(() => win.rescue.openRouter(ctx.ip)).catch(() => {});
       return;
     }
+    if (act === 'dismiss-save-notice') { s.saveNotice = null; render(); return; }
     if (s.busy) return;
     if (go) s.linkNotice = '';
     if (go === 'side') { if (inCity()) openSide(); return; }
@@ -822,47 +938,58 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
     if (go === 'boss') { s.screen = s.scan.running ? 'boss' : 'training'; render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
-    if (go && go.startsWith('lesson:')) { s.lesson = { id: go.slice(7), q: 0, picked: null }; s.screen = 'lesson'; render(); return; }
+    if (go && go.startsWith('lesson:')) { startVisit(go.slice(7)); return; }
     // A district on the sweep: the lesson for that area. Finishing it comes back here.
     if (go && go.startsWith('learn:')) {
       // A district whose lessons are all done opens nothing (its card isn't a
       // button any more; this guards a stale click). Reviewing is `review:`.
       const l = learnFor()(go.slice(6));
-      if (l && !l.done) { s.lesson = { id: l.lesson.id, q: 0, picked: null, fromSweep: true }; s.screen = 'lesson'; render(); }
+      if (l && !l.done) startVisit(l.lesson.id, { fromSweep: true });
       return;
     }
     // The optional review on a DONE district: its first lesson, coming back the same way.
     if (go && go.startsWith('review:')) {
       const l = learnFor()(go.slice(7));
-      if (l) { s.lesson = { id: nextReview(l.list || [l.lesson]).id, q: 0, picked: null, fromSweep: true }; s.screen = 'lesson'; render(); }
+      if (l) startVisit(nextReview(l.list || [l.lesson]).id, { fromSweep: true });
       return;
     }
     if (act === 'start-checkup') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
     if (act && act.startsWith('answer:')) {
       if (s.lesson && s.lesson.picked == null) {
-        s.lesson.picked = Number(act.slice(7));
-        // Answering the last question is finishing: it counts even if the
-        // person then leaves (SEE YOUR CITY, BACK TO THE CHECKUP) without FINISH.
-        const l = s.lessons.find((x) => x.id === s.lesson.id);
-        if (l && s.lesson.q >= l.questions.length - 1 && !lessonDone(s.progress, l.id)) {
-          s.progress = setLessonDone(s.progress, l.id, now());
-          saveProgress(storage, s.progress);
-        }
+        const list = questionsOf(s.lesson);
+        const n = Number(act.slice(7));
+        const q = list[s.lesson.q];
+        if (!q || !Array.isArray(q.options) || !q.options[n]) return;
+        s.lesson.picked = n;
+        // Every answer is evidence, right or wrong (an item the bank doesn't
+        // know records nothing). Answering the last item finishes the visit:
+        // it counts even if the person then leaves (SEE YOUR CITY, BACK TO THE
+        // CHECKUP) without FINISH. Whether anything is learned is the IRT rule's
+        // to say (player-profile.js), never this count.
+        let next = q.key ? recordAnswer(s.profile, s.bank, q.key, q.options[n].correct === true, now()) : s.profile;
+        if (s.lesson.q >= list.length - 1 && !s.lesson.concept) next = recordVisit(next, s.lesson.id, now());
+        if (next !== s.profile) keepProfile(next);
         render();
       }
       return;
     }
-    if (act === 'next-question' && s.lesson) { s.lesson = { ...s.lesson, q: s.lesson.q + 1, picked: null }; render(); return; }
-    // Only finishing a lesson records anything; leaving part-way records nothing.
+    if (act === 'next-question' && s.lesson) {
+      if (s.lesson.q >= questionsOf(s.lesson).length - 1) return;
+      s.lesson = { ...s.lesson, q: s.lesson.q + 1, picked: null, showTeach: teachAt(s.lesson.keys, s.lesson.q + 1) };
+      render();
+      return;
+    }
+    // Each answer was saved as it was given; leaving part-way keeps those but
+    // makes nothing done. FINISH (after the last answer) is the visit.
     if (act === 'finish-lesson' && s.lesson) {
-      if (!lessonDone(s.progress, s.lesson.id)) {
-        s.progress = setLessonDone(s.progress, s.lesson.id, now());
-        saveProgress(storage, s.progress);
-      }
+      const rec = s.profile.lessons[s.lesson.id];
+      // "Learn this" questions on one concept (s.lesson.concept) are no visit to a lesson.
+      if (!s.lesson.concept && !(rec && rec.visited)) keepProfile(recordVisit(s.profile, s.lesson.id, now()));
       // A lesson opened from the sweep goes back to the sweep, or, once the
       // checkup has finished, to the city: never the Training Grounds' list.
       const fromSweep = s.lesson.fromSweep;
-      s.screen = !fromSweep ? 'training' : s.scan.running ? 'boss' : s.city ? 'map' : 'training';
+      // One opened from elsewhere (s.lesson.back) goes back there.
+      s.screen = s.lesson.back ? s.lesson.back : !fromSweep ? 'training' : s.scan.running ? 'boss' : s.city ? 'map' : 'training';
       if (s.screen === 'map') s.pendingCity = false;
       s.lesson = null;
       render();
@@ -879,8 +1006,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'later') {
       const m = mission(s.missionId);
       if (m) {
-        s.progress = setStatus(s.progress, m.id, 'later', m.module, now(), { districtId: m.districtId, title: m.title });
-        saveProgress(storage, s.progress); s.screen = 'district'; s.districtId = m.districtId;
+        keep(setStatus(s.progress, m.id, 'later', m.module, now(), { districtId: m.districtId, title: m.title }));
+        s.screen = 'district'; s.districtId = m.districtId;
       }
       render(); return;
     }
@@ -1057,6 +1184,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // answer: false means the person is already back on Plain view's screens.
   return {
     isReady: true,
+    // The display mode changed: save once now, so city mode retires the old
+    // store at once, and the lessons are read for the new mode.
+    profileModeChanged() {
+      persist();
+      s.progress = viewOf(s.profile);
+      // A visit drawn for the other mode isn't carried on (city mode skips some items).
+      if (s.screen === 'lesson') { s.lesson = null; s.screen = 'training'; }
+      if (drawnScreen !== null) render();
+    },
     show(doc, situation) {
       s.situation = situation;
       // A city shown from a finished scan: no game scan is running any more

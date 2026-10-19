@@ -3,6 +3,7 @@
 // held findings' place on the map, in integrity and in sweeps.
 const test = require('node:test');
 const assert = require('node:assert');
+const { PROFILE_KEY, savedProfile, savedAsV3 } = require('./profile-read.js');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const Q = require('../renderer/quiet-notes.js');
@@ -71,7 +72,7 @@ async function setup(opts = {}, doc = null) {
     loadTraining: async () => [], loadDrillBank: async () => [] });
   await tick();
   if (doc) ctl.show(doc, { id: 'city', title: 'Take back the city' });
-  return { ...t, ctl, storage, saved: () => JSON.parse(storage.getItem('device-rescue.game.v1') || 'null') };
+  return { ...t, ctl, storage, saved: () => savedAsV3(storage) };
 }
 
 // ---------------------------------------------------------------------------

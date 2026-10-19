@@ -2,6 +2,7 @@
 // document, the shadow root and the frame to drive clicks and FixFlow results.
 const test = require('node:test');
 const assert = require('node:assert');
+const { PROFILE_KEY, savedProfile, savedAsV3 } = require('./profile-read.js');
 
 const QID = '20261016T120000Z-com.example.a';
 const finding = (title) => ({ title, description: 'd', severity: 'critical', category: 'security', data: {} });
@@ -461,7 +462,7 @@ test('SUBMIT REPORT is logged as YOU REPORTED and pays the smaller amount, once'
   t.click({ 'data-go': `rc:#/mission/${FC}/debrief` });
   t.form.action = 'completed';
   t.click({ 'data-action': 'submit-debrief', 'data-mission': FC });
-  assert.strictEqual(JSON.parse(t.storage.getItem('device-rescue.game.v1')).deck.points, 20);
+  assert.strictEqual(savedAsV3(t.storage).deck.points, 20);
   t.click({ href: '#/city' }, 'A');
   assert.match(t.html(), /YOU REPORTED<\/span> [^<]+/);
   assert.strictEqual(hudCount(t.html(), 'YOU REPORTED'), 1);
@@ -472,7 +473,7 @@ test('FINISH FROM THE CHECKUP is logged as CONFIRMED and pays the fix amount', a
   const t = await rcSetup({ doc: allMac });
   t.click({ 'data-go': `rc:#/mission/${FC}/briefing` });
   t.click({ 'data-act': 'confirm-from-scan' });
-  assert.strictEqual(JSON.parse(t.storage.getItem('device-rescue.game.v1')).deck.points, 50);
+  assert.strictEqual(savedAsV3(t.storage).deck.points, 50);
   t.click({ href: '#/city' }, 'A');
   assert.match(t.html(), /CONFIRMED<\/span> [^<]+/);
   assert.strictEqual(hudCount(t.html(), 'CONFIRMED'), 1);
@@ -588,7 +589,7 @@ test('a worry opens the Training Grounds: password-asker first, the scan one cli
   assert.match(html, new RegExp(`<b>0/${t.lessons.length}</b> <small>LESSONS`));
 });
 
-test('a wrong answer gets feedback; leaving part-way records nothing; finishing marks DONE', async () => {
+test('a wrong answer gets feedback; leaving part-way keeps the answer but marks nothing DONE; finishing marks DONE', async () => {
   const t = await trainingSetup();
   const q0 = t.lesson('whos-on-wifi').questions[0];
   t.click({ 'data-go': 'lesson:whos-on-wifi' });
@@ -599,13 +600,15 @@ test('a wrong answer gets feedback; leaving part-way records nothing; finishing 
   assert.match(t.html(), /class="opt wrong"/, 'the first pick stands');
   t.click({ 'data-go': 'training' });
   assert.doesNotMatch(t.html(), /DONE/);
-  assert.doesNotMatch(String(t.storage.getItem('device-rescue.game.v1') || ''), /whos-on-wifi/);
+  assert.strictEqual((savedAsV3(t.storage).lessons || {})['whos-on-wifi'], undefined);
+  assert.deepStrictEqual(savedProfile(t.storage).concepts['wifi-and-mining'].seen.map((e) => [e[0], e[1]]), [['hot-and-slow', 0]],
+    'the first pick is kept as evidence, wrong and all');
 
   finishLesson(t, 'password-asker');
   assert.match(t.html(), /THE TRAINING GROUNDS/);
   assert.match(t.html(), /data-go="lesson:password-asker"[\s\S]*?DONE/);
   assert.match(t.html(), new RegExp(`<b>1/${t.lessons.length}</b> <small>LESSONS`));
-  const saved = JSON.parse(t.storage.getItem('device-rescue.game.v1'));
+  const saved = savedAsV3(t.storage);
   assert.ok(saved.lessons['password-asker'].completedAt);
   assert.deepStrictEqual(saved.missions, {}, 'a lesson never counts as a fix');
 });
@@ -943,7 +946,7 @@ test('REVIEW rotates through a district’s done lessons, least recently reviewe
   }
   t = await sweepSetup({ storage, situation: HACKED });
   t.ctl.scanEvent(prog('done', 1, 4, 'security'));
-  const before = storage.getItem('device-rescue.game.v1');
+  const before = storage.getItem(PROFILE_KEY);
   const seen = [];
   for (let i = 0; i < GATEHOUSE.length + 1; i += 1) {
     t.click({ 'data-go': 'review:gatehouse' });
@@ -953,7 +956,7 @@ test('REVIEW rotates through a district’s done lessons, least recently reviewe
   }
   assert.strictEqual(new Set(seen.slice(0, GATEHOUSE.length)).size, GATEHOUSE.length, 'each lesson once before any repeats');
   assert.strictEqual(seen[GATEHOUSE.length], seen[0], 'then the least recently reviewed again');
-  assert.strictEqual(storage.getItem('device-rescue.game.v1'), before, 'nothing saved');
+  assert.strictEqual(storage.getItem(PROFILE_KEY), before, 'nothing saved');
 });
 
 test('answering every question counts as done, even when the person leaves before FINISH, and survives a restart', async () => {
@@ -963,7 +966,7 @@ test('answering every question counts as done, even when the person leaves befor
   answerAll(t, 'whos-on-wifi', { finish: false });
   t.click({ 'data-go': 'boss' }); // BACK TO THE CHECKUP, no FINISH
   assert.match(t.html(), /data-go="review:wires"/);
-  assert.ok(JSON.parse(storage.getItem('device-rescue.game.v1')).lessons['whos-on-wifi'].completedAt);
+  assert.ok(savedAsV3(storage).lessons['whos-on-wifi'].completedAt);
   // The scan finishes mid-lesson; the person answers the last one and takes SEE YOUR CITY.
   t.click({ 'data-go': 'learn:gatehouse' });
   t.ctl.scanDone(scan(mod('mod_a', [finding('A')])), WIFI);
@@ -971,7 +974,7 @@ test('answering every question counts as done, even when the person leaves befor
   t.click({ 'data-go': 'city' });
   t = await sweepSetup({ storage });
   assert.match(t.html(), /data-go="review:wires"/, 'remembered after a restart');
-  const saved = JSON.parse(storage.getItem('device-rescue.game.v1'));
+  const saved = savedAsV3(storage);
   assert.deepStrictEqual(Object.keys(saved.lessons).sort(), ['password-asker', 'whos-on-wifi']);
 });
 

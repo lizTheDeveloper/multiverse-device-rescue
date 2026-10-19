@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const { PROFILE_KEY, savedProfile, savedAsV3 } = require('./profile-read.js');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { recordingStore, forbiddenWrites } = require('./disk-words.js');
@@ -88,7 +89,7 @@ test('monitoring software waits in the district: not on the deck, no mission, no
   assert.match(t.html(), /mSpy/);
   assert.match(t.html(), /Don’t remove it yet\. Talk to an advocate first\./);
   assert.doesNotMatch(t.html(), /data-fix-module|data-mark-card|data-act="tag:/);
-  const saved = JSON.parse(t.storage.getItem('device-rescue.game.v1'));
+  const saved = savedAsV3(t.storage);
   assert.strictEqual(saved.deck.points, 0);
   assert.doesNotMatch(JSON.stringify(saved), /mSpy|stalkerware/i);
   assert.deepStrictEqual(forbiddenWrites(t.storage), []);
