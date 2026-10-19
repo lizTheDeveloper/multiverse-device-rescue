@@ -13,6 +13,12 @@ const REAL = require('./fixtures/remote-access-finding.json');
 
 const ALERT = /removing it can alert them/;
 const DV = /799-7233|88788|advocate|domestic\s+violence/i;
+// The contract's stealth words (missions/contract.js CITY_FORBIDDEN), read from its source.
+const CITY_FORBIDDEN = (() => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'renderer', 'missions', 'contract.js'), 'utf8');
+  const m = /export const CITY_FORBIDDEN = \/(.+)\/([a-z]*);/.exec(src);
+  return new RegExp(m[1], m[2]);
+})();
 // What a fix the engine can do would offer (an action fix), so the panel is real.
 const FIXABLE = { action: 'disable_launch_agent', target: '/Library/LaunchAgents/com.teamviewer.service.plist',
   will_change: 'Stops TeamViewer starting by itself.', how_to_undo: ['Turn it back on.'] };
@@ -106,16 +112,18 @@ test('the game, standard mode: the briefing keeps the one line with the warning 
   assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'the extra warning is city mode’s');
 });
 
-test('the game, city mode: the help lives in the help district; the mission keeps one warning line before the fix, and the fix panel the extra warning', async () => {
+test('the game, city mode: the help lives in the help district; the mission keeps one warning line before the fix, and the fix panel says stop by it, in game words', async () => {
   const { html, seen } = await gameBriefing('city');
-  // UX round 1 ruling (P1-3): no hotline or advocate wording in a city mission.
-  // (The fix panel's own WATCHED_WARNING is fix-flow.js's, asked for only after the person opens it.)
-  assert.doesNotMatch(html.split(FixFlow.WATCHED_WARNING).join(''), DV);
+  // UX round 1 ruling (P1-3): no hotline or advocate wording in a city mission, the fix panel included.
+  assert.doesNotMatch(html, DV);
+  assert.doesNotMatch(html, CITY_FORBIDDEN);
   assert.match(html, /<b>Removing this can alert whoever installed it\.<\/b>/);
   assert.match(html, /data-go="side"/, 'the way to the help district');
   assert.ok(html.indexOf('Removing this can alert whoever installed it') < html.indexOf('data-fix-module'), 'the warning comes before the fix');
   assert.match(html, /TeamViewer is installed/);
-  assert.ok(html.includes(FixFlow.WATCHED_WARNING), 'WATCHED_WARNING in the fix panel');
+  assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'never the advocate line in the city');
+  const panel = /<div class="fix-panel"[\s\S]*?data-fix-confirm/.exec(html)[0];
+  assert.match(panel, /data-fix-city><strong>Removing this can alert whoever installed it\.<\/strong> Stop by [A-Z][^<.]+ before you change it\./);
   assert.deepStrictEqual(seen, [['fix', true], ['mark', true]]);
 });
 
@@ -125,9 +133,15 @@ test('a fix with no engine action: the warning in city mode, in the game; not in
     for (const [where, html] of [['game', game]]) {
       assert.match(html, /data-fix-module="win_remote_access_audit"/, `${mode} ${where}: the fix is offered`);
       assert.doesNotMatch(html, /data-fix-action=/, `${mode} ${where}: no engine action`);
-      assert.strictEqual(html.includes(FixFlow.WATCHED_WARNING), mode === 'city', `${mode} ${where}`);
+      assert.ok(!html.includes(FixFlow.WATCHED_WARNING), `${mode} ${where}: never the advocate line in the game`);
+      assert.strictEqual(/data-fix-city><strong>Removing this can alert whoever installed it\.<\/strong> Stop by /.test(html), mode === 'city', `${mode} ${where}`);
     }
   }
   assert.ok(FixFlow.fixControlsHtml({ module: 'm', fixable: MODULE_FIX }, { watched: true }).includes(FixFlow.WATCHED_WARNING));
   assert.ok(!FixFlow.fixControlsHtml({ module: 'm', fixable: MODULE_FIX }, { watched: false }).includes(FixFlow.WATCHED_WARNING));
+  // With the help district's name (the game in city mode): the game words, never the advocate line.
+  const city = FixFlow.fixControlsHtml({ module: 'm', fixable: MODULE_FIX }, { watched: true, place: 'The <Old> Mill' });
+  assert.ok(!city.includes(FixFlow.WATCHED_WARNING));
+  assert.doesNotMatch(city, CITY_FORBIDDEN);
+  assert.ok(city.includes(`${FixFlow.CITY_WARNING}</strong> Stop by The &lt;Old&gt; Mill before you change it.`));
 });

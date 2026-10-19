@@ -272,3 +272,20 @@ test('a finished mission pays its bonus once; Later on any item pays no bonus', 
   for (let i = 0; i < 4; i += 1) t.click({ 'data-act': 'mx-decide:later' });
   assert.strictEqual(savedProfile(storage).rank.points, 35, 'Later pays nothing, and no bonus');
 });
+
+test('city mode: a mission’s fix confirm says stop by the help district, in game words (no advocate line)', async () => {
+  const FixFlow = require('../renderer/fix-flow.js');
+  const t = await setup(doc(), { mode: 'city' });
+  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-act': 'mx-know' });
+  t.click({ 'data-act': 'mx-decide:fix' });
+  const opts = t.calls.fixHtml.pop();
+  assert.strictEqual(opts.watched, true);
+  assert.ok(typeof opts.place === 'string' && opts.place.length > 0, 'the help district’s name');
+  const real = FixFlow.fixControlsHtml({ module: 'sudo_config_audit', fixable: { will_change: 'Turns it off.', how_to_undo: ['Turn it on.'] } }, opts);
+  assert.doesNotMatch(real, CITY_FORBIDDEN);
+  assert.ok(real.includes(`Removing this can alert whoever installed it.</strong> Stop by ${opts.place} before you change it.`));
+  // The mission's own warning line names the same place.
+  assert.ok(t.html().includes(`Stop by ${opts.place} before you change it.`));
+  assert.doesNotMatch(t.html(), CITY_FORBIDDEN);
+});

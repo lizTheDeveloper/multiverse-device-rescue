@@ -178,11 +178,13 @@ test('I4: standard mode: the fix confirm says "Removing this can alert…" where
   // The list's rule, for the same finding.
   assert.strictEqual(QN.cardText('standard', { ...LAUNCH, module: 'launch_agent_audit' }).note, 'line');
   const std = await opts('standard', LAUNCH.title);
-  assert.deepStrictEqual(std, { watched: false, safety: QN.LINE_SHORT });
+  assert.deepStrictEqual(std, { watched: false, place: '', safety: QN.LINE_SHORT });
   seen = [];
-  assert.deepStrictEqual(await opts('standard', HOG.title), { watched: false, safety: '' }, 'nothing to warn about');
+  assert.deepStrictEqual(await opts('standard', HOG.title), { watched: false, place: '', safety: '' }, 'nothing to warn about');
   seen = [];
-  assert.deepStrictEqual(await opts('city', LAUNCH.title), { watched: true, safety: '' }, 'the watched confirm says it its own way');
+  const city = await opts('city', LAUNCH.title);
+  assert.ok(typeof city.place === 'string' && city.place.length > 0, 'the help district, to stop by');
+  assert.deepStrictEqual({ ...city, place: 'x' }, { watched: true, place: 'x', safety: '' }, 'the watched confirm says it its own way');
 });
 
 // ---- I5: fog keeps a district from secured and from CLEAN SWEEP ---------------

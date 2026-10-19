@@ -263,7 +263,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // missions, notes or clues (the one line keeps any removal warning); city mode is never quieted.
   const quietDoc = (d) => (win.QuietNotes ? win.QuietNotes.quietDoc(d, hostMode()) : d);
   // City mode: the fix and "It's mine" panels carry the extra warning about whoever set something up.
-  const watchedOpts = () => ({ watched: hostMode() === 'city' });
+  // City mode: the help district's name, so the fix confirm says "stop by"
+  // it in game words (FixFlow opts.place) rather than naming the help.
+  const watchedOpts = () => ({ watched: hostMode() === 'city', place: hostMode() === 'city' && inCity() ? side().name : '' });
   // The fix confirm says the removal warning under the list's own rule
   // (app.js): wherever the card shows the line or the full note, unless the
   // watched confirm (city mode) says it its own way.

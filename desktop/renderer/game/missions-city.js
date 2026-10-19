@@ -198,7 +198,7 @@ export function createMissionDesk(deps) {
       return;
     }
     if (act.kind === 'fix') {
-      const html = w.FixFlow.fixControlsHtml({ ...act.item.finding }, act.options);
+      const html = w.FixFlow.fixControlsHtml({ ...act.item.finding }, { ...act.options, ...(act.options && act.options.watched ? { place: deps.place() } : {}) });
       if (!html) { d.notice = mode() === 'city' ? 'No patch the city can make for this one.' : 'There’s no fix the app can make for this one.'; d.run = Run.cancelPending(d.run); return; }
       d.act = { kind: 'fix', html, item: act.item };
       return;

@@ -260,7 +260,7 @@ test('the monitoring checks are the same three app.js names', () => {
 test('the extra warning on the fix and "It\'s mine" controls follows the mode in the city; the LIST offers neither', async () => {
   // The city's missions build the controls (watched in city mode only).
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'renderer', 'game', 'controller.js'), 'utf8');
-  assert.match(src, /const watchedOpts = \(\) => \(\{ watched: hostMode\(\) === 'city' \}\)/);
+  assert.match(src, /const watchedOpts = \(\) => \(\{ watched: hostMode\(\) === 'city', place: hostMode\(\) === 'city' && inCity\(\) \? side\(\)\.name : '' \}\)/);
   // The LIST (read-only) never asks for a fix or mark control, in either mode.
   for (const stored of ['city', 'standard']) {
     const p = page({ store: { 'device-rescue.display': stored }, ready: false });

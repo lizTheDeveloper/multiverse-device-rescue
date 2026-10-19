@@ -16,6 +16,8 @@ const FixFlow = (function () {
   const ACTION_NAME = /^[a-z0-9_]+$/;
   const QUARANTINE_ID = /^[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9][A-Za-z0-9._-]{0,200}$/;
   const WATCHED_WARNING = 'Turning this off may be noticed by whoever set it up. If you\u2019re not sure that\u2019s safe for you, talk to an advocate first.';
+  // City mode's game words (views/briefing.js CITY_WARN).
+  const CITY_WARNING = 'Removing this can alert whoever installed it.';
 
   function esc(value) {
     return String(value == null ? '' : value)
@@ -76,6 +78,9 @@ const FixFlow = (function () {
 
   // opts.watched (city mode): every fix confirmation, with or without an
   // engine action, says it may be noticed. Any change to the computer can be.
+  // opts.place (the game's help district, city mode): the same said in game
+  // words, the mission warning line (views/briefing.js cityWarnHtml), since
+  // city screens never name the help itself outside that district.
   // opts.safety: the finding's own warning ("Removing this can alert whoever
   // installed it."), shown before the confirm button.
   function fixControlsHtml(finding, opts) {
@@ -86,8 +91,9 @@ const FixFlow = (function () {
     const attrs = act
       ? ` data-fix-action="${esc(act.action)}" data-fix-target="${esc(act.target)}"`
       : '';
+    const place = opts && typeof opts.place === 'string' ? opts.place.trim() : '';
     const watched = opts && opts.watched
-      ? `<p class="fix-panel__line fix-panel__warning"><strong>${esc(WATCHED_WARNING)}</strong></p>`
+      ? `<p class="fix-panel__line fix-panel__warning"${place ? ' data-fix-city' : ''}><strong>${esc(place ? CITY_WARNING : WATCHED_WARNING)}</strong>${place ? ` ${esc(`Stop by ${place} before you change it.`)}` : ''}</p>`
       : opts && typeof opts.safety === 'string' && opts.safety
         ? `<p class="fix-panel__line fix-panel__warning" data-fix-safety><strong>${esc(opts.safety)}</strong></p>`
         : '';
@@ -411,7 +417,7 @@ const FixFlow = (function () {
     });
   }
 
-  return { WATCHED_WARNING, UNDO_HERE, recheckFailedText, appWords, undoListHtml, fixableOf, fixControlsHtml, describeFixResult, resultHtml, attach, esc };
+  return { WATCHED_WARNING, CITY_WARNING, UNDO_HERE, recheckFailedText, appWords, undoListHtml, fixableOf, fixControlsHtml, describeFixResult, resultHtml, attach, esc };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
