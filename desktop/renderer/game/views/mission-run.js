@@ -4,7 +4,8 @@
 // The runner (missions/runner.js) decides; this draws its view. The game's
 // own card (render) is passed in as `cardHtml`; everything around it (the
 // warning line, the evidence, the links, the decisions) is drawn here, so a
-// game can't leave any of it out (contract.js R1).
+// game can't leave any of it out (contract.js R1). `research.what` is the
+// game's to show on its card (every card has a "what it is" line), so it isn't repeated here.
 import { esc } from '../escape.js';
 import { cityWarnHtml } from './briefing.js';
 
@@ -115,7 +116,6 @@ export function renderMissionScreen(o) {
   // An item (and the confirm step before a fix or a warned settings page).
   const confirming = run.phase === 'confirm';
   const unfinished = research.unfinished ? `<p class="intel mx-unfinished"><span class="badge fog">DIDN’T FINISH</span> ${esc(research.unfinished)}</p>` : '';
-  const what = research.what ? `<p class="intel mx-what">${esc(research.what)}</p>` : '';
   const confirm = confirming && !actHtml ? `<div class="panel mx-confirm" role="group" aria-label="Before you go on">
       <p class="intel">${esc(mode === 'city' ? 'Read the line above first. Go on?' : 'Read the warning above first. Go on?')}</p>
       <div class="row"><button type="button" class="btn-p" data-act="mx-confirm">YES, GO ON</button><button type="button" class="btn-s" data-act="mx-cancel">CANCEL</button></div></div>` : '';
@@ -125,7 +125,7 @@ export function renderMissionScreen(o) {
     ${said}${checking}
     ${warningHtml(view.warning, mode, place)}
     <div class="mx-card">${cardHtml}</div>
-    ${unfinished}${what}${guideHtml(view.guide)}
+    ${unfinished}${guideHtml(view.guide)}
     ${view.closer || research.open ? evidenceHtml : `<details class="mx-evidence"><summary class="label">${esc(mode === 'city' ? 'WHAT THE SWEEP SAW' : 'WHAT THE CHECK SAW')}</summary>${evidenceHtml}</details>`}
     ${linksHtml(research.links, mode)}
     ${confirm}${act}
