@@ -36,6 +36,21 @@ const Checklist = (function () {
     return String(s == null ? '' : s).replace(/[^a-zA-Z0-9_-]/g, '_');
   }
 
+  // Ids handed out since the last redraw. A second list that asks for a taken
+  // id (or one that collapses to it) gets a suffix, so `label for` stays right.
+  // preserveFocus() starts a fresh redraw; resetIds() does the same by hand.
+  let usedIds = new Set();
+  function resetIds() {
+    usedIds = new Set();
+  }
+  function uniqueId(raw) {
+    const base = safeId(raw);
+    let id = base;
+    for (let n = 2; usedIds.has(id); n += 1) id = `${base}-${n}`;
+    usedIds.add(id);
+    return id;
+  }
+
   function nounFor(action, n) {
     const noun = Array.isArray(action.noun) && action.noun.length === 2 ? action.noun : ['item', 'items'];
     return n === 1 ? noun[0] : noun[1];
@@ -78,7 +93,7 @@ const Checklist = (function () {
 
   function html(opts) {
     const o = opts || {};
-    const listId = safeId(o.id);
+    const listId = uniqueId(o.id);
     const items = Array.isArray(o.items) ? o.items.filter((it) => it && typeof it.key === 'string') : [];
     const actions = Array.isArray(o.actions) ? o.actions.filter((a) => a && typeof a.id === 'string') : [];
     const theme = o.theme === 'game' ? 'game' : 'plain';
@@ -158,6 +173,12 @@ const Checklist = (function () {
       if (!t || !list) return undefined;
       if (t.hasAttribute('data-cl-all') || t.hasAttribute('data-cl-none')) {
         const tick = t.hasAttribute('data-cl-all');
+        // Show every row before ticking, so nobody approves rows they haven't seen.
+        if (tick) {
+          Array.from(list.querySelectorAll('[data-cl-more]')).forEach((row) => { row.hidden = false; });
+          const showMore = list.querySelector('[data-cl-more-show]');
+          if (showMore) showMore.hidden = true;
+        }
         boxes(list).forEach((b) => { b.checked = tick; });
         update(list);
         return undefined;
@@ -182,6 +203,7 @@ const Checklist = (function () {
         const more = typeof b.closest === 'function' ? b.closest('[data-cl-more]') : null;
         return !(more && more.hidden);
       });
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
       const next = moveIndex(rows.indexOf(t), rows.length, event.key);
       if (next === null) return;
       if (typeof event.preventDefault === 'function') event.preventDefault();
@@ -218,16 +240,26 @@ const Checklist = (function () {
   // control of the same list, if it is still there. Works in a shadow root.
   function preserveFocus(root, render) {
     const key = focusKey(activeIn(root));
+    resetIds();
     render();
     if (!key || !root || typeof root.querySelectorAll !== 'function') return;
     const list = Array.from(root.querySelectorAll('[data-cl-list]')).find((l) => l.getAttribute('data-cl-list') === key.listId);
     if (!list) return;
     const target = Array.from(list.querySelectorAll(`[${key.attr}]`))
       .find((el) => key.value === null || el.getAttribute(key.attr) === key.value);
-    if (target && typeof target.focus === 'function') target.focus();
+    const usable = (el) => el && !isDisabled(el);
+    let dest = usable(target) ? target : null;
+    if (!dest) {
+      dest = Array.from(list.querySelectorAll('[data-cl-item]')).find(usable) || null;
+    }
+    if (!dest) {
+      if (typeof list.setAttribute === 'function') list.setAttribute('tabindex', '-1');
+      dest = list;
+    }
+    if (typeof dest.focus === 'function') dest.focus();
   }
 
-  return { SHOWN, html, attach, actionLabel, countText, moveIndex, preserveFocus, focusKey, esc, visible };
+  return { SHOWN, html, attach, actionLabel, countText, moveIndex, preserveFocus, resetIds, focusKey, esc, visible };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

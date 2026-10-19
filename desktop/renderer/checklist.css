@@ -84,3 +84,8 @@
 .checklist--game .checklist__box:focus-visible {
   outline-color: var(--cyan, currentColor);
 }
+/* A shadow root doesn't inherit styles.css's [hidden] rule, and the flex rows
+   above would override the browser's own, so say it here. */
+.checklist [hidden] {
+  display: none !important;
+}

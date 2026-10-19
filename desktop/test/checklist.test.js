@@ -155,3 +155,91 @@ test('preserveFocus does nothing when focus was elsewhere', () => {
   Checklist.preserveFocus(d.root, () => { ran = true; });
   assert.ok(ran);
 });
+
+// --- fix round 1 ---------------------------------------------------------------
+
+test('the stylesheet hides [hidden] rows itself, for the game\'s shadow root', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../renderer/checklist.css'), 'utf8');
+  assert.match(css, /\.checklist \[hidden\]\s*\{\s*display:\s*none\s*!important/);
+});
+
+test('modifier keys leave arrow keys alone', () => {
+  const d = build(['a', 'b']);
+  Checklist.attach(d.root, {});
+  let prevented = 0;
+  for (const mod of ['altKey', 'ctrlKey', 'metaKey']) {
+    fire(d.root, 'keydown', { key: 'ArrowDown', [mod]: true, target: d.boxes[0], preventDefault: () => { prevented += 1; } });
+  }
+  assert.strictEqual(prevented, 0);
+  assert.notStrictEqual(d.doc.activeElement, d.boxes[1]);
+});
+
+test('Select all reveals the hidden rows before ticking them', async () => {
+  const d = build(['a', 'b', 'c']);
+  const hiddenRow = d.boxes[2].parentNode;
+  hiddenRow.attrs['data-cl-more'] = '';
+  hiddenRow.hidden = true;
+  const show = d.list.add('button', { 'data-cl-more-show': '' });
+  Checklist.attach(d.root, {});
+  await d.all.click();
+  assert.strictEqual(hiddenRow.hidden, false);
+  assert.strictEqual(show.hidden, true);
+  assert.deepStrictEqual(d.boxes.map((b) => b.checked), [true, true, true]);
+});
+
+test('preserveFocus falls back to the first enabled box, then the fieldset', () => {
+  const d = build(['a', 'b']);
+  d.doc.activeElement = d.boxes[1];
+  let again;
+  Checklist.preserveFocus(d.root, () => {
+    d.root.removeChild(d.list);
+    again = build(['a', 'b'], { disabled: ['b'] });
+    d.root.appendChild(again.list);
+    again.boxes.forEach((b) => { b.focus = () => { d.doc.activeElement = b; }; });
+  });
+  assert.strictEqual(d.doc.activeElement, again.boxes[0]);
+
+  const e = build(['a', 'b']);
+  e.doc.activeElement = e.boxes[0];
+  let last;
+  Checklist.preserveFocus(e.root, () => {
+    e.root.removeChild(e.list);
+    last = build(['a', 'b'], { disabled: ['a', 'b'] });
+    e.root.appendChild(last.list);
+    last.list.focus = () => { e.doc.activeElement = last.list; };
+  });
+  assert.strictEqual(e.doc.activeElement, last.list);
+  assert.strictEqual(last.list.getAttribute('tabindex'), '-1');
+});
+
+test('duplicate list ids get a suffix so label-for stays unique', () => {
+  Checklist.resetIds();
+  const mk = (id) => Checklist.html({ id, legend: 'L', items: items(1), actions: [MARK] });
+  const a = mk('dup');
+  const b = mk('dup');
+  const c = mk('d/p'); // collapses to d_p, distinct
+  const d2 = mk('d?p'); // collapses to d_p too
+  assert.match(a, /data-cl-list="dup"/);
+  assert.match(b, /data-cl-list="dup-2"/);
+  assert.match(b, /id="dup-2-item-0"/);
+  assert.match(b, /label for="dup-2-item-0"/);
+  assert.match(c, /data-cl-list="d_p"/);
+  assert.match(d2, /data-cl-list="d_p-2"/);
+  Checklist.resetIds();
+  assert.match(mk('dup'), /data-cl-list="dup"/, 'a redraw starts fresh');
+});
+
+test('preserveFocus finds the active element through a shadow root', () => {
+  const d = build(['a', 'b']);
+  const shadow = { activeElement: d.boxes[1] };
+  d.root.getRootNode = () => shadow;
+  d.doc.activeElement = null; // the document sees only the host
+  let again;
+  Checklist.preserveFocus(d.root, () => {
+    d.root.removeChild(d.list);
+    again = build(['a', 'b']);
+    d.root.appendChild(again.list);
+    again.boxes.forEach((b) => { b.focus = () => { shadow.activeElement = b; }; });
+  });
+  assert.strictEqual(shadow.activeElement, again.boxes[1]);
+});
