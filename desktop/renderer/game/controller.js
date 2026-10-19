@@ -27,7 +27,7 @@ import { verifyMission, disagreement, loadScanConfirmed, saveScanConfirmed, mark
 import { focusFor, countDeckBars, accountDistrictCards, deviceMissionFor } from './one-city.js';
 import { renderOneCityMap } from './views/one-city-map.js';
 import { renderVerification, renderMilestoneSplit } from './views/verification.js';
-import { loadLessons, orderLessons, lessonForModule, afterScanDone, lessonsByDistrict, districtLesson } from './training.js';
+import { loadLessons, orderLessons, lessonForModule, afterScanDone, lessonsByDistrict, districtLesson, worryIdsOf } from './training.js';
 import { bossInit, bossApply, bossFinish } from './boss.js';
 import { renderTraining } from './views/training.js';
 import { renderLesson } from './views/lesson.js';
@@ -253,7 +253,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // to the Training Grounds (the HUD's TRAINING, or a briefing's lesson link).
   const cityWaiting = () => s.pendingCity || (!!s.city && !s.scan.running && !s.scan.error);
   const learnFor = () => {
-    const by = lessonsByDistrict(s.lessons, s.situation && s.situation.id);
+    const by = lessonsByDistrict(s.lessons, worryIdsOf(s.situation));
     return (id) => districtLesson(by, s.progress, id);
   };
 
@@ -567,7 +567,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'range') return rangeHtml();
     if (s.screen === 'training') {
-      return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
+      return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, worryIdsOf(s.situation)), progress: s.progress,
         worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
         lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city });
     }

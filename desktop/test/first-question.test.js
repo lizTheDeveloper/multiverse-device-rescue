@@ -77,3 +77,11 @@ test('the re-ask ("Something changed?"): the same question, a way back, and "rat
   assert.ok(html.includes(esc('Back — keep things as they are')));
   assert.ok(!FQ.questionHtml('first', esc).includes('data-answer="back"'), 'the first ask has no back: there is nothing to keep');
 });
+
+test('"watching me" among several worries still goes straight to city', () => {
+  for (const mode of [null, 'standard', 'city']) {
+    assert.strictEqual(FQ.afterWorry({ id: 'several', ids: ['hacked', 'watched'] }, mode), 'city');
+  }
+  assert.strictEqual(FQ.afterWorry({ id: 'several', ids: ['hacked', 'wifi'] }, 'standard'), 'standard');
+  assert.strictEqual(FQ.afterWorry({ id: 'several', ids: ['hacked', 'wifi'] }, null), 'ask');
+});

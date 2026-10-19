@@ -58,8 +58,15 @@ const FirstQuestion = (function () {
   }
 
   // After a worry is picked: the mode to use now, or 'ask' for the question first.
+  // Several worries can be ticked together; their ids are in situation.ids.
+  function idsOf(situation) {
+    if (!situation) return [];
+    return Array.isArray(situation.ids) ? situation.ids : [situation.id];
+  }
+
+  // "Watching me" among the worries goes straight to 'city', whatever else was ticked.
   function afterWorry(situation, mode) {
-    if (situation && situation.id === STRAIGHT_TO_CITY) return 'city';
+    if (idsOf(situation).includes(STRAIGHT_TO_CITY)) return 'city';
     return mode === 'city' || mode === 'standard' ? mode : 'ask';
   }
 

@@ -8,6 +8,11 @@ Start the app against that engine, not an old build in `desktop/engine/`:
 cd desktop && RESCUE_ENGINE="$PWD/../.venv/bin/rescue" npm start
 ```
 
+The worry screen is a checklist. Where a step below says to pick or click a
+worry, tick it and press **Start the checkup for 1 worry**. **I’m not sure —
+check everything** and the iPhone check are buttons of their own, below the
+list: click them.
+
 The first time a worry is picked on a clean slate, "One more question" appears
 (see "The question and the two modes"). In every section except those two,
 answer **No** to it, so the game runs in standard mode.
@@ -115,12 +120,31 @@ Set up the test launch agent from "Game mode, end to end" first. Run `RESCUE_ENG
 3. On a Mac that had Device Rescue with saved game progress: open Reclaim City. Lessons marked DONE and missions saved for LATER are still there. `~/Library/Application Support/Device Rescue/` is still the folder in use, and no `~/Library/Application Support/Reclaim City/` folder appears.
 4. Search every screen you pass through below for "Device Rescue". It appears nowhere, except where the real folder path `~/Library/Application Support/Device Rescue/Quarantine` is printed in a background job's Undo steps.
 
+## The worry checklist
+
+Start each step from a clean slate: in DevTools' Console run `localStorage.removeItem('device-rescue.display')` and reload. Use the keyboard only for steps 1 to 4, with VoiceOver on (Cmd-F5) for step 1.
+
+1. **Get started**. The worry screen lists six worries as checkboxes under "What’s worrying you?", and none is ticked. The count reads "0 of 6 selected" and the button reads **Select at least one** and can't be pressed. **I’m not sure — check everything** and **I’m worried about spyware on my iPhone** are separate buttons under "Or one of these, on its own:", not in the list. VoiceOver reads the group's name and each worry's title and description.
+2. Tab into the list. Up and Down arrows (and Home, End) move between worries; Space ticks one. Tick **I think I’ve been hacked** and **Someone is on my Wi-Fi…**. The count reads "2 of 6 selected" (VoiceOver announces it) and the button reads **Start the checkup for 2 worries**. Untick one: "1 of 6 selected", **Start the checkup for 1 worry**. Untick it: back to **Select at least one**, disabled.
+3. Tick **I think I’ve been hacked** and **Someone is on my Wi-Fi…** again and press **Start the checkup for 2 worries**. "One more question" appears, with focus on its title. Click **No**. The scan screen reads "Checking for: I think I’ve been hacked and Someone is on my Wi-Fi, or my computer is hot and slow". To see what the engine is asked for without a full scan, quit and run with `RESCUE_ENGINE=/tmp/args-rescue`, a script that writes its arguments down and finds nothing:
+    ```sh
+    #!/bin/sh
+    echo "$@" >> /tmp/rescue-args
+    echo '{"schema_version":1,"platform":"darwin","modules":[]}'
+    ```
+    (`chmod +x /tmp/args-rescue`.) Repeat this step and click **Run checkup**. `/tmp/rescue-args` has one line, with `--profile digital_security_reset --profile home_network_intrusion`. Delete both files afterwards.
+4. **Start over**, **Get started**. Nothing is ticked: each visit starts again.
+5. "Watching me" with another worry: clean slate, **Get started**, tick **I think I’ve been hacked** and **I think someone is watching me**, and press **Start the checkup for 2 worries**. No question is asked, `device-rescue.display` reads `city`, and the checkup runs in the game (the sweep screen). Its title on screen names no worry. The Reclaim City web link and the hotline notes follow the city-mode rules for the whole checkup, not just the "watching" part.
+6. Clean slate, set `device-rescue.display` to `standard`, reload. Tick **Someone stole my identity** and **I think someone is watching me**: still no question, and the mode switches to `city`.
+7. Clean slate. Tick a worry, then click **Something changed?** and **Back**: the tick is still there. Click **I’m not sure — check everything**: the ticked worry is ignored, "One more question" appears, and after **No** the scan screen's checkup runs every check (with `/tmp/args-rescue` from step 3, its line has no `--profile`).
+8. **Start over**, **Get started**, click **I’m worried about spyware on my iPhone**. The plain scan screen waits for **Run checkup**, as before.
+
 ## The question and the two modes
 
 Start from a clean slate each time: in DevTools' Console run `localStorage.removeItem('device-rescue.display')` and reload.
 
 1. **Get started**, pick **I think I’ve been hacked**. "One more question" appears with the question and three answers. The title of the question has keyboard focus (VoiceOver reads it first). Click **No**. The scan screen opens. Reload, go back to the worry screen: the question isn't asked again.
-2. On the worry screen, click **Something changed?**. The question appears with a fourth choice, **Back — keep things as they are**. Click **Back**: you're on the worry screen and nothing changed (`device-rescue.display` has the same value).
+2. On the worry screen, click **Something changed?**. The question appears with a fourth choice, **Back — keep things as they are**. Click **Back**: you're on the worry screen, keyboard focus is on **Something changed?**, any worries you had ticked are still ticked, and nothing changed (`device-rescue.display` has the same value).
 3. Open **Something changed?** again and answer **Yes, that’s part of it**. You're back on the worry screen, and `device-rescue.display` now reads `city`.
 4. With the mode on `city`, open **Something changed?** and click **I’d rather not say**. The mode is still `city`: only an explicit **No** leaves city mode. Open it once more and click **No**. The mode reads `standard`. (On the very first question, **I’d rather not say** gives `standard`.)
 5. DevTools → Application → Local Storage → `app://rescue`. The only new keys are `device-rescue.display` (`city` or `standard`) and `device-rescue.city-seed` (a number). Search every value for "partner", "safety", "stalk", "watch", "advocate" and "hotline": none appear.

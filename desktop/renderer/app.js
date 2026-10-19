@@ -53,6 +53,9 @@ const SITUATIONS = [
     profile: null, guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/' },
 ];
 
+// worries.js loads before app.js in the page; the Node tests require it.
+const WorryPick = typeof Worries !== 'undefined' ? Worries : require('./worries.js');
+
 const CATEGORY_PHRASES = {
   security: 'Looking for security problems',
   integrity: 'Checking that your system is healthy',
@@ -219,7 +222,7 @@ const LEARN_MORE = {
  * longer depends on this: see gameOfferedFor.)
  */
 function mayBeWatched(situation, doc) {
-  if (situation && (situation.safety || situation.id === 'phone')) return true;
+  if (situation && (situation.safety || WorryPick.has(situation, 'phone'))) return true;
   const modules = (doc && doc.modules) || [];
   return modules.some((mod) => mod && ALWAYS_SAFETY_MODULES.has(mod.name)
     && (mod.findings || []).some((f) => f && (f.severity === 'critical' || f.severity === 'warning')));
@@ -232,7 +235,7 @@ function mayBeWatched(situation, doc) {
  * 'standard' the person is asked first (FirstQuestion's follow-up).
  */
 function gameOfferedFor(situation) {
-  return !!situation && situation.id !== 'phone';
+  return !!situation && !WorryPick.has(situation, 'phone');
 }
 
 /** 'city' always plays: the app opens into the game, and every worry's scan runs there. */
@@ -294,7 +297,8 @@ function postScanView({ inGame, left, wantsCity, rememberedCity, offered, ready,
 /** The Reclaim City suggestion for these results, or null (see mayBeWatched). */
 function learnMoreFor(situation, doc) {
   if (!situation || mayBeWatched(situation, doc)) return null;
-  const entry = LEARN_MORE[situation.id];
+  // Several worries: the first one (in the list's order) that has a suggestion.
+  const entry = WorryPick.firstWith(situation, LEARN_MORE);
   if (!entry) return null;
   return { text: `${GAME_INTRO} ${entry.text}`, url: RECLAIM_CITY_URL + entry.path };
 }
@@ -555,7 +559,7 @@ if (typeof document !== 'undefined') {
         leftGame = true;
         wantsCity = false;
         rememberView('list');
-        if (lastScanDoc && !scanRunning && lastScanSituation === situation) showScreen('results');
+        if (lastScanDoc && !scanRunning && WorryPick.key(lastScanSituation) === WorryPick.key(situation)) showScreen('results');
         else goToScan();
       },
     };
@@ -624,9 +628,21 @@ if (typeof document !== 'undefined') {
       });
     }
 
+    // The worries: a checklist of the ones that combine, unticked, and a
+    // button each for the two that run on their own ("check everything" and
+    // the iPhone check). Ticking changes nothing until "Start the checkup".
     function renderSituations() {
       const list = document.getElementById('situations');
-      list.innerHTML = SITUATIONS.map(
+      const alone = document.getElementById('situations-alone');
+      list.innerHTML = Checklist.html({
+        id: 'worries',
+        legend: 'What’s worrying you?',
+        items: SITUATIONS.filter((s) => WorryPick.CHECKLIST_IDS.includes(s.id))
+          .map((s) => ({ key: s.id, label: s.title, note: s.sub })),
+        actions: [{ id: 'start', verb: 'Start the checkup for', noun: ['worry', 'worries'], min: 1 }],
+        selectAll: false,
+      });
+      alone.innerHTML = SITUATIONS.filter((s) => WorryPick.ON_THEIR_OWN.includes(s.id)).map(
         (s) => `
           <li>
             <button type="button" class="situation" data-situation="${escapeHtml(s.id)}">
@@ -638,15 +654,33 @@ if (typeof document !== 'undefined') {
             </button>
           </li>`
       ).join('');
-      list.querySelectorAll('[data-situation]').forEach((btn) => {
+      // The count, the button's words and the arrow keys.
+      Checklist.attach(list, {});
+      const start = list.querySelectorAll('[data-cl-action]')[0];
+      if (start) {
+        start.addEventListener('click', () => {
+          const ids = Array.from(list.querySelectorAll('[data-cl-key]'))
+            .filter((box) => box.checked === true)
+            .map((box) => box.getAttribute('data-cl-key'));
+          const picked = WorryPick.combine(ids, SITUATIONS);
+          if (picked) chooseWorry(picked);
+        });
+      }
+      alone.querySelectorAll('[data-situation]').forEach((btn) => {
         btn.addEventListener('click', () => {
-          situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
-          const next = FirstQuestion.afterWorry(situation, mode);
-          if (next === 'ask') { ask('first', startWorry); return; }
-          if (next !== mode) setMode(next);
-          startWorry();
+          const picked = WorryPick.combine([btn.dataset.situation], SITUATIONS);
+          if (picked) chooseWorry(picked);
         });
       });
+    }
+
+    // One worry or several: the display preference first, then the scan.
+    function chooseWorry(picked) {
+      situation = picked;
+      const next = FirstQuestion.afterWorry(situation, mode);
+      if (next === 'ask') { ask('first', startWorry); return; }
+      if (next !== mode) setMode(next);
+      startWorry();
     }
 
     // What a picked worry does once the display preference is known.
@@ -945,7 +979,8 @@ if (typeof document !== 'undefined') {
         if (inGame && !leftGame && ev.type === 'progress') window.RescueGame.scanEvent(ev);
       });
       try {
-        const doc = await window.rescue.runScan(situation ? situation.profile : null);
+        // One profile, the union of several (one --profile each), or null for every check.
+        const doc = await window.rescue.runScan(WorryPick.scanProfile(situation));
         if (doc && typeof doc.platform === 'string') {
           lastKnownPlatform = doc.platform;
         }
@@ -1035,20 +1070,29 @@ if (typeof document !== 'undefined') {
       onUnmarked: (els) => cardsOf(els).forEach((card) => clearList.restore(card)),
     });
 
+    // Each visit to the worry screen starts with nothing ticked.
     document.getElementById('btn-get-started').addEventListener('click', () => {
       wantsCity = false;
+      renderSituations();
       showScreen('worry');
     });
     document.getElementById('btn-play-game').addEventListener('click', () => {
       wantsCity = true;
       leftGame = false;
+      renderSituations();
       showScreen('worry');
     });
     // "Something changed?": the question again, then back to the worry screen.
     document.getElementById('btn-something-changed').addEventListener('click', () => {
       // Before any answer this is the first ask; after one, the re-ask, where
       // Back and "rather not say" leave the setting as it is.
-      ask(mode ? 'change' : 'first', () => showScreen('worry'));
+      // Back on the worry screen, the ticks are as they were and focus returns
+      // to this link, so the person carries on where they were.
+      ask(mode ? 'change' : 'first', () => {
+        showScreen('worry');
+        const back = document.getElementById('btn-something-changed');
+        if (back && typeof back.focus === 'function') back.focus();
+      });
     });
     document.getElementById('btn-see-city').addEventListener('click', () => {
       if (lastScanDoc) showCity(lastScanDoc);

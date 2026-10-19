@@ -30,11 +30,13 @@ class El {
     if (!v && this.id && this.doc && this.doc.revealed) this.doc.revealed.push(this.id);
     this._hidden = !!v;
   }
-  // The buttons the page makes from HTML: one per data-situation or data-answer.
+  // The controls the page makes from HTML: one per data-situation or
+  // data-answer button, per worry checkbox (data-cl-key) and per checklist
+  // button (data-cl-action).
   set innerHTML(html) {
     this._html = String(html);
-    this.kids = [...this._html.matchAll(/data-(situation|answer)="([^"]+)"/g)].map((m) => {
-      const b = new El(this.doc); b.dataset[m[1]] = m[2]; return b;
+    this.kids = [...this._html.matchAll(/data-(situation|answer|cl-key|cl-action)="([^"]+)"/g)].map((m) => {
+      const b = new El(this.doc); b.dataset[m[1]] = m[2]; b.attrs = { [`data-${m[1]}`]: m[2] }; return b;
     });
   }
   // escapeHtml sets textContent and reads innerHTML back.
@@ -42,11 +44,11 @@ class El {
   addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); }
   click() { (this.listeners.click || []).forEach((fn) => fn({ target: this, preventDefault() {} })); }
   querySelectorAll(sel) {
-    const m = /^\[data-(situation|answer)\]$/.exec(sel);
+    const m = /^\[data-(situation|answer|cl-key|cl-action)\]$/.exec(sel);
     return m ? this.kids.filter((k) => m[1] in k.dataset) : [];
   }
   querySelector() { return null; }
-  getAttribute() { return null; }
+  getAttribute(name) { return this.attrs && name in this.attrs ? this.attrs[name] : null; }
   setAttribute() {}
   appendChild() {}
   focus() { if (this.doc) this.doc.activeElement = this; }
@@ -110,7 +112,19 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
     scanFailed: rec('scanFailed', true), show: rec('show', true) };
   vm.runInNewContext(SRC, sandbox);
   const shown = () => ['welcome', 'worry', 'question', 'scan', 'results', 'city'].filter((k) => !byId(`screen-${k}`).hidden);
-  const pick = (id) => byId('situations').kids.find((b) => b.dataset.situation === id).click();
+  // "Check everything" and the iPhone check are buttons of their own; the
+  // other worries are ticked, then "Start the checkup" is pressed.
+  const pick = (...ids) => {
+    const alone = ids.length === 1 ? byId('situations-alone').kids.find((b) => b.dataset.situation === ids[0]) : null;
+    if (alone) return alone.click();
+    const kids = byId('situations').kids;
+    for (const id of ids) {
+      const box = kids.find((b) => b.dataset['cl-key'] === id);
+      box.checked = true;
+      (box.listeners.change || []).forEach((fn) => fn({ target: box }));
+    }
+    return kids.find((b) => 'cl-action' in b.dataset).click();
+  };
   const answer = (id) => byId('question-card').kids.find((b) => b.dataset.answer === id).click();
   const fire = (type) => (winListeners[type] || []).forEach((fn) => fn({ type }));
   const finish = async (d) => { finishScan(d); await tick(); await tick(); };

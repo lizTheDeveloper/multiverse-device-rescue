@@ -64,8 +64,10 @@
       <section id="screen-worry" class="screen" data-screen="worry" aria-labelledby="worry-title" hidden>
         <div class="card card--wide">
           <h1 id="worry-title">What&rsquo;s worrying you?</h1>
-          <p class="lede">Pick the one that sounds closest. You can come back and choose another afterward.</p>
-          <ul id="situations" class="situations"></ul>
+          <p class="lede">Tick everything that sounds close. You can come back and choose again afterward.</p>
+          <div id="situations" class="situations-checklist"></div>
+          <p class="muted">Or one of these, on its own:</p>
+          <ul id="situations-alone" class="situations"></ul>
           <p class="worry-change"><button id="btn-something-changed" class="link-button" type="button">Something changed?</button></p>
         </div>
       </section>
@@ -186,6 +188,7 @@
   <script src="display-mode.js"></script>
   <script src="first-question.js"></script>
   <script src="quiet-notes.js"></script>
+  <script src="worries.js"></script>
   <script src="app.js"></script>
   <script type="module" src="game/boot.js"></script>
 </body>
