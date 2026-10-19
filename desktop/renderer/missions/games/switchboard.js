@@ -694,13 +694,23 @@ export const practice = {
       data: { check: 'bank_domain_redirect', count: 1, entries: [{ ip: '203.0.113.7', hostname: 'mybank.example' }] },
     }),
   ],
+  // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+  // an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
   script: [
-    { item: 0, say: W('Follow the line: port 631 is the printer service (cupsd), and it only answers this computer. That’s expected.',
-      'Follow the line: socket 631 is the printer service, and only your post can ring it. That’s expected.'), expect: 'expected' },
-    { item: 1, say: W('You don’t know “syncagentd”, and anyone on your network could reach it. Don’t guess: look closer first.',
-      'You don’t know “syncagentd”, and anyone on the street could ring it. Don’t guess: trace it first.'), expect: 'closer' },
-    { item: 2, say: W('A bank’s name is sent to an address that isn’t the bank. That line is odd: close it.',
-      'A bank’s name is sent to an address that isn’t the bank. That line is wrong: cut it.'), expect: 'odd' },
+    { item: 0, say: W('Read each line from left to right: this computer, the port or program it goes through, and where it goes.',
+      'Read each line from left to right: your post, the socket or crew it goes through, and where it goes.') },
+    { item: 0, expect: ['expected', 'closer'],
+      say: W('Follow this line. What is it, and who can reach it? What would you do?', 'Follow this line. What is it, and who can ring it? What would you do?'),
+      why: W('Port 631 is the printer service (cupsd), and it only answers this computer. That’s expected.',
+        'Socket 631 is the printer service, and only your post can ring it. That’s expected.') },
+    { item: 1, expect: 'closer',
+      say: W('Follow this line. Do you know the program? Who can reach it? What would you do?', 'Follow this line. Do you know the crew? Who can ring it? What would you do?'),
+      why: W('You don’t know “syncagentd”, and anyone on your network could reach it. Don’t guess: look closer first.',
+        'You don’t know “syncagentd”, and anyone on the street could ring it. Don’t guess: trace it first.') },
+    { item: 2, expect: ['odd', 'closer'],
+      say: W('Follow this line: a bank’s website name. Where is it sent? What would you do?', 'Follow this line: a bank’s name. Where is it sent? What would you do?'),
+      why: W('A bank’s name is sent to an address that isn’t the bank. That line is odd: close it.',
+        'A bank’s name is sent to an address that isn’t the bank. That line is wrong: cut it.') },
   ],
 };
 

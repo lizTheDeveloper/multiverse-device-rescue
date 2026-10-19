@@ -421,11 +421,20 @@ export const practice = {
       made_by: [{ subject: '/opt/homebrew/opt/postgresql@16/bin/postgres', name: 'Unknown maker', verified: false, how: 'not signed by a developer' }],
     }),
   ],
+  // Steps ask before they tell: `say` points at what to read and asks; `why` (shown after the move) gives the
+  // verdict and the clue behind it. A step with no `expect` only explains (one GOT IT). `expect` may
+  // list several moves that all fit (Look closer, when you're not sure).
   script: [
-    { item: 0, say: { standard: 'Each thing that starts on its own knocks like this. Read two things: what it runs, and who signed it.', city: 'Each visitor knocks like this. Read two things: what it runs, and whose seal it carries.' } },
-    { item: 0, point: 'signer', say: { standard: 'Signed by Apple, verified, and it runs from /System, where macOS keeps its own files. This one belongs here.', city: 'Apple’s seal checks out, and it runs from /System, where macOS keeps its own files. This one belongs here.' }, expect: 'mine' },
-    { item: 1, point: 'runs', say: { standard: 'See the Runs path? “.hidden” starts with a dot, so it’s a hidden folder, and nobody has vouched for the maker. Installed apps don’t run from places like this.', city: 'See the Runs path? “.hidden” starts with a dot, so it’s a hidden folder, and no seal vouches for it. Settled residents don’t live in places like this.' }, expect: 'not-mine' },
-    { item: 2, point: 'runs', say: { standard: 'Not verified, but it runs from Homebrew’s folder, for the database you installed. When you know why it’s there, it’s yours.', city: 'No checked seal, but it runs from Homebrew’s folder, for the database you set up. When you know why it’s there, let it in.' }, expect: 'mine' },
+    { item: 0, say: { standard: 'Each thing that starts on its own knocks like this. Read two lines: Runs (where its program lives) and Signed by (who made it, and whether that was checked).', city: 'Each visitor knocks like this. Read two lines: Runs (where it lives) and Seal (who made it, and whether the seal checks out).' } },
+    { item: 0, point: 'signer', expect: ['mine', 'closer'],
+      say: { standard: 'Read Signed by and Runs. What would you do with this one?', city: 'Read the seal and where it runs. What would you do with this one?' },
+      why: { standard: 'Signed by Apple, verified, and it runs from /System, where macOS keeps its own files. It belongs here: Mine.', city: 'Apple’s seal checks out, and it runs from /System, where macOS keeps its own files. It belongs here: let it in.' } },
+    { item: 1, point: 'runs', expect: ['closer', 'not-mine'],
+      say: { standard: 'Read the Runs path, then Signed by. What would you do?', city: 'Read where it runs, then the seal. What would you do?' },
+      why: { standard: '“.hidden” starts with a dot, so it’s a hidden folder, and nobody has vouched for the maker. Installed apps don’t run from places like this. Look closer, or Not mine if you know you didn’t put it there.', city: '“.hidden” starts with a dot, so it’s a hidden folder, and no seal vouches for it. Settled residents don’t live in places like this. Look closer, or bar the door if you know you didn’t let it in.' } },
+    { item: 2, point: 'runs', expect: ['mine', 'closer'],
+      say: { standard: 'Not verified. Read the practice note above the card, then the Runs path. What would you do?', city: 'No checked seal. Read the practice note above the card, then where it runs. What would you do?' },
+      why: { standard: 'It runs from Homebrew’s folder, for the database you installed. When you know why it’s there, it’s yours: Mine. Look closer is fine too when you’re not sure.', city: 'It runs from Homebrew’s folder, for the database you set up. When you know why it’s there, let it in. Look closer is fine too when you’re not sure.' } },
   ],
 };
 

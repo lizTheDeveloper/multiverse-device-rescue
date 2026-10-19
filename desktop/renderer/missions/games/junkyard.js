@@ -576,11 +576,19 @@ const PRACTICE_ITEMS = [
   }),
 ];
 
+// Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+// an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
 const PRACTICE_SCRIPT = [
-  { item: 0, look: 'size', say: L('Start with the size. This pile is 2.4 GB of browser cache.', 'Start with the size. This pile is 2.4 GB of browser scrap.') },
-  { item: 0, look: 'verdict', say: L('A cache is copies a browser keeps to load pages faster. It rebuilds them, so this is safe to clear.', 'Browser scrap grows back on its own, so it is safe to haul off.'), expect: 'clear' },
-  { item: 1, look: 'top', say: L('Big is not the same as junk. This is a film you made: keep it, or copy it to a backup before clearing.', 'Big is not the same as scrap. This is a film you made: keep it, or copy it somewhere safe first.'), expect: 'keep' },
-  { item: 2, look: 'what', say: L('This app keeps crashing. There is nothing here to clear away, so choose Update it to look up the maker\'s fix.', 'This machine keeps breaking down. There is no scrap to haul, so choose Patch it to look up a new part.'), expect: 'update' },
+  { item: 0, look: 'size', say: L('Start with the size, then read what the pile is.', 'Start with the size, then read what the pile is.') },
+  { item: 0, look: 'verdict', expect: ['clear', 'later'],
+    say: L('A pile of browser cache. Read what it is. What would you do?', 'A pile of browser scrap. Read what it is. What would you do?'),
+    why: L('A cache is copies a browser keeps to load pages faster. It rebuilds them, so it is safe to clear.', 'Browser scrap grows back on its own, so it is safe to haul off.') },
+  { item: 1, look: 'top', expect: ['keep', 'later'],
+    say: L('A big pile. Read the biggest file in it. What would you do?', 'A big pile. Read the biggest piece in it. What would you do?'),
+    why: L('Big is not the same as junk. This is a film you made: keep it, or copy it to a backup before clearing.', 'Big is not the same as scrap. This is a film you made: keep it, or copy it somewhere safe first.') },
+  { item: 2, look: 'what', expect: 'update',
+    say: L('This app keeps crashing. What would you do?', 'This machine keeps breaking down. What would you do?'),
+    why: L('There is nothing here to clear away. Update it looks up the maker\'s fix.', 'There is no scrap to haul. Patch it looks up a new part from its maker.') },
 ];
 
 export default {

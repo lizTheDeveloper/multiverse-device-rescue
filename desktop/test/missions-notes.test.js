@@ -9,6 +9,8 @@ const R = path.join(__dirname, '..', 'renderer', 'missions');
 const loadC = () => import(pathToFileURL(path.join(R, 'contract.js')).href);
 const loadN = () => import(pathToFileURL(path.join(R, 'games', 'notes.js')).href);
 const FIX = require('./fixtures/missions/notes-batch.json');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 async function setup() {
   const C = await loadC();
@@ -127,7 +129,7 @@ test('practice: three made-up notes, normal / odd / normal, scripted in both mod
   const { N } = await setup();
   const { items, script } = N.practice;
   assert.strictEqual(items.length, 3);
-  assert.deepStrictEqual(script.map((s) => s.expect), ['normal', 'odd', 'normal']);
+  assert.deepStrictEqual(script.map((s) => first(s.expect)), ['normal', 'odd', 'normal']);
   assert.deepStrictEqual(script.map((s) => s.item), [0, 1, 2]);
   for (const s of script) for (const m of ['standard', 'city']) assert.ok(s.say[m] && s.say[m].length < 220);
   assert.ok(items.every((i) => i.severity === 'info' && i.practice === true));

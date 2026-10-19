@@ -6,6 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const NotChecked = require('../renderer/not-checked.js');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const R = path.join(__dirname, '..', 'renderer', 'missions');
 const load = async () => ({
@@ -201,11 +203,11 @@ test('practice: a screen recorder (keep), a game with Accessibility (hand back),
   const { items, script } = G.practice;
   assert.strictEqual(items.length, 3);
   const ctx = C.testContext({ practice: true });
-  const expects = script.filter((s) => s.expect).map((s) => [s.item, s.expect]);
+  const expects = script.filter((s) => s.expect).map((s) => [s.item, first(s.expect)]);
   assert.deepStrictEqual(expects, [[0, 'keep'], [1, 'hand_back'], [2, 'closer']]);
   for (const s of script) {
     const ids = G.decisions(items[s.item], ctx).map((d) => d.id);
-    if (s.expect) assert.ok(ids.includes(s.expect), `${s.expect} in ${ids}`);
+    if (s.expect) assert.ok(ids.includes(first(s.expect)), `${first(s.expect)} in ${ids}`);
     assert.deepStrictEqual(C.checkCityWords(s.say.city), []);
   }
   // Synthetic only: no home folders.

@@ -5,6 +5,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const ROOT = path.join(__dirname, '..', '..');
 const imp = (...p) => import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', ...p)).href);
@@ -250,11 +252,11 @@ test('practice: a verified Apple agent, an unsigned agent in ~/.hidden, a develo
   assert.match(dev.finding.setup, /you installed/);
   for (const s of game.practice.script) {
     assert.ok(game.practice.items[s.item], 'step points at a practice item');
-    if (s.expect) assert.ok(ids(game.decisions(game.practice.items[s.item], ctx)).includes(s.expect), `${s.expect} is a decision`);
+    if (s.expect) assert.ok(ids(game.decisions(game.practice.items[s.item], ctx)).includes(first(s.expect)), `${first(s.expect)} is a decision`);
     assert.deepStrictEqual(C.checkCityWords(s.say.city), []);
   }
-  const expects = game.practice.script.filter((s) => s.expect).map((s) => [s.item, s.expect]);
-  assert.deepStrictEqual(expects, [[0, 'mine'], [1, 'not-mine'], [2, 'mine']]);
+  const expects = game.practice.script.filter((s) => s.expect).map((s) => [s.item, first(s.expect)]);
+  assert.deepStrictEqual(expects, [[0, 'mine'], [1, 'closer'], [2, 'mine']]);
   // The hidden practice agent carries the removal warning, so its default is Look closer.
   assert.strictEqual(game.decisions(hidden, ctx)[0].id, 'closer');
 });

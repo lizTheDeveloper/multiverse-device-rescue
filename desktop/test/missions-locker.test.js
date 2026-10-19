@@ -6,6 +6,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const MISSIONS = path.join(__dirname, '..', 'renderer', 'missions');
 const loadContract = () => import(pathToFileURL(path.join(MISSIONS, 'contract.js')).href);
@@ -276,17 +278,19 @@ test('practice: a developer script (Mine), a dropped temp script (Quarantine), a
   const ctx = C.testContext({ practice: true });
   const { items, script } = game.practice;
   assert.strictEqual(items.length, 3);
-  assert.deepStrictEqual(script.map((s) => s.expect), ['mine', 'quarantine', 'closer']);
+  assert.deepStrictEqual(script.filter((s) => s.expect).map((s) => first(s.expect)), ['mine', 'quarantine', 'closer']);
   for (const step of script) {
-    assert.ok(ids(game.decisions(items[step.item], ctx)).includes(step.expect), step.expect);
+    if (step.expect) assert.ok(ids(game.decisions(items[step.item], ctx)).includes(first(step.expect)), step.expect);
     assert.ok(game.concepts.includes(step.concept), step.concept);
     assert.ok(step.say.standard && step.say.city);
   }
   assert.deepStrictEqual(Object.values(G.placeFlags(items[1].finding.data.path)).slice(0, 2), [true, true]);
   assert.strictEqual(G.placeFlags(items[2].finding.data.path).cache, true);
-  const html = strip(game.render({ item: items[2], research: game.research(items[2], ctx), decisions: [], index: 2, total: 3, practice: true, step: script[2] }, ctx));
+  const cacheStep = script.find((s) => s.item === 2);
+  const html = strip(game.render({ item: items[2], research: game.research(items[2], ctx), decisions: [], index: 3, total: 4, practice: true, step: cacheStep }, ctx));
   assert.match(html, /an app's cache/);
-  assert.match(html, /Look closer before you decide/);
+  assert.match(html, /Read where this one is/, 'the card asks; the verdict waits');
+  assert.match(cacheStep.why.standard, /Look closer before you decide/);
   // Synthetic: no real home folders.
   const txt = JSON.stringify(items);
   assert.doesNotMatch(txt, /\/Users\/(?!example\/)/);

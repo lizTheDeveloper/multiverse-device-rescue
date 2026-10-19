@@ -5,6 +5,8 @@ const assert = require('node:assert');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const MISSIONS = path.join(__dirname, '..', 'renderer', 'missions');
 const loadContract = () => import(pathToFileURL(path.join(MISSIONS, 'contract.js')).href);
@@ -284,10 +286,10 @@ test('practice: a password manager (keep), a coupon add-on reading every site (r
   assert.ok(coupon.finding.data.permissions.includes('<all_urls>'));
   assert.match(coupon.finding.data.extension, /coupon/i);
   assert.deepStrictEqual(theme.finding.data.permissions, []);
-  const expects = game.practice.script.map((s) => [s.item, s.expect]);
+  const expects = game.practice.script.filter((s) => s.expect).map((s) => [s.item, first(s.expect)]);
   assert.deepStrictEqual(expects, [[0, 'keep'], [1, 'remove'], [2, 'keep']]);
   for (const s of game.practice.script) {
-    assert.ok(ids(game.decisions(game.practice.items[s.item], ctx)).includes(s.expect));
+    if (s.expect) assert.ok(ids(game.decisions(game.practice.items[s.item], ctx)).includes(first(s.expect)));
     assert.deepStrictEqual(C.checkCityWords(s.say.city), []);
   }
   assert.ok(game.practice.items.every((i) => i.practice === true));

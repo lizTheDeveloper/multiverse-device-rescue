@@ -422,12 +422,19 @@ export const practice = {
       data: { check: 'suspicious_input_monitoring', apps: ['com.example.keyremap'] },
     }),
   ],
+  // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+  // an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
   script: [
-    { item: 0, say: { standard: 'Each app shows the keys it holds. Frame Grabber is a screen recorder, its maker is confirmed, and seeing the screen is its job.', city: 'Each holder shows its keys. Frame Grabber records windows for a living, and its maker checks out.' } },
-    { item: 0, say: { standard: 'It needs that key, so keep it.', city: 'It needs that key. Keep it.' }, expect: 'keep' },
-    { item: 1, say: { standard: 'Puzzle Pop is a game holding Accessibility, the key that clicks and types for you. A game doesn’t need it.', city: 'A puzzle game holding the Control key? It has no use for it.' } },
-    { item: 1, say: { standard: 'Hand it back. The Accessibility list opens and you switch it off; you can switch it on again if you need it.', city: 'Hand it back. The switch room opens; flip it off, and you can flip it on again if you need it.' }, expect: 'hand_back' },
-    { item: 2, say: { standard: 'This keyboard tool is known only by its app id, so its maker isn’t confirmed, and it can see what you type. Look closer before you decide.', city: 'Known only by its tag, maker unconfirmed, and it hears every key. Look closer before you choose.' }, expect: 'closer' },
+    { item: 0, say: { standard: 'Each app shows the keys it holds and who made it. Ask two things: is the maker confirmed, and does the app need this key for its job?', city: 'Each holder shows its keys and its maker. Ask two things: does the maker check out, and does it need this key for its job?' } },
+    { item: 0, expect: ['keep', 'closer'],
+      say: { standard: 'Frame Grabber holds the Screen Recording key. What would you do?', city: 'Frame Grabber holds the Window key. What would you do?' },
+      why: { standard: 'A screen recorder has to see the screen, and its maker is confirmed. Keep it.', city: 'It records windows for a living, and its maker checks out. Keep the key.' } },
+    { item: 1, expect: ['hand_back', 'closer'],
+      say: { standard: 'Puzzle Pop holds Accessibility, the key that clicks and types for you. What would you do?', city: 'Puzzle Pop holds the Control key, the one that works every control. What would you do?' },
+      why: { standard: 'A puzzle game has no use for that key. Hand it back: the Accessibility page opens, you switch it off there, and you can switch it on again if you ever need it.', city: 'A puzzle game has no use for the Control key. Hand it back: the switch room opens, you flip it off, and you can flip it on again if you need it.' } },
+    { item: 2, expect: 'closer',
+      say: { standard: 'This keyboard tool can see what you type. Read its maker line. What would you do?', city: 'This tool hears every key you press. Read its maker line. What would you do?' },
+      why: { standard: 'It’s known only by its app id, so its maker isn’t confirmed. Look closer before you decide.', city: 'Known only by its tag, so its maker is unconfirmed. Look closer before you choose.' } },
   ],
 };
 

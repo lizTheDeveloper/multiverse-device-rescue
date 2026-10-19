@@ -573,15 +573,24 @@ const PRACTICE_ITEMS = [
   }),
 ];
 
+// Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+// an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
 const PRACTICE_SCRIPT = [
   { item: 0, say: t('Two sides: what the maker signed, and what’s on disk. When they don’t match, that’s your clue.',
     'Two sides: the maker’s seal, and what’s here now. When they don’t match, that’s your clue.') },
-  { item: 0, say: t('This game is signed the old way. Today’s macOS can’t check that kind, so a fresh copy from the maker is the easy fix.',
-    'This game has an old seal the checker can’t read. A fresh copy from the maker sorts it out.'), expect: 'reinstall' },
-  { item: 1, say: t('Changed after signing: updates are always signed again, so this has no normal reason. Don’t replace it yet. Look closer first.',
-    'Broken seal: real updates always get a new seal. Don’t swap it yet. Look closer first.'), expect: 'closer' },
-  { item: 2, say: t('No signature, but this is a test build you made yourself. Your own builds are often unsigned.',
-    'No seal, but this is gear you built yourself. Home-built gear often has no seal.'), expect: 'mine' },
+  { item: 0, expect: ['reinstall', 'closer'],
+    say: t('Read both sides of this game’s seal. What would you do?', 'Read both sides of this game’s seal. What would you do?'),
+    why: t('It’s signed the old way, and today’s macOS can’t check that kind. A fresh copy from the maker comes with a current signature.',
+      'It has an old seal the checker can’t read. A fresh copy from the maker comes with a fresh seal.') },
+  { item: 1, expect: 'closer',
+    say: t('Read both sides again. What would you do?', 'Read both sides again. What would you do?'),
+    why: t('Changed after signing: updates from the maker are always signed again, so there’s no normal reason for this. Don’t replace it yet: look closer first.',
+      'Broken seal: real updates always come with a new seal, so there’s no good reason for this. Don’t swap it yet: look closer first.') },
+  { item: 2, expect: ['mine', 'closer'],
+    say: t('No signature at all. In this practice, MyTestBuild is a test build you made yourself. What would you do?',
+      'No seal at all. In this drill, MyTestBuild is gear you built yourself. What would you do?'),
+    why: t('Your own builds are often unsigned. You know what it is and why it’s there, so it’s yours.',
+      'Home-built gear often has no seal. You know what it is and why it’s there, so it’s yours.') },
 ];
 
 export default {

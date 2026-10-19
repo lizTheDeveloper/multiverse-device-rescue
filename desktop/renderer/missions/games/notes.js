@@ -218,16 +218,24 @@ const PRACTICE_ITEMS = [
 
 export const practice = {
   items: PRACTICE_ITEMS,
+  // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. Several ids in
+  // `expect`: all of them fit (the first is the best).
   script: [
     { item: 0, expect: 'normal', say: {
-      standard: 'This one runs from a system folder, and its maker is Apple, verified. Housekeeping like this is normal. Try “Looks normal”.',
-      city: 'System folder, Apple’s seal, verified. That’s noise. Call it.' } },
+      standard: 'Read where it runs and who made it. Normal or odd?',
+      city: 'Read where it runs and whose seal it carries. Noise or signal?' }, why: {
+      standard: 'It runs from a system folder, and its maker is Apple, verified. Housekeeping like this is normal.',
+      city: 'System folder, Apple’s seal, verified. That’s noise.' } },
     { item: 1, expect: 'odd', say: {
-      standard: 'See where it runs? ~/.hidden is a hidden folder, and nobody has vouched for the maker. That’s odd. Try “Looks odd”: it becomes a mission of its own.',
-      city: 'Look where it runs: a hidden folder, and no seal. That’s a signal. Call it, and it becomes a mission.' } },
-    { item: 2, expect: 'normal', say: {
-      standard: 'One video-call app can use the camera. If you make video calls, that’s normal.',
-      city: 'One video-call app has the camera key. If you make calls, that’s noise.' } },
+      standard: 'Read where this one runs. Normal or odd?',
+      city: 'Read where this one runs. Noise or signal?' }, why: {
+      standard: '~/.hidden is a hidden folder, and nobody has vouched for the maker. That’s odd. Calling it odd makes it a mission of its own.',
+      city: 'A hidden folder, and no seal. That’s a signal. Calling it makes it a mission of its own.' } },
+    { item: 2, expect: ['normal', 'odd'], say: {
+      standard: 'One app can use the camera: a video-call app. Normal or odd?',
+      city: 'One video-call app has the lens key. Noise or signal?' }, why: {
+      standard: 'If you make video calls, that’s normal. If you don’t, call it odd and look at it.',
+      city: 'If you make calls, that’s noise. If you don’t, call it a signal and look at it.' } },
   ],
 };
 

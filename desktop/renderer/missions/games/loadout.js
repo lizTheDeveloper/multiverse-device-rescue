@@ -563,16 +563,27 @@ const practice = {
       made_by: [{ subject: 'Midnight Sky Theme', name: 'Sky Themes (made up)', verified: true, how: 'practice', what: 'Midnight Sky Theme: changes the browser’s colours. Nothing else.' }],
     }),
   ],
+  // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+  // an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
   script: [
-    { item: 0, expect: 'keep', say: {
-      standard: 'A password manager can read every site: it has to, to fill in your passwords there. You know it and it needs that access, so keep it.',
-      city: 'This gear keeps your passwords. It reaches every site because it fills them in there. You know it and it needs the reach: keep it.' } },
-    { item: 1, expect: 'remove', say: {
-      standard: 'A coupon add-on from an unknown maker, reading every site and the cookies that keep you signed in. You don’t remember adding it, and it doesn’t need that much: remove it.',
-      city: 'Coupon gear from an unknown maker, reaching every site and the cookies that keep you signed in. You never packed it, and it doesn’t need that reach: drop it.' } },
+    { item: 0, say: {
+      standard: 'Each add-on lists what it can do, in plain words. Ask two things: who made it, and does it need that much?',
+      city: 'Each piece of gear lists what it can reach. Ask two things: who made it, and does it need that much reach?' } },
+    { item: 0, expect: ['keep', 'trim'], say: {
+      standard: 'A password manager that can read every site. Read who made it and what it can do. What would you do?',
+      city: 'Password gear that reaches every site. Read who made it and what it can reach. What would you do?' }, why: {
+      standard: 'It has to reach every site to fill in your passwords there, and its maker is known. Keep it.',
+      city: 'It reaches every site because it fills your passwords in there, and its maker is known. Keep it.' } },
+    { item: 1, expect: ['remove', 'trim'], say: {
+      standard: 'A coupon add-on that reads every site and the cookies that keep you signed in. Read who made it. What would you do?',
+      city: 'Coupon gear that reaches every site and the cookies that keep you signed in. Read who made it. What would you do?' }, why: {
+      standard: 'Its maker is unknown, and finding coupons doesn’t need your sign-in cookies. Remove it. Trimming its access is the gentler move if you still want it.',
+      city: 'Its maker is unknown, and coupons don’t need your sign-in cookies. Drop it. Trimming its reach is the gentler move if you still want it.' } },
     { item: 2, expect: 'keep', say: {
-      standard: 'A theme only changes colours and asks for no special access. Keep it.',
-      city: 'A theme only repaints the browser. No special powers: keep it.' } },
+      standard: 'A theme. Read what it can do. What would you do?',
+      city: 'A theme. Read what it can reach. What would you do?' }, why: {
+      standard: 'It only changes colours and asks for no special access. Keep it.',
+      city: 'It only repaints the browser. No special powers: keep it.' } },
   ],
 };
 

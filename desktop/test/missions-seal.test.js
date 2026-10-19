@@ -6,6 +6,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const MISSIONS = path.join(__dirname, '..', 'renderer', 'missions');
 const url = (rel) => pathToFileURL(path.join(MISSIONS, rel)).href;
@@ -283,9 +285,9 @@ test('practice: an old-format game, a tampered app, an unsigned developer build;
   for (const step of G.practice.script) {
     const item = G.practice.items[step.item];
     assert.ok(item, 'step points at an item');
-    if (step.expect) assert.ok(ids(G.decisions(item, C.testContext())).includes(step.expect), `${step.expect} is a move on item ${step.item}`);
+    if (step.expect) assert.ok(ids(G.decisions(item, C.testContext())).includes(first(step.expect)), `${first(step.expect)} is a move on item ${step.item}`);
   }
-  const expects = G.practice.script.filter((s) => s.expect).map((s) => [G.classify(G.practice.items[s.item].finding).verdict, s.expect]);
+  const expects = G.practice.script.filter((s) => s.expect).map((s) => [G.classify(G.practice.items[s.item].finding).verdict, first(s.expect)]);
   assert.deepStrictEqual(expects, [['old-format', 'reinstall'], ['tampered', 'closer'], ['unsigned', 'mine']]);
 });
 

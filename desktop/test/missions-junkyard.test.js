@@ -6,6 +6,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const root = path.join(__dirname, '..', 'renderer', 'missions');
 const loadGame = () => import(pathToFileURL(path.join(root, 'games', 'junkyard.js')).href);
@@ -257,7 +259,7 @@ test('practice: a browser cache, a video you made, an app that keeps crashing', 
   assert.strictEqual(p.items.length, 3);
   assert.deepStrictEqual(p.items.map((i) => i.finding.module), ['browser_cache_cleanup', 'large_files_finder', 'app_crash_analyzer']);
   const ctx = C.testContext();
-  const expected = p.script.filter((s) => s.expect).map((s) => [s.item, s.expect]);
+  const expected = p.script.filter((s) => s.expect).map((s) => [s.item, first(s.expect)]);
   assert.deepStrictEqual(expected, [[0, 'clear'], [1, 'keep'], [2, 'update']]);
   for (const [i, want] of expected) assert.ok(ids(game.decisions(p.items[i], ctx)).includes(want), `item ${i} offers ${want}`);
   for (const s of p.script) {

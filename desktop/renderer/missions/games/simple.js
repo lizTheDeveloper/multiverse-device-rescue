@@ -60,9 +60,15 @@ export default {
           severity: 'warning', category: 'security', data: { label: 'com.example.helper' } },
         findings: [] },
     ],
+    // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict. No `expect`: an
+    // explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
     script: [
-      { item: 0, say: label('Each job has a few moves. Not sure yet? Later is always safe.', 'Every job has a few moves. Later is always safe.'), expect: 'later' },
-      { item: 1, say: label('Done it yourself? Say so and the app checks again.', 'Done it already? Say so and the city checks again.'), expect: 'did' },
+      { item: 0, expect: 'later',
+        say: label('A setting that is usually on is off, and you’re not sure why yet. What would you do?', 'A switch that is usually on is off, and you’re not sure why yet. What would you do?'),
+        why: label('Not sure yet? Later is always safe: the job stays on your list.', 'Not sure yet? Later is always safe: the job stays on the board.') },
+      { item: 1, expect: 'did',
+        say: label('In this practice, you already removed this helper yourself. What would you do?', 'In this drill, you already cleared this helper out yourself. What would you do?'),
+        why: label('“I did this” checks again, and the job counts once the check sees it gone.', '“Done it” sends the city to check again, and the job counts once it sees it gone.') },
     ],
   },
 

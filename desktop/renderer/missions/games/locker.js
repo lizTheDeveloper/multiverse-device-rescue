@@ -638,18 +638,33 @@ const PRACTICE_ITEMS = [
   }),
 ];
 
+// Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+// an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
 const PRACTICE_SCRIPT = [
-  { item: 0, expect: 'mine', concept: 'where-it-lives', say: {
-    standard: "This script is in your own project folder. It matched \"downloads and runs code\", which installers do. If you wrote it or added it, it's yours: choose Mine.",
-    city: "This exhibit is in your own project folder. It matched \"fetch-and-run code\", which installers do. If you wrote it or added it, it's yours: choose Mine.",
+  { item: 0, concept: 'where-it-lives', say: {
+    standard: 'Each tag says what matched and where the file is. Where it lives is often the best clue.',
+    city: 'Each tag says what matched and where the exhibit was found. Where it lives is often the best clue.',
   } },
-  { item: 1, expect: 'quarantine', concept: 'where-it-lives', say: {
+  { item: 0, expect: ['mine', 'closer'], concept: 'where-it-lives', say: {
+    standard: 'This script matched "downloads and runs code". Read where it is. What would you do?',
+    city: 'This exhibit matched "fetch-and-run code". Read where it is. What would you do?',
+  }, why: {
+    standard: "It's in your own project folder, and installers download and run code all the time. If you wrote it or added it, it's yours: Mine.",
+    city: "It's in your own project folder, and installers fetch and run code all the time. If you wrote it or added it, it's yours: Mine.",
+  } },
+  { item: 1, expect: ['quarantine', 'closer'], concept: 'where-it-lives', say: {
+    standard: 'The same kind of match. Read where it is and who made it. What would you do?',
+    city: 'The same kind of match. Read where it is and whose mark it carries. What would you do?',
+  }, why: {
     standard: 'A hidden folder inside a temporary folder, no maker, and code that hides what it does. Nobody installs things there. Quarantine moves it aside; nothing is deleted.',
-    city: 'A hidden spot inside a temporary folder, no maker\'s mark, and scrambled code. Nobody keeps things there. Bag it: it moves aside, nothing is deleted.',
+    city: "A hidden spot inside a temporary folder, no maker's mark, and scrambled code. Nobody keeps things there. Bag it: it moves aside, nothing is deleted.",
   } },
   { item: 2, expect: 'closer', concept: 'who-made-it', say: {
-    standard: "Same match, but this one is in an app's cache, a folder apps fill on their own. It is usually the app's own code. Look closer before you decide.",
-    city: "Same match, but this one is in an app's cache, a folder apps fill on their own. It is usually the app's own code. Look closer before you tag it.",
+    standard: 'The same match again. Read where this one is. What would you do?',
+    city: 'The same match again. Read where this one is. What would you do?',
+  }, why: {
+    standard: "It's in an app's cache, a folder apps fill on their own, so it is usually the app's own code. Look closer before you decide.",
+    city: "It's in an app's cache, a folder apps fill on their own, so it is usually the app's own code. Look closer before you tag it.",
   } },
 ];
 

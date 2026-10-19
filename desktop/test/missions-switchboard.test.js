@@ -5,6 +5,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const MISSIONS = path.join(__dirname, '..', 'renderer', 'missions');
 const FIXTURE = path.join(__dirname, 'fixtures', 'missions', 'switchboard-items.json');
@@ -283,9 +285,9 @@ test('practice: a printer port, an unknown listener and a hosts redirect, with a
     assert.ok(step.item >= 0 && step.item < p.items.length);
     assert.ok(step.say.standard && step.say.city);
     assert.deepStrictEqual(C.checkCityWords(step.say.city), []);
-    if (step.expect) assert.ok(ids(game.decisions(p.items[step.item], ctx)).includes(step.expect), step.expect);
+    if (step.expect) assert.ok(ids(game.decisions(p.items[step.item], ctx)).includes(first(step.expect)), step.expect);
   }
-  const expects = p.script.filter((s) => s.expect).map((s) => [s.item, s.expect]);
+  const expects = p.script.filter((s) => s.expect).map((s) => [s.item, first(s.expect)]);
   assert.deepStrictEqual(expects, [[0, 'expected'], [1, 'closer'], [2, 'odd']]);
   // Synthetic only.
   const text = JSON.stringify(p.items);
