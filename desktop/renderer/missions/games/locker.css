@@ -1,0 +1,78 @@
+/* The Evidence Locker: one evidence tag per file. Uses the game skin's variables (renderer/game/game.css). */
+.lk-tag {
+  position: relative;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.1rem 1.25rem 1rem 2.6rem;
+  background: var(--panel, rgba(26,31,43,0.55));
+  border: 1px solid var(--line, rgba(0,229,255,0.15));
+  border-left: 4px solid var(--amber, #FF9F00);
+  border-radius: 4px 14px 14px 4px;
+  color: var(--offwhite, #EDEFF3);
+  font-family: var(--font-body, system-ui, sans-serif);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.lk-tag.lk-sev-critical { border-left-color: var(--magenta, #FF2D9B); }
+.lk-tag.lk-sev-info { border-left-color: var(--cyan, #00E5FF); }
+
+/* The tag's punched hole and string. */
+.lk-hole {
+  position: absolute; left: 0.85rem; top: 1.25rem;
+  width: 0.8rem; height: 0.8rem; border-radius: 50%;
+  border: 2px solid var(--amber, #FF9F00); background: var(--midnight, #090B10);
+}
+.lk-sev-critical .lk-hole { border-color: var(--magenta, #FF2D9B); }
+
+.lk-head { margin-bottom: 0.6rem; }
+.lk-no {
+  display: block; font-family: var(--font-display, sans-serif); font-size: 0.7rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim, rgba(237,239,243,0.55));
+}
+.lk-title { margin: 0.2rem 0 0; font-size: 1.05rem; font-weight: 600; }
+
+.lk-coach {
+  margin: 0 0 0.8rem; padding: 0.55rem 0.75rem; border-radius: 8px;
+  background: rgba(198,255,0,0.08); border: 1px dashed var(--lime, #C6FF00);
+}
+
+.lk-fields { display: grid; grid-template-columns: fit-content(9em) 1fr; gap: 0.35rem 0.9rem; margin: 0; }
+.lk-f { display: contents; }
+.lk-f dt { color: var(--dim, rgba(237,239,243,0.55)); font-size: 0.85rem; padding-top: 0.1rem; }
+.lk-f dd { margin: 0; min-width: 0; }
+.lk-tag code {
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.85rem;
+  background: rgba(9,11,16,0.6); padding: 0.05rem 0.3rem; border-radius: 4px;
+}
+.lk-why { display: block; }
+.lk-match { display: inline-block; margin-top: 0.2rem; color: var(--amber, #FF9F00); }
+.lk-list { margin: 0; padding-left: 1rem; }
+.lk-dim { color: var(--dim, rgba(237,239,243,0.55)); }
+
+.lk-flag {
+  display: inline-block; margin: 0.25rem 0.35rem 0 0; padding: 0.05rem 0.5rem; border-radius: 999px;
+  font-size: 0.75rem; border: 1px solid currentColor;
+}
+.lk-flag-hidden { color: var(--magenta, #FF2D9B); }
+.lk-flag-temp { color: var(--amber, #FF9F00); }
+.lk-flag-cache { color: var(--cyan, #00E5FF); }
+.lk-path { margin-right: 0.35rem; }
+
+.lk-seal { font-size: 0.8rem; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid currentColor; }
+.lk-seal-ok { color: var(--lime, #C6FF00); }
+.lk-seal-no { color: var(--amber, #FF9F00); }
+
+.lk-what, .lk-note, .lk-same { margin: 0.7rem 0 0; font-size: 0.9rem; }
+.lk-note { color: var(--amber, #FF9F00); }
+.lk-same { color: var(--cyan, #00E5FF); }
+
+.lk-summary h3 { margin: 0 0 0.5rem; font-family: var(--font-display, sans-serif); font-size: 0.95rem; letter-spacing: 0.06em; }
+.lk-counts { list-style: none; margin: 0 0 0.6rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+.lk-counts strong { color: var(--amber, #FF9F00); }
+.lk-summary p { margin: 0.4rem 0 0; }
+
+@media (max-width: 800px) {
+  .lk-tag { padding-left: 2.2rem; }
+  .lk-fields { grid-template-columns: 1fr; gap: 0.1rem; }
+  .lk-f dd { margin-bottom: 0.45rem; }
+}

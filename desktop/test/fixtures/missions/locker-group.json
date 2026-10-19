@@ -1,0 +1,166 @@
+{
+  "_note": "Ten near-identical synthetic findings (one package pattern in many folders). No real scan data.",
+  "platform": "darwin",
+  "findings": [
+    {
+      "id": "pkg-0",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-0.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-0/postinstall-0.js",
+        "pattern": "eval(atob("
+      }
+    },
+    {
+      "id": "pkg-1",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-1.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-1/postinstall-1.js",
+        "pattern": "eval(atob("
+      }
+    },
+    {
+      "id": "pkg-2",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-2.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-2/postinstall-2.js",
+        "pattern": "eval(atob("
+      }
+    },
+    {
+      "id": "pkg-3",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-3.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-3/postinstall-3.js",
+        "pattern": "eval(atob("
+      }
+    },
+    {
+      "id": "pkg-4",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-4.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-4/postinstall-4.js",
+        "pattern": "eval(atob("
+      }
+    },
+    {
+      "id": "pkg-5",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-5.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-5/postinstall-5.js",
+        "pattern": "eval(atob("
+      }
+    },
+    {
+      "id": "pkg-6",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-6.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-6/postinstall-6.js",
+        "pattern": "eval(atob("
+      }
+    },
+    {
+      "id": "pkg-7",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-7.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-7/postinstall-7.js",
+        "pattern": "eval(atob("
+      }
+    },
+    {
+      "id": "pkg-8",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-8.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-8/postinstall-8.js",
+        "pattern": "eval(atob("
+      }
+    },
+    {
+      "id": "pkg-9",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: postinstall-9.js",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": {
+        "check": "obfuscated_script",
+        "kind": "atob_eval",
+        "confidence": 0.6,
+        "path": "/Users/example/Projects/app/node_modules/example-pkg-9/postinstall-9.js",
+        "pattern": "eval(atob("
+      }
+    }
+  ]
+}

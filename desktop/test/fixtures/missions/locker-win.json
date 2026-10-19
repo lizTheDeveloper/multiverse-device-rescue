@@ -1,0 +1,75 @@
+{
+  "_note": "Synthetic findings shaped like the engine's Windows locker modules. Made-up paths under C:\\Users\\example; no real scan data.",
+  "platform": "win32",
+  "findings": [
+    {
+      "id": "win-dropper",
+      "module": "ai_worm_filesystem",
+      "title": "Hard-to-read script found: update.ps1",
+      "description": "A script uses scrambled code that hides what it does.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.ai_worm_filesystem.obfuscated_script",
+      "data": { "check": "obfuscated_script", "kind": "base64_exec", "confidence": 0.6, "path": "C:\\Users\\example\\AppData\\Local\\Temp\\x1\\update.ps1", "pattern": "FromBase64String(" }
+    },
+    {
+      "id": "win-miner",
+      "module": "win_crypto_miner_detect",
+      "title": "Cryptocurrency miner running: xmrig.exe",
+      "description": "A program matching a known miner is running.",
+      "severity": "critical",
+      "category": "security",
+      "data": { "check": "known_miner", "pid": 5150, "process": "xmrig.exe", "command": "C:\\Users\\example\\AppData\\Roaming\\x\\xmrig.exe -o pool.example.net:3333", "indicator": "xmrig", "confidence": "high", "evidence": "name matches xmrig" }
+    },
+    {
+      "id": "win-pool",
+      "module": "win_crypto_miner_detect",
+      "title": "Connection to a mining pool from svch0st.exe",
+      "description": "A program is connected to a mining server.",
+      "severity": "critical",
+      "category": "security",
+      "data": { "check": "mining_pool_connection", "pid": 6262, "process": "svch0st.exe", "remote": "192.0.2.10:3333", "port": 3333, "confidence": "high" }
+    },
+    {
+      "id": "win-service",
+      "module": "win_malware_indicators",
+      "title": "Unusual program 'Example Updater' is running from a hidden folder",
+      "description": "A service runs a program from a hidden folder.",
+      "severity": "warning",
+      "category": "security",
+      "code": "security.win_malware_indicators.suspicious_service",
+      "data": { "check": "suspicious_service", "service_name": "ExampleUpd", "display_name": "Example Updater", "binary_path": "C:\\ProgramData\\.exupd\\updater.exe" }
+    },
+    {
+      "id": "win-registry",
+      "module": "win_malware_indicators",
+      "title": "Unusual startup entry 'exhelper' found in system settings",
+      "description": "A startup entry runs a program nobody expects.",
+      "severity": "critical",
+      "category": "security",
+      "code": "security.win_malware_indicators.malware_registry",
+      "data": { "check": "malware_registry", "registry_path": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "entry_name": "exhelper", "entry_value": "C:\\Users\\example\\AppData\\Roaming\\exhelper\\exhelper.exe" }
+    },
+    {
+      "id": "win-drivers",
+      "module": "win_rootkit_check",
+      "title": "Found 1 driver(s) without a security signature",
+      "description": "A driver has no signature.",
+      "severity": "critical",
+      "category": "security",
+      "code": "security.win_rootkit_check.unsigned_drivers",
+      "removal_alert": true,
+      "data": { "check": "unsigned_drivers", "drivers": ["exdrv.sys"] }
+    },
+    {
+      "id": "win-secureboot",
+      "module": "win_rootkit_check",
+      "title": "Your computer's Secure Boot protection is turned off",
+      "description": "Secure Boot is off.",
+      "severity": "critical",
+      "category": "security",
+      "code": "security.win_rootkit_check.secure_boot_disabled",
+      "data": { "check": "secure_boot_disabled" }
+    }
+  ]
+}
