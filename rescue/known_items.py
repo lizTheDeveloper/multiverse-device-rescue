@@ -995,7 +995,16 @@ _hash_state = {"spent": 0, "cache": {}}
 # they never use up the one that "made by" attribution relies on.
 ENTRY_MAX_LOOKUPS = 60
 ENTRY_BUDGET_SECONDS = 20.0
-_entry_state: dict = {"attributor": None}
+_entry_state: dict = {"attributor": None, "shared": None}
+
+
+def share_attributor(att) -> None:
+    """The scan's "who made it" attributor (rescue.attribution.compute_made_by),
+    for entry offers built after it ran: an app whose maker it already looked
+    up gets the same answer here, so the list and its evidence agree. Entry
+    lookups start early in a long scan, and their own time budget can run out
+    before the final document is written."""
+    _entry_state["shared"] = att
 
 
 def reset_hash_budget() -> None:
@@ -1003,6 +1012,7 @@ def reset_hash_budget() -> None:
     _hash_state["spent"] = 0
     _hash_state["cache"] = {}
     _entry_state["attributor"] = None
+    _entry_state["shared"] = None
 
 
 def _entry_attributor():
@@ -1090,6 +1100,9 @@ def app_signer(app: str) -> str | None:
         from rescue import attribution
 
         made = attribution.identify(app, sys.platform, attributor=_entry_attributor())
+        shared = _entry_state.get("shared")
+        if made is None and shared is not None:
+            made = shared.identify(app)
     except Exception:
         return None
     if made is None:

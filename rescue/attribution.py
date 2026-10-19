@@ -884,6 +884,12 @@ def compute_made_by(
 ) -> dict[int, list[dict]]:
     """Map ``id(finding)`` -> list of made_by dicts for every attributable finding."""
     att = attributor or Attributor(platform, max_lookups=max_lookups)
+    try:
+        from rescue.known_items import share_attributor
+
+        share_attributor(att)  # list entries get the same makers (known_items.app_signer)
+    except Exception:
+        pass
     out: dict[int, list[dict]] = {}
     for _mod, check in results:
         for finding in getattr(check, "findings", []) or []:

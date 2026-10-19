@@ -127,3 +127,37 @@ def test_list_entries_carry_the_maker_looked_up_for_them():
     assert markable["items"][0]["made_by"]["name"] == "Dropbox, Inc."
     assert "made_by" not in markable["items"][1]
     _items_made_by(None, made_by)  # nothing to do, no crash
+
+
+def test_list_entries_use_the_makers_the_scan_already_looked_up(monkeypatch):
+    """On a real Mac, Dropbox showed 'Made by Dropbox, Inc. (verified)' but its
+    'It's mine' box was disabled: the entry lookups' own budget had run out
+    during the long scan. They now reuse the scan's made_by lookups."""
+    from types import SimpleNamespace as NS
+
+    from rescue import known_items
+
+    class Spent:
+        def identify(self, subject):
+            return None
+
+    class Scan:
+        def __init__(self):
+            self.asked = []
+
+        def identify(self, subject):
+            self.asked.append(subject)
+            known = {"com.getdropbox.dropbox": NS(verified=True, team="G7HH3F8CAK", name="Dropbox, Inc."),
+                     "com.apple.Terminal": NS(verified=True, team="", name="Apple")}
+            return known.get(subject)
+
+    monkeypatch.setattr(known_items, "_entry_attributor", lambda: Spent())
+    known_items.reset_hash_budget()
+    assert known_items.app_signer("com.getdropbox.dropbox") is None, "nothing to fall back on"
+    scan = Scan()
+    known_items.share_attributor(scan)
+    assert known_items.app_signer("com.getdropbox.dropbox") == "team:G7HH3F8CAK"
+    assert known_items.app_signer("com.apple.Terminal") == "apple"
+    assert known_items.app_signer("com.unknown.app") is None
+    known_items.reset_hash_budget()
+    assert known_items.app_signer("com.getdropbox.dropbox") is None, "a new scan starts without it"
