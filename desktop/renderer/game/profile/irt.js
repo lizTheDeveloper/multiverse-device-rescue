@@ -10,24 +10,27 @@
 // Nothing per item is estimated except b, and c is known from the item, so the
 // model stays honest with a handful of answers. Discrimination is fixed at 1.
 //
-// Ability is the posterior mean (EAP) over a grid θ ∈ [−4, 4], step 0.1, with
+// Ability is the posterior mean (EAP) over a grid θ ∈ [−6, 6], step 0.1, with
 // a normal prior N(μ0, σ0²): N(0, 1) normally, N(0.5, 0.8²) for a concept whose
-// lesson was finished under the old rule ("before"). Every answer counts in
-// full (DECAY = 1), so `mean` and `sd` are the true posterior mean and sd given
-// all the answers, and the estimate can reach high values and a small sd after
-// a long run of right answers. A person who starts badly and then learns is
-// carried by the "stays learned" rule and by new answers outweighing old ones
-// as they pile up; recency weighting is still available through `decay` < 1,
-// where the k-th of n answers gets weight w_k = max(floor, decay^(n−1−k)) on its
-// log-likelihood. (Plain decay without a floor caps the effective sample size,
-// which made `sd` meaningless and the mean unable to pass about 0.6.)
+// lesson was finished under the old rule ("before"). Older answers count less,
+// so a person who learns can show it, but never less than a floor: the k-th of
+// n answers on a concept has weight w_k = max(WEIGHT_FLOOR, DECAY^(n−1−k)) on
+// its log-likelihood (DECAY 0.9, floor 0.35). The floor keeps the effective
+// sample size growing with every answer, so the estimate can still climb and
+// settle after a long run of right answers (plain decay with no floor capped
+// it at about 3 answers' worth).
 //
 //     log post(θ) = −(θ − μ0)² / (2σ0²) + Σ_k w_k · [x_k log P_k(θ) + (1 − x_k) log(1 − P_k(θ))]
 //     θ̂ = Σ θ_j post(θ_j) / Σ post(θ_j),   sd = sqrt(Σ (θ_j − θ̂)² post(θ_j) / Σ post(θ_j))
 //
-// With the default weights (all 1) `sd` is the posterior sd. If a caller passes
-// decay < 1 it is the sd of a down-weighted posterior: still a fair measure of
-// how settled the estimate is, but not a confidence interval.
+// With weights below 1 this is a weighted (tempered) posterior, not the exact
+// posterior given every answer at full strength. `sd` is the spread of that
+// weighted posterior: a fair measure of how settled the estimate is, wider than
+// an exact posterior sd would be, and not a confidence interval. With a
+// guessing floor, items say little about high ability, so sd levels off near
+// 0.5 even after hundreds of right answers (measured: 0.54 after 200 right
+// answers on 3-option items, with the grid wide enough not to cut the tail).
+// Pass decay = 1 for the exact posterior.
 //
 // Item difficulty starts at its authored level (easy −1, medium 0, hard +1)
 // and moves by an Elo-style step after each answer, using θ̂ from before it:
@@ -36,27 +39,29 @@
 //
 // clamped to within 1 of the authored level, so one person's answers can tune
 // an item but never turn an easy one hard.
-export const GRID = Object.freeze(Array.from({ length: 81 }, (_, i) => Math.round((-4 + i * 0.1) * 10) / 10));
+export const GRID = Object.freeze(Array.from({ length: 121 }, (_, i) => Math.round((-6 + i * 0.1) * 10) / 10));
 export const PRIOR = Object.freeze({ mean: 0, sd: 1 });
 export const BEFORE_PRIOR = Object.freeze({ mean: 0.5, sd: 0.8 });
-export const DECAY = 1;
+export const DECAY = 0.9;
 export const LEVEL_B = Object.freeze({ easy: -1, medium: 0, hard: 1 });
-export const WEIGHT_FLOOR = 0.5;
+export const WEIGHT_FLOOR = 0.35;
 // "Learned": enough evidence (at least MIN_RESPONSES answers on at least
 // MIN_ITEMS different items), the estimate at or above LEARNED_AT, and the
 // estimate settled (sd at or below LEARNED_SD_CAP). The sd condition scales the
 // evidence needed by the guessing floor: items with more guessing say less per
 // answer, so the sd comes down more slowly. These values were chosen by
 // simulation and are pinned in test/profile-irt.test.js: a person guessing at
-// random reaches "learned" within 20 answers in under 2% of runs (about 1.5% on
-// 2-option items, 1.6% on 3-option), while someone who knows the concept
-// (θ = 1.5, items at b = 0) gets there within 8 answers about 82% of the time on
-// 3- and 4-option items. On 2-option items the same person needs more answers
-// (about half get there within 8): a right answer says less when half of the
-// guesses are right too. Once learned, a concept stays learned until the
-// estimate falls below SLIPPED_BELOW, so a single slip doesn't take it away;
-// with no answers at all there is nothing to keep.
-export const LEARNED_AT = 0.5;
+// random reaches "learned" within 20 answers in under 2% of runs (about 1.6% on
+// 2- and 3-option items), while someone who knows the concept (θ = 1.5, items at
+// b = 0) gets there within 8 answers about 82% of the time on 3-option items and
+// 87% on 4-option items; after 3 early misses, 8 right answers in a row are
+// enough on 3-option items. On 2-option items a right answer says less (half of
+// guesses are right too), so the same knower needs more answers: about 93%
+// reach it within 20, none within 8, and recovery after 3 misses takes 13.
+// Once learned, a concept stays learned until the estimate falls below
+// SLIPPED_BELOW, so a single slip doesn't take it away; with no answers at all
+// there is nothing to keep.
+export const LEARNED_AT = 0.4;
 export const LEARNED_SD_CAP = 0.89;
 export const SLIPPED_BELOW = -0.25;
 export const MIN_RESPONSES = 4;
@@ -65,7 +70,7 @@ const K0 = 0.1;
 const K_SLOPE = 0.2;
 const B_RANGE = 1;
 
-const round = (v, d = 3) => Math.round(v * 10 ** d) / 10 ** d;
+const round = (v, d = 3) => Math.round(v * 10 ** d) / 10 ** d + 0; // + 0 turns -0 into 0
 const sigmoid = (z) => 1 / (1 + Math.exp(-z));
 
 export function guessFloor(k) {

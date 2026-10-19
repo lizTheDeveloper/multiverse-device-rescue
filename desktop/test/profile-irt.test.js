@@ -26,81 +26,111 @@ test('item information: known values', async () => {
   assert.ok(information(0, 0, 0) > information(2, 0, 0), 'an item says most where θ is near b');
 });
 
-test('the estimate: known values for the model the plan fixes (prior N(0,1), every answer counts in full, 3 options, medium items)', async () => {
+test('the estimate: known values for the model the plan fixes (prior N(0,1), decay 0.9 with a floor of 0.35, 3 options, medium items)', async () => {
   const { estimate } = await load();
   assert.deepStrictEqual(estimate([]), { mean: 0, sd: 1, n: 0, items: 0 });
-  const cases = { 1: [0.207, 0.978], 111: [0.566, 0.918], '0111': [0.121, 0.863], 110: [-0.047, 0.884], 1110: [0.121, 0.863], 11100: [-0.216, 0.818], '000': [-0.923, 0.8], 1111: [0.718, 0.887], 111000: [-0.478, 0.783] };
+  const cases = { 1: [0.207, 0.978], 111: [0.519, 0.928], '0111': [0.181, 0.884], 110: [-0.098, 0.89], 1110: [0.028, 0.876], 11100: [-0.314, 0.835], '000': [-0.865, 0.812], 1111: [0.635, 0.905], 111000: [-0.562, 0.804] };
   for (const [s, [mean, sd]] of Object.entries(cases)) {
     const e = estimate(seq(s));
     assert.strictEqual(e.mean, mean, `${s} mean`);
     assert.strictEqual(e.sd, sd, `${s} sd`);
     assert.strictEqual(e.n, s.length);
   }
-  assert.strictEqual(estimate(seq('111', 0.5)).mean, 0.396, 'two options: right answers say less');
+  assert.strictEqual(estimate(seq('111', 0.5)).mean, 0.361, 'two options: right answers say less');
 });
 
 test('the estimate agrees with an independent, finer integration', async () => {
-  const { estimate, pCorrect } = await load();
-  function fine(rs, decay = 1, floor = 0) {
-    let num = 0; let den = 0;
-    for (let t = -6; t <= 6; t += 0.001) {
+  const { estimate, pCorrect, DECAY, WEIGHT_FLOOR } = await load();
+  // θ from −9 to 9 in steps of 0.002: wider and finer than the estimate's own grid
+  function fine(rs, decay, floor) {
+    let num = 0; let den = 0; let sq = 0;
+    for (let i = -4500; i <= 4500; i += 1) {
+      const t = i * 0.002;
       let lp = -(t * t) / 2;
       rs.forEach((r, k) => { const p = pCorrect(t, r.b, r.c); lp += Math.max(floor, decay ** (rs.length - 1 - k)) * (r.x ? Math.log(p) : Math.log(1 - p)); });
-      const w = Math.exp(lp); num += w * t; den += w;
+      const w = Math.exp(lp); num += w * t; sq += w * t * t; den += w;
     }
-    return num / den;
+    const mean = num / den;
+    return { mean, sd: Math.sqrt(sq / den - mean * mean) };
   }
-  for (const s of ['1', '111', '0111', '110', '000', '10101']) near(estimate(seq(s)).mean, fine(seq(s)), 0.01, s);
-  // recency weighting with a floor is still there when asked for
-  for (const s of ['0111', '0000111111', '10101']) {
-    const e = estimate(seq(s), undefined, 0.9, 0.5);
-    near(e.mean, fine(seq(s), 0.9, 0.5), 0.01, `${s} weighted`);
+  for (const s of ['1', '111', '0111', '110', '000', '10101', '0001111111']) {
+    const e = estimate(seq(s)); const f = fine(seq(s), DECAY, WEIGHT_FLOOR);
+    near(e.mean, f.mean, 0.01, `${s} mean`);
+    near(e.sd, f.sd, 0.01, `${s} sd`);
   }
-  assert.strictEqual(estimate(seq('0111'), undefined, 0.9, 0.5).mean, 0.181);
+  // no decay: the exact posterior; and a gentler weighting passed in
+  for (const [s, d, f] of [['0111', 1, 0], ['0000111111', 1, 0], ['0000111111', 0.8, 0.5]]) {
+    const e = estimate(seq(s), undefined, d, f); const g = fine(seq(s), d, f);
+    near(e.mean, g.mean, 0.01, `${s} ${d}/${f} mean`);
+    near(e.sd, g.sd, 0.01, `${s} ${d}/${f} sd`);
+  }
+  assert.strictEqual(estimate(seq('0111'), undefined, 1, 0).mean, 0.121, 'no decay: order does not matter');
 });
 
 test('the estimate can climb and settle: 200 right answers give a high mean and a small sd', async () => {
   const { estimate } = await load();
-  const rs = Array.from({ length: 200 }, (_, i) => ({ key: `k${i % 4}`, x: 1, b: 0, c: 1 / 3 }));
-  const e = estimate(rs);
-  assert.ok(e.mean >= 1.5, `mean ${e.mean}`);
-  assert.ok(e.sd <= 0.35, `sd ${e.sd}`);
+  for (const [c, sd] of [[1 / 3, 0.541], [1 / 2, 0.58]]) {
+    const rs = Array.from({ length: 200 }, (_, i) => ({ key: `k${i % 4}`, x: 1, b: 0, c }));
+    const e = estimate(rs);
+    assert.ok(e.mean >= 1.5, `mean ${e.mean}`);
+    assert.ok(e.sd <= 0.6, `c=${c} sd ${e.sd}`);
+    if (c === 1 / 3) { assert.ok(e.sd <= 0.55, `sd ${e.sd}`); assert.strictEqual(e.sd, sd); assert.strictEqual(e.mean, 2.865); }
+  }
 });
 
 test('a prior from a lesson finished under the old rule starts the estimate higher', async () => {
   const { estimate, BEFORE_PRIOR } = await load();
   assert.deepStrictEqual(estimate([], BEFORE_PRIOR), { mean: 0.5, sd: 0.8, n: 0, items: 0 });
   assert.strictEqual(estimate(seq('0'), BEFORE_PRIOR).mean, 0.158);
-  assert.strictEqual(estimate(seq('000'), BEFORE_PRIOR).mean, -0.321);
-  assert.strictEqual(estimate(seq('111'), BEFORE_PRIOR).mean, 0.834);
+  assert.strictEqual(estimate(seq('000'), BEFORE_PRIOR).mean, -0.264);
+  assert.strictEqual(estimate(seq('111'), BEFORE_PRIOR).mean, 0.805);
 });
 
-test('learned: four right on two items is enough; three is not; one slip does not take it away', async () => {
+test('learned: five right on two items is enough; four is not; one slip does not take it away', async () => {
   const { estimate, isLearned, enoughEvidence } = await load();
   assert.strictEqual(isLearned(estimate(seq('111'))), false, 'too few answers');
-  assert.strictEqual(isLearned(estimate(seq('1111'))), true);
+  assert.strictEqual(isLearned(estimate(seq('1111'))), false, 'not yet settled');
+  assert.strictEqual(isLearned(estimate(seq('11111'))), true);
   assert.strictEqual(isLearned(estimate(seq('0111111'))), true, 'a wrong answer first, then recovery');
-  assert.strictEqual(isLearned(estimate(seq('1101'))), false);
-  const sameItem = [1, 1, 1, 1, 1].map((x) => ({ key: 'only', x, b: 0, c: 1 / 3 }));
-  assert.strictEqual(enoughEvidence(estimate(sameItem)), false, 'one item five times is one example');
+  assert.strictEqual(isLearned(estimate(seq('11011'))), false);
+  const sameItem = [1, 1, 1, 1, 1, 1].map((x) => ({ key: 'only', x, b: 0, c: 1 / 3 }));
+  assert.strictEqual(enoughEvidence(estimate(sameItem)), false, 'one item six times is one example');
   assert.strictEqual(isLearned(estimate(sameItem)), false);
   assert.strictEqual(isLearned(estimate(seq('11110')), true), true, 'a slip after learning');
   assert.strictEqual(isLearned(estimate(seq('111000')), true), false, 'three wrong in a row takes it away');
+  assert.strictEqual(isLearned(estimate(seq('11100')), true), false, 'two wrong after three right does too');
   assert.strictEqual(isLearned(estimate([]), true), false, 'nothing to keep with no answers');
   assert.strictEqual(isLearned(undefined, true), false);
   assert.strictEqual(isLearned({ mean: 2, sd: 0.2, n: 0, items: 0 }, true), false, 'no answers behind it');
+});
+
+test('recovery: three early misses on 3-option items, then right answers in a row', async () => {
+  const { estimate, isLearned } = await load();
+  const rightNeeded = (c) => {
+    const rs = [0, 0, 0].map((x, i) => ({ key: `k${i % 4}`, x, b: 0, c }));
+    for (let k = 1; k <= 40; k += 1) {
+      rs.push({ key: `k${(k + 2) % 4}`, x: 1, b: 0, c });
+      if (isLearned(estimate(rs))) return k;
+    }
+    return Infinity;
+  };
+  assert.strictEqual(rightNeeded(1 / 3), 8);
+  assert.strictEqual(rightNeeded(1 / 2), 13);
 });
 
 test('learned needs a settled estimate, not just a high mean', async () => {
   const { isLearned } = await load();
   assert.strictEqual(isLearned({ mean: 0.8, sd: 0.95, n: 5, items: 3 }), false, 'sd too wide');
   assert.strictEqual(isLearned({ mean: 0.8, sd: 0.85, n: 5, items: 3 }), true);
-  assert.strictEqual(isLearned({ mean: 0.45, sd: 0.85, n: 5, items: 3 }), false, 'mean too low');
+  assert.strictEqual(isLearned({ mean: 0.35, sd: 0.85, n: 5, items: 3 }), false, 'mean too low');
 });
 
-// A deterministic simulation of the learned rule: 10,000 seeded people each answer up
-// to 20 questions (items rotate over four, all at b = 0); we count how many are ever
-// called "learned" along the way.
+// A deterministic simulation of the learned rule: seeded people each answer up to 20
+// questions (items rotate over four, all at b = 0); we count how many are ever called
+// "learned" along the way. The default run is 3,000 people per case, with margins for
+// that sample size; IRT_SIM_FULL=1 runs 10,000 with the tight targets.
+const FULL = process.env.IRT_SIM_FULL === '1';
+const RUNS = FULL ? 10000 : 3000;
 function mulberry32(seed) {
   let a = seed;
   return () => {
@@ -111,7 +141,7 @@ function mulberry32(seed) {
   };
 }
 
-async function learnedRate({ c, theta, answers, runs = 10000, seed = 7 }) {
+async function learnedRate({ c, theta, answers, runs = RUNS, seed = 7 }) {
   const { estimate, isLearned, pCorrect } = await load();
   const rand = mulberry32(seed);
   let hits = 0;
@@ -129,18 +159,17 @@ async function learnedRate({ c, theta, answers, runs = 10000, seed = 7 }) {
 test('simulation: a random guesser almost never reaches learned (2 and 3 options, 20 answers)', async () => {
   for (const c of [1 / 2, 1 / 3]) {
     const rate = await learnedRate({ c, theta: null, answers: 20 });
-    assert.ok(rate <= 0.02, `guessing at c=${c}: ${rate}`);
+    assert.ok(rate <= (FULL ? 0.02 : 0.025), `guessing at c=${c}: ${rate}`);
   }
 });
 
 test('simulation: someone who knows it (θ = 1.5) reaches learned within 8 answers', async () => {
   for (const c of [1 / 3, 1 / 4]) {
     const rate = await learnedRate({ c, theta: 1.5, answers: 8 });
-    assert.ok(rate >= 0.8, `knower at c=${c}: ${rate}`);
+    assert.ok(rate >= (FULL ? 0.8 : 0.77), `knower at c=${c}: ${rate}`);
   }
   // 2-option items say less per answer, so the same person needs longer (the trade-off, pinned)
-  assert.ok(await learnedRate({ c: 1 / 2, theta: 1.5, answers: 8 }) >= 0.45, 'two options within 8');
-  assert.ok(await learnedRate({ c: 1 / 2, theta: 1.5, answers: 20 }) >= 0.85, 'two options within 20');
+  assert.ok(await learnedRate({ c: 1 / 2, theta: 1.5, answers: 20 }) >= 0.88, 'two options within 20');
 });
 
 test('responses that are not answers are ignored, never thrown on', async () => {
