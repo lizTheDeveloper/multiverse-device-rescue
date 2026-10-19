@@ -40,15 +40,26 @@ export function isDetection(f) {
   return f.severity !== 'info';
 }
 
-// An info-level finding whose every program has a verified signature from a
-// known maker (VS Code by Microsoft, Steam by Valve with keyboard access) is
-// not held as monitoring software: it reads as a calm note. Unverified, no
-// maker named, or warning/critical: held.
-export function familiarVerified(f) {
-  return !!f && f.severity === 'info' && Array.isArray(f.made_by) && f.made_by.length > 0
-    && f.made_by.every((m) => m && m.verified === true && typeof m.name === 'string' && m.name.trim() !== '');
+// The one finding that may leave the help district: keyboard access for
+// apps with familiar names (keylogger_indicators' claimed_vendor check), at
+// info, when every app in it is a KNOWN program whose signed identity was
+// verified. The engine gives `what` only then (rescue/attribution.py), so
+// each app needs a made_by entry with verified === true and a `what`. A
+// signature alone is cheap, so a signed but unknown maker stays held, and so
+// does anything from the other monitoring checks, at any severity.
+export const FAMILIAR_CODE = 'security.keylogger_indicators.suspicious_input_monitoring';
+export const FAMILIAR_CHECK = 'claimed_vendor_input_monitoring';
+export function familiarVerified(f, module = f && f.module) {
+  if (!f || f.severity !== 'info' || f.code !== FAMILIAR_CODE || module !== 'keylogger_indicators') return false;
+  const d = f.data && typeof f.data === 'object' ? f.data : {};
+  const apps = Array.isArray(d.apps) ? d.apps : [];
+  const mb = Array.isArray(f.made_by) ? f.made_by.filter(Boolean) : [];
+  const known = (m) => m.verified === true && typeof m.what === 'string' && m.what.trim() !== ''
+    && typeof m.name === 'string' && m.name.trim() !== '';
+  return d.check === FAMILIAR_CHECK && apps.length > 0 && mb.length > 0 && mb.every(known)
+    && apps.every((a) => mb.some((m) => m.subject === a));
 }
-const holds = (f) => !!f && isDetection(f) && !familiarVerified(f);
+const holds = (f, module) => !!f && isDetection(f) && !familiarVerified(f, module);
 
 // What the help district shows about a held finding, so it can be written
 // down: the name, where it was found, how it was found, and who made it. From
@@ -81,7 +92,7 @@ export function splitHeld(doc) {
     const fs = Array.isArray(m.findings) ? m.findings : [];
     let found = false;
     for (const f of fs) {
-      if (holds(f)) { held.push({ module: m.name, title: String(f.title || ''), ...heldEvidence(f) }); found = true; }
+      if (holds(f, m.name)) { held.push({ module: m.name, title: String(f.title || ''), ...heldEvidence(f) }); found = true; }
     }
     // Nothing found, and it couldn't look: fog, never clear. (With a
     // detection the check did look, and its district stays open for it.)
@@ -89,7 +100,7 @@ export function splitHeld(doc) {
       return { ...m, findings: [], supported: false, unsupported_reason: COULDNT_LOOK_REASON };
     }
     // A familiar app with a verified maker stays, as an ordinary note.
-    return { ...m, findings: fs.filter((f) => f && isDetection(f) && familiarVerified(f)) };
+    return { ...m, findings: m.name === 'keylogger_indicators' ? fs.filter((f) => f && isDetection(f) && familiarVerified(f, m.name)) : [] };
   });
   return { doc: { ...doc, modules }, held };
 }
@@ -100,7 +111,7 @@ export function splitHeld(doc) {
 export function heldOnly(doc) {
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.modules)) return doc;
   return { ...doc, modules: doc.modules.filter((m) => m && HELD_MODULES.has(m.name))
-    .map((m) => (Array.isArray(m.findings) ? { ...m, findings: m.findings.filter((f) => !f || holds(f)) } : m)) };
+    .map((m) => (Array.isArray(m.findings) ? { ...m, findings: m.findings.filter((f) => !f || holds(f, m.name)) } : m)) };
 }
 
 // What a briefing says about a finding that is monitoring software, from the
