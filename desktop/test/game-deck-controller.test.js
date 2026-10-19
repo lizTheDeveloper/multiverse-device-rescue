@@ -94,9 +94,13 @@ test('the deck is the city’s home: queue, city, instruments, log, and its own 
   assert.doesNotMatch(html, /class="hud">/, 'the deck’s top bar replaces the HUD');
 });
 
-test('INVESTIGATE NEXT opens the most important signal; clues unlock one at a time and pay once per scan', async () => {
+test('INVESTIGATE NEXT opens the most important mission; a signal’s clues unlock one at a time and pay once per scan', async () => {
+  const [id] = await ids(DOC);
   const t = await deckSetup(DOC);
   t.click({ 'data-act': 'investigate-next' });
+  assert.match(t.html(), /class="mx-screen"/, 'the mission flow is the only flow');
+  t.click({ 'data-go': 'map' });
+  t.click({ 'data-go': `signal:${id}` });
   assert.match(t.html(), /id="sig-title"[^>]*>Unsigned helper/);
   assert.match(t.html(), /data-act="clue:maker"/);
   assert.doesNotMatch(t.html(), /How to read this/);
@@ -106,7 +110,7 @@ test('INVESTIGATE NEXT opens the most important signal; clues unlock one at a ti
   t.click({ 'data-act': 'clue:maker' });
   t.click({ 'data-act': 'close-signal' });
   assert.doesNotMatch(t.html(), /id="sig-title"/);
-  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-go': `signal:${id}` });
   assert.match(t.html(), /Unknown maker · not verified/, 'an opened clue stays open this scan');
   t.click({ 'data-act': 'clue:maker' });
   assert.strictEqual(t.saved().deck.points, 5, 'the same clue pays once per scan');
@@ -271,7 +275,7 @@ test('a rank-up is a moment and a log entry', async () => {
   const storage = memStore();
   storage.setItem(STORE, JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { ...emptyDeck(), points: 95 } }));
   const t = await deckSetup(DOC, { storage });
-  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-go': `signal:${(await ids(DOC))[0]}` });
   t.click({ 'data-act': 'clue:maker' });
   assert.match(t.html(), /class="moment moment-rank" role="status"><b>RANK UP<\/b> You’re now SIGNAL ANALYST/);
   assert.match(t.html(), /RANK UP<\/span> SIGNAL ANALYST/);
@@ -536,7 +540,7 @@ test('a drill answered in the queue can still be practised on the DRILL RANGE', 
 // Final review 1: SCAN CLUE replaces its button with text, so focus moves on.
 test('after SCAN CLUE, focus moves to the next locked clue, and to the opened clue when none is left', async () => {
   const t = await deckSetup(DOC);
-  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-go': `signal:${(await ids(DOC))[0]}` });
   t.focusOn({ 'data-act': 'clue:where' });
   t.click({ 'data-act': 'clue:where' });
   assert.deepStrictEqual(t.focused.slice(-1), ['[data-act="clue:what"]'], 'the next locked clue after this one');

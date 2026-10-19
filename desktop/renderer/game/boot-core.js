@@ -6,7 +6,7 @@ export async function boot({ storage, importModule, win }) {
     importModule('./controller.js'),
     importModule('../rc/components/scout.js'),
   ]);
-  const controller = createController({ win, storage, scoutSprite, missions: true });
+  const controller = createController({ win, storage, scoutSprite });
   win.RescueGame = controller;
   win.dispatchEvent(new Event('rescue-game-ready'));
   return controller;

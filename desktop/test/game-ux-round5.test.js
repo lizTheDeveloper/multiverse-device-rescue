@@ -218,27 +218,28 @@ test('LOW-PRIORITY SIGNALS shows the shared notes count once NotChecked gives on
   assert.match(renderDeck({ ...base, lowCount: 291 }), /LOW-PRIORITY SIGNALS \(291\)/);
 });
 
-test('district rows: a list of apps shows app names, never the first Homebrew path or bare id', async () => {
+test('a list of apps: one Keyring item per app, each card led by the app’s name, never a Homebrew path or bare id', async () => {
   const doc = fresh();
-  const { findingsToCity } = await game('findings-to-city.js');
-  const mic = findingsToCity(doc).districts.flatMap((d) => d.missions.map((m) => ({ m, d }))).find((x) => /microphone \(/.test(x.m.title));
-  assert.ok(mic, 'the fresh scan has the microphone list');
+  const { DISTRICTS } = await game('findings-to-city.js');
   const t = await setup(doc);
-  t.click({ 'data-go': `district:${mic.d.id}` });
-  t.click({ 'data-act': 'toggle-district' });
-  const html = t.html();
-  const row = html.slice(html.indexOf(`data-go="mission:${mic.m.id.replace(/&/g, '&amp;')}"`));
-  const detail = /<small class="mission-detail">([\s\S]*?)<\/small>/.exec(row);
-  assert.ok(detail, 'the row has a detail line');
-  assert.doesNotMatch(detail[1], /homebrew|<code>|^com\./i);
-  assert.match(detail[1], /^[^,]+, [^,]+, .+ and \d+ more$/);
-  // One thing (a background task): its path or label, as code, as before.
-  const task = findingsToCity(doc).districts.flatMap((d) => d.missions.map((m) => ({ m, d }))).find((x) => x.m.primary && x.m.primary.data && x.m.primary.data.plist);
-  t.click({ 'data-go': `district:${task.d.id}` });
-  t.click({ 'data-act': 'toggle-district' });
-  const h2 = t.html();
-  const r2 = h2.slice(h2.indexOf(`data-go="mission:${task.m.id.replace(/&/g, '&amp;')}"`));
-  assert.match(/<small class="mission-detail">([\s\S]*?)<\/small>/.exec(r2)[1], /^<code>/);
+  let go = null;
+  for (const d of DISTRICTS) {
+    t.click({ 'data-go': `district:${d.id}` });
+    const m = /data-go="(mx:keyring:[^"]+)"/.exec(t.html());
+    if (m) { go = m[1].replace(/&amp;/g, '&'); break; }
+  }
+  assert.ok(go, 'the fresh scan has a Keyring mission');
+  t.click({ 'data-go': go });
+  if (/data-act="mx-know"/.test(t.html())) t.click({ 'data-act': 'mx-know' });
+  const names = [];
+  for (let i = 0; i < 4 && /class="mx-card"/.test(t.html()); i += 1) {
+    const card = t.html().split('class="mx-card"')[1].split('mx-evidence')[0];
+    assert.strictEqual((card.match(/class="kr-app"/g) || []).length, 1, 'one app per item');
+    names.push(/class="kr-app-name">([^<]*)</.exec(card)[1]);
+    t.click({ 'data-act': 'mx-skip' });
+  }
+  assert.ok(names.length > 0);
+  for (const n of names) assert.doesNotMatch(n, /homebrew|^\/|Cellar/i, n);
 });
 
 test('NOT CHECKED: a check that didn’t finish and also left a partly-checked note still gets its row', async () => {

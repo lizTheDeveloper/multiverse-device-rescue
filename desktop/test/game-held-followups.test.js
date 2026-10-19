@@ -421,7 +421,11 @@ test('an empty queue while something is held: never CLEAR BOARD, and it points t
   const std = await setup({ mode: 'standard' }, scan(SPY()));
   const qs = std.html().split('INCOMING SIGNALS')[1].split('deck-city')[0];
   assert.doesNotMatch(qs, /CLEAR BOARD/);
-  assert.match(qs, /Nothing to sort here right now\./);
+  // Standard mode has no held (spec): the finding is a mission of its own.
+  assert.match(qs, /data-act="investigate-next"/);
+  std.click({ 'data-act': 'investigate-next' });
+  std.click({ 'data-act': 'mx-know' });
+  assert.match(std.html(), /class="mx-screen"[\s\S]*Monitoring app/);
   // Nothing held: the clear board, as before.
   const clean = await setup({ mode: 'city' }, scan(NONE()));
   assert.match(clean.html(), /CLEAR BOARD/);

@@ -130,7 +130,7 @@ test('a district with missions and fog still shows its fog; non-string reasons a
   const city = evilCity(v.findingsToCity);
   const gate = city.districts.find((d) => d.id === 'gatehouse');
   const withFog = { ...gate, fog: [{ module: 'm', reason: 7 }, { module: EVIL, reason: { x: EVIL } }] };
-  const html = v.renderDistrict({ district: withFog, progress: v.emptyProgress(), scout });
+  const html = v.renderDistrict({ district: withFog, progress: v.emptyProgress(), scout, missionsHtml: '<ul class="missions mx-list"></ul>' });
   assert.match(html, /COULDN’T CHECK HERE/);
   assert.match(html, /doesn’t mean it’s safe/);
   assert.match(html, /MISSIONS/);

@@ -223,25 +223,27 @@ test('P1-6 / P2-29: every check counted, couldn’t-check named with why, partly
   assert.strictEqual(sweepChecks({ checks: 1, fog: 0 }), '1 CHECK');
 });
 
-test('P1-7: district missions have unticked checkboxes, and moves for the ticked ones', async () => {
+test('P1-7: a district lists its little missions, each with a checkbox ticked only when every item is decided', async () => {
   const { renderDistrict } = await game('views/district.js');
-  const d = { id: 'gatehouse', name: 'The Gatehouse', status: 'warn', missions: [
-    { id: 'm1', title: 'One <b>', severity: 'warning' }, { id: 'm2', title: 'Two', severity: 'critical' }], notes: [], fog: [], unfinished: [] };
-  const html = renderDistrict({ district: d, progress: { missions: {} }, scout: () => '' });
-  assert.strictEqual((html.match(/<input type="checkbox" class="pick"/g) || []).length, 2);
-  assert.doesNotMatch(html, /checked/);
-  assert.match(html, /aria-label="Tick: One &lt;b&gt;"/);
-  assert.match(html, /data-act="bulk-did"[^>]*disabled/);
-  assert.match(html, /data-act="bulk-later"[^>]*disabled/);
-  assert.match(renderDistrict({ district: d, progress: { missions: {} }, scout: () => '', message: '1 gone.' }), /role="status">1 gone\./);
+  const { renderMissionRows } = await game('views/mission-run.js');
+  const m = (id, n) => ({ id, type: 'simple', district: 'gatehouse', severity: 'warning', notes: false, part: 1, of: 1,
+    title: { standard: 'Other <b>', city: 'Odd Jobs' }, items: Array.from({ length: n }, (_, i) => ({ key: `${id}${i}` })) });
+  const rows = renderMissionRows([m('a', 2), m('b', 1)], { status: (x) => (x.id === 'b' ? { done: true, decided: 1 } : { done: false, decided: 1 }) });
+  assert.strictEqual((rows.match(/<input type="checkbox" class="mx-check" disabled/g) || []).length, 2);
+  assert.strictEqual((rows.match(/ checked/g) || []).length, 1, 'only the finished mission is ticked');
+  assert.match(rows, /Other &lt;b&gt;/);
+  assert.match(rows, /1 of 2 decided/);
+  const d = { id: 'gatehouse', name: 'The Gatehouse', status: 'warn', missions: [], notes: [], fog: [], unfinished: [] };
+  const html = renderDistrict({ district: d, progress: { missions: {} }, scout: () => '', missionsHtml: rows, message: '1 gone.' });
+  assert.match(html, /role="status">1 gone\./);
+  assert.doesNotMatch(html, /data-act="bulk-|data-pick=/, 'no per-finding bulk rows: the mission flow is the only flow');
 
-  // The controller: LATER for the ticked ones saves each; the selection is read from the page.
+  // The controller: the district's rows open its missions.
   const { createController } = await game('controller.js');
   let html2 = '';
   const clicks = [];
-  const picks = [];
   const frame = { set innerHTML(v) { html2 = v; }, get innerHTML() { return html2; }, addEventListener: (t, fn) => { if (t === 'click') clicks.push(fn); },
-    querySelector: () => null, querySelectorAll: (sel) => (sel === '[data-pick]' ? picks : []) };
+    querySelector: () => null, querySelectorAll: () => [] };
   const shadow = { activeElement: null, getElementById: () => frame, addEventListener: () => {} };
   const win = { document: { getElementById: () => ({ attachShadow: () => shadow }) }, QuietNotes: require('../renderer/quiet-notes.js'),
     FixFlow: { attach() {}, fixControlsHtml: () => '', resultHtml: () => '' }, MarkFlow: { attach() {}, markControlsHtml: () => '' },
@@ -253,12 +255,12 @@ test('P1-7: district missions have unticked checkboxes, and moves for the ticked
   ctl.show({ schema_version: 1, platform: 'darwin', modules: [{ name: 'some_check', category: 'security', status: 'ok', supported: true, findings: [f('A', 1), f('B', 2), f('C', 3)] }] }, { id: 'city' });
   const click = (attrs) => { const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) }; clicks.forEach((fn) => fn({ target: { closest: () => el } })); };
   click({ 'data-go': 'district:gatehouse' });
-  const ids = [...html2.matchAll(/data-pick="([^"]+)"/g)].map((m) => m[1].replace(/&#39;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
-  assert.strictEqual(ids.length, 3);
-  picks.push({ checked: true, getAttribute: () => ids[0] }, { checked: false, getAttribute: () => ids[1] }, { checked: true, getAttribute: () => ids[2] });
-  click({ 'data-act': 'bulk-later' });
-  assert.match(html2, /2 saved for later\./);
-  assert.strictEqual((html2.match(/class="badge skip">LATER</g) || []).length, 2);
+  const go = /data-go="(mx:[^"]+)"/.exec(html2);
+  assert.ok(go, 'a mission row');
+  assert.match(html2, /3 items/);
+  assert.doesNotMatch(html2, /data-pick=|bulk-later/);
+  click({ 'data-go': go[1].replace(/&amp;/g, '&') });
+  assert.match(html2, /class="mx-screen"/);
 });
 
 test('P2-13 / P2-21 / P2-22: readings fold away with the lesson, the tag note says itself once, LOOK CLOSER has a next move, hidden folders are a place', async () => {

@@ -302,19 +302,16 @@ test('clues: the maker in a few words, and what the check itself saw; LOOK CLOSE
   assert.doesNotMatch(ev, /<dt>Made by|<dt>Signature check said|<dt>Where/);
 });
 
-test('a district shows ten missions, then AND N MORE; a waiting check is offered, not listed as couldn’t check', async () => {
+test('a district splits many items into missions of a few each; a waiting check is offered, not listed as couldn’t check', async () => {
   const many = Array.from({ length: 14 }, (_, i) => finding(`Task ${i}`, 'warning', { data: { label: `t${i}` } }));
   const mvt = mod('mvt_spyware_scan', [finding('1 device backup found (scan available)', 'info', { code: 'security.mvt_spyware_scan.mvt_scan_available' })]);
   const t = await setup(scan(mod('launch_agent_audit', many), mvt));
   t.click({ 'data-go': 'district:gatehouse' });
-  let html = t.html();
-  assert.strictEqual((html.match(/class="mission-row"/g) || []).length, 10);
-  assert.match(html, /AND 4 MORE ▶/);
+  const html = t.html();
+  assert.strictEqual((html.match(/PART \d OF 4/g) || []).length, 4, '14 items, at most 4 per mission');
+  assert.doesNotMatch(html, /PART 5/);
   assert.match(html, /WAITING FOR YOUR GO-AHEAD/);
   assert.doesNotMatch(html.split('WAITING FOR YOUR GO-AHEAD')[0], /COULDN’T CHECK HERE/);
-  t.click({ 'data-act': 'toggle-district' });
-  html = t.html();
-  assert.strictEqual((html.match(/class="mission-row"/g) || []).length, 14);
 });
 
 test('city check names come from the scan (check_name), never the module id', async () => {

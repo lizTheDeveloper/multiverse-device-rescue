@@ -20,7 +20,7 @@ import { renderInstruments } from './views/instruments.js';
 import { renderSignalPanel, renderRange } from './views/signal.js';
 import { renderHud } from './views/hud.js';
 import { renderMap, mapLine } from './views/map.js';
-import { renderDistrict, bulkLabel } from './views/district.js';
+import { renderDistrict } from './views/district.js';
 import { renderBriefing } from './views/briefing.js';
 import { renderOutcome } from './views/outcome.js';
 import { districtComplete, renderMilestone } from './views/milestone.js';
@@ -157,17 +157,16 @@ export function focusHeading(root) {
 // `publishing` is a TEST SEAM too: the app never passes it, so the publish
 // control, the consent sheet and the hand-over are all bound to PUBLISH_READY
 // (views/profile.js and publish.js's deliver), which is false.
-// `missions`: the little missions (missions/types.js, runner.js) drive the
-// districts, INVESTIGATE NEXT and the mission screen. boot-core passes it on;
-// tests of the signal deck leave it off. `loadMissionGames` is a test seam.
+// The little missions (missions/types.js, runner.js) drive the districts,
+// INVESTIGATE NEXT and the mission screen: the only flow. `loadMissionGames` is a test seam.
 export function createController({ win, storage, scoutSprite, loadGame = loadRc, loadTraining = loadLessonsHere, loadDrillBank = loadDrillsHere,
-  publishing = {}, missions = false, loadMissionGames = undefined }) {
+  publishing = {}, loadMissionGames = undefined }) {
   const pub = { ready: PUBLISH_READY, renderProfile, renderPublishSheet, deliver, ...publishing };
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="checklist.css"><link rel="stylesheet" href="game/profile.css">'
-    + (missions ? '<link rel="stylesheet" href="missions/missions.css"><span id="mx-css"></span>' : '')
+    + '<link rel="stylesheet" href="missions/missions.css"><span id="mx-css"></span>'
     + `<style>${EV.CSS}</style><div class="frame" id="frame"></div>`;
   const frame = shadow.getElementById('frame');
   // The shared evidence block's styles, once, and its Copy buttons (never on a
@@ -308,7 +307,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.progress = viewOf(s.profile);
   }
   function refreshBank() {
-    const rounds = desk ? desk.rounds() : [];
+    const rounds = desk.rounds();
     s.bank = buildBank(s.lessons, s.drillBank, rounds);
     // Every item stays measurable (the same estimates in both modes); only the
     // lesson and concept indexes, which say what is drawn and what a lesson
@@ -323,7 +322,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   // Little missions (missions-city.js): everything it does to the computer
   // goes through the same flows as the rest of the city.
-  const desk = missions ? createMissionDesk({
+  const desk = createMissionDesk({
     win, loadMissionGames,
     mode: () => (coverMode() ? 'city' : 'standard'),
     platform: () => platform(),
@@ -352,7 +351,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (slot) slot.innerHTML = desk.ownTypes().filter((t) => t !== 'simple').map((t) => `<link rel="stylesheet" href="missions/games/${t}.css">`).join('');
       if (s.city && (s.screen === 'map' || s.screen === 'district' || s.screen === 'mx')) render();
     },
-  }) : null;
+  });
 
   function rebuild(doc, putBack = null) {
     const before = s.city ? cityIntegrity(s.city, signalsNow(), s.heldCity) : null;
@@ -410,7 +409,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // that would reward removing it, and the log line would say where it was.
     const heldNow = heldDistrictIds(s.heldCity);
     if (before) noteSecured(before, cityIntegrity(s.city, signalsNow(), s.heldCity), new Set([...heldBefore, ...heldNow]));
-    if (desk) desk.rebuild(doc);
+    desk.rebuild(doc);
   }
 
   // The modules whose findings a mark or unmark covered (by mark id), so each
@@ -669,7 +668,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // TODO(C5 integration): the shared count's field name for the notes
       // (assumed `notes`); until then the rows' own count.
       lowCount: s.counts && Number.isInteger(s.counts.notes) ? s.counts.notes : null,
-      nextLine: desk ? desk.nextLine() : '', missionsLeft: !!(desk && desk.nextMission()),
+      nextLine: desk.nextLine(), missionsLeft: !!desk.nextMission(),
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
@@ -855,7 +854,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.gapped = new Set();
     s.drillEvidence = new Set();
     s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
-    if (desk) desk.newSweep();
+    desk.newSweep();
   }
 
   // The ops log's SWEEP line: the deck's own numbers (cityCounts), so it says
@@ -1055,10 +1054,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'district' && district(s.districtId)) {
       return renderDistrict({ district: district(s.districtId), progress: s.progress, scout, message: s.districtMsg || '', busy: s.busy,
-        scanRunning: sweeping(), detail: rowDetail, allOpen: !!s.districtOpen, waitingTitle: coverMode() ? WAITING_TITLE.cover : WAITING_TITLE.plain,
-        cover: coverMode(), missionsHtml: desk ? desk.districtMissionsHtml(s.districtId) : null });
+        waitingTitle: coverMode() ? WAITING_TITLE.cover : WAITING_TITLE.plain,
+        cover: coverMode(), missionsHtml: desk.districtMissionsHtml(s.districtId) });
     }
-    if (s.screen === 'mx' && desk) {
+    if (s.screen === 'mx') {
       const html = desk.screenHtml();
       if (html !== null) return html;
       s.screen = 'map';
@@ -1162,40 +1161,6 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       }
     } catch (_) { /* the next render draws it */ }
   }
-  // A district row's one line of evidence, so two rows with the same title
-  // can be told apart. One thing (a task, a file): its path, name or id. A
-  // list of apps ("Many apps can use your microphone"): the apps' names,
-  // the named ones first ("Amical, Caffeine, ChatGPT Classic and 38 more"),
-  // never whichever path or bare id happens to come first.
-  function rowDetail(m) {
-    const f = m.primary || {};
-    const rows = evidenceRowsOf(f, m.module, false).filter((x) => !BOOKKEEPING.has(x.label));
-    const byLabel = new Map();
-    for (const r of rows) byLabel.set(r.label, (byLabel.get(r.label) || 0) + 1);
-    // "Made by" repeats for one thing too (the program and its settings file): not a list.
-    const listLabel = [...byLabel.entries()].find(([label, n]) => n > 1 && !/^Made by/.test(label));
-    if (listLabel) {
-      const items = rows.filter((r) => r.label === listLabel[0]);
-      const named = items.filter((r) => !r.mono).map((r) => listName(r.value)).filter(Boolean);
-      const rest = items.filter((r) => r.mono).map((r) => listName(r.value)).filter(Boolean);
-      const names = [...named, ...rest];
-      const d = f.data && typeof f.data === 'object' ? f.data : {};
-      const total = Math.max(names.length, Number.isInteger(d.count) ? d.count : 0, Array.isArray(d.apps) ? d.apps.length : 0);
-      const shown = names.slice(0, 3);
-      if (!shown.length) return '';
-      return { text: `${shown.join(', ')}${total > shown.length ? ` and ${total - shown.length} more` : ''}`, mono: false };
-    }
-    const r = rows.find((x) => x.mono);
-    return r ? r.value : '';
-  }
-  // "Amical (ai.amical.desktop) — Exa Labs LLC · verified" -> "Amical";
-  // "/opt/homebrew/Cellar/bash/5.3.3/bin/bash — Homebrew…" -> "bash".
-  function listName(value) {
-    const v = String(value == null ? '' : value).split(' — ')[0].trim();
-    const named = v.replace(/\s*\([^)]*\)\s*$/, '').trim();
-    if (/^[~/]/.test(named)) return named.split('/').filter(Boolean).pop() || '';
-    return named;
-  }
   // A briefing's text: home folders as "~" (the evidence block's rule).
   const homeText = (m) => ({ ...m, description: EV.homeRelative(m.description) });
 
@@ -1278,7 +1243,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), rank: rankOf(s.progress.deck),
-          todo: s.city ? todoFrom(s.counts, signalsNow()) : null, notChecked: s.counts, missions: desk ? desk.hud() : null }) + s.linkNotice;
+          todo: s.city ? todoFrom(s.counts, signalsNow()) : null, notChecked: s.counts, missions: desk.hud() }) + s.linkNotice;
       frame.innerHTML = saveNoticeHtml() + hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
@@ -1356,55 +1321,6 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     render();
     // Keyboard and screen-reader users land on what happened.
     focusHeading(frame);
-  }
-
-  // District missions ticked for a bulk move (read from the page; the
-  // selection starts again on every redraw, like the list's checklists).
-  const ticked = () => Array.from(frame.querySelectorAll('[data-pick]')).filter((b) => b.checked === true)
-    .map((b) => b.getAttribute('data-pick')).filter((id) => mission(id));
-  function updateBulk() {
-    const n = ticked().length;
-    frame.querySelectorAll('[data-act="bulk-did"],[data-act="bulk-later"]').forEach((b) => {
-      b.disabled = n === 0 || (b.hasAttribute('data-scan-running') && b.getAttribute('data-act') === 'bulk-did');
-      b.textContent = bulkLabel(b.getAttribute('data-verb'), n);
-    });
-    const c = frame.querySelector('[data-pick-count]');
-    if (c) c.textContent = n ? `${n} ticked` : 'None ticked';
-  }
-  // I DID THESE MYSELF: each ticked mission's check once, then what's gone is
-  // CONFIRMED (and paid, as for one), and the district says how many.
-  async function recheckMany(ids) {
-    if (s.busy || sweeping()) return;
-    const ms = ids.map(mission).filter(Boolean);
-    const modules = ms.map((m) => m.module).filter((x, i, a) => a.indexOf(x) === i);
-    const shownAt = s.shown;
-    s.busy = true; s.districtMsg = ''; render();
-    const res = {};
-    for (const name of modules) {
-      let r;
-      try { r = await win.rescue.recheckModule(name); } catch (_) { r = null; }
-      res[name] = r;
-      if (r && r.ok) {
-        if (!win.RescueHost.docChanged(r.doc)) { s.busy = false; return; }
-        rebuild(r.doc);
-      }
-    }
-    s.busy = false;
-    let gone = 0; let still = 0; let couldnt = 0;
-    for (const m of ms) {
-      const o = recheckOutcome(m.id, s.city, res[m.module]);
-      if (o === 'reclaimed') {
-        gone += 1;
-        if (!MONITORING_MODULES.has(m.module)) { commitAward(confirmFix(s.progress.deck, m.id, now())); logEntry('CONFIRMED', m.title); }
-      } else if (o === 'couldnt') couldnt += 1; else still += 1;
-    }
-    const parts = [];
-    if (gone) parts.push(`${gone} gone (Reclaim City checked again)`);
-    if (still) parts.push(`${still} still showing`);
-    if (couldnt) parts.push(`${couldnt} couldn’t be checked again, so not confirmed`);
-    s.districtMsg = parts.join(', ') + '.';
-    if (s.shown !== shownAt) { render(); return; }
-    render();
   }
 
   // The phone backup's long sweep: only after the person said yes to it on
@@ -1518,7 +1434,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'dismiss-save-notice') { s.saveNotice = null; render(); return; }
     if (s.busy) return;
     if (go) s.linkNotice = '';
-    if (desk && desk.click(act, go)) return;
+    if (desk.click(act, go)) return;
     if (go === 'side') { if (inCity()) openSide(); return; }
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
     // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
@@ -1537,7 +1453,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (act === 'investigate-next') {
       // Little missions: the most important unfinished mission.
-      const nm = desk && desk.nextMission();
+      const nm = desk.nextMission();
       if (nm && desk.open(nm.id)) { s.signal = null; s.screen = 'mx'; render(); focusHeading(frame); return; }
       const { q, items, drills } = deckQueue();
       const next = items[0] || drills[0] || q.low[0];
@@ -1648,22 +1564,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go && go.startsWith('rc:')) { if (s.rc) goRc(go.slice(3)); return; }
     if (act === 'confirm-from-scan') { if (s.rc) confirmFromScan(); return; }
     if (go === 'map') { s.screen = 'map'; s.signal = null; render(); return; }
-    if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); s.districtMsg = ''; s.districtOpen = false; render(); focusHeading(frame); return; }
-    if (act === 'toggle-district' && s.screen === 'district') { s.districtOpen = !s.districtOpen; render(); focusEl(findByAttr(frame, 'data-act', 'toggle-district')); return; }
-    if (act === 'bulk-did' || act === 'bulk-later') {
-      const ids = ticked();
-      if (!ids.length || s.screen !== 'district') return;
-      if (act === 'bulk-did') { recheckMany(ids); return; }
-      let p = s.progress;
-      for (const id of ids) {
-        const m = mission(id);
-        if (m) p = setStatus(p, m.id, 'later', m.module, now(), { districtId: m.districtId, title: m.title });
-      }
-      keep(p);
-      s.districtMsg = `${ids.length} saved for later.`;
-      render();
-      return;
-    }
+    if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); s.districtMsg = ''; render(); focusHeading(frame); return; }
     if (go && go.startsWith('milestone:')) { s.screen = 'milestone'; s.districtId = go.slice(10); render(); focusHeading(frame); return; }
     if (go && go.startsWith('mission:')) { s.screen = 'mission'; s.missionId = go.slice(8); render(); focusHeading(frame); return; }
     if (act === 'i-did-it') { recheck(s.missionId, 'i-did-it'); return; }
@@ -1819,7 +1720,6 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   });
   // On the shadow root, so e.target is the real input (not retargeted to the host).
   shadow.addEventListener('change', (e) => {
-    if (e && e.target && typeof e.target.hasAttribute === 'function' && e.target.hasAttribute('data-pick')) { updateBulk(); return; }
     if (s.rc) refreshDebriefForm(e, s.rc);
   });
   shadow.addEventListener('input', (e) => { if (s.rc) refreshDebriefForm(e, s.rc); });
@@ -1830,14 +1730,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const refusedMidScan = (result) => !!(result && result.error === 'scan_running');
   win.FixFlow.attach(frame, win.rescue, { onResult: ({ kind, module, result, described }) => {
     if (refusedMidScan(result)) return;
-    if (desk && s.screen === 'mx' && desk.onFlowResult('fix', { result, described })) return;
+    if (s.screen === 'mx' && desk.onFlowResult('fix', { result, described })) return;
     if (kind === 'fix') s.lastFix = { missionId: s.missionId, module, result };
     if (kind === 'undo' && described && described.restored) s.lastFix = null;
     if (described && (described.tone === 'success' || described.tone === 'info' || described.restored)) recheck(s.missionId, kind === 'undo' ? 'undo' : 'fix');
   } });
   win.MarkFlow.attach(frame, win.rescue, { onResult: ({ kind, result, described }) => {
     if (refusedMidScan(result)) return;
-    if (desk && s.screen === 'mx' && desk.onFlowResult('mark', { result, described })) return;
+    if (s.screen === 'mx' && desk.onFlowResult('mark', { result, described })) return;
     if (described && described.done) recheck(s.missionId, kind === 'removed' ? 'unmark' : 'mark', modulesCoveredBy(result && result.ids));
   } });
 
@@ -1852,7 +1752,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (doc !== s.sweptDoc) newSweep(doc, prev);
     s.screen = stay ? 'side' : 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
     s.lesson = null; s.pendingCity = false;
-    s.signal = null; s.filter = null; s.lowOpen = false; s.range = null; s.queueOpen = false; s.sev = null; s.districtOpen = false;
+    s.signal = null; s.filter = null; s.lowOpen = false; s.range = null; s.queueOpen = false; s.sev = null;
     if (s.phone !== 'running') s.phone = null;
     // A new sweep that holds something says NEW on the tile again.
     if (doc !== s.sweptDocSeen) { s.sideSeen = false; s.sweptDocSeen = doc; }

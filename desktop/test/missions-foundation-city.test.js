@@ -61,7 +61,7 @@ async function setup(d, { storage = memStore(), mode = 'standard', recheckDocs =
   const t = stub(recheckDocs);
   t.win.RescueHost.mode = () => mode;
   const ctl = createController({ win: t.win, storage, scoutSprite: () => '', loadGame: () => new Promise(() => {}),
-    loadTraining: async () => [], loadDrillBank: async () => [], missions: true,
+    loadTraining: async () => [], loadDrillBank: async () => [], 
     loadMissionGames: games || (async () => { const I = await import('../renderer/missions/games/index.js'); return I.loadGames({ importer: async () => { throw new Error('none'); } }); }) });
   await tick(); await tick();
   if (d) ctl.show(d, { id: 'unsure' });

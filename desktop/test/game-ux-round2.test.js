@@ -126,17 +126,24 @@ test('LOOK CLOSER shows what the scan saw under the next move; before a tag, the
   assert.match(panel, /It stays in your queue\.<\/p><div data-ev-module="launch_agent_audit"><section class="evidence"/);
 });
 
-test('P2-14: district rows carry one line of evidence, so two with one title can be told apart', async () => {
+test('P2-14: two items with one title are told apart by their own evidence on the mission screen', async () => {
   const t = await setup();
   t.click({ 'data-go': 'district:gatehouse' });
-  const html = t.html();
-  assert.match(html, /Login item: Amical<small class="mission-detail"><code>a\.one<\/code><\/small>/);
-  assert.match(html, /Login item: Amical<small class="mission-detail"><code>a\.two<\/code><\/small>/);
-  const { renderDistrict } = await game('views/district.js');
-  const d = { id: 'g', name: 'G', status: 'warn', missions: [1, 2].map((i) => ({ id: `m${i}`, title: 'Same', severity: 'warning' })), notes: [], fog: [], unfinished: [] };
-  const plain = renderDistrict({ district: d, progress: { missions: {} }, scout: () => '' });
-  assert.match(plain, /Same \(1 of 2\)/);
-  assert.match(plain, /Same \(2 of 2\)/);
+  const go = [...t.html().matchAll(/data-go="(mx:[^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, '&'));
+  assert.ok(go.length, 'the district has missions');
+  // Walk every item of every mission here; each Amical item's card names its own label.
+  const seen = new Set();
+  for (const id of go) {
+    t.click({ 'data-go': id });
+    if (/data-act="mx-know"/.test(t.html())) t.click({ 'data-act': 'mx-know' });
+    for (let i = 0; i < 6 && /class="mx-card"/.test(t.html()); i += 1) {
+      const h = t.html();
+      const card = h.split('class="mx-card"')[1].split('mx-evidence')[0];
+      for (const l of ['a.one', 'a.two']) if (card.includes(`>${l}<`)) seen.add(l);
+      t.click({ 'data-act': 'mx-skip' });
+    }
+  }
+  assert.deepStrictEqual([...seen].sort(), ['a.one', 'a.two']);
 });
 
 test('the help district: held evidence, large, with the paper line, and no clipboard anywhere', async () => {
