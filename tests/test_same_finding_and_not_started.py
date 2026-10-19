@@ -28,8 +28,8 @@ def test_twins_from_different_checks_share_one_key():
         [_f("firewall_audit", "a", {"check": "stealth_mode"}), _f("firewall_rules_audit", "b", {"check": "stealth_disabled"})],
         [_f("accessibility_permissions", "a", {"check": "excessive_accessibility"}),
          _f("app_permissions", "b", {"check": "accessibility_access"})],
-        [_f("launch_agent_audit", "a", {"check": "suspicious_path", "label": "x.task"}),
-         _f("launchd_persistence_audit", "b", {"check": "suspicious_path", "label": "x.task"})],
+        [_f("launch_agent_audit", "a", {"check": "suspicious_path", "label": "x.task", "plist": "/Library/LaunchAgents/x.task.plist"}),
+         _f("launchd_persistence_audit", "b", {"check": "suspicious_path", "label": "x.task", "plist": "/Library/LaunchAgents/x.task.plist"})],
     ]
     keys = []
     for group in pairs:
@@ -40,8 +40,9 @@ def test_twins_from_different_checks_share_one_key():
 
 
 def test_different_problems_and_monitoring_checks_get_no_shared_key():
-    a = same_key("launch_agent_audit", {"data": {"check": "suspicious_path", "label": "x.task"}})
-    b = same_key("launch_agent_audit", {"data": {"check": "missing_program", "label": "x.task"}})
+    p = "/Library/LaunchAgents/x.task.plist"
+    a = same_key("launch_agent_audit", {"data": {"check": "suspicious_path", "label": "x.task", "plist": p}})
+    b = same_key("launch_agent_audit", {"data": {"check": "missing_program", "label": "x.task", "plist": p}})
     assert a != b
     # Unrecognised apps that can control the Mac is its own (markable) finding.
     assert same_key("accessibility_permissions", {"data": {"check": "suspicious_accessibility"}}) is None
@@ -91,3 +92,20 @@ def test_mvt_with_a_backup_and_no_opt_in_is_not_started(tmp_path, monkeypatch):
     result = mod.check(profile)
     assert result.not_started is True
     assert [f.code for f in result.findings] == ["security.mvt_spyware_scan.mvt_scan_available"]
+
+
+def test_a_task_copying_a_label_never_merges_with_the_real_one():
+    """A label is chosen by whoever made the task: the settings file is the identity."""
+    real = {"data": {"check": "suspicious_path", "label": "com.google.keystone.agent",
+                     "plist": "/Library/LaunchAgents/com.google.keystone.agent.plist"}}
+    rogue = {"data": {"check": "suspicious_path", "label": "com.google.keystone.agent",
+                      "plist": "/Users/ann/Library/LaunchAgents/com.google.keystone.agent.plist"}}
+    a = same_key("launch_agent_audit", real)
+    b = same_key("launchd_persistence_audit", rogue)
+    assert a and b and a != b
+    assert "/Library/LaunchAgents/com.google.keystone.agent.plist" in a
+    # No settings file known: no shared key at all (never by label alone).
+    assert same_key("launch_agent_audit", {"data": {"check": "suspicious_path", "label": "x.task"}}) is None
+    # scheduled_tasks_audit names its file "location".
+    loc = same_key("scheduled_tasks_audit", {"data": {"check": "suspicious_path", "label": "x", "location": "/L/x.plist"}})
+    assert loc == "task:/L/x.plist:x:suspicious_path"

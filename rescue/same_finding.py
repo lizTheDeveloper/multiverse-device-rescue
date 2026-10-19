@@ -41,7 +41,7 @@ _BY_CHECK = {
 
 # Checks about one app's crashes; the app's name is the identity.
 _CRASH_MODULES = {"app_crash_analyzer", "application_crash_report", "crash_log_analyzer"}
-# Checks about background tasks; the task's settings file (or label) is the identity.
+# Checks about background tasks; the task's settings file and label are the identity.
 _INVENTORY = {"agent_info", "non_apple_info", "launch_agent_info"}
 _TASK_MODULES = {"launch_agent_audit", "launchd_persistence_audit", "scheduled_tasks_audit", "login_items_audit"}
 
@@ -71,9 +71,13 @@ def same_key(module: str, finding: dict) -> str | None:
             return "crashes:summary"
     if module in _TASK_MODULES:
         label = _text(data.get("label"))
-        if label and check:
+        # The task's settings file, not its label alone: whoever made a task
+        # picks its label, so a rogue task copying a familiar label must not
+        # merge into (and hide behind) the familiar one. No file, no merge.
+        plist = next((p for p in (_text(data.get(k)) for k in ("plist", "location", "path")) if p), "")
+        if label and check and plist:
             # The same problem with the same task. The plain inventory line has
             # a different id in each check, so those share one.
             kind = "inventory" if check in _INVENTORY else _norm(check)
-            return f"task:{label}:{kind}"
+            return f"task:{plist}:{label}:{kind}"
     return None
