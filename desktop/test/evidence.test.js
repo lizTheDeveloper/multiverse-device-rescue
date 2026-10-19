@@ -516,3 +516,18 @@ test('P2-11: keys and values written for code read as words', () => {
     if (!['Keys', 'Name'].includes(r.label)) assert.doesNotMatch(r.value, /^[a-z0-9]+(_[a-z0-9]+)+$/, `${r.label}: ${r.value}`);
   }
 });
+
+test('P3: city mode never names a check with a watching word', () => {
+  const city = (f, checkName) => E.evidenceRows(f, { mode: 'city', held: false, ...(checkName ? { checkName } : {}) }).find((r) => r.label === 'Check').value;
+  assert.strictEqual(city({ module: 'network_connections_monitor', data: { port: 22 } }), 'Network connections');
+  assert.strictEqual(city({ module: 'network_connections_monitor', data: {} }, 'Network connections'), 'Network connections');
+  assert.strictEqual(city({ module: 'mvt_spyware_scan', data: {} }, 'iPhone backup spyware scan'), 'Safety sweep');
+  assert.strictEqual(city({ module: 'stalkerware_scan', data: {} }, 'Monitoring apps'), 'Safety sweep');
+  assert.strictEqual(city({ module: 'keylogger_indicators', data: {} }, 'Keyboard access'), 'Keyboard access');
+  assert.strictEqual(city({ module: 'some_tracker_check', data: {} }), 'Safety sweep');
+  assert.strictEqual(city({ module: 'input_devices', data: {} }, 'Keyboards, mice and trackpads'), 'Keyboards, mice and trackpads');
+  // Standard mode keeps the check's own name.
+  assert.strictEqual(get(E.evidenceRows({ module: 'network_connections_monitor', data: {} }), 'Check').value, 'Network connections monitor');
+  assert.strictEqual(E.cityCheckName('Resource monitor', 'resource_monitor'), 'Resource check');
+  assert.strictEqual(E.cityCheckName('Monitor', 'x'), 'Safety sweep');
+});

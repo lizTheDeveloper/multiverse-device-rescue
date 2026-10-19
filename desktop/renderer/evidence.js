@@ -563,6 +563,23 @@ const Evidence = (function () {
     return rows;
   }
 
+  // ---- city words ------------------------------------------------------------
+
+  // A check's name on screen in city mode: never a watching word ("Network
+  // connections monitor", "iPhone backup spyware scan", "Monitoring apps").
+  // "monitor" alone drops out; a name that is about watching becomes the sweep.
+  const WATCH_WORDS = /monitor|spy|spie|stalk|keylog|surveil|tracking|tracker/i;
+  const CITY_SWEEP = 'Safety sweep';
+  function cityCheckName(name, module) {
+    const s = String(name || '');
+    if (!WATCH_WORDS.test(s)) return s;
+    if (MONITORING_MODULES.has(module)) return CITY_SWEEP;
+    const left = s.replace(/\s*\bmonitor(?:s|ing)?\b\s*/gi, ' ').replace(/\s+/g, ' ').trim();
+    if (!left || WATCH_WORDS.test(left)) return CITY_SWEEP;
+    const words = /\s/.test(left) ? left : `${left} check`;
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  }
+
   // ---- the finding's own words ---------------------------------------------
 
   // The keyboard-access check's "familiar names" finding says the tool "has
@@ -613,7 +630,8 @@ const Evidence = (function () {
       // A maker for a path already shown is still worth its own row; skip none.
       rows.push(...makerRows(f.made_by));
     }
-    const check = o.checkName || f.check_name || (f.module ? humanize(f.module) : '');
+    const named = o.checkName || f.check_name || (f.module ? humanize(f.module) : '');
+    const check = o.mode === 'city' ? cityCheckName(named, f.module) : named;
     if (check) rows.push(row('Check', check));
     const mine = commandsFor(f, o.commands);
     const cmd = commandRow(mine.commands, mine.names);
@@ -748,7 +766,7 @@ const Evidence = (function () {
     MONITORING_MODULES, ADAPTERS, CSS, PAPER_LINE,
     evidenceRows, renderEvidence, evidenceText, wireCopy, replacesDescription, noClipboard,
     plainDay, shortHash, shortPath, homeRelative, bytes, makersVerified, makerText, checkLabel, commandLine, shortCommand,
-    appSubject, breakable, commandsFor, findingSubjects,
+    appSubject, breakable, commandsFor, findingSubjects, cityCheckName,
   };
 })();
 
