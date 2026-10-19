@@ -1780,6 +1780,22 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.lesson = null;
   }
 
+  // A stopped checkup's document (engine-runner stoppedDocOf), with what it found.
+  function isStopped(doc) {
+    return !!(doc && typeof doc === 'object' && doc.stopped && typeof doc.stopped === 'object'
+      && Array.isArray(doc.modules) && doc.modules.length > 0);
+  }
+  function scanDone(doc, situation) {
+    s.boss = bossFinish(s.boss);
+    s.scan = { running: false, index: s.boss.total, total: s.boss.total, error: null };
+    if (situation) s.situation = situation;
+    const inLesson = afterScanDone(s.screen) === 'banner';
+    const lesson = s.lesson;
+    showCityFrom(doc);
+    if (inLesson) { s.lesson = lesson; s.screen = 'lesson'; s.pendingCity = true; s.focusPending = false; }
+    return render();
+  }
+
   // show, showTraining, showBoss, scanDone and scanFailed return render()'s
   // answer: false means the person is already back on Plain view's screens.
   return {
@@ -1850,18 +1866,19 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (s.screen === 'boss' || s.screen === 'training' || s.screen === 'home') render();
     },
     // Mid-lesson, the person stays in the lesson with a banner; otherwise the city.
+    // A stopped checkup's document (engine-runner stoppedDocOf: `stopped`
+    // {stage, done, total}) is shown here too: the deck's THE SWEEP STOPPED
+    // banner, what it found, and nothing to fix or mark.
     scanDone(doc, situation) {
-      s.boss = bossFinish(s.boss);
-      s.scan = { running: false, index: s.boss.total, total: s.boss.total, error: null };
-      if (situation) s.situation = situation;
-      const inLesson = afterScanDone(s.screen) === 'banner';
-      const lesson = s.lesson;
-      showCityFrom(doc);
-      if (inLesson) { s.lesson = lesson; s.screen = 'lesson'; s.pendingCity = true; s.focusPending = false; }
-      return render();
+      return scanDone(doc, situation);
     },
-    // Never a frozen boss screen: back to the Training Grounds with the error.
-    scanFailed(message) {
+    // The checkup stopped. With `stoppedDoc` (what it found so far, from
+    // engine-runner's stoppedDocOf or app.js's own), the city shows that, as
+    // scanDone does: never the Training Grounds with nothing to see. Without
+    // one (nothing arrived), back to the Training Grounds with the error.
+    // app.js: RescueGame.scanFailed(message, stoppedDoc).
+    scanFailed(message, stoppedDoc = null) {
+      if (isStopped(stoppedDoc)) return scanDone(stoppedDoc);
       s.boss = bossFinish(s.boss);
       s.scan = { running: false, index: 0, total: 0, error: String(message || 'The checkup stopped.') };
       if (s.screen !== 'lesson') s.screen = noCity();

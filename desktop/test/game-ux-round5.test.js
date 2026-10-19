@@ -87,3 +87,54 @@ test('reconcile: a merged item whose first check dropped it keeps one record und
   p = reconcile(p, findingsToCity(scan(mod('a_check', []), mod('b_check', []))), new Set(['b_check']), 't3').progress;
   assert.strictEqual(countReclaimed(p), 1);
 });
+
+// The stopped fixtures: the fresh scan's modules streamed, then the engine
+// stopped (all of them: 'assembly'; the first half: 'early'), through
+// engine-runner's own stoppedDocOf, as app.js hands it over.
+const { stoppedDocOf } = require('../engine-runner.js');
+const fresh = () => JSON.parse(require('fs').readFileSync(path.join(__dirname, 'fixtures', 'fresh-round3.json'), 'utf8'));
+function stoppedFixture(stage) {
+  const doc = fresh();
+  const plan = { modules: doc.modules.map((m) => ({ module: m.name, category: m.category })) };
+  const streamed = stage === 'assembly' ? doc.modules : doc.modules.slice(0, Math.floor(doc.modules.length / 2));
+  return stoppedDocOf(streamed, plan, { platform: 'darwin', reason: 'exit', exit_code: 1 });
+}
+
+for (const stage of ['assembly', 'early']) {
+  test(`a stopped checkup (${stage}) handed to the city: its stopped deck, what it found, nothing to fix or mark`, async () => {
+    const doc = stoppedFixture(stage);
+    assert.strictEqual(doc.stopped.stage, stage);
+    const t = await setup(null);
+    t.ctl.showBoss();
+    assert.notStrictEqual(t.ctl.scanFailed('The checkup stopped before it finished.', doc), false);
+    const deck = t.html();
+    assert.match(deck, stage === 'assembly' ? /THE SWEEP STOPPED AT THE END/ : /THE SWEEP STOPPED EARLY/);
+    // The deck, never the Training Grounds with "start it again".
+    assert.match(deck, /INCOMING SIGNALS/);
+    assert.doesNotMatch(deck, /You can start it again/);
+    // What it found is there to look at.
+    const c = NotChecked.scanCounts(doc, { mode: 'city' });
+    assert.ok(c.items > 0);
+    assert.match(deck, /data-go="signal:/);
+    // Its missions offer no fix and no mark.
+    const id = /data-go="(mission:[^"]+)"/.exec(deck) || /data-go="signal:([^"]+)"/.exec(deck);
+    assert.ok(id);
+    const { findingsToCity } = await game('findings-to-city.js');
+    const m = findingsToCity(doc).districts.flatMap((d) => d.missions).find((x) => x.fixable) || findingsToCity(doc).districts.flatMap((d) => d.missions)[0];
+    t.click({ 'data-go': `mission:${m.id}` });
+    const mission = t.html();
+    assert.doesNotMatch(mission, /data-fix>|data-mark>/);
+    assert.match(mission, /stopped before its report was done/);
+  });
+}
+
+test('a checkup that stopped with nothing found: the error, as before (no document to show)', async () => {
+  const t = await setup(null);
+  t.ctl.showBoss();
+  t.ctl.scanFailed('The checkup stopped before it finished. Nothing on your computer was changed.');
+  assert.match(t.html(), /THE (SWEEP|CHECKUP) STOPPED/);
+  // A document with no modules is no better than none.
+  t.ctl.showBoss();
+  t.ctl.scanFailed('x', { stopped: { stage: 'early' }, modules: [] });
+  assert.doesNotMatch(t.html(), /INCOMING SIGNALS/);
+});
