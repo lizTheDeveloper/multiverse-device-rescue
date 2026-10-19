@@ -56,14 +56,16 @@
 
 Only b is per item, and c is known from the item, so the model stays honest with a handful of answers. A 2PL would need each item's discrimination, which one person's answers can't estimate; a fixed discrimination of 1 is the 1PL's prior in effect.
 
-**Ability: EAP on a grid.** θ_j ∈ {−4.0, −3.9, …, 4.0} (81 points), prior N(0, 1); N(0.5, 0.8²) for a concept whose lesson was finished under the old rule. The k-th of n answers on a concept (oldest first) has weight w_k = 0.7^(n−1−k), so a person who learns can show it:
+> **Updated after review (Task 2, fix rounds 1–2):** the constants below supersede the original draft. Grid ±6 (121 points); weight w_k = max(0.35, 0.9^(n−1−k)); learned = θ̂ ≥ 0.4 AND posterior sd ≤ 0.89 AND n ≥ 4 answers on ≥ 2 items. Calibrated by seeded simulation: random guesser ever "learned" within 20 answers ≤ 2% (2- and 3-option); knower θ = 1.5 learned within 8 answers ≥ 80% on 3–4 options (2-option: ≥ 88% within 20); recovery after 3 early misses = 8 right answers on 3-option items. New bank items should have at least 3 options. Old-rule lessons: `isLearned(estimate([]), true)` is false by design, so Task 6 must migrate a lesson finished under the old rule as stored evidence that keeps it learned. Do not derive "learned" from an empty estimate.
+
+**Ability: EAP on a grid.** θ_j ∈ {−6.0, −5.9, …, 6.0} (121 points), prior N(0, 1); N(0.5, 0.8²) for a concept whose lesson was finished under the old rule. The k-th of n answers on a concept (oldest first) has weight w_k = max(0.35, 0.9^(n−1−k)), so a person who learns can show it:
 
     log post(θ_j) = −(θ_j − μ0)² / (2σ0²) + Σ_k w_k · [x_k log P_k(θ_j) + (1 − x_k) log(1 − P_k(θ_j))]
     θ̂ = Σ θ_j post_j / Σ post_j,     sd = sqrt(Σ (θ_j − θ̂)² post_j / Σ post_j)
 
 EAP rather than maximum likelihood because an all-right pattern has no finite MLE; the prior keeps three right answers from meaning "infinitely able".
 
-**Learned.** Enough evidence (n ≥ 3 graded answers on ≥ 2 different items: "a few examples of each question") and θ̂ ≥ 0.25. Once learned (`learnedAt` is stored), a concept stays learned until θ̂ < −0.25, so one slip doesn't take it away. A concept finished under the old rule counts as learned until it has 3 answers of its own; then the rule above decides, with the higher prior.
+**Learned.** Enough evidence (n ≥ 4 graded answers on ≥ 2 different items: "a few examples of each question"), posterior sd ≤ 0.89, and θ̂ ≥ 0.4. Once learned (`learnedAt` is stored), a concept stays learned until θ̂ < −0.25, so one slip doesn't take it away. A concept finished under the old rule stays learned through migrated evidence (Task 6) until it has 4 answers of its own; then the rule above decides, with the higher prior.
 
 **Item difficulty.** Starts at its authored level (easy −1, medium 0, hard +1). After each answer, with θ̂ from just before it:
 
@@ -486,7 +488,7 @@ git commit -m "Profile: recipe-box codec, so nothing literal reaches disk"
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: `GRID`, `PRIOR = {mean:0, sd:1}`, `BEFORE_PRIOR = {mean:0.5, sd:0.8}`, `DECAY = 0.7`, `LEVEL_B = {easy:-1, medium:0, hard:1}`, `LEARNED_AT = 0.25`, `SLIPPED_BELOW = -0.25`, `MIN_RESPONSES = 3`, `MIN_ITEMS = 2`; `guessFloor(k) -> number`, `levelB(level) -> number`, `pCorrect(theta, b, c) -> number`, `information(theta, b, c) -> number`, `estimate(responses: {key, x, b, c}[], prior?, decay?) -> {mean, sd, n, items}`, `enoughEvidence(est) -> boolean`, `isLearned(est, wasLearned?) -> boolean`, `updateDifficulty({b, n}, x, theta, c, level?) -> {b, n}`.
+- Produces: `GRID`, `PRIOR = {mean:0, sd:1}`, `BEFORE_PRIOR = {mean:0.5, sd:0.8}`, `DECAY = 0.9`, `WEIGHT_FLOOR = 0.35`, `LEVEL_B = {easy:-1, medium:0, hard:1}`, `LEARNED_AT = 0.4`, `LEARNED_SD_CAP = 0.89`, `SLIPPED_BELOW = -0.25`, `MIN_RESPONSES = 4`, `MIN_ITEMS = 2`; `guessFloor(k) -> number`, `levelB(level) -> number`, `pCorrect(theta, b, c) -> number`, `information(theta, b, c) -> number`, `estimate(responses: {key, x, b, c}[], prior?, decay?) -> {mean, sd, n, items}`, `enoughEvidence(est) -> boolean`, `isLearned(est, wasLearned?) -> boolean`, `updateDifficulty({b, n}, x, theta, c, level?) -> {b, n}`.
 
 - [ ] **Step 1: Write the failing test**
 
