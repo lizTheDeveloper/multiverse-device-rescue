@@ -12,8 +12,9 @@ The severities here are chosen to be defensible rather than alarming:
   been modified since it was signed. That is tampering, not a configuration
   choice, and there is no innocent reading of it.
 - WARNING for a signature in an old format that current macOS no longer
-  accepts ("resource envelope is obsolete"): the seal predates today's rules,
-  which says nothing about the file being changed.
+  accepts, when that is codesign's only complaint ("<app>: resource envelope
+  is obsolete"): its integrity couldn't be checked. Any other failure text
+  alongside it stays CRITICAL.
 - WARNING for unsigned or ad-hoc-signed software in a system-wide location,
   where anyone can drop a binary and every user runs it.
 - INFO for the inventory, including the coverage cap.
@@ -88,6 +89,19 @@ def _powershell_signature_command(path: str, limit: int) -> str:
 
 # What codesign says about a signature made under the old (version 1) rules.
 _OBSOLETE_FORMAT = "resource envelope is obsolete"
+
+
+def _only_obsolete_format(output: str, app_path: str) -> bool:
+    """True only when codesign's whole complaint is its own top-level
+    "<app>: resource envelope is obsolete ..." line for this app. Anything else
+    (a modified or missing sealed resource, an invalid signature, a problem
+    "In subcomponent", the same line about a nested path) keeps the result
+    "tampered": an old format must never hide a changed file."""
+    lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+    if not lines:
+        return False
+    prefix = f"{app_path}: {_OBSOLETE_FORMAT}"
+    return all(ln.startswith(prefix) for ln in lines)
 
 class Module(ModuleBase):
     name = "code_signature_audit"
@@ -249,8 +263,8 @@ class Module(ModuleBase):
                     title=f"{entry['name']} has an old-style signature",
                     description=(
                         f"{entry['path']} is signed, but in an older format that current "
-                        "macOS no longer accepts. That is not a sign the app was changed: "
-                        "its seal is just older than today's rules.\n\n"
+                        "macOS no longer accepts, so its integrity couldn't be checked: "
+                        "macOS can't confirm the app is unchanged since it was signed.\n\n"
                         "What to do: Update the app, or download its current version from "
                         "the maker's website or the App Store. A current version has a "
                         "current signature.\n\n"
@@ -534,9 +548,10 @@ class Module(ModuleBase):
                 entry["detail"] = "signature check did not complete: " + (
                     verify.error or "timed out"
                 )
-            elif _OBSOLETE_FORMAT in combined:
+            elif _only_obsolete_format(verify.stdout + "\n" + verify.stderr, str(app)):
                 # An old signature format (pre-2014 "version 1" resource
-                # rules, often "custom omit rules"): out of date, not changed.
+                # rules, often "custom omit rules") and nothing else: its
+                # integrity can't be checked, which isn't proof of a change.
                 entry["status"] = "old_format"
                 entry["detail"] = (
                     "codesign --verify: "

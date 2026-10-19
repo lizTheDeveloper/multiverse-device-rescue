@@ -126,26 +126,46 @@ def test_broken_signature_is_critical(mod):
     assert "Tampered" in finding.title
 
 
-def test_old_signature_format_is_a_warning_not_tampering(mod):
-    """codesign's "resource envelope is obsolete" is an old seal format, not a
-    changed file (Baba Is You on a real Mac): a warning, in plain words."""
-    _install(mod, "Old Game")
-
+def _codesign_says(mod, stderr):
     def handler(args, **kw):
         if args[0] == "codesign":
-            return _Result(ok=False, stderr="/x/Old Game.app: resource envelope is obsolete (custom omit rules)")
+            return _Result(ok=False, stderr=stderr.replace("APP", args[-1]))
         return _Result(ok=True)
+    return _run_with(mod, handler)
 
-    result = _run_with(mod, handler)
 
+def test_old_signature_format_alone_is_a_warning(mod):
+    """codesign's only complaint is its own "<app>: resource envelope is
+    obsolete" line (Baba Is You on a real Mac): a warning, worded as "couldn't
+    be checked", never as "not changed"."""
+    _install(mod, "Old Game")
+    result = _codesign_says(mod, "APP: resource envelope is obsolete (custom omit rules)")
     assert _finding(result, "tampered_binary") is None
     old = _finding(result, "old_signature_format")
     assert old.severity == Severity.WARNING
     assert old.code == "security.code_signature_audit.old_signature_format"
-    assert "old-style signature" in old.title
-    assert "not a sign the app was changed" in old.description
-    assert "obsolete" in old.data["detail"]
+    assert "integrity couldn't be checked" in old.description
+    assert "not a sign" not in old.description and "wasn't changed" not in old.description
     assert _finding(result, "inventory").data["old_signature_format"] == 1
+
+
+def test_old_format_with_any_other_failure_stays_critical(mod):
+    _install(mod, "Old Game")
+    result = _codesign_says(mod, "APP: resource envelope is obsolete (custom omit rules)\n"
+                                 "APP: a sealed resource is missing or invalid")
+    assert _finding(result, "old_signature_format") is None
+    assert _finding(result, "tampered_binary").severity == Severity.CRITICAL
+
+
+def test_obsolete_line_about_a_nested_part_is_not_an_old_format(mod):
+    _install(mod, "Old Game")
+    result = _codesign_says(mod, "APP/Contents/Frameworks/X.framework: resource envelope is obsolete\n"
+                                 "In subcomponent: APP/Contents/Frameworks/X.framework")
+    assert _finding(result, "old_signature_format") is None
+    assert _finding(result, "tampered_binary").severity == Severity.CRITICAL
+    # The nested path alone is not the app's own top-level line either.
+    result = _codesign_says(mod, "APP/Contents/Frameworks/X.framework: resource envelope is obsolete")
+    assert _finding(result, "old_signature_format") is None
 
 
 @pytest.mark.skipif(

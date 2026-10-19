@@ -56,6 +56,6 @@ in its place.
 
 ## Step 4: Update an app with an old-style signature
 
-The app is signed, but in a format older than current macOS accepts. That is
-not a sign it was changed. Update it from its own menu, or download the current
+The app is signed, but in a format older than current macOS accepts, so its
+integrity couldn't be checked. Update it from its own menu, or download the current
 version from the maker's website or the App Store and install it over this one.
