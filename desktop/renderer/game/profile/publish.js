@@ -34,7 +34,7 @@ export const STAYS_HERE = 'Your checkup results, your missions and anything abou
 // Lessons learned, judged on their shown concepts only: a hidden concept's
 // evidence never moves a published total either way. A lesson with no shown
 // concept never counts. Without per-lesson concepts, nothing is counted.
-function lessonsLearned(summary) {
+export function lessonsLearned(summary) {
   if (!Array.isArray(summary.lessons)) return null;
   return summary.lessons.filter((l) => {
     const shown = (Array.isArray(l && l.concepts) ? l.concepts : []).filter((c) => c && !isHidden(c.id));

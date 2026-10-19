@@ -299,3 +299,11 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .badge.drill-stamp { font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; color: var(--lime); background: rgba(198,255,0,0.14); border: 1px solid var(--lime); }
 .sig-panel [aria-disabled="true"] { opacity: 0.6; pointer-events: none; }
 .sig-panel.drill { border: 2px solid var(--lime); background-image: repeating-linear-gradient(45deg, rgba(198,255,0,0.06) 0 8px, transparent 8px 16px); }
+
+/* Profile screen: skill meters (the words beside them say the same thing). */
+.profile h2:focus { outline: none; }
+.profile h2:focus-visible, .sheet h2:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+.profile .meter { display: inline-flex; gap: 3px; vertical-align: middle; }
+.profile .meter i { width: 14px; height: 6px; border: 1px solid var(--cyan); display: inline-block; }
+.profile .meter i.on { background: var(--cyan); }
+.profile-lessons, .profile-skills { list-style: none; padding: 0; margin: 0; }
