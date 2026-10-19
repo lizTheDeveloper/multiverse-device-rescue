@@ -115,3 +115,13 @@ test('a drill’s read: right, or the tell, and it costs nothing', async () => {
   assert.strictEqual(drillRead(d, true), 'Right. It runs from a hidden folder.');
   assert.match(drillRead(d, false), /^Not this time, and it costs you nothing\. The tell: It runs from a hidden folder\.$/);
 });
+
+test('scoutAgrees: the scan’s view in tag terms, and a mark reads as MINE', async () => {
+  const { scoutAgrees } = await import('../renderer/game/clues.js');
+  assert.strictEqual(scoutAgrees({ severity: 'critical' }, 'threat'), true);
+  assert.strictEqual(scoutAgrees({ severity: 'critical' }, 'mine'), false);
+  assert.strictEqual(scoutAgrees({ severity: 'warning' }, 'closer'), true);
+  assert.strictEqual(scoutAgrees({ severity: 'info' }, 'mine'), true);
+  assert.strictEqual(scoutAgrees({ severity: 'critical', marked: true }, 'mine'), true);
+  assert.strictEqual(scoutAgrees({ severity: 'nonsense' }, 'closer'), true);
+});

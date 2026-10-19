@@ -168,6 +168,13 @@ function clueReason(sig) {
   return '';
 }
 
+// Whether Scout reads a real signal the way the person tagged it. A
+// disagreement is never "wrong" (the call stands); the profile only notes it
+// as a sign a lesson might help.
+export function scoutAgrees(sig, tag) {
+  return tag === (sig.marked ? 'mine' : VIEW[sig.severity] || 'closer');
+}
+
 // Never "wrong": the person's call stands, and a tag only sorts the game.
 export function scoutRead(sig, tag) {
   const view = sig.marked ? 'mine' : VIEW[sig.severity] || 'closer';

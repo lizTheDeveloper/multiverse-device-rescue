@@ -323,3 +323,69 @@ test('a standard-mode worry after the city home: a failed scan lands on the Trai
   assert.doesNotMatch(t.html(), /class="panel pre-sweep"/);
   assert.match(t.html(), /data-go="lesson:/, 'the Training Grounds');
 });
+
+test('a wrong drill on a concept the person said they knew offers 2 questions; YES opens them; STILL KNOW IT declines', async () => {
+  const { saveProfile, markKnown, emptyProfile } = await import('../renderer/game/profile/player-profile.js');
+  const storage = recordingStore();
+  saveProfile(storage, markKnown(emptyProfile('2026-10-18T00:00:00.000Z'), ['where-it-lives'], '2026-10-18T00:00:00.000Z'), { seed: 99 });
+  const t = await setup({ storage });
+  t.click({ 'data-go': 'range' });
+  await tick();
+  t.click({ 'data-go': 'signal:drill:upd8r-hidden-cache' });
+  t.click({ 'data-act': 'tag:mine' });
+  assert.match(t.html(), /Want the 2 questions on where it lives\?/);
+  assert.match(t.html(), /data-act="offer-yes:where-it-lives"/);
+  t.click({ 'data-act': 'offer-yes:where-it-lives' });
+  assert.match(t.html(), /QUESTION 1 OF 2/);
+  const p = savedProfile(t.storage);
+  assert.ok(p.concepts['where-it-lives'].offered, 'the offer is remembered, so it isn’t made again this sweep');
+  assert.strictEqual(p.drills.calls.threat.mine, 1);
+});
+
+test('STILL KNOW IT records the decline and the offer goes', async () => {
+  const { saveProfile, markKnown, emptyProfile } = await import('../renderer/game/profile/player-profile.js');
+  const storage = recordingStore();
+  saveProfile(storage, markKnown(emptyProfile('2026-10-18T00:00:00.000Z'), ['where-it-lives'], '2026-10-18T00:00:00.000Z'), { seed: 99 });
+  const t = await setup({ storage });
+  t.click({ 'data-go': 'range' });
+  await tick();
+  t.click({ 'data-go': 'signal:drill:upd8r-hidden-cache' });
+  t.click({ 'data-act': 'tag:mine' });
+  t.click({ 'data-act': 'offer-no:where-it-lives' });
+  assert.doesNotMatch(t.html(), /Want the 2 questions/);
+  assert.strictEqual(savedProfile(t.storage).concepts['where-it-lives'].offered.declined, 1);
+});
+
+test('when Scout reads a real finding differently, the profile notes a gap for its concepts', async () => {
+  const t = await setup();
+  const { buildSignals } = await import('../renderer/game/signals.js');
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const id = buildSignals(findingsToCity(DOC), null).find((x) => x.kind === 'real').id;
+  t.click({ 'data-go': `signal:${id}` });
+  t.click({ 'data-act': 'clue:maker' });
+  t.click({ 'data-act': 'tag:mine' }); // the scan marked it critical: Scout reads THREAT
+  const p = savedProfile(t.storage);
+  assert.strictEqual(p.concepts['who-made-it'].gaps.call, 1);
+  assert.ok(!JSON.stringify(p.concepts).includes('/tmp/x'), 'only the concept, never the finding');
+});
+
+test('city mode: an offer and its questions write nothing forbidden, come back to the range, and a hidden concept is never offered', async () => {
+  const { saveProfile, markKnown, emptyProfile } = await import('../renderer/game/profile/player-profile.js');
+  const storage = recordingStore();
+  saveProfile(storage, markKnown(emptyProfile('2026-10-18T00:00:00.000Z'), ['where-it-lives', 'cut-off-order'], '2026-10-18T00:00:00.000Z'), { seed: 99 });
+  const t = await setup({ storage, mode: 'city' });
+  t.click({ 'data-go': 'range' });
+  await tick();
+  t.click({ 'data-go': 'signal:drill:upd8r-hidden-cache' });
+  t.click({ 'data-act': 'tag:mine' });
+  assert.doesNotMatch(t.html(), /offer-yes:cut-off-order/);
+  t.click({ 'data-act': 'offer-yes:where-it-lives' });
+  assert.match(t.html(), /QUESTION 1 OF 2/);
+  assert.doesNotMatch(t.html(), KNOWN_PERSON);
+  answerVisit(t);
+  assert.match(t.html(), /data-act="next-drill"|DRILL RANGE/, 'the questions come back to the range');
+  // A hidden concept can't be opened by a stale or forged act either.
+  t.click({ 'data-act': 'offer-yes:cut-off-order' });
+  assert.doesNotMatch(t.html(), /QUESTION 1 OF/);
+  assert.deepStrictEqual(forbiddenWrites(storage), []);
+});

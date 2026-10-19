@@ -120,3 +120,14 @@ test('a mark that couldn’t be checked says so, and never that it changed', asy
   assert.match(html, /NOT CHECKED THIS TIME[\s\S]*We couldn’t check this one this time, so its warning is back\. That doesn’t mean it changed\./);
   assert.doesNotMatch(html, /CHANGED SINCE YOU MARKED IT/);
 });
+
+test('an offer is one line with two answers, after Scout’s read', async () => {
+  const { renderSignalPanel } = await import('../renderer/game/views/signal.js');
+  const sig = { id: 'drill:x', kind: 'drill', severity: 'warning', title: 'A drill', districtId: 'gatehouse', drill: { setup: '' } };
+  const html = renderSignalPanel({ signal: sig, tagged: 'mine', read: 'Not this time.', scout: () => '', offer: { id: 'where-it-lives', title: 'Where it lives' } });
+  assert.match(html, /Want the 2 questions on where it lives\?/);
+  assert.match(html, /data-act="offer-yes:where-it-lives"/);
+  assert.match(html, /data-act="offer-no:where-it-lives"[^>]*>STILL KNOW IT/);
+  assert.ok(html.indexOf('Not this time.') < html.indexOf('Want the 2 questions'));
+  assert.doesNotMatch(renderSignalPanel({ signal: sig, tagged: 'mine', read: 'r', scout: () => '' }), /offer-yes/);
+});

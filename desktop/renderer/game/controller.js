@@ -5,12 +5,13 @@
 import { findingsToCity, DISTRICTS } from './findings-to-city.js';
 import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
 import { reconcile, setStatus, ranOkModules, recheckOutcome, setDeck } from './progress.js';
-import { buildBank, drawLessonVisit } from './profile/item-bank.js';
-import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, recordAnswer, recordVisit,
-  historyFor, difficultyOf, teachShown } from './profile/player-profile.js';
+import { buildBank, drawLessonVisit, drawConcept } from './profile/item-bank.js';
+import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, recordAnswer, recordVisit, recordDrillCall, recordGap,
+  callConcepts, shouldOffer, noteOffered, declineOffer, historyFor, difficultyOf, teachShown } from './profile/player-profile.js';
+import { conceptById, isHidden } from './profile/skills.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
-import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
+import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './drills.js';
 import { renderDeck, preSweepCityHtml } from './views/deck.js';
 import { renderInstruments } from './views/instruments.js';
@@ -136,6 +137,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   let loadNotice = null;
   const profile0 = loadProfile(storage, now(), { onProblem: (code) => { loadNotice = noticeFor(code); } });
   const bank0 = buildBank([], []);
+  // Offers are once per sweep; before the first sweep, once per session.
+  const sessionStart = now();
   const s = { doc: null, held: [], heldCity: null, situation: null, city: null, profile: profile0, bank: bank0, cityBank: bank0,
     progress: toProgress(profile0, bank0), saveNotice: loadNotice, cameBack: [],
     screen: 'map', districtId: null, missionId: null, outcome: null, outcomeMission: null, lastFix: null, message: '', busy: false,
@@ -417,6 +420,19 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const bank = drawBank();
     openVisit(lessonId, drawLessonVisit(bank, lessonId, historyFor(s.profile, bank), { bOf: difficultyOf(s.profile, s.bank) }), extra);
   }
+  // A concept the game may ask about here: never a hidden one, and in city
+  // mode (or with no mode yet) only one the city bank has questions for.
+  const askable = (c) => !!conceptById(c) && !isHidden(c) && !(coverMode() && CITY_SKIPPED_CONCEPTS.has(c))
+    && (drawBank().concepts.get(c) || []).some((k) => (s.bank.items.get(k) || {}).kind === 'lesson');
+  // "Want the 2 questions on this?": for a concept the person said they knew,
+  // once per sweep (or per session before any sweep), by the profile's rules.
+  function offerFor(concepts) {
+    const sweepAt = s.progress.deck.sweep.at || sessionStart;
+    const c = (concepts || []).find((x) => askable(x) && shouldOffer(s.profile, drawBank(), x, sweepAt));
+    if (!c) return null;
+    keepProfile(noteOffered(s.profile, c, now()));
+    return { id: c, title: conceptById(c).title };
+  }
   // A ledger result: keep its deck. A rank-up is a moment and a log entry.
   function commitAward(r) {
     if (!r) return 0;
@@ -460,7 +476,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, { ...watchedOpts(), theme: 'game' }) : '';
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
-      range: s.screen === 'range' ? { hasCity: !!s.city } : null });
+      range: s.screen === 'range' ? { hasCity: !!s.city } : null, offer: s.signal.offer || null });
   }
 
   function deckHtml() {
@@ -570,7 +586,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     commitDeck(setTag(s.progress.deck, sig.id, tag, sig.fp, now()));
     s.changedTags.delete(sig.id);
     if (sig.kind === 'real' && openedFor(sig.id).length >= 2) s.signal.points += commitAward(award(s.progress.deck, 'tagBonus', sig.id));
-    s.signal = { ...s.signal, tagged: tag, read: sig.kind === 'couldnt' ? COULDNT_READ : scoutRead(sig, tag) };
+    s.signal = { ...s.signal, tagged: tag, read: sig.kind === 'couldnt' ? COULDNT_READ : scoutRead(sig, tag), offer: null };
+    // Scout reading it another way is a sign a lesson might help (never "wrong").
+    // Only the concepts are kept, never the finding; monitoring checks give none.
+    if (sig.kind === 'real' && !scoutAgrees(sig, tag)) {
+      const cs = callConcepts(drawBank(), sig.module, openedFor(sig.id)).filter(askable);
+      if (cs.length) { keepProfile(recordGap(s.profile, cs, 'call', now())); s.signal.offer = offerFor(cs); }
+    }
     logEntry('TAG', `${TAG_WORD[tag]}: ${sig.title}`);
     render();
     focusRead();
@@ -597,8 +619,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const right = tag === d.answer;
     commitDeck(recordDrill(s.progress.deck, right));
     const points = right ? commitAward(award(s.progress.deck, 'drill', d.id, openedFor(sig.id).length >= 2 ? POINTS.drillClueBonus : 0)) : 0;
+    // The same answer is evidence on the drill's concept, and a cell in the calls matrix.
+    keepProfile(recordDrillCall(s.profile, s.bank, d, tag, now()));
+    const it = s.bank.items.get(`drill:${d.id}`);
+    const offer = !right && it && it.concept ? offerFor([it.concept]) : null;
     if (!range) s.drillAnswers[d.id] = { tag, right };
-    s.signal = { ...s.signal, tagged: tag, right, points, read: drillRead(d, right) };
+    s.signal = { ...s.signal, tagged: tag, right, points, read: drillRead(d, right), offer };
     logEntry('DRILL', `${right ? 'Right' : 'Not this time'}: ${d.title}`);
     render();
     focusRead();
@@ -957,6 +983,24 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'close-signal') { closeSignal(); return; }
     if (act === 'toggle-low') { s.lowOpen = !s.lowOpen; render(); return; }
     if (act === 'batch-fine') { batchFine(); return; }
+    // A signal's offer: the 2 questions on that concept, or "still know it".
+    // Only the offer on screen answers (a stale or made-up id does nothing).
+    if (act && (act.startsWith('offer-yes:') || act.startsWith('offer-no:'))) {
+      const yes = act.startsWith('offer-yes:');
+      const c = act.slice(yes ? 10 : 9);
+      if (!(s.signal && s.signal.offer && s.signal.offer.id === c)) return;
+      if (!yes) { keepProfile(declineOffer(s.profile, c, now())); s.signal = { ...s.signal, offer: null }; render(); return; }
+      const bank = drawBank();
+      const keys = askable(c) ? drawConcept(bank, c, historyFor(s.profile, bank), { bOf: difficultyOf(s.profile, s.bank) }) : [];
+      const first = keys.length ? s.bank.items.get(keys[0]) : null;
+      if (!first) { s.signal = { ...s.signal, offer: null }; render(); return; }
+      // Back to the range on the next drill (this one's answer was just shown), or to the deck.
+      const back = s.screen === 'range' ? 'range' : 'map';
+      if (back === 'range' && s.range) s.range = { ...s.range, i: s.range.i + 1 };
+      s.signal = null;
+      openVisit(first.lessonId, keys, { concept: c, back });
+      return;
+    }
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
     if (go === 'boss') { s.screen = s.scan.running ? 'boss' : noCity(); render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }

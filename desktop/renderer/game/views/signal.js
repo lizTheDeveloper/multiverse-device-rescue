@@ -16,8 +16,10 @@ function clueItem(c, opened) {
       <p class="reading"><b>How to read this:</b> ${esc(c.reading.text)}</p></li>`;
 }
 
+// `offer`: { id, title } of a concept the person said they knew, when a
+// signal suggests a refresher (PlayerProfile.shouldOffer). One line, two answers.
 export function renderSignalPanel({ signal: sig, districtName = '', clues = [], opened = [], tagged = null, right = false, read = '',
-  points = 0, scout, mineHtml = '', range = null }) {
+  points = 0, scout, mineHtml = '', range = null, offer = null }) {
   const drill = sig.kind === 'drill';
   const couldnt = sig.kind === 'couldnt';
   const stamp = drill ? `<p class="drill-banner"><span class="badge drill-stamp">DRILL</span> Practice. This isn’t on your computer.</p>
@@ -44,6 +46,9 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     : `<div class="row tags">${TAG_BUTTONS.map(([t, label]) => `<button type="button" class="btn-s tag-${t}" data-act="tag:${t}"${current === t ? ' aria-pressed="true"' : ''}${drill && tagged ? ' aria-disabled="true" disabled' : ''}>${label}</button>`).join('')}</div>`;
   const after = !tagged ? '' : `
     <div class="scout-row">${scout(drill && !right ? 'thinkingA' : 'happy', 54)}<p class="say">${esc(read)}</p></div>
+    ${offer ? `<div class="panel offer" role="note"><p class="intel">Want the 2 questions on ${esc(offer.title.toLowerCase())}?</p>
+      <div class="row"><button type="button" class="btn-s" data-act="offer-yes:${esc(offer.id)}">YES</button>
+        <button type="button" class="btn-t" data-act="offer-no:${esc(offer.id)}">STILL KNOW IT</button></div></div>` : ''}
     ${points > 0 ? `<p class="points">+${esc(points)} POINTS${drill ? '' : ' for the clues you checked'}</p>` : ''}
     ${!drill && tagged === 'mine' && mineHtml ? `<div class="panel"><div class="label">OPTIONAL: TELL RECLAIM CITY TOO</div>
       <p class="intel">The MINE pile is the game’s sorting. This asks Reclaim City itself to remember it’s yours, so it stops flagging it. It asks first, and you can undo it.</p>${mineHtml}</div>` : ''}
