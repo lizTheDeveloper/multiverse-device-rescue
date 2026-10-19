@@ -1829,6 +1829,7 @@ if (typeof document !== 'undefined') {
       runButton.hidden = isBusy;
       progress.hidden = !isBusy;
       document.getElementById('scan-intro').hidden = isBusy;
+      document.getElementById('scan-keep-open').hidden = false;
       document.getElementById('scan-title').textContent = isBusy
         ? 'Your checkup is running'
         : 'Ready for your checkup';
@@ -1845,6 +1846,7 @@ if (typeof document !== 'undefined') {
       document.getElementById('btn-run-scan').hidden = true;
       document.getElementById('scan-intro').hidden = true;
       document.getElementById('scan-title').textContent = 'The checkup stopped';
+      document.getElementById('scan-keep-open').hidden = true;
       errorNote.hidden = false;
     }
     // The results the stopped checkup sent before it stopped, or null.
@@ -2060,6 +2062,7 @@ if (typeof document !== 'undefined') {
       document.getElementById('scan-error').hidden = true;
       document.getElementById('scan-intro').hidden = false;
       document.getElementById('scan-title').textContent = 'Ready for your checkup';
+      document.getElementById('scan-keep-open').hidden = false;
       situation = null;
       wantsCity = false;
       leftGame = false;
