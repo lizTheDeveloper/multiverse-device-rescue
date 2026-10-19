@@ -100,10 +100,12 @@ for (const file of FIXTURES) {
     // COULDN'T CHECK chip: every check that couldn't run, monitoring ones too (unnamed).
     assert.strictEqual(chip(deck, 'COULDN’T CHECK'), sum.couldntRun);
     assert.doesNotMatch(deck, />ALL \d/, 'ALL carries no total of its own');
-    const todo = chip(deck, 'CRITICAL') + chip(deck, 'WARNING');
+    // TO DO is what's left to sort in the queue: the deck's three chips.
+    const todo = chip(deck, 'CRITICAL') + chip(deck, 'WARNING') + chip(deck, 'COULDN’T CHECK');
     assert.ok(todo > 0);
+    assert.match(deck, new RegExp(`INCOMING SIGNALS · ${todo} TO DO`), 'the deck says the same TO DO');
 
-    // A mission's HUD: the same COULDN'T CHECK, and TO DO is the deck's CRITICAL + WARNING.
+    // A mission's HUD: the same COULDN'T CHECK, and the same TO DO.
     const mission = /data-go="(mission:[^"]+)"/.exec(deck) || /data-go="signal:([^"]+)"/.exec(deck);
     assert.ok(mission, 'a mission to open');
     const { findingsToCity } = await import('../renderer/game/findings-to-city.js');

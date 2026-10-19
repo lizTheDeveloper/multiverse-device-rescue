@@ -372,11 +372,6 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .side .side-h { font-family: var(--font-body); font-size: 17px; font-weight: 700; letter-spacing: 0; color: var(--offwhite); margin: 0 0 8px; }
 .side-steps { list-style-position: inside; padding-left: 0; }
 .held-items { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 12px; }
-.held-item h4 { margin: 0 0 6px; font-size: 16px; color: var(--offwhite); }
-.evidence { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0 0 10px; font-size: 14px; }
-.evidence dt { color: var(--dim); }
-.evidence dd { margin: 0; color: var(--offwhite); overflow-wrap: anywhere; }
-.evidence dd.mono { font-family: var(--font-mono); font-size: 13px; }
 /* District missions: a checkbox per row, and moves for the ticked ones. */
 .pick-row { display: flex; gap: 10px; align-items: center; }
 .pick { width: 18px; height: 18px; flex: none; accent-color: var(--cyan); }
@@ -391,3 +386,24 @@ details.reading .link { color: var(--cyan); }
 .train-side .side-tile { margin: 0; }
 /* A heading focused by script (a new screen) needs no ring: it is not a control. */
 h2[tabindex="-1"]:focus, h2[tabindex="-1"]:focus-visible { outline: none; }
+
+/* UX round 2: the shared evidence block (renderer/evidence.js) in the city's colours. */
+:host { --evidence-border: var(--line); --evidence-mono-bg: rgba(0,229,255,0.08); }
+.evidence { background: rgba(9,11,16,0.55); font-size: 14px; }
+.evidence-grid dd { color: var(--offwhite); }
+.evidence-title { font-family: var(--font-display); font-size: 9px; letter-spacing: 2px; color: var(--cyan); }
+.evidence-grid dt { color: var(--dim); opacity: 1; }
+.evidence-mono { font-family: var(--font-mono); color: var(--cyan); }
+.evidence-copy { font-family: var(--font-display); font-size: 9px; letter-spacing: 1px; color: var(--cyan); background: transparent; border: 1px solid rgba(0,229,255,0.3); }
+.evidence--held { font-size: 17px; }
+.evidence--held .evidence-mono { font-size: 1em; }
+.evidence-paper { color: var(--amber); }
+.held-item .evidence { margin: 0; }
+.intel.why { margin-top: 10px; }
+.step-body.todo { margin-bottom: 8px; }
+.mission-detail { display: block; margin-top: 2px; color: var(--dim); font-size: 12px; overflow-wrap: anywhere; }
+.mission-detail code { font-family: var(--font-mono); }
+.sweep-stat .btn-t { margin-left: 6px; padding: 2px 8px; }
+.deck-queue .repeats { margin: 4px 0 8px; font-size: 12px; }
+.deck-top .sweep-stat { font-size: 11px; gap: 4px; }
+.deck-top .sweep-stat .btn-t { font-size: 11px; margin-left: 4px; padding: 0 4px; }

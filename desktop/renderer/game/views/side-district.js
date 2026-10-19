@@ -1,5 +1,10 @@
 import { esc } from '../escape.js';
 import { FIRST_STEPS, HELP, OPEN_NOTE, SIX_ROSES, LEAVING, HELD } from '../side-district.js';
+// The list's evidence block (a plain script, not an ES module).
+import * as evidenceModule from '../../evidence.js';
+
+// In the page the script sets window.Evidence; in Node (tests) it is CommonJS.
+const EV = globalThis.Evidence || evidenceModule.default;
 
 // The district's tile, on the deck's city and on the Training Grounds. It names only the place.
 export function sideTileHtml(district, heldCount = 0) {
@@ -12,25 +17,23 @@ export function heldNoticeHtml(district) {
   return `<p class="link-notice" role="status">Something new in ${esc(district.name)}. <button type="button" class="btn-t" data-go="side">GO THERE ▶</button></p>`;
 }
 
-// One held item as what to write down: its name, where it was found, how,
-// who made it, and the date. `date`: today, as the person would write it.
-export function heldRows(h, date) {
-  return [['Name', h.name || h.title], ['Where found', h.where], ['Found as', h.how], ['Made by', h.maker], ['Date', date]]
-    .filter(([, v]) => typeof v === 'string' && v.trim() !== '');
+// One held item as what to write down: the shared evidence block, held. That
+// gives Name, Where found, How detected, Made by (verified or not) and the
+// Date, drawn large with "Write this on paper or on another device." No copy
+// button and nothing on the clipboard: monitoring software can read it.
+// `seen`: today (a Date); the block writes it as a plain day.
+export function heldBlockHtml(h, seen = new Date()) {
+  const x = h || {};
+  const f = x.finding || { module: x.module, title: x.title,
+    data: { stalkerware_name: x.name || x.title, location: x.where, detected_as: x.how } };
+  const rows = EV.evidenceRows(f, { mode: 'city', held: true, seen });
+  return EV.renderEvidence(rows, { held: true, title: (h && h.title) || 'Write this down' });
 }
-export function heldText(h, date) {
-  return heldRows(h, date).map(([k, v]) => `${k}: ${v}`).join('\n');
-}
-const MONO = new Set(['Where found']);
 
-// `copied`: the index of the item just copied, or -1 when copying failed.
-export function renderSide({ district, held = [], notice = false, scout = () => '', date = '', copied = null }) {
+// `seen`: today, for the Date row.
+export function renderSide({ district, held = [], notice = false, scout = () => '', seen = new Date() }) {
   const v = district.voice;
-  const item = (h, i) => `<li class="held-item"><h4>${esc(h.title)}</h4>
-        <dl class="evidence">${heldRows(h, date).map(([k, val]) => `<dt>${esc(k)}</dt><dd${MONO.has(k) ? ' class="mono"' : ''}>${esc(val)}</dd>`).join('')}</dl>
-        <button type="button" class="btn-s" data-act="side-copy:${i}">COPY TO WRITE DOWN</button>
-        ${copied === i ? '<p class="intel" role="status">Copied. Paste it somewhere that’s only yours.</p>'
-    : copied === -(i + 1) ? '<p class="intel" role="status">It couldn’t be copied. Write it down from here.</p>' : ''}</li>`;
+  const item = (h) => `<li class="held-item">${heldBlockHtml(h, seen)}</li>`;
   const heldHtml = held.length ? `
     <div class="panel active" role="note"><h3 class="side-h">${esc(HELD.heading.text)}</h3>
       <ul class="held-items">${held.map(item).join('')}</ul>

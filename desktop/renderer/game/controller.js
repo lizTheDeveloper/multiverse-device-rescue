@@ -11,7 +11,7 @@ import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, record
 import { conceptById, isHidden } from './profile/skills.js';
 import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, PUBLISH_FIELDS } from './profile/publish.js';
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedSummary, notCheckedLine, todoCount } from './signals.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedSummary, notCheckedLine, todoCount, repeatsMerged } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, drillSignal, pickDrills } from './drills.js';
@@ -40,7 +40,12 @@ import { renderLesson } from './views/lesson.js';
 import { renderBoss } from './views/boss.js';
 import { pickDistrict, seedFrom } from './district-names.js';
 import { SIX_ROSES } from './side-district.js';
-import { renderSide, sideTileHtml, heldNoticeHtml, heldText } from './views/side-district.js';
+import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
+// The list's evidence block (a plain script, not an ES module).
+import * as evidenceModule from '../evidence.js';
+
+// In the page the script sets window.Evidence; in Node (tests) it is CommonJS.
+const EV = globalThis.Evidence || evidenceModule.default;
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
@@ -157,8 +162,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="checklist.css"><link rel="stylesheet" href="game/profile.css"><div class="frame" id="frame"></div>';
+  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="checklist.css"><link rel="stylesheet" href="game/profile.css">'
+    + `<style>${EV.CSS}</style><div class="frame" id="frame"></div>`;
   const frame = shadow.getElementById('frame');
+  // The shared evidence block's styles, once, and its Copy buttons (never on a
+  // held item: renderEvidence draws no button there).
+  EV.wireCopy(shadow, (t) => win.navigator.clipboard.writeText(t));
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
 
@@ -299,6 +308,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const before = s.city ? cityIntegrity(s.city, signalsNow(), s.heldCity) : null;
     const heldBefore = heldDistrictIds(s.heldCity);
     s.doc = doc;
+    // Each scan (or re-check) has its own record of the commands it ran.
+    commands = new Map();
+    shownEv.clear();
     // Monitoring software never becomes a mission or a signal (held.js).
     const split = splitHeld(doc);
     s.held = split.held;
@@ -525,7 +537,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
       range: s.screen === 'range' ? { hasCity: !!s.city } : null, offer: s.signal.offer || null,
-      tagNote: Object.keys(s.progress.deck.tags || {}).length === 0 });
+      tagNote: Object.keys(s.progress.deck.tags || {}).length === 0,
+      // LOOK CLOSER: what the scan actually saw, under the next move.
+      evidenceHtml: sig.kind === 'real' && s.signal.tagged === 'closer' ? evidenceOf(sig.finding || {}, sig.module).html : '' });
   }
 
   function deckHtml() {
@@ -565,7 +579,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null, learned: learnedCount(),
       scanRunning: s.scan.running, districtName: nameOf, notice: heldNotice() + s.linkNotice,
       // With something held, an empty queue points to it instead of saying "clear".
-      notChecked: notCheckedLine(notCheckedSummary(s.doc)),
+      notChecked: notCheckedLine(notCheckedSummary(s.doc)), todo: todoCount(sigs), repeats: repeatsMerged(s.city),
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
@@ -894,7 +908,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function screenHtml() {
     if (s.screen === 'profile') return profileHtml();
     if (s.screen === 'side') {
-      if (inCity()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout, date: today(), copied: s.sideCopied });
+      if (inCity()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout, seen: new Date() });
       s.screen = s.city ? 'map' : noCity();
     }
     if (s.screen === 'range') return rangeHtml();
@@ -928,7 +942,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'district' && district(s.districtId)) {
       return renderDistrict({ district: district(s.districtId), progress: s.progress, scout, message: s.districtMsg || '', busy: s.busy,
-        scanRunning: !!s.scan.running });
+        scanRunning: !!s.scan.running, detail: rowDetail });
     }
     // During an Undo re-check the mission was reclaimed, so it isn't in the
     // city: show the checking briefing from the mission we last showed.
@@ -937,8 +951,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const note = briefingNote(win.QuietNotes, hostMode(), m0.primary);
       const wantsSafety = win.RescueHost.wantsSafety(m0.primary);
       const { mission: m, cityWarn } = cityBriefing(m0, note, wantsSafety);
-      return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: '',
-        scout, busy: true, wantsSafety, note, cityWarn, modules: scanModules(), platform: s.doc && s.doc.platform });
+      const ev = evidenceOf(m.primary || {}, m.module);
+      return renderBriefing({ mission: homeText(m), status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: '',
+        scout, busy: true, wantsSafety, note, cityWarn, modules: scanModules(), platform: s.doc && s.doc.platform,
+        evidenceHtml: ev.html, thin: ev.thin, replaces: ev.replaces });
     }
     if (s.screen === 'mission' && mission(s.missionId)) {
       const m0 = mission(s.missionId);
@@ -950,9 +966,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const { mission: m, cityWarn } = cityBriefing(m0, note, wantsSafety);
       const controls = note.kind === 'held' ? ''
         : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, { ...watchedOpts(), theme: 'game' })}${routerHtml(m.primary)}`;
-      return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
+      const ev = evidenceOf(m.primary || {}, m.module);
+      return renderBriefing({ mission: homeText(m), status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
         scout, busy: s.busy, scanRunning: !!s.scan.running, wantsSafety, learned: lessonForModule(s.lessons, s.progress, m.module), note,
-        cityWarn, modules: scanModules(), platform: s.doc && s.doc.platform });
+        cityWarn, modules: scanModules(), platform: s.doc && s.doc.platform, evidenceHtml: ev.html, thin: ev.thin, replaces: ev.replaces });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the
@@ -968,6 +985,56 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.screen = 'map';
     return deckHtml();
   }
+
+  // The evidence block for one finding: the list's own rows
+  // (renderer/evidence.js). Never held here: a held finding is never a
+  // mission or a signal. The commands a check ran come from main once per
+  // check per scan; when they arrive, the block on screen is redrawn in place
+  // (a whole redraw would move keyboard focus).
+  let commands = new Map();
+  const shownEv = new Map(); // module -> finding, for the blocks on screen
+  function commandsFor(module) {
+    if (commands.has(module)) return commands.get(module);
+    commands.set(module, []);
+    const ask = win.rescue && typeof win.rescue.moduleCommands === 'function' ? win.rescue.moduleCommands : null;
+    if (ask) {
+      const asked = commands;
+      Promise.resolve().then(() => ask(module)).then((c) => {
+        if (asked !== commands || !Array.isArray(c) || !c.length) return;
+        commands.set(module, c);
+        redrawEvidence(module);
+      }).catch(() => {});
+    }
+    return [];
+  }
+  function evidenceRowsOf(finding, module, withCommands = true) {
+    return EV.evidenceRows({ ...finding, module }, { mode: inCity() ? 'city' : 'standard', held: false,
+      checkName: EV.checkLabel(module, s.doc), commands: withCommands ? commandsFor(module) : [] });
+  }
+  const BOOKKEEPING = new Set(['Check', 'Checked with', 'When', 'Seen']);
+  function evidenceOf(finding, module) {
+    const rows = evidenceRowsOf(finding, module);
+    shownEv.set(module, finding);
+    return { html: `<div data-ev-module="${esc(module)}">${EV.renderEvidence(rows)}</div>`,
+      thin: rows.every((r) => BOOKKEEPING.has(r.label)), replaces: rows.replacesDescription === true };
+  }
+  function redrawEvidence(module) {
+    const f = shownEv.get(module);
+    if (!f || typeof frame.querySelectorAll !== 'function') return;
+    try {
+      for (const el of frame.querySelectorAll('[data-ev-module]')) {
+        if (el.getAttribute('data-ev-module') === module) el.innerHTML = EV.renderEvidence(evidenceRowsOf(f, module));
+      }
+    } catch (_) { /* the next render draws it */ }
+  }
+  // A district row's one line of evidence: the first path, name or id the
+  // scan recorded, so two rows with the same title can be told apart.
+  function rowDetail(m) {
+    const r = evidenceRowsOf(m.primary || {}, m.module, false).find((x) => x.mono && !BOOKKEEPING.has(x.label));
+    return r ? r.value : '';
+  }
+  // A briefing's text: home folders as "~" (the evidence block's rule).
+  const homeText = (m) => ({ ...m, description: EV.homeRelative(m.description) });
 
   const scanModules = () => (s.doc && Array.isArray(s.doc.modules) ? s.doc.modules.map((x) => x && x.name).filter(Boolean) : []);
   // City mode: the help lives in the help district, so a mission carries no
@@ -1086,21 +1153,6 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     render();
   }
 
-  const today = () => new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
-  // "Copy to write down": the held item's rows, to the clipboard only (never to disk).
-  function copyHeld(i) {
-    const h = s.held[i];
-    if (!h || s.screen !== 'side') return;
-    const ticket = s.sideTicket;
-    const done = (ok) => {
-      if (ticket !== s.sideTicket || s.screen !== 'side') return;
-      s.sideCopied = ok ? i : -(i + 1);
-      render();
-      focusEl(findByAttr(frame, 'data-act', `side-copy:${i}`));
-    };
-    Promise.resolve().then(() => win.navigator.clipboard.writeText(heldText(h, today()))).then(() => done(true), () => done(false));
-  }
-
   // District missions ticked for a bulk move (read from the page; the
   // selection starts again on every redraw, like the list's checklists).
   const ticked = () => Array.from(frame.querySelectorAll('[data-pick]')).filter((b) => b.checked === true)
@@ -1151,7 +1203,6 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   function openSide() {
-    s.sideCopied = null;
     s.signal = null; // a Signal or Noise panel left open closes
     s.sideNotice = false;
     s.sideSeen = true;
@@ -1166,8 +1217,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   // The panic key and BACK TO THE GAME: the ordinary game at once, focus on the map.
   function leaveSide() {
-    s.sideTicket += 1; // a guide still opening (or a copy) says nothing afterwards
-    s.sideCopied = null;
+    s.sideTicket += 1; // a guide still opening says nothing afterwards
     s.sideNotice = false;
     s.screen = s.city ? 'map' : noCity();
     render();
@@ -1230,7 +1280,6 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go) s.linkNotice = '';
     if (go === 'side') { if (inCity()) openSide(); return; }
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
-    if (act && act.startsWith('side-copy:')) { copyHeld(Number(act.slice(10))); return; }
     // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
     // gate decides where it lands (monitoring software: the plain list).
     if (act === 'resweep') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }

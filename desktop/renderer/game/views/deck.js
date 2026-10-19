@@ -15,11 +15,15 @@ export const LOW_SHOWN = 50;
 export const QUEUE_SHOWN = 5;
 const SEV_FILTERS = [['critical', 'CRITICAL'], ['warning', 'WARNING'], ['couldnt', 'COULDN’T CHECK']];
 export const LOG_SHOWN = 12;
+// Why TO DO can be lower than the list's number of cards: one short line.
+export const REPEATS_LINE = 'Repeats count once here, so the list can show more.';
 
 function clock(iso, withDate = false) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return withDate ? d.toLocaleString() : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // Day and minute, never seconds (and no year: the top bar stays one row).
+  return withDate ? d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export function signalRow(sig, districtName = () => '') {
@@ -65,7 +69,7 @@ function chipLabel(rank, learned) {
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
   districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '', learned = null,
-  queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', districtChips = [], notChecked = '' }) {
+  queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', notChecked = '', todo = null, repeats = 0 }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -74,20 +78,19 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   <header class="hud deck-top"${behind}>
     <span class="hud-title">${esc(title)}</span>
     <button type="button" class="stat lime rank-chip" data-go="profile" aria-label="${esc(chipLabel(rank, learned))}"><small>RANK</small> ${esc(rank.name)} · ${esc(rank.points)}</button>
-    <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(sweepChecks(lastSweep))}` : '<small>NO SWEEP YET</small>'}</span>
-    ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>' : preSweep ? '' : '<button type="button" class="btn-s" data-act="resweep">RE-SWEEP ⟳</button>'}
+    <span class="stat grey sweep-stat">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(sweepChecks(lastSweep))}` : '<small>NO SWEEP YET</small>'}
+      ${scanRunning ? '<small class="sweeping">SWEEPING…</small>' : preSweep ? '' : '<button type="button" class="btn-t" data-act="resweep">RE-SWEEP ⟳</button>'}</span>
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
-  // Filters: by kind, and by district (only those with something in the queue).
+  // Filters: by kind only. Districts are reached from their cards on the city.
   // ALL carries no number: it would add the to-dos and the couldn't-checks
   // into one figure the HUD (TO DO, COULDN'T CHECK) never shows.
   const counts = sevCounts || {};
   const total = SEV_FILTERS.reduce((n, [k]) => n + (Number(counts[k]) || 0), 0);
   const chip = (attr, label, on) => `<button type="button" class="chip" ${attr}${on ? ' aria-pressed="true"' : ' aria-pressed="false"'}>${esc(label)}</button>`;
   const sevChips = SEV_FILTERS.filter(([k]) => counts[k]).map(([k, label]) => chip(`data-act="sev:${k}"`, `${label} ${counts[k]}`, sev === k));
-  const dChips = (districtChips || []).map((d) => chip(`data-go="filter:${esc(d.id)}"`, `${String(d.name).toUpperCase()} ${d.count}`, filter && filter.id === d.id));
-  const filters = total && (sevChips.length > 1 || dChips.length > 1 || sev || filter) ? `
-      <div class="chips" role="group" aria-label="Show only">${chip('data-act="sev:all"', 'ALL', !sev && !filter)}${sevChips.join('')}${dChips.join('')}</div>` : '';
+  const filters = total && (sevChips.length > 1 || sev || filter) ? `
+      <div class="chips" role="group" aria-label="Show only">${chip('data-act="sev:all"', 'ALL', !sev && !filter)}${sevChips.join('')}</div>` : '';
   const head = filter ? `
       <div class="row"><span class="label">SHOWING ${esc(String(filter.name).toUpperCase())}</span>
         <button type="button" class="btn-t" data-go="filter:all">SHOW ALL</button>
@@ -148,7 +151,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   return `${top}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
-      <div class="label">INCOMING SIGNALS</div>${notChecked ? `<div class="panel fogged not-checked" role="note"><p class="intel">${esc(notChecked)}</p>${counts.couldnt ? '<button type="button" class="btn-t" data-act="sev:couldnt">SEE WHICH ▶</button>' : ''}</div>` : ''}${scoutHtml}${filters}${head}${blank}${next}
+      <div class="label">INCOMING SIGNALS${Number.isInteger(todo) && todo ? ` · ${esc(todo)} TO DO` : ''}</div>${notChecked ? `<div class="panel fogged not-checked" role="note"><p class="intel">${esc(notChecked)}</p>${counts.couldnt ? '<button type="button" class="btn-t" data-act="sev:couldnt">SEE WHICH ▶</button>' : ''}</div>` : ''}${scoutHtml}${filters}${repeats > 0 && filters ? `<p class="intel faint repeats">${esc(REPEATS_LINE)}</p>` : ''}${head}${blank}${next}
       <ul class="queue">${shown.map((x) => signalRow(x, dn)).join('')}${more}${practice}${lowHtml}</ul>
       ${threatHtml}${knownHtml}
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>

@@ -22,7 +22,7 @@ function clueItem(c, opened) {
 // signal suggests a refresher (PlayerProfile.shouldOffer). One line, two answers.
 // `tagNote`: say once that tags change nothing (until the person has tagged something).
 export function renderSignalPanel({ signal: sig, districtName = '', clues = [], opened = [], tagged = null, right = false, read = '',
-  points = 0, scout, mineHtml = '', range = null, offer = null, tagNote = true }) {
+  points = 0, scout, mineHtml = '', range = null, offer = null, tagNote = true, evidenceHtml = '' }) {
   const drill = sig.kind === 'drill';
   const couldnt = sig.kind === 'couldnt';
   // The range says it's practice once, at the top; a drill from the queue says it here.
@@ -57,7 +57,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     ${!drill && tagged === 'mine' && mineHtml ? `<div class="panel"><div class="label">OPTIONAL: TELL RECLAIM CITY TOO</div>
       <p class="intel">The MINE pile is the game’s sorting. This asks Reclaim City itself to remember it’s yours, so it stops flagging it. It asks first, and you can undo it.</p>${mineHtml}</div>` : ''}
     ${!drill && tagged === 'threat' ? `<div class="panel"><div class="label">ON YOUR THREAT BOARD</div><p class="intel">Your next move:</p>${nextMoveHtml(sig)}</div>` : ''}
-    ${!drill && tagged === 'closer' ? `<div class="panel"><p class="intel">It stays in your queue.</p>${nextMoveHtml(sig)}</div>` : ''}`;
+    ${!drill && tagged === 'closer' ? `<div class="panel"><p class="intel">It stays in your queue.</p>${evidenceHtml}${nextMoveHtml(sig)}</div>` : ''}`;
   const foot = range
     ? `<div class="row"><button type="button" class="btn-p" data-act="next-drill">NEXT DRILL ▶</button>
       <button type="button" class="btn-t" data-act="leave-range">${range.hasCity ? 'BACK TO THE DECK' : 'BACK TO THE TRAINING GROUNDS'}</button></div>`

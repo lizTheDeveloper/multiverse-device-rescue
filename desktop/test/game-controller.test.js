@@ -318,7 +318,8 @@ async function rcSetup({ doc = scan(...macBase), situation = { id: 'hacked' }, s
   ctl.show(doc, situation);
   return { ...stub, ctl, rc, storage, html: () => stub.frame.innerHTML };
 }
-const hudCount = (html, label) => Number((new RegExp(`<b>(\\d+)</b> <small>${label}</small>`).exec(html) || [])[1]);
+// A HUD count of 0 isn't drawn (the HUD keeps to the essentials): absent reads as 0.
+const hudCount = (html, label) => Number((new RegExp(`<b>(\\d+)</b> <small>${label}</small>`).exec(html) || [0, 0])[1]);
 
 test('one map: the computer’s districts, then the accounts’, scrolled to the starting point', async () => {
   const t = await rcSetup();

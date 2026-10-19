@@ -95,7 +95,9 @@ test('the game never makes a mission of monitoring software, so nothing about it
     { name: 'remote_login_check', category: 'security', status: 'ok', supported: true, findings: [{ severity: 'warning', title: 'Remote Login is on', description: 'd' }] },
   ] };
   const split = splitHeld(doc);
-  assert.deepStrictEqual(split.held, [{ module: 'stalkerware_scan', title: 'Stalkerware found: mSpy' }]);
+  // The whole finding rides along in memory, for the help district's evidence rows.
+  assert.deepStrictEqual(split.held.map(({ finding, ...h }) => h), [{ module: 'stalkerware_scan', title: 'Stalkerware found: mSpy' }]);
+  assert.strictEqual(split.held[0].finding.title, 'Stalkerware found: mSpy');
   assert.strictEqual(doc.modules[0].findings.length, 2, 'the scan itself is untouched');
   const city = findingsToCity(split.doc);
   assert.deepStrictEqual(city.districts.flatMap((d) => d.missions).map((m) => m.module), ['remote_login_check']);
