@@ -18,11 +18,17 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 class El {
   constructor(doc) {
     this.doc = doc;
-    this.hidden = false; this.disabled = false; this.textContent = ''; this.dataset = {}; this.style = {};
+    this._hidden = false; this.disabled = false; this.textContent = ''; this.dataset = {}; this.style = {};
     this.listeners = {}; this.kids = []; this._html = '';
     const classes = new Set();
     this.classList = { toggle: (c, on) => (on ? classes.add(c) : classes.delete(c)), add: (c) => classes.add(c),
       remove: (c) => classes.delete(c), contains: (c) => classes.has(c) };
+  }
+  // Every time the page shows an element, in order (doc.revealed), so a test can see a flash.
+  get hidden() { return this._hidden; }
+  set hidden(v) {
+    if (!v && this.id && this.doc && this.doc.revealed) this.doc.revealed.push(this.id);
+    this._hidden = !!v;
   }
   // The buttons the page makes from HTML: one per data-situation or data-answer.
   set innerHTML(html) {
@@ -60,8 +66,12 @@ function blockedStore() {
 
 function page({ store = { 'device-rescue.display': 'standard' }, ready = true, blocked = false } = {}) {
   const els = {};
-  const doc = { activeElement: null };
-  const byId = (id) => (els[id] = els[id] || new El(doc));
+  const doc = { activeElement: null, revealed: [] };
+  // Screens start as index.html has them: only the welcome screen showing.
+  const byId = (id) => {
+    if (!els[id]) { els[id] = new El(doc); els[id].id = id; if (/^screen-/.test(id) && id !== 'screen-welcome') els[id]._hidden = true; }
+    return els[id];
+  };
   // The progress dots at the top of the page, one per step.
   const dots = ['welcome', 'worry', 'scan', 'results'].map((d) => { const e = new El(doc); e.dataset.stepDot = d; return e; });
   const calls = { game: [], scans: [], guides: [], last: null };
@@ -107,7 +117,8 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   const activeDot = () => dots.filter((e) => e.classList.contains('step-dot--active')).map((e) => e.dataset.stepDot);
   // Reads a top-level name from the page's scripts (a const isn't on window).
   const run = (code) => vm.runInContext(code, sandbox);
-  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, activeDot, run };
+  const revealed = () => doc.revealed.slice();
+  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, activeDot, run, revealed };
 }
 
 const clean = { schema_version: 1, platform: 'darwin', modules: [] };

@@ -17,6 +17,14 @@ test('city mode opens straight into the game, under a plain title', () => {
   assert.deepStrictEqual(p.calls.scans, [], 'no scan until the person starts one');
 });
 
+test('city mode opens the city first: the welcome screen never draws on the way', () => {
+  const p = page({ store: { [KEY]: 'city' } });
+  assert.deepStrictEqual(p.shown(), ['city']);
+  assert.ok(!p.revealed().includes('screen-welcome'), `shown on the way: ${p.revealed().join(', ')}`);
+  // Standard mode still opens on it.
+  assert.ok(page({ store: { [KEY]: 'standard' } }).revealed().includes('screen-welcome'));
+});
+
 test('city mode waits for the game to load, then opens it', () => {
   const p = page({ store: { [KEY]: 'city' }, ready: false });
   assert.deepStrictEqual(p.shown(), ['welcome']);

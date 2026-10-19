@@ -1095,9 +1095,12 @@ if (typeof document !== 'undefined') {
     }
 
     renderSituations();
-    showScreen('welcome');
-    // The game's module may still be loading.
-    if (opensInGame(mode) && !openCityHome()) {
+    // 'city' opens the city first, so the welcome screen never draws on the
+    // way. Only while the game's module is still loading (or it declines) does
+    // the welcome screen show, until the game is ready.
+    const cityOpened = opensInGame(mode) && openCityHome();
+    if (!cityOpened || screens.city.hidden) showScreen('welcome');
+    if (opensInGame(mode) && !cityOpened) {
       window.addEventListener('rescue-game-ready', () => {
         if (opensInGame(mode) && !screens.welcome.hidden) openCityHome();
       });
