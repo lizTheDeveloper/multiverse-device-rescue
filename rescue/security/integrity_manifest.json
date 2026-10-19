@@ -17,7 +17,7 @@
     "app_names.py": "3aeb2248d91f8d09d3190c6dce4d6481ec0d9978ef6b06609c2c67dfb77f2c88",
     "attribution.py": "65b8a1da8a1f6ce25fb26521d53172a613109f93c865a6dd7ecb5154f72b9f73",
     "case.py": "a6b9e1fd314395f97e971194f6d3a352b85e2273d986eb422b659ade3feb0e87",
-    "cli.py": "cb65749351f180def438240717bfbd992b87a67b056ba8e483cd039081d98263",
+    "cli.py": "995290b7c27fa0f90bdfebad1f7e2c6c275fbb8cf59cbc1ecc28b3b3f5e6827d",
     "command.py": "fa75b1df5b3b742f81e0e3117f628030523c9442c63aac5c747e99d3c632043e",
     "crash_reports.py": "eb72bf87abb042fad6931a1166fb27b201a25ec15c19071874458458dea185bc",
     "fsbounds.py": "9eae7c588b5e31a373a42bc3d0fa029e3ac7df15f9d50409b61c2c80acbacdc8",
@@ -36,7 +36,7 @@
     "profiler/windows.py": "b3fdae0d8671b5a669c0af05f5a50f7ffb1b61520f45280f82e16a0f96c83d45",
     "profiles.py": "65916b504213db477eecb3ea0ebd51c9e335dd09677f22e9d6d46d54d8fd3c09",
     "registry.py": "df8f118c46f109754a2579a4fbda91ba7b28d0b189dc3db5f66620f8e2c3cebd",
-    "remediation.py": "39d1dae639520ed7f06e69289f0b5a5c71851f18fb38bf2649c1bd062b386e11",
+    "remediation.py": "6d3af5a56ae6e33afe985f0334e235603cebc36f6c6f6322db7582e8ccafe1e4",
     "runtime.py": "f025274c2e5374944dd80c4ae37d3e52c5ae6b3b253a8afa2e24bdab0b782121",
     "security/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "security/integrity.py": "e0d9cdc38fe6abf4c6c3ec046adb0e0e2c69f56f418ab94581c2b3f5e2edb7ad",
@@ -66,7 +66,7 @@
     "update/repo.py": "a58ca0061c49d4a052d65ee5be9b4ff88bd5546bf01460db067d46465511bdc5",
     "update/sideload.py": "cf94e79dbc85ebe604ce268f170d5ecc9d1ec082417b7dd6e9f42c57b6d9354e",
     "update/verify.py": "d902798e797833a54e550ca01a9d0961bfbf29614a2f831a412eed450b680f7a",
-    "validate.py": "ae931e943e204f95fbdf4ac47f9d9dee4ea9394e33abd1e420ae99fba39f991c",
+    "validate.py": "0015bb87a7ebd7f3085af48a7b4c25619d05c01a6b9307c17570eb97298671b8",
     "watch.py": "d3cb321eeb80a08495d4a6c66c7df254e1347dcfbb0d01479de76533745c20da"
   }
 }

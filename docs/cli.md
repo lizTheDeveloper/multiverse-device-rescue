@@ -32,6 +32,7 @@ Commands:
   update               Update module data and guide content from the...
   validate             Validate the shipped catalog: modules, profiles,...
   version              Show version information.
+  watch                Watch this computer's connections for a few minutes.
 ```
 
 If the `rescue` script is not on your `PATH`, every invocation below also works
@@ -168,6 +169,33 @@ The JSON shape is `schema_version` 1:
     Note also that `status` here is only `"ok"` or `"error"` — this serializer
     does not distinguish *unsupported* from *healthy*. The human report and the
     case export both do.
+
+---
+
+## `rescue watch` — watch connections for a few minutes
+
+```console
+$ rescue watch [--minutes <n>] [--interval <seconds>] [--json] [--progress]
+```
+
+Looks at this computer's network connections again and again, then summarises
+what it saw for each program: who it talked to, whether it checked in at a
+steady rhythm, whether a program started listening for connections, and
+whether one sent a lot more than it received. It only reads; it changes
+nothing, and it is not part of `rescue scan`, so it never runs unless you ask.
+
+| Flag | Effect |
+| --- | --- |
+| `--minutes <n>` | How long to watch, 1 to 30 (default 5). |
+| `--interval <seconds>` | How often to look, 2 to 60 (default 10). |
+| `--json` | Print the result as JSON on stdout, in the same shape as `scan --json`, with the module name `connection_watch`. Without it, a short list of what was found. |
+| `--progress` | Write one `{"progress": {"phase": "watch", "elapsed": ..., "total": ..., "snapshots": ...}}` line to stderr after each look (seconds for `elapsed` and `total`). |
+
+Out-of-range values exit `2` with a message. To end the watch early, send the
+line `stop` on standard input, or press Ctrl-C (SIGINT) or send SIGTERM. The
+result is still printed, with `stopped_early: true` in each finding's `data`.
+End of standard input is not a stop. The "who made it" lookups that `scan`
+adds are not done for the watch.
 
 ---
 
