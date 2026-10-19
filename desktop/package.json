@@ -1,8 +1,8 @@
 {
   "name": "device-rescue",
-  "productName": "Device Rescue",
+  "productName": "Reclaim City",
   "version": "0.3.5",
-  "description": "Multiverse Device Rescue desktop app",
+  "description": "Reclaim City desktop app",
   "author": "The Multiverse School",
   "main": "main.js",
   "scripts": {
@@ -14,9 +14,10 @@
   },
   "build": {
     "appId": "school.themultiverse.devicerescue",
-    "productName": "Device Rescue",
+    "productName": "Reclaim City",
     "files": [
       "main.js",
+      "user-data.js",
       "preload.js",
       "engine-runner.js",
       "fix-policy.js",
@@ -45,19 +46,19 @@
     "mac": {
       "target": "dmg",
       "category": "public.app-category.utilities",
-      "artifactName": "DeviceRescue-mac-${arch}.${ext}"
+      "artifactName": "ReclaimCity-mac-${arch}.${ext}"
     },
     "dmg": {
-      "title": "Device Rescue"
+      "title": "Reclaim City"
     },
     "win": {
       "target": "nsis",
-      "artifactName": "DeviceRescue-windows-${arch}.${ext}"
+      "artifactName": "ReclaimCity-windows-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "shortcutName": "Device Rescue"
+      "shortcutName": "Reclaim City"
     }
   },
   "devDependencies": { "electron": "^41.10.6", "electron-builder": "^26.15.3" }

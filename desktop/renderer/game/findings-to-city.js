@@ -1,4 +1,4 @@
-// Turns a Device Rescue scan (rescue scan --json) into a city: one district per
+// Turns an engine scan (rescue scan --json) into a city: one district per
 // kind of problem, one mission per warning or critical finding, notes for info
 // findings, and fog where a check couldn't run. Pure; no DOM.
 

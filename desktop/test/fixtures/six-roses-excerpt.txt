@@ -1,0 +1,80 @@
+# Checked-in excerpt of the Six Roses guide, for desktop/test/game-side-district.test.js.
+# Source: https://themultiverse.school/x/six-roses (text fetched 2026-10-18).
+# The page's link lines, copied verbatim from its HTML, are at the end.
+# If the page changes, refresh this file from it, then fix whatever the test reports.
+
+The Story of Six Roses
+How a Gluten Free, Dairy Free Rose Apple Tart Saved My Life
+a Digital Safety Guide for Domestic Violence Survivors
+When Your Ex-Partner Knows Too Much
+By Liz Howard, The Multiverse School
+🚨 Your Safety Comes First
+If you are in immediate danger, call 911
+National Domestic Violence Hotline: 1-800-799-7233 (SAFE)
+Text "START" to 88788
+Before You Begin:
+This guide assumes you're in a safe physical location
+If you're still living with your abuser, see the "Still Living Together" section at the end
+Delete this from your browser history after reading
+Consider using a library or friend's computer
+
+🛡️ Phase 1: Immediate Safety Planning
+A. Document Everything (Safely)
+Use a NEW notebook that stays hidden:
+- [ ] Write down all accounts you think they might access
+- [ ] List all devices you've shared or they've touched
+- [ ] Note any threats they've made about "knowing everything"
+- [ ] Track strange occurrences with dates/times
+- [ ] Keep receipts/screenshots of harassment
+Photo evidence:
+- [ ] Use a friend's phone or new device to photograph evidence
+- [ ] Email photos to a new, secret email account
+- [ ] Don't use your regular cloud storage
+B. Safety Communication Setup
+Get a burner phone ($30-50 at Walmart/Target):
+- [ ] Pay cash if possible
+- [ ] Don't activate at home
+- [ ] Don't save contacts with real names
+- [ ] This is your "safety phone" - guard it carefully
+- [ ] Keep it OFF and battery out when not using
+Create a code system with trusted friend:
+- [ ] "Thinking of you" = I'm okay
+- [ ] "Let's get coffee" = I need help but not emergency
+- [ ] "Can you pick up milk?" = Call 911 for me
+You can change these phrases to match your normal patterns, these are just examples.
+
+🔐 Phase 2: Breaking Their Digital Access
+2 New Email Foundation
+[ ] Create email on friend's device or library computer
+[ ] Use fake name for recovery email
+[ ] NEVER access from your current devices
+[ ] Don't use identifying info in address
+[ ] This becomes your "freedom email"
+
+📱 Phase 3: Device Liberation
+⚠️ Before You Remove Anything:
+Removing spyware/stalkerware or a tracker, or factory resetting a device, can tip off the person who installed it, and some abusers escalate when they lose access. This step can make things more dangerous, so plan it.
+- [ ] Document it first - screenshots/photos taken with a DIFFERENT device
+- [ ] Plan the timing with a DV advocate (Hotline: 1-800-799-7233, or text "START" to 88788)
+- [ ] Sometimes it's safer to leave it in place for now and use a separate, safe device for anything private
+See TechSafety.org's Technology Safety Plan for more.
+
+🆘 Resources
+Hotlines:
+National DV Hotline: 1-800-799-7233
+Helpful Websites:
+WomensLaw.org - Legal information
+TechSafety.org - Tech abuse resources
+NNEDV Safety Net - Technology safety
+
+Still Living Together?
+Remember: Leaving is the most dangerous time. Plan carefully with DV advocates.
+**More Resources: Clinic to End Tech Abuse
+Delete browser history after reading. Stay safe. 💜
+
+# The page's link lines, verbatim from its HTML source (fetched 2026-10-18):
+See <a href="https://www.techsafety.org/resources-survivors/technology-safety-plan/">TechSafety.org's Technology Safety Plan</a> for more.</p>
+<li><a href="https://womenslaw.org">WomensLaw.org</a> - Legal information  </li>
+<li><a href="https://techsafety.org">TechSafety.org</a> - Tech abuse resources  </li>
+<li><a href="https://nnedv.org/safetynet">NNEDV Safety Net</a> - Technology safety  </li>
+**More Resources: <a href="https://ceta.tech.cornell.edu/">Clinic to End Tech Abuse</a></p>

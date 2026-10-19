@@ -44,8 +44,9 @@ terminal: `sudo passwd -l NAME`.
 ## Step 3: Handle an unexplained administrator account
 
 If a second account has root power (user ID 0) and you didn't create it, don't
-log in as it and don't delete it. Talk to an advocate or someone you trust who
-knows Linux, as the note above says. A computer with an unexplained root
+log in as it and don't delete it. Talk to someone you trust who knows Linux. If
+someone you know may be monitoring you, talk to an advocate too, as the note
+above says. A computer with an unexplained root
 account has been changed by someone with full access, so the safest course is
 to back up your files and reinstall.
 

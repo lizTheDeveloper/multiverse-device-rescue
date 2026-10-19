@@ -154,7 +154,7 @@ test('MINE offers the real “It’s mine” step only for a finding that has on
   const t = await deckSetup(doc);
   t.click({ 'data-go': `signal:${im}` });
   t.click({ 'data-act': 'tag:mine' });
-  assert.match(t.html(), /OPTIONAL: TELL DEVICE RESCUE TOO[\s\S]*MARK IT/);
+  assert.match(t.html(), /OPTIONAL: TELL RECLAIM CITY TOO[\s\S]*MARK IT/);
   t.click({ 'data-go': `signal:${ip}` });
   t.click({ 'data-act': 'tag:mine' });
   assert.doesNotMatch(t.html(), /MARK IT/);
@@ -579,33 +579,31 @@ test('Escape closes the Signal or Noise panel like BACK TO THE DECK; the deck be
   assert.match(t.html(), /INCOMING SIGNALS/, 'nothing open: Escape does nothing');
 });
 
-// Final review 2: nothing about monitoring software is logged, as confirmFix scores nothing.
-test('a re-check of a monitoring finding logs no CONFIRMED and no MARKED', async () => {
+// Final review 2: nothing about monitoring software is logged, as confirmFix
+// scores nothing. In city mode it is held (held.js): never a mission, so there
+// is nothing to re-check, confirm or mark, even once it is gone.
+test('a monitoring finding is never a mission, and logs no CONFIRMED and no MARKED when it goes', async () => {
   const mon = (data) => mod('stalkerware_scan', [f('Monitoring app', 'critical', { path: '/m', ...data })]);
   const before = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]), mon());
   const id = (await ids(before)).find((x) => x.startsWith('stalkerware_scan|'));
-  assert.ok(id, 'the monitoring finding is a mission in the city');
-  const gone = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]), mod('stalkerware_scan', []));
-  const t = await deckSetup(before, { recheckDocs: [gone] });
+  assert.ok(id, 'findingsToCity alone would make it a mission');
+  const t = await deckSetup(before);
   t.click({ 'data-go': `mission:${id}` });
-  t.click({ 'data-act': 'i-did-it' });
-  await tick(); await tick();
-  assert.match(t.html(), /RECLAIMED/);
-  t.click({ 'data-go': 'map' });
-  assert.doesNotMatch(t.html(), /CONFIRMED<\/span>/);
-  assert.doesNotMatch(t.html(), /Monitoring app/);
-  assert.deepStrictEqual(t.saved().deck.confirmed, {});
-  assert.strictEqual(t.saved().deck.points, 0);
-  // Marked as yours on a re-check: no MARKED entry either.
+  assert.doesNotMatch(t.html(), /Monitoring app/, 'no briefing for it: the controller held it');
+  assert.match(t.html(), /INCOMING SIGNALS/);
+  const gone = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]), mod('stalkerware_scan', []));
+  t.ctl.show(gone, { id: 'unsure' });
   const marked = scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]),
     mon({ marked_by_user: true, original_severity: 'critical', known_item_id: 'k1', path: '/m2' }));
-  const id2 = (await ids(marked)).find((x) => x.startsWith('stalkerware_scan|'));
-  const t2 = await deckSetup(scan(mod('a_mod', [f('A', 'warning', { plist: '/a' })]), mon({ path: '/m2' })), { recheckDocs: [marked] });
-  t2.click({ 'data-go': `mission:${id2}` });
-  t2.click({ 'data-act': 'i-did-it' });
-  await tick(); await tick();
-  t2.click({ 'data-go': 'map' });
-  assert.doesNotMatch(t2.html(), /MARKED<\/span>|CONFIRMED<\/span>/);
+  t.ctl.show(marked, { id: 'unsure' });
+  assert.doesNotMatch(t.html(), /MARKED<\/span>|CONFIRMED<\/span>|Monitoring app/);
+  assert.deepStrictEqual(t.saved().deck.confirmed, {});
+  assert.strictEqual(t.saved().deck.points, 0);
+  assert.doesNotMatch(JSON.stringify(t.saved()), /stalkerware|Monitoring app|\/m2?\b/);
+  // Neither its going nor its coming back is a moment or a log line.
+  const log = t.html().split('OPS LOG')[1];
+  assert.doesNotMatch(log, /SECURED|CLEAN SWEEP|NO LONGER SEEN|Monitoring app/);
+  assert.doesNotMatch(t.html(), /DISTRICT SECURED|CLEAN SWEEP/);
 });
 
 // Final review 3: an id with a newline and a quote (a path can hold both)
@@ -688,4 +686,59 @@ test('more moments than fit: the oldest go first, and the rank-up stays', async 
   for (const name of ['The Wires', 'The Foundations', 'The Engine Room', 'The Junkyard']) {
     assert.match(t.html(), new RegExp(`SECURED</span> ${name}`), `${name} is still in the log`);
   }
+});
+
+// The merge of the command center into Reclaim City: in city mode a monitoring
+// finding is held. The deck gives it no signal, so no MINE or THREAT and no
+// points, yet city integrity still counts its district as open.
+test('city mode: a held monitoring finding has no signal and no points, and integrity still counts it as open', async () => {
+  const held = scan(mod('stalkerware_scan', [f('Monitoring app', 'critical', { path: '/m' })]));
+  const id = (await ids(held))[0];
+  assert.match(id, /^stalkerware_scan\|/);
+  const t = await deckSetup(null);
+  t.win.RescueHost.mode = () => 'city';
+  t.ctl.show(held, { id: 'unsure' });
+  assert.match(t.html(), /INCOMING SIGNALS/, 'the game stays on');
+  assert.doesNotMatch(queueOf(t.html()), /Monitoring app|stalkerware/);
+  assert.doesNotMatch(t.html(), /Monitoring app/);
+  // Asking for its signal opens nothing, so there is nothing to tag MINE or THREAT.
+  t.click({ 'data-go': `signal:${id}` });
+  assert.doesNotMatch(t.html(), /id="sig-title"|data-act="tag:/);
+  t.click({ 'data-act': 'tag:mine' });
+  t.click({ 'data-act': 'tag:threat' });
+  assert.strictEqual(t.saved().deck.points, 0);
+  assert.deepStrictEqual(t.saved().deck.tags, {});
+  assert.doesNotMatch(JSON.stringify(t.saved()), /stalkerware|Monitoring app/);
+  // Integrity: its district was checked and is not secure while it is there.
+  assert.match(t.html(), /<b>0%<\/b>/);
+  assert.match(t.html(), /City integrity 0%/);
+  t.ctl.show(scan(mod('stalkerware_scan', [])), { id: 'unsure' });
+  assert.match(t.html(), /<b>100%<\/b>/, 'once it is gone, the district is secure');
+  // Its going is not a win: no DISTRICT SECURED, no CLEAN SWEEP, no points,
+  // and no log line saying where it was.
+  assert.doesNotMatch(t.html(), /DISTRICT SECURED|CLEAN SWEEP/);
+  assert.doesNotMatch(t.html().split('OPS LOG')[1], /SECURED|CLEAN SWEEP|Monitoring app/);
+  assert.strictEqual(t.saved().deck.points, 0);
+  // Nor the next sweep, clean again.
+  t.ctl.show(scan(mod('stalkerware_scan', [])), { id: 'unsure' });
+  assert.doesNotMatch(t.html(), /DISTRICT SECURED|CLEAN SWEEP/);
+  assert.strictEqual(t.saved().deck.points, 0);
+});
+
+// Task 8 (merge review): a held finding's mission can't be opened, so I DID IT
+// has nothing to re-check, and nothing is confirmed, paid or logged.
+test('city mode: I DID IT on a held finding re-checks nothing and confirms nothing', async () => {
+  const held = scan(mod('stalkerware_scan', [f('Monitoring app', 'critical', { path: '/m' })]));
+  const id = (await ids(held))[0];
+  const t = await deckSetup(null, { recheckDocs: [scan(mod('stalkerware_scan', []))] });
+  t.win.RescueHost.mode = () => 'city';
+  t.ctl.show(held, { id: 'unsure' });
+  t.click({ 'data-go': `mission:${id}` });
+  assert.doesNotMatch(t.html(), /Monitoring app|data-act="i-did-it"/);
+  t.click({ 'data-act': 'i-did-it' });
+  await tick(); await tick();
+  assert.deepStrictEqual(t.calls.recheck, []);
+  assert.deepStrictEqual(t.saved().deck.confirmed, {});
+  assert.strictEqual(t.saved().deck.points, 0);
+  assert.doesNotMatch(t.html().split('OPS LOG')[1], /CONFIRMED|MARKED|SECURED|Monitoring app/);
 });

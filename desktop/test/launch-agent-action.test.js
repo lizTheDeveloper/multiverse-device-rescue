@@ -12,8 +12,8 @@ const QID = '20261014T120000Z-com.morgan.bluesky-poster';
 const FIXABLE = {
   action: 'disable_launch_agent',
   target: TARGET,
-  will_change: "Stops the background job 'com.morgan.bluesky-poster' and moves its settings file to Device Rescue's quarantine folder. Nothing is deleted.",
-  how_to_undo: ['Open Device Rescue and choose Undo on this item', 'Or move the file back'],
+  will_change: "Stops the background job 'com.morgan.bluesky-poster' and moves its settings file to Reclaim City's quarantine folder. Nothing is deleted.",
+  how_to_undo: ['Open Reclaim City and choose Undo on this item', 'Or move the file back'],
 };
 const scan = (fixable = FIXABLE) => ({ modules: [{ name: 'launchd_persistence_audit', findings: [{ title: 't', fixable }] }] });
 
@@ -159,8 +159,10 @@ test('the confirmation panel for an action carries target attributes and no watc
 test('the watched situation adds the advocate warning, verbatim', () => {
   const html = FixFlow.fixControlsHtml({ module: 'launchd_persistence_audit', fixable: FIXABLE }, { watched: true });
   assert.ok(html.includes('Turning this off may be noticed by whoever set it up. If you’re not sure that’s safe for you, talk to an advocate first.'));
+  // A fix with no engine action carries it too: any change can be noticed.
   const plain = FixFlow.fixControlsHtml({ module: 'firewall_audit', fixable: { will_change: 'x', how_to_undo: ['y'] } }, { watched: true });
-  assert.ok(!plain.includes('advocate'));
+  assert.ok(plain.includes(FixFlow.WATCHED_WARNING));
+  assert.ok(!FixFlow.fixControlsHtml({ module: 'firewall_audit', fixable: { will_change: 'x', how_to_undo: ['y'] } }).includes('advocate'));
 });
 
 test('an action fixable with a bad target shows no button', () => {

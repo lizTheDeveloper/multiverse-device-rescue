@@ -23,12 +23,12 @@ routine router housekeeping rather than a sign that anyone has been in.
 
 ## Step 1: Decide whether this is a safety situation first
 
-If someone close to you (a partner, an ex, a housemate, a family member) may
-have set up your router, or may be watching what passes through it, stop and
-read this before changing anything. Changing router settings can tell them
-they have been found out. If that person has ever frightened you, the safest
-order of operations is different from the technical one, and it is worth
-getting help planning it.
+Stop and read this before changing anything. It matters most if someone close
+to you (a partner, an ex, a housemate, a family member) may have set up your
+router, or may be watching what passes through it. Changing router settings
+can tell whoever set it up that they have been found out. If the person who
+set it up has ever frightened you, the safest order of operations is different
+from the technical one, and it is worth getting help planning it.
 
 In the US, the National Domestic Violence Hotline is 1-800-799-7233, or text
 START to 88788. The Coalition Against Stalkerware (stopstalkerware.org) lists

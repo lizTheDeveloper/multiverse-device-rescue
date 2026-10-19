@@ -38,7 +38,7 @@ _NOT_LOADED_TEXT = ("no such process", "could not find service", "not found")
 _ALREADY_LOADED_TEXT = ("already",)
 NOT_SUPPORTED = "This is only supported on a Mac."
 UNDO_STEPS = [
-    "Open Device Rescue and choose Undo on this item",
+    "Open Reclaim City and choose Undo on this item",
     "Or move the file from ~/Library/Application Support/Device Rescue/Quarantine back to "
     "~/Library/LaunchAgents and log out and back in",
 ]
@@ -244,7 +244,7 @@ def disable(plist_path) -> dict:
         if gone:
             fields.update(
                 message="This background job is already turned off, and its settings file is "
-                "in Device Rescue's quarantine folder. Nothing was changed.",
+                "in Reclaim City's quarantine folder. Nothing was changed.",
                 how_to_undo=list(UNDO_STEPS),
                 quarantine_id=gone,
             )

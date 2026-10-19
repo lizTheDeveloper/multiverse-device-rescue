@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for Multiverse Device Rescue.
+"""PyInstaller spec for Reclaim City.
 
 Produces a single-file `rescue` executable bundling:
   - all Python code (rescue.* package, discovered via hidden imports)

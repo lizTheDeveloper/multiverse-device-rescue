@@ -596,7 +596,7 @@ def find_background_task(label: str, program: str, plist: str | None = None, cod
     if not ident["content_sha256"]:
         raise KnownItemsError(
             f"The program '{program}' (or a script it runs) could not be read, or is too large "
-            "to check, so Device Rescue cannot tell later whether it changed. Nothing was marked."
+            "to check, so Reclaim City cannot tell later whether it changed. Nothing was marked."
         )
     return ident
 
@@ -1404,7 +1404,7 @@ def apply_item_marks(module_name: str, findings: list[Finding], items: list[Know
 # cover someone turning Screen Sharing back on after the person turned it off.
 #
 # This is the one thing a scan writes: it only ever REMOVES entries from
-# Device Rescue's own list, through the same trusted read and atomic write as
+# Reclaim City's own list, through the same trusted read and atomic write as
 # `rescue known remove`. If the list is untrusted or damaged nothing is
 # written (and no mark applied anyway). A check that wrongly reports nothing
 # can only make a warning come back, never hide one.
@@ -1479,7 +1479,7 @@ def retired_notice(item: KnownItem) -> Finding:
         title=f"No longer marked as yours: {label}",
         description=(
             f"On {when} you marked {label} as yours. This checkup didn't find it any more "
-            "(it is turned off, or gone), so Device Rescue removed that mark. If it comes "
+            "(it is turned off, or gone), so Reclaim City removed that mark. If it comes "
             "back, you'll be warned about it again and can decide again."
         ),
         severity=Severity.INFO,

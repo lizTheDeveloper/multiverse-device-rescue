@@ -1,6 +1,6 @@
-# Device Rescue
+# Reclaim City
 
-**Worried something is wrong with your computer?** Device Rescue checks it
+**Worried something is wrong with your computer?** Reclaim City checks it
 over and tells you, in plain words, what it found and what to do about it.
 
 - 🔒 **It only looks.** It doesn't change or delete anything unless you say yes.
@@ -11,15 +11,17 @@ over and tells you, in plain words, what it found and what to do about it.
 ## Download
 
 <p>
-  <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-arm64.dmg"><img alt="Download for Mac" src="https://img.shields.io/badge/Download_for_Mac-000000?style=for-the-badge&logo=apple&logoColor=white" height="44"></a>
+  <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/ReclaimCity-mac-arm64.dmg"><img alt="Download for Mac" src="https://img.shields.io/badge/Download_for_Mac-000000?style=for-the-badge&logo=apple&logoColor=white" height="44"></a>
   &nbsp;
-  <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-windows-x64.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download_for_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" height="44"></a>
+  <a href="https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/ReclaimCity-windows-x64.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download_for_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" height="44"></a>
 </p>
 
 **Older Mac?** Click the Apple menu (top-left corner) → **About This Mac**. If it says
 **Processor … Intel**, use the
-[Intel Mac version](https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-x64.dmg)
+[Intel Mac version](https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/ReclaimCity-mac-x64.dmg)
 instead. If it says **Chip: Apple M1/M2/M3/M4…**, the button above is right.
+
+**Upgrading?** Reclaim City used to be called Device Rescue. Your saved progress carries over. On a Mac, the old app stays in Applications under its old name; you can drag it to the Trash.
 
 Prefer a web page? The same downloads, with pictures, are at
 **<https://themultiverse.school/x/device-rescue>** (also
@@ -31,9 +33,9 @@ Your computer will warn you, because we haven't paid Apple or Microsoft for a
 signing certificate yet. That warning is expected for this app. Here's what to do:
 
 **On a Mac**
-1. Open the file you downloaded and drag **Device Rescue** into **Applications**.
-2. Open **Device Rescue** from Applications. A warning appears. Click **Done**.
-3. Open **System Settings → Privacy & Security**. Scroll down and click **Open Anyway** next to Device Rescue.
+1. Open the file you downloaded and drag **Reclaim City** into **Applications**.
+2. Open **Reclaim City** from Applications. A warning appears. Click **Done**.
+3. Open **System Settings → Privacy & Security**. Scroll down and click **Open Anyway** next to Reclaim City.
 
 **On Windows**
 1. Open the file you downloaded.
@@ -87,7 +89,7 @@ Points come from looking closely, never from deleting anything or from
 speed. Practice drills are mixed in, clearly marked and never about your
 computer, and the Drill Range has more whenever you want them.
 
-A building only lights up once Device Rescue has checked again and the problem
+A building only lights up once Reclaim City has checked again and the problem
 is gone. If you've said someone may be watching you, the app doesn't offer the
 game, and if monitoring software turns up during a checkup, the game stays
 closed for the rest of that session. "Plain view" takes you back to the

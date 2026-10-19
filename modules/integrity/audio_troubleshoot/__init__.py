@@ -39,7 +39,7 @@ class Module(ModuleBase):
                     # is a couldn't-check, not a warning.
                     title="Couldn't check your audio devices",
                     description=(
-                        "Device Rescue couldn't read the list of speakers and "
+                        "Reclaim City couldn't read the list of speakers and "
                         "microphones on this Mac. This is not a sign that anything is "
                         "wrong.\n\n"
                         "To see for yourself: open System Settings > Sound and look at "

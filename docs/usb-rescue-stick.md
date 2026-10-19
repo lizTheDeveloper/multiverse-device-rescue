@@ -1,6 +1,6 @@
 # USB Rescue Stick
 
-A rescue stick is a USB drive with the Device Rescue desktop app on it, for
+A rescue stick is a USB drive with the Reclaim City desktop app on it, for
 Mac (Apple chip and Intel) and Windows. You build it on your machine and hand
 it to someone, or keep one in your bag for the next time someone asks for help.
 The person plugs it in, opens `START-HERE`, and installs the app. They don't
@@ -18,11 +18,11 @@ against the release's `SHA256SUMS.txt` before it puts anything on the stick.
 ├── START-HERE.html              ← open in any browser; same as the .txt, easier to read
 ├── START-HERE.txt               ← which file to open, the first-open warning, the safety note
 ├── For Mac with Apple chip/
-│   └── DeviceRescue-mac-arm64.dmg
+│   └── ReclaimCity-mac-arm64.dmg
 ├── For Mac with Intel/
-│   └── DeviceRescue-mac-x64.dmg
+│   └── ReclaimCity-mac-x64.dmg
 ├── For Windows/
-│   └── DeviceRescue-windows-x64.exe
+│   └── ReclaimCity-windows-x64.exe
 ├── For helpers/
 │   ├── SHA256SUMS.txt           ← the release's checksum file, unchanged
 │   └── CHECKSUMS.txt            ← how to re-check the installers on Mac or Windows
@@ -147,14 +147,14 @@ They plug in the drive, open it, and double-click `START-HERE.html` (or read
 
     1. Apple menu → About This Mac. "Chip: Apple M…" → open **For Mac with
        Apple chip**. "Processor: … Intel" → open **For Mac with Intel**.
-    2. Double-click the `.dmg` and drag **Device Rescue** into **Applications**.
-    3. Open Device Rescue. A warning appears. Click **Done**.
+    2. Double-click the `.dmg` and drag **Reclaim City** into **Applications**.
+    3. Open Reclaim City. A warning appears. Click **Done**.
     4. System Settings → Privacy & Security, scroll down, click **Open Anyway**.
     5. Click **Get started**.
 
 === "Windows"
 
-    1. Open **For Windows** and double-click `DeviceRescue-windows-x64.exe`.
+    1. Open **For Windows** and double-click `ReclaimCity-windows-x64.exe`.
     2. If "Windows protected your PC" appears, click **More info**, then
        **Run anyway**.
     3. Click **Get started**.

@@ -18,7 +18,7 @@ const DROP_KEYS = /env|token|secret|passw|pwd|cookie|credential|auth|private|api
 const COMMAND_KEYS = /arg|cmd|command/i;
 
 const PREAMBLE = [
-  'I ran a security checkup app called Device Rescue on my computer. It only looks; it changed nothing.',
+  'I ran a security checkup app called Reclaim City on my computer. It only looks; it changed nothing.',
   'Below is what it found, with my name, computer name, network addresses and anything password-like removed.',
   '',
   'Please:',
@@ -30,6 +30,10 @@ const PREAMBLE = [
   '- If you think someone may be monitoring me, tell me that removing monitoring software can alert',
   '  the person who installed it, and suggest I talk to an advocate first (US: 1-800-799-7233).',
 ].join('\n');
+
+// For an item the app holds back in its quiet display (monitoring software,
+// `held: true`). Fixed here: the page only says which items it applies to.
+const HELD_NOTE = 'Don’t suggest removing or disabling it; the person may be at risk if it’s removed. Suggest documenting it and talking to an advocate.';
 
 const SEVERITY_WORDS = { critical: 'Needs attention now', warning: 'Worth checking', info: 'For your information' };
 
@@ -93,7 +97,7 @@ const PERSON_SAID = new Set([
   'the person said they did this (this checkup only; not checked again yet)',
   'marked as theirs by the person just now (kept across checkups)',
   'marked as theirs by the person on an earlier checkup',
-  'fixed by Device Rescue and checked again',
+  'fixed by Reclaim City and checked again',
 ]);
 
 function statusLine(f) {
@@ -118,6 +122,7 @@ function findingText(f, index, env) {
   if (typeof f.confidence === 'number') lines.push(`Confidence: ${f.confidence}`);
   const status = statusLine(f);
   if (status) lines.push(`Status: ${status}`);
+  if (f.held === true) lines.push(`Please note: ${HELD_NOTE}`);
   if (f.description) lines.push('', cleanString(f.description, env));
   const made = madeByLines(f.made_by, env);
   if (made.length) lines.push('', 'Who made the programs involved:', ...made);
@@ -166,4 +171,4 @@ function buildAiPrompt(payload, env) {
   return text.trimEnd() + '\n';
 }
 
-module.exports = { buildAiPrompt, cleanEvidence, PREAMBLE, MAX_TOTAL_CHARS, PERSON_SAID };
+module.exports = { buildAiPrompt, cleanEvidence, PREAMBLE, MAX_TOTAL_CHARS, PERSON_SAID, HELD_NOTE };

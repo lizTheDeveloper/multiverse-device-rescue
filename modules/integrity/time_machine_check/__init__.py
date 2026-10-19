@@ -36,7 +36,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check your Time Machine backups",
                     description=(
-                        "Device Rescue couldn't read your Time Machine settings, so it "
+                        "Reclaim City couldn't read your Time Machine settings, so it "
                         "doesn't know whether backups are set up. This is not a sign that "
                         "anything is wrong. To see for yourself, open System Settings > "
                         "General > Time Machine."

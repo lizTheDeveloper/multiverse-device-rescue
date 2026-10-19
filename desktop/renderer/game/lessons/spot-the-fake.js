@@ -1,6 +1,6 @@
 // "Spot the fake message", built from Reclaim City's own scam-defense quiz data
 // (vendor/reclaim-city/src/data/phishing.js). The messages and their "tells" are
-// Reclaim City's content; only the wrapper text here is Device Rescue's.
+// Reclaim City's content; only the wrapper text here is Reclaim City's.
 export const PICKS = [1, 4, 5];
 
 function sentence(tells) {

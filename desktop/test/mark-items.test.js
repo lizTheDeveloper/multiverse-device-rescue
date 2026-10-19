@@ -14,7 +14,7 @@ const SSH = 'security.remote_login_check.ssh_enabled';
 const ITEM = {
   kind: 'sharing_service', id: ID_A, code: RL, group: GROUP, label: 'Remote Login', monitoring: true,
   shows: [['Setting', 'Remote Login'], ['Now', 'On']],
-  will_change: 'Device Rescue will stop warning you about Remote Login being on.',
+  will_change: 'Reclaim City will stop warning you about Remote Login being on.',
   how_to_undo: ['Choose "Stop treating this as mine"'],
 };
 

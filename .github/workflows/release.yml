@@ -10,9 +10,9 @@ name: release
 #                                                     installer is caught before a tag
 #
 # File names carry no version number on purpose, so these links never change:
-#   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-arm64.dmg
-#   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-mac-x64.dmg
-#   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/DeviceRescue-windows-x64.exe
+#   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/ReclaimCity-mac-arm64.dmg
+#   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/ReclaimCity-mac-x64.dmg
+#   https://github.com/lizTheDeveloper/multiverse-device-rescue/releases/latest/download/ReclaimCity-windows-x64.exe
 #
 # Code signing is optional. Without it the app works, but macOS and Windows
 # show a one-time "unverified developer" prompt (the download page explains
@@ -125,8 +125,8 @@ jobs:
         with:
           name: installer-${{ matrix.os }}
           path: |
-            desktop/dist/DeviceRescue-*.dmg
-            desktop/dist/DeviceRescue-*.exe
+            desktop/dist/ReclaimCity-*.dmg
+            desktop/dist/ReclaimCity-*.exe
           if-no-files-found: error
 
   publish:
@@ -143,13 +143,13 @@ jobs:
           merge-multiple: true
       - name: Checksums
         working-directory: out
-        run: sha256sum DeviceRescue-* > SHA256SUMS.txt && cat SHA256SUMS.txt
+        run: sha256sum ReclaimCity-* > SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Create or update the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "Device Rescue $TAG" \
-                 --notes "Download for Mac or Windows below. First time opening it? See https://lizthedeveloper.github.io/multiverse-device-rescue/#first-time"
+            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "Reclaim City $TAG" \
+                 --notes "Reclaim City used to be called Device Rescue. Download for Mac or Windows below. First time opening it? See https://lizthedeveloper.github.io/multiverse-device-rescue/#first-time"
           gh release upload "$TAG" out/* -R "$GITHUB_REPOSITORY" --clobber

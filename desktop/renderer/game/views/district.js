@@ -1,3 +1,4 @@
+import { HELD_MODULES } from '../held.js';
 import { esc } from '../escape.js';
 import { skyline, districtLine } from './map.js';
 import { reclaimedIn } from '../progress.js';
@@ -25,7 +26,8 @@ export function renderDistrict({ district: d, progress, scout }) {
       </div></li>`).join('');
   const rows = missions + reclaimed;
   const notes = d.notes.map((n) => `<li>${esc(n.title)}</li>`).join('');
-  const fog = d.fog.map((x) => `<li><strong>${esc(x.module)}</strong>: ${esc(x.reason)}</li>`).join('');
+  // A monitoring check is never named on the city (held.js): just "A check".
+  const fog = d.fog.map((x) => `<li><strong>${esc(HELD_MODULES.has(x.module) ? 'A check' : x.module)}</strong>: ${esc(x.reason)}</li>`).join('');
   return `
   <section class="district-screen">
     <div class="crumbs"><button type="button" data-go="map">Your computer</button> / <b>${esc(d.name)}</b></div>

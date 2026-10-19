@@ -16,7 +16,7 @@ export default {
   whatTheScanLooksFor: 'After the checkup, anything that couldn’t run is listed by name, so you know exactly what wasn’t looked at.',
   questions: [
     {
-      teach: 'A check that couldn’t run checked nothing, so it isn’t a clean bill of health. Device Rescue says so instead of pretending everything is fine. In the city, those places show as fog, or are marked COULDN’T CHECK.',
+      teach: 'A check that couldn’t run checked nothing, so it isn’t a clean bill of health. Reclaim City says so instead of pretending everything is fine. In the city, those places show as fog, or are marked COULDN’T CHECK.',
       prompt: 'A district on your map is covered in fog. What does that mean?',
       options: [
         { text: 'Those checks couldn’t run, so nothing there was looked at', correct: true,

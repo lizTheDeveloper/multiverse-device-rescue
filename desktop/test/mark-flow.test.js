@@ -9,7 +9,7 @@ const MARKABLE = {
   label: 'ai.example.gateway',
   program: '/Users/me/.example/venv/bin/python',
   plist: '/Users/me/Library/LaunchAgents/ai.example.gateway.plist',
-  will_change: 'Device Rescue will stop warning you. It will still be listed as "marked as yours".',
+  will_change: 'Reclaim City will stop warning you. It will still be listed as "marked as yours".',
   how_to_undo: ['Choose "Stop treating this as mine"', 'Or run: rescue known remove abc'],
 };
 

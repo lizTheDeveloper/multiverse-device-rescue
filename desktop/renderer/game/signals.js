@@ -117,8 +117,10 @@ function openMonitoring(city) {
   return out;
 }
 
-export function cityIntegrity(city, signals) {
-  const openIn = new Set([...(signals || []).filter(isOpen), ...openMonitoring(city)].map((x) => x.districtId));
+// `held`: a city built from only the held monitoring findings (held.js), kept
+// in memory. They're never signals, but they're still open.
+export function cityIntegrity(city, signals, held = null) {
+  const openIn = new Set([...(signals || []).filter(isOpen), ...openMonitoring(city), ...openMonitoring(held)].map((x) => x.districtId));
   const checkedIds = new Set();
   const securedIds = new Set();
   for (const d of (city && city.districts) || []) {
@@ -131,21 +133,30 @@ export function cityIntegrity(city, signals) {
   return { percent: checked ? Math.round((secured / checked) * 100) : null, checked, secured, checkedIds, securedIds };
 }
 
-export function districtHeat(city, signals) {
+// The districts where a held monitoring finding is open. A change there is
+// never "secured" and never a clean sweep: that would reward removing it.
+export function heldDistrictIds(held) {
+  return new Set(openMonitoring(held).map((x) => x.districtId));
+}
+
+export function districtHeat(city, signals, held = null) {
   const out = {};
-  for (const x of [...(signals || []).filter(isOpen), ...openMonitoring(city)]) {
+  for (const x of [...(signals || []).filter(isOpen), ...openMonitoring(city), ...openMonitoring(held)]) {
     out[x.districtId] = out[x.districtId] === 'hot' || x.severity === 'critical' ? 'hot' : 'warn';
   }
   return out;
 }
 
 // What a sweep record holds: counts only (see progress.js SWEEP_FIELDS).
-export function sweepCounts(doc, city, integrity) {
+// `held`: the held city (held.js). Its criticals and warnings are counted too,
+// as numbers only, so a sweep never reads as lighter than the scan was.
+export function sweepCounts(doc, city, integrity, held = null) {
   const t = (city && city.totals) || {};
+  const h = (held && held.totals) || {};
   const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
   return {
     checks: mods.filter((m) => m && m.status === 'ok' && m.supported !== false).length,
-    critical: t.critical || 0, warning: t.warning || 0, info: t.info || 0, fog: t.fog || 0,
+    critical: (t.critical || 0) + (h.critical || 0), warning: (t.warning || 0) + (h.warning || 0), info: t.info || 0, fog: t.fog || 0,
     checked: (integrity && integrity.checked) || 0, secured: (integrity && integrity.secured) || 0,
   };
 }

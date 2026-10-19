@@ -77,7 +77,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check whether Find My Mac is on",
                     description=(
-                        "Device Rescue couldn't read the Find My Mac setting on this "
+                        "Reclaim City couldn't read the Find My Mac setting on this "
                         "Mac, so it doesn't know whether it is on or off. This is not "
                         "a sign that anything is wrong.\n\n"
                         "To see for yourself: open System Settings, click your name at "
@@ -119,7 +119,7 @@ class Module(ModuleBase):
                     title="Couldn't check whether Location Services are on",
                     description=(
                         "macOS keeps the Location Services setting in a file that only "
-                        "the system can read, so Device Rescue couldn't tell whether it "
+                        "the system can read, so Reclaim City couldn't tell whether it "
                         "is on. Find My Mac needs it to show where this Mac is. This is "
                         "not a sign that anything is wrong.\n\n"
                         "To see for yourself: open System Settings > Privacy & Security "
@@ -158,7 +158,7 @@ class Module(ModuleBase):
                 Finding(
                     title="Couldn't check Send Last Location",
                     description=(
-                        "Device Rescue couldn't read the Send Last Location setting on "
+                        "Reclaim City couldn't read the Send Last Location setting on "
                         "this Mac, so it doesn't know whether it is on or off. Newer "
                         "versions of macOS don't keep this setting where it can be read. "
                         "This is not a sign that anything is wrong."

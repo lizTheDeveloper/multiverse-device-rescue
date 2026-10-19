@@ -61,7 +61,7 @@ export const READING = {
     source: 'desktop/renderer/app.js', quote: "'Apple system file': 'part of macOS'" },
   place: { text: 'Where something lives often tells you more than its name. A temporary or hidden folder is a stronger warning sign than an app’s own install folder.',
     source: 'guides/remediation/review_launch_persistence.md', quote: 'a program path in `/tmp`, `/var/tmp`, or a hidden directory' },
-  placeUnknown: { text: 'This is where the scan found it. Device Rescue has no note about this place, so the other clues matter more.',
+  placeUnknown: { text: 'This is where the scan found it. Reclaim City has no note about this place, so the other clues matter more.',
     source: 'guides/remediation/review_launch_persistence.md', quote: 'reported in the finding' },
   what: { text: 'This is the checkup’s own plain-language description of what it found.',
     source: 'AGENTS.md', quote: 'plain-language explanation' },
@@ -160,7 +160,7 @@ const TAG_WORD = { mine: 'yours', threat: 'a threat', closer: 'worth a closer lo
 function clueReason(sig) {
   const f = sig.finding || {};
   const mb = Array.isArray(f.made_by) ? f.made_by.filter((e) => e && typeof e === 'object') : [];
-  if (sig.marked) return 'you told Device Rescue it’s yours';
+  if (sig.marked) return 'you told Reclaim City it’s yours';
   if (mb.some((e) => e.verified !== true)) return 'nobody has vouched for who made it';
   const place = placeFor(pathOf(f));
   if (place && place.risky) return `it lives in ${place.short}`;
