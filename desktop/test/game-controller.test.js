@@ -702,14 +702,22 @@ test('the scan fails on the boss screen: back to the Training Grounds, never a f
   assert.strictEqual(t.host.startCheckup, 1);
 });
 
-test('PLAIN VIEW hands back to Device Rescue from the training, lesson and boss screens', async () => {
+test('Plain view is retired: no PLAIN VIEW on the training, lesson or boss screens', async () => {
   const t = await trainingSetup();
-  t.click({ 'data-act': 'leave' });
+  assert.doesNotMatch(t.html(), /PLAIN VIEW|data-act="leave"/);
   t.click({ 'data-go': 'lesson:password-asker' });
-  t.click({ 'data-act': 'leave' });
+  assert.doesNotMatch(t.html(), /PLAIN VIEW|data-act="leave"/);
   t.ctl.showBoss();
-  t.click({ 'data-act': 'leave' });
-  assert.strictEqual(t.host.leaveGame, 3);
+  assert.doesNotMatch(t.html(), /PLAIN VIEW|data-act="leave"/);
+});
+
+test('resume() returns to the exact screen the person left for the LIST', async () => {
+  const t = await trainingSetup();
+  t.click({ 'data-go': 'lesson:password-asker' });
+  const before = t.html();
+  t.frame.innerHTML = '';
+  assert.strictEqual(t.ctl.resume(), true);
+  assert.strictEqual(t.html(), before);
 });
 
 test('after leaving the boss mid-scan, a city shown from the list isn’t stuck on a running scan', async () => {
@@ -770,13 +778,10 @@ test('a progress event on the boss screen keeps keyboard focus where it was', as
   t.focusOn({ 'data-go': 'training' });
   t.ctl.scanEvent(prog('start', 1, 4));
   assert.deepStrictEqual(t.focused, ['[data-go="training"]'], 'ALL LESSONS keeps focus');
-  t.focusOn({ 'data-act': 'leave' });
-  t.ctl.scanEvent(prog('done', 1, 4));
-  assert.deepStrictEqual(t.focused.slice(1), ['[data-act="leave"]']);
   // Nothing focused: nothing to put back.
   t.focusOn(null);
   t.ctl.scanEvent(prog('start', 2, 4));
-  assert.strictEqual(t.focused.length, 2);
+  assert.strictEqual(t.focused.length, 1);
 });
 
 test('focus isn’t carried to a different screen', async () => {

@@ -148,10 +148,10 @@ test('lesson titles, prompts and feedback with HTML render as text', async () =>
   assert.match(lessonHtml, /<code>&lt;img src=x/);
 });
 
-test('the Training Grounds and boss screens offer the plain view', async () => {
+test('Plain view is retired: the Training Grounds and boss screens have no PLAIN VIEW', async () => {
   const v = await views();
-  assert.match(v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout }), /data-act="leave"/);
-  assert.match(v.renderBoss({ boss: v.bossInit(), scout, tips: [] }), /data-act="leave"/);
+  assert.doesNotMatch(v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout }), /data-act="leave"|PLAIN VIEW/);
+  assert.doesNotMatch(v.renderBoss({ boss: v.bossInit(), scout, tips: [] }), /data-act="leave"|PLAIN VIEW/);
 });
 
 test('the boss screen never uses time words or says you are safe', async () => {

@@ -37,7 +37,7 @@ export const DISTRICT_SHOWN = 10;
 // `allOpen`: the person asked for every row. `waitingTitle`: what a check
 // waiting for a go-ahead is called here (signals.js WAITING_TITLE).
 export function renderDistrict({ district: d, progress, scout, message = '', busy = false, scanRunning = false, detail = () => '',
-  allOpen = false, waitingTitle = 'A long sweep is waiting for your go-ahead', cover = false }) {
+  allOpen = false, waitingTitle = 'A long sweep is waiting for your go-ahead', cover = false, missionsHtml = null }) {
   const status = (id) => (progress.missions[id] && progress.missions[id].status) || 'open';
   // Two missions with one title and nothing to tell them apart are numbered.
   const titles = new Map();
@@ -110,12 +110,15 @@ export function renderDistrict({ district: d, progress, scout, message = '', bus
     <h2 class="m-title">${esc(d.name)}</h2>
     ${skyline(d.status)}
     <p class="intel">${esc(districtLine(d, reclaimedIn(progress, d).length))}</p>
-    ${rows ? `<div class="panel active"><div class="label">MISSIONS</div><ul class="missions">${rows}</ul>${bulk}${said}</div>` : ''}
+    ${missionsHtml !== null
+    // Little missions (missions/types.js): the district's missions by kind, a few items each.
+    ? (missionsHtml || reclaimed ? `<div class="panel active"><div class="label">MISSIONS</div>${missionsHtml}${reclaimed ? `<ul class="missions">${reclaimed}</ul>` : ''}${said}</div>` : '')
+    : rows ? `<div class="panel active"><div class="label">MISSIONS</div><ul class="missions">${rows}</ul>${bulk}${said}</div>` : ''}
     ${fog ? `<div class="panel fogged"><div class="label">COULDN’T CHECK HERE</div><p class="intel">That doesn’t mean it’s safe.</p><ul class="fog-list">${fog}</ul></div>` : ''}
     ${unfinished ? `<div class="panel fogged"><div class="label">DIDN’T FINISH HERE</div><p class="intel">These checks stopped before the end, so they may have missed something. That doesn’t mean it’s safe.</p><ul class="fog-list">${unfinished}</ul></div>` : ''}
     ${partly ? `<div class="panel fogged"><div class="label">ONLY PARTLY CHECKED HERE</div><p class="intel">These checks couldn’t look at everything. That doesn’t mean it’s safe.</p><ul class="fog-list">${partly}</ul></div>` : ''}
     ${waiting ? `<div class="panel"><div class="label">WAITING FOR YOUR GO-AHEAD</div><ul class="fog-list">${waiting}</ul></div>` : ''}
     ${notes ? `<details class="panel"><summary class="label">NOTES (${d.notes.length})</summary><ul class="notes">${notes}</ul></details>` : ''}
-    <div class="scout-row">${scout('happy', 54)}<p class="say">${esc(d.missions.length ? 'Pick one. You can stop after any of them.' : 'Nothing to do here right now.')}</p></div>
+    <div class="scout-row">${scout('happy', 54)}<p class="say">${esc(d.missions.length || missionsHtml ? 'Pick one. You can stop after any of them.' : 'Nothing to do here right now.')}</p></div>
   </section>`;
 }

@@ -3,7 +3,8 @@
 // shape falls back to Odd Jobs (simple.js), so the registry works with only
 // simple present.
 //
-//   loadGames({ importer }) -> Promise<{ games: {[type]: game}, own: Set<type>, problems: [string] }>
+//   loadGames({ importer }) -> Promise<{ games: {[type]: game}, modules: {[type]: module namespace}, own: Set<type>, problems: [string] }>
+//       `modules` keeps each game file's other exports (the notes game's batchNotes).
 //   gameFor(registry, type) -> game (simple when none)
 //   ownGames(registry) -> the games that loaded for their own type (their `covers` feed types.buildTable)
 import simple from './simple.js';
@@ -13,6 +14,7 @@ const here = (type) => new URL(`./${type}.js`, import.meta.url).href;
 
 export async function loadGames({ importer = (spec) => import(spec) } = {}) {
   const games = { simple };
+  const modules = {};
   const own = new Set(['simple']);
   const problems = [];
   await Promise.all(TYPE_IDS.filter((t) => t !== 'simple').map(async (type) => {
@@ -20,6 +22,7 @@ export async function loadGames({ importer = (spec) => import(spec) } = {}) {
     try {
       const mod = await importer(here(type));
       game = mod && mod.default;
+      modules[type] = mod;
     } catch (_) {
       games[type] = simple; // not built yet
       return;
@@ -33,7 +36,8 @@ export async function loadGames({ importer = (spec) => import(spec) } = {}) {
   // Two games claiming one finding: both keep loading, the problem is reported
   // (types.js resolves it the same way every time; the test suite fails on it).
   problems.push(...noDoubleClaims([...own].map((t) => games[t])));
-  return { games, own, problems };
+  for (const t of Object.keys(modules)) if (!own.has(t)) delete modules[t];
+  return { games, modules, own, problems };
 }
 
 export function gameFor(registry, type) {

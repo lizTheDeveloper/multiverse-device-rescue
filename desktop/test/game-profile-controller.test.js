@@ -723,8 +723,7 @@ test('both modes: every write in a session (lesson answers, a drill, a later, th
   }
 });
 
-// Task 21: a tick for an id that isn't on the publish list is ignored, and
-// plain view's Start over is read back by the game (reloadProfile).
+// Task 21: a tick for an id that isn't on the publish list is ignored.
 test('YOUR FILE: a tick for anything not on the publish list is ignored, so the real ticks still hand over', async () => {
   const t = await setup({ publishReady: true });
   t.click({ 'data-go': 'profile' });
@@ -737,15 +736,3 @@ test('YOUR FILE: a tick for anything not on the publish list is ignored, so the 
   assert.deepStrictEqual(Object.keys(JSON.parse(t.calls.clipboard[0])), ['security']);
 });
 
-test('reloadProfile: a profile plain view wrote is the one the game shows and saves next', async () => {
-  const pp = await game('profile/player-profile.js');
-  const storage = recordingStore();
-  const t = await setup({ storage });
-  const before = pp.loadProfile(storage, NOW);
-  pp.saveProfile(storage, { ...before, rank: { points: 777, index: 2 } }, { seed: 4242, mode: 'standard' });
-  t.ctl.reloadProfile();
-  t.click({ 'data-go': 'profile' });
-  assert.match(t.html(), /777 POINTS/);
-  t.ctl.profileModeChanged();
-  assert.strictEqual(savedProfile(storage).rank.points, 777, 'the next save keeps it');
-});

@@ -89,7 +89,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
   districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '', learned = null,
   queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', notChecked = '', todo = null, repeats = 0,
-  sweepNow = null, stopped = null, notCheckedChip = '', lowCount = null }) {
+  sweepNow = null, stopped = null, notCheckedChip = '', lowCount = null, nextLine = '', missionsLeft = false }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -118,7 +118,8 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
       <div class="row"><span class="label">SHOWING ${esc(String(filter.name).toUpperCase())}</span>
         <button type="button" class="btn-t" data-go="filter:all">SHOW ALL</button>
         <button type="button" class="btn-t" data-go="district:${esc(filter.id)}">OPEN THE DISTRICT ▶</button></div>` : '';
-  const anything = items.length > 0 || low.length > 0 || drills.length > 0;
+  // Little missions: INVESTIGATE NEXT opens the next mission while any is unfinished.
+  const anything = items.length > 0 || low.length > 0 || drills.length > 0 || missionsLeft;
   let blank = '';
   if (preSweep) {
     // Before any sweep this session: the sweep is the one main action. The
@@ -136,7 +137,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   } else if (!anything) {
     blank = '<div class="panel clear-board"><div class="label">CLEAR BOARD</div><p class="intel">Nothing to sort from this checkup. A clean checkup lowers the odds of a problem; it doesn’t rule one out. Want practice? Try the DRILL RANGE below.</p></div>';
   }
-  const next = anything ? '<button type="button" class="btn-p" data-act="investigate-next">INVESTIGATE NEXT ▶</button>' : '';
+  const next = anything ? `<button type="button" class="btn-p" data-act="investigate-next">INVESTIGATE NEXT ▶</button>${nextLine}` : '';
   const shown = queueOpen ? items.slice(0, LOW_SHOWN) : items.slice(0, QUEUE_SHOWN);
   const hidden = items.length - shown.length;
   const more = items.length > QUEUE_SHOWN ? `

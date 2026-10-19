@@ -1,0 +1,37 @@
+/* Little missions: the chrome around every mini-game (rows, progress, warning,
+   evidence, links, decisions, practice, summary). Uses the game's own
+   variables (game/game.css); each game's card brings its own games/<type>.css. */
+
+.mx-list { list-style: none; margin: 0; padding: 0; }
+.mx-row { display: flex; gap: 10px; align-items: center; border-bottom: 1px solid var(--line); }
+.mx-row:last-child { border-bottom: 0; }
+.mx-row .mx-check { accent-color: var(--lime); width: 18px; height: 18px; flex: none; }
+.mx-row.mx-done .mission-text { color: var(--dim); }
+.mx-notes-label { margin-top: 16px; }
+
+.mx-screen { display: flex; flex-direction: column; gap: 14px; max-width: 860px; }
+.mx-screen .m-title .mx-part { font-family: var(--font-mono); font-size: 12px; color: var(--dim); letter-spacing: 1px; margin-left: 8px; }
+.mx-progress { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mx-card { min-width: 0; }
+.mx-warning { border-color: var(--amber); }
+.mx-what { color: var(--offwhite); }
+.mx-unfinished .badge { margin-right: 6px; }
+.mx-evidence > summary { cursor: pointer; }
+.mx-links ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.mx-link-text { font-family: var(--font-mono); font-size: 13px; color: var(--offwhite); overflow-wrap: anywhere; }
+.mx-guide ol { margin: 6px 0 0; padding-left: 20px; }
+.mx-guide li { margin: 4px 0; overflow-wrap: anywhere; }
+.mx-decisions { display: flex; flex-wrap: wrap; gap: 10px; }
+.mx-decisions button { min-height: 44px; white-space: normal; }
+.mx-confirm, .mx-act { border: 1px solid var(--amber); padding: 14px; background: var(--panel); }
+.mx-practice-banner { border-color: var(--lime); }
+.mx-practice-banner .label { color: var(--lime); }
+.mx-feedback { margin: 0; }
+.mx-points { color: var(--lime); font-family: var(--font-display); letter-spacing: 1px; }
+.mx-next-line { margin: 6px 0 0; }
+.mx-notice { color: var(--cyan); }
+
+@media (max-width: 820px) {
+  .mx-screen { max-width: 100%; }
+  .mx-decisions button { flex: 1 1 100%; }
+}

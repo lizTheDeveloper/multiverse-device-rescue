@@ -96,7 +96,9 @@ test('I2: every evidence block the city draws goes through the same rule', () =>
   const fs = require('node:fs');
   const src = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'game', 'controller.js'), 'utf8');
   const all = (src.match(/EV\.renderEvidence\(/g) || []).length;
-  const ruled = (src.match(/EV\.renderEvidence\(rows, evidenceOpts\(module\)\)/g) || []).length;
+  const ruled = (src.match(/EV\.renderEvidence\(rows, evidenceOpts\(module\)\)/g) || []).length
+    // Little missions: the same rule, and a game's own copy: false on top of it.
+    + (src.match(/EV\.renderEvidence\(rows, \{ copy: evidenceOpts\(module\)\.copy && gameCopy !== false \}\)/g) || []).length;
   assert.ok(all >= 2);
   assert.strictEqual(ruled, all);
   assert.match(src, /const evidenceOpts = \(module\) => \(\{ copy: !EV\.noClipboard\(inCity\(\) \? 'city' : 'standard', module\) \}\)/);

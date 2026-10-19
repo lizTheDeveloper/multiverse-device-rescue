@@ -169,10 +169,12 @@ export function cancelPending(run) {
 
 // A mark, fix or re-check came back. 'done' answers the item; anything else
 // leaves it open.
-export function settle(run, outcome) {
+// `item`: the item itself, when a re-check has already taken it off the
+// mission's list (a fix that worked).
+export function settle(run, outcome, item0 = null) {
   const p = run.pending;
   if (!p) return run;
-  const item = run.items.find((i) => i.key === p.key);
+  const item = run.items.find((i) => i.key === p.key) || (item0 && item0.key === p.key ? item0 : null);
   const cleared = { ...run, pending: null, phase: run.phase === 'confirm' ? 'item' : run.phase };
   if (!item || outcome !== 'done') return cleared;
   return advance(record(cleared, item, p.decision, 'done'));

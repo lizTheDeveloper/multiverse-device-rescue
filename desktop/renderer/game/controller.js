@@ -41,6 +41,7 @@ import { renderBoss } from './views/boss.js';
 import { pickDistrict, seedFrom } from './district-names.js';
 import { SIX_ROSES } from './side-district.js';
 import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
+import { createMissionDesk } from './missions-city.js';
 // The list's evidence block (a plain script, not an ES module).
 import * as evidenceModule from '../evidence.js';
 
@@ -156,13 +157,17 @@ export function focusHeading(root) {
 // `publishing` is a TEST SEAM too: the app never passes it, so the publish
 // control, the consent sheet and the hand-over are all bound to PUBLISH_READY
 // (views/profile.js and publish.js's deliver), which is false.
+// `missions`: the little missions (missions/types.js, runner.js) drive the
+// districts, INVESTIGATE NEXT and the mission screen. boot-core passes it on;
+// tests of the signal deck leave it off. `loadMissionGames` is a test seam.
 export function createController({ win, storage, scoutSprite, loadGame = loadRc, loadTraining = loadLessonsHere, loadDrillBank = loadDrillsHere,
-  publishing = {} }) {
+  publishing = {}, missions = false, loadMissionGames = undefined }) {
   const pub = { ready: PUBLISH_READY, renderProfile, renderPublishSheet, deliver, ...publishing };
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="checklist.css"><link rel="stylesheet" href="game/profile.css">'
+    + (missions ? '<link rel="stylesheet" href="missions/missions.css"><span id="mx-css"></span>' : '')
     + `<style>${EV.CSS}</style><div class="frame" id="frame"></div>`;
   const frame = shadow.getElementById('frame');
   // The shared evidence block's styles, once, and its Copy buttons (never on a
@@ -303,17 +308,51 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.progress = viewOf(s.profile);
   }
   function refreshBank() {
-    s.bank = buildBank(s.lessons, s.drillBank);
+    const rounds = desk ? desk.rounds() : [];
+    s.bank = buildBank(s.lessons, s.drillBank, rounds);
     // Every item stays measurable (the same estimates in both modes); only the
     // lesson and concept indexes, which say what is drawn and what a lesson
     // is made of, leave the skipped families out.
-    const c = buildBank(cityLessons(s.lessons), s.drillBank);
+    const c = buildBank(cityLessons(s.lessons), s.drillBank, rounds);
     s.cityBank = { items: s.bank.items, lessons: c.lessons, concepts: c.concepts };
     s.progress = viewOf(s.profile);
   }
   // A first run moves the old store into the box straight away.
   s.progress = viewOf(s.profile);
   persist();
+
+  // Little missions (missions-city.js): everything it does to the computer
+  // goes through the same flows as the rest of the city.
+  const desk = missions ? createMissionDesk({
+    win, loadMissionGames,
+    mode: () => (coverMode() ? 'city' : 'standard'),
+    platform: () => platform(),
+    districtName: (id) => nameOf(id),
+    place: () => (inCity() ? side().name : ''),
+    getProfile: () => s.profile, keepProfile: (p) => keepProfile(p), bank: () => s.bank, deck: () => s.progress.deck,
+    commitAward: (r) => commitAward(r), logEntry: (k, t) => logEntry(k, t), now,
+    evidenceRows: (f, mode) => EV.evidenceRows({ ...f }, { mode, held: false, checkName: EV.checkLabel(f && f.module, s.doc), commands: [] }),
+    // The shared clipboard rule, and a game's own copy: false (R3) on top of it.
+    renderEvidence: (rows, module, gameCopy) => EV.renderEvidence(rows, { copy: evidenceOpts(module).copy && gameCopy !== false }),
+    rebuild: (doc) => rebuild(doc), docChanged: (doc) => win.RescueHost.docChanged(doc),
+    sweeping: () => sweeping(), stopped: () => !!s.stopped, render: () => render(), focusHeading: () => focusHeading(frame),
+    watchedOpts: () => watchedOpts(), setScreen: (x) => { s.screen = x; }, modulesCoveredBy: (ids) => modulesCoveredBy(ids),
+    openConcept: (c) => {
+      const bank = drawBank();
+      const keys = askable(c) ? drawConcept(bank, c, historyFor(s.profile, bank), { bOf: difficultyOf(s.profile, s.bank) }) : [];
+      const first = keys.length ? s.bank.items.get(keys[0]) : null;
+      if (!first) return false;
+      openVisit(first.lessonId, keys, { concept: c, back: 'mx' });
+      return true;
+    },
+    onGames: () => {
+      refreshBank();
+      // Each game's own card styles, after game.css.
+      const slot = typeof shadow.querySelector === 'function' ? shadow.querySelector('#mx-css') : null;
+      if (slot) slot.innerHTML = desk.ownTypes().filter((t) => t !== 'simple').map((t) => `<link rel="stylesheet" href="missions/games/${t}.css">`).join('');
+      if (s.city && (s.screen === 'map' || s.screen === 'district' || s.screen === 'mx')) render();
+    },
+  }) : null;
 
   function rebuild(doc, putBack = null) {
     const before = s.city ? cityIntegrity(s.city, signalsNow(), s.heldCity) : null;
@@ -371,6 +410,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // that would reward removing it, and the log line would say where it was.
     const heldNow = heldDistrictIds(s.heldCity);
     if (before) noteSecured(before, cityIntegrity(s.city, signalsNow(), s.heldCity), new Set([...heldBefore, ...heldNow]));
+    if (desk) desk.rebuild(doc);
   }
 
   // The modules whose findings a mark or unmark covered (by mark id), so each
@@ -629,6 +669,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // TODO(C5 integration): the shared count's field name for the notes
       // (assumed `notes`); until then the rows' own count.
       lowCount: s.counts && Number.isInteger(s.counts.notes) ? s.counts.notes : null,
+      nextLine: desk ? desk.nextLine() : '', missionsLeft: !!(desk && desk.nextMission()),
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
@@ -814,6 +855,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.gapped = new Set();
     s.drillEvidence = new Set();
     s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
+    if (desk) desk.newSweep();
   }
 
   // The ops log's SWEEP line: the deck's own numbers (cityCounts), so it says
@@ -1014,7 +1056,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (s.screen === 'district' && district(s.districtId)) {
       return renderDistrict({ district: district(s.districtId), progress: s.progress, scout, message: s.districtMsg || '', busy: s.busy,
         scanRunning: sweeping(), detail: rowDetail, allOpen: !!s.districtOpen, waitingTitle: coverMode() ? WAITING_TITLE.cover : WAITING_TITLE.plain,
-        cover: coverMode() });
+        cover: coverMode(), missionsHtml: desk ? desk.districtMissionsHtml(s.districtId) : null });
+    }
+    if (s.screen === 'mx' && desk) {
+      const html = desk.screenHtml();
+      if (html !== null) return html;
+      s.screen = 'map';
     }
     // During an Undo re-check the mission was reclaimed, so it isn't in the
     // city: show the checking briefing from the mission we last showed.
@@ -1231,7 +1278,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), rank: rankOf(s.progress.deck),
-          todo: s.city ? todoFrom(s.counts, signalsNow()) : null, notChecked: s.counts }) + s.linkNotice;
+          todo: s.city ? todoFrom(s.counts, signalsNow()) : null, notChecked: s.counts, missions: desk ? desk.hud() : null }) + s.linkNotice;
       frame.innerHTML = saveNoticeHtml() + hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
@@ -1454,7 +1501,6 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'toggle-tips') { s.tipsOpen = !s.tipsOpen; return; }
     // Always a way back to the list, even while a re-check runs.
     if (act === 'list') { win.RescueHost.showList(); return; }
-    if (act === 'leave') { win.RescueHost.leaveGame(); return; }
     // Always works, like LIST: back to the ordinary game.
     if (act === 'side-back') { leaveSide(); return; }
     // Opens a System Settings page through main's allowlist; it changes nothing, so it's fine mid-re-check.
@@ -1472,6 +1518,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'dismiss-save-notice') { s.saveNotice = null; render(); return; }
     if (s.busy) return;
     if (go) s.linkNotice = '';
+    if (desk && desk.click(act, go)) return;
     if (go === 'side') { if (inCity()) openSide(); return; }
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
     // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
@@ -1489,6 +1536,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.signal = null; s.screen = 'map'; render(); return;
     }
     if (act === 'investigate-next') {
+      // Little missions: the most important unfinished mission.
+      const nm = desk && desk.nextMission();
+      if (nm && desk.open(nm.id)) { s.signal = null; s.screen = 'mx'; render(); focusHeading(frame); return; }
       const { q, items, drills } = deckQueue();
       const next = items[0] || drills[0] || q.low[0];
       if (next) openSignal(next.id); else render();
@@ -1780,12 +1830,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const refusedMidScan = (result) => !!(result && result.error === 'scan_running');
   win.FixFlow.attach(frame, win.rescue, { onResult: ({ kind, module, result, described }) => {
     if (refusedMidScan(result)) return;
+    if (desk && s.screen === 'mx' && desk.onFlowResult('fix', { result, described })) return;
     if (kind === 'fix') s.lastFix = { missionId: s.missionId, module, result };
     if (kind === 'undo' && described && described.restored) s.lastFix = null;
     if (described && (described.tone === 'success' || described.tone === 'info' || described.restored)) recheck(s.missionId, kind === 'undo' ? 'undo' : 'fix');
   } });
   win.MarkFlow.attach(frame, win.rescue, { onResult: ({ kind, result, described }) => {
     if (refusedMidScan(result)) return;
+    if (desk && s.screen === 'mx' && desk.onFlowResult('mark', { result, described })) return;
     if (described && described.done) recheck(s.missionId, kind === 'removed' ? 'unmark' : 'mark', modulesCoveredBy(result && result.ids));
   } });
 
@@ -1835,7 +1887,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   // show, showTraining, showBoss, scanDone and scanFailed return render()'s
-  // answer: false means the person is already back on Plain view's screens.
+  // answer: false means the screen couldn't be drawn and the person was sent to the list.
   return {
     isReady: true,
     // The display mode changed: save once now, so city mode retires the old
@@ -1848,18 +1900,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // Only while the city is on screen: otherwise the next show draws it.
       if (drawnScreen !== null && cityShown()) render();
     },
-    // Plain view changed the profile (Start over in "Your progress"): read it
-    // again, so the game's next save doesn't put the old one back.
-    reloadProfile() {
-      s.profile = loadProfile(storage, now(), { onProblem: (code) => { s.saveNotice = noticeFor(code); } });
-      s.progress = viewOf(s.profile);
-      if (s.screen === 'profile') s.profileView = { ...(s.profileView || { from: 'map' }), confirming: false, publish: null };
-      if (drawnScreen !== null && cityShown()) render();
+    // Back from the LIST tab ("Back to the city"): the exact screen the
+    // person left, as it was (a mission mid-way, a district, a lesson).
+    resume() {
+      if (!s.city && !NO_CITY_SCREENS.has(s.screen) && s.screen !== 'side') s.screen = noCity();
+      return render();
     },
     show(doc, situation) {
       s.situation = situation;
-      // A city shown from a finished scan: no game scan is running any more
-      // (the person may have left the boss screen with "Plain view").
+      // A city shown from a finished scan: no game scan is running any more.
       if (s.scan.running) { s.boss = bossFinish(s.boss); s.scan = idleScan(); }
       showCityFrom(doc);
       return render();

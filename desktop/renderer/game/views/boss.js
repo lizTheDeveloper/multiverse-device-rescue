@@ -66,7 +66,7 @@ function previewHtml(preview) {
 export const POPUP_LINE = 'Your computer may ask for permission. Click Allow. Nothing here ever asks for your password.';
 // `firstSweep`: no sweep has finished on this computer before, so Scout says
 // once where the plain list is.
-export const FIRST_SWEEP_LINE = 'This is your city. PLAIN VIEW shows the same as a list, any time.';
+export const FIRST_SWEEP_LINE = 'This is your city. The LIST tab shows the same things as a list, any time.';
 export function renderBoss({ boss, scout, tips, tipsOpen = false, learn = null, toCity = null, firstSweep = false }) {
   const ds = bossDistricts(boss);
   const pct = bossPercent(boss);
@@ -91,8 +91,7 @@ export function renderBoss({ boss, scout, tips, tipsOpen = false, learn = null, 
         <div class="bar-meta"><span>${boss.total ? `${esc(boss.index)} / ${esc(boss.total)} CHECKS` : 'GETTING READY'}</span>
           ${boss.found ? `<span>${esc(boss.found)} THING${boss.found === 1 ? '' : 'S'} NOTED SO FAR</span>` : ''}</div></div></div>
     <div class="row boss-say"><p class="say">${firstSweep ? `${esc(FIRST_SWEEP_LINE)} ` : ''}${esc(line)}</p>
-      <button type="button" class="btn-s lime" data-go="training">ALL LESSONS</button>
-      <button type="button" class="btn-t" data-act="leave">PLAIN VIEW</button></div>
+      <button type="button" class="btn-s lime" data-go="training">ALL LESSONS</button></div>
     ${tipList}
     <div class="districts sweep">${ds.map((d) => districtCard(d, learn)).join('')}</div>
     ${previewHtml(bossPreview(boss, toCity))}
