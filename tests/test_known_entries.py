@@ -446,7 +446,7 @@ def test_a_just_written_file_is_never_served_from_the_cache(tmp_path, hashing):
     before = os.stat(f)
     assert hashing._hash_regular_file(str(f)) == hashlib.sha256(b"good").hexdigest()
     assert hashing._hash_state["cache"] == {}
-    f.write_bytes(b"evil")  # no wait: maybe the same ctime tick
+    f.write_bytes(b"evil")
     os.utime(f, ns=(before.st_atime_ns, before.st_mtime_ns))
     assert hashing._hash_regular_file(str(f)) == hashlib.sha256(b"evil").hexdigest()
 
@@ -561,3 +561,15 @@ def test_spent_entry_budget_leaves_made_by_attribution_alone(tmp_path, hashing, 
 
     attribution.compute_made_by([(_Mod(), CheckResult("launch_agents_audit", [finding]))], "darwin")
     assert calls  # made_by still looked the program up
+
+
+def test_the_isolation_guard_catches_a_test_that_drops_it(tmp_path_factory, monkeypatch):
+    from tests.conftest import assert_known_items_isolated
+
+    base = tmp_path_factory.getbasetemp()
+    assert_known_items_isolated(base)  # as every test starts
+    saved = os.environ["RESCUE_KNOWN_ITEMS"]
+    monkeypatch.delenv("RESCUE_KNOWN_ITEMS")  # what monkeypatch.undo() would do
+    with pytest.raises(AssertionError, match="real marked-as-mine list"):
+        assert_known_items_isolated(base)
+    monkeypatch.setenv("RESCUE_KNOWN_ITEMS", saved)  # put it back so teardown passes
