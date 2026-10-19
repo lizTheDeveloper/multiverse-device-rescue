@@ -22,6 +22,7 @@
       "engine-runner.js",
       "fix-policy.js",
       "mark-policy.js",
+      "scan-gate.js",
       "setting-urls.js",
       "mission-links.js",
       "mission-links.json",

@@ -444,9 +444,80 @@ function groupFindingsBySeverity(doc) {
   return { groups, erroredModules };
 }
 
+// The scan events the game's sweep screen follows.
+const GAME_SCAN_EVENTS = new Set(['progress', 'plan', 'module']);
+
+/**
+ * Results while a scan runs. The engine streams each finished check's entry
+ * ({type:'module', result}) after its 'done' progress line, and names every
+ * check first ({type:'plan', total}). This keeps what has arrived, so the
+ * results screen can show it, always as partial: "N of M checks done", never
+ * an all-clear, and nothing to act on until the whole scan is in.
+ */
+function partialScanState() {
+  return { total: 0, done: 0, modules: [] };
+}
+
+// Returns true when the findings on show changed (a check's entry arrived).
+function applyPartialEvent(state, ev) {
+  if (!state || !ev) return false;
+  const n = (x) => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? x : null);
+  if (ev.type === 'plan') {
+    if (n(ev.total) !== null) state.total = ev.total;
+    return false;
+  }
+  if (ev.type === 'progress') {
+    if (n(ev.total) !== null && ev.total > 0) state.total = ev.total;
+    if (ev.phase === 'done' && n(ev.index) !== null) state.done = Math.max(state.done, ev.index);
+    return false;
+  }
+  if (ev.type === 'module' && ev.result && typeof ev.result === 'object' && typeof ev.result.name === 'string') {
+    const at = state.modules.findIndex((m) => m.name === ev.result.name);
+    if (at >= 0) state.modules[at] = ev.result; else state.modules.push(ev.result);
+    return true;
+  }
+  return false;
+}
+
+// The scan so far, in the final document's shape, marked partial.
+function partialDocOf(state, platform) {
+  return { schema_version: 1, platform: platform || null, modules: state.modules.slice(),
+    partial: { done: state.done, total: state.total } };
+}
+
+function isPartialDoc(doc) {
+  return !!(doc && doc.partial && typeof doc.partial === 'object');
+}
+
+// "34 of 120 checks done": what the partial results screen says it is.
+function partialCountText(partial) {
+  const done = partial && partial.done > 0 ? partial.done : 0;
+  const total = partial && partial.total > 0 ? partial.total : 0;
+  if (!total) return 'The checkup is still running.';
+  return `The checkup is still running: ${done} of ${total} checks done.`;
+}
+
+// The sentence at the top of partial results. Never an all-clear: the
+// checks still running haven't looked yet. `worth` = warnings and criticals.
+function partialSummaryText({ worth = 0, other = 0 } = {}) {
+  if (worth > 0) return `So far, ${worth} thing${worth === 1 ? '' : 's'} worth a look. More may turn up.`;
+  if (other > 0) return 'Nothing worth a look so far. The checkup isn’t finished, so more may turn up.';
+  return 'Nothing to show yet. The checkup isn’t finished.';
+}
+
+const PARTIAL_ACTIONS_TEXT = 'Fixes and “It’s mine” open when the checkup is done.';
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     detectOS,
+    GAME_SCAN_EVENTS,
+    partialScanState,
+    applyPartialEvent,
+    partialDocOf,
+    isPartialDoc,
+    partialCountText,
+    partialSummaryText,
+    PARTIAL_ACTIONS_TEXT,
     duringScanTips,
     groupFindingsBySeverity,
     SITUATIONS,
@@ -527,7 +598,8 @@ if (typeof document !== 'undefined') {
       DisplayMode.writeMode(store, next);
       // The game saves its profile once in the new mode (city mode retires the old store).
       if (changed && window.RescueGame && typeof window.RescueGame.profileModeChanged === 'function') window.RescueGame.profileModeChanged();
-      if (changed && lastScanDoc) renderResults(lastScanDoc);
+      const shownDoc = currentResultsDoc();
+      if (changed && shownDoc) renderResults(shownDoc);
     }
     // Made once per install for the game's own use, and written for everyone alike.
     const citySeed = DisplayMode.ensureSeed(store);
@@ -812,7 +884,10 @@ if (typeof document !== 'undefined') {
       if (pre) pre.textContent = techText(key, how);
     }
 
-    function renderSeverityGroup(severity, findings) {
+    // `partial`: the scan is still running. The cards are the same, with
+    // nothing on them that changes the computer or the list (main refuses
+    // those mid-scan too: scan-gate.js).
+    function renderSeverityGroup(severity, findings, partial = false) {
       if (findings.length === 0) return '';
       // City mode: the fix panel's extra warning about whoever set something up.
       const watched = mode === 'city';
@@ -827,7 +902,7 @@ if (typeof document !== 'undefined') {
           const held = card.note === 'held';
           // City mode never offers a fix or a mark on these checks, even on a
           // status line that found nothing ("No device backups found").
-          const noControls = held || (mode === 'city' && QuietNotes.isMonitoring(finding));
+          const noControls = partial || held || (mode === 'city' && QuietNotes.isMonitoring(finding));
           // Nor does an AI get its removal steps or evidence: only the card's own text.
           const pick = held ? QuietNotes.heldPick(card, finding) : copyAiPick(finding);
           cardPicks.set(key, pick);
@@ -842,7 +917,7 @@ if (typeof document !== 'undefined') {
           // On the list: everything worth acting on, plus what was marked as yours.
           const counts = !held && (severity === 'critical' || severity === 'warning' || marked);
           return `
-            <li class="finding-card finding-card--${severity}" data-card-key="${key}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}>
+            <li class="finding-card finding-card--${severity}" data-card-key="${key}" data-finding-key="${escapeHtml(`${finding.module}|${finding.code || ''}|${finding.title || ''}`).replace(/"/g, '&quot;')}" data-card-counts="${counts ? '1' : '0'}"${marked ? ' data-marked-before' : ''}>
               <div class="finding-card__header">
                 <span class="chip chip--${severity}">${escapeHtml(SEVERITY_LABELS[severity])}</span>
                 <h3>${escapeHtml(finding.title || 'Untitled finding')}</h3>
@@ -853,7 +928,7 @@ if (typeof document !== 'undefined') {
               <div class="card-answers">
               ${noControls ? '' : FixFlow.fixControlsHtml(finding, { watched })}
               ${noControls ? '' : MarkFlow.markControlsHtml(finding, { watched })}
-              ${marked || held ? '' : ClearList.didControlsHtml(finding, severity, escapeHtml)}
+              ${marked || held || partial ? '' : ClearList.didControlsHtml(finding, severity, escapeHtml)}
               </div>
               ${QuietNotes.lineHtml(card, escapeHtml)}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
               ${card.steps.length ? `
@@ -901,7 +976,45 @@ if (typeof document !== 'undefined') {
     // A re-check redraws the list; focus stays on the same checklist row.
     const keepFocus = (root, render) => (typeof Checklist !== 'undefined' ? Checklist.preserveFocus(root, render) : render());
 
+    // While a scan runs, a redraw keeps open what the person opened.
+    function openDetailsIn(root) {
+      const open = new Set();
+      if (!root || typeof root.querySelectorAll !== 'function') return open;
+      root.querySelectorAll('[data-finding-key] details[open]').forEach((d) => {
+        const card = d.closest && d.closest('[data-finding-key]');
+        if (card) open.add(`${card.getAttribute('data-finding-key')}|${d.className}`);
+      });
+      return open;
+    }
+    function reopenDetailsIn(root, open) {
+      if (!open.size || !root || typeof root.querySelectorAll !== 'function') return;
+      root.querySelectorAll('[data-finding-key] details').forEach((d) => {
+        const card = d.closest && d.closest('[data-finding-key]');
+        if (card && open.has(`${card.getAttribute('data-finding-key')}|${d.className}`)) d.open = true;
+      });
+    }
+
+    // The results screen's frame: "still running" (partial) or the finished checkup.
+    function renderResultsFrame(partial) {
+      const running = document.getElementById('results-running');
+      running.hidden = !partial;
+      if (partial) {
+        document.getElementById('results-running-text').textContent = partialCountText(partial);
+        document.getElementById('results-running-actions').textContent = PARTIAL_ACTIONS_TEXT;
+      }
+      document.getElementById('results-title').textContent = partial ? 'What we\u2019ve found so far' : 'Here\'s what we found';
+      // The whole-report copies would read as the full checkup: only once it's done.
+      document.getElementById('results-copy-all').hidden = !!partial;
+      document.getElementById('results-tech').hidden = !!partial;
+      if (partial) {
+        document.getElementById('results-learn').hidden = true;
+        document.getElementById('results-city-switch').hidden = true;
+      }
+    }
+
     function renderResults(doc) {
+      const partial = isPartialDoc(doc) ? doc.partial : null;
+      renderResultsFrame(partial);
       const { groups, erroredModules } = groupFindingsBySeverity(doc);
       const total = SEVERITY_ORDER.reduce((sum, sev) => sum + groups[sev].length, 0);
 
@@ -921,10 +1034,12 @@ if (typeof document !== 'undefined') {
       nextCardKey = 0;
       routerCtx = RouterLink.contextFrom(doc, browserName);
       const groupsEl = document.getElementById('results-groups');
+      const wasOpen = partial ? openDetailsIn(groupsEl) : new Set();
       keepFocus(groupsEl, () => {
-        groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev])).join('')
+        groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial)).join('')
           + ClearList.sectionHtml();
       });
+      reopenDetailsIn(groupsEl, wasOpen);
       reportFindings.push(...cardPicks.values());
 
       // Items marked as yours on an earlier checkup start out cleared.
@@ -935,7 +1050,12 @@ if (typeof document !== 'undefined') {
       const summaryEl = document.getElementById('results-summary');
       const listCount = clearList.progress().total;
       const said = ClearList.summaryText(listCount, total - listCount);
-      if (total === 0 && erroredModules.length > 0) {
+      if (partial) {
+        // Never an all-clear while checks are still running.
+        document.getElementById('results-progress').hidden = true;
+        summaryEl.innerHTML = `<p>${escapeHtml(partialSummaryText({
+          worth: groups.critical.length + groups.warning.length, other: groups.info.length }))}</p>`;
+      } else if (total === 0 && erroredModules.length > 0) {
         summaryEl.innerHTML =
           '<p class="results-summary__all-clear">Nothing stood out in the checks that ran. Some checks couldn\'t run on this computer &mdash; they\'re listed at the bottom.</p>';
       } else if (total === 0 || !said) {
@@ -985,6 +1105,41 @@ if (typeof document !== 'undefined') {
 
     let lastScanDoc = null;
     let foundSoFar = 0;
+    // What the running scan has found so far (partialScanState), or null.
+    let partialScan = null;
+    let partialTimer = null;
+    const partialShowing = () => !!partialScan && scanRunning;
+    // What the results screen shows: the running scan's results so far, or the last scan.
+    function currentResultsDoc() {
+      return partialShowing() ? partialDocOf(partialScan, currentPlatform()) : lastScanDoc;
+    }
+    function viewingPartial() {
+      return partialShowing() && !screens.results.hidden;
+    }
+    function updatePartialStatus() {
+      document.getElementById('scan-partial').hidden = !(partialShowing() && partialScan.modules.length > 0);
+      if (viewingPartial()) {
+        document.getElementById('results-running-text').textContent = partialCountText(partialScan);
+      }
+    }
+    // New findings while the person is looking: redraw, at most a few times a second.
+    function schedulePartialRender() {
+      if (partialTimer) return;
+      partialTimer = setTimeout(() => {
+        partialTimer = null;
+        if (viewingPartial()) renderResults(currentResultsDoc());
+      }, 400);
+    }
+    function showPartialResults() {
+      if (!partialShowing()) return;
+      renderResults(currentResultsDoc());
+      showScreen('results');
+    }
+    // A scan ended: the results screen goes back to the last finished scan.
+    function endPartial() {
+      partialScan = null;
+      document.getElementById('scan-partial').hidden = true;
+    }
 
     function resetProgress() {
       foundSoFar = 0;
@@ -1003,6 +1158,12 @@ if (typeof document !== 'undefined') {
     }
 
     function onScanEvent(ev) {
+      if (partialScan) {
+        const changed = applyPartialEvent(partialScan, ev);
+        updatePartialStatus();
+        if (changed) schedulePartialRender();
+      }
+      if (ev.type === 'module' || ev.type === 'plan') return;
       if (ev.type === 'log') {
         appendLog(ev.line);
         return;
@@ -1038,10 +1199,12 @@ if (typeof document !== 'undefined') {
       const scanSituation = situation;
       setScanBusy(true);
       resetProgress();
+      partialScan = partialScanState();
+      updatePartialStatus();
       if (inGame) window.RescueGame.showBoss();
       const unsubscribe = window.rescue.onScanEvent((ev) => {
         onScanEvent(ev);
-        if (inGame && !leftGame && ev.type === 'progress') window.RescueGame.scanEvent(ev);
+        if (inGame && !leftGame && GAME_SCAN_EVENTS.has(ev.type)) window.RescueGame.scanEvent(ev);
       });
       try {
         // One profile, the union of several (one --profile each), or null for every check.
@@ -1052,6 +1215,7 @@ if (typeof document !== 'undefined') {
         lastScanDoc = doc;
         monitoringSeen = noteMonitoring(monitoringSeen, doc);
         lastScanSituation = scanSituation;
+        endPartial();
         renderResults(doc);
         renderNextStep();
         renderLearnMore(doc);
@@ -1082,6 +1246,13 @@ if (typeof document !== 'undefined') {
           land();
         }
       } catch (err) {
+        // Results so far go: the list shows the last finished checkup again,
+        // and the error shows where the checkup's progress was.
+        const wasViewing = viewingPartial();
+        endPartial();
+        if (lastScanDoc) renderResults(lastScanDoc);
+        else renderResultsFrame(null);
+        if (wasViewing) showScreen('scan');
         setScanBusy(false);
         const message = scanErrorText(err && err.message ? err.message : String(err));
         if (inGame && !leftGame) {
@@ -1093,6 +1264,7 @@ if (typeof document !== 'undefined') {
       } finally {
         unsubscribe();
         scanRunning = false;
+        if (partialTimer) { clearTimeout(partialTimer); partialTimer = null; }
       }
     }
 
@@ -1201,6 +1373,8 @@ if (typeof document !== 'undefined') {
       if (learnMoreUrl) window.rescue.openGuide(learnMoreUrl);
     });
 
+    document.getElementById('btn-see-partial').addEventListener('click', showPartialResults);
+    document.getElementById('btn-back-to-scan').addEventListener('click', () => showScreen('scan'));
     document.getElementById('btn-run-scan').addEventListener('click', runCheckup);
     document.getElementById('btn-scan-retry').addEventListener('click', runCheckup);
     document.getElementById('btn-start-over').addEventListener('click', resetToWelcome);

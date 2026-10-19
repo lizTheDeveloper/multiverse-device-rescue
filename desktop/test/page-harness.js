@@ -80,8 +80,11 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   const winListeners = {};
   const storage = blocked ? blockedStore() : recordingStore(store || {});
   let finishScan = () => {};
+  let failScan = () => {};
+  // The page's scan-event listener, so a test can play the engine's stderr events.
+  let scanListener = null;
   const sandbox = {
-    console, setTimeout, Promise, JSON,
+    console, setTimeout, clearTimeout, Promise, JSON,
     document: Object.assign(doc, { getElementById: byId, querySelectorAll: (sel) => (sel === '[data-step-dot]' ? dots : []),
       createElement: () => new El(doc), addEventListener() {} }),
     localStorage: storage,
@@ -97,9 +100,9 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   sandbox.dispatchEvent = () => true;
   sandbox.rescue = {
     platform: 'darwin',
-    onScanEvent: () => () => {},
+    onScanEvent: (cb) => { scanListener = cb; return () => { if (scanListener === cb) scanListener = null; }; },
     // Read-only: the scan IPC, with the worry's profile. Nothing else is called.
-    runScan: (profile) => { calls.scans.push(profile); return new Promise((r) => { finishScan = r; }); },
+    runScan: (profile) => { calls.scans.push(profile); return new Promise((r, j) => { finishScan = r; failScan = j; }); },
     openGuide: (url) => { calls.guides.push(url); return Promise.resolve(true); },
   };
   const rec = (name, ret) => (...args) => {
@@ -128,11 +131,13 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   const answer = (id) => byId('question-card').kids.find((b) => b.dataset.answer === id).click();
   const fire = (type) => (winListeners[type] || []).forEach((fn) => fn({ type }));
   const finish = async (d) => { finishScan(d); await tick(); await tick(); };
+  const fail = async (message) => { failScan(new Error(message)); await tick(); await tick(); };
+  const emit = (ev) => { if (scanListener) scanListener(ev); };
   const activeDot = () => dots.filter((e) => e.classList.contains('step-dot--active')).map((e) => e.dataset.stepDot);
   // Reads a top-level name from the page's scripts (a const isn't on window).
   const run = (code) => vm.runInContext(code, sandbox);
   const revealed = () => doc.revealed.slice();
-  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, activeDot, run, revealed };
+  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, fail, emit, activeDot, run, revealed };
 }
 
 const clean = { schema_version: 1, platform: 'darwin', modules: [] };

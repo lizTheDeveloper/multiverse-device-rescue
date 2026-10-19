@@ -32,14 +32,23 @@ function scanArgs(profile) {
   return args.concat(...[...new Set(names)].map((name) => ['--profile', name]));
 }
 
-// With --trace, stderr carries one {"progress": {...}} JSON line per check,
-// one {"exec": {...}} line per external command, and ordinary log lines.
-// Each complete line becomes an event for the window.
+// With --trace, stderr carries one {"plan": {...}} line (every check about to
+// run), one {"progress": {...}} JSON line per check start and finish, one
+// {"module": {...}} line per finished check (its entry of the final document,
+// so results can show while the rest run), one {"exec": {...}} line per
+// external command, and ordinary log lines. Each complete line becomes an
+// event for the window. The final document on stdout is still the one acted on.
+const EVENT_TYPES = ['progress', 'exec', 'plan', 'module'];
+
 function parseStderrLine(line) {
-  for (const type of ['progress', 'exec']) {
+  for (const type of EVENT_TYPES) {
     if (line.startsWith(`{"${type}"`)) {
       try {
-        return { type, ...JSON.parse(line)[type] };
+        const body = JSON.parse(line)[type];
+        if (body && typeof body === 'object' && !Array.isArray(body)) {
+          // A finished check's entry keeps its own shape under `result`.
+          return type === 'module' ? { type, result: body } : { type, ...body };
+        }
       } catch (_) {
         // fall through: show it as a log line rather than lose it
       }
@@ -51,19 +60,27 @@ function parseStderrLine(line) {
 function runScan(spawnFn = spawn, profile = null, onEvent = () => {}) {
   return new Promise((resolve, reject) => {
     const p = spawnFn(resolveEnginePath(), scanArgs(profile).concat(['--trace']));
-    let out = '', err = '', pending = '';
+    // `logs` keeps only the plain log lines, for an error message: the event
+    // lines (some of them a whole check's findings) aren't kept twice.
+    let out = '', logs = [], pending = '';
+    const take = (line) => {
+      if (!line.trim()) return;
+      const ev = parseStderrLine(line);
+      if (ev.type === 'log') logs.push(line);
+      onEvent(ev);
+    };
     p.stdout.on('data', d => (out += d));
     p.stderr.on('data', d => {
-      err += d;
       pending += d;
       const lines = pending.split(/\r?\n/);
       pending = lines.pop();
-      for (const line of lines) if (line.trim()) onEvent(parseStderrLine(line));
+      for (const line of lines) take(line);
     });
     p.on('error', reject);
     p.on('close', code => {
-      if (pending.trim()) onEvent(parseStderrLine(pending));
-      if (code !== 0) return reject(new Error(`engine exited ${code}: ${err.split('\n').filter(l => !l.startsWith('{"progress"') && !l.startsWith('{"exec"')).join('\n')}`));
+      take(pending);
+      pending = '';
+      if (code !== 0) return reject(new Error(`engine exited ${code}: ${logs.join('\n')}`));
       try { resolve(parseEngineOutput(out)); } catch (e) { reject(e); }
     });
   });
