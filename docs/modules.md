@@ -37,8 +37,8 @@ $ rescue run <module_name>
 | Platform | Modules that run there |
 | --- | ---: |
 | macOS | 196 |
-| Windows | 98 |
-| Linux | 26 |
+| Windows | 101 |
+| Linux | 29 |
 
 A module can support more than one platform, so these numbers add up to more than the total.
 
@@ -259,7 +259,7 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 
 Malware and spyware indicators, persistence, remote access, credential exposure, and system hardening posture.
 
-115 modules — macOS 80, Windows 43, Linux 16.
+115 modules — macOS 80, Windows 46, Linux 19.
 
 | Module | Platforms | Risk | Duration | What it checks |
 | --- | --- | --- | --- | --- |
@@ -319,9 +319,9 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `mdm_enrollment` | macOS | safe | 5s | — |
 | `mdm_enrollment_check` | macOS | safe | 5s | — |
 | `mvt_spyware_scan` | macOS, Windows, Linux | safe | instant by default; 1-10m if backup scanning is enabled | mvt_spyware_scan: wraps Amnesty International's Mobile Verification Toolkit |
-| `network_connections_monitor` | macOS | safe | 5s | — |
+| `network_connections_monitor` | macOS, Windows, Linux | safe | 5s | — |
 | `network_proxy` | macOS | safe | 2s | — |
-| `open_ports_scan` | macOS | safe | 3s | — |
+| `open_ports_scan` | macOS, Windows, Linux | safe | 3s | — |
 | `privacy_audit` | macOS | safe | 5s | — |
 | `privacy_permissions_audit` | macOS | safe | 5s | — |
 | `remote_login_check` | macOS | safe | 10s | — |
@@ -341,7 +341,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `stalkerware_scan` | macOS, Windows, Linux | safe | 20s | Look for software installed to watch the person using this computer. |
 | `sudo_config_audit` | macOS | safe | 3s | — |
 | `sudo_touchid` | macOS | safe | 2s | — |
-| `suspicious_connections` | macOS | safe | 3s | — |
+| `suspicious_connections` | macOS, Windows, Linux | safe | 3s | — |
 | `suspicious_processes` | macOS | safe | 3s | — |
 | `system_extensions` | macOS | safe | 5s | — |
 | `usb_device_audit` | macOS | safe | 5s | — |
