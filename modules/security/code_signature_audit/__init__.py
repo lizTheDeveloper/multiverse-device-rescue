@@ -226,9 +226,8 @@ class Module(ModuleBase):
         if capped and out_of_time:
             coverage = (
                 f"COVERAGE LIMIT: the scan stopped after {examined} applications because "
-                f"it reached its {self.time_budget_s:.0f}-second time limit. Signature "
-                "checks are slow. This is not a full-disk audit, and the applications "
-                "after that were not checked at all.\n\n"
+                "signature checks took too long. This is not a full-disk audit, and the "
+                "applications after that were not checked at all.\n\n"
             )
         elif capped:
             coverage = (

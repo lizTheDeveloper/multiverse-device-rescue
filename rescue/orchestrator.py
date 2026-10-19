@@ -60,7 +60,10 @@ class _Timeout(Exception):
 
 # What a person reads when a check ran out of time. The technical detail stays
 # in brackets after it, so nothing is hidden from someone who wants it.
-TIMEOUT_PLAIN = "This check took too long, so it was stopped. It may work next time."
+TIMEOUT_PLAIN = (
+    "This check took too long, so it was stopped before it could finish. "
+    "Running the scan again may let it finish."
+)
 
 
 def timeout_message(timeout: float) -> str:

@@ -44,7 +44,7 @@ class Module(ModuleBase):
                     description=(
                         "Asking Apple for available macOS updates took too long or "
                         "failed, so it was stopped. This doesn't mean your Mac is up to "
-                        "date. It may work next time.\n\n"
+                        "date.\n\n"
                         "What to do: Open System Settings > General > Software Update to "
                         "check yourself."
                     ),

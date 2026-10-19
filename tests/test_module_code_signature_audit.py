@@ -327,7 +327,8 @@ def test_slow_signature_checks_stop_at_the_time_budget(mod):
     assert 0 < inventory.data["examined"] < 30
     assert inventory.data["coverage_capped"] is True
     assert inventory.data["stopped_by_time_limit"] is True
-    assert "time limit" in inventory.description
+    assert "signature checks took too long" in inventory.description
+    assert "second" not in inventory.description
     assert "not checked at all" in inventory.description
 
 

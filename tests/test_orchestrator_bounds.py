@@ -114,7 +114,11 @@ def test_timeout_reason_is_plain_and_keeps_the_technical_detail():
         for p in patches:
             p.stop()
     error = results[0][1].error
-    assert error.startswith("This check took too long, so it was stopped. It may work next time.")
+    assert error.startswith(
+        "This check took too long, so it was stopped before it could finish. "
+        "Running the scan again may let it finish."
+    )
+    assert "next time" not in error
     assert "timed out after 0.5s" in error
 
 

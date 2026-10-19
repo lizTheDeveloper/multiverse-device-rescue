@@ -217,12 +217,11 @@ class Module(ModuleBase):
             areas = [_AREA_NAMES[a] for a in cut_short]
             findings.append(
                 Finding(
-                    title="Some folders were too big to measure in time",
+                    title="Some folders were too big to measure fully",
                     description=(
                         "Adding up the size of "
                         + ", ".join(areas)
-                        + f" took longer than {self.size_budget_s:.0f} seconds, so it was "
-                        "stopped. The sizes shown for those folders are only the part that "
+                        + " was stopped before it finished. The sizes shown for those folders are only the part that "
                         "was measured, so the real amount is larger. Nothing was changed."
                     ),
                     severity=Severity.INFO,
