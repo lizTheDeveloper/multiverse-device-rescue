@@ -145,7 +145,9 @@ export function findingsToCity(doc) {
   const districts = [...byId.values()]
     .filter((d) => d.id !== 'outskirts' || d.missions.length || d.notes.length || d.fog.length)
     .map((d) => {
-      d.missions.sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
+      // Worst first; then, as on the list, what can be fixed, then what can be marked as yours.
+      const act = (m) => (m.fixable ? 2 : m.markable ? 1 : 0);
+      d.missions.sort((a, b) => (SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]) || (act(b) - act(a)));
       return { ...d, status: statusOf(d) };
     });
   return { districts, totals };
