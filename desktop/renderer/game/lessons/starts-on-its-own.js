@@ -15,6 +15,8 @@ export default {
   whatTheScanLooksFor: 'On a Mac, the checkup lists background items that aren’t part of macOS, and flags ones that run from /tmp, /var/tmp or a hidden folder. On Windows, it lists every startup entry, and flags ones that run from a Temp or Downloads folder.',
   questions: [
     {
+      key: 'startup-warning-sign',
+      concept: 'where-it-lives',
       teach: 'Lots of ordinary apps do this, like sync clients and VPN helpers. Unwanted software does it too, so it keeps coming back. One strong warning sign is a program that runs from a temporary or hidden folder. Installed software normally runs from its own install folder, like Program Files on Windows.',
       prompt: 'Which of these is a warning sign in something that starts on its own?',
       options: [
@@ -25,8 +27,36 @@ export default {
         { text: 'It’s a sync app you use all the time', correct: false,
           feedback: 'Sync clients and VPN helpers start on their own on purpose. That’s a normal pattern.' },
       ],
+      variants: [
+        {
+          key: 'startup-warning-sign-2',
+          prompt: 'On Windows, a startup entry runs a program from the Downloads folder. Why is that worth a closer look?',
+          options: [
+            { text: 'Installed software runs from Program Files or its own install folder, not a download folder', correct: true,
+              feedback: 'Right. A startup entry pointing at Temp or Downloads is a strong warning sign.' },
+            { text: 'Downloads is where Windows keeps its own startup programs', correct: false,
+              feedback: 'It isn’t. Installed software runs from Program Files or its own install folder, so a startup entry in Downloads is a strong warning sign.' },
+            { text: 'Most startup programs run from Downloads', correct: false,
+              feedback: 'Installed software runs from Program Files or its own install folder. A startup entry in Downloads is a strong warning sign.' },
+          ],
+        },
+        {
+          key: 'startup-warning-sign-3',
+          prompt: 'On a Mac, which of these places would worry you most for a program that starts every time you log in?',
+          options: [
+            { text: '/tmp, a temporary folder', correct: true,
+              feedback: 'Right. A program in /tmp, /var/tmp or a hidden folder is one of the strongest warning signs the checkup looks for.' },
+            { text: '/Applications, where Mac apps are installed', correct: false,
+              feedback: 'That’s where installed apps normally live. A temporary or hidden folder is the stronger warning sign.' },
+            { text: '/Library/LaunchAgents, a place background items are listed', correct: false,
+              feedback: 'The checkup looks there as a matter of course, so an item being listed there is ordinary. A program in a temporary or hidden folder is the stronger warning sign.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'signed-maker',
+      concept: 'who-made-it',
       teach: 'When a finding names a program, Reclaim City says who made it and whether that could be checked: for example a “verified signature”, or “not signed”. A verified signature tells you who made it, not that you wanted it.',
       prompt: 'A finding says a program has a “verified signature”. What does that tell you?',
       options: [
@@ -35,8 +65,36 @@ export default {
         { text: 'That you installed it and want it', correct: false,
           feedback: 'A signature can’t tell that. It tells you who made it, not that you wanted it.' },
       ],
+      variants: [
+        {
+          key: 'signed-maker-2',
+          prompt: 'A finding says a program is “not signed”. What does that tell you on its own?',
+          options: [
+            { text: 'Nobody has vouched for who made it, so look at where it lives too', correct: true,
+              feedback: 'Right. It is not proof of anything bad, but nobody has vouched for it.' },
+            { text: 'It’s harmful', correct: false,
+              feedback: 'Not on its own. It is not proof of anything bad, but nobody has vouched for it, so look at where it lives too.' },
+            { text: 'It comes with macOS', correct: false,
+              feedback: 'Files that come with macOS are shown as part of macOS. “Not signed” means nobody has vouched for who made it.' },
+          ],
+        },
+        {
+          key: 'signed-maker-3',
+          prompt: 'A program you never chose has a real, verified signature from a company. Did you want it?',
+          options: [
+            { text: 'Not necessarily. The signature says who made it, not that you wanted it.', correct: true,
+              feedback: 'Right. Whether you want it running is still your call.' },
+            { text: 'Yes. A signed program is one you installed.', correct: false,
+              feedback: 'A signature can’t tell that. It tells you who made it, not that you wanted it.' },
+            { text: 'Only if the company is one you’ve heard of', correct: false,
+              feedback: 'A well-known maker is still just a maker. The signature tells you who made it, not that you wanted it.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'unknown-item-first-move',
+      concept: 'fix-and-undo',
       teach: 'If you don’t recognise one, look before you remove anything. Switching it off and moving its file aside, rather than deleting it, means it can be looked at again or put back.',
       prompt: 'You don’t recognise a background item. What’s the safest first move?',
       options: [
@@ -46,6 +104,32 @@ export default {
           feedback: 'Right. On a Mac, for a flagged background job, Reclaim City’s “Fix it for me” stops the job and moves its settings file to a quarantine folder. Nothing is deleted, and you can undo it.' },
         { text: 'Leave it. Everything on a computer starts on its own.', correct: false,
           feedback: 'Some things do, on purpose. It’s still worth knowing what each one is, because unwanted software uses the same trick.' },
+      ],
+      variants: [
+        {
+          key: 'unknown-item-first-move-2',
+          prompt: 'On a Mac, what does Reclaim City’s “Fix it for me” do with a flagged background job?',
+          options: [
+            { text: 'Stops the job and moves its settings file to a quarantine folder', correct: true,
+              feedback: 'Right. Nothing is deleted, and you can undo it.' },
+            { text: 'Deletes the job and its program', correct: false,
+              feedback: 'Nothing is deleted. It stops the job and moves its settings file to Reclaim City’s quarantine folder, and you can undo it.' },
+            { text: 'Restarts the computer', correct: false,
+              feedback: 'It stops the job and moves its settings file to Reclaim City’s quarantine folder. Nothing is deleted, and you can undo it.' },
+          ],
+        },
+        {
+          key: 'unknown-item-first-move-3',
+          prompt: 'Why move a background item’s file aside instead of deleting it?',
+          options: [
+            { text: 'So it can be looked at again or put back', correct: true,
+              feedback: 'Right. If it turns out to be something you need, nothing is lost.' },
+            { text: 'Because moving it makes it safe to run', correct: false,
+              feedback: 'Moving it doesn’t change what it does. It’s moved aside so it can be looked at again or put back.' },
+            { text: 'So it takes up less room', correct: false,
+              feedback: 'Room isn’t the reason. A file moved aside can be looked at again or put back, and a deleted one is gone.' },
+          ],
+        },
       ],
     },
   ],
