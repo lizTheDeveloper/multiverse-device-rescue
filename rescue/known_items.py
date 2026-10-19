@@ -59,13 +59,14 @@ import json
 import os
 import plistlib
 import stat
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable
 
-from rescue.app_names import app_rows
+from rescue.app_names import app_rows, display_name
 from rescue.models import Finding, Severity
 
 ENV_PATH = "RESCUE_KNOWN_ITEMS"
@@ -266,7 +267,9 @@ class KnownItemsStore:
         """(marks a check may honour, why the list was ignored or None).
 
         Any doubt means no marks, so every finding shows as it normally would.
+        Called once per scan, so it also starts a fresh program-hashing budget.
         """
+        reset_hash_budget()
         try:
             return self.load(), None
         except KnownItemsError as exc:
@@ -888,6 +891,354 @@ for _kind, _spec in ITEM_KINDS.items():
     KINDS[_kind] = _spec
 del _kind, _spec
 
+# --- one entry of a list -----------------------------------------------------
+#
+# A list finding (apps with Accessibility access, saved remote-login keys) can
+# be marked one entry at a time. An entry mark pins the finding code and the
+# entry, plus who signed the app (or the whole saved line of the key), so an
+# app swapped for one from another maker makes only that mark stale. The
+# whole-list kinds above keep working; a whole-list mark that matches wins.
+
+APP_ENTRY = "app_permission_entry"
+SSH_KEY_ENTRY = "ssh_authorized_key"
+# Longer lists are offered whole only: each app's maker is checked by a
+# signature lookup, and the scan must stay light.
+MAX_LIST_ENTRIES = 60
+
+
+def _app_entry_label(identity: dict) -> str:
+    app = identity.get("app", "")
+    try:
+        name = display_name(app)
+    except Exception:
+        name = app
+    return app if name == app else f"{name} · {app}"
+
+
+ENTRY_KINDS: dict[str, dict] = {
+    APP_ENTRY: {
+        "keys": ("code", "app", "signer"),
+        "evidence_keys": ("signer",),
+        "list_kind": "app_permissions",
+        "modules": ITEM_KINDS["app_permissions"]["modules"],
+        "label_of": _app_entry_label,
+        "title": ITEM_KINDS["app_permissions"]["title"],
+        "noun": "app",
+        "nouns": "apps",
+        "changed": "who made it",
+        "monitoring": True,
+    },
+    SSH_KEY_ENTRY: {
+        "keys": ("code", "key_sha256", "line_sha256"),
+        "evidence_keys": ("line_sha256",),
+        "list_kind": "ssh_authorized_keys",
+        "modules": ITEM_KINDS["ssh_authorized_keys"]["modules"],
+        "label_of": lambda i: f"remote-login key {i.get('key_sha256', '')[:16]}…",
+        "title": ITEM_KINDS["ssh_authorized_keys"]["title"],
+        "noun": "remote-login key",
+        "nouns": "remote-login keys",
+        "changed": "the key's saved line",
+        "monitoring": True,
+    },
+}
+ENTRY_KIND_FOR: dict[str, str] = {spec["list_kind"]: kind for kind, spec in ENTRY_KINDS.items()}
+for _kind, _spec in ENTRY_KINDS.items():
+    assert not set(_spec["modules"]) & NEVER_MARKABLE_MODULES, _kind
+    KINDS[_kind] = _spec
+del _kind, _spec
+
+
+_MAX_PROGRAM_BYTES = 128 * 1024 * 1024
+_SCAN_HASH_BYTES = 1024 * 1024 * 1024
+_hash_state = {"spent": 0, "cache": {}}
+
+
+def reset_hash_budget() -> None:
+    """Start a scan: forget what was hashed and spend nothing yet."""
+    _hash_state["spent"] = 0
+    _hash_state["cache"] = {}
+
+
+def _hash_regular_file(path: str) -> str | None:
+    """SHA-256 of a regular file, read at most _MAX_PROGRAM_BYTES. The file is
+    opened without blocking and checked on the open handle, so a pipe or device
+    swapped in after a check can't hang the scan. None if it isn't a regular
+    file, is too big (now or by the time it is read), or the scan's total
+    hashing budget is spent."""
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open(path, flags)
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_size > _MAX_PROGRAM_BYTES:
+            return None
+        key = (os.path.realpath(path), st.st_size, st.st_mtime_ns)
+        cache = _hash_state["cache"]
+        if key in cache:
+            return cache[key]
+        if _hash_state["spent"] + st.st_size > _SCAN_HASH_BYTES:
+            return None
+        digest = hashlib.sha256()
+        total = 0
+        while True:
+            chunk = os.read(fd, 1 << 20)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > _MAX_PROGRAM_BYTES:
+                return None
+            digest.update(chunk)
+        _hash_state["spent"] += total
+        cache[key] = digest.hexdigest()
+        return cache[key]
+    finally:
+        os.close(fd)
+
+
+def _program_sha256(app: str) -> str | None:
+    """SHA-256 of an app's main program file (read-only), or None if it can't
+    be found, isn't a plain file, is too large, or the scan's hashing budget is
+    spent: such an entry isn't offered for marking, and is never a match."""
+    try:
+        from rescue import attribution
+
+        path = attribution.resolve_app(app, sys.platform)
+        if not path:
+            return None
+        path = os.path.realpath(path)
+        if os.path.isdir(path):
+            with open(os.path.join(path, "Contents", "Info.plist"), "rb") as handle:
+                exe = plistlib.load(handle).get("CFBundleExecutable")
+            if not isinstance(exe, str) or not exe or "/" in exe or exe.startswith("."):
+                return None
+            path = os.path.realpath(os.path.join(path, "Contents", "MacOS", exe))
+        return _hash_regular_file(path)
+    except Exception:
+        return None
+
+
+def app_signer(app: str) -> str | None:
+    """Who signed this app, as an entry mark pins it: "team:<Team ID>" for a
+    verified Developer ID or App Store signature, "apple" for Apple's own,
+    "unsigned:<SHA-256 of its program>" when no signature verifies. None when it can't be checked now
+    (not found, or the lookup budget ran out): such an entry can't be marked
+    on its own, and a mark on it shows as changed."""
+    try:
+        from rescue import attribution
+
+        made = attribution.identify(app, sys.platform)
+    except Exception:
+        return None
+    if made is None:
+        return None
+    if not made.verified:
+        # Nothing vouches for who made it, so pin the program itself: another
+        # unsigned app, or this one changed, must not inherit the mark.
+        digest = _program_sha256(app)
+        return f"unsigned:{digest}" if digest else None
+    if made.team:
+        return f"team:{made.team}"
+    if made.name == "Apple":
+        return "apple"
+    return None
+
+
+def list_entries(list_kind: str, finding) -> list[dict] | None:
+    """One dict per entry of a list finding, or None when the list can't be
+    shown entry by entry (malformed, or longer than MAX_LIST_ENTRIES).
+
+    Each dict: "entry" (the bundle id or path, or the key's SHA-256), "label"
+    (the app's name, or the key type), "detail" (the bundle id, or the key's
+    comment), "shown" (what text and exports may say: never a key comment),
+    and for keys "line_sha256"."""
+    data = getattr(finding, "data", None)
+    if not isinstance(data, dict):
+        return None
+    if list_kind == "app_permissions":
+        apps = data.get("apps")
+        if not isinstance(apps, list) or not apps:
+            return None
+        if not all(isinstance(a, str) and a and "\0" not in a and len(a) <= 1024 for a in apps):
+            return None
+        rows = app_rows(apps)
+        if not rows or len(rows) > MAX_LIST_ENTRIES:
+            return None
+        return [
+            {"entry": r["id"], "label": r["name"], "detail": r["id"],
+             "shown": r["id"] if r["name"] == r["id"] else f"{r['name']} · {r['id']}"}
+            for r in rows
+        ]
+    if list_kind == "ssh_authorized_keys":
+        keys = data.get("keys")
+        count = data.get("key_count")
+        if not isinstance(keys, list) or not keys or len(keys) > MAX_LIST_ENTRIES:
+            return None
+        if isinstance(count, bool) or count != len(keys):
+            return None
+        out = []
+        for key in keys:
+            if not isinstance(key, dict):
+                return None
+            sha = _text(key.get("sha256"), 64)
+            line = _text(key.get("line_sha256"), 64)
+            key_type = _text(key.get("type"), 64)
+            if not (sha and line and key_type) or len(sha) != 64 or len(line) != 64:
+                return None
+            out.append({
+                "entry": sha, "line_sha256": line, "label": f"{key_type} key",
+                "detail": _text(key.get("comment"), 256) or "",
+                "shown": f"{key_type} key {sha[:16]}…",
+            })
+        if len({e["entry"] for e in out}) != len(out):
+            return None
+        return out
+    return None
+
+
+def _entry_base(entry_kind: str, code: str, entry: dict) -> dict:
+    """The entry's identity without its evidence: what says "the same entry"."""
+    if entry_kind == APP_ENTRY:
+        return {"code": code, "app": entry["entry"]}
+    return {"code": code, "key_sha256": entry["entry"]}
+
+
+def entry_identity(entry_kind: str, code: str, entry: dict, signer_of=None) -> dict | None:
+    """The full pinned identity of one entry now, or None if it can't be pinned."""
+    base = _entry_base(entry_kind, code, entry)
+    if entry_kind == APP_ENTRY:
+        signer = (signer_of or app_signer)(entry["entry"])
+        if not isinstance(signer, str) or not signer:
+            return None
+        return dict(base, signer=signer)
+    return dict(base, line_sha256=entry["line_sha256"])
+
+
+def _entries_line(heading: str, shown: list[str]) -> str:
+    return f"{heading} ({len(shown)}): " + ", ".join(shown)
+
+
+def _entries_groups(marked, stale, fresh, entry_kind: str) -> str:
+    parts = []
+    if fresh:
+        parts.append(_entries_line("Not marked as yours", [e["shown"] for e in fresh]))
+    if stale:
+        parts.append(_entries_line("Marked as yours before, but changed since", [e["shown"] for e, _ in stale]))
+        if len(stale) == 1:
+            parts.append(stale_sentence(stale[0][1], entry_kind))
+        else:
+            dates = sorted(i.marked_at for _, i in stale if i.marked_at)
+            when = f" (the earliest on {dates[0]})" if dates else ""
+            changed = KINDS.get(entry_kind, {}).get("changed", "it")
+            parts.append(
+                f"You marked these as yours{when}, but {changed} has changed on each since you marked "
+                "them, so they are shown again. If you changed them yourself, you can mark them again."
+            )
+    if marked:
+        parts.append(_entries_line("Marked as yours", [e["shown"] for e, _ in marked]))
+    return "\n".join(parts)
+
+
+_ENTRY_UNDO = (
+    "If you did not mark these, or you do not recognize them, undo a mark with "
+    "\"rescue known remove <id>\" (\"rescue known list\" shows the ids) or with "
+    "\"Stop treating this as mine\" in the app, and its warning comes back."
+)
+
+
+def apply_entry_marks(findings: list[Finding], items: list[KnownItem], signer_of=None) -> None:
+    """Apply entry marks to list findings (in place).
+
+    Runs after the whole-list marks, and leaves alone any finding a whole-list
+    mark already covered. Every entry is checked: marked and unchanged,
+    marked but changed (stale: it warns again, saying so), or not marked.
+    Only when every entry is marked is the finding downgraded to info, as a
+    whole-list mark would; otherwise it stays a warning about the rest.
+    """
+    for finding in findings:
+        hit = item_identity(finding)
+        if not hit:
+            continue
+        list_kind, list_identity = hit
+        entry_kind = ENTRY_KIND_FOR.get(list_kind)
+        data = finding.data
+        if not entry_kind or data.get("marked_by_user") or data.get("user_mark_ignored"):
+            continue
+        marks = [i for i in items if i.kind == entry_kind and i.identity.get("code") == finding.code]
+        if not marks:
+            continue
+        entries = list_entries(list_kind, finding)
+        if entries is None:
+            continue
+        by_id = {i.id: i for i in marks}
+        by_base: dict[str, KnownItem] = {}
+        for i in marks:
+            by_base.setdefault(i.base_id, i)
+        marked, stale, fresh = [], [], []
+        for entry in entries:
+            near = by_base.get(item_id(entry_kind, _entry_base(entry_kind, finding.code, entry)))
+            if near is None:
+                fresh.append(entry)
+                continue
+            ident = entry_identity(entry_kind, finding.code, entry, signer_of)
+            item = by_id.get(item_id(entry_kind, ident)) if ident else None
+            if item is None:
+                stale.append((entry, near))
+            else:
+                marked.append((entry, item))
+        if not marked and not stale:
+            continue
+        spec = KINDS[entry_kind]
+        data["entry_kind"] = entry_kind
+        data["marked_items"] = [
+            {"id": i.id, "entry": e["entry"], "shown": e["shown"], "marked_at": i.marked_at} for e, i in marked
+        ]
+        data["stale_items"] = [
+            {"id": i.id, "entry": e["entry"], "shown": e["shown"], "marked_at": i.marked_at} for e, i in stale
+        ]
+        warn = fresh + [e for e, _ in stale]
+        data["unmarked"] = [e["entry"] for e in warn]
+        groups = _entries_groups(marked, stale, fresh, entry_kind)
+        if finding.severity == Severity.CRITICAL:
+            data["user_mark_ignored"] = True
+            note = (
+                "\n\nSome of these are marked as yours, but this finding is serious enough that a "
+                "mark does not quiet it." if marked else ""
+            )
+            finding.description = f"{finding.description}\n\n{groups}{note}"
+            continue
+        if not warn:
+            # A stale whole-list mark gave way to the entry marks: keep it out of the
+            # top level so nothing (an undo, say) is aimed at the wrong mark.
+            if data.get("mark_stale") and isinstance(data.get("known_item_id"), str):
+                old = next((i for i in items if i.id == data["known_item_id"]), None)
+                data["stale_list_mark"] = {"id": data.pop("known_item_id")}
+                data.pop("mark_stale", None)
+                if old is not None:
+                    finding.description = finding.description.replace(
+                        f"\n\n{stale_sentence(old, list_kind)}", "")
+            when = max((i.marked_at for _, i in marked), default="") or "an unknown date"
+            data.update({
+                "marked_by_user": True,
+                "marked_at": when,
+                "original_severity": finding.severity.value,
+                "original_title": finding.title,
+            })
+            finding.description = (
+                f"You marked every {spec['noun']} on this list as yours (most recently on {when}), so it "
+                "is no longer flagged. It stays on this list so that anyone helping you can see it.\n\n"
+                f"What the check found before it was marked: {finding.title}\n\n{groups}\n\n{_ENTRY_UNDO}\n\n"
+                f"Original details:\n{finding.description}"
+            )
+            finding.title = spec["title"].format(label=ITEM_KINDS[list_kind]["label_of"](list_identity))
+            finding.severity = Severity.INFO
+            continue
+        data["partly_marked"] = True
+        total = len(entries)
+        finding.description = (
+            f"{len(warn)} of {total} on this list are not marked as yours, so this is still a warning "
+            f"about them.\n\n{groups}\n\n{_ENTRY_UNDO}\n\nOriginal details:\n{finding.description}"
+        )
+        finding.title = f"{finding.title} ({len(warn)} of {total} not marked as yours)"
+
 
 def item_kind_for(code) -> str | None:
     """The ITEM_KINDS kind a finding code can be marked under, or None."""
@@ -964,6 +1315,8 @@ def apply_item_marks(module_name: str, findings: list[Finding], items: list[Know
             hit = item_identity(f)
             return hit[1] if hit and hit[0] == kind else None
         apply_marks(findings, kind, identify, items=items)
+    # Entry marks after whole-list marks: a whole-list mark that matched wins.
+    apply_entry_marks(findings, items)
     return findings
 
 
@@ -986,26 +1339,48 @@ ITEM_MODULES = frozenset(m for spec in ITEM_KINDS.values() for m in spec["module
 
 
 def marks_gone(module_name: str, findings: list, items: list[KnownItem]) -> list[KnownItem]:
-    """Marks on items this module reports that its findings no longer show.
+    """Marks on items (or list entries) this module reports that its findings no longer show.
 
     "Still there" means some finding (any severity) with the mark's code is
     about the same item: the same base identity, even if its evidence
-    changed (that is a stale mark, not a gone one).
+    changed (that is a stale mark, not a gone one). An entry mark is still
+    there while its entry is on that list; if a list can't be read entry by
+    entry this time, no entry mark for that code is retired.
     """
     if module_name in NEVER_MARKABLE_MODULES:
         return []
-    mine = [
-        i for i in items
-        if i.kind in ITEM_KINDS and str(i.identity.get("code", "")).split(".")[1:2] == [module_name]
-    ]
-    if not mine:
+
+    def mine(kinds) -> list[KnownItem]:
+        return [
+            i for i in items
+            if i.kind in kinds and str(i.identity.get("code", "")).split(".")[1:2] == [module_name]
+        ]
+
+    whole = mine(ITEM_KINDS)
+    entries = mine(ENTRY_KINDS)
+    if not whole and not entries:
         return []
     present = set()
+    unreadable_codes = set()
     for f in findings:
         hit = item_identity(f)
-        if hit:
-            present.add(item_id(hit[0], base_identity(hit[0], hit[1])))
-    return [i for i in mine if i.base_id not in present]
+        if not hit:
+            continue
+        present.add(item_id(hit[0], base_identity(hit[0], hit[1])))
+        entry_kind = ENTRY_KIND_FOR.get(hit[0])
+        if entry_kind:
+            rows = list_entries(hit[0], f)
+            if rows is None:
+                unreadable_codes.add(f.code)
+                continue
+            for row in rows:
+                present.add(item_id(entry_kind, _entry_base(entry_kind, f.code, row)))
+    gone = [i for i in whole if i.base_id not in present]
+    gone += [
+        i for i in entries
+        if i.base_id not in present and i.identity.get("code") not in unreadable_codes
+    ]
+    return gone
 
 
 def retire_marks(gone: list[KnownItem], store: "KnownItemsStore | None" = None) -> list[KnownItem]:

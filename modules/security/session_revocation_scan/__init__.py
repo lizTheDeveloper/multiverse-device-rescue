@@ -22,7 +22,9 @@ answers "what must I revoke", and orders the guidance so the password change
 happens *before* the sign-out, which is the part people get backwards.
 """
 
+import base64
 import hashlib
+import unicodedata
 from pathlib import Path
 
 from rescue.models import (
@@ -43,6 +45,94 @@ from rescue.fsbounds import is_dir_nofollow, is_file_nofollow
 
 _COMMAND_TIMEOUT = 20
 _MAX_AUTHORIZED_KEYS_LINES = 500
+
+# Key types a line in authorized_keys can start its key with (after any options).
+_KEY_TYPES = frozenset({
+    "ssh-ed25519", "ssh-rsa", "ssh-dss",
+    "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521",
+    "sk-ssh-ed25519@openssh.com", "sk-ecdsa-sha2-nistp256@openssh.com",
+})
+
+
+def _parse_key_line(line: str) -> dict | None:
+    """One saved key, as fingerprints: the SHA-256 of the decoded key (what
+    `ssh-keygen -l` fingerprints) and of the whole line (so a change to its
+    options or comment shows), its type and its comment. Never the key itself.
+    None if the line isn't a key this can read."""
+    # sshd separates fields by space or tab only; any other whitespace (a
+    # vertical tab, a form feed...) is read differently by str.split().
+    if any(ch.isspace() and ch not in " \t" for ch in line):
+        return None
+    options, rest = _split_options(line)
+    if rest is None:
+        return None
+    # A backslash outside quotes is something sshd might read differently from us.
+    if _odd_options(options):
+        return None
+    # A key-type word hidden in the options (say inside command="...") or
+    # repeated later could make us fingerprint a different key than sshd uses.
+    if any(t in options for t in _KEY_TYPES):
+        return None
+    tokens = rest.split()
+    if len(tokens) < 2 or tokens[0] not in _KEY_TYPES:
+        return None
+    if any(t in _KEY_TYPES for t in tokens[2:]):
+        return None
+    try:
+        blob = base64.b64decode(tokens[1], validate=True)
+    except ValueError:
+        return None
+    if not blob:
+        return None
+    comment = " ".join(tokens[2:])
+    comment = "".join(ch for ch in comment if unicodedata.category(ch) not in ("Cc", "Cf"))[:128]
+    return {
+        "type": tokens[0],
+        "sha256": hashlib.sha256(blob).hexdigest(),
+        "line_sha256": hashlib.sha256(line.encode("utf-8", "replace")).hexdigest(),
+        "comment": comment,
+    }
+
+
+def _odd_options(options: str) -> bool:
+    in_quote = False
+    i = 0
+    while i < len(options):
+        ch = options[i]
+        if ch == "\\":
+            if not in_quote:
+                return True
+            if i + 1 < len(options) and options[i + 1] == '"':
+                i += 2
+                continue
+        elif ch == '"':
+            in_quote = not in_quote
+        i += 1
+    return False
+
+
+def _split_options(line: str) -> tuple[str, str | None]:
+    """(options, rest) the way sshd reads a line: with no options the line
+    starts with the key type; otherwise the options run to the first
+    whitespace outside double quotes (a backslash escapes a quote inside
+    them). rest is None if a quote never closes."""
+    line = line.strip()
+    first = line.split(None, 1)[0] if line else ""
+    if first in _KEY_TYPES:
+        return "", line
+    in_quote = False
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if ch == "\\" and in_quote and i + 1 < len(line) and line[i + 1] == '"':
+            i += 2
+            continue
+        if ch == '"':
+            in_quote = not in_quote
+        elif ch.isspace() and not in_quote:
+            return line[:i], line[i:].strip()
+        i += 1
+    return line, None
 
 _DARWIN_BROWSER_PROFILE_ROOTS = {
     "Google Chrome": "~/Library/Application Support/Google/Chrome",
@@ -469,7 +559,35 @@ class Module(ModuleBase):
         digest = self._authorized_keys_sha256()
         if digest:
             data["list_sha256"] = digest
+        # One entry per key, so the person can say which keys are theirs.
+        # Only when every line reads as a key: otherwise the list is offered whole.
+        entries = self._authorized_keys_entries()
+        if entries is not None and len(entries) == count:
+            data["keys"] = entries
         return data
+
+    def _authorized_keys_entries(self) -> list[dict] | None:
+        """Every saved key as fingerprints (see _parse_key_line), or None if
+        the file can't be read, is too long, or has a line that isn't a key."""
+        path = self._authorized_keys_path()
+        if not is_file_nofollow(path):
+            return None
+        entries = []
+        try:
+            with open(path, "r", errors="replace") as handle:
+                for index, line in enumerate(handle):
+                    if index >= _MAX_AUTHORIZED_KEYS_LINES:
+                        return None
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith("#"):
+                        continue
+                    entry = _parse_key_line(stripped)
+                    if entry is None:
+                        return None
+                    entries.append(entry)
+        except OSError:
+            return None
+        return entries or None
 
     def _authorized_keys_sha256(self) -> str | None:
         """A one-way fingerprint of the list of keys, so a key added or changed
