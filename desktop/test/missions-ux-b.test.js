@@ -329,3 +329,32 @@ test('keyring: one app holding two keys is one item per key in its mission', asy
   if (/PRACTICE FIRST/.test(t.html())) t.click({ 'data-act': 'mx-know' });
   assert.match(t.html(), new RegExp(`ITEM 1 OF ${split.length}`));
 });
+
+// --- Lock Run pays per decided lock ---
+
+test('Lock Run: Turn it on (the page opened) and Done (still off) are decisions that pay; a re-check that sees it on pays CONFIRMED', async () => {
+  const lockDoc = () => scan(mod('firewall_audit', [f('Firewall is off', 'warning', { check: 'firewall_disabled' }, { code: 'security.firewall_audit.firewall_disabled' }),
+    f('Stealth mode is off', 'warning', { check: 'stealth_mode_off' }, { code: 'security.firewall_audit.stealth_mode_off' })]));
+  // The second re-check (item 2's Done) no longer sees stealth mode off.
+  const gone = scan(mod('firewall_audit', [f('Firewall is off', 'warning', { check: 'firewall_disabled' }, { code: 'security.firewall_audit.firewall_disabled' })]));
+  const real = async () => (await import('../renderer/missions/games/index.js')).loadGames();
+  const storage = memStore();
+  const t = await setup(lockDoc(), { storage, games: real, recheckDocs: [lockDoc(), gone] });
+  const id = (t.html().match(/data-go="(mx:locks:[^"]+)"/) || [])[1];
+  assert.ok(id, 'a Lock Run mission');
+  t.click({ 'data-go': id });
+  if (/PRACTICE FIRST/.test(t.html())) t.click({ 'data-act': 'mx-know' });
+  assert.match(t.html(), /ITEM 1 OF 2/);
+  t.click({ 'data-act': 'mx-decide:on' });
+  await tick(); await tick();
+  assert.strictEqual(savedProfile(storage).rank.points, 5, 'the opened page is the decision: it pays once');
+  assert.match(t.html(), /ITEM 1 OF 2/, 'the lock stays on screen so Done can check it');
+  t.click({ 'data-act': 'mx-decide:done' });
+  await tick(); await tick();
+  assert.match(t.html(), /still there\. Your decision is noted/);
+  assert.match(t.html(), /ITEM 2 OF 2/, 'answered: on to the next lock');
+  assert.strictEqual(savedProfile(storage).rank.points, 5, 'the same item pays once');
+  t.click({ 'data-act': 'mx-decide:done' });
+  await tick(); await tick();
+  assert.strictEqual(savedProfile(storage).rank.points, 5 + 5 + 75 + 20, 'item 2 decided and confirmed (decide + CONFIRMED), and the finished mission’s bonus');
+});

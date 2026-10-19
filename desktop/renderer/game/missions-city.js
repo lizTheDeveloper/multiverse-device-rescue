@@ -379,6 +379,7 @@ export function createMissionDesk(deps) {
         let ok = false;
         try { ok = (await w.rescue.openSetting(url)) !== false; } catch (_) { ok = false; }
         if (ok) d.notice = mode() === 'city' ? 'Opened the settings. Make the change there, then come back.' : 'Opened in Settings. You make the change there, then come back here.';
+        if (ok) openedLock(act.item);
         else d.notice = mode() === 'city' ? 'The settings didn’t open. Open them yourself, then come back.' : 'Settings didn’t open. Open them yourself, then come back here.';
         return;
       }
@@ -439,6 +440,18 @@ export function createMissionDesk(deps) {
     d.busy = false;
     return ok;
   }
+  // Lock Run: a settings page that opened is the lock's decision (Turn it on).
+  // It is recorded (and pays as a decided item, once) while the item stays on
+  // screen, so Done can still check the change; Done's answer replaces it.
+  function openedLock(item) {
+    const cur = d.run && d.run.type === 'locks' ? Run.currentItem(d.run) : null;
+    if (!cur || !item || cur.key !== item.key) return;
+    const was = d.run.results.find((r) => r.key === item.key);
+    if (was) return;
+    const dec = { id: 'on', effect: { kind: 'settings' } };
+    d.run = { ...d.run, results: [...d.run.results, { key: item.key, item, decision: dec.id, effect: dec.effect, outcome: 'done', points: 0 }] };
+  }
+
   // Re-check an item's checks. 'gone' only when every check ran to the end.
   async function recheckItem(item, modules, why) {
     if (d.busy || deps.sweeping()) { d.notice = 'A sweep is running. Try again when it’s done.'; d.run = Run.cancelPending(d.run); return; }
@@ -459,6 +472,13 @@ export function createMissionDesk(deps) {
       } else d.notice = '';
       d.run = Run.settle(d.run, 'done', item);
     } else if (why === 'mark') {
+      d.run = Run.settle(d.run, 'done', item);
+    } else if (d.run && d.run.type === 'locks') {
+      // Lock Run: Done is the person's decision even when the lock still reads
+      // off. It is answered and pays like any decided item; it stays on TO DO,
+      // and only a re-check that sees the change pays CONFIRMED.
+      d.notice = about(item, mode() === 'city' ? 'Still showing after the check. Your move is noted; it stays on the board until a sweep sees the change.'
+        : 'Checked again: it’s still there. Your decision is noted; it stays on the list until a re-check sees the change.');
       d.run = Run.settle(d.run, 'done', item);
     } else {
       d.notice = about(item, mode() === 'city' ? 'Still showing after the check. It stays on the board.' : 'Checked again: it’s still there, so it stays open.');
