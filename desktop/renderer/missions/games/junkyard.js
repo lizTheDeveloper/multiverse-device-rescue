@@ -237,6 +237,7 @@ function crashCount(item) {
     const v = num(d[k]);
     if (v !== null) return v;
   }
+  if (Array.isArray(d.affected_apps) && Array.isArray(d.affected_apps[0]) && num(d.affected_apps[0][1]) !== null) return d.affected_apps[0][1];
   if (num(d.system_error_count) !== null || num(d.app_error_count) !== null) return (num(d.system_error_count) || 0) + (num(d.app_error_count) || 0);
   return null;
 }
@@ -323,7 +324,18 @@ function stepsEffect({ pane, steps }) {
 
 const fixable = (item) => isObj(findingOf(item).fixable);
 
+const alerting = (item) => !!(item && (item.removal_alert || findingOf(item).removal_alert
+  || (isObj(findingOf(item).remediation) && findingOf(item).remediation.safety_note)));
+
+// Keep stays first (the safe default); on an item with a removal warning every acting effect
+// carries warning: true, so the runner shows the warning before it acts (ruling R6).
 function decisions(item, ctx) {
+  const list = baseDecisions(item, ctx);
+  if (!alerting(item)) return list;
+  return list.map((d) => (['keep', 'later'].includes(d.effect.kind) ? d : { ...d, effect: { ...d.effect, warning: true } }));
+}
+
+function baseDecisions(item, ctx) {
   const kind = kindOf(item);
   if (kind === 'crash') {
     return [KEEP, { id: 'update', label: L('Update it', 'Patch it'), effect: { kind: 'link', link: crashLookup(item) }, hint: 'Opens a look-up for the maker\'s update' }, LATER];
@@ -391,7 +403,7 @@ function research(item, ctx) {
 
 // ---------------------------------------------------------------- render
 
-const UNFINISHED = { standard: "This check didn't finish, so there may be more than this.", city: 'This sweep stopped early, so there may be more in the pile.' };
+const UNFINISHED = { standard: "This check didn't finish, so there may be more than this.", city: "This check didn't finish, so there may be more in the pile." };
 const TAG = {
   space: L('Space', 'Scrap pile'), crash: L('Keeps crashing', 'Breakdown'), setting: L('Setting', 'Yard switch'),
   hog: L('Using a lot', 'Running hot'), other: L('Clutter', 'Scrap'),
@@ -438,13 +450,13 @@ export function headline(item, mode = 'standard') {
   return { size: '', rest: str(f.title) };
 }
 
-function rowsHtml(rows, esc) {
-  const out = [];
-  for (const r of rows) {
-    if (!isObj(r) || !str(r.label)) continue;
-    out.push(`<dt>${esc(r.label)}</dt><dd${r.mono ? ' class="jy-mono"' : ''}>${esc(str(r.value))}</dd>`);
-  }
-  return out.length ? `<dl class="jy-rows">${out.join('')}</dl>` : '';
+// The biggest piece in a pile, by file name only (the runner shows the full evidence rows).
+function topPiece(item) {
+  const files = dataOf(findingOf(item)).files;
+  if (!Array.isArray(files)) return '';
+  let best = null;
+  for (const x of files) if (isObj(x) && str(x.path) && (!best || (num(x.size) || 0) > (num(best.size) || 0))) best = x;
+  return best ? str(best.path).split(/[\\/]/).filter(Boolean).pop() || '' : '';
 }
 
 function render(view, ctx) {
@@ -468,8 +480,8 @@ function render(view, ctx) {
   if (r.what) parts.push(`<p class="jy-what${verdict ? ` jy-verdict jy-verdict--${esc(verdict)}` : ''}${at('verdict')}${at('what')}">${esc(r.what)}</p>`);
   if (r.unfinished) parts.push(`<p class="jy-unfinished">${esc(pick(mode, UNFINISHED))}</p>`);
   if (v.step && v.step.say) parts.push(`<p class="jy-say">${esc(pick(mode, v.step.say))}</p>`);
-  const rows = rowsHtml(Array.isArray(r.rows) ? r.rows : [], esc);
-  parts.push(`<div class="jy-evidence${at('evidence')}">${rows}</div>`);
+  const top = topPiece(item);
+  if (top) parts.push(`<p class="jy-top${at('top')}">${esc(mode === 'city' ? 'Biggest piece: ' : 'Biggest file: ')}<span class="jy-name">${esc(top)}</span></p>`);
   parts.push('</article>');
   return parts.join('');
 }
@@ -554,8 +566,8 @@ const PRACTICE_ITEMS = [
 const PRACTICE_SCRIPT = [
   { item: 0, look: 'size', say: L('Start with the size. This pile is 2.4 GB of browser cache.', 'Start with the size. This pile is 2.4 GB of browser scrap.') },
   { item: 0, look: 'verdict', say: L('A cache is copies a browser keeps to load pages faster. It rebuilds them, so this is safe to clear.', 'Browser scrap grows back on its own, so it is safe to haul off.'), expect: 'clear' },
-  { item: 1, look: 'evidence', say: L('Big is not the same as junk. This is a film you made: keep it, or copy it to a backup before clearing.', 'Big is not the same as scrap. This is a film you made: keep it, or copy it somewhere safe first.'), expect: 'keep' },
-  { item: 2, look: 'what', say: L('A crash is not clutter to clear. The usual fix is an update from the maker.', 'A breakdown is not scrap. The usual fix is a new part from its maker.'), expect: 'update' },
+  { item: 1, look: 'top', say: L('Big is not the same as junk. This is a film you made: keep it, or copy it to a backup before clearing.', 'Big is not the same as scrap. This is a film you made: keep it, or copy it somewhere safe first.'), expect: 'keep' },
+  { item: 2, look: 'what', say: L('This app keeps crashing. There is nothing here to clear away, so choose Update it to look up the maker\'s fix.', 'This machine keeps breaking down. There is no scrap to haul, so choose Patch it to look up a new part.'), expect: 'update' },
 ];
 
 export default {

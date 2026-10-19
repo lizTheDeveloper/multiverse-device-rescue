@@ -49,10 +49,8 @@
 }
 .jy-look { outline: 2px solid var(--jy-accent); outline-offset: 4px; }
 
-.jy-rows { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 12px 0 0; font-size: 13px; }
-.jy-rows dt { color: var(--dim, rgba(237, 239, 243, 0.55)); }
-.jy-rows dd { margin: 0; min-width: 0; }
-.jy-mono { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; background: var(--evidence-mono-bg, rgba(0, 229, 255, 0.08)); padding: 0 4px; }
+.jy-top { margin: 10px 0 0; font-size: 13px; color: var(--dim, rgba(237, 239, 243, 0.55)); }
+.jy-name { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--offwhite, #EDEFF3); background: var(--evidence-mono-bg, rgba(0, 229, 255, 0.08)); padding: 0 4px; }
 
 .jy-summary { color: var(--offwhite, #EDEFF3); font-family: var(--font-body, system-ui, sans-serif); }
 .jy-summary .jy-size { color: var(--amber, #FF9F00); }
@@ -62,6 +60,4 @@
 @media (max-width: 800px) {
   .jy-card { padding: 14px 16px; }
   .jy-size { font-size: 24px; }
-  .jy-rows { grid-template-columns: 1fr; gap: 0; }
-  .jy-rows dd { margin-bottom: 6px; }
 }

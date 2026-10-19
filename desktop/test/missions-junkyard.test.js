@@ -155,6 +155,7 @@ test('cards are size first, in both display modes', async () => {
   // Counts, not bytes, where the check counts things.
   assert.deepStrictEqual(G.headline(byTitle(m, /Docker/), 'standard'), { size: '17', rest: 'unused Docker images' });
   assert.strictEqual(G.headline(byTitle(m, /SampleNotes/), 'standard').size, '6');
+  assert.strictEqual(G.headline(byTitle(m, /memory errors/), 'standard').size, '4');
   assert.strictEqual(G.headline(byTitle(items('junkyard-win.json'), /93% full/), 'standard').size, '93%');
 });
 
@@ -166,20 +167,49 @@ test('a card from a check that did not finish says so', async () => {
     const r = game.research(item, ctx);
     assert.strictEqual(r.unfinished, true);
     const html = game.render({ item, research: r, decisions: game.decisions(item, ctx), index: 0, total: 1 }, ctx);
-    assert.match(html, mode === 'city' ? /stopped early/ : /didn't finish|didn&#39;t finish/);
+    assert.match(html, /This check didn&#39;t finish/);
   }
 });
 
-test('evidence rows come from ctx.evidenceRows and are escaped', async () => {
+test('research carries ctx.evidenceRows; the card leaves rows, buttons and links to the runner (R1)', async () => {
   const { C, game, items } = await setup();
   const calls = [];
-  const ctx = C.testContext({ evidenceRows: (f, o) => { calls.push(o.mode); return [{ label: 'Folder', value: '<b>~/Library/Caches</b>', mono: true }]; } });
+  const rows = [{ label: 'Folder', value: 'ROW-VALUE-MARKER', mono: true }];
+  const ctx = C.testContext({ evidenceRows: (f, o) => { calls.push(o.mode); return rows; } });
   const item = items('junkyard-mac.json')[1];
   const r = game.research(item, ctx);
   assert.deepStrictEqual(calls, ['standard']);
-  const html = game.render({ item, research: r, decisions: [], index: 0, total: 1 }, ctx);
-  assert.match(html, /&lt;b&gt;~\/Library\/Caches&lt;\/b&gt;/);
-  assert.doesNotMatch(html, /<b>/);
+  assert.strictEqual(r.rows, rows);
+  const d = game.decisions(item, ctx);
+  const html = game.render({ item, research: r, decisions: d, index: 0, total: 1 }, ctx);
+  assert.doesNotMatch(html, /ROW-VALUE-MARKER/);
+  assert.doesNotMatch(html, /<button|<a\b|href/);
+  for (const x of d) assert.ok(!html.includes(`>${x.label.standard}<`), `no ${x.id} button`);
+});
+
+test('the biggest file shows by name only, escaped', async () => {
+  const { C, game, items, byTitle } = await setup();
+  const ctx = C.testContext();
+  const dl = byTitle(items('junkyard-mac.json'), /Old downloads/);
+  assert.match(game.render({ item: dl, research: game.research(dl, ctx), decisions: [], index: 0, total: 1 }, ctx), /Biggest file: <span class="jy-name">example-installer\.dmg<\/span>/);
+  const evil = C.makeItem({ module: 'large_files_finder', title: 't', data: { type: 'desktop_files', size_bytes: 1, files: [{ path: '/x/<img src=x onerror=alert(1)>', size: 5 }] } });
+  const html = game.render({ item: evil, research: game.research(evil, ctx), decisions: [], index: 0, total: 1 }, ctx);
+  assert.deepStrictEqual(C.checkInert(html), []);
+});
+
+test('on an item with a removal warning, Keep stays first and acting effects carry warning: true (R6)', async () => {
+  const { C, game, items, byTitle } = await setup();
+  const ctx = C.testContext();
+  const w = items('junkyard-win.json');
+  for (const base of [byTitle(w, /SampleGames/), byTitle(w, /Temporary files/), byTitle(w, /crashed in the last/)]) {
+    const item = { ...base, removal_alert: true };
+    const d = game.decisions(item, ctx);
+    assert.strictEqual(d[0].id, 'keep');
+    assert.deepStrictEqual(C.checkDecisions(d, item), []);
+    for (const x of d) assert.strictEqual(x.effect.warning === true, !['keep', 'later'].includes(x.effect.kind), x.id);
+  }
+  // No warning flag on ordinary items.
+  assert.ok(game.decisions(byTitle(w, /SampleGames/), ctx).every((x) => !x.effect.warning));
 });
 
 test('summary adds up the space the Clear choices would free, without counting a total twice', async () => {
