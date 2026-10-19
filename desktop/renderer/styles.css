@@ -661,6 +661,15 @@ h3 {
   margin-top: 0.4rem;
 }
 
+.guide-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 /* ---------- Scan progress ---------- */
 
 .progress {

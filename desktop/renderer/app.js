@@ -280,6 +280,30 @@ function scanErrorText(message) {
 }
 
 /**
+ * Each guide's name, for the list shown when several worries have different
+ * guides. Named by what the guide helps with, never by the worry, so nothing
+ * on screen says "watching me" under the city cover.
+ */
+const GUIDE_BASE = 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/';
+const GUIDE_NAMES = Object.freeze({
+  [`${GUIDE_BASE}digital-security-reset/`]: 'Securing your accounts',
+  [`${GUIDE_BASE}home-network-intrusion/`]: 'Your home network and a hot, slow computer',
+  [`${GUIDE_BASE}identity-theft-recovery/`]: 'Recovering from identity theft',
+  [`${GUIDE_BASE}ai-worm-response/`]: 'After installing something sketchy',
+  [`${GUIDE_BASE}iphone-spyware-check/`]: 'Checking an iPhone for spyware',
+  [`${GUIDE_BASE}home-for-the-holidays/`]: 'A tune-up for a family member’s computer',
+  [GUIDE_BASE]: 'All the step-by-step guides',
+});
+
+/** Every guide for these worries, in the list's order, each once: [{url, name}]. */
+function guideLinksFor(situation) {
+  if (!situation) return [];
+  const urls = Array.isArray(situation.guides) && situation.guides.length ? situation.guides : [situation.guide];
+  return [...new Set(urls.filter((u) => typeof u === 'string' && u))]
+    .map((url) => ({ url, name: GUIDE_NAMES[url] || 'Step-by-step guide' }));
+}
+
+/**
  * The worry line "Copy for any AI" puts on the clipboard. In city mode, when
  * "someone is watching me" is among the worries, none: a clipboard-history
  * app can save the text to disk, where whoever is watching could read it.
@@ -437,6 +461,8 @@ if (typeof module !== 'undefined' && module.exports) {
     gameScanFirst,
     worryStartsGameScan,
     copyAiSituation,
+    guideLinksFor,
+    GUIDE_NAMES,
     noteMonitoring,
     opensInGame,
     CITY_SITUATION,
@@ -715,12 +741,30 @@ if (typeof document !== 'undefined') {
         : opensInGame(mode) ? 'Checking your computer' : `Checking for: ${situation.title}`;
     }
 
+    // Several worries can have several guides: one button each. Each URL
+    // still goes through main's open-guide allowlist.
+    let guideLinks = [];
     function renderNextStep() {
       const box = document.getElementById('results-next');
-      if (!situation || !situation.guide) {
+      const list = document.getElementById('results-guides');
+      const single = document.getElementById('btn-open-guide');
+      const text = document.getElementById('results-next-text');
+      guideLinks = guideLinksFor(situation);
+      if (!guideLinks.length) {
         box.hidden = true;
+        list.hidden = true;
+        list.innerHTML = '';
         return;
       }
+      const several = guideLinks.length > 1;
+      single.hidden = several;
+      list.hidden = !several;
+      list.innerHTML = several
+        ? guideLinks.map((g, i) => `<li><button type="button" class="btn btn--primary" data-guide-index="${i}">${escapeHtml(g.name)}</button></li>`).join('')
+        : '';
+      text.textContent = several
+        ? 'There’s a step-by-step guide for each part of your situation. Each opens in your web browser.'
+        : 'There’s a step-by-step guide for your situation. It opens in your web browser.';
       box.hidden = false;
     }
 
@@ -1132,7 +1176,12 @@ if (typeof document !== 'undefined') {
     });
 
     document.getElementById('btn-open-guide').addEventListener('click', () => {
-      if (situation && situation.guide) window.rescue.openGuide(situation.guide);
+      if (guideLinks.length) window.rescue.openGuide(guideLinks[0].url);
+    });
+    document.getElementById('results-guides').addEventListener('click', (event) => {
+      const btn = event.target && typeof event.target.closest === 'function' ? event.target.closest('[data-guide-index]') : null;
+      const link = btn ? guideLinks[Number(btn.getAttribute('data-guide-index'))] : null;
+      if (link) window.rescue.openGuide(link.url);
     });
 
     document.getElementById('btn-open-game').addEventListener('click', () => {

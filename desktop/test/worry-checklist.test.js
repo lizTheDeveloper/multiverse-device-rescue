@@ -127,3 +127,47 @@ test('copy for any AI, on the page: the city results carry no "watching me" titl
   await q.finish(ONE_FINDING);
   assert.match(q.run('copyAiReport.situation'), /hacked/);
 });
+
+const { guideLinksFor, GUIDE_NAMES } = require('../renderer/app.js');
+const { isAllowedGuideUrl } = require('../setting-urls.js');
+
+test('the guide button offers every worry’s guide, each once, all on the open-guide allowlist', () => {
+  const several = Worries.combine(['hacked', 'watched', 'wifi', 'identity'], SITUATIONS);
+  const links = guideLinksFor(several);
+  assert.deepStrictEqual(links.map((g) => g.url), [profileGuide('hacked'), profileGuide('wifi'), profileGuide('identity')]);
+  assert.ok(links.every((g) => g.name && !/watch/i.test(g.name)), 'named by the guide, never the worry');
+  for (const s of SITUATIONS) {
+    assert.ok(isAllowedGuideUrl(s.guide), s.id);
+    assert.ok(GUIDE_NAMES[s.guide], `a name for ${s.id}`);
+  }
+  assert.deepStrictEqual(guideLinksFor(Worries.combine(['wifi'], SITUATIONS)).map((g) => g.url), [profileGuide('wifi')]);
+  assert.deepStrictEqual(guideLinksFor(null), []);
+});
+function profileGuide(id) { return SITUATIONS.find((s) => s.id === id).guide; }
+
+test('on the page: several worries show one guide button each, and each opens its own guide', async () => {
+  const p = page();
+  p.byId('btn-get-started').click();
+  p.pick('hacked', 'wifi', 'identity');
+  p.byId('btn-run-scan').click();
+  await p.finish(ONE_FINDING);
+  assert.ok(!p.byId('results-next').hidden && !p.byId('results-guides').hidden);
+  assert.strictEqual(p.byId('btn-open-guide').hidden, true);
+  const html = p.byId('results-guides').innerHTML;
+  assert.strictEqual((html.match(/data-guide-index=/g) || []).length, 3);
+  const clickGuide = (i) => (p.byId('results-guides').listeners.click || []).forEach((fn) => fn({
+    target: { closest: () => ({ getAttribute: () => String(i) }) } }));
+  clickGuide(1);
+  clickGuide(2);
+  assert.deepStrictEqual([...p.calls.guides], [profileGuide('wifi'), profileGuide('identity')]);
+  // One worry: the single button, as before.
+  const q = page();
+  q.byId('btn-get-started').click();
+  q.pick('wifi');
+  q.byId('btn-run-scan').click();
+  await q.finish(ONE_FINDING);
+  assert.strictEqual(q.byId('btn-open-guide').hidden, false);
+  assert.strictEqual(q.byId('results-guides').hidden, true);
+  q.byId('btn-open-guide').click();
+  assert.deepStrictEqual([...q.calls.guides], [profileGuide('wifi')]);
+});
