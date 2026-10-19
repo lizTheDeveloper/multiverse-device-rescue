@@ -488,3 +488,31 @@ test('P2-11: hashes sit behind "Technical details", never in the open rows; Copy
   const evil = E.renderEvidence(E.evidenceRows({ module: 'x', data: { 'evil<b>_hash': '<img src=x>' } }));
   assert.doesNotMatch(evil, /<img|<b>/);
 });
+
+test('P2-11: keys and values written for code read as words', () => {
+  const rows = E.evidenceRows({ module: 'swap_usage', data: {
+    swap_used_mb: 3935.38, latency_ms: 12, time_budget_s: 30, upload_mbps: 41.5, uptime_days: 9, usage_percent: 87,
+    size_bytes: 18900000000, size_formatted: '17.6 GB', issue: 'usr_local_root_owned', type: 'broken_login_items',
+    vpn_count: 2, twofa_enabled: true, wifi_enabled: false, areas: ['app_support', 'caches'], keys: ['google_compute_engine'],
+    label: 'com.example.my_agent',
+  } });
+  assert.strictEqual(get(rows, 'Swap used').value, '3.9 GB');
+  assert.strictEqual(get(rows, 'Latency').value, '12 ms');
+  assert.strictEqual(get(rows, 'Upload').value, '41.5 Mbps');
+  assert.strictEqual(get(rows, 'Uptime').value, '9 days');
+  assert.strictEqual(get(rows, 'Usage').value, '87%');
+  assert.strictEqual(get(rows, 'Size').value, '17.6 GB', 'the engine’s formatted size, once');
+  assert.strictEqual(rows.filter((r) => r.label === 'Size').length, 1);
+  assert.strictEqual(get(rows, 'Issue').value, 'usr local root owned');
+  assert.strictEqual(get(rows, 'VPN count').value, '2');
+  assert.strictEqual(get(rows, '2FA enabled').value, 'yes');
+  assert.strictEqual(get(rows, 'Wi-Fi enabled').value, 'no');
+  assert.strictEqual(get(rows, 'Areas').value, 'app support, caches');
+  assert.strictEqual(get(rows, 'Keys').value, 'google_compute_engine', 'an id stays exact');
+  assert.strictEqual(get(rows, 'Name').value, 'com.example.my_agent', 'a label stays exact');
+  for (const l of ['Time budget', 'Time budget s', 'Type', 'Size bytes', 'Size formatted']) assert.ok(!get(rows, l), l);
+  for (const r of rows) {
+    assert.doesNotMatch(r.label, /_|\b(mb|ms|gb|pct|bytes|formatted)$/i, r.label);
+    if (!['Keys', 'Name'].includes(r.label)) assert.doesNotMatch(r.value, /^[a-z0-9]+(_[a-z0-9]+)+$/, `${r.label}: ${r.value}`);
+  }
+});

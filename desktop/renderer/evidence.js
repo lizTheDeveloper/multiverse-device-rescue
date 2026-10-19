@@ -119,8 +119,13 @@ const Evidence = (function () {
     return i === 0 ? `${v} bytes` : `${x >= 100 ? Math.round(x) : x.toFixed(1)} ${units[i]}`;
   }
 
+  // Short words a key spells for code ("vpn_count", "twofa_enabled") as people write them.
+  const ACRONYMS = { vpn: 'VPN', wifi: 'Wi-Fi', usb: 'USB', dns: 'DNS', ip: 'IP', ssh: 'SSH', cpu: 'CPU', gpu: 'GPU',
+    url: 'URL', twofa: '2FA', mfa: 'MFA', os: 'OS', uuid: 'UUID', mdm: 'MDM', ram: 'RAM', ssd: 'SSD', tcc: 'TCC' };
+
   function humanize(key) {
-    const words = String(key || '').replace(/_/g, ' ').trim();
+    const words = String(key || '').replace(/_/g, ' ').trim().split(/\s+/)
+      .map((w) => (Object.prototype.hasOwnProperty.call(ACRONYMS, w.toLowerCase()) ? ACRONYMS[w.toLowerCase()] : w)).join(' ');
     return words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
   }
 
@@ -446,9 +451,19 @@ const Evidence = (function () {
   // suspicious_dns", "Source: filesystem").
   const SKIP = new Set(['check', 'severity_level', 'marked_by_user', 'mark_stale', 'mark_id', 'original_title',
     'used_pct', 'is_system_app', 'source', 'known_item_id', 'original_severity',
+    // How long the check was allowed to run: the engine's budget, not evidence (P2-11).
+    'time_budget_s',
     // The engine's own certainty ("medium"): a word for code, not evidence (P2-4).
     'confidence']);
   const skipKey = (key) => SKIP.has(key) || /_type$/.test(key) || /^check_/.test(key);
+  // A unit at the end of a key ("swap_used_mb", "latency_ms"): the label
+  // without it, the value with it (P2-11: never "Swap used mb 3935.38").
+  const UNITS = [
+    [/_bytes$/, (v) => bytes(v)], [/_kb$/, (v) => bytes(v * 1e3)], [/_mb$/, (v) => bytes(v * 1e6)], [/_gb$/, (v) => bytes(v * 1e9)],
+    [/_ms$/, (v) => `${v} ms`], [/_(?:s|secs?|seconds)$/, (v) => `${v} seconds`], [/_mbps$/, (v) => `${v} Mbps`],
+    [/_(?:pct|percent)$/, (v) => `${v}%`], [/_days$/, (v) => `${v} days`], [/_hours$/, (v) => `${v} hours`], [/_minutes$/, (v) => `${v} minutes`],
+  ];
+  const unitOf = (key) => UNITS.find(([re]) => re.test(key)) || null;
   // An empty value says nothing: never a row.
   const isEmpty = (v) => v == null || (typeof v === 'string' && v.trim() === '')
     || (Array.isArray(v) && !v.some((x) => !isEmpty(x))) || (isObj(v) && !Object.values(v).some((x) => !isEmpty(x)));
@@ -466,6 +481,7 @@ const Evidence = (function () {
     interval_seconds: 'Every (seconds)', bundle_id: 'Bundle id', team_id: 'Team id', signer: 'Signed by',
     servers: 'DNS servers', dns_servers: 'DNS servers', providers: 'Provider', provider: 'Provider',
     profile_ids: 'Profile id', gateway_ip: 'Router', service: 'Service', kind: 'Kind',
+    free_pct_str: 'Free', fv_enabled: 'FileVault on', mvt_bin: 'MVT program',
   };
   // A value written for code ("pipe_to_shell") in words ("pipe to shell").
   const CODE_WORD = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
@@ -481,8 +497,16 @@ const Evidence = (function () {
       if (used.has(key) || skipKey(key) || isEmpty(v)) continue;
       // "Target 22" beside "Port 22" says nothing new.
       if (key === 'target' && data.port != null && String(v) === String(data.port)) continue;
-      const label = LABELS[key] || humanize(key);
-      if (key === 'kind' && typeof v === 'string' && CODE_WORD.test(v)) { rows.push(row(label, v.replace(/_/g, ' '))); continue; }
+      // "size_bytes" beside the engine's own "size_formatted": the formatted one.
+      if (/_bytes$/.test(key) && typeof data[key.replace(/_bytes$/, '_formatted')] === 'string') continue;
+      // "type: broken_login_items" is the engine's name for the finding, not evidence.
+      if (key === 'type' && typeof v === 'string' && CODE_WORD.test(v)) continue;
+      const unit = typeof v === 'number' && Number.isFinite(v) ? unitOf(key) : null;
+      if (unit && !LABELS[key]) { rows.push(row(humanize(key.replace(unit[0], '')), unit[1](Math.round(v * 100) / 100))); continue; }
+      const label = LABELS[key] || humanize(key.replace(/_formatted$/, ''));
+      // A value written for code ("battery_drain") in words ("battery drain"),
+      // except where the exact text is the evidence (an id, a label, a command).
+      if (typeof v === 'string' && CODE_WORD.test(v) && !MONO_KEYS.has(key)) { rows.push(row(label, v.replace(/_/g, ' '))); continue; }
       if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(hashLabel(key), v));
       else if (/_bytes$/.test(key) && typeof v === 'number') rows.push(row(label, bytes(v)));
       else if (/(^|_)(date|at|time|since)$/.test(key) && typeof v === 'string') rows.push(row(label, plainDay(v)));
@@ -491,7 +515,10 @@ const Evidence = (function () {
       else if (isScalar(v)) rows.push(row(label, fmtScalar(v), { mono: MONO_KEYS.has(key) }));
       else if (Array.isArray(v)) {
         if (!v.length) continue;
-        if (v.every(isScalar)) rows.push(listRow(label, v, { mono: MONO_KEYS.has(key) || v.some(looksLikePath) }));
+        if (v.every(isScalar)) {
+          const mono = MONO_KEYS.has(key) || v.some(looksLikePath);
+          rows.push(listRow(label, v, { mono, fmt: (x) => (!mono && typeof x === 'string' && CODE_WORD.test(x) ? x.replace(/_/g, ' ') : x) }));
+        }
         else if (v.every(isObj)) rows.push(listRow(label, v.map(flatObject), { mono: false }));
       } else if (isObj(v)) {
         // A small map ({"Arial.ttf": ["/Library/Fonts", …]}, {"chrome": 50}): one row per key.
