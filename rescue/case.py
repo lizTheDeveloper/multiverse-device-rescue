@@ -220,6 +220,19 @@ def case_to_dict(case: RescueCase) -> dict[str, Any]:
     }
 
 
+def _without_key_comments(data: Any) -> Any:
+    """A saved remote-login key's comment is often user@host or an email
+    address. It is shown on this computer only: an export never carries it."""
+    if not isinstance(data, dict) or not isinstance(data.get("keys"), list):
+        return data
+    out = dict(data)
+    out["keys"] = [
+        dict(k, comment=f"{_REDACTED} key comment") if isinstance(k, dict) and k.get("comment") else k
+        for k in data["keys"]
+    ]
+    return out
+
+
 def _entry_to_dict(entry: CaseEntry, extra: list[tuple[re.Pattern[str], str]]) -> dict[str, Any]:
     check = entry.check
     record: dict[str, Any] = {
@@ -238,7 +251,7 @@ def _entry_to_dict(entry: CaseEntry, extra: list[tuple[re.Pattern[str], str]]) -
                 "code": f.code,
                 "confidence": f.confidence,
                 "collected_at": f.collected_at,
-                "data": _redact_any(f.data, extra),
+                "data": _redact_any(_without_key_comments(f.data), extra),
             }
             for f in check.findings
         ],
