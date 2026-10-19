@@ -277,3 +277,28 @@ test('P2-13 / P2-21 / P2-22: readings fold away with the lesson, the tag note sa
   const range = renderSignalPanel({ signal: drill, scout: () => '', range: { hasCity: true } });
   assert.strictEqual((range.match(/not on your computer|isn’t on your computer|never touches your computer/gi) || []).length, 0, 'the range says it once, at its top');
 });
+
+test('P2-25 / P2-20 / P3-32 / P3-33: one calm HUD with the rank, focus lands on the heading, words for right and wrong, one word for sweeping again', async () => {
+  const { renderHud } = await game('views/hud.js');
+  const city = { districts: [{ missions: [{}, {}] }], totals: { critical: 6, warning: 95, fog: 2 } };
+  const hud = renderHud({ title: 'T', city, progress: { missions: {} }, counts: { confirmed: 1, reported: 0 }, rank: { name: 'ROOKIE', points: 5 } });
+  assert.doesNotMatch(hud, /<small>WARNING<\/small>|<small>CRITICAL<\/small>/);
+  assert.match(hud, /data-go="profile"[^>]*><small>RANK<\/small> ROOKIE · 5/);
+  assert.match(hud, /<b>2<\/b> <small>TO DO<\/small>/);
+  const { focusHeading } = await game('controller.js');
+  const attrs = {};
+  let focused = false;
+  const h2 = { hasAttribute: (k) => k in attrs, setAttribute: (k, v) => { attrs[k] = v; }, focus: () => { focused = true; } };
+  assert.strictEqual(focusHeading({ querySelector: (sel) => (sel === 'h2' ? h2 : null) }), true);
+  assert.ok(focused);
+  assert.strictEqual(attrs.tabindex, '-1');
+  const { verdict } = await game('views/lesson.js');
+  assert.strictEqual(verdict({ correct: false, feedback: 'That’s the less worrying case.' }), '<b>Not quite.</b> ');
+  assert.strictEqual(verdict({ correct: true, feedback: 'It is.' }), '<b>Right.</b> ');
+  assert.strictEqual(verdict({ correct: true, feedback: 'Right: it is.' }), '');
+  const { skipBar, renderTraining } = await game('views/training.js');
+  assert.match(skipBar(null, true), /RE-SWEEP ⟳/);
+  const t = renderTraining({ ordered: { recommended: [], other: [] }, progress: { lessons: {}, missions: {} }, scout: () => '', scanFinished: true, lessonsLoaded: true });
+  assert.doesNotMatch(t, /straight to the checkup/);
+  assert.match(t, /<h2 class="hud-title" tabindex="-1">THE TRAINING GROUNDS<\/h2>/);
+});

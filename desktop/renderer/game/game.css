@@ -67,6 +67,7 @@ button.district { display: grid; width: 100%; }
 /* ---------- from the mockups ---------- */
 .hud { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: rgba(9,11,16,0.6); }
 .hud-title { font-family: var(--font-display); font-weight: 800; font-size: 12px; letter-spacing: 3px; color: var(--cyan); margin-right: auto; text-shadow: 0 0 10px rgba(0,229,255,0.35); }
+h2.hud-title { margin-top: 0; margin-bottom: 0; margin-left: 0; }
 .stat { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid; font-family: var(--font-mono); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stat small { font-family: var(--font-display); font-size: 7px; letter-spacing: 1px; font-weight: 600; }
 .stat.lime { color: var(--lime); border-color: rgba(198,255,0,0.3); background: rgba(198,255,0,0.06); }

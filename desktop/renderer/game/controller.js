@@ -138,6 +138,13 @@ export function findByAttr(root, k, v, css = globalThis.CSS) {
   return null;
 }
 const focusEl = (el) => { if (el && typeof el.focus === 'function') el.focus(); return !!el; };
+// A new screen: keyboard and screen-reader users land on its heading.
+export function focusHeading(root) {
+  const h = root && typeof root.querySelector === 'function' ? root.querySelector('h2') : null;
+  if (!h) return false;
+  if (typeof h.setAttribute === 'function' && typeof h.hasAttribute === 'function' && !h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1');
+  return focusEl(h);
+}
 
 // `loadGame` and `loadTraining` are for tests; the app always loads Reclaim City
 // from app://rescue/rc/ and the lessons from app://rescue/game/lessons/.
@@ -452,6 +459,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.lesson = { id: lessonId, keys, q: 0, picked: null, showTeach: teachAt(keys, 0), ...extra };
     s.screen = 'lesson';
     render();
+    focusHeading(frame);
   }
   function startVisit(lessonId, extra = {}) {
     const bank = drawBank();
@@ -1001,7 +1009,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const body = screenHtml();
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
-        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
+        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), rank: rankOf(s.progress.deck) }) + s.linkNotice;
       frame.innerHTML = saveNoticeHtml() + hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
@@ -1272,7 +1280,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       openVisit(first.lessonId, keys, { concept: c, back });
       return;
     }
-    if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
+    if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); focusHeading(frame); return; }
     if (go === 'boss') { s.screen = s.scan.running ? 'boss' : noCity(); render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
     // A lesson opened from YOUR FILE comes back to it.
@@ -1337,7 +1345,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go && go.startsWith('rc:')) { if (s.rc) goRc(go.slice(3)); return; }
     if (act === 'confirm-from-scan') { if (s.rc) confirmFromScan(); return; }
     if (go === 'map') { s.screen = 'map'; s.signal = null; render(); return; }
-    if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); s.districtMsg = ''; render(); return; }
+    if (go && go.startsWith('district:')) { s.screen = 'district'; s.districtId = go.slice(9); s.districtMsg = ''; render(); focusHeading(frame); return; }
     if (act === 'bulk-did' || act === 'bulk-later') {
       const ids = ticked();
       if (!ids.length || s.screen !== 'district') return;
@@ -1352,8 +1360,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       render();
       return;
     }
-    if (go && go.startsWith('milestone:')) { s.screen = 'milestone'; s.districtId = go.slice(10); render(); return; }
-    if (go && go.startsWith('mission:')) { s.screen = 'mission'; s.missionId = go.slice(8); render(); return; }
+    if (go && go.startsWith('milestone:')) { s.screen = 'milestone'; s.districtId = go.slice(10); render(); focusHeading(frame); return; }
+    if (go && go.startsWith('mission:')) { s.screen = 'mission'; s.missionId = go.slice(8); render(); focusHeading(frame); return; }
     if (act === 'i-did-it') { recheck(s.missionId, 'i-did-it'); return; }
     if (act === 'recheck') { recheck(s.outcomeMission && s.outcomeMission.id, s.trigger, s.recheckModules); return; }
     if (act === 'later') {

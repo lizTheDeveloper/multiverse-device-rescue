@@ -3,15 +3,19 @@ import { countReclaimed } from '../progress.js';
 
 // With `counts` the HUD shows the two kinds of progress apart: what the computer
 // confirmed and what the person reported. Without it, Plan A's RECLAIMED.
-export function renderHud({ title, city, progress, counts }) {
+// With `counts` (the game) it is the deck's HUD on every screen: the rank
+// (opens YOUR FILE), what's done, and what's left to do; no running tally of
+// criticals and warnings, which only frightens. `rank`: { name, points }.
+export function renderHud({ title, city, progress, counts, rank = null }) {
   const t = (city && city.totals) || { critical: 0, warning: 0, fog: 0 };
   const open = (city.districts || []).reduce((n, d) => n + d.missions.length, 0);
   const done = countReclaimed(progress);
   return `
   <header class="hud">
     <span class="hud-title">${esc(title)}</span>
-    <span class="stat mag"><b>${t.critical}</b> <small>CRITICAL</small></span>
-    <span class="stat amb"><b>${t.warning}</b> <small>WARNING</small></span>
+    ${counts && rank ? `<button type="button" class="stat lime rank-chip" data-go="profile" aria-label="${esc(`Your file: ${rank.name}, ${rank.points} points`)}"><small>RANK</small> ${esc(rank.name)} · ${esc(rank.points)}</button>` : ''}
+    ${counts ? '' : `<span class="stat mag"><b>${t.critical}</b> <small>CRITICAL</small></span>
+    <span class="stat amb"><b>${t.warning}</b> <small>WARNING</small></span>`}
     ${counts
       ? `<span class="stat lime"><b>${Number(counts.confirmed) || 0}</b> <small>CONFIRMED</small></span>
     <span class="stat cyan"><b>${Number(counts.reported) || 0}</b> <small>YOU REPORTED</small></span>`

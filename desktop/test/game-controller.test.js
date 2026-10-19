@@ -663,7 +663,7 @@ test('the scan finishes on the boss screen: straight to the city', async () => {
   // Back to the Training Grounds from the city's HUD: the city is still one click away.
   t.click({ 'data-go': 'training' });
   assert.match(t.html(), /Your checkup is done\.[\s\S]*data-go="city"/);
-  assert.match(t.html(), /data-act="start-checkup"[^>]*>RUN THE CHECKUP AGAIN ▶/);
+  assert.match(t.html(), /data-act="start-checkup"[^>]*>RE-SWEEP ⟳/);
   // A new worry: no city yet, so back to skipping.
   t.ctl.showTraining(WIFI);
   assert.match(t.html(), /SKIP TO THE CHECKUP ▶/);

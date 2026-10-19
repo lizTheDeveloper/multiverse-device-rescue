@@ -19,14 +19,14 @@ export function skipBar(scan, scanFinished = false) {
       <button type="button" class="btn-s lime" data-go="boss">BACK TO THE CHECKUP ▶</button></div>`;
   }
   const label = scan && scan.error ? 'START THE CHECKUP ▶'
-    : scanFinished ? 'RUN THE CHECKUP AGAIN ▶' : 'SKIP TO THE CHECKUP ▶';
-  return `<div class="skip-bar"><span>You don’t need to finish any lessons first.</span>
+    : scanFinished ? 'RE-SWEEP ⟳' : 'SKIP TO THE CHECKUP ▶';
+  return `<div class="skip-bar"><span>${scanFinished ? 'Your checkup is done. Sweep again any time.' : 'You don’t need to finish any lessons first.'}</span>
     <button type="button" class="btn-s quiet" data-act="start-checkup">${label}</button></div>`;
 }
 
 export function trainingHud(progress, lessons) {
   const done = lessons.filter((l) => lessonDone(progress, l.id)).length;
-  return `<header class="hud"><span class="hud-title">THE TRAINING GROUNDS</span>
+  return `<header class="hud"><h2 class="hud-title" tabindex="-1">THE TRAINING GROUNDS</h2>
     ${lessons.length ? `<span class="stat lime"><b>${done}/${lessons.length}</b> <small>LESSONS</small></span>` : ''}
     <span class="switch"><button type="button" data-go="profile">YOUR FILE</button><button type="button" data-act="leave">PLAIN VIEW</button></span></header>`;
 }
@@ -64,7 +64,7 @@ export function renderTraining({ ordered, progress, worryTitle, forYou = false, 
     : '<p class="intel">Getting the lessons ready.</p>'}
     </div>
     <div class="quiz">
-      <div class="scout-row">${scout('happy', 72)}<p class="say">${esc('These are short. Pick any one, or go straight to the checkup.')}</p></div>
+      <div class="scout-row">${scout('happy', 72)}<p class="say">${esc(scanFinished ? 'These are short. Pick any one.' : 'These are short. Pick any one, or go straight to the checkup.')}</p></div>
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>
       <p class="intel">Practice sorting made-up signals. Nothing in the range touches your computer.</p>
     </div>
