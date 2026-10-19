@@ -254,7 +254,9 @@ export function decisions(item, ctx) {
   const kind = kindOf(f);
   const mine = { id: 'mine', label: { standard: 'Mine', city: 'Let it in' }, effect: isObj(f.markable) ? { kind: 'mark' } : { kind: 'keep' } };
   const closer = { id: 'closer', label: { standard: 'Look closer', city: 'Look closer' }, effect: { kind: 'closer', checklist: checklistFor(item, ctx) } };
-  const notMine = { id: 'not-mine', label: { standard: 'Not mine', city: 'Bar the door' }, effect: notMineEffect(f, kind, ctx && ctx.mode) };
+  const off = notMineEffect(f, kind, ctx && ctx.mode);
+  // R6: the runner shows the removal warning before switching off an alerting item, by any route.
+  const notMine = { id: 'not-mine', label: { standard: 'Not mine', city: 'Bar the door' }, effect: alerting(item) ? { ...off, warning: true } : off };
   const wary = alerting(item) || (f.severity === 'critical' && !isVerified(makerOf(f)));
   return wary ? [closer, mine, notMine] : [mine, closer, notMine];
 }
@@ -286,11 +288,12 @@ const WORDS = {
   appeared: { standard: 'Appeared on', city: 'First knocked' },
   what: { standard: 'What it is', city: 'Who it is' },
   verified: { standard: 'verified', city: 'seal checks out' },
-  notVerified: { standard: 'not verified', city: 'seal not checked out' },
+  notVerified: { standard: 'not verified', city: 'seal unchecked' },
   noMaker: { standard: 'Not checked: the checkup didn’t read a maker for this.', city: 'Not checked: no seal was read for this.' },
   noDate: { standard: 'Not recorded', city: 'Not recorded' },
   since: { standard: 'New since', city: 'New since' },
   unknownWhat: { standard: 'Not known: nobody has vouched for who made it.', city: 'Unknown: no seal vouches for it.' },
+  noWhat: { standard: 'Not known.', city: 'Unknown.' },
   unfinished: { standard: 'This check didn’t finish, so this may not be everything.', city: 'This check didn’t finish, so this may not be everything.' },
   hiddenNote: { standard: 'A hidden or temporary folder. Installed apps don’t normally run from here.', city: 'A hidden or temporary folder. Settled residents don’t live here.' },
   none: { standard: 'Not recorded', city: 'Not recorded' },
@@ -338,7 +341,7 @@ export function render(view, ctx) {
   } else signer = `<span class="door-none">${w(ctx, 'noMaker')}</span>`;
 
   const appeared = when ? `${when.since ? `${w(ctx, 'since')} ` : ''}${ctx.esc(when.day)}` : `<span class="door-none">${w(ctx, 'noDate')}</span>`;
-  const what = r.what ? ctx.esc(r.what) : `<span class="door-none">${w(ctx, 'unknownWhat')}</span>`;
+  const what = r.what ? ctx.esc(r.what) : `<span class="door-none">${w(ctx, m ? 'unknownWhat' : 'noWhat')}</span>`;
   const setup = setUpIn(f);
   const practiceSetup = view && view.practice && str(f.setup) ? `<p class="door-setup">${ctx.esc(f.setup)}</p>` : '';
   const say = step && step.say ? `<p class="door-say" role="note">${ctx.esc(pick(ctx.mode, step.say))}</p>` : '';
@@ -351,7 +354,7 @@ export function render(view, ctx) {
     + (r.unfinished ? `<p class="door-unfinished">${w(ctx, 'unfinished')}</p>` : '')
     + '<dl class="door-facts">'
     + fact('runs', w(ctx, 'runs'), runsBody, point('runs'))
-    + (setup ? fact('setup', w(ctx, 'setUp'), `<code class="door-path">${pathHtml(setup, ctx)}</code>`, point('setup')) : '')
+    + (setup ? fact('setupin', w(ctx, 'setUp'), `<code class="door-path">${pathHtml(setup, ctx)}</code>`, point('setupin')) : '')
     + fact('signer', w(ctx, 'signer'), signer, point('signer'))
     + fact('appeared', w(ctx, 'appeared'), appeared, point('appeared'))
     + fact('what', w(ctx, 'what'), what, point('what'))

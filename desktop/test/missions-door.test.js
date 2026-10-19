@@ -99,6 +99,10 @@ test('decisions: Mine / Look closer / Not mine, Look closer first on a warning i
   const d = game.decisions(hidden, ctx);
   assert.deepStrictEqual(ids(d), ['closer', 'mine', 'not-mine'], 'removal warning → look closer first');
   assert.strictEqual(d[2].effect.kind, 'fix', 'the engine offered a fix');
+  assert.strictEqual(d[2].effect.warning, true, 'switching off an alerting item carries the warning');
+  assert.ok(!('warning' in game.decisions(vpn, ctx)[2].effect), 'no warning flag on a non-alerting item');
+  const alertingTask = { ...(await byModule('win_scheduled_tasks_security')), removal_alert: true };
+  assert.deepStrictEqual(game.decisions(alertingTask, ctx).map((x) => [x.id, !!x.effect.warning]), [['closer', false], ['mine', false], ['not-mine', true]]);
   const unverifiedCritical = { ...hidden, removal_alert: false, finding: { ...hidden.finding, removal_alert: false } };
   assert.strictEqual(game.decisions(unverifiedCritical, ctx)[0].id, 'closer', 'critical with an unverified maker → look closer first');
   const safety = { ...vpn, finding: { ...vpn.finding, remediation: { safety_note: 'x' } } };
@@ -140,6 +144,16 @@ test('Look closer: a what-to-check list, with the search as text to use elsewher
   assert.match(win, /Task Manager under Startup apps/);
 });
 
+test('R1: render draws only the knock card — no buttons, links or evidence rows', async () => {
+  const { default: game } = await door();
+  const C = await contract();
+  for (const item of [...(await fixtureItems()), ...game.practice.items]) {
+    const ctx = C.testContext({ evidenceRows: () => [{ label: 'EVROW', value: 'EVVAL' }] });
+    const html = game.render({ item, research: game.research(item, ctx), decisions: game.decisions(item, ctx) }, ctx);
+    assert.doesNotMatch(html, /<button|<a\b|href=|EVROW|data-decision/);
+  }
+});
+
 test('the knock card: hidden and temporary folders highlighted, the file itself never', async () => {
   const { default: game, pathHtml } = await door();
   const C = await contract();
@@ -169,7 +183,9 @@ test('the knock card: signer and verified, appeared on, what the program is — 
   assert.match(hidden, /door-unverified">not verified/);
   assert.match(hidden, /30 Sep 2026/);
   assert.match(hidden, /Not known: nobody has vouched/);
-  assert.match(game.render({ item: await byModule('login_items') }, ctx), /Not checked: the checkup didn’t read a maker/);
+  const noMaker = game.render({ item: await byModule('login_items') }, ctx);
+  assert.match(noMaker, /Not checked: the checkup didn’t read a maker/);
+  assert.match(noMaker, /What it is<\/dt><dd><span class="door-none">Not known\.</, 'no maker read: not "nobody vouched"');
   assert.match(game.render({ item: await byModule('win_scheduled_tasks_security') }, ctx), /2 Oct 2026/);
   assert.match(game.render({ item: await byModule('security_baseline_diff') }, ctx), /New since 10 Oct 2026/);
   // A claimed (unverified) maker's "what" is never shown.
@@ -185,9 +201,10 @@ test('the knock card: lists capped at four, an unfinished check says so, practic
   assert.strictEqual((kexts.match(/<li>/g) || []).length, 4);
   assert.match(kexts, /and 2 more/);
   assert.match(game.render({ item: await byModule('cron_jobs_audit') }, ctx), /<mark class="door-hidden">\.local<\/mark>/);
-  const partial = C.makeItem({ module: 'launch_agent_audit', data: { label: 'x', program: '/p', incomplete: true } });
+  const partial = C.makeItem({ module: 'launch_agent_audit', data: { label: 'x', program: '/p' } }, { unfinished: true });
   assert.match(game.render({ item: partial }, ctx), /This check didn’t finish/);
   assert.strictEqual(game.research(partial, ctx).unfinished, true);
+  assert.doesNotMatch(game.render({ item: C.makeItem({ module: 'launch_agent_audit', data: { label: 'x', program: '/p' } }) }, ctx), /didn’t finish/);
   const p = game.practice;
   const step = p.script.find((s) => s.point === 'runs');
   const html = game.render({ item: p.items[step.item], practice: true, step }, ctx);

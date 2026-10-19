@@ -1,0 +1,62 @@
+/* The Door: the knock card (missions/games/door.js). Game CSS variables only. */
+.door-card {
+  position: relative; max-width: 640px; padding: 18px 20px 16px; border: 1px solid var(--line, rgba(0,229,255,0.15));
+  border-left: 3px solid var(--cyan, #00E5FF); background: var(--panel, rgba(26,31,43,0.55));
+  color: var(--offwhite, #EDEFF3); font-family: var(--font-body, system-ui, sans-serif);
+}
+.door-card.door-sev-critical { border-left-color: var(--magenta, #FF2D9B); }
+.door-card.door-sev-warning { border-left-color: var(--amber, #FF9F00); }
+
+.door-knock { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 12px; margin-bottom: 12px; }
+.door-eyebrow, .door-count {
+  font-family: var(--font-display, sans-serif); font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: rgba(0,229,255,0.75);
+}
+.door-count { color: var(--dim, rgba(237,239,243,0.55)); }
+.door-name {
+  grid-column: 1 / -1; margin: 0; font-family: var(--font-mono, monospace); font-size: 17px; font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.door-setup, .door-unfinished, .door-say { margin: 0 0 12px; padding: 8px 12px; font-size: 14px; }
+.door-setup { border: 1px dashed var(--faint, rgba(237,239,243,0.32)); color: var(--dim, rgba(237,239,243,0.55)); }
+.door-unfinished { border: 1px solid rgba(255,159,0,0.45); color: var(--amber, #FF9F00); }
+
+.door-facts { margin: 0; display: grid; gap: 10px; }
+.door-fact { display: grid; grid-template-columns: 116px 1fr; gap: 10px; align-items: start; padding: 4px 6px; border-radius: 2px; }
+.door-fact dt {
+  padding-top: 3px; font-family: var(--font-display, sans-serif); font-size: 10px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75);
+}
+.door-fact dd { margin: 0; min-width: 0; }
+.door-path { font-family: var(--font-mono, monospace); font-size: 13px; overflow-wrap: anywhere; word-break: break-word; }
+.door-hidden {
+  background: rgba(255,45,155,0.18); color: var(--magenta, #FF2D9B); padding: 0 2px;
+  border-bottom: 1px solid var(--magenta, #FF2D9B); font-weight: 700;
+}
+.door-place { margin: 4px 0 0; font-size: 13px; color: var(--dim, rgba(237,239,243,0.55)); }
+.door-list { margin: 0; padding-left: 18px; }
+.door-list li { margin: 0 0 2px; }
+.door-more { margin: 2px 0 0; font-size: 13px; color: var(--dim, rgba(237,239,243,0.55)); }
+.door-none { color: var(--dim, rgba(237,239,243,0.55)); }
+
+.door-maker { font-weight: 600; }
+.door-chip {
+  display: inline-block; margin-left: 4px; padding: 1px 8px; border-radius: 10px; font-size: 11px;
+  font-family: var(--font-display, sans-serif); letter-spacing: 1px; text-transform: uppercase; vertical-align: 1px;
+}
+.door-verified { color: var(--lime, #C6FF00); border: 1px solid rgba(198,255,0,0.45); }
+.door-unverified { color: var(--amber, #FF9F00); border: 1px solid rgba(255,159,0,0.45); }
+.door-how { font-size: 12px; color: var(--dim, rgba(237,239,243,0.55)); }
+
+/* Practice: the part the step points at. */
+.door-point { outline: 1px solid var(--cyan, #00E5FF); background: rgba(0,229,255,0.07); }
+.door-say { margin-top: 12px; border-left: 2px solid var(--cyan, #00E5FF); background: rgba(0,229,255,0.06); }
+
+.door-summary p { margin: 0 0 8px; }
+.door-summary-note { font-size: 13px; color: var(--dim, rgba(237,239,243,0.55)); }
+
+@media (max-width: 520px) {
+  .door-card { padding: 14px 14px 12px; }
+  .door-fact { grid-template-columns: 1fr; gap: 2px; }
+}
