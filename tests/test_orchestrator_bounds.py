@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from rescue.models import (
     SystemProfile, Platform, CheckResult, Finding, Severity, RiskLevel,
 )
@@ -222,3 +224,137 @@ def test_commands_of_checks_that_finish_are_untouched():
             p.stop()
     by_name = {mod.name: check for mod, check in results}
     assert by_name["quick_cmd"].findings[0].title == "hi"
+
+
+def _worker(guard, fn):
+    """A thread the guard treats as a check's worker, like the orchestrator's."""
+    thread = threading.Thread(target=fn, daemon=True)
+    guard.register_worker(thread)
+    thread.start()
+    return thread
+
+
+def _alive(pid):
+    import os
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    # A zombie still answers kill(0); treat it as gone if ps says so.
+    out = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True)
+    return bool(out.stdout.strip()) and not out.stdout.strip().startswith("Z")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="process groups are POSIX")
+def test_stopping_a_check_kills_the_programs_its_command_started(tmp_path):
+    """Review minor 5: killing only the direct child left grandchildren running."""
+    from rescue.orchestrator import _AbandonGuard
+
+    guard = _AbandonGuard()
+    guard.ensure_installed()
+    pid_file = tmp_path / "grandchild.pid"
+    # The child starts a grandchild that sleeps, writes its pid, then waits on it.
+    script = (
+        "import subprocess, sys, time\n"
+        "g = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+        f"open({str(pid_file)!r}, 'w').write(str(g.pid))\n"
+        "g.wait()\n"
+    )
+    done = threading.Event()
+
+    def check():
+        subprocess.run([sys.executable, "-c", script], capture_output=True)
+        done.set()
+
+    worker = _worker(guard, check)
+    deadline = time.monotonic() + 10
+    while not pid_file.exists() or not pid_file.read_text():
+        assert time.monotonic() < deadline
+        time.sleep(0.05)
+    grandchild = int(pid_file.read_text())
+    assert _alive(grandchild)
+
+    guard.abandon(worker)
+    assert done.wait(5)
+    deadline = time.monotonic() + 5
+    while _alive(grandchild) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not _alive(grandchild)
+
+
+def test_stopping_one_check_leaves_a_concurrent_checks_command_alone():
+    """Review minor 11: two checks running commands at the same time; only the
+    stopped one's command is killed."""
+    from rescue.orchestrator import _AbandonGuard
+
+    guard = _AbandonGuard()
+    guard.ensure_installed()
+    outcome = {}
+    started = threading.Barrier(3)
+
+    def survivor():
+        started.wait()
+        out = subprocess.run(
+            [sys.executable, "-c", "import time; time.sleep(1.5); print('finished')"],
+            capture_output=True, text=True,
+        )
+        outcome["survivor"] = (out.returncode, out.stdout.strip())
+
+    def stopped():
+        started.wait()
+        t = time.monotonic()
+        out = subprocess.run(_SLEEPER, capture_output=True)
+        outcome["stopped"] = (out.returncode, time.monotonic() - t)
+
+    a = _worker(guard, survivor)
+    b = _worker(guard, stopped)
+    started.wait()
+    time.sleep(0.5)  # both commands are running now
+    guard.abandon(b)
+    a.join(10)
+    b.join(10)
+
+    assert outcome["survivor"] == (0, "finished")
+    code, seconds = outcome["stopped"]
+    assert code != 0 and seconds < 5
+
+
+def test_a_command_started_as_its_check_is_stopped_is_reaped(monkeypatch):
+    """Review minor 6: the child killed in the start path is waited on."""
+    from rescue import orchestrator
+
+    guard = orchestrator._AbandonGuard()
+    guard.ensure_installed()
+    waited = []
+    popen_cls = subprocess.Popen
+    real_wait = popen_cls.wait
+
+    def spy_wait(self, timeout=None):
+        waited.append(timeout)
+        return real_wait(self, timeout)
+
+    monkeypatch.setattr(popen_cls, "wait", spy_wait)
+    calls = {"n": 0}
+    real_admit = guard._admit
+
+    def admit_then_abandon(proc):
+        calls["n"] += 1
+        if proc is not None:  # abandoned between the two admission checks
+            guard.abandon(threading.current_thread())
+        return real_admit(proc)
+
+    monkeypatch.setattr(guard, "_admit", admit_then_abandon)
+    errors = []
+
+    def check():
+        try:
+            subprocess.Popen(_SLEEPER)
+        except OSError as exc:
+            errors.append(exc)
+
+    _worker(guard, check).join(5)
+    assert errors and "ran out of time" in str(errors[0])
+    assert 1 in waited

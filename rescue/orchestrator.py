@@ -1,6 +1,9 @@
 from pathlib import Path
+import atexit
 import errno
 import logging
+import os
+import signal
 import subprocess
 import threading
 import time
@@ -85,23 +88,47 @@ class _AbandonGuard:
     wrapper only records the process and passes through. Threads are tracked
     by object, not ident (idents are reused), and only the worker thread
     itself; threads a check starts on its own are not.
+
+    On macOS and Linux a command started from a check's worker thread gets
+    its own session (unless the caller set one up), so stopping it kills the
+    programs it started too, not just the direct child. That also means it
+    has no terminal to ask for a password on: it fails instead of waiting.
+    Because those groups no longer get the terminal's Ctrl-C, any still
+    running are killed when the process exits.
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._abandoned: weakref.WeakSet = weakref.WeakSet()
+        self._workers: weakref.WeakSet = weakref.WeakSet()
         self._live: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+        self._atexit_registered = False
+
+    def register_worker(self, thread: threading.Thread) -> None:
+        with self._lock:
+            self._workers.add(thread)
 
     def abandon(self, thread: threading.Thread) -> None:
         with self._lock:
             self._abandoned.add(thread)
             procs = list(self._live.pop(thread, ()))
         for proc in procs:
-            try:
-                if proc.poll() is None:
-                    proc.kill()
-            except (OSError, ValueError):
-                pass
+            _stop(proc)
+
+    def _stop_all(self) -> None:
+        with self._lock:
+            procs = [p for group in self._live.values() for p in group]
+        for proc in procs:
+            _stop(proc)
+
+    def _own_session(self, kwargs: dict) -> bool:
+        """Give a check's command its own session, if nothing else asked."""
+        if os.name != "posix" or threading.current_thread() not in self._workers:
+            return False
+        if any(k in kwargs for k in ("start_new_session", "process_group", "preexec_fn")):
+            return False
+        kwargs["start_new_session"] = True
+        return True
 
     def _admit(self, proc) -> None:
         thread = threading.current_thread()
@@ -117,24 +144,49 @@ class _AbandonGuard:
         if getattr(current, "_rescue_abandon_guard", None) is self:
             return
         guard = self
+        if not self._atexit_registered:
+            atexit.register(self._stop_all)
+            self._atexit_registered = True
 
         class GuardedPopen(current):  # type: ignore[misc, valid-type]
             _rescue_abandon_guard = guard
+            _rescue_own_group = False
 
             def __init__(self, *args, **kwargs):
                 guard._admit(None)
+                own_group = guard._own_session(kwargs)
                 super().__init__(*args, **kwargs)
+                self._rescue_own_group = own_group
                 try:
                     guard._admit(self)
                 except OSError:
-                    # Abandoned while it was starting: stop it straight away.
+                    # Abandoned while it was starting: stop it straight away
+                    # and reap it, so it doesn't linger as a zombie.
+                    _stop(self)
                     try:
-                        self.kill()
-                    except OSError:
+                        self.wait(timeout=1)
+                    except (subprocess.TimeoutExpired, OSError):
                         pass
                     raise
 
         subprocess.Popen = GuardedPopen
+
+
+def _stop(proc) -> None:
+    """Kill a still-running command, with everything it started if it leads
+    its own process group."""
+    try:
+        if proc.poll() is not None:
+            return
+        if getattr(proc, "_rescue_own_group", False):
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+                return
+            except (OSError, AttributeError):
+                pass
+        proc.kill()
+    except (OSError, ValueError):
+        pass
 
 
 _GUARD = _AbandonGuard()
@@ -144,6 +196,7 @@ def _call_with_timeout(
     fn: Callable[[], _T],
     timeout: float,
     on_abandon: Callable[[threading.Thread], None] | None = None,
+    on_start: Callable[[threading.Thread], None] | None = None,
 ) -> _T:
     """Run ``fn`` on a daemon thread, abandoning it if it exceeds ``timeout``.
 
@@ -162,6 +215,8 @@ def _call_with_timeout(
             box["error"] = exc
 
     worker = threading.Thread(target=target, daemon=True)
+    if on_start is not None:
+        on_start(worker)
     worker.start()
     worker.join(timeout)
     if worker.is_alive():
@@ -240,6 +295,7 @@ class Orchestrator:
                     lambda m=mod: m.check(profile),
                     self._module_timeout,
                     on_abandon=_GUARD.abandon,
+                    on_start=_GUARD.register_worker,
                 )
             except _Timeout as exc:
                 logger.warning("Module check timed out: %s", mod.name)
