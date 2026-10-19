@@ -997,7 +997,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'district' && district(s.districtId)) {
       return renderDistrict({ district: district(s.districtId), progress: s.progress, scout, message: s.districtMsg || '', busy: s.busy,
-        scanRunning: sweeping(), detail: rowDetail, allOpen: !!s.districtOpen, waitingTitle: coverMode() ? WAITING_TITLE.cover : WAITING_TITLE.plain });
+        scanRunning: sweeping(), detail: rowDetail, allOpen: !!s.districtOpen, waitingTitle: coverMode() ? WAITING_TITLE.cover : WAITING_TITLE.plain,
+        cover: coverMode() });
     }
     // During an Undo re-check the mission was reclaimed, so it isn't in the
     // city: show the checking briefing from the mission we last showed.

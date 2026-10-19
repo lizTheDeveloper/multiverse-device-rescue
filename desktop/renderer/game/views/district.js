@@ -8,6 +8,10 @@ import { reclaimedIn } from '../progress.js';
 // named on the city (held.js): just "A check".
 // `checkName`: the check's own name for people (the scan's check_name), as
 // the list says it; the id's words only when there is none.
+// What a monitoring check that couldn't run says in city mode (signals.js's
+// COULDN'T CHECK row says the same).
+export const MONITORING_FOG_REASON = 'This check couldn’t run.';
+
 export function checkWords(module, checkName = null) {
   if (HELD_MODULES.has(module)) return 'A check';
   const words = String(checkName || module || '').replace(/_/g, ' ').trim();
@@ -33,7 +37,7 @@ export const DISTRICT_SHOWN = 10;
 // `allOpen`: the person asked for every row. `waitingTitle`: what a check
 // waiting for a go-ahead is called here (signals.js WAITING_TITLE).
 export function renderDistrict({ district: d, progress, scout, message = '', busy = false, scanRunning = false, detail = () => '',
-  allOpen = false, waitingTitle = 'A long sweep is waiting for your go-ahead' }) {
+  allOpen = false, waitingTitle = 'A long sweep is waiting for your go-ahead', cover = false }) {
   const status = (id) => (progress.missions[id] && progress.missions[id].status) || 'open';
   // Two missions with one title and nothing to tell them apart are numbered.
   const titles = new Map();
@@ -80,7 +84,11 @@ export function renderDistrict({ district: d, progress, scout, message = '', bus
     + (earlier ? row(`${earlier} more reclaimed earlier`) : '');
   const rows = missions + reclaimed;
   const notes = d.notes.map((n) => `<li>${esc(n.title)}</li>`).join('');
-  const fog = d.fog.filter((x) => !x.notStarted).map((x) => `<li><strong>${esc(checkWords(x.module, x.checkName))}</strong>: ${esc(x.reason)}</li>`).join('');
+  // City mode (`cover`): a monitoring check's own error text ("Stalkerware
+  // indicator data could not be loaded") would say what it looks for, so its
+  // reason is the queue's neutral words (signals.js).
+  const fogReason = (x) => (cover && HELD_MODULES.has(x.module) ? MONITORING_FOG_REASON : x.reason);
+  const fog = d.fog.filter((x) => !x.notStarted).map((x) => `<li><strong>${esc(checkWords(x.module, x.checkName))}</strong>: ${esc(fogReason(x))}</li>`).join('');
   // Waiting for the person's go-ahead (the long phone-backup sweep): offered, never "couldn't check".
   const waiting = d.fog.filter((x) => x.notStarted).map((x) => `<li><button type="button" class="btn-t" data-go="signal:${esc(waitingId(d.id, x.module))}">${esc(waitingTitle)} ▶</button></li>`).join('');
   // Ran, but stopped before the end (the engine's "complete": false).

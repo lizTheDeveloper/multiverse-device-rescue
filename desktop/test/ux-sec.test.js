@@ -233,3 +233,26 @@ test('M1: a filled path that holds a check id stays the path', async () => {
   assert.doesNotMatch(html, /check\.plist|checkup\.plist/);
   assert.doesNotMatch(html.split('step-body')[0], /login_items/, 'the step’s own words still get the check’s name');
 });
+
+// ---- M3: the city's fog line for a monitoring check names nothing ------------
+
+test('M3: city mode: a monitoring check’s fog reason is neutral; Plain keeps the engine’s words', async () => {
+  const { findingsToCity } = await game('findings-to-city.js');
+  const { splitHeld } = await game('held.js');
+  const { renderDistrict, MONITORING_FOG_REASON } = await game('views/district.js');
+  const RAW = 'Stalkerware indicator data could not be loaded.';
+  const doc = { schema_version: 1, platform: 'darwin', modules: [
+    mod('stalkerware_scan', [{ title: 'mSpy is on this computer (app)', severity: 'critical', category: 'security',
+      code: 'security.stalkerware_scan.monitoring_software_found', data: { stalkerware_name: 'mSpy' } }], { status: 'error', error: RAW }),
+    mod('firewall_check', [], { supported: false, unsupported_reason: 'Needs an admin.' }),
+  ] };
+  const city = findingsToCity(splitHeld(doc).doc);
+  const gate = city.districts.find((d) => d.id === 'gatehouse');
+  assert.ok(gate.fog.some((x) => x.module === 'stalkerware_scan'), 'the check is fog');
+  const draw = (cover) => renderDistrict({ district: gate, progress: { missions: {} }, scout: () => '', cover });
+  const inCity = draw(true);
+  assert.doesNotMatch(inCity, /Stalkerware|stalkerware|indicator/i);
+  assert.match(inCity, new RegExp(`<strong>A check</strong>: ${MONITORING_FOG_REASON}`));
+  assert.match(inCity, /Needs an admin\./, 'other checks keep their reason');
+  assert.match(draw(false), /Stalkerware indicator data could not be loaded\./);
+});
