@@ -12,7 +12,16 @@ import { renderMissionList } from './views/district.js';
 import { roundOf, markRound, recordRound, keepAnswer, recallAnswer, decisionHash, conceptState } from './profile/player-profile.js';
 import { conceptById } from './profile/skills.js';
 import { award, confirmItem, missionKey } from './ledger.js';
-import { isAlertingItem } from '../missions/contract.js';
+import { isMonitoringModule } from '../missions/contract.js';
+
+// Points and remembering (the controller's ruling after the security round):
+// only an item from a monitoring check (any of its findings) pays nothing and
+// is remembered for this session only. Other warned items (a remote-access
+// tool, an unknown background task, removal_alert) still warn, and pay and are
+// remembered like any other. contract.js isMonitoringFinding also counts
+// removal_alert and safety notes, so it is the warning rule, not this one.
+export const isMonitoringItem = (item) => !!item && typeof item === 'object'
+  && [item.finding, ...(Array.isArray(item.findings) ? item.findings : [])].some((f) => f && isMonitoringModule(f.module));
 import { esc } from './escape.js';
 
 const visible = (s) => String(s == null ? '' : s).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
@@ -77,8 +86,8 @@ export function createMissionDesk(deps) {
     const out = {};
     for (const item of m.items) {
       if (d.answered.has(item.key)) { out[item.key] = d.answered.get(item.key); continue; }
-      // A monitoring item's answer is the session's only (contract.js isAlertingItem).
-      if (isAlertingItem(item)) continue;
+      // A monitoring item's answer is the session's only.
+      if (isMonitoringItem(item)) continue;
       const h = recallAnswer(p, item.key, Run.fingerprint(item));
       if (!h) continue;
       let id = 'kept';
@@ -131,10 +140,10 @@ export function createMissionDesk(deps) {
     for (const r of fresh) {
       if (!r.effect || r.effect.kind === 'later') continue;
       d.answered.set(r.key, r.decision);
-      const watched = isAlertingItem(r.item);
+      const watched = isMonitoringItem(r.item);
       if (Run.remembers(r) && !watched) deps.keepProfile(keepAnswer(deps.getProfile(), r.key, Run.fingerprint(r.item), r.decision, deps.now()));
       // Notes pay per batch; every other decided item pays once, ever. A
-      // monitoring (or warned) item pays nothing, whatever was decided.
+      // monitoring item pays nothing, whatever was decided.
       if (m && !m.notes && !watched) {
         const pts = deps.commitAward(award(deps.deck(), 'decide', missionKey(r.item.finding.module, r.key)));
         if (pts) d.run = Run.addPoints(d.run, r.key, pts);
@@ -149,8 +158,8 @@ export function createMissionDesk(deps) {
     d.paidSummary.add(m.id + d.run.results.map((r) => r.key).join('|'));
     const allDecided = m.items.every((i) => d.run.results.some((r) => r.key === i.key && r.decision !== 'later'));
     if (!allDecided) return;
-    // A mission with a monitoring (or warned) item in it pays no bonus.
-    if (m.items.some(isAlertingItem)) return regroupOdd();
+    // A mission with a monitoring item in it pays no bonus.
+    if (m.items.some(isMonitoringItem)) return regroupOdd();
     const lead = m.items[0].finding.module;
     const keys = m.items.map((i) => i.key).sort();
     if (m.notes) {
@@ -251,7 +260,7 @@ export function createMissionDesk(deps) {
       if (why === 'mark') d.run = Run.settle(d.run, 'done', item); else d.run = Run.settle(d.run, 'cancelled', item);
     } else if (!still) {
       if (why !== 'mark') {
-        const watched = isAlertingItem(item);
+        const watched = isMonitoringItem(item);
         const pts = watched ? 0 : deps.commitAward(confirmItem(deps.deck(), missionKey(item.finding.module, item.key), deps.now()));
         if (!watched) deps.logEntry('CONFIRMED', item.finding.title || '');
         d.notice = mode() === 'city' ? `Confirmed: the sweep doesn’t see it any more.${pts ? ` +${pts}` : ''}` : `Checked again: it’s gone.${pts ? ` +${pts} points` : ''}`;

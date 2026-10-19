@@ -113,9 +113,9 @@ test('a fix decision opens FixFlow’s own confirm with the warning; a re-check 
   await tick(); await tick();
   assert.deepStrictEqual(t.calls.recheck, ['sudo_config_audit']);
   const p = savedProfile(t.storage);
-  // A warned item (contract.js isAlertingItem) pays nothing, as a monitoring check's never did.
-  assert.strictEqual(p.rank.points - before, 0, 'a warned item pays no points');
-  assert.match(t.html(), /Checked again: it’s gone\.</);
+  // Warned (removal_alert) but not from a monitoring check: CONFIRMED pays as usual.
+  assert.strictEqual(p.rank.points - before, 75 + 5, 'a warned, non-monitoring item pays CONFIRMED (and its decision)');
+  assert.match(t.html(), /Checked again: it’s gone\. \+75 points</);
   assert.match(t.html(), /ITEM \d OF \d/);
 });
 
@@ -198,24 +198,19 @@ test('remembered answers survive a new scan with the same evidence, and drop whe
   assert.match(a.html(), /ITEM 1 OF 4/);
   a.click({ 'data-act': 'mx-confirm' });
   assert.match(a.html(), /ITEM 2 OF 4/);
-  assert.strictEqual(savedProfile(s2).rank.points, 0, 'the warned sudo rule pays nothing');
+  assert.strictEqual(savedProfile(s2).rank.points, 5, 'the warned sudo rule (not a monitoring check) pays like any item');
   a.click({ 'data-act': 'mx-decide:ok' });
   assert.match(a.html(), /ITEM 3 OF 4/);
-  assert.strictEqual(savedProfile(s2).rank.points, 5, 'a decided item pays');
-  // Same evidence on the next app start: the warned item is asked again (its answer was this
-  // session's only); the other one is remembered and skipped.
+  assert.strictEqual(savedProfile(s2).rank.points, 10, 'a decided item pays');
+  // Same evidence on the next app start: both answers are remembered (only a
+  // monitoring check's answer is the session's only), so it opens on item 3.
   const b = await setup(doc(), { storage: s2, games: keepGame });
   b.click({ 'data-go': 'mx:simple:gatehouse:1' });
-  assert.match(b.html(), /ITEM 1 OF 4/, 'a warned item is never remembered across scans');
-  b.click({ 'data-act': 'mx-decide:ok' });
-  b.click({ 'data-act': 'mx-confirm' });
-  assert.match(b.html(), /ITEM 3 OF 4/, 'the remembered item is skipped');
+  assert.match(b.html(), /ITEM 3 OF 4/, 'the remembered items are skipped, the warned one too');
   // Its evidence changed: asked again.
   const c = await setup(doc({ part: 'piece' }), { storage: s2, games: keepGame });
   c.click({ 'data-go': 'mx:simple:gatehouse:1' });
-  c.click({ 'data-act': 'mx-decide:ok' });
-  c.click({ 'data-act': 'mx-confirm' });
-  assert.match(c.html(), /ITEM 2 OF 4/);
+  assert.match(c.html(), /ITEM 2 OF 4/, 'the sudo rule is still remembered; the changed part is asked again');
   assert.ok(t);
 });
 
