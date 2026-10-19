@@ -619,6 +619,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // Missions now merge exactly as the list counts items (NotChecked.itemKey), so no "repeats" note.
       repeats: 0,
       sweepNow: s.counts, stopped: s.stopped,
+      // The list's good-to-know number, once NotChecked.scanCounts gives it.
+      // TODO(C5 integration): the shared count's field name for the notes
+      // (assumed `notes`); until then the rows' own count.
+      lowCount: s.counts && Number.isInteger(s.counts.notes) ? s.counts.notes : null,
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
