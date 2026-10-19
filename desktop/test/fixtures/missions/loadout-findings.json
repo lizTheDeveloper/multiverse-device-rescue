@@ -1,0 +1,148 @@
+{
+  "_note": "Synthetic findings for The Loadout. Made-up names and ids; home folders are /Users/example and C:\\Users\\example. The Bitwarden id is its public Chrome Web Store id.",
+  "darwin": [
+    {
+      "module": "chrome_extensions", "severity": "warning", "category": "security", "removal_alert": true,
+      "code": "security.chrome_extensions.broad_permissions",
+      "title": "Extension with broad permissions: Tab Tidy Example",
+      "description": "The extension 'Tab Tidy Example' asks for wide access to your browsing data.",
+      "data": { "check": "broad_permissions", "extension": "Tab Tidy Example", "extension_id": "abcdefghijklmnopabcdefghijklmnop", "permissions": ["<all_urls>", "tabs", "scripting"] }
+    },
+    {
+      "module": "chrome_extensions", "severity": "warning", "category": "security", "removal_alert": true,
+      "code": "security.chrome_extensions.broad_permissions",
+      "title": "Extension with broad permissions: Bitwarden",
+      "description": "The extension 'Bitwarden' asks for wide access to your browsing data.",
+      "data": { "check": "broad_permissions", "extension": "Bitwarden", "extension_id": "nngceckbapebfimnlniiiahkandclblb", "permissions": ["<all_urls>", "tabs", "webRequest"] }
+    },
+    {
+      "module": "browser_extension_audit", "severity": "warning", "category": "security", "removal_alert": true,
+      "code": "security.browser_extension_audit.excessive_permissions",
+      "title": "Extension with broad access: Price Pal Example",
+      "description": "The extension 'Price Pal Example' in Chrome has permissions for: <all_urls>, cookies, tabs, webRequest.",
+      "data": { "check": "excessive_permissions", "browser": "Chrome", "extension": "Price Pal Example", "extension_id": "ppppoooonnnnmmmmllllkkkkjjjjiiii", "permissions": ["<all_urls>", "cookies", "tabs", "webRequest"] },
+      "markable": { "kind": "browser_extension", "id": "0123456789ab", "code": "security.browser_extension_audit.excessive_permissions", "group": "browser_extension" }
+    },
+    {
+      "module": "browser_extension_audit", "severity": "critical", "category": "security", "removal_alert": true,
+      "code": "security.browser_extension_audit.malicious_extension",
+      "title": "A browser extension is known to be malicious: babylon",
+      "description": "We found an extension named 'babylon' in Firefox.",
+      "data": { "check": "malicious_extension", "browser": "Firefox", "extension": "babylon", "extension_id": "babylon@example.org" }
+    },
+    {
+      "module": "browser_extension_audit", "severity": "warning", "category": "security", "removal_alert": true,
+      "code": "security.browser_extension_audit.adware_extension",
+      "title": "Adware extension found: coupon",
+      "description": "The extension 'coupon' in Safari is known to be adware.",
+      "data": { "check": "adware_extension", "browser": "Safari", "extension": "coupon", "extension_id": "com.example.coupon.extension" }
+    },
+    {
+      "module": "browser_extension_audit", "severity": "warning", "category": "security",
+      "code": "security.browser_extension_audit.extension_bloat",
+      "title": "You have a lot of browser extensions (19)",
+      "description": "You have 19 extensions installed across your browsers.",
+      "data": { "check": "extension_bloat", "count": 19 }
+    },
+    {
+      "module": "safari_extensions", "severity": "warning", "category": "security", "removal_alert": true,
+      "code": "security.safari_extensions.legacy_extensions",
+      "title": "Old-style Safari extensions found: 2",
+      "description": "We found 2 old-style Safari extension(s).",
+      "data": { "check": "legacy_extensions", "extensions": ["Old Helper Example", "Shopping Bar Example"] }
+    },
+    {
+      "module": "safari_extensions", "severity": "warning", "category": "security",
+      "code": "security.safari_extensions.content_blockers_disabled",
+      "title": "Safari content blockers are off",
+      "description": "Safari's built-in content blockers are currently turned off.",
+      "data": { "check": "content_blockers", "enabled": false }
+    },
+    {
+      "module": "browser_hijack_check", "severity": "warning", "category": "security",
+      "code": "security.browser_hijack_check.chrome_homepage_suspicious",
+      "title": "Chrome is opening to a website you may not recognize (http://start.example.net)",
+      "description": "Your Chrome browser is set to open to http://start.example.net when you start it.",
+      "data": { "check": "chrome_homepage_suspicious", "homepage": "http://start.example.net" }
+    },
+    {
+      "module": "browser_hijack_check", "severity": "warning", "category": "security",
+      "code": "security.browser_hijack_check.safari_search_engine_suspicious",
+      "title": "Safari is using a search engine you may not recognize (com.example.search)",
+      "description": "Your Safari browser is set to use com.example.search for your searches.",
+      "data": { "check": "safari_search_engine_suspicious", "engine": "com.example.search" }
+    },
+    {
+      "module": "browser_hijack_check", "severity": "warning", "category": "security",
+      "code": "security.browser_hijack_check.firefox_search_engine_suspicious",
+      "title": "Firefox is using a search engine you may not recognize (Example Find)",
+      "description": "Your Firefox browser is set to use Example Find for your searches.",
+      "data": { "check": "firefox_search_engine_suspicious", "engine": "Example Find" }
+    },
+    {
+      "module": "browser_hijack_check", "severity": "warning", "category": "security",
+      "code": "security.browser_hijack_check.chrome_managed_by_policy",
+      "title": "Chrome is controlled by an organization policy",
+      "description": "Your Chrome browser is managed by 'enterprise policy' settings.",
+      "data": { "check": "chrome_managed_by_policy" }
+    },
+    {
+      "module": "browser_cryptojacking_check", "severity": "critical", "category": "security", "code": null,
+      "title": "A browser extension is secretly mining cryptocurrency: Speedy Tabs Example",
+      "description": "The extension 'Speedy Tabs Example' in Brave-Browser contains code that mines cryptocurrency.",
+      "data": { "check": "mining_extension", "browser": "Brave-Browser", "extension_name": "Speedy Tabs Example", "extension_id": "hhhhggggffffeeeeddddccccbbbbaaaa", "path": "/Users/example/Library/Application Support/BraveSoftware/Brave-Browser/Default/Extensions/hhhhggggffffeeeeddddccccbbbbaaaa/1.0_0", "indicator": "mining_service_endpoint", "evidence": "pool.example-mine.test", "confidence": "high" }
+    },
+    {
+      "module": "browser_cryptojacking_check", "severity": "critical", "category": "security", "code": null,
+      "title": "Your browser opens a mining page automatically: https://mine.example.test/start",
+      "description": "Your Chrome profile 'Default' opens https://mine.example.test/start every time it starts.",
+      "data": { "check": "mining_startup_page", "browser": "Chrome", "profile": "Default", "url": "https://mine.example.test/start", "indicator": "mining_service_endpoint", "evidence": "mine.example.test", "confidence": "high" }
+    },
+    {
+      "module": "browser_cryptojacking_check", "severity": "critical", "category": "security", "code": null,
+      "title": "Your hosts file sends pool.example-mine.test to a mining server",
+      "description": "Your hosts file points pool.example-mine.test at 192.0.2.10.",
+      "data": { "check": "mining_hosts_entry", "hostname": "pool.example-mine.test", "address": "192.0.2.10", "path": "/etc/hosts", "confidence": "high" }
+    },
+    {
+      "module": "security_baseline_diff", "severity": "warning", "category": "security", "removal_alert": true,
+      "code": "security.security_baseline_diff.new_browser_extension",
+      "title": "2 new browser extension(s) since 2026-10-01T09:00:00",
+      "description": "These were not present at the baseline taken 2026-10-01T09:00:00.",
+      "data": { "check": "new_browser_extension", "added": ["Extensions/aaaabbbbccccddddeeeeffffgggghhhh", "Extensions/iiiijjjjkkkkllllmmmmnnnnoooopppp"], "baseline_captured_at": "2026-10-01T09:00:00" }
+    }
+  ],
+  "win32": [
+    {
+      "module": "browser_cryptojacking_check", "severity": "critical", "category": "security", "code": null,
+      "title": "A browser extension is secretly mining cryptocurrency: Coin Helper Example",
+      "description": "The extension 'Coin Helper Example' in User Data contains code that mines cryptocurrency.",
+      "data": { "check": "mining_extension", "browser": "User Data", "extension_name": "Coin Helper Example", "extension_id": "bbbbccccddddeeeeffffgggghhhhiiii", "path": "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\bbbbccccddddeeeeffffgggghhhhiiii\\2.1_0", "indicator": "mining_library_call", "evidence": "CoinHive.Anonymous", "confidence": "medium" }
+    },
+    {
+      "module": "browser_cryptojacking_check", "severity": "warning", "category": "security", "code": null,
+      "title": "A browser extension is secretly mining cryptocurrency: Weather Now Example",
+      "description": "The extension 'Weather Now Example' in User Data contains code that mines cryptocurrency.",
+      "data": { "check": "mining_extension", "browser": "User Data", "extension_name": "Weather Now Example", "extension_id": "ccccddddeeeeffffgggghhhhiiiijjjj", "path": "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 1\\Extensions\\ccccddddeeeeffffgggghhhhiiiijjjj\\3.0_0", "indicator": "known_mining_extension", "evidence": "Weather Now Example", "confidence": "medium" }
+    },
+    {
+      "module": "browser_cryptojacking_check", "severity": "critical", "category": "security", "code": null,
+      "title": "Your browser opens a mining page automatically: https://mine.example.test/edge",
+      "description": "Your User Data profile 'Default' opens https://mine.example.test/edge every time it starts.",
+      "data": { "check": "mining_startup_page", "browser": "User Data", "profile": "Default", "url": "https://mine.example.test/edge", "indicator": "mining_service_endpoint", "evidence": "mine.example.test", "confidence": "high" }
+    },
+    {
+      "module": "browser_cryptojacking_check", "severity": "critical", "category": "security", "code": null,
+      "title": "Your hosts file sends pool.example-mine.test to a mining server",
+      "description": "Your hosts file points pool.example-mine.test at 198.51.100.7.",
+      "data": { "check": "mining_hosts_entry", "hostname": "pool.example-mine.test", "address": "198.51.100.7", "path": "C:\\Windows\\System32\\drivers\\etc\\hosts", "confidence": "high" }
+    },
+    {
+      "module": "security_baseline_diff", "severity": "warning", "category": "security", "removal_alert": true,
+      "code": "security.security_baseline_diff.new_browser_extension",
+      "title": "1 new browser extension(s) since 2026-10-02T10:00:00",
+      "description": "These were not present at the baseline taken 2026-10-02T10:00:00.",
+      "data": { "check": "new_browser_extension", "added": ["Extensions/ddddeeeeffffgggghhhhiiiijjjjkkkk"], "baseline_captured_at": "2026-10-02T10:00:00" }
+    }
+  ]
+}
