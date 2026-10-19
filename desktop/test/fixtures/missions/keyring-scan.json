@@ -1,0 +1,133 @@
+{
+ "schema_version": 1,
+ "platform": "darwin",
+ "modules": [
+  {
+   "name": "accessibility_permissions", "category": "security", "status": "ok", "error": null,
+   "supported": true, "complete": true,
+   "findings": [
+    {
+     "title": "Apps you may not recognize can control your Mac (2)",
+     "description": "These apps have permission to control your Mac: com.example.puzzle, com.example.helper.",
+     "severity": "warning", "category": "security",
+     "code": "security.accessibility_permissions.suspicious_accessibility",
+     "data": { "check": "suspicious_accessibility", "apps": ["com.example.puzzle", "com.example.helper"] },
+     "made_by": [
+      { "subject": "com.example.puzzle", "name": "Example Games Ltd", "verified": false,
+        "how": "matched by app id only; the program that holds this access wasn't checked" }
+     ],
+     "makers_verified": false,
+     "markable": { "id": "k-apps", "kind": "app_permissions" },
+     "same_key": "permissions:accessibility",
+     "removal_alert": true
+    }
+   ]
+  },
+  {
+   "name": "app_permissions", "category": "security", "status": "ok", "error": null,
+   "supported": true, "complete": true,
+   "findings": [
+    {
+     "title": "12 app(s) can control your Mac",
+     "description": "These apps are allowed to control your Mac.",
+     "severity": "warning", "category": "security",
+     "code": "security.app_permissions.accessibility_access",
+     "data": { "check": "accessibility_access", "apps": [] },
+     "same_key": "permissions:accessibility",
+     "removal_alert": true
+    }
+   ]
+  },
+  {
+   "name": "privacy_permissions_audit", "category": "security", "status": "ok", "error": null,
+   "supported": true, "complete": true,
+   "findings": [
+    {
+     "title": "Apps with both camera and microphone access: 1",
+     "description": "1 app(s) can use both your camera and microphone.",
+     "severity": "warning", "category": "security",
+     "code": "security.privacy_permissions_audit.camera_microphone_combo",
+     "data": { "check": "camera_microphone_combo", "apps": ["/Applications/Example Meet.app"] },
+     "made_by": [
+      { "subject": "/Applications/Example Meet.app", "name": "Example Meetings Inc", "verified": true,
+        "how": "Developer ID signature", "what": "Example Meet: a video-call app." }
+     ],
+     "makers_verified": true,
+     "removal_alert": true
+    },
+    {
+     "title": "Apps with both screen recording and accessibility access: 1",
+     "description": "1 app(s) can both see your screen and control your Mac.",
+     "severity": "warning", "category": "security",
+     "code": "security.privacy_permissions_audit.screen_accessibility_combo",
+     "data": { "check": "screen_accessibility_combo", "apps": ["/Applications/Example Capture.app"] },
+     "made_by": [
+      { "subject": "/Applications/Example Capture.app", "name": "Example Studio Ltd", "verified": true,
+        "how": "Developer ID signature", "what": "Example Capture: a screen recorder." }
+     ],
+     "makers_verified": true,
+     "removal_alert": true
+    },
+    {
+     "title": "Screen Recording access: 1 app(s)",
+     "description": "1 app(s) have been granted Screen Recording access: /Applications/Example Capture.app.",
+     "severity": "info", "category": "security",
+     "code": "security.privacy_permissions_audit.screen_recording_access",
+     "data": { "check": "screen_recording_access", "service": "kTCCServiceScreenCapture",
+               "display_name": "Screen Recording", "apps": ["/Applications/Example Capture.app"] }
+    }
+   ]
+  },
+  {
+   "name": "keylogger_indicators", "category": "security", "status": "ok", "error": null,
+   "supported": true, "complete": true,
+   "findings": [
+    {
+     "title": "Unrecognized apps have keyboard access: com.example.keys",
+     "description": "1 app(s) have permission to see your keyboard input, but we don't recognize them: com.example.keys.",
+     "severity": "warning", "category": "security",
+     "code": "security.keylogger_indicators.suspicious_input_monitoring",
+     "data": { "check": "suspicious_input_monitoring", "apps": ["com.example.keys"] },
+     "made_by": [
+      { "subject": "com.example.keys", "name": "Example Keys Co", "verified": true, "how": "Developer ID signature",
+        "what": "Example Keys: a keyboard tool." }
+     ]
+    },
+    {
+     "title": "Apps are actively capturing your keystrokes: examplekeysd",
+     "description": "1 running process(es) are currently using a system tool to capture your keyboard and mouse: examplekeysd.",
+     "severity": "warning", "category": "security",
+     "code": "security.keylogger_indicators.cgeventtap_usage",
+     "data": { "check": "cgeventtap_usage", "processes": ["examplekeysd"] }
+    }
+   ]
+  },
+  {
+   "name": "location_services", "category": "security", "status": "ok", "error": null,
+   "supported": true, "complete": false,
+   "findings": [
+    {
+     "title": "Location Services is on for Find My Mac on your desktop",
+     "description": "Your computer is a desktop, but Location Services is turned on specifically for Find My Mac.",
+     "severity": "warning", "category": "security",
+     "code": "security.location_services.location_desktop_find_my_only",
+     "data": { "check": "location_desktop_find_my_only" }
+    }
+   ]
+  },
+  {
+   "name": "screen_time_audit", "category": "security", "status": "ok", "error": null,
+   "supported": true, "complete": true,
+   "findings": [
+    {
+     "title": "Screen Time has no passcode",
+     "description": "Screen Time is on, but anyone using this Mac can change its limits.",
+     "severity": "warning", "category": "security",
+     "code": "security.screen_time_audit.screen_time_no_passcode",
+     "data": { "check": "screen_time_no_passcode" },
+     "removal_alert": true
+    }
+   ]
+  }
+ ]
+}

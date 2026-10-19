@@ -1,0 +1,94 @@
+/* The Keyring (missions/games/keyring.js). Scoped under .kr-; uses the game skin's variables (game/game.css). */
+.kr-card {
+  font-family: var(--font-body, system-ui, sans-serif);
+  color: var(--offwhite, #EDEFF3);
+  background: var(--panel, rgba(26, 31, 43, 0.55));
+  border: 1px solid var(--line, rgba(0, 229, 255, 0.15));
+  border-radius: 10px;
+  padding: 16px;
+  max-width: 720px;
+  box-sizing: border-box;
+}
+.kr-head { margin-bottom: 12px; }
+.kr-kicker {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--dim, rgba(237, 239, 243, 0.55));
+}
+.kr-key-title {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 4px 0 6px;
+  font-family: var(--font-display, 'Arial Black', sans-serif);
+  font-size: 20px; color: var(--amber, #FF9F00);
+}
+.kr-key-icon {
+  width: 22px; height: 22px; flex: none; margin-right: 10px;
+  border: 2px solid var(--amber, #FF9F00); border-radius: 50%;
+  position: relative;
+}
+.kr-key-icon::after {
+  content: ''; position: absolute; left: 18px; top: 8px;
+  width: 12px; height: 3px; background: var(--amber, #FF9F00);
+}
+.kr-does { margin: 0; color: var(--offwhite, #EDEFF3); }
+
+.kr-warn {
+  margin: 10px 0; padding: 10px 12px;
+  border-left: 3px solid var(--magenta, #FF2D9B);
+  background: rgba(255, 45, 155, 0.08);
+}
+.kr-unfinished {
+  margin: 10px 0; padding: 8px 12px;
+  border-left: 3px solid var(--amber, #FF9F00);
+  color: var(--offwhite, #EDEFF3);
+}
+
+.kr-ring { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.kr-app {
+  padding: 10px 12px;
+  border: 1px solid var(--line, rgba(0, 229, 255, 0.15));
+  border-radius: 8px;
+  background: rgba(9, 11, 16, 0.45);
+  min-width: 0;
+}
+.kr-app-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.kr-app-name { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.kr-maker { font-size: 13px; }
+.kr-maker.kr-ok { color: var(--lime, #C6FF00); }
+.kr-maker.kr-unk { color: var(--amber, #FF9F00); }
+.kr-app-id {
+  display: block; margin-top: 4px;
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px;
+  color: var(--dim, rgba(237, 239, 243, 0.55));
+  overflow-wrap: anywhere;
+}
+.kr-app-what { margin: 6px 0 0; font-size: 14px; color: var(--offwhite, #EDEFF3); }
+
+.kr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.kr-chip {
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px;
+  padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--faint, rgba(237, 239, 243, 0.32));
+  color: var(--dim, rgba(237, 239, 243, 0.55));
+}
+.kr-chip-this {
+  border-color: var(--amber, #FF9F00);
+  color: var(--amber, #FF9F00);
+  background: rgba(255, 159, 0, 0.1);
+}
+
+.kr-count, .kr-more { margin: 10px 0 0; color: var(--dim, rgba(237, 239, 243, 0.55)); }
+.kr-step {
+  margin: 14px 0 0; padding: 10px 12px;
+  border: 1px dashed var(--cyan, #00E5FF); border-radius: 8px;
+  color: var(--cyan, #00E5FF);
+}
+.kr-held { margin: 0; color: var(--dim, rgba(237, 239, 243, 0.55)); }
+
+.kr-summary ul { margin: 0 0 8px; padding-left: 18px; }
+.kr-summary p { margin: 0; color: var(--dim, rgba(237, 239, 243, 0.55)); }
+
+@media (max-width: 800px) {
+  .kr-card { padding: 12px; }
+  .kr-key-title { font-size: 18px; }
+}
