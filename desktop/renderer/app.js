@@ -727,6 +727,9 @@ if (typeof document !== 'undefined') {
           // City mode, monitoring software: the hold line and its help. No fix,
           // no "It's mine", no steps, and it doesn't count toward the list's progress.
           const held = card.note === 'held';
+          // City mode never offers a fix or a mark on these checks, even on a
+          // status line that found nothing ("No device backups found").
+          const noControls = held || (mode === 'city' && QuietNotes.isMonitoring(finding));
           // Nor does an AI get its removal steps or evidence: only the card's own text.
           const pick = held ? QuietNotes.heldPick(card, finding) : copyAiPick(finding);
           cardPicks.set(key, pick);
@@ -750,8 +753,8 @@ if (typeof document !== 'undefined') {
               ${descriptionHtml(card.description, escapeHtml)}
               ${madeByHtml(finding.made_by, escapeHtml)}
               <div class="card-answers">
-              ${held ? '' : FixFlow.fixControlsHtml(finding, { watched })}
-              ${held ? '' : MarkFlow.markControlsHtml(finding, { watched })}
+              ${noControls ? '' : FixFlow.fixControlsHtml(finding, { watched })}
+              ${noControls ? '' : MarkFlow.markControlsHtml(finding, { watched })}
               ${marked || held ? '' : ClearList.didControlsHtml(finding, severity, escapeHtml)}
               </div>
               ${QuietNotes.lineHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}

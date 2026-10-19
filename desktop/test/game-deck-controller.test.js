@@ -600,6 +600,10 @@ test('a monitoring finding is never a mission, and logs no CONFIRMED and no MARK
   assert.deepStrictEqual(t.saved().deck.confirmed, {});
   assert.strictEqual(t.saved().deck.points, 0);
   assert.doesNotMatch(JSON.stringify(t.saved()), /stalkerware|Monitoring app|\/m2?\b/);
+  // Neither its going nor its coming back is a moment or a log line.
+  const log = t.html().split('OPS LOG')[1];
+  assert.doesNotMatch(log, /SECURED|CLEAN SWEEP|NO LONGER SEEN|Monitoring app/);
+  assert.doesNotMatch(t.html(), /DISTRICT SECURED|CLEAN SWEEP/);
 });
 
 // Final review 3: an id with a newline and a quote (a path can hold both)
@@ -710,4 +714,31 @@ test('city mode: a held monitoring finding has no signal and no points, and inte
   assert.match(t.html(), /City integrity 0%/);
   t.ctl.show(scan(mod('stalkerware_scan', [])), { id: 'unsure' });
   assert.match(t.html(), /<b>100%<\/b>/, 'once it is gone, the district is secure');
+  // Its going is not a win: no DISTRICT SECURED, no CLEAN SWEEP, no points,
+  // and no log line saying where it was.
+  assert.doesNotMatch(t.html(), /DISTRICT SECURED|CLEAN SWEEP/);
+  assert.doesNotMatch(t.html().split('OPS LOG')[1], /SECURED|CLEAN SWEEP|Monitoring app/);
+  assert.strictEqual(t.saved().deck.points, 0);
+  // Nor the next sweep, clean again.
+  t.ctl.show(scan(mod('stalkerware_scan', [])), { id: 'unsure' });
+  assert.doesNotMatch(t.html(), /DISTRICT SECURED|CLEAN SWEEP/);
+  assert.strictEqual(t.saved().deck.points, 0);
+});
+
+// Task 8 (merge review): a held finding's mission can't be opened, so I DID IT
+// has nothing to re-check, and nothing is confirmed, paid or logged.
+test('city mode: I DID IT on a held finding re-checks nothing and confirms nothing', async () => {
+  const held = scan(mod('stalkerware_scan', [f('Monitoring app', 'critical', { path: '/m' })]));
+  const id = (await ids(held))[0];
+  const t = await deckSetup(null, { recheckDocs: [scan(mod('stalkerware_scan', []))] });
+  t.win.RescueHost.mode = () => 'city';
+  t.ctl.show(held, { id: 'unsure' });
+  t.click({ 'data-go': `mission:${id}` });
+  assert.doesNotMatch(t.html(), /Monitoring app|data-act="i-did-it"/);
+  t.click({ 'data-act': 'i-did-it' });
+  await tick(); await tick();
+  assert.deepStrictEqual(t.calls.recheck, []);
+  assert.deepStrictEqual(t.saved().deck.confirmed, {});
+  assert.strictEqual(t.saved().deck.points, 0);
+  assert.doesNotMatch(t.html().split('OPS LOG')[1], /CONFIRMED|MARKED|SECURED|Monitoring app/);
 });

@@ -46,6 +46,29 @@ const QuietNotes = (function () {
     return !!finding && MONITORING_MODULES.has(finding.module);
   }
 
+  // What these checks say when they found nothing, or couldn't look: MVT's
+  // status lines (no backups, not installed, scan not run, too large, clean)
+  // and keylogger_indicators' plain list of apps with keyboard access. None of
+  // them is monitoring software, so they read like any other finding. Anything
+  // else from these checks with a code is a detection, at any severity (an
+  // info-level product like remote-support software is still on the computer).
+  // With no code, only an info line isn't one. held.js has the same rule; a
+  // test keeps them equal.
+  const NOT_DETECTIONS = new Set([
+    'security.mvt_spyware_scan.mvt_requires_wsl',
+    'security.mvt_spyware_scan.no_backups_found',
+    'security.mvt_spyware_scan.mvt_not_installed',
+    'security.mvt_spyware_scan.mvt_scan_available',
+    'security.mvt_spyware_scan.mvt_backup_too_large',
+    'security.mvt_spyware_scan.mvt_clean_scan',
+    'security.keylogger_indicators.input_monitoring_access',
+  ]);
+  function isDetection(finding) {
+    if (!isMonitoring(finding)) return false;
+    if (finding.code) return !NOT_DETECTIONS.has(finding.code);
+    return finding.severity !== 'info';
+  }
+
   const ITEM = /^\s*(?:[-*]|\d{1,3}\.)\s+/; // "88788." wrapped onto its own line is not item 88788
   const HEADING = /^\s*#{1,6}\s/;
   const ABBREV = /\b(?:e\.g|i\.e|etc|vs|Mr|Mrs|Ms|Dr|St)\.$/i;
@@ -147,7 +170,7 @@ const QuietNotes = (function () {
   // 'line': the one line, full note behind it (standard). 'held': the hold
   // line and nothing to act on (city). 'none': nothing.
   function noteFor(mode, finding) {
-    if (!isMonitoring(finding)) return 'none';
+    if (!isDetection(finding)) return 'none';
     return mode === 'city' ? 'held' : 'line';
   }
 
@@ -209,7 +232,7 @@ const QuietNotes = (function () {
       category: f.category, code: f.code };
   }
 
-  return { MONITORING_MODULES, MARKERS, LINE, HELD_LINE, HELD_MORE, HELD_HELP, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
+  return { MONITORING_MODULES, NOT_DETECTIONS, isDetection, MARKERS, LINE, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

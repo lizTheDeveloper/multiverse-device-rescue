@@ -76,10 +76,13 @@ function guideSteps(body) {
 // The test's own sentence cut, plain on purpose and independent of the module's.
 // Independent of QuietNotes.MARKERS on purpose, and narrower: case-sensitive,
 // no bare "DV" (the /i flag made that match `codesign -dv`). A sentence this
-// skips is one the module may take out; everything else must survive. The
-// network guides' "someone you know (a partner, an ex, a housemate...)"
-// safety sentence is the module's to take out in standard mode too.
-const GUIDE_DV = /799-7233|88788|text START to|DV Hotline|\b[Aa]dvocates?\b|[Dd]omestic [Vv]iolence|partner,\s+an\s+ex\b|\bhousemates?\b/;
+// skips is one the module may take out; everything else must survive.
+const GUIDE_DV = /799-7233|88788|text START to|DV Hotline|\b[Aa]dvocates?\b|[Dd]omestic [Vv]iolence/;
+// The network guides' one condition sentence ("It matters most if … a
+// partner, an ex …") is the module's to take out in standard mode as well. It
+// carries no instruction: "Stop and read this before changing anything." is
+// its own sentence, and stays. Only a sentence that starts this way may go.
+const CONDITION = /^It matters most if\b/;
 const norm = (t) => String(t).replace(/^\s*(?:[-*]|\d{1,3}\.)\s+/gm, ' ').replace(/\s+/g, ' ').trim();
 const cut = (t) => norm(t).split(/(?<=[.!?][)"'”’*`]*)\s+(?=[A-Z(*`"“])/).filter(Boolean);
 const guides = () => {
@@ -98,7 +101,7 @@ test('every remediation guide, step by step: no hotline text left, never an empt
       assert.doesNotMatch(quiet, GUIDE_DV, `${file}, ${where}`);
       assert.ok(quiet.trim().length > 0, `${file}, ${where}: nothing left`);
       for (const sentence of cut(text)) {
-        if (GUIDE_DV.test(sentence)) continue;
+        if (GUIDE_DV.test(sentence) || CONDITION.test(sentence)) continue;
         checked += 1;
         assert.ok(norm(quiet).includes(sentence), `${file}, ${where}: lost "${sentence}"`);
       }
@@ -116,6 +119,20 @@ test('the advice the reviewer found missing is kept, sentence by sentence', () =
   assert.match(read('sign_out_everywhere.md'), /Change passwords from a device they have never had access to\./);
   assert.match(read('check_app_signatures.md'), /That is your record\./);
   assert.match(read('harden_linux_ssh_server.md'), /if you didn't turn SSH on yourself, ask why/);
+});
+
+test('the network guides keep "Stop and read this" in standard mode, and what follows it still reads', () => {
+  const read = (f) => Q.quiet(fs.readFileSync(path.join(REPO, 'guides', 'remediation', f), 'utf8'));
+  for (const f of ['review_unknown_lan_devices.md', 'respond_to_arp_spoofing.md', 'secure_home_router.md']) {
+    const q = read(f);
+    assert.match(q, /Stop\s+and\s+read\s+this\s+before\s+changing\s+anything\./, f);
+    assert.doesNotMatch(q, /partner,\s+an\s+ex|It\s+matters\s+most\s+if/, f);
+    assert.doesNotMatch(q, /\bthat person\b/, `${f}: no "that person" left without the sentence that named them`);
+    assert.match(q, /has\s+ever\s+frightened\s+you,\s+the\s+safest\s+order\s+of\s+operations/, f);
+  }
+  // "They can help you plan" had no one to refer to once the advocate sentence went.
+  assert.doesNotMatch(read('respond_to_monitoring_software.md'), /^They can help/m);
+  assert.doesNotMatch(read('respond_to_monitoring_software.md'), /\bThey\s+can\s+help\s+you\s+plan\b/);
 });
 
 test('only hotline sentences come out; the sentences around them, and a plain "partner", stay', () => {

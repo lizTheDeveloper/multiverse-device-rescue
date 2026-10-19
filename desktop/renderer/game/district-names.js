@@ -47,3 +47,14 @@ export function pickDistrict(seed) {
   const at = (list) => list[Math.floor(next() * list.length)];
   return { name: at(NAMES), look: at(LOOKS), voice: at(VOICES) };
 }
+
+// The install's seed as the game gets it (RescueHost.citySeed, which app.js
+// reads once per session with DisplayMode.ensureSeed): a positive integer, or
+// the digits of one. Anything else (missing, blocked, garbled) gets a random
+// seed for this session, never a constant that every such install would share.
+const MAX_SEED = 0x7fffffff;
+export function seedFrom(raw, random = Math.random) {
+  const n = typeof raw === 'string' && /^\s*\d+\s*$/.test(raw) ? Number(raw.trim()) : raw;
+  if (Number.isInteger(n) && n >= 1 && n <= MAX_SEED) return n;
+  return 1 + Math.floor(random() * (MAX_SEED - 1));
+}

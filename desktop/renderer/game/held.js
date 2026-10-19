@@ -7,15 +7,36 @@ import { esc } from './escape.js';
 
 export const HELD_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
 
+// What those checks say when they found nothing or couldn't look (QuietNotes'
+// NOT_DETECTIONS; a test keeps them equal). Never held: no software was found.
+export const NOT_DETECTIONS = new Set([
+  'security.mvt_spyware_scan.mvt_requires_wsl',
+  'security.mvt_spyware_scan.no_backups_found',
+  'security.mvt_spyware_scan.mvt_not_installed',
+  'security.mvt_spyware_scan.mvt_scan_available',
+  'security.mvt_spyware_scan.mvt_backup_too_large',
+  'security.mvt_spyware_scan.mvt_clean_scan',
+  'security.keylogger_indicators.input_monitoring_access',
+]);
+
+// The same rule as QuietNotes.isDetection, for a finding of a held module.
+export function isDetection(f) {
+  if (!f) return false;
+  if (f.code) return !NOT_DETECTIONS.has(f.code);
+  return f.severity !== 'info';
+}
+
 // `doc` without those findings (their checks still count as having run), and
-// the warnings and criticals they held. The scan itself is never changed.
+// the detections they held, at any severity (an info-level product such as
+// remote-support software is still software on this computer). The scan
+// itself is never changed.
 export function splitHeld(doc) {
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.modules)) return { doc, held: [] };
   const held = [];
   const modules = doc.modules.map((m) => {
     if (!m || !HELD_MODULES.has(m.name)) return m;
     for (const f of Array.isArray(m.findings) ? m.findings : []) {
-      if (f && (f.severity === 'critical' || f.severity === 'warning')) held.push({ module: m.name, title: String(f.title || '') });
+      if (f && isDetection(f)) held.push({ module: m.name, title: String(f.title || '') });
     }
     return { ...m, findings: [] };
   });
@@ -23,10 +44,12 @@ export function splitHeld(doc) {
 }
 
 // `doc` with only those findings: what integrity still counts as open. Kept
-// in memory by the controller, never stored or scored.
+// in memory by the controller, never stored or scored. A "found nothing" line
+// (NOT_DETECTIONS) isn't held, so it doesn't hold its district open either.
 export function heldOnly(doc) {
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.modules)) return doc;
-  return { ...doc, modules: doc.modules.filter((m) => m && HELD_MODULES.has(m.name)) };
+  return { ...doc, modules: doc.modules.filter((m) => m && HELD_MODULES.has(m.name))
+    .map((m) => (Array.isArray(m.findings) ? { ...m, findings: m.findings.filter((f) => !f || isDetection(f)) } : m)) };
 }
 
 // What a briefing says about a finding that is monitoring software, from the

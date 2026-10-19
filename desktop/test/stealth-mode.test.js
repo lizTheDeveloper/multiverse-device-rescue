@@ -169,7 +169,7 @@ async function stealthController(mode, recheckDocs = []) {
     FixFlow: { attach() {}, fixControlsHtml: () => '[FIX IT]', resultHtml: () => '' },
     MarkFlow: { attach() {}, markControlsHtml: () => '[IT IS MINE]' },
     RescueHost: { showList() { calls.list += 1; }, docChanged: () => true, wantsSafety: (f) => Q.noteFor(mode, f) === 'line',
-      mode: () => mode, scanTips: async () => [], leaveGame() {} },
+      mode: () => mode, citySeed: () => 777, scanTips: async () => [], leaveGame() {} },
     rescue: { recheckModule: async (name) => { const d = recheckDocs.shift() || spyDoc(); return { ok: true, doc: d, module: d.modules.find((m) => m.name === name) }; } },
   };
   const storage = recordingStore();
@@ -202,29 +202,40 @@ test('a stealth session with monitoring software found: nothing written names it
   assert.doesNotMatch(JSON.stringify(t.storage.data), NAMES_IT);
 });
 
-test('what stealth shows now (the city map): a plain label, the hold line and help closed behind it, never a fix, a mark or "Removing this"', async () => {
+// Task 8: in city mode the generated district takes the interim map note's
+// place. The deck names only the place; the hold line, how to keep a quiet
+// record and who can help are in the district. (A host that can't say its
+// mode keeps the plain map note: see "a host without mode()" below.)
+test('what stealth shows (the city): the deck names only the district; in there, the hold line and a quiet record, never a fix, a mark or "Removing this"', async () => {
+  const { pickDistrict } = await game('district-names.js');
   const t = await stealthController('city');
   t.ctl.show(spyDoc(), { id: 'city' });
+  const deck = t.frame.innerHTML;
+  const name = pickDistrict(777).name;
+  assert.ok(deck.includes(`Something new in ${name}`), 'the notice names the place');
+  assert.doesNotMatch(deck, /class="panel held"/, 'the interim map note is gone in city mode');
+  assert.doesNotMatch(deck, /mSpy|Stalkerware found|stalker|advocate|799-7233|hotline|Don’t remove|Removing this/i, 'nothing on the deck gives it away');
+  t.click({ 'data-go': 'side' });
   const html = t.frame.innerHTML;
-  const panel = /<div class="panel held">[\s\S]*?SEE IT IN THE LIST<\/button><\/div>/.exec(html)[0];
-  // Closed behind a plain control: what shows on the map before a click.
-  const outer = /<details class="held-more">([\s\S]*)<\/details>/.exec(panel);
-  assert.ok(outer, 'the help is behind a control');
-  const onFace = panel.replace(outer[0], '') + /<summary>[^<]*<\/summary>/.exec(outer[1])[0];
-  assert.match(onFace, /SOMETHING THE CHECKUP FOUND/);
-  assert.match(onFace, /Read this before you change anything/);
-  assert.doesNotMatch(onFace, /mSpy|stalker|spy|monitor|watch|advocate|799-7233|hotline|remove/i, 'nothing on its face gives it away');
-  assert.doesNotMatch(html, /mSpy|Stalkerware found/, 'the title is never on the map in city mode');
-  // Behind it: the hold line and the help.
-  assert.match(outer[1], /Don’t remove it yet\. Talk to an advocate first\./);
-  assert.match(outer[1], /write down the name the scan found/, 'how to keep a quiet record');
-  assert.match(outer[1], /talk to an advocate before you remove anything\. In the US: National Domestic Violence Hotline, 1-800-799-7233/);
-  assert.match(panel, /data-act="list"/, 'and the way to the list, where the same card is');
-  assert.doesNotMatch(html, /Open the city/, 'already in the city');
-  assert.doesNotMatch(html, /Removing this can alert/);
-  assert.doesNotMatch(html, /\[FIX IT\]|\[IT IS MINE\]|Uninstall/);
-  t.click({ 'data-act': 'list' });
-  assert.strictEqual(t.calls.list, 1);
+  assert.match(html, /Don’t remove it yet\. Talk to an advocate first\./);
+  assert.match(html, /write down the name the scan found/, 'how to keep a quiet record');
+  assert.match(html, /1-800-799-7233/);
+  assert.match(html, /Stalkerware found: mSpy/, 'in there, what was found');
+  assert.doesNotMatch(html, /Removing this can alert|\[FIX IT\]|\[IT IS MINE\]|Uninstall|data-fix-module|data-mark-card/);
+  t.click({ 'data-act': 'side-back' });
+  assert.match(t.frame.innerHTML, /INCOMING SIGNALS/);
+});
+
+// The list's promise ("Open the city to see how to keep a quiet record of
+// it") leads somewhere real: in city mode the deck's notice opens the district,
+// which has the record steps.
+test('the list’s "Open the city" leads to the district and its quiet record', async () => {
+  assert.match(Q.HELD_MORE, /Open the city/);
+  const t = await stealthController('city');
+  t.ctl.show(spyDoc(), { id: 'city' });
+  assert.match(t.frame.innerHTML, /<p class="link-notice" role="status">Something new in [^<]*<button type="button" class="btn-t" data-go="side">/);
+  t.click({ 'data-go': 'side' });
+  assert.match(t.frame.innerHTML, /On paper or on another device, write down the name the scan found/);
 });
 
 test('standard mode in the city: monitoring software is still said on the map, with the one line and its note', async () => {
@@ -290,7 +301,7 @@ test('the fixture of real monitoring descriptions covers every monitoring check,
 });
 
 test('a held card says only what the software is: no removal or turn-off sentence from any real description survives', () => {
-  for (const r of REAL) {
+  for (const r of REAL.filter((x) => Q.isDetection(x))) {
     const f = { module: r.module, code: r.code, title: 'x', description: r.description,
       remediation: { steps: [{ number: 1, title: 'Remove it', body: 'Uninstall it.' }] } };
     const card = Q.cardText('city', f);
@@ -318,12 +329,12 @@ test('the list in city mode, with every real description: outside the hold line 
   p.byId('btn-get-started').click();
   p.pick('hacked');
   const byMod = {};
-  REAL.forEach((r, i) => (byMod[r.module] = byMod[r.module] || []).push({ severity: 'critical', title: `Item ${i}`, code: r.code, category: 'security',
+  REAL.filter((x) => Q.isDetection(x)).forEach((r, i) => (byMod[r.module] = byMod[r.module] || []).push({ severity: 'critical', title: `Item ${i}`, code: r.code, category: 'security',
     description: r.description, data: {}, remediation: { steps: [{ number: 1, title: 'Remove it', body: 'Uninstall it.' }] } }));
   await p.finish({ schema_version: 1, platform: 'darwin', modules: Object.entries(byMod).map(([n, fs]) => mod(n, fs)) });
   const list = p.byId('results-groups').innerHTML;
   const cards = list.split('<li class="finding-card').slice(1);
-  assert.strictEqual(cards.length, REAL.length);
+  assert.strictEqual(cards.length, REAL.filter((x) => Q.isDetection(x)).length);
   for (const c of cards) {
     const rest = c.replace(/<p class="finding-card__note" role="note">[\s\S]*?<\/p>/, '')
       .replace(/<details class="finding-card__held-help">[\s\S]*?<\/details>/, '');

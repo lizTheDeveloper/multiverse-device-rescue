@@ -97,7 +97,9 @@ const isClean = (w) => !!w && w.checked > 0 && w.secured === w.checked;
 // A finished scan, recorded as a date and counts only. It starts a new sweep,
 // so clue and tag bonuses can be earned again. The clean-sweep bonus pays when
 // a re-sweep is the one that made the board clean, not on every clean re-sweep.
-export function recordSweep(deck, counts, now) {
+// `scored: false` records the sweep but never pays or calls it clean (a sweep
+// where held monitoring software appeared or went: going is not a win).
+export function recordSweep(deck, counts, now, { scored = true } = {}) {
   const d = deckOf(deck);
   const entry = { at: String(now) };
   for (const k of SWEEP_FIELDS) {
@@ -107,7 +109,7 @@ export function recordSweep(deck, counts, now) {
   if (entry.secured > entry.checked) entry.secured = entry.checked;
   const prev = d.sweeps.length ? d.sweeps[d.sweeps.length - 1] : null;
   const next = { ...d, sweep: { at: entry.at, keys: {} }, sweeps: [...d.sweeps, entry].slice(-MAX_SWEEPS) };
-  if (!(prev && isClean(entry) && !isClean(prev))) return { deck: next, points: 0, rankUp: false, clean: false };
+  if (!scored || !(prev && isClean(entry) && !isClean(prev))) return { deck: next, points: 0, rankUp: false, clean: false };
   return { ...award(next, 'clean', entry.at), clean: true };
 }
 

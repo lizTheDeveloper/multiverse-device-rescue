@@ -21,8 +21,8 @@ set up, or a parental-control app on your child's computer), you can stop here.
 
 Otherwise, assume the person who installed it may notice when it stops
 working. If that person is a partner, ex or family member, talk to a domestic
-violence advocate before you remove anything. They can help you plan for what
-happens next. In the US: National Domestic Violence Hotline 1-800-799-7233,
+violence advocate before you remove anything; an advocate can help you plan
+for what happens next. In the US: National Domestic Violence Hotline 1-800-799-7233,
 or text START to 88788. Use a phone or computer the other person can't reach.
 
 ## Step 2: Keep a record

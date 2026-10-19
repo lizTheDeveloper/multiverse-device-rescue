@@ -20,6 +20,15 @@ export function skyline(status) {
 }
 
 // `reclaimed` is how many missions here were checked again and gone.
+// A district holding a monitoring finding (held.js): its own city card has
+// nothing left in it, but it isn't clear. It reads as checked, points to the
+// note above the map, and never says NOTHING FOUND or RECLAIMED.
+export const HELD_DISTRICT_LINE = 'Checked. See the note above.';
+export const HELD_SCOUT_LINE = 'There’s a note above the map. Fog means a place I couldn’t see into.';
+export function heldView(d, held) {
+  return held && typeof held.has === 'function' && held.has(d.id) && d.status === 'clear' ? { ...d, status: 'partial', held: true } : d;
+}
+
 export function districtBadges(d, reclaimed = 0) {
   const crit = d.missions.filter((m) => m.severity === 'critical').length;
   const warn = d.missions.length - crit;
@@ -28,12 +37,14 @@ export function districtBadges(d, reclaimed = 0) {
   if (warn) out.push(`<span class="badge warn">${warn} WARNING</span>`);
   if (d.notes.length) out.push(`<span class="badge skip">${d.notes.length} NOTES</span>`);
   if (d.fog.length) out.push(`<span class="badge fog">${d.fog.length} COULDN’T CHECK</span>`);
+  if (d.held) return out.join('');
   if (reclaimed) out.push(`<span class="badge safe">${reclaimed} RECLAIMED</span>`);
   else if (d.status === 'clear') out.push('<span class="badge safe">NOTHING FOUND</span>');
   return out.join('');
 }
 
 export function districtLine(d, reclaimed = 0) {
+  if (d.held) return HELD_DISTRICT_LINE;
   if (d.status === 'fog') return 'Couldn’t check here. That doesn’t mean it’s safe.';
   if (d.status === 'none') return 'No checks ran here on this computer.';
   if (d.status === 'clear' && reclaimed) return 'What was found here before is gone now. Reclaim City checked again.';
@@ -43,8 +54,16 @@ export function districtLine(d, reclaimed = 0) {
 
 // `goFor(d)`: what a district card opens (the deck filters its queue instead).
 // `heat`: districtId → 'hot' | 'warn' for open signals. `selected`: the filtered district.
-export function renderMap({ city, progress, cameBack, scout, goFor = (d) => `district:${d.id}`, heat = {}, selected = null }) {
-  const cards = city.districts.map((d) => {
+// `held`: the ids of districts holding a monitoring finding (heldView).
+export function mapLine(city, cameBack, held) {
+  if (cameBack && cameBack.length) return SCOUT.cameBack;
+  const line = mapScoutLine(city);
+  return line === SCOUT.mapQuiet && held && held.size ? HELD_SCOUT_LINE : line;
+}
+
+export function renderMap({ city, progress, cameBack, scout, goFor = (d) => `district:${d.id}`, heat = {}, selected = null, held = null }) {
+  const cards = city.districts.map((d0) => {
+    const d = heldView(d0, held);
     const reclaimed = progress ? reclaimedIn(progress, d).length : 0;
     return `
       <button type="button" class="district ${esc(d.status)}${heat[d.id] ? ` heat-${esc(heat[d.id])}` : ''}" data-go="${esc(goFor(d))}"${selected === d.id ? ' aria-current="true"' : ''}>
@@ -54,7 +73,7 @@ export function renderMap({ city, progress, cameBack, scout, goFor = (d) => `dis
         <span class="d-foot">${districtBadges(d, reclaimed)}</span>
       </button>`;
   }).join('');
-  const line = cameBack && cameBack.length ? SCOUT.cameBack : mapScoutLine(city);
+  const line = mapLine(city, cameBack, held);
   return `
   <section class="map" aria-label="Your computer as a city">
     <div class="districts">${cards}</div>

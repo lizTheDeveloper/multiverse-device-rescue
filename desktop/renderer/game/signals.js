@@ -133,6 +133,12 @@ export function cityIntegrity(city, signals, held = null) {
   return { percent: checked ? Math.round((secured / checked) * 100) : null, checked, secured, checkedIds, securedIds };
 }
 
+// The districts where a held monitoring finding is open. A change there is
+// never "secured" and never a clean sweep: that would reward removing it.
+export function heldDistrictIds(held) {
+  return new Set(openMonitoring(held).map((x) => x.districtId));
+}
+
 export function districtHeat(city, signals, held = null) {
   const out = {};
   for (const x of [...(signals || []).filter(isOpen), ...openMonitoring(city), ...openMonitoring(held)]) {
@@ -142,12 +148,15 @@ export function districtHeat(city, signals, held = null) {
 }
 
 // What a sweep record holds: counts only (see progress.js SWEEP_FIELDS).
-export function sweepCounts(doc, city, integrity) {
+// `held`: the held city (held.js). Its criticals and warnings are counted too,
+// as numbers only, so a sweep never reads as lighter than the scan was.
+export function sweepCounts(doc, city, integrity, held = null) {
   const t = (city && city.totals) || {};
+  const h = (held && held.totals) || {};
   const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
   return {
     checks: mods.filter((m) => m && m.status === 'ok' && m.supported !== false).length,
-    critical: t.critical || 0, warning: t.warning || 0, info: t.info || 0, fog: t.fog || 0,
+    critical: (t.critical || 0) + (h.critical || 0), warning: (t.warning || 0) + (h.warning || 0), info: t.info || 0, fog: t.fog || 0,
     checked: (integrity && integrity.checked) || 0, secured: (integrity && integrity.secured) || 0,
   };
 }

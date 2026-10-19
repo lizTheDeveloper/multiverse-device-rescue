@@ -301,3 +301,17 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .badge.drill-stamp { font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; color: var(--lime); background: rgba(198,255,0,0.14); border: 1px solid var(--lime); }
 .sig-panel [aria-disabled="true"] { opacity: 0.6; pointer-events: none; }
 .sig-panel.drill { border: 2px solid var(--lime); background-image: repeating-linear-gradient(45deg, rgba(198,255,0,0.06) 0 8px, transparent 8px 16px); }
+
+/* The generated district: one of six looks, picked per install (district-names.js). */
+.side { --side-accent: var(--lime); }
+.look-dusk { --side-accent: #B49CFF; }
+.look-harbor { --side-accent: #5EC8FF; }
+.look-brass { --side-accent: #E8B04A; }
+.look-moss { --side-accent: #8FD694; }
+.look-ember { --side-accent: #FF8A5C; }
+.look-neon { --side-accent: #FF5FD2; }
+.side-tile { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; }
+.side-tile .btn-s, .side .hud-title { color: var(--side-accent, var(--lime)); }
+.side-top { display: flex; align-items: center; gap: 12px; }
+.side-steps li { margin: 6px 0; }
+.side-steps b { color: var(--side-accent, var(--lime)); margin-right: 4px; }
