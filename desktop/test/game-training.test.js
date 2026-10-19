@@ -63,6 +63,21 @@ test('buildSpotTheFake makes one real-or-fake question per picked message', asyn
   assert.throws(() => buildSpotTheFake([{ id: 1, answer: 'maybe', tells: ['x'] }]));
 });
 
+test('spot-the-fake items are honest two-option real-or-fake items with a guessing floor of 1/2', async () => {
+  const { buildSpotTheFake } = await import('../renderer/game/lessons/spot-the-fake.js');
+  const { buildBank } = await import('../renderer/game/profile/item-bank.js');
+  const msgs = [1, 4, 5, 8, 3, 2].map((id, i) => ({ id, type: 'email', from: 'a', subject: 'S', body: 'B', answer: i % 2 ? 'genuine' : 'pretext', tells: ['t'] }));
+  const l = buildSpotTheFake(msgs);
+  const bank = buildBank([l], []);
+  const items = [...bank.items.values()].filter((it) => it.lessonId === 'spot-the-fake');
+  assert.ok(items.length > 3);
+  for (const it of items) {
+    assert.strictEqual(it.options.length, 2, it.key);
+    assert.strictEqual(it.c, 0.5, it.key);
+    assert.strictEqual(it.options.filter((o) => o.correct).length, 1, it.key);
+  }
+});
+
 test('lessonsByDistrict groups lessons by their districts, in the worry’s order; districtLesson picks the next unfinished', async () => {
   const { lessonsByDistrict, districtLesson } = await load();
   const a = { ...L('a', ['wifi']), districts: ['gatehouse'] };

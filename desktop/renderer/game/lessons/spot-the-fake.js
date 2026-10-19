@@ -31,8 +31,8 @@ function item(m) {
   };
 }
 
-// A variant offers three options (two carry too little information for item
-// response theory): the same real-or-fake call, with an advert as a third kind.
+// A variant is the same real-or-fake call in other words. It has two options,
+// so its guessing floor is 1/2 (the gate allows this for phishing lessons only).
 function variant(m) {
   const fake = m.answer === 'pretext';
   const why = sentence(m.tells);
@@ -40,12 +40,11 @@ function variant(m) {
   const wrong = fake ? 'This one is fake.' : 'This one is real.';
   return {
     key: `msg-${m.id}`,
-    prompt: 'What kind of message is this?',
+    prompt: 'Is this message real or fake?',
     message: message(m),
     options: [
-      { text: 'A fake pretending to be a company', correct: fake, feedback: fake ? `${right} ${why}` : `${wrong} ${why}` },
-      { text: 'A real notice from the company', correct: !fake, feedback: fake ? `${wrong} ${why}` : `${right} ${why}` },
-      { text: 'An advert from the company', correct: false, feedback: `${wrong} ${why}` },
+      { text: 'Fake, pretending to be who it says it is', correct: fake, feedback: fake ? `${right} ${why}` : `${wrong} ${why}` },
+      { text: 'Real, from who it says it is', correct: !fake, feedback: fake ? `${wrong} ${why}` : `${right} ${why}` },
     ],
   };
 }
