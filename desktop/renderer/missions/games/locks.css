@@ -1,0 +1,56 @@
+/* Lock Run (missions/games/locks.js). Uses the game skin's tokens (game.css :host): --cyan, --amber, --magenta,
+   --lime, --offwhite, --dim, --line, --panel, --font-display, --font-mono. One skin; words follow the display mode. */
+.lk { display: grid; gap: 14px; max-width: 760px; }
+
+/* The row of locks in this mission. */
+.lk-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.lk-pip { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); background: rgba(9,11,16,0.55); color: var(--faint, rgba(237,239,243,0.32)); }
+.lk-pip .lk-icon { width: 18px; height: 18px; }
+.lk-pip--past { color: var(--dim); border-color: rgba(0,229,255,0.3); }
+.lk-pip--here { color: var(--amber); border-color: var(--amber); box-shadow: 0 0 0 1px rgba(255,159,0,0.35), 0 0 14px rgba(255,159,0,0.25); }
+
+/* Coach line during practice. */
+.lk-coach { margin: 0; padding: 10px 14px; border-left: 3px solid var(--lime); background: rgba(198,255,0,0.07); color: var(--offwhite); }
+
+/* The lock. */
+.lk-card { border: 1px solid rgba(0,229,255,0.28); background: var(--panel); padding: 18px; display: grid; gap: 12px; }
+.lk-head { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+.lk-head > .lk-icon { width: 40px; height: 40px; color: var(--amber); }
+.lk--unknown .lk-head > .lk-icon { color: var(--dim); }
+.lk-kicker { margin: 0; font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75); }
+.lk-name { margin: 2px 0 0; font-family: var(--font-display); font-size: 18px; letter-spacing: 1px; color: #fff; overflow-wrap: anywhere; }
+.lk-state { font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 6px 10px; border: 1px solid currentColor; white-space: nowrap; }
+.lk-state--open { color: var(--amber); }
+.lk-state--unknown { color: var(--dim); border-style: dashed; }
+.lk-title { margin: 0; color: var(--offwhite); overflow-wrap: anywhere; }
+
+.lk-facts { display: grid; gap: 8px; margin: 0; }
+.lk-facts > div { display: grid; grid-template-columns: 92px 1fr; gap: 12px; }
+.lk-facts dt { font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75); padding-top: 3px; }
+.lk-facts dd { margin: 0; overflow-wrap: anywhere; }
+
+.lk-note { margin: 0; padding: 10px 14px; border-left: 3px solid var(--cyan); background: rgba(0,229,255,0.06); }
+.lk-note--fog { border-left-color: var(--dim); background: rgba(237,239,243,0.05); }
+.lk-note--key { border-left-color: var(--magenta); background: rgba(255,45,155,0.07); }
+.lk-note--key strong { color: #fff; }
+
+.lk-steps { margin: 0; padding: 0 0 0 1.6em; list-style: decimal outside; }
+.lk-steps li { padding: 2px 0; }
+.lk-steps li::marker { color: var(--cyan); font-family: var(--font-mono); }
+
+.lk-ev { font-size: 14px; color: var(--dim); }
+.lk-ev summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75); }
+.lk-ev dl { display: grid; gap: 6px; margin: 8px 0 0; padding: 12px 14px; border: 1px solid var(--line); background: rgba(9,11,16,0.55); }
+.lk-ev__row { display: grid; grid-template-columns: max-content 1fr; gap: 16px; }
+.lk-ev dt { color: var(--dim); }
+.lk-ev dd { margin: 0; color: var(--offwhite); overflow-wrap: anywhere; }
+.lk-mono { font-family: var(--font-mono); font-size: 13px; }
+
+.lk-sum { display: grid; gap: 6px; }
+.lk-sum p { margin: 0; }
+
+@media (max-width: 560px) {
+  .lk-head { grid-template-columns: auto 1fr; }
+  .lk-state { grid-column: 1 / -1; justify-self: start; }
+  .lk-facts > div { grid-template-columns: 1fr; gap: 2px; }
+}
