@@ -18,11 +18,16 @@ export function renderDistrict({ district: d, progress, scout }) {
   // Reclaimed missions are no longer in the scan, so they come from progress.
   // There is nothing to open, so each is a lit row, not a button.
   const present = new Set(d.missions.map((m) => m.id));
-  const reclaimed = reclaimedIn(progress, d).filter((r) => !present.has(r.id)).map((r) => `
+  const all = reclaimedIn(progress, d);
+  const earlier = all.filter((r) => r.earlier).length;
+  const row = (text) => `
       <li><div class="mission-row lit">
         <span class="badge safe">RECLAIMED</span>
-        <span class="mission-text">${esc(r.title)}</span>
-      </div></li>`).join('');
+        <span class="mission-text">${esc(text)}</span>
+      </div></li>`;
+  // Missions folded into a count (to keep the profile small) show as one line.
+  const reclaimed = all.filter((r) => !r.earlier && !present.has(r.id)).map((r) => row(r.title)).join('')
+    + (earlier ? row(`${earlier} more reclaimed earlier`) : '');
   const rows = missions + reclaimed;
   const notes = d.notes.map((n) => `<li>${esc(n.title)}</li>`).join('');
   const fog = d.fog.map((x) => `<li><strong>${esc(x.module)}</strong>: ${esc(x.reason)}</li>`).join('');

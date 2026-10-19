@@ -67,7 +67,7 @@ export function deviceMissionFor(city, modules) {
 // still confirms. A finding that's simply gone after a re-sweep isn't counted.
 // YOU REPORTED is everything else the person filed as done. Never summed.
 export function countDeckBars({ rc, deck, rcState, scanConfirmed, doc }) {
-  const fixes = Object.keys((deck && deck.confirmed) || {}).length;
+  const fixes = Object.keys((deck && deck.confirmed) || {}).length + ((deck && Number.isInteger(deck.confirmedEarlier)) ? deck.confirmedEarlier : 0);
   if (!rc) return { confirmed: fixes, reported: 0 };
   const accounts = countConfirmedAndReported({ rc, progress: { missions: {} }, rcState, scanConfirmed, doc });
   return { confirmed: fixes + accounts.confirmed, reported: accounts.reported };

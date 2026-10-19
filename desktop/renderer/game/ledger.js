@@ -10,6 +10,7 @@
 // drill) or keys for the current sweep (clue, tag bonus, clean sweep). So
 // re-tagging, re-opening or re-sweeping can't farm points.
 import { emptyDeck, TAGS, SWEEP_FIELDS, validDeck } from './progress.js';
+import { bloomHas, takeHash } from './folded.js';
 
 export const POINTS = { clue: 5, tagBonus: 10, drill: 15, drillClueBonus: 5, fix: 50, report: 20, clean: 40 };
 export const RANKS = [
@@ -57,7 +58,9 @@ export function award(deck, kind, key, extra = 0) {
   if (typeof key !== 'string' || key === '' || MONITORING_MODULES.has(moduleOfKey(key))) return none(d);
   const k = `${kind}:${key}`;
   const lifetime = LIFETIME.has(kind);
-  if (lifetime ? d.once[k] : d.sweep.keys[k]) return none(d);
+  // A key folded into `paid` (folded.js) has paid too. Drill keys are never folded.
+  const folded = kind !== 'drill' && bloomHas(lifetime ? d.paid : d.sweep.paid, k);
+  if (folded || (lifetime ? d.once[k] : d.sweep.keys[k])) return none(d);
   const points = POINTS[kind] + (Number.isInteger(extra) && extra > 0 ? extra : 0);
   const total = d.points + points;
   const rank = Math.max(d.rank, rankIndexFor(total));
@@ -131,5 +134,20 @@ export function reconcileDeck(deck, signals, ranOk) {
   }
   const confirmed = {};
   for (const [id, at] of Object.entries(d.confirmed)) if (!byId.has(id)) confirmed[id] = at;
-  return { deck: { ...d, tags, confirmed }, changed, gone };
+  // A confirmed fix folded into a count (confirmedEarlier, with its id as a
+  // short hash in confirmedFolded) that shows up again leaves the count too.
+  const extra = {};
+  if (d.confirmedFolded) {
+    let hashes = d.confirmedFolded;
+    let earlier = d.confirmedEarlier || 0;
+    for (const id of byId.keys()) {
+      const rest = takeHash(hashes, id);
+      if (rest === null) continue;
+      hashes = rest;
+      earlier = Math.max(0, earlier - 1);
+    }
+    extra.confirmedFolded = hashes;
+    extra.confirmedEarlier = earlier;
+  }
+  return { deck: { ...d, tags, confirmed, ...extra }, changed, gone };
 }
