@@ -602,3 +602,20 @@ def test_the_isolation_guard_catches_a_test_that_drops_it(tmp_path_factory, monk
     with pytest.raises(AssertionError, match="real marked-as-mine list"):
         assert_known_items_isolated(base)
     monkeypatch.setenv("RESCUE_KNOWN_ITEMS", saved)  # put it back so teardown passes
+
+
+def test_a_key_with_options_says_so_in_the_checklist(tmp_path):
+    plain = _key_line(1)
+    opts = [_key_line(2, options="cert-authority"), _key_line(3, options='command="/bin/true"'),
+            _key_line(4, options="restrict,port-forwarding")]
+    data = _ssh_data(tmp_path, plain, *opts)
+    assert [k["options"] for k in data["keys"]] == [False, True, True, True]
+    assert "/bin/true" not in json.dumps(data["keys"])  # only that it has options
+    rows = list_entries("ssh_authorized_keys", _f(SSH, data))
+    assert rows[0]["label"] == "ssh-ed25519 key" and "options" not in rows[0]["shown"]
+    for row in rows[1:]:
+        assert row["label"] == "ssh-ed25519 key (with options)"
+        assert row["shown"].startswith("ssh-ed25519 key (with options) ")
+    # Only a real True counts; an older scan without the field reads as plain.
+    data["keys"][0]["options"] = "yes"
+    assert list_entries("ssh_authorized_keys", _f(SSH, data))[0]["label"] == "ssh-ed25519 key"

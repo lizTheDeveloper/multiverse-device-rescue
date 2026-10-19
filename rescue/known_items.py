@@ -1114,10 +1114,13 @@ def list_entries(list_kind: str, finding) -> list[dict] | None:
             key_type = _text(key.get("type"), 64)
             if not (sha and line and key_type) or len(sha) != 64 or len(line) != 64:
                 return None
+            # A key with options (cert-authority, command=, restrict...) works
+            # differently from a plain one, so the checklist says it has some.
+            with_options = " (with options)" if key.get("options") is True else ""
             out.append({
-                "entry": sha, "line_sha256": line, "label": f"{key_type} key",
+                "entry": sha, "line_sha256": line, "label": f"{key_type} key{with_options}",
                 "detail": _text(key.get("comment"), 256) or "",
-                "shown": f"{key_type} key {sha[:16]}…",
+                "shown": f"{key_type} key{with_options} {sha[:16]}…",
             })
         if len({e["entry"] for e in out}) != len(out):
             return None

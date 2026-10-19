@@ -57,7 +57,7 @@ _KEY_TYPES = frozenset({
 def _parse_key_line(line: str) -> dict | None:
     """One saved key, as fingerprints: the SHA-256 of the decoded key (what
     `ssh-keygen -l` fingerprints) and of the whole line (so a change to its
-    options or comment shows), its type and its comment. Never the key itself.
+    options or comment shows), its type, its comment, and whether it has options. Never the key itself.
     None if the line isn't a key this can read."""
     # sshd separates fields by space or tab only; any other whitespace (a
     # vertical tab, a form feed...) is read differently by str.split().
@@ -91,6 +91,9 @@ def _parse_key_line(line: str) -> dict | None:
         "sha256": hashlib.sha256(blob).hexdigest(),
         "line_sha256": hashlib.sha256(line.encode("utf-8", "replace")).hexdigest(),
         "comment": comment,
+        # Whether the line has options (cert-authority, command=, restrict...).
+        # Only that it has some: an option's text can carry a command or a secret.
+        "options": bool(options),
     }
 
 
