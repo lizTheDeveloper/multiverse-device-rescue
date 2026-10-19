@@ -3,7 +3,7 @@
 // evidence, who made each program, the fix steps) with personal data removed
 // by the same redactText() that guards "Ask about this". Nothing is sent
 // anywhere; the text only goes to the clipboard after the person has read it.
-const { redactText } = require('./ask-about');
+const { redactText, isConnectionWatchFinding } = require('./ask-about');
 
 const MAX_TOTAL_CHARS = 40000;
 const MAX_STRING = 600;
@@ -144,7 +144,10 @@ function findingText(f, index, env) {
  */
 function buildAiPrompt(payload, env) {
   if (!payload || typeof payload !== 'object' || !Array.isArray(payload.findings)) return null;
-  const usable = payload.findings.filter((f) => f && typeof f === 'object' && !Array.isArray(f));
+  const objects = payload.findings.filter((f) => f && typeof f === 'object' && !Array.isArray(f));
+  // Connection-watch findings are the person's own browsing: left out, and said so.
+  const usable = objects.filter((f) => !isConnectionWatchFinding(f));
+  const watchLeftOut = objects.length - usable.length;
   const findings = usable.slice(0, MAX_FINDINGS);
   if (!findings.length) return null;
   const parts = [PREAMBLE, ''];
@@ -168,6 +171,7 @@ function buildAiPrompt(payload, env) {
       text += `[${usable.length - findings.length} more minor item(s) left out to keep this short enough to paste]\n`;
     }
   }
+  if (watchLeftOut) text += `[${watchLeftOut} connection-watch item(s) left out: they list the sites this computer talks to.]\n`;
   return text.trimEnd() + '\n';
 }
 

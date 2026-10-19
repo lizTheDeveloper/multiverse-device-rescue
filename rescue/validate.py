@@ -324,7 +324,9 @@ def validate_guides(guides_dir: Path, modules: list[ModuleBase]) -> list[Problem
     if not guides_dir.is_dir():
         return problems
 
-    known_codes = {code for module in modules for code in module.emits_codes}
+    from rescue.watch import WATCH_CODES
+
+    known_codes = {code for module in modules for code in module.emits_codes} | set(WATCH_CODES)
 
     for guide_set in sorted(p for p in guides_dir.iterdir() if p.is_dir()):
         if guide_set.name == "remediation":

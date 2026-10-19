@@ -174,7 +174,18 @@ function safe(fn) {
  * Validate, redact, then cap. Returns the exact object that will be POSTed, or
  * null. Every string field takes the same path; nothing else is ever copied.
  */
+// Connection-watch findings list the sites this computer talks to: the
+// person's own browsing. Redaction can't be trusted with domain names or
+// public addresses, so they are never sent (renderer/ask.js hides the button too).
+const WATCH_CODE_PREFIX = 'network.connection_watch.';
+
+function isConnectionWatchFinding(f) {
+  return !!f && typeof f === 'object' && (f.module === 'connection_watch'
+    || (typeof f.code === 'string' && f.code.startsWith(WATCH_CODE_PREFIX)));
+}
+
 function buildAskBody(payload, env) {
+  if (payload && typeof payload === 'object' && isConnectionWatchFinding(payload.finding)) return null;
   const clean = readFields(payload, PRE_CAP_FACTOR);
   if (!clean) return null;
   const finding = {};
@@ -259,4 +270,6 @@ module.exports = {
   redactText,
   buildAskBody,
   askAbout,
+  WATCH_CODE_PREFIX,
+  isConnectionWatchFinding,
 };

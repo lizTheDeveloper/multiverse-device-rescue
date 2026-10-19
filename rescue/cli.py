@@ -34,6 +34,7 @@ from rescue.update.manifest import ManifestError
 from rescue.update.repo import ContentRepo, GitError
 from rescue.update.sideload import SideloadError, load_sideload_repo
 from rescue.validate import validate_catalog
+from rescue.watch import MAX_INTERVAL, MAX_MINUTES, MIN_INTERVAL, MIN_MINUTES, WATCH_CODES, WatchModule, run_watch
 
 
 def _project_root() -> Path:
@@ -217,6 +218,112 @@ def scan(as_json, profile_name, module_names, progress, trace, no_attribution):
         return
     for mod, check in results:
         click.echo(mod.report(check))
+
+
+def _listening_verdict():
+    """The listening-port verdict from the suspicious_connections module, or None."""
+    for mod in discover_modules(_get_modules_dir()):
+        if mod.name == "suspicious_connections":
+            return mod.listening_verdict
+    return None
+
+
+def _stop_on_request():
+    """An Event that a ``stop`` line on stdin, SIGINT or SIGTERM sets.
+
+    Returns (event, restore). End of input is not a stop. ``restore`` puts the
+    signal handlers back.
+    """
+    import signal
+    import threading
+
+    stop = threading.Event()
+
+    def read_stdin():
+        try:
+            for line in sys.stdin:
+                if line.strip().lower() == "stop":
+                    stop.set()
+                    return
+        except (OSError, ValueError):
+            pass  # no usable stdin: nothing to read, not a stop
+
+    threading.Thread(target=read_stdin, name="watch-stdin", daemon=True).start()
+
+    previous = {}
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            previous[sig] = signal.signal(sig, lambda *_: stop.set())
+        except ValueError:
+            pass  # not the main thread: stdin and the caller can still stop it
+
+    def restore():
+        for sig, handler in previous.items():
+            if handler is not None:  # None: installed from C, can't be put back
+                signal.signal(sig, handler)
+
+    return stop, restore
+
+
+@main.command()
+@click.option(
+    "--minutes",
+    type=click.IntRange(MIN_MINUTES, MAX_MINUTES),
+    default=5,
+    show_default=True,
+    help=f"How long to watch, {MIN_MINUTES}-{MAX_MINUTES} minutes.",
+)
+@click.option(
+    "--interval",
+    type=click.IntRange(MIN_INTERVAL, MAX_INTERVAL),
+    default=5,
+    show_default=True,
+    help=f"Seconds between looks, {MIN_INTERVAL}-{MAX_INTERVAL}.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Emit the result as JSON on stdout.")
+@click.option(
+    "--progress",
+    is_flag=True,
+    help='Write one {"progress": ...} JSON line per look to stderr.',
+)
+def watch(minutes, interval, as_json, progress):
+    """Watch this computer's connections for a few minutes (opt-in, read-only).
+
+    Ends early if you send the line "stop" on standard input, or press Ctrl-C.
+    The result is still printed, marked as stopped early.
+    """
+    from rescue.serialize import checks_to_json
+
+    platform = detect_platform().value
+    stop, restore = _stop_on_request()
+
+    def sleep(seconds):
+        stop.wait(seconds)
+
+    def on_progress(event):
+        click.echo(json.dumps({"progress": event}), err=True)
+
+    try:
+        result = run_watch(
+            platform,
+            minutes,
+            interval,
+            sleep=sleep,
+            should_stop=stop.is_set,
+            on_progress=on_progress if progress else None,
+            verdict=_listening_verdict(),
+        )
+    finally:
+        restore()
+    if as_json:
+        walkthroughs = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
+        click.echo(checks_to_json([(WatchModule(), result)], platform, walkthroughs))
+        return
+    if result.error:
+        click.echo(f"The watch couldn't run: {result.error}")
+        return
+    for finding in result.findings:
+        click.echo(f"- {finding.title}")
 
 
 def _run_traced(orch):
@@ -1168,6 +1275,7 @@ def threat_remediation():
     all_codes = set()
     for m in mods:
         all_codes |= set(getattr(m, "emits_codes", []))
+    all_codes |= set(WATCH_CODES)
     profs = discover_profiles(_get_profiles_dir())
     profiles = {n: ((set(p.include_modules) or all_modules) - set(p.exclude_modules))
                 for n, p in profs.items()}

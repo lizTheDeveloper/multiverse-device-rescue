@@ -188,4 +188,6 @@ async function handleUnmark(id, { policy, runUnmark }) {
 
 module.exports = {
   createMarkPolicy, handleMark, handleUnmark, markTarget, isValidMarkId, ITEM_KINDS, NEVER_MARKABLE_MODULES,
+  // The same list gates the connection watch (watch.js); the game's ledger.js keeps a copy, and a test keeps them equal.
+  MONITORING_MODULES: NEVER_MARKABLE_MODULES,
 };

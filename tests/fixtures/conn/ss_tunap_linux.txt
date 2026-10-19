@@ -1,0 +1,7 @@
+udp   UNCONN 0      0      127.0.0.53%lo:53         0.0.0.0:*    users:(("systemd-resolve",pid=612,fd=13))
+udp   UNCONN 0      0            0.0.0.0:5353       0.0.0.0:*    users:(("avahi-daemon",pid=701,fd=12))
+udp   ESTAB  0      0      192.168.1.30:44211   198.51.100.4:123  users:(("chronyd",pid=655,fd=6))
+tcp   LISTEN 0      128          0.0.0.0:22         0.0.0.0:*    users:(("sshd",pid=801,fd=3))
+tcp   LISTEN 0      128             [::]:22            [::]:*    users:(("sshd",pid=801,fd=4))
+tcp   ESTAB  0      0       192.168.1.30:51044   203.0.113.9:443  users:(("firefox",pid=2210,fd=88))
+tcp   ESTAB  0      0      [2001:db8::30]:51100 [2001:db8:1::5]:443 users:(("firefox",pid=2210,fd=91),("firefox-bg",pid=2211,fd=7))

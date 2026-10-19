@@ -984,3 +984,223 @@ test('finishing a sweep lesson after the checkup is done goes to the city, not t
   assert.match(t.html(), /YOUR COMPUTER/);
   assert.doesNotMatch(t.html(), /Your checkup is done\./, 'the banner has done its job');
 });
+
+// "Open your router's settings" on a router mission: only the address goes to window.rescue.
+async function routerSetup(extraMods = []) {
+  const { createController } = await import('../renderer/game/controller.js');
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const net = (check, severity, data = {}) => ({ title: check, description: 'd', severity, category: 'network',
+    code: `network.router_security_audit.${check}`, data: { check, gateway_ip: '192.168.0.1', ...data } });
+  const doc = scan({ ...mod('router_security_audit', [net('upnp_enabled', 'warning'), net('router_manual_review', 'info')]), category: 'network' }, ...extraMods);
+  const city = findingsToCity(doc);
+  const m = city.districts.flatMap((d) => d.missions).find((x) => x.module === 'router_security_audit');
+  const stub = stubWin([]);
+  stub.win.RouterLink = require('../renderer/router-link.js');
+  const opened = [];
+  stub.win.rescue.openRouter = async (ip) => { opened.push(ip); return true; };
+  stub.win.rescue.defaultBrowser = async () => 'Safari';
+  const ctl = createController({ win: stub.win, storage: memStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}) });
+  await tick();
+  ctl.show(doc, { id: 'wifi' });
+  stub.click({ 'data-go': `mission:${m.id}` });
+  return { ...stub, opened, html: () => stub.frame.innerHTML };
+}
+
+test('a router mission offers OPEN YOUR ROUTER and sends only the address', async () => {
+  const t = await routerSetup();
+  assert.match(t.html(), /data-act="open-router"/);
+  assert.match(t.html(), /in Safari/);
+  t.click({ 'data-act': 'open-router' });
+  await tick();
+  assert.deepStrictEqual(t.opened, ['192.168.0.1']);
+});
+
+test('no router button when the ARP check says the router may be impersonated', async () => {
+  const arp = { title: 'imp', description: 'd', severity: 'critical', category: 'network',
+    code: 'network.arp_spoof_check.gateway_impersonation', data: { check: 'gateway_impersonation' } };
+  const t = await routerSetup([{ ...mod('arp_spoof_check', [arp]), category: 'network' }]);
+  assert.doesNotMatch(t.html(), /data-act="open-router"/);
+  assert.match(t.html(), /pretending to be your router/);
+  t.click({ 'data-act': 'open-router' });
+  await tick();
+  assert.deepStrictEqual(t.opened, []);
+});
+
+// The WATCH CONNECTIONS instrument on the deck (views/watch.js). `results` are
+// what runWatch resolves with, in order (or functions returning a promise of one).
+const watchF = (target) => ({ title: `${target} connected to 3 places`, description: 'What it connected to.', severity: 'info',
+  category: 'network', code: 'network.connection_watch.watch_summary', data: { target } });
+async function watchSetup({ before = scan(mod('mod_a', [finding('A')])), results = [], docChanged = () => true, show = true } = {}) {
+  const { createController } = await import('../renderer/game/controller.js');
+  const stub = stubWin([]);
+  const storage = memStore();
+  const calls = { runWatch: [], stopWatch: 0, docChanged: [], startCheckup: 0 };
+  stub.win.RescueHost.startCheckup = () => { calls.startCheckup += 1; };
+  let onEvent = null;
+  stub.win.rescue.runWatch = (...args) => {
+    calls.runWatch.push(args);
+    const next = results.shift();
+    return typeof next === 'function' ? next() : Promise.resolve(next);
+  };
+  stub.win.rescue.stopWatch = async () => { calls.stopWatch += 1; return { ok: true }; };
+  stub.win.rescue.onWatchEvent = (cb) => { onEvent = cb; return () => {}; };
+  stub.win.RescueHost.docChanged = (doc) => { calls.docChanged.push(doc); return docChanged(doc); };
+  // The live progress line, found by its attribute, records what's written to it.
+  const line = { textContent: '' };
+  const q = stub.frame.querySelector;
+  stub.frame.querySelector = (sel) => (sel === '[data-watch="progress"]' && stub.frame.innerHTML.includes('data-watch="progress"') ? line : q(sel));
+  const ctl = createController({ win: stub.win, storage, scoutSprite: () => '', loadGame: () => new Promise(() => {}),
+    loadTraining: async () => [], loadDrillBank: async () => [] });
+  await tick();
+  if (show) ctl.show(before, { id: 'unsure' });
+  return { ...stub, ctl, storage, calls, line, before, event: (ev) => onEvent(ev), html: () => stub.frame.innerHTML };
+}
+const withWatch = (doc, ...findings) => ({ ...doc, modules: [...doc.modules, { ...mod('connection_watch', findings), category: 'network' }] });
+
+test('watch: no instrument before a checkup has finished', async () => {
+  const t = await watchSetup({ show: false });
+  assert.doesNotMatch(t.html(), /WATCH CONNECTIONS/);
+  assert.doesNotMatch(t.html(), /data-act="watch-start"/);
+});
+
+test('watch: no instrument while the checkup has found monitoring software', async () => {
+  const stalker = { ...finding('Monitoring app'), severity: 'warning' };
+  const t = await watchSetup({ before: scan(mod('mod_a', [finding('A')]), mod('stalkerware_scan', [stalker])) });
+  assert.match(t.html(), /INCOMING SIGNALS/);
+  assert.doesNotMatch(t.html(), /WATCH CONNECTIONS/);
+  t.click({ 'data-act': 'watch-start' });
+  await tick();
+  assert.deepStrictEqual(t.calls.runWatch, [], 'a stale click starts nothing');
+});
+
+test('watch: on the deck after a checkup; start sends only the minutes picked', async () => {
+  let release;
+  const t = await watchSetup({ results: [() => new Promise((r) => { release = r; })] });
+  assert.match(t.html(), /WATCH CONNECTIONS[\s\S]*for 5 minutes/);
+  t.click({ 'data-act': 'watch-minutes:10' });
+  assert.match(t.html(), /for 10 minutes/);
+  t.click({ 'data-act': 'watch-minutes:7' });
+  assert.match(t.html(), /for 10 minutes/, 'a value off the list is ignored');
+  t.click({ 'data-act': 'watch-start' });
+  assert.deepStrictEqual(t.calls.runWatch, [[10]]);
+  assert.match(t.html(), /Watching… 0 of 10 minutes, 0 snapshots\./);
+  t.click({ 'data-act': 'watch-start' });
+  assert.strictEqual(t.calls.runWatch.length, 1, 'one watch at a time');
+  // Main refuses a checkup while a watch runs, so the deck doesn't offer one.
+  assert.doesNotMatch(t.html(), /data-act="resweep"/);
+  assert.match(t.html(), /RE-SWEEP AFTER THE WATCH/);
+  t.click({ 'data-act': 'resweep' });
+  assert.strictEqual(t.calls.startCheckup, 0);
+  // Progress events update the line in place, and the next redraw keeps it.
+  t.event({ progress: { phase: 'watch', elapsed: 125, total: 600, snapshots: 25 } });
+  assert.strictEqual(t.line.textContent, 'Watching… 2 of 10 minutes, 25 snapshots.');
+  t.click({ 'data-act': 'toggle-low' });
+  assert.match(t.html(), /Watching… 2 of 10 minutes, 25 snapshots\./);
+  release({ ok: false, reason: 'busy', message: 'Something is already running.' });
+  await tick();
+});
+
+test('watch: STOP calls stopWatch, even while a re-check runs', async () => {
+  const t = await watchSetup({ results: [() => new Promise(() => {})] });
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const id = findingsToCity(t.before).districts.flatMap((d) => d.missions).find((m) => m.module === 'mod_a').id;
+  t.click({ 'data-act': 'watch-start' });
+  // A re-check that doesn't finish: the controller is busy until it does.
+  let rechecking = 0;
+  t.win.rescue.recheckModule = () => { rechecking += 1; return new Promise(() => {}); };
+  t.click({ 'data-go': `mission:${id}` });
+  t.click({ 'data-act': 'i-did-it' });
+  assert.strictEqual(rechecking, 1, 'a re-check is running');
+  t.click({ 'data-go': 'map' });
+  assert.doesNotMatch(t.html(), /INCOMING SIGNALS/, 'busy: other clicks wait for the re-check');
+  t.click({ 'data-act': 'watch-stop' });
+  await tick();
+  assert.strictEqual(t.calls.stopWatch, 1);
+});
+
+test('watch: a result that can’t be shown is the failed state, not an unhandled rejection', async () => {
+  const merged = withWatch(scan(mod('mod_a', [finding('A')])), watchF('Mail'));
+  const t = await watchSetup({ results: [{ ok: true, doc: merged }], docChanged: () => { throw new Error('boom'); } });
+  const unhandled = [];
+  const onUnhandled = (e) => unhandled.push(e);
+  process.on('unhandledRejection', onUnhandled);
+  const logged = [];
+  const error = console.error;
+  console.error = (...a) => logged.push(a);
+  try {
+    t.click({ 'data-act': 'watch-start' });
+    await tick(); await tick(); await tick();
+  } finally {
+    console.error = error;
+    process.off('unhandledRejection', onUnhandled);
+  }
+  assert.deepStrictEqual(unhandled, []);
+  assert.match(String(logged[0] && logged[0][0]), /connection watch/);
+  assert.match(t.html(), /couldn’t finish/);
+  assert.match(t.html(), /data-act="watch-start"/);
+});
+
+test('watch: its findings arrive in INCOMING SIGNALS the way a re-check’s do', async () => {
+  const t = await watchSetup();
+  const merged = withWatch(t.before, watchF('Safari'));
+  t.calls.runWatch.length = 0;
+  const results = [{ ok: true, doc: merged }];
+  t.win.rescue.runWatch = (...a) => { t.calls.runWatch.push(a); return Promise.resolve(results.shift()); };
+  t.click({ 'data-act': 'watch-start' });
+  await tick(); await tick();
+  assert.deepStrictEqual(t.calls.docChanged, [merged], 'app.js hears of the new document first');
+  assert.match(t.html(), /Watch finished\. What it saw is in INCOMING SIGNALS\./);
+  assert.match(t.html(), /data-act="resweep"/, 'RE-SWEEP is back');
+  t.click({ 'data-act': 'toggle-low' });
+  const queue = t.html().split('INCOMING SIGNALS')[1].split('deck-city')[0];
+  assert.match(queue, /Safari connected to 3 places/);
+  // Going to the list and back shows the same document: that's not a new sweep.
+  const sweeps = JSON.parse(t.storage.getItem('device-rescue.game.v1')).deck.sweeps.length;
+  t.ctl.show(merged, { id: 'unsure' });
+  assert.strictEqual(JSON.parse(t.storage.getItem('device-rescue.game.v1')).deck.sweeps.length, sweeps);
+});
+
+test('watch: findings score nothing and nothing about them is stored', async () => {
+  const merged = withWatch(scan(mod('mod_a', [finding('A')])), watchF('Signal'));
+  const t = await watchSetup({ results: [{ ok: true, doc: merged }] });
+  t.click({ 'data-act': 'watch-start' });
+  await tick(); await tick();
+  const { findingIdentity } = await import('../renderer/game/findings-to-city.js');
+  const id = findingIdentity({ ...watchF('Signal'), module: 'connection_watch' });
+  t.click({ 'data-go': `signal:${id}` });
+  assert.match(t.html(), /id="sig-title"[^>]*>Signal connected to 3 places/);
+  for (const m of t.html().matchAll(/data-act="(clue:[a-z]+)"/g)) t.click({ 'data-act': m[1] });
+  t.click({ 'data-act': 'tag:closer' });
+  const saved = t.storage.getItem('device-rescue.game.v1');
+  assert.strictEqual(JSON.parse(saved).deck.points, 0);
+  assert.doesNotMatch(saved, /connection_watch|Signal connected/);
+  // The tag holds for this session: it's sorted on the deck, LOOK CLOSER.
+  t.click({ 'data-act': 'close-signal' });
+  t.click({ 'data-act': 'toggle-low' });
+  assert.match(t.html(), /LOOK CLOSER<\/span><\/span><span class="sig-title">Signal connected/);
+  // "These are all fine" sorts them too, still without storing anything.
+  t.click({ 'data-act': 'batch-fine' });
+  assert.match(t.html(), /KNOWN AND NOTED \(\d+\)[\s\S]*Signal connected/);
+  assert.doesNotMatch(t.storage.getItem('device-rescue.game.v1'), /connection_watch|Signal connected/);
+});
+
+test('watch: a refusal or failure shows main’s message; a closed gate leaves the city alone', async () => {
+  const t = await watchSetup({ results: [{ ok: false, reason: 'monitoring', message: 'The connection watch is off <now>.' }, null] });
+  t.click({ 'data-act': 'watch-start' });
+  await tick(); await tick();
+  assert.match(t.html(), /The connection watch is off &lt;now&gt;\./);
+  assert.deepStrictEqual(t.calls.docChanged, []);
+  t.click({ 'data-act': 'watch-start' });
+  await tick(); await tick();
+  assert.match(t.html(), /couldn’t finish/);
+
+  const merged = withWatch(scan(mod('mod_a', [finding('A')])), watchF('Mail'));
+  const g = await watchSetup({ results: [{ ok: true, doc: merged }], docChanged: () => false });
+  const drawn = g.html();
+  g.click({ 'data-act': 'watch-start' });
+  const running = g.html();
+  await tick(); await tick();
+  assert.notStrictEqual(running, drawn);
+  assert.strictEqual(g.html(), running, 'the gate closed: app.js showed the list, nothing redrawn');
+  assert.doesNotMatch(g.storage.getItem('device-rescue.game.v1'), /Mail connected/);
+});

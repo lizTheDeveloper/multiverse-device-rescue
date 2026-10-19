@@ -1,5 +1,4 @@
-import subprocess
-
+from rescue import command
 from rescue.models import (
     Action,
     CheckResult,
@@ -12,6 +11,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.runtime import load_content_module
 
 
 # Map well-known ports to service names
@@ -38,11 +38,41 @@ RISKY_PORTS = {
     8086,      # InfluxDB
 }
 
+# Addresses that mean "every network this computer is on"
+ALL_INTERFACES = {"0.0.0.0", "*", "::"}
+
+_COLLECT_KEY = "rescue_conn_common_collect"
+
+# How to see which program holds a port, per platform
+_LOOKUP_HELP = {
+    "darwin": (
+        "Check which process is listening:\n"
+        "  lsof -i :<port>\n\n"
+        "Check all listening ports:\n"
+        "  lsof -iTCP -sTCP:LISTEN -nP"
+    ),
+    "linux": (
+        "Check all listening ports and their programs:\n"
+        "  ss -tlnp\n"
+        "(Programs that belong to other accounts show only when an administrator runs it.)"
+    ),
+    "win32": (
+        "Check which program holds each port: open Resource Monitor (type "
+        "\"Resource Monitor\" in the Start menu), go to the Network tab and look "
+        "under Listening Ports. Task Manager's Details tab shows the same program "
+        "by its PID."
+    ),
+}
+
+
+def _collect_module():
+    return load_content_module("modules/network/conn_common/collect.py", _COLLECT_KEY)
+
 
 class Module(ModuleBase):
     name = "open_ports_scan"
     category = "security"
-    platforms = [Platform.DARWIN]
+    platforms = [Platform.DARWIN, Platform.LINUX, Platform.WIN32]
     risk_level = RiskLevel.SAFE
     priority = 50
     depends_on = []
@@ -51,17 +81,27 @@ class Module(ModuleBase):
     emits_codes = [
         "security.open_ports_scan.exposed_risky_ports",
         "security.open_ports_scan.listening_ports",
+        "security.open_ports_scan.couldnt_check",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
+        platform = profile.platform.value
 
-        listening_ports = self._get_listening_ports()
+        collect = _collect_module()
+        if collect is None:
+            return self._couldnt_check("The connection helper could not be loaded.")
+        snap = collect.snapshot(platform, run=command.run, with_bytes=False)
+        if snap["error"]:
+            return self._couldnt_check(snap["error"])
+
+        listening_ports = self._listening_ports(snap["records"])
 
         if not listening_ports:
             return CheckResult(module_name=self.name, findings=findings)
 
-        # Flag WARNING for risky ports exposed to 0.0.0.0
+        # Flag WARNING for risky ports exposed to 0.0.0.0. The exposure is
+        # visible even when the program that owns the port isn't.
         exposed_risky = []
         for port_info in listening_ports:
             port = port_info["port"]
@@ -69,9 +109,9 @@ class Module(ModuleBase):
             process = port_info["process"]
 
             # Check if risky database port is exposed to all interfaces
-            if port in RISKY_PORTS and address == "0.0.0.0":
+            if port in RISKY_PORTS and address in ALL_INTERFACES:
                 exposed_risky.append(
-                    f"{port} ({process}) listening on 0.0.0.0"
+                    f"{port} ({process or 'program not visible'}) listening on {address}"
                 )
 
         if exposed_risky:
@@ -94,7 +134,11 @@ class Module(ModuleBase):
                     severity=Severity.WARNING,
                     category=self.category,
                     code="security.open_ports_scan.exposed_risky_ports",
-                    data={"check": "exposed_risky_ports", "ports": exposed_risky},
+                    data={
+                        "check": "exposed_risky_ports",
+                        "ports": exposed_risky,
+                        "platform": platform,
+                    },
                 )
             )
 
@@ -107,16 +151,24 @@ class Module(ModuleBase):
 
             service_name = WELL_KNOWN_PORTS.get(port, "custom")
             all_ports_info.append(
-                f"Port {port} ({service_name}) - {process} on {address}"
+                f"Port {port} ({service_name}) - "
+                f"{process or 'program not visible'} on {address}"
             )
 
+        unseen = sum(1 for p in listening_ports if p["process"] is None)
         if all_ports_info:
+            note = ""
+            if unseen:
+                note = (
+                    f"\n\nThis check couldn't see which program owns {unseen} of these "
+                    "without admin rights, so it can't say whether they are expected."
+                )
             findings.append(
                 Finding(
                     title=f"Open ports: {len(all_ports_info)}",
                     description=(
                         f"Found {len(all_ports_info)} listening port(s):\n"
-                        f"{chr(10).join(all_ports_info)}"
+                        f"{chr(10).join(all_ports_info)}{note}"
                     ),
                     severity=Severity.INFO,
                     category=self.category,
@@ -125,6 +177,8 @@ class Module(ModuleBase):
                         "check": "listening_ports",
                         "count": len(all_ports_info),
                         "ports": all_ports_info,
+                        "unseen": unseen,
+                        "platform": platform,
                     },
                 )
             )
@@ -164,6 +218,9 @@ class Module(ModuleBase):
 
             elif check == "listening_ports":
                 count = finding.data.get("count", 0)
+                lookup = _LOOKUP_HELP.get(
+                    finding.data.get("platform", "darwin"), _LOOKUP_HELP["darwin"]
+                )
                 actions.append(
                     Action(
                         title=f"Review {count} listening port(s)",
@@ -173,10 +230,7 @@ class Module(ModuleBase):
                             "- Close ports for services you don't need\n"
                             "- For database services, restrict to localhost if possible\n"
                             "- Enable firewall rules to limit access by IP\n\n"
-                            "Check which process is listening:\n"
-                            "  lsof -i :{port}\n\n"
-                            "Check all listening ports:\n"
-                            "  lsof -iTCP -sTCP:LISTEN -nP"
+                            + lookup
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,
@@ -186,66 +240,38 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _get_listening_ports(self) -> list[dict]:
-        """
-        Execute lsof to get listening ports.
+    def _listening_ports(self, records: list[dict]) -> list[dict]:
+        """TCP listeners as dicts with keys: port, address, process (None if unseen), pid."""
+        ports = []
+        for record in records:
+            if record.get("proto") != "tcp" or record.get("state") != "LISTEN":
+                continue
+            if record.get("local_port") is None:
+                continue
+            ports.append({
+                "port": record["local_port"],
+                # A missing address is listed but never counted as exposed.
+                "address": record.get("local_addr") or "",
+                "process": record.get("process"),
+                "pid": record.get("pid"),
+            })
+        return ports
 
-        Returns list of dicts with keys: port (int), address (str), process (str), pid (int)
-        Returns empty list on any failure.
-        """
-        try:
-            result = subprocess.run(
-                ["lsof", "-iTCP", "-sTCP:LISTEN", "-nP"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-
-            if result.returncode != 0:
-                return []
-
-            ports = []
-            lines = result.stdout.strip().split("\n")
-
-            # Skip header line
-            for line in lines[1:]:
-                if not line.strip():
-                    continue
-
-                # Parse lsof output format
-                # COMMAND  PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
-                # Example: sshd      123 root   4  IPv4  0x123456 0t0 TCP 0.0.0.0:22 (LISTEN)
-                parts = line.split()
-                if len(parts) < 9:
-                    continue
-
-                command = parts[0]
-                # The NAME field is second to last (before (LISTEN))
-                # parts[-2] is the address:port, parts[-1] is (LISTEN)
-                name_field = parts[-2] if len(parts) > 8 else ""
-
-                # Parse address:port from name field
-                # Format is like: 0.0.0.0:8000 or 127.0.0.1:5432
-                try:
-                    if ":" in name_field:
-                        addr_port = name_field.split(":")
-                        address = addr_port[0]
-                        port = int(addr_port[1])
-
-                        ports.append({
-                            "port": port,
-                            "address": address,
-                            "process": command,
-                            "pid": int(parts[1]),
-                        })
-                except (ValueError, IndexError):
-                    continue
-
-            return ports
-
-        except subprocess.TimeoutExpired:
-            return []
-        except FileNotFoundError:
-            return []
-        except Exception:
-            return []
+    def _couldnt_check(self, reason: str) -> CheckResult:
+        return CheckResult(
+            module_name=self.name,
+            findings=[
+                Finding(
+                    title="Couldn't check which ports are open",
+                    description=(
+                        "This check couldn't read the list of listening ports, so it "
+                        "hasn't checked anything. That is not the same as a clean "
+                        f"result. {reason}"
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.open_ports_scan.couldnt_check",
+                    data={"check": "couldnt_check", "reason": reason},
+                )
+            ],
+        )

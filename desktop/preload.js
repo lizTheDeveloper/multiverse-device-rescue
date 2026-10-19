@@ -16,7 +16,17 @@ contextBridge.exposeInMainWorld('rescue', {
     ipcRenderer.on('scan-event', listener);
     return () => ipcRenderer.removeListener('scan-event', listener);
   },
+  // The connection watch: minutes from the app's list; progress arrives as {progress: {...}}.
+  runWatch: (minutes) => ipcRenderer.invoke('run-watch', minutes),
+  stopWatch: () => ipcRenderer.invoke('stop-watch'),
+  onWatchEvent: (cb) => {
+    const listener = (_e, ev) => cb(ev);
+    ipcRenderer.on('watch-event', listener);
+    return () => ipcRenderer.removeListener('watch-event', listener);
+  },
   openSetting: (url) => ipcRenderer.invoke('open-setting', url),
+  openRouter: (ip) => ipcRenderer.invoke('open-router', ip),
+  defaultBrowser: () => ipcRenderer.invoke('default-browser'),
   aiPrompt: (payload) => ipcRenderer.invoke('ai-prompt', payload),
   askPreview: (payload) => ipcRenderer.invoke('ask-preview', payload),
   askAbout: (payload) => ipcRenderer.invoke('ask-about', payload),

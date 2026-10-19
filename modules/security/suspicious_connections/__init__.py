@@ -2,10 +2,9 @@ import ctypes
 import ctypes.util
 import os
 import posixpath
-import subprocess
-import re
 from collections import defaultdict
 
+from rescue import command
 from rescue.models import (
     Action,
     CheckResult,
@@ -18,6 +17,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.runtime import load_content_module
 
 
 # Standard ports commonly used by legitimate services
@@ -80,7 +80,15 @@ KNOWN_SAFE_PROCESSES = {
     "node",
     "java",
     "python",
+    # Browsers as Linux and Windows name them
+    "chromium",
+    "chromium-browser",
+    "google-chrome",
+    "msedge",
 }
+
+# Compared case-insensitively: Linux and Windows write "firefox" and "chrome".
+_KNOWN_SAFE_LOWER = {name.lower() for name in KNOWN_SAFE_PROCESSES}
 
 
 # Remote ports that are normal for everyday software
@@ -90,11 +98,67 @@ WELL_KNOWN_REMOTE_PORTS = {5228, 5223}
 # Executables under these prefixes are shipped with macOS
 APPLE_SYSTEM_PREFIXES = ("/System/", "/usr/libexec/")
 
+_COLLECT_KEY = "rescue_conn_common_collect"
+
+# Shown in place of a program's name when the collector couldn't see it.
+_UNNAMED = "a program this check couldn't see"
+
+
+def _collect_module():
+    return load_content_module("modules/network/conn_common/collect.py", _COLLECT_KEY)
+
+
+def _listen_what_to_do(platform: str, process: str) -> str:
+    if platform == "win32":
+        return (
+            f"What to do: If you recognize {process}, you can likely ignore this. If you "
+            "do not recognize it, open Resource Monitor (type \"Resource Monitor\" in "
+            "the Start menu), go to the Network tab and look under Listening Ports to "
+            "see where the program lives. Then check Windows Security > Firewall & "
+            "network protection > Allow an app through firewall to make sure it is not "
+            "allowed through, or look up the app name to see if it is a known remote "
+            "access tool."
+        )
+    if platform == "linux":
+        return (
+            f"What to do: If you recognize {process}, you can likely ignore this. If you "
+            "do not recognize it, run `ss -tlnp` in a terminal to see which program has "
+            "the port open, check that your firewall does not allow it in, or look up "
+            "the app name to see if it is a known remote access tool."
+        )
+    return (
+        f"What to do: If you recognize {process}, you can likely ignore "
+        "this. If you do not recognize it, check your System Settings "
+        "> Network > Firewall to ensure it is not allowed through, or "
+        "look up the app name to see if it is a known remote access tool."
+    )
+
+
+def _outbound_what_to_do(platform: str, process: str) -> str:
+    if platform == "win32":
+        return (
+            f"What to do: If you do not recognize {process}, search for its name online "
+            "to see if it is a known app. To see where it lives, open Task Manager, go "
+            f"to the Details tab, right-click {process} and choose Open file location."
+        )
+    if platform == "linux":
+        return (
+            f"What to do: If you do not recognize {process}, search for its name online "
+            "to see if it is a known app. Running `ss -tnp` in a terminal shows each "
+            "connection with the program that opened it."
+        )
+    return (
+        f"What to do: If you do not recognize {process}, search for its "
+        "name online to see if it is a known app. If you are unsure, "
+        "you can quit the app to stop the connection and see if it restarts "
+        "on its own."
+    )
+
 
 class Module(ModuleBase):
     name = "suspicious_connections"
     category = "security"
-    platforms = [Platform.DARWIN]
+    platforms = [Platform.DARWIN, Platform.LINUX, Platform.WIN32]
     risk_level = RiskLevel.SAFE
     priority = 55
     depends_on = []
@@ -104,25 +168,27 @@ class Module(ModuleBase):
         "security.suspicious_connections.unusual_listening_port",
         "security.suspicious_connections.unusual_outbound_connection",
         "security.suspicious_connections.high_connection_count",
+        "security.suspicious_connections.couldnt_check",
     ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
+        platform = profile.platform.value
 
-        try:
-            lsof_output = self._run_lsof()
-        except OSError as e:
-            # lsof might not be available or require sudo
-            return CheckResult(module_name=self.name, findings=[])
+        collect = _collect_module()
+        if collect is None:
+            return self._couldnt_check("The connection helper could not be loaded.")
+        snap = collect.snapshot(platform, run=command.run, with_bytes=False)
+        if snap["error"]:
+            return self._couldnt_check(snap["error"])
 
-        # Parse lsof output
-        connections = self._parse_lsof_output(lsof_output)
-
+        connections = self._connections(snap["records"])
 
         # Unusual listening ports: only listeners reachable from the network
         # matter. Loopback-only listeners are summarised in one info line.
         listen_by_proc: dict[tuple, dict] = {}
         loopback_listeners: dict[str, set] = defaultdict(set)
+        unnamed_listeners: list[dict] = []
         for conn in connections:
             if conn["type"] != "LISTEN":
                 continue
@@ -130,9 +196,15 @@ class Module(ModuleBase):
             if not port or self._is_standard_port(port):
                 continue
             if self._is_loopback_host(conn["local_host"]):
-                loopback_listeners[conn["process"]].add(port)
+                loopback_listeners[conn["process"] or _UNNAMED].add(port)
                 continue
-            if self._is_apple_system_process(conn["pid"]):
+            verdict = self.listening_verdict(platform, conn["record"])
+            if verdict == "expected":
+                continue
+            if verdict == "unnamed":
+                unnamed_listeners.append(
+                    {"process": conn["process"], "pid": conn["pid"], "port": port}
+                )
                 continue
             entry = listen_by_proc.setdefault(
                 (conn["process"], conn["pid"]), {"ports": set()}
@@ -142,7 +214,6 @@ class Module(ModuleBase):
         for (process, pid), entry in listen_by_proc.items():
             ports = sorted(entry["ports"])
             port_text = ", ".join(str(p) for p in ports)
-            plural = "ports" if len(ports) > 1 else "port"
             findings.append(
                 Finding(
                     title=(
@@ -157,10 +228,7 @@ class Module(ModuleBase):
                         "or do not remember turning on a feature that allows others to "
                         "connect to your computer, it could be a sign that someone else "
                         "has access.\n\n"
-                        f"What to do: If you recognize {process}, you can likely ignore "
-                        "this. If you do not recognize it, check your System Settings "
-                        "> Network > Firewall to ensure it is not allowed through, or "
-                        "look up the app name to see if it is a known remote access tool."
+                        + _listen_what_to_do(platform, process)
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -171,6 +239,29 @@ class Module(ModuleBase):
                         "process": process,
                         "port": ports[0],
                         "ports": ports,
+                        "platform": platform,
+                    },
+                )
+            )
+
+        if unnamed_listeners:
+            findings.append(
+                Finding(
+                    title=(
+                        f"{len({i['port'] for i in unnamed_listeners})} listening port(s) "
+                        "whose program "
+                        "couldn't be confirmed"
+                    ),
+                    description=self._unnamed_description(
+                        platform, unnamed_listeners, "listening port(s)"
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.suspicious_connections.unusual_listening_port",
+                    data={
+                        "check": "unnamed_listeners",
+                        "items": unnamed_listeners,
+                        "limits": list(snap["limits"]),
                     },
                 )
             )
@@ -200,6 +291,7 @@ class Module(ModuleBase):
         # Unusual established connections, one finding per process
         out_by_proc: dict[tuple, dict] = {}
         familiar: dict[tuple, dict] = {}
+        unnamed_out: list[dict] = []
         for conn in connections:
             if conn["type"] != "ESTABLISHED":
                 continue
@@ -210,8 +302,20 @@ class Module(ModuleBase):
                 conn.get("remote_host") or conn["local_host"]
             ):
                 continue
-            # Only an Apple-signed program in a SIP folder is skipped outright.
-            if self._is_apple_system_process(conn["pid"]):
+            # Only the operating system's own, verified programs are skipped
+            # outright: an Apple-signed program in a SIP folder on macOS, or
+            # Windows' file sharing and update services.
+            if platform == "darwin" and self._is_apple_system_process(conn["pid"]):
+                continue
+            if collect.is_expected_outbound(platform, conn["record"]):
+                continue
+            # No name, or a service's name without a path to check: noted below.
+            if conn["process"] is None or collect.claims_expected_outbound(
+                platform, conn["record"]
+            ):
+                unnamed_out.append(
+                    {"process": conn["process"], "pid": conn["pid"], "port": port}
+                )
                 continue
             # A familiar process name or a push-notification port is shown to
             # the person, but is not a reason to treat the connection as odd.
@@ -265,10 +369,7 @@ class Module(ModuleBase):
                         "ports, so this is not automatically a sign of a problem. However, "
                         f"if you do not recognize {process}, it is worth checking what "
                         "it is.\n\n"
-                        f"What to do: If you do not recognize {process}, search for its "
-                        "name online to see if it is a known app. If you are unsure, "
-                        "you can quit the app to stop the connection and see if it restarts "
-                        "on its own."
+                        + _outbound_what_to_do(platform, process)
                     ),
                     severity=Severity.WARNING,
                     category=self.category,
@@ -279,6 +380,29 @@ class Module(ModuleBase):
                         "process": process,
                         "port": ports[0],
                         "ports": ports,
+                        "platform": platform,
+                    },
+                )
+            )
+
+        if unnamed_out:
+            findings.append(
+                Finding(
+                    title=(
+                        f"{len(unnamed_out)} connection(s) on uncommon ports whose program "
+                        "couldn't be confirmed"
+                    ),
+                    description=self._unnamed_description(
+                        platform, unnamed_out, "connections to port(s)"
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.suspicious_connections.unusual_outbound_connection",
+                    data={
+                        "check": "unnamed_connections",
+                        "count": len(unnamed_out),
+                        "items": unnamed_out,
+                        "limits": list(snap["limits"]),
                     },
                 )
             )
@@ -287,7 +411,8 @@ class Module(ModuleBase):
         connection_counts = self._count_connections_by_process(
             [
                 c for c in connections
-                if not (
+                if c["process"] is not None
+                and not (
                     self._is_loopback_host(c["local_host"])
                     and self._is_loopback_host(c.get("remote_host") or c["local_host"])
                 )
@@ -314,6 +439,82 @@ class Module(ModuleBase):
                 )
 
         return CheckResult(module_name=self.name, findings=findings)
+
+    def listening_verdict(self, platform: str, record: dict) -> str:
+        """Decide whether a listener deserves a warning.
+
+        ``"expected"``: not worth raising (a standard port, localhost only, or
+        a service the operating system itself runs). ``"unnamed"``: the owner
+        couldn't be confirmed, which is noted as info and never warned about.
+        ``"flag"``: a warning. ``check()`` and the connection watch both use
+        this, so they agree.
+        """
+        port = record.get("local_port")
+        if not port or self._is_standard_port(port):
+            return "expected"
+        if self._is_loopback_host(record.get("local_addr")):
+            return "expected"
+        if platform == "darwin":
+            if record.get("pid") is not None and self._is_apple_system_process(record["pid"]):
+                return "expected"
+        else:
+            collect = _collect_module()
+            if collect is not None:
+                if collect.is_expected_listener(platform, record):
+                    return "expected"
+                if collect.claims_expected_service(platform, record):
+                    return "unnamed"
+        if record.get("process") is None:
+            return "unnamed"
+        return "flag"
+
+    def _unnamed_description(self, platform: str, items: list[dict], what: str) -> str:
+        unseen = sorted({i["port"] for i in items if i["process"] is None})
+        claimed = [i for i in items if i["process"] is not None]
+        parts = []
+        if unseen:
+            parts.append(
+                f"This check couldn't see which program owns the {what} "
+                f"{', '.join(str(p) for p in unseen)} without admin rights, so it can't "
+                "say whether they are expected."
+            )
+        if claimed:
+            names = sorted({i["process"] for i in claimed})
+            ports = sorted({i["port"] for i in claimed})
+            parts.append(
+                f"This check couldn't confirm which program owns the {what} "
+                f"{', '.join(str(p) for p in ports)}. They carry the name of a Windows "
+                f"service ({', '.join(names)}) and Windows hides where the program lives "
+                "unless the check runs as admin. That is normal for Windows' own "
+                "services, but a name alone doesn't prove it."
+            )
+        if platform == "linux":
+            parts.append("An administrator can see every owner with `sudo ss -tnap`.")
+        elif platform == "win32":
+            parts.append(
+                "Resource Monitor's Network tab shows each program, where it lives, "
+                "and the connections and listening ports it has open."
+            )
+        return "\n\n".join(parts)
+
+    def _couldnt_check(self, reason: str) -> CheckResult:
+        return CheckResult(
+            module_name=self.name,
+            findings=[
+                Finding(
+                    title="Couldn't check this computer's network connections",
+                    description=(
+                        "This check couldn't read the list of network connections, so "
+                        "it hasn't checked anything. That is not the same as a clean "
+                        f"result. {reason}"
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    code="security.suspicious_connections.couldnt_check",
+                    data={"check": "couldnt_check", "reason": reason},
+                )
+            ],
+        )
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         """Report suspicious connections without taking action (informational only)."""
@@ -358,80 +559,32 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _run_lsof(self) -> str:
-        """Run lsof -i -n -P to get network connections."""
-        result = subprocess.run(
-            ["lsof", "-i", "-n", "-P"],
-            capture_output=True,
-            text=True,
-        )
-        return result.stdout
+    def _connections(self, records: list[dict]) -> list[dict]:
+        """The listening and established TCP connections, in the shape check() uses.
 
-    def _parse_lsof_output(self, output: str) -> list[dict]:
-        """Parse lsof output into structured connection data."""
+        For an established connection the port of interest is the remote one.
+        """
         connections = []
-        lines = output.strip().split("\n")
-
-        # Skip header line
-        for line in lines[1:]:
-            if not line.strip():
+        for record in records:
+            state = record.get("state")
+            if record.get("proto") != "tcp" or state not in ("LISTEN", "ESTABLISHED"):
                 continue
-
-            parts = line.split()
-            if len(parts) < 10:
+            remote = record.get("remote_addr")
+            port = record.get("remote_port") if remote else record.get("local_port")
+            if not port:
                 continue
-
-            process = parts[0]
-            pid = parts[1]
-            conn_type = parts[7]  # TCP/UDP
-            state = parts[9] if len(parts) > 9 else ""
-
-            # Determine connection state (LISTEN or ESTABLISHED)
-            if "LISTEN" in state:
-                connection_state = "LISTEN"
-            elif "ESTABLISHED" in state:
-                connection_state = "ESTABLISHED"
-            else:
-                continue
-
-            # NAME is "local" or "local->remote". For established connections
-            # the port of interest is the remote one.
-            name = parts[8] if len(parts) > 8 else ""
-            local_addr, _, remote_addr = name.partition("->")
-            target = remote_addr or local_addr
-            port = self._extract_port(target)
-
-            if port:
-                connections.append(
-                    {
-                        "process": process,
-                        "pid": int(pid) if pid.isdigit() else pid,
-                        "type": connection_state,
-                        "port": port,
-                        "local_addr": local_addr,
-                        "local_host": self._extract_host(local_addr),
-                        "remote_host": self._extract_host(remote_addr) if remote_addr else None,
-                    }
-                )
-
+            connections.append(
+                {
+                    "process": record.get("process"),
+                    "pid": record.get("pid"),
+                    "type": state,
+                    "port": port,
+                    "local_host": record.get("local_addr") or "",
+                    "remote_host": remote,
+                    "record": record,
+                }
+            )
         return connections
-
-    def _extract_port(self, addr: str) -> int | None:
-        """Extract port number from address like IP:PORT."""
-        if ":" in addr:
-            try:
-                parts = addr.rsplit(":", 1)
-                port_str = parts[-1]
-                port = int(port_str)
-                return port
-            except (ValueError, IndexError):
-                return None
-        return None
-
-    @staticmethod
-    def _extract_host(addr: str) -> str:
-        host = addr.rsplit(":", 1)[0] if ":" in addr else addr
-        return host.strip("[]")
 
     @staticmethod
     def _is_loopback_host(host: str | None) -> bool:
@@ -460,8 +613,6 @@ class Module(ModuleBase):
         """True if ``path`` verifies against Apple's anchor. Cached per path."""
         cache = self.__dict__.setdefault("_apple_sig_cache", {})
         if path not in cache:
-            from rescue import command
-
             res = command.run(
                 ["/usr/bin/codesign", "--verify", "--strict", "-R=anchor apple", path],
                 timeout=5,
@@ -495,7 +646,7 @@ class Module(ModuleBase):
         """Check if process is in known safe list."""
         # Extract the process name from full path if needed
         process_name = process.split("/")[-1] if "/" in process else process
-        return process_name in KNOWN_SAFE_PROCESSES
+        return process_name.lower() in _KNOWN_SAFE_LOWER
 
     def _count_connections_by_process(self, connections: list[dict]) -> dict[str, int]:
         """Count total network connections per process."""

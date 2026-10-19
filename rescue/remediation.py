@@ -51,8 +51,10 @@ def walkthrough_for(index: dict[str, Guide], code: str | None) -> Guide | None:
 
 def build_catalog(modules, index: dict[str, "Guide"]) -> list[dict]:
     """One row per declared code across all modules, sorted by code."""
+    from rescue.watch import WatchModule
+
     rows: list[dict] = []
-    for mod in modules:
+    for mod in [*modules, WatchModule()]:
         for code in getattr(mod, "emits_codes", []):
             guide = index.get(code)
             rows.append({

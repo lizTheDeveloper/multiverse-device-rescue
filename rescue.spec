@@ -78,7 +78,39 @@ datas += [
     (str(PROJECT_ROOT / "rescue" / "app_fixes.json"), "rescue"),
 ]
 
-hiddenimports = collect_submodules("rescue")
+def stdlib_imports_of(src_dir: Path):
+    """Standard-library modules imported anywhere under src_dir.
+
+    Check modules ship as data files (above), so PyInstaller never analyses
+    their imports: a check that imports something the engine itself doesn't
+    (ctypes.util, say) fails to load in the frozen app while every source
+    test passes. Listing them here bundles them.
+    """
+    import ast
+    import sys
+
+    found = set()
+    for path in src_dir.rglob("*.py"):
+        if EXCLUDED_DIR_NAMES.intersection(path.parts):
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+                names = [node.module]
+            else:
+                continue
+            for name in names:
+                if name.split(".")[0] in sys.stdlib_module_names:
+                    found.add(name)
+    return sorted(found)
+
+
+hiddenimports = collect_submodules("rescue") + stdlib_imports_of(PROJECT_ROOT / "modules")
 
 a = Analysis(
     [str(PROJECT_ROOT / "rescue" / "cli.py")],

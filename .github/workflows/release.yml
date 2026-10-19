@@ -77,6 +77,14 @@ jobs:
       - name: Smoke-test the engine
         run: dist/${{ matrix.engine }} version
 
+      # Checks ship as data files, so the bundler can't see their imports; a
+      # missing one only shows up when a frozen engine loads them.
+      - name: Every check loads in the frozen engine
+        shell: bash
+        run: |
+          dist/${{ matrix.engine }} scan --json --module suspicious_connections > /dev/null 2> load.err || true
+          if grep -i "failed to load module" load.err; then exit 1; fi
+
       - name: Stage the engine inside the desktop app
         shell: bash
         run: |

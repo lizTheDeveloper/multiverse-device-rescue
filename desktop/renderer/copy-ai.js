@@ -25,9 +25,15 @@ function copyAiPick(f) {
   };
 }
 
+// Same prefix as ask-about.js WATCH_CODE_PREFIX: connection-watch findings are
+// the person's own browsing, so they get no button (main refuses them too).
+const COPY_AI_WATCH_CODE_PREFIX = 'network.connection_watch.';
+
 // `pick` (optional) is the card's own copy object, shared with the
 // whole-report copy, so an answer given on the card shows in both.
 function copyAiButtonHtml(finding, pick) {
+  if (finding && (finding.module === 'connection_watch'
+    || (typeof finding.code === 'string' && finding.code.startsWith(COPY_AI_WATCH_CODE_PREFIX)))) return '';
   const id = copyAiRegistry.push(pick || copyAiPick(finding)) - 1;
   return `<div class="copy-ai">
     <button type="button" class="btn btn--secondary btn--small" data-copy-ai="${id}">Copy for any AI</button>
@@ -55,7 +61,7 @@ function copyAiPanelHtml(text, key) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { copyAiPanelHtml, copyAiPick, COPY_AI_INTRO };
+  module.exports = { copyAiPanelHtml, copyAiPick, copyAiButtonHtml, COPY_AI_INTRO, COPY_AI_WATCH_CODE_PREFIX };
 }
 
 if (typeof document !== 'undefined') {

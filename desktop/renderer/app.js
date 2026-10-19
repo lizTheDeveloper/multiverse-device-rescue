@@ -459,6 +459,12 @@ if (typeof document !== 'undefined') {
     let lastKnownPlatform = null; // e.g. "darwin" | "win32" | "linux", once we have a scan result
     // The scan's own platform once there is one; before that, what preload says.
     const currentPlatform = () => lastKnownPlatform || (window.rescue && window.rescue.platform) || null;
+    // The default browser's name, for the router button ("in Safari"); null until known or if unknown.
+    let browserName = null;
+    if (window.rescue && window.rescue.defaultBrowser) {
+      Promise.resolve().then(() => window.rescue.defaultBrowser()).then((n) => { browserName = n || null; }).catch(() => {});
+    }
+    let routerCtx = null; // RouterLink context for the results on screen
     let situation = null; // the SITUATIONS entry the person picked
     let wantsCity = false; // came in through "Play it as a game"
     let leftGame = false; // chose "Plain view" during game mode
@@ -765,6 +771,7 @@ if (typeof document !== 'undefined') {
                 <ol>${card.steps.map((step) => `<li>${escapeHtml(stepTitle(step.title))}</li>`).join('')}</ol>
               </div>` : ''}
               ${held ? '' : SettingPanes.findingButtonHtml(finding, currentPlatform())}
+              ${held ? '' : RouterLink.findingLinkHtml(finding, routerCtx)}
               ${finding.remediation && !held ? `
               <details class="fix-steps">
                 <summary>${finding.fixable ? 'Or fix it yourself, step by step' : 'Show me how, step by step'}</summary>
@@ -818,6 +825,7 @@ if (typeof document !== 'undefined') {
       cardPicks = new Map();
       cardTech = new Map();
       nextCardKey = 0;
+      routerCtx = RouterLink.contextFrom(doc, browserName);
       const groupsEl = document.getElementById('results-groups');
       groupsEl.innerHTML = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev])).join('')
         + ClearList.sectionHtml();
@@ -1018,6 +1026,9 @@ if (typeof document !== 'undefined') {
     resultsRoot.addEventListener('click', (event) => {
       const btn = event.target.closest && event.target.closest('[data-setting-url]');
       if (btn && resultsRoot.contains(btn)) window.rescue.openSetting(btn.getAttribute('data-setting-url'));
+      // "Open your router's settings": only the address goes to main, which builds the URL.
+      const router = event.target.closest && event.target.closest('[data-router-ip]');
+      if (router && resultsRoot.contains(router)) window.rescue.openRouter(router.getAttribute('data-router-ip'));
     });
     // "Fix it for me": delegated, so it keeps working when results are re-rendered.
     FixFlow.attach(resultsRoot, window.rescue, {

@@ -32,6 +32,7 @@ Commands:
   update               Update module data and guide content from the...
   validate             Validate the shipped catalog: modules, profiles,...
   version              Show version information.
+  watch                Watch this computer's connections for a few minutes.
 ```
 
 If the `rescue` script is not on your `PATH`, every invocation below also works
@@ -168,6 +169,45 @@ The JSON shape is `schema_version` 1:
     Note also that `status` here is only `"ok"` or `"error"` — this serializer
     does not distinguish *unsupported* from *healthy*. The human report and the
     case export both do.
+
+---
+
+## `rescue watch` — watch connections for a few minutes
+
+```console
+$ rescue watch [--minutes <n>] [--interval <seconds>] [--json] [--progress]
+```
+
+Looks at this computer's network connections again and again, then summarises
+what it saw for each program: who it talked to, whether it checked in at a
+steady rhythm, whether a program started listening for connections, and
+whether one sent a lot more than it received. It only reads; it changes
+nothing, and it is not part of `rescue scan`, so it never runs unless you ask.
+
+| Flag | Effect |
+| --- | --- |
+| `--minutes <n>` | How long to watch, 1 to 30 (default 5). |
+| `--interval <seconds>` | How often to look, 2 to 60 (default 5). |
+| `--json` | Print the result as JSON on stdout, in the same shape as `scan --json`, with the module name `connection_watch`. Without it, a short list of what was found. |
+| `--progress` | Write one `{"progress": {"phase": "watch", "elapsed": ..., "total": ..., "snapshots": ...}}` line to stderr after each look (seconds for `elapsed` and `total`). |
+
+Out-of-range values exit `2` with a message. To end the watch early, send the
+line `stop` on standard input, or press Ctrl-C (SIGINT) or send SIGTERM. The
+result is still printed, with `stopped_early: true` in each finding's `data`.
+End of standard input is not a stop. The "who made it" lookups that `scan`
+adds are not done for the watch.
+
+Every finding is `info`, with a `network.connection_watch.*` code:
+`watch_summary` (one per program), `regular_checkins`, `new_listener`,
+`upload_heavy`, `dns_lookups` (Windows only), `dns_not_visible` (macOS and
+Linux, or Windows when the list of looked-up names couldn't be read) and
+`watch_incomplete` (what this computer couldn't show, such as data volumes
+on Windows, other accounts' programs, a stop before the end, or a hit
+storage limit). The watch keeps at most 2,000 program-and-destination pairs
+and 200 timings per pair; beyond that it counts without storing. Addresses
+stay numeric: the watch looks nothing up. Each code points to the "Read a
+connection watch" walkthrough. If the connection reader can't load, the
+module's `status` is `error` and nothing was checked.
 
 ---
 

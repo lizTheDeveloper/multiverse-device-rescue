@@ -61,8 +61,13 @@ function renderAnswerHtml(text) {
 
 const askRegistry = [];
 
+// Same prefix as ask-about.js WATCH_CODE_PREFIX: these findings are never sent.
+const ASK_WATCH_CODE_PREFIX = 'network.connection_watch.';
+
 /** HTML for the button plus an empty slot; remembers the finding by index. */
 function askButtonHtml(finding) {
+  if (finding && (finding.module === 'connection_watch'
+    || (typeof finding.code === 'string' && finding.code.startsWith(ASK_WATCH_CODE_PREFIX)))) return '';
   const id = askRegistry.push({
     title: finding.title,
     description: finding.description,
@@ -89,7 +94,7 @@ function renderPreviewHtml(preview) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { renderAnswerHtml, renderPreviewHtml, ASK_FOOTER, ASK_CONSENT_TEXT, ASK_WARMING_TEXT };
+  module.exports = { askButtonHtml, ASK_WATCH_CODE_PREFIX, renderAnswerHtml, renderPreviewHtml, ASK_FOOTER, ASK_CONSENT_TEXT, ASK_WARMING_TEXT };
 }
 
 if (typeof document !== 'undefined') {
