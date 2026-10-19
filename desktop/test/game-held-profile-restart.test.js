@@ -1,0 +1,101 @@
+// The held-software guard across a restart through the player profile: the
+// game's deck goes into the recipe box (disguised, city mode), comes back out
+// on the next run, and the sweep where the software is gone still pays nothing.
+const test = require('node:test');
+const assert = require('node:assert');
+const path = require('path');
+const { pathToFileURL } = require('url');
+const Q = require('../renderer/quiet-notes.js');
+const { recordingStore, forbiddenWrites } = require('./disk-words.js');
+const { LESSONS, DRILLS } = require('./profile-fixtures.js');
+
+const game = (f) => import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', f)).href);
+const tick = () => new Promise((r) => setTimeout(r, 0));
+const mod = (name, findings) => ({ name, category: 'security', status: 'ok', error: null, supported: true, findings });
+const scan = (...mods) => ({ schema_version: 1, platform: 'darwin', modules: mods });
+const SPY = () => mod('stalkerware_scan', [{ title: 'Monitoring app', description: 'Monitoring app.', severity: 'critical', category: 'security',
+  code: 'security.stalkerware_scan.monitoring_software_found', data: { path: '/m' } }]);
+const NONE = () => mod('stalkerware_scan', []);
+const OLD = 'device-rescue.game.v1';
+const NOW = '2026-10-18T12:00:00.000Z';
+const LATER = '2026-10-19T09:00:00.000Z';
+
+function stub() {
+  let html = '';
+  const frame = {
+    get innerHTML() { return html; },
+    set innerHTML(v) { html = v; },
+    addEventListener() {},
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+  const shadow = { activeElement: null, getElementById: () => frame, addEventListener: () => {} };
+  const host = { attachShadow: () => shadow, closest: () => null };
+  const win = {
+    document: { getElementById: () => host },
+    addEventListener() {},
+    QuietNotes: Q,
+    FixFlow: { attach() {}, fixControlsHtml: () => '', resultHtml: () => '' },
+    MarkFlow: { attach() {}, markControlsHtml: () => '' },
+    RescueHost: { mode: () => 'city', citySeed: () => 424242, showList() {}, docChanged: () => true, wantsSafety: () => false,
+      startCheckup() {}, scanTips: async () => [], leaveGame() {} },
+    rescue: { recheckModule: async () => ({ ok: false }), openGuide: async () => true },
+  };
+  return { win, html: () => html };
+}
+
+async function run(storage, doc) {
+  const { createController } = await game('controller.js');
+  const t = stub();
+  const ctl = createController({ win: t.win, storage, scoutSprite: () => '', loadGame: () => new Promise(() => {}),
+    loadTraining: async () => [], loadDrillBank: async () => [] });
+  await tick();
+  ctl.show(doc, { id: 'city', title: 'Take back the city' });
+  return { ...t, saved: () => JSON.parse(storage.getItem(OLD) || 'null') };
+}
+
+test('city mode: held software, a restart through the recipe box, then a sweep without it: no CLEAN SWEEP, no points, carry kept', async () => {
+  const pp = await game('profile/player-profile.js');
+  const { buildBank } = await game('profile/item-bank.js');
+  const bank = buildBank(LESSONS, DRILLS);
+  const remote = () => mod('remote_login_check', []);
+
+  // First run: the held finding is there. The game's deck marks the sweep.
+  const first = recordingStore();
+  const a = await run(first, scan(SPY(), remote()));
+  assert.strictEqual(a.saved().deck.points, 0);
+  assert.strictEqual(a.saved().deck.sweep.carry, true, 'the sweep is marked');
+  assert.doesNotMatch(a.html(), /CLEAN SWEEP|DISTRICT SECURED/);
+
+  // Into the profile (migrating the v3 document), then saved disguised in city mode.
+  const disk = recordingStore({ [OLD]: first.getItem(OLD) });
+  let p = pp.loadProfile(disk, NOW);
+  p = pp.withProgress(p, a.saved());
+  assert.strictEqual(p.deck.sweep.carry, true, 'carry survives migration into the profile');
+  assert.strictEqual(pp.saveProfile(disk, p, { seed: 4242, mode: 'city' }), true);
+  assert.strictEqual(disk.data[OLD], undefined, 'city mode retires the literal document');
+  const box = disk.data[pp.PROFILE_KEY];
+  assert.ok(box.startsWith('{"kitchen":'), 'stored as a recipe box');
+  assert.doesNotMatch(box, /carry|Monitoring app|stalkerware|"\/m"/, 'the box names nothing');
+  assert.deepStrictEqual(forbiddenWrites(disk), []);
+
+  // Restart: the profile is read back from the box, and the game runs on its view.
+  const back = pp.loadProfile(disk, LATER);
+  assert.strictEqual(back.deck.sweep.carry, true, 'carry intact after the disguised round-trip');
+  assert.strictEqual(back.rank.points, 0);
+  const progress = pp.toProgress(back, bank);
+  assert.strictEqual(progress.deck.sweep.carry, true);
+  const second = recordingStore({ [OLD]: JSON.stringify(progress) });
+  const b = await run(second, scan(NONE(), remote()));
+  assert.match(b.html(), /<b>100%<\/b>/, 'the board reads secured');
+  assert.doesNotMatch(b.html(), /CLEAN SWEEP|DISTRICT SECURED/, 'its going is not a win');
+  assert.strictEqual(b.saved().deck.points, 0, 'no points');
+  assert.strictEqual(b.saved().deck.sweep.carry, undefined, 'this sweep holds nothing');
+
+  // And the profile, folded back in and saved again, still pays nothing.
+  const after = pp.withProgress(back, b.saved());
+  assert.strictEqual(after.rank.points, 0);
+  assert.strictEqual(pp.saveProfile(disk, after, { seed: 4242, mode: 'city' }), true);
+  assert.deepStrictEqual(forbiddenWrites(disk), []);
+  assert.deepStrictEqual(forbiddenWrites(second), []);
+});
