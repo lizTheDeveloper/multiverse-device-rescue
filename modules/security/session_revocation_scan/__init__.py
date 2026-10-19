@@ -22,7 +22,9 @@ answers "what must I revoke", and orders the guidance so the password change
 happens *before* the sign-out, which is the part people get backwards.
 """
 
+import base64
 import hashlib
+import unicodedata
 from pathlib import Path
 
 from rescue.models import (
@@ -43,6 +45,39 @@ from rescue.fsbounds import is_dir_nofollow, is_file_nofollow
 
 _COMMAND_TIMEOUT = 20
 _MAX_AUTHORIZED_KEYS_LINES = 500
+
+# Key types a line in authorized_keys can start its key with (after any options).
+_KEY_TYPES = frozenset({
+    "ssh-ed25519", "ssh-rsa", "ssh-dss",
+    "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521",
+    "sk-ssh-ed25519@openssh.com", "sk-ecdsa-sha2-nistp256@openssh.com",
+})
+
+
+def _parse_key_line(line: str) -> dict | None:
+    """One saved key, as fingerprints: the SHA-256 of the decoded key (what
+    `ssh-keygen -l` fingerprints) and of the whole line (so a change to its
+    options or comment shows), its type and its comment. Never the key itself.
+    None if the line isn't a key this can read."""
+    tokens = line.split()
+    for i, token in enumerate(tokens):
+        if token not in _KEY_TYPES or i + 1 >= len(tokens):
+            continue
+        try:
+            blob = base64.b64decode(tokens[i + 1], validate=True)
+        except ValueError:
+            return None
+        if not blob:
+            return None
+        comment = " ".join(tokens[i + 2:])
+        comment = "".join(ch for ch in comment if unicodedata.category(ch) not in ("Cc", "Cf"))[:128]
+        return {
+            "type": token,
+            "sha256": hashlib.sha256(blob).hexdigest(),
+            "line_sha256": hashlib.sha256(line.encode("utf-8", "replace")).hexdigest(),
+            "comment": comment,
+        }
+    return None
 
 _DARWIN_BROWSER_PROFILE_ROOTS = {
     "Google Chrome": "~/Library/Application Support/Google/Chrome",
@@ -469,7 +504,35 @@ class Module(ModuleBase):
         digest = self._authorized_keys_sha256()
         if digest:
             data["list_sha256"] = digest
+        # One entry per key, so the person can say which keys are theirs.
+        # Only when every line reads as a key: otherwise the list is offered whole.
+        entries = self._authorized_keys_entries()
+        if entries is not None and len(entries) == count:
+            data["keys"] = entries
         return data
+
+    def _authorized_keys_entries(self) -> list[dict] | None:
+        """Every saved key as fingerprints (see _parse_key_line), or None if
+        the file can't be read, is too long, or has a line that isn't a key."""
+        path = self._authorized_keys_path()
+        if not is_file_nofollow(path):
+            return None
+        entries = []
+        try:
+            with open(path, "r", errors="replace") as handle:
+                for index, line in enumerate(handle):
+                    if index >= _MAX_AUTHORIZED_KEYS_LINES:
+                        return None
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith("#"):
+                        continue
+                    entry = _parse_key_line(stripped)
+                    if entry is None:
+                        return None
+                    entries.append(entry)
+        except OSError:
+            return None
+        return entries or None
 
     def _authorized_keys_sha256(self) -> str | None:
         """A one-way fingerprint of the list of keys, so a key added or changed
