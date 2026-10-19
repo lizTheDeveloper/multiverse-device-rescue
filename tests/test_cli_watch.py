@@ -53,7 +53,9 @@ def test_json_document_has_the_module_and_schema():
     assert doc["modules"][0]["name"] == "connection_watch"
     assert doc["modules"][0]["findings"][0]["data"]["stopped_early"] is True
     assert calls[0][:2] == (1, 5)
-    assert "verdict" in calls[0][2]
+    verdict = calls[0][2]["verdict"]
+    assert verdict.__name__ == "listening_verdict"
+    assert verdict.__self__.name == "suspicious_connections"
 
 
 def test_progress_lines_are_json_on_stderr():
@@ -118,3 +120,36 @@ def test_every_watch_code_has_a_walkthrough():
 
     index = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
     assert set(WATCH_CODES) <= set(index)
+
+
+def test_defaults_are_five_minutes_and_five_seconds():
+    calls = []
+    _run(["--json"], calls=calls)
+    assert calls[0][:2] == (5, 5)
+
+
+def test_guide_validation_knows_every_watch_code(tmp_path):
+    from rescue.validate import validate_guides
+
+    remediation = tmp_path / "remediation"
+    remediation.mkdir()
+    codes = "\n".join(f"  - {c}" for c in WATCH_CODES)
+    (remediation / "w.md").write_text(
+        f'---\ntitle: "W"\nplatforms: [macos]\nremediates:\n{codes}\n---\n\n## Step 1\n\nx\n',
+        encoding="utf-8",
+    )
+    problems = validate_guides(tmp_path, [])
+    assert not [p for p in problems if "no module declares" in str(p)], problems
+
+
+def test_threat_remediation_knows_every_watch_code():
+    seen = {}
+
+    def fake_validate(threats, profiles, all_codes, all_modules):
+        seen["codes"] = set(all_codes)
+        return ["stop here"]  # exit before anything is written
+
+    with patch("rescue.threat_map.validate_threat_map", fake_validate):
+        result = CliRunner().invoke(main, ["threat-remediation"])
+    assert result.exit_code == 1
+    assert set(WATCH_CODES) <= seen["codes"]

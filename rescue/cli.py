@@ -28,13 +28,13 @@ from rescue.security.integrity import (
 from rescue.security.signers import RevokedSignerStore, TrustConfigurationError
 from rescue.session import SessionStore
 from rescue.tui.app import run_tui
-from rescue.watch import MAX_INTERVAL, MAX_MINUTES, MIN_INTERVAL, MIN_MINUTES, WATCH_CODES, WatchModule, run_watch
 from rescue.update.config import default_config
 from rescue.update.engine import UpdateEngine
 from rescue.update.manifest import ManifestError
 from rescue.update.repo import ContentRepo, GitError
 from rescue.update.sideload import SideloadError, load_sideload_repo
 from rescue.validate import validate_catalog
+from rescue.watch import MAX_INTERVAL, MAX_MINUTES, MIN_INTERVAL, MIN_MINUTES, WATCH_CODES, WatchModule, run_watch
 
 
 def _project_root() -> Path:
@@ -259,7 +259,8 @@ def _stop_on_request():
 
     def restore():
         for sig, handler in previous.items():
-            signal.signal(sig, handler)
+            if handler is not None:  # None: installed from C, can't be put back
+                signal.signal(sig, handler)
 
     return stop, restore
 
@@ -275,7 +276,7 @@ def _stop_on_request():
 @click.option(
     "--interval",
     type=click.IntRange(MIN_INTERVAL, MAX_INTERVAL),
-    default=10,
+    default=5,
     show_default=True,
     help=f"Seconds between looks, {MIN_INTERVAL}-{MAX_INTERVAL}.",
 )

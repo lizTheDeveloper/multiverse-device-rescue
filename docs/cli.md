@@ -187,7 +187,7 @@ nothing, and it is not part of `rescue scan`, so it never runs unless you ask.
 | Flag | Effect |
 | --- | --- |
 | `--minutes <n>` | How long to watch, 1 to 30 (default 5). |
-| `--interval <seconds>` | How often to look, 2 to 60 (default 10). |
+| `--interval <seconds>` | How often to look, 2 to 60 (default 5). |
 | `--json` | Print the result as JSON on stdout, in the same shape as `scan --json`, with the module name `connection_watch`. Without it, a short list of what was found. |
 | `--progress` | Write one `{"progress": {"phase": "watch", "elapsed": ..., "total": ..., "snapshots": ...}}` line to stderr after each look (seconds for `elapsed` and `total`). |
 
