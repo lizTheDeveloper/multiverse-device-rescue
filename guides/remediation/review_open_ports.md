@@ -5,6 +5,7 @@ platforms: [macos]
 remediates:
   - security.open_ports_scan.exposed_risky_ports
   - security.open_ports_scan.listening_ports
+  - security.open_ports_scan.couldnt_check
 steps_for:
   security.open_ports_scan.exposed_risky_ports: [1]
   security.open_ports_scan.listening_ports: [2]

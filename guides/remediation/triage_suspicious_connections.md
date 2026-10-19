@@ -6,6 +6,7 @@ remediates:
   - security.suspicious_connections.unusual_listening_port
   - security.suspicious_connections.unusual_outbound_connection
   - security.suspicious_connections.high_connection_count
+  - security.suspicious_connections.couldnt_check
 steps_for:
   security.suspicious_connections.unusual_listening_port: [1]
   security.suspicious_connections.unusual_outbound_connection: [2]

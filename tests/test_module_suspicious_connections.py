@@ -1,3 +1,4 @@
+import json
 import sys
 
 import pytest
@@ -6,8 +7,13 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from rescue.command import CommandResult
 from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
 from rescue.registry import discover_modules
+from rescue.runtime import load_content_module
+
+FIX = Path(__file__).parent / "fixtures" / "conn"
+COLLECT = load_content_module("modules/network/conn_common/collect.py", "rescue_conn_common_collect")
 
 
 
@@ -15,9 +21,9 @@ _POSIX_PATHS = pytest.mark.skipif(
     sys.platform == "win32", reason="resolves POSIX SIP paths with os.path.realpath, which Windows rewrites to a drive path"
 )
 
-def _make_profile():
+def _make_profile(platform=Platform.DARWIN):
     return SystemProfile(
-        platform=Platform.DARWIN,
+        platform=platform,
         os_name="macOS",
         os_version="15.2",
         architecture="arm64",
@@ -33,15 +39,42 @@ def _get_module():
     return next(m for m in modules if m.name == "suspicious_connections")
 
 
+def _result(stdout="", returncode=0, error=None):
+    return CommandResult(
+        args=[], returncode=returncode, stdout=stdout, stderr="",
+        timed_out=False, error=error, duration_s=0.0, truncated=False,
+    )
+
+
+def _fake_run(lsof="", ss="", win=None, error=None):
+    """A stand-in for rescue.command.run that answers the collector's commands."""
+    def run(args, **kwargs):
+        if error:
+            return _result(returncode=None, error=error)
+        if args[0] == "lsof":
+            return _result(lsof, returncode=0 if lsof.strip() else 1)
+        if args[0] == "ss" and "-tunapH" in args:
+            return _result(ss)
+        if args[0] == "powershell" and win is not None:
+            return _result(win)
+        # nettop, ss -tni and codesign: not available here
+        return _result(returncode=1)
+    return run
+
+
+def _check(platform=Platform.DARWIN, **kw):
+    mod = _get_module()
+    with patch("rescue.command.run", side_effect=_fake_run(**kw)):
+        return mod.check(_make_profile(platform))
+
+
 def _fake_lsof_output(lsof_text):
-    """Create a mock subprocess.run that returns lsof output."""
-    def fake_run(cmd, **kwargs):
-        result = MagicMock()
-        result.returncode = 0
-        result.stdout = lsof_text
-        result.stderr = ""
-        return result
-    return fake_run
+    """Feed lsof text through the shared collector's runner."""
+    return _fake_run(lsof=lsof_text)
+
+
+def _win_output(tcp, proc, udp="[]"):
+    return "\n".join(part.strip() for part in (tcp, udp, proc)) + "\n"
 
 
 def test_suspicious_connections_discovered():
@@ -59,7 +92,7 @@ Safari    12345     user   10u  IPv4 0x1234567890123456      0t0  TCP *:443 (LIS
 Mail      12346     user   11u  IPv4 0x1234567890123457      0t0  TCP *:993 (LISTEN)
 Chrome    12347     user   12u  IPv4 0x1234567890123458      0t0  TCP *:80 (LISTEN)"""
 
-    with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
+    with patch("rescue.command.run", side_effect=_fake_lsof_output(lsof_output)):
         result = mod.check(_make_profile())
 
     assert not result.has_issues
@@ -72,7 +105,7 @@ def test_suspicious_connections_unusual_listening_port():
 Safari    12345     user   10u  IPv4 0x1234567890123456      0t0  TCP *:443 (LISTEN)
 BadApp    12348     user   13u  IPv4 0x1234567890123459      0t0  TCP *:8888 (LISTEN)"""
 
-    with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
+    with patch("rescue.command.run", side_effect=_fake_lsof_output(lsof_output)):
         result = mod.check(_make_profile())
 
     assert result.has_issues
@@ -89,7 +122,7 @@ def test_suspicious_connections_unusual_outbound_connection():
 Safari    12345     user   10u  IPv4 0x1234567890123456      0t0  TCP 192.168.1.1:50000 (ESTABLISHED)
 BadApp    12348     user   13u  IPv4 0x1234567890123459      0t0  TCP 10.0.0.1:9999 (ESTABLISHED)"""
 
-    with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
+    with patch("rescue.command.run", side_effect=_fake_lsof_output(lsof_output)):
         result = mod.check(_make_profile())
 
     # Safari is known safe, so should not flag it
@@ -107,7 +140,7 @@ def test_suspicious_connections_known_safe_process():
 Safari    12345     user   10u  IPv4 0x1234567890123456      0t0  TCP 192.168.1.1:9999 (ESTABLISHED)
 Chrome    12346     user   11u  IPv4 0x1234567890123457      0t0  TCP 192.168.1.2:8888 (ESTABLISHED)"""
 
-    with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
+    with patch("rescue.command.run", side_effect=_fake_lsof_output(lsof_output)):
         result = mod.check(_make_profile())
 
     # Familiar names are not alarming, but they stay listed (as info) because
@@ -127,7 +160,7 @@ def test_suspicious_connections_high_connection_count():
     lsof_output = """COMMAND     PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
 """ + "\n".join(connections)
 
-    with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
+    with patch("rescue.command.run", side_effect=_fake_lsof_output(lsof_output)):
         result = mod.check(_make_profile())
 
     # Should detect high connection count
@@ -149,7 +182,7 @@ MalApp2   12349     user   14u  IPv4 0x1234567890123460      0t0  TCP 192.168.1.
 MalApp2   12349     user   15u  IPv4 0x1234567890123461      0t0  TCP 192.168.1.2:6666 (ESTABLISHED)
 MalApp2   12349     user   16u  IPv4 0x1234567890123462      0t0  TCP 192.168.1.3:6666 (ESTABLISHED)"""
 
-    with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
+    with patch("rescue.command.run", side_effect=_fake_lsof_output(lsof_output)):
         result = mod.check(_make_profile())
 
     assert result.has_issues
@@ -162,15 +195,16 @@ def test_suspicious_connections_fix_is_informational():
     lsof_output = """COMMAND     PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
 BadApp    12348     user   13u  IPv4 0x1234567890123459      0t0  TCP *:8888 (LISTEN)"""
 
-    with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
+    with patch("rescue.command.run", side_effect=_fake_lsof_output(lsof_output)):
         check = mod.check(_make_profile())
 
-    # Patch subprocess to verify no kill commands are issued
-    with patch("subprocess.run") as mock_run:
+    # Patch the command runners to verify no kill commands are issued
+    with patch("subprocess.run") as mock_run, patch("rescue.command.run") as mock_cmd:
         fix = mod.fix(check, Mode.MANUAL)
 
-    # Verify no subprocess calls were made (fix is informational)
+    # Verify no commands were run (fix is informational)
     mock_run.assert_not_called()
+    mock_cmd.assert_not_called()
 
     # Verify fix succeeded with informational actions
     assert fix.all_succeeded
@@ -180,28 +214,22 @@ BadApp    12348     user   13u  IPv4 0x1234567890123459      0t0  TCP *:8888 (LI
 
 
 def test_suspicious_connections_empty_lsof():
-    """Handle empty lsof output gracefully."""
+    """lsof prints nothing (and exits 1) when no program has a connection open."""
     mod = _get_module()
-    lsof_output = """COMMAND     PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME"""
 
-    with patch("subprocess.run", side_effect=_fake_lsof_output(lsof_output)):
+    with patch("rescue.command.run", side_effect=_fake_lsof_output("")):
         result = mod.check(_make_profile())
 
     assert not result.has_issues
 
 
 def test_suspicious_connections_lsof_unavailable():
-    """Handle lsof command unavailable gracefully."""
-    mod = _get_module()
-
-    def fake_run_error(cmd, **kwargs):
-        raise OSError("lsof not found")
-
-    with patch("subprocess.run", side_effect=fake_run_error):
-        result = mod.check(_make_profile())
-
-    # Should not crash, just return no findings
-    assert not result.has_issues
+    """A missing lsof is reported as couldn't-check, never as a clean result."""
+    result = _check(error="not found")
+    assert len(result.findings) == 1
+    finding = result.findings[0]
+    assert finding.severity == Severity.INFO
+    assert finding.code == "security.suspicious_connections.couldnt_check"
 
 
 def test_emitted_codes_are_declared():
@@ -221,14 +249,7 @@ def _run_with(lsof_text, kernel=None, apple_signed=True):
     mod = _get_module()
     kernel = kernel or {}
 
-    def fake_run(cmd, **kwargs):
-        r = MagicMock()
-        r.returncode = 0
-        r.stderr = ""
-        r.stdout = lsof_text
-        return r
-
-    with patch("subprocess.run", side_effect=fake_run), patch.object(
+    with patch("rescue.command.run", side_effect=_fake_run(lsof=lsof_text)), patch.object(
         type(mod), "_kernel_path", staticmethod(lambda pid: kernel.get(int(pid)))
     ), patch.object(type(mod), "_apple_signed", lambda self, path: apple_signed):
         return mod.check(_make_profile())
@@ -320,3 +341,121 @@ def test_remote_unusual_port_collapses_per_process():
     out = [f for f in result.findings if f.data.get("check") == "unusual_outbound_connection"]
     assert len(out) == 1
     assert out[0].data["ports"] == [9990, 9991, 9992]
+
+
+# --- every platform ------------------------------------------------------------
+
+
+def _warnings(result):
+    return [f for f in result.findings if f.severity in (Severity.WARNING, Severity.CRITICAL)]
+
+
+def test_runs_on_every_platform():
+    assert set(_get_module().platforms) == {Platform.DARWIN, Platform.LINUX, Platform.WIN32}
+
+
+def test_linux_clean_machine_no_warnings():
+    result = _check(Platform.LINUX, ss=(FIX / "clean_linux_ss.txt").read_text())
+    assert not _warnings(result)
+
+
+def test_windows_clean_machine_no_warnings():
+    win = _win_output((FIX / "clean_win_listen.json").read_text(), (FIX / "win_proc.json").read_text())
+    result = _check(Platform.WIN32, win=win)
+    assert not _warnings(result)
+    # every listener is a verified Windows service, so nothing is even noted
+    assert not [f for f in result.findings if f.data.get("check") == "unnamed_listeners"]
+
+
+def test_windows_pathless_services_are_noted_not_warned():
+    """Without admin, Windows hides svchost's path: an info note, never a warning or silence."""
+    win = _win_output(
+        (FIX / "clean_win_listen.json").read_text(), (FIX / "win_proc_nopath.json").read_text()
+    )
+    result = _check(Platform.WIN32, win=win)
+    assert not _warnings(result)
+    noted = [f for f in result.findings if f.data.get("check") == "unnamed_listeners"]
+    assert len(noted) == 1
+    assert "couldn't confirm which program" in noted[0].description
+    assert {i["port"] for i in noted[0].data["items"]} == {135, 49664}
+
+
+def test_listening_verdict_windows():
+    mod = _get_module()
+    recs = COLLECT.parse_win_connections(
+        (FIX / "clean_win_listen.json").read_text(), "[]", (FIX / "win_proc_nopath.json").read_text()
+    )
+    svchost = next(r for r in recs if r["local_port"] == 49664)
+    assert mod.listening_verdict("win32", svchost) == "unnamed"
+    system = next(r for r in recs if r["local_port"] == 445)
+    assert mod.listening_verdict("win32", system) == "expected"
+    rundll = {**svchost, "local_port": 49670, "process": "rundll32", "pid": 6000}
+    assert mod.listening_verdict("win32", rundll) == "flag"
+    with_path = {**svchost, "exe": "C:\\Windows\\System32\\svchost.exe"}
+    assert mod.listening_verdict("win32", with_path) == "expected"
+
+
+def test_listening_verdict_linux_and_ports():
+    mod = _get_module()
+    rec = {"proto": "tcp", "state": "LISTEN", "local_addr": "0.0.0.0", "local_port": 8000,
+           "remote_addr": None, "remote_port": None, "pid": 9, "process": "python3", "exe": None}
+    assert mod.listening_verdict("linux", rec) == "flag"
+    assert mod.listening_verdict("linux", {**rec, "process": None, "pid": None}) == "unnamed"
+    assert mod.listening_verdict("linux", {**rec, "local_addr": "127.0.0.1"}) == "expected"
+    assert mod.listening_verdict("linux", {**rec, "local_port": 443}) == "expected"
+    assert mod.listening_verdict("linux", {**rec, "process": "sshd", "local_port": 22}) == "expected"
+
+
+def test_unnamed_listener_is_info():
+    ss = (FIX / "ss_tunap_linux_nonroot.txt").read_text() + (
+        "tcp   LISTEN 0      128          0.0.0.0:8000       0.0.0.0:*\n"
+    )
+    result = _check(Platform.LINUX, ss=ss)
+    assert not _warnings(result)
+    noted = [f for f in result.findings if f.data.get("check") == "unnamed_listeners"]
+    assert len(noted) == 1
+    assert noted[0].severity == Severity.INFO
+    assert "couldn't see which program" in noted[0].description
+
+
+def test_unnamed_outbound_is_info():
+    ss = "tcp   ESTAB  0      0       192.168.1.30:51050   203.0.113.10:9999\n"
+    result = _check(Platform.LINUX, ss=ss)
+    assert not _warnings(result)
+    noted = [f for f in result.findings if f.data.get("check") == "unnamed_connections"]
+    assert len(noted) == 1 and noted[0].severity == Severity.INFO
+
+
+@pytest.mark.parametrize("platform", [Platform.LINUX, Platform.WIN32])
+def test_collector_error_is_couldnt_check(platform):
+    result = _check(platform, error="not found")
+    assert not _warnings(result)
+    assert len(result.findings) == 1
+    assert result.findings[0].severity == Severity.INFO
+    assert "not the same as a clean result" in result.findings[0].description
+
+
+def test_advice_names_platform_tool():
+    ss = (
+        "tcp   LISTEN 0 128 0.0.0.0:8000 0.0.0.0:* users:((\"backdoor\",pid=9,fd=3))\n"
+        "tcp   ESTAB  0 0 192.168.1.30:51050 203.0.113.10:9999 users:((\"backdoor\",pid=9,fd=4))\n"
+    )
+    linux = _warnings(_check(Platform.LINUX, ss=ss))
+    tcp = json.dumps([
+        {"LocalAddress": "0.0.0.0", "LocalPort": 8000, "RemoteAddress": "0.0.0.0",
+         "RemotePort": 0, "State": 2, "OwningProcess": 9},
+        {"LocalAddress": "192.168.1.40", "LocalPort": 50712, "RemoteAddress": "203.0.113.10",
+         "RemotePort": 9999, "State": 5, "OwningProcess": 9},
+    ])
+    proc = json.dumps([{"Id": 9, "ProcessName": "backdoor", "Path": "C:\\Users\\sam\\backdoor.exe"}])
+    win = _warnings(_check(Platform.WIN32, win=_win_output(tcp, proc)))
+    assert len(linux) == 2 and len(win) == 2
+    for f in win:
+        assert "Task Manager" in f.description or "Resource Monitor" in f.description
+    for f in linux:
+        assert "`ss " in f.description
+    for f in linux + win:
+        assert "Activity Monitor" not in f.description
+        assert "System Settings" not in f.description
+        assert "kill" not in f.description.lower()
+        assert "end task" not in f.description.lower()

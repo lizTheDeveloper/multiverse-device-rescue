@@ -1769,7 +1769,11 @@ networksetup -getwebproxy …
 ### `open_ports_scan`
 
 ```text
-lsof -iTCP -sTCP:LISTEN -nP
+lsof -i -n -P
+nettop -P -L 1 -n -x -J bytes_in,bytes_out
+powershell -NoProfile -NonInteractive -Command …
+ss -tniH
+ss -tunapH
 ```
 
 ### `privacy_audit`
@@ -1933,6 +1937,10 @@ system_profiler SPiBridgeDataType
 
 ```text
 lsof -i -n -P
+nettop -P -L 1 -n -x -J bytes_in,bytes_out
+powershell -NoProfile -NonInteractive -Command …
+ss -tniH
+ss -tunapH
 ```
 
 ### `suspicious_processes`
