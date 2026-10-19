@@ -195,3 +195,25 @@ test('NOT CHECKED: the chip names each part, and its filter reaches every check 
   assert.match(h, new RegExp(`${c.items} TO DO`));
   assert.match(h, new RegExp(`${c.couldntRun + c.unfinished + c.notStarted} NOT CHECKED`));
 });
+
+test('the help district’s tile is never a bare button: a quiet label and the place’s greeting, nothing that gives it away', async () => {
+  const { sideTileHtml, TILE_LABEL } = await game('views/side-district.js');
+  const { pickDistrict, GIVEAWAY } = await game('district-names.js');
+  for (const seed of [1, 7, 42, 999]) {
+    const d = pickDistrict(seed);
+    const html = sideTileHtml(d, 0);
+    assert.ok(html.includes(TILE_LABEL));
+    assert.ok(html.includes(d.voice.hello.replace(/'/g, '&#39;')) || html.includes(d.voice.hello));
+    assert.doesNotMatch(text(html), GIVEAWAY);
+  }
+  // On the deck too.
+  const t = await setup(fresh());
+  assert.match(t.html(), /ALSO IN TOWN<\/span>\s*<button type="button" class="btn-s" data-go="side">/);
+});
+
+test('LOW-PRIORITY SIGNALS shows the shared notes count once NotChecked gives one', async () => {
+  const { renderDeck } = await game('views/deck.js');
+  const base = { title: 'X', rank: { name: 'R', points: 0 }, low: [{ id: 'a', kind: 'real', severity: 'info', title: 'n', districtId: 'gatehouse' }] };
+  assert.match(renderDeck(base), /LOW-PRIORITY SIGNALS \(1\)/);
+  assert.match(renderDeck({ ...base, lowCount: 291 }), /LOW-PRIORITY SIGNALS \(291\)/);
+});

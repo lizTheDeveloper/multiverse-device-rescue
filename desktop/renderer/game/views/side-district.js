@@ -7,9 +7,15 @@ import * as evidenceModule from '../../evidence.js';
 const EV = globalThis.Evidence || evidenceModule.default;
 
 // The district's tile, on the deck's city and on the Training Grounds. It names only the place.
+// Never a bare button: a quiet label (ALSO IN TOWN) and the place's own
+// greeting say what it is in the city's words, and nothing about what it holds.
+export const TILE_LABEL = 'ALSO IN TOWN';
 export function sideTileHtml(district, heldCount = 0) {
+  const hello = district.voice && district.voice.hello ? district.voice.hello : '';
   return `<div class="side-tile look-${esc(district.look)}">
-    <button type="button" class="btn-s" data-go="side">${esc(district.name.toUpperCase())} ▶</button>${heldCount ? ' <span class="badge">NEW</span>' : ''}</div>`;
+    <span class="label">${esc(TILE_LABEL)}</span>
+    <button type="button" class="btn-s" data-go="side">${esc(district.name.toUpperCase())} ▶</button>${heldCount ? ' <span class="badge">NEW</span>' : ''}
+    ${hello ? `<small class="side-say">${esc(hello)}</small>` : ''}</div>`;
 }
 
 // On the deck when the checkup found something that belongs there. Only the
