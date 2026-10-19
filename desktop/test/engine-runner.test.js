@@ -214,7 +214,7 @@ test('main keeps the exec lines per check and the window can ask for one check',
   const preload = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
   assert.match(main, /else execLog\.reset\(\);\s*const doc = await runScan/);
   assert.match(main, /if \(ev\.type === 'exec'\) execLog\.add\(ev\);/);
-  assert.match(main, /fixPolicy\.remember\(doc\);\s*markPolicy\.remember\(doc\);/);
+  assert.match(main, /applyScanResult\(\{ profile, lastDoc, doc, policies: \[fixPolicy, markPolicy\] \}\)/);
   assert.match(main, /ipcMain\.handle\('module-commands', \(_e, name\) => execLog\.get\(name\)\)/);
   assert.match(preload, /moduleCommands: \(name\) => ipcRenderer\.invoke\('module-commands', name\)/);
 });
