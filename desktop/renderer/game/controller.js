@@ -516,7 +516,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, { ...watchedOpts(), theme: 'game' }) : '';
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
-      range: s.screen === 'range' ? { hasCity: !!s.city } : null, offer: s.signal.offer || null });
+      range: s.screen === 'range' ? { hasCity: !!s.city } : null, offer: s.signal.offer || null,
+      tagNote: Object.keys(s.progress.deck.tags || {}).length === 0 });
   }
 
   function deckHtml() {

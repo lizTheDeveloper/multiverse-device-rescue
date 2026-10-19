@@ -381,3 +381,6 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .pick { width: 18px; height: 18px; flex: none; accent-color: var(--cyan); }
 .bulk { margin-top: 12px; align-items: center; }
 .bulk button[disabled] { opacity: 0.45; cursor: default; }
+details.reading { margin-top: 6px; font-size: 13px; color: var(--dim); }
+details.reading > summary { cursor: pointer; }
+details.reading .link { color: var(--cyan); }

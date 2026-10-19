@@ -252,3 +252,28 @@ test('P1-7: district missions have unticked checkboxes, and moves for the ticked
   assert.match(html2, /2 saved for later\./);
   assert.strictEqual((html2.match(/class="badge skip">LATER</g) || []).length, 2);
 });
+
+test('P2-13 / P2-21 / P2-22: readings fold away with the lesson, the tag note says itself once, LOOK CLOSER has a next move, hidden folders are a place', async () => {
+  const { renderSignalPanel } = await game('views/signal.js');
+  const { cluesFor, placeFor } = await game('clues.js');
+  assert.strictEqual(placeFor('/Users/a/.hermes/hermes-agent/venv/bin/python').id, 'hidden');
+  assert.strictEqual(placeFor('/Users/a/.hermes/hermes-agent/venv/bin/python').risky, true);
+  assert.strictEqual(placeFor('/Users/a/Documents/.notes'), null, 'a dotfile itself isn’t a hidden folder');
+  assert.strictEqual(placeFor('/Users/a/.config/x').id, 'hidden-config', 'the specific note first');
+  const finding = { title: 'T', description: 'It runs.', data: { program: '/Users/a/.hermes/py' }, made_by: [{ name: 'X', verified: false }] };
+  const sig = { id: 's', kind: 'real', severity: 'warning', title: 'T', districtId: 'gatehouse', missionId: 'm1', finding };
+  const clues = cluesFor(finding);
+  const html = renderSignalPanel({ signal: sig, clues, opened: ['maker', 'where', 'what'], scout: () => '' });
+  assert.match(html, /<details class="reading"><summary>How to read this<\/summary>/);
+  assert.match(html, /data-go="lesson:starts-on-its-own"/);
+  assert.doesNotMatch(html, /plain-language description/);
+  assert.match(html, /hidden folder/);
+  assert.match(html, /Tags are game sorting only/);
+  assert.doesNotMatch(renderSignalPanel({ signal: sig, clues, scout: () => '', tagNote: false }), /Tags are game sorting only/);
+  const closer = renderSignalPanel({ signal: sig, clues, scout: () => '', tagged: 'closer', read: 'r' });
+  assert.match(closer, /data-go="mission:m1"/);
+  assert.doesNotMatch(closer, /use LIST/);
+  const drill = { id: 'drill:x', kind: 'drill', severity: 'warning', title: 'D', drill: { clues: {} } };
+  const range = renderSignalPanel({ signal: drill, scout: () => '', range: { hasCity: true } });
+  assert.strictEqual((range.match(/not on your computer|isn’t on your computer|never touches your computer/gi) || []).length, 0, 'the range says it once, at its top');
+});
