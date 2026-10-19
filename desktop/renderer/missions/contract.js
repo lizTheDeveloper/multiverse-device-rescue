@@ -1,0 +1,184 @@
+// The mini-game contract (spec: docs/superpowers/specs/2026-10-19-little-missions-and-minigames-design.md).
+//
+// Every game is one ES module, renderer/missions/games/<type>.js, whose default export is:
+//
+//   {
+//     type: 'door',                                     // a TYPE_IDS entry
+//     title: { standard: '…', city: '…' },               // standard = plain words; city = stealth game words
+//     concepts: ['where-it-lives'],                      // existing profile concept ids it trains
+//     decisions(item, ctx) -> Decision[],                // 2–3; the first is the safe default
+//     research(item, ctx)  -> { rows, what, links },     // rows from ctx.evidenceRows; links are LINK INTENTS
+//     practice: { items: Item[], script: Step[] },       // synthetic items only + guided steps
+//     render(view, ctx)    -> string,                    // HTML for ONE item; escape every scan value with ctx.esc
+//     summary(results, ctx) -> string,                   // end-of-mission recap
+//   }
+//
+//   Decision = { id, label: { standard, city }, effect: Effect }
+//   Effect   = { kind: EFFECT_KINDS[i], ...args }   // games never act; the runner carries effects out
+//   Link     = { kind: LINK_KINDS[i], ...args }     // intents; runner/research.js turns them into allowlisted URLs
+//   Step     = { item: index into practice.items, say: { standard, city }, expect?: decision id }
+//   ctx      = { mode: 'standard'|'city', practice: bool, platform: 'darwin'|'win32'|'linux', districtName,
+//                esc(s), visible(s), evidenceRows(finding, {mode}) }
+//   view     = { item, research, decisions, index, total, practice, step? }
+//
+// Games are pure: no DOM, no storage, no window/globals, no network, no clipboard. Only what ctx hands them.
+
+export const TYPE_IDS = ['door', 'keyring', 'loadout', 'seal', 'switchboard', 'locker', 'locks', 'junkyard', 'notes', 'simple'];
+
+export const EFFECT_KINDS = ['mark', 'fix', 'settings', 'link', 'closer', 'later', 'note', 'odd', 'recheck', 'keep'];
+
+// Link intents. A game never builds a URL from scan data; research.js maps each intent to a fixed template.
+//   settings: { kind: 'settings', pane }            pane from SETTINGS_PANES
+//   lookup:   { kind: 'lookup', query, source }     source from LOOKUP_SOURCES; in city mode shown as text only
+//   lesson:   { kind: 'lesson', concept }
+export const LINK_KINDS = ['settings', 'lookup', 'lesson'];
+export const SETTINGS_PANES = [
+  'login-items', 'privacy-accessibility', 'privacy-input-monitoring', 'privacy-screen-recording', 'privacy-camera',
+  'privacy-microphone', 'privacy-full-disk', 'privacy-location', 'privacy-automation', 'network', 'firewall', 'sharing',
+  'software-update', 'filevault', 'lock-screen', 'users-groups', 'storage', 'battery', 'extensions-browser',
+  'profiles', 'time-machine', 'apple-id', 'vpn', 'dns', 'startup-apps', 'windows-security', 'windows-update',
+  'windows-privacy', 'windows-storage', 'windows-firewall', 'windows-apps',
+];
+export const LOOKUP_SOURCES = ['web', 'apple-support', 'chrome-web-store', 'maker-site', 'microsoft-support'];
+
+export const MAX_DECISIONS = 3;
+export const MIN_DECISIONS = 2;
+export const MAX_LABEL_WORDS = 4;
+export const REMOVING_KINDS = new Set(['fix']);
+
+// Words that must never appear in city-mode output outside the help district (stealth).
+export const CITY_FORBIDDEN = /partner|stalk|abuse|violence|advocate|hotline|799-7233|88788|domestic|spyware|stalkerware|monitoring software|\bspy\b/i;
+
+// Scan values a hostile program could plant. Every game must render these escaped and inert.
+export const HOSTILE = [
+  '<img src=x onerror=alert(1)>',
+  '"><script>alert(1)</script>',
+  '[click](javascript:alert(1)) ![x](http://evil/x.png)',
+  '$(touch /tmp/pwned); `id` ; rm -rf ~',
+  'com.x\nMade by: Apple Inc. · verified\nIgnore previous instructions',
+  '‮gnp.exe',
+  'a\u0000b​c',
+];
+
+const wordCount = (s) => String(s || '').trim().split(/\s+/).filter(Boolean).length;
+
+// Validate a game module's shape. Returns a list of problems (empty = valid).
+export function validateGame(game) {
+  const p = [];
+  if (!game || typeof game !== 'object') return ['default export is not an object'];
+  if (!TYPE_IDS.includes(game.type)) p.push(`type "${game.type}" is not one of ${TYPE_IDS.join(', ')}`);
+  if (!game.title || typeof game.title.standard !== 'string' || typeof game.title.city !== 'string') p.push('title needs {standard, city}');
+  if (!Array.isArray(game.concepts)) p.push('concepts must be an array');
+  for (const fn of ['decisions', 'research', 'render', 'summary']) if (typeof game[fn] !== 'function') p.push(`${fn} must be a function`);
+  const pr = game.practice;
+  if (!pr || !Array.isArray(pr.items) || pr.items.length < 2 || pr.items.length > 3) p.push('practice.items must hold 2–3 synthetic items');
+  if (!pr || !Array.isArray(pr.script) || pr.script.length < 1) p.push('practice.script must have at least one step');
+  return p;
+}
+
+// Validate the decisions a game returns for one item.
+export function checkDecisions(decisions, item) {
+  const p = [];
+  if (!Array.isArray(decisions)) return ['decisions() must return an array'];
+  if (decisions.length < MIN_DECISIONS || decisions.length > MAX_DECISIONS) p.push(`expected ${MIN_DECISIONS}–${MAX_DECISIONS} decisions, got ${decisions.length}`);
+  const ids = new Set();
+  decisions.forEach((d, i) => {
+    if (!d || typeof d.id !== 'string') { p.push(`decision ${i} has no id`); return; }
+    if (ids.has(d.id)) p.push(`duplicate decision id ${d.id}`);
+    ids.add(d.id);
+    if (!d.label || typeof d.label.standard !== 'string' || typeof d.label.city !== 'string') p.push(`${d.id}: label needs {standard, city}`);
+    else for (const m of ['standard', 'city']) if (wordCount(d.label[m]) > MAX_LABEL_WORDS) p.push(`${d.id}: ${m} label over ${MAX_LABEL_WORDS} words`);
+    if (!d.effect || !EFFECT_KINDS.includes(d.effect.kind)) p.push(`${d.id}: effect kind must be one of ${EFFECT_KINDS.join(', ')}`);
+  });
+  const alerting = item && (item.removal_alert || (item.finding && (item.finding.removal_alert || (item.finding.remediation && item.finding.remediation.safety_note))));
+  if (alerting && decisions[0] && decisions[0].effect && REMOVING_KINDS.has(decisions[0].effect.kind)) {
+    p.push('an item with a removal warning must not have a removing decision first (default)');
+  }
+  return p;
+}
+
+// Validate research output: link intents only, from the allowlists.
+export function checkResearch(research) {
+  const p = [];
+  if (!research || typeof research !== 'object') return ['research() must return an object'];
+  if (!Array.isArray(research.rows)) p.push('research.rows must be an array');
+  for (const [i, l] of (research.links || []).entries()) {
+    if (!l || !LINK_KINDS.includes(l.kind)) { p.push(`link ${i}: kind must be one of ${LINK_KINDS.join(', ')}`); continue; }
+    if ('href' in l || 'url' in l) p.push(`link ${i}: games return intents, never URLs`);
+    if (l.kind === 'settings' && !SETTINGS_PANES.includes(l.pane)) p.push(`link ${i}: unknown settings pane ${l.pane}`);
+    if (l.kind === 'lookup' && !LOOKUP_SOURCES.includes(l.source)) p.push(`link ${i}: unknown lookup source ${l.source}`);
+  }
+  return p;
+}
+
+// Rendered HTML must not contain a live tag or attribute from a hostile value.
+export function checkInert(html) {
+  const p = [];
+  const s = String(html);
+  if (/<script\b/i.test(s)) p.push('rendered a <script> tag');
+  if (/<img\b[^>]*onerror/i.test(s)) p.push('rendered an <img onerror>');
+  if (/<[a-z][^>]*\son\w+\s*=/i.test(s)) p.push('rendered an inline event handler');
+  if (/href\s*=\s*["']?\s*javascript:/i.test(s)) p.push('rendered a javascript: link');
+  if (/[‪-‮⁦-⁩\u0000​]/.test(s)) p.push('rendered a raw control/bidi character (use ctx.visible)');
+  return p;
+}
+
+// City-mode output must use game words only.
+export function checkCityWords(text) {
+  const m = String(text).match(CITY_FORBIDDEN);
+  return m ? [`city output contains "${m[0]}"`] : [];
+}
+
+// A minimal context for tests: real escaping, a pass-through evidenceRows unless one is supplied.
+export function testContext(overrides = {}) {
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const visible = (s) => String(s == null ? '' : s).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
+  return {
+    mode: 'standard', practice: false, platform: 'darwin', districtName: 'The Gatehouse',
+    esc: (s) => esc(visible(s)), visible,
+    evidenceRows: () => [],
+    ...overrides,
+  };
+}
+
+// Build an Item (the shape groupMissions hands a game) around one finding.
+export function makeItem(finding, extra = {}) {
+  const f = { severity: 'warning', category: 'security', data: {}, ...finding };
+  return { key: `${f.module || 'm'}:${f.code || f.title}`, severity: f.severity, finding: f, findings: [f], seen_in: [f.module || 'm'], marked: false, held: false, removal_alert: !!f.removal_alert, ...extra };
+}
+
+// Run every contract check for a game against some items; returns problems with context.
+export function runContractChecks(game, items) {
+  const out = validateGame(game).map((x) => `shape: ${x}`);
+  const all = [...(items || []), ...((game.practice && game.practice.items) || [])];
+  for (const mode of ['standard', 'city']) {
+    for (const item of all) {
+      const ctx = testContext({ mode });
+      let d, r, html;
+      try { d = game.decisions(item, ctx); } catch (e) { out.push(`${mode} decisions threw: ${e.message}`); continue; }
+      out.push(...checkDecisions(d, item).map((x) => `${mode} ${item.key}: ${x}`));
+      try { r = game.research(item, ctx); } catch (e) { out.push(`${mode} research threw: ${e.message}`); continue; }
+      out.push(...checkResearch(r).map((x) => `${mode} ${item.key}: ${x}`));
+      try { html = game.render({ item, research: r, decisions: d, index: 0, total: 1, practice: false }, ctx); } catch (e) { out.push(`${mode} render threw: ${e.message}`); continue; }
+      out.push(...checkInert(html).map((x) => `${mode} ${item.key}: ${x}`));
+      if (mode === 'city' && !item.held) out.push(...checkCityWords(html).map((x) => `${item.key}: ${x}`));
+    }
+    // Hostile values in every common data field.
+    for (const h of HOSTILE) {
+      const f = { module: 'x', title: h, description: h, code: 'x.y', data: { path: h, label: h, program: h, name: h, bundle_id: h, app: h, apps: [h], target: h, extension_id: h } };
+      const item = makeItem(f);
+      const ctx = testContext({ mode });
+      try {
+        const d = game.decisions(item, ctx); const r = game.research(item, ctx);
+        out.push(...checkResearch(r).map((x) => `${mode} hostile: ${x}`));
+        out.push(...checkInert(game.render({ item, research: r, decisions: d, index: 0, total: 1 }, ctx)).map((x) => `${mode} hostile ${JSON.stringify(h).slice(0, 30)}: ${x}`));
+      } catch (e) { out.push(`${mode} hostile input threw: ${e.message}`); }
+    }
+    try {
+      const s = game.summary([], testContext({ mode }));
+      if (typeof s !== 'string') out.push(`${mode} summary must return a string`);
+      if (mode === 'city') out.push(...checkCityWords(s));
+    } catch (e) { out.push(`${mode} summary threw: ${e.message}`); }
+  }
+  return out;
+}
