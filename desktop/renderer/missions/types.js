@@ -283,19 +283,25 @@ const permissionOf = (f) => (f && f.data && typeof f.data.service === 'string' &
 
 // One item per app, each with its keys (every permission finding that lists
 // it). The original findings stay on the item (marks, evidence). A finding
-// that names no app stays one item.
+// that names no app stays one item. Monitoring comes from ALL the findings
+// (contract.js isMonitoringFinding): one monitoring finding makes the app's
+// item warn and lead with that finding (so it pays nothing and is remembered
+// for the session only), and one held finding holds it. The key carries the
+// district, as the grouping does, so the same app in two districts is two items.
 function perApp(items) {
   const apps = new Map();
+  const sev = new Map(); // finding -> the list severity of the item it came in
   const out = [];
   for (const item of items) {
     let named = false;
+    for (const f of item.findings) sev.set(f, item.severity);
     for (const f of item.findings) {
       for (const a of appSubjects(f)) {
         named = true;
         const k = `${item.district}|${a.subject}`;
         let app = apps.get(k);
         if (!app) {
-          app = { ...item, key: `app|${a.subject}`, app: { subject: a.subject, name: a.name }, finding: f, findings: [], seen_in: [], keys: [], sourceKeys: [] };
+          app = { ...item, key: `app|${item.district}|${a.subject}`, app: { subject: a.subject, name: a.name }, finding: f, findings: [], seen_in: [], keys: [], sourceKeys: [] };
           apps.set(k, app);
           out.push(app);
         }
@@ -303,8 +309,12 @@ function perApp(items) {
         if (!app.seen_in.includes(f.module)) app.seen_in.push(f.module);
         if (!app.keys.some((x) => x.finding === f)) app.keys.push({ permission: permissionOf(f), finding: f });
         if (!app.sourceKeys.includes(item.key)) app.sourceKeys.push(item.key);
-        if (RANK[item.severity] > RANK[app.severity]) { app.severity = item.severity; app.finding = f; }
-        app.removal_alert = app.removal_alert || item.removal_alert;
+        if (RANK[item.severity] > RANK[app.severity]) app.severity = item.severity;
+        const watched = isMonitoringFinding(f);
+        const leadWatched = isMonitoringFinding(app.finding);
+        if ((watched && !leadWatched) || (watched === leadWatched && RANK[item.severity] > RANK[sev.get(app.finding) || 'info'])) app.finding = f;
+        app.removal_alert = app.removal_alert || item.removal_alert || watched;
+        app.held = app.held || item.held === true;
         app.unfinished = app.unfinished || item.unfinished;
         app.marked = app.marked && item.marked;
       }

@@ -266,10 +266,21 @@ export function decisions(item, ctx) {
 export function research(item, ctx) {
   const c = obj(ctx);
   const m = words(ctx);
-  const f = obj(obj(item).finding);
-  let rows = [];
-  try { rows = typeof c.evidenceRows === 'function' ? c.evidenceRows(f, { mode: m }) || [] : []; } catch (_) { rows = []; }
-  if (!Array.isArray(rows)) rows = [];
+  // Evidence for every finding on the app's item (the lead's first), not only the lead's.
+  const lead = obj(obj(item).finding);
+  const rowsOf = (f) => {
+    let r = [];
+    try { r = typeof c.evidenceRows === 'function' ? c.evidenceRows(f, { mode: m }) || [] : []; } catch (_) { r = []; }
+    return Array.isArray(r) ? r : [];
+  };
+  const all = [lead, ...findingsOf(item).filter((f) => f !== lead)].filter((f) => Object.keys(f).length);
+  const parts = all.map(rowsOf);
+  let rows = parts[0] || [];
+  if (parts.length > 1) {
+    const seen = new Set();
+    rows = parts.flat().filter((r) => { const k = JSON.stringify([r && r.label, r && r.value]); if (seen.has(k)) return false; seen.add(k); return true; });
+    if (parts.some((p) => p.held)) Object.defineProperty(rows, 'held', { value: true, enumerable: false });
+  }
   const keys = itemKeys(item);
   const apps = appsOf(item);
   const links = [];
@@ -289,7 +300,8 @@ export function research(item, ctx) {
   if (known.length) what = known.join(' ');
   else if (apps.length) what = m === 'city' ? 'Maker unconfirmed.' : 'Maker not confirmed.';
   else what = (keys[0] || KEYS.other).does[m];
-  return { rows, what, links, keys: keys.map((k) => k.id), unfinished: unfinished(item), checklist: checklist(ctx) };
+  return { rows, what, links, keys: keys.map((k) => k.id), unfinished: unfinished(item), checklist: checklist(ctx),
+    ...(m === 'city' && isMonitoring(item) ? { copy: false } : {}) };
 }
 
 const MAX_APPS = 8;

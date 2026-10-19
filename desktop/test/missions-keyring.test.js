@@ -241,9 +241,9 @@ test('per app (R4): the exploded item names only its app, with every key it hold
       pf('contacts_access', 'kTCCServiceAddressBook', ['com.example.solo'], { markable: { id: 'k-con', kind: 'app_permissions' } }),
     ] }] };
   const items = T.groupMissions(doc, { mode: 'standard', table: T.buildTable([G]) }).filter((m) => m.type === 'keyring').flatMap((m) => m.items);
-  const alpha = items.find((i) => i.key === 'app|com.example.alpha');
-  const beta = items.find((i) => i.key === 'app|com.example.beta');
-  const solo = items.find((i) => i.key === 'app|com.example.solo');
+  const alpha = items.find((i) => i.key === `app|${i.district}|com.example.alpha`);
+  const beta = items.find((i) => i.key === `app|${i.district}|com.example.beta`);
+  const solo = items.find((i) => i.key === `app|${i.district}|com.example.solo`);
   assert.ok(alpha && beta && solo, items.map((i) => i.key).join(', '));
   assert.deepStrictEqual(alpha.keys.map((k) => k.permission), ['kTCCServiceCamera', 'kTCCServiceMicrophone']);
   for (const mode of ['standard', 'city']) {

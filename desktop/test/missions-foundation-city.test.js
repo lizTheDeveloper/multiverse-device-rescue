@@ -197,6 +197,28 @@ test('remembered answers survive a new scan with the same evidence, and drop whe
   assert.ok(t);
 });
 
+test('a keyring app also flagged by the keylogger check: Keep pays nothing and is not remembered across scans', async () => {
+  const REAL = require('./fixtures/monitoring-findings.json');
+  const perm = mod('app_permissions', [f('11 app(s) can control your Mac', 'warning', { check: 'accessibility_access', apps: ['com.example.keys'] },
+    { code: 'security.app_permissions.accessibility_access' })]);
+  const d = () => scan(perm, JSON.parse(JSON.stringify(REAL.keylogger_indicators)));
+  const real = async () => { const I = await import('../renderer/missions/games/index.js'); return I.loadGames(); };
+  const storage = memStore();
+  const a = await setup(d(), { storage, games: real });
+  a.click({ 'data-go': 'mx:keyring:gatehouse:1' });
+  if (/PRACTICE FIRST/.test(a.html())) a.click({ 'data-act': 'mx-know' });
+  assert.match(a.html(), /ITEM 1 OF 1/);
+  assert.match(a.html(), /Removing this can alert whoever installed it\./, 'the runner warns');
+  a.click({ 'data-act': 'mx-decide:keep' });
+  if (/data-act="mx-confirm"/.test(a.html())) a.click({ 'data-act': 'mx-confirm' });
+  await tick();
+  assert.strictEqual(savedProfile(storage).rank.points, 0, 'no points for it');
+  const b = await setup(d(), { storage, games: real });
+  b.click({ 'data-go': 'mx:keyring:gatehouse:1' });
+  if (/PRACTICE FIRST/.test(b.html())) b.click({ 'data-act': 'mx-know' });
+  assert.match(b.html(), /ITEM 1 OF 1/, 'asked again on the next scan');
+});
+
 test('a settings decision opens the pane through the setting allowlist', async () => {
   const lockGame = async () => {
     const I = await import('../renderer/missions/games/index.js');
