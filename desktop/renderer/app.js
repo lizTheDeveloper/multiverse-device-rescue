@@ -1635,6 +1635,8 @@ if (typeof document !== 'undefined') {
         situation: copyAiSituation(situation, mode),
         platform: doc && doc.platform,
         couldNotCheck: [...erroredModules, ...unfinishedModules, ...partlyChecked].map((m) => aiCheckLabel(m.name, mode, doc)),
+        // Checks waiting for the person's go-ahead (the iPhone backup scan) weren't run either.
+        notStarted: plain.notStarted.map((name) => aiCheckLabel(name, mode, doc)),
       });
       cardPicks = new Map();
       cardTech = new Map();

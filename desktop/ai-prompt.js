@@ -154,7 +154,7 @@ function findingText(f, index, env) {
 
 /**
  * payload: {findings: [finding...], situation?: string, platform?: string,
- *           couldNotCheck?: [string]}
+ *           couldNotCheck?: [string], notStarted?: [string]}
  * Returns the full text, or null when there's nothing usable.
  */
 function buildAiPrompt(payload, env) {
@@ -168,6 +168,10 @@ function buildAiPrompt(payload, env) {
   if (typeof payload.situation === 'string') context.push(`What I'm worried about: ${cleanString(payload.situation, env)}`);
   if (Array.isArray(payload.couldNotCheck) && payload.couldNotCheck.length) {
     context.push(`Checks that could not run or did not finish (so these are NOT confirmed clean): ${payload.couldNotCheck.slice(0, 40).map((c) => cleanString(c, env)).join(', ')}`);
+  }
+  const waiting = Array.isArray(payload.notStarted) ? payload.notStarted.filter((c) => typeof c === 'string' && c) : [];
+  if (waiting.length) {
+    context.push(`Checks not started yet; they wait for my go-ahead (so these are NOT confirmed clean either): ${waiting.slice(0, 40).map((c) => cleanString(c, env)).join(', ')}`);
   }
   if (context.length) parts.push(...context, '');
   parts.push(`# What the checkup found (${usable.length} item${usable.length === 1 ? '' : 's'}, most serious first)`, '');

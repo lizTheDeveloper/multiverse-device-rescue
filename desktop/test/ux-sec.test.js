@@ -256,3 +256,27 @@ test('M3: city mode: a monitoring check’s fog reason is neutral; Plain keeps t
   assert.match(inCity, /Needs an admin\./, 'other checks keep their reason');
   assert.match(draw(false), /Stalkerware indicator data could not be loaded\./);
 });
+
+// ---- M6: the AI report names checks waiting for the go-ahead -----------------
+
+test('M6: Copy everything for an AI says which checks wait for the go-ahead', async () => {
+  const { buildAiPrompt } = require('../ai-prompt.js');
+  const doc = { schema_version: 1, platform: 'darwin', modules: [
+    mod('mvt_spyware_scan', [{ title: 'An iPhone backup can be scanned', severity: 'info', category: 'security',
+      code: 'security.mvt_spyware_scan.mvt_scan_available', description: 'x', data: {} }]),
+    mod('remote_login_check', [REMOTE]),
+  ] };
+  const p = await results(doc, 'standard');
+  const report = JSON.parse(p.run('JSON.stringify(copyAiReport)'));
+  assert.strictEqual(report.notStarted.length, 1);
+  assert.match(report.notStarted[0], /\(mvt_spyware_scan\)$/);
+  const text = buildAiPrompt(report, { home: '/Users/x', user: 'x', hostnames: [] });
+  assert.match(text, /Checks not started yet; they wait for my go-ahead \(so these are NOT confirmed clean either\): .*mvt_spyware_scan/);
+  // City mode: listed, in its neutral words, naming nothing.
+  const c = await results(doc, 'city');
+  const cityReport = JSON.parse(c.run('JSON.stringify(copyAiReport)'));
+  assert.deepStrictEqual(cityReport.notStarted, ['A check']);
+  assert.doesNotMatch(buildAiPrompt(cityReport, { home: '/Users/x', user: 'x', hostnames: [] }), /mvt|spyware|iphone/i);
+  // Nothing waiting: no line.
+  assert.doesNotMatch(buildAiPrompt({ ...report, notStarted: [] }, {}), /not started yet/);
+});
