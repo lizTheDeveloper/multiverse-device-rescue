@@ -78,13 +78,15 @@ const isTotal = (item) => TOTAL_TYPES.has(subtype(dataOf(findingOf(item))));
 
 // ---------------------------------------------------------------- what each pile is
 
-const SAFE = 'safe'; const CHECK = 'check'; const LOOK = 'look'; const TOOL = 'tool'; const FULL = 'full';
+const SAFE = 'safe'; const CHECK = 'check'; const LOOK = 'look'; const TOOL = 'tool'; const FULL = 'full'; const SUM = 'sum';
 
 const VERDICTS = {
   [SAFE]: { standard: 'Safe to clear. Apps rebuild it when they need it.', city: 'Scrap. It grows back on its own.' },
   [CHECK]: { standard: 'Look inside first. Once it is emptied, it is gone.', city: 'Check the pile first. Once hauled, it is gone.' },
   [LOOK]: { standard: 'Yours to judge. These are your files, so look before clearing.', city: 'Your stuff. Look it over before hauling.' },
   [TOOL]: { standard: 'Let Windows clear this with its own tool. Never delete it by hand.', city: 'Only the yard crane moves this pile.' },
+  // A total of other piles: it isn't one pile to clear, and those piles hold your own files too.
+  [SUM]: { standard: 'A total of the other piles. Decide each pile on its own card before you clear any of it.', city: 'A tally of the other piles. Sort each pile on its own before hauling any of it.' },
   [FULL]: { standard: 'The drive is nearly full. Clearing other piles makes room.', city: 'The yard is nearly full. Hauling other piles makes room.' },
 };
 
@@ -121,7 +123,7 @@ const WIN_SYSTEM_STEPS = [
 
 // type -> { what: {standard, city}, verdict, steps, pane? }   (the {app}/{browser} slot is filled from data)
 const SPACE = {
-  total_reclaimable: { what: { standard: 'you could free across your computer', city: 'of scrap across the yard' }, verdict: LOOK,
+  total_reclaimable: { what: { standard: 'in old downloads, caches, the Trash and old installers', city: 'in old deliveries, scrap, the haul-out bin and old crates' }, verdict: SUM,
     darwin: { pane: 'storage', steps: ['Open Storage settings (button above).', 'Go through the Recommendations and the list of categories.', 'Look at each one before you remove anything.'] },
     win32: { pane: 'windows-storage', steps: WIN_TEMP_STEPS } },
   // temp_file_scanner's own total of its piles (caches, logs, temps, Xcode, Homebrew).
@@ -489,7 +491,8 @@ function render(view, ctx) {
     `<p class="jy-tag">${esc(pick(mode, TAG[kind] || TAG.other))}</p>`,
     `<h3 class="jy-head${at('size')}">${h.size ? `<span class="jy-size">${esc(h.size)}</span> ` : ''}<span class="jy-rest">${esc(h.rest)}</span></h3>`,
   ];
-  if (h.rest !== str(f.title) && str(f.title)) parts.push(`<p class="jy-title">${esc(f.title)}</p>`);
+  // The engine's title, unless it only restates the size ("Your Mac has 12.0 GB of unused space" reads as free space).
+  if (h.rest !== str(f.title) && str(f.title) && !(h.size && str(f.title).includes(h.size))) parts.push(`<p class="jy-title">${esc(f.title)}</p>`);
   if (r.what) parts.push(`<p class="jy-what${verdict ? ` jy-verdict jy-verdict--${esc(verdict)}` : ''}${at('verdict')}${at('what')}">${esc(r.what)}</p>`);
   if (r.unfinished) parts.push(`<p class="jy-unfinished">${esc(pick(mode, UNFINISHED))}</p>`);
   if (v.step && v.step.say) parts.push(`<p class="jy-say">${esc(pick(mode, v.step.say))}</p>`);

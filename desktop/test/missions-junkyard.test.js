@@ -298,3 +298,22 @@ test('the game module is pure: no DOM, storage, clipboard, network or globals', 
     assert.doesNotMatch(src, re, String(re));
   }
 });
+
+test('the big total says what it adds up, not "unused space" over "these are your files" (P2-14)', async () => {
+  const { C, G, game, items, byTitle } = await setup();
+  const total = byTitle(items('junkyard-mac.json'), /12\.0 GB/);
+  for (const mode of ['standard', 'city']) {
+    const ctx = C.testContext({ mode });
+    const html = game.render({ item: total, research: game.research(total, ctx), decisions: [], index: 0, total: 1 }, ctx);
+    assert.doesNotMatch(html, /unused space|you could free|These are your files/);
+    if (mode === 'standard') {
+      assert.deepStrictEqual(G.headline(total, mode), { size: '12.0 GB', rest: 'in old downloads, caches, the Trash and old installers' });
+      assert.match(html, /A total of the other piles/);
+    } else assert.deepStrictEqual(C.checkCityWords(html), []);
+  }
+  // Clear on the total leads to Storage settings and is never the default.
+  assert.strictEqual(game.decisions(total, C.testContext())[0].id, 'later');
+  // A title that says something the headline doesn't still shows.
+  const sync = byTitle(items('junkyard-mac.json'), /SampleSync/);
+  assert.match(game.render({ item: sync, research: game.research(sync, C.testContext()), decisions: [], index: 0, total: 1 }, C.testContext()), /jy-title|SampleSync/);
+});
