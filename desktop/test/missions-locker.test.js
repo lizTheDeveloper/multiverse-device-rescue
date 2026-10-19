@@ -24,6 +24,7 @@ async function setup() {
   return { C, G, game: G.default, items, byId };
 }
 
+const root0 = () => path.join(__dirname, '..', '..', 'modules');
 const ids = (ds) => ds.map((d) => d.id);
 const strip = (html) => String(html).replace(/<wbr>/g, '').replace(/<[^>]+>/g, ' ').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 const effectText = (ds) => ds.flatMap((d) => [...(d.effect.steps || []), ...(d.effect.checklist || []), d.hint || '', d.label.standard, d.label.city]).join('\n');
@@ -41,6 +42,13 @@ test('covers: the locker modules on macOS and their Windows equivalents, each a 
     'malware_scan_indicators', 'clamav_scanner', 'crypto_miner_detect', 'rootkit_check',
     'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check']) assert.ok(mods.includes(m), m);
   assert.strictEqual(new Set(mods).size, mods.length, 'no module listed twice');
+  // win_rootkit_check is shared: unsigned_drivers is the seal game's.
+  const wr = game.covers.find((c) => c.module === 'win_rootkit_check');
+  assert.ok(Array.isArray(wr.codes) && wr.codes.length > 0);
+  assert.ok(!wr.codes.some((c) => 'security.win_rootkit_check.unsigned_drivers'.startsWith(c)), 'unsigned_drivers is not claimed');
+  assert.ok(wr.codes.includes('security.win_rootkit_check.hidden_services'));
+  const src = fs.readFileSync(path.join(root0(), 'security', 'win_rootkit_check', '__init__.py'), 'utf8');
+  for (const c of wr.codes) assert.ok(src.includes(`code="${c}"`), `${c} is a real code`);
   const root = path.join(__dirname, '..', '..', 'modules');
   for (const m of mods) {
     const found = fs.readdirSync(root).some((cat) => fs.existsSync(path.join(root, cat, m, '__init__.py')));

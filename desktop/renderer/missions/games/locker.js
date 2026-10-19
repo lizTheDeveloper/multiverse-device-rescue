@@ -22,6 +22,12 @@ const MODULES = [
   'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check',
 ];
 
+// Shared modules, narrowed by finding code: win_rootkit_check's unsigned_drivers belongs to the seal game.
+const CODES_BY_MODULE = {
+  win_rootkit_check: ['alternate_data_streams', 'secure_boot_disabled', 'hidden_services', 'boot_tampering', 'all_passed']
+    .map((c) => `security.win_rootkit_check.${c}`),
+};
+
 const KIND_BY_CHECK = {
   // files
   obfuscated_script: 'file', known_payload_path: 'file', known_hash_match: 'file', npmrc_git_override: 'file',
@@ -602,7 +608,7 @@ export default {
   type: 'locker',
   title: { standard: 'Suspicious files', city: 'The Evidence Locker' },
   concepts: ['where-it-lives', 'who-made-it', 'poisoned-packages', 'wifi-and-mining'],
-  covers: MODULES.map((module) => ({ module })),
+  covers: MODULES.map((module) => (CODES_BY_MODULE[module] ? { module, codes: CODES_BY_MODULE[module] } : { module })),
   decisions,
   research,
   practice: { items: PRACTICE_ITEMS, script: PRACTICE_SCRIPT },
