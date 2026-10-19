@@ -321,3 +321,17 @@ test('the state badge fits the lock: a missing key is Missing, automatic sign-in
   assert.strictEqual(game.decisions(find(mac, 'filevault_recovery'), ctx)[0].label.standard, 'Open FileVault');
   assert.strictEqual(game.decisions(find(mac, 'login_password_policy'), ctx)[0].label.standard, 'Turn it off');
 });
+
+test('summary: says how a lock pays when nothing has paid yet; no such line once points came', async () => {
+  const C = await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', 'contract.js')).href);
+  const game = (await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', 'games', 'locks.js')).href)).default;
+  const item = game.practice.items[0];
+  for (const mode of ['standard', 'city']) {
+    const ctx = C.testContext({ mode });
+    const none = game.summary([{ item, decision: 'later', points: 0 }], ctx);
+    assert.match(none, /No points yet/);
+    assert.doesNotMatch(game.summary([{ item, decision: 'done', points: 75 }], ctx), /No points yet/);
+    assert.doesNotMatch(game.summary([], ctx), /No points yet/);
+    if (mode === 'city') assert.deepStrictEqual(C.checkCityWords(none), []);
+  }
+});

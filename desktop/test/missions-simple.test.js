@@ -48,3 +48,14 @@ test('a program keeps "I did this" and shows who made it', async () => {
   assert.ok(S.isProgram(helper.finding));
   assert.ok(!S.isProgram({ data: { path: '/usr/local' } }), 'a folder is not a program');
 });
+
+test('summary: says how a job pays when nothing has paid yet', async () => {
+  const { C, S } = await load();
+  const item = S.default.practice.items[0];
+  for (const mode of ['standard', 'city']) {
+    const ctx = C.testContext({ mode });
+    assert.match(S.default.summary([{ item, decision: 'later', points: 0 }], ctx), /No points yet/);
+    assert.doesNotMatch(S.default.summary([{ item, decision: 'fine', points: 5 }], ctx), /No points yet/);
+    assert.deepStrictEqual(C.checkCityWords(S.default.summary([{ item, decision: 'later' }], ctx)), []);
+  }
+});

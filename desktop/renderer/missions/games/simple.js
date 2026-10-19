@@ -104,6 +104,10 @@ export default {
     const done = list.length - later;
     const city = ctx && ctx.mode === 'city';
     const head = city ? `Odd jobs: ${done} done` : `${done} decided`;
-    return `<p class="mg-summary">${head}${later ? `, ${later} saved for later` : ''}.</p>`;
+    // Points: the mission screen shows what was paid; when nothing has, say how a job pays.
+    const paid = list.some((x) => x && Number(x.points) > 0);
+    const how = list.length && !paid
+      ? `<p class="mg-summary">${city ? 'No points yet: a job pays once it’s decided (Later doesn’t count) or the city sees it done.' : 'No points yet: a job pays once you decide it (Later doesn’t count) or a check sees it done.'}</p>` : '';
+    return `<p class="mg-summary">${head}${later ? `, ${later} saved for later` : ''}.</p>${how}`;
   },
 };

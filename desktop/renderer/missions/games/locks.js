@@ -464,6 +464,10 @@ export function summary(results, ctx) {
     if (later) lines.push(`${later} set aside. They stay on your list.`);
     if (unknown) lines.push(`${unknown} couldn’t be checked, so ${unknown === 1 ? 'it isn’t' : 'they aren’t'} known to be on.`);
   }
+  // Points: the mission screen shows what was paid. Opening a settings page proves nothing, so a lock pays when
+  // a check sees it on; say so when nothing has paid yet, rather than leaving the points line blank.
+  const paid = list.some((r) => r && Number(r.points) > 0);
+  if (list.length && !paid) lines.push(mode === 'city' ? 'No points yet: a lock pays once the scout sees it shut. Check the lock after you flip it.' : 'No points yet: a setting pays once a check sees it on. Choose Done after you change it.');
   lines.push(mode === 'city' ? 'A shut lock lowers the odds; it doesn’t rule everything out.' : 'Locks lower the odds of a problem. They don’t rule one out.');
   return `<div class="lk-sum">${lines.map((l) => `<p>${e(l)}</p>`).join('')}</div>`;
 }
