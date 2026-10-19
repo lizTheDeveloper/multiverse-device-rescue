@@ -30,32 +30,64 @@ const KNOWN_PERSON = /frightened|someone you know|partner|housemate|family membe
 
 function stub(mode) {
   const listeners = [];
-  const frame = { innerHTML: '', addEventListener: (type, fn) => { if (type === 'click') listeners.push(fn); },
-    querySelector: () => null, querySelectorAll: () => [] };
+  const keys = [];
+  const focused = [];
+  // A control is found when the drawn HTML has it: enough to see where focus goes.
+  const found = (sel) => {
+    const html = frame.innerHTML;
+    let m = /^\[([a-z-]+)="([^"]*)"\]$/.exec(sel);
+    if (m && html.includes(`${m[1]}="${m[2]}"`)) return m;
+    m = /^#([a-z-]+)$/.exec(sel);
+    if (m && html.includes(`id="${m[1]}"`)) return m;
+    return sel === '[data-autofocus]' && html.includes('data-autofocus') ? [sel] : null;
+  };
+  const frame = { innerHTML: '', addEventListener: (type, fn) => { if (type === 'click') listeners.push(fn); if (type === 'keydown') keys.push(fn); },
+    querySelector: (sel) => {
+      if (!found(sel)) return null;
+      const html = frame.innerHTML;
+      const what = sel === '[data-autofocus]' ? /<[^>]*data-autofocus[^>]*>/.exec(html)[0] : sel;
+      return { focus: () => focused.push(what), getAttribute: () => null };
+    },
+    querySelectorAll: () => [] };
   const shadow = { activeElement: null, getElementById: () => frame, addEventListener: () => {} };
   const view = { hidden: false };
   const host = { attachShadow: () => shadow, closest: (sel) => (sel === '[hidden]' && view.hidden ? host : null) };
+  const calls = { clipboard: [], objectUrls: 0, downloads: [] };
   const win = {
-    document: { getElementById: () => host },
+    document: { getElementById: () => host, createElement: () => ({ click() { calls.downloads.push(this.download); } }) },
+    URL: { createObjectURL: () => { calls.objectUrls += 1; return 'blob:test'; }, revokeObjectURL: () => {} },
+    Blob: class { constructor(parts) { this.parts = parts; } },
+    navigator: { clipboard: { writeText: async (text) => { calls.clipboard.push(text); } } },
+    setTimeout: (fn) => setTimeout(fn, 0),
     FixFlow: { attach: () => {}, fixControlsHtml: () => '', resultHtml: () => '' },
     MarkFlow: { attach: () => {}, markControlsHtml: () => '' },
     RescueHost: { mode: () => mode.now, showList() {}, docChanged: () => true, wantsSafety: () => false, startCheckup() {}, scanTips: async () => [], leaveGame() {} },
     rescue: {},
   };
-  const click = (attrs) => {
-    const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
+  // `checked`: for a checkbox, whether it is ticked after the click.
+  const click = (attrs, checked) => {
+    const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null), checked: !!checked };
     listeners.forEach((fn) => fn({ target: { closest: () => el } }));
   };
-  return { win, frame, click, view };
+  const key = (k) => keys.forEach((fn) => fn({ key: k, target: { closest: () => null }, preventDefault() {} }));
+  return { win, frame, click, key, view, calls, focused };
 }
 
-async function setup({ storage = recordingStore(), mode = 'standard', doc = DOC, loadDrillBank = async () => DRILLS } = {}) {
+// `publishReady`: the school side ready, through the test seams (the app
+// itself always uses PUBLISH_READY, which is false).
+async function readySeam() {
+  const [core, pub] = await Promise.all([game('views/profile-core.js'), game('profile/publish.js')]);
+  return { ready: true, renderProfile: core.createProfileRenderer(true), renderPublishSheet: core.createPublishSheet(true),
+    deliver: pub.createPublisher({ ready: true }) };
+}
+
+async function setup({ storage = recordingStore(), mode = 'standard', doc = DOC, loadDrillBank = async () => DRILLS, publishReady = false } = {}) {
   const [{ createController }, training] = await Promise.all([game('controller.js'), game('training.js')]);
   const lessons = await training.loadLessons(importModule);
   const m = { now: mode };
   const t = stub(m);
   const ctl = createController({ win: t.win, storage, scoutSprite: () => '', loadGame: () => new Promise(() => {}),
-    loadTraining: async () => lessons, loadDrillBank });
+    loadTraining: async () => lessons, loadDrillBank, ...(publishReady ? { publishing: await readySeam() } : {}) });
   await tick();
   if (doc) ctl.show(doc, { id: 'unsure' });
   return { ...t, ctl, storage, lessons, mode: m, html: () => t.frame.innerHTML, lesson: (id) => lessons.find((l) => l.id === id) };
@@ -481,4 +513,212 @@ test('drill items are the same in the full bank and the city bank, so drill evid
   const t = await setup({ doc: null });
   const drills = (b) => [...b.items].filter(([k]) => k.startsWith('drill:'));
   assert.deepStrictEqual(drills(buildBank(cityLessons(t.lessons), DRILLS)), drills(buildBank(t.lessons, DRILLS)));
+});
+
+// YOUR FILE (Task 20).
+const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+const chipCount = (html) => Number((/aria-label="Your file: [^"]*, (\d+) lessons? learned"/.exec(html) || [])[1]);
+const headline = (html) => Number((/<p>(\d+) of \d+ learned<\/p>/.exec(html) || [])[1]);
+
+test('YOUR FILE opens from the rank chip and the Training Grounds, and Escape closes it', async () => {
+  const t = await setup();
+  assert.match(t.html(), /class="stat lime rank-chip" data-go="profile"/);
+  t.click({ 'data-go': 'profile' });
+  assert.match(t.html(), /<h2 id="profile-title" tabindex="-1">YOUR FILE<\/h2>/);
+  assert.ok(t.html().includes('Updates and the locked door'));
+  t.key('Escape');
+  assert.doesNotMatch(t.html(), /profile-title/);
+  assert.match(t.html(), /YOUR COMPUTER/, 'back on the deck');
+  t.click({ 'data-go': 'training' });
+  assert.match(t.html(), /<button type="button" data-go="profile">YOUR FILE<\/button>/);
+  t.click({ 'data-go': 'profile' });
+  assert.match(t.html(), /profile-title/);
+  t.click({ 'data-act': 'profile-close' });
+  assert.match(t.html(), /THE TRAINING GROUNDS/, 'back where it was opened');
+});
+
+test('YOUR FILE: focus moves in on open, to the question and back, and to what opened it on close', async () => {
+  const t = await setup();
+  t.click({ 'data-go': 'profile' });
+  assert.strictEqual(t.focused.at(-1), '#profile-title');
+  t.click({ 'data-act': 'profile-start-over' });
+  assert.match(t.focused.at(-1), /data-act="profile-start-over-no"/, 'Keep my progress, the safe choice');
+  t.key('Escape');
+  assert.doesNotMatch(t.html(), /role="alertdialog"/, 'Escape closes the question first');
+  assert.strictEqual(t.focused.at(-1), '[data-act="profile-start-over"]');
+  assert.match(t.html(), /profile-title/, 'and leaves YOUR FILE open');
+  t.key('Escape');
+  assert.doesNotMatch(t.html(), /profile-title/);
+  assert.strictEqual(t.focused.at(-1), '[data-go="profile"]', 'back on the rank chip');
+});
+
+test('Start over asks first, then clears the game’s record and nothing else', async () => {
+  const t = await setup();
+  t.click({ 'data-go': 'lesson:locked-door' });
+  t.click({ 'data-act': 'answer:0' });
+  const confirmed = t.storage.data['device-rescue.scan-confirmed'];
+  t.click({ 'data-go': 'profile' });
+  t.click({ 'data-act': 'profile-start-over-yes' });
+  assert.ok(savedProfile(t.storage).concepts['auto-updates'], 'YES without the question does nothing');
+  t.click({ 'data-act': 'profile-start-over' });
+  assert.match(t.html(), /role="alertdialog"/);
+  t.click({ 'data-act': 'profile-start-over-no' });
+  assert.doesNotMatch(t.html(), /role="alertdialog"/);
+  assert.ok(savedProfile(t.storage).concepts['auto-updates']);
+  t.click({ 'data-act': 'profile-start-over' });
+  t.click({ 'data-act': 'profile-start-over-yes' });
+  assert.deepStrictEqual(savedProfile(t.storage).missions, {});
+  assert.deepStrictEqual(savedProfile(t.storage).concepts, {});
+  assert.strictEqual(t.storage.data['device-rescue.scan-confirmed'], confirmed, 'other stores untouched');
+  assert.deepStrictEqual(forbiddenWrites(t.storage), []);
+});
+
+test('city mode: no route builds or hands over a payload, even with the school side ready', async () => {
+  const t = await setup({ mode: 'city', publishReady: true });
+  t.click({ 'data-go': 'profile' });
+  assert.doesNotMatch(t.html(), /profile-publish|school profile|school-profile/i);
+  for (const act of ['profile-publish', 'pub-toggle:lessons', 'publish-save', 'publish-copy']) t.click({ 'data-act': act }, true);
+  await tick();
+  assert.doesNotMatch(t.html(), /pub-preview|role="dialog"/);
+  assert.deepStrictEqual([t.calls.clipboard, t.calls.objectUrls, t.calls.downloads], [[], 0, []]);
+});
+
+test('city mode: YOUR FILE is in game words only', async () => {
+  const t = await setup({ mode: 'city' });
+  t.click({ 'data-go': 'profile' });
+  t.click({ 'data-act': 'profile-start-over' });
+  const words = text(t.html());
+  assert.match(words, /YOUR FILE/);
+  assert.doesNotMatch(words, /profile|safety|monitor|partner|school/i);
+  assert.doesNotMatch(words, KNOWN_PERSON);
+  assert.doesNotMatch(words, /The order to do things in/, 'a hidden concept is never listed');
+});
+
+test('standard mode, before the school side is ready: the control is absent and no route opens the sheet', async () => {
+  const t = await setup({ mode: 'standard' });
+  t.click({ 'data-go': 'profile' });
+  assert.doesNotMatch(t.html(), /profile-publish/);
+  for (const act of ['profile-publish', 'pub-toggle:lessons', 'publish-save', 'publish-copy']) t.click({ 'data-act': act }, true);
+  await tick();
+  assert.doesNotMatch(t.html(), /pub-preview|role="dialog"/);
+  assert.deepStrictEqual([t.calls.clipboard, t.calls.objectUrls, t.calls.downloads], [[], 0, []]);
+});
+
+test('standard mode, school side ready: every box unticked, the preview is the payload, Save and Copy hand it over; city mode closes the sheet', async () => {
+  const t = await setup({ mode: 'standard', publishReady: true });
+  t.click({ 'data-go': 'profile' });
+  const writes = t.storage.writes.length;
+  t.click({ 'data-act': 'profile-publish' });
+  assert.match(t.html(), /role="dialog"/);
+  assert.match(t.html(), /<div inert>[\s\S]*profile-title[\s\S]*<\/div>\s*<div class="sheet"/, 'YOUR FILE is inert behind the sheet');
+  assert.match(t.focused.at(-1), /^(#pub-title|\[id="pub-title"\])$/, 'focus moves into the sheet');
+  assert.doesNotMatch(t.html(), /type="checkbox"[^>]* checked/, 'every box unticked');
+  assert.match(t.html(), /Nothing ticked yet\./);
+  t.click({ 'data-act': 'publish-copy' });
+  t.click({ 'data-act': 'publish-save' });
+  await tick();
+  assert.deepStrictEqual([t.calls.clipboard, t.calls.downloads], [[], []], 'nothing ticked, nothing handed over');
+  t.click({ 'data-act': 'pub-toggle:drills-tried' }, true);
+  assert.match(t.html(), /city_drills_tried/);
+  assert.match(t.html(), /id="pub-drills-tried" data-act="pub-toggle:drills-tried" checked/);
+  t.click({ 'data-act': 'publish-copy' });
+  await tick();
+  assert.strictEqual(t.calls.clipboard.length, 1);
+  assert.deepStrictEqual(Object.keys(JSON.parse(t.calls.clipboard[0]).play), ['city_drills_tried']);
+  assert.ok(t.html().includes(escaped(t.calls.clipboard[0])), 'the preview is exactly what was copied');
+  t.click({ 'data-act': 'publish-save' });
+  await tick();
+  assert.deepStrictEqual(t.calls.downloads, ['school-profile.json']);
+  assert.strictEqual(t.storage.writes.length, writes, 'the sheet writes nothing to disk');
+  t.key('Escape');
+  assert.doesNotMatch(t.html(), /role="dialog"/, 'Escape closes the sheet first');
+  assert.strictEqual(t.focused.at(-1), '[data-act="profile-publish"]', 'focus back on the control that opened it');
+  assert.match(t.html(), /profile-title/);
+  t.click({ 'data-act': 'profile-publish' });
+  t.mode.now = 'city';
+  t.click({ 'data-act': 'pub-toggle:lessons' }, true);
+  assert.doesNotMatch(t.html(), /pub-preview|profile-publish/);
+  t.click({ 'data-act': 'publish-copy' });
+  await tick();
+  assert.strictEqual(t.calls.clipboard.length, 1, 'nothing more handed over');
+});
+
+test('the lessons-learned count is one rule: YOUR FILE, the rank chip and the published number agree; city mode reads the city bank', async () => {
+  const [pp, ib, training, pub] = await Promise.all([game('profile/player-profile.js'), game('profile/item-bank.js'), game('training.js'), game('profile/publish.js')]);
+  const { cityLessons } = await game('controller.js');
+  const lessons = await training.loadLessons(importModule);
+  const bank = ib.buildBank(lessons, DRILLS);
+  // Everything learned, except the hidden concept (missed every time).
+  let p = pp.emptyProfile(NOW);
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const [key, it] of bank.items) if (it.kind === 'lesson') p = pp.recordAnswer(p, bank, key, it.concept !== 'cut-off-order', NOW);
+  }
+  assert.notStrictEqual(pp.conceptState(p, bank, 'cut-off-order'), 'learned');
+  const full = pp.summary(p, bank);
+  const shown = pub.lessonsLearned(full);
+  assert.ok(shown > full.lessonsLearned, 'the hidden concept would otherwise hold its lesson back');
+  // The city bank: the hidden concept isn't part of any lesson there.
+  const c = ib.buildBank(cityLessons(lessons), DRILLS);
+  const city = pp.summary(p, { items: bank.items, lessons: c.lessons, concepts: c.concepts });
+  assert.ok(city.lessons.every((l) => l.concepts.every((x) => x.id !== 'cut-off-order')));
+  assert.strictEqual(city.lessons.find((l) => l.id === 'whos-on-wifi').state, 'learned');
+  assert.strictEqual(pub.lessonsLearned(city), shown);
+  for (const mode of ['standard', 'city']) {
+    const storage = recordingStore();
+    pp.saveProfile(storage, p, { seed: 4242, mode });
+    const t = await setup({ storage, mode, publishReady: true });
+    assert.strictEqual(chipCount(t.html()), shown, `${mode}: the rank chip`);
+    t.click({ 'data-go': 'profile' });
+    assert.strictEqual(headline(t.html()), shown, `${mode}: YOUR FILE`);
+    assert.match(t.html(), /profile-lesson learned"><span class="stamp">LEARNED<\/span>\s*<b>[^<]*Wi/);
+    if (mode === 'standard') {
+      t.click({ 'data-act': 'profile-publish' });
+      t.click({ 'data-act': 'pub-toggle:lessons' }, true);
+      t.click({ 'data-act': 'publish-copy' });
+      await tick();
+      assert.strictEqual(JSON.parse(t.calls.clipboard[0]).security.city_lessons_learned.by['reclaim-city'].value, shown, 'the published number');
+    }
+  }
+});
+
+test('a lesson opened from YOUR FILE comes back to it', async () => {
+  const t = await setup();
+  t.click({ 'data-go': 'profile' });
+  t.click({ 'data-go': 'lesson:locked-door' });
+  answerVisit(t);
+  assert.match(t.html(), /profile-title/);
+  t.click({ 'data-act': 'profile-close' });
+  assert.match(t.html(), /YOUR COMPUTER/, 'and closing it still goes back to the deck');
+});
+
+test('both modes: every write in a session (lesson answers, a drill, a later, the file, Start over) is recipe words only', async () => {
+  const loud = scan(mod('launch_agent_audit', [f('Partner safety monitor watch', 'warning', { program: '/Users/ann/stalk/spy.sh' },
+    { code: 'security.launch_agent_audit.tmp' })]));
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const missionId = findingsToCity(loud).districts.flatMap((d) => d.missions)[0].id;
+  for (const mode of ['standard', 'city']) {
+    const t = await setup({ mode, doc: loud, publishReady: true });
+    t.click({ 'data-go': 'lesson:whos-on-wifi' });
+    t.click({ 'data-act': `answer:${correctIndex(t.lesson('whos-on-wifi').questions[0])}` });
+    t.click({ 'data-go': 'range' });
+    await tick();
+    t.click({ 'data-go': 'signal:drill:zoom-helper-signed' });
+    t.click({ 'data-act': 'tag:threat' });
+    t.click({ 'data-go': `mission:${missionId}` });
+    t.click({ 'data-act': 'later' });
+    t.click({ 'data-go': 'profile' });
+    if (mode === 'standard') {
+      t.click({ 'data-act': 'profile-publish' });
+      t.click({ 'data-act': 'pub-toggle:lessons' }, true);
+      t.click({ 'data-act': 'publish-close' });
+    }
+    assert.ok(t.storage.writes.length >= 3, `${mode}: something was saved`);
+    assert.deepStrictEqual(forbiddenWrites(t.storage), [], mode);
+    assert.ok(t.storage.writes.every(([k]) => k === PROFILE_KEY || k === 'device-rescue.city-seed'), `${mode}: only the box (and the seed)`);
+    assert.strictEqual(savedProfile(t.storage).missions[missionId].title, 'Partner safety monitor watch', `${mode}: the title is kept, disguised`);
+    t.click({ 'data-act': 'profile-start-over' });
+    t.click({ 'data-act': 'profile-start-over-yes' });
+    assert.deepStrictEqual(forbiddenWrites(t.storage), [], `${mode}: Start over`);
+    assert.deepStrictEqual(savedProfile(t.storage).missions, {});
+  }
 });

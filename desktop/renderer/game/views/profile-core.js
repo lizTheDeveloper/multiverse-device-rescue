@@ -131,9 +131,9 @@ export function profileKeyAct(key, { confirming = false, sheet = false } = {}) {
 
 // The consent sheet. Every box starts unticked; the preview is the exact text
 // that would leave. `payload`: buildPayload(…) for the ticked boxes, or null.
-// TODO(consent-sheet focus): when the sheet is wired into the controller, move
-// focus to #pub-title on open, keep Tab inside the dialog, and return focus to
-// the control that opened it on close. Not wired yet, so not done here.
+// Focus is the controller's (game/controller.js): #pub-title on open, YOUR
+// FILE behind the sheet inert (so Tab stays in it), and back to the control
+// that opened it on close.
 export function createPublishSheet(ready) {
   return function renderPublishSheet({ summary: s, ticked = [], payload = null, theme = 'game' }) {
   if (ready !== true) return '';

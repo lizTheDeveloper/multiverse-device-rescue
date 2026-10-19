@@ -28,7 +28,7 @@ export function trainingHud(progress, lessons) {
   const done = lessons.filter((l) => lessonDone(progress, l.id)).length;
   return `<header class="hud"><span class="hud-title">THE TRAINING GROUNDS</span>
     ${lessons.length ? `<span class="stat lime"><b>${done}/${lessons.length}</b> <small>LESSONS</small></span>` : ''}
-    <span class="switch"><button type="button" data-act="leave">PLAIN VIEW</button></span></header>`;
+    <span class="switch"><button type="button" data-go="profile">YOUR FILE</button><button type="button" data-act="leave">PLAIN VIEW</button></span></header>`;
 }
 
 // `next`: the one lesson to start first; it gets the strongest styling.

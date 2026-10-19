@@ -7,8 +7,10 @@ import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from '
 import { reconcile, setStatus, ranOkModules, recheckOutcome, setDeck } from './progress.js';
 import { buildBank, drawLessonVisit, drawConcept } from './profile/item-bank.js';
 import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, recordAnswer, recordVisit, recordDrillCall, recordGap,
-  callConcepts, shouldOffer, noteOffered, declineOffer, historyFor, difficultyOf, teachShown } from './profile/player-profile.js';
+  callConcepts, shouldOffer, noteOffered, declineOffer, historyFor, difficultyOf, teachShown, summary, emptyProfile } from './profile/player-profile.js';
 import { conceptById, isHidden } from './profile/skills.js';
+import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY } from './profile/publish.js';
+import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ } from './clues.js';
@@ -46,8 +48,9 @@ const idleScan = () => ({ running: false, index: 0, total: 0, error: null });
 const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
 // Screens drawn without a city, and screens whose redraws keep keyboard focus.
 // 'home': the deck before any sweep this session (city mode's landing screen).
-const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range', 'home']);
-const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range', 'home']);
+// 'profile': YOUR FILE.
+const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range', 'home', 'profile']);
+const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range', 'home', 'profile']);
 const LOG_MAX = 100;
 const MOMENTS_MAX = 4;
 const TAG_WORD = { mine: 'MINE', threat: 'THREAT', closer: 'LOOK CLOSER', noted: 'NOTED' };
@@ -121,11 +124,16 @@ const focusEl = (el) => { if (el && typeof el.focus === 'function') el.focus(); 
 
 // `loadGame` and `loadTraining` are for tests; the app always loads Reclaim City
 // from app://rescue/rc/ and the lessons from app://rescue/game/lessons/.
-export function createController({ win, storage, scoutSprite, loadGame = loadRc, loadTraining = loadLessonsHere, loadDrillBank = loadDrillsHere }) {
+// `publishing` is a TEST SEAM too: the app never passes it, so the publish
+// control, the consent sheet and the hand-over are all bound to PUBLISH_READY
+// (views/profile.js and publish.js's deliver), which is false.
+export function createController({ win, storage, scoutSprite, loadGame = loadRc, loadTraining = loadLessonsHere, loadDrillBank = loadDrillsHere,
+  publishing = {} }) {
+  const pub = { ready: PUBLISH_READY, renderProfile, renderPublishSheet, deliver, ...publishing };
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="checklist.css"><div class="frame" id="frame"></div>';
+  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="checklist.css"><link rel="stylesheet" href="game/profile.css"><div class="frame" id="frame"></div>';
   const frame = shadow.getElementById('frame');
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
@@ -513,7 +521,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
         history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
-      log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
+      log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null, learned: learnedCount(),
       scanRunning: s.scan.running, districtName: nameOf, notice: heldNotice() + s.linkNotice,
       // With something held, an empty queue points to it instead of saying "clear".
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
@@ -527,7 +535,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
       preSweep: !s.scan.running, scanRunning: s.scan.running, scanError: s.scan.error || '',
       cityHtml: sideTile() + preSweepCityHtml(DISTRICTS, s.lessonsLoaded ? learnFor() : () => null),
-      log: s.log, notice: heldNotice() + s.linkNotice, districtName: nameOf });
+      log: s.log, notice: heldNotice() + s.linkNotice, districtName: nameOf, learned: learnedCount() });
   }
 
   function openSignal(id) {
@@ -727,7 +735,118 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // YOUR FILE (views/profile.js). City mode (or no mode yet) reads the city
+  // bank and the city's lessons, so a family city mode never asks is never
+  // counted as missing. The publish control and its consent sheet exist only
+  // in standard mode with the school side ready (publishOffered); if the mode
+  // turns to city while the sheet is open, it closes. Nothing here writes to
+  // disk except Start over, which writes an empty box.
+  // ---------------------------------------------------------------------------
+  const canPublish = () => publishOffered(hostMode(), pub.ready);
+  function profileSummary() {
+    const city = coverMode();
+    const o = orderLessons(city ? cityLessons(s.lessons) : s.lessons, worryIdsOf(s.situation));
+    return summary(s.profile, city ? s.cityBank : s.bank, [...o.recommended, ...o.other].map((l) => l.id));
+  }
+  // The headline count, the rank chip's and the published one: one rule (publish.js).
+  const learnedCount = () => lessonsLearned(profileSummary());
+  const sheetOpen = () => !!(s.profileView && s.profileView.publish);
+  function profileHtml() {
+    if (sheetOpen() && !canPublish()) s.profileView = { ...s.profileView, publish: null };
+    const view = s.profileView || {};
+    const sum = profileSummary();
+    const page = pub.renderProfile({ summary: sum, theme: 'game', publish: canPublish(), confirming: !!view.confirming });
+    if (!view.publish) return page;
+    const sheet = pub.renderPublishSheet({ summary: sum, ticked: view.publish.ticked,
+      payload: buildPreview(sum, view.publish) });
+    // While the sheet is open, YOUR FILE behind it is inert: Tab stays in the sheet.
+    return sheet ? `<div inert>${page}</div>${sheet}` : page;
+  }
+  // The preview: exactly the text deliver would hand over (buildPayload,
+  // preview only). The sheet draws it only when the school side is ready.
+  const buildPreview = (sum, p) => buildPayload(sum, p.ticked, { mode: hostMode(), now: p.at });
+  // Save a file or Copy: the person hands it over themselves. No network call.
+  // Only through deliver, which refuses unless the school side is ready.
+  function exportPayload(kind) {
+    const view = s.profileView;
+    if (!view || !view.publish || !canPublish() || !view.publish.ticked.length) return;
+    const send = kind === 'copy' ? (text) => win.navigator.clipboard.writeText(text) : (text) => {
+      const url = win.URL.createObjectURL(new win.Blob([text], { type: 'application/json' }));
+      const a = doc0.createElement('a');
+      a.href = url;
+      a.download = 'school-profile.json';
+      a.click();
+      win.setTimeout(() => win.URL.revokeObjectURL(url), 0);
+    };
+    Promise.resolve(pub.deliver(profileSummary(), { fields: [...view.publish.ticked] }, { mode: hostMode(), now: view.publish.at, send })).catch(() => {});
+  }
+  // Focus after a redraw of YOUR FILE: a control by its attribute, else the
+  // screen's own choice (the Start over question, or the heading).
+  function focusInProfile(k, v) {
+    if (k && focusEl(findByAttr(frame, k, v))) return;
+    focusProfile(frame);
+  }
+  function openProfile() {
+    const from = s.screen === 'profile' ? (s.profileView && s.profileView.from) || 'map' : s.screen;
+    s.profileView = { confirming: false, publish: null, from };
+    s.signal = null; s.screen = 'profile';
+    render();
+    focusProfile(frame);
+  }
+  function closeProfile() {
+    const from = (s.profileView && s.profileView.from) || 'map';
+    s.profileView = null;
+    s.screen = from === 'lesson' && !s.lesson ? 'training' : from;
+    render();
+    // Back to what opened it: the rank chip, or the YOUR FILE button.
+    focusEl(findByAttr(frame, 'data-go', 'profile'));
+  }
+  // YOUR FILE's own acts (a click, or Escape through profileKeyAct). True when handled.
+  function profileAct(act, el) {
+    if (s.screen !== 'profile' || !act) return false;
+    const view = s.profileView || { confirming: false, publish: null, from: 'map' };
+    if (act === 'profile-close') { closeProfile(); return true; }
+    if (act === 'profile-start-over') {
+      s.profileView = { ...view, confirming: true, publish: null }; render(); focusProfile(frame); return true;
+    }
+    if (act === 'profile-start-over-no') {
+      s.profileView = { ...view, confirming: false }; render(); focusInProfile('data-act', 'profile-start-over'); return true;
+    }
+    if (act === 'profile-start-over-yes') {
+      if (!view.confirming) return true;
+      keepProfile(emptyProfile(now()));
+      s.profileView = { ...view, confirming: false };
+      render(); focusProfile(frame); return true;
+    }
+    if (act === 'profile-publish') {
+      if (canPublish()) {
+        s.profileView = { ...view, confirming: false, publish: { ticked: [], at: now() } };
+        render();
+        focusInProfile('id', 'pub-title');
+      }
+      return true;
+    }
+    if (act.startsWith('pub-toggle:')) {
+      if (!view.publish || !canPublish()) { render(); return true; }
+      const id = act.slice(11);
+      const rest = view.publish.ticked.filter((x) => x !== id);
+      s.profileView = { ...view, publish: { ...view.publish, ticked: el && el.checked ? [...rest, id] : rest } };
+      render(); return true;
+    }
+    if (act === 'publish-close') {
+      const was = !!view.publish;
+      s.profileView = { ...view, publish: null }; render();
+      if (was) focusInProfile('data-act', 'profile-publish');
+      return true;
+    }
+    if (act === 'publish-save') { exportPayload('file'); return true; }
+    if (act === 'publish-copy') { exportPayload('copy'); return true; }
+    return false;
+  }
+
   function screenHtml() {
+    if (s.screen === 'profile') return profileHtml();
     if (s.screen === 'side') {
       if (inCity()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout });
       s.screen = s.city ? 'map' : noCity();
@@ -991,6 +1110,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'close-signal') { closeSignal(); return; }
     if (act === 'toggle-low') { s.lowOpen = !s.lowOpen; render(); return; }
     if (act === 'batch-fine') { batchFine(); return; }
+    // YOUR FILE, its Start over, and its publish sheet.
+    if (go === 'profile') { openProfile(); return; }
+    if (profileAct(act, el)) return;
     // A signal's offer: the 2 questions on that concept, or "still know it".
     // Only the offer on screen answers (a stale or made-up id does nothing).
     if (act && (act.startsWith('offer-yes:') || act.startsWith('offer-no:'))) {
@@ -1012,7 +1134,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
     if (go === 'boss') { s.screen = s.scan.running ? 'boss' : noCity(); render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
-    if (go && go.startsWith('lesson:')) { startVisit(go.slice(7)); return; }
+    // A lesson opened from YOUR FILE comes back to it.
+    if (go && go.startsWith('lesson:')) { startVisit(go.slice(7), s.screen === 'profile' ? { back: 'profile' } : {}); return; }
     // A district on the sweep: the lesson for that area. Finishing it comes back here.
     if (go && go.startsWith('learn:')) {
       // A district whose lessons are all done opens nothing (its card isn't a
@@ -1194,6 +1317,16 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const href = a.getAttribute('href') || '';
     if (href.startsWith('#')) { e.preventDefault(); goRc(href); return; }
     if (/^[a-z][a-z0-9+.-]*:/i.test(href)) { e.preventDefault(); openLink(href); }
+  });
+  // Escape on YOUR FILE closes what is on top: the publish sheet, the Start
+  // over question, then the screen itself.
+  frame.addEventListener('keydown', (e) => {
+    if (!e || s.screen !== 'profile' || s.busy) return;
+    const view = s.profileView || {};
+    const act = profileKeyAct(e.key, { confirming: !!view.confirming, sheet: !!view.publish });
+    if (!act) return;
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    profileAct(act, null);
   });
   // Escape closes the Signal or Noise panel, like BACK TO THE DECK. Inside a
   // fix or mark card, Escape belongs to that card (it closes its question).

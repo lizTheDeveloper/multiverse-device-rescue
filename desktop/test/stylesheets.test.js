@@ -5,7 +5,7 @@ const path = require('node:path');
 
 // An unclosed block makes the browser swallow every rule after it, silently.
 // One left open in a dark-mode @media hid most of the results-screen styling.
-const SHEETS = ['renderer/styles.css', 'renderer/game/game.css', 'renderer/game-fonts.css', 'renderer/checklist.css'];
+const SHEETS = ['renderer/styles.css', 'renderer/game/game.css', 'renderer/game-fonts.css', 'renderer/checklist.css', 'renderer/game/profile.css'];
 
 for (const rel of SHEETS) {
   test(`${rel} closes every block it opens`, () => {

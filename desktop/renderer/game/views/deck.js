@@ -43,9 +43,16 @@ export function nextMoveHtml(sig) {
   return '<button type="button" class="btn-t" data-act="list">SEE IT IN THE LIST ▶</button>';
 }
 
+// The rank chip opens YOUR FILE. `learned`: the lessons learned, counted as
+// YOUR FILE and the publish sheet count them (publish.js lessonsLearned).
+function chipLabel(rank, learned) {
+  const n = Number.isInteger(learned) ? `, ${learned} lesson${learned === 1 ? '' : 's'} learned` : '';
+  return `Your file: ${rank.name}, ${rank.points} points${n}`;
+}
+
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
-  districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '' }) {
+  districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '', learned = null }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -53,7 +60,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   const top = `
   <header class="hud deck-top"${behind}>
     <span class="hud-title">${esc(title)}</span>
-    <span class="stat lime"><small>RANK</small> ${esc(rank.name)}</span>
+    <button type="button" class="stat lime rank-chip" data-go="profile" aria-label="${esc(chipLabel(rank, learned))}"><small>RANK</small> ${esc(rank.name)} · ${esc(rank.points)}</button>
     <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(lastSweep.checks)} CHECKS` : '<small>NO SWEEP YET</small>'}</span>
     ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>' : preSweep ? '' : '<button type="button" class="btn-s" data-act="resweep">RE-SWEEP ⟳</button>'}
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>

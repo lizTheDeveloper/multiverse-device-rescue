@@ -1,0 +1,23 @@
+/* YOUR FILE (views/profile.js), game style, and the publish sheet. */
+.profile { display: grid; gap: 12px; padding: 16px; max-width: 1100px; margin: 0 auto; }
+@media (min-width: 900px) {
+  .profile { grid-template-columns: 1fr 1fr; }
+  .profile > h2, .profile > footer, .profile > [role="alertdialog"] { grid-column: 1 / -1; }
+}
+.profile h2 { font-family: var(--font-display); color: var(--cyan); letter-spacing: 2px; margin: 0; }
+.profile-lessons, .profile-skills { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.profile-lesson { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; }
+.profile-lesson small { grid-column: 2 / 3; color: var(--dim); }
+.profile-lesson .stamp { font-family: var(--font-display); font-size: 10px; letter-spacing: 1px; padding: 2px 6px; border: 1px solid var(--line); }
+.profile-lesson.learned .stamp { color: var(--lime); border-color: rgba(198,255,0,0.4); }
+.profile-lesson.refresher .stamp, .profile-lesson.worth-a-look .stamp { color: var(--amber); border-color: rgba(255,159,0,0.4); }
+.meter { display: inline-flex; gap: 3px; vertical-align: middle; }
+.meter i { width: 14px; height: 6px; border: 1px solid var(--line); }
+.meter i.on { background: var(--cyan); }
+.rank-chip { cursor: pointer; }
+.rank-chip:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+.sheet { position: fixed; inset: 5% 10%; overflow: auto; background: var(--charcoal); border: 1px solid var(--line); padding: 20px; z-index: 10; }
+@media (max-width: 600px) { .sheet { inset: 8px; } }
+.pub-fields { list-style: none; padding: 0; display: grid; gap: 6px; }
+.pub-preview { white-space: pre-wrap; font-family: var(--font-mono); font-size: 12px; background: var(--midnight); padding: 10px; max-height: 240px; overflow: auto; }
+.panel.offer { margin-top: 8px; }
