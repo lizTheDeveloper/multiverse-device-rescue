@@ -61,7 +61,20 @@ test('Expected marks only when markable; Odd fixes, opens the right pane, or giv
     assert.strictEqual(d[2].effect.kind, 'closer');
     assert.ok(d[2].effect.checklist.length >= 2, `${f.code} checklist`);
     assert.notStrictEqual(d[0].effect.kind, 'fix');
+    // R6: the change on an alerting item carries the removal warning; others don't.
+    assert.strictEqual(!!d[1].effect.warning, !!f.removal_alert, `${f.code} warning`);
   });
+});
+
+test('render draws only the card: no buttons, links or evidence rows (the runner draws those)', async () => {
+  const { C, game, items } = await load();
+  const rows = [{ label: 'Program', value: 'ROWVALUE' }];
+  for (const item of items) {
+    const ctx = C.testContext({ evidenceRows: () => rows });
+    const r = game.research(item, ctx);
+    const html = game.render({ item, research: r, decisions: game.decisions(item, ctx), index: 0, total: 1 }, ctx);
+    assert.doesNotMatch(html, /<button|<a\b|href=|ROWVALUE/, item.key);
+  }
 });
 
 test('a marked-but-changed item can be marked again; a bad markable block is kept, not marked', async () => {
