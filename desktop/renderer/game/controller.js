@@ -499,6 +499,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     render();
     if (stopFocused) focusEl(findByAttr(frame, 'data-act', 'watch-start'));
   }
+  // Anything after the watch that throws (docChanged, rebuild): the failed
+  // state, never a rejection nobody handles.
+  function watchCrashed(err) {
+    console.error('The connection watch result could not be shown:', err);
+    s.watch = watchFinished(s.watch, null);
+    render();
+  }
   if (win.rescue && typeof win.rescue.onWatchEvent === 'function') {
     win.rescue.onWatchEvent((ev) => {
       s.watch = watchProgress(s.watch, ev);
@@ -507,7 +514,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     });
   }
   function watchAct(act) {
-    if (act === 'watch-start') { startWatch(); return; }
+    if (act === 'watch-start') { startWatch().catch(watchCrashed); return; }
     if (act === 'watch-stop') { Promise.resolve().then(() => win.rescue.stopWatch()).catch(() => {}); return; }
     const m = act.startsWith('watch-minutes:') ? Number(act.slice(14)) : NaN;
     if (WATCH_MINUTES.includes(m) && s.watch.state !== 'running') { s.watch = idleWatch(m); render(); }

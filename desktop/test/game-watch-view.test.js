@@ -14,6 +14,7 @@ test('idle: the heading, what it does for the chosen minutes, the picker and a s
   assert.match(html, /WATCH CONNECTIONS/);
   assert.ok(html.includes(IDLE), 'the idle sentence, with the minutes');
   assert.match(renderWatch({ state: 'idle', minutes: 15 }), /connect where, for 15 minutes\./);
+  assert.match(renderWatch({ state: 'idle', minutes: 1 }), /connect where, for 1 minute\. Nothing/);
   assert.match(html, /data-act="watch-start"/);
   assert.doesNotMatch(html, /data-act="watch-stop"/);
 });
@@ -42,7 +43,8 @@ test('running: a text progress line (no graph-only state), STOP, and no picker o
   assert.match(html, /Stopping keeps what was gathered/);
   assert.doesNotMatch(html, /data-act="watch-start"|data-act="watch-minutes:/);
   // Before the first progress event.
-  assert.match(renderWatch({ state: 'running', minutes: 1 }), /Watching… 0 of 1 minutes, 0 snapshots\./);
+  assert.match(renderWatch({ state: 'running', minutes: 1 }), /Watching… 0 of 1 minute, 0 snapshots\./);
+  assert.match(renderWatch({ state: 'running', minutes: 1, elapsed: 5, snapshots: 1 }), /Watching… 0 of 1 minute, 1 snapshot\./);
 });
 
 test('done: where the results went, and a way to watch again', async () => {
@@ -69,6 +71,7 @@ test('the progress sentence is the same text the live update writes', async () =
   assert.strictEqual(watchProgressText({ minutes: 2, elapsed: 61, snapshots: 12 }), 'Watching… 1 of 2 minutes, 12 snapshots.');
   assert.strictEqual(watchProgressText({ minutes: 2, elapsed: 'x', snapshots: null }), 'Watching… 0 of 2 minutes, 0 snapshots.');
   assert.strictEqual(watchProgressText({ minutes: 2, elapsed: 999, snapshots: 3 }), 'Watching… 2 of 2 minutes, 3 snapshots.');
+  assert.strictEqual(watchProgressText({ minutes: 1, elapsed: 60, snapshots: 1 }), 'Watching… 1 of 1 minute, 1 snapshot.');
 });
 
 test('state steps: start, progress events, a result, a refusal, a failure', async () => {
@@ -102,4 +105,24 @@ test('offered only with a checkup that found no monitoring software', async () =
   assert.strictEqual(watchOffered({ modules: [mod('stalkerware_scan', 'info')] }), true, 'an info note is on most computers');
   assert.strictEqual(watchOffered({ modules: [mod('stalkerware_scan', 'warning')] }), false);
   assert.strictEqual(watchOffered({ modules: [mod('keylogger_indicators', 'critical')] }), false);
+});
+
+test('the view and main agree on when monitoring software turns the watch off', async () => {
+  const { watchOffered } = await view();
+  const { handleWatch } = require('../watch');
+  const mod = (name, severities) => ({ name, status: 'ok', supported: true, findings: severities.map((severity) => ({ title: 't', severity })) });
+  const cases = [
+    [mod('stalkerware_scan', ['warning'])], [mod('mvt_spyware_scan', ['critical'])], [mod('keylogger_indicators', ['info', 'warning'])],
+    [mod('stalkerware_scan', ['info'])], [mod('keylogger_indicators', [])], [mod('a_mod', ['critical', 'warning'])],
+    [mod('a_mod', ['info']), mod('stalkerware_scan', ['info'])],
+  ];
+  for (const modules of cases) {
+    const doc = { schema_version: 1, platform: 'darwin', modules };
+    const r = await handleWatch(5, { getLastDoc: () => doc, setLastDoc: () => {}, policies: [], isBusy: () => false, onEvent: () => {},
+      logError: () => {}, runWatch: async () => null });
+    const mainRefuses = r.reason === 'monitoring';
+    assert.strictEqual(watchOffered(doc), !mainRefuses, JSON.stringify(modules));
+  }
+  // Both ways are covered above.
+  assert.ok(cases.some((m) => !watchOffered({ modules: m })) && cases.some((m) => watchOffered({ modules: m })));
 });

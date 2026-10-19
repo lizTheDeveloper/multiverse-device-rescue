@@ -1102,10 +1102,42 @@ test('watch: on the deck after a checkup; start sends only the minutes picked', 
 
 test('watch: STOP calls stopWatch, even while a re-check runs', async () => {
   const t = await watchSetup({ results: [() => new Promise(() => {})] });
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const id = findingsToCity(t.before).districts.flatMap((d) => d.missions).find((m) => m.module === 'mod_a').id;
   t.click({ 'data-act': 'watch-start' });
+  // A re-check that doesn't finish: the controller is busy until it does.
+  let rechecking = 0;
+  t.win.rescue.recheckModule = () => { rechecking += 1; return new Promise(() => {}); };
+  t.click({ 'data-go': `mission:${id}` });
+  t.click({ 'data-act': 'i-did-it' });
+  assert.strictEqual(rechecking, 1, 'a re-check is running');
+  t.click({ 'data-go': 'map' });
+  assert.doesNotMatch(t.html(), /INCOMING SIGNALS/, 'busy: other clicks wait for the re-check');
   t.click({ 'data-act': 'watch-stop' });
   await tick();
   assert.strictEqual(t.calls.stopWatch, 1);
+});
+
+test('watch: a result that can’t be shown is the failed state, not an unhandled rejection', async () => {
+  const merged = withWatch(scan(mod('mod_a', [finding('A')])), watchF('Mail'));
+  const t = await watchSetup({ results: [{ ok: true, doc: merged }], docChanged: () => { throw new Error('boom'); } });
+  const unhandled = [];
+  const onUnhandled = (e) => unhandled.push(e);
+  process.on('unhandledRejection', onUnhandled);
+  const logged = [];
+  const error = console.error;
+  console.error = (...a) => logged.push(a);
+  try {
+    t.click({ 'data-act': 'watch-start' });
+    await tick(); await tick(); await tick();
+  } finally {
+    console.error = error;
+    process.off('unhandledRejection', onUnhandled);
+  }
+  assert.deepStrictEqual(unhandled, []);
+  assert.match(String(logged[0] && logged[0][0]), /connection watch/);
+  assert.match(t.html(), /couldn’t finish/);
+  assert.match(t.html(), /data-act="watch-start"/);
 });
 
 test('watch: its findings arrive in INCOMING SIGNALS the way a re-check’s do', async () => {

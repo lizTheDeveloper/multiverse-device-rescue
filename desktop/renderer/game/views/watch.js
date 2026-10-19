@@ -12,6 +12,7 @@ const FAILED = 'The connection watch couldn’t finish. Your checkup results are
 
 const minutesOf = (m) => (WATCH_MINUTES.includes(m) ? m : WATCH_DEFAULT_MINUTES);
 const count = (n) => Math.max(0, Math.floor(Number(n) || 0));
+export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export const idleWatch = (minutes = WATCH_DEFAULT_MINUTES) => (
   { state: 'idle', minutes: minutesOf(minutes), elapsed: 0, total: 0, snapshots: 0, message: '' });
@@ -42,13 +43,13 @@ export function watchOffered(doc) {
 
 export function watchProgressText({ minutes, elapsed, snapshots }) {
   const n = minutesOf(minutes);
-  return `Watching… ${Math.min(n, Math.floor(count(elapsed) / 60))} of ${n} minutes, ${count(snapshots)} snapshots.`;
+  return `Watching… ${Math.min(n, Math.floor(count(elapsed) / 60))} of ${plural(n, 'minute')}, ${plural(count(snapshots), 'snapshot')}.`;
 }
 
 function startHtml(n) {
   const picks = WATCH_MINUTES.map((m) => `<button type="button" class="btn-s" data-act="watch-minutes:${m}" aria-pressed="${m === n ? 'true' : 'false'}">${m}</button>`).join('');
   return `
-    <p class="intel">Watches which apps on this computer connect where, for ${n} minutes. Nothing leaves this computer, and you can keep using it while the watch runs. Results last until your next checkup.</p>
+    <p class="intel">Watches which apps on this computer connect where, for ${plural(n, 'minute')}. Nothing leaves this computer, and you can keep using it while the watch runs. Results last until your next checkup.</p>
     <div class="row watch-minutes" role="group" aria-label="Minutes to watch"><span class="label">MINUTES</span>${picks}</div>
     <button type="button" class="btn-s lime" data-act="watch-start">START THE WATCH ▶</button>`;
 }
