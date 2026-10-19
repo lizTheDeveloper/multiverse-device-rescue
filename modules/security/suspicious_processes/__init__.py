@@ -243,6 +243,26 @@ class Module(ModuleBase):
                 )
             )
 
+        unreadable = getattr(self, "_unreadable_apps", None) or []
+        if unreadable:
+            # "Couldn't read …" at info: the screens count it as partly checked,
+            # never clean (desktop/renderer/not-checked.js isPartlyChecked).
+            findings.append(
+                Finding(
+                    title=f"Couldn't read the settings of {len(unreadable)} app(s)",
+                    description=(
+                        f"The settings file (Info.plist) of {len(unreadable)} app(s) in /Applications "
+                        f"couldn't be read, so this check couldn't tell whether they have a bundle ID: "
+                        f"{', '.join(a['name'] for a in unreadable[:20])}"
+                        f"{f', and {len(unreadable) - 20} more' if len(unreadable) > 20 else ''}. "
+                        "That isn't a sign of a problem by itself, but these apps weren't checked."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={"check": "unreadable_apps", "apps": unreadable, "incomplete": True},
+                )
+            )
+
         # If no issues found, report clean status
         if not findings:
             findings.append(
@@ -415,6 +435,9 @@ class Module(ModuleBase):
         Returns list of (path, app_name) tuples.
         """
         unsigned_apps = []
+        # Apps whose Info.plist couldn't be read: not evidence either way, but
+        # not checked either, so the scan says so (check()).
+        self._unreadable_apps = []
         try:
             apps_dir = Path("/Applications")
             if not apps_dir.exists():
@@ -431,7 +454,9 @@ class Module(ModuleBase):
                         with open(info_plist, "rb") as fh:
                             info = plistlib.load(fh)
                     except (OSError, plistlib.InvalidFileException, ValueError):
-                        continue  # couldn't read it: not evidence of anything
+                        # Couldn't read it: not evidence of anything, but not checked.
+                        self._unreadable_apps.append({"path": str(app_path), "name": app_path.name})
+                        continue
                     bundle_id = info.get("CFBundleIdentifier") if isinstance(info, dict) else None
                     if not isinstance(bundle_id, str) or not bundle_id.strip():
                         unsigned_apps.append((str(app_path), app_path.name))

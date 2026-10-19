@@ -360,3 +360,33 @@ def test_bundle_ids_are_read_from_each_apps_info_plist(tmp_path, monkeypatch):
     monkeypatch.setattr(module_obj, "Path", lambda p: apps if p == "/Applications" else real_path(p))
     got = mod._get_unsigned_apps()
     assert [n for _, n in got] == ["NoId.app"]
+    # The unreadable one isn't dropped silently: it is reported as not checked.
+    assert [a["name"] for a in mod._unreadable_apps] == ["Broken.app"]
+
+
+def test_unreadable_info_plists_are_reported_as_partly_checked_never_clean():
+    mod = _get_module()
+    procs = [("1", "root", "0.1", "0.1", "/usr/sbin/syslogd")]
+
+    def unsigned():
+        mod._unreadable_apps = [{"path": "/Applications/Broken.app", "name": "Broken.app"}]
+        return []
+
+    with patch.object(mod, "_get_processes", return_value=procs), patch.object(mod, "_get_unsigned_apps", side_effect=unsigned):
+        result = mod.check(_make_profile())
+    titles = [f.title for f in result.findings]
+    assert "No suspicious processes detected" not in titles, "not checked is never clean"
+    (note,) = [f for f in result.findings if f.data.get("check") == "unreadable_apps"]
+    assert note.severity == Severity.INFO
+    assert note.title.startswith("Couldn't read")  # the screens' "partly checked" rule
+    assert note.data["incomplete"] is True and note.data["apps"][0]["name"] == "Broken.app"
+    assert "Broken.app" in note.description
+
+    # Nothing unreadable: the clean line as before.
+    def none():
+        mod._unreadable_apps = []
+        return []
+
+    with patch.object(mod, "_get_processes", return_value=procs), patch.object(mod, "_get_unsigned_apps", side_effect=none):
+        result = mod.check(_make_profile())
+    assert [f.title for f in result.findings] == ["No suspicious processes detected"]
