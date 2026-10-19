@@ -101,8 +101,26 @@ export function buildSignals(city, deck, changedIds = null, { cover = true } = {
         module: g.module, finding: null, missionId: null, fixable: false, marked: false, stale: false, fp: 'couldnt', count: 1,
         ...(monitoring ? { monitoring: true } : {}) });
     }
+    // A check that started but didn't finish: a NOT CHECKED row too, so the
+    // filter shows every check the banner and NotChecked.scanCounts name
+    // (`unfinished`). A check only partly checked (its titles) stays in its district.
+    for (const u of d.unfinished || []) {
+      if (Array.isArray(u.titles) && u.titles.length) continue;
+      const monitoring = MONITORING_MODULES.has(u.module);
+      add({ id: `couldnt|${u.module}`, kind: 'couldnt', unfinished: true, severity: 'couldnt',
+        title: unfinishedTitle(monitoring ? {} : u), description: UNFINISHED_TEXT, districtId: d.id,
+        module: u.module, finding: null, missionId: null, fixable: false, marked: false, stale: false, fp: 'couldnt', count: 1,
+        ...(monitoring ? { monitoring: true } : {}) });
+    }
   }
   return out;
+}
+
+export const UNFINISHED_TEXT = 'This check started but stopped before the end, so it may have missed something.';
+// "App signatures didn't finish": the check's own name for people, never its id.
+export function unfinishedTitle(g) {
+  const words = String((g && g.checkName) || '').trim();
+  return `${words ? words.charAt(0).toUpperCase() + words.slice(1) : 'A check'} didn’t finish`;
 }
 
 // A check that couldn't run, named (monitoring checks never get here) with
@@ -137,6 +155,24 @@ export function queueOf(signals, filter = null) {
     known: sorted(list.filter((x) => x.tag === 'mine')),
     noted: sorted(list.filter((x) => x.tag === 'noted')),
   };
+}
+
+// TO DO on the deck and every HUD: the list's number of items
+// (NotChecked.scanCounts `items`, city mode), less the ones already sorted
+// with a tag (MINE, THREAT). Never the couldn't-check rows: those are NOT
+// CHECKED. Before any sorting it is exactly the list's count.
+export function todoFrom(counts, signals) {
+  const items = Number(counts && counts.items) || 0;
+  const sorted = (signals || []).filter((x) => x.kind === 'real' && x.severity !== 'info' && !x.marked && x.tag && x.tag !== 'closer').length;
+  return Math.max(0, items - sorted);
+}
+
+// The NOT CHECKED chip's parts, from NotChecked.scanCounts only:
+// "4 DIDN'T FINISH · 1 NOT STARTED".
+export function notCheckedChip(counts) {
+  const c = counts || {};
+  return [[c.couldntRun, 'COULDN’T RUN'], [c.unfinished, 'DIDN’T FINISH'], [c.notStarted, 'NOT STARTED']]
+    .filter(([n]) => Number(n) > 0).map(([n, label]) => `${Number(n)} ${label}`).join(' · ');
 }
 
 // What's left to do: the rows still to sort in the deck's queue (critical,

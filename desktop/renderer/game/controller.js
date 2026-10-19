@@ -11,7 +11,7 @@ import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, record
 import { conceptById, isHidden } from './profile/skills.js';
 import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, PUBLISH_FIELDS } from './profile/publish.js';
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, todoCount, cityCounts, WAITING_TITLE } from './signals.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, todoFrom, notCheckedChip, cityCounts, WAITING_TITLE } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ, pathOf } from './clues.js';
 import { loadDrills, chooseDrills, drillSignal, pickDrills } from './drills.js';
@@ -615,7 +615,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null, learned: learnedCount(),
       scanRunning: sweeping(), districtName: nameOf, notice: heldNotice() + s.linkNotice,
       // With something held, an empty queue points to it instead of saying "clear".
-      notChecked: notCheckedLine(s.counts), todo: todoCount(sigs),
+      notChecked: notCheckedLine(s.counts), todo: todoFrom(s.counts, sigs), notCheckedChip: notCheckedChip(s.counts),
       // Missions now merge exactly as the list counts items (NotChecked.itemKey), so no "repeats" note.
       repeats: 0,
       sweepNow: s.counts, stopped: s.stopped,
@@ -1193,7 +1193,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), rank: rankOf(s.progress.deck),
-          todo: s.city ? todoCount(signalsNow()) : null, notChecked: s.counts }) + s.linkNotice;
+          todo: s.city ? todoFrom(s.counts, signalsNow()) : null, notChecked: s.counts }) + s.linkNotice;
       frame.innerHTML = saveNoticeHtml() + hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());

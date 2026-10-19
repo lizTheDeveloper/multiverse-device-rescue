@@ -115,12 +115,15 @@ for (const file of FIXTURES) {
     assert.match(deck, /INCOMING SIGNALS/);
     // The deck's note is the list's top line, word for word.
     assert.ok(deck.includes(app.notCheckedLine(sum)), 'the deck says what the list says');
-    // COULDN'T CHECK chip: every check that couldn't run, monitoring ones too
-    // (unnamed), and the iPhone backup scan waiting for a go-ahead (fog).
-    assert.strictEqual(chip(deck, 'COULDN’T CHECK'), sum.couldntRun + sum.notStarted);
+    // NOT CHECKED chip: every check that couldn't run (monitoring ones too,
+    // unnamed), didn't finish, or waits for a go-ahead, each part named, from NotChecked.
+    const c = NotChecked.scanCounts(doc, { mode: 'city', districtOf: (await import('../renderer/game/findings-to-city.js')).districtIdFor });
+    const { notCheckedChip } = await import('../renderer/game/signals.js');
+    assert.ok(deck.includes(`>NOT CHECKED: ${notCheckedChip(c)}<`), 'the chip names each part');
     assert.doesNotMatch(deck, />ALL \d/, 'ALL carries no total of its own');
-    // TO DO is what's left to sort in the queue: the deck's three chips.
-    const todo = chip(deck, 'CRITICAL') + chip(deck, 'WARNING') + chip(deck, 'COULDN’T CHECK');
+    // TO DO is the list's items (round 5): the deck's CRITICAL and WARNING chips.
+    const todo = chip(deck, 'CRITICAL') + chip(deck, 'WARNING');
+    assert.strictEqual(todo, c.items);
     assert.ok(todo > 0);
     assert.match(deck, new RegExp(`INCOMING SIGNALS · ${todo} TO DO`), 'the deck says the same TO DO');
 
@@ -134,12 +137,12 @@ for (const file of FIXTURES) {
     const m = t.html();
     assert.match(m, /class="hud"/);
     assert.strictEqual(hud(m, 'TO DO'), todo);
-    hudCouldnt.set(file, { got: hud(m, 'COULDN’T CHECK'), want: sum.couldntRun + sum.notStarted });
+    hudCouldnt.set(file, { got: hud(m, 'NOT CHECKED'), want: c.couldntRun + c.unfinished + c.notStarted });
   });
 }
 
-// The mission HUD's COULDN'T CHECK is the deck's chip: couldn't run plus a
-// scan waiting for a go-ahead (game/views/hud.js reads NotChecked.scanCounts).
+// The mission HUD's NOT CHECKED is the deck's chip: couldn't run, didn't
+// finish, and a scan waiting for a go-ahead (game/views/hud.js reads NotChecked.scanCounts).
 const hudCouldnt = new Map();
 test('the mission HUD’s COULDN’T CHECK matches the deck’s chip (fog includes a scan not started)', () => {
     for (const [file, { got, want }] of hudCouldnt) assert.strictEqual(got, want, file);

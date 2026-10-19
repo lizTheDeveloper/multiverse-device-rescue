@@ -78,8 +78,10 @@ test('the fresh scan: every city number is the list’s number (NotChecked.scanC
   assert.ok(deck.includes(app.notCheckedLine(app.notCheckedSummary(doc))));
   // The chips: one row per item (same items as the list), plus what wasn't checked.
   assert.strictEqual(chip(deck, 'CRITICAL') + chip(deck, 'WARNING'), plain.items);
-  assert.strictEqual(chip(deck, 'COULDN’T CHECK'), plain.couldntRun + plain.notStarted);
-  const todo = plain.items + plain.couldntRun + plain.notStarted;
+  // NOT CHECKED (round 5): every part named, from NotChecked; TO DO is the list's items.
+  const { notCheckedChip } = await game('signals.js');
+  assert.ok(deck.includes(`>NOT CHECKED: ${notCheckedChip(city)}<`));
+  const todo = plain.items;
   assert.match(deck, new RegExp(`INCOMING SIGNALS · ${todo} TO DO`));
   // The ops log's SWEEP line.
   assert.match(deck, new RegExp(`SWEEP</span> ${plain.checks} checks: ${plain.items} to look at \\(${plain.critical} critical\\), ${plain.didntFinish} couldn’t run or didn’t finish, ${plain.notStarted} waiting for you\\.`));
@@ -92,7 +94,7 @@ test('the fresh scan: every city number is the list’s number (NotChecked.scanC
   t.click({ 'data-go': 'district:gatehouse' });
   const h = t.html();
   assert.strictEqual(hud(h, 'TO DO'), todo);
-  assert.strictEqual(hud(h, 'COULDN’T CHECK'), plain.couldntRun + plain.notStarted);
+  assert.strictEqual(hud(h, 'NOT CHECKED'), plain.couldntRun + plain.unfinished + plain.notStarted);
 });
 
 test('Plain’s own “N things on your list” is the city’s mission count on the same scan', async () => {

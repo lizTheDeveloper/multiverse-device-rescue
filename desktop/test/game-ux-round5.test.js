@@ -164,3 +164,34 @@ test('YOUR MOVE: the finding’s own prose or the numbered steps, never both', a
   assert.match(css, /@media \(max-width: 800px\) \{ \.brief \{ grid-template-columns: minmax\(0,1fr\); \} \}/);
   assert.match(css, /\.brief-side \{ order: -1;/);
 });
+
+test('NOT CHECKED: the chip names each part, and its filter reaches every check the banner counts', async () => {
+  const doc = fresh();
+  const { districtIdFor } = await game('findings-to-city.js');
+  const { notCheckedChip } = await game('signals.js');
+  const c = NotChecked.scanCounts(doc, { mode: 'city', districtOf: districtIdFor });
+  assert.ok(c.unfinished > 0 && c.notStarted > 0, 'the fresh scan has unfinished checks and a waiting one');
+  const t = await setup(doc);
+  const deck = t.html();
+  const label = notCheckedChip(c);
+  assert.match(label, new RegExp(`${c.unfinished} DIDN’T FINISH`));
+  assert.match(label, new RegExp(`${c.notStarted} NOT STARTED`));
+  assert.ok(deck.includes(`>NOT CHECKED: ${label}<`));
+  // TO DO is the list's number of items, never plus the not-checked rows.
+  assert.match(deck, new RegExp(`INCOMING SIGNALS · ${c.items} TO DO`));
+  t.click({ 'data-act': 'sev:couldnt' });
+  const rows = [...t.html().matchAll(/data-go="signal:([^"]+)"/g)].map((m) => m[1]);
+  assert.strictEqual(rows.length, c.couldntRun + c.unfinished + c.notStarted);
+  assert.strictEqual((t.html().match(/>DIDN’T FINISH</g) || []).length, c.unfinished);
+  // An unfinished row says it may have missed something, not that it checked nothing.
+  const u = rows.find((id) => id.startsWith('couldnt|'));
+  t.click({ 'data-go': `signal:${u}` });
+  assert.match(t.html(), /stopped before the end, so it may have missed something/);
+  assert.doesNotMatch(t.html(), /checked nothing/);
+  // A mission's HUD: the same TO DO and NOT CHECKED.
+  t.click({ 'data-act': 'close-signal' });
+  t.click({ 'data-go': 'district:gatehouse' });
+  const h = text(t.html());
+  assert.match(h, new RegExp(`${c.items} TO DO`));
+  assert.match(h, new RegExp(`${c.couldntRun + c.unfinished + c.notStarted} NOT CHECKED`));
+});
