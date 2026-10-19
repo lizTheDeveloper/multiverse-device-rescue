@@ -59,25 +59,56 @@ def _parse_key_line(line: str) -> dict | None:
     `ssh-keygen -l` fingerprints) and of the whole line (so a change to its
     options or comment shows), its type and its comment. Never the key itself.
     None if the line isn't a key this can read."""
-    tokens = line.split()
-    for i, token in enumerate(tokens):
-        if token not in _KEY_TYPES or i + 1 >= len(tokens):
+    options, rest = _split_options(line)
+    if rest is None:
+        return None
+    # A key-type word hidden in the options (say inside command="...") or
+    # repeated later could make us fingerprint a different key than sshd uses.
+    if any(t in options for t in _KEY_TYPES):
+        return None
+    tokens = rest.split()
+    if len(tokens) < 2 or tokens[0] not in _KEY_TYPES:
+        return None
+    if any(t in _KEY_TYPES for t in tokens[2:]):
+        return None
+    try:
+        blob = base64.b64decode(tokens[1], validate=True)
+    except ValueError:
+        return None
+    if not blob:
+        return None
+    comment = " ".join(tokens[2:])
+    comment = "".join(ch for ch in comment if unicodedata.category(ch) not in ("Cc", "Cf"))[:128]
+    return {
+        "type": tokens[0],
+        "sha256": hashlib.sha256(blob).hexdigest(),
+        "line_sha256": hashlib.sha256(line.encode("utf-8", "replace")).hexdigest(),
+        "comment": comment,
+    }
+
+
+def _split_options(line: str) -> tuple[str, str | None]:
+    """(options, rest) the way sshd reads a line: with no options the line
+    starts with the key type; otherwise the options run to the first
+    whitespace outside double quotes (a backslash escapes a quote inside
+    them). rest is None if a quote never closes."""
+    line = line.strip()
+    first = line.split(None, 1)[0] if line else ""
+    if first in _KEY_TYPES:
+        return "", line
+    in_quote = False
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if ch == "\\" and in_quote and i + 1 < len(line) and line[i + 1] == '"':
+            i += 2
             continue
-        try:
-            blob = base64.b64decode(tokens[i + 1], validate=True)
-        except ValueError:
-            return None
-        if not blob:
-            return None
-        comment = " ".join(tokens[i + 2:])
-        comment = "".join(ch for ch in comment if unicodedata.category(ch) not in ("Cc", "Cf"))[:128]
-        return {
-            "type": token,
-            "sha256": hashlib.sha256(blob).hexdigest(),
-            "line_sha256": hashlib.sha256(line.encode("utf-8", "replace")).hexdigest(),
-            "comment": comment,
-        }
-    return None
+        if ch == '"':
+            in_quote = not in_quote
+        elif ch.isspace() and not in_quote:
+            return line[:i], line[i:].strip()
+        i += 1
+    return line, None
 
 _DARWIN_BROWSER_PROFILE_ROOTS = {
     "Google Chrome": "~/Library/Application Support/Google/Chrome",

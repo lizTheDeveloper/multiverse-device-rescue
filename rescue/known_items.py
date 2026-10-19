@@ -946,10 +946,40 @@ for _kind, _spec in ENTRY_KINDS.items():
 del _kind, _spec
 
 
+_MAX_PROGRAM_BYTES = 256 * 1024 * 1024
+
+
+def _program_sha256(app: str) -> str | None:
+    """SHA-256 of an app's main program file (read-only), or None if it can't
+    be found or is too large to read quickly."""
+    try:
+        from rescue import attribution
+
+        path = attribution.resolve_app(app, sys.platform)
+        if not path:
+            return None
+        path = os.path.realpath(path)
+        if os.path.isdir(path):
+            with open(os.path.join(path, "Contents", "Info.plist"), "rb") as handle:
+                exe = plistlib.load(handle).get("CFBundleExecutable")
+            if not isinstance(exe, str) or not exe or "/" in exe or exe.startswith("."):
+                return None
+            path = os.path.realpath(os.path.join(path, "Contents", "MacOS", exe))
+        if not os.path.isfile(path) or os.path.getsize(path) > _MAX_PROGRAM_BYTES:
+            return None
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1 << 20), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except Exception:
+        return None
+
+
 def app_signer(app: str) -> str | None:
     """Who signed this app, as an entry mark pins it: "team:<Team ID>" for a
     verified Developer ID or App Store signature, "apple" for Apple's own,
-    "unsigned" when no signature verifies. None when it can't be checked now
+    "unsigned:<SHA-256 of its program>" when no signature verifies. None when it can't be checked now
     (not found, or the lookup budget ran out): such an entry can't be marked
     on its own, and a mark on it shows as changed."""
     try:
@@ -961,7 +991,10 @@ def app_signer(app: str) -> str | None:
     if made is None:
         return None
     if not made.verified:
-        return "unsigned"
+        # Nothing vouches for who made it, so pin the program itself: another
+        # unsigned app, or this one changed, must not inherit the mark.
+        digest = _program_sha256(app)
+        return f"unsigned:{digest}" if digest else None
     if made.team:
         return f"team:{made.team}"
     if made.name == "Apple":
@@ -1049,7 +1082,16 @@ def _entries_groups(marked, stale, fresh, entry_kind: str) -> str:
         parts.append(_entries_line("Not marked as yours", [e["shown"] for e in fresh]))
     if stale:
         parts.append(_entries_line("Marked as yours before, but changed since", [e["shown"] for e, _ in stale]))
-        parts.append(stale_sentence(stale[0][1], entry_kind))
+        if len(stale) == 1:
+            parts.append(stale_sentence(stale[0][1], entry_kind))
+        else:
+            dates = sorted(i.marked_at for _, i in stale if i.marked_at)
+            when = f" (the earliest on {dates[0]})" if dates else ""
+            changed = KINDS.get(entry_kind, {}).get("changed", "it")
+            parts.append(
+                f"You marked these as yours{when}, but {changed} has changed on each since you marked "
+                "them, so they are shown again. If you changed them yourself, you can mark them again."
+            )
     if marked:
         parts.append(_entries_line("Marked as yours", [e["shown"] for e, _ in marked]))
     return "\n".join(parts)
@@ -1117,12 +1159,22 @@ def apply_entry_marks(findings: list[Finding], items: list[KnownItem], signer_of
         groups = _entries_groups(marked, stale, fresh, entry_kind)
         if finding.severity == Severity.CRITICAL:
             data["user_mark_ignored"] = True
-            finding.description = (
-                f"{finding.description}\n\n{groups}\n\nSome of these are marked as yours, but this "
-                "finding is serious enough that a mark does not quiet it."
+            note = (
+                "\n\nSome of these are marked as yours, but this finding is serious enough that a "
+                "mark does not quiet it." if marked else ""
             )
+            finding.description = f"{finding.description}\n\n{groups}{note}"
             continue
         if not warn:
+            # A stale whole-list mark gave way to the entry marks: keep it out of the
+            # top level so nothing (an undo, say) is aimed at the wrong mark.
+            if data.get("mark_stale") and isinstance(data.get("known_item_id"), str):
+                old = next((i for i in items if i.id == data["known_item_id"]), None)
+                data["stale_list_mark"] = {"id": data.pop("known_item_id")}
+                data.pop("mark_stale", None)
+                if old is not None:
+                    finding.description = finding.description.replace(
+                        f"\n\n{stale_sentence(old, list_kind)}", "")
             when = max((i.marked_at for _, i in marked), default="") or "an unknown date"
             data.update({
                 "marked_by_user": True,

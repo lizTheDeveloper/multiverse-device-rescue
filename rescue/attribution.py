@@ -807,6 +807,20 @@ def identify(path_or_label: str, platform: str) -> MadeBy | None:
     return att.identify(path_or_label)
 
 
+def resolve_app(subject: str, platform: str) -> str | None:
+    """The .app (or file) path for a bundle id, name or path, with the shared
+    cache and budget. None if it can't be found or the budget ran out."""
+    att = _DEFAULT.get(platform)
+    if att is None:
+        att = _DEFAULT[platform] = Attributor(platform)
+    if "/" in subject:
+        path = os.path.expanduser(subject)
+        return path if os.path.exists(path) else None
+    if not att._can_lookup():
+        return None
+    return att._resolve_app(subject, os.path.exists)
+
+
 # --- finding enrichment -----------------------------------------------------------
 
 def _looks_like_subject(s: str) -> bool:

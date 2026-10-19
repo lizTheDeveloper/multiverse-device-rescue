@@ -263,3 +263,110 @@ def test_ssh_entry_marks_and_a_changed_line_is_stale(tmp_path):
     assert [m["entry"] for m in f.data["stale_items"]] == [sha_a]
     assert "me@laptop" not in f.description  # key comments never go in the text
     assert "me@laptop" not in json.dumps(f.data["stale_items"])
+
+
+# --- review fixes: key parsing like sshd, and a content pin for unsigned apps -------
+
+
+def _parser():
+    _ssh_module()
+    return sys.modules["rescue_modules.session_revocation_scan"]._parse_key_line
+
+
+def _blob(n):
+    return base64.b64encode(b"\x00\x00\x00\x0bssh-ed25519" + bytes([n]) * 32).decode()
+
+
+def test_a_key_type_hidden_in_a_quoted_option_is_not_read():
+    parse = _parser()
+    smuggle = f'command="echo ssh-ed25519 {_blob(9)} x" ssh-ed25519 {_blob(1)} me'
+    assert parse(smuggle) is None
+    assert parse(f'command="x" ssh-ed25519 {_blob(1)} me ssh-rsa {_blob(2)}') is None  # two key types
+    assert parse(f'ssh-ed25519 {_blob(1)} ssh-ed25519 {_blob(2)}') is None
+
+
+def test_an_escaped_quote_does_not_end_the_options_early():
+    parse = _parser()
+    tricky = f'command="a \\" ssh-ed25519 {_blob(9)} b" ssh-ed25519 {_blob(1)} me'
+    assert parse(tricky) is None
+    assert parse(f'command="a \\" b" ssh-ed25519 {_blob(1)} me')["sha256"] == hashlib.sha256(base64.b64decode(_blob(1))).hexdigest()
+    assert parse(f'command="never closes ssh-ed25519 {_blob(1)}') is None
+
+
+def test_a_normal_key_with_options_is_read():
+    parse = _parser()
+    got = parse(f'no-pty,command="/bin/true --flag" ssh-ed25519 {_blob(3)} jo')
+    assert got["type"] == "ssh-ed25519" and got["comment"] == "jo"
+
+
+def test_a_smuggled_line_makes_the_list_whole_only(tmp_path):
+    data = _ssh_data(tmp_path, _key_line(1), f'command="ssh-ed25519 {_blob(9)}" ssh-ed25519 {_blob(2)}')
+    assert "keys" not in data
+
+
+def _fake_app(tmp_path, name, body):
+    app = tmp_path / f"{name}.app"
+    (app / "Contents" / "MacOS").mkdir(parents=True)
+    (app / "Contents" / "Info.plist").write_bytes(
+        __import__("plistlib").dumps({"CFBundleExecutable": "run", "CFBundleIdentifier": f"com.x.{name}"}))
+    (app / "Contents" / "MacOS" / "run").write_bytes(body)
+    return str(app)
+
+
+@pytest.fixture
+def real_signer(monkeypatch):
+    from rescue import attribution
+    from rescue.attribution import MadeBy
+
+    monkeypatch.undo()  # drop the autouse fake; use the real app_signer
+    monkeypatch.setattr(attribution, "identify", lambda app, platform: MadeBy("?", False, "unsigned"))
+    return known_items.app_signer
+
+
+def test_unsigned_apps_do_not_share_a_mark_and_a_changed_binary_is_stale(tmp_path, monkeypatch, real_signer):
+    one = _fake_app(tmp_path, "one", b"program one")
+    two = _fake_app(tmp_path, "two", b"program two")
+    sig = real_signer
+    assert sig(one).startswith("unsigned:") and sig(one) != sig(two)
+    data = _apps(one, two)
+    monkeypatch.setattr(known_items, "app_signer", sig)
+    _mark_entries(ACC, data, [one])
+    f = _apply(ACC, data)
+    assert [m["entry"] for m in f.data["marked_items"]] == [one] and f.data["unmarked"] == [two]
+    (tmp_path / "one.app" / "Contents" / "MacOS" / "run").write_bytes(b"swapped")
+    f = _apply(ACC, data)
+    assert [m["entry"] for m in f.data["stale_items"]] == [one]
+
+
+def test_an_unsigned_app_with_no_readable_program_is_not_offered(tmp_path, real_signer):
+    assert real_signer(str(tmp_path / "missing.app")) is None
+
+
+def test_all_entries_marked_over_a_stale_whole_list_mark_points_at_no_whole_mark():
+    old = _apps("com.example.one")
+    kind, ident = item_identity(_f(ACC, old))
+    whole, _ = KnownItemsStore().add(kind, ident, via="test")
+    now = _apps("com.example.one", "com.example.two")
+    _mark_entries(ACC, now, ["com.example.one", "com.example.two"])
+    f = _apply(ACC, now)
+    assert f.severity == Severity.INFO and f.data["marked_by_user"] is True
+    assert "known_item_id" not in f.data and "mark_stale" not in f.data
+    assert f.data["stale_list_mark"] == {"id": whole.id}
+    assert "so it's shown again" not in f.description
+
+
+def test_stale_sentence_covers_every_stale_entry():
+    data = _apps("com.example.one", "com.example.two")
+    _mark_entries(ACC, data, ["com.example.one", "com.example.two"])
+    SIGNERS["com.example.one"] = "team:ZZZZZ99999"
+    SIGNERS["com.example.two"] = "team:YYYYY99999"
+    f = _apply(ACC, data)
+    assert "You marked these as yours" in f.description and "earliest on" in f.description
+
+
+def test_critical_with_only_stale_marks_does_not_say_some_are_marked():
+    data = _apps("com.example.one")
+    _mark_entries(ACC, data, ["com.example.one"])
+    SIGNERS["com.example.one"] = "team:ZZZZZ99999"
+    f = _apply(ACC, data, Severity.CRITICAL)
+    assert f.severity == Severity.CRITICAL and "Some of these are marked" not in f.description
