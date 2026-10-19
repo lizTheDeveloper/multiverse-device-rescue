@@ -59,9 +59,26 @@ def build_catalog(modules, index: dict[str, "Guide"]) -> list[dict]:
                 "code": code,
                 "module": mod.name,
                 "walkthrough_title": guide.title if guide is not None else None,
+                "removal_warning": _removal_warning(mod.name, code),
             })
     rows.sort(key=lambda r: r["code"])
     return rows
+
+
+def _removal_warning(module: str, code: str) -> str:
+    """When a finding with this code carries the removal warning
+    (rescue/safety_scope.py), in the catalog's words. Never on info findings."""
+    from rescue import safety_scope
+
+    if module in safety_scope.MONITORING_MODULES:
+        return "monitoring check: always"
+    if code in safety_scope.ALERT_CODES:
+        return "yes"
+    if code in safety_scope.UNVERIFIED_ALERT_CODES:
+        return "if the maker isn't verified"
+    if code in safety_scope.CRITICAL_ALERT_CODES:
+        return "critical only"
+    return "—"
 
 
 def render_catalog_markdown(rows: list[dict]) -> str:
@@ -74,10 +91,15 @@ def render_catalog_markdown(rows: list[dict]) -> str:
         f"{len(rows)} codes, {covered} with walkthroughs "
         f"({(100 * covered // len(rows)) if rows else 0}% covered).",
         "",
-        "| Code | Module | Walkthrough |",
-        "|---|---|---|",
+        "The removal warning (\"removing it can alert whoever set it up; talk to an "
+        "advocate first\") is shown only where the last column says so "
+        "(rescue/safety_scope.py), and never on an info finding.",
+        "",
+        "| Code | Module | Walkthrough | Removal warning |",
+        "|---|---|---|---|",
     ]
     for r in rows:
         wt = r["walkthrough_title"] or "— **gap**"
-        lines.append(f"| `{r['code']}` | {r['module']} | {wt} |")
+        warn = r.get("removal_warning") or _removal_warning(r["module"], r["code"])
+        lines.append(f"| `{r['code']}` | {r['module']} | {wt} | {warn} |")
     return "\n".join(lines) + "\n"

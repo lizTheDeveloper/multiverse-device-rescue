@@ -25,6 +25,7 @@
    ],
    "all_steps": false,
    "safety_note": "Before you remove or turn anything off: if you think someone close to you set this up to watch you, removing it can alert them. Talk to an advocate first. In the US: National Domestic Violence Hotline, 1-800-799-7233, or text START to 88788."
-  }
+  },
+  "removal_alert": true
  }
 }
