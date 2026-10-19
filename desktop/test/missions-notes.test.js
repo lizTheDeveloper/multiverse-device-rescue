@@ -206,3 +206,24 @@ test('batchNotes: batches of five per area, in order, held and to-do items left 
   assert.strictEqual(N.BATCH_SIZE, 5);
   assert.deepStrictEqual(N.batchNotes(items, { areaOf: () => 'x', size: 4 }).map((x) => x.items.length), [4, 4, 1]);
 });
+
+test('engine wording becomes one plain headline; the evidence keeps the details', async () => {
+  const C = await loadC();
+  const N = await loadN();
+  const f = { module: 'ai_threat_indicators', severity: 'info', category: 'security', title: 'Found process with AI reference: /Users/example/tools/blender-mcp --serve',
+    description: 'Review these entries to ensure they are legitimate.', data: { process: '/Users/example/tools/blender-mcp --serve' } };
+  const item = C.makeItem(f);
+  const rows = [{ label: 'Program', value: f.data.process }];
+  for (const mode of ['standard', 'city']) {
+    const ctx = C.testContext({ mode, evidenceRows: () => rows });
+    const r = N.default.research(item, ctx);
+    assert.deepStrictEqual(r.rows, rows, 'the evidence is untouched');
+    const html = N.default.render({ item, research: r, index: 0, total: 1 }, ctx);
+    assert.match(html, /A running program mentions AI: blender-mcp/);
+    assert.doesNotMatch(html, /Found process with AI reference|\/Users\/example/);
+    assert.deepStrictEqual(C.checkInert(html), []);
+  }
+  assert.strictEqual(N.plainTitle('Screen Recording access: 3 app(s)'), 'Screen Recording access: 3 apps');
+  assert.strictEqual(N.plainTitle('Found 1 leftover user profile(s)'), '1 leftover user profile');
+  assert.strictEqual(N.plainTitle('Background item: com.example.x'), 'Background item: com.example.x');
+});

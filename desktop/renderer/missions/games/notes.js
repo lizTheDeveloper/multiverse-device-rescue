@@ -47,6 +47,26 @@ const dataOf = (f) => (f && f.data && typeof f.data === 'object' ? f.data : {});
 const str = (v) => (typeof v === 'string' ? v : '');
 const quiet = (f, mode) => mode === 'city' && MONITORING_MODULES.has(f && f.module);
 // City output never carries a non-game word, whatever the scan wrote.
+// A note's headline in plain words (audit P2-11): engine phrasing ("Found process with AI reference: /Users/…/x
+// --serve") becomes one short line ("A running program mentions AI: x"). The evidence rows keep the details.
+const baseName = (p) => String(p).split(/[\\/]/).filter(Boolean).pop() || String(p);
+const firstWord = (s) => String(s).trim().split(/\s+/)[0] || '';
+const PLAIN = [
+  [/^Found process with AI reference:\s*(.+)$/i, (m) => `A running program mentions AI: ${baseName(firstWord(m[1]))}`],
+  [/^LaunchAgent\/Daemon with AI reference:\s*(.+)$/i, (m) => `A background item mentions AI: ${baseName(m[1])}`],
+  [/^Found (?:an? )?excessive number of (.+)$/i, (m) => `A lot of ${m[1]}`],
+  [/^Found (.+)$/i, (m) => m[1].charAt(0).toUpperCase() + m[1].slice(1)],
+];
+export function plainTitle(title) {
+  let t = String(title == null ? '' : title).trim();
+  for (const [re, to] of PLAIN) { const m = re.exec(t); if (m) { t = to(m); break; } }
+  // "1 app(s)" -> "1 app", "3 app(s)" -> "3 apps".
+  t = t.replace(/\b(\d[\d,]*)(\s[^()\d]*?)\(s\)/g, (_, n, mid) => `${n}${mid}${n === '1' ? '' : 's'}`).replace(/\(s\)/g, 's');
+  // A full path in a headline: just its last part (the rows show where it is).
+  t = t.replace(/(?:~|\/(?:Users|home|private|var|opt|usr|Library|Applications|System|tmp)|[A-Za-z]:\\)[^\s,;)]*/g, (x) => baseName(x));
+  return t.length > 120 ? `${t.slice(0, 117).trimEnd()}…` : t;
+}
+
 const cityText = (s, mode) => (mode === 'city' && CITY_FORBIDDEN.test(String(s)) ? QUIET_LINE : String(s == null ? '' : s));
 // A clue line is one line: the scan's line breaks read as spaces, not as [U+000A].
 const oneLine = (s) => String(s == null ? '' : s).replace(/[ \t]*[\r\n]+[ \t]*/g, ' ');
@@ -170,7 +190,7 @@ export function render(view, ctx = {}) {
   const hush = quiet(f, mode);
   const total = Number.isFinite(view && view.total) ? view.total : 1;
   const index = Number.isFinite(view && view.index) ? view.index : 0;
-  const title = hush ? QUIET_TITLE : cityText(str(f.title) || 'A note', mode);
+  const title = hush ? QUIET_TITLE : cityText(plainTitle(str(f.title)) || 'A note', mode);
   const clues = hush ? [] : cluesFor(asClueFinding(f));
   const tell = hush ? '' : tellOf(f);
   const r = (view && view.research) || {};
