@@ -85,8 +85,10 @@ test('a marked-as-yours-able list keeps through MarkFlow; others keep in mission
 test('apps known only by a bundle id never read as confirmed, even when made_by says verified', async () => {
   const { C, G } = await load();
   const items = itemsOf(fixture('keyring-scan.json'));
-  const keys = byCode(items, 'security.keylogger_indicators.suspicious_input_monitoring');
+  const held = byCode(items, 'security.keylogger_indicators.suspicious_input_monitoring');
   for (const mode of ['standard', 'city']) {
+    // In city mode held items never reach a game; a keyboard key that does (a note turned odd) is not held.
+    const keys = mode === 'city' ? { ...held, held: false } : held;
     const ctx = C.testContext({ mode });
     const r = G.research(keys, ctx);
     assert.ok(!/Example Keys Co/.test(r.what) && !/keyboard tool/.test(r.what), r.what);
@@ -114,8 +116,9 @@ test('keyboard access by an unconfirmed maker always carries the removal warning
   const { C, G } = await load();
   const items = itemsOf(fixture('keyring-scan.json'));
   for (const code of ['security.keylogger_indicators.suspicious_input_monitoring', 'security.keylogger_indicators.cgeventtap_usage']) {
-    const it = byCode(items, code);
+    const found = byCode(items, code);
     for (const mode of ['standard', 'city']) {
+      const it = mode === 'city' ? { ...found, held: false } : found;
       const ctx = C.testContext({ mode });
       const html = G.render(view(it, G, ctx), ctx);
       assert.match(html, /kr-warn/, `${code} ${mode}`);

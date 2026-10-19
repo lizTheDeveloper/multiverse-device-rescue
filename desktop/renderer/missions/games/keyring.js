@@ -1,0 +1,410 @@
+// The Keyring: apps with powerful access (spec: docs/superpowers/specs/2026-10-19-little-missions-and-minigames-design.md).
+//
+// An item is one "key" (a privacy permission: Accessibility, Input Monitoring, Screen Recording, Camera, Microphone,
+// Full Disk Access, Location, Automation, Contacts, Screen Time) and the apps holding it. Each app is a card with the
+// keys it holds as chips. One decision per key: Keep (the default) / Hand back (opens that exact privacy pane), plus
+// Look closer when a holder's maker isn't confirmed.
+//
+// Honest makers: an app named by a bundle id (or a process name) is what it says about itself, so it is never shown as
+// confirmed, whatever made_by says (serialize.py _unverify_named_apps does the same; this re-checks). Only a full path
+// with a verified made_by entry reads as confirmed, and only then is its "what it is" line shown.
+//
+// Pure: no DOM, no storage, no globals. Every scan value goes through ctx.esc. Scan titles and descriptions are never
+// rendered (they carry engine words that don't belong in the city).
+
+const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+
+// key id -> words and where its switch lives. pane: macOS settings pane (null: no pane in the allowlist; Hand back
+// then shows where the switch is). Windows uses its privacy page with the key as the permission hint.
+export const KEYS = {
+  accessibility: {
+    name: { standard: 'Accessibility', city: 'Control key' },
+    does: { standard: 'Can click, type and move the pointer for you.', city: 'Works every control in the building.' },
+    pane: 'privacy-accessibility', where: 'System Settings > Privacy & Security > Accessibility',
+  },
+  keyboard: {
+    name: { standard: 'Input Monitoring', city: 'Keyboard key' },
+    does: { standard: 'Can see everything you type, passwords included.', city: 'Hears every key you press.' },
+    pane: 'privacy-input-monitoring', where: 'System Settings > Privacy & Security > Input Monitoring',
+  },
+  screen: {
+    name: { standard: 'Screen Recording', city: 'Window key' },
+    does: { standard: 'Can see everything on your screen.', city: 'Sees through every window.' },
+    pane: 'privacy-screen-recording', where: 'System Settings > Privacy & Security > Screen & System Audio Recording',
+  },
+  camera: {
+    name: { standard: 'Camera', city: 'Lens key' },
+    does: { standard: 'Can turn on the camera.', city: 'Opens the lens.' },
+    pane: 'privacy-camera', where: 'System Settings > Privacy & Security > Camera',
+  },
+  microphone: {
+    name: { standard: 'Microphone', city: 'Ear key' },
+    does: { standard: 'Can listen through the microphone.', city: 'Hears the room.' },
+    pane: 'privacy-microphone', where: 'System Settings > Privacy & Security > Microphone',
+  },
+  'full-disk': {
+    name: { standard: 'Full Disk Access', city: 'Vault key' },
+    does: { standard: 'Can read every file, mail and messages included.', city: 'Opens every vault.' },
+    pane: 'privacy-full-disk', where: 'System Settings > Privacy & Security > Full Disk Access',
+  },
+  location: {
+    name: { standard: 'Location', city: 'Map key' },
+    does: { standard: 'Can see where this computer is.', city: 'Puts this block on the map.' },
+    pane: 'privacy-location', where: 'System Settings > Privacy & Security > Location Services',
+  },
+  automation: {
+    name: { standard: 'Automation', city: 'Puppet key' },
+    does: { standard: 'Can make other apps do things.', city: 'Pulls the strings of other apps.' },
+    pane: 'privacy-automation', where: 'System Settings > Privacy & Security > Automation',
+  },
+  contacts: {
+    name: { standard: 'Contacts', city: 'Address key' },
+    does: { standard: 'Can read your contacts.', city: 'Reads the address book.' },
+    pane: null, where: 'System Settings > Privacy & Security > Contacts',
+  },
+  'screen-time': {
+    name: { standard: 'Screen Time', city: 'Curfew key' },
+    does: { standard: 'Sets limits on this computer, and who can change them.', city: 'Sets the curfew, and who can change it.' },
+    pane: null, where: 'System Settings > Screen Time',
+  },
+  other: {
+    name: { standard: 'A powerful permission', city: 'A spare key' },
+    does: { standard: 'Lets an app reach past its own window.', city: 'Opens a door it shouldn’t need.' },
+    pane: null, where: 'System Settings > Privacy & Security',
+  },
+};
+
+const SERVICES = {
+  kTCCServiceAccessibility: 'accessibility', kTCCServicePostEvent: 'accessibility', kTCCServiceListenEvent: 'keyboard',
+  kTCCServiceScreenCapture: 'screen', kTCCServiceCamera: 'camera', kTCCServiceMicrophone: 'microphone',
+  kTCCServiceSystemPolicyAllFiles: 'full-disk', kTCCServiceAddressBook: 'contacts', kTCCServiceAppleEvents: 'automation',
+  kTCCServiceLocation: 'location',
+};
+
+const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+const str = (v) => (typeof v === 'string' ? v : '');
+const moduleOf = (f) => str(f.module) || str(f.code).split('.')[1] || '';
+
+// The keys one finding is about, in order.
+export function keysOf(finding) {
+  const f = obj(finding);
+  const d = obj(f.data);
+  const code = str(f.code);
+  const mod = moduleOf(f);
+  const svc = SERVICES[str(d.service)];
+  if (svc) return [{ id: svc, ...KEYS[svc] }];
+  const ids = [];
+  if (/camera_microphone_combo$/.test(code)) ids.push('camera', 'microphone');
+  else if (/screen_accessibility_combo$/.test(code)) ids.push('screen', 'accessibility');
+  else if (mod === 'keylogger_indicators' || /input_monitoring/.test(code)) ids.push('keyboard');
+  else if (/accessibility/.test(code) || mod === 'accessibility_permissions') ids.push('accessibility');
+  else if (/full_disk/.test(code)) ids.push('full-disk');
+  else if (/screen_recording/.test(code)) ids.push('screen');
+  else if (/camera/.test(code)) ids.push('camera');
+  else if (/microphone/.test(code)) ids.push('microphone');
+  else if (/contacts/.test(code)) ids.push('contacts');
+  else if (/automation|apple_events/.test(code)) ids.push('automation');
+  else if (mod === 'location_services' || /location/.test(code)) ids.push('location');
+  else if (/screen_time/.test(mod) || /screen_time/.test(code)) ids.push('screen-time');
+  else ids.push('other');
+  return ids.map((id) => ({ id, ...KEYS[id] }));
+}
+
+const findingsOf = (item) => {
+  const it = obj(item);
+  const list = Array.isArray(it.findings) && it.findings.length ? it.findings : [it.finding];
+  return list.filter((f) => f && typeof f === 'object');
+};
+
+// The item's keys, without repeats.
+function itemKeys(item) {
+  const seen = new Map();
+  for (const f of findingsOf(item)) for (const k of keysOf(f)) if (!seen.has(k.id)) seen.set(k.id, k);
+  return [...seen.values()];
+}
+
+// A full path ("/…", "~/…", "C:\…"): something whose file attribution checked. A bundle id or process name is not.
+const isPath = (s) => typeof s === 'string' && (/^[/~]/.test(s) || /^[A-Za-z]:[\\/]/.test(s));
+const baseName = (p) => {
+  const parts = String(p).split(/[\\/]/).filter(Boolean);
+  const last = parts.length ? parts[parts.length - 1] : String(p);
+  return last.replace(/\.app$/i, '') || last;
+};
+
+// The apps (and running programs) the item names, each with the keys it holds and its maker.
+export function appsOf(item) {
+  const out = new Map();
+  for (const f of findingsOf(item)) {
+    const d = obj(f.data);
+    const entries = [];
+    for (const a of Array.isArray(d.apps) ? d.apps : []) {
+      if (typeof a === 'string' && a) entries.push({ subject: a, label: '', kind: isPath(a) ? 'path' : 'id' });
+      else if (a && typeof a === 'object') {
+        const p = str(a.path);
+        const id = str(a.bundle_id) || str(a.id);
+        const subject = p || id || str(a.name);
+        if (subject) entries.push({ subject, label: str(a.name), kind: p && isPath(p) ? 'path' : 'id' });
+      }
+    }
+    for (const p of Array.isArray(d.processes) ? d.processes : []) if (typeof p === 'string' && p) entries.push({ subject: p, label: '', kind: 'process' });
+    if (!entries.length && str(d.bundle_id)) entries.push({ subject: d.bundle_id, label: '', kind: 'id' });
+    const keys = keysOf(f);
+    const makers = Array.isArray(f.made_by) ? f.made_by.filter((m) => m && typeof m === 'object') : [];
+    for (const e of entries) {
+      let app = out.get(e.subject);
+      if (!app) {
+        const m = makers.find((x) => x.subject === e.subject);
+        const confirmed = e.kind === 'path' && !!m && m.verified === true && str(m.name).trim() !== '';
+        app = {
+          subject: e.subject, kind: e.kind,
+          name: e.kind === 'path' ? baseName(e.subject) : (e.label || e.subject),
+          maker: confirmed ? str(m.name) : '', confirmed,
+          what: confirmed ? str(m.what) : '',
+          keys: [],
+        };
+        out.set(e.subject, app);
+      }
+      for (const k of keys) if (!app.keys.some((x) => x.id === k.id)) app.keys.push(k);
+    }
+  }
+  return [...out.values()];
+}
+
+const isMonitoring = (item) => findingsOf(item).some((f) => MONITORING_MODULES.has(moduleOf(f)));
+// The runner shows the removal warning for these itself.
+const runnerWarns = (item) => {
+  const it = obj(item);
+  const f = obj(it.finding);
+  return !!(it.removal_alert || f.removal_alert || obj(f.remediation).safety_note);
+};
+const unconfirmed = (apps) => apps.some((a) => !a.confirmed);
+// The game's own warning line, where the runner won't show one: monitoring checks and keyboard access by an app
+// whose maker isn't confirmed (keyboard access with no app named counts as unconfirmed).
+function gameWarns(item) {
+  if (runnerWarns(item)) return false;
+  const it = obj(item);
+  if (it.held || isMonitoring(item)) return true;
+  const apps = appsOf(item);
+  return itemKeys(item).some((k) => k.id === 'keyboard') && (!apps.length || unconfirmed(apps));
+}
+
+function unfinished(item) {
+  const it = obj(item);
+  if (it.unfinished === true || it.complete === false) return true;
+  return findingsOf(item).some((f) => f.complete === false || obj(f.data).incomplete === true);
+}
+
+const words = (ctx) => (obj(ctx).mode === 'city' ? 'city' : 'standard');
+const isWin = (ctx) => obj(ctx).platform === 'win32';
+
+// Where a key's switch is, as a settings link intent (null when the allowlist has no pane for it).
+function paneIntent(key, ctx) {
+  if (isWin(ctx)) return { kind: 'settings', pane: 'windows-privacy', permission: key.id };
+  return key.pane ? { kind: 'settings', pane: key.pane } : null;
+}
+
+function checklist(ctx) {
+  return words(ctx) === 'city'
+    ? ['Do you remember bringing this one in?', 'Does it need this key for its job?', 'Search its tag on another device.']
+    : ['Do you remember installing it?', 'Does it need this access for what you use it for?', 'Search its app id to see what it is.'];
+}
+
+export function decisions(item, ctx) {
+  const f = obj(obj(item).finding);
+  const keys = itemKeys(item);
+  const first = keys[0] || { id: 'other', ...KEYS.other };
+  const apps = appsOf(item);
+  const out = [{
+    id: 'keep',
+    label: { standard: 'Keep', city: 'Keep the key' },
+    effect: f.markable && typeof f.markable === 'object' ? { kind: 'mark' } : { kind: 'keep' },
+  }];
+  const pane = paneIntent(first, ctx);
+  const warn = runnerWarns(item) || gameWarns(item);
+  out.push({
+    id: 'hand_back',
+    label: { standard: 'Hand back', city: 'Hand it back' },
+    effect: pane
+      ? { ...pane, key: first.id, ...(warn ? { warning: true } : {}) }
+      : { kind: 'closer', key: first.id, steps: [`Open ${first.where}.`, 'Switch it off there.'], ...(warn ? { warning: true } : {}) },
+  });
+  if ((apps.length && unconfirmed(apps)) || (isMonitoring(item) && !apps.length)) {
+    out.push({ id: 'closer', label: { standard: 'Look closer', city: 'Look closer' }, effect: { kind: 'closer', checklist: checklist(ctx) } });
+  }
+  return out;
+}
+
+export function research(item, ctx) {
+  const c = obj(ctx);
+  const m = words(ctx);
+  const f = obj(obj(item).finding);
+  let rows = [];
+  try { rows = typeof c.evidenceRows === 'function' ? c.evidenceRows(f, { mode: m }) || [] : []; } catch (_) { rows = []; }
+  if (!Array.isArray(rows)) rows = [];
+  const keys = itemKeys(item);
+  const apps = appsOf(item);
+  const links = [];
+  const panes = new Set();
+  for (const k of keys) {
+    const p = paneIntent(k, ctx);
+    const id = p ? `${p.pane}|${p.permission || ''}` : '';
+    if (p && !panes.has(id)) { panes.add(id); links.push(p); }
+  }
+  for (const a of apps.filter((x) => !x.confirmed).slice(0, 3)) {
+    if (a.kind === 'id') links.push({ kind: 'lookup', source: isWin(ctx) ? 'microsoft-support' : 'apple-support', query: a.subject });
+    else links.push({ kind: 'lookup', source: 'web', query: a.name });
+  }
+  links.push({ kind: 'lesson', concept: 'who-made-it' });
+  const known = apps.filter((a) => a.confirmed && a.what).map((a) => a.what);
+  let what;
+  if (known.length) what = known.join(' ');
+  else if (apps.length) what = m === 'city' ? 'Maker unconfirmed.' : 'Maker not confirmed.';
+  else what = (keys[0] || KEYS.other).does[m];
+  return { rows, what, links, keys: keys.map((k) => k.id), unfinished: unfinished(item), checklist: checklist(ctx) };
+}
+
+const MAX_APPS = 8;
+
+function makerLine(app, m, esc) {
+  if (app.confirmed) {
+    return `<span class="kr-maker kr-ok">${m === 'city' ? 'Maker checks out: ' : 'Made by '}${esc(app.maker)}${m === 'city' ? '' : ' · confirmed'}</span>`;
+  }
+  const base = m === 'city' ? 'Maker unconfirmed' : 'Maker not confirmed';
+  const why = app.kind === 'id' ? (m === 'city' ? ' · known only by its tag' : ' · known only by its app id')
+    : app.kind === 'process' ? (m === 'city' ? ' · a running crew' : ' · a running program') : '';
+  return `<span class="kr-maker kr-unk">${base}${why}</span>`;
+}
+
+function chip(key, m, esc, on) {
+  return `<span class="kr-chip${on ? ' kr-chip-this' : ''}" data-key="${esc(key.id)}">${esc(key.name[m])}</span>`;
+}
+
+export function render(view, ctx) {
+  const v = obj(view);
+  const c = obj(ctx);
+  const m = words(ctx);
+  const esc = typeof c.esc === 'function' ? c.esc : (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (x) => `&#${x.charCodeAt(0)};`);
+  const item = obj(v.item);
+  const parts = [];
+  parts.push('<article class="kr-card" data-game="keyring">');
+  if (m === 'city' && item.held) {
+    // Never expected: held items stay in the help district. Nothing about the item is shown here.
+    parts.push('<p class="kr-held">This key is with the help district.</p></article>');
+    return parts.join('');
+  }
+  const keys = itemKeys(item);
+  const ids = new Set(keys.map((k) => k.id));
+  const apps = appsOf(item);
+  const lead = keys[0] || { id: 'other', ...KEYS.other };
+  parts.push('<header class="kr-head">');
+  parts.push(`<span class="kr-kicker">${m === 'city' ? 'A key on the ring' : 'Powerful access'}</span>`);
+  parts.push(`<h3 class="kr-key-title"><span class="kr-key-icon" aria-hidden="true"></span>${keys.map((k) => esc(k.name[m])).join(' + ')}</h3>`);
+  parts.push(`<p class="kr-does">${keys.map((k) => esc(k.does[m])).join(' ')}</p>`);
+  parts.push('</header>');
+  if (unfinished(item)) {
+    parts.push(`<p class="kr-unfinished">${m === 'city' ? 'This check didn’t finish, so the ring may hold more keys.' : 'This check didn’t finish, so more apps may hold this access.'}</p>`);
+  }
+  if (gameWarns(item)) {
+    parts.push(m === 'city'
+      ? '<p class="kr-warn" role="note">Handing back this key can tip off whoever cut it. If that worries you, stop by the help district first.</p>'
+      : '<p class="kr-warn" role="note">Turning this off can alert whoever set it up. If someone else may have set it up, read the safety note first.</p>');
+  }
+  if (apps.length) {
+    parts.push(`<ul class="kr-ring" aria-label="${m === 'city' ? 'Who holds this key' : 'Apps holding this access'}">`);
+    for (const a of apps.slice(0, MAX_APPS)) {
+      parts.push('<li class="kr-app">');
+      parts.push(`<div class="kr-app-top"><span class="kr-app-name">${esc(a.name)}</span>${makerLine(a, m, esc)}</div>`);
+      if (a.kind === 'path' || a.name !== a.subject) parts.push(`<code class="kr-app-id">${esc(a.subject)}</code>`);
+      if (a.what) parts.push(`<p class="kr-app-what">${esc(a.what)}</p>`);
+      parts.push(`<div class="kr-chips">${a.keys.map((k) => chip(k, m, esc, ids.has(k.id))).join('')}</div>`);
+      parts.push('</li>');
+    }
+    parts.push('</ul>');
+    if (apps.length > MAX_APPS) {
+      parts.push(`<p class="kr-more">and ${apps.length - MAX_APPS} more ${m === 'city' ? 'on the ring' : `in ${esc(isWin(ctx) ? 'Settings' : 'System Settings')}`}</p>`);
+    }
+  } else if (lead.id !== 'location' && lead.id !== 'screen-time' && lead.id !== 'other') {
+    const n = findingsOf(item).map((f) => obj(f.data).count).find((x) => Number.isInteger(x) && x > 0);
+    const many = n ? `${n} apps hold this key.` : 'Several apps hold this key.';
+    parts.push(`<p class="kr-count">${esc(many)} ${m === 'city' ? 'The full ring is in the switch room.' : `The full list is in ${esc(isWin(ctx) ? 'Settings' : lead.where)}.`}</p>`);
+  }
+  const step = obj(v.step);
+  if (step.say && typeof step.say[m] === 'string') parts.push(`<p class="kr-step">${esc(step.say[m])}</p>`);
+  parts.push('</article>');
+  return parts.join('');
+}
+
+export function summary(results, ctx) {
+  const m = words(ctx);
+  const n = { kept: 0, back: 0, closer: 0 };
+  for (const r of Array.isArray(results) ? results : []) {
+    const d = r && (typeof r.decision === 'string' ? r.decision : obj(r.decision).id);
+    if (d === 'keep') n.kept += 1;
+    else if (d === 'hand_back') n.back += 1;
+    else if (d === 'closer') n.closer += 1;
+  }
+  if (!n.kept && !n.back && !n.closer) {
+    return `<div class="kr-summary"><p>${m === 'city' ? 'No keys sorted on this ring yet.' : 'No keys decided in this mission yet.'}</p></div>`;
+  }
+  const li = m === 'city'
+    ? [`Keys kept ${n.kept}`, `Keys handed back ${n.back}`, `Left to look closer at ${n.closer}`]
+    : [`Kept ${n.kept}`, `Handed back ${n.back}`, `Left to look closer at ${n.closer}`];
+  const tail = m === 'city'
+    ? (n.back ? 'The ring is lighter. A key you hand back stays off until you switch it on again.' : 'Every key you kept is one you chose.')
+    : 'A key you hand back stays off until you switch it on again. This is what the scan could see, so it can’t rule everything out.';
+  return `<div class="kr-summary"><ul>${li.map((x) => `<li>${x}</li>`).join('')}</ul><p>${tail}</p></div>`;
+}
+
+// Practice: made-up apps only.
+const P = (key, finding) => ({
+  key, severity: 'warning', finding: { severity: 'warning', category: 'security', ...finding }, findings: [{ severity: 'warning', category: 'security', ...finding }],
+  seen_in: [finding.module], marked: false, held: false, removal_alert: false, practice: true,
+});
+
+export const practice = {
+  items: [
+    P('practice:keyring:recorder', {
+      module: 'privacy_permissions_audit', code: 'security.privacy_permissions_audit.screen_recording_access', title: 'Frame Grabber',
+      data: { service: 'kTCCServiceScreenCapture', apps: ['/Applications/Frame Grabber.app'] },
+      made_by: [{ subject: '/Applications/Frame Grabber.app', name: 'Example Studio Ltd', verified: true, how: 'Developer ID signature', what: 'Frame Grabber: a screen recorder you installed.' }],
+    }),
+    P('practice:keyring:game', {
+      module: 'accessibility_permissions', code: 'security.accessibility_permissions.suspicious_accessibility', title: 'Puzzle Pop',
+      data: { check: 'suspicious_accessibility', apps: [{ path: '/Applications/Puzzle Pop.app', name: 'Puzzle Pop' }] },
+      made_by: [{ subject: '/Applications/Puzzle Pop.app', name: 'Example Games Ltd', verified: true, how: 'Developer ID signature', what: 'Puzzle Pop: a puzzle game.' }],
+    }),
+    P('practice:keyring:keyboard', {
+      module: 'keylogger_indicators', code: 'security.keylogger_indicators.suspicious_input_monitoring', title: 'Key remapper',
+      data: { check: 'suspicious_input_monitoring', apps: ['com.example.keyremap'] },
+    }),
+  ],
+  script: [
+    { item: 0, say: { standard: 'Each app shows the keys it holds. Frame Grabber is a screen recorder, its maker is confirmed, and seeing the screen is its job.', city: 'Each holder shows its keys. Frame Grabber records windows for a living, and its maker checks out.' } },
+    { item: 0, say: { standard: 'It needs that key, so keep it.', city: 'It needs that key. Keep it.' }, expect: 'keep' },
+    { item: 1, say: { standard: 'Puzzle Pop is a game holding Accessibility, the key that clicks and types for you. A game doesn’t need it.', city: 'A puzzle game holding the Control key? It has no use for it.' } },
+    { item: 1, say: { standard: 'Hand it back. The Accessibility list opens and you switch it off; you can switch it on again if you need it.', city: 'Hand it back. The switch room opens; flip it off, and you can flip it on again if you need it.' }, expect: 'hand_back' },
+    { item: 2, say: { standard: 'This keyboard tool is known only by its app id, so its maker isn’t confirmed, and it can see what you type. Look closer before you decide.', city: 'Known only by its tag, maker unconfirmed, and it hears every key. Look closer before you choose.' }, expect: 'closer' },
+  ],
+};
+
+export const covers = [
+  { module: 'app_permissions' },
+  { module: 'privacy_permissions_audit' },
+  { module: 'accessibility_permissions' },
+  { module: 'keylogger_indicators' },
+  { module: 'screen_time_audit' },
+  { module: 'location_services' },
+  { module: 'win_cortana_telemetry', codes: ['security.win_cortana_telemetry.location_services'] },
+];
+
+export default {
+  type: 'keyring',
+  title: { standard: 'Apps with powerful access', city: 'The Keyring' },
+  concepts: ['who-made-it', 'fix-and-undo'],
+  covers,
+  decisions,
+  research,
+  practice,
+  render,
+  summary,
+};
