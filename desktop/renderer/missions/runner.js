@@ -96,9 +96,16 @@ export function viewFor(run, game, ctx, research) {
   if (run.phase === 'practice') {
     const step = game.practice.script[run.practice.step] || null;
     const item = step ? game.practice.items[step.item] : null;
-    return { item, research, decisions: item ? decisionsFor(null, game, item, ctx) : [], index: run.practice.step,
+    const decisions = item ? decisionsFor(null, game, item, ctx) : [];
+    const want = expected(step);
+    const right = decisions.find((d) => want.includes(d.id));
+    // `explain`: a step with no expected move only shows something (one GOT IT).
+    // `expectLabel`: the move that fits, named after a wrong one. `why`: the
+    // step's after-the-move line, when it has one.
+    return { item, research, decisions, index: run.practice.step,
       total: game.practice.script.length, practice: true, step, warning: item && alerting(item) ? REMOVAL_WARNING : '', siblings: [], results: [],
-      answer: run.practice.answers[run.practice.step] || null };
+      answer: run.practice.answers[run.practice.step] || null, explain: !want.length,
+      expectLabel: right ? right.label : null, why: step && step.why && typeof step.why === 'object' ? step.why : null };
   }
   const item = currentItem(run);
   const pending = run.pending;
@@ -273,15 +280,24 @@ export function skipPractice(run) {
   if (run.phase !== 'offer' && run.phase !== 'practice') return run;
   return advance({ ...run, practice: null, skipped: run.phase === 'offer' ? true : run.skipped }, run.index);
 }
-// One move in the practice round. `right` is null for a step with no expected move.
+// A step's expected move(s): `expect` is one decision id or a list of ids
+// that all fit (Look closer is right on any "unknown maker" step).
+function expected(step) {
+  const e = step && step.expect;
+  return (Array.isArray(e) ? e : [e]).filter((x) => typeof x === 'string' && x);
+}
+// One move in the practice round. A step with no expected move only explains
+// (the screen shows GOT IT, not the decisions), so a move there isn't judged.
 export function choosePractice(run, game, id) {
   if (run.phase !== 'practice') return { run, answer: null };
   const step = game.practice.script[run.practice.step];
   if (!step || run.practice.answers[run.practice.step]) return { run, answer: null };
-  const right = typeof step.expect === 'string' ? id === step.expect : null;
+  const want = expected(step);
+  if (!want.length) return { run, answer: null };
+  const right = want.includes(id);
   const answers = [...run.practice.answers];
   answers[run.practice.step] = { id, right };
-  return { run: { ...run, practice: { ...run.practice, answers } }, answer: { step: run.practice.step, right, expect: step.expect || null } };
+  return { run: { ...run, practice: { ...run.practice, answers } }, answer: { step: run.practice.step, right, expect: want[0] } };
 }
 export function nextPracticeStep(run, game) {
   if (run.phase !== 'practice') return run;

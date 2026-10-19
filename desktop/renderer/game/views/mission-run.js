@@ -45,6 +45,12 @@ export function renderMissionRows(missions, { mode = 'standard', status = () => 
 // Lines a game wrote can carry scan values: control and bidi characters are shown, never obeyed.
 const visible = (s) => String(s == null ? '' : s).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
 const vesc = (s) => esc(visible(s));
+// A card's words as the person reads them (tags out, the usual entities
+// decoded), to tell whether the card already says a line.
+const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': '\'', '#x27': '\'', nbsp: ' ' };
+const plainText = (html) => String(html || '').replace(/<wbr>/gi, '').replace(/<[^>]*>/g, ' ')
+  .replace(/&(amp|lt|gt|quot|#39|#x27|nbsp);/gi, (_, k) => ENT[k.toLowerCase()]).replace(/\s+/g, ' ').trim();
+const cardSays = (cardHtml, line) => !!line && plainText(cardHtml).includes(plainText(line));
 const listHtml = (items, cls) => (items && items.length ? `<ol class="${cls}">${items.map((s) => `<li>${vesc(s)}</li>`).join('')}</ol>` : '');
 
 function linksHtml(links, mode) {
@@ -119,14 +125,31 @@ export function renderMissionScreen(o) {
   if (run.phase === 'practice') {
     const a = view.answer;
     const step = view.step || {};
-    const feedback = a ? `<p class="say mx-feedback" role="status">${esc(a.right === false ? (mode === 'city' ? 'Not the move here. Look again at what the step points to.' : 'Not quite. Look again at what the step points to.') : (mode === 'city' ? 'Good move.' : 'That’s the move.'))}</p>
-      <button type="button" class="btn-p" data-act="mx-practice-next">${view.index + 1 < view.total ? 'NEXT ▶' : 'TO THE REAL ONES ▶'}</button>` : '';
+    const city = mode === 'city';
+    const last = view.index + 1 >= view.total;
+    const nextBtn = (label) => `<button type="button" class="btn-p" data-act="mx-practice-next">${esc(label)}</button>`;
+    const why = view.why ? words(view.why, mode) : '';
+    const fits = view.expectLabel ? words(view.expectLabel, mode) : '';
+    let feedback = '';
+    if (a) {
+      const said = a.right === false
+        ? `${city ? 'Not the move here.' : 'Not quite.'}${fits ? ` ${city ? 'The move here is' : 'Here the move is'} ${fits}.` : ''} ${why || (city ? 'Look again at what the step points to.' : 'Look again at what the step points to.')}`
+        : `${city ? 'Good move.' : 'That’s the move.'}${why ? ` ${why}` : ''}`;
+      feedback = `<p class="say mx-feedback${a.right === false ? ' mx-not-quite' : ''}" role="status">${vesc(said)}</p>
+      ${nextBtn(last ? 'TO THE REAL ONES ▶' : 'NEXT ▶')}`;
+    }
+    // The game's card shows the step's line itself (most do): the banner then doesn't repeat it.
+    const sayText = words(step.say, mode);
+    const sayHtml = sayText ? `<p class="say">${esc(sayText)}</p>` : '';
+    // A step with no expected move only explains: one GOT IT, nothing to get right or wrong.
+    const moves = view.explain ? `<div class="mx-decisions">${nextBtn(last ? 'GOT IT · TO THE REAL ONES ▶' : 'GOT IT ▶')}</div>`
+      : decisionButtons(view.decisions || [], mode, 'mx-practice-move');
     return `<section class="mx-screen mx-practicing">${head}
       <div class="panel mx-practice-banner"><div class="label">PRACTICE · ${esc(view.index + 1)} OF ${esc(view.total)} · MADE UP, NOT ON YOUR COMPUTER</div>
-        <p class="say">${esc(words(step.say, mode))}</p></div>
+        ${sayHtml}</div>
       ${warningHtml(view.warning, mode, place)}
       <div class="mx-card">${cardHtml}</div>
-      ${a ? feedback : decisionButtons(view.decisions || [], mode, 'mx-practice-move')}
+      ${a ? feedback : moves}
       <button type="button" class="btn-t" data-act="mx-practice-leave">LEAVE PRACTICE</button></section>`;
   }
   if (run.phase === 'summary') {

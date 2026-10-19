@@ -70,3 +70,64 @@ test('a steps act stays open when the game offers a re-check for it (a lock: Sho
   assert.strictEqual(r.run.results.length, 0);
   assert.deepStrictEqual(k.Run.viewFor(r.run, g, ctx, {}).decisions.map((d) => d.id), ['on', 'done', 'later']);
 });
+
+// --- P1-2: practice feedback; P3: the step line once ---
+
+// The practice screen for `game` at its current step, the card drawn by the game.
+function practiceScreen(k, game, run, ctx) {
+  const v = k.Run.viewFor(run, game, ctx, {});
+  const card = String(game.render({ ...v, research: { rows: [], what: '', links: [] } }, ctx) || '');
+  return { v, html: k.V.renderMissionScreen({ mission: { ...MISSION, type: game.type }, run, view: v, mode: ctx.mode, districtName: 'The Gatehouse', cardHtml: card, research: {} }) };
+}
+const practiceRun = (k, game) => k.Run.startPractice(k.Run.startRun({ id: 'm', type: game.type, items: [] }, { practiceDue: true }), game);
+
+test('practice: a step with no expected move shows one GOT IT, never the decisions, and a move there is not judged', async () => {
+  const k = await kit();
+  for (const mode of ['standard', 'city']) {
+    const ctx = ctxOf(k.C, k.R, mode);
+    const game = k.games.door;
+    assert.strictEqual(game.practice.script[0].expect, undefined, 'the door’s first step only explains');
+    const run = practiceRun(k, game);
+    const { v, html } = practiceScreen(k, game, run, ctx);
+    assert.strictEqual(v.explain, true);
+    assert.match(html, /data-act="mx-practice-next">GOT IT ▶</);
+    assert.doesNotMatch(html, /mx-practice-move:/);
+    assert.doesNotMatch(html, /That’s the move|Good move/);
+    assert.strictEqual(k.Run.choosePractice(run, game, 'not-mine').answer, null, 'no praise for any move on an explain step');
+    if (mode === 'city') assert.deepStrictEqual(k.C.checkCityWords(html), []);
+  }
+});
+
+test('practice: a wrong move gets a calm "not quite" naming the move that fits; a right one is praised', async () => {
+  const k = await kit();
+  const ctx = ctxOf(k.C, k.R);
+  const game = k.games.door;
+  const at = game.practice.script.findIndex((s) => s.expect === 'not-mine');
+  let run = practiceRun(k, game);
+  for (let i = 0; i < at; i += 1) run = k.Run.nextPracticeStep(run, game);
+  const wrong = k.Run.choosePractice(run, game, 'mine');
+  assert.strictEqual(wrong.answer.right, false);
+  const t = text(practiceScreen(k, game, wrong.run, ctx).html);
+  assert.match(t, /Not quite\. Here the move is Not mine\./);
+  assert.doesNotMatch(t, /That’s the move/);
+  const right = k.Run.choosePractice(run, game, 'not-mine');
+  assert.strictEqual(right.answer.right, true);
+  assert.match(text(practiceScreen(k, game, right.run, ctx).html), /That’s the move\./);
+});
+
+test('practice: `expect` may list every move that fits; a step’s `why` follows the move, right or wrong', async () => {
+  const k = await kit();
+  const ctx = ctxOf(k.C, k.R);
+  const g = { ...k.games.simple, practice: { ...k.games.simple.practice,
+    script: [{ item: 0, say: L('Which?'), expect: ['later', 'did'], why: L('Either is safe: nothing changes.') }] } };
+  const run = practiceRun(k, g);
+  for (const id of ['later', 'did']) {
+    const r = k.Run.choosePractice(run, g, id);
+    assert.strictEqual(r.answer.right, true, id);
+    assert.match(text(practiceScreen(k, g, r.run, ctx).html), /That’s the move\. Either is safe: nothing changes\./);
+  }
+  const g2 = { ...g, decisions: () => [D('later', 'later'), D('did', 'recheck'), D('other', 'keep')] };
+  const w = k.Run.choosePractice(practiceRun(k, g2), g2, 'other');
+  assert.strictEqual(w.answer.right, false);
+  assert.match(text(practiceScreen(k, g2, w.run, ctx).html), /Not quite\. Here the move is later\. Either is safe: nothing changes\./);
+});
