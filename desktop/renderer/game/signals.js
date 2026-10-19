@@ -190,8 +190,10 @@ export function cityIntegrity(city, signals, held = null) {
     if (!(d.checksRan > 0)) continue;
     checkedIds.add(d.id);
     // A check here that didn't finish may have missed something: not secured.
-    // Nor is any district of a checkup that stopped before its report was done.
-    if (!openIn.has(d.id) && !(d.unfinished && d.unfinished.length) && !d.stopped) securedIds.add(d.id);
+    // Nor is a district with fog (a check that couldn't run, or one waiting
+    // for the go-ahead): it wasn't all looked at. Nor is any district of a
+    // checkup that stopped before its report was done.
+    if (!openIn.has(d.id) && !(d.unfinished && d.unfinished.length) && !(d.fog && d.fog.length) && !d.stopped) securedIds.add(d.id);
   }
   const checked = checkedIds.size;
   const secured = securedIds.size;

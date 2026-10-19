@@ -179,3 +179,46 @@ test('I4: standard mode: the fix confirm says "Removing this can alert…" where
   seen = [];
   assert.deepStrictEqual(await opts('city', LAUNCH.title), { watched: true, safety: '' }, 'the watched confirm says it its own way');
 });
+
+// ---- I5: fog keeps a district from secured and from CLEAN SWEEP ---------------
+
+test('I5: a district with a check that couldn’t run, or one waiting, is never secured or a clean sweep', async () => {
+  const { findingsToCity } = await game('findings-to-city.js');
+  const { splitHeld } = await game('held.js');
+  const { cityIntegrity, buildSignals, sweepCounts } = await game('signals.js');
+  const { recordSweep } = await game('ledger.js');
+  const docOf = (extra) => ({ schema_version: 1, platform: 'darwin', modules: [
+    mod('firewall_check', [], { category: 'security' }),
+    ...extra,
+    mod('disk_space', [], { category: 'performance' }),
+  ] });
+  const cases = [
+    ['couldn’t run', mod('remote_login_check', [], { supported: false, unsupported_reason: 'Needs Full Disk Access.' })],
+    ['a monitoring check that couldn’t look', mod('stalkerware_scan', [], { status: 'error', error: 'Stalkerware indicator data could not be loaded.' })],
+    ['waiting for the go-ahead', mod('mvt_spyware_scan', [{ title: 'An iPhone backup can be scanned', severity: 'info', category: 'security',
+      code: 'security.mvt_spyware_scan.mvt_scan_available', description: 'x', data: {} }], { not_started: true })],
+  ];
+  for (const [why, extra] of cases) {
+    const doc = docOf([extra]);
+    const city = findingsToCity(splitHeld(doc).doc);
+    const gate = city.districts.find((d) => d.id === 'gatehouse');
+    assert.ok(gate.fog.length > 0, `${why}: fog`);
+    const sigs = buildSignals(city, {});
+    const integ = cityIntegrity(city, sigs);
+    assert.ok(integ.checkedIds.has('gatehouse'), why);
+    assert.ok(!integ.securedIds.has('gatehouse'), `${why}: not secured`);
+    assert.ok(integ.securedIds.has('engine-room'), `${why}: a district with nothing missing still is`);
+    assert.ok(integ.percent < 100, why);
+    // A clean board before, then this sweep: no CLEAN SWEEP.
+    const counts = sweepCounts(doc, city, integ);
+    const before = recordSweep({}, { checked: 2, secured: 1 }, '2026-10-18').deck;
+    assert.strictEqual(recordSweep(before, counts, '2026-10-19').clean, false, `${why}: no CLEAN SWEEP`);
+  }
+  // Without the fog, the same district is secured and the sweep is clean.
+  const doc = docOf([]);
+  const city = findingsToCity(splitHeld(doc).doc);
+  const integ = cityIntegrity(city, buildSignals(city, {}));
+  assert.ok(integ.securedIds.has('gatehouse'));
+  const deck = recordSweep({}, { checked: 2, secured: 1 }, '2026-10-18').deck;
+  assert.strictEqual(recordSweep(deck, sweepCounts(doc, city, integ), '2026-10-19').clean, true);
+});
