@@ -278,12 +278,53 @@ const Evidence = (function () {
     return shown.join(' ');
   }
 
-  function commandRow(commands) {
+  function commandRow(commands, names = []) {
     const list = (Array.isArray(commands) ? commands : []).filter(Boolean);
-    if (!list.length) return null;
-    const shorts = [...new Set(list.map(shortCommand).filter(Boolean))];
+    const progs = [...new Set((names || []).filter(Boolean))];
+    if (!list.length && !progs.length) return null;
+    const shorts = [...new Set([...list.map(shortCommand).filter(Boolean), ...progs])];
     const shown = shorts.slice(0, MAX_COMMANDS).join(', ') + (shorts.length > MAX_COMMANDS ? `, and ${shorts.length - MAX_COMMANDS} more` : '');
-    return row('Checked with', shown, { mono: true, copy: list.map(commandLine) });
+    return row('Checked with', shown, { mono: true, copy: [...list.map(commandLine), ...progs] });
+  }
+
+  const argvOf = (cmd) => (Array.isArray(cmd) ? cmd : (isObj(cmd) && Array.isArray(cmd.argv) ? cmd.argv
+    : (typeof cmd === 'string' ? cmd.split(/\s+/) : []))).map(String);
+
+  /** The things a finding is about: its paths, labels and ids (and its makers' subjects). */
+  const SUBJECT_FIELDS = ['path', 'plist', 'program', 'location', 'file', 'bundle_id', 'label', 'app', 'app_path', 'extension_id', 'target_path'];
+  function findingSubjects(f) {
+    const d = isObj(f && f.data) ? f.data : {};
+    const out = new Set();
+    const add = (v) => { if (typeof v === 'string' && v.trim().length >= 4) out.add(homeRelative(v.trim())); };
+    for (const k of SUBJECT_FIELDS) add(d[k]);
+    for (const a of Array.isArray(d.apps) ? d.apps : []) add(appSubject(a));
+    for (const e of Array.isArray(f && f.made_by) ? f.made_by : []) if (isObj(e)) add(e.subject);
+    return [...out];
+  }
+
+  /**
+   * "Checked with" for one finding (N1): only the commands that touched what
+   * the finding is about (an argument names its path, label or id), plus
+   * commands that name no file at all ("pmset -g"). Never a command run on
+   * another app. When the finding names nothing, a command that looked at a
+   * file shows as its program's name only.
+   *   commandsFor(finding, commands) -> { commands: [cmd], names: ['codesign'] }
+   */
+  function commandsFor(finding, commands) {
+    const list = (Array.isArray(commands) ? commands : []).filter(Boolean);
+    const subjects = findingSubjects(finding);
+    const keep = [];
+    const names = [];
+    for (const cmd of list) {
+      const argv = argvOf(cmd);
+      if (!argv.length) continue;
+      const args = argv.slice(1).map((a) => homeRelative(a));
+      const touches = subjects.length && args.some((a) => subjects.some((s) => a.includes(s)));
+      const namesAFile = args.some(looksLikePath);
+      if (touches || !namesAFile) keep.push(cmd);
+      else if (!subjects.length) names.push(baseName(argv[0]));
+    }
+    return { commands: keep, names: [...new Set(names)] };
   }
 
   // ---- per-module adapters -------------------------------------------------
@@ -535,7 +576,8 @@ const Evidence = (function () {
     }
     const check = o.checkName || f.check_name || (f.module ? humanize(f.module) : '');
     if (check) rows.push(row('Check', check));
-    const cmd = commandRow(o.commands);
+    const mine = commandsFor(f, o.commands);
+    const cmd = commandRow(mine.commands, mine.names);
     if (cmd) rows.push(cmd);
     if (f.repeats > 1) rows.push(row('Seen', `${f.repeats} times in this check`));
     const when = o.seen || f.collected_at;
@@ -655,7 +697,7 @@ const Evidence = (function () {
     MONITORING_MODULES, ADAPTERS, CSS, PAPER_LINE,
     evidenceRows, renderEvidence, evidenceText, wireCopy, replacesDescription, noClipboard,
     plainDay, shortHash, shortPath, homeRelative, bytes, makersVerified, makerText, checkLabel, commandLine, shortCommand,
-    appSubject, breakable,
+    appSubject, breakable, commandsFor, findingSubjects,
   };
 })();
 
