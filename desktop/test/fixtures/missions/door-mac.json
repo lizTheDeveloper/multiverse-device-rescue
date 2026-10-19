@@ -1,0 +1,65 @@
+{
+  "_note": "Synthetic findings for the Door tests. Made-up labels and paths; no real scan data.",
+  "findings": [
+    {
+      "module": "launch_agent_audit", "severity": "critical", "category": "security",
+      "code": "security.launch_agent_audit.suspicious_path",
+      "title": "Background item runs a program from a hidden folder",
+      "description": "A background item starts a program from a hidden folder.",
+      "removal_alert": true,
+      "data": { "check": "suspicious_path", "label": "com.example.syncer", "program": "~/.cache/.sx/syncer", "first_seen": "2026-09-30" },
+      "made_by": [{ "subject": "~/.cache/.sx/syncer", "name": "Unknown maker", "verified": false, "how": "unsigned", "location_note": "" }],
+      "fixable": { "action": "disable_launch_agent", "target": "~/Library/LaunchAgents/com.example.syncer.plist", "will_change": "Switch off com.example.syncer", "how_to_undo": ["Switch it back on"] }
+    },
+    {
+      "module": "launchd_persistence_audit", "severity": "warning", "category": "security",
+      "code": "security.launchd_persistence_audit.keepalive_runatload",
+      "title": "A background item restarts itself",
+      "description": "Set to start at login and restart if it stops.",
+      "data": { "check": "keepalive_runatload", "label": "com.examplevpn.helper", "program": "/Applications/ExampleVPN.app/Contents/MacOS/helper", "program_exists": true },
+      "made_by": [{ "subject": "/Applications/ExampleVPN.app/Contents/MacOS/helper", "name": "Example VPN Ltd", "verified": true, "how": "Developer ID signature", "location_note": "", "what": "ExampleVPN: a VPN app's helper that keeps the connection up." }],
+      "markable": { "kind": "launch_agent", "ids": ["synthetic-1"] }
+    },
+    {
+      "module": "scheduled_tasks_audit", "severity": "warning", "category": "security",
+      "code": "security.scheduled_tasks_audit.suspicious_launch_agent",
+      "title": "A scheduled job looks unusual",
+      "description": "A scheduled job runs a shell command.",
+      "data": { "check": "suspicious_launch_agent", "label": "local.backup.nightly", "reason": "runs a shell", "location": "~/Library/LaunchAgents", "plist": "~/Library/LaunchAgents/local.backup.nightly.plist", "type": "user", "command": "/bin/sh ~/scripts/backup.sh" }
+    },
+    {
+      "module": "cron_jobs_audit", "severity": "warning", "category": "security",
+      "code": "security.cron_jobs_audit.every_minute",
+      "title": "A scheduled job runs every minute",
+      "description": "One scheduled line runs every minute.",
+      "data": { "check": "every_minute", "count": 1, "entries": ["* * * * * ~/.local/bin/ping-home"] }
+    },
+    {
+      "module": "login_items", "severity": "warning", "category": "bloatware",
+      "title": "A login item starts with your Mac",
+      "description": "An app opens when you log in.",
+      "data": { "item_name": "Example Cleaner" }
+    },
+    {
+      "module": "kext_audit", "severity": "warning", "category": "security",
+      "code": "security.kext_audit.loaded_third_party_kext",
+      "title": "A third-party kernel extension is loaded",
+      "description": "A kernel extension from another maker is loaded.",
+      "data": { "check": "loaded_third_party_kext", "bundle_id": "com.example.driver.audio", "name": "ExampleAudio", "version": "2.1", "is_unsigned": false, "source": "kextstat" }
+    },
+    {
+      "module": "security_baseline_diff", "severity": "warning", "category": "security",
+      "code": "security.security_baseline_diff.new_persistence",
+      "title": "2 new persistence items since 10 Oct 2026",
+      "description": "These were not present at the baseline.",
+      "data": { "check": "new_persistence", "added": ["~/Library/LaunchAgents/com.example.a.plist", "/Library/LaunchDaemons/com.example.b.plist"], "baseline_captured_at": "2026-10-10T18:44:55+00:00" }
+    },
+    {
+      "module": "kernel_extensions_audit", "severity": "warning", "category": "security",
+      "code": "security.kernel_extensions_audit.problematic_kexts",
+      "title": "Several kernel extensions need a look",
+      "description": "A list of kernel extensions.",
+      "data": { "check": "problematic_kexts", "kexts": ["com.example.k1", "com.example.k2", "com.example.k3", "com.example.k4", "com.example.k5", "com.example.k6"] }
+    }
+  ]
+}
