@@ -16,7 +16,7 @@ from rescue.guides import discover_guides
 from rescue.models import ActionKind, CheckResult, Mode, RiskLevel
 from rescue.orchestrator import Orchestrator
 from rescue.profiler.base import detect_platform, gather_profile
-from rescue.profiles import Profile, ProfileValidationError, discover_profiles, validate_profile_modules
+from rescue.profiles import Profile, ProfileValidationError, discover_profiles, merge_profiles, validate_profile_modules
 from rescue.registry import discover_modules
 from rescue.remediation import load_remediation_walkthroughs
 from rescue.runtime import bundled_root, content_directory
@@ -81,6 +81,19 @@ def _load_profile_or_exit(profile_name: str):
         click.echo(f"Invalid profile: {exc}", err=True)
         raise SystemExit(1) from exc
     return profile
+
+
+def _load_profiles_or_exit(profile_names):
+    """One profile, or the union of several (repeat --profile)."""
+    names = list(dict.fromkeys(profile_names))
+    if len(names) == 1:
+        return _load_profile_or_exit(names[0])
+    profiles = [_load_profile_or_exit(n) for n in names]
+    try:
+        return merge_profiles(profiles, [m.name for m in discover_modules(_get_modules_dir())])
+    except ProfileValidationError as exc:
+        click.echo(f"Invalid profiles: {exc}", err=True)
+        raise SystemExit(1) from exc
 
 
 def _module_only_profile(module_names):
@@ -158,7 +171,10 @@ def version():
 
 @main.command()
 @click.option("--json", "as_json", is_flag=True, help="Emit read-only check results as JSON on stdout.")
-@click.option("--profile", "profile_name", default=None, help="Only run the modules a profile selects.")
+@click.option(
+    "--profile", "profile_names", multiple=True,
+    help="Only run the modules a profile selects. Repeat to run every module any of them selects.",
+)
 @click.option(
     "--module",
     "module_names",
@@ -180,15 +196,15 @@ def version():
     is_flag=True,
     help='Skip the "Who made it?" lookups (code-signature checks) that add made_by to findings.',
 )
-def scan(as_json, profile_name, module_names, progress, trace, no_attribution):
+def scan(as_json, profile_names, module_names, progress, trace, no_attribution):
     """Run read-only checks. With --json, print structured results to stdout."""
     from rescue.serialize import checks_to_json
-    if profile_name and module_names:
+    if profile_names and module_names:
         raise click.UsageError("Use --profile or --module, not both.")
     if module_names:
         threat_profile = _module_only_profile(module_names)
     else:
-        threat_profile = _load_profile_or_exit(profile_name) if profile_name else None
+        threat_profile = _load_profiles_or_exit(profile_names) if profile_names else None
     profile = gather_profile()
     orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile)
     if trace:
@@ -256,7 +272,10 @@ def _emit_progress(phase, index, total, mod, check):
 
 
 @main.command()
-@click.option("--profile", "profile_name", default=None, help="Only run the modules a profile selects.")
+@click.option(
+    "--profile", "profile_names", multiple=True,
+    help="Only run the modules a profile selects. Repeat to run every module any of them selects.",
+)
 @click.option(
     "--output",
     "output_dir",
@@ -265,20 +284,20 @@ def _emit_progress(phase, index, total, mod, check):
     help="Directory to write the case into (default: ~/.rescue/cases).",
 )
 @click.option("--stdout", "to_stdout", is_flag=True, help="Print the JSON case instead of writing files.")
-def export(profile_name, output_dir, to_stdout):
+def export(profile_names, output_dir, to_stdout):
     """Run read-only checks and write a redacted rescue-case report.
 
     Produces a JSON record for tooling and a Markdown summary for people. Both
     are redacted: credential-shaped strings, email addresses, the account name,
     and the home-directory path are removed before anything is written.
     """
-    profile = _load_profile_or_exit(profile_name) if profile_name else None
+    profile = _load_profiles_or_exit(profile_names) if profile_names else None
 
     system_profile = gather_profile()
     orch = Orchestrator(modules_dir=_get_modules_dir(), profile=profile)
     case = RescueCase(
         profile=system_profile,
-        profile_name=profile_name,
+        profile_name=profile.name if profile else None,
         started_at=_utc_now(),
     )
     for mod, check in orch.run_checks():

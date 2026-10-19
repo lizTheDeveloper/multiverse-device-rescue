@@ -117,7 +117,7 @@ profile ships a guide, the available walkthroughs are named at the end.
 ## `rescue scan` — read-only checks
 
 ```console
-$ rescue scan [--json] [--profile <name> | --module <name> ...]
+$ rescue scan [--json] [--profile <name> ... | --module <name> ...]
 ```
 
 Runs every check that supports the current platform and prints one report per
@@ -126,7 +126,7 @@ module. Never applies a fix and never prompts.
 | Flag | Effect |
 | --- | --- |
 | `--json` | Emit structured results to stdout instead of the human report. |
-| `--profile <name>` | Only run the modules the named profile selects. Exits `1` on an unknown or invalid profile. |
+| `--profile <name>` | Only run the modules the named profile selects. Repeat it to run every module any of the profiles selects, with each one's module settings; two profiles that set the same module setting differently are refused. Exits `1` on an unknown or invalid profile, or such a conflict. |
 | `--module <name>` | Only run this module. Repeat it to run several. Read-only, same JSON. Exits `1` on an unknown module (the valid names go to stderr), and `2` if combined with `--profile`. The desktop app uses it to re-check one finding after a fix. |
 
 The JSON shape is `schema_version` 1:
@@ -205,7 +205,7 @@ next module rather than aborting the run.
 ## `rescue export` — redacted case report
 
 ```console
-$ rescue export [--profile <name>] [--output <dir>] [--stdout]
+$ rescue export [--profile <name> ...] [--output <dir>] [--stdout]
 ```
 
 Runs read-only checks and writes a **rescue case**: a JSON record for tooling
@@ -215,7 +215,7 @@ someone who can help.
 
 | Flag | Effect |
 | --- | --- |
-| `--profile <name>` | Only run the modules the named profile selects. Exits `1` on an unknown or invalid profile. |
+| `--profile <name>` | Only run the modules the named profile selects. Repeat it to run every module any of them selects; the case's `rescue_profile` is the names joined with `+`. Exits `1` on an unknown or invalid profile, or a conflict between them. |
 | `--output <dir>` | Directory to write into. Default: `~/.rescue/cases`. |
 | `--stdout` | Print the JSON case to stdout instead of writing any files. |
 

@@ -59,6 +59,7 @@ uv venv && uv pip install .          # or: python3 -m venv .venv && .venv/bin/pi
 | "I installed a bad npm/pip package" / developer machine | `rescue export --profile ai_worm_response --stdout` |
 | "Fix up my parent's laptop" | `rescue export --profile home_for_the_holidays --stdout` |
 | "Is there spyware on my iPhone?" (needs a local backup) | ask first, then `rescue run iphone_spyware_check < /dev/null` |
+| More than one of these at once | repeat the profile: `rescue export --profile digital_security_reset --profile home_network_intrusion --stdout` |
 | Linux machine | `rescue export --profile linux_security_checkup --stdout` |
 
 `rescue profiles` lists all profiles. `rescue guide <profile>` prints the
