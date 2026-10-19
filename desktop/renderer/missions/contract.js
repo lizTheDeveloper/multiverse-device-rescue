@@ -111,6 +111,56 @@ export function isAlertingItem(item) {
   return item.removal_alert === true || fs.some(isMonitoringFinding);
 }
 
+// --- who made it ---
+// made_by is one entry per program the finding names (rescue/attribution.py
+// reads these data keys), so an entry speaks only for its own program.
+const PROGRAM_KEYS = ['program', 'plist', 'plist_path', 'path', 'binary', 'executable', 'exe', 'app', 'apps', 'bundle_id', 'items'];
+const ITEM_KEYS = ['plist', 'path', 'program', 'exe', 'executable', 'binary', 'command'];
+const candidates = (v) => {
+  if (typeof v === 'string') return v ? [v] : [];
+  if (Array.isArray(v)) return v.flatMap(candidates);
+  if (v && typeof v === 'object') { for (const k of ITEM_KEYS) if (typeof v[k] === 'string' && v[k]) return [v[k]]; }
+  return [];
+};
+const looksLikeProgram = (s) => s.length <= 1024 && !s.includes('\n')
+  && (/^[/~]/.test(s) || /^[A-Za-z]:[\\/]/.test(s) || /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(s) || /\.app$/i.test(s));
+// The programs a finding names, in order, without repeats.
+export function programsOf(f) {
+  const d = f && f.data && typeof f.data === 'object' ? f.data : {};
+  const out = [];
+  for (const k of PROGRAM_KEYS) for (const c of candidates(d[k])) if (looksLikeProgram(c) && !out.includes(c)) out.push(c);
+  return out;
+}
+/*
+ * makerFor(finding, subject?) -> { name, verified, what, how, subject } | null
+ * The maker of the program an item is about, never another program's:
+ * - `subject` given: that program's own entry, else null.
+ * - no subject: the finding's one program (its entry, or the only entry);
+ *   several programs: one shared maker only when the engine verified every
+ *   one (makers_verified), else null.
+ * `verified` only when the entry is the subject's own and verifies (or the
+ * engine says every program named verified).
+ */
+export function makerFor(f, subject = null) {
+  const list = Array.isArray(f && f.made_by) ? f.made_by.filter((e) => e && typeof e === 'object' && typeof e.name === 'string' && e.name) : [];
+  if (!list.length) return null;
+  const out = (e, verified) => ({ name: e.name, verified: verified && e.verified === true, what: verified && e.verified === true && typeof e.what === 'string' ? e.what : '',
+    how: typeof e.how === 'string' ? e.how : '', subject: typeof e.subject === 'string' ? e.subject : '' });
+  if (typeof subject === 'string' && subject) {
+    const own = list.find((e) => e.subject === subject);
+    return own ? out(own, true) : null;
+  }
+  const programs = programsOf(f);
+  if (programs.length <= 1) {
+    const own = list.find((e) => programs.length && e.subject === programs[0]);
+    if (own) return out(own, true);
+    return list.length === 1 ? out(list[0], f.makers_verified === true) : null;
+  }
+  const names = [...new Set(list.map((e) => e.name))];
+  if (f.makers_verified === true && names.length === 1 && list.every((e) => e.verified === true)) return { name: names[0], verified: true, what: '', how: '', subject: '' };
+  return null;
+}
+
 const wordCount = (s) => String(s || '').trim().split(/\s+/).filter(Boolean).length;
 
 // Validate a game module's shape. Returns a list of problems (empty = valid).

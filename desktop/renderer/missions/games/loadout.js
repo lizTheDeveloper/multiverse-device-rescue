@@ -13,6 +13,7 @@
 // macOS and Windows: Chrome, Edge, Brave, Vivaldi, Chromium, Firefox, Safari. The engine's in-browser
 // mining check names a Chromium browser by its profile folder, which is "User Data" on Windows, so the
 // browser is read from the finding's path there.
+import { makerFor } from '../contract.js';
 
 const ID_RE = /^[a-p]{32}$/;
 const HOST_RE = /^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/i;
@@ -334,7 +335,9 @@ function decisions(item, ctx) {
 function whatOf(item, kind, b, ctx) {
   const f = item.finding || {};
   const d = dataOf(f);
-  const made = Array.isArray(f.made_by) ? f.made_by.find((m) => m && m.verified === true && typeof m.what === 'string' && m.what) : null;
+  // Only this add-on's own verified entry (contract.js makerFor), never another program's.
+  const own = makerFor(f);
+  const made = own && own.verified && own.what ? own : null;
   const pm = b.store && PASSWORD_MANAGERS[idOf(f)];
   const B = b.name || words(ctx, 'Your browser', 'Your browser');
   switch (kind) {

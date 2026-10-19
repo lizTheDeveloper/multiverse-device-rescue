@@ -15,6 +15,7 @@
 //
 // Pure module (missions/contract.js): no DOM, storage, globals or network. Step and checklist texts in effects are
 // PLAIN TEXT (scan values passed through ctx.visible); whoever shows them must escape them.
+import { makerFor } from '../contract.js';
 
 const MODULES = [
   'ai_worm_filesystem', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
@@ -212,9 +213,13 @@ function fmtBytes(n) {
   return i === 0 ? `${Math.round(x)} bytes` : `${x.toFixed(x < 10 ? 1 : 0)} ${u[i]}`;
 }
 
+// The maker of the file the item is about; another file's entry shows its
+// claimed name only, never as verified (contract.js makerFor).
 function makerOf(f, path, v) {
   const list = Array.isArray(f.made_by) ? f.made_by.filter((m) => m && typeof m === 'object') : [];
-  const m = list.find((x) => x.subject === path) || list[0];
+  const own = path ? makerFor(f, path) : makerFor(f);
+  const first = list.find((x) => typeof x.name === 'string' && x.name);
+  const m = own || (first ? { name: first.name, verified: false, what: '' } : null);
   if (!m || !m.name) return null;
   // Scan data like every other field: control and bidi characters made visible, length capped.
   return { name: v(clip(str(m.name), 120)), verified: m.verified === true, what: m.verified === true ? v(clip(str(m.what), 300)) : '' };

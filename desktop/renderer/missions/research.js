@@ -10,11 +10,11 @@
 //   resolveLink(intent, { mode, platform }) -> { kind, label, url, text, pane?, concept? } | null
 //       city mode: a look-up is text to search on another device (url: null)
 //   resolveLinks(intents, ctx) -> the resolved ones, unknown or URL-carrying intents dropped
-//   whatOf(finding) -> the verified program's description, else 'Unknown maker'
+//   whatOf(finding, subject?) -> the item's own verified program's description, else 'Unknown maker'
 //   unfinishedModules(doc) -> Set of checks that ran but didn't finish
 //   assemble(game, item, ctx, { unfinished }) -> { rows, what, links, unfinished }
 import '../not-checked.js';
-import { SETTINGS_PANES, LOOKUP_SOURCES, LINK_KINDS } from './contract.js';
+import { SETTINGS_PANES, LOOKUP_SOURCES, LINK_KINDS, makerFor } from './contract.js';
 
 const NC = globalThis.NotChecked;
 const MAC = 'x-apple.systempreferences:';
@@ -169,10 +169,11 @@ export function resolveLinks(links, ctx = {}) {
   return (Array.isArray(links) ? links : []).map((l) => resolveLink(l, ctx)).filter(Boolean);
 }
 
-export function whatOf(finding) {
-  const mb = finding && Array.isArray(finding.made_by) ? finding.made_by.filter(Boolean) : [];
-  const known = mb.find((m) => m.verified === true && typeof m.what === 'string' && m.what.trim());
-  return known ? known.what.trim() : 'Unknown maker';
+// `subject`: the program the item is about (a per-app item's app); else the
+// finding's one program. Never another program's description.
+export function whatOf(finding, subject = null) {
+  const m = makerFor(finding, subject);
+  return m && m.verified && m.what.trim() ? m.what.trim() : 'Unknown maker';
 }
 
 export const UNFINISHED_LINE = 'This check didn’t finish, so it may have missed something here.';
@@ -189,7 +190,7 @@ export function assemble(game, item, ctx, { unfinished = new Set() } = {}) {
   const f = (item && item.finding) || {};
   let rows = r && Array.isArray(r.rows) ? r.rows : null;
   if (!rows) { try { rows = ctx.evidenceRows(f, { mode: ctx.mode }) || []; } catch (_) { rows = []; } }
-  const what = r && typeof r.what === 'string' && r.what.trim() ? r.what : whatOf(f);
+  const what = r && typeof r.what === 'string' && r.what.trim() ? r.what : whatOf(f, item && item.app && typeof item.app.subject === 'string' ? item.app.subject : null);
   const mods = (item && Array.isArray(item.seen_in) ? item.seen_in : [f.module]).filter(Boolean);
   const set = unfinished instanceof Set ? unfinished : new Set(unfinished || []);
   return { rows, what, links: resolveLinks(r && r.links, ctx), unfinished: mods.some((m) => set.has(m)) ? UNFINISHED_LINE : '' };

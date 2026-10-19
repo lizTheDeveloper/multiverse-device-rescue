@@ -23,6 +23,7 @@
 //
 // Pure: no DOM, storage, globals, network or clipboard. Every scan value goes through ctx.esc. The engine's own
 // description is never shown: it can carry help-line sentences that city mode must not show.
+import { makerFor } from '../contract.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const t = (standard, city) => ({ standard, city });
@@ -60,13 +61,12 @@ function subjectOf(f) {
   return str(f.title);
 }
 
-// The maker named by the engine's attribution, and whether it verified it.
+// The maker named by the engine's attribution for this item's program, and
+// whether that program's own entry verified it (contract.js makerFor): never
+// another program's maker on a finding that names several.
 function makerOf(f) {
-  const entries = Array.isArray(f.made_by) ? f.made_by.filter(isObj) : [];
-  const verified = entries.find((e) => e.verified === true && e.name);
-  if (verified) return { name: str(verified.name), verified: true, what: str(verified.what) };
-  const claimed = entries.find((e) => e.name);
-  return claimed ? { name: str(claimed.name), verified: false, what: '' } : null;
+  const m = makerFor(f);
+  return m ? { name: str(m.name), verified: m.verified, what: m.verified ? str(m.what) : '' } : null;
 }
 
 const CODE = (f) => str(f.code).replace(/^security\./, '');

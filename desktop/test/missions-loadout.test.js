@@ -247,8 +247,12 @@ test('research: rows from evidenceRows, what is known, store look-up by id, less
   assert.ok(managed.links.some((l) => l.kind === 'settings' && l.pane === 'profiles'));
   const added = game.research(byTitle(mac, /new browser extension/), ctx);
   assert.strictEqual(added.links.filter((l) => l.source === 'chrome-web-store').length, 2);
-  const verified = C.makeItem({ ...byTitle(mac, /Tab Tidy/).finding, made_by: [{ subject: 'x', name: 'Example Co', verified: true, what: 'Tab Tidy: groups your tabs.' }] });
+  const verified = C.makeItem({ ...byTitle(mac, /Tab Tidy/).finding, makers_verified: true, made_by: [{ subject: 'x', name: 'Example Co', verified: true, what: 'Tab Tidy: groups your tabs.' }] });
   assert.match(game.research(verified, ctx).what, /groups your tabs/);
+  // Another program's verified entry on a finding that names several: not this add-on's.
+  const other = C.makeItem({ ...byTitle(mac, /Tab Tidy/).finding, data: { ...byTitle(mac, /Tab Tidy/).finding.data, path: '/opt/ext/a', apps: ['/Applications/Other.app'] },
+    made_by: [{ subject: '/Applications/Other.app', name: 'Other Co', verified: true, what: 'Other: a different app.' }, { subject: '/opt/ext/a', name: 'Nobody', verified: false }] });
+  assert.doesNotMatch(game.research(other, ctx).what, /different app/);
 });
 
 test('the card is honest about an unfinished check (R2); practice gives no look-ups', async () => {

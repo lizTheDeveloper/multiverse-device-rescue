@@ -72,7 +72,16 @@ test('a game’s raw URL or unknown intent is dropped, never opened', async () =
 
 test('what it is: the verified program’s own description, else Unknown maker', async () => {
   const [R] = await load();
-  assert.strictEqual(R.whatOf({ made_by: [{ verified: true, name: 'Google LLC', what: 'Google Chrome: a web browser.' }] }), 'Google Chrome: a web browser.');
+  assert.strictEqual(R.whatOf({ makers_verified: true, made_by: [{ verified: true, name: 'Google LLC', what: 'Google Chrome: a web browser.' }] }), 'Google Chrome: a web browser.');
+  // The program's own entry, matched by subject.
+  const two = { data: { apps: ['/Applications/A.app', '/Applications/B.app'] }, made_by: [
+    { subject: '/Applications/A.app', verified: true, name: 'A Co', what: 'A: an editor.' },
+    { subject: '/Applications/B.app', verified: false, name: 'B Co', what: '' }] };
+  assert.strictEqual(R.whatOf(two), 'Unknown maker', 'a finding naming two programs: not one program’s description');
+  assert.strictEqual(R.whatOf(two, '/Applications/A.app'), 'A: an editor.');
+  assert.strictEqual(R.whatOf(two, '/Applications/B.app'), 'Unknown maker');
+  // One entry that isn't the program's own, and the engine didn't say every maker verified.
+  assert.strictEqual(R.whatOf({ data: { path: '/opt/x' }, made_by: [{ subject: '/opt/y', verified: true, name: 'Y', what: 'Y: other.' }] }), 'Unknown maker');
   assert.strictEqual(R.whatOf({ made_by: [{ verified: false, name: 'Google LLC', what: 'Google Chrome: a web browser.' }] }), 'Unknown maker');
   assert.strictEqual(R.whatOf({}), 'Unknown maker');
 });
