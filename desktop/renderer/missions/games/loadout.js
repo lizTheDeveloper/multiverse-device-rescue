@@ -297,13 +297,17 @@ function decisions(item, ctx) {
   const removeEffect = (steps) => warn(f.fixable ? { kind: 'fix' } : { kind: 'note', note: 'remove', steps });
   const keep = (standard, city) => ({ id: 'keep', label: L(standard, city), effect: keepOf(item) });
   const remove = (standard, city, steps) => ({ id: 'remove', label: L(standard, city), effect: removeEffect(steps) });
+  // The first decision is the default. "Keep" leads only on a note (info); on a critical or warning item (or one
+  // that can alert whoever set it up) Look closer or the safe move (trim, reset, turn on) leads, Keep comes after.
+  const sev = (item && item.severity) || f.severity;
+  const wary = alerting || sev === 'critical' || sev === 'warning';
   switch (kind) {
-    case 'extension':
-      return [
-        keep('Keep it', 'Keep it'),
-        { id: 'trim', label: L('Trim its access', 'Trim its reach'), effect: warn({ kind: 'note', note: 'trim', steps: trimSteps(b, id, ctx) }) },
-        remove('Remove it', 'Drop it', removeSteps(b, id, ctx, kind)),
-      ];
+    case 'extension': {
+      const trim = { id: 'trim', label: L('Trim its access', 'Trim its reach'), effect: warn({ kind: 'note', note: 'trim', steps: trimSteps(b, id, ctx) }) };
+      const k = keep('Keep it', 'Keep it');
+      const r = remove('Remove it', 'Drop it', removeSteps(b, id, ctx, kind));
+      return wary ? [trim, k, r] : [k, trim, r];
+    }
     case 'known-bad':
     case 'miner':
       return [closer, remove('Remove it', 'Drop it', removeSteps(b, id, ctx, kind)), keep('Keep it', 'Keep it')];
@@ -311,22 +315,37 @@ function decisions(item, ctx) {
       return [closer, { id: 'reset', label: L('Reset start page'), effect: { kind: 'note', note: 'reset', steps: startupSteps(b, ctx) } }];
     case 'mining-hosts':
       return [closer, remove('Remove the line', 'Cut the line', hostsSteps(f, ctx))];
-    case 'hijack':
-      return [keep('I chose this', 'I chose this'), { id: 'reset', label: L('Reset it'), effect: { kind: 'note', note: 'reset', steps: resetSteps(b, f, ctx) } }, closer];
+    case 'hijack': {
+      const reset = { id: 'reset', label: L('Reset it'), effect: { kind: 'note', note: 'reset', steps: resetSteps(b, f, ctx) } };
+      const k = keep('I chose this', 'I chose this');
+      return wary ? [closer, reset, k] : [k, reset, closer];
+    }
     case 'managed':
-      return [keep('Work or school', 'Work or school'), closer];
-    case 'many':
-      return [keep('Keep them all', 'Keep the loadout'), { id: 'trim', label: L('Trim the list', 'Lighten the loadout'), effect: warn({ kind: 'note', note: 'trim', steps: manySteps(b, ctx) }) }];
-    case 'legacy':
-      return [keep('Keep them', 'Keep them'), remove('Remove them', 'Drop them', [openExtensions(SAFARI, '', ctx),
+      return wary ? [closer, keep('Work or school', 'Work or school')] : [keep('Work or school', 'Work or school'), closer];
+    case 'many': {
+      const trim = { id: 'trim', label: L('Trim the list', 'Lighten the loadout'), effect: warn({ kind: 'note', note: 'trim', steps: manySteps(b, ctx) }) };
+      const k = keep('Keep them all', 'Keep the loadout');
+      return wary ? [trim, k] : [k, trim];
+    }
+    case 'legacy': {
+      const k = keep('Keep them', 'Keep them');
+      const r = remove('Remove them', 'Drop them', [openExtensions(SAFARI, '', ctx),
         'Select each old one and click “Uninstall”.',
-        'If one isn’t listed: in Finder choose Go > Go to Folder, type ~/Library/Safari/Extensions and press Return, then move its .safariextz file to the Trash.'])];
-    case 'blockers-off':
-      return [keep('Leave it off', 'Leave it off'), { id: 'turn-on', label: L('Turn one on'), effect: { kind: 'note', note: 'turn-on', steps: [openExtensions(SAFARI, '', ctx), 'Tick a content blocker if you have one. If none is listed, you can leave this.'] } }];
-    case 'new-ext':
-      return [keep('I added these', 'I packed these'), closer, remove('Remove them', 'Drop them', newExtSteps(f, ctx))];
+        'If one isn’t listed: in Finder choose Go > Go to Folder, type ~/Library/Safari/Extensions and press Return, then move its .safariextz file to the Trash.']);
+      return wary ? [closer, k, r] : [k, r];
+    }
+    case 'blockers-off': {
+      const on = { id: 'turn-on', label: L('Turn one on'), effect: { kind: 'note', note: 'turn-on', steps: [openExtensions(SAFARI, '', ctx), 'Tick a content blocker if you have one. If none is listed, you can leave this.'] } };
+      const k = keep('Leave it off', 'Leave it off');
+      return wary ? [on, k] : [k, on];
+    }
+    case 'new-ext': {
+      const k = keep('I added these', 'I packed these');
+      const r = remove('Remove them', 'Drop them', newExtSteps(f, ctx));
+      return wary ? [closer, k, r] : [k, closer, r];
+    }
     default:
-      return [keep('Looks right', 'Looks right'), closer];
+      return wary ? [closer, keep('Looks right', 'Looks right')] : [keep('Looks right', 'Looks right'), closer];
   }
 }
 

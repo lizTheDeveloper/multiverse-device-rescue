@@ -262,7 +262,10 @@ export function decisions(item, ctx) {
   const off = notMineEffect(f, kind, ctx && ctx.mode);
   // R6: the runner shows the removal warning before switching off an alerting item, by any route.
   const notMine = { id: 'not-mine', label: { standard: 'Not mine', city: 'Bar the door' }, effect: alerting(item) ? { ...off, warning: true } : off };
-  const wary = alerting(item) || (f.severity === 'critical' && !isVerified(makerOf(f)));
+  // The first decision is the default: "Mine" / "Let it in" leads only on a note (info), never on a critical or
+  // warning item, nor on one that can alert whoever set it up.
+  const sev = (item && item.severity) || f.severity;
+  const wary = alerting(item) || sev === 'critical' || sev === 'warning';
   return wary ? [closer, mine, notMine] : [mine, closer, notMine];
 }
 

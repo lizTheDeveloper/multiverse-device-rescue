@@ -105,16 +105,18 @@ test('hostile names, ids and permissions are escaped and never reach typed steps
 
 // ---- Task 3: decisions and browser steps ----
 
-test('an extension: Keep / Trim / Remove, Remove never first, mark only when markable', async () => {
+test('an extension: Trim / Keep / Remove on a warning (Keep / Trim / Remove on a note), Remove never first, mark only when markable', async () => {
   const { C, game, mac } = await setup();
   const ctx = C.testContext();
   const plain = byTitle(mac, /Tab Tidy/);
   const d = game.decisions(plain, ctx);
-  assert.deepStrictEqual(ids(d), ['keep', 'trim', 'remove']);
-  assert.strictEqual(d[0].effect.kind, 'keep');
+  assert.deepStrictEqual(ids(d), ['trim', 'keep', 'remove'], 'a warning never leads with Keep');
+  assert.strictEqual(d[1].effect.kind, 'keep');
   assert.notStrictEqual(d[2].effect.kind, 'fix', 'no engine fix for extensions: instructions');
+  const note = C.makeItem({ ...plain.finding, severity: 'info', removal_alert: false, remediation: null });
+  assert.deepStrictEqual(ids(game.decisions(note, ctx)), ['keep', 'trim', 'remove']);
   const markable = byTitle(mac, /Price Pal/);
-  assert.strictEqual(game.decisions(markable, ctx)[0].effect.kind, 'mark');
+  assert.strictEqual(game.decisions(markable, ctx).find((x) => x.id === 'keep').effect.kind, 'mark');
   const fixable = C.makeItem({ ...plain.finding, fixable: { will_change: 'x', how_to_undo: ['y'] } });
   const df = game.decisions(fixable, ctx);
   assert.strictEqual(df[2].effect.kind, 'fix');
@@ -162,8 +164,8 @@ test('Firefox, Safari, Brave and an unknown browser each get their own page', as
   assert.match(brave, /brave:\/\/extensions\/\?id=hhhhggggffffeeeeddddccccbbbbaaaa/);
   assert.match(brave, /sync/i, 'a miner: sync can bring it back');
   const many = game.decisions(byTitle(mac, /a lot of browser extensions/), ctx);
-  assert.deepStrictEqual(ids(many), ['keep', 'trim']);
-  const m = many[1].effect.steps.join('\n');
+  assert.deepStrictEqual(ids(many), ['trim', 'keep']);
+  const m = many.find((x) => x.id === 'trim').effect.steps.join('\n');
   assert.match(m, /chrome:\/\/extensions/);
   assert.match(m, /about:addons/);
   assert.match(m, /Safari > Settings/);
@@ -178,12 +180,12 @@ test('each other kind gets its own moves', async () => {
     [/secretly mining/, ['closer', 'remove', 'keep']],
     [/opens a mining page/, ['closer', 'reset']],
     [/hosts file sends/, ['closer', 'remove']],
-    [/Chrome is opening to a website/, ['keep', 'reset', 'closer']],
-    [/Safari is using a search engine/, ['keep', 'reset', 'closer']],
-    [/organization policy/, ['keep', 'closer']],
-    [/Old-style Safari/, ['keep', 'remove']],
-    [/content blockers are off/, ['keep', 'turn-on']],
-    [/new browser extension/, ['keep', 'closer', 'remove']],
+    [/Chrome is opening to a website/, ['closer', 'reset', 'keep']],
+    [/Safari is using a search engine/, ['closer', 'reset', 'keep']],
+    [/organization policy/, ['closer', 'keep']],
+    [/Old-style Safari/, ['closer', 'keep', 'remove']],
+    [/content blockers are off/, ['turn-on', 'keep']],
+    [/new browser extension/, ['closer', 'keep', 'remove']],
   ];
   for (const [re, expected] of want) {
     const item = byTitle(mac, re);
@@ -210,7 +212,7 @@ test('R6: remove and trim carry warning:true on an item with the removal warning
   const d = game.decisions(byTitle(mac, /Tab Tidy/), ctx);
   assert.strictEqual(d.find((x) => x.id === 'remove').effect.warning, true);
   assert.strictEqual(d.find((x) => x.id === 'trim').effect.warning, true);
-  assert.ok(!d[0].effect.warning, 'keeping needs no warning');
+  assert.ok(!d.find((x) => x.id === 'keep').effect.warning, 'keeping needs no warning');
   const miner = game.decisions(byTitle(mac, /secretly mining/), ctx);
   assert.ok(!miner.find((x) => x.id === 'remove').effect.warning, 'no removal_alert on the mining finding');
 });

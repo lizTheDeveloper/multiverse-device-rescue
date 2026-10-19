@@ -88,10 +88,12 @@ test('names and paths come from the fields the modules write', async () => {
   assert.strictEqual(D.homeRelative('/private/tmp/a'), '/tmp/a');
 });
 
-test('decisions: Mine / Look closer / Not mine, Look closer first on a warning item', async () => {
+test('decisions: Mine / Look closer / Not mine on a note; Look closer first on a warning or critical item', async () => {
   const { default: game } = await door();
   const ctx = (await contract()).testContext();
-  const vpn = await byModule('launchd_persistence_audit');
+  const vpnWarning = await byModule('launchd_persistence_audit');
+  assert.deepStrictEqual(ids(game.decisions(vpnWarning, ctx)), ['closer', 'mine', 'not-mine'], 'a warning never leads with Mine');
+  const vpn = { ...vpnWarning, severity: 'info', finding: { ...vpnWarning.finding, severity: 'info' } };
   assert.deepStrictEqual(ids(game.decisions(vpn, ctx)), ['mine', 'closer', 'not-mine']);
   assert.deepStrictEqual(game.decisions(vpn, ctx).map((d) => d.label.standard), ['Mine', 'Look closer', 'Not mine']);
   assert.strictEqual(game.decisions(vpn, ctx)[0].effect.kind, 'mark', 'markable → mark');
@@ -113,7 +115,7 @@ test('decisions: Mine is keep when nothing can be marked; Not mine routes to the
   const { default: game } = await door();
   const ctx = (await contract()).testContext();
   const nm = async (mod) => game.decisions(await byModule(mod), ctx).find((x) => x.id === 'not-mine').effect;
-  assert.strictEqual(game.decisions(await byModule('login_items'), ctx)[0].effect.kind, 'keep');
+  assert.strictEqual(game.decisions(await byModule('login_items'), ctx).find((x) => x.id === 'mine').effect.kind, 'keep');
   assert.deepStrictEqual(await nm('login_items'), { kind: 'settings', pane: 'login-items' });
   assert.deepStrictEqual(await nm('kext_audit'), { kind: 'settings', pane: 'login-items' });
   assert.deepStrictEqual(await nm('win_startup'), { kind: 'settings', pane: 'startup-apps' });

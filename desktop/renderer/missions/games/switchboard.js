@@ -536,7 +536,20 @@ export function decisions(item, ctx) {
     effect: { kind: 'closer', checklist: checklistFor(kind, c) },
     hint: city ? 'What to check before you choose.' : 'What to check before you decide.',
   };
-  return [expected, odd, closer];
+  // The first decision is the default. "Expected" never leads on a critical or warning line (or one that can alert
+  // someone): Look closer does, or "close it" for a website name sent to an address that isn't a block.
+  const sev = (item && item.severity) || f.severity;
+  if (!(sev === 'critical' || sev === 'warning' || alerting)) return [expected, odd, closer];
+  if (kind === 'hosts' && redirectsElsewhere(f) && !(alerting && effect.kind === 'fix')) return [odd, closer, expected];
+  return [closer, odd, expected];
+}
+
+// A hosts entry that sends a name to a real address (not 0.0.0.0 / 127.0.0.1 / ::1, which only block it).
+export function redirectsElsewhere(f) {
+  const d = isObj(f && f.data) ? f.data : {};
+  const entries = list(d.entries || d.custom_entries).filter((e) => isObj(e) && (e.hostname || e.domain));
+  if (entries.some((e) => !BLOCKED.test(String(e.ip || '')))) return true;
+  return [...list(d.redirected_domains), ...list(d.redirects)].length > 0;
 }
 
 // ---- Research ----

@@ -96,12 +96,15 @@ test('size shows when the engine recorded one; a list finding shows its names', 
   assert.deepStrictEqual([tag.kind, tag.entries.length, tag.moreEntries], ['system', 6, 2]);
 });
 
-test('decisions: Mine / Quarantine / Look closer for a file; a critical match puts Look closer first', async () => {
+test('decisions: Mine / Quarantine / Look closer for a file on a note; a critical or warning match puts Look closer first', async () => {
   const { game, byId, C } = await setup();
   const ctx = C.testContext();
-  assert.deepStrictEqual(ids(game.decisions(byId('locker-mac.json', 'dev-script'), ctx)), ['mine', 'quarantine', 'closer']);
+  const dev = byId('locker-mac.json', 'dev-script');
+  assert.deepStrictEqual(ids(game.decisions(dev, ctx)), ['closer', 'quarantine', 'mine'], 'a warning never leads with Mine');
   assert.deepStrictEqual(ids(game.decisions(byId('locker-mac.json', 'known-hash'), ctx)), ['closer', 'quarantine', 'mine']);
-  const labels = game.decisions(byId('locker-mac.json', 'dev-script'), ctx).map((d) => d.label);
+  const note = { ...dev, severity: 'info', finding: { ...dev.finding, severity: 'info' } };
+  assert.deepStrictEqual(ids(game.decisions(note, ctx)), ['mine', 'quarantine', 'closer']);
+  const labels = game.decisions(note, ctx).map((d) => d.label);
   assert.deepStrictEqual(labels.map((l) => l.standard), ['Mine', 'Quarantine', 'Look closer']);
   assert.deepStrictEqual(labels.map((l) => l.city), ['Mine', 'Bag it', 'Look closer']);
 });
@@ -157,9 +160,9 @@ test('programs, add-ons, settings and core parts get their own moves', async () 
   assert.deepStrictEqual(ids(miner), ['closer', 'stop', 'mine']);
   assert.match(miner[1].effect.steps.join('\n'), /Activity Monitor[\s\S]*xmrig \(ID 4242\)[\s\S]*Stop button/);
   const ext = game.decisions(byId('locker-mac.json', 'safari-ext'), ctx);
-  assert.deepStrictEqual(ids(ext), ['mine', 'turn-off', 'closer']);
+  assert.deepStrictEqual(ids(ext), ['closer', 'turn-off', 'mine']);
   assert.match(ext[1].effect.steps[0], /Safari > Settings > Extensions, and untick Example Search Helper/);
-  assert.deepStrictEqual(ids(game.decisions(byId('locker-mac.json', 'clamav-missing'), ctx)), ['mine', 'closer', 'later']);
+  assert.deepStrictEqual(ids(game.decisions(byId('locker-mac.json', 'clamav-missing'), ctx)), ['closer', 'mine', 'later']);
   const sip = game.decisions(byId('locker-mac.json', 'sip-off'), ctx);
   assert.deepStrictEqual(ids(sip), ['closer', 'mine', 'later']);
   assert.ok(!sip.some((d) => d.effect.kind === 'fix' || d.effect.focus === 'move-aside'), 'core parts are never moved by hand');
@@ -251,7 +254,7 @@ test('ten near-identical files: one group, each decided on its own, summed up to
   assert.strictEqual(new Set(group.map(G.groupKey)).size, 1, 'they read as one group');
   assert.strictEqual(new Set(group.map((i) => i.key)).size, 10, 'each keeps its own key');
   const sets = group.map((i) => game.decisions(i, ctx));
-  for (const d of sets) assert.deepStrictEqual(ids(d), ['mine', 'quarantine', 'closer']);
+  for (const d of sets) assert.deepStrictEqual(ids(d), ['closer', 'quarantine', 'mine']);
   // Each item's move-aside steps name that item's own file.
   sets.forEach((d, i) => assert.match(d[1].effect.steps.join('\n'), new RegExp(`postinstall-${i}\\.js`)));
   const part = group.slice(0, 4);

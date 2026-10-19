@@ -56,16 +56,20 @@ test('each finding maps to its keys and the exact privacy pane', async () => {
   assert.strictEqual(K.KEYS.automation.pane, 'privacy-automation');
 });
 
-test('Keep is first; Hand back opens that key’s pane; Windows uses its privacy page with the permission', async () => {
+test('Look closer leads on a warning key, Keep on a note; Hand back opens that key’s pane; Windows uses its privacy page with the permission', async () => {
   const { C, G } = await load();
   const items = itemsOf(fixture('keyring-scan.json'));
   const ctx = C.testContext();
   const combo = byCode(items, 'security.privacy_permissions_audit.camera_microphone_combo');
   const d = G.decisions(combo, ctx);
-  assert.strictEqual(d[0].id, 'keep');
+  assert.deepStrictEqual(d.map((x) => x.id), ['closer', 'keep', 'hand_back'], 'a warning never leads with Keep');
   const back = d.find((x) => x.id === 'hand_back');
   assert.deepStrictEqual([back.effect.kind, back.effect.pane], ['settings', 'privacy-camera']);
-  assert.ok(!d.some((x) => x.id === 'closer'), 'a confirmed maker needs no Look closer');
+  const nf = { ...combo.finding, severity: 'info', removal_alert: false };
+  const note = { ...combo, severity: 'info', removal_alert: false, finding: nf, findings: [nf], keys: (combo.keys || []).map((k) => ({ ...k, finding: nf })) };
+  const nd = G.decisions(note, ctx);
+  assert.strictEqual(nd[0].id, 'keep');
+  assert.ok(!nd.some((x) => x.id === 'closer'), 'a confirmed maker on a note needs no Look closer');
 
   const win = itemsOf(fixture('keyring-windows.json'))[0];
   const wd = G.decisions(win, C.testContext({ platform: 'win32' }));
@@ -77,9 +81,9 @@ test('a marked-as-yours-able list keeps through MarkFlow; others keep in mission
   const { C, G } = await load();
   const items = itemsOf(fixture('keyring-scan.json'));
   const acc = byCode(items, 'security.accessibility_permissions.suspicious_accessibility');
-  assert.strictEqual(G.decisions(acc, C.testContext())[0].effect.kind, 'mark');
+  assert.strictEqual(G.decisions(acc, C.testContext()).find((x) => x.id === 'keep').effect.kind, 'mark');
   const loc = byCode(items, 'security.location_services.location_desktop_find_my_only');
-  assert.strictEqual(G.decisions(loc, C.testContext())[0].effect.kind, 'keep');
+  assert.strictEqual(G.decisions(loc, C.testContext()).find((x) => x.id === 'keep').effect.kind, 'keep');
 });
 
 test('apps known only by a bundle id never read as confirmed, even when made_by says verified', async () => {
@@ -261,8 +265,8 @@ test('per app (R4): the exploded item names only its app, with every key it hold
   const back = d.find((x) => x.id === 'hand_back').effect;
   assert.strictEqual(back.pane, 'privacy-camera');
   assert.ok(back.steps.some((x) => /Microphone/.test(x) && /com\.example\.alpha/.test(x)), back.steps.join(' | '));
-  assert.strictEqual(d[0].effect.kind, 'keep', 'marking the camera list would mark beta too');
-  assert.strictEqual(G.decisions(solo, ctx)[0].effect.kind, 'mark', 'a list of one app is marked through MarkFlow');
+  assert.strictEqual(d.find((x) => x.id === 'keep').effect.kind, 'keep', 'marking the camera list would mark beta too');
+  assert.strictEqual(G.decisions(solo, ctx).find((x) => x.id === 'keep').effect.kind, 'mark', 'a list of one app is marked through MarkFlow');
   const looks = G.research(alpha, ctx).links.filter((l) => l.kind === 'lookup').map((l) => l.query);
   assert.deepStrictEqual(looks, ['com.example.alpha']);
   assert.deepStrictEqual(C.runContractChecks(G, [alpha, beta, solo]), []);

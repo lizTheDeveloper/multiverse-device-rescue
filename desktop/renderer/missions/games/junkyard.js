@@ -5,6 +5,7 @@
 //   crash items    Keep / Update it / Later   Update = a maker look-up intent (nothing to clear)
 //   setting items  Keep / Change it / Later   Change = the settings pane and steps
 //   hog items      Keep / Quit it | Remove it / Later
+// (that order on a note; on a critical or warning item Keep goes last, see decisions()).
 // The summary adds up the space the Clear choices would free (an estimate from the scan).
 //
 // Pure module: no DOM, no storage, no globals. Everything shown goes through ctx.esc.
@@ -330,12 +331,21 @@ const fixable = (item) => isObj(findingOf(item).fixable);
 const alerting = (item) => !!(item && (item.removal_alert || findingOf(item).removal_alert
   || (isObj(findingOf(item).remediation) && findingOf(item).remediation.safety_note)));
 
-// Keep stays first (the safe default); on an item with a removal warning every acting effect
-// carries warning: true, so the runner shows the warning before it acts (ruling R6).
+// The first decision is the default. Keep leads only on a note (info). On a critical or warning item the safe
+// move leads instead: Update it / Change it (a look-up or a settings page), Clear it for a pile that rebuilds on
+// its own, else Later; Keep comes last. On an item with a removal warning every acting effect carries
+// warning: true, so the runner shows the warning before it acts (ruling R6), and nothing removing leads.
 function decisions(item, ctx) {
-  const list = baseDecisions(item, ctx);
-  if (!alerting(item)) return list;
-  return list.map((d) => (['keep', 'later'].includes(d.effect.kind) ? d : { ...d, effect: { ...d.effect, warning: true } }));
+  const base = baseDecisions(item, ctx);
+  const alert = alerting(item);
+  const list = alert ? base.map((d) => (['keep', 'later'].includes(d.effect.kind) ? d : { ...d, effect: { ...d.effect, warning: true } })) : base;
+  const sev = (item && item.severity) || findingOf(item).severity;
+  if (!(sev === 'critical' || sev === 'warning' || alert)) return list;
+  const [keep, act, later] = list;
+  const kind = kindOf(item);
+  const safeAct = !alert && act.effect.kind !== 'fix'
+    && (kind === 'crash' || kind === 'setting' || (kind === 'space' && (spaceInfo(item) || {}).verdict === SAFE));
+  return safeAct ? [act, later, keep] : [later, act, keep];
 }
 
 function baseDecisions(item, ctx) {

@@ -359,7 +359,18 @@ function lookupFor(v) {
   return { kind: 'lookup', source: 'web', query: v.subject };
 }
 
+// The first decision is the default: a move that leaves the item as it is ("Mine", "Leave it", "Looks normal")
+// never leads on a critical or warning item; Look closer does.
+const wavesThrough = (d) => !!(d && d.effect && (d.effect.kind === 'keep' || d.effect.kind === 'mark'));
 export function decisions(item, ctx) {
+  const list = baseDecisions(item, ctx);
+  const sev = (item && item.severity) || ((item && item.finding) || {}).severity;
+  if (!(sev === 'critical' || sev === 'warning') || !wavesThrough(list[0])) return list;
+  const look = list.find((d) => d.id === 'closer');
+  return look ? [look, ...list.filter((d) => d !== look)] : list;
+}
+
+function baseDecisions(item, ctx) {
   const f = (item && item.finding) || {};
   const v = classify(f);
   const alert = alerting(item || {}, v);

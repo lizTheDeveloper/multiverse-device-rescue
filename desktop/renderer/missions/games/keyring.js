@@ -2,8 +2,8 @@
 //
 // An item is one "key" (a privacy permission: Accessibility, Input Monitoring, Screen Recording, Camera, Microphone,
 // Full Disk Access, Location, Automation, Contacts, Screen Time) and the apps holding it. Each app is a card with the
-// keys it holds as chips. One decision per key: Keep (the default) / Hand back (opens that exact privacy pane), plus
-// Look closer when a holder's maker isn't confirmed.
+// keys it holds as chips. One decision per key: Look closer (the default on a critical or warning key) / Keep /
+// Hand back (opens that exact privacy pane). On a note, Keep leads and Look closer shows when a maker isn't confirmed.
 //
 // Honest makers: an app named by a bundle id (or a process name) is what it says about itself, so it is never shown as
 // confirmed, whatever made_by says (serialize.py _unverify_named_apps does the same; this re-checks). Only a full path
@@ -257,9 +257,12 @@ export function decisions(item, ctx) {
       ? { ...pane, key: first.id, ...(also.length ? { steps: also } : {}), ...(warn ? { warning: true } : {}) }
       : { kind: 'closer', key: first.id, steps: [`Open ${first.where}.`, `Switch it off there${who ? ` for ${who}` : ''}.`, ...also], ...(warn ? { warning: true } : {}) },
   });
-  if ((apps.length && unconfirmed(apps)) || (isMonitoring(item) && !apps.length)) {
-    out.push({ id: 'closer', label: { standard: 'Look closer', city: 'Look closer' }, effect: { kind: 'closer', checklist: checklist(ctx) } });
-  }
+  const closer = { id: 'closer', label: { standard: 'Look closer', city: 'Look closer' }, effect: { kind: 'closer', checklist: checklist(ctx) } };
+  // The first decision is the default. Keep leads only on a note (info); on a critical or warning key (or one that
+  // can alert whoever set it up) Look closer leads and Keep comes after it.
+  const sev = obj(item).severity || f.severity;
+  if (sev === 'critical' || sev === 'warning' || warn) return [closer, out[0], out[1]];
+  if ((apps.length && unconfirmed(apps)) || (isMonitoring(item) && !apps.length)) out.push(closer);
   return out;
 }
 
