@@ -21,8 +21,9 @@ export function renderHud({ title, city, progress, counts, rank = null, todo = n
     ${counts ? '' : `<span class="stat mag"><b>${t.critical}</b> <small>CRITICAL</small></span>
     <span class="stat amb"><b>${t.warning}</b> <small>WARNING</small></span>`}
     ${counts
-      ? `<span class="stat lime"><b>${Number(counts.confirmed) || 0}</b> <small>CONFIRMED</small></span>
-    <span class="stat cyan"><b>${Number(counts.reported) || 0}</b> <small>YOU REPORTED</small></span>`
+      // Only once there is something to count: the HUD keeps to the essentials.
+      ? `${Number(counts.confirmed) ? `<span class="stat lime"><b>${Number(counts.confirmed)}</b> <small>CONFIRMED</small></span>` : ''}
+    ${Number(counts.reported) ? `<span class="stat cyan"><b>${Number(counts.reported)}</b> <small>YOU REPORTED</small></span>` : ''}`
       : `<span class="stat lime"><b>${done}</b> <small>RECLAIMED</small></span>`}
     ${open ? `<span class="stat grey"><b>${open}</b> <small>TO DO</small></span>` : ''}
     ${fog ? `<span class="stat grey"><b>${fog}</b> <small>COULDN’T CHECK</small></span>` : ''}

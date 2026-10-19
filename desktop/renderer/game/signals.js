@@ -113,11 +113,22 @@ export function queueOf(signals, filter = null) {
   };
 }
 
-// What's left to do: open findings (critical or warning, not marked as
-// yours), the same ones the deck's CRITICAL and WARNING chips start from. The
-// HUD's TO DO; COULDN'T CHECK is counted apart (notCheckedSummary).
+// What's left to do: the rows still to sort in the deck's queue (critical,
+// warning and couldn't-check, untagged or LOOK CLOSER), so it is the sum of
+// the deck's CRITICAL, WARNING and COULDN'T CHECK chips. A tag (MINE, THREAT,
+// NOTED) takes a row off it on the deck and on every HUD alike. Something the
+// checkup reported more than once is one mission (findingsToCity), so this
+// can be lower than the list's count of cards (see repeatsMerged).
 export function todoCount(signals) {
-  return (signals || []).filter(isOpen).length;
+  return queueOf(signals).urgent.length;
+}
+
+// How many critical and warning findings were folded into another mission
+// with the same identity: why the city's count can be lower than the list's.
+export function repeatsMerged(city) {
+  const t = (city && city.totals) || {};
+  const missions = ((city && city.districts) || []).reduce((n, d) => n + (d.missions || []).length, 0);
+  return Math.max(0, (Number(t.critical) || 0) + (Number(t.warning) || 0) - missions);
 }
 
 export function sortedCount(signals) {

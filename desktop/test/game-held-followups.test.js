@@ -115,7 +115,7 @@ test('splitHeld holds every detection, at any severity, and never a "found nothi
       finding('Backup too large to scan', 'warning', { code: `${MVT}mvt_backup_too_large` })]),
     mod('stalkerware_scan', [finding('TeamViewer is on this computer (app)', 'info', { code: 'security.stalkerware_scan.monitoring_software_found' })]),
   );
-  assert.deepStrictEqual(splitHeld(doc).held, [{ module: 'stalkerware_scan', title: 'TeamViewer is on this computer (app)' }]);
+  assert.deepStrictEqual(splitHeld(doc).held.map(({ finding, ...h }) => h), [{ module: 'stalkerware_scan', title: 'TeamViewer is on this computer (app)' }]);
   // Nor does a "found nothing" line hold its district open, or point to a note that isn't there.
   const { heldOnly } = await game('held.js');
   const { findingsToCity } = await game('findings-to-city.js');

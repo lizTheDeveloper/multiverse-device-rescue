@@ -83,8 +83,7 @@ test('P1-4: the queue is a few little missions: 5 rows, AND N MORE, same titles 
   assert.strictEqual(rows.length, 14);
   assert.strictEqual(rows[1].same, 3);
   const deck = (over) => renderDeck({ title: 'X', rank: rankOf(emptyDeck()), lastSweep: null, items: rows, sevCounts: severityCounts(all),
-    scoutHtml: '<p class="say">Start with The Gatehouse.</p>', districtName: () => 'The Gatehouse',
-    districtChips: [{ id: 'gatehouse', name: 'The Gatehouse', count: 16 }, { id: 'wires', name: 'The Wires', count: 2 }], ...over });
+    scoutHtml: '<p class="say">Start with The Gatehouse.</p>', districtName: () => 'The Gatehouse', ...over });
   const html = deck({});
   const q = html.split('INCOMING SIGNALS')[1].split('deck-city')[0];
   assert.strictEqual((q.match(/data-go="signal:/g) || []).length, QUEUE_SHOWN);
@@ -93,7 +92,8 @@ test('P1-4: the queue is a few little missions: 5 rows, AND N MORE, same titles 
   assert.ok(q.indexOf('Start with The Gatehouse') < q.indexOf('investigate-next'), 'Scout’s read under the header');
   assert.match(q, /data-act="sev:critical"[^>]*>CRITICAL 1</);
   assert.match(q, /data-act="sev:warning"[^>]*>WARNING 15</);
-  assert.match(q, /data-go="filter:wires"/);
+  // Kinds only: districts are reached from their cards on the city.
+  assert.doesNotMatch(q, /data-go="filter:/);
   const open = deck({ queueOpen: true }).split('INCOMING SIGNALS')[1].split('deck-city')[0];
   assert.strictEqual((open.match(/data-go="signal:/g) || []).length, 14);
   assert.match(open, /SHOW FEWER/);
@@ -164,26 +164,27 @@ test('P1-11: only verified, known programs with keyboard access leave the help d
   }
 });
 
-test('P1-11: each held item shows what to write down (name, where, how, maker, date) with COPY TO WRITE DOWN', async () => {
+test('P1-11 / round 2: each held item is the shared evidence block, held: what to write down, large, no clipboard', async () => {
   const { splitHeld } = await game('held.js');
-  const { renderSide, heldText } = await game('views/side-district.js');
+  const { renderSide } = await game('views/side-district.js');
   const { pickDistrict } = await game('district-names.js');
   const mspy = { title: 'mSpy is on this computer (app)', severity: 'critical', code: 'security.stalkerware_scan.monitoring_software_found',
     data: { stalkerware_name: 'mSpy', detected_as: 'app', location: '/Applications/<b>mSpy.app' },
     made_by: [{ subject: '/Applications/mSpy.app', name: 'Unknown maker', verified: false }] };
   const { held } = splitHeld({ modules: [{ name: 'stalkerware_scan', status: 'ok', findings: [mspy] }] });
-  assert.deepStrictEqual(held, [{ module: 'stalkerware_scan', title: mspy.title, name: 'mSpy', where: '/Applications/<b>mSpy.app', how: 'app', maker: 'Unknown maker (not verified)' }]);
-  const html = renderSide({ district: pickDistrict(1), held, date: '18 October 2026' });
-  assert.match(html, /<dt>Name<\/dt><dd>mSpy<\/dd>/);
-  assert.match(html, /<dt>Where found<\/dt><dd class="mono">\/Applications\/&lt;b&gt;mSpy.app<\/dd>/);
-  assert.match(html, /<dt>Made by<\/dt><dd>Unknown maker \(not verified\)<\/dd>/);
-  assert.match(html, /<dt>Date<\/dt><dd>18 October 2026<\/dd>/);
-  assert.match(html, /data-act="side-copy:0"/);
-  assert.strictEqual(heldText(held[0], '18 October 2026'),
-    'Name: mSpy\nWhere found: /Applications/<b>mSpy.app\nFound as: app\nMade by: Unknown maker (not verified)\nDate: 18 October 2026');
+  const { finding, ...fields } = held[0];
+  assert.deepStrictEqual(fields, { module: 'stalkerware_scan', title: mspy.title, name: 'mSpy', where: '/Applications/<b>mSpy.app', how: 'app', maker: 'Unknown maker (not verified)' });
+  const html = renderSide({ district: pickDistrict(1), held, seen: new Date(2026, 9, 18) });
+  assert.match(html, /class="evidence evidence--held"/);
+  assert.match(html, /Write this on paper or on another device\./);
+  assert.match(html, /<dt>Name<\/dt><dd><span>mSpy<\/span><\/dd>/);
+  assert.match(html, /<dt>Where found<\/dt><dd><code class="evidence-mono">\/Applications\/&lt;b&gt;mSpy.app<\/code><\/dd>/);
+  assert.match(html, /<dt>How detected<\/dt><dd><span>Found as app<\/span>/);
+  assert.match(html, /<dt>Made by<\/dt><dd><span>Unknown maker · not verified<\/span>/);
+  assert.match(html, /<dt>Date<\/dt><dd><span>18 Oct 2026<\/span>/);
+  // Monitoring software can read the clipboard: no copy anywhere on a held item.
+  assert.doesNotMatch(html, /side-copy|COPY TO WRITE DOWN|data-evidence-copy|Copy all/);
   assert.match(html, /<h3 class="side-h">/);
-  assert.match(renderSide({ district: pickDistrict(1), held, date: 'd', copied: 0 }), /role="status">Copied\./);
-  assert.match(renderSide({ district: pickDistrict(1), held, date: 'd', copied: -1 }), /couldn’t be copied/);
   assert.match(fs.readFileSync(path.join(__dirname, '../renderer/game/game.css'), 'utf8'), /\.side-steps \{ list-style-position: inside;/);
 });
 

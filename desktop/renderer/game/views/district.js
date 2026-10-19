@@ -23,13 +23,27 @@ const STATUS_BADGE = {
 export const BULK_DID = 'I DID THESE MYSELF';
 export const BULK_LATER = 'LATER';
 export function bulkLabel(verb, n) { return n ? `${verb} (${n})` : verb; }
-export function renderDistrict({ district: d, progress, scout, message = '', busy = false, scanRunning = false }) {
+// `detail(mission)`: one line of its evidence (a path, a name or an id), so
+// rows with the same title can be told apart; '' for none.
+export function renderDistrict({ district: d, progress, scout, message = '', busy = false, scanRunning = false, detail = () => '' }) {
   const status = (id) => (progress.missions[id] && progress.missions[id].status) || 'open';
+  // Two missions with one title and nothing to tell them apart are numbered.
+  const titles = new Map();
+  for (const m of d.missions) titles.set(m.title, (titles.get(m.title) || 0) + 1);
+  const seen = new Map();
+  const rowLine = (m) => {
+    let line = '';
+    try { line = String(detail(m) || ''); } catch (_) { line = ''; }
+    const n = (seen.get(m.title) || 0) + 1;
+    seen.set(m.title, n);
+    const of = titles.get(m.title) > 1 && !line ? ` (${n} of ${titles.get(m.title)})` : '';
+    return `${esc(of)}${line ? `<small class="mission-detail"><code>${esc(line)}</code></small>` : ''}`;
+  };
   const missions = d.missions.map((m, i) => `
       <li class="pick-row"><input type="checkbox" class="pick" id="pick-${i}" data-pick="${esc(m.id)}" aria-label="${esc(`Tick: ${m.title}`)}"${busy ? ' disabled' : ''}>
         <button type="button" class="mission-row" data-go="mission:${esc(m.id)}">
         <span class="badge ${m.severity === 'critical' ? 'crit' : 'warn'}">${m.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</span>
-        <span class="mission-text">${esc(m.title)}</span>
+        <span class="mission-text">${esc(m.title)}${rowLine(m)}</span>
         ${STATUS_BADGE[status(m.id)] || ''}
       </button></li>`).join('');
   const bulk = d.missions.length > 1 ? `

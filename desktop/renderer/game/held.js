@@ -77,7 +77,9 @@ export function splitHeld(doc) {
     const fs = Array.isArray(m.findings) ? m.findings : [];
     let found = false;
     for (const f of fs) {
-      if (holds(f, m.name)) { held.push({ module: m.name, title: String(f.title || ''), ...heldEvidence(f) }); found = true; }
+      // The whole finding rides along (memory only) so the help district can
+      // show its evidence rows (Evidence.evidenceRows, held).
+      if (holds(f, m.name)) { held.push({ module: m.name, title: String(f.title || ''), ...heldEvidence(f), finding: { ...f, module: m.name } }); found = true; }
     }
     // Nothing found, and it couldn't look: fog, never clear. (With a
     // detection the check did look, and its district stays open for it.)
