@@ -60,6 +60,20 @@ export function attachPlainPanel({ win, storage, loadBank = defaultLoadBank, pub
     const page = renderProfile({ summary: sum, theme: 'plain', publish: offered(), confirming: st.confirming, lessonsUnread: st.bankFailed });
     // While the sheet is open, the page behind it is inert: Tab stays in the sheet.
     body.innerHTML = sheet ? `<div inert>${page}</div>${sheet}` : page;
+    plainOnly(body);
+  }
+  // Plain view: Skills says what Lessons says, so it goes; and Lessons says
+  // where they are played, since none can be started from here.
+  function plainOnly(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') return;
+    for (const panel of Array.from(root.querySelectorAll('.profile-plain > .panel'))) {
+      const h = panel.querySelector('h3');
+      const name = h ? h.textContent.trim() : '';
+      if (name === 'Skills') panel.remove();
+      if (name === 'Lessons' && !panel.querySelector('[data-plain-where]')) {
+        panel.insertAdjacentHTML('beforeend', '<p class="muted" data-plain-where>Lessons are played in the city view.</p>');
+      }
+    }
   }
   // Focus after a draw: an element by id, or a control by selector, else the
   // Start over question (data-autofocus) or the heading.

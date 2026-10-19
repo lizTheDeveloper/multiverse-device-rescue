@@ -63,7 +63,7 @@ const ClearList = (function () {
   function progressText(p, opts) {
     const couldNotCheck = (opts && opts.couldNotCheck) || 0;
     const notChecked = couldNotCheck
-      ? `${couldNotCheck} check${couldNotCheck === 1 ? '' : 's'} couldn’t run or didn’t finish on this computer, so ${couldNotCheck === 1 ? 'that wasn’t' : 'those weren’t'} fully checked (listed at the bottom).`
+      ? `${couldNotCheck} check${couldNotCheck === 1 ? '' : 's'} couldn’t run or didn’t finish on this computer, so ${couldNotCheck === 1 ? 'that wasn’t' : 'those weren’t'} fully checked (listed at the top).`
       : '';
     const sayso = p.did
       ? `${p.did === 1 ? 'One thing' : `${p.did} things`} you said you did will be checked again on your next checkup.`
@@ -82,7 +82,7 @@ const ClearList = (function () {
       headline: `${p.cleared} of ${p.total} cleared`,
       detail: p.cleared
         ? [sayso, notChecked].filter(Boolean).join(' ')
-        : 'Answer each card below as you go: “I did this” when you’ve followed its steps, or “It’s mine” when you set it up yourself.',
+        : 'Answer each card as you go, or tick several and answer them together.',
     };
   }
 
@@ -106,6 +106,14 @@ const ClearList = (function () {
     if (how === 'marked') return 'Marked as yours. This is remembered across checkups, and it stays listed as “marked as yours”.';
     if (how === 'marked_before') return 'You marked this as yours on an earlier checkup. It stays listed so anyone helping you can see it.';
     if (how === 'fixed') return 'Reclaim City changed this and checked again.';
+    return '';
+  }
+
+  // The one line left where a cleared card was, so the person sees what happened.
+  function stubText(how) {
+    if (how === 'did') return 'You said you did this. It’s in Cleared below.';
+    if (how === 'marked') return 'Marked as yours. It’s in Cleared below.';
+    if (how === 'fixed') return 'Done. Nothing was deleted. It’s in Cleared below.';
     return '';
   }
 
@@ -139,9 +147,9 @@ const ClearList = (function () {
   function didControlsHtml(finding, severity, esc) {
     const label = didLabel(finding, severity);
     if (!label) return '';
+    // What "I did this" means is said once, in Cleared: not on every card.
     return `<div class="did-this" data-did-wrap>
         <button type="button" class="btn btn--secondary btn--small" data-clear-did>${esc(label)}</button>
-        <span class="muted did-this__hint">For this checkup only. Nothing is changed or saved.</span>
       </div>`;
   }
 
@@ -211,7 +219,8 @@ const ClearList = (function () {
       const note = card.querySelector('[data-cleared-note]');
       if (!note) return;
       if (!how) { note.hidden = true; note.innerHTML = ''; return; }
-      const undo = undoLabel(how);
+      // A fix keeps its own Undo (the engine's), on show in Cleared too.
+      const undo = how === 'fixed' ? (card.querySelector('[data-fix-undo]') ? 'Undo' : '') : undoLabel(how);
       note.hidden = false;
       const open = card.hasAttribute('data-show-details');
       note.innerHTML = `<p class="cleared-note__text"><span class="cleared-note__tick" aria-hidden="true">✓</span> ${esc(noteText(how))}</p>
@@ -237,7 +246,16 @@ const ClearList = (function () {
       if (key == null || !state.clear(key, how)) return;
       if (!slots.has(key) && card.parentNode && card.ownerDocument) {
         const slot = card.ownerDocument.createElement('li');
-        slot.hidden = true;
+        const stub = stubText(how);
+        const title = card.querySelector('h3');
+        slot.hidden = !stub;
+        if (stub) {
+          slot.className = 'cleared-stub';
+          slot.innerHTML = `<span class="cleared-stub__tick" aria-hidden="true">✓</span> `
+            + `<strong>${esc(title ? title.textContent : '')}</strong> ${esc(stub)}`
+            + (how === 'fixed' && !card.querySelector('[data-fix-undo]') ? ''
+              : ` <button type="button" class="link-button" data-stub-undo="${esc(key)}">Undo</button>`);
+        }
         slot.setAttribute('data-card-slot', key);
         card.parentNode.insertBefore(slot, card);
         slots.set(key, slot);
@@ -271,7 +289,28 @@ const ClearList = (function () {
       if (typeof o.onChange === 'function') o.onChange(card, null);
     }
 
+    function undo(card) {
+      const how = state.how(keyOf(card));
+      if (how === 'fixed') {
+        const fixUndo = card.querySelector('[data-fix-undo]');
+        if (fixUndo) fixUndo.click();
+        return;
+      }
+      if (how === 'did') { restore(card); return; }
+      if ((how === 'marked' || how === 'marked_before') && typeof o.undoMark === 'function') {
+        // Open it, so the engine's answer (or a refusal) can be read.
+        showDetails(card, true);
+        o.undoMark(card.querySelector('[data-mark-card]'));
+      }
+    }
+
     root.addEventListener('click', (event) => {
+      const stub = event.target && event.target.closest ? event.target.closest('[data-stub-undo]') : null;
+      if (stub) {
+        const card = root.querySelector(`[data-card-key="${String(stub.getAttribute('data-stub-undo')).replace(/["\\]/g, '')}"]`);
+        if (card) undo(card);
+        return;
+      }
       const target = event.target && event.target.closest
         ? event.target.closest('[data-clear-did],[data-clear-undo],[data-clear-details]') : null;
       const card = cardOf(target);
@@ -281,13 +320,7 @@ const ClearList = (function () {
         showDetails(card, !card.hasAttribute('data-show-details'));
         return;
       }
-      const how = state.how(keyOf(card));
-      if (how === 'did' || how === 'fixed') { restore(card); return; }
-      if ((how === 'marked' || how === 'marked_before') && typeof o.undoMark === 'function') {
-        // Open it, so the engine's answer (or a refusal) can be read.
-        showDetails(card, true);
-        o.undoMark(card.querySelector('[data-mark-card]'));
-      }
+      undo(card);
     });
 
     // A new checkup: forget every answer from the last one (none of "I did
@@ -312,7 +345,7 @@ const ClearList = (function () {
   }
 
   return {
-    createState, progressText, summaryText, noteText, undoLabel, personSaid, didLabel, didControlsHtml, sectionHtml, attach,
+    createState, progressText, summaryText, noteText, stubText, undoLabel, personSaid, didLabel, didControlsHtml, sectionHtml, attach,
   };
 })();
 

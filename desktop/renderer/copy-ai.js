@@ -31,6 +31,7 @@ function copyAiButtonHtml(finding, pick) {
   const id = copyAiRegistry.push(pick || copyAiPick(finding)) - 1;
   return `<div class="copy-ai">
     <button type="button" class="btn btn--secondary btn--small" data-copy-ai="${id}">Copy for any AI</button>
+    <span class="muted get-help__where">Copies the text to paste into ChatGPT, Claude or another assistant.</span>
     <div class="copy-ai__slot" data-copy-ai-slot="${id}" aria-live="polite"></div>
   </div>`;
 }
@@ -90,9 +91,13 @@ if (typeof document !== 'undefined') {
   const slot = (key) => document.querySelector(`[data-copy-ai-slot="${key}"]`);
 
   async function open(key) {
+    // 'all', one card's id, or 'sel:3,7,9': the cards ticked on the list.
     const findings = key === 'all'
       ? (copyAiReport && copyAiReport.findings) || []
-      : [copyAiRegistry[Number(key)]].filter(Boolean);
+      : String(key).startsWith('sel:')
+        ? String(key).slice(4).split(',').filter((x) => /^\d+$/.test(x)).map((x) => copyAiRegistry[Number(x)]).filter(Boolean)
+        : [copyAiRegistry[Number(key)]].filter(Boolean);
+    if (!findings.length && key !== 'all') return;
     const payload = Object.assign({}, copyAiReport || {}, { findings });
     let text = null;
     try {

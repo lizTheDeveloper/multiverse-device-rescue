@@ -72,6 +72,7 @@ function askButtonHtml(finding) {
   }) - 1;
   return `<div class="ask">
     <button type="button" class="btn btn--secondary btn--small" data-ask-id="${id}">Ask about this</button>
+    <span class="muted get-help__where">Asks The Multiverse School’s AI helper. You see what’s sent first.</span>
     <div class="ask__slot" data-ask-slot="${id}" aria-live="polite"></div>
   </div>`;
 }

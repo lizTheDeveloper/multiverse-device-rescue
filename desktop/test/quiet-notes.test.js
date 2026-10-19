@@ -214,8 +214,9 @@ test('the list in standard mode: no hotline text except the one line on monitori
   ] });
   p.answer('known'); // the follow-up (Task 5)
   const html = p.byId('results-groups').innerHTML;
-  assert.strictEqual(html.split('Removing this can alert whoever installed it. Read this first.').length, 2, 'the one line, once');
-  assert.doesNotMatch(html.replace(/<details class="finding-card__note">[\s\S]*?<\/details>/g, ''), DV);
+  // The card has fix and mark buttons: the line is on its face, the note behind "Read this first".
+  assert.strictEqual(html.split('Removing this can alert whoever installed it.').length, 2, 'the one line, once');
+  assert.doesNotMatch(html.replace(/<div class="finding-card__note finding-card__note--first"[\s\S]*?<\/details><\/div>/g, ''), DV);
 });
 
 test('the game’s mission screens read the same quiet text', async () => {

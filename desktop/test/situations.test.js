@@ -43,7 +43,8 @@ test('progress reads as words and a percentage', () => {
   const start = describeProgress({ phase: 'start', index: 23, total: 120,
     module: 'launch_agent_audit', category: 'security' });
   assert.strictEqual(start.headline, 'Looking for security problems');
-  assert.strictEqual(start.detail, 'Launch agent audit · check 23 of 120');
+  // No check id on screen ("Smcreset guide"): just the count.
+  assert.strictEqual(start.detail, 'Check 23 of 120');
   assert.strictEqual(start.percent, 18);
   assert.strictEqual(describeProgress({ phase: 'done', index: 120, total: 120,
     module: 'x', category: 'odd' }).percent, 100);

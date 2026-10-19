@@ -24,6 +24,8 @@ const QuietNotes = (function () {
   // "DV": under /i it matched the flag in `codesign -dv`.
   const MARKERS = /799-7233|88788|\btext\s+START\b|\badvocates?\b|domestic\s+violence|\bDV\s+Hotline\b|\bpartner,\s+(?:an\s+)?ex\b|\bex-partner\b|\bhousemates?\b|\babuser\b/i;
   const LINE = 'Removing this can alert whoever installed it. Read this first.';
+  // The same warning, on its face, before a card's fix and mark buttons and in the fix confirm.
+  const LINE_SHORT = 'Removing this can alert whoever installed it.';
   // A sentence that warns removing or switching something off can alert
   // someone: "removing it can alert them", "Switching off remote access
   // someone else set up can alert them", "removal can alert them".
@@ -220,7 +222,21 @@ const QuietNotes = (function () {
   // What one card may say. Monitoring software keeps its own steps: they are
   // the careful way to deal with it, read after the line. In city mode
   // nothing is quieted.
+  // A sentence that points at steps the card doesn't show ("the steps below
+  // cover removal…"): out, when there are none.
+  const STEPS_BELOW = /\bsteps?\s+below\b|\bbelow\b[^.!?]*\bsteps?\b/i;
+  function withoutMissingSteps(text, steps) {
+    if (steps && steps.length) return text;
+    return paragraphs(text).map((p) => sentences(p).filter((x) => !STEPS_BELOW.test(x)).join('').replace(/\s+$/, ''))
+      .filter((p) => p.trim() !== '').join('\n\n');
+  }
+
   function cardText(mode, finding) {
+    const out = cardTextRaw(mode, finding);
+    return { ...out, description: withoutMissingSteps(out.description, out.steps) };
+  }
+
+  function cardTextRaw(mode, finding) {
     const f = finding || {};
     const note = noteFor(mode, f);
     if (note === 'held') return { note, description: heldDescription(f.description), steps: [], full: [] };
@@ -245,8 +261,14 @@ const QuietNotes = (function () {
     return `<div class="finding-card__note" role="note">${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</div>`;
   }
 
-  function lineHtml(card, esc) {
+  // `opts.first`: the card has fix or mark buttons, so the warning is on its
+  // face above them, with the full note behind "Read this first".
+  function lineHtml(card, esc, opts = {}) {
     if (!card || card.note !== 'line') return '';
+    if (opts.first) {
+      return `<div class="finding-card__note finding-card__note--first" role="note"><p><strong>${esc(LINE_SHORT)}</strong></p>`
+        + `<details><summary>Read this first</summary>${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</details></div>`;
+    }
     return `<details class="finding-card__note"><summary>${esc(LINE)}</summary>${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</details>`;
   }
 
@@ -276,7 +298,7 @@ const QuietNotes = (function () {
       category: f.category, code: f.code };
   }
 
-  return { MONITORING_MODULES, NOT_DETECTIONS, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
+  return { MONITORING_MODULES, NOT_DETECTIONS, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
