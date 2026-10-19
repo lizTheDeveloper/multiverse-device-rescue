@@ -1,0 +1,220 @@
+{
+  "_note": "Synthetic findings for the Switchboard game tests. Documentation IP ranges and .example names only; no real scan data.",
+  "findings": [
+    {
+      "module": "open_ports_scan", "platform": "darwin", "severity": "warning",
+      "code": "security.open_ports_scan.exposed_risky_ports",
+      "title": "A database service is open to your network (1 found)",
+      "description": "We found 1 service(s) that are open to your entire network.",
+      "data": { "check": "exposed_risky_ports", "ports": ["5432 (postgres) listening on 0.0.0.0"] },
+      "expect": { "kind": "port", "expected": "keep", "odd": "settings", "pane": "firewall" }
+    },
+    {
+      "module": "suspicious_connections", "platform": "darwin", "severity": "warning",
+      "code": "security.suspicious_connections.unusual_listening_port",
+      "title": "A program is listening on an unusual port",
+      "description": "helperd is waiting for connections on port 4444.",
+      "data": { "check": "unusual_listening_port", "pid": 4242, "process": "helperd", "port": 4444, "ports": [4444] },
+      "expect": { "kind": "port", "expected": "keep", "odd": "settings", "pane": "firewall" }
+    },
+    {
+      "module": "network_connections_monitor", "platform": "darwin", "severity": "critical",
+      "code": "security.network_connections_monitor.backdoor_ports",
+      "title": "Connections found on ports often used by malware (1)",
+      "description": "One connection uses a port often used by malware.",
+      "removal_alert": true,
+      "data": { "check": "backdoor_ports", "connections": ["relayd (PID 501) -> 198.51.100.23:31337"] },
+      "expect": { "kind": "conn", "expected": "keep", "odd": "odd" }
+    },
+    {
+      "module": "suspicious_connections", "platform": "darwin", "severity": "warning",
+      "code": "security.suspicious_connections.unusual_outbound_connection",
+      "title": "A program is connecting out on an unusual port",
+      "description": "updaterx connects out on port 6667.",
+      "data": { "check": "unusual_outbound_connection", "pid": 777, "process": "updaterx", "port": 6667, "ports": [6667] },
+      "expect": { "kind": "conn", "expected": "keep", "odd": "odd" }
+    },
+    {
+      "module": "firewall_rules_audit", "platform": "darwin", "severity": "warning",
+      "code": "security.firewall_rules_audit.too_many_apps",
+      "title": "Many apps are allowed through the firewall",
+      "description": "32 apps can accept connections.",
+      "data": { "check": "too_many_apps", "count": 32, "apps": ["Example Chat", "Example Sync", "Example Games"] },
+      "expect": { "kind": "firewall", "expected": "keep", "odd": "settings", "pane": "firewall" }
+    },
+    {
+      "module": "firewall_rules_audit", "platform": "darwin", "severity": "warning",
+      "code": "security.firewall_rules_audit.allow_signed_enabled",
+      "title": "Signed apps are let through the firewall automatically",
+      "description": "Any signed app can accept connections without asking.",
+      "fixable": { "will_change": "Signed apps will ask before accepting connections.", "how_to_undo": ["Turn it back on in Firewall Options."] },
+      "data": { "check": "allow_signed_enabled" },
+      "expect": { "kind": "firewall", "expected": "keep", "odd": "fix" }
+    },
+    {
+      "module": "dns_poisoning_check", "platform": "darwin", "severity": "warning",
+      "code": "security.dns_poisoning_check.dns_filtering_profile",
+      "title": "Your DNS goes through a filtering profile (ExampleDNS)",
+      "description": "A profile's owner can see every website name looked up. Check it's yours.\n\nIf you think someone close to you set this up to monitor you, changing it can alert them. Talk to an advocate first (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).",
+      "removal_alert": true,
+      "markable": { "kind": "dns_profile", "id": "0a1b2c3d4e5f", "code": "security.dns_poisoning_check.dns_filtering_profile", "group": "5f4e3d2c1b0a" },
+      "data": { "check": "dns_filtering_profile", "provider": "ExampleDNS", "servers": ["192.0.2.53", "192.0.2.54"], "profile_ids": ["ab12cd"] },
+      "expect": { "kind": "profile", "expected": "mark", "odd": "settings", "pane": "dns" }
+    },
+    {
+      "module": "dns_poisoning_check", "platform": "darwin", "severity": "warning",
+      "code": "security.dns_poisoning_check.suspicious_dns",
+      "title": "Your DNS server isn't a well-known one",
+      "description": "Website names are looked up by a server we don't recognise.",
+      "removal_alert": true,
+      "data": { "check": "suspicious_dns", "servers": ["198.51.100.9"] },
+      "expect": { "kind": "dns", "expected": "keep", "odd": "settings", "pane": "dns" }
+    },
+    {
+      "module": "hosts_file_check", "platform": "darwin", "severity": "critical",
+      "code": "security.hosts_file_check.bank_domain_redirect",
+      "title": "A bank website name is being redirected",
+      "description": "Your computer's address book (/etc/hosts) sends a bank's name somewhere else.",
+      "data": { "check": "bank_domain_redirect", "count": 1, "entries": [{ "ip": "203.0.113.7", "hostname": "online.examplebank.example" }] },
+      "expect": { "kind": "hosts", "expected": "keep", "odd": "odd" }
+    },
+    {
+      "module": "network_proxy", "platform": "darwin", "severity": "warning",
+      "code": "security.network_proxy.proxy_enabled",
+      "title": "Web traffic goes through a proxy",
+      "description": "Wi-Fi sends web traffic through a proxy server.",
+      "removal_alert": true,
+      "markable": { "kind": "network_proxy", "id": "1a2b3c4d5e6f", "code": "security.network_proxy.proxy_enabled", "group": "6f5e4d3c2b1a" },
+      "data": { "check": "proxy_enabled", "interface": "Wi-Fi", "enabled_proxies": ["HTTP", "HTTPS"], "http_server": "proxy.example:8080", "https_server": "proxy.example:8443", "socks_server": null, "proxy_servers": ["proxy.example:8080"] },
+      "expect": { "kind": "proxy", "expected": "mark", "odd": "settings", "pane": "network" }
+    },
+    {
+      "module": "network_proxy_check", "platform": "darwin", "severity": "critical",
+      "code": "network.network_proxy_check.remote_pac_url",
+      "title": "A setup file from the internet decides where web traffic goes",
+      "description": "Wi-Fi reads its proxy setup from a file on another server.",
+      "removal_alert": true,
+      "data": { "check": "remote_pac_url", "interface": "Wi-Fi", "target": "Wi-Fi", "pac_url": "http://203.0.113.80/proxy.pac" },
+      "expect": { "kind": "proxy", "expected": "keep", "odd": "settings", "pane": "network" }
+    },
+    {
+      "module": "remote_login_check", "platform": "darwin", "severity": "warning",
+      "code": "security.remote_login_check.screen_sharing_enabled",
+      "title": "Screen Sharing is on",
+      "description": "Another computer can see and control this screen.",
+      "removal_alert": true,
+      "markable": { "kind": "sharing_service", "id": "2a3b4c5d6e7f", "code": "security.remote_login_check.screen_sharing_enabled", "group": "7f6e5d4c3b2a" },
+      "data": { "service": "screen_sharing" },
+      "expect": { "kind": "sharing", "expected": "mark", "odd": "settings", "pane": "sharing" }
+    },
+    {
+      "module": "sharing_preferences_audit", "platform": "darwin", "severity": "warning",
+      "code": "security.sharing_preferences_audit.printer_sharing",
+      "title": "Printer Sharing is on",
+      "description": "Other computers on your network can use your printer.",
+      "markable": { "kind": "sharing_service", "id": "3a4b5c6d7e8f", "code": "security.sharing_preferences_audit.printer_sharing", "group": "8f7e6d5c4b3a" },
+      "data": { "service": "printer_sharing" },
+      "expect": { "kind": "sharing", "expected": "mark", "odd": "settings", "pane": "sharing" }
+    },
+    {
+      "module": "airdrop_config", "platform": "darwin", "severity": "warning",
+      "code": "security.airdrop_config.airdrop_everyone",
+      "title": "AirDrop is open to everyone",
+      "description": "Anyone nearby can send you files.",
+      "markable": { "kind": "sharing_service", "id": "4a5b6c7d8e9f", "code": "security.airdrop_config.airdrop_everyone", "group": "9f8e7d6c5b4a" },
+      "data": { "check": "airdrop_everyone" },
+      "expect": { "kind": "sharing", "expected": "mark", "odd": "settings", "pane": "sharing" }
+    },
+    {
+      "module": "wifi_security_audit", "platform": "darwin", "severity": "critical",
+      "code": "network.wifi_security_audit.open_network_connected",
+      "title": "You're on a Wi-Fi network with no password",
+      "description": "Others on this network can see unprotected traffic.",
+      "data": { "check": "open_network_connected", "network": "Cafe Guest Example", "security": "None" },
+      "expect": { "kind": "wifi", "expected": "keep", "odd": "settings", "pane": "network" }
+    },
+    {
+      "module": "router_security_audit", "platform": "darwin", "severity": "warning",
+      "code": "network.router_security_audit.upnp_enabled",
+      "title": "Your router lets devices open ports on their own (UPnP)",
+      "description": "Devices on your network can open ports to the internet without asking.",
+      "data": { "check": "upnp_enabled", "gateway_ip": "192.0.2.1", "confidence": 0.7 },
+      "expect": { "kind": "router", "expected": "keep", "odd": "odd" }
+    },
+    {
+      "module": "vpn_leak_check", "platform": "darwin", "severity": "warning",
+      "code": "network.vpn_leak_check.dns_leak",
+      "title": "Website lookups go around your VPN",
+      "description": "Some DNS servers aren't the VPN's.",
+      "data": { "check": "dns_leak", "vpn_name": "Example VPN", "non_vpn_servers": ["192.0.2.1"], "all_servers": ["198.51.100.2", "192.0.2.1"] },
+      "expect": { "kind": "dns", "expected": "keep", "odd": "settings", "pane": "dns" }
+    },
+    {
+      "module": "vpn_leak_check", "platform": "darwin", "severity": "warning",
+      "code": "network.vpn_leak_check.split_tunneling",
+      "title": "Some traffic goes around your VPN",
+      "description": "There are two default routes.",
+      "data": { "check": "split_tunneling", "vpn_name": "Example VPN", "default_routes": ["utun3", "en0"] },
+      "expect": { "kind": "vpn", "expected": "keep", "odd": "settings", "pane": "vpn" }
+    },
+    {
+      "module": "win_firewall_rules_audit", "platform": "win32", "severity": "warning",
+      "code": "security.win_firewall_rules_audit.rule_allows_all_ports",
+      "title": "A firewall rule lets a program in on every port",
+      "description": "The rule 'Example Game Server' allows all ports.",
+      "data": { "rule_name": "Example Game Server", "issue_type": "all_ports", "profile": "Public" },
+      "expect": { "kind": "firewall", "expected": "keep", "odd": "settings", "pane": "windows-firewall" }
+    },
+    {
+      "module": "win_hosts_file_check", "platform": "win32", "severity": "critical",
+      "code": "security.win_hosts_file_check.blocked_security_domains",
+      "title": "Security update sites are blocked in your hosts file",
+      "description": "Your antivirus can't reach its update site.",
+      "data": { "blocked_domains": ["update.examplesecurity.example"], "check": "blocked_security_domains" },
+      "expect": { "kind": "hosts", "expected": "keep", "odd": "odd" }
+    },
+    {
+      "module": "win_proxy_detect", "platform": "win32", "severity": "critical",
+      "code": "security.win_proxy_detect.localhost_suspicious",
+      "title": "Web traffic goes through a program on this PC",
+      "description": "A local proxy sees your web traffic.",
+      "removal_alert": true,
+      "data": { "proxy_server": "127.0.0.1:8888", "type": "ie_proxy" },
+      "expect": { "kind": "proxy", "expected": "keep", "odd": "settings", "pane": "network" }
+    },
+    {
+      "module": "win_rdp_check", "platform": "win32", "severity": "critical",
+      "code": "security.win_rdp_check.rdp_enabled_no_nla",
+      "title": "Remote Desktop is on without a sign-in step",
+      "description": "Anyone who reaches this PC can try to sign in.",
+      "removal_alert": true,
+      "data": { "rdp_enabled": true, "nla_enabled": false, "rdp_port": 3389 },
+      "expect": { "kind": "sharing", "expected": "keep", "odd": "settings", "pane": "sharing" }
+    },
+    {
+      "module": "win_remote_access_audit", "platform": "win32", "severity": "warning",
+      "code": "security.win_remote_access_audit.anydesk_installed",
+      "title": "A remote access app is installed (AnyDesk)",
+      "description": "Someone with its code can control this PC.",
+      "removal_alert": true,
+      "data": { "check": "anydesk_installed", "tool": "AnyDesk" },
+      "expect": { "kind": "sharing", "expected": "keep", "odd": "settings", "pane": "windows-apps" }
+    },
+    {
+      "module": "win_network_shares_audit", "platform": "win32", "severity": "warning",
+      "code": "security.win_network_shares_audit.everyone_write_access",
+      "title": "A shared folder lets everyone change files",
+      "description": "Everyone on the network can write to Projects.",
+      "data": { "check": "everyone_write_access", "share": "Projects", "path": "C:\\Shares\\Projects" },
+      "expect": { "kind": "sharing", "expected": "keep", "odd": "settings", "pane": "sharing" }
+    },
+    {
+      "module": "win_dns_config", "platform": "win32", "severity": "warning",
+      "code": null,
+      "title": "DNS servers aren't the usual ones",
+      "description": "This PC looks up website names with servers we don't recognise.",
+      "data": { "check_type": "dns_servers", "dns_servers": ["198.51.100.77"] },
+      "expect": { "kind": "dns", "expected": "keep", "odd": "settings", "pane": "dns" }
+    }
+  ]
+}

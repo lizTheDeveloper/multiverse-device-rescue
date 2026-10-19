@@ -1,0 +1,71 @@
+/* The Switchboard: one traced network line per row (this computer -> port / service -> where it goes).
+   Uses the game's CSS variables with fallbacks; the runner's mission chrome draws buttons and evidence. */
+
+.sb-card {
+  --sb-ink: var(--rc-ink, #e8f0ee);
+  --sb-dim: var(--rc-dim, #9fb3ae);
+  --sb-panel: var(--rc-panel, #14211f);
+  --sb-node: var(--rc-panel-2, #1c2e2b);
+  --sb-wire: var(--rc-accent, #5fd4b8);
+  --sb-odd: var(--rc-warn, #f2b44b);
+  --sb-line: var(--rc-border, #2c4440);
+  color: var(--sb-ink);
+  background: var(--sb-panel);
+  border: 1px solid var(--sb-line);
+  border-radius: 10px;
+  padding: 16px;
+  font: inherit;
+}
+
+.sb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.sb-chip {
+  font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid var(--sb-wire); color: var(--sb-wire);
+}
+.sb-count { font-size: 0.8rem; color: var(--sb-dim); margin-left: auto; }
+.sb-title { flex-basis: 100%; margin: 4px 0 0; font-size: 1.1rem; line-height: 1.3; }
+
+.sb-step {
+  margin: 0 0 12px; padding: 10px 12px; border-left: 3px solid var(--sb-wire);
+  background: color-mix(in srgb, var(--sb-wire) 12%, transparent); border-radius: 4px;
+}
+
+.sb-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.sb-line { display: flex; align-items: center; gap: 0; min-width: 0; }
+.sb-node {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  padding: 8px 10px; background: var(--sb-node); border: 1px solid var(--sb-line); border-radius: 8px;
+}
+.sb-from { flex: 0 0 auto; }
+.sb-via, .sb-to { flex: 1 1 0; }
+.sb-node small { font-size: 0.7rem; color: var(--sb-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.sb-node code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.sb-wire { flex: 0 0 24px; height: 2px; background: var(--sb-wire); position: relative; }
+.sb-wire::after {
+  content: ''; position: absolute; right: -1px; top: -4px;
+  border-left: 6px solid var(--sb-wire); border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+}
+.sb-odd .sb-to { border-color: var(--sb-odd); box-shadow: 0 0 0 1px var(--sb-odd) inset; }
+.sb-odd .sb-wire:nth-child(4) { background: var(--sb-odd); }
+.sb-odd .sb-wire:nth-child(4)::after { border-left-color: var(--sb-odd); }
+
+.sb-more { margin: 6px 0 0; color: var(--sb-dim); font-size: 0.85rem; }
+.sb-ask {
+  margin: 12px 0 0; padding: 10px 12px; border: 1px dashed var(--sb-odd); border-radius: 8px;
+}
+.sb-ask p { margin: 4px 0 0; }
+.sb-what { margin: 12px 0 0; color: var(--sb-dim); line-height: 1.45; }
+.sb-unfinished { margin: 8px 0 0; color: var(--sb-odd); font-weight: 600; }
+
+.sb-summary p { margin: 0 0 6px; }
+
+@media (max-width: 560px) {
+  .sb-line { flex-direction: column; align-items: stretch; }
+  .sb-wire { flex: 0 0 16px; width: 2px; height: 16px; align-self: center; }
+  .sb-wire::after { right: -4px; top: auto; bottom: -1px;
+    border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--sb-wire); border-bottom: 0; }
+  .sb-odd .sb-wire:nth-child(4)::after { border-top-color: var(--sb-odd); border-left-color: transparent; }
+}
