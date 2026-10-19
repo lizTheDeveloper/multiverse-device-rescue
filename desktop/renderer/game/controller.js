@@ -11,7 +11,7 @@ import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, record
 import { conceptById, isHidden } from './profile/skills.js';
 import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, PUBLISH_FIELDS } from './profile/publish.js';
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedSummary, notCheckedLine, todoCount, repeatsMerged } from './signals.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, todoCount, repeatsMerged, cityCounts } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, drillSignal, pickDrills } from './drills.js';
@@ -180,7 +180,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const bank0 = buildBank([], []);
   // Offers are once per sweep; before the first sweep, once per session.
   const sessionStart = now();
-  const s = { doc: null, held: [], heldCity: null, situation: null, city: null, profile: profile0, bank: bank0, cityBank: bank0,
+  const s = { doc: null, counts: null, stopped: null, phone: null, held: [], heldCity: null, situation: null, city: null, profile: profile0, bank: bank0, cityBank: bank0,
     progress: toProgress(profile0, bank0), saveNotice: loadNotice, cameBack: [],
     screen: 'map', districtId: null, missionId: null, outcome: null, outcomeMission: null, lastFix: null, message: '', busy: false,
     trigger: 'i-did-it', recheckModules: [], shown: 0, focusPending: false,
@@ -321,15 +321,24 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // that didn't finish, never among the notes (the same rule as the list).
     const folded = foldPartly(split.doc);
     s.city = findingsToCity(quietDoc(folded.doc));
+    // Every number the city shows comes from here (NotChecked.scanCounts, city mode).
+    s.counts = cityCounts(doc);
+    // A checkup that stopped before its report was put together (engine-runner
+    // stoppedDocOf): what it found is shown, nothing is acted on, and no
+    // district reads as clear.
+    s.stopped = stoppedOf(doc);
     for (const d of s.city.districts) {
       d.unfinished = (d.unfinished || []).map((x) => (folded.partly.has(x.module) ? { ...x, titles: folded.partly.get(x.module) } : x));
+      d.counts = s.counts.byDistrict[d.id] || null;
+      if (s.stopped) { d.stopped = true; if (d.status === 'clear' || d.status === 'none') d.status = d.checksRan > 0 ? 'partial' : d.status; }
     }
-    const ranOk = ranOkModules(doc);
+    // A stopped checkup proves nothing gone: nothing is reclaimed, dropped or confirmed from it.
+    const ranOk = s.stopped ? new Set() : ranOkModules(doc);
     const r = reconcile(s.progress, s.city, ranOk, now());
     s.cameBack = r.cameBack.filter((id) => id !== putBack);
     // The deck follows the scan too: a changed finding's tag is set aside, a
     // gone one's is dropped, and a confirmed fix that came back no longer counts.
-    const rd = reconcileDeck(r.progress.deck, buildSignals(s.city, r.progress.deck), ranOk);
+    const rd = reconcileDeck(r.progress.deck, buildSignals(s.city, r.progress.deck, null, { cover: coverMode() }), ranOk);
     rd.changed.forEach((id) => s.changedTags.add(id));
     // Held software seen in this sweep (a scan or a re-check) marks it, on disk
     // as a bare flag, so its going later is never paid, even after a restart.
@@ -349,6 +358,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return s.doc.modules.filter((mod) => mod && Array.isArray(mod.findings) && mod.findings.some((f) => f
       && ((f.markable && want.has(f.markable.id)) || (f.data && want.has(f.data.known_item_id)))))
       .map((mod) => mod.name);
+  }
+  // { stage: 'assembly'|'early', done, total } of a stopped checkup, else null.
+  function stoppedOf(doc) {
+    const st = doc && doc.stopped && typeof doc.stopped === 'object' ? doc.stopped : null;
+    if (!st) return null;
+    return { stage: st.stage === 'assembly' ? 'assembly' : 'early', done: Number(st.done) || 0, total: Number(st.total) || 0 };
   }
   const mission = (id) => s.city.districts.flatMap((d) => d.missions).find((m) => m.id === id) || null;
   const district = (id) => s.city.districts.find((d) => d.id === id) || null;
@@ -501,7 +516,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     return r.points || 0;
   }
-  const signalsNow = () => (s.city ? buildSignals(s.city, s.progress.deck, s.changedTags) : []);
+  const signalsNow = () => (s.city ? buildSignals(s.city, s.progress.deck, s.changedTags, { cover: coverMode() }) : []);
   // This sweep's drills: about one per four real signals, from their districts.
   function sweepDrillsNow() {
     const real = queueOf(signalsNow(), null).urgent.filter((x) => x.kind === 'real');
@@ -579,7 +594,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null, learned: learnedCount(),
       scanRunning: s.scan.running, districtName: nameOf, notice: heldNotice() + s.linkNotice,
       // With something held, an empty queue points to it instead of saying "clear".
-      notChecked: notCheckedLine(notCheckedSummary(s.doc)), todo: todoCount(sigs), repeats: repeatsMerged(s.city),
+      notChecked: notCheckedLine(s.counts), todo: todoCount(sigs), repeats: repeatsMerged(s.city),
+      sweepNow: s.counts, stopped: s.stopped,
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
@@ -732,13 +748,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function newSweep(doc, prev) {
     s.sweptDoc = doc;
     const sigs = signalsNow();
-    const counts = sweepCounts(doc, s.city, cityIntegrity(s.city, sigs, s.heldCity), s.heldCity);
+    const counts = sweepCounts(doc, s.city, cityIntegrity(s.city, sigs, s.heldCity));
     // The mark stays until the monitoring checks ran and found nothing held:
     // a sweep where one timed out or couldn't look (fog) keeps it.
-    const carry = heldDistrictIds(s.heldCity).size > 0 || (s.progress.deck.sweep.carry === true && !monitoringRanClear(doc));
-    const r = recordSweep(s.progress.deck, counts, now(), { carry });
+    // A stopped checkup is never a clean sweep, and it carries any held mark on.
+    const carry = heldDistrictIds(s.heldCity).size > 0 || (s.progress.deck.sweep.carry === true && (!!s.stopped || !monitoringRanClear(doc)));
+    const r = recordSweep(s.progress.deck, counts, now(), { carry: carry || !!s.stopped });
     commitAward(r);
-    logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check${counts.unfinished ? `, ${counts.unfinished} didn’t finish` : ''}.`);
+    logEntry('SWEEP', sweepLogText(counts, s.stopped));
     if (r.clean) {
       addMoment({ kind: 'clean', title: 'CLEAN SWEEP', text: 'No critical or warning signal is open in any district that could be checked.' });
       logEntry('CLEAN SWEEP', 'Every district that could be checked is secured.');
@@ -746,7 +763,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const here = new Set(sigs.map((x) => x.id));
     // Only a check that ran and finished can say something is no longer there.
     const looked = ranOkModules(doc);
-    for (const p of prev) {
+    for (const p of s.stopped ? [] : prev) {
       if (p.kind === 'real' && (p.tag || p.severity !== 'info') && !here.has(p.id) && looked.has(p.module)) logEntry('NO LONGER SEEN', p.title);
     }
     s.opened = {};
@@ -754,6 +771,16 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.gapped = new Set();
     s.drillEvidence = new Set();
     s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
+  }
+
+  // The ops log's SWEEP line: the deck's own numbers (cityCounts), so it says
+  // what LAST SWEEP, the chips and the banner say. Held findings are never in it.
+  function sweepLogText(c, stopped) {
+    const parts = [`${c.items} to look at (${c.critical} critical)`];
+    if (c.fog) parts.push(`${c.fog} couldn’t run or didn’t finish`);
+    if (c.notStarted) parts.push(`${c.notStarted} waiting for you`);
+    const head = `${c.total} check${c.total === 1 ? '' : 's'}`;
+    return `${head}: ${parts.join(', ')}.${stopped ? ' The sweep stopped before its report was done.' : ''}`;
   }
 
   // A district that had something open and now has nothing open in the checks that ran.
@@ -1080,7 +1107,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), rank: rankOf(s.progress.deck),
-          todo: s.city ? todoCount(signalsNow()) : null, notChecked: s.doc ? notCheckedSummary(s.doc) : null }) + s.linkNotice;
+          todo: s.city ? todoCount(signalsNow()) : null, notChecked: s.counts }) + s.linkNotice;
       frame.innerHTML = saveNoticeHtml() + hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());

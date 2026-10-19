@@ -6,13 +6,15 @@ import { countReclaimed } from '../progress.js';
 // With `counts` (the game) it is the deck's HUD on every screen: the rank
 // (opens YOUR FILE), what's done, and what's left to do; no running tally of
 // criticals and warnings, which only frightens. `rank`: { name, points }.
-// `todo` (signals.js todoCount) and `notChecked` (notCheckedSummary of the
-// scan) are the deck's own counts, so the HUD on a mission says what the deck
+// `todo` (signals.js todoCount) and `notChecked` (NotChecked.scanCounts of
+// the scan, city mode) are the deck's own counts, so the HUD on a mission says what the deck
 // and the list say. Without them, the city's own totals.
 export function renderHud({ title, city, progress, counts, rank = null, todo = null, notChecked = null }) {
   const t = (city && city.totals) || { critical: 0, warning: 0, fog: 0 };
   const open = Number.isInteger(todo) ? todo : ((city && city.districts) || []).reduce((n, d) => n + d.missions.length, 0);
-  const fog = notChecked ? notChecked.couldntRun : t.fog;
+  // COULDN'T CHECK is the deck's chip: checks that couldn't run, and one
+  // waiting for a go-ahead (not checked either, but never "couldn't run").
+  const fog = notChecked ? (Number(notChecked.couldntRun) || 0) + (Number(notChecked.notStarted) || 0) : t.fog;
   const done = countReclaimed(progress);
   return `
   <header class="hud">

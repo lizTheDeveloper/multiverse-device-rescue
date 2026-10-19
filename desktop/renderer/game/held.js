@@ -34,17 +34,11 @@ export const isDetection = NC.isDetection;
 // does anything from the other monitoring checks, at any severity.
 export const FAMILIAR_CODE = 'security.keylogger_indicators.suspicious_input_monitoring';
 export const FAMILIAR_CHECK = 'claimed_vendor_input_monitoring';
-export function familiarVerified(f, module = f && f.module) {
-  if (!f || f.severity !== 'info' || f.code !== FAMILIAR_CODE || module !== 'keylogger_indicators') return false;
-  const d = f.data && typeof f.data === 'object' ? f.data : {};
-  const apps = Array.isArray(d.apps) ? d.apps : [];
-  const mb = Array.isArray(f.made_by) ? f.made_by.filter(Boolean) : [];
-  const known = (m) => m.verified === true && typeof m.what === 'string' && m.what.trim() !== ''
-    && typeof m.name === 'string' && m.name.trim() !== '';
-  return d.check === FAMILIAR_CHECK && apps.length > 0 && mb.length > 0 && mb.every(known)
-    && apps.every((a) => mb.some((m) => m.subject === a));
-}
-const holds = (f, module) => !!f && isDetection(f) && !familiarVerified(f, module);
+// The rule itself lives in not-checked.js, so the counts leave out exactly
+// what is held here.
+export const familiarVerified = NC.familiarVerified;
+export const isHeld = NC.isHeld;
+const holds = (f, module) => !!f && HELD_MODULES.has(module) && NC.isHeld(f, module);
 
 // What the help district shows about a held finding, so it can be written
 // down: the name, where it was found, how it was found, and who made it. From
@@ -83,8 +77,10 @@ export function splitHeld(doc) {
     }
     // Nothing found, and it couldn't look: fog, never clear. (With a
     // detection the check did look, and its district stays open for it.)
+    // A check waiting for a go-ahead (the iPhone backup scan) is fog too, and
+    // keeps `not_started` so the city offers it, never as "couldn't run".
     if (!found && NC.couldntLook(m)) {
-      return { ...m, findings: [], supported: false, unsupported_reason: COULDNT_LOOK_REASON };
+      return { ...m, findings: [], supported: false, unsupported_reason: COULDNT_LOOK_REASON, ...(NC.notStarted(m) ? { not_started: true } : {}) };
     }
     // A familiar app with a verified maker stays, as an ordinary note.
     return { ...m, findings: m.name === 'keylogger_indicators' ? fs.filter((f) => f && isDetection(f) && familiarVerified(f, m.name)) : [] };

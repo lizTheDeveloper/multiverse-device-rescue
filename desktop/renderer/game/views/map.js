@@ -33,6 +33,10 @@ export function heldView(d, held) {
   return held && typeof held.has === 'function' && held.has(d.id) && d.status === 'clear' ? { ...d, status: 'partial', held: true } : d;
 }
 
+// The not-checked badges come from the scan's one count (`d.counts`,
+// NotChecked.scanCounts byDistrict), so the districts add up to the deck's
+// line: couldn't run, didn't finish, only partly checked and waiting, each
+// check once. Without counts (a city built elsewhere), the city's own lists.
 export function districtBadges(d, reclaimed = 0) {
   const crit = d.missions.filter((m) => m.severity === 'critical').length;
   const warn = d.missions.length - crit;
@@ -40,17 +44,25 @@ export function districtBadges(d, reclaimed = 0) {
   if (crit) out.push(`<span class="badge crit">${crit} CRITICAL</span>`);
   if (warn) out.push(`<span class="badge warn">${warn} WARNING</span>`);
   if (d.notes.length) out.push(`<span class="badge skip">${d.notes.length} NOTES</span>`);
-  if (d.fog.length) out.push(`<span class="badge fog">${d.fog.length} COULDN’T CHECK</span>`);
-  const unfinished = (d.unfinished || []).length;
+  const c = d.counts;
+  const fog = c ? c.couldntRun : d.fog.length;
+  const unfinished = c ? c.unfinished : (d.unfinished || []).length;
+  const partly = c ? Math.max(0, c.notFully - c.couldntRun - c.unfinished - c.notStarted) : 0;
+  if (fog) out.push(`<span class="badge fog">${fog} COULDN’T CHECK</span>`);
   if (unfinished) out.push(`<span class="badge fog">${unfinished} DIDN’T FINISH</span>`);
+  if (partly) out.push(`<span class="badge fog">${partly} PARTLY CHECKED</span>`);
+  if (c && c.notStarted) out.push(`<span class="badge fog">${c.notStarted} NOT STARTED</span>`);
+  if (d.stopped) return out.join('');
   if (d.held) return out.join('');
   if (reclaimed) out.push(`<span class="badge safe">${reclaimed} RECLAIMED</span>`);
   else if (d.status === 'clear') out.push('<span class="badge safe">NOTHING FOUND</span>');
   return out.join('');
 }
 
+export const STOPPED_DISTRICT_LINE = 'The sweep stopped before its report was done. That doesn’t mean it’s safe.';
 export function districtLine(d, reclaimed = 0, heldAt = null) {
   if (d.held) return heldDistrictLine(heldAt);
+  if (d.stopped && d.status !== 'fog' && d.status !== 'hot' && d.status !== 'warn') return STOPPED_DISTRICT_LINE;
   if (d.status === 'fog') return 'Couldn’t check here. That doesn’t mean it’s safe.';
   if (d.status === 'partial' && (d.unfinished || []).length && !d.fog.length) return 'Some checks here didn’t finish. That doesn’t mean it’s safe.';
   if (d.status === 'none') return 'No checks ran here on this computer.';

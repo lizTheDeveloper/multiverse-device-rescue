@@ -213,7 +213,7 @@ test('P1-6 / P2-29: every check counted, couldn’t-check named with why, partly
   assert.strictEqual(couldntTitle({ module: 'code_signature_audit', reason: 'timed out after 60.0s' }), 'Code signature audit took too long');
   assert.strictEqual(couldntTitle({ module: 'b', reason: 'PermissionError: Operation not permitted' }), 'B needed a permission');
   assert.strictEqual(couldntTitle({ module: 'c', reason: 'Not on Windows' }), 'C couldn’t run here');
-  assert.strictEqual(sweepChecks({ checks: 5, fog: 6 }), '11 CHECKS, 6 COULDN’T RUN');
+  assert.strictEqual(sweepChecks({ checks: 5, fog: 6 }), '11 CHECKS, 6 COULDN’T RUN OR DIDN’T FINISH');
   assert.strictEqual(sweepChecks({ checks: 1, fog: 0 }), '1 CHECK');
 });
 

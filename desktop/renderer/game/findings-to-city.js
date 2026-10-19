@@ -2,6 +2,13 @@
 // kind of problem, one mission per warning or critical finding, notes for info
 // findings, fog where a check couldn't run, and `unfinished` where a check ran
 // but stopped before the end (the engine's "complete": false). Pure; no DOM.
+// One mission per item: findings that name the same thing (NotChecked.itemKey,
+// the engine's same_key) are one mission, so the city counts what the list
+// counts. Severity is the list's (NotChecked.shownSeverity).
+// Sets globalThis.NotChecked (a plain script the list loads too).
+import '../not-checked.js';
+
+const NC = globalThis.NotChecked;
 
 export const DISTRICTS = [
   { id: 'gatehouse', category: 'security', name: 'The Gatehouse', blurb: 'Security: things that start on their own, permissions, protection.' },
@@ -65,19 +72,24 @@ function statusOf(d) {
 export function findingsToCity(doc) {
   const byId = new Map([...DISTRICTS, OUTSKIRTS].map((d) => [d.id, emptyDistrict(d)]));
   const missions = new Map();
+  const byKey = new Map();
   const totals = { critical: 0, warning: 0, info: 0, fog: 0 };
   const modules = doc && Array.isArray(doc.modules) ? doc.modules : [];
 
   for (const mod of modules) {
     if (!mod || typeof mod.name !== 'string') continue;
     const district = byId.get(districtFor(mod.category).id);
+    const named = typeof mod.check_name === 'string' && mod.check_name.trim() ? { checkName: mod.check_name.trim() } : {};
     if (mod.status === 'error' || mod.supported === false) {
-      district.fog.push({ module: mod.name, reason: mod.unsupported_reason || mod.error || 'This check couldn’t run.' });
+      // `notStarted`: an opt-in check that can run here but waits for a
+      // go-ahead (held.js marks it): fog, never clear, and never "couldn't run".
+      district.fog.push({ module: mod.name, ...named, reason: mod.unsupported_reason || mod.error || 'This check couldn’t run.',
+        ...(mod.not_started === true ? { notStarted: true } : {}) });
       totals.fog += 1;
     } else {
       district.checksRan += 1;
       if (mod.complete === false) {
-        district.unfinished.push({ module: mod.name });
+        district.unfinished.push({ module: mod.name, ...named });
       }
     }
     for (const raw of Array.isArray(mod.findings) ? mod.findings : []) {
@@ -89,14 +101,20 @@ export function findingsToCity(doc) {
       const original = markedByUser && finding.data.original_severity;
       const sev = markedByUser
         ? (SEVERITY_RANK[original] ? original : 'warning')
-        : (SEVERITY_RANK[finding.severity] ? finding.severity : 'info');
+        : NC.shownSeverity(finding.category ? finding : { ...finding, category: mod.category });
       totals[sev] += 1;
       if (sev === 'info') { district.notes.push(finding); continue; }
       const id = findingIdentity(finding);
-      const existing = missions.get(id);
+      const key = NC.itemKey(finding, mod.name);
+      // The same item (same_key), or the same identity (the mission's id): one mission.
+      const existing = byKey.get(key) || missions.get(id);
       if (existing) {
+        if (!byKey.has(key)) byKey.set(key, existing);
         existing.findings.push(finding);
+        const acts = (x) => !!(x && (x.fixable || x.markable));
         if (SEVERITY_RANK[sev] > SEVERITY_RANK[existing.severity]) { existing.severity = sev; existing.primary = finding; }
+        // At the same severity, the one that can be fixed or marked leads (as on the list).
+        else if (SEVERITY_RANK[sev] === SEVERITY_RANK[existing.severity] && acts(finding) && !acts(existing.primary)) existing.primary = finding;
         existing.fixable = existing.fixable || !!finding.fixable;
         existing.markable = existing.markable || !!finding.markable;
         existing.marked = existing.marked && !!(finding.data && finding.data.marked_by_user === true);
@@ -114,6 +132,7 @@ export function findingsToCity(doc) {
         marked: !!(finding.data && finding.data.marked_by_user === true),
       };
       missions.set(id, mission);
+      byKey.set(key, mission);
       district.missions.push(mission);
     }
   }

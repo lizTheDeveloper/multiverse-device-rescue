@@ -279,20 +279,22 @@ test('held software turning up is not scored either; an ordinary clean sweep sti
   assert.ok(u.saved().deck.points > 0);
 });
 
-test('a sweep counts held criticals and warnings, as numbers only', async () => {
+// Every number the city shows leaves held findings out (NotChecked.scanCounts,
+// city mode): the ops log once said "4 critical" beside a CRITICAL 3 chip.
+test('a sweep leaves held criticals and warnings out of its counts, so the log matches the chips', async () => {
   const { sweepCounts, cityIntegrity } = await game('signals.js');
   const { findingsToCity } = await game('findings-to-city.js');
   const { splitHeld, heldOnly } = await game('held.js');
   const doc = scan(SPY(), mod('remote_login_check', [finding('Remote Login is on', 'warning')]));
   const city = findingsToCity(splitHeld(doc).doc);
   const held = findingsToCity(heldOnly(doc));
-  const c = sweepCounts(doc, city, cityIntegrity(city, [], held), held);
-  assert.strictEqual(c.critical, 1);
+  const c = sweepCounts(doc, city, cityIntegrity(city, [], held));
+  assert.strictEqual(c.critical, 0);
   assert.strictEqual(c.warning, 1);
-  assert.strictEqual(sweepCounts(doc, city, null).critical, 0, 'without the held city, as before');
   const t = await setup({ mode: 'city' }, doc);
   const sweep = t.saved().deck.sweeps.at(-1);
-  assert.strictEqual(sweep.critical, 1);
+  assert.strictEqual(sweep.critical, 0);
+  assert.match(t.html(), /SWEEP<\/span> 2 checks: 1 to look at \(0 critical\)\./);
   assert.doesNotMatch(JSON.stringify(t.saved()), /Monitoring app|stalkerware|\/m\b/);
 });
 
@@ -386,12 +388,16 @@ test('a monitoring check that couldn’t look is COULDN’T CHECK, never NOTHING
     for (const mode of ['city', 'standard', 'none']) {
       const t = await setup({ mode }, doc);
       const card = t.html().split(`data-go="district:${d.id}"`)[1].split('</button>')[0];
-      assert.match(card, /COULDN’T CHECK/, `${mode} ${code}`);
+      // A backup that can be scanned is waiting for a go-ahead: not started, never "couldn't check".
+      const waiting = code.endsWith('scan_available');
+      assert.match(card, waiting ? /NOT STARTED/ : /COULDN’T CHECK/, `${mode} ${code}`);
+      if (waiting) assert.doesNotMatch(card, /COULDN’T CHECK/, `${mode} ${code}`);
       assert.doesNotMatch(card, /NOTHING FOUND|Nothing found/, `${mode} ${code}`);
       assert.doesNotMatch(t.html(), /<b>100%<\/b>/, `${mode} ${code}`);
       // The district screen doesn't name the check.
       t.click({ 'data-go': `district:${d.id}` });
-      assert.doesNotMatch(t.html(), /mvt|spyware/i, `${mode} ${code}`);
+      // (Standard mode may say what the waiting sweep is for; city mode never does.)
+      assert.doesNotMatch(t.html(), waiting && mode === 'standard' ? /mvt/i : /mvt|spyware/i, `${mode} ${code}`);
     }
   }
   // A clean scan did look: it reads as checked.
