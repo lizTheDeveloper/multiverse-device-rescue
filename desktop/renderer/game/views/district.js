@@ -43,13 +43,18 @@ export function renderDistrict({ district: d, progress, scout, message = '', bus
   const titles = new Map();
   for (const m of d.missions) titles.set(m.title, (titles.get(m.title) || 0) + 1);
   const seen = new Map();
+  // `detail` gives a string (a path or id, drawn as code) or { text, mono: false } (names).
   const rowLine = (m) => {
     let line = '';
-    try { line = String(detail(m) || ''); } catch (_) { line = ''; }
+    let mono = true;
+    try {
+      const got = detail(m);
+      if (got && typeof got === 'object') { line = String(got.text || ''); mono = got.mono !== false; } else line = String(got || '');
+    } catch (_) { line = ''; }
     const n = (seen.get(m.title) || 0) + 1;
     seen.set(m.title, n);
     const of = titles.get(m.title) > 1 && !line ? ` (${n} of ${titles.get(m.title)})` : '';
-    return `${esc(of)}${line ? `<small class="mission-detail"><code>${esc(line)}</code></small>` : ''}`;
+    return `${esc(of)}${line ? `<small class="mission-detail">${mono ? `<code>${esc(line)}</code>` : esc(line)}</small>` : ''}`;
   };
   const shownMissions = allOpen ? d.missions : d.missions.slice(0, DISTRICT_SHOWN);
   const moreRow = d.missions.length > DISTRICT_SHOWN ? `

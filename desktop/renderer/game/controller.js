@@ -1109,11 +1109,39 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       }
     } catch (_) { /* the next render draws it */ }
   }
-  // A district row's one line of evidence: the first path, name or id the
-  // scan recorded, so two rows with the same title can be told apart.
+  // A district row's one line of evidence, so two rows with the same title
+  // can be told apart. One thing (a task, a file): its path, name or id. A
+  // list of apps ("Many apps can use your microphone"): the apps' names,
+  // the named ones first ("Amical, Caffeine, ChatGPT Classic and 38 more"),
+  // never whichever path or bare id happens to come first.
   function rowDetail(m) {
-    const r = evidenceRowsOf(m.primary || {}, m.module, false).find((x) => x.mono && !BOOKKEEPING.has(x.label));
+    const f = m.primary || {};
+    const rows = evidenceRowsOf(f, m.module, false).filter((x) => !BOOKKEEPING.has(x.label));
+    const byLabel = new Map();
+    for (const r of rows) byLabel.set(r.label, (byLabel.get(r.label) || 0) + 1);
+    // "Made by" repeats for one thing too (the program and its settings file): not a list.
+    const listLabel = [...byLabel.entries()].find(([label, n]) => n > 1 && !/^Made by/.test(label));
+    if (listLabel) {
+      const items = rows.filter((r) => r.label === listLabel[0]);
+      const named = items.filter((r) => !r.mono).map((r) => listName(r.value)).filter(Boolean);
+      const rest = items.filter((r) => r.mono).map((r) => listName(r.value)).filter(Boolean);
+      const names = [...named, ...rest];
+      const d = f.data && typeof f.data === 'object' ? f.data : {};
+      const total = Math.max(names.length, Number.isInteger(d.count) ? d.count : 0, Array.isArray(d.apps) ? d.apps.length : 0);
+      const shown = names.slice(0, 3);
+      if (!shown.length) return '';
+      return { text: `${shown.join(', ')}${total > shown.length ? ` and ${total - shown.length} more` : ''}`, mono: false };
+    }
+    const r = rows.find((x) => x.mono);
     return r ? r.value : '';
+  }
+  // "Amical (ai.amical.desktop) — Exa Labs LLC · verified" -> "Amical";
+  // "/opt/homebrew/Cellar/bash/5.3.3/bin/bash — Homebrew…" -> "bash".
+  function listName(value) {
+    const v = String(value == null ? '' : value).split(' — ')[0].trim();
+    const named = v.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    if (/^[~/]/.test(named)) return named.split('/').filter(Boolean).pop() || '';
+    return named;
   }
   // A briefing's text: home folders as "~" (the evidence block's rule).
   const homeText = (m) => ({ ...m, description: EV.homeRelative(m.description) });

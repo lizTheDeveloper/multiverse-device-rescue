@@ -217,3 +217,26 @@ test('LOW-PRIORITY SIGNALS shows the shared notes count once NotChecked gives on
   assert.match(renderDeck(base), /LOW-PRIORITY SIGNALS \(1\)/);
   assert.match(renderDeck({ ...base, lowCount: 291 }), /LOW-PRIORITY SIGNALS \(291\)/);
 });
+
+test('district rows: a list of apps shows app names, never the first Homebrew path or bare id', async () => {
+  const doc = fresh();
+  const { findingsToCity } = await game('findings-to-city.js');
+  const mic = findingsToCity(doc).districts.flatMap((d) => d.missions.map((m) => ({ m, d }))).find((x) => /microphone \(/.test(x.m.title));
+  assert.ok(mic, 'the fresh scan has the microphone list');
+  const t = await setup(doc);
+  t.click({ 'data-go': `district:${mic.d.id}` });
+  t.click({ 'data-act': 'toggle-district' });
+  const html = t.html();
+  const row = html.slice(html.indexOf(`data-go="mission:${mic.m.id.replace(/&/g, '&amp;')}"`));
+  const detail = /<small class="mission-detail">([\s\S]*?)<\/small>/.exec(row);
+  assert.ok(detail, 'the row has a detail line');
+  assert.doesNotMatch(detail[1], /homebrew|<code>|^com\./i);
+  assert.match(detail[1], /^[^,]+, [^,]+, .+ and \d+ more$/);
+  // One thing (a background task): its path or label, as code, as before.
+  const task = findingsToCity(doc).districts.flatMap((d) => d.missions.map((m) => ({ m, d }))).find((x) => x.m.primary && x.m.primary.data && x.m.primary.data.plist);
+  t.click({ 'data-go': `district:${task.d.id}` });
+  t.click({ 'data-act': 'toggle-district' });
+  const h2 = t.html();
+  const r2 = h2.slice(h2.indexOf(`data-go="mission:${task.m.id.replace(/&/g, '&amp;')}"`));
+  assert.match(/<small class="mission-detail">([\s\S]*?)<\/small>/.exec(r2)[1], /^<code>/);
+});
