@@ -78,7 +78,12 @@ export const covers = [
     'security.firewall_rules_audit.firewall_summary',
   ] },
   ...Object.keys(MODULE_KIND).filter((m) => m !== 'firewall_rules_audit').map((module) => ({ module })),
+  // The mining check's hosts-file line is a line in the address book (the rest of that check is the Loadout's).
+  { module: 'browser_cryptojacking_check', checks: ['mining_hosts_entry'] },
 ];
+
+// A hosts-file line from the browser mining check: { hostname, address, path }.
+const isMiningHosts = (f) => moduleOf(f) === 'browser_cryptojacking_check' && isObj(f && f.data) && f.data.check === 'mining_hosts_entry';
 
 function moduleOf(finding) {
   const f = finding || {};
@@ -90,6 +95,7 @@ function moduleOf(finding) {
 export function lineKind(finding) {
   const code = finding && finding.code;
   if (code && CODE_KIND[code]) return CODE_KIND[code];
+  if (isMiningHosts(finding)) return 'hosts';
   return MODULE_KIND[moduleOf(finding)] || 'conn';
 }
 
@@ -371,6 +377,12 @@ function hostsLines(d, ctx) {
       out.push({ via: clip(e.hostname || e.domain), to: blocked ? (city ? 'Blocked (sent nowhere)' : `Blocked (${ip})`) : clip(ip || '?'), odd: !blocked });
     } else out.push({ via: entryText(e), to: city ? 'Rerouted' : 'Redirected' });
   }
+  // The mining check names one line: a hostname and the address it's sent to.
+  if (!out.length && (d.hostname || d.domain) && (d.address || d.ip)) {
+    const ip = String(d.address || d.ip);
+    const blocked = BLOCKED.test(ip);
+    out.push({ via: clip(d.hostname || d.domain), to: blocked ? (city ? 'Blocked (sent nowhere)' : `Blocked (${ip})`) : clip(ip), odd: !blocked });
+  }
   for (const n of list(d.blocked_domains)) out.push({ via: entryText(n), to: 'Blocked', odd: true });
   for (const n of [...list(d.redirected_domains), ...list(d.redirects)]) {
     if (isObj(n)) out.push({ via: entryText(n), to: clip(n.ip || n.target || '?'), odd: true });
@@ -549,6 +561,7 @@ export function redirectsElsewhere(f) {
   const d = isObj(f && f.data) ? f.data : {};
   const entries = list(d.entries || d.custom_entries).filter((e) => isObj(e) && (e.hostname || e.domain));
   if (entries.some((e) => !BLOCKED.test(String(e.ip || '')))) return true;
+  if ((d.hostname || d.domain) && (d.address || d.ip) && !BLOCKED.test(String(d.address || d.ip))) return true;
   return [...list(d.redirected_domains), ...list(d.redirects)].length > 0;
 }
 

@@ -326,3 +326,31 @@ test('the stylesheet exists and styles the line diagram', () => {
   for (const sel of ['.sb-card', '.sb-line', '.sb-node', '.sb-wire', '.sb-odd', '.sb-ask', '.sb-step']) assert.ok(css.includes(sel), sel);
   assert.match(css, /@media/);
 });
+
+test('a mining hosts-file line (browser_cryptojacking_check) is traced as a hosts line and leads with "close it"', async () => {
+  const { C, mod, game } = await load();
+  const loadout = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'missions', 'loadout-findings.json'), 'utf8'));
+  const found = [...loadout.darwin, ...loadout.win32].filter((f) => f.data && f.data.check === 'mining_hosts_entry');
+  assert.strictEqual(found.length, 2);
+  assert.ok(game.covers.some((c) => c.module === 'browser_cryptojacking_check' && c.checks.includes('mining_hosts_entry')));
+  for (const f of found) {
+    const item = C.makeItem(f);
+    const platform = /^C:/.test(f.data.path) ? 'win32' : 'darwin';
+    for (const mode of ['standard', 'city']) {
+      const ctx = C.testContext({ mode, platform });
+      assert.strictEqual(mod.lineKind(item.finding), 'hosts');
+      const t = mod.linesOf(item.finding, ctx);
+      assert.strictEqual(t.lines.length, 1);
+      assert.strictEqual(t.lines[0].via, 'pool.example-mine.test');
+      assert.strictEqual(t.lines[0].to, f.data.address);
+      assert.ok(t.lines[0].odd);
+      const d = game.decisions(item, ctx);
+      assert.deepStrictEqual(ids(d), ['odd', 'closer', 'expected']);
+      if (mode === 'standard') assert.ok(byId(d, 'odd').effect.steps.join('\n').includes(platform === 'win32' ? 'Notepad' : '/etc/hosts'));
+      const html = game.render({ item, research: game.research(item, ctx), decisions: d, index: 0, total: 1 }, ctx);
+      assert.match(html, /pool\.example-mine\.test/);
+      assert.deepStrictEqual(C.checkInert(html), []);
+      if (mode === 'city') { assert.deepStrictEqual(C.checkCityWords(html), []); assert.doesNotMatch(html, /mining server/); }
+    }
+  }
+});
