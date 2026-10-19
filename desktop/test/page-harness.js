@@ -1,15 +1,15 @@
 // app.js's own wiring in a stubbed page, for the flow tests. Every classic
 // script index.html loads runs in one global scope, in index.html's order, so
-// a new script there is picked up here by itself. FixFlow, MarkFlow and
-// ClearList are stand-ins: a card's fix and mark controls leave a marker, so a
-// test can see whether a card offered them.
+// a new script there is picked up here by itself. FixFlow and MarkFlow are
+// stand-ins: a fix or mark control leaves a marker, so a test can see that
+// the LIST (read-only) never offers one.
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const { recordingStore } = require('./disk-words.js');
 
 const RENDERER = path.join(__dirname, '..', 'renderer');
-const STUBBED = new Set(['fix-flow.js', 'mark-flow.js', 'clear-list.js']);
+const STUBBED = new Set(['fix-flow.js', 'mark-flow.js']);
 const INDEX = fs.readFileSync(path.join(RENDERER, 'index.html'), 'utf8');
 const SCRIPTS = [...INDEX.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]).filter((f) => !STUBBED.has(f));
 const SRC = SCRIPTS.map((f) => fs.readFileSync(path.join(RENDERER, f), 'utf8')).join('\n;\n');
@@ -78,6 +78,7 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   const dots = ['welcome', 'worry', 'scan', 'results'].map((d) => { const e = new El(doc); e.dataset.stepDot = d; return e; });
   const calls = { game: [], scans: [], guides: [], last: null };
   const winListeners = {};
+  const docListeners = {};
   const storage = blocked ? blockedStore() : recordingStore(store || {});
   let finishScan = () => {};
   let failScan = () => {};
@@ -86,11 +87,11 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   const sandbox = {
     console, setTimeout, clearTimeout, Promise, JSON,
     document: Object.assign(doc, { getElementById: byId, querySelectorAll: (sel) => (sel === '[data-step-dot]' ? dots : []),
-      createElement: () => new El(doc), addEventListener() {} }),
+      createElement: () => new El(doc),
+      addEventListener: (type, fn) => { (docListeners[type] = docListeners[type] || []).push(fn); } }),
     localStorage: storage,
     fetch: () => Promise.reject(new Error('no network in tests')),
     navigator: { userAgent: 'Macintosh' },
-    ClearList: helper(),
     FixFlow: { attach: () => helper(), fixControlsHtml: () => '[FIX IT]' },
     MarkFlow: { attach: () => helper(), markControlsHtml: () => '[IT IS MINE]' },
   };
@@ -130,6 +131,8 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   };
   const answer = (id) => byId('question-card').kids.find((b) => b.dataset.answer === id).click();
   const fire = (type) => (winListeners[type] || []).forEach((fn) => fn({ type }));
+  // A key pressed on the page (document keydown listeners).
+  const key = (k) => (docListeners.keydown || []).forEach((fn) => fn({ type: 'keydown', key: k, defaultPrevented: false, preventDefault() {} }));
   const finish = async (d) => { finishScan(d); await tick(); await tick(); };
   const fail = async (message) => { failScan(new Error(message)); await tick(); await tick(); };
   const emit = (ev) => { if (scanListener) scanListener(ev); };
@@ -137,7 +140,7 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   // Reads a top-level name from the page's scripts (a const isn't on window).
   const run = (code) => vm.runInContext(code, sandbox);
   const revealed = () => doc.revealed.slice();
-  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, fail, emit, activeDot, run, revealed };
+  return { byId, calls, sandbox, storage, shown, pick, answer, fire, key, finish, fail, emit, activeDot, run, revealed };
 }
 
 const clean = { schema_version: 1, platform: 'darwin', modules: [] };

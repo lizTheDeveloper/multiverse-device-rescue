@@ -13,40 +13,32 @@ const { gameScanFirst, postScanView, gameOfferedFor, worryStartsGameScan, noteMo
 const byId = (id) => SITUATIONS.find((s) => s.id === id);
 const game = (f) => import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', f)).href);
 
-test('the game is offered for every worry but the iPhone check, monitoring software or not', () => {
-  for (const s of SITUATIONS) assert.strictEqual(gameOfferedFor(s), s.id !== 'phone', s.id);
+test('the city plays every worry, the iPhone check too, monitoring software or not (Plain view is retired)', () => {
+  for (const s of SITUATIONS) assert.strictEqual(gameOfferedFor(s), true, s.id);
   assert.strictEqual(gameOfferedFor(CITY_SITUATION), true);
   assert.strictEqual(gameOfferedFor(null), false);
 });
 
-test('city always plays: a worry starts its scan in the game, even from Get started', () => {
+test('every worry starts its scan in the game, in both modes, whenever the game can draw', () => {
   for (const s of SITUATIONS) {
-    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: false, mode: 'city', ready: true }), s.id !== 'phone', s.id);
-    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: false, mode: 'standard', ready: true }), false, s.id);
-    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: true, mode: 'standard', ready: true }), s.id !== 'phone', s.id);
+    assert.strictEqual(worryStartsGameScan({ situation: s, ready: true }), true, s.id);
+    assert.strictEqual(worryStartsGameScan({ situation: s, ready: false }), false, `${s.id}: the scan screen when the game can't draw`);
   }
-  assert.strictEqual(worryStartsGameScan({ situation: byId('unsure'), wantsCity: true, mode: 'city', ready: false }), false);
-  assert.strictEqual(gameScanFirst({ wantsCity: true, offered: true, ready: true }), true);
+  assert.strictEqual(gameScanFirst({ offered: true, ready: true }), true);
+  assert.strictEqual(gameScanFirst({ offered: false, ready: true }), false);
   assert.strictEqual(opensInGame('city'), true);
   assert.strictEqual(opensInGame('standard'), false);
   assert.strictEqual(opensInGame(null), false);
 });
 
-test('after a game scan: the city, whatever it found; Plain view stays plain', () => {
-  const base = { inGame: true, left: false, wantsCity: true, rememberedCity: false, offered: gameOfferedFor(byId('unsure')), ready: true };
-  assert.strictEqual(postScanView({ ...base, mode: 'standard' }), 'boss-city');
-  assert.strictEqual(postScanView({ ...base, mode: 'city' }), 'boss-city');
-  assert.strictEqual(postScanView({ ...base, left: true, mode: 'city' }), 'results');
-  assert.strictEqual(postScanView({ ...base, ready: false, mode: 'city' }), 'results');
-});
-
-test('outside the game: the city when chosen, remembered, or in city mode', () => {
-  const base = { inGame: false, left: false, wantsCity: false, rememberedCity: false, offered: true, ready: true, mode: 'standard' };
-  assert.strictEqual(postScanView(base), 'results');
-  assert.strictEqual(postScanView({ ...base, wantsCity: true }), 'city');
-  assert.strictEqual(postScanView({ ...base, rememberedCity: true }), 'city');
-  assert.strictEqual(postScanView({ ...base, mode: 'city' }), 'city');
-  assert.strictEqual(postScanView({ ...base, mode: 'city', offered: false }), 'results', 'the iPhone check');
+test('after a scan: the city, whatever it found; the LIST only when the city can’t draw or was left', () => {
+  const base = { inGame: true, left: false, offered: gameOfferedFor(byId('unsure')), ready: true };
+  assert.strictEqual(postScanView(base), 'boss-city');
+  assert.strictEqual(postScanView({ ...base, inGame: false }), 'city', 'a scan from the scan screen lands in the city too');
+  assert.strictEqual(postScanView({ ...base, inGame: false, offered: gameOfferedFor(byId('phone')) }), 'city', 'the iPhone check too');
+  assert.strictEqual(postScanView({ ...base, left: true }), 'results');
+  assert.strictEqual(postScanView({ ...base, ready: false }), 'results');
+  assert.strictEqual(postScanView({ ...base, offered: false }), 'results');
 });
 
 test('monitoring software seen once is remembered for the session; it decides the follow-up', () => {

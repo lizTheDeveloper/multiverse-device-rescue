@@ -1,4 +1,4 @@
-// UX round 5, Plain view (group A5): the stopped checkup reaches the city,
+// UX round 5, now on the city's LIST (group A5): the stopped checkup reaches the city,
 // the removal warning once above the list, Good to know by area, one next
 // step after the list, the stopped screens, and counts only from NotChecked.
 const test = require('node:test');
@@ -21,7 +21,7 @@ function stoppedDoc(stage) {
 for (const stage of ['assembly', 'early']) {
   test(`a game checkup that stopped (${stage}) hands the city its results with the error`, async () => {
     const p = page();
-    p.byId('btn-play-game').click();
+    p.byId('btn-get-started').click();
     p.pick('wifi');
     assert.deepStrictEqual(p.calls.game, ['newWorry', 'showBoss']);
     const doc = stoppedDoc(stage);
@@ -40,7 +40,7 @@ for (const stage of ['assembly', 'early']) {
 
 test('a game checkup that stopped streamed results first: the city gets them too', async () => {
   const p = page();
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('wifi');
   p.emit({ type: 'plan', total: 3, modules: [] });
   p.emit({ type: 'module', result: mod('remote_login_check', [{ title: 'Remote Login is on', severity: 'warning', description: 'On.', data: {} }]) });
@@ -54,7 +54,7 @@ test('a game checkup that stopped streamed results first: the city gets them too
 
 test('a game checkup that stopped before any check reported still says so in the city', async () => {
   const p = page();
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('wifi');
   await p.fail('The checkup stopped before it finished. Nothing on your computer was changed.');
   assert.deepStrictEqual(p.calls.game.slice(2), ['scanFailed']);
@@ -62,10 +62,10 @@ test('a game checkup that stopped before any check reported still says so in the
   assert.deepStrictEqual(p.shown(), ['city']);
 });
 
-test('if the city can’t draw the stopped checkup, Plain shows the stopped screen with what it found', async () => {
+test('if the city can’t draw the stopped checkup, the scan screen shows it stopped, with what it found', async () => {
   const p = page();
   p.sandbox.RescueGame.scanFailed = () => false;
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('wifi');
   await p.finish(stoppedDoc('early'));
   assert.deepStrictEqual(p.shown(), ['scan']);
@@ -201,23 +201,22 @@ for (const file of ['replay-full.json', 'replay-errors.json', 'replay-held.json'
   test(`the list’s numbers are scanCounts’ (${file}): the sentence, the cards and the not-checked line`, async () => {
     const doc = fixture(file);
     const p = page();
-    // The real sentence (the harness stubs ClearList's page wiring, not its words).
-    const stub = p.sandbox.ClearList;
-    const real = require('../renderer/clear-list.js');
-    p.sandbox.ClearList = new Proxy(stub, { get: (t, k) => (k === 'summaryText' ? real.summaryText : t[k]) });
     p.byId('btn-get-started').click();
     p.pick('hacked');
-    p.byId('btn-run-scan').click();
     await p.finish(doc);
     if (p.shown().includes('question')) p.answer('known');
+    p.sandbox.RescueHost.showList();
     const c = NC.scanCounts(doc, { mode: 'standard' });
     const summary = p.byId('results-summary').innerHTML;
-    if (c.todo) assert.match(summary, new RegExp(`\\b${c.todo} things? on your list`));
+    if (c.todo) assert.match(summary, new RegExp(`\\b${c.todo} things? to look at`));
     if (c.notes) assert.match(summary, new RegExp(`\\b${c.notes} good-to-know notes?`));
     const html = p.byId('results-groups').innerHTML;
-    const counted = (html.match(/data-card-counts="1"/g) || []).length;
-    assert.strictEqual(counted, c.todo + c.markedItems + (html.match(/finding-card--note"[^>]*data-card-counts="1"/g) || []).length,
-      'one card on the list per item');
+    // One card per item of displayItems, the list both views draw; the to-dos are scanCounts' todo.
+    const list = NC.displayItems(doc, { mode: 'standard' });
+    const tags = [...html.matchAll(/<li class="finding-card finding-card--(\w+)[^"]*"[^>]*>/g)];
+    assert.strictEqual(tags.length, ['critical', 'warning', 'info', 'marked', 'held'].reduce((n, k) => n + list[k].length, 0), 'every item on the LIST');
+    const todo = tags.filter((t) => (t[1] === 'critical' || t[1] === 'warning') && !t[0].includes('data-marked-before'));
+    assert.strictEqual(todo.length, c.todo, 'one card on the LIST per to-do item');
     if (c.didntFinish || c.partly) assert.strictEqual(p.byId('results-errors-line').textContent, NC.notCheckedLine(c));
     await tick();
   });
@@ -231,9 +230,9 @@ test('Good to know on the full replay: a handful of areas, each counted, all clo
   const p = page();
   p.byId('btn-get-started').click();
   p.pick('hacked');
-  p.byId('btn-run-scan').click();
   await p.finish(doc);
   if (p.shown().includes('question')) p.answer('known');
+  p.sandbox.RescueHost.showList();
   const info = p.byId('results-groups').innerHTML.split('data-results-group="info"')[1];
   const areas = [...info.matchAll(/<span class="info-area__name">([^<]+)<\/span> <span class="results-group__count">(\d+)<\/span>/g)];
   assert.ok(areas.length >= 2 && areas.length <= 6, `${areas.length} areas`);
@@ -254,27 +253,28 @@ test('a note’s area is its check’s category; anything unknown goes to “Eve
 // ---------------------------------------------------------------------------
 // (4) After the list: one next step, the rest in one closed box.
 // ---------------------------------------------------------------------------
-test('after the list: the guide is the one next step; lessons, progress, AI copy, the web game and the report are in one closed box', () => {
+test('after the list: the guide is the one next step; lessons, AI copy, the web game and the report are in one closed box', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'index.html'), 'utf8');
-  const after = html.slice(html.indexOf('<div id="results-groups">'), html.indexOf('id="btn-start-over"'));
-  const more = /<details id="results-more"[^>]*>([\s\S]*)<\/details>\s*<dialog/.exec(after);
+  const after = html.slice(html.indexOf('<div id="results-groups">'), html.indexOf('<button id="btn-start-over"'));
+  const more = /<details id="results-more"[^>]*>([\s\S]*)<\/details>\s*$/.exec(after);
   assert.ok(more, 'one closed box');
   assert.doesNotMatch(/<details id="results-more"[^>]*>/.exec(after)[0], /\bopen\b/);
-  for (const id of ['results-lessons', 'progress-link', 'results-copy-all', 'results-learn', 'results-tech']) {
+  assert.doesNotMatch(html, /progress-link|progress-dialog|btn-your-progress/, 'no Your-progress dialog: YOUR FILE replaces it');
+  for (const id of ['results-lessons', 'results-copy-all', 'results-learn', 'results-tech']) {
     assert.ok(more[1].includes(`id="${id}"`), `${id} is inside it`);
   }
   const outside = after.replace(more[0], '');
   assert.match(outside, /id="results-next"/);
   assert.match(outside, /id="btn-open-guide" class="btn btn--primary"/, 'the one primary button after the list');
   assert.strictEqual((outside.match(/btn--primary/g) || []).length, 1);
-  assert.doesNotMatch(more[1], /<dialog/, 'the progress dialog isn’t inside a closed box');
 });
 
 // ---------------------------------------------------------------------------
 // (5) The stopped scan screen: the line by how it stopped; tech helpers get what it doesn't say.
 // ---------------------------------------------------------------------------
 async function stoppedScreen(stage, { log } = {}) {
-  const p = page();
+  // The scan screen's own route: the game couldn't draw.
+  const p = page({ ready: false });
   p.byId('btn-get-started').click();
   p.pick('hacked');
   p.byId('btn-run-scan').click();

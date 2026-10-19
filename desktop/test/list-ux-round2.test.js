@@ -1,4 +1,4 @@
-// UX round 2, Plain view: the Evidence block on every card with the prose it
+// UX round 2, now on the city's LIST: the Evidence block on every card with the prose it
 // repeats cut, the couldn't-check box by cause, and one card for the same
 // finding from several checks.
 const test = require('node:test');
@@ -91,13 +91,14 @@ async function results(doc) {
   const p = page();
   p.byId('btn-get-started').click();
   p.pick('hacked');
-  p.byId('btn-run-scan').click();
   await p.finish(doc);
   if (p.shown().includes('question')) p.answer('known');
+  // The LIST, as the city's LIST tab opens it after the sweep.
+  p.sandbox.RescueHost.showList();
   return p;
 }
 
-test('the card: title, Evidence, warning, actions; steps, help and technical details folded', async () => {
+test('the LIST card: title, Evidence, warning; steps, help and technical details folded; no actions', async () => {
   const p = await results({ schema_version: 1, platform: 'darwin', modules: [
     mod('launch_agent_audit', [launchAgent(`Background task '${LABEL}' runs from a hidden folder`)], { check_name: 'Background tasks' }),
     mod('launchd_persistence_audit', [launchAgent(`Background task runs from a hidden folder: ${LABEL}`)]),
@@ -121,8 +122,9 @@ test('the card: title, Evidence, warning, actions; steps, help and technical det
   assert.match(card, /data-lesson-link="background">What does this mean\?/);
   assert.match(card.split('<details class="tech-details">')[1], /Hidden folders are often used/, 'the whole description is kept for a helper');
   assert.strictEqual((card.match(/Removing this can alert whoever installed it\./g) || []).length, 1, 'the warning once');
-  const order = ['data-evidence', 'Removing this can alert', 'Or fix it yourself, step by step (1)', 'Get help with this', 'Technical details'].map((s) => card.indexOf(s));
+  const order = ['data-evidence', 'Removing this can alert', 'Show me how, step by step (1)', 'Get help with this', 'Technical details'].map((s) => card.indexOf(s));
   assert.ok(order.every((at, i) => at >= 0 && (i === 0 || at > order[i - 1])), `card order: ${order}`);
+  assert.doesNotMatch(card, /\[FIX IT\]|\[IT IS MINE\]|data-clear-did|data-card-pick/, 'read-only: no actions on the LIST');
 
   const box = p.byId('results-errors-list').innerHTML;
   assert.strictEqual((box.match(/Open the setting/g) || []).length, 1);

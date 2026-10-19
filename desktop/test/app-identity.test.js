@@ -43,7 +43,8 @@ test('the window, About and page titles are the new name, with no shield', () =>
   const html = read('desktop/renderer/index.html');
   assert.match(html, /<title>Reclaim City<\/title>/);
   assert.match(html, /<span class="brand-name">Reclaim City<\/span>/);
-  assert.match(html, /<span class="route__eyebrow">Plain view<\/span>/);
+  // Plain view is retired: no route or toggle by that name.
+  assert.doesNotMatch(html, /Plain view/i);
   assert.doesNotMatch(html, /Device ?Rescue/i);
   assert.doesNotMatch(html, /&#128737;/, 'no shield in the header');
 });

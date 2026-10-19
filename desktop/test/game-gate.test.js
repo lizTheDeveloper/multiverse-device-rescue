@@ -5,11 +5,10 @@ const { mayBeWatched, gameOfferedFor, learnMoreFor, SITUATIONS } = require('../r
 const byId = (id) => SITUATIONS.find((s) => s.id === id);
 const withFinding = (module, severity) => ({ modules: [{ name: module, findings: [{ severity }] }] });
 
-test('open for every worry but the iPhone check, which keeps its own plain screen', () => {
-  for (const id of ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'helping', 'unsure']) {
+test('open for every worry, the iPhone check too: Plain view is retired', () => {
+  for (const id of ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'phone', 'helping', 'unsure']) {
     assert.strictEqual(gameOfferedFor(byId(id)), true, id);
   }
-  assert.strictEqual(gameOfferedFor(byId('phone')), false);
 });
 
 test('monitoring software found no longer closes it: the follow-up question decides', () => {

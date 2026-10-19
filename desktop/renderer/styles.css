@@ -1061,88 +1061,6 @@ h3 {
   color: var(--warning-text);
 }
 
-/* ---------- Clearing the list ---------- */
-
-.results-progress {
-  margin: -0.5rem 0 1.5rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-}
-
-.results-progress[hidden] {
-  display: none;
-}
-
-.results-progress__headline {
-  margin: 0 0 0.5rem;
-  font-size: 1.05rem;
-}
-
-.results-progress__headline--clear {
-  color: var(--brand-strong);
-}
-
-.results-progress__bar {
-  height: 8px;
-  border-radius: 999px;
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.results-progress__fill {
-  height: 100%;
-  background: var(--brand);
-  transition: width 0.3s ease;
-}
-
-.results-progress__detail {
-  margin: 0.5rem 0 0;
-}
-
-.results-group__empty[hidden],
-.results-cleared[hidden],
-.cleared-note[hidden],
-.did-this[hidden] {
-  display: none;
-}
-
-.card-answers {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0 0.75rem;
-}
-
-.card-answers > .fix-it,
-.card-answers > .mark-mine,
-.card-answers > .did-this {
-  flex: 0 1 auto;
-  max-width: 100%;
-}
-
-/* An open confirmation or a result takes the whole row. */
-.card-answers > .fix-it:has(.fix-panel:not([hidden])),
-.card-answers > .fix-it:has(.fix-status:not([hidden])),
-.card-answers > .mark-mine:has(.fix-panel:not([hidden])),
-.card-answers > .mark-mine:has(.fix-status:not([hidden])) {
-  flex-basis: 100%;
-}
-
-.did-this {
-  margin-top: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.did-this__hint {
-  font-size: 0.85rem;
-}
-
 .mark-shows {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -1225,170 +1143,7 @@ h3 {
   overflow-wrap: anywhere;
 }
 
-.cleared-note {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 1rem;
-  flex-wrap: wrap;
-  margin: 0.2rem 0 0.6rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-
-.cleared-note__text {
-  margin: 0;
-}
-
-.cleared-note__tick {
-  color: var(--brand-strong);
-  font-weight: 700;
-}
-
-.results-cleared {
-  margin-bottom: 1.75rem;
-}
-
-.results-cleared summary {
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.results-cleared__title {
-  color: var(--brand-strong);
-}
-
-/* In "Cleared", the card's Undo is the one in the note at its top. */
-.results-cleared .finding-card [data-unmark] {
-  display: none;
-}
-
-/* A cleared card is short: its title and the note, until "Show details". */
-.results-cleared .finding-card[data-cleared]:not([data-show-details]) > :not(.finding-card__header):not(.cleared-note) {
-  display: none;
-}
-
-.results-cleared .finding-card[data-cleared]:not([data-show-details]) {
-  padding-bottom: 0.6rem;
-}
-
-.cleared-note__actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  align-items: center;
-}
-/* ---------- Welcome: two ways in ---------- */
-
-.route-prompt {
-  margin: 1.75rem 0 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.route-choice {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.9rem;
-}
-
-.route {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-width: 0;
-  padding: 1.15rem 1.2rem 1.05rem;
-  border-radius: var(--radius-md);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-}
-
-.route:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-soft);
-}
-
-.route:active {
-  transform: translateY(0);
-}
-
-.route__eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.route__title {
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.route__desc {
-  font-size: 0.92rem;
-  line-height: 1.45;
-  flex: 1;
-}
-
-.route__go {
-  margin-top: 0.5rem;
-  align-self: flex-start;
-  padding: 0.5rem 1rem;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.92rem;
-}
-
-.route--check {
-  background: var(--surface);
-  color: var(--text);
-  border: 2px solid var(--brand);
-}
-
-.route--check .route__eyebrow { color: var(--brand); }
-.route--check .route__desc { color: var(--text-muted); }
-.route--check .route__go { background: var(--brand); color: var(--brand-contrast); }
-.route--check:hover .route__go { background: var(--brand-strong); }
-
-.route--game {
-  background:
-    linear-gradient(rgba(0, 229, 255, 0.06) 1px, transparent 1px) 0 0 / 100% 18px,
-    radial-gradient(400px 200px at 100% 0%, rgba(0, 229, 255, 0.18), transparent 70%),
-    #0b0e15;
-  color: #edeff3;
-  border: 2px solid #0b0e15;
-}
-
-.route--game .route__eyebrow { color: #00e5ff; font-family: 'Orbitron', -apple-system, sans-serif; }
-.route--game .route__title { font-family: 'Orbitron', -apple-system, sans-serif; font-size: 1.15rem; letter-spacing: 0.02em; }
-.route--game .route__desc { color: rgba(237, 239, 243, 0.72); }
-.route--game .route__go {
-  background: transparent;
-  color: #00e5ff;
-  border: 1.5px solid #00e5ff;
-  font-family: 'Orbitron', -apple-system, sans-serif;
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-}
-.route--game:hover { border-color: #00e5ff; box-shadow: 0 10px 28px -14px rgba(0, 229, 255, 0.55); }
-
-@media (prefers-reduced-motion: reduce) {
-  .route, .route:hover { transition: none; transform: none; }
-}
-
-/* Game mode: the results switch and the city screen's host */
-.btn--game { background: #0b0e15; color: #00E5FF; border: 1px solid #0b0e15; }
-.btn--game small { display: block; font-weight: 400; font-size: 12px; color: rgba(237,239,243,0.65); }
+/* The city screen's host */
 .screen--city { padding: 0; }
 #city-host { min-height: 70vh; width: 100%; min-width: 0; } /* full width on every game screen, so the frame never jumps between screens */
 
@@ -1440,39 +1195,6 @@ h3[tabindex="-1"]:focus {
 
 .results-next { margin: 0 0 1.5rem; }
 
-/* Each card's checkbox: selects it for the bar above the list. */
-.finding-card__pick {
-  width: 20px;
-  height: 20px;
-  flex: none;
-  margin: 0;
-}
-.finding-card__pick:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-.results-cleared .finding-card__pick { display: none; }
-
-.results-bulk {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  margin: 0 0 1rem;
-  padding: 0.6rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-.results-bulk[hidden] { display: none; }
-.results-bulk__count { font-weight: 700; }
-.results-bulk .copy-ai__slot { flex-basis: 100%; }
-
-.results-group__more { margin-top: 0.75rem; }
 .results-group__fold > summary {
   display: flex;
   flex-wrap: wrap;
@@ -1493,16 +1215,6 @@ h3[tabindex="-1"]:focus {
 .get-help > summary { cursor: pointer; font-weight: 600; color: var(--text-muted); }
 .get-help .ask, .get-help .copy-ai { margin-top: 0.6rem; }
 .get-help__where { display: block; font-size: 0.85rem; margin-top: 0.2rem; }
-
-/* Where a cleared card was: one line saying what happened, with Undo. */
-.cleared-stub {
-  list-style: none;
-  padding: 0.6rem 0.9rem;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-}
-.cleared-stub__tick { color: var(--brand-strong); font-weight: 700; }
 
 .start-over-confirm {
   margin-top: 1.75rem;
@@ -1579,20 +1291,18 @@ h3[tabindex="-1"]:focus {
 .error-note__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0 0.5rem; }
 .error-note .tech-log { white-space: pre-wrap; word-break: break-word; max-height: 16rem; overflow: auto; }
 
-/* The checkbox in its own column, so a long title never wraps under it. */
+/* A long title wraps beside its chip, never under it. */
 .finding-card__header { flex-wrap: nowrap; align-items: flex-start; }
-.finding-card__header .finding-card__pick { margin-top: 0.2rem; }
+
 .finding-card__titles { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; min-width: 0; }
 .finding-card__titles h3 { margin: 0; }
 .finding-card h3:focus { outline: none; }
 .finding-card h3:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 /* Each group's header names its level: a card's own chip only shows in Cleared. */
 .results-group .finding-card .chip { display: none; }
-.results-cleared .finding-card .chip { display: inline-flex; }
 
-/* No empty gap above "I did this": the answers row spaces itself. */
-.card-answers { margin-top: 0.6rem; }
-.card-answers > .fix-it, .card-answers > .mark-mine, .card-answers > .did-this { margin-top: 0; }
+/* An item marked as the person's on an earlier checkup: listed, and said so. */
+.finding-card__marked { margin: 0 0 0.5rem; color: var(--text-muted); font-size: 0.92rem; }
 
 /* Good to know: one box per check, each note one line until opened. */
 .info-areas { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
@@ -1607,7 +1317,6 @@ h3[tabindex="-1"]:focus {
 .finding-note > summary { cursor: pointer; margin-bottom: 0; }
 .finding-note > summary h3 { display: inline; font-size: 0.98rem; font-weight: 600; }
 .finding-note[open] > summary { margin-bottom: 0.5rem; }
-.results-cleared .finding-card--note[data-cleared]:not([data-show-details]) > details { display: block; }
 
 /* The removal warning, once above the list (standard mode); cards keep one bold line. */
 .results-safety {

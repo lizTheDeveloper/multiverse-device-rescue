@@ -9,7 +9,7 @@ const ASK_CONSENT_TEXT =
   'Your name, computer name, network addresses and anything that looks like a password have already been blanked out. ' +
   'No files are sent and nothing is stored.';
 const ASK_FIELD_LABELS = { title: 'Title', description: 'Description', severity: 'How serious', category: 'Kind', code: 'Code' };
-const ASK_WARMING_TEXT = 'The helper is waking up, this takes about 30 seconds…';
+const ASK_WARMING_TEXT = 'The helper is waking up…';
 const ASK_ERRORS = {
   unavailable: "The helper isn't available right now. The step-by-step guide still works.",
   rate_limited: 'Lots of people are asking right now. Please try again in a minute.',

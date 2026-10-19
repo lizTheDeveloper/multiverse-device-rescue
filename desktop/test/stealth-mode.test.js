@@ -76,7 +76,7 @@ test('a city-mode person who picks a different worry later stays in the game, wi
 
 test('rather not say, then monitoring software: asked once, and "No, I don’t" switches to city', async () => {
   const p = page({ store: {} });
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('unsure');
   p.answer('rather-not');
   assert.strictEqual(p.storage.getItem(KEY), 'standard');
@@ -96,7 +96,7 @@ test('rather not say, then monitoring software: asked once, and "No, I don’t" 
 
 test('rather not say, then "Yes, I know about it": still standard, the game stays, and the card has the one line', async () => {
   const p = page({ store: {} });
-  p.byId('btn-play-game').click();
+  p.byId('btn-get-started').click();
   p.pick('unsure');
   p.answer('rather-not');
   await p.finish(monitoring);
@@ -109,8 +109,8 @@ test('rather not say, then "Yes, I know about it": still standard, the game stay
 test('nothing the app writes says why, on any route', async () => {
   const runs = [];
   { const p = page({ store: {} }); p.byId('btn-get-started').click(); p.pick('watched'); await p.finish(monitoring); runs.push(p); }
-  { const p = page({ store: {} }); p.byId('btn-play-game').click(); p.pick('unsure'); p.answer('yes'); await p.finish(monitoring); runs.push(p); }
-  { const p = page({ store: {} }); p.byId('btn-play-game').click(); p.pick('hacked'); p.answer('rather-not'); await p.finish(monitoring); p.answer('unknown'); runs.push(p); }
+  { const p = page({ store: {} }); p.byId('btn-get-started').click(); p.pick('unsure'); p.answer('yes'); await p.finish(monitoring); runs.push(p); }
+  { const p = page({ store: {} }); p.byId('btn-get-started').click(); p.pick('hacked'); p.answer('rather-not'); await p.finish(monitoring); p.answer('unknown'); runs.push(p); }
   { const p = page({ store: { [KEY]: 'city' } }); p.byId('btn-something-changed').click(); p.answer('no'); runs.push(p); }
   for (const p of runs) {
     assert.deepStrictEqual(forbiddenWrites(p.storage), []);
@@ -279,18 +279,22 @@ test('the briefing on monitoring software: the line and the full note (standard)
   assert.deepStrictEqual([none.kind, none.html], ['none', '']);
 });
 
-test('the list in city mode: the hold line with its help, no points, and no removal steps in "Copy for any AI"', async () => {
+test('the LIST in city mode: the held item as the help district shows it, the hold line with its help, and no removal steps in "Copy for any AI"', async () => {
   const p = page({ store: { [KEY]: 'city' } });
   p.byId('btn-get-started').click();
   p.pick('hacked');
   await p.finish(spyDoc());
+  p.sandbox.RescueHost.showList();
+  assert.deepStrictEqual(p.shown(), ['results']);
   const list = p.byId('results-groups').innerHTML;
-  const spyCard = /<li class="finding-card finding-card--critical"[^>]*>[\s\S]*?Stalkerware found: mSpy[\s\S]*?<\/li>\s*<\/ul>/.exec(list)[0];
-  assert.match(spyCard, /data-card-counts="0"/, 'no points for it');
+  const spyCard = /<li class="finding-card finding-card--critical finding-card--held"[^>]*data-held[^>]*>[\s\S]*?Stalkerware found: mSpy[\s\S]*?<\/li>\s*<\/ul>/.exec(list)[0];
+  // The help district's block: what to write down, on paper, with no copy button.
+  assert.match(spyCard, /<section class="evidence evidence--held" data-evidence><div class="evidence-head"><span class="evidence-title">Write this down<\/span><\/div><p class="evidence-paper">/);
+  assert.doesNotMatch(spyCard, /data-evidence-copy|tech-details|tech-log/, 'nothing to copy, no technical details');
   assert.match(spyCard, /Don’t remove it yet\. Talk to an advocate first\./);
   assert.match(spyCard, /How to keep a quiet record, and who can help/);
   assert.doesNotMatch(spyCard, /\[FIX IT\]|\[IT IS MINE\]|Uninstall|Show me how|What to do/);
-  assert.match(list, /data-card-counts="1"[\s\S]*Remote Login is on/, 'other findings still count');
+  assert.match(list, /Remote Login is on/, 'other findings are listed as usual');
   // Round 3: nothing from it goes to the clipboard or a website at all.
   const picks = JSON.parse(p.run('JSON.stringify(copyAiRegistry)'));
   assert.ok(!picks.some((x) => x.module === 'stalkerware_scan'), 'no copy of it at all');

@@ -305,9 +305,6 @@ const QuietNotes = (function () {
     return `<div class="finding-card__note" role="note">${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</div>`;
   }
 
-  // `opts.first`: the card has fix or mark buttons, so the warning is on its
-  // face above them, with the full note behind "Read this first".
-  //
   // `opts.banner`: the list shows the note once, above the cards (bannerHtml),
   // so the card keeps only the one bold line and a way to that note.
   function lineHtml(card, esc, opts = {}) {
@@ -315,10 +312,6 @@ const QuietNotes = (function () {
     if (opts.banner) {
       return `<p class="finding-card__note finding-card__note--first" role="note" data-safety-line><strong>${esc(LINE_SHORT)}</strong>`
         + ` <button type="button" class="link-button" data-safety-jump>Read this first</button></p>`;
-    }
-    if (opts.first) {
-      return `<div class="finding-card__note finding-card__note--first" role="note"><p><strong>${esc(LINE_SHORT)}</strong></p>`
-        + `<details><summary>Read this first</summary>${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</details></div>`;
     }
     return `<details class="finding-card__note"><summary>${esc(LINE)}</summary>${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</details>`;
   }

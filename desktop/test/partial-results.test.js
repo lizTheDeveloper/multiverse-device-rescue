@@ -90,7 +90,7 @@ test('mid-scan: "See results so far" appears once a check is in, and shows parti
   await sleep(450);
   assert.match(p.byId('results-groups').innerHTML, /12 apps installed/);
 
-  // Back to the progress, then the scan finishes: the full list, with its controls.
+  // Back to the progress, then the scan finishes: the full LIST, still read-only.
   p.byId('btn-back-to-scan').click();
   assert.deepStrictEqual(p.shown(), ['scan']);
   await p.finish({ schema_version: 1, platform: 'darwin', modules: [entry('launch_agents_audit', [warning]), entry('apps', [info]), entry('c', [])] });
@@ -98,7 +98,9 @@ test('mid-scan: "See results so far" appears once a check is in, and shows parti
   assert.strictEqual(p.byId('results-running').hidden, true);
   assert.strictEqual(p.byId('results-copy-all').hidden, false);
   assert.doesNotMatch(p.byId('results-title').textContent, /so far/);
-  assert.ok(p.byId('results-groups').innerHTML.includes('[FIX IT]'), 'fixes once the checkup is done');
+  const after = p.byId('results-groups').innerHTML;
+  assert.match(after, /Unknown helper starts at login/);
+  assert.ok(!after.includes('[FIX IT]') && !after.includes('[IT IS MINE]'), 'the LIST never fixes or marks: the city\'s missions do');
   assert.strictEqual(p.byId('scan-partial').hidden, true);
 });
 
@@ -173,25 +175,52 @@ test('after the last check: a plain "looking up who made each program" line, not
   assert.strictEqual(p.byId('results-running-text').textContent, LOOKUP_TEXT);
 });
 
-test('the city switch: hidden while partial (even when the game loads), back with the learn-more box after a failed scan', async () => {
+test('Back to the city: mid-sweep it shows the sweep as it is; after it, the city is drawn again; Esc does the same', async () => {
   const p = page({ store: { 'device-rescue.display': 'standard' }, ready: true });
   p.byId('btn-get-started').click();
   p.pick('hacked');
-  p.byId('btn-run-scan').click();
+  assert.deepStrictEqual(p.shown(), ['city']);
+  p.emit({ type: 'plan', total: 2, modules: [] });
+  p.emit(done(1, 2, 'a', 1));
+  p.emit({ type: 'module', result: entry('a', [warning]) });
+  // The city's LIST tab mid-sweep: the results so far, and the way back.
+  p.sandbox.RescueHost.showList();
+  assert.deepStrictEqual(p.shown(), ['results']);
+  assert.match(p.byId('results-title').textContent, /so far/);
+  assert.strictEqual(p.byId('results-city-switch').hidden, false);
+  p.calls.game.length = 0;
+  p.byId('btn-back-city').click();
+  assert.deepStrictEqual(p.shown(), ['city']);
+  assert.ok(!p.calls.game.includes('show'), 'never RescueGame.show mid-sweep: it would end the game\'s sweep');
+  // Esc on the LIST mid-sweep: the same.
+  p.sandbox.RescueHost.showList();
+  p.key('Escape');
+  assert.deepStrictEqual(p.shown(), ['city']);
+  assert.ok(!p.calls.game.includes('show'));
   await p.finish({ schema_version: 1, platform: 'darwin', modules: [entry('a', [warning])] });
-  assert.strictEqual(p.byId('results-city-switch').hidden, false, 'offered after a finished checkup');
-  const learnBefore = p.byId('results-learn').hidden;
-  p.byId('btn-run-scan').click();
+  assert.ok(p.calls.game.includes('scanDone'));
+  // After the sweep: LIST, then Esc draws the city from the finished scan.
+  p.sandbox.RescueHost.showList();
+  assert.doesNotMatch(p.byId('results-title').textContent, /so far/);
+  assert.strictEqual(p.byId('results-city-switch').hidden, false);
+  p.key('Escape');
+  assert.deepStrictEqual(p.shown(), ['city']);
+  assert.strictEqual(p.calls.last.name, 'show');
+});
+
+test('the game can\'t draw: no way back to a city, mid-scan or after', async () => {
+  const p = await running();
   p.emit({ type: 'plan', total: 2, modules: [] });
   p.emit(done(1, 2, 'a', 1));
   p.emit({ type: 'module', result: entry('a', [warning]) });
   p.byId('btn-see-partial').click();
   assert.strictEqual(p.byId('results-city-switch').hidden, true);
   p.fire('rescue-game-ready');
-  assert.strictEqual(p.byId('results-city-switch').hidden, true, 'the game loading doesn’t bring it back mid-scan');
+  assert.strictEqual(p.byId('results-city-switch').hidden, true);
   await p.fail('engine exited 1: boom');
-  assert.strictEqual(p.byId('results-city-switch').hidden, false);
-  assert.strictEqual(p.byId('results-learn').hidden, learnBefore);
+  assert.strictEqual(p.byId('results-city-switch').hidden, true);
+  p.key('Escape');
+  assert.deepStrictEqual(p.shown(), ['scan'], 'Esc leaves the person where they are');
 });
 
 test('new cards above the one being read keep it where it was on screen', async () => {

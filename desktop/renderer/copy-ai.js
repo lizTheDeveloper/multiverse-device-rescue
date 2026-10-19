@@ -1,6 +1,7 @@
-// "Copy for any AI" UI. Each finding card gets a button; the results page gets
-// one for the whole report. A click asks the main process to build the
-// redacted text, shows it in full, and copies only when the person presses Copy.
+// "Copy for any AI" UI. Each card on the city's LIST gets a button (none for
+// held or monitoring evidence in city mode); the LIST gets one for the whole
+// report. A click asks the main process to build the redacted text, shows it
+// in full, and copies only when the person presses Copy.
 
 const COPY_AI_INTRO =
   'Here is exactly what will be copied. Paste it into any AI assistant you use (ChatGPT, Claude, Gemini, Copilot…). ' +
@@ -100,12 +101,10 @@ if (typeof document !== 'undefined') {
   const slot = (key) => document.querySelector(`[data-copy-ai-slot="${key}"]`);
 
   async function open(key) {
-    // 'all', one card's id, or 'sel:3,7,9': the cards ticked on the list.
+    // 'all' (the whole LIST) or one card's id.
     const findings = key === 'all'
       ? (copyAiReport && copyAiReport.findings) || []
-      : String(key).startsWith('sel:')
-        ? String(key).slice(4).split(',').filter((x) => /^\d+$/.test(x)).map((x) => copyAiRegistry[Number(x)]).filter(Boolean)
-        : [copyAiRegistry[Number(key)]].filter(Boolean);
+      : /^\d+$/.test(String(key)) ? [copyAiRegistry[Number(key)]].filter(Boolean) : [];
     if (!findings.length && key !== 'all') return;
     const payload = Object.assign({}, copyAiReport || {}, { findings });
     let text = null;
