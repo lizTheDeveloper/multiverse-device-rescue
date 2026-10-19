@@ -207,15 +207,13 @@ class Orchestrator:
 
         # Installed inside any --trace wrapper, so traced commands are guarded too.
         _GUARD.ensure_installed()
-        return self._run_sorted(modules, profile, report=on_progress)
 
-    def _run_sorted(self, modules, profile, *, report):
         results = []
         marks = None  # the "marked as yours" list, read once when first needed
         start = time.monotonic()
         budget_exhausted = False
         total = len(modules)
-        report = report or (lambda *args: None)
+        report = on_progress or (lambda *args: None)
         for index, mod in enumerate(modules, start=1):
             if budget_exhausted or (
                 self._total_budget is not None
