@@ -188,6 +188,9 @@ test('research: rows from ctx.evidenceRows, what from a verified maker, lesson l
   assert.ok(r.links.some((l) => l.kind === 'lesson' && l.concept === 'who-made-it'));
   assert.strictEqual(G.research(byCode(mac, 'tampered_binary'), C.testContext()).what, 'Unknown maker');
   assert.strictEqual(G.research(byCode(mac, 'tampered_binary'), C.testContext({ mode: 'city' })).what, 'Maker not known');
+  // A certificate or a system switch is not a program: no "Unknown maker" line.
+  assert.strictEqual(G.research(byCode(mac, 'gatekeeper_disabled'), C.testContext()).what, '');
+  assert.strictEqual(G.research(byCode(mac, 'user_root_cas'), C.testContext()).what, '');
 });
 
 test('honesty: a partial app list says how many were checked', async () => {

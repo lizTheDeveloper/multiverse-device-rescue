@@ -407,7 +407,10 @@ export function research(item, ctx) {
   const mode = ctx && ctx.mode === 'city' ? 'city' : 'standard';
   const v = classify(f);
   const rows = ctx && typeof ctx.evidenceRows === 'function' ? (ctx.evidenceRows(f, { mode }) || []) : [];
-  const what = v.maker && v.maker.verified && v.maker.what ? v.maker.what : say(t('Unknown maker', 'Maker not known'), ctx);
+  // "Who made it" is about a program; a certificate or a system switch has no maker line.
+  const program = v.kind === 'app' || v.kind === 'driver' || v.kind === 'note';
+  const what = v.maker && v.maker.verified && v.maker.what ? v.maker.what
+    : program ? say(t('Unknown maker', 'Maker not known'), ctx) : '';
   const coverage = coverageLine(f, ctx);
   const notDone = unfinished(item);
   const links = [];
