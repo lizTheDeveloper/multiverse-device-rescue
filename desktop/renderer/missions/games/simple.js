@@ -1,7 +1,10 @@
 // Odd Jobs: the fallback game, and the reference implementation of the
 // mini-game contract (../contract.js). One item at a time with the finding's
 // own actions: mark it as yours, fix it, or say you did it (a re-check). Later
-// is always first, the safe default. Pure: it returns decisions, research
+// is always first, the safe default. A setting or a reading (volume at 0%, a
+// worn battery, swap in use) isn't something "you did": it gets "That's fine"
+// (kept as it is) and "I changed it" (a re-check). Only an item about a program
+// shows who made it; the evidence rows are the runner's (R1), never the card's. Pure: it returns decisions, research
 // intents and HTML; the runner carries every effect out.
 
 const label = (standard, city) => ({ standard, city });
@@ -18,6 +21,15 @@ function subjectOf(finding) {
     return v;
   }
   return '';
+}
+
+// An item about a program (something with a maker), not a setting, a reading or a file.
+const PROGRAM_KEYS = ['program', 'label', 'bundle_id', 'executable', 'exe', 'binary', 'plist', 'app', 'extension_id', 'process'];
+export function isProgram(f) {
+  if (!f || typeof f !== 'object') return false;
+  if (Array.isArray(f.made_by) && f.made_by.some((e) => e && typeof e === 'object' && e.name)) return true;
+  const d = f.data && typeof f.data === 'object' ? f.data : {};
+  return PROGRAM_KEYS.some((k) => typeof d[k] === 'string' && d[k].trim());
 }
 
 const hasMark = (f) => !!(f && f.markable && typeof f.markable === 'object');
@@ -38,7 +50,12 @@ export default {
     const out = [{ id: 'later', label: label('Later', 'Later'), effect: { kind: 'later' } }];
     if (hasMark(f)) out.push({ id: 'mine', label: label('It’s mine', 'Mine'), effect: { kind: 'mark' } });
     if (hasFix(f)) out.push({ id: 'fix', label: label('Fix it', 'Patch it'), effect: { kind: 'fix' } });
-    if (out.length < 3) out.push({ id: 'did', label: label('I did this', 'Done it'), effect: { kind: 'recheck' } });
+    if (isProgram(f)) {
+      out.push({ id: 'did', label: label('I did this', 'Done it'), effect: { kind: 'recheck' } });
+    } else {
+      out.push({ id: 'fine', label: label('That’s fine', 'Leave it'), effect: { kind: 'keep' } });
+      out.push({ id: 'did', label: label('I changed it', 'Changed it'), effect: { kind: 'recheck' } });
+    }
     return out.slice(0, 3);
   },
 
@@ -75,11 +92,10 @@ export default {
   render(view, ctx) {
     const f = (view && view.item && view.item.finding) || {};
     const r = (view && view.research) || {};
-    const rows = (Array.isArray(r.rows) ? r.rows : []).slice(0, 8)
-      .map((x) => `<div class="mg-row"><span class="mg-k">${ctx.esc(x && x.label)}</span> <span class="mg-v">${ctx.esc(x && x.value)}</span></div>`).join('');
     const about = ctx.mode === 'city' ? '' : `<p class="mg-about">${ctx.esc(firstParagraph(f.description))}</p>`;
-    const what = r.what ? `<p class="mg-what">${ctx.esc(r.what)}</p>` : '';
-    return `<div class="mg-card mg-simple"><h3 class="mg-title">${ctx.esc(f.title || '')}</h3>${about}${what}${rows ? `<div class="mg-rows">${rows}</div>` : ''}</div>`;
+    // Who made it: only for a program ("Unknown maker" on a volume setting says nothing).
+    const what = r.what && isProgram(f) ? `<p class="mg-what">${ctx.esc(r.what)}</p>` : '';
+    return `<div class="mg-card mg-simple"><h3 class="mg-title">${ctx.esc(f.title || '')}</h3>${about}${what}</div>`;
   },
 
   summary(results, ctx) {
