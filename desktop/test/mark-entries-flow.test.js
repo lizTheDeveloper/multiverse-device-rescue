@@ -184,7 +184,7 @@ test('tick, then the button: the confirmation shows exactly the ticked rows; not
   await c.yes.click();
   assert.deepStrictEqual(sent, [[CARD, [ID_2]]]);
   assert.match(c.status.innerHTML, /Marked 1 as yours\./);
-  assert.match(c.status.innerHTML, /The other 1 keep their warning\./);
+  assert.match(c.status.innerHTML, /The other one keeps its warning\./);
   assert.strictEqual(c.done.hidden, false);
   assert.deepStrictEqual(c.doneRows.map((r) => r.hidden), [true, false]);
   assert.deepStrictEqual(marked, [], 'one of two: the card stays on the list');
@@ -335,7 +335,7 @@ test('marking every box while a row is only markable with the whole list keeps t
   tick(c, 1);
   await c.action.click();
   await c.yes.click();
-  assert.match(c.status.innerHTML, /The other 1 keep their warning\./);
+  assert.match(c.status.innerHTML, /The other one keeps its warning\./);
   assert.deepStrictEqual(marked, []);
 });
 
@@ -371,4 +371,146 @@ test('Cancel forgets the ticks: the panel opens again with nothing ticked', asyn
   await c.open.click();
   await c.action.click();
   assert.strictEqual(c.confirm.hidden, true, 'nothing ticked, nothing to confirm');
+});
+
+// --- fix round 1: focus, wording, after a partial mark ------------------------
+
+// Every element in the card records focus in `holder` (the document, or a
+// shadow root, where document.activeElement would only be the host).
+function focusable(c, holder) {
+  const all = [c.card, ...c.card.walk()];
+  all.forEach((el) => { el.focus = () => { holder.activeElement = el; }; });
+  c.action.disabled = true; // rendered disabled until something is ticked
+  return holder;
+}
+
+function focusedCard({ shadow = false } = {}) {
+  const c = wholeCard();
+  c.head.setAttribute('tabindex', '-1');
+  c.wholeHead = c.whole.add('strong', { 'data-mark-whole-head': '', tabindex: '-1' });
+  const holder = shadow ? { activeElement: null } : c.doc;
+  if (shadow) c.root.getRootNode = () => holder;
+  focusable(c, holder);
+  return { c, holder };
+}
+
+for (const shadow of [false, true]) {
+  const where = shadow ? 'in the game’s shadow root' : 'in the list';
+  test(`focus follows every step ${where}`, async () => {
+    const { c, holder } = focusedCard({ shadow });
+    MarkFlow.attach(c.root, { markMine: async () => { throw new Error('must not send'); } });
+    await c.open.click();
+    tick(c, 0);
+    await c.action.click();
+    assert.strictEqual(holder.activeElement, c.head, 'the confirmation’s heading');
+    await c.back.click();
+    assert.strictEqual(holder.activeElement, c.action, 'back on the checklist’s button');
+    await c.wholeOpen.click();
+    assert.strictEqual(holder.activeElement, c.wholeHead, 'the whole-list confirmation’s heading');
+    await c.wholeBack.click();
+    assert.strictEqual(holder.activeElement, c.action);
+    await c.cancel.click();
+    assert.strictEqual(holder.activeElement, c.open, 'Cancel: the button that opened it');
+    await c.open.click();
+    await c.wholeOpen.click();
+    (c.root.listeners.keydown || []).forEach((fn) => fn({ key: 'Escape', target: c.wholeYes }));
+    assert.strictEqual(holder.activeElement, c.open, 'Escape: the button that opened it');
+    if (shadow) assert.strictEqual(c.doc.activeElement, undefined, 'never through the document');
+  });
+}
+
+test('Back with nothing ticked lands on the first box', async () => {
+  const { c, holder } = focusedCard();
+  MarkFlow.attach(c.root, {});
+  await c.open.click();
+  await c.wholeOpen.click();
+  await c.wholeBack.click();
+  assert.strictEqual(holder.activeElement, c.boxes[0]);
+});
+
+test('after Yes, focus moves to the result', async () => {
+  const { c, holder } = focusedCard();
+  MarkFlow.attach(c.root, { markMine: async (id, ids) => ({ status: 'marked', ids }) });
+  await c.open.click();
+  tick(c, 0);
+  await c.action.click();
+  await c.yes.click();
+  assert.strictEqual(holder.activeElement, c.status);
+});
+
+test('the headings that take focus are focusable, and so is the result', () => {
+  const html = MarkFlow.markControlsHtml(finding(entries([...ROWS, NULL_ROW])));
+  assert.match(html, /data-mark-items-head tabindex="-1"/);
+  assert.match(html, /data-mark-whole-head tabindex="-1"/);
+  assert.match(html, /data-mark-status role="status" aria-live="polite" tabindex="-1"/);
+});
+
+test('"The other N keep their warning" counts right in the plural', async () => {
+  const c = entryCard({ selectable: [ID_1, ID_2, DONE] });
+  MarkFlow.attach(c.root, { markMine: async (id, ids) => ({ status: 'marked', ids }) });
+  await c.open.click();
+  tick(c, 0);
+  await c.action.click();
+  await c.yes.click();
+  assert.match(c.status.innerHTML, /The other 2 keep their warning\./);
+});
+
+test('the whole-list confirmation says what it covers and when the warning returns', () => {
+  const one = MarkFlow.markControlsHtml(finding(entries([...ROWS, NULL_ROW])));
+  const whole = one.slice(one.indexOf('data-mark-whole-confirm'));
+  assert.ok(whole.includes(MarkFlow.wholeIncludes(1)));
+  assert.ok(whole.includes('This includes 1 we couldn’t check who made.'));
+  assert.ok(whole.includes('If anything on this list changes, its warning comes back.'));
+  const two = MarkFlow.markControlsHtml(finding(entries([...ROWS, NULL_ROW,
+    { ...NULL_ROW, key: 'com.example.gone2', detail: 'com.example.gone2' }])));
+  assert.ok(two.includes('This includes 2 we couldn’t check who made.'));
+});
+
+test('after a partial mark the button stays, and the marked row can’t be ticked again', async () => {
+  const c = entryCard();
+  const sent = [];
+  MarkFlow.attach(c.root, {
+    markMine: async (id, ids) => { sent.push(ids); return { status: 'marked', ids }; },
+    unmarkMine: async (ids) => ({ status: 'removed', ids }),
+  });
+  await c.open.click();
+  tick(c, 0);
+  await c.action.click();
+  await c.yes.click();
+  assert.strictEqual(c.open.hidden, false, 'the rest can still be marked');
+  assert.strictEqual(c.boxes[0].disabled, true);
+  assert.strictEqual(c.boxes[0].checked, false);
+  assert.strictEqual(c.card.getAttribute('data-mark-selectable'), '1');
+  assert.strictEqual(c.doneRows[0].hidden, false, 'shown as marked, with its undo');
+  assert.strictEqual(c.doneRows[0].querySelector('[data-unmark-item]').hidden, false);
+  // The second round: only the row still open.
+  await c.open.click();
+  tick(c, 1);
+  await c.action.click();
+  assert.deepStrictEqual(c.confirmRows.map((r) => r.hidden), [true, false]);
+  await c.yes.click();
+  assert.deepStrictEqual(sent, [[ID_1], [ID_2]]);
+  assert.strictEqual(c.card.getAttribute('data-mark-selectable'), '0');
+  assert.deepStrictEqual(c.doneRows.map((r) => r.hidden), [false, false]);
+  // Undo one: its box comes back.
+  await c.doneRows[0].querySelector('[data-unmark-item]').click();
+  assert.strictEqual(c.boxes[0].disabled, false);
+  assert.strictEqual(c.card.getAttribute('data-mark-selectable'), '1');
+});
+
+test('a hand-forged key for a row already marked is never confirmed again', async () => {
+  const c = entryCard();
+  const sent = [];
+  MarkFlow.attach(c.root, { markMine: async (id, ids) => { sent.push(ids); return { status: 'marked', ids }; } });
+  await c.open.click();
+  tick(c, 0);
+  await c.action.click();
+  await c.yes.click();
+  // Something re-enables and ticks the marked row behind the panel's back.
+  await c.open.click();
+  c.boxes[0].disabled = false;
+  tick(c, 0);
+  await c.action.click();
+  assert.strictEqual(c.confirm.hidden, true);
+  assert.deepStrictEqual(sent, [[ID_1]]);
 });

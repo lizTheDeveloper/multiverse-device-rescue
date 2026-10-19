@@ -85,6 +85,11 @@ const MarkFlow = (function () {
   const CANT_ALONE = 'We couldn’t check who made this one just now, so it can only be marked with the whole list.';
   const STALE_ROW = 'Marked as yours before, but it has changed since.';
   const WHOLE_BUTTON = 'The whole list is mine';
+  const WHOLE_HEAD = 'You’re saying the whole list is yours, as one answer:';
+  const WHOLE_CHANGES = 'If anything on this list changes, its warning comes back.';
+  function wholeIncludes(n) {
+    return `This includes ${n} we couldn’t check who made.`;
+  }
   // The shared checklist (checklist.js): a global in the page, required in Node.
   const CL = typeof Checklist !== 'undefined' ? Checklist
     : (typeof require === 'function' ? require('./checklist.js') : null);
@@ -317,12 +322,15 @@ const MarkFlow = (function () {
 
   // The whole list as one answer, as before: only offered when a row can't be
   // marked on its own, so that row still has a way to be marked.
-  function wholeConfirmHtml(m, finding) {
+  function wholeConfirmHtml(m, finding, alone) {
     const reasons = [COULD_WATCH, ...(LIST_KINDS.has(m.kind) ? [LIST_REASON] : [])];
     return `
           <div data-mark-whole-confirm hidden>
+            <p class="fix-panel__line"><strong data-mark-whole-head tabindex="-1">${esc(WHOLE_HEAD)}</strong></p>
             ${showsHtml(m, finding)}
+            ${alone > 0 ? `<p class="fix-panel__line">${esc(wholeIncludes(alone))}</p>` : ''}
             <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.will_change)}</p>
+            <p class="fix-panel__line">${esc(WHOLE_CHANGES)}</p>
             <p class="fix-panel__line"><strong>To undo later:</strong></p>
             ${undoListHtml(m.how_to_undo)}
             <p class="fix-panel__line fix-panel__warning"><strong>${esc(ONLY_IF_YOURS)}</strong></p>
@@ -380,7 +388,7 @@ const MarkFlow = (function () {
             </div>
           </div>
           <div data-mark-items-confirm hidden>
-            <p class="fix-panel__line"><strong data-mark-items-head>You’re saying these are yours:</strong></p>
+            <p class="fix-panel__line"><strong data-mark-items-head tabindex="-1">You’re saying these are yours:</strong></p>
             <ul class="mark-apps">${confirmRows}</ul>
             <p class="fix-panel__line"><strong>This will:</strong> ${esc(m.items_will_change || m.will_change)}</p>
             <p class="fix-panel__line"><strong>To undo later:</strong></p>
@@ -394,9 +402,9 @@ const MarkFlow = (function () {
               <button type="button" class="btn btn--secondary btn--small" data-mark-items-back>Back</button>
             </div>
           </div>
-          ${alone ? wholeConfirmHtml(m, finding) : ''}
+          ${alone ? wholeConfirmHtml(m, finding, alone) : ''}
         </div>
-        <div class="fix-status" data-mark-status role="status" aria-live="polite" hidden></div>
+        <div class="fix-status" data-mark-status role="status" aria-live="polite" tabindex="-1" hidden></div>
         <ul class="mark-apps" data-mark-items-done hidden>${doneRows}</ul>
       </div>`;
   }
@@ -522,8 +530,9 @@ const MarkFlow = (function () {
 
   // After some entries were marked: how many, and what happens to the rest.
   function itemsResultHtml(n, rest, undo) {
+    const others = rest === 1 ? 'The other one keeps its warning.' : `The other ${rest} keep their warning.`;
     const detail = rest > 0
-      ? `The other ${rest} keep their warning. From your next checkup, the ones you marked are listed as “marked as yours”.`
+      ? `${others} From your next checkup, the ones you marked are listed as “marked as yours”.`
       : 'From your next checkup the whole list is listed as “marked as yours” instead of being flagged.';
     return `
       <div class="fix-status--success fix-status__box">
@@ -584,6 +593,65 @@ const MarkFlow = (function () {
       showPick(card);
       untick(card);
       state.delete(card);
+    }
+
+    function focusOn(el) {
+      if (el && !el.hidden && typeof el.focus === 'function') el.focus();
+    }
+
+    // Back to the checklist: its button, or the first box while nothing is ticked.
+    function focusPick(card) {
+      const action = card.querySelector('[data-mark-items-pick] [data-cl-action]');
+      if (action && action.disabled !== true) { focusOn(action); return; }
+      const box = Array.from(card.querySelectorAll('[data-mark-items-pick] [data-cl-item]')).find((b) => b.disabled !== true);
+      focusOn(box || action);
+    }
+
+    // Closed by the person (Cancel, Escape): back to the button that opened it.
+    function closeByPerson(card) {
+      closePanel(card);
+      focusOn(card.querySelector('[data-mark-open]'));
+    }
+
+    // Entries the engine just marked: out of the checklist, into the
+    // "marked" list with their own undo. Undo puts a row back.
+    function entriesMarked(card, ids) {
+      let n = 0;
+      for (const id of ids) {
+        const box = card.querySelector(`[data-cl-key="${id}"]`);
+        if (box && box.disabled !== true) {
+          box.checked = false;
+          box.disabled = true;
+          const li = box.closest ? box.closest('li') : null;
+          if (li && li !== box) li.hidden = true;
+          n += 1;
+        }
+        const row = card.querySelector(`[data-mark-items-row="${id}"]`);
+        if (row) row.setAttribute('data-mark-items-marked', '');
+        const done = card.querySelector(`[data-mark-items-done-row="${id}"]`);
+        if (done) {
+          done.hidden = false;
+          const b = done.querySelector('[data-unmark-item]');
+          const st = done.querySelector('[data-unmark-item-status]');
+          if (b) b.hidden = false;
+          if (st) { st.hidden = true; st.textContent = ''; }
+        }
+      }
+      const left = Math.max(0, (Number(card.getAttribute('data-mark-selectable')) || 0) - n);
+      card.setAttribute('data-mark-selectable', String(left));
+      card.querySelectorAll('[data-cl-list]').forEach((list) => { if (clApi) clApi.update(list); });
+    }
+
+    function entryUnmarked(card, id) {
+      const box = card.querySelector(`[data-cl-key="${id}"]`);
+      if (!box || box.disabled !== true || !card.querySelector(`[data-mark-items-done-row="${id}"]`)) return;
+      box.disabled = false;
+      const li = box.closest ? box.closest('li') : null;
+      if (li && li !== box) li.hidden = false;
+      const row = card.querySelector(`[data-mark-items-row="${id}"]`);
+      if (row) row.removeAttribute('data-mark-items-marked');
+      card.setAttribute('data-mark-selectable', String((Number(card.getAttribute('data-mark-selectable')) || 0) + 1));
+      card.querySelectorAll('[data-cl-list]').forEach((list) => { if (clApi) clApi.update(list); });
     }
 
     function setButtons(card, hidden) {
@@ -668,10 +736,10 @@ const MarkFlow = (function () {
           const rest = Math.max(0, open - saved.length) + alone;
           status.innerHTML = itemsResultHtml(saved.length, rest, d.undo);
           const done = card.querySelector('[data-mark-items-done]');
-          if (done) done.hidden = saved.length === 0;
-          card.querySelectorAll('[data-mark-items-done-row]').forEach((row) => {
-            row.hidden = !saved.includes(row.getAttribute('data-mark-items-done-row'));
-          });
+          if (done && saved.length) done.hidden = false;
+          entriesMarked(card, saved);
+          // Rows still warn: the button stays, so they can be marked without a re-check.
+          if (rest > 0) card.querySelectorAll('[data-mark-open]').forEach((b) => { b.hidden = false; });
           // Every entry it could mark is now marked: the card leaves the list, as a whole mark would.
           if (saved.length && rest === 0 && typeof on.onMarked === 'function') on.onMarked([card]);
         }
@@ -690,6 +758,8 @@ const MarkFlow = (function () {
       }
       state.delete(card);
       if (!d.done) setButtons(card, false);
+      // The panel that had focus is gone: the result is read out from here.
+      if (kind === 'marked-items') focusOn(status);
     }
 
     function unmark(card) {
@@ -717,6 +787,7 @@ const MarkFlow = (function () {
         if (onResult) { try { onResult({ kind: 'removed', result: r, described: d }); } catch (_) { /* never break an undo */ } }
         // A card cleared as fully marked comes back to the list.
         const card = cardOf(row);
+        if (ok && card) entryUnmarked(card, id);
         if (ok && card && typeof on.onUnmarked === 'function') on.onUnmarked([card]);
       } catch (_) {
         if (status) status.textContent = describeMarkResult(null).headline;
@@ -728,11 +799,12 @@ const MarkFlow = (function () {
 
     // The checklist's button: show exactly the ticked rows the panel rendered, and ask.
     function openItemsConfirm(card, keys) {
-      const rows = Array.from(card.querySelectorAll('[data-mark-items-row]'));
+      const rows = Array.from(card.querySelectorAll('[data-mark-items-row]')).filter((r) => !r.hasAttribute('data-mark-items-marked'));
       const allowed = new Set(rows.map((r) => r.getAttribute('data-mark-items-row')));
       const ids = [...new Set(keys)].filter((k) => MARK_ID.test(k) && allowed.has(k));
       const confirm = card.querySelector('[data-mark-items-confirm]');
       if (!ids.length || !confirm) return;
+      card.querySelectorAll('[data-mark-items-row]').forEach((row) => { row.hidden = true; });
       rows.forEach((row) => { row.hidden = !ids.includes(row.getAttribute('data-mark-items-row')); });
       const head = card.querySelector('[data-mark-items-head]');
       if (head) head.textContent = ids.length === 1 ? 'You’re saying this one is yours:' : `You’re saying these ${ids.length} are yours:`;
@@ -743,6 +815,7 @@ const MarkFlow = (function () {
       if (pick) pick.hidden = true;
       confirm.hidden = false;
       state.set(card, 'confirming-items');
+      focusOn(head);
     }
 
     // The checklist listens first: some callers' roots keep only the last click handler.
@@ -772,7 +845,7 @@ const MarkFlow = (function () {
         return undefined;
       }
       if (target.hasAttribute('data-mark-cancel')) {
-        closePanel(card);
+        closeByPerson(card);
         return undefined;
       }
       if (target.hasAttribute('data-unmark')) return unmark(card);
@@ -782,7 +855,7 @@ const MarkFlow = (function () {
       }
       if (target.hasAttribute('data-mark-items-back')) {
         const s = state.get(card);
-        if (s === 'confirming-items' || s === 'confirming-whole') { showPick(card); state.set(card, 'confirming'); }
+        if (s === 'confirming-items' || s === 'confirming-whole') { showPick(card); state.set(card, 'confirming'); focusPick(card); }
         return undefined;
       }
       if (target.hasAttribute('data-mark-whole-open')) {
@@ -792,6 +865,7 @@ const MarkFlow = (function () {
         if (pick) pick.hidden = true;
         whole.hidden = false;
         state.set(card, 'confirming-whole');
+        focusOn(card.querySelector('[data-mark-whole-head]'));
         return undefined;
       }
       if (target.hasAttribute('data-mark-items-yes')) {
@@ -816,7 +890,7 @@ const MarkFlow = (function () {
       if (event.key !== 'Escape') return;
       const card = cardOf(event.target);
       const s = card && state.get(card);
-      if (s === 'confirming' || s === 'confirming-items' || s === 'confirming-whole') closePanel(card);
+      if (s === 'confirming' || s === 'confirming-items' || s === 'confirming-whole') closeByPerson(card);
     });
 
     return { unmark };
@@ -824,7 +898,7 @@ const MarkFlow = (function () {
 
   return {
     ONLY_IF_YOURS, COULD_WATCH, LIST_REASON, NOT_SURE_LIST, NAME_MAKER_MISMATCH, MAX_APP_NAME, BUTTON, NEVER_MARKABLE_MODULES,
-    ENTRY_REASON, CANT_ALONE, STALE_ROW, ENTRY_BUTTON, WHOLE_BUTTON, groupOf, markableOf, markedIdOf,
+    ENTRY_REASON, CANT_ALONE, STALE_ROW, ENTRY_BUTTON, WHOLE_BUTTON, WHOLE_HEAD, WHOLE_CHANGES, wholeIncludes, groupOf, markableOf, markedIdOf,
     needsStrongConfirm, markControlsHtml, describeMarkResult, resultHtml, attach, esc,
   };
 })();
