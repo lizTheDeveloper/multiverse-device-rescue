@@ -110,6 +110,15 @@ function markedEntryIds(f) {
   return out;
 }
 
+// A checkup that stopped before the end (engine-runner.js stoppedDocOf) or
+// is still running (`partial`) is shown, never acted on: every caller of
+// remember() gets the same rule, so nothing can re-arm from one.
+function actionableDoc(doc) {
+  if (!doc || typeof doc !== 'object') return null;
+  if ((doc.stopped && typeof doc.stopped === 'object') || (doc.partial && typeof doc.partial === 'object')) return null;
+  return doc;
+}
+
 function createMarkPolicy() {
   let markable = new Map(); // id -> target, from the last scan only
   let marked = new Map(); // id -> every marked id for the same item, from the last scan (or saved since)
@@ -121,7 +130,8 @@ function createMarkPolicy() {
     // mark id. The engine lists them together (markable.ids); a sibling is
     // kept only if this same scan offered it as markable for the same item,
     // so one confirmation can never reach a different item.
-    remember(doc) {
+    remember(scanDoc) {
+      const doc = actionableDoc(scanDoc);
       const offered = new Map(); // id -> { target, key, ids, entries }
       const markedSeen = new Map(); // id -> { key, ids }
       const entriesSeen = new Set();

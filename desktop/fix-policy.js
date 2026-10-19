@@ -45,13 +45,23 @@ function isActionFixable(finding) {
   return hasWellFormedFixable(finding) && finding.fixable.action !== undefined;
 }
 
+// A checkup that stopped before the end (engine-runner.js stoppedDocOf) or
+// is still running (`partial`) is shown, never acted on: every caller of
+// remember() gets the same rule, so nothing can re-arm from one.
+function actionableDoc(doc) {
+  if (!doc || typeof doc !== 'object') return null;
+  if ((doc.stopped && typeof doc.stopped === 'object') || (doc.partial && typeof doc.partial === 'object')) return null;
+  return doc;
+}
+
 function createFixPolicy() {
   let allowed = new Set();
   let actions = new Set();
   const undoable = new Set();
   return {
     // Replace (not merge) the allowance with whatever the latest scan offered.
-    remember(doc) {
+    remember(scanDoc) {
+      const doc = actionableDoc(scanDoc);
       const next = new Set();
       const nextActions = new Set();
       const modules = doc && Array.isArray(doc.modules) ? doc.modules : [];

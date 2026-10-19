@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, net, protocol } = require('electron'
 const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
-const { createExecLog, runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck, stopRunningScans, isStoppedDoc } = require('./engine-runner');
+const { createExecLog, runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck, stopRunningScans } = require('./engine-runner');
 const { handleRecheck } = require('./recheck');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
@@ -60,10 +60,10 @@ app.whenReady().then(() => {
       if (ev.type === 'exec') execLog.add(ev);
       if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
     });
-    // A checkup that stopped before the end (isStoppedDoc) is shown, never
-    // acted on: its entries have no "who made it" and no cross-check mark ids.
-    fixPolicy.remember(isStoppedDoc(doc) ? null : doc);
-    markPolicy.remember(isStoppedDoc(doc) ? null : doc);
+    // A checkup that stopped before the end is shown, never acted on: the
+    // policies themselves ignore it (actionableDoc), whoever calls remember.
+    fixPolicy.remember(doc);
+    markPolicy.remember(doc);
     lastDoc = doc;
     return doc;
   }, () => { if (!e.sender.isDestroyed()) e.sender.send('scan-event', { type: 'wait', reason: 'change' }); }));

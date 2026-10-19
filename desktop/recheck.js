@@ -34,6 +34,8 @@ async function handleRecheck(name, { getLastDoc, setLastDoc, runRecheck, policie
   const last = getLastDoc();
   if (typeof name !== 'string' || !MODULE_NAME.test(name)) return fail('not_allowed', 'That check can’t be re-run from here.');
   if (!last || !Array.isArray(last.modules)) return fail('no_scan', 'Run the checkup first.');
+  // A checkup that stopped before the end is shown, never acted on.
+  if (last.stopped && typeof last.stopped === 'object') return fail('no_scan', 'Run the checkup again first.');
   if (!last.modules.some((m) => m && m.name === name)) return fail('not_allowed', 'That check wasn’t part of this checkup.');
   let partial;
   try {
