@@ -5,6 +5,8 @@
 // the Markdown is drawn (the same small subset as the list's renderMiniMarkdown),
 // and anything with a shell command goes behind FOR TECH HELPERS.
 import { esc } from '../escape.js';
+// Sets globalThis.StepFill (a plain script the list loads too).
+import '../../step-fill.js';
 
 // What a check is, in words, where a step names it by id.
 const CHECK_WORDS = {
@@ -19,59 +21,13 @@ const CHECK_WORDS = {
 };
 const MODULE_ID = /`?\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b`?/g;
 
-// Placeholder -> the data fields that fill it, first found wins.
-const FILL = {
-  'path-to-plist': ['plist'],
-  'plist': ['plist'],
-  'label': ['label'],
-  'path': ['path', 'program', 'plist', 'location'],
-  'app path': ['path', 'location', 'program'],
-  'path-to-binary': ['program', 'path'],
-  'program': ['program'],
-  'pid': ['pid'],
-  'name': ['name', 'label', 'process'],
-  'process': ['process', 'name'],
-  'port': ['port', 'ports'],
-  'bundle-id': ['bundle_id'],
-  'username': ['username', 'user'],
-};
-
-function valueOf(data, keys) {
-  for (const k of keys) {
-    const v = data[k];
-    if (typeof v === 'string' && v.trim()) return v;
-    if (typeof v === 'number' && Number.isFinite(v)) return String(v);
-    if (Array.isArray(v) && v.length && (typeof v[0] === 'number' || typeof v[0] === 'string')) return String(v[0]);
-  }
-  return null;
-}
-
-// Scan data (file names, plist paths, labels) can be chosen by whoever put
-// the thing there, and these steps are pasted into a terminal. A value is
-// filled in only when it is plainly safe there: letters (any script), digits,
-// spaces and / . - _ + , : @ % = ~, not starting with "-". It is then always
-// single-quoted, and any quotes the template put round the placeholder are
-// dropped. Anything else leaves the placeholder as it was (the value still
-// shows, escaped, in the finding's own text).
-const SAFE_VALUE = /^[\p{L}\p{N} /._+,:@%=~-]+$/u;
-export const shellSafe = (v) => typeof v === 'string' && v !== '' && SAFE_VALUE.test(v) && !v.startsWith('-') && v.trim() === v;
-
-// `<path-to-plist>` -> '/the/plist/the/scan/found'. Only for a POSIX shell
-// (macOS, Linux): `platform` anything else (Windows' PowerShell quotes
-// differently, or not known) fills nothing.
-export function fillPlaceholders(text, data, platform = null) {
-  const t = String(text == null ? '' : text);
-  if (platform !== 'darwin' && platform !== 'linux') return t;
-  const d = data && typeof data === 'object' ? data : {};
-  return t.replace(/(["'\u2018\u2019\u201c\u201d]?)<([a-zA-Z][a-zA-Z0-9_ -]*)>(["'\u2018\u2019\u201c\u201d]?)/g, (all, q1, name, q2) => {
-    const keys = FILL[name.toLowerCase()];
-    const v = keys ? valueOf(d, keys) : null;
-    if (!shellSafe(v)) return all;
-    // Matching quotes round the placeholder are the template's: dropped, ours used instead.
-    const wrapped = q1 && q2;
-    return `${wrapped ? '' : q1}'${v}'${wrapped ? '' : q2}`;
-  });
-}
+// `<path-to-plist>` -> '/the/plist/the/scan/found': the list's own rule, one
+// module for both (renderer/step-fill.js). Only values plainly safe in a
+// terminal, always quoted, and only for a POSIX shell (`platform` darwin or
+// linux); anything else leaves the placeholder as it was.
+const SF = globalThis.StepFill;
+export const shellSafe = SF.shellSafe;
+export const fillPlaceholders = (text, data, platform = null) => SF.fillPlaceholders(text, data, platform);
 
 // `launchd_persistence_audit` -> "the startup-task check". Only real check
 // names (the scan's modules, or the ones above) change; other words stay.

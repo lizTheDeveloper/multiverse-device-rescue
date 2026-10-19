@@ -59,12 +59,14 @@ test('the couldn’t-check list says what went wrong in words, with the raw text
 
 test('walkthrough placeholders are filled from what the scan found, paths single-quoted', () => {
   const data = { plist: '/Users/a/Library/LaunchAgents/x y.plist', label: 'ai.hermes.gateway-deflock', pid: 61084 };
-  assert.strictEqual(app.fillPlaceholders('launchctl bootout gui/$(id -u) <path-to-plist>', data),
+  const mac = { platform: 'darwin' };
+  assert.strictEqual(app.fillPlaceholders('launchctl bootout gui/$(id -u) <path-to-plist>', data, mac),
     "launchctl bootout gui/$(id -u) '/Users/a/Library/LaunchAgents/x y.plist'");
-  assert.strictEqual(app.fillPlaceholders('launchctl bootout gui/$(id -u) "<path-to-plist>"', data),
+  assert.strictEqual(app.fillPlaceholders('launchctl bootout gui/$(id -u) "<path-to-plist>"', data, mac),
     "launchctl bootout gui/$(id -u) '/Users/a/Library/LaunchAgents/x y.plist'", 'the template’s quotes are replaced, never doubled');
-  assert.strictEqual(app.fillPlaceholders('kill <pid> for <label>, <unknown>', data), 'kill 61084 for ai.hermes.gateway-deflock, <unknown>');
-  assert.strictEqual(app.fillPlaceholders('<path>', {}), '<path>', 'unknown values stay as written');
+  assert.strictEqual(app.fillPlaceholders('kill <pid> for <label>, <unknown>', data, mac), "kill 61084 for 'ai.hermes.gateway-deflock', <unknown>");
+  assert.strictEqual(app.fillPlaceholders('<path>', {}, mac), '<path>', 'unknown values stay as written');
+  assert.strictEqual(app.fillPlaceholders('rm <path>', { path: '/x' }), 'rm <path>', 'an unknown platform is never filled');
   assert.strictEqual(app.fillPlaceholders('rm <path>', { path: '/x' }, { platform: 'win32' }), 'rm <path>', 'Windows walkthroughs are never filled');
 });
 
@@ -77,21 +79,21 @@ test('scan data never reaches a step as a shell payload or as markup', () => {
   ];
   for (const v of evil) {
     for (const name of ['path-to-plist', 'path', 'program']) {
-      const filled = app.fillPlaceholders(`launchctl bootout gui/501 <${name}>`, { plist: v, path: v, location: v, program: v });
+      const filled = app.fillPlaceholders(`launchctl bootout gui/501 <${name}>`, { plist: v, path: v, location: v, program: v }, { platform: 'darwin' });
       assert.strictEqual(filled, `launchctl bootout gui/501 <${name}>`, `${JSON.stringify(v)} is not filled into <${name}>`);
     }
     for (const name of ['label', 'bundle-id']) {
-      assert.strictEqual(app.fillPlaceholders(`<${name}>`, { label: v, bundle_id: v }), `<${name}>`, JSON.stringify(v));
+      assert.strictEqual(app.fillPlaceholders(`<${name}>`, { label: v, bundle_id: v }, { platform: 'darwin' }), `<${name}>`, JSON.stringify(v));
     }
   }
   for (const pid of ['1; rm -rf ~', '$(id)', '12a', -1, 1.5, '']) {
-    assert.strictEqual(app.fillPlaceholders('kill <pid>', { pid }), 'kill <pid>', JSON.stringify(pid));
+    assert.strictEqual(app.fillPlaceholders('kill <pid>', { pid }, { platform: 'darwin' }), 'kill <pid>', JSON.stringify(pid));
   }
   for (const label of ['$(id)', 'a b', '`id`', '<img src=x onerror=alert(1)>', '[x](http://evil)', '-rf', 'a\nb']) {
-    assert.strictEqual(app.fillPlaceholders('<label>', { label }), '<label>', JSON.stringify(label));
+    assert.strictEqual(app.fillPlaceholders('<label>', { label }, { platform: 'darwin' }), '<label>', JSON.stringify(label));
   }
   // What does pass is rendered as text: no tag, no link, no image.
-  const html = renderMiniMarkdown(app.fillPlaceholders('Run `launchctl bootout gui/501 <path-to-plist>`', { plist: '/Users/a/My App/x.plist' }));
+  const html = renderMiniMarkdown(app.fillPlaceholders('Run `launchctl bootout gui/501 <path-to-plist>`', { plist: '/Users/a/My App/x.plist' }, { platform: 'darwin' }));
   assert.strictEqual(html, "<p>Run <code>launchctl bootout gui/501 &#39;/Users/a/My App/x.plist&#39;</code></p>".replace(/&#39;/g, "'"));
   assert.doesNotMatch(html, /<img|<a |onerror/);
 });

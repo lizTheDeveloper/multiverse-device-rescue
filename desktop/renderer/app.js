@@ -466,55 +466,13 @@ const notCheckedSummary = NotCheckedRule.notCheckedSummary;
 // The top line when something wasn't fully checked. Never an all-clear.
 const notCheckedLine = NotCheckedRule.notCheckedLine;
 
-/**
- * The engine's walkthroughs say `<path-to-plist>` or `<label>` where the scan
- * already knows the value. The person may copy these steps into Terminal, and
- * scan data (paths, labels, program names) can be chosen by whoever put the
- * thing there, so a value is filled in only when it can't run as code or
- * change the step's markup:
- *   - pid: digits only;
- *   - label, bundle id: letters, digits, dot, underscore, hyphen;
- *   - path, program: no quote, $, backtick, backslash, ; | & < > ( ) * ? [ ] { } ~ !,
- *     # or control character, and always single-quoted (quotes the template
- *     put around the placeholder are replaced, never doubled).
- * Anything else leaves the placeholder as written. Windows walkthroughs are
- * never filled. The step is HTML-escaped afterwards (renderMiniMarkdown).
- */
-const PLACEHOLDERS = {
-  'path-to-plist': { keys: ['plist', 'plist_path'], kind: 'path' },
-  plist: { keys: ['plist', 'plist_path'], kind: 'path' },
-  path: { keys: ['path', 'location'], kind: 'path' },
-  program: { keys: ['program'], kind: 'path' },
-  label: { keys: ['label'], kind: 'name' },
-  'bundle-id': { keys: ['bundle_id'], kind: 'name' },
-  pid: { keys: ['pid'], kind: 'pid' },
-};
-const SAFE_NAME = /^[A-Za-z0-9._-]{1,256}$/;
-const UNSAFE_PATH = /['"`$\\;|&<>()*?[\]{}~!#]|[\p{Cc}\p{Cf}]/u;
-function safePlaceholderValue(kind, value) {
-  if (kind === 'pid') {
-    const v = typeof value === 'number' && Number.isInteger(value) && value > 0 ? String(value) : String(value == null ? '' : value);
-    return /^\d{1,10}$/.test(v) ? v : null;
-  }
-  if (typeof value !== 'string') return null;
-  if (kind === 'name') return SAFE_NAME.test(value) && !value.startsWith('-') ? value : null;
-  if (!value.startsWith('/') || value.length > 1024 || UNSAFE_PATH.test(value)) return null;
-  return `'${value}'`;
-}
-function fillPlaceholders(text, data, opts) {
-  const src = String(text == null ? '' : text);
-  if (opts && opts.platform === 'win32') return src;
-  const d = data && typeof data === 'object' ? data : {};
-  return src.replace(/(['"]?)<([a-z-]+)>\1/g, (all, quote, name) => {
-    const spec = PLACEHOLDERS[name];
-    if (!spec) return all;
-    for (const k of spec.keys) {
-      const safe = safePlaceholderValue(spec.kind, d[k]);
-      if (safe !== null) return spec.kind === 'path' ? safe : `${quote}${safe}${quote}`;
-    }
-    return all;
-  });
-}
+// The engine's walkthroughs say `<path-to-plist>` or `<label>` where the scan
+// already knows the value. Filled by the one rule the game uses too
+// (step-fill.js): only values that can't run as code or change the markup,
+// only for macOS and Linux. The step is HTML-escaped afterwards (renderMiniMarkdown).
+const StepFillRule = typeof StepFill !== 'undefined' ? StepFill : require('./step-fill.js');
+const fillPlaceholders = StepFillRule.fillPlaceholders;
+const safePlaceholderValue = StepFillRule.safeValue;
 
 /**
  * A check's name for people: "launch_agent_audit" -> "Launch agent audit",
