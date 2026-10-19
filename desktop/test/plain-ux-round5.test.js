@@ -298,3 +298,16 @@ test('a few names stay in the line; more than five go under the fold', () => {
   assert.strictEqual(many.line, '6 checks couldn’t run.');
   assert.deepStrictEqual(many.folded, ['A', 'B', 'C', 'D', 'E', 'F']);
 });
+
+// ---------------------------------------------------------------------------
+// (8) P2-6: an app id with no app found says so, not "couldn't check just now".
+// ---------------------------------------------------------------------------
+test('P2-6: a row that is only an app id says no app was found for it, not “just now”', () => {
+  const MarkFlow = require('../renderer/mark-flow.js');
+  const fresh = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'fresh-round3.json'), 'utf8'));
+  const f = fresh.modules.find((m) => m.name === 'app_permissions').findings.find((x) => x.markable);
+  const html = MarkFlow.markControlsHtml(Object.assign({ module: 'app_permissions' }, f));
+  const row = /com\.amical\.desktop[\s\S]*?(?=<\/li>)/.exec(html.split('Tick the apps you know and use')[1])[0];
+  assert.ok(row.includes(MarkFlow.NO_APP));
+  assert.doesNotMatch(row, /just now/);
+});

@@ -86,6 +86,8 @@ const MarkFlow = (function () {
   const ENTRY_LEGEND = { app_permissions: 'Tick the apps you know and use', ssh_authorized_keys: 'Tick the keys you added yourself' };
   const ENTRY_REASON = 'We ask so the list stays accurate: anything you leave unticked, or that appears later, keeps its warning.';
   const CANT_ALONE = 'We couldn’t check who made this one just now, so it can only be marked with the whole list.';
+  // An app id the checkup found no app for (its name is the id): say that, not "just now".
+  const NO_APP = 'We couldn’t find an app with this id on this computer, so it can only be marked with the whole list.';
   const STALE_ROW = 'Marked as yours before, but it has changed since.';
   // The engine couldn't look this one up this time: never say it changed.
   const UNCHECKED_ROW = 'Marked as yours before. We couldn’t check this one this time, so its warning is back. That doesn’t mean it changed. For now it can only be marked with the whole list.';
@@ -368,6 +370,14 @@ const MarkFlow = (function () {
           </div>`;
   }
 
+  // Why a row can't be marked on its own: a maker is shown (only the whole
+  // list); an app id with no app found; or the lookup didn't get to it.
+  function aloneNote(m, finding, e) {
+    if (makerText(makerEntry(finding && finding.made_by, e.key))) return ALONE_ONLY;
+    if (m.kind === 'app_permissions' && e.label === e.key && !/^[/~]/.test(e.key)) return NO_APP;
+    return CANT_ALONE;
+  }
+
   function entryControlsHtml(m, finding, entries, opts) {
     const noun = ENTRY_NOUNS[m.kind];
     const marked = entries.filter((e) => e.marked === true);
@@ -385,7 +395,7 @@ const MarkFlow = (function () {
         detail: e.detail && e.detail !== e.label ? e.detail : '',
         evidenceHtml: entryEvidence(m, finding, e),
         disabled: !e.id,
-        note: e.unchecked === true ? UNCHECKED_ROW : !e.id ? (makerText(makerEntry(finding && finding.made_by, e.key)) ? ALONE_ONLY : CANT_ALONE) : (e.stale ? STALE_ROW : ''),
+        note: e.unchecked === true ? UNCHECKED_ROW : !e.id ? aloneNote(m, finding, e) : (e.stale ? STALE_ROW : ''),
       })),
       actions: [{ id: 'mark', verb: 'Mark', noun, suffix: 'as mine', min: 1 }],
       selectAll: true,
@@ -952,7 +962,7 @@ const MarkFlow = (function () {
 
   return {
     ONLY_IF_YOURS, COULD_WATCH, LIST_REASON, NOT_SURE_LIST, NAME_MAKER_MISMATCH, MAX_APP_NAME, BUTTON, NEVER_MARKABLE_MODULES,
-    ENTRY_REASON, CANT_ALONE, STALE_ROW, UNCHECKED_ROW, ENTRY_BUTTON, WHOLE_BUTTON, WHOLE_HEAD, WHOLE_CHANGES, wholeIncludes, groupOf, markableOf, markedIdOf,
+    ENTRY_REASON, CANT_ALONE, NO_APP, STALE_ROW, UNCHECKED_ROW, ENTRY_BUTTON, WHOLE_BUTTON, WHOLE_HEAD, WHOLE_CHANGES, wholeIncludes, groupOf, markableOf, markedIdOf,
     needsStrongConfirm, markControlsHtml, describeMarkResult, resultHtml, attach, esc,
   };
 })();
