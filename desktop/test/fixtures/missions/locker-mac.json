@@ -1,5 +1,5 @@
 {
-  "_note": "Synthetic findings shaped like the engine's locker modules (macOS). Made-up paths under /Users/example; no real scan data.",
+  "_note": "Synthetic findings shaped like the engine's locker modules (macOS). Made-up paths in the example home folder, no real scan data.",
   "platform": "darwin",
   "findings": [
     {
