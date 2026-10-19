@@ -13,7 +13,7 @@ import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './
 import { renderDeck } from './views/deck.js';
 import { renderInstruments } from './views/instruments.js';
 import { renderWatch, watchOffered, idleWatch, watchStarted, watchProgress, watchFinished, watchProgressText,
-  watchMinutes, watchToggleLookups, WATCH_MINUTES } from './views/watch.js';
+  watchMinutes, watchToggleLookups, watchStopping, WATCH_MINUTES } from './views/watch.js';
 import { renderSignalPanel, renderRange } from './views/signal.js';
 import { renderHud } from './views/hud.js';
 import { renderMap } from './views/map.js';
@@ -584,7 +584,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
   function watchAct(act) {
     if (act === 'watch-start') { startWatch().catch(watchCrashed); return; }
-    if (act === 'watch-stop') { Promise.resolve().then(() => win.rescue.stopWatch()).catch(() => {}); return; }
+    if (act === 'watch-stop') {
+      s.watch = watchStopping(s.watch);
+      const line = s.watch.state === 'running' ? frame.querySelector('[data-watch="progress"]') : null;
+      if (line) line.textContent = watchProgressText(s.watch);
+      Promise.resolve().then(() => win.rescue.stopWatch()).catch(() => {});
+      return;
+    }
     if (act === 'watch-lookups') { s.watch = watchToggleLookups(s.watch); render(); return; }
     const m = act.startsWith('watch-minutes:') ? Number(act.slice(14)) : NaN;
     if (WATCH_MINUTES.includes(m)) { s.watch = watchMinutes(s.watch, m); render(); }

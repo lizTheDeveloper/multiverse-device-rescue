@@ -1141,6 +1141,24 @@ test('watch: STOP calls stopWatch, even while a re-check runs', async () => {
   assert.strictEqual(t.calls.stopWatch, 1);
 });
 
+test('watch: after STOP the line says it is stopping until the result arrives', async () => {
+  let release;
+  const t = await watchSetup({ results: [() => new Promise((r) => { release = r; })] });
+  const STOPPING = 'Stopping… finishing what was gathered.';
+  t.click({ 'data-act': 'watch-start' });
+  t.click({ 'data-act': 'watch-stop' });
+  await tick();
+  assert.strictEqual(t.calls.stopWatch, 1);
+  assert.strictEqual(t.line.textContent, STOPPING, 'updated in place');
+  t.event({ progress: { phase: 'lookup', done: 1, total: 3 } });
+  assert.strictEqual(t.line.textContent, STOPPING, 'later progress keeps it');
+  t.click({ 'data-act': 'toggle-low' });
+  assert.ok(t.html().includes(STOPPING), 'the next redraw keeps it');
+  release({ ok: false, reason: 'busy', message: 'Busy.' });
+  await tick(); await tick();
+  assert.ok(!t.html().includes(STOPPING));
+});
+
 test('watch: a result that can’t be shown is the failed state, not an unhandled rejection', async () => {
   const merged = withWatch(scan(mod('mod_a', [finding('A')])), watchF('Mail'));
   const t = await watchSetup({ results: [{ ok: true, doc: merged }], docChanged: () => { throw new Error('boom'); } });

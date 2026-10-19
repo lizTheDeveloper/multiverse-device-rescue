@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
-const { WATCH_MINUTES, handleWatch, stopActiveWatch, SCAN_BUSY_MESSAGE } = require('../watch');
+const { WATCH_MINUTES, handleWatch, stopActiveWatch, SCAN_BUSY_MESSAGE, STOP_GRACE_MS } = require('../watch');
 const { runWatch } = require('../engine-runner');
 const { MONITORING_MODULES } = require('../mark-policy');
 
@@ -240,6 +240,10 @@ test('runWatch timeout: asks the engine to stop, then kills it if it does not ex
 test('runWatch default timeout is the watch plus two minutes', () => {
   const src = read('engine-runner.js');
   assert.match(src, /minutes \* 60_?000 \+ 120_?000/);
+});
+
+test('a stopped watch gets 75 seconds: a snapshot already under way can take up to 30 s a command', () => {
+  assert.strictEqual(STOP_GRACE_MS, 75000);
 });
 
 test('stopActiveWatch: stop, and kill only if it has not exited within the grace period', async () => {

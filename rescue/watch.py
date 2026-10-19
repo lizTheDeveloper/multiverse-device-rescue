@@ -47,7 +47,7 @@ _UPLOAD_RATIO = 3
 _UNKNOWN = "unknown"
 _UNSTORED_LIMIT = 10 * MAX_PAIRS
 # A watch stopped early still looks up what it gathered, but briefly: whoever
-# stopped it is waiting (the desktop app waits 15 seconds before giving up).
+# stopped it is waiting (the desktop app waits 75 seconds before giving up).
 # The time counts from when the stop is seen, and with less than
 # STOPPED_MIN_LOOKUP left the lookups are skipped.
 STOPPED_BUDGET = 10.0

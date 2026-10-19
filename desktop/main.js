@@ -172,7 +172,7 @@ app.whenReady().then(() => {
   createWindow();
 });
 // The watch's engine must not outlive the app: hold the quit, ask it to stop
-// (killed if it hasn't exited within 15 s), then quit for real.
+// (killed if it hasn't exited within 75 s), then quit for real.
 let quitWaiting = false;
 let quitReady = false;
 app.on('before-quit', (event) => {

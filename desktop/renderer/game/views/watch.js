@@ -10,13 +10,14 @@ import { MONITORING_MODULES } from '../ledger.js';
 export const WATCH_MINUTES = [1, 2, 5, 10, 15, 30];
 export const WATCH_DEFAULT_MINUTES = 5;
 const FAILED = 'The connection watch couldn’t finish. Your checkup results are unchanged.';
+const STOPPING = 'Stopping… finishing what was gathered.';
 
 const minutesOf = (m) => (WATCH_MINUTES.includes(m) ? m : WATCH_DEFAULT_MINUTES);
 const count = (n) => Math.max(0, Math.floor(Number(n) || 0));
 export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export const idleWatch = (minutes = WATCH_DEFAULT_MINUTES, lookups = true) => ({ state: 'idle', minutes: minutesOf(minutes),
-  lookups: lookups !== false, phase: 'watch', elapsed: 0, total: 0, snapshots: 0, lookupDone: 0, lookupTotal: 0, message: '' });
+  lookups: lookups !== false, stopping: false, phase: 'watch', elapsed: 0, total: 0, snapshots: 0, lookupDone: 0, lookupTotal: 0, message: '' });
 
 const again = (w) => idleWatch(w && w.minutes, w && w.lookups);
 export const watchStarted = (w) => ({ ...again(w), state: 'running', total: minutesOf(w && w.minutes) * 60 });
@@ -24,6 +25,8 @@ export const watchStarted = (w) => ({ ...again(w), state: 'running', total: minu
 // The minute buttons and the lookups switch change nothing while a watch runs.
 export const watchMinutes = (w, m) => (w.state === 'running' ? w : idleWatch(m, w.lookups));
 export const watchToggleLookups = (w) => (w.state === 'running' ? w : { ...w, lookups: !w.lookups });
+// STOP was pressed: the line says so until the watch's result arrives.
+export const watchStopping = (w) => (w.state === 'running' ? { ...w, stopping: true } : w);
 
 // A {progress: {phase: "watch", elapsed, total, snapshots}} event from main,
 // then {progress: {phase: "lookup", done, total}} while addresses are looked up.
@@ -49,7 +52,8 @@ export function watchOffered(doc) {
     && m.findings.some((f) => f && (f.severity === 'critical' || f.severity === 'warning')));
 }
 
-export function watchProgressText({ minutes, elapsed, snapshots, phase, lookupDone, lookupTotal }) {
+export function watchProgressText({ minutes, elapsed, snapshots, phase, lookupDone, lookupTotal, stopping }) {
+  if (stopping) return STOPPING;
   if (phase === 'lookup') {
     const total = count(lookupTotal);
     return `Looking up who runs each address… ${Math.min(count(lookupDone), total)} of ${total}.`;
@@ -70,13 +74,13 @@ function startHtml(n, lookups) {
     <button type="button" class="btn-s lime" data-act="watch-start">START THE WATCH ▶</button>`;
 }
 
-export function renderWatch({ state = 'idle', minutes, lookups = true, phase = 'watch', elapsed = 0, snapshots = 0,
-  lookupDone = 0, lookupTotal = 0, message = '' } = {}) {
+export function renderWatch({ state = 'idle', minutes, lookups = true, stopping = false, phase = 'watch', elapsed = 0,
+  snapshots = 0, lookupDone = 0, lookupTotal = 0, message = '' } = {}) {
   const n = minutesOf(minutes);
   let body;
   if (state === 'running') {
     body = `
-    <p class="intel" role="status" data-watch="progress">${esc(watchProgressText({ minutes: n, elapsed, snapshots, phase, lookupDone, lookupTotal }))}</p>
+    <p class="intel" role="status" data-watch="progress">${esc(watchProgressText({ minutes: n, elapsed, snapshots, phase, lookupDone, lookupTotal, stopping }))}</p>
     <button type="button" class="btn-s" data-act="watch-stop">STOP</button>
     <p class="intel">Stopping keeps what was gathered.</p>`;
   } else {

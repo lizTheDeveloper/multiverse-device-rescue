@@ -80,13 +80,13 @@ test('the progress sentence is the same text the live update writes', async () =
 test('state steps: start, progress events, a result, a refusal, a failure', async () => {
   const { idleWatch, watchStarted, watchProgress, watchFinished } = await view();
   const idle = idleWatch();
-  assert.deepStrictEqual(idle, { state: 'idle', minutes: 5, lookups: true, phase: 'watch', elapsed: 0, total: 0, snapshots: 0,
+  assert.deepStrictEqual(idle, { state: 'idle', minutes: 5, lookups: true, stopping: false, phase: 'watch', elapsed: 0, total: 0, snapshots: 0,
     lookupDone: 0, lookupTotal: 0, message: '' });
   assert.strictEqual(idleWatch(15).minutes, 15);
   assert.strictEqual(idleWatch(15, false).lookups, false);
   assert.strictEqual(idleWatch(7).minutes, 5);
   const run = watchStarted({ ...idle, minutes: 2, message: 'old' });
-  assert.deepStrictEqual(run, { state: 'running', minutes: 2, lookups: true, phase: 'watch', elapsed: 0, total: 120, snapshots: 0,
+  assert.deepStrictEqual(run, { state: 'running', minutes: 2, lookups: true, stopping: false, phase: 'watch', elapsed: 0, total: 120, snapshots: 0,
     lookupDone: 0, lookupTotal: 0, message: '' });
   assert.strictEqual(watchStarted({ ...idle, lookups: false }).lookups, false, 'the switch carries into the run');
   const p = watchProgress(run, { progress: { phase: 'watch', elapsed: 30, total: 120, snapshots: 6 } });
@@ -178,4 +178,18 @@ test('lookup progress: the running line says who-runs lookups are under way, wit
   assert.strictEqual(watchProgressText(watchProgress(w, { progress: { phase: 'lookup', done: 9, total: 2 } })),
     'Looking up who runs each address… 2 of 2.', 'never more done than there are');
   assert.strictEqual(watchProgress(idleWatch(), { progress: { phase: 'lookup', done: 1, total: 2 } }).phase, 'watch', 'ignored unless running');
+});
+
+test('stopping: the running line reads exactly that until the watch ends', async () => {
+  const { renderWatch, idleWatch, watchStarted, watchStopping, watchProgress, watchFinished, watchProgressText } = await view();
+  const STOPPING = 'Stopping… finishing what was gathered.';
+  assert.strictEqual(watchStopping(idleWatch()).stopping, false, 'nothing to stop');
+  let w = watchStopping(watchStarted(idleWatch(5)));
+  assert.strictEqual(w.state, 'running');
+  assert.strictEqual(watchProgressText(w), STOPPING);
+  assert.ok(renderWatch(w).includes(`data-watch="progress">${STOPPING}</p>`));
+  w = watchProgress(w, { progress: { phase: 'lookup', done: 2, total: 5 } });
+  assert.strictEqual(watchProgressText(w), STOPPING, 'later progress keeps the line');
+  assert.strictEqual(watchFinished(w, { ok: true }).stopping, false);
+  assert.strictEqual(watchStarted(watchFinished(w, null)).stopping, false, 'the next watch starts fresh');
 });

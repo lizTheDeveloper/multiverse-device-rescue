@@ -72,6 +72,8 @@ _NOT_LOOKED_UP = tuple(
     ipaddress.ip_network(n)
     for n in (
         "0.0.0.0/8",                                          # "this network"
+        "192.0.0.0/24",                                       # IETF protocol assignments
+        "192.88.99.0/24",                                     # old 6to4 relay anycast
         "192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24",  # documentation
         "198.18.0.0/15",                  # benchmarking; proxy tools' fake-IP mode
         "2001:db8::/32",                                      # documentation

@@ -12,8 +12,10 @@ const { MONITORING_MODULES } = require('./mark-policy');
 
 const WATCH_MINUTES = [1, 2, 5, 10, 15, 30];
 const WATCH_MODULE = 'connection_watch';
-// How long a watch gets to exit after "stop" before it is killed.
-const STOP_GRACE_MS = 15000;
+// How long a watch gets to exit after "stop" before it is killed. A snapshot
+// already under way can't be cut short and each of its commands may take up
+// to 30 s; the lookups after a stop get 10 s more.
+const STOP_GRACE_MS = 75000;
 const SCAN_BUSY_MESSAGE = 'A connection watch is running. Stop it, or let it finish, then run the checkup.';
 
 function fail(reason, message) {
@@ -71,4 +73,4 @@ function stopActiveWatch(handle, { graceMs = STOP_GRACE_MS } = {}) {
   });
 }
 
-module.exports = { WATCH_MINUTES, WATCH_MODULE, SCAN_BUSY_MESSAGE, handleWatch, stopActiveWatch };
+module.exports = { WATCH_MINUTES, WATCH_MODULE, SCAN_BUSY_MESSAGE, STOP_GRACE_MS, handleWatch, stopActiveWatch };
