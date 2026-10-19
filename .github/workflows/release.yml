@@ -85,6 +85,15 @@ jobs:
           dist/${{ matrix.engine }} scan --json --module suspicious_connections > /dev/null 2> load.err || true
           if grep -i "failed to load module" load.err; then exit 1; fi
 
+      # The watch looks up who runs each address over HTTPS. A frozen Python
+      # can lack root certificates, which would make every lookup fail quietly.
+      - name: The frozen engine can make an HTTPS lookup
+        shell: bash
+        run: |
+          dist/${{ matrix.engine }} lookup 8.8.8.8 > lookup.json
+          cat lookup.json
+          grep -q '"asn": 15169' lookup.json
+
       - name: Stage the engine inside the desktop app
         shell: bash
         run: |

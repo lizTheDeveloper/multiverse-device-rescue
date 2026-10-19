@@ -22,6 +22,7 @@ Commands:
   export               Run read-only checks and write a redacted...
   guide                Render the guide walkthrough for a profile,...
   known                Things you have marked as yours, so checks stop...
+  lookup               Look up who runs each public address (read-only).
   profiles             List available threat-model profiles.
   recommend            Answer a few questions to get a recommended...
   remediation-catalog  Regenerate docs/REMEDIATION_CATALOG.md from...
@@ -175,7 +176,7 @@ The JSON shape is `schema_version` 1:
 ## `rescue watch` — watch connections for a few minutes
 
 ```console
-$ rescue watch [--minutes <n>] [--interval <seconds>] [--json] [--progress]
+$ rescue watch [--minutes <n>] [--interval <seconds>] [--json] [--progress] [--no-lookups]
 ```
 
 Looks at this computer's network connections again and again, then summarises
@@ -183,6 +184,9 @@ what it saw for each program: who it talked to, whether it checked in at a
 steady rhythm, whether a program started listening for connections, and
 whether one sent a lot more than it received. It only reads; it changes
 nothing, and it is not part of `rescue scan`, so it never runs unless you ask.
+When it finishes, it looks up who runs each public address it saw (see
+[`rescue lookup`](#rescue-lookup-who-runs-an-address)), unless you pass
+`--no-lookups`.
 
 | Flag | Effect |
 | --- | --- |
@@ -190,6 +194,7 @@ nothing, and it is not part of `rescue scan`, so it never runs unless you ask.
 | `--interval <seconds>` | How often to look, 2 to 60 (default 5). |
 | `--json` | Print the result as JSON on stdout, in the same shape as `scan --json`, with the module name `connection_watch`. Without it, a short list of what was found. |
 | `--progress` | Write one `{"progress": {"phase": "watch", "elapsed": ..., "total": ..., "snapshots": ...}}` line to stderr after each look (seconds for `elapsed` and `total`). |
+| `--no-lookups` | Don't look up who runs each address. Destinations then carry `"who": null`, `lookup_sources` is `[]`, and `watch_incomplete` says looking up was turned off. |
 
 Out-of-range values exit `2` with a message. To end the watch early, send the
 line `stop` on standard input, or press Ctrl-C (SIGINT) or send SIGTERM. The
@@ -203,11 +208,64 @@ Every finding is `info`, with a `network.connection_watch.*` code:
 Linux, or Windows when the list of looked-up names couldn't be read) and
 `watch_incomplete` (what this computer couldn't show, such as data volumes
 on Windows, other accounts' programs, a stop before the end, or a hit
-storage limit). The watch keeps at most 2,000 program-and-destination pairs
-and 200 timings per pair; beyond that it counts without storing. Addresses
-stay numeric: the watch looks nothing up. Each code points to the "Read a
-connection watch" walkthrough. If the connection reader can't load, the
-module's `status` is `error` and nothing was checked.
+storage limit, or addresses that couldn't be looked up). The watch keeps at
+most 2,000 program-and-destination pairs and 200 timings per pair; beyond that
+it counts without storing. Each code points to the "Read a connection watch"
+walkthrough. If the connection reader can't load, the module's `status` is
+`error` and nothing was checked.
+
+With lookups on, each entry in a `watch_summary` finding's
+`data.destinations` has a `who` object (the same shape `rescue lookup`
+prints), or `null` for an address that wasn't looked up (a private one, or
+one past the limits below). `data.lookup_sources` names the services asked,
+and the description names the two owners the program talked to most
+("Mostly Google LLC and Cloudflare, Inc."): for each address, the
+`registrant`, else the organisation part of `as_name`, else the `hostname`,
+else the address itself. Lookups run once, after the last
+look, busiest addresses first: at most 150 addresses, 6 at a time, 4 seconds
+per request and 60 seconds in all. `watch_incomplete` says how many
+couldn't be looked up, whether the limit or the time ran out, or that
+looking up was turned off. A stopped watch still looks up what it gathered.
+
+---
+
+## `rescue lookup` — who runs an address
+
+```console
+$ rescue lookup <address>...
+```
+
+Looks up who runs each public address and prints one JSON object on stdout,
+`{address: who}`:
+
+```json
+{
+  "8.8.8.8": {
+    "hostname": "dns.google",
+    "asn": 15169,
+    "as_name": "GOOGLE - Google LLC",
+    "prefix": "8.8.8.0/24",
+    "network": "GOGL",
+    "registrant": "Google LLC",
+    "country": null,
+    "unavailable": []
+  }
+}
+```
+
+The answer comes from three places, and only the address is sent: reverse
+DNS through this computer's own resolver (`hostname`), RIPE NCC's RIPEstat
+at `stat.ripe.net` (`asn`, `as_name`, `prefix`) and `rdap.org`, which
+redirects to the registry for that address (`network`, `registrant`,
+`country`). `registrant` is only ever an organisation, never a person.
+`unavailable` lists the parts that couldn't be checked (`dns`, `owner`,
+`registry`), for example when offline; any field can be `null`. Nothing is
+written to disk.
+
+Private, loopback, link-local, multicast, carrier-grade NAT, unspecified and
+reserved addresses (and anything that isn't an address) are never looked up:
+they print `null`, with a line on stderr saying so. The exit code is `0`
+either way.
 
 ---
 

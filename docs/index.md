@@ -60,8 +60,9 @@ allowed to do.
     analytics, and no upload. The single exception is the optional AI
     explanation layer, which only runs when you explicitly pass `--copilot` or
     run `rescue explain` / `rescue recommend`, and which sends only finding
-    titles and descriptions to the provider you configured. See
-    [Privacy](privacy.md).
+    titles and descriptions to the provider you configured. A connection watch
+    you start also looks up who runs each public address it saw (the addresses
+    only; `--no-lookups` turns it off). See [Privacy](privacy.md).
 
 !!! success "Guidance and system changes are counted separately"
     "Here is what you should do" and "I did this to your computer" are

@@ -1,8 +1,9 @@
 # Privacy
 
 Short version: everything happens on your machine. There is no telemetry, no
-analytics, no crash reporting, and no account. Two things reach the network and
-both need you to ask: `rescue update`, and the optional AI layer.
+analytics, no crash reporting, and no account. Three things reach the network and
+all need you to ask: `rescue update`, the optional AI layer, and the "who runs
+this address" lookups after a connection watch you start.
 
 ## What the tool touches
 
@@ -52,7 +53,7 @@ Nothing else is persisted. A `rescue scan` writes nothing at all.
 
 ## What leaves the machine
 
-Three things, exhaustively:
+Four things, exhaustively:
 
 1. **`rescue update`** contacts the configured content git remote when you run
    it. It sends nothing about your machine — it is a `git fetch`. (On the
@@ -64,6 +65,13 @@ Three things, exhaustively:
    measures throughput, a LAN inventory sends ARP/neighbour queries on your own
    local segment. These talk to your network, not to the project. Read the
    module if you want to be certain what a specific check does.
+4. **The connection watch's lookups.** After a `rescue watch` you start (or a
+   `rescue lookup` you run), each public address it saw is sent to RIPE NCC
+   (`stat.ripe.net`) and `rdap.org`, and looked up in reverse DNS through your
+   own resolver, to find out who runs it. Only the addresses are sent, never
+   what was in the connections, and private addresses are never sent.
+   `rescue watch --no-lookups` turns this off. See
+   [the CLI reference](cli.md#rescue-watch-watch-connections-for-a-few-minutes).
 
 There is no "phone home" on launch, no version check, no usage counter, and no
 error reporting.

@@ -350,9 +350,32 @@ def test_registrant_is_never_a_person():
         assert whois.parse_rdap(body) == {"network": "NET-1", "registrant": None, "country": None}
     with_org = entity(["registrant"], ["fn", {}, "text", "Example Hosting"],
                       ["org", {}, "text", "Example Hosting Ltd"])
-    assert whois.parse_rdap(record(person, with_org))["registrant"] == "Example Hosting"
+    assert whois.parse_rdap(record(person, with_org))["registrant"] == "Example Hosting Ltd"
     group = entity(["administrative"], ["fn", {}, "text", "Ops Team"], ["kind", {}, "text", "group"])
     assert whois.parse_rdap(record(no_kind, group))["registrant"] == "Ops Team"
+
+
+def test_registrant_without_kind_is_its_org_never_its_name():
+    def record(*props, roles=("registrant",)):
+        entity = {"roles": list(roles), "vcardArray": ["vcard", [["version", {}, "text", "4.0"], *props]]}
+        return json.dumps({"name": "NET-1", "entities": [entity]}).encode()
+
+    # No kind: the "org" property names the organisation; "fn" could be a person.
+    body = record(["fn", {}, "text", "Jane Doe"], ["org", {}, "text", "Example Hosting Ltd"])
+    assert whois.parse_rdap(body)["registrant"] == "Example Hosting Ltd"
+    # An org with units (RFC 6350 ORG components) keeps the name and units in order.
+    body = record(["fn", {}, "text", "Jane Doe"], ["org", {}, "text", ["Example Ltd", "Network Ops"]])
+    assert whois.parse_rdap(body)["registrant"] == "Example Ltd, Network Ops"
+    # An org property that isn't text says nothing.
+    body = record(["fn", {}, "text", "Jane Doe"], ["org", {}, "text", 7])
+    assert whois.parse_rdap(body)["registrant"] is None
+    # The kind is compared without regard to case.
+    for kind in ("ORG", "Group", "oRg"):
+        body = record(["kind", {}, "text", kind], ["fn", {}, "text", "Example Hosting"])
+        assert whois.parse_rdap(body)["registrant"] == "Example Hosting", kind
+    body = record(["kind", {}, "text", "Individual"], ["fn", {}, "text", "Jane Doe"],
+                  ["org", {}, "text", "Example Ltd"])
+    assert whois.parse_rdap(body)["registrant"] is None
 
 
 @pytest.mark.parametrize("exc, answered", [

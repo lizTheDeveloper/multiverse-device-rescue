@@ -14,6 +14,7 @@ from rescue.app_fixes import AppFixesError, load_app_actions, load_app_fixes
 from rescue.case import RescueCase, write_case
 from rescue.guides import discover_guides
 from rescue.models import ActionKind, CheckResult, Mode, RiskLevel
+from rescue.netaddr import address_key
 from rescue.orchestrator import Orchestrator
 from rescue.profiler.base import detect_platform, gather_profile
 from rescue.profiles import Profile, ProfileValidationError, discover_profiles, validate_profile_modules
@@ -35,6 +36,7 @@ from rescue.update.repo import ContentRepo, GitError
 from rescue.update.sideload import SideloadError, load_sideload_repo
 from rescue.validate import validate_catalog
 from rescue.watch import MAX_INTERVAL, MAX_MINUTES, MIN_INTERVAL, MIN_MINUTES, WATCH_CODES, WatchModule, run_watch
+from rescue.whois import SOURCES, is_lookupable, look_up_all
 
 
 def _project_root() -> Path:
@@ -286,11 +288,18 @@ def _stop_on_request():
     is_flag=True,
     help='Write one {"progress": ...} JSON line per look to stderr.',
 )
-def watch(minutes, interval, as_json, progress):
+@click.option(
+    "--no-lookups",
+    is_flag=True,
+    help="Don't look up who runs each address afterwards (by default the public "
+    "addresses, not what was in them, are sent to RIPE NCC and rdap.org).",
+)
+def watch(minutes, interval, as_json, progress, no_lookups):
     """Watch this computer's connections for a few minutes (opt-in, read-only).
 
-    Ends early if you send the line "stop" on standard input, or press Ctrl-C.
-    The result is still printed, marked as stopped early.
+    Afterwards it looks up who runs each public address it saw, unless you pass
+    --no-lookups. Ends early if you send the line "stop" on standard input, or
+    press Ctrl-C. The result is still printed, marked as stopped early.
     """
     from rescue.serialize import checks_to_json
 
@@ -312,6 +321,7 @@ def watch(minutes, interval, as_json, progress):
             should_stop=stop.is_set,
             on_progress=on_progress if progress else None,
             verdict=_listening_verdict(),
+            lookups=None if no_lookups else look_up_all,
         )
     finally:
         restore()
@@ -324,6 +334,40 @@ def watch(minutes, interval, as_json, progress):
         return
     for finding in result.findings:
         click.echo(f"- {finding.title}")
+    if no_lookups:
+        click.echo("Addresses were not looked up (--no-lookups).")
+    else:
+        click.echo("Looked up who runs each public address with: " + ", ".join(SOURCES) + ".")
+
+
+@main.command()
+@click.argument("addresses", nargs=-1, required=True)
+def lookup(addresses):
+    """Look up who runs each public address (read-only).
+
+    Prints {address: who} as JSON. Only the address is sent, to RIPE NCC and
+    rdap.org, plus a reverse DNS lookup through this computer's resolver.
+    Private, local and reserved addresses are never looked up; they print null.
+    """
+    public = [ip for ip in addresses if is_lookupable(ip)]
+    for ip in addresses:
+        if ip not in public:
+            click.echo(
+                f"{ip}: not looked up. Only public internet addresses are; private, local "
+                "and reserved addresses are never looked up.",
+                err=True,
+            )
+    found = look_up_all(public) if public else {"results": {}, "skipped": 0, "over_budget": False}
+    if found["skipped"]:
+        click.echo(f"Only the first {len(public) - found['skipped']} addresses were looked up.", err=True)
+    if found["over_budget"]:
+        click.echo("Looking up stopped before every address was done.", err=True)
+    # One answer per address, however it was written (::ffff:8.8.8.8 is 8.8.8.8).
+    by_address = {address_key(ip): who for ip, who in found["results"].items()}
+    click.echo(json.dumps(
+        {ip: by_address.get(address_key(ip)) if ip in public else None for ip in addresses},
+        indent=2,
+    ))
 
 
 def _run_traced(orch):

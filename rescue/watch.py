@@ -13,12 +13,13 @@ scripted snapshots and a fake clock. Nothing here changes the computer.
 
 from __future__ import annotations
 
-import ipaddress
 import statistics
 import time
 from collections.abc import Callable
 
 from rescue.models import CheckResult, Finding, Platform, Severity
+from rescue.netaddr import _is_loopback, _is_public, address_key
+from rescue.whois import BUDGET, MAX_ADDRESSES, SOURCES
 
 WATCH_CODES: list[str] = [
     "network.connection_watch.watch_summary",
@@ -45,24 +46,6 @@ _UPLOAD_RATIO = 3
 _UNKNOWN = "unknown"
 _UNSTORED_LIMIT = 10 * MAX_PAIRS
 
-# Shared address space used by carrier-grade NAT; not a destination on the internet.
-_CGNAT = ipaddress.ip_network("100.64.0.0/10")
-
-# The well-known NAT64 prefix only. In the local-use 64:ff9b:1::/48 the
-# prefix length (and so where the IPv4 address sits) varies (RFC 6052 / 8215),
-# so those addresses are left as they are and count as public: fail closed.
-_NAT64_WKP = ipaddress.ip_network("64:ff9b::/96")
-
-_PRIVATE_NETWORKS = tuple(
-    ipaddress.ip_network(n)
-    for n in (
-        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",  # RFC 1918
-        "127.0.0.0/8", "::1/128",                          # loopback
-        "169.254.0.0/16", "fe80::/10",                     # link-local
-        "fc00::/7",                                        # unique local (ULA)
-    )
-)
-
 
 class WatchModule:
     """Stand-in for a module so ``checks_to_json`` can serialise the watch."""
@@ -71,42 +54,6 @@ class WatchModule:
     category = _CATEGORY
     emits_codes = WATCH_CODES
     platforms = [Platform.DARWIN, Platform.LINUX, Platform.WIN32]
-
-
-# --- addresses -------------------------------------------------------------
-
-
-def _ip(addr: str | None):
-    """The address, with an IPv4 address carried inside IPv6 unwrapped."""
-    try:
-        ip = ipaddress.ip_address((addr or "").split("%")[0])
-    except ValueError:
-        return None
-    if ip.version == 6:
-        if ip.ipv4_mapped is not None:
-            return ip.ipv4_mapped
-        if ip in _NAT64_WKP:
-            # The well-known NAT64 prefix carries the IPv4 address in the last
-            # 32 bits, so classify by that address.
-            return ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
-    return ip
-
-
-def _is_loopback(addr: str | None) -> bool:
-    ip = _ip(addr)
-    return ip is not None and ip.is_loopback
-
-
-def _is_public(addr: str | None) -> bool:
-    """True only for an address that is clearly not on this computer or network."""
-    ip = _ip(addr)
-    if ip is None or ip.is_multicast or ip.is_unspecified:
-        return False
-    # IPv4 "reserved" is 240.0.0.0/4 and broadcast. IPv6's is_reserved covers
-    # whole unassigned ranges, which says nothing about where a connection goes.
-    if ip.version == 4 and (ip.is_reserved or ip in _CGNAT):
-        return False
-    return not any(ip in net for net in _PRIVATE_NETWORKS if net.version == ip.version)
 
 
 # --- gathering -------------------------------------------------------------
@@ -402,13 +349,17 @@ def run_watch(
     should_stop: Callable[[], bool] | None = None,
     on_progress: Callable[[dict], None] | None = None,
     verdict: Callable[[str, dict], str] | None = None,
+    lookups: Callable[[list[str]], dict] | None = None,
 ) -> CheckResult:
     """Watch this computer's connections and summarise them per program.
 
     ``sleep(seconds)`` waits up to ``seconds`` but returns early once
     ``should_stop()`` is true. ``on_progress`` gets one dict per snapshot:
-    ``{"phase": "watch", "elapsed", "total", "snapshots"}``. Raises
-    ValueError for minutes outside 1-30 or an interval outside 2-60 seconds.
+    ``{"phase": "watch", "elapsed", "total", "snapshots"}``. ``lookups`` is
+    called once after the last snapshot with the public destinations, busiest
+    first, and answers like ``rescue.whois.look_up_all``; None turns lookups
+    off. Raises ValueError for minutes outside 1-30 or an interval outside
+    2-60 seconds.
     """
     if not MIN_MINUTES <= minutes <= MAX_MINUTES:
         raise ValueError(f"minutes must be {MIN_MINUTES}-{MAX_MINUTES}")
@@ -471,8 +422,97 @@ def run_watch(
     if platform != "win32":
         _read_dns(dns, platform, gathered)
     elapsed = clock() - start
-    findings = _findings(platform, gathered, minutes, stopped_early, elapsed, verdict)
+    owners = _look_up(gathered, lookups)
+    findings = _findings(platform, gathered, minutes, stopped_early, elapsed, verdict, owners)
     return CheckResult(module_name=_MODULE, findings=findings)
+
+
+# --- who runs each address -------------------------------------------------
+
+
+class _Owners:
+    """What the lookups found, keyed by address (an IPv4 address carried in
+    IPv6 and the plain one are the same key), and what they couldn't do."""
+
+    def __init__(self, on: bool):
+        self.on = on
+        self.who: dict[str, dict] = {}
+        self.reasons: list[str] = []
+
+    def for_address(self, address) -> dict | None:
+        return self.who.get(address_key(address))
+
+
+def _public_by_busyness(gathered: "_Gathered") -> list[str]:
+    """Each public destination once, the ones seen in the most snapshots first."""
+    seen: dict[str, int] = {}
+    first_form: dict[str, str] = {}
+    for (_, address, _, _), pair in gathered.pairs.items():
+        if not _is_public(address):
+            continue
+        key = address_key(address)
+        first_form.setdefault(key, address)
+        seen[key] = seen.get(key, 0) + pair["snapshots"]
+    order = sorted(seen, key=lambda key: -seen[key])  # ties keep first-seen order
+    return [first_form[key] for key in order]
+
+
+def _look_up(gathered: "_Gathered", lookups) -> _Owners:
+    owners = _Owners(on=lookups is not None)
+    if lookups is None:
+        if gathered.snapshots:
+            owners.reasons.append("Looking up who runs each address was turned off.")
+        return owners
+    addresses = _public_by_busyness(gathered)
+    if not addresses:
+        return owners
+    try:
+        answer = lookups(addresses)
+        results = answer["results"]
+        failed, skipped = answer["failed"], answer["skipped"]
+        over_budget = answer["over_budget"]
+    except Exception:  # a lookup failure is couldn't-check, never an error for the watch
+        results, failed, skipped, over_budget = {}, len(addresses), 0, False
+    for address, found in results.items():
+        owners.who[address_key(address)] = found
+    if failed:
+        owners.reasons.append(
+            f"Couldn't look up {failed:,} address(es) (offline or the service didn't answer)."
+        )
+    if skipped:
+        owners.reasons.append(f"Only the busiest {MAX_ADDRESSES} addresses were looked up.")
+    if over_budget:
+        owners.reasons.append(f"Looking up stopped after {BUDGET:g} seconds.")
+    return owners
+
+
+def _owner(address, who: dict | None) -> str:
+    """Who runs an address, as one name: the registrant, else the network's
+    name, else its hostname, else the address itself.
+
+    RIPEstat names a network "HANDLE - Organisation" ("GOOGLE - Google LLC"),
+    so only the organisation part is used; it then reads the same as the
+    registrant the registry gives for the company's other addresses.
+    """
+    who = who or {}
+    as_name = who.get("as_name")
+    if as_name and " - " in as_name:
+        as_name = as_name.split(" - ", 1)[1].strip() or as_name
+    return who.get("registrant") or as_name or who.get("hostname") or str(address)
+
+
+def _mostly(pairs: list, owners: _Owners) -> str:
+    """'Mostly X and Y.': the two owners this program's destinations were seen
+    with most. ``pairs`` comes busiest first, and ties keep that order."""
+    weight: dict[str, int] = {}
+    for key, pair in pairs:
+        name = _owner(key[1], owners.for_address(key[1]))
+        weight[name] = weight.get(name, 0) + pair["snapshots"]
+    top = sorted(weight, key=lambda name: -weight[name])[:2]
+    if not top:
+        return ""
+    text = " Mostly " + " and ".join(top)
+    return text if text.endswith(".") else text + "."
 
 
 # --- findings --------------------------------------------------------------
@@ -511,7 +551,8 @@ def _median_gap(pair: dict) -> float | None:
     return statistics.median(b - a for a, b in zip(stamps, stamps[1:]))
 
 
-def _findings(platform, gathered, minutes, stopped_early, elapsed, verdict) -> list[Finding]:
+def _findings(platform, gathered, minutes, stopped_early, elapsed, verdict,
+              owners: _Owners) -> list[Finding]:
     facts = {
         "minutes": minutes,
         "snapshots": gathered.snapshots,
@@ -522,7 +563,7 @@ def _findings(platform, gathered, minutes, stopped_early, elapsed, verdict) -> l
     reasons: list[str] = []
 
     if gathered.snapshots:
-        findings.extend(_summaries(platform, gathered, facts, reasons))
+        findings.extend(_summaries(platform, gathered, facts, reasons, owners))
         findings.extend(_checkins(gathered, facts))
         findings.extend(_listeners(platform, gathered, facts, verdict, reasons))
         findings.extend(_uploads(gathered, facts))
@@ -560,12 +601,13 @@ def _findings(platform, gathered, minutes, stopped_early, elapsed, verdict) -> l
         reasons.append(
             f"More than {MAX_PAIRS:,} looked-up names turned up, so the rest weren't listed."
         )
+    reasons.extend(owners.reasons)
     if reasons or not gathered.snapshots:
         findings.append(_incomplete(gathered, facts, reasons))
     return findings
 
 
-def _summaries(platform, gathered, facts, reasons) -> list[Finding]:
+def _summaries(platform, gathered, facts, reasons, owners) -> list[Finding]:
     opened_by, closed_by = gathered.listeners_by_owner()
     per_process: dict[str, list] = {
         p: [] for p in gathered.processes | set(opened_by) | set(closed_by)
@@ -591,6 +633,7 @@ def _summaries(platform, gathered, facts, reasons) -> list[Finding]:
                 "new_connections": pair["new_connections"],
                 "median_gap": _median_gap(pair),
                 "regular": _checkin(pair) is not None,
+                "who": owners.for_address(key[1]),
             }
             for key, pair in pairs[:_LISTED_DESTINATIONS]
         ]
@@ -615,7 +658,7 @@ def _summaries(platform, gathered, facts, reasons) -> list[Finding]:
                 f", and made {_plural(loopback, 'connection')} to this computer itself "
                 "(counted, not listed)"
             )
-        text = "".join(parts) + "."
+        text = "".join(parts) + "." + _mostly(pairs, owners)
         if sent is not None:
             text += f" It received {_mb(sent[0])} and sent {_mb(sent[1])}."
         if opened:
@@ -640,6 +683,7 @@ def _summaries(platform, gathered, facts, reasons) -> list[Finding]:
                 "bytes_out": sent[1] if sent is not None else None,
                 "listeners_opened": opened,
                 "listeners_closed": closed,
+                "lookup_sources": list(SOURCES) if owners.on else [],
                 **facts,
             },
         ))

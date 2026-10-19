@@ -59,6 +59,63 @@ def test_json_document_has_the_module_and_schema():
     assert verdict.__self__.name == "suspicious_connections"
 
 
+def test_lookups_on_by_default_with_the_real_lookup():
+    from rescue.whois import look_up_all
+
+    calls = []
+    _run(["--json"], calls=calls)
+    assert calls[0][2]["lookups"] is look_up_all
+
+
+def test_no_lookups_flag():
+    calls = []
+    result = _run(["--json", "--no-lookups"], calls=calls)
+    assert result.exit_code == 0, result.output
+    assert calls[0][2]["lookups"] is None
+
+
+def test_human_summary_names_the_services_asked():
+    from rescue.whois import SOURCES
+
+    result = _run([])
+    assert all(source in result.output for source in SOURCES)
+    result = _run(["--no-lookups"])
+    assert "not looked up" in result.output
+
+
+def test_lookup_command_prints_who_for_public_and_refuses_private():
+    seen = []
+
+    def look_up_all(ips):
+        seen.append(list(ips))
+        return {"results": {ip: {"asn": 15169} for ip in ips}, "skipped": 0, "failed": 0,
+                "over_budget": False}
+
+    with patch("rescue.cli.look_up_all", look_up_all):
+        result = CliRunner().invoke(main, ["lookup", "8.8.8.8", "192.168.1.1", "1.1.1.1"])
+    assert result.exit_code == 0, result.output
+    assert seen == [["8.8.8.8", "1.1.1.1"]]
+    assert json.loads(result.stdout) == {
+        "8.8.8.8": {"asn": 15169}, "192.168.1.1": None, "1.1.1.1": {"asn": 15169}}
+    assert "192.168.1.1" in result.stderr
+    assert "never looked up" in result.stderr
+
+
+def test_lookup_command_with_only_private_addresses_asks_nobody():
+    def look_up_all(ips):
+        raise AssertionError("nothing public to look up")
+
+    with patch("rescue.cli.look_up_all", look_up_all):
+        result = CliRunner().invoke(main, ["lookup", "10.0.0.1"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == {"10.0.0.1": None}
+
+
+def test_lookup_command_needs_an_address():
+    result = CliRunner().invoke(main, ["lookup"])
+    assert result.exit_code == 2
+
+
 def test_progress_lines_are_json_on_stderr():
     result = _run(["--json", "--progress", "--minutes", "1"])
     lines = [json.loads(x) for x in result.stderr.splitlines() if x.startswith("{")]

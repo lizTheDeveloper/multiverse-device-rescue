@@ -29,7 +29,7 @@ from collections.abc import Callable
 
 from rescue import __version__
 from rescue.command import run
-from rescue.watch import _ip, _is_public
+from rescue.netaddr import _ip, _is_public
 
 MAX_ADDRESSES = 150
 WORKERS = 6
@@ -129,13 +129,25 @@ def _has_role(entity: dict, role: str) -> bool:
     return isinstance(roles, list) and role in roles
 
 
-def _is_organisation(entity: dict) -> bool:
-    """A company or group, never a person: vCard kind "org"/"group", or no
-    kind at all but an "org" property. A bare name with no kind could be anyone."""
+def _org_text(value) -> str | None:
+    """A vCard "org" value: a name, or the name and its units (RFC 6350)."""
+    if isinstance(value, list):
+        value = ", ".join(part for part in value if isinstance(part, str) and part.strip())
+    return _clean(value)
+
+
+def _organisation_name(entity: dict) -> str | None:
+    """The entity's name if it is a company or group, never a person.
+
+    vCard kind "org" or "group" (any case): its full name. No kind at all: only
+    an "org" property counts, because a bare full name could be anyone's.
+    """
     kind = _vcard(entity, "kind")
     if kind is None:
-        return _vcard(entity, "org") is not None
-    return kind in ("org", "group")
+        return _org_text(_vcard(entity, "org"))
+    if isinstance(kind, str) and kind.lower() in ("org", "group"):
+        return _clean(_vcard(entity, "fn"))
+    return None
 
 
 def _registrant(doc: dict) -> str | None:
@@ -148,8 +160,8 @@ def _registrant(doc: dict) -> str | None:
     entities = _entities(doc)
     for role in ("registrant", "administrative"):
         for entity in entities:
-            if _has_role(entity, role) and _is_organisation(entity):
-                name = _clean(_vcard(entity, "fn"))
+            if _has_role(entity, role):
+                name = _organisation_name(entity)
                 if name:
                     return name
     return None

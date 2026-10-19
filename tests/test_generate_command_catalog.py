@@ -40,3 +40,13 @@ def test_router_audit_mentions_sockets():
 def test_catalog_is_fresh(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["generate_command_catalog.py", "--check"])
     assert gen.main() == 0
+
+
+def test_watch_network_use_is_listed():
+    text = gen.render()
+    section = text[text.index("## The connection watch"):]
+    assert "https://stat.ripe.net/data/prefix-overview/data.json?resource=…&sourceapp=reclaim-city" in section
+    assert "https://rdap.org/ip/…" in section
+    assert "https://rdap.org/ip/\n" not in section  # an f-string's pieces are not URLs of their own
+    assert "reverse DNS" in section
+    assert "security find-certificate -a -p" in section
