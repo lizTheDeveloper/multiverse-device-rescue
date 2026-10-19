@@ -34,7 +34,7 @@ test('both themes show rank, lessons, skills, drills and city counts, with a hea
     assert.ok(html.includes('1 set aside for later'));
     assert.doesNotMatch(html, TIME_WORDS);
   }
-  assert.ok(renderProfile({ summary, theme: 'plain' }).includes('Points: 340 (level 3 of 5)'));
+  assert.ok(renderProfile({ summary, theme: 'plain' }).includes('340 points (level 3 of 5)'));
   assert.ok(renderProfile({ summary, theme: 'game' }).includes('NETRUNNER'));
 });
 

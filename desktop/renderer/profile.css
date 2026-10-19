@@ -1,9 +1,19 @@
 /* "Your progress" (views/profile.js, plain theme) in its dialog on the results screen. */
-.results-progress-link { margin: 8px 0; }
+.results-progress-link { margin: 0.75rem 0 1rem; }
+.results-progress-link[hidden] { display: none; }
 .progress-dialog { max-width: 760px; width: calc(100% - 32px); border: 1px solid var(--border); border-radius: 12px; padding: 0; background: var(--surface); color: var(--text); }
 .progress-dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
 .profile-plain { display: grid; gap: 12px; padding: 20px; }
-.profile-plain h2 { margin: 0; }
+.profile-plain h2 { margin: 0; width: fit-content; }
+/* The heading takes focus when the dialog opens so screen readers start there;
+   it isn't a control, so it gets no ring unless the keyboard put it there. */
+.profile-plain h2[tabindex="-1"]:focus { outline: none; }
+.profile-plain h2[tabindex="-1"]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; border-radius: 4px; }
+.profile-plain .panel > :last-child { margin-bottom: 0; }
+.profile-plain .panel p { margin: 0 0 6px; }
+.profile-plain .unread { color: var(--text-muted); }
+.profile-plain .profile-skills li { display: grid; grid-template-columns: minmax(0, 20em) auto auto; justify-content: start; gap: 4px 12px; align-items: center; }
+@media (max-width: 560px) { .profile-plain .profile-skills li { grid-template-columns: minmax(0, 1fr) auto; } .profile-plain .profile-skills li > span:last-child { grid-column: 1 / -1; } }
 .profile-plain .panel { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface-muted); }
 .profile-plain .label { font-size: 1rem; margin: 0 0 6px; }
 .profile-plain ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }

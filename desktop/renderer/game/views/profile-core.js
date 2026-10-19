@@ -58,7 +58,7 @@ function rankHtml(s, w, theme) {
     return `<p class="rank-name"><b>${esc(r.name)}</b> <small>${esc(r.points)} POINTS</small></p>
       <p class="intel">${r.next ? `${esc(r.toNext)} to ${esc(r.next)}.` : 'Top rank.'} Rank never drops.</p>`;
   }
-  return `<p>${esc(w.rank)}: ${esc(r.points)} (level ${esc(r.level)} of ${esc(r.of)})</p>`;
+  return `<p>${esc(r.points)} point${r.points === 1 ? '' : 's'} (level ${esc(r.level)} of ${esc(r.of)})</p>`;
 }
 
 function drillsHtml(d) {
@@ -79,10 +79,15 @@ export const START_OVER = 'Start over? This clears your lessons, drills, rank an
 // Plain view's words: the results screen has its own "Start over" (a new checkup).
 export const CLEAR_PROGRESS = 'Clear your progress? This clears your lessons, drills, rank and missions here. Nothing on your computer changes.';
 
+// Said instead of a count when the lessons couldn't be loaded: never "0 of 0 learned".
+export const LESSONS_UNREAD = 'Couldn’t read your lessons. Closing this and opening it again tries once more.';
+export const SKILLS_UNREAD = 'Your skills come from your lessons, so they can’t be shown either.';
+
 // `publish`: whether the "Add to my school profile" control exists (publishOffered).
 // `confirming`: the person pressed Start over and is being asked to be sure.
+// `lessonsUnread`: the lessons failed to load, so there is nothing true to count.
 export function createProfileRenderer(ready) {
-  return function renderProfile({ summary: s, theme = 'game', publish = false, confirming = false }) {
+  return function renderProfile({ summary: s, theme = 'game', publish = false, confirming = false, lessonsUnread = false }) {
   const w = WORDS[theme === 'plain' ? 'plain' : 'game'];
   const shown = s.lessons.map(shownLesson).filter(Boolean);
   const lessons = shown.map((l) => `
@@ -96,8 +101,9 @@ export function createProfileRenderer(ready) {
   <section class="profile ${theme === 'plain' ? 'profile-plain' : 'profile-game'}" aria-labelledby="profile-title">
     <h2 id="profile-title" tabindex="-1">${esc(w.title)}</h2>
     <div class="panel"><h3 class="label">${esc(w.rank)}</h3>${rankHtml(s, w, theme)}</div>
-    <div class="panel"><h3 class="label">${esc(w.training)}</h3><p>${esc(lessonsLearned(s))} of ${esc(shown.length)} learned</p><ul class="profile-lessons">${lessons}</ul></div>
-    <div class="panel"><h3 class="label">${esc(w.skills)}</h3><ul class="profile-skills">${skills}</ul></div>
+    <div class="panel"><h3 class="label">${esc(w.training)}</h3>${lessonsUnread ? `<p class="unread" role="note">${esc(LESSONS_UNREAD)}</p>`
+    : `<p>${esc(lessonsLearned(s))} of ${esc(shown.length)} learned</p><ul class="profile-lessons">${lessons}</ul>`}</div>
+    <div class="panel"><h3 class="label">${esc(w.skills)}</h3>${lessonsUnread ? `<p class="unread">${esc(SKILLS_UNREAD)}</p>` : `<ul class="profile-skills">${skills}</ul>`}</div>
     <div class="panel"><h3 class="label">${esc(w.drills)}</h3>${drillsHtml(s.drills)}</div>
     <div class="panel"><h3 class="label">${esc(w.city)}</h3>
       <p>${esc(c.reclaimed)} fixed and confirmed · ${esc(c.later)} set aside for later · ${esc(c.yours)} marked as yours${c.lastSweep === null ? '' : ` · last checkup ${esc(c.lastSweep)}% secured`}</p></div>

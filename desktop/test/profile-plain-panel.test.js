@@ -26,7 +26,7 @@ async function setup({ mode = 'standard', publishReady = false, storage = record
   loadBank = null, host = true } = {}) {
   const [{ attachPlainPanel }, { buildBank }] = await Promise.all([
     import('../renderer/game/profile/plain-panel.js'), import('../renderer/game/profile/item-bank.js')]);
-  const els = { 'btn-your-progress': el('b'), 'progress-dialog': el('d'), 'progress-dialog-body': el('body'), 'profile-title': el('h') };
+  const els = { 'btn-your-progress': el('b'), 'progress-dialog': el('d'), 'progress-dialog-body': el('body'), 'profile-title': el('h'), 'progress-link': el('w') };
   const calls = { reload: 0, clipboard: [] };
   const m = { now: mode };
   const winListeners = {};
@@ -49,7 +49,7 @@ test('the button opens a modal dialog with the plain view of the profile, its he
   await t.openIt();
   assert.strictEqual(t.els['progress-dialog'].open, true);
   assert.match(t.body(), /<h2 id="profile-title" tabindex="-1">Your progress<\/h2>/);
-  assert.ok(t.body().includes('Points: 340 (level 3 of 5)'));
+  assert.ok(t.body().includes('340 points (level 3 of 5)'));
   assert.strictEqual(t.els['profile-title'].focused, 1);
   t.click('profile-close');
   assert.strictEqual(t.els['progress-dialog'].open, false);
@@ -72,7 +72,7 @@ test('Clear my progress in plain view asks first, saves through the profile, and
   assert.strictEqual(t.seeds.length, 1, 'the seed comes from window.DisplayMode when there is no box yet');
   assert.strictEqual(savedProfile(t.storage).rank.points, 0);
   assert.strictEqual(t.calls.reload, 1);
-  assert.ok(t.body().includes('Points: 0 (level 1 of 5)'));
+  assert.ok(t.body().includes('0 points (level 1 of 5)'));
   assert.doesNotMatch(t.body(), /role="alertdialog"/);
 });
 
@@ -97,7 +97,7 @@ test('the dialog reads the profile fresh each time it opens', async () => {
   const p = pp.loadProfile(t.storage, NOW);
   pp.saveProfile(t.storage, { ...p, rank: { points: 1000, index: 3 } }, { seed: 7, mode: 'standard' });
   await t.openIt();
-  assert.ok(t.body().includes('Points: 1000'), t.body());
+  assert.ok(t.body().includes('1000 points'), t.body());
 });
 
 test('city mode: no publish control, and its actions do nothing', async () => {
@@ -235,4 +235,39 @@ test('display-mode.js puts DisplayMode on window, where the game\'s modules (con
   for (const f of ['renderer/game/controller.js', 'renderer/game/profile/plain-panel.js']) {
     assert.match(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), /profileSeed\(storage, win\.DisplayMode\)/, f);
   }
+});
+
+test('the button\'s line is hidden with it, so no gap is left on the results screen', async () => {
+  const t = await setup({ mode: 'city' });
+  assert.strictEqual(t.els['progress-link'].hidden, true);
+  t.setMode('standard');
+  assert.strictEqual(t.els['progress-link'].hidden, false);
+});
+
+test('the mode changing while the dialog is open closes it without focusing the now-hidden button', async () => {
+  const t = await setup();
+  await t.openIt();
+  const before = t.els['btn-your-progress'].focused;
+  t.setMode('city');
+  assert.strictEqual(t.els['progress-dialog'].open, false);
+  assert.strictEqual(t.els['btn-your-progress'].focused, before, 'focus never goes to a hidden control');
+  t.setMode('standard');
+  await t.openIt();
+  t.click('profile-close');
+  assert.strictEqual(t.els['btn-your-progress'].focused, before + 1, 'a normal close still returns focus');
+});
+
+test('lessons that fail to load say so, never "0 of 0 learned", and the next open tries again', async () => {
+  const { buildBank } = await import('../renderer/game/profile/item-bank.js');
+  const { LESSONS_UNREAD } = await import('../renderer/game/views/profile-core.js');
+  let calls = 0;
+  const t = await setup({ loadBank: async () => { calls += 1; if (calls === 1) throw new Error('no lessons'); return buildBank(LESSONS, DRILLS); } });
+  await t.openIt();
+  assert.ok(t.body().includes(LESSONS_UNREAD.replace('’', '&#39;')) || t.body().includes(LESSONS_UNREAD), t.body());
+  assert.ok(!/0 of 0 learned/.test(t.body()));
+  t.click('profile-close');
+  await t.openIt();
+  assert.strictEqual(calls, 2);
+  assert.ok(/\d+ of \d+ learned/.test(t.body()));
+  assert.ok(!t.body().includes(LESSONS_UNREAD));
 });

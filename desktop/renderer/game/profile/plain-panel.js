@@ -38,21 +38,26 @@ export function attachPlainPanel({ win, storage, loadBank = defaultLoadBank, pub
   const dialog = doc.getElementById('progress-dialog');
   const body = doc.getElementById('progress-dialog-body');
   if (!button || !dialog || !body) return null;
+  // The button's own line on the results screen: hidden with it, so no gap is left.
+  const wrap = doc.getElementById('progress-link');
   const now = () => new Date().toISOString();
   // Without the host's answer, assume 'city' (as the game does): nothing opens.
   const mode = () => (win.RescueHost && typeof win.RescueHost.mode === 'function' ? win.RescueHost.mode() : 'city');
   const standard = () => mode() === 'standard';
   const offered = () => publishOffered(mode(), publishReady);
+  // A lesson-load failure is never shown as "0 of 0 learned": the dialog says
+  // the lessons couldn't be read, and the next open tries again.
   let bankP = null;
-  const bank = () => (bankP = bankP || Promise.resolve().then(loadBank).catch(() => buildBank([], [])));
-  const st = { profile: null, bank: null, confirming: false, publish: null };
+  const bank = () => (bankP = bankP || Promise.resolve().then(loadBank).then((b) => ({ b, failed: false }))
+    .catch(() => { bankP = null; return { b: buildBank([], []), failed: true }; }));
+  const st = { profile: null, bank: null, bankFailed: false, confirming: false, publish: null };
 
   function draw() {
     const sum = summary(st.profile, st.bank);
     if (!offered()) st.publish = null;
     const sheet = st.publish ? renderPublishSheet({ summary: sum, ticked: st.publish.ticked, theme: 'plain',
       payload: buildPayload(sum, st.publish.ticked, { mode: mode(), now: st.publish.at }) }) : '';
-    const page = renderProfile({ summary: sum, theme: 'plain', publish: offered(), confirming: st.confirming });
+    const page = renderProfile({ summary: sum, theme: 'plain', publish: offered(), confirming: st.confirming, lessonsUnread: st.bankFailed });
     // While the sheet is open, the page behind it is inert: Tab stays in the sheet.
     body.innerHTML = sheet ? `<div inert>${page}</div>${sheet}` : page;
   }
@@ -75,7 +80,9 @@ export function attachPlainPanel({ win, storage, loadBank = defaultLoadBank, pub
 
   async function open() {
     if (!standard()) { shut(); return; }
-    st.bank = await bank();
+    const got = await bank();
+    st.bank = got.b;
+    st.bankFailed = got.failed;
     if (!standard()) { shut(); return; }
     st.profile = loadProfile(storage, now());
     st.confirming = false;
@@ -101,6 +108,7 @@ export function attachPlainPanel({ win, storage, loadBank = defaultLoadBank, pub
   // The button exists only in standard mode; the host says when the mode changes.
   function syncButton() {
     button.hidden = !standard();
+    if (wrap) wrap.hidden = button.hidden;
     if (!standard() && (dialog.open || st.profile)) shut();
   }
   syncButton();
@@ -113,8 +121,9 @@ export function attachPlainPanel({ win, storage, loadBank = defaultLoadBank, pub
     if (st.publish) { st.publish = null; draw(); focusIn(null, '[data-act="profile-publish"]'); return; }
     st.confirming = false; draw(); focusIn(null, '[data-act="profile-start-over"]');
   });
-  // Closing (the Close button, or Escape) puts focus back where it came from.
-  dialog.addEventListener('close', () => { if (typeof button.focus === 'function') button.focus(); });
+  // Closing (the Close button, or Escape) puts focus back where it came from,
+  // unless the button is gone (the mode changed): focus never lands on a hidden control.
+  dialog.addEventListener('close', () => { if (!button.hidden && typeof button.focus === 'function') button.focus(); });
   body.addEventListener('click', (e) => {
     const el = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-act]') : null;
     if (!el || !st.profile) return;

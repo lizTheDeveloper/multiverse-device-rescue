@@ -267,7 +267,12 @@ h3 {
   appearance: none;
   border: none;
   border-radius: 999px;
+  font: inherit;
   font-weight: 600;
+  /* A plain .btn gets a real size; --large and --small set their own. */
+  padding: 0.6rem 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.2;
   cursor: pointer;
   transition: transform 0.08s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
@@ -1385,7 +1390,7 @@ h3 {
 .btn--game { background: #0b0e15; color: #00E5FF; border: 1px solid #0b0e15; }
 .btn--game small { display: block; font-weight: 400; font-size: 12px; color: rgba(237,239,243,0.65); }
 .screen--city { padding: 0; }
-#city-host { min-height: 70vh; }
+#city-host { min-height: 70vh; width: 100%; min-width: 0; } /* full width on every game screen, so the frame never jumps between screens */
 
 /* ---------- Open in System Settings (opens a page; changes nothing) ---------- */
 
