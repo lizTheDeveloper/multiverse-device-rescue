@@ -12,6 +12,7 @@ import { lessonsWithConcept } from './item-bank.js';
 import { CONCEPTS, SKILLS, CLUE_CONCEPTS, isHidden, conceptById } from './skills.js';
 import { STORE_KEY as OLD_KEY, TAGS, SWEEP_FIELDS } from '../progress.js';
 import { MONITORING_MODULES, RANKS, rankOf, sweepPercent, MAX_SWEEPS } from '../ledger.js';
+import { bloomAdd, validBloom, shortHash, SHORT_HASH_CHARS, BLOOM_CHARS } from '../folded.js';
 
 export const PROFILE_KEY = 'device-rescue.recipe-box.v1';
 // Boxes that wouldn't decode are moved here (see the storage section).
@@ -41,7 +42,10 @@ export function emptyDeckPart() {
 }
 export function emptyProfile(now) {
   return { version: VERSION, since: String(now), migrations: [], concepts: {}, items: {}, lessons: {},
-    drills: emptyDrills(), rank: { points: 0, index: 0 }, deck: emptyDeckPart(), missions: {}, reclaimedEarlier: 0 };
+    drills: emptyDrills(), rank: { points: 0, index: 0 }, deck: emptyDeckPart(), missions: {},
+    // Reclaimed missions folded into a count per district (see boxText), and
+    // short hashes of their ids, so one that comes back isn't counted twice.
+    reclaimedEarlierBy: {}, foldedMissions: '' };
 }
 
 // --- salvage: each record on its own; a bad one is dropped, never its neighbours ---
@@ -59,6 +63,11 @@ function salvageMissions(m, changes) {
   return out;
 }
 
+export const MAX_FOLDED_IDS = 500;
+const HASH_RE = new RegExp(`^(?:[012345679bcdfghjklmnpqrstvwxz_.-]{${SHORT_HASH_CHARS}})*$`);
+const validFolded = (s) => str(s) && s.length <= MAX_FOLDED_IDS * SHORT_HASH_CHARS && HASH_RE.test(s);
+const foldedHas = (s, h) => { for (let i = 0; i < s.length; i += SHORT_HASH_CHARS) if (s.slice(i, i + SHORT_HASH_CHARS) === h) return i; return -1; };
+
 function salvageDeck(d, changes) {
   const out = emptyDeckPart();
   if (!plainObject(d)) return out;
@@ -71,8 +80,11 @@ function salvageDeck(d, changes) {
   if (plainObject(d.sweep) && (d.sweep.at === null || str(d.sweep.at))) {
     // `carry` (reclaim-city's held.js): a bare flag that this sweep held
     // something, so its going is never paid, even after a restart.
-    out.sweep = { at: d.sweep.at, keys: obj(entries(d.sweep.keys).filter(([, v]) => v === true)), ...(d.sweep.carry === true ? { carry: true } : {}) };
+    out.sweep = { at: d.sweep.at, keys: obj(entries(d.sweep.keys).filter(([, v]) => v === true)), ...(d.sweep.carry === true ? { carry: true } : {}),
+      ...(validBloom(d.sweep.paid) ? { paid: d.sweep.paid } : {}) };
   }
+  if (validBloom(d.paid)) out.paid = d.paid;
+  if (count(d.confirmedEarlier) && d.confirmedEarlier > 0) out.confirmedEarlier = d.confirmedEarlier;
   for (const w of Array.isArray(d.sweeps) ? d.sweeps : []) {
     if (plainObject(w) && str(w.at) && SWEEP_FIELDS.every((k) => count(w[k]))) out.sweeps.push(obj([['at', w.at], ...SWEEP_FIELDS.map((k) => [k, w[k]])]));
     else dropped += 1;
@@ -165,7 +177,8 @@ export function salvage(raw, now) {
     if (plainObject(raw.rank) && count(raw.rank.points)) p.rank.points = raw.rank.points;
     if (plainObject(raw.rank) && count(raw.rank.index)) p.rank.index = Math.min(RANKS.length - 1, raw.rank.index);
     p.deck = salvageDeck(raw.deck, changes);
-    if (count(raw.reclaimedEarlier)) p.reclaimedEarlier = raw.reclaimedEarlier;
+    p.reclaimedEarlierBy = obj(entries(raw.reclaimedEarlierBy).filter(([, n]) => Number.isInteger(n) && n > 0));
+    if (validFolded(raw.foldedMissions)) p.foldedMissions = raw.foldedMissions;
     return { profile: p, changes };
   }
   if (![1, 2, 3].includes(raw.version)) return { profile: p, changes: ['unknown version: started fresh'] };
@@ -362,8 +375,43 @@ const missionBytes = (id, rec) => utf8Length(JSON.stringify(id)) + utf8Length(JS
 const oldestFirst = (missions, status) => Object.entries(missions).filter(([, r]) => r.status === status)
   .sort(([a, x], [b, y]) => String(x.updatedAt || '').localeCompare(String(y.updatedAt || '')) || a.localeCompare(b));
 
-// Each step takes the bytes still to save and returns what is left.
-const MISSION_STEPS = [
+const entryBytes = (k, v) => utf8Length(JSON.stringify(k)) + utf8Length(JSON.stringify(v)) + 2;
+const isFoldableOnce = (k) => !k.startsWith('drill:');
+
+// Each step takes the bytes still to save and returns what is left. The
+// first ones lose nothing anyone sees; the last one (tags) loses the oldest
+// sorting.
+const FOLD_STEPS = [
+  // Confirmed fixes, oldest first, into a count: the CONFIRMED total never drops.
+  (q, excess) => {
+    for (const [id, at] of Object.entries(q.deck.confirmed).sort(([a, x], [b, y]) => String(x).localeCompare(String(y)) || a.localeCompare(b))) {
+      if (excess <= 0) break;
+      excess -= entryBytes(id, at);
+      delete q.deck.confirmed[id];
+      q.deck.confirmedEarlier = (q.deck.confirmedEarlier || 0) + 1;
+    }
+    return excess;
+  },
+  // Lifetime award keys, oldest first, into the `paid` filter: never paid twice.
+  (q, excess) => {
+    const keys = Object.keys(q.deck.once).filter(isFoldableOnce);
+    if (!keys.length) return excess;
+    if (!q.deck.paid) excess += BLOOM_CHARS + 10;
+    const out = [];
+    for (const k of keys) { if (excess <= 0) break; excess -= entryBytes(k, true); out.push(k); delete q.deck.once[k]; }
+    q.deck.paid = bloomAdd(q.deck.paid, out);
+    return excess;
+  },
+  // This sweep's award keys, the same way, into `sweep.paid`.
+  (q, excess) => {
+    const keys = Object.keys(q.deck.sweep.keys);
+    if (!keys.length) return excess;
+    if (!q.deck.sweep.paid) excess += BLOOM_CHARS + 10;
+    const out = [];
+    for (const k of keys) { if (excess <= 0) break; excess -= entryBytes(k, true); out.push(k); delete q.deck.sweep.keys[k]; }
+    q.deck.sweep.paid = bloomAdd(q.deck.sweep.paid, out);
+    return excess;
+  },
   // 'open' missions come from the scan; the next scan that still finds one puts it back.
   (q, excess) => {
     for (const [id, r] of oldestFirst(q.missions, 'open')) { if (excess <= 0) break; excess -= missionBytes(id, r); delete q.missions[id]; }
@@ -380,35 +428,50 @@ const MISSION_STEPS = [
     }
     return excess;
   },
-  // Then the oldest reclaimed are folded into a count, so the number reclaimed never drops.
+  // Then the oldest reclaimed are folded into a count for their district, so
+  // no count drops, and their id is kept as a short hash (the newest
+  // MAX_FOLDED_IDS), so one that comes back isn't counted twice.
   (q, excess) => {
+    const hashes = [];
     for (const [id, r] of oldestFirst(q.missions, 'reclaimed')) {
       if (excess <= 0) break;
-      excess -= missionBytes(id, r);
+      excess -= missionBytes(id, r) - SHORT_HASH_CHARS;
       delete q.missions[id];
-      q.reclaimedEarlier += 1;
+      const dist = str(r.districtId) ? r.districtId : '';
+      q.reclaimedEarlierBy[dist] = (q.reclaimedEarlierBy[dist] || 0) + 1;
+      hashes.push(shortHash(id));
+    }
+    q.foldedMissions = (q.foldedMissions + hashes.join('')).slice(-MAX_FOLDED_IDS * SHORT_HASH_CHARS);
+    return excess;
+  },
+  // Last, the oldest tags (game sorting only): the finding shows as unsorted again.
+  (q, excess) => {
+    for (const [id, t] of Object.entries(q.deck.tags).sort(([a, x], [b, y]) => String(x.at).localeCompare(String(y.at)) || a.localeCompare(b))) {
+      if (excess <= 0) break;
+      excess -= entryBytes(id, t);
+      delete q.deck.tags[id];
     }
     return excess;
   },
 ];
 
 // The box's text, at most MAX_BOX_CHARS whenever it can be. Over the limit,
-// in this order, until it fits: answers compacted (compactEvidence) and
-// migrations cut to the last 5; then 'open' missions, oldest first; then
-// reclaimed missions slimmed, then folded into `reclaimedEarlier`. Missions
-// the person set ('yours', 'later') are never touched. Throws when it can't
-// be encoded. May still be over the limit (only with hundreds of 'yours' and
-// 'later'); the caller checks and reports it.
+// until it fits: answers compacted (compactEvidence) and migrations cut to
+// the last 5; then FOLD_STEPS in order. Missions the person set ('yours',
+// 'later') are never touched. Throws when it can't be encoded. May still be
+// over the limit (only with hundreds of 'yours' and 'later'); the caller
+// checks and reports it.
 export function boxText(p, seed) {
   let text = encode(p, seed);
   if (text.length <= MAX_BOX_CHARS) return text;
   let q = { ...p, concepts: compactEvidence(p.concepts), migrations: p.migrations.slice(-5) };
   text = encode(q, seed);
-  for (let round = 0; round < 4 && text.length > MAX_BOX_CHARS; round += 1) {
+  for (let round = 0; round < 6 && text.length > MAX_BOX_CHARS; round += 1) {
     const bytes = utf8Length(JSON.stringify(q));
     let excess = bytes - (MAX_BOX_CHARS * 0.97) / (text.length / bytes);
-    q = { ...q, missions: { ...q.missions } };
-    for (const step of MISSION_STEPS) { if (excess <= 0) break; excess = step(q, excess); }
+    q = { ...q, missions: { ...q.missions }, reclaimedEarlierBy: { ...q.reclaimedEarlierBy },
+      deck: { ...q.deck, confirmed: { ...q.deck.confirmed }, once: { ...q.deck.once }, tags: { ...q.deck.tags }, sweep: { ...q.deck.sweep, keys: { ...q.deck.sweep.keys } } } };
+    for (const step of FOLD_STEPS) { if (excess <= 0) break; excess = step(q, excess); }
     text = encode(q, seed);
   }
   return text;
@@ -677,6 +740,7 @@ export function toProgress(p, bank) {
     if (s.done) lessons[id] = { completedAt: (p.lessons[id] && p.lessons[id].visited) || p.since };
   }
   return { version: 3, missions: { ...p.missions }, lessons,
+    ...(Object.keys(p.reclaimedEarlierBy).length ? { reclaimedEarlierBy: { ...p.reclaimedEarlierBy } } : {}),
     deck: { points: p.rank.points, rank: p.rank.index, drills: { right: p.drills.right, tried: p.drills.tried }, ...JSON.parse(JSON.stringify(p.deck)) } };
 }
 
@@ -686,7 +750,21 @@ export function withProgress(p, progress) {
   const next = clone(p);
   if (!plainObject(progress)) return next;
   const changes = [];
+  const before = next.missions;
   next.missions = salvageMissions(progress.missions, changes);
+  // A folded mission that is back (in the scan again) leaves its district's
+  // count, so it isn't counted twice when it is reclaimed again.
+  for (const [id, r] of Object.entries(next.missions)) {
+    if (before[id] || !next.foldedMissions) continue;
+    const at = foldedHas(next.foldedMissions, shortHash(id));
+    if (at < 0) continue;
+    next.foldedMissions = next.foldedMissions.slice(0, at) + next.foldedMissions.slice(at + SHORT_HASH_CHARS);
+    const own = str(r.districtId) ? r.districtId : '';
+    const dist = Object.prototype.hasOwnProperty.call(next.reclaimedEarlierBy, own) ? own : Object.keys(next.reclaimedEarlierBy)[0];
+    if (dist === undefined) continue;
+    next.reclaimedEarlierBy[dist] -= 1;
+    if (next.reclaimedEarlierBy[dist] <= 0) delete next.reclaimedEarlierBy[dist];
+  }
   const d = progress.deck;
   if (plainObject(d)) {
     next.deck = salvageDeck(d, changes);
@@ -728,7 +806,7 @@ export function summary(p, bank, lessonsInOrder = [...bank.lessons.keys()]) {
     lessonsLearned: lessons.filter((l) => l.state === 'learned').length,
     drills: { right: p.drills.right, tried: p.drills.tried, lastTen: { right: p.drills.recent.filter((x) => x === 1).length, of: p.drills.recent.length }, ...calibration(p.drills) },
     rank: { index: r.index, level: r.index + 1, of: RANKS.length, name: r.name, points: r.points, toNext: r.toNext, next: r.next ? r.next.name : null },
-    city: { reclaimed: missions.filter((m) => m.status === 'reclaimed').length + p.reclaimedEarlier, later: missions.filter((m) => m.status === 'later').length,
+    city: { reclaimed: missions.filter((m) => m.status === 'reclaimed').length + Object.values(p.reclaimedEarlierBy).reduce((a, n) => a + n, 0), later: missions.filter((m) => m.status === 'later').length,
       yours: missions.filter((m) => m.status === 'yours').length, lastSweep: last ? sweepPercent(last) : null },
     since: p.since, migrations: p.migrations,
   };

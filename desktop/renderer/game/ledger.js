@@ -10,6 +10,7 @@
 // drill) or keys for the current sweep (clue, tag bonus, clean sweep). So
 // re-tagging, re-opening or re-sweeping can't farm points.
 import { emptyDeck, TAGS, SWEEP_FIELDS, validDeck } from './progress.js';
+import { bloomHas } from './folded.js';
 
 export const POINTS = { clue: 5, tagBonus: 10, drill: 15, drillClueBonus: 5, fix: 50, report: 20, clean: 40 };
 export const RANKS = [
@@ -57,7 +58,8 @@ export function award(deck, kind, key, extra = 0) {
   if (typeof key !== 'string' || key === '' || MONITORING_MODULES.has(moduleOfKey(key))) return none(d);
   const k = `${kind}:${key}`;
   const lifetime = LIFETIME.has(kind);
-  if (lifetime ? d.once[k] : d.sweep.keys[k]) return none(d);
+  // A lifetime key folded into `paid` (folded.js) has paid too.
+  if (lifetime ? (d.once[k] || bloomHas(d.paid, k)) : (d.sweep.keys[k] || bloomHas(d.sweep.paid, k))) return none(d);
   const points = POINTS[kind] + (Number.isInteger(extra) && extra > 0 ? extra : 0);
   const total = d.points + points;
   const rank = Math.max(d.rank, rankIndexFor(total));

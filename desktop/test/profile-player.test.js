@@ -812,6 +812,132 @@ test('a long-lived profile with many scans keeps saving under the cap; what the 
     }
   }
   assert.ok(Object.keys(p.missions).length < 9 * SCANS / 3, 'missions were bounded');
-  assert.ok(p.reclaimedEarlier > 0, 'old reclaimed missions were folded into the count');
+  assert.ok(Object.values(p.reclaimedEarlierBy).reduce((a, n) => a + n, 0) > 0, 'old reclaimed missions were folded into the count');
   assert.deepStrictEqual(problems, []);
+});
+
+// Fix round 3, item 1: the deck is bounded, totals hold, nothing pays twice.
+test('1000 scans with about 100 tags and 5 fixes each keep saving; CONFIRMED holds and no award pays twice', async () => {
+  const m = await load();
+  const progress = await import('../renderer/game/progress.js');
+  const oneCity = await import('../renderer/game/one-city.js');
+  const L = m.ledger;
+  const problems = [];
+  const onProblem = (c) => problems.push(c);
+  const store = recordingStore();
+  let p = m.loadProfile(store, NOW);
+  const idOf = (n) => `launch_agent_audit|security.launch_agent_audit.unsigned|/Users/someone/Library/LaunchAgents/com.example.agent-${n}.plist`;
+  let next = 0;
+  let present = Array.from({ length: 100 }, () => idOf(next++));
+  const fixed = [];
+  let paidPoints = 0;
+  for (let scan = 0; scan < 1000; scan += 1) {
+    const now = new Date(Date.UTC(2026, 9, 18) + scan * 3600000).toISOString();
+    let view = m.toProgress(p, m.bank);
+    let deck = L.recordSweep(view.deck, { checks: 100, checked: 100, secured: 95 }, now).deck;
+    deck = L.reconcileDeck(deck, present.map((id) => ({ id, fp: 'f', kind: 'finding' })), new Set(['launch_agent_audit'])).deck;
+    for (const [i, id] of present.entries()) {
+      deck = L.setTag(deck, id, 'mine', 'f', now);
+      if (i % 5 === 0) { const r = L.award(deck, 'clue', `${id}#maker`); deck = r.deck; paidPoints += r.points; }
+    }
+    for (const id of present.slice(0, 5)) {
+      const r = L.confirmFix(deck, id, now); deck = r.deck; paidPoints += r.points;
+      fixed.push(id);
+    }
+    // The five fixed are gone; five new findings arrive.
+    present = [...present.slice(5), ...Array.from({ length: 5 }, () => idOf(next++))];
+    view = progress.setDeck(view, deck);
+    p = m.withProgress(p, view);
+    if (scan % 50 === 49) {
+      assert.ok(m.saveProfile(store, p, { seed: 13, mode: 'city', onProblem }), `save after scan ${scan}`);
+      assert.ok(store.data[m.PROFILE_KEY].length <= m.MAX_BOX_CHARS);
+      const back = m.loadProfile(store, now);
+      const bars = (q) => oneCity.countDeckBars({ deck: m.toProgress(q, m.bank).deck }).confirmed;
+      assert.strictEqual(bars(back), fixed.length, 'every fix still counts as CONFIRMED');
+      assert.strictEqual(back.rank.points, p.rank.points);
+      p = back;
+    }
+  }
+  assert.deepStrictEqual(problems, []);
+  assert.strictEqual(p.rank.points, paidPoints);
+  const d = m.toProgress(p, m.bank).deck;
+  assert.ok(d.paid && d.confirmedEarlier > 0, 'old records really were folded');
+  const { FORBIDDEN_ON_DISK } = require('./disk-words.js');
+  assert.doesNotMatch(d.paid, FORBIDDEN_ON_DISK);
+  assert.doesNotMatch(p.foldedMissions, FORBIDDEN_ON_DISK);
+  // Nothing pays twice: every fix ever made, and this sweep's clues, pay nothing again.
+  let deck = d;
+  for (const id of fixed) { const r = L.confirmFix(deck, id, NOW); assert.strictEqual(r.points, 0, id); deck = r.deck; }
+  for (const id of present.slice(0, 95).filter((_, i) => (i + 5) % 5 === 0)) assert.strictEqual(L.award(d, 'clue', `${id}#maker`).points, 0, 'clue this sweep');
+  // And a new finding still pays (the filter isn't full).
+  assert.ok(L.confirmFix(d, idOf(next + 1), NOW).points > 0);
+});
+
+// Fix round 3, items 2 and 3: per-district counts never drop, and a folded mission that comes back isn't counted twice.
+test('folding reclaimed missions keeps every district’s count; one that comes back and goes again counts once', async () => {
+  const m = await load();
+  const progress = await import('../renderer/game/progress.js');
+  const bank = await wideBank();
+  let p = heavy(m, bank, m.emptyProfile(NOW));
+  const districts = ['gatehouse', 'wires', 'library'];
+  const idOf = (d, i) => `launch_agent_audit|security.launch_agent_audit.x|/${d}/helper-${i}.plist`;
+  for (const [n, d] of districts.entries()) for (let i = 0; i < 80 + n * 10; i += 1) {
+    p.missions[idOf(d, i)] = { status: 'reclaimed', module: 'launch_agent_audit', districtId: d, title: `A helper in ${d} (${i})`, updatedAt: `2026-10-${String(1 + (i % 28)).padStart(2, '0')}T00:00:00.000Z` };
+  }
+  const city = (missions = []) => ({ districts: districts.map((id) => ({ id, missions: missions.filter((x) => x.districtId === id) })) });
+  const counts = (q) => districts.map((d) => progress.reclaimedIn(m.toProgress(q, bank), { id: d, missions: [] }).length);
+  const before = counts(p);
+  const store = memStore();
+  assert.ok(m.saveProfile(store, p, { seed: 17 }));
+  let back = m.loadProfile(store, NOW);
+  assert.ok(Object.keys(back.reclaimedEarlierBy).length > 0, 'missions really were folded');
+  assert.ok(Object.keys(back.missions).length < Object.keys(p.missions).length);
+  assert.deepStrictEqual(counts(back), before, 'every district keeps its count');
+  assert.strictEqual(progress.countReclaimed(m.toProgress(back, bank)), progress.countReclaimed(m.toProgress(p, bank)));
+  assert.strictEqual(m.summary(back, bank).city.reclaimed, m.summary(p, bank).city.reclaimed);
+  // The view: still the right count after the game's own transforms (base() keeps it).
+  const after = progress.setStatus(m.toProgress(back, bank), 'x|y|z', 'later', 'm', NOW);
+  assert.strictEqual(progress.reclaimedIn(after, { id: 'gatehouse', missions: [] }).length, before[0]);
+  // A folded mission comes back (it is in the scan again): it is open, not reclaimed.
+  const gone = Object.keys(p.missions).find((id) => !back.missions[id] && id.includes('/gatehouse/'));
+  assert.ok(gone);
+  const back1 = { id: gone, module: 'launch_agent_audit', districtId: 'gatehouse', title: 'Back again', marked: false };
+  const ran = new Set(['launch_agent_audit']);
+  let view = progress.reconcile(m.toProgress(back, bank), city([back1]), ran, NOW).progress;
+  back = m.withProgress(back, view);
+  assert.strictEqual(back.missions[gone].status, 'open');
+  assert.deepStrictEqual(counts(back), [before[0] - 1, before[1], before[2]], 'it left the folded count');
+  // It goes again: reclaimed once more, and counted once.
+  view = progress.reconcile(m.toProgress(back, bank), city([]), ran, NOW).progress;
+  back = m.withProgress(back, view);
+  assert.strictEqual(back.missions[gone].status, 'reclaimed');
+  assert.deepStrictEqual(counts(back), before, 'counted once, not twice');
+});
+
+test('the district screen shows folded missions as one line, with the right count', async () => {
+  const progress = await import('../renderer/game/progress.js');
+  const view = { version: 3, missions: { a: { status: 'reclaimed', districtId: 'gatehouse', title: 'A helper' } }, lessons: {}, deck: progress.emptyDeck(), reclaimedEarlierBy: { gatehouse: 7 } };
+  const rows = progress.reclaimedIn(view, { id: 'gatehouse', missions: [] });
+  assert.strictEqual(rows.length, 8);
+  assert.strictEqual(progress.countReclaimed(view), 8);
+  const { renderDistrict } = await import('../renderer/game/views/district.js');
+  const html = renderDistrict({ district: { id: 'gatehouse', name: 'Gatehouse', status: 'clear', missions: [], notes: [], fog: [] }, progress: view, scout: () => '' });
+  assert.match(html, /7 more reclaimed earlier/);
+  assert.strictEqual((html.match(/RECLAIMED</g) || []).length, 2);
+});
+
+test('the folded records: a filter that never forgets a key, short hashes, and an alphabet no stored word can come from', async () => {
+  const f = await import('../renderer/game/folded.js');
+  const { FORBIDDEN_ON_DISK } = require('./disk-words.js');
+  const keys = Array.from({ length: 2000 }, (_, i) => `fix:launch_agent_audit|code|/path/${i}`);
+  const bloom = f.bloomAdd('', keys);
+  assert.ok(f.validBloom(bloom));
+  assert.ok(keys.every((k) => f.bloomHas(bloom, k)), 'no false negatives');
+  const fresh = Array.from({ length: 2000 }, (_, i) => `fix:other|code|/path/${i}`).filter((k) => f.bloomHas(bloom, k)).length;
+  assert.ok(fresh <= 10, `${fresh} false positives in 2000`);
+  assert.strictEqual(f.bloomHas('nonsense', keys[0]), false);
+  assert.strictEqual(f.shortHash('a').length, f.SHORT_HASH_CHARS);
+  assert.notStrictEqual(f.shortHash('a'), f.shortHash('b'));
+  assert.doesNotMatch(bloom, FORBIDDEN_ON_DISK);
+  assert.doesNotMatch('012345679bcdfghjklmnpqrstvwxz-_.', /[aeiouy8]/);
 });

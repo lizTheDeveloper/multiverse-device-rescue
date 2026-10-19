@@ -26,7 +26,7 @@ export function renderMilestone({ district: d, progress, scout }) {
     <h2>${esc(d.name.toUpperCase())}</h2>
     ${scout('proud', 72)}
     <p>${esc(lead)}</p>
-    ${fixed.length ? `<div class="panel"><div class="label">FIXED AND CHECKED</div><ul class="notes">${fixed.map((m) => `<li>${esc(m.title)}</li>`).join('')}</ul></div>` : ''}
+    ${fixed.length ? `<div class="panel"><div class="label">FIXED AND CHECKED</div><ul class="notes">${fixed.filter((m) => !m.earlier).map((m) => `<li>${esc(m.title)}</li>`).join('')}${fixed.some((m) => m.earlier) ? `<li>${esc(`${fixed.filter((m) => m.earlier).length} more reclaimed earlier`)}</li>` : ''}</ul></div>` : ''}
     ${yours.length ? `<div class="panel"><div class="label">MARKED AS YOURS</div><p class="intel">These stay listed. They weren’t fixed, because you said they’re yours.</p><ul class="notes">${yours.map((m) => `<li>${esc(m.title)}</li>`).join('')}</ul></div>` : ''}
     ${fog ? `<div class="panel fogged"><div class="label">COULDN’T CHECK HERE</div><p class="intel">Couldn’t check here. That doesn’t mean it’s safe.</p><ul class="fog-list">${fog}</ul></div>` : ''}
     <button type="button" class="btn-s" data-go="map">BACK TO THE CITY</button>

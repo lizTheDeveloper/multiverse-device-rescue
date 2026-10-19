@@ -8,6 +8,8 @@
 //
 // The key keeps its v1 name so a saved Plan A store is found and migrated.
 // monitoringSeen is never stored here: app.js keeps it in memory only.
+import { validBloom } from './folded.js';
+
 export const STORE_KEY = 'device-rescue.game.v1';
 const STATUSES = new Set(['open', 'later', 'yours', 'reclaimed']);
 // Game tags: sorting only.
@@ -52,7 +54,14 @@ export function validDeck(d) {
     && plainObject(d.confirmed) && Object.values(d.confirmed).every((v) => typeof v === 'string')
     && plainObject(d.once) && Object.values(d.once).every((v) => v === true)
     && plainObject(d.sweep) && (d.sweep.at === null || typeof d.sweep.at === 'string') && plainObject(d.sweep.keys)
-    && Array.isArray(d.sweeps) && d.sweeps.every(sweepFieldsOk);
+    && (d.sweep.paid === undefined || validBloom(d.sweep.paid))
+    && Array.isArray(d.sweeps) && d.sweeps.every(sweepFieldsOk)
+    // Kept by the profile when it folds old records to stay small (folded.js):
+    // `paid`, lifetime award keys folded out of `once` (and `sweep.paid`,
+    // this sweep's keys folded out of `sweep.keys`); `confirmedEarlier`,
+    // confirmed fixes folded out of `confirmed`, still counted.
+    && (d.paid === undefined || validBloom(d.paid))
+    && (d.confirmedEarlier === undefined || count(d.confirmedEarlier));
 }
 
 // The deck rebuilt from its known fields only, or null when it isn't a valid
@@ -68,9 +77,18 @@ export function cleanDeck(d) {
     tags: map(d.tags, (t) => ({ tag: t.tag, at: t.at, fp: t.fp })),
     confirmed: map(d.confirmed, (v) => v),
     once: map(d.once, () => true),
-    sweep: { at: d.sweep.at, keys: Object.fromEntries(Object.entries(d.sweep.keys).filter(([, v]) => v === true)) },
+    sweep: { at: d.sweep.at, keys: Object.fromEntries(Object.entries(d.sweep.keys).filter(([, v]) => v === true)),
+      ...(d.sweep.paid !== undefined ? { paid: d.sweep.paid } : {}) },
     sweeps: d.sweeps.map((w) => Object.fromEntries([['at', w.at], ...SWEEP_FIELDS.map((k) => [k, w[k]])])),
+    ...(d.paid !== undefined ? { paid: d.paid } : {}),
+    ...(d.confirmedEarlier !== undefined ? { confirmedEarlier: d.confirmedEarlier } : {}),
   };
+}
+
+// Reclaimed missions the profile folded into a count per district, to stay
+// small: { districtId: n }. Counted by reclaimedIn and countReclaimed.
+export function cleanEarlier(e) {
+  return Object.fromEntries(Object.entries(plainObject(e) ? e : {}).filter(([, n]) => Number.isInteger(n) && n > 0));
 }
 
 // Accepts a stored version 1, 2 or 3 document. Missions are kept whenever they
@@ -118,11 +136,13 @@ function allMissions(city) {
 }
 
 function base(progress) {
+  const earlier = cleanEarlier(progress && progress.reclaimedEarlierBy);
   return {
     version: 3,
     missions: { ...((progress && progress.missions) || {}) },
     lessons: { ...((progress && progress.lessons) || {}) },
     deck: (progress && cleanDeck(progress.deck)) || emptyDeck(),
+    ...(Object.keys(earlier).length ? { reclaimedEarlierBy: earlier } : {}),
   };
 }
 
@@ -181,13 +201,18 @@ export function lessonDone(progress, id) {
 }
 
 // Missions in this district that are reclaimed: the ones still in the scan with
-// that status, and the ones the scan no longer reports (kept in progress).
+// that status, the ones the scan no longer reports (kept in progress), and
+// the ones folded into a count (`earlier: true`, no id; one row per mission
+// so the count is right, which views may show as one line).
+export const EARLIER_TITLE = 'Something that’s gone now';
 export function reclaimedIn(progress, district) {
   const records = (progress && progress.missions) || {};
   const present = new Map((district.missions || []).map((m) => [m.id, m]));
-  return Object.entries(records)
+  const listed = Object.entries(records)
     .filter(([id, r]) => r.status === 'reclaimed' && (present.has(id) || r.districtId === district.id))
-    .map(([id, r]) => ({ id, title: (present.get(id) || {}).title || r.title || 'Something that’s gone now' }));
+    .map(([id, r]) => ({ id, title: (present.get(id) || {}).title || r.title || EARLIER_TITLE }));
+  const earlier = cleanEarlier(progress && progress.reclaimedEarlierBy)[district.id] || 0;
+  return [...listed, ...Array.from({ length: earlier }, () => ({ id: null, title: EARLIER_TITLE, earlier: true }))];
 }
 
 export function recheckOutcome(missionId, cityAfter, response) {
@@ -199,5 +224,6 @@ export function recheckOutcome(missionId, cityAfter, response) {
 }
 
 export function countReclaimed(progress) {
-  return Object.values((progress && progress.missions) || {}).filter((r) => r.status === 'reclaimed').length;
+  const earlier = Object.values(cleanEarlier(progress && progress.reclaimedEarlierBy)).reduce((a, n) => a + n, 0);
+  return Object.values((progress && progress.missions) || {}).filter((r) => r.status === 'reclaimed').length + earlier;
 }
