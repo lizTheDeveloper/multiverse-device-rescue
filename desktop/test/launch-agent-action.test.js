@@ -159,8 +159,10 @@ test('the confirmation panel for an action carries target attributes and no watc
 test('the watched situation adds the advocate warning, verbatim', () => {
   const html = FixFlow.fixControlsHtml({ module: 'launchd_persistence_audit', fixable: FIXABLE }, { watched: true });
   assert.ok(html.includes('Turning this off may be noticed by whoever set it up. If you’re not sure that’s safe for you, talk to an advocate first.'));
+  // A fix with no engine action carries it too: any change can be noticed.
   const plain = FixFlow.fixControlsHtml({ module: 'firewall_audit', fixable: { will_change: 'x', how_to_undo: ['y'] } }, { watched: true });
-  assert.ok(!plain.includes('advocate'));
+  assert.ok(plain.includes(FixFlow.WATCHED_WARNING));
+  assert.ok(!FixFlow.fixControlsHtml({ module: 'firewall_audit', fixable: { will_change: 'x', how_to_undo: ['y'] } }).includes('advocate'));
 });
 
 test('an action fixable with a bad target shows no button', () => {

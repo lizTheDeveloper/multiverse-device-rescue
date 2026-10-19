@@ -16,9 +16,13 @@ const DV = /799-7233|88788|advocate|domestic\s+violence/i;
 const FIXABLE = { action: 'disable_launch_agent', target: '/Library/LaunchAgents/com.teamviewer.service.plist',
   will_change: 'Stops TeamViewer starting by itself.', how_to_undo: ['Turn it back on.'] };
 
+// A module fix (no engine action): what app_fixes.json offers.
+const MODULE_FIX = { will_change: 'Turns off TeamViewer\u2019s background service.', how_to_undo: ['Turn it back on in TeamViewer.'] };
+
 function doc({ fixable = false } = {}) {
   const finding = JSON.parse(JSON.stringify(REAL.finding));
-  if (fixable) finding.fixable = FIXABLE;
+  if (fixable === 'module') finding.fixable = MODULE_FIX;
+  else if (fixable) finding.fixable = FIXABLE;
   return { schema_version: 1, platform: 'win32', modules: [{ name: REAL.name, category: REAL.category, status: 'ok', supported: true, findings: [finding] }] };
 }
 
@@ -30,13 +34,13 @@ test('the fixture is the engine’s real TeamViewer finding, with its warning an
   assert.ok(!Q.MONITORING_MODULES.has(REAL.name), 'not one of the monitoring checks');
 });
 
-async function listHtml(mode) {
+async function listHtml(mode, fixable = true) {
   const p = page({ store: { 'device-rescue.display': mode }, ready: false });
   p.sandbox.FixFlow.fixControlsHtml = FixFlow.fixControlsHtml;
   p.byId('btn-get-started').click();
   p.pick('hacked');
   p.byId('btn-run-scan').click();
-  await p.finish(doc({ fixable: true }));
+  await p.finish(doc({ fixable }));
   assert.deepStrictEqual(p.shown(), ['results'], mode);
   return p.byId('results-groups').innerHTML;
 }
@@ -58,7 +62,7 @@ test('the list, city mode: nothing quieted, the safety note in full, and the fix
   assert.ok(html.includes(FixFlow.WATCHED_WARNING), 'WATCHED_WARNING in the fix panel');
 });
 
-async function gameBriefing(mode) {
+async function gameBriefing(mode, fixable = true) {
   const { createController } = await import('../renderer/game/controller.js');
   const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
   const clicks = [];
@@ -76,7 +80,7 @@ async function gameBriefing(mode) {
   };
   const ctl = createController({ win, storage: recordingStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}),
     loadTraining: async () => [], loadDrillBank: async () => [] });
-  const d = doc({ fixable: true });
+  const d = doc({ fixable });
   ctl.show(d, { id: mode === 'city' ? 'city' : 'unsure' });
   const m = findingsToCity(d).districts.flatMap((x) => x.missions)[0];
   const click = (attrs) => { const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) }; clicks.forEach((fn) => fn({ target: { closest: () => el } })); };
@@ -101,4 +105,18 @@ test('the game, city mode: the briefing is unquieted, shows the safety note, and
   assert.match(html, /<div class="panel safety"><div class="finding-card__note" role="note"><p>Before you remove or turn anything off/);
   assert.ok(html.includes(FixFlow.WATCHED_WARNING), 'WATCHED_WARNING in the fix panel');
   assert.deepStrictEqual(seen, [['fix', true], ['mark', true]]);
+});
+
+test('a fix with no engine action: the warning in city mode, in the list and the game; not in standard mode', async () => {
+  for (const mode of ['city', 'standard']) {
+    const list = await listHtml(mode, 'module');
+    const game = (await gameBriefing(mode, 'module')).html;
+    for (const [where, html] of [['list', list], ['game', game]]) {
+      assert.match(html, /data-fix-module="win_remote_access_audit"/, `${mode} ${where}: the fix is offered`);
+      assert.doesNotMatch(html, /data-fix-action=/, `${mode} ${where}: no engine action`);
+      assert.strictEqual(html.includes(FixFlow.WATCHED_WARNING), mode === 'city', `${mode} ${where}`);
+    }
+  }
+  assert.ok(FixFlow.fixControlsHtml({ module: 'm', fixable: MODULE_FIX }, { watched: true }).includes(FixFlow.WATCHED_WARNING));
+  assert.ok(!FixFlow.fixControlsHtml({ module: 'm', fixable: MODULE_FIX }, { watched: false }).includes(FixFlow.WATCHED_WARNING));
 });

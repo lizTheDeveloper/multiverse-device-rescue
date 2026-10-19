@@ -51,7 +51,8 @@ const FixFlow = (function () {
     return { action: fixable.action, target: fixable.target };
   }
 
-  // opts.watched: the person said "I think someone is watching me".
+  // opts.watched (city mode): every fix confirmation, with or without an
+  // engine action, says it may be noticed. Any change to the computer can be.
   function fixControlsHtml(finding, opts) {
     const fixable = fixableOf(finding);
     if (!fixable || typeof finding.module !== 'string' || !MODULE_NAME.test(finding.module)) return '';
@@ -60,7 +61,7 @@ const FixFlow = (function () {
     const attrs = act
       ? ` data-fix-action="${esc(act.action)}" data-fix-target="${esc(act.target)}"`
       : '';
-    const watched = act && opts && opts.watched
+    const watched = opts && opts.watched
       ? `<p class="fix-panel__line fix-panel__warning"><strong>${esc(WATCHED_WARNING)}</strong></p>`
       : '';
     return `
