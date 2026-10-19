@@ -165,7 +165,8 @@ export function renderMissionScreen(o) {
   // How serious this one is, beside "ITEM 2 OF 4" (a critical redirect mustn't look like a warning).
   const it = view.item || {};
   const sev = SEV[it.severity || (it.finding && it.finding.severity)] || '';
-  const unfinished = research.unfinished ? `<p class="intel mx-unfinished"><span class="badge fog">DIDN’T FINISH</span> ${esc(research.unfinished)}</p>` : '';
+  // Said once: most cards already say their check didn't finish (R2); the line here is for those that don't.
+  const unfinished = research.unfinished && !/didn['’]t finish/i.test(plainText(cardHtml)) ? `<p class="intel mx-unfinished"><span class="badge fog">DIDN’T FINISH</span> ${esc(research.unfinished)}</p>` : '';
   const confirm = confirming && !actHtml ? `<div class="panel mx-confirm" role="group" aria-label="Before you go on">
       <p class="intel">${esc(run.pending && run.pending.ask === 'keep'
     ? (mode === 'city' ? 'Only if it’s yours. Keep it?' : 'Keep it only if you know it’s yours. Keep it?')

@@ -193,3 +193,22 @@ test('a fix confirm left and come back to: YES opens the fix again; a confirm wi
   assert.strictEqual(out.run.phase, 'item');
   assert.match(screen(k, out.run, k.Run.viewFor(out.run, g, ctx, {})), /data-act="mx-decide:later"/);
 });
+
+// --- P3: "didn't finish" said once ---
+
+test('"didn’t finish" is said once: the card’s own line, else the screen’s DIDN’T FINISH line', async () => {
+  const k = await kit();
+  const ctx = ctxOf(k.C, k.R);
+  const g = { ...k.games.simple, decisions: () => [D('later', 'later'), D('keep', 'keep')] };
+  const item = k.C.makeItem({ module: 'codesign_audit', title: 'Seal', severity: 'warning' }, { unfinished: true });
+  const run = k.Run.startRun({ id: 'm', items: [item] });
+  const v = k.Run.viewFor(run, g, ctx, {});
+  const research = { unfinished: 'This check didn’t finish, so it may have missed something here.' };
+  const count = (h) => (text(h).match(/didn[’']t finish/g) || []).length;
+  const withCard = screen(k, run, v, { research, cardHtml: '<p class="seal-unfinished">This check didn&#39;t finish, so it may have missed things.</p>' });
+  assert.strictEqual(count(withCard), 1);
+  assert.doesNotMatch(withCard, /DIDN’T FINISH/);
+  const bare = screen(k, run, v, { research, cardHtml: '<div class="mg-card">Seal</div>' });
+  assert.strictEqual(count(bare), 1);
+  assert.match(bare, /badge fog">DIDN’T FINISH/, 'a card that doesn’t say it still gets the line: never reads clean');
+});
