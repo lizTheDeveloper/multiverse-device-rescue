@@ -11,7 +11,26 @@ const SOURCES = {
   'six-roses': path.join(__dirname, 'fixtures', 'six-roses-excerpt.txt'),
   'guides/remediation/respond_to_monitoring_software.md': path.join(REPO, 'guides', 'remediation', 'respond_to_monitoring_software.md'),
   'guides/remediation/preserve_evidence_first.md': path.join(REPO, 'guides', 'remediation', 'preserve_evidence_first.md'),
+  'modules/security/stalkerware_scan/__init__.py': path.join(REPO, 'modules', 'security', 'stalkerware_scan', '__init__.py'),
 };
+// Beyond punctuation, every word of ours is listed here, word for word, with
+// why: joining words, a pointer or a label, never a step, a resource or a
+// number. So an invented sentence, however short, fails until someone adds it
+// here on purpose.
+const JOINING = 0;
+const OWN_WORDING = {
+  'to look these up.': 'OPEN_NOTE: joins the library-computer advice to the list above',
+  'first.': 'HELD.heading / HELD_LINE: the one word around its two quotes',
+  'it opens in your web browser and reads like a recipe. .': 'what the guide button does',
+  'open the city to see how to keep a quiet record of it.': 'HELD_MORE: where the record steps are',
+  'how to keep a quiet record, and who can help': 'HELD_HELP_TITLE: the label of the details',
+  'if someone close to you may have installed it, talk to an . , .': 'DEFAULT_FULL: who the hotline sentence is for',
+};
+const leftover = (rest) => rest.replace(/\s+/g, ' ').replace(/^[\s.,;:]+/, '').trim();
+function ownWordsOk(item, rest) {
+  const letters = rest.replace(/[^a-z0-9]/g, '').length;
+  return letters <= JOINING || Object.prototype.hasOwnProperty.call(OWN_WORDING, leftover(rest));
+}
 const norm = (s) => String(s).toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
 const source = (key) => norm(fs.readFileSync(SOURCES[key], 'utf8'));
 const load = (f) => import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', f)).href);
@@ -32,7 +51,26 @@ test('every line is the source’s own words, with only a few joining words of o
       assert.ok(text.includes(norm(q)), `quote not in the text: "${q}"`);
       rest = rest.replace(norm(q), '');
     }
-    assert.ok(rest.replace(/[^a-z0-9]/g, '').length <= 50, `too much of our own wording in "${item.text}"`);
+    assert.ok(ownWordsOk(item, rest), `our own wording in "${item.text}" isn't listed in OWN_WORDING: "${leftover(rest)}"`);
+  }
+});
+
+test('every address is on a line of its source that links it: the Six Roses link lines, verbatim from the page', async () => {
+  const fs2 = fs.readFileSync(SOURCES['six-roses'], 'utf8').split('\n');
+  const c = await load('side-district.js');
+  const code = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'game', 'side-district.js'), 'utf8');
+  const urls = [...new Set(code.match(/https?:\/\/[^\s'"`)]+/g).map((u) => u.replace(/[.,;:]+$/, '')))];
+  assert.ok(urls.length >= 5, urls.join(' '));
+  for (const url of urls) {
+    if (url === c.SIX_ROSES.url) {
+      // The guide's own address: the page this excerpt was fetched from.
+      assert.ok(fs2.some((l) => l === `# Source: ${url} (text fetched 2026-10-18).`), url);
+      continue;
+    }
+    const r = c.HELP.find((x) => x.url === url);
+    assert.ok(r, `${url} belongs to a resource`);
+    const line = fs2.find((l) => !l.startsWith('#') && l.includes(`<a href="${url}">${r.name}</a>`));
+    assert.ok(line, `${url}: no page line links it as "${r.name}"`);
   }
 });
 
@@ -109,7 +147,7 @@ function listHelp() {
     { text: Q.HELD_HELP[1], source: RESPOND_KEY,
       quotes: ['advocate before you remove anything', 'In the US: National Domestic Violence Hotline', '1-800-799-7233, or text START to 88788'] },
     { text: Q.HELD_HELP[2], source: RESPOND_KEY, quotes: [Q.HELD_HELP[2]] },
-    { text: Q.HELD_LINE, source: RESPOND_KEY, quotes: [] },
+    { text: Q.HELD_LINE, source: 'modules/security/stalkerware_scan/__init__.py', quotes: ["Don't remove it yet", 'talk to an advocate'] },
     { text: Q.HELD_MORE, source: RESPOND_KEY, quotes: [] },
     { text: Q.HELD_HELP_TITLE, source: RESPOND_KEY, quotes: [] },
   ];
@@ -126,7 +164,7 @@ test('the list’s interim help is the sources’ own words too, every number in
       assert.ok(text.includes(norm(q)), `quote not in the text: "${q}"`);
       rest = rest.replace(norm(q), '');
     }
-    assert.ok(rest.replace(/[^a-z0-9]/g, '').length <= 50, `too much of our own wording in "${item.text}"`);
+    assert.ok(ownWordsOk(item, rest), `our own wording in "${item.text}" isn't listed in OWN_WORDING: "${leftover(rest)}"`);
     for (const n of text.match(/\d[\d-]*\d|\d/g) || []) assert.ok(src.includes(n) || source('six-roses').includes(n), `${n} in "${item.text}"`);
     assert.doesNotMatch(item.text, TIME_WORDS, item.text);
     assert.doesNotMatch(item.text, /^(remove|uninstall|delete|turn off|reset)/i, item.text);

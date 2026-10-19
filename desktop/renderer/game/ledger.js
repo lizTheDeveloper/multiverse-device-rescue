@@ -97,9 +97,11 @@ const isClean = (w) => !!w && w.checked > 0 && w.secured === w.checked;
 // A finished scan, recorded as a date and counts only. It starts a new sweep,
 // so clue and tag bonuses can be earned again. The clean-sweep bonus pays when
 // a re-sweep is the one that made the board clean, not on every clean re-sweep.
-// `scored: false` records the sweep but never pays or calls it clean (a sweep
-// where held monitoring software appeared or went: going is not a win).
-export function recordSweep(deck, counts, now, { scored = true } = {}) {
+// `carry`: this sweep holds monitoring software (held.js). A sweep that
+// carries it, or follows one that did (deck.sweep.carry, stored, so a restart
+// changes nothing), is recorded but never paid or called clean: its going is
+// not a win.
+export function recordSweep(deck, counts, now, { carry = false } = {}) {
   const d = deckOf(deck);
   const entry = { at: String(now) };
   for (const k of SWEEP_FIELDS) {
@@ -108,8 +110,8 @@ export function recordSweep(deck, counts, now, { scored = true } = {}) {
   }
   if (entry.secured > entry.checked) entry.secured = entry.checked;
   const prev = d.sweeps.length ? d.sweeps[d.sweeps.length - 1] : null;
-  const next = { ...d, sweep: { at: entry.at, keys: {} }, sweeps: [...d.sweeps, entry].slice(-MAX_SWEEPS) };
-  if (!scored || !(prev && isClean(entry) && !isClean(prev))) return { deck: next, points: 0, rankUp: false, clean: false };
+  const next = { ...d, sweep: { at: entry.at, keys: {}, ...(carry ? { carry: true } : {}) }, sweeps: [...d.sweeps, entry].slice(-MAX_SWEEPS) };
+  if (carry || d.sweep.carry === true || !(prev && isClean(entry) && !isClean(prev))) return { deck: next, points: 0, rankUp: false, clean: false };
   return { ...award(next, 'clean', entry.at), clean: true };
 }
 

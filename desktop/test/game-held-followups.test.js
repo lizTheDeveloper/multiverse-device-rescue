@@ -31,6 +31,7 @@ function stub({ mode = 'city', seed = 424242, hidden = false } = {}) {
     addEventListener: (type, fn) => { if (type === 'click') clicks.push(fn); },
     querySelector: (sel) => {
       if (sel === '.panel.held details') return /class="panel held"[\s\S]*<details/.test(html) ? details : null;
+      if (sel === '#side-title') return html.includes('id="side-title" tabindex="-1"') ? { focus: () => focused.push(sel) } : null;
       const m = /^\[(data-[a-z]+)="(.*)"\]$/.exec(sel);
       return m && html.includes(`${m[1]}="${m[2]}"`) ? { focus: () => focused.push(sel) } : null;
     },
@@ -65,7 +66,7 @@ function stub({ mode = 'city', seed = 424242, hidden = false } = {}) {
 async function setup(opts = {}, doc = null) {
   const { createController } = await game('controller.js');
   const t = stub(opts);
-  const storage = recordingStore();
+  const storage = opts.storage || recordingStore();
   const ctl = createController({ win: t.win, storage, scoutSprite: () => '', loadGame: () => new Promise(() => {}),
     loadTraining: async () => [], loadDrillBank: async () => [] });
   await tick();
@@ -301,4 +302,106 @@ test('the held note’s details stay open across redraws, like the known pile', 
     t.click({ 'data-act': 'toggle-low' });
     assert.strictEqual(t.details.open, false, `${mode}: still closed`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Fix round 1.
+// ---------------------------------------------------------------------------
+
+test('after a restart, held software gone is still no CLEAN SWEEP and no points; the flag on disk names nothing', async () => {
+  for (const mode of ['city', 'none']) {
+    const storage = recordingStore();
+    const a = await setup({ mode, storage }, scan(SPY(), mod('remote_login_check', [])));
+    assert.strictEqual(a.saved().deck.points, 0, mode);
+    assert.strictEqual(a.saved().deck.sweep.carry, true, `${mode}: the sweep is marked`);
+    // Restart: a new controller on the same storage, and a sweep without it.
+    const b = await setup({ mode, storage }, scan(NONE(), mod('remote_login_check', [])));
+    assert.match(b.html(), /<b>100%<\/b>/, mode);
+    assert.doesNotMatch(b.html(), /CLEAN SWEEP|DISTRICT SECURED/, mode);
+    assert.strictEqual(b.saved().deck.points, 0, mode);
+    assert.strictEqual(b.saved().deck.sweep.carry, undefined, `${mode}: this sweep holds nothing`);
+    assert.deepStrictEqual(forbiddenWrites(storage), [], mode);
+    for (const [, v] of storage.writes) assert.doesNotMatch(v, /Monitoring app|stalkerware|"\/m"/, mode);
+  }
+});
+
+test('recordSweep: a sweep that carries held software, or follows one, pays no clean bonus; the flag survives a reload', async () => {
+  const { recordSweep } = await game('ledger.js');
+  const { emptyDeck, cleanDeck, validDeck } = await game('progress.js');
+  const dirty = { checks: 1, checked: 1, secured: 0 };
+  const clean = { checks: 1, checked: 1, secured: 1 };
+  let d = recordSweep(emptyDeck(), dirty, 'a', { carry: true }).deck;
+  assert.strictEqual(d.sweep.carry, true);
+  const reloaded = cleanDeck(JSON.parse(JSON.stringify(d)));
+  assert.ok(validDeck(reloaded) && reloaded.sweep.carry === true);
+  const r = recordSweep(reloaded, clean, 'b');
+  assert.strictEqual(r.points, 0);
+  assert.strictEqual(r.clean, false);
+  // Without the flag the same pair pays, as before.
+  d = recordSweep(emptyDeck(), dirty, 'a').deck;
+  assert.strictEqual(recordSweep(d, clean, 'b').clean, true);
+  assert.strictEqual(validDeck({ ...d, sweep: { ...d.sweep, carry: 'yes' } }), false);
+});
+
+test('a monitoring check that couldn’t look is COULDN’T CHECK, never NOTHING FOUND or 100%', async () => {
+  const { findingsToCity } = await game('findings-to-city.js');
+  const { splitHeld, COULDNT_LOOK } = await game('held.js');
+  assert.deepStrictEqual([...COULDNT_LOOK].sort(), [`${MVT}mvt_backup_too_large`, `${MVT}mvt_not_installed`, `${MVT}mvt_requires_wsl`,
+    `${MVT}mvt_scan_available`, `${MVT}no_backups_found`]);
+  const real = new Set(REAL.map((r) => r.code));
+  for (const code of COULDNT_LOOK) {
+    assert.ok(real.has(code), code);
+    const sev = code.endsWith('too_large') ? 'warning' : 'info';
+    const doc = scan(mod('mvt_spyware_scan', [finding('x', sev, { code })]));
+    const d = findingsToCity(splitHeld(doc).doc).districts.find((x) => x.fog.length);
+    assert.ok(d, `${code}: fog`);
+    assert.strictEqual(d.status, 'fog', code);
+    for (const mode of ['city', 'standard', 'none']) {
+      const t = await setup({ mode }, doc);
+      const card = t.html().split(`data-go="filter:${d.id}"`)[1].split('</button>')[0];
+      assert.match(card, /COULDN’T CHECK/, `${mode} ${code}`);
+      assert.doesNotMatch(card, /NOTHING FOUND|Nothing found/, `${mode} ${code}`);
+      assert.doesNotMatch(t.html(), /<b>100%<\/b>/, `${mode} ${code}`);
+      // The district screen doesn't name the check.
+      t.click({ 'data-go': `district:${d.id}` });
+      assert.doesNotMatch(t.html(), /mvt|spyware/i, `${mode} ${code}`);
+    }
+  }
+  // A clean scan did look: it reads as checked.
+  const done = findingsToCity(splitHeld(scan(mod('mvt_spyware_scan', [finding('No spyware indicators detected', 'info', { code: `${MVT}mvt_clean_scan` })]))).doc);
+  assert.ok(done.districts.every((x) => !x.fog.length));
+  // A detection next to a couldn't-look line: the check looked, and it's held.
+  const both = splitHeld(scan(mod('mvt_spyware_scan', [finding('Backup too large', 'warning', { code: `${MVT}mvt_backup_too_large` }),
+    finding('Spyware found', 'critical', { code: `${MVT}mvt_spyware_detected` })])));
+  assert.strictEqual(both.held.length, 1);
+  assert.notStrictEqual(both.doc.modules[0].supported, false);
+});
+
+test('an empty queue while something is held: never CLEAR BOARD, and it points to the district by name', async () => {
+  const { pickDistrict } = await game('district-names.js');
+  const t = await setup({ mode: 'city' }, scan(SPY()));
+  const q = t.html().split('INCOMING SIGNALS')[1].split('deck-city')[0];
+  assert.doesNotMatch(q, /CLEAR BOARD|A clean checkup lowers the odds/);
+  assert.match(q, /Nothing to sort here right now\./);
+  assert.ok(q.includes(`Something new in ${pickDistrict(424242).name}.`), q);
+  assert.doesNotMatch(q, /advocate|remove|monitor|watch|spy/i);
+  const std = await setup({ mode: 'standard' }, scan(SPY()));
+  const qs = std.html().split('INCOMING SIGNALS')[1].split('deck-city')[0];
+  assert.doesNotMatch(qs, /CLEAR BOARD/);
+  assert.match(qs, /Nothing to sort here right now\./);
+  // Nothing held: the clear board, as before.
+  const clean = await setup({ mode: 'city' }, scan(NONE()));
+  assert.match(clean.html(), /CLEAR BOARD/);
+});
+
+test('the district: its sections are h3 headings under its h2, and opening it focuses the h2', async () => {
+  const t = await setup({ mode: 'city' }, scan(SPY()));
+  t.click({ 'data-go': 'side' });
+  const html = t.html();
+  assert.match(html, /<h2 class="hud-title" id="side-title" tabindex="-1">/);
+  for (const label of ['QUIET FIRST STEPS', 'WHO CAN HELP', 'THE STORY OF SIX ROSES', 'Don’t remove it yet. Talk to an advocate first.']) {
+    assert.ok(html.includes(`<h3 class="label">${label}</h3>`), label);
+  }
+  assert.doesNotMatch(html, /<div class="label">/);
+  assert.ok(t.focused.includes('#side-title'), t.focused.join(', '));
 });

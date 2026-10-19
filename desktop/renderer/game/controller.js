@@ -104,10 +104,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     signal: null, filter: null, lowOpen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
     drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null,
     // The generated district. Memory only, like the ops log; nothing about it is stored.
-    sideTicket: 0, sideNotice: false, heldOpen: false,
-    // Whether a held monitoring finding was seen since the last sweep began
-    // (in any scan or re-check). Memory only.
-    heldSinceSweep: false };
+    sideTicket: 0, sideNotice: false, heldOpen: false };
   let drawnScreen = null; // the screen the last render drew
 
   // The generated district (city mode only): help that looks like the rest of the city.
@@ -178,12 +175,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // gone one's is dropped, and a confirmed fix that came back no longer counts.
     const rd = reconcileDeck(r.progress.deck, buildSignals(s.city, r.progress.deck), ranOk);
     rd.changed.forEach((id) => s.changedTags.add(id));
-    s.progress = setDeck(r.progress, rd.deck);
+    // Held software seen in this sweep (a scan or a re-check) marks it, on disk
+    // as a bare flag, so its going later is never paid, even after a restart.
+    const carrying = heldDistrictIds(s.heldCity).size > 0;
+    s.progress = setDeck(r.progress, carrying && rd.deck.sweep.carry !== true ? { ...rd.deck, sweep: { ...rd.deck.sweep, carry: true } } : rd.deck);
     saveProgress(storage, s.progress);
     // A district that held a monitoring finding is never "secured" by its going:
     // that would reward removing it, and the log line would say where it was.
     const heldNow = heldDistrictIds(s.heldCity);
-    if (heldBefore.size || heldNow.size) s.heldSinceSweep = true;
     if (before) noteSecured(before, cityIntegrity(s.city, signalsNow(), s.heldCity), new Set([...heldBefore, ...heldNow]));
   }
 
@@ -368,7 +367,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
         history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }),
       log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
-      scanRunning: s.scan.running, districtName: nameOf, notice: heldNotice() + s.linkNotice });
+      scanRunning: s.scan.running, districtName: nameOf, notice: heldNotice() + s.linkNotice,
+      // With something held, an empty queue points to it instead of saying "clear".
+      heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
   function openSignal(id) {
@@ -487,10 +488,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.sweptDoc = doc;
     const sigs = signalsNow();
     const counts = sweepCounts(doc, s.city, cityIntegrity(s.city, sigs, s.heldCity), s.heldCity);
-    const scored = !s.heldSinceSweep;
-    // The next sweep starts knowing whether this one held something.
-    s.heldSinceSweep = heldDistrictIds(s.heldCity).size > 0;
-    const r = recordSweep(s.progress.deck, counts, now(), { scored });
+    const r = recordSweep(s.progress.deck, counts, now(), { carry: heldDistrictIds(s.heldCity).size > 0 });
     commitAward(r);
     logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check.`);
     if (r.clean) {
@@ -697,6 +695,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // Only where they went: nothing about what is there.
     logEntry('VISIT', `Visited ${side().name}`);
     render();
+    // Keyboard and screen-reader users land on the district's name.
+    const title = frame.querySelector('#side-title');
+    if (title && typeof title.focus === 'function') title.focus();
   }
 
   // The panic key and BACK TO THE GAME: the ordinary game at once, focus on the map.

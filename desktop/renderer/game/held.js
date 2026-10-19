@@ -19,6 +19,20 @@ export const NOT_DETECTIONS = new Set([
   'security.keylogger_indicators.input_monitoring_access',
 ]);
 
+// Of those, the lines that mean the check couldn't look at all: no backups,
+// no scanner, no Linux layer, a backup too large to read, or a scan that
+// wasn't run. A check that couldn't look is never "clear": its module goes to
+// the city as COULDN'T CHECK (fog), the same as a check that couldn't run.
+export const COULDNT_LOOK = new Set([
+  'security.mvt_spyware_scan.mvt_requires_wsl',
+  'security.mvt_spyware_scan.no_backups_found',
+  'security.mvt_spyware_scan.mvt_not_installed',
+  'security.mvt_spyware_scan.mvt_scan_available',
+  'security.mvt_spyware_scan.mvt_backup_too_large',
+]);
+// What the city says about it: plain, the same words as any check that couldn't run.
+export const COULDNT_LOOK_REASON = 'This check couldn’t look here.';
+
 // The same rule as QuietNotes.isDetection, for a finding of a held module.
 export function isDetection(f) {
   if (!f) return false;
@@ -35,8 +49,15 @@ export function splitHeld(doc) {
   const held = [];
   const modules = doc.modules.map((m) => {
     if (!m || !HELD_MODULES.has(m.name)) return m;
-    for (const f of Array.isArray(m.findings) ? m.findings : []) {
-      if (f && isDetection(f)) held.push({ module: m.name, title: String(f.title || '') });
+    const fs = Array.isArray(m.findings) ? m.findings : [];
+    let found = false;
+    for (const f of fs) {
+      if (f && isDetection(f)) { held.push({ module: m.name, title: String(f.title || '') }); found = true; }
+    }
+    // Nothing found, and it couldn't look: fog, never clear. (With a
+    // detection the check did look, and its district stays open for it.)
+    if (!found && fs.some((f) => f && COULDNT_LOOK.has(f.code))) {
+      return { ...m, findings: [], supported: false, unsupported_reason: COULDNT_LOOK_REASON };
     }
     return { ...m, findings: [] };
   });

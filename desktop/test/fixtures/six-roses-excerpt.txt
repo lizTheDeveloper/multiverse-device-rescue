@@ -1,6 +1,6 @@
 # Checked-in excerpt of the Six Roses guide, for desktop/test/game-side-district.test.js.
 # Source: https://themultiverse.school/x/six-roses (text fetched 2026-10-18).
-# Links on that page: https://techsafety.org https://nnedv.org/safetynet https://womenslaw.org https://ceta.tech.cornell.edu/ https://www.techsafety.org/resources-survivors/technology-safety-plan/
+# The page's link lines, copied verbatim from its HTML, are at the end.
 # If the page changes, refresh this file from it, then fix whatever the test reports.
 
 The Story of Six Roses
@@ -71,3 +71,10 @@ Still Living Together?
 Remember: Leaving is the most dangerous time. Plan carefully with DV advocates.
 **More Resources: Clinic to End Tech Abuse
 Delete browser history after reading. Stay safe. 💜
+
+# The page's link lines, verbatim from its HTML source (fetched 2026-10-18):
+See <a href="https://www.techsafety.org/resources-survivors/technology-safety-plan/">TechSafety.org's Technology Safety Plan</a> for more.</p>
+<li><a href="https://womenslaw.org">WomensLaw.org</a> - Legal information  </li>
+<li><a href="https://techsafety.org">TechSafety.org</a> - Tech abuse resources  </li>
+<li><a href="https://nnedv.org/safetynet">NNEDV Safety Net</a> - Technology safety  </li>
+**More Resources: <a href="https://ceta.tech.cornell.edu/">Clinic to End Tech Abuse</a></p>

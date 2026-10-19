@@ -5,6 +5,8 @@
 // the source's own words inside `text`; the rest of `text` is joining words.
 const SIX = 'six-roses';
 const RESPOND = 'guides/remediation/respond_to_monitoring_software.md';
+// The checkup's own words on a monitoring finding, which the list shows.
+const ENGINE = 'modules/security/stalkerware_scan/__init__.py';
 
 export const FIRST_STEPS = [
   { id: 'record', title: 'Keep a hidden record.', source: SIX,
@@ -56,7 +58,7 @@ export const LEAVING = { source: SIX, text: 'Leaving is the most dangerous time.
 
 // For monitoring software the checkup found: never "remove", and how to keep a quiet record of it.
 export const HELD = {
-  heading: { source: RESPOND, text: 'Don’t remove it yet. Talk to an advocate first.', quotes: [] },
+  heading: { source: ENGINE, text: 'Don’t remove it yet. Talk to an advocate first.', quotes: ["Don't remove it yet", 'talk to an advocate'] },
   steps: [
     { source: SIX, text: 'Removing spyware/stalkerware or a tracker, or factory resetting a device, can tip off the person who installed it.',
       quotes: ['Removing spyware/stalkerware or a tracker, or factory resetting a device, can tip off the person who installed it'] },

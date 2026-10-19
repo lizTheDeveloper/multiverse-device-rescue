@@ -44,7 +44,7 @@ export function nextMoveHtml(sig) {
 
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
-  districtName = () => '', notice = '' }) {
+  districtName = () => '', notice = '', heldLine = '' }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -67,6 +67,9 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     blank = '<div class="panel fogged" role="note"><div class="label">NOTHING COULD BE CHECKED</div><p class="intel">None of the checks could run, so nothing was looked at. That doesn’t mean it’s safe.</p></div>';
   } else if (!anything && filter) {
     blank = '<p class="intel">Nothing to sort here.</p>';
+  } else if (!anything && heldLine) {
+    // Something is held (held.js): nothing to sort, but never "clear".
+    blank = `<div class="panel quiet-board" role="note"><p class="intel">Nothing to sort here right now.</p><p class="intel">${esc(heldLine)}</p></div>`;
   } else if (!anything) {
     blank = '<div class="panel clear-board"><div class="label">CLEAR BOARD</div><p class="intel">Nothing to sort from this checkup. A clean checkup lowers the odds of a problem; it doesn’t rule one out. Want practice? Try the DRILL RANGE below.</p></div>';
   }
