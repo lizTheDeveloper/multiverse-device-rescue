@@ -67,19 +67,37 @@ test('the list, the game and the host all use the one rule', async () => {
   assert.ok(index.indexOf('src="not-checked.js"') > 0 && index.indexOf('src="not-checked.js"') < index.indexOf('src="app.js"'));
 });
 
-test('a monitoring check that couldn’t look counts as one that couldn’t run, in the list as in the city', () => {
-  const mvt = (code) => ({ name: 'mvt_spyware_scan', category: 'security', status: 'ok', supported: true,
-    findings: [{ title: 't', severity: 'info', code }] });
+test('a monitoring check that couldn’t look counts as one that couldn’t run; an iPhone backup scan not started is its own part', () => {
+  const mvt = (code, extra = {}) => ({ name: 'mvt_spyware_scan', category: 'security', status: 'ok', supported: true,
+    findings: [{ title: 't', severity: 'info', code }], ...extra });
   const looked = mvt('security.mvt_spyware_scan.mvt_clean_scan');
-  const couldnt = mvt('security.mvt_spyware_scan.mvt_scan_available');
-  assert.strictEqual(NotChecked.couldntLook(couldnt), true);
+  const noScanner = mvt('security.mvt_spyware_scan.mvt_not_installed');
+  const waiting = mvt('security.mvt_spyware_scan.mvt_scan_available');
+  assert.strictEqual(NotChecked.couldntLook(noScanner), true);
   assert.strictEqual(NotChecked.couldntLook(looked), false);
   // Software found: the check did look.
-  assert.strictEqual(NotChecked.couldntLook({ ...couldnt, findings: [...couldnt.findings, { title: 'x', severity: 'critical', code: 'security.mvt_spyware_scan.ioc' }] }), false);
-  assert.strictEqual(NotChecked.couldntLook({ ...couldnt, name: 'disk_space' }), false, 'only the monitoring checks');
-  const g = app.groupFindingsBySeverity({ modules: [couldnt, looked] });
+  assert.strictEqual(NotChecked.couldntLook({ ...noScanner, findings: [...noScanner.findings, { title: 'x', severity: 'critical', code: 'security.mvt_spyware_scan.ioc' }] }), false);
+  assert.strictEqual(NotChecked.couldntLook({ ...noScanner, name: 'disk_space' }), false, 'only the monitoring checks');
+  const g = app.groupFindingsBySeverity({ modules: [noScanner, looked] });
   assert.deepStrictEqual(g.erroredModules, [{ name: 'mvt_spyware_scan', error: NotChecked.COULDNT_LOOK_REASON }]);
-  assert.strictEqual(NotChecked.notCheckedSummary({ modules: [couldnt] }).couldntRun, 1);
+  assert.strictEqual(NotChecked.notCheckedSummary({ modules: [noScanner] }).couldntRun, 1);
+
+  // A backup is here and the long scan asks first: not started, neither
+  // couldn't-run nor clean. The engine says so (not_started), and older scans
+  // are read by the note. The city still shows it as fog (couldntLook).
+  for (const m of [waiting, { ...waiting, findings: [], not_started: true }]) {
+    assert.strictEqual(NotChecked.notStarted(m), true);
+    const parts = NotChecked.notCheckedParts({ modules: [m] });
+    assert.deepStrictEqual(parts.notStarted, [{ name: 'mvt_spyware_scan' }]);
+    assert.deepStrictEqual(parts.couldntRun, []);
+    const sum = NotChecked.notCheckedSummary({ modules: [m] });
+    assert.strictEqual(sum.notStarted, 1);
+    assert.strictEqual(sum.count, 1, 'never a clean bill of health');
+    assert.match(NotChecked.notCheckedLine(sum), /1 check waits for your go-ahead, so this isn’t a clean bill of health/);
+  }
+  assert.strictEqual(NotChecked.couldntLook(waiting), true, 'the city keeps it as fog');
+  assert.strictEqual(NotChecked.notStarted({ ...waiting, findings: [...waiting.findings, { title: 'x', severity: 'critical', code: 'security.mvt_spyware_scan.ioc' }] }), false);
+  assert.strictEqual(NotChecked.notStarted({ ...waiting, status: 'error' }), false);
 });
 
 for (const file of FIXTURES) {
@@ -97,8 +115,9 @@ for (const file of FIXTURES) {
     assert.match(deck, /INCOMING SIGNALS/);
     // The deck's note is the list's top line, word for word.
     assert.ok(deck.includes(app.notCheckedLine(sum)), 'the deck says what the list says');
-    // COULDN'T CHECK chip: every check that couldn't run, monitoring ones too (unnamed).
-    assert.strictEqual(chip(deck, 'COULDN’T CHECK'), sum.couldntRun);
+    // COULDN'T CHECK chip: every check that couldn't run, monitoring ones too
+    // (unnamed), and the iPhone backup scan waiting for a go-ahead (fog).
+    assert.strictEqual(chip(deck, 'COULDN’T CHECK'), sum.couldntRun + sum.notStarted);
     assert.doesNotMatch(deck, />ALL \d/, 'ALL carries no total of its own');
     // TO DO is what's left to sort in the queue: the deck's three chips.
     const todo = chip(deck, 'CRITICAL') + chip(deck, 'WARNING') + chip(deck, 'COULDN’T CHECK');
@@ -114,7 +133,16 @@ for (const file of FIXTURES) {
     t.click({ 'data-go': `mission:${first.id}` });
     const m = t.html();
     assert.match(m, /class="hud"/);
-    assert.strictEqual(hud(m, 'COULDN’T CHECK'), sum.couldntRun);
     assert.strictEqual(hud(m, 'TO DO'), todo);
+    hudCouldnt.set(file, { got: hud(m, 'COULDN’T CHECK'), want: sum.couldntRun + sum.notStarted });
   });
 }
+
+// The mission HUD reads notChecked.couldntRun only (game/views/hud.js, Group
+// B): with the iPhone backup scan now "not started" it should add notStarted,
+// as the deck's chip does. Kept visible as a todo until hud.js follows.
+const hudCouldnt = new Map();
+test('the mission HUD’s COULDN’T CHECK matches the deck’s chip (fog includes a scan not started)',
+  { todo: 'game/views/hud.js: fog = couldntRun + notStarted (or NotChecked.scanCounts)' }, () => {
+    for (const [file, { got, want }] of hudCouldnt) assert.strictEqual(got, want, file);
+  });

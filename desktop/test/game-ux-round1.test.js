@@ -201,7 +201,7 @@ test('P1-6 / P2-29: every check counted, couldn’t-check named with why, partly
     { name: 'd', status: 'ok', findings: [{ title: 'Fine', severity: 'info' }] },
   ] };
   const sum = notCheckedSummary(doc);
-  assert.deepStrictEqual(sum, { checks: 7, couldntRun: 3, unfinished: 1, partly: 2, count: 6 });
+  assert.deepStrictEqual(sum, { checks: 7, couldntRun: 3, unfinished: 1, notStarted: 0, partly: 2, count: 6 });
   assert.strictEqual(notCheckedLine(sum), '4 checks couldn’t run or didn’t finish, and 2 things were only partly checked, so this isn’t a clean bill of health.');
   assert.strictEqual(notCheckedLine(notCheckedSummary({ modules: [{ name: 'd', status: 'ok', findings: [] }] })), '');
   const f = foldPartly(doc);
