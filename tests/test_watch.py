@@ -217,8 +217,23 @@ def test_linux_bytes_summed_per_process():
         snap([a, b], bytes_={key_a: (400, 2_100), key_b: (60, 550)}),
     ], platform="linux")
     [summary] = by_code(result, "watch_summary")
-    assert summary.data["bytes_in"] == 300 + 10
-    assert summary.data["bytes_out"] == 2_000 + 500
+    # key_a was open at the start: last minus first. key_b opened during the
+    # watch, and Linux counts each connection from zero, so all of it counts.
+    assert summary.data["bytes_in"] == 300 + 60
+    assert summary.data["bytes_out"] == 2_000 + 550
+
+
+def test_linux_connection_seen_once_mid_watch_counts_in_full():
+    a = rec("rsync", "5.5.5.5", 22, 40001, pid=10, laddr="10.0.0.2")
+    key_a = ("10.0.0.2", 40001, "5.5.5.5", 22)
+    result = watch([
+        snap([], bytes_={}),
+        snap([a], bytes_={key_a: (1_000, 30_000_000)}),
+        snap([], bytes_={}),
+    ], platform="linux")
+    [found] = by_code(result, "upload_heavy")
+    assert found.data["target"] == "rsync"
+    assert found.data["bytes_out"] == 30_000_000
 
 
 def test_new_listener_uses_verdict():
@@ -247,8 +262,10 @@ def test_caps_pairs_and_timestamps():
     [summary] = by_code(result, "watch_summary")
     assert len(summary.data["destinations"]) == 50
     assert summary.data["more"] == MAX_PAIRS - 50
+    assert summary.data["not_stored"] == 1000
+    assert "1,000 more" in summary.description
     [incomplete] = by_code(result, "watch_incomplete")
-    assert any("2,000" in r for r in incomplete.data["reasons"])
+    assert any("2,000" in r and "1,000 more" in r for r in incomplete.data["reasons"])
 
     # 30 minutes at 2 s: 900 snapshots, each with a fresh connection.
     def collect(platform, _n=[0]):
@@ -382,3 +399,120 @@ def test_watch_module_stand_in():
     assert WatchModule.category == "network"
     assert WatchModule.emits_codes == WATCH_CODES
     assert {p.value for p in WatchModule.platforms} == {"darwin", "linux", "win32"}
+
+
+def _new_listener_watch(verdict):
+    base = [listener("sshd", 22)]
+    return watch([snap(base), snap(base + [listener("node", 8080, pid=700)])], verdict=verdict)
+
+
+def test_failing_verdict_is_reported_not_dropped():
+    def broken(platform, record):
+        raise RuntimeError("rules missing")
+
+    result = _new_listener_watch(broken)
+    [found] = by_code(result, "new_listener")
+    assert found.data["next_checkup"] is None
+    [incomplete] = by_code(result, "watch_incomplete")
+    assert any("Couldn't judge whether the new listening port" in r and "rules missing" in r
+               for r in incomplete.data["reasons"])
+
+
+def test_verdict_lookup_failure_is_reported(monkeypatch):
+    import rescue.watch as watch_module
+
+    def no_lookup():
+        raise ImportError("no modules folder")
+
+    monkeypatch.setattr(watch_module, "_default_verdict", no_lookup)
+    fake = FakeTime()
+    base = [listener("sshd", 22)]
+    result = run_watch(
+        "darwin", 1, 30, collect=scripted([snap(base), snap(base + [listener("node", 8080)])]),
+        dns=no_dns, clock=fake.clock, sleep=fake.sleep,
+    )
+    [found] = by_code(result, "new_listener")
+    assert found.data["next_checkup"] is None
+    [incomplete] = by_code(result, "watch_incomplete")
+    assert any("no modules folder" in r for r in incomplete.data["reasons"])
+
+
+def test_raising_dns_reader_is_reported():
+    def broken(platform):
+        raise OSError("pipe closed")
+
+    for platform in ("win32", "darwin"):
+        result = watch([snap([])], platform=platform, dns=broken)
+        [hidden] = by_code(result, "dns_not_visible")
+        assert "pipe closed" in hidden.description
+        [incomplete] = by_code(result, "watch_incomplete")
+        assert any("pipe closed" in r for r in incomplete.data["reasons"])
+
+    calls = []
+
+    def sometimes(platform):
+        calls.append(1)
+        if len(calls) == 2:
+            raise OSError("one bad read")
+        return {"names": [{"name": "example.com", "type": "A"}], "reason": None}
+
+    result = watch([snap([])], platform="win32", dns=sometimes)
+    [found] = by_code(result, "dns_lookups")
+    assert found.data["names"][0]["snapshots"] == 11
+    [incomplete] = by_code(result, "watch_incomplete")
+    assert any("one bad read" in r for r in incomplete.data["reasons"])
+
+
+def test_raising_progress_is_ignored():
+    collect = scripted([snap([rec("Safari", "17.253.1.1", 443, 50001)])])
+
+    def broken(progress):
+        raise BrokenPipeError("stderr closed")
+
+    result = watch(collect, on_progress=broken)
+    assert len(collect.calls) == 12
+    [summary] = by_code(result, "watch_summary")
+    assert summary.data["snapshots"] == 12
+
+
+def test_multicast_and_shared_addresses_never_regular():
+    for remote in ("224.0.0.251", "ff02::fb", "100.64.1.1", "0.0.0.0", "240.0.0.1",
+                   "255.255.255.255"):
+        result = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote=remote))
+        assert by_code(result, "regular_checkins") == [], remote
+
+
+def test_listener_owner_flicker_is_not_new():
+    named = listener("cupsd", 631)
+    unnamed = dict(named, process=None, pid=None)
+    result = watch([snap([named]), snap([unnamed]), snap([named])], platform="linux",
+                   dns=lambda p: {"names": None, "reason": "Linux hides names."})
+    assert by_code(result, "new_listener") == []
+
+
+def test_listener_opened_and_closed_within_watch():
+    base = [listener("sshd", 22)]
+    result = watch([snap(base), snap(base + [listener("node", 8080)]), snap([])])
+    [found] = by_code(result, "new_listener")
+    assert found.data["target"] == "node"
+    summaries = {f.data["target"]: f for f in by_code(result, "watch_summary")}
+    assert summaries["node"].data["listeners_opened"] == [8080]
+    assert summaries["node"].data["listeners_closed"] == [8080]
+    assert summaries["sshd"].data["listeners_closed"] == [22]
+
+
+def test_defaults_load_independently(monkeypatch):
+    import rescue.watch as watch_module
+
+    monkeypatch.setattr(watch_module, "_collector", lambda: None)
+    fake = FakeTime()
+    collect = scripted([snap([rec("Safari", "17.253.1.1", 443, 50001)])])
+    result = run_watch("win32", 1, 30, collect=collect, clock=fake.clock, sleep=fake.sleep,
+                       verdict=lambda p, r: "expected")
+    assert result.error is None
+    assert len(by_code(result, "watch_summary")) == 1
+    [hidden] = by_code(result, "dns_not_visible")
+    assert "Couldn't load" in hidden.description
+
+    result = run_watch("darwin", 1, 30, dns=no_dns, clock=fake.clock, sleep=fake.sleep)
+    assert result.error and "connections" in result.error

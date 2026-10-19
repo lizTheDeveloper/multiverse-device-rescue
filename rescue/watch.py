@@ -43,6 +43,10 @@ _CHECKIN_JITTER = 0.2
 _UPLOAD_BYTES = 10_000_000
 _UPLOAD_RATIO = 3
 _UNKNOWN = "unknown"
+_UNSTORED_LIMIT = 10 * MAX_PAIRS
+
+# Shared address space used by carrier-grade NAT; not a destination on the internet.
+_CGNAT = ipaddress.ip_network("100.64.0.0/10")
 
 _PRIVATE_NETWORKS = tuple(
     ipaddress.ip_network(n)
@@ -85,7 +89,7 @@ def _is_loopback(addr: str | None) -> bool:
 def _is_public(addr: str | None) -> bool:
     """True only for an address that is clearly not on this computer or network."""
     ip = _ip(addr)
-    if ip is None:
+    if ip is None or ip.is_multicast or ip.is_unspecified or ip.is_reserved or ip in _CGNAT:
         return False
     return not any(ip in net for net in _PRIVATE_NETWORKS if net.version == ip.version)
 
@@ -105,22 +109,30 @@ class _Gathered:
         self.pairs: dict[tuple, dict] = {}
         self.pairs_capped = False
         self.stamps_capped = False
-        self.unstored: dict[str, int] = {}
+        # Distinct pairs past the cap, remembered only to count them, and
+        # only up to _UNSTORED_LIMIT so memory stays bounded.
+        self.unstored: set[tuple] = set()
+        self.unstored_capped = False
         self.loopback: dict[str, int] = {}
         self.previous_open: set[tuple] | None = None
-        # Listeners: (process, proto, local_addr, local_port) -> record
+        # Listeners: (proto, local_addr, local_port) -> record. The owner is
+        # left out of the key because Linux without admin shows it only some
+        # of the time; ``listener_owner`` keeps the best name seen.
         self.first_listeners: dict[tuple, dict] | None = None
         self.last_listeners: dict[tuple, dict] = {}
         self.new_listeners: dict[tuple, dict] = {}
+        self.listener_owner: dict[tuple, str] = {}
         # Byte counters: key (pid or 4-tuple) -> {"process", "first", "last"}
         self.counters: dict = {}
         self.bytes_seen = False
+        self.first_byte_keys: set | None = None
         self.processes: set[str] = set()
         # DNS (Windows): (name, type) -> {"first_seen_snapshot", "snapshots"}
         self.names: dict[tuple, dict] = {}
         self.names_capped = False
         self.dns_read = False
         self.dns_reasons: list[str] = []
+        self.dns_errors: list[str] = []
 
     def add_limit(self, text: str) -> None:
         if text and text not in self.limits:
@@ -153,7 +165,11 @@ class _Gathered:
             if pair is None:
                 if len(self.pairs) >= MAX_PAIRS:
                     self.pairs_capped = True
-                    self.unstored[process] = self.unstored.get(process, 0) + 1
+                    if key not in self.unstored:
+                        if len(self.unstored) < _UNSTORED_LIMIT:
+                            self.unstored.add(key)
+                        else:
+                            self.unstored_capped = True
                     continue
                 pair = self.pairs[key] = {
                     "snapshots": 0, "first_seen": at, "last_seen": at,
@@ -185,24 +201,35 @@ class _Gathered:
         for record in records:
             if record.get("state") != "LISTEN":
                 continue
-            key = (
-                record.get("process") or _UNKNOWN, record.get("proto"),
-                record.get("local_addr"), record.get("local_port"),
-            )
+            key = (record.get("proto"), record.get("local_addr"), record.get("local_port"))
             now[key] = record
+            if record.get("process") or key not in self.listener_owner:
+                self.listener_owner[key] = record.get("process") or _UNKNOWN
         if self.first_listeners is None:
             self.first_listeners = now
         else:
             for key, record in now.items():
                 if key not in self.first_listeners and key not in self.new_listeners:
                     self.new_listeners[key] = record
-                    self.processes.add(key[0])
         self.last_listeners = now
+
+    def listeners_by_owner(self) -> tuple[dict[str, list], dict[str, list]]:
+        """Ports opened during the watch, and ports closed by its end, per program."""
+        opened: dict[str, list] = {}
+        closed: dict[str, list] = {}
+        for key in self.new_listeners:
+            opened.setdefault(self.listener_owner[key], []).append(key[2])
+        for key in list(self.first_listeners or {}) + list(self.new_listeners):
+            if key not in self.last_listeners:
+                closed.setdefault(self.listener_owner[key], []).append(key[2])
+        return opened, closed
 
     def _add_bytes(self, counts, records: list[dict]) -> None:
         if counts is None:
             return
         self.bytes_seen = True
+        if self.first_byte_keys is None:
+            self.first_byte_keys = set(counts)
         by_pid = {r["pid"]: r.get("process") for r in records if r.get("pid") is not None}
         by_tuple = {
             (r.get("local_addr"), r.get("local_port"), r.get("remote_addr"), r.get("remote_port")):
@@ -215,7 +242,12 @@ class _Gathered:
             if entry is None:
                 if not process:
                     continue
-                self.counters[key] = {"process": process, "first": value, "last": value}
+                # Linux counts per connection from zero, so a connection that
+                # opened during the watch starts from 0. macOS counts per
+                # program since it started, so its first reading is the baseline.
+                late_connection = isinstance(key, tuple) and key not in self.first_byte_keys
+                first = (0, 0) if late_connection else value
+                self.counters[key] = {"process": process, "first": first, "last": value}
             else:
                 entry["last"] = value
 
@@ -254,18 +286,19 @@ class _Gathered:
 # --- the watch -------------------------------------------------------------
 
 
-def _default_sources():
+def _collector():
     from rescue.runtime import load_content_module
 
-    collect = load_content_module(
+    return load_content_module(
         "modules/network/conn_common/collect.py", "rescue_conn_common_collect"
     )
-    if collect is None:
-        return None, None
-    return (
-        lambda platform: collect.snapshot(platform),
-        lambda platform: collect.dns_cache(platform),
-    )
+
+
+def _dns_unavailable(platform: str) -> dict:
+    return {
+        "names": None,
+        "reason": "Couldn't load the part of Device Rescue that reads looked-up names.",
+    }
 
 
 def _default_verdict() -> Callable | None:
@@ -276,6 +309,16 @@ def _default_verdict() -> Callable | None:
         if module.name == "suspicious_connections":
             return module.listening_verdict
     return None
+
+
+def _read_dns(dns, platform: str, gathered: "_Gathered") -> None:
+    try:
+        result = dns(platform)
+    except Exception as exc:  # a reader bug must not lose what was gathered
+        reason = f"Couldn't read the list of looked-up names: {exc}"
+        gathered.dns_errors.append(reason)
+        result = {"names": None, "reason": reason}
+    gathered.add_dns(result)
 
 
 def _sleeper(clock: Callable[[], float], should_stop: Callable[[], bool]):
@@ -316,14 +359,16 @@ def run_watch(
         raise ValueError(f"interval must be {MIN_INTERVAL}-{MAX_INTERVAL} seconds")
 
     if collect is None or dns is None:
-        default_collect, default_dns = _default_sources()
-        if default_collect is None:
-            return CheckResult(
-                module_name=_MODULE,
-                error="Couldn't load the part of Device Rescue that reads connections.",
-            )
-        collect = collect or default_collect
-        dns = dns or default_dns
+        helper = _collector()
+        if collect is None:
+            if helper is None:
+                return CheckResult(
+                    module_name=_MODULE,
+                    error="Couldn't load the part of Device Rescue that reads connections.",
+                )
+            collect = helper.snapshot
+        if dns is None:
+            dns = helper.dns_cache if helper is not None else _dns_unavailable
     clock = clock or time.monotonic
     should_stop = should_stop or (lambda: False)
     sleep = sleep or _sleeper(clock, should_stop)
@@ -348,12 +393,15 @@ def run_watch(
         else:
             gathered.add_snapshot(snap, at)
             if platform == "win32":
-                gathered.add_dns(dns(platform))
+                _read_dns(dns, platform, gathered)
         if on_progress is not None:
-            on_progress({
-                "phase": "watch", "elapsed": int(at), "total": total,
-                "snapshots": gathered.snapshots,
-            })
+            try:
+                on_progress({
+                    "phase": "watch", "elapsed": int(at), "total": total,
+                    "snapshots": gathered.snapshots,
+                })
+            except Exception:  # nosec - progress is a courtesy; the watch goes on
+                pass
         next_at = gathered.attempts * interval
         if next_at >= total:
             break
@@ -362,7 +410,7 @@ def run_watch(
             sleep(wait)
 
     if platform != "win32":
-        gathered.add_dns(dns(platform))
+        _read_dns(dns, platform, gathered)
     elapsed = clock() - start
     findings = _findings(platform, gathered, minutes, stopped_early, elapsed, verdict)
     return CheckResult(module_name=_MODULE, findings=findings)
@@ -417,7 +465,7 @@ def _findings(platform, gathered, minutes, stopped_early, elapsed, verdict) -> l
     if gathered.snapshots:
         findings.extend(_summaries(platform, gathered, facts, reasons))
         findings.extend(_checkins(gathered, facts))
-        findings.extend(_listeners(platform, gathered, facts, verdict))
+        findings.extend(_listeners(platform, gathered, facts, verdict, reasons))
         findings.extend(_uploads(gathered, facts))
         if platform == "win32" and gathered.dns_read:
             findings.append(_dns_lookups(gathered, facts))
@@ -425,6 +473,7 @@ def _findings(platform, gathered, minutes, stopped_early, elapsed, verdict) -> l
         findings.append(_dns_not_visible(gathered, facts))
     elif gathered.dns_reasons:
         reasons.extend(gathered.dns_reasons)
+    reasons.extend(e for e in gathered.dns_errors if e not in reasons)
 
     reasons[:0] = list(gathered.limits)
     if stopped_early:
@@ -438,9 +487,10 @@ def _findings(platform, gathered, minutes, stopped_early, elapsed, verdict) -> l
             + " ".join(gathered.errors)
         )
     if gathered.pairs_capped:
+        more = f"{len(gathered.unstored):,}" + (" or more" if gathered.unstored_capped else "")
         reasons.append(
             f"More than {MAX_PAIRS:,} different program-and-destination pairs turned up, "
-            "so the rest were counted but not listed."
+            f"so {more} more were counted but not listed."
         )
     if gathered.stamps_capped:
         reasons.append(
@@ -457,9 +507,15 @@ def _findings(platform, gathered, minutes, stopped_early, elapsed, verdict) -> l
 
 
 def _summaries(platform, gathered, facts, reasons) -> list[Finding]:
-    per_process: dict[str, list] = {p: [] for p in gathered.processes}
+    opened_by, closed_by = gathered.listeners_by_owner()
+    per_process: dict[str, list] = {
+        p: [] for p in gathered.processes | set(opened_by) | set(closed_by)
+    }
     for key, pair in gathered.pairs.items():
         per_process[key[0]].append((key, pair))
+    unstored_by: dict[str, int] = {}
+    for key in gathered.unstored:
+        unstored_by[key[0]] = unstored_by.get(key[0], 0) + 1
     byte_totals = gathered.process_bytes() if gathered.bytes_seen else {}
     no_bytes = []
     findings = []
@@ -479,15 +535,10 @@ def _summaries(platform, gathered, facts, reasons) -> list[Finding]:
             }
             for key, pair in pairs[:_LISTED_DESTINATIONS]
         ]
-        opened = sorted(
-            k[3] for k in gathered.new_listeners if k[0] == process and k[3] is not None
-        )
-        closed = sorted(
-            k[3] for k in (gathered.first_listeners or {})
-            if k[0] == process and k not in gathered.last_listeners and k[3] is not None
-        )
+        opened = sorted(port for port in opened_by.get(process, []) if port is not None)
+        closed = sorted(port for port in closed_by.get(process, []) if port is not None)
         loopback = gathered.loopback.get(process, 0)
-        unstored = gathered.unstored.get(process, 0)
+        unstored = unstored_by.get(process, 0)
         sent = byte_totals.get(process)
         if sent is None:
             no_bytes.append(process)
@@ -496,6 +547,10 @@ def _summaries(platform, gathered, facts, reasons) -> list[Finding]:
             f"During the watch, {_label(process)} connected to "
             f"{_plural(len(pairs), 'place')} on the internet or your network"
         ]
+        if unstored:
+            parts.append(
+                f" (plus {unstored:,} more that turned up after the watch's list was full)"
+            )
         if loopback:
             parts.append(
                 f", and made {_plural(loopback, 'connection')} to this computer itself "
@@ -584,22 +639,31 @@ _NEXT_CHECKUP = {
 }
 
 
-def _listeners(platform, gathered, facts, verdict) -> list[Finding]:
+def _listeners(platform, gathered, facts, verdict, reasons) -> list[Finding]:
     if not gathered.new_listeners:
         return []
+    problems: list[str] = []
     if verdict is None:
         try:
             verdict = _default_verdict()
-        except Exception:
-            verdict = None
+        except Exception as exc:
+            problems.append(str(exc) or type(exc).__name__)
+        else:
+            if verdict is None:
+                problems.append("the listening-port check wasn't found")
     findings = []
     for key in sorted(gathered.new_listeners, key=str):
-        process, proto, addr, port = key
+        proto, addr, port = key
+        process = gathered.listener_owner[key]
         record = gathered.new_listeners[key]
-        try:
-            next_checkup = verdict(platform, record) if verdict else None
-        except Exception:
-            next_checkup = None
+        next_checkup = None
+        if verdict is not None:
+            try:
+                next_checkup = verdict(platform, record)
+            except Exception as exc:
+                text = str(exc) or type(exc).__name__
+                if text not in problems:
+                    problems.append(text)
         findings.append(Finding(
             code="network.connection_watch.new_listener",
             title=f"{_label(process)} started listening on port {port} during the watch",
@@ -620,6 +684,11 @@ def _listeners(platform, gathered, facts, verdict) -> list[Finding]:
                 **facts,
             },
         ))
+    if problems:
+        reasons.append(
+            "Couldn't judge whether the new listening port(s) would be pointed out by the "
+            "next checkup (" + "; ".join(problems) + ")."
+        )
     return findings
 
 
