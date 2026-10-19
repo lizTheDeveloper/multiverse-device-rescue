@@ -40,12 +40,12 @@ test('covers the storage, crash, energy and clutter checks on Mac and Windows', 
     'docker_cleanup', 'xcode_cleanup', 'mail_attachment_cleanup', 'crash_log_analyzer', 'app_crash_analyzer',
     'energy_saver_check', 'energy_settings', 'resource_hog_identifier', 'system_log_errors', 'process_scanner',
     'win_disk_cleanup', 'win_temp_cleanup', 'win_temp_files', 'win_power_plan', 'win_pagefile', 'win_visual_effects',
-    'win_bloatware', 'win_bsod_analysis', 'win_event_errors']) {
+    'win_bloatware', 'win_bsod_analysis', 'win_event_errors', 'temp_file_scanner']) {
     assert.ok(mods.includes(m), `covers ${m}`);
   }
   assert.strictEqual(new Set(mods).size, mods.length, 'each module once');
   // Shared or other games' modules are left to them.
-  for (const m of ['temp_file_scanner', 'startup_optimizer', 'win_startup', 'win_startup_programs_audit']) assert.ok(!mods.includes(m), m);
+  for (const m of ['startup_optimizer', 'win_startup', 'win_startup_programs_audit']) assert.ok(!mods.includes(m), m);
   // Every claimed module exists in the engine.
   const modulesDir = path.join(__dirname, '..', '..', 'modules');
   const all = new Set(fs.readdirSync(modulesDir).flatMap((cat) => {

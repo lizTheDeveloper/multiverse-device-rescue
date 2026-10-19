@@ -1,0 +1,739 @@
+{
+ "accessibility_permissions": {
+  "security.accessibility_permissions.excessive_accessibility": "keyring",
+  "security.accessibility_permissions.suspicious_accessibility": "keyring"
+ },
+ "ai_threat_indicators": {
+  "(no code)": "locker",
+  "security.ai_threat_indicators.ai_api_connection": "locker",
+  "security.ai_threat_indicators.ai_api_key_found": "locker",
+  "security.ai_threat_indicators.cron_ai_call": "locker",
+  "security.ai_threat_indicators.launchagent_ai": "locker"
+ },
+ "ai_worm_filesystem": {
+  "security.ai_worm_filesystem.known_hash_match": "locker",
+  "security.ai_worm_filesystem.known_payload_path": "locker",
+  "security.ai_worm_filesystem.obfuscated_script": "locker"
+ },
+ "ai_worm_git_ssh": {
+  "security.ai_worm_git_ssh.git_hookspath_hijack": "locker",
+  "security.ai_worm_git_ssh.npmrc_git_override": "locker",
+  "security.ai_worm_git_ssh.repo_hook_file": "locker",
+  "security.ai_worm_git_ssh.rogue_mcp_server": "locker",
+  "security.ai_worm_git_ssh.ssh_authorized_keys_recent": "locker"
+ },
+ "ai_worm_lateral": {
+  "security.ai_worm_lateral.credential_harvesting": "locker",
+  "security.ai_worm_lateral.imds_access": "locker",
+  "security.ai_worm_lateral.supply_chain_artifact": "locker"
+ },
+ "ai_worm_network": {
+  "security.ai_worm_network.beaconing_detected": "locker",
+  "security.ai_worm_network.stepsecurity_bypass": "locker",
+  "security.ai_worm_network.token_harvesting_subprocess": "locker"
+ },
+ "ai_worm_persistence": {
+  "(no code)": "door",
+  "security.ai_worm_persistence.scheduled_task_persistence": "door",
+  "security.ai_worm_persistence.shell_profile_injection": "door"
+ },
+ "airdrop_config": {
+  "security.airdrop_config.airdrop_everyone": "switchboard"
+ },
+ "airdrop_security_check": {
+  "security.airdrop_security_check.airdrop_mode_everyone": "switchboard",
+  "security.airdrop_security_check.bluetooth_sharing_enabled": "switchboard"
+ },
+ "airport_wifi_scan": {
+  "(no code)": "simple"
+ },
+ "antivirus_status": {
+  "security.antivirus_status.av_not_running": "locks"
+ },
+ "app_crash_analyzer": {
+  "(no code)": "junkyard"
+ },
+ "app_permissions": {
+  "(no code)": "keyring"
+ },
+ "appleid_security_check": {
+  "security.appleid_security_check.appleid_signin": "locks",
+  "security.appleid_security_check.autoupdate_disabled": "locks",
+  "security.appleid_security_check.icloud_keychain": "locks"
+ },
+ "application_compatibility": {
+  "(no code)": "simple"
+ },
+ "application_crash_report": {
+  "(no code)": "junkyard"
+ },
+ "arp_spoof_check": {
+  "network.arp_spoof_check.duplicate_mac": "switchboard",
+  "network.arp_spoof_check.gateway_impersonation": "switchboard",
+  "network.arp_spoof_check.locally_administered_gateway": "switchboard",
+  "network.arp_spoof_check.multiple_gateways": "switchboard"
+ },
+ "audio_config": {
+  "(no code)": "simple"
+ },
+ "audio_troubleshoot": {
+  "(no code)": "simple"
+ },
+ "automatic_updates": {
+  "security.automatic_updates.app_store_auto": "locks",
+  "security.automatic_updates.auto_install_macos": "locks",
+  "security.automatic_updates.automatic_check": "locks",
+  "security.automatic_updates.automatic_download": "locks",
+  "security.automatic_updates.config_data": "locks",
+  "security.automatic_updates.critical_update": "locks"
+ },
+ "backup_status": {
+  "(no code)": "locks"
+ },
+ "battery_health": {
+  "(no code)": "simple"
+ },
+ "bluetooth_audit": {
+  "security.bluetooth_audit.discoverable_state": "simple"
+ },
+ "bluetooth_diagnostics": {
+  "(no code)": "simple"
+ },
+ "browser_cache_cleanup": {
+  "(no code)": "junkyard"
+ },
+ "browser_cryptojacking_check": {
+  "(no code)": "loadout"
+ },
+ "browser_extension_audit": {
+  "security.browser_extension_audit.adware_extension": "loadout",
+  "security.browser_extension_audit.excessive_permissions": "loadout",
+  "security.browser_extension_audit.extension_bloat": "loadout",
+  "security.browser_extension_audit.malicious_extension": "loadout"
+ },
+ "browser_hijack_check": {
+  "security.browser_hijack_check.chrome_homepage_suspicious": "loadout",
+  "security.browser_hijack_check.chrome_managed_by_policy": "loadout",
+  "security.browser_hijack_check.chrome_search_engine_suspicious": "loadout",
+  "security.browser_hijack_check.firefox_homepage_suspicious": "loadout",
+  "security.browser_hijack_check.firefox_search_engine_suspicious": "loadout",
+  "security.browser_hijack_check.safari_homepage_suspicious": "loadout",
+  "security.browser_hijack_check.safari_search_engine_suspicious": "loadout"
+ },
+ "browser_privacy_check": {
+  "security.browser_privacy_check.cookies_always_allow": "locks",
+  "security.browser_privacy_check.do_not_track_disabled": "locks",
+  "security.browser_privacy_check.fraud_warning_disabled": "locks"
+ },
+ "certificate_audit": {
+  "security.certificate_audit.expired_certificates": "seal",
+  "security.certificate_audit.user_root_cas": "seal"
+ },
+ "certificate_trust_audit": {
+  "security.certificate_trust_audit.expired_certificates": "seal",
+  "security.certificate_trust_audit.self_signed_root_certs": "seal",
+  "security.certificate_trust_audit.suspicious_certificates": "seal"
+ },
+ "chrome_extensions": {
+  "security.chrome_extensions.broad_permissions": "loadout",
+  "security.chrome_extensions.extension_bloat": "loadout"
+ },
+ "clamav_scanner": {
+  "security.clamav_scanner.clamav_not_installed": "locks",
+  "security.clamav_scanner.clamav_outdated_definitions": "locks",
+  "security.clamav_scanner.clamd_not_running": "locks",
+  "security.clamav_scanner.freshclam_not_installed": "locks"
+ },
+ "clamshell_mode": {
+  "(no code)": "simple"
+ },
+ "code_signature_audit": {
+  "security.code_signature_audit.gatekeeper_rejected": "seal",
+  "security.code_signature_audit.old_signature_format": "seal",
+  "security.code_signature_audit.tampered_binary": "seal",
+  "security.code_signature_audit.unsigned_system_app": "seal"
+ },
+ "core_services_reset": {
+  "(no code)": "simple"
+ },
+ "coreaudio_reset": {
+  "(no code)": "simple"
+ },
+ "crash_log_analyzer": {
+  "(no code)": "junkyard"
+ },
+ "cron_jobs_audit": {
+  "security.cron_jobs_audit.every_minute": "door",
+  "security.cron_jobs_audit.obfuscated_command": "door",
+  "security.cron_jobs_audit.rce_in_cron": "door",
+  "security.cron_jobs_audit.suspicious_path": "door"
+ },
+ "crypto_miner_detect": {
+  "security.crypto_miner_detect.high_cpu_process": "locker",
+  "security.crypto_miner_detect.known_miner": "locker",
+  "security.crypto_miner_detect.mining_pool_connection": "locker"
+ },
+ "crypto_miner_persistence": {
+  "(no code)": "door"
+ },
+ "default_browser": {
+  "(no code)": "locks"
+ },
+ "directory_permissions": {
+  "(no code)": "simple"
+ },
+ "disk_encryption_recovery": {
+  "security.disk_encryption_recovery.institutional_key_only": "locks",
+  "security.disk_encryption_recovery.no_recovery_key": "locks",
+  "security.disk_encryption_recovery.users_not_all_enabled": "locks"
+ },
+ "disk_fragmentation_check": {
+  "(no code)": "simple"
+ },
+ "disk_health": {
+  "(no code)": "simple"
+ },
+ "disk_io_health": {
+  "(no code)": "simple"
+ },
+ "disk_permissions_repair": {
+  "(no code)": "simple"
+ },
+ "disk_smart_check": {
+  "(no code)": "simple"
+ },
+ "disk_space": {
+  "(no code)": "simple"
+ },
+ "disk_utility_firstaid": {
+  "(no code)": "simple"
+ },
+ "display_config": {
+  "(no code)": "simple"
+ },
+ "display_issues": {
+  "(no code)": "simple"
+ },
+ "dns_config": {
+  "(no code)": "switchboard"
+ },
+ "dns_over_https_check": {
+  "network.dns_over_https_check.no_encryption_configured": "switchboard",
+  "network.dns_over_https_check.unencrypted_dns": "switchboard"
+ },
+ "dns_poisoning_check": {
+  "security.dns_poisoning_check.dns_filtering_profile": "switchboard",
+  "security.dns_poisoning_check.dns_resolution_issue": "switchboard",
+  "security.dns_poisoning_check.malicious_dns": "switchboard",
+  "security.dns_poisoning_check.suspicious_dns": "switchboard"
+ },
+ "docker_cleanup": {
+  "(no code)": "junkyard"
+ },
+ "encryption_check": {
+  "security.encryption_check.filevault_disabled": "locks"
+ },
+ "energy_saver_check": {
+  "(no code)": "junkyard"
+ },
+ "energy_settings": {
+  "(no code)": "junkyard"
+ },
+ "ethernet_diagnostics": {
+  "network.ethernet_diagnostics.high_packet_errors": "simple",
+  "network.ethernet_diagnostics.interface_inactive": "simple",
+  "network.ethernet_diagnostics.link_speed_mismatch": "simple",
+  "network.ethernet_diagnostics.non_standard_mtu": "simple",
+  "network.ethernet_diagnostics.self_assigned_ip": "simple"
+ },
+ "evidence_bundle": {
+  "security.evidence_bundle.destination_unwritable": "simple",
+  "security.evidence_bundle.no_bundle_captured": "simple"
+ },
+ "filesystem_health_check": {
+  "(no code)": "simple"
+ },
+ "filevault_recovery": {
+  "security.filevault_recovery.no_recovery_key": "locks",
+  "security.filevault_recovery.users_not_all_enabled": "locks"
+ },
+ "find_my_mac_check": {
+  "security.find_my_mac_check.find_my_mac_disabled": "locks",
+  "security.find_my_mac_check.icloud_not_signed_in": "locks",
+  "security.find_my_mac_check.location_services_disabled": "locks",
+  "security.find_my_mac_check.send_last_location_disabled": "locks"
+ },
+ "firewall_audit": {
+  "security.firewall_audit.global_state": "locks",
+  "security.firewall_audit.stealth_mode": "locks"
+ },
+ "firewall_rules_audit": {
+  "security.firewall_rules_audit.alf_disabled": "locks",
+  "security.firewall_rules_audit.allow_signed_enabled": "switchboard",
+  "security.firewall_rules_audit.stealth_disabled": "locks",
+  "security.firewall_rules_audit.too_many_apps": "switchboard"
+ },
+ "firmware_password": {
+  "security.firmware_password.chip_type_detection_failed": "locks",
+  "security.firmware_password.firmware_password_not_set": "locks"
+ },
+ "font_cache": {
+  "(no code)": "simple"
+ },
+ "font_cache_repair": {
+  "(no code)": "simple"
+ },
+ "font_issues": {
+  "(no code)": "simple"
+ },
+ "gatekeeper_quarantine_check": {
+  "security.gatekeeper_quarantine_check.gatekeeper_assessment_failed": "seal",
+  "security.gatekeeper_quarantine_check.gatekeeper_disabled": "seal",
+  "security.gatekeeper_quarantine_check.sip_disabled": "seal"
+ },
+ "gpu_health": {
+  "(no code)": "simple"
+ },
+ "guest_account_check": {
+  "security.guest_account_check.guest_afp_access": "locks",
+  "security.guest_account_check.guest_enabled": "locks",
+  "security.guest_account_check.guest_smb_access": "locks"
+ },
+ "handoff_continuity": {
+  "(no code)": "simple"
+ },
+ "homebrew_health": {
+  "(no code)": "simple"
+ },
+ "hostname_check": {
+  "(no code)": "simple"
+ },
+ "hosts_file_check": {
+  "security.hosts_file_check.bank_domain_redirect": "switchboard",
+  "security.hosts_file_check.large_hosts_count": "switchboard",
+  "security.hosts_file_check.suspicious_ip_redirect": "switchboard",
+  "security.hosts_file_check.wellknown_domain_redirect": "switchboard"
+ },
+ "icloud_status": {
+  "(no code)": "simple"
+ },
+ "icloud_storage": {
+  "(no code)": "simple"
+ },
+ "icloud_storage_check": {
+  "(no code)": "simple"
+ },
+ "input_devices": {
+  "(no code)": "simple"
+ },
+ "kernel_extensions_audit": {
+  "security.kernel_extensions_audit.problematic_kexts": "door"
+ },
+ "kernel_panic_check": {
+  "(no code)": "simple"
+ },
+ "kext_audit": {
+  "security.kext_audit.kext_file": "door",
+  "security.kext_audit.loaded_third_party_kext": "door"
+ },
+ "keychain_health": {
+  "(no code)": "simple"
+ },
+ "keylogger_indicators": {
+  "security.keylogger_indicators.cgeventtap_usage": "keyring",
+  "security.keylogger_indicators.known_keyloggers": "keyring",
+  "security.keylogger_indicators.suspicious_input_monitoring": "keyring"
+ },
+ "lan_device_inventory": {
+  "network.lan_device_inventory.device_count_exceeded": "switchboard",
+  "network.lan_device_inventory.unrecognised_device": "switchboard"
+ },
+ "large_files_finder": {
+  "(no code)": "junkyard"
+ },
+ "launch_agent_audit": {
+  "security.launch_agent_audit.missing_program": "door",
+  "security.launch_agent_audit.obfuscated_name": "door",
+  "security.launch_agent_audit.suspicious_path": "door"
+ },
+ "launchd_persistence_audit": {
+  "security.launchd_persistence_audit.keepalive_runatload": "door",
+  "security.launchd_persistence_audit.known_malware": "door",
+  "security.launchd_persistence_audit.suspicious_path": "door"
+ },
+ "library_cache_cleanup": {
+  "(no code)": "junkyard"
+ },
+ "location_services": {
+  "security.location_services.location_desktop_find_my_only": "keyring"
+ },
+ "lock_screen_check": {
+  "security.lock_screen_check.display_sleep": "locks",
+  "security.lock_screen_check.screensaver_delay": "locks",
+  "security.lock_screen_check.screensaver_password": "locks"
+ },
+ "login_items": {
+  "(no code)": "door"
+ },
+ "login_items_cleanup": {
+  "(no code)": "door"
+ },
+ "login_keychain_repair": {
+  "(no code)": "simple"
+ },
+ "login_password_policy": {
+  "security.login_password_policy.ask_password": "locks",
+  "security.login_password_policy.auto_login": "locks",
+  "security.login_password_policy.guest_account_enabled": "locks",
+  "security.login_password_policy.password_delay": "locks",
+  "security.login_password_policy.screensaver_timeout": "locks"
+ },
+ "login_window_settings": {
+  "security.login_window_settings.auto_login": "simple",
+  "security.login_window_settings.password_hints": "simple",
+  "security.login_window_settings.show_user_list": "simple"
+ },
+ "macos_eol_check": {
+  "(no code)": "locks"
+ },
+ "macos_user_cleanup": {
+  "(no code)": "simple"
+ },
+ "macos_version_support": {
+  "(no code)": "locks"
+ },
+ "mail_attachment_cleanup": {
+  "(no code)": "junkyard"
+ },
+ "mail_config": {
+  "(no code)": "simple"
+ },
+ "malware_scan_indicators": {
+  "security.malware_scan_indicators.browser_extension": "locker",
+  "security.malware_scan_indicators.malware_launchdaemon": "locker",
+  "security.malware_scan_indicators.suspicious_bundle_id": "locker"
+ },
+ "mdm_enrollment": {
+  "security.mdm_enrollment.mdm_enrolled": "simple",
+  "security.mdm_enrollment.supervised": "simple"
+ },
+ "mdm_enrollment_check": {
+  "security.mdm_enrollment_check.restrictions_profiles": "simple"
+ },
+ "memory_pressure": {
+  "(no code)": "simple"
+ },
+ "memory_pressure_check": {
+  "(no code)": "simple"
+ },
+ "mvt_spyware_scan": {
+  "security.mvt_spyware_scan.mvt_backup_too_large": "simple",
+  "security.mvt_spyware_scan.mvt_spyware_detected": "simple"
+ },
+ "network_connections_monitor": {
+  "security.network_connections_monitor.backdoor_ports": "switchboard",
+  "security.network_connections_monitor.high_connection_count": "switchboard",
+  "security.network_connections_monitor.unusual_ports": "switchboard"
+ },
+ "network_diagnostics": {
+  "(no code)": "simple"
+ },
+ "network_interface_audit": {
+  "(no code)": "simple"
+ },
+ "network_interfaces_check": {
+  "(no code)": "simple"
+ },
+ "network_proxy": {
+  "security.network_proxy.pac_url_detected": "switchboard",
+  "security.network_proxy.proxy_enabled": "switchboard"
+ },
+ "network_proxy_check": {
+  "network.network_proxy_check.pac_url_detected": "switchboard",
+  "network.network_proxy_check.proxy_enabled": "switchboard",
+  "network.network_proxy_check.remote_pac_url": "switchboard",
+  "network.network_proxy_check.suspicious_localhost_proxy": "switchboard"
+ },
+ "network_proxy_detect": {
+  "(no code)": "switchboard"
+ },
+ "network_quality": {
+  "(no code)": "simple"
+ },
+ "network_speed_test": {
+  "(no code)": "simple"
+ },
+ "notification_center_check": {
+  "(no code)": "simple"
+ },
+ "notifications_config": {
+  "(no code)": "simple"
+ },
+ "open_ports_scan": {
+  "security.open_ports_scan.exposed_risky_ports": "switchboard"
+ },
+ "photos_library_check": {
+  "(no code)": "simple"
+ },
+ "power_settings": {
+  "(no code)": "junkyard"
+ },
+ "pram_nvram_check": {
+  "(no code)": "simple"
+ },
+ "printer_diagnostics": {
+  "(no code)": "simple"
+ },
+ "printer_queue": {
+  "(no code)": "simple"
+ },
+ "privacy_permissions_audit": {
+  "security.privacy_permissions_audit.camera_microphone_combo": "keyring",
+  "security.privacy_permissions_audit.excessive_camera": "keyring",
+  "security.privacy_permissions_audit.excessive_microphone": "keyring",
+  "security.privacy_permissions_audit.screen_accessibility_combo": "keyring"
+ },
+ "process_scanner": {
+  "(no code)": "junkyard"
+ },
+ "recovery_partition_check": {
+  "(no code)": "simple"
+ },
+ "remote_login_check": {
+  "security.remote_login_check.remote_apple_events_enabled": "switchboard",
+  "security.remote_login_check.remote_management_enabled": "switchboard",
+  "security.remote_login_check.screen_sharing_enabled": "switchboard",
+  "security.remote_login_check.ssh_enabled": "switchboard"
+ },
+ "resource_hog_identifier": {
+  "(no code)": "junkyard"
+ },
+ "rootkit_check": {
+  "security.rootkit_check.binary_integrity": "locker",
+  "security.rootkit_check.hidden_files": "locker",
+  "security.rootkit_check.hidden_processes": "locker",
+  "security.rootkit_check.kernel_extensions": "locker",
+  "security.rootkit_check.sip_disabled": "locks"
+ },
+ "rosetta_status": {
+  "(no code)": "simple"
+ },
+ "router_security_audit": {
+  "network.router_security_audit.upnp_enabled": "switchboard"
+ },
+ "safari_extensions": {
+  "security.safari_extensions.content_blockers_disabled": "loadout",
+  "security.safari_extensions.extension_bloat": "loadout",
+  "security.safari_extensions.legacy_extensions": "loadout"
+ },
+ "safe_boot_check": {
+  "(no code)": "simple"
+ },
+ "safe_mode_check": {
+  "(no code)": "simple"
+ },
+ "scheduled_tasks_audit": {
+  "security.scheduled_tasks_audit.suspicious_launch_agent": "door"
+ },
+ "screen_lock_check": {
+  "security.screen_lock_check.automatic_login": "locks",
+  "security.screen_lock_check.screen_lock_delay": "locks",
+  "security.screen_lock_check.screen_lock_required": "locks",
+  "security.screen_lock_check.screensaver_idle_time": "locks"
+ },
+ "screen_resolution_scaling": {
+  "(no code)": "simple"
+ },
+ "screen_time_audit": {
+  "security.screen_time_audit.screen_time_no_passcode": "keyring"
+ },
+ "screen_time_parental": {
+  "security.screen_time_parental.content_privacy_disabled_with_children": "simple",
+  "security.screen_time_parental.screen_time_disabled_with_children": "simple",
+  "security.screen_time_parental.screen_time_no_passcode": "simple"
+ },
+ "screen_time_password": {
+  "(no code)": "simple"
+ },
+ "security_baseline_diff": {
+  "security.security_baseline_diff.protection_disabled": "simple"
+ },
+ "session_revocation_scan": {
+  "security.session_revocation_scan.ssh_authorized_keys": "locks"
+ },
+ "sharing_preferences_audit": {
+  "security.sharing_preferences_audit.airdrop_everyone": "switchboard",
+  "security.sharing_preferences_audit.file_sharing": "switchboard",
+  "security.sharing_preferences_audit.printer_sharing": "switchboard",
+  "security.sharing_preferences_audit.remote_login": "switchboard",
+  "security.sharing_preferences_audit.remote_management": "switchboard",
+  "security.sharing_preferences_audit.screen_sharing": "switchboard"
+ },
+ "sharing_services": {
+  "security.sharing_services.file_sharing": "switchboard",
+  "security.sharing_services.printer_sharing": "switchboard",
+  "security.sharing_services.remote_login": "switchboard",
+  "security.sharing_services.remote_management": "switchboard",
+  "security.sharing_services.screen_sharing": "switchboard"
+ },
+ "sip_gatekeeper": {
+  "security.sip_gatekeeper.gatekeeper_status": "simple",
+  "security.sip_gatekeeper.sip_status": "simple"
+ },
+ "siri_privacy": {
+  "security.siri_privacy.lockscreen_siri": "simple"
+ },
+ "sleep_wake_issues": {
+  "(no code)": "simple"
+ },
+ "smart_status": {
+  "(no code)": "simple"
+ },
+ "smc_reset_check": {
+  "(no code)": "simple"
+ },
+ "smcreset_guide": {
+  "(no code)": "simple"
+ },
+ "software_inventory": {
+  "(no code)": "simple"
+ },
+ "spotlight_rebuild": {
+  "(no code)": "simple"
+ },
+ "spotlight_repair": {
+  "(no code)": "simple"
+ },
+ "spotlight_status": {
+  "(no code)": "simple"
+ },
+ "ssh_key_audit": {
+  "security.ssh_key_audit.bad_key_perms": "simple",
+  "security.ssh_key_audit.bad_ssh_dir_perms": "simple",
+  "security.ssh_key_audit.dsa_key_found": "simple",
+  "security.ssh_key_audit.password_auth_enabled": "simple",
+  "security.ssh_key_audit.permit_root_login": "simple",
+  "security.ssh_key_audit.weak_rsa_key": "simple"
+ },
+ "stalkerware_scan": {
+  "(no code)": "simple"
+ },
+ "startup_auditor": {
+  "(no code)": "door"
+ },
+ "startup_optimizer": {
+  "(no code)": "door"
+ },
+ "storage_cleanup": {
+  "performance.storage_cleanup.total_reclaimable": "junkyard"
+ },
+ "sudo_config_audit": {
+  "security.sudo_config_audit.nopasswd_all": "simple",
+  "security.sudo_config_audit.root_enabled": "simple",
+  "security.sudo_config_audit.timestamp_long": "simple"
+ },
+ "sudo_touchid": {
+  "security.sudo_touchid.no_fingerprints": "simple"
+ },
+ "suspicious_connections": {
+  "security.suspicious_connections.unusual_listening_port": "switchboard",
+  "security.suspicious_connections.unusual_outbound_connection": "switchboard"
+ },
+ "suspicious_processes": {
+  "security.suspicious_processes.high_cpu": "locker",
+  "security.suspicious_processes.known_malware": "locker",
+  "security.suspicious_processes.suspicious_paths": "locker"
+ },
+ "swap_memory_check": {
+  "(no code)": "simple"
+ },
+ "swap_usage": {
+  "(no code)": "simple"
+ },
+ "system_age_check": {
+  "(no code)": "simple"
+ },
+ "system_extensions": {
+  "security.system_extensions.unusual_state": "door"
+ },
+ "system_extensions_check": {
+  "(no code)": "door"
+ },
+ "system_log_errors": {
+  "(no code)": "junkyard"
+ },
+ "temp_file_scanner": {
+  "(no code)": "junkyard"
+ },
+ "thermal_throttle": {
+  "(no code)": "simple"
+ },
+ "thermal_throttle_check": {
+  "(no code)": "simple"
+ },
+ "time_machine_check": {
+  "(no code)": "locks"
+ },
+ "time_machine_exclusions": {
+  "(no code)": "simple"
+ },
+ "time_machine_health": {
+  "(no code)": "simple"
+ },
+ "time_sync_check": {
+  "(no code)": "simple"
+ },
+ "trash_cleanup": {
+  "(no code)": "junkyard"
+ },
+ "update_checker": {
+  "(no code)": "locks"
+ },
+ "usb_device_audit": {
+  "security.usb_device_audit.no_vendor_devices": "simple"
+ },
+ "usb_devices_check": {
+  "(no code)": "simple"
+ },
+ "user_account_audit": {
+  "security.user_account_audit.auto_login": "simple",
+  "security.user_account_audit.guest_enabled": "simple"
+ },
+ "user_account_health": {
+  "(no code)": "simple"
+ },
+ "user_profile_size": {
+  "(no code)": "simple"
+ },
+ "vpn_config": {
+  "security.vpn_config.pptp_detected": "simple"
+ },
+ "vpn_leak_check": {
+  "network.vpn_leak_check.dns_leak": "switchboard",
+  "network.vpn_leak_check.split_tunneling": "switchboard",
+  "network.vpn_leak_check.vpn_not_connected": "switchboard"
+ },
+ "wifi_diagnostics": {
+  "(no code)": "simple"
+ },
+ "wifi_password_recovery": {
+  "(no code)": "simple"
+ },
+ "wifi_security_audit": {
+  "network.wifi_security_audit.open_network_connected": "switchboard",
+  "network.wifi_security_audit.open_saved": "switchboard",
+  "network.wifi_security_audit.wep_connected": "switchboard",
+  "network.wifi_security_audit.wep_saved": "switchboard",
+  "network.wifi_security_audit.wpa2_only": "switchboard"
+ },
+ "xcode_cleanup": {
+  "(no code)": "junkyard"
+ },
+ "xprotect_status": {
+  "security.xprotect_status.gatekeeper_disabled": "simple",
+  "security.xprotect_status.mrt_outdated": "simple",
+  "security.xprotect_status.xprotect_missing": "simple",
+  "security.xprotect_status.xprotect_old": "simple",
+  "security.xprotect_status.xprotect_outdated": "simple"
+ }
+}

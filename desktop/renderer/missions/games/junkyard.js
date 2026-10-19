@@ -13,7 +13,7 @@ const KIND_BY_MODULE = {
   // Storage and caches (macOS).
   storage_cleanup: 'space', large_files_finder: 'space', library_cache_cleanup: 'space',
   browser_cache_cleanup: 'space', trash_cleanup: 'space', docker_cleanup: 'space',
-  xcode_cleanup: 'space', mail_attachment_cleanup: 'space',
+  xcode_cleanup: 'space', mail_attachment_cleanup: 'space', temp_file_scanner: 'space',
   // Storage and caches (Windows).
   win_disk_cleanup: 'space', win_temp_cleanup: 'space', win_temp_files: 'space',
   win_temp_files_cleanup: 'space', win_disk_space: 'space',
@@ -72,7 +72,7 @@ export function bytesOf(item) {
 }
 
 // An aggregate overlaps the other items of its check; the summary never adds the two.
-const TOTAL_TYPES = new Set(['total_reclaimable', 'total_cache_size', 'total_browser_cache', 'total_xcode', 'high_docker_usage', 'critical_large_files', 'top_large_files', 'temp_files']);
+const TOTAL_TYPES = new Set(['total_reclaimable', 'total_cache_size', 'total_browser_cache', 'total_xcode', 'high_docker_usage', 'critical_large_files', 'top_large_files', 'temp_files', 'total_waste']);
 const isTotal = (item) => TOTAL_TYPES.has(subtype(dataOf(findingOf(item))));
 
 // ---------------------------------------------------------------- what each pile is
@@ -123,6 +123,9 @@ const SPACE = {
   total_reclaimable: { what: { standard: 'you could free across your computer', city: 'of scrap across the yard' }, verdict: LOOK,
     darwin: { pane: 'storage', steps: ['Open Storage settings (button above).', 'Go through the Recommendations and the list of categories.', 'Look at each one before you remove anything.'] },
     win32: { pane: 'windows-storage', steps: WIN_TEMP_STEPS } },
+  // temp_file_scanner's own total of its piles (caches, logs, temps, Xcode, Homebrew).
+  total_waste: { what: { standard: 'of caches, logs and temporary files', city: 'of scrap across the yard' }, verdict: SAFE,
+    darwin: { pane: 'storage', steps: ['Open Storage settings (button above).', 'Go through the Recommendations and the list of categories.', 'Look at each one before you remove anything.'] } },
   old_downloads: { what: { standard: 'of old downloads', city: 'of old deliveries' }, verdict: LOOK, darwin: { steps: MAC_DOWNLOAD_STEPS } },
   large_caches: { what: { standard: 'of caches in your Library folder', city: 'of scrap in the Library shed' }, verdict: SAFE, darwin: { steps: MAC_CACHE_STEPS } },
   total_cache_size: { what: { standard: 'of caches in your Library folder', city: 'of scrap in the Library shed' }, verdict: SAFE, darwin: { steps: MAC_CACHE_STEPS } },

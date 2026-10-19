@@ -260,7 +260,7 @@ test('no time words in the game\'s own copy', async () => {
   assert.doesNotMatch(textOf(game.summary([{ item: find(mac, 'firewall_audit'), decision: 'on' }], ctx)), TIME);
 });
 
-test('covers: the locks row of the spec, Windows equivalents, firewall "off" only', async () => {
+test('covers: the locks row of the spec, Windows equivalents, the firewall switch and stealth, protection switches by code', async () => {
   const { game } = await setup();
   const by = new Map(game.covers.map((c) => [c.module, c]));
   for (const m of ['automatic_updates', 'update_checker', 'encryption_check', 'filevault_recovery', 'firewall_audit', 'screen_lock_check', 'lock_screen_check',
@@ -269,8 +269,13 @@ test('covers: the locks row of the spec, Windows equivalents, firewall "off" onl
     'win_updates', 'win_windows_update_status', 'win_bitlocker', 'win_bitlocker_check', 'win_defender', 'win_antivirus_status', 'win_firewall']) {
     assert.ok(by.has(m), `${m} not covered`);
   }
-  assert.deepStrictEqual(by.get('firewall_audit').codes, ['security.firewall_audit.global_state']);
-  assert.ok(!by.has('firewall_rules_audit') && !by.has('win_firewall_rules_audit'), 'rules belong to the switchboard');
+  assert.strictEqual(by.get('firewall_audit').codes, undefined, 'the whole firewall_audit (switch, stealth, couldn’t check)');
+  assert.deepStrictEqual(by.get('firewall_rules_audit').codes, ['security.firewall_rules_audit.alf_', 'security.firewall_rules_audit.stealth_']);
+  assert.ok(!by.has('win_firewall_rules_audit'), 'Windows rules belong to the switchboard');
+  for (const m of ['clamav_scanner', 'browser_privacy_check', 'default_browser']) assert.ok(by.has(m) && !by.get(m).codes, m);
+  assert.deepStrictEqual(by.get('rootkit_check').codes, ['security.rootkit_check.sip_disabled']);
+  assert.deepStrictEqual(by.get('win_rootkit_check').codes, ['security.win_rootkit_check.secure_boot_disabled']);
+  assert.deepStrictEqual(by.get('win_malware_indicators').codes, ['security.win_malware_indicators.safe_mode_disabled']);
   // No duplicate (module, code) claims inside this game.
   const seen = new Set();
   for (const c of game.covers) for (const code of c.codes || ['*']) {

@@ -50,6 +50,7 @@ const MODULE_KIND = {
   sharing_preferences_audit: 'sharing',
   sharing_services: 'sharing',
   airdrop_config: 'sharing',
+  airdrop_security_check: 'sharing',
   win_rdp_check: 'sharing',
   win_remote_access_audit: 'sharing',
   win_network_shares_audit: 'sharing',

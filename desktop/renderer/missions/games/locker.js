@@ -18,13 +18,18 @@
 
 const MODULES = [
   'ai_worm_filesystem', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
-  'malware_scan_indicators', 'clamav_scanner', 'crypto_miner_detect', 'rootkit_check',
-  'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check',
+  'malware_scan_indicators', 'crypto_miner_detect', 'rootkit_check',
+  'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check', 'suspicious_processes',
 ];
 
-// Shared modules, narrowed by finding code: win_rootkit_check's unsigned_drivers belongs to the seal game.
+// Shared modules, narrowed by finding code: win_rootkit_check's unsigned_drivers belongs to the seal game and
+// its Secure Boot switch to Lock Run. (Lock Run also claims rootkit_check's SIP switch and
+// win_malware_indicators' Safe Mode option by code; a code claim wins over this game's whole claim.
+// ClamAV's tool status is Lock Run's whole.)
 const CODES_BY_MODULE = {
-  win_rootkit_check: ['alternate_data_streams', 'secure_boot_disabled', 'hidden_services', 'boot_tampering', 'all_passed']
+  // Running programs that look wrong; its unsigned apps are the seal game's.
+  suspicious_processes: ['known_malware', 'suspicious_paths', 'suspicious_names', 'high_cpu'].map((c) => `security.suspicious_processes.${c}`),
+  win_rootkit_check: ['alternate_data_streams', 'hidden_services', 'boot_tampering', 'all_passed']
     .map((c) => `security.win_rootkit_check.${c}`),
 };
 
@@ -39,6 +44,7 @@ const KIND_BY_CHECK = {
   imds_access: 'process', known_malicious_connection: 'process', beaconing_detected: 'process',
   token_harvesting_subprocess: 'process', ai_api_connection: 'process', python_node_ai_process: 'process',
   known_miner: 'process', high_cpu_process: 'process', mining_pool_connection: 'process',
+  known_malware: 'process', suspicious_paths: 'process', suspicious_names: 'process', high_cpu: 'process',
   // browser add-ons
   browser_extension: 'extension',
   // settings and tools

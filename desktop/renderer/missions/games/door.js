@@ -35,6 +35,7 @@ export const covers = [
   { module: 'kext_audit' },
   { module: 'kernel_extensions_audit' },
   { module: 'system_extensions_check' },
+  { module: 'system_extensions' },
   { module: 'win_autoruns_audit' },
   { module: 'win_startup' },
   { module: 'win_startup_programs_audit' },

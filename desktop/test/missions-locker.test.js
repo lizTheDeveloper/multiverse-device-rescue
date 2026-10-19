@@ -39,13 +39,16 @@ test('covers: the locker modules on macOS and their Windows equivalents, each a 
   const { game } = await setup();
   const mods = game.covers.map((c) => c.module);
   for (const m of ['ai_worm_filesystem', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
-    'malware_scan_indicators', 'clamav_scanner', 'crypto_miner_detect', 'rootkit_check',
+    'malware_scan_indicators', 'crypto_miner_detect', 'rootkit_check',
     'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check']) assert.ok(mods.includes(m), m);
+  // ClamAV's tool status and the Secure Boot switch are Lock Run's.
+  assert.ok(!mods.includes('clamav_scanner'));
   assert.strictEqual(new Set(mods).size, mods.length, 'no module listed twice');
   // win_rootkit_check is shared: unsigned_drivers is the seal game's.
   const wr = game.covers.find((c) => c.module === 'win_rootkit_check');
   assert.ok(Array.isArray(wr.codes) && wr.codes.length > 0);
   assert.ok(!wr.codes.some((c) => 'security.win_rootkit_check.unsigned_drivers'.startsWith(c)), 'unsigned_drivers is not claimed');
+  assert.ok(!wr.codes.some((c) => 'security.win_rootkit_check.secure_boot_disabled'.startsWith(c)), 'secure_boot_disabled is not claimed');
   assert.ok(wr.codes.includes('security.win_rootkit_check.hidden_services'));
   const src = fs.readFileSync(path.join(root0(), 'security', 'win_rootkit_check', '__init__.py'), 'utf8');
   for (const c of wr.codes) assert.ok(src.includes(`code="${c}"`), `${c} is a real code`);

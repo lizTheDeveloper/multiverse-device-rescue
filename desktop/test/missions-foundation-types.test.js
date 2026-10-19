@@ -112,12 +112,16 @@ test('missions are one type within one district; the district is the check’s c
   assert.ok(ms.every((m) => m.items.every((i) => T.typeOf(i.finding) === m.type || m.type === 'notes')));
 });
 
-test('firewall is split: "off" goes to Lock Run, rules and stealth to the Switchboard; baseline items by code', async () => {
+test('firewall is split: the switch and stealth mode go to Lock Run, the rules to the Switchboard; baseline items by code', async () => {
   const T = await load();
   const fw = (code) => ({ module: 'firewall_audit', code, severity: 'warning' });
   assert.strictEqual(T.typeOf(fw('security.firewall_audit.global_state')), 'locks');
   assert.strictEqual(T.typeOf(fw('security.firewall_audit.global_state_unknown')), 'locks');
-  assert.strictEqual(T.typeOf(fw('security.firewall_audit.stealth_mode')), 'switchboard');
+  assert.strictEqual(T.typeOf(fw('security.firewall_audit.stealth_mode')), 'locks');
+  assert.strictEqual(T.typeOf({ module: 'firewall_rules_audit', code: 'security.firewall_rules_audit.stealth_disabled', severity: 'warning' }), 'locks');
+  assert.strictEqual(T.typeOf({ module: 'rootkit_check', code: 'security.rootkit_check.sip_disabled', severity: 'critical' }), 'locks');
+  assert.strictEqual(T.typeOf({ module: 'rootkit_check', code: 'security.rootkit_check.hidden_processes', severity: 'critical' }), 'locker');
+  assert.strictEqual(T.typeOf({ module: 'temp_file_scanner', severity: 'warning' }), 'junkyard');
   assert.strictEqual(T.typeOf({ module: 'firewall_rules_audit', code: 'security.firewall_rules_audit.alf_disabled', severity: 'warning' }), 'locks');
   assert.strictEqual(T.typeOf({ module: 'firewall_rules_audit', code: 'security.firewall_rules_audit.too_many_apps', severity: 'warning' }), 'switchboard');
   const sb = (code) => T.typeOf({ module: 'security_baseline_diff', code: `security.security_baseline_diff.${code}`, severity: 'warning' });
