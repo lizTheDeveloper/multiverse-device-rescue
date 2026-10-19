@@ -11,7 +11,7 @@ import { loadProfile, saveProfile, profileSeed, toProgress, withProgress, record
 import { conceptById, isHidden } from './profile/skills.js';
 import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, PUBLISH_FIELDS } from './profile/publish.js';
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, todoFrom, notCheckedChip, cityCounts, WAITING_TITLE } from './signals.js';
+import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, notCheckedParts, todoFrom, notCheckedChip, cityCounts, WAITING_TITLE } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ, pathOf } from './clues.js';
 import { loadDrills, chooseDrills, drillSignal, pickDrills } from './drills.js';
@@ -344,8 +344,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // stoppedDocOf): what it found is shown, nothing is acted on, and no
     // district reads as clear.
     s.stopped = stoppedOf(doc);
+    // Checks NotChecked counts as unfinished (the engine's complete: false),
+    // even when they also carry a partly-checked note: each gets its NOT CHECKED row.
+    const unfinishedNow = new Set(notCheckedParts(doc).unfinished.map((x) => x.name));
     for (const d of s.city.districts) {
-      d.unfinished = (d.unfinished || []).map((x) => (folded.partly.has(x.module) ? { ...x, titles: folded.partly.get(x.module) } : x));
+      d.unfinished = (d.unfinished || []).map((x) => {
+        const y = unfinishedNow.has(x.module) ? { ...x, stoppedEarly: true } : x;
+        return folded.partly.has(x.module) ? { ...y, titles: folded.partly.get(x.module) } : y;
+      });
       d.counts = s.counts.byDistrict[d.id] || null;
       if (s.stopped) { d.stopped = true; if (d.status === 'clear' || d.status === 'none') d.status = d.checksRan > 0 ? 'partial' : d.status; }
     }

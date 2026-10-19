@@ -105,7 +105,7 @@ export function buildSignals(city, deck, changedIds = null, { cover = true } = {
     // filter shows every check the banner and NotChecked.scanCounts name
     // (`unfinished`). A check only partly checked (its titles) stays in its district.
     for (const u of d.unfinished || []) {
-      if (Array.isArray(u.titles) && u.titles.length) continue;
+      if (Array.isArray(u.titles) && u.titles.length && u.stoppedEarly !== true) continue;
       const monitoring = MONITORING_MODULES.has(u.module);
       add({ id: `couldnt|${u.module}`, kind: 'couldnt', unfinished: true, severity: 'couldnt',
         title: unfinishedTitle(monitoring ? {} : u), description: UNFINISHED_TEXT, districtId: d.id,

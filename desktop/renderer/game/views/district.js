@@ -97,10 +97,12 @@ export function renderDistrict({ district: d, progress, scout, message = '', bus
   // Waiting for the person's go-ahead (the long phone-backup sweep): offered, never "couldn't check".
   const waiting = d.fog.filter((x) => x.notStarted).map((x) => `<li><button type="button" class="btn-t" data-go="signal:${esc(waitingId(d.id, x.module))}">${esc(waitingTitle)} ▶</button></li>`).join('');
   // Ran, but stopped before the end (the engine's "complete": false).
-  const unfinished = (d.unfinished || []).filter((x) => !(Array.isArray(x.titles) && x.titles.length))
-    .map((x) => `<li><strong>${esc(checkWords(x.module, x.checkName))}</strong></li>`).join('');
+  // `stoppedEarly`: NotChecked counts it as unfinished, even with a partly-checked note (its titles shown with it).
+  const hasTitles = (x) => Array.isArray(x.titles) && x.titles.length > 0;
+  const unfinished = (d.unfinished || []).filter((x) => !hasTitles(x) || x.stoppedEarly === true)
+    .map((x) => `<li><strong>${esc(checkWords(x.module, x.checkName))}</strong>${hasTitles(x) && !HELD_MODULES.has(x.module) ? `: ${esc(x.titles.join('; '))}` : ''}</li>`).join('');
   // A note said part of it couldn't look (`titles`, signals.js foldPartly).
-  const partly = (d.unfinished || []).filter((x) => Array.isArray(x.titles) && x.titles.length)
+  const partly = (d.unfinished || []).filter((x) => hasTitles(x) && x.stoppedEarly !== true)
     .map((x) => `<li><strong>${esc(checkWords(x.module, x.checkName))}</strong>${HELD_MODULES.has(x.module) ? '' : `: ${esc(x.titles.join('; '))}`}</li>`).join('');
   return `
   <section class="district-screen">

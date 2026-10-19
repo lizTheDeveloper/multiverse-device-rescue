@@ -240,3 +240,17 @@ test('district rows: a list of apps shows app names, never the first Homebrew pa
   const r2 = h2.slice(h2.indexOf(`data-go="mission:${task.m.id.replace(/&/g, '&amp;')}"`));
   assert.match(/<small class="mission-detail">([\s\S]*?)<\/small>/.exec(r2)[1], /^<code>/);
 });
+
+test('NOT CHECKED: a check that didn’t finish and also left a partly-checked note still gets its row', async () => {
+  const doc = scan(
+    mod('code_signature_audit', [{ title: 'Checked 16 of 110 apps before time ran out', description: 'x', severity: 'info', category: 'security', data: { incomplete: true } }],
+      { complete: false, check_name: 'App signatures' }),
+    mod('launch_agent_audit', [task('launch_agent_audit', PLIST)]));
+  const c = NotChecked.scanCounts(doc, { mode: 'city' });
+  assert.strictEqual(c.unfinished, 1);
+  const t = await setup(doc);
+  t.click({ 'data-act': 'sev:couldnt' });
+  assert.match(t.html(), /App signatures didn’t finish/);
+  t.click({ 'data-go': 'district:gatehouse' });
+  assert.match(t.html(), /DIDN’T FINISH HERE[\s\S]*App signatures/);
+});
