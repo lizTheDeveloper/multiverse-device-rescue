@@ -465,8 +465,9 @@ def test_linux_clean_machine_outbound_no_warnings():
     result = _check(Platform.LINUX, ss=(FIX / "clean_linux_ss_outbound.txt").read_text())
     assert not _warnings(result)
     familiar = [f for f in result.findings if f.data.get("check") == "familiar_connections"]
-    # still listed: a name proves nothing, but a browser on an odd port is no alarm
-    assert {i["process"] for i in familiar[0].data["items"]} == {"firefox", "chrome", "chromium"}
+    # still listed: a name proves nothing. Browsers and calls on 443 are ordinary
+    # and not listed; only the push-notification port is.
+    assert {i["process"] for i in familiar[0].data["items"]} == {"chrome"}
 
 
 def test_windows_clean_machine_outbound_no_warnings():

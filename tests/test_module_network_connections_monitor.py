@@ -496,10 +496,32 @@ def test_windows_browser_with_many_connections_is_not_warned():
 
 
 def test_clean_fixtures_stay_quiet_because_of_ports_not_names():
-    # firefox:8443 and chromium:3478 are listed as ordinary web/call ports (info)
+    # browsers and calls on 443 (TCP or QUIC) are ordinary; push on 5228 is listed as info
     result = _check(Platform.LINUX, ss=(FIX / "clean_linux_ss_outbound.txt").read_text())
     pushy = [f for f in result.findings if f.data.get("check") == "push_port_connections"]
     assert pushy and pushy[0].severity == Severity.INFO
+    assert not _warnings(result)
+
+
+@pytest.mark.parametrize("port", [8443, 3478])
+def test_named_process_to_public_alternate_port_is_a_warning(port):
+    ss = f'tcp   ESTAB  0 0 192.168.1.30:51050 203.0.113.10:{port} users:(("firefox",pid=9,fd=4))\n'
+    odd = [f for f in _check(Platform.LINUX, ss=ss).findings if f.data.get("check") == "unusual_ports"]
+    assert len(odd) == 1 and odd[0].severity == Severity.WARNING
+    assert str(port) in odd[0].description
+
+
+def test_pathless_windows_service_has_its_own_check_key():
+    win = _win_output(
+        (FIX / "clean_win_outbound.json").read_text(), (FIX / "win_proc_nopath.json").read_text()
+    )
+    result = _check(Platform.WIN32, win=win)
+    claimed = [f for f in result.findings if f.data.get("check") == "unverified_service_connections"]
+    assert len(claimed) == 1 and claimed[0].severity == Severity.INFO
+    assert claimed[0].code == "security.network_connections_monitor.unnamed_connections"
+    assert not [f for f in result.findings if f.data.get("check") == "unnamed_connections"]
+    fix = _get_module().fix(result, Mode.MANUAL)
+    assert any("resource monitor" in a.description.lower() for a in fix.actions)
 
 
 def _backdoor_result(platform):

@@ -23,9 +23,7 @@ BACKDOOR_PORTS = {4444, 5555, 8080, 8888, 1337, 31337}
 LEGITIMATE_PORTS = {80, 443, 53, 22, 993, 587}
 
 # Remote ports normal for everyday software (5228 Google/FCM push, 5223 Apple push)
-# 8443: the usual alternate HTTPS port (web apps, admin pages, some CDNs);
-# 3478: STUN/TURN, used by video calls and WebRTC in browsers and chat apps.
-WELL_KNOWN_REMOTE_PORTS = {5228, 5223, 8443, 3478}
+WELL_KNOWN_REMOTE_PORTS = {5228, 5223}
 
 # Browsers legitimately hold hundreds of connections (tabs, extensions, helpers)
 BROWSER_PREFIXES = (
@@ -439,7 +437,7 @@ class Module(ModuleBase):
                     category=self.category,
                     code="security.network_connections_monitor.unnamed_connections",
                     data={
-                        "check": "unnamed_connections",
+                        "check": "unverified_service_connections",
                         "connections": claimed_connections,
                         "platform": platform,
                     },
@@ -452,8 +450,7 @@ class Module(ModuleBase):
                     title=f"Connections for push notifications: {len(push_port_connections)}",
                     description=(
                         "Ports 5223 and 5228 are used for Apple and Google push notifications, "
-                        "8443 is a common alternate web port and 3478 is used by video "
-                        "calls, so these are normal for chat, mail and browsers:\n"
+                        "so this is normal for chat and mail apps:\n"
                         f"{chr(10).join(push_port_connections[:20])}\n\n"
                         "A port number does not prove who is using it; check that you "
                         "recognize the programs listed."
@@ -675,7 +672,7 @@ class Module(ModuleBase):
                     )
                 )
 
-            elif check == "unnamed_connections":
+            elif check in ("unnamed_connections", "unverified_service_connections"):
                 connections = finding.data.get("connections", [])
                 conn_str = "\n".join(connections[:5])
                 if len(connections) > 5:
