@@ -311,3 +311,20 @@ test('the preview shows the redacted fields and the destination, escaped', () =>
   assert.ok(!html.includes('maria'));
   assert.ok(!html.includes('abc123'));
 });
+
+test('connection-watch findings are never sent: no body, no button, askAbout refuses', async () => {
+  const { askButtonHtml } = require('../renderer/ask.js');
+  const watch = { finding: { ...GOOD.finding, severity: 'info', code: 'network.connection_watch.destinations' } };
+  assert.strictEqual(buildAskBody(watch, ENV), null);
+  assert.strictEqual(askButtonHtml(watch.finding), '');
+  let called = false;
+  const r = await askAbout(watch, { fetch: async () => { called = true; return {}; }, env: ENV });
+  assert.deepStrictEqual(r, { ok: false, reason: 'invalid' });
+  assert.strictEqual(called, false);
+  // Other findings, including other network checks, still get the button.
+  const other = { ...GOOD.finding, code: 'network.arp_spoof_check.duplicate_mac' };
+  assert.notStrictEqual(buildAskBody({ finding: other }, ENV), null);
+  assert.match(askButtonHtml(other), /Ask about this/);
+  assert.strictEqual(askButtonHtml({ ...other, code: null, module: 'connection_watch' }), '');
+  assert.strictEqual(require('../renderer/ask.js').ASK_WATCH_CODE_PREFIX, require('../ask-about').WATCH_CODE_PREFIX);
+});

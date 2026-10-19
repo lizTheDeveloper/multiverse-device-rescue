@@ -2,14 +2,18 @@ const { app, BrowserWindow, ipcMain, shell, net, protocol } = require('electron'
 const path = require('path');
 const { askAbout, buildAskBody, ASK_ENDPOINT } = require('./ask-about');
 const { buildAiPrompt } = require('./ai-prompt');
-const { runScan, runFix, runAction, runUndo, runMark, runUnmark, runRecheck } = require('./engine-runner');
+const { runScan, runWatch, runFix, runAction, runUndo, runMark, runUnmark, runRecheck } = require('./engine-runner');
 const { handleRecheck } = require('./recheck');
+const { handleWatch, stopActiveWatch, SCAN_BUSY_MESSAGE } = require('./watch');
 const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 const { routerUrlFor, browserDisplayName } = require('./router-url');
 const { isAllowedMissionLink } = require('./mission-links');
 const { APP_ORIGIN, serveApp } = require('./app-protocol');
+
+// The running connection watch ({promise, stop, kill}), or null.
+let activeWatch = null;
 
 // Must run before the app is ready. "standard" gives app:// a real origin, so
 // ES modules, fetch() of local JSON and the CSP's 'self' all work.
@@ -44,14 +48,51 @@ app.whenReady().then(() => {
   const markPolicy = createMarkPolicy();
   // The last full scan this process ran, with any re-checks merged in.
   let lastDoc = null;
+  // A checkup or a connection watch is running: one at a time. A refused
+  // checkup rejects like a failed one, so the window shows the message.
+  let busy = false;
   ipcMain.handle('run-scan', async (e, profile) => {
-    const doc = await runScan(undefined, profile, (ev) => {
-      if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
-    });
-    fixPolicy.remember(doc);
-    markPolicy.remember(doc);
-    lastDoc = doc;
-    return doc;
+    if (busy) throw new Error(SCAN_BUSY_MESSAGE);
+    busy = true;
+    try {
+      const doc = await runScan(undefined, profile, (ev) => {
+        if (!e.sender.isDestroyed()) e.sender.send('scan-event', ev);
+      });
+      fixPolicy.remember(doc);
+      markPolicy.remember(doc);
+      lastDoc = doc;
+      return doc;
+    } finally {
+      busy = false;
+    }
+  });
+  // The connection watch. Only the minutes cross IPC (checked against a list
+  // in watch.js); its result is merged into lastDoc and goes nowhere else.
+  ipcMain.handle('run-watch', (e, minutes) =>
+    handleWatch(minutes, {
+      getLastDoc: () => lastDoc,
+      setLastDoc: (d) => { lastDoc = d; },
+      policies: [fixPolicy, markPolicy],
+      isBusy: () => busy,
+      onEvent: (ev) => { if (!e.sender.isDestroyed()) e.sender.send('watch-event', ev); },
+      runWatch: (m, onEvent) => {
+        busy = true;
+        const watch = runWatch(m, onEvent);
+        activeWatch = watch;
+        // The window went away: nobody is left to press Stop.
+        const onGone = () => stopActiveWatch(watch);
+        e.sender.once('destroyed', onGone);
+        return watch.promise.finally(() => {
+          busy = false;
+          if (activeWatch === watch) activeWatch = null;
+          e.sender.removeListener('destroyed', onGone);
+        });
+      },
+    }));
+  ipcMain.handle('stop-watch', () => {
+    if (!activeWatch) return false;
+    stopActiveWatch(activeWatch);
+    return true;
   });
   ipcMain.handle('run-fix', (_e, moduleName) =>
     handleRunFix(moduleName, { policy: fixPolicy, runFix }));
@@ -122,5 +163,19 @@ app.whenReady().then(() => {
       onWarming: () => { if (!e.sender.isDestroyed()) e.sender.send('ask-warming'); },
     }));
   createWindow();
+});
+// The watch's engine must not outlive the app: hold the quit, ask it to stop
+// (killed if it hasn't exited within 15 s), then quit for real.
+let quitWaiting = false;
+let quitReady = false;
+app.on('before-quit', (event) => {
+  if (!activeWatch || quitReady) return;
+  event.preventDefault();
+  if (quitWaiting) return;
+  quitWaiting = true;
+  stopActiveWatch(activeWatch).then(() => {
+    quitReady = true;
+    app.quit();
+  });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

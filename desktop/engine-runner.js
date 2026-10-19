@@ -61,6 +61,78 @@ function runScan(spawnFn = spawn, profile = null, onEvent = () => {}) {
     });
   });
 }
+// The connection watch: a read-only `rescue watch` that runs for the chosen
+// minutes. Its stderr carries {"progress": {...}} lines, forwarded as they come;
+// stdout is one scan-shaped document. Writing "stop\n" to stdin ends it early
+// and it still prints the document. Returns at once with {promise, stop, kill};
+// the promise rejects (never throws) on a bad exit or bad output.
+const WATCH_KILL_AFTER_MS = 15000;
+
+function runWatch(minutes, onEvent = () => {}, spawnFn = spawn, opts = {}) {
+  let p = null, finished = false, killTimer = null, timer = null;
+  const stop = () => {
+    if (!p || finished || !p.stdin) return;
+    try { p.stdin.write('stop\n'); } catch (_) { /* already gone */ }
+  };
+  const kill = () => {
+    if (!p || finished) return;
+    try { p.kill(); } catch (_) { /* already gone */ }
+  };
+  const promise = new Promise((resolve, reject) => {
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 30) {
+      return reject(new Error(`invalid minutes: ${minutes}`));
+    }
+    try {
+      p = spawnFn(resolveEnginePath(), ['watch', '--minutes', String(minutes), '--json', '--progress']);
+    } catch (e) {
+      return reject(e);
+    }
+    const timeoutMs = opts.timeoutMs || minutes * 60_000 + 120_000;
+    const killAfterMs = opts.killAfterMs || WATCH_KILL_AFTER_MS;
+    const done = (fn, value) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      clearTimeout(killTimer);
+      fn(value);
+    };
+    // Past its time: ask it to stop, and kill it if it still hasn't exited.
+    timer = setTimeout(() => {
+      stop();
+      killTimer = setTimeout(kill, killAfterMs);
+    }, timeoutMs);
+    let out = '', err = '', pending = '';
+    const forward = (line) => {
+      if (!line.startsWith('{"progress"')) return;
+      try {
+        const ev = JSON.parse(line);
+        if (ev && typeof ev.progress === 'object' && ev.progress) onEvent({ progress: ev.progress });
+      } catch (_) { /* a garbled progress line is skipped */ }
+    };
+    if (p.stdin) p.stdin.on('error', () => { /* it exited before reading "stop" */ });
+    p.stdout.on('data', d => (out += d));
+    p.stderr.on('data', d => {
+      err += d;
+      pending += d;
+      const lines = pending.split(/\r?\n/);
+      pending = lines.pop();
+      for (const line of lines) forward(line.trim());
+    });
+    p.on('error', e => done(reject, e));
+    p.on('close', code => {
+      if (pending.trim()) forward(pending.trim());
+      try {
+        if (code !== 0) throw new Error(`engine exited ${code}`);
+        done(resolve, parseEngineOutput(out));
+      } catch (e) {
+        const tail = err.split('\n').filter(l => l.trim() && !l.startsWith('{"progress"')).slice(-3).join(' ');
+        done(reject, new Error(`${e.message} ${tail}`.trim()));
+      }
+    });
+  });
+  return { promise, stop, kill };
+}
+
 // "Fix it for me". The module name arrives over IPC, so only plain identifiers are
 // passed to the engine; the acknowledgement flag is always present because the
 // person has already said yes in the app by the time this runs.
@@ -222,4 +294,4 @@ function runEngineJson(buildArgs, moduleName, spawnFn, timeoutMs, fail = (error,
   });
 }
 
-module.exports = { resolveEnginePath, parseEngineOutput, runScan, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, scanModuleArgs, runRecheck, markArgs, unmarkArgs, runMark, runUnmark };
+module.exports = { resolveEnginePath, parseEngineOutput, runScan, runWatch, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, scanModuleArgs, runRecheck, markArgs, unmarkArgs, runMark, runUnmark };

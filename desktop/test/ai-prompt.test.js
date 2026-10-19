@@ -91,3 +91,17 @@ test('the copy panel escapes the text', () => {
   assert.ok(!html.includes('<script>'));
   assert.ok(html.includes('&lt;/textarea&gt;'));
 });
+
+test('connection-watch findings are left out of the copied text, with a note saying so', () => {
+  const watch = (slug) => ({
+    title: `Talks to tracker-${slug}.example.com`, description: 'Seen 12 times', severity: 'info',
+    code: `network.connection_watch.${slug}`, module: 'connection_watch', data: { remote: 'tracker.example.com' },
+  });
+  const text = buildAiPrompt({ findings: [FINDING, watch('destinations'), watch('check_ins')] }, ENV);
+  assert.doesNotMatch(text, /tracker/);
+  assert.doesNotMatch(text, /connection_watch\./);
+  assert.match(text, /\(1 item, most serious first\)/);
+  assert.ok(text.includes('[2 connection-watch item(s) left out: they list the sites this computer talks to.]'));
+  assert.ok(!buildAiPrompt({ findings: [FINDING] }, ENV).includes('connection-watch'), 'no note when nothing was dropped');
+  assert.strictEqual(buildAiPrompt({ findings: [watch('destinations')] }, ENV), null, 'nothing else to copy');
+});

@@ -29,6 +29,7 @@
       "renderer/**",
       "app-protocol.js",
       "recheck.js",
+      "watch.js",
       "rc-files.json",
       "vendor/reclaim-city/src/components/**",
       "vendor/reclaim-city/src/data/**",
