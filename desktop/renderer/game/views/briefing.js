@@ -3,6 +3,8 @@ import { SCOUT } from '../scout-lines.js';
 import { stepsHtml, descriptionHtml, miniMarkdown } from './steps.js';
 
 export const SWEEP_RUNNING = 'The sweep is still running. You can act on this once it’s done.';
+// A checkup that stopped before its report was done: shown, never acted on.
+export const SWEEP_STOPPED = 'This sweep stopped before its report was done, so nothing here can be changed from it. Sweep again to act on it.';
 
 // `note` (held.js briefingNote) is what the list says about removing it:
 // in 'standard' the one line with the full note behind it, which the engine's
@@ -26,8 +28,12 @@ export function cityWarnHtml(place) {
 // is no evidence to show) and its "What to do:" text (`todo`). Generic
 // explanations after the first sentence ("This is not automatically
 // dangerous…") are left to the lessons.
+// Explanations that belong to the lessons, never a mission's one line (the list's rule too).
+const GENERIC = [/\bnot automatically (?:dangerous|bad|a sign)\b/i, /\bhidden folders are often used\b/i];
 const SENTENCE_END = /(?<=[.!?])\s+(?=[A-Z“"'(])/;
-export function missionText(text) {
+// `shown`: what the evidence block already says (paths, ids). A sentence that
+// repeats one is left out of `why`: the next one that doesn't is used, or none.
+export function missionText(text, shown = []) {
   const paras = String(text || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   let todo = '';
   const heads = [];
@@ -38,7 +44,9 @@ export function missionText(text) {
     if (!todo) todo = p.slice(at + 'what to do:'.length).trim();
   }
   const lead = heads[0] || '';
-  const why = lead.split(SENTENCE_END)[0].trim();
+  const said = (shown || []).map((x) => String(x || '')).filter((x) => x.length >= 4);
+  const repeats = (sentence) => said.some((x) => sentence.includes(x)) || GENERIC.some((re) => re.test(sentence));
+  const why = (lead.split(SENTENCE_END).map((x) => x.trim()).filter(Boolean).slice(0, 2).find((x) => !repeats(x)) || '');
   return { why, lead, todo };
 }
 
@@ -47,10 +55,10 @@ export function missionText(text) {
 // Then WHAT IT IS is the block and one line. `replaces`: the finding's own
 // prose is wrong here (Evidence.replacesDescription), so only the block shows.
 export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety, learned, note, scanRunning = false,
-  cityWarn = null, modules = [], platform = null, evidenceHtml = '', thin = false, replaces = false }) {
+  cityWarn = null, modules = [], platform = null, evidenceHtml = '', thin = false, replaces = false, stopped = false, shown = [], checkNames = {} }) {
   const held = !!note && note.kind === 'held';
-  const steps = stepsHtml(m.steps, { data: m.primary && m.primary.data, modules, platform });
-  const text = missionText(m.description);
+  const steps = stepsHtml(m.steps, { data: m.primary && m.primary.data, modules, platform, names: checkNames });
+  const text = missionText(m.description, shown);
   // The steps came from a walkthrough: the description's own "What to do"
   // leads them (once). Otherwise the steps already are that text.
   const rem = m.primary && m.primary.remediation;
@@ -67,6 +75,9 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
     : wantsSafety && m.safetyNote ? `<div class="panel safety" role="note">${esc(m.safetyNote)}</div>` : '';
   const actions = held ? '' : busy
     ? `<p class="checking" role="status" aria-live="polite">${esc(SCOUT.checking)} Checking again…</p>`
+    : stopped
+    ? `<p class="say" role="status" data-stopped>${esc(SWEEP_STOPPED)}</p>
+      <div class="row"><button type="button" class="btn-t" data-act="later">LATER</button></div>`
     : scanRunning
     ? `<p class="say" role="status" data-scan-running>${esc(SWEEP_RUNNING)}</p>
       <div class="row"><button type="button" class="btn-t" data-act="later">LATER</button></div>`
@@ -86,7 +97,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
         ${todo}
         <ol class="steps">${steps}</ol></div>`}
       ${also}
-      <div class="controls" ${busy ? 'hidden' : ''}>${held || scanRunning ? '' : controlsHtml}</div>
+      <div class="controls" ${busy ? 'hidden' : ''}>${held || scanRunning || stopped ? '' : controlsHtml}</div>
       ${actions}
     </div>
     <aside class="brief-side">${scout(m.severity === 'critical' ? 'worried' : 'thinkingA', 72)}

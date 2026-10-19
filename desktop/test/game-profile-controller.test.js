@@ -303,7 +303,7 @@ test('city mode opens on the command deck, with or without learned concepts; the
     assert.match(t.html(), /class="panel pre-sweep"/);
     t.ctl.showBoss();
     t.ctl.scanFailed('The checkup stopped.');
-    assert.match(t.html(), /class="panel pre-sweep"[\s\S]*The checkup stopped\./);
+    assert.match(t.html(), /class="panel pre-sweep"[\s\S]*It stopped before it finished\./);
   }
   // With every concept learned, every district offers only the optional review.
   const t = await setup({ storage: await learnedStore(lessons), mode: 'city', doc: null });

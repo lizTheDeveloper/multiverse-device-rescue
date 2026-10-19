@@ -22,9 +22,10 @@ function clueItem(c, opened) {
 // signal suggests a refresher (PlayerProfile.shouldOffer). One line, two answers.
 // `tagNote`: say once that tags change nothing (until the person has tagged something).
 export function renderSignalPanel({ signal: sig, districtName = '', clues = [], opened = [], tagged = null, right = false, read = '',
-  points = 0, scout, mineHtml = '', range = null, offer = null, tagNote = true, evidenceHtml = '' }) {
+  points = 0, scout, mineHtml = '', range = null, offer = null, tagNote = true, evidenceHtml = '', waiting = null }) {
   const drill = sig.kind === 'drill';
   const couldnt = sig.kind === 'couldnt';
+  if (sig.kind === 'waiting') return waitingPanel(sig, districtName, waiting || {});
   // The range says it's practice once, at the top; a drill from the queue says it here.
   const stamp = drill ? `<p class="drill-banner"><span class="badge drill-stamp">DRILL</span> ${range ? 'Practice.' : 'Practice. This isn’t on your computer.'}</p>
     ${sig.drill && sig.drill.setup ? `<p class="intel">${esc(sig.drill.setup)}</p>` : ''}` : '';
@@ -73,6 +74,30 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     ${!drill && tagNote ? `<p class="intel faint">${esc(TAG_NOTE)}</p>` : ''}
     ${after}
     ${foot}
+  </section>`;
+}
+
+// A check waiting for the person's go-ahead (the phone backup's long sweep):
+// an optional mission, asked first, never tagged and never "couldn't run".
+// `w`: { confirming, running, failed } from the controller.
+export const WAITING_ASK = 'Start the long sweep now? It only reads the backup. Nothing on your computer is changed.';
+export const WAITING_RUNNING = 'The long sweep is running. You can keep playing; the city updates when it’s done.';
+export const WAITING_FAILED = 'The long sweep stopped before it finished, so the backup wasn’t checked. Nothing was changed. You can try again.';
+function waitingPanel(sig, districtName, w) {
+  const act = w.running ? `<p class="checking" role="status" aria-live="polite">${esc(WAITING_RUNNING)}</p>`
+    : w.confirming ? `<div class="panel" role="group" aria-labelledby="waiting-ask"><p class="intel" id="waiting-ask">${esc(WAITING_ASK)}</p>
+      <div class="row"><button type="button" class="btn-s" data-act="waiting-yes">YES, START IT</button>
+        <button type="button" class="btn-t" data-act="waiting-no">NOT NOW</button></div></div>`
+      : `${w.failed ? `<p class="intel" role="status">${esc(WAITING_FAILED)}</p>` : ''}
+      <div class="row"><button type="button" class="btn-s" data-act="waiting-start">START THE LONG SWEEP ▶</button></div>`;
+  return `
+  <section class="sig-panel" role="region" aria-labelledby="sig-title">
+    <div class="sig-head"><span class="badge cyan">NOT STARTED</span> <small>${esc(districtName)}</small></div>
+    <h2 class="m-title" id="sig-title" tabindex="-1">${esc(sig.title)}</h2>
+    <p class="intel">${esc(sig.description)}</p>
+    <p class="intel faint">Optional. Until it runs, this part isn’t checked, so it isn’t clear either.</p>
+    ${act}
+    <button type="button" class="btn-t" data-act="close-signal">BACK TO THE DECK</button>
   </section>`;
 }
 

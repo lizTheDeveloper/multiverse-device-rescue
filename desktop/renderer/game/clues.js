@@ -70,7 +70,7 @@ export const READING = {
     source: 'guides/remediation/review_changes_since_baseline.md', quote: "did I install something around then? If you didn't, something else may have." },
 };
 
-export const CLUE_LABEL = { maker: 'WHO MADE IT', where: 'WHERE IT LIVES', what: 'WHAT IT DOES', when: 'WHEN IT SHOWED UP' };
+export const CLUE_LABEL = { maker: 'WHO MADE IT', where: 'WHERE IT LIVES', saw: 'WHAT THE CHECK SAW', what: 'WHAT IT DOES', when: 'WHEN IT SHOWED UP' };
 export const COULDNT_READ = 'Noted. This check couldn’t run, so nothing here was looked at. That doesn’t mean it’s safe.';
 
 // Data fields that hold the path of the thing a finding names, most useful first.
@@ -120,9 +120,13 @@ function makerClue(entries) {
   const lines = [];
   for (const e of entries) {
     const name = typeof e.name === 'string' && e.name.trim() ? e.name.trim() : 'Unknown maker';
-    const how = typeof e.how === 'string' && e.how.trim() ? ` (${e.how.trim()})` : '';
+    // Short: who, and whether that's verified. (How it was looked up is
+    // what "How to read this" explains; "claims to be made by X" only said
+    // the name twice.) An Apple system file says so.
+    const h = typeof e.how === 'string' ? e.how.trim() : '';
+    const how = h && h.length <= 40 && !h.toLowerCase().includes(name.toLowerCase()) && !/couldn[’']t|could not/i.test(h) ? ` · ${h}` : '';
     const sub = several && typeof e.subject === 'string' ? (e.subject.split(/[\\/]/).filter(Boolean).pop() || '') : '';
-    lines.push(`${sub ? `${sub}: ` : ''}${name}, ${e.verified === true ? 'verified' : 'not verified'}${how}`);
+    lines.push(`${sub ? `${sub}: ` : ''}${name} · ${e.verified === true ? 'verified' : 'not verified'}${how}`);
     // The engine only says what a program is for when its signature proved which program it is.
     if (e.verified === true && typeof e.what === 'string' && e.what.trim()) lines.push(e.what.trim());
   }
@@ -130,6 +134,14 @@ function makerClue(entries) {
   const reading = allVerified && entries.some((e) => e.how === 'Apple system file') ? READING.apple
     : allVerified ? READING.verified : READING.unverified;
   return { kind: 'maker', label: CLUE_LABEL.maker, lines, reading };
+}
+
+// The check's own words about what it saw: `data.detail`'s last part.
+export function sawOf(finding) {
+  const v = dataOf(finding).detail;
+  if (typeof v !== 'string' || !v.trim()) return null;
+  const said = v.split(': ').pop().trim();
+  return said && said.length <= 300 ? said : null;
 }
 
 export function cluesFor(finding) {
@@ -143,6 +155,10 @@ export function cluesFor(finding) {
     out.push({ kind: 'where', label: CLUE_LABEL.where, lines: place ? [where, place.note] : [where],
       reading: place ? READING.place : READING.placeUnknown });
   }
+  // What the check itself reported, when it says more than the title (a
+  // signature check's own words: "a sealed resource is missing or invalid").
+  const saw = sawOf(finding);
+  if (saw) out.push({ kind: 'saw', label: CLUE_LABEL.saw, lines: [saw], reading: null });
   // The description's first paragraph, before any "What to do".
   const what = String(finding.description || '').split(/\n\s*\n/)[0].split(/what to do:?/i)[0].trim().slice(0, 400);
   if (what) out.push({ kind: 'what', label: CLUE_LABEL.what, lines: [what], reading: null });
@@ -166,6 +182,8 @@ function clueReason(sig) {
   const f = sig.finding || {};
   const mb = Array.isArray(f.made_by) ? f.made_by.filter((e) => e && typeof e === 'object') : [];
   if (sig.marked) return 'you told Reclaim City it’s yours';
+  const saw = sawOf(f);
+  if (saw) return `the check saw this: ${saw}`;
   if (mb.some((e) => e.verified !== true)) return 'nobody has vouched for who made it';
   const place = placeFor(pathOf(f));
   if (place && place.risky) return `it lives in ${place.short}`;

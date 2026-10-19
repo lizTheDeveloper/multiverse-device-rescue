@@ -3,11 +3,13 @@
 // city. Right: the instruments. Bottom: the ops log. Every string from the
 // engine or the drill bank is escaped.
 import { esc } from '../escape.js';
+import { STOPPED_LINE } from './training.js';
 
 export const SEV_BADGE = {
   critical: '<span class="badge crit">CRITICAL</span>',
   warning: '<span class="badge warn">WARNING</span>',
   info: '<span class="badge skip">LOW PRIORITY</span>',
+  waiting: '<span class="badge cyan">NOT STARTED</span>',
   couldnt: '<span class="badge fog">COULDN’T CHECK</span>',
 };
 export const LOW_SHOWN = 50;
@@ -30,7 +32,7 @@ export function signalRow(sig, districtName = () => '') {
   const drill = sig.kind === 'drill';
   const badges = [
     drill ? '<span class="badge drill-stamp">DRILL</span>' : '',
-    SEV_BADGE[sig.severity] || '',
+    sig.kind === 'waiting' ? SEV_BADGE.waiting : SEV_BADGE[sig.severity] || '',
     sig.marked ? '<span class="badge yours">MARKED</span>' : '',
     sig.tag === 'closer' ? '<span class="badge cyan">LOOK CLOSER</span>' : '',
     sig.stale ? '<span class="badge warn">CHANGED SINCE YOU MARKED IT</span>' : '',
@@ -42,12 +44,28 @@ export function signalRow(sig, districtName = () => '') {
       <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}${same}</span><small>${esc(districtName(sig.districtId))}</small></button></li>`;
 }
 
-// "11 CHECKS, 6 COULDN'T RUN": every check, never only the ones that worked.
+// "196 CHECKS, 3 COULDN'T RUN OR DIDN'T FINISH": every check, never only the
+// ones that worked. `w`: this sweep's counts (NotChecked.scanCounts: checks,
+// didntFinish, notStarted), or a stored sweep record (checks + fog = every check).
 export function sweepChecks(w) {
-  const ok = Number(w && w.checks) || 0;
-  const fog = Number(w && w.fog) || 0;
-  const all = ok + fog;
-  return `${all} CHECK${all === 1 ? '' : 'S'}${fog ? `, ${fog} COULDN’T RUN` : ''}`;
+  const live = !!w && Number.isInteger(w.didntFinish);
+  const all = live ? Number(w.checks) || 0 : (Number(w && w.checks) || 0) + (Number(w && w.fog) || 0);
+  const fog = live ? w.didntFinish : Number(w && w.fog) || 0;
+  const waiting = live ? Number(w.notStarted) || 0 : 0;
+  return `${all} CHECK${all === 1 ? '' : 'S'}${fog ? `, ${fog} COULDN’T RUN OR DIDN’T FINISH` : ''}${waiting ? `, ${waiting} WAITING FOR YOU` : ''}`;
+}
+
+// A checkup that stopped before its report was put together, in game words.
+// `stopped`: { stage, done, total }. Never "clear", and nothing to act on.
+export function stoppedBanner(stopped) {
+  if (!stopped) return '';
+  const head = stopped.stage === 'assembly' ? 'THE SWEEP STOPPED AT THE END' : 'THE SWEEP STOPPED EARLY';
+  const line = stopped.stage === 'assembly'
+    ? `All ${stopped.total} checks reported, but the sweep’s report couldn’t be put together. This is what they saw.`
+    : `${stopped.done} of ${stopped.total} checks reported before it stopped. The rest of the city wasn’t swept, so this isn’t the whole picture.`;
+  return `<div class="panel fogged stopped" role="note"><div class="label">${esc(head)}</div><p class="intel">${esc(line)}</p>
+    <p class="intel">Nothing on your computer was changed. Fixes and marks open after a sweep that finishes.</p>
+    <button type="button" class="btn-s" data-act="resweep">SWEEP AGAIN ⟳</button></div>`;
 }
 
 // THREAT's next move: the finding's own briefing, where any real fix asks first.
@@ -69,7 +87,8 @@ function chipLabel(rank, learned) {
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false,
   districtName = () => '', notice = '', heldLine = '', preSweep = false, scanError = '', learned = null,
-  queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', notChecked = '', todo = null, repeats = 0 }) {
+  queueOpen = false, sev = null, sevCounts = null, drills = [], scoutHtml = '', notChecked = '', todo = null, repeats = 0,
+  sweepNow = null, stopped = null }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -78,7 +97,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   <header class="hud deck-top"${behind}>
     <span class="hud-title">${esc(title)}</span>
     <button type="button" class="stat lime rank-chip" data-go="profile" aria-label="${esc(chipLabel(rank, learned))}"><small>RANK</small> ${esc(rank.name)} · ${esc(rank.points)}</button>
-    <span class="stat grey sweep-stat">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(sweepChecks(lastSweep))}` : '<small>NO SWEEP YET</small>'}
+    <span class="stat grey sweep-stat">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(sweepChecks(sweepNow || lastSweep))}` : '<small>NO SWEEP YET</small>'}
       ${scanRunning ? '<small class="sweeping">SWEEPING…</small>' : preSweep ? '' : '<button type="button" class="btn-t" data-act="resweep">RE-SWEEP ⟳</button>'}</span>
     <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
@@ -101,7 +120,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     // Before any sweep this session: the sweep is the one main action. The
     // label claims nothing about earlier sweeps (the top bar says those).
     blank = `<div class="panel pre-sweep"><div class="label">SWEEP THE CITY</div>
-      ${scanError ? `<p class="intel">${esc(scanError)}</p>` : ''}
+      ${scanError ? `<p class="intel" role="alert">${esc(STOPPED_LINE)}</p>` : ''}
       <button type="button" class="btn-p" data-act="start-checkup">START THE SWEEP ▶</button></div>`;
   } else if (nothingChecked) {
     blank = '<div class="panel fogged" role="note"><div class="label">NOTHING COULD BE CHECKED</div><p class="intel">None of the checks could run, so nothing was looked at. That doesn’t mean it’s safe.</p></div>';
@@ -151,7 +170,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   return `${top}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
-      <div class="label">INCOMING SIGNALS${Number.isInteger(todo) && todo ? ` · ${esc(todo)} TO DO` : ''}</div>${notChecked ? `<div class="panel fogged not-checked" role="note"><p class="intel">${esc(notChecked)}</p>${counts.couldnt ? '<button type="button" class="btn-t" data-act="sev:couldnt">SEE WHICH ▶</button>' : ''}</div>` : ''}${scoutHtml}${filters}${repeats > 0 && filters ? `<p class="intel faint repeats">${esc(REPEATS_LINE)}</p>` : ''}${head}${blank}${next}
+      <div class="label">INCOMING SIGNALS${Number.isInteger(todo) && todo ? ` · ${esc(todo)} TO DO` : ''}</div>${stoppedBanner(stopped)}${notChecked ? `<div class="panel fogged not-checked" role="note"><p class="intel">${esc(notChecked)}</p>${counts.couldnt ? '<button type="button" class="btn-t" data-act="sev:couldnt">SEE WHICH ▶</button>' : ''}</div>` : ''}${scoutHtml}${filters}${repeats > 0 && filters ? `<p class="intel faint repeats">${esc(REPEATS_LINE)}</p>` : ''}${head}${blank}${next}
       <ul class="queue">${shown.map((x) => signalRow(x, dn)).join('')}${more}${practice}${lowHtml}</ul>
       ${threatHtml}${knownHtml}
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>

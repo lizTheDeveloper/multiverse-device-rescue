@@ -129,7 +129,9 @@ test('the district screen: its name and voice, the held findings escaped, BACK T
   assert.doesNotMatch(renderSide({ district: d, held: [] }), /Don’t remove it yet/);
   assert.match(sideTileHtml(d, 0), /data-go="side"/);
   assert.match(sideTileHtml(d, 2), /NEW/);
-  assert.match(heldNoticeHtml(d), /data-go="side"/);
+  // One way there: the tile, marked NEW; the notice has no button of its own (P3-6).
+  assert.doesNotMatch(heldNoticeHtml(d), /data-go="side"/);
+  assert.match(sideTileHtml(d, 1), /data-go="side"[\s\S]*NEW/);
   assert.doesNotMatch(sideTileHtml(d, 1) + heldNoticeHtml(d), /advocate|remove|monitor|watch/i, 'the deck names only the place');
 });
 

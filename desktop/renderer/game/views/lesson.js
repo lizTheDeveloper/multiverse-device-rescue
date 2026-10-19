@@ -14,13 +14,17 @@ export function verdict(answer) {
   return `<b>${answer.correct ? 'Right.' : 'Not quite.'}</b> `;
 }
 
-export function renderLesson({ lesson: l, items = null, qIndex, picked, showTeach = true, scan, scout, pendingCity, scanFinished = false, settingFor = () => null, routerHtml = () => '' }) {
+// `example`: { path, title } from this computer's checkup, shown with the
+// lesson's intro so it can point at the person's own case.
+export function renderLesson({ example = null, lesson: l, items = null, qIndex, picked, showTeach = true, scan, scout, pendingCity, scanFinished = false, settingFor = () => null, routerHtml = () => '' }) {
   const list = Array.isArray(items) && items.length ? items : l.questions;
   const i = Math.max(0, Math.min(qIndex, list.length - 1));
   const q = list[i];
   const last = i >= list.length - 1;
   // The lesson's intro opens question 1; each question's own `teach` sits right above it.
   const know = [i === 0 && l.briefing, showTeach && q.teach].filter(Boolean);
+  const exampleHtml = i === 0 && example && example.path
+    ? `<p class="intel example">On this computer: <code>${esc(example.path)}</code> (${esc(example.title)})</p>` : '';
   const setting = q.setting ? settingFor(q.setting) : null;
   const settingHtml = setting ? `
       <button type="button" class="btn-s setting-open" data-act="open-setting:${esc(setting.key)}">OPEN IN SYSTEM SETTINGS ▶</button>
@@ -47,7 +51,7 @@ export function renderLesson({ lesson: l, items = null, qIndex, picked, showTeac
   ${pendingCity ? cityBanner() : ''}
   <section class="quiz lesson-screen">
     <div class="crumbs"><button type="button" data-go="training">Training Grounds</button> / <b>${esc(l.title)}</b> · QUESTION ${i + 1} OF ${list.length}</div>
-    ${know.length ? `<div class="panel"><div class="label">WHAT TO KNOW</div>${know.map((t) => `<p class="intel">${lessonText(t)}</p>`).join('')}${settingHtml}${routerButton}</div>` : ''}
+    ${know.length ? `<div class="panel"><div class="label">WHAT TO KNOW</div>${know.map((t) => `<p class="intel">${lessonText(t)}</p>`).join('')}${exampleHtml}${settingHtml}${routerButton}</div>` : ''}
     ${message}
     <p class="q">${lessonText(q.prompt)}</p>
     <div class="options">${options}</div>

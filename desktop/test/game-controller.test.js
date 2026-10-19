@@ -691,7 +691,9 @@ test('the scan fails on the boss screen: back to the Training Grounds, never a f
   t.ctl.scanFailed('engine exited <b>1</b>');
   const html = t.html();
   assert.match(html, /THE TRAINING GROUNDS/);
-  assert.match(html, /THE CHECKUP STOPPED[\s\S]*engine exited &lt;b&gt;1&lt;\/b&gt;/);
+  // One plain line; the engine's own words never show in the city (P1-1).
+  assert.match(html, /THE CHECKUP STOPPED[\s\S]*It stopped before it finished\. Nothing on your computer was changed\./);
+  assert.doesNotMatch(html, /engine exited/);
   assert.match(html, /data-act="start-checkup"[^>]*>START THE CHECKUP ▶/);
   assert.doesNotMatch(html, /Your checkup is done/);
   t.click({ 'data-go': 'boss' });

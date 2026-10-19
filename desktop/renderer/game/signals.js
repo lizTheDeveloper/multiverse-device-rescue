@@ -5,7 +5,7 @@
 // pre-tagged MINE; one that changed since (data.mark_stale) is back in the
 // queue. Monitoring checks are never signals: the game isn't offered when they
 // find something, and nothing about them is scored.
-import { findingIdentity, DISTRICTS, OUTSKIRTS } from './findings-to-city.js';
+import { findingIdentity, DISTRICTS, OUTSKIRTS, districtIdFor } from './findings-to-city.js';
 import { MONITORING_MODULES } from './ledger.js';
 // Sets globalThis.NotChecked (a plain script the list loads too).
 import '../not-checked.js';
@@ -27,9 +27,27 @@ export function fingerprint(finding) {
   return h.toString(36);
 }
 
+// An opt-in check waiting for the person's go-ahead (the iPhone backup's long
+// scan): a calm optional mission, never "couldn't run" and never clean. City
+// mode (`cover`) says it in game words and names no check.
+export const WAITING_TITLE = { cover: 'A phone backup can get its own long sweep', plain: 'Your phone’s backup can be swept for spyware' };
+export const WAITING_TEXT = {
+  cover: 'There’s a phone backup on this computer. It can get its own long sweep. It only looks at the backup and changes nothing. It starts only if you say so.',
+  plain: 'There’s an iPhone backup on this computer. It can be swept for spyware: a long sweep that only reads the backup and changes nothing. It starts only if you say so.',
+};
+
+// Its id never names the check (it is drawn into the page): the district, and
+// a short number made from the check's id.
+export function waitingId(districtId, module) {
+  let h = 5381;
+  for (const ch of String(module)) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;
+  return `waiting|${districtId}|${h.toString(36).slice(0, 4)}`;
+}
+
 // `changedIds`: tags the controller set aside this session, so the
 // "changed since you tagged it" badge stays after reconcileDeck dropped them.
-export function buildSignals(city, deck, changedIds = null) {
+// `cover`: city mode's words (WAITING_TITLE).
+export function buildSignals(city, deck, changedIds = null, { cover = true } = {}) {
   const tags = (deck && deck.tags) || {};
   const out = [];
   const byId = new Map();
@@ -67,6 +85,13 @@ export function buildSignals(city, deck, changedIds = null) {
         marked: false, stale: false, fp: fingerprint(n), count: 1 });
     }
     for (const g of d.fog || []) {
+      if (g.notStarted) {
+        // Counted with COULDN'T CHECK (it wasn't checked), but offered, not noted.
+        add({ id: waitingId(d.id, g.module), kind: 'waiting', severity: 'couldnt', title: cover ? WAITING_TITLE.cover : WAITING_TITLE.plain,
+          description: cover ? WAITING_TEXT.cover : WAITING_TEXT.plain, districtId: d.id, module: g.module, finding: null, missionId: null,
+          fixable: false, marked: false, stale: false, fp: 'waiting', count: 1, monitoring: MONITORING_MODULES.has(g.module) });
+        continue;
+      }
       // A monitoring check that couldn't run is still a COULDN'T CHECK row, so
       // the queue counts what the list counts (not-checked.js). It is never
       // named, never tagged and never stored (ledger.js refuses its id too).
@@ -81,9 +106,10 @@ export function buildSignals(city, deck, changedIds = null) {
 }
 
 // A check that couldn't run, named (monitoring checks never get here) with
-// why, in a few words: "Code signature audit took too long".
+// why, in a few words: "App signatures took too long". The check's own name
+// for people (check_name, as the list says it); its id only as a last resort.
 export function couldntTitle(g) {
-  const words = String((g && g.module) || '').replace(/_/g, ' ').trim();
+  const words = String((g && (g.checkName || g.module)) || '').replace(/_/g, ' ').trim();
   const name = words ? words.charAt(0).toUpperCase() + words.slice(1) : 'A check';
   const why = String((g && g.reason) || '');
   if (/timed?\s*out|took too long/i.test(why)) return `${name} took too long`;
@@ -164,7 +190,8 @@ export function cityIntegrity(city, signals, held = null) {
     if (!(d.checksRan > 0)) continue;
     checkedIds.add(d.id);
     // A check here that didn't finish may have missed something: not secured.
-    if (!openIn.has(d.id) && !(d.unfinished && d.unfinished.length)) securedIds.add(d.id);
+    // Nor is any district of a checkup that stopped before its report was done.
+    if (!openIn.has(d.id) && !(d.unfinished && d.unfinished.length) && !d.stopped) securedIds.add(d.id);
   }
   const checked = checkedIds.size;
   const secured = securedIds.size;
@@ -185,20 +212,23 @@ export function districtHeat(city, signals, held = null) {
   return out;
 }
 
-// What a sweep record holds: counts only (see progress.js SWEEP_FIELDS).
-// `held`: the held city (held.js). Its criticals and warnings are counted too,
-// as numbers only, so a sweep never reads as lighter than the scan was.
-export function sweepCounts(doc, city, integrity, held = null) {
-  const t = (city && city.totals) || {};
-  const h = (held && held.totals) || {};
-  const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
+// The scan's numbers as the city shows them: NotChecked.scanCounts in city
+// mode (held findings left out of every number), by the city's districts.
+export function cityCounts(doc) {
+  return globalThis.NotChecked.scanCounts(doc, { mode: 'city', districtOf: districtIdFor });
+}
+
+// What a sweep record holds: counts only (see progress.js SWEEP_FIELDS), from
+// cityCounts, so LAST SWEEP, the ops log, the chips and the list agree.
+// `checks` + `fog` is every check; `fog` is what couldn't run or didn't
+// finish. The rest is said in the log, never stored.
+export function sweepCounts(doc, city, integrity) {
+  const c = cityCounts(doc);
   return {
-    checks: mods.filter((m) => m && m.status === 'ok' && m.supported !== false).length,
-    critical: (t.critical || 0) + (h.critical || 0), warning: (t.warning || 0) + (h.warning || 0), info: t.info || 0, fog: t.fog || 0,
+    checks: Math.max(0, c.checks - c.didntFinish), fog: c.didntFinish,
+    critical: c.critical, warning: c.warning, info: c.info,
     checked: (integrity && integrity.checked) || 0, secured: (integrity && integrity.secured) || 0,
-    // Ran, but stopped before the end ("complete": false): said in the log,
-    // never stored (not one of SWEEP_FIELDS).
-    unfinished: mods.filter((m) => m && m.status === 'ok' && m.supported !== false && m.complete === false).length,
+    total: c.checks, unfinished: c.unfinished, couldntRun: c.couldntRun, notStarted: c.notStarted, items: c.items,
   };
 }
 

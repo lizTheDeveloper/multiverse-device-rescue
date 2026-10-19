@@ -101,13 +101,13 @@ test('INVESTIGATE NEXT opens the most important signal; clues unlock one at a ti
   assert.match(t.html(), /data-act="clue:maker"/);
   assert.doesNotMatch(t.html(), /How to read this/);
   t.click({ 'data-act': 'clue:maker' });
-  assert.match(t.html(), /WHO MADE IT[\s\S]*Unknown maker, not verified \(unsigned\)[\s\S]*How to read this/);
+  assert.match(t.html(), /WHO MADE IT[\s\S]*Unknown maker · not verified · unsigned[\s\S]*How to read this/);
   assert.strictEqual(t.saved().deck.points, 5);
   t.click({ 'data-act': 'clue:maker' });
   t.click({ 'data-act': 'close-signal' });
   assert.doesNotMatch(t.html(), /id="sig-title"/);
   t.click({ 'data-act': 'investigate-next' });
-  assert.match(t.html(), /Unknown maker, not verified/, 'an opened clue stays open this scan');
+  assert.match(t.html(), /Unknown maker · not verified/, 'an opened clue stays open this scan');
   t.click({ 'data-act': 'clue:maker' });
   assert.strictEqual(t.saved().deck.points, 5, 'the same clue pays once per scan');
   t.click({ 'data-act': 'clue:when' });
@@ -771,7 +771,7 @@ test('an open mission and a re-sweep whose check didn’t finish: still open, no
   assert.match(html, /1 DIDN’T FINISH/);
   assert.doesNotMatch(html, /NOTHING FOUND|What was found here before is gone now|CLEAN SWEEP|SECURED<\/span> The Gatehouse/);
   assert.doesNotMatch(html, /NO LONGER SEEN<\/span> A/);
-  assert.match(html, /SWEEP<\/span> 1 check: 0 critical, 0 warning, 0 couldn’t check, 1 didn’t finish\./);
+  assert.match(html, /SWEEP<\/span> 1 check: 0 to look at \(0 critical\), 1 couldn’t run or didn’t finish\./);
   assert.ok(saved.deck.sweeps.every((w) => !('unfinished' in w)), 'the count is said, never stored');
 });
 

@@ -31,7 +31,7 @@ test('clues are locked until SCAN CLUE, then show with their how-to-read line', 
   assert.match(shut, /data-act="tag:mine"[\s\S]*data-act="tag:closer"[\s\S]*data-act="tag:threat"/);
   assert.match(shut, /They change nothing on your computer/);
   const open = await panel({ opened: ['maker', 'where'] });
-  assert.match(open, /WHO MADE IT[\s\S]*Unknown maker, not verified \(unsigned\)[\s\S]*<summary>How to read this<\/summary><p>Not verified/);
+  assert.match(open, /WHO MADE IT[\s\S]*Unknown maker · not verified · unsigned[\s\S]*<summary>How to read this<\/summary><p>Not verified/);
   assert.match(open, /WHERE IT LIVES[\s\S]*\/tmp\/x[\s\S]*temporary folder/);
   assert.match(open, /data-act="clue:what"/);
 });

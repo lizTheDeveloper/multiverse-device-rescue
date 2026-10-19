@@ -28,12 +28,17 @@ const MODULE_ID = /`?\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b`?/g;
 const SF = globalThis.StepFill;
 export const shellSafe = SF.shellSafe;
 export const fillPlaceholders = (text, data, platform = null) => SF.fillPlaceholders(text, data, platform);
+// The list's rule for a step: lines for another computer left out, then the placeholders filled.
+export const fillStep = (text, data, platform = null) => SF.fillStep(text, data, platform);
 
 // `launchd_persistence_audit` -> "the startup-task check". Only real check
 // names (the scan's modules, or the ones above) change; other words stay.
-export function wordsForModules(text, modules = []) {
-  const known = new Set([...Object.keys(CHECK_WORDS), ...(modules || [])]);
-  return String(text == null ? '' : text).replace(MODULE_ID, (all, id) => (known.has(id) ? CHECK_WORDS[id] || 'this checkup' : all));
+// `names`: the scan's own names for its checks (check_name), as the list says
+// them: "the Background tasks check".
+export function wordsForModules(text, modules = [], names = {}) {
+  const known = new Set([...Object.keys(CHECK_WORDS), ...(modules || []), ...Object.keys(names || {})]);
+  const named = (id) => (names && typeof names[id] === 'string' && names[id].trim() ? `the ${names[id].trim()} check` : null);
+  return String(text == null ? '' : text).replace(MODULE_ID, (all, id) => (known.has(id) ? named(id) || CHECK_WORDS[id] || 'this checkup' : all));
 }
 
 const inline = (v) => esc(v)
@@ -94,9 +99,9 @@ export function splitBody(body) {
 // The steps list. `data`: the finding's evidence (fills the placeholders,
 // on `platform` darwin or linux only);
 // `modules`: the scan's check ids (made into words).
-export function stepsHtml(steps, { data = null, modules = [], platform = null } = {}) {
+export function stepsHtml(steps, { data = null, modules = [], platform = null, names = {} } = {}) {
   return (steps || []).map((s) => {
-    const prep = (t) => wordsForModules(fillPlaceholders(t, data, platform), modules);
+    const prep = (t) => wordsForModules(fillStep(t, data, platform), modules, names);
     const title = prep(s.title).replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
     const [plain, tech] = splitBody(prep(s.body));
     const body = (plain ? `<div class="step-body">${miniMarkdown(plain)}</div>` : '')

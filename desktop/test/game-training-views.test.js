@@ -52,8 +52,8 @@ test('while a scan runs, the button goes back to the checkup instead of starting
 test('a failed scan shows the error in plain words and offers to start again', async () => {
   const v = await views();
   const html = v.renderTraining({ ordered, progress: { lessons: {} }, scan: failed, scout });
-  assert.match(html, /didn’t finish/);
-  assert.match(html, /The engine stopped\./);
+  assert.match(html, /stopped before it finished/);
+  assert.doesNotMatch(html, /The engine stopped\./, 'never the engine’s own words');
   assert.match(html, /Nothing on your computer was changed/);
   assert.match(html, /START THE CHECKUP/);
 });

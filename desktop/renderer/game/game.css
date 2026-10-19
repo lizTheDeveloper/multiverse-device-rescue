@@ -376,6 +376,11 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .pick-row { display: flex; gap: 10px; align-items: center; }
 .pick { width: 18px; height: 18px; flex: none; accent-color: var(--cyan); }
 .bulk { margin-top: 12px; align-items: center; }
+/* The bulk moves stay in view while the list scrolls (P2-9). */
+.district-screen .bulk { position: sticky; bottom: 0; z-index: 2; background: var(--charcoal); border-top: 1px solid var(--line); padding: 10px 0; margin-bottom: -18px; }
+/* During the sweep only the district being swept fills its LEARN cue (P3-5). */
+.districts.sweep:has(.suggested) .district.learnable:not(.suggested):hover .cue,
+.districts.sweep:has(.suggested) .district.learnable:not(.suggested):focus-visible .cue { background: rgba(0,229,255,0.08); color: var(--cyan); }
 .bulk button[disabled] { opacity: 0.45; cursor: default; }
 details.reading { margin-top: 6px; font-size: 13px; color: var(--dim); }
 details.reading > summary { cursor: pointer; }

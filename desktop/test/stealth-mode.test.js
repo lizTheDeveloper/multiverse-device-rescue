@@ -241,7 +241,9 @@ test('the list’s "Open the city" leads to the district and its quiet record', 
   assert.match(Q.HELD_MORE, /Open the city/);
   const t = await stealthController('city');
   t.ctl.show(spyDoc(), { id: 'city' });
-  assert.match(t.frame.innerHTML, /<p class="link-notice" role="status">Something new in [^<]*<button type="button" class="btn-t" data-go="side">/);
+  assert.match(t.frame.innerHTML, /<p class="link-notice" role="status">Something new in [^<]*<\/p>/);
+  // The way there is the district's tile, marked NEW (one way, not two).
+  assert.match(t.frame.innerHTML, /data-go="side">[^<]*<\/button> <span class="badge">NEW<\/span>/);
   t.click({ 'data-go': 'side' });
   assert.match(t.frame.innerHTML, /On paper or on another device, write down the name the scan found/);
 });

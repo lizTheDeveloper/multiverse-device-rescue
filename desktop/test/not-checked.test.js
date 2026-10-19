@@ -138,11 +138,9 @@ for (const file of FIXTURES) {
   });
 }
 
-// The mission HUD reads notChecked.couldntRun only (game/views/hud.js, Group
-// B): with the iPhone backup scan now "not started" it should add notStarted,
-// as the deck's chip does. Kept visible as a todo until hud.js follows.
+// The mission HUD's COULDN'T CHECK is the deck's chip: couldn't run plus a
+// scan waiting for a go-ahead (game/views/hud.js reads NotChecked.scanCounts).
 const hudCouldnt = new Map();
-test('the mission HUD’s COULDN’T CHECK matches the deck’s chip (fog includes a scan not started)',
-  { todo: 'game/views/hud.js: fog = couldntRun + notStarted (or NotChecked.scanCounts)' }, () => {
+test('the mission HUD’s COULDN’T CHECK matches the deck’s chip (fog includes a scan not started)', () => {
     for (const [file, { got, want }] of hudCouldnt) assert.strictEqual(got, want, file);
   });
