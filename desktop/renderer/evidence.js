@@ -119,8 +119,13 @@ const Evidence = (function () {
     return i === 0 ? `${v} bytes` : `${x >= 100 ? Math.round(x) : x.toFixed(1)} ${units[i]}`;
   }
 
+  // Short words a key spells for code ("vpn_count", "twofa_enabled") as people write them.
+  const ACRONYMS = { vpn: 'VPN', wifi: 'Wi-Fi', usb: 'USB', dns: 'DNS', ip: 'IP', ssh: 'SSH', cpu: 'CPU', gpu: 'GPU',
+    url: 'URL', twofa: '2FA', mfa: 'MFA', os: 'OS', uuid: 'UUID', mdm: 'MDM', ram: 'RAM', ssd: 'SSD', tcc: 'TCC' };
+
   function humanize(key) {
-    const words = String(key || '').replace(/_/g, ' ').trim();
+    const words = String(key || '').replace(/_/g, ' ').trim().split(/\s+/)
+      .map((w) => (Object.prototype.hasOwnProperty.call(ACRONYMS, w.toLowerCase()) ? ACRONYMS[w.toLowerCase()] : w)).join(' ');
     return words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
   }
 
@@ -140,15 +145,17 @@ const Evidence = (function () {
    * `copy` as an array: one line each (the commands a check ran), each made
    * visible on its own, so only this file's own line breaks remain.
    */
-  function row(label, value, { mono = false, copy } = {}) {
+  function row(label, value, { mono = false, copy, tech = false } = {}) {
     const shown = clip(VT.visible(value == null ? '' : value), MAX_VALUE);
     const whole = Array.isArray(copy) ? copy.map(VT.visible).join('\n') : VT.visible(copy == null ? (value == null ? '' : value) : copy);
     const full = clip(whole, MAX_COPY);
-    return { label: VT.visible(label), value: shown, mono, copy: full };
+    return { label: VT.visible(label), value: shown, mono, copy: full, ...(tech ? { tech: true } : {}) };
   }
 
   const pathRow = (label, p) => row(label, shortPath(p), { mono: true, copy: homeRelative(p) });
-  const hashRow = (label, h) => row(label, shortHash(h), { mono: true, copy: String(h) });
+  // A hash is for comparing, not reading (P2-11): `tech`, so it sits behind
+  // "Technical details" and at the end of the rows, and Copy keeps it whole.
+  const hashRow = (label, h) => row(label, shortHash(h), { mono: true, copy: String(h), tech: true });
 
   /** A list value: the first MAX_LIST items, then "and N more"; copy has all. */
   function listRow(label, items, { mono = true, fmt = (x) => x } = {}) {
@@ -444,9 +451,19 @@ const Evidence = (function () {
   // suspicious_dns", "Source: filesystem").
   const SKIP = new Set(['check', 'severity_level', 'marked_by_user', 'mark_stale', 'mark_id', 'original_title',
     'used_pct', 'is_system_app', 'source', 'known_item_id', 'original_severity',
+    // How long the check was allowed to run: the engine's budget, not evidence (P2-11).
+    'time_budget_s',
     // The engine's own certainty ("medium"): a word for code, not evidence (P2-4).
     'confidence']);
   const skipKey = (key) => SKIP.has(key) || /_type$/.test(key) || /^check_/.test(key);
+  // A unit at the end of a key ("swap_used_mb", "latency_ms"): the label
+  // without it, the value with it (P2-11: never "Swap used mb 3935.38").
+  const UNITS = [
+    [/_bytes$/, (v) => bytes(v)], [/_kb$/, (v) => bytes(v * 1e3)], [/_mb$/, (v) => bytes(v * 1e6)], [/_gb$/, (v) => bytes(v * 1e9)],
+    [/_ms$/, (v) => `${v} ms`], [/_(?:s|secs?|seconds)$/, (v) => `${v} seconds`], [/_mbps$/, (v) => `${v} Mbps`],
+    [/_(?:pct|percent)$/, (v) => `${v}%`], [/_days$/, (v) => `${v} days`], [/_hours$/, (v) => `${v} hours`], [/_minutes$/, (v) => `${v} minutes`],
+  ];
+  const unitOf = (key) => UNITS.find(([re]) => re.test(key)) || null;
   // An empty value says nothing: never a row.
   const isEmpty = (v) => v == null || (typeof v === 'string' && v.trim() === '')
     || (Array.isArray(v) && !v.some((x) => !isEmpty(x))) || (isObj(v) && !Object.values(v).some((x) => !isEmpty(x)));
@@ -464,11 +481,15 @@ const Evidence = (function () {
     interval_seconds: 'Every (seconds)', bundle_id: 'Bundle id', team_id: 'Team id', signer: 'Signed by',
     servers: 'DNS servers', dns_servers: 'DNS servers', providers: 'Provider', provider: 'Provider',
     profile_ids: 'Profile id', gateway_ip: 'Router', service: 'Service', kind: 'Kind',
+    free_pct_str: 'Free', fv_enabled: 'FileVault on', mvt_bin: 'MVT program',
   };
   // A value written for code ("pipe_to_shell") in words ("pipe to shell").
   const CODE_WORD = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
   const MONO_KEYS = new Set(['pid', 'port', 'ports', 'ip', 'hostname', 'dest', 'remote', 'label', 'process',
     'bundle_id', 'team_id', 'command', 'device', 'value', 'keys', 'apps', 'detail', 'servers', 'dns_servers', 'profile_ids']);
+
+  // "file_sha256" -> "File hash", "sha256" -> "Hash".
+  const hashLabel = (key) => (LABELS[key] || humanize(`${key.replace(/_?(sha256|hash)$/, '')} hash`));
 
   function genericRows(data, used) {
     const rows = [];
@@ -476,17 +497,28 @@ const Evidence = (function () {
       if (used.has(key) || skipKey(key) || isEmpty(v)) continue;
       // "Target 22" beside "Port 22" says nothing new.
       if (key === 'target' && data.port != null && String(v) === String(data.port)) continue;
-      const label = LABELS[key] || humanize(key);
-      if (key === 'kind' && typeof v === 'string' && CODE_WORD.test(v)) { rows.push(row(label, v.replace(/_/g, ' '))); continue; }
-      if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(label, v));
+      // "size_bytes" beside the engine's own "size_formatted": the formatted one.
+      if (/_bytes$/.test(key) && typeof data[key.replace(/_bytes$/, '_formatted')] === 'string') continue;
+      // "type: broken_login_items" is the engine's name for the finding, not evidence.
+      if (key === 'type' && typeof v === 'string' && CODE_WORD.test(v)) continue;
+      const unit = typeof v === 'number' && Number.isFinite(v) ? unitOf(key) : null;
+      if (unit && !LABELS[key]) { rows.push(row(humanize(key.replace(unit[0], '')), unit[1](Math.round(v * 100) / 100))); continue; }
+      const label = LABELS[key] || humanize(key.replace(/_formatted$/, ''));
+      // A value written for code ("battery_drain") in words ("battery drain"),
+      // except where the exact text is the evidence (an id, a label, a command).
+      if (typeof v === 'string' && CODE_WORD.test(v) && !MONO_KEYS.has(key)) { rows.push(row(label, v.replace(/_/g, ' '))); continue; }
+      if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(hashLabel(key), v));
       else if (/_bytes$/.test(key) && typeof v === 'number') rows.push(row(label, bytes(v)));
-      else if (/(^|_)(date|at|time|since)$/.test(key) && typeof v === 'string') rows.push(row(label, plainDay(v)));
+      else if (/(^|_)(date|at|time|since|seen)$/.test(key) && typeof v === 'string') rows.push(row(label, plainDay(v)));
       else if (key === 'cpu_percent') rows.push(row(label, `${v}%`));
       else if (typeof v === 'string' && looksLikePath(v)) rows.push(pathRow(label, v));
       else if (isScalar(v)) rows.push(row(label, fmtScalar(v), { mono: MONO_KEYS.has(key) }));
       else if (Array.isArray(v)) {
         if (!v.length) continue;
-        if (v.every(isScalar)) rows.push(listRow(label, v, { mono: MONO_KEYS.has(key) || v.some(looksLikePath) }));
+        if (v.every(isScalar)) {
+          const mono = MONO_KEYS.has(key) || v.some(looksLikePath);
+          rows.push(listRow(label, v, { mono, fmt: (x) => (!mono && typeof x === 'string' && CODE_WORD.test(x) ? x.replace(/_/g, ' ') : x) }));
+        }
         else if (v.every(isObj)) rows.push(listRow(label, v.map(flatObject), { mono: false }));
       } else if (isObj(v)) {
         // A small map ({"Arial.ttf": ["/Library/Fonts", …]}, {"chrome": 50}): one row per key.
@@ -529,6 +561,23 @@ const Evidence = (function () {
     else rows.push(row('Made by', 'Not known'));
     rows.push(row('Date', plainDay(opts.seen instanceof Date || typeof opts.seen === 'string' ? opts.seen : new Date())));
     return rows;
+  }
+
+  // ---- city words ------------------------------------------------------------
+
+  // A check's name on screen in city mode: never a watching word ("Network
+  // connections monitor", "iPhone backup spyware scan", "Monitoring apps").
+  // "monitor" alone drops out; a name that is about watching becomes the sweep.
+  const WATCH_WORDS = /monitor|spy|spie|stalk|keylog|surveil|tracking|tracker/i;
+  const CITY_SWEEP = 'Safety sweep';
+  function cityCheckName(name, module) {
+    const s = String(name || '');
+    if (!WATCH_WORDS.test(s)) return s;
+    if (MONITORING_MODULES.has(module)) return CITY_SWEEP;
+    const left = s.replace(/\s*\bmonitor(?:s|ing)?\b\s*/gi, ' ').replace(/\s+/g, ' ').trim();
+    if (!left || WATCH_WORDS.test(left)) return CITY_SWEEP;
+    const words = /\s/.test(left) ? left : `${left} check`;
+    return words.charAt(0).toUpperCase() + words.slice(1);
   }
 
   // ---- the finding's own words ---------------------------------------------
@@ -581,7 +630,8 @@ const Evidence = (function () {
       // A maker for a path already shown is still worth its own row; skip none.
       rows.push(...makerRows(f.made_by));
     }
-    const check = o.checkName || f.check_name || (f.module ? humanize(f.module) : '');
+    const named = o.checkName || f.check_name || (f.module ? humanize(f.module) : '');
+    const check = o.mode === 'city' ? cityCheckName(named, f.module) : named;
     if (check) rows.push(row('Check', check));
     const mine = commandsFor(f, o.commands);
     const cmd = commandRow(mine.commands, mine.names);
@@ -589,7 +639,9 @@ const Evidence = (function () {
     if (f.repeats > 1) rows.push(row('Seen', `${f.repeats} times in this check`));
     const when = o.seen || f.collected_at;
     if (when) rows.push(row('When', plainDay(when)));
-    return mark(rows.slice(0, MAX_ROWS), replacesDescription(f) ? { replacesDescription: true } : {});
+    // Technical rows last, so a game that shows only the first few rows never shows a hash.
+    const ordered = [...rows.filter((r) => !r.tech), ...rows.filter((r) => r.tech)];
+    return mark(ordered.slice(0, MAX_ROWS), replacesDescription(f) ? { replacesDescription: true } : {});
   }
 
   // Flags on the rows array itself, not on any row (rows stay {label, value, mono, copy}).
@@ -607,6 +659,7 @@ const Evidence = (function () {
   }
 
   const PAPER_LINE = 'Write this on paper or on another device.';
+  const TECH_TITLE = 'Technical details';
 
   /**
    * City mode: nothing from a monitoring check goes to the clipboard, held or
@@ -646,18 +699,24 @@ const Evidence = (function () {
     const btn = (text, label, aria) => (copy
       ? `<button type="button" class="evidence-copy" data-evidence-copy="${esc(text)}" aria-label="${esc(aria)}">${esc(label)}</button>`
       : '');
-    const body = list.map((r) => {
+    const cell = (r) => {
       const full = r.copy != null ? r.copy : r.value;
       const val = r.mono
         ? `<code class="evidence-mono"${full !== r.value ? ` title="${esc(full)}"` : ''}>${breakable(r.value)}</code>`
         : `<span${full !== r.value ? ` title="${esc(full)}"` : ''}>${breakable(r.value)}</span>`;
       return `<dt>${esc(r.label)}</dt><dd>${val}${r.mono ? btn(full, 'Copy', `Copy ${r.label}`) : ''}</dd>`;
-    }).join('');
+    };
+    // Hashes and the like: folded away under "Technical details" (P2-11).
+    const tech = list.filter((r) => r.tech === true);
+    const body = list.filter((r) => r.tech !== true).map(cell).join('');
+    const techHtml = tech.length
+      ? `<details class="evidence-tech"><summary>${esc(TECH_TITLE)}</summary><dl class="evidence-grid">${tech.map(cell).join('')}</dl></details>`
+      : '';
     return `<section class="evidence${held ? ' evidence--held' : ''}" data-evidence>`
       + `<div class="evidence-head"><span class="evidence-title">${esc(title)}</span>`
       + `${btn(evidenceText(list), opts.copyAllLabel || 'Copy all', 'Copy all of this')}</div>`
       + (held ? `<p class="evidence-paper">${esc(PAPER_LINE)}</p>` : '')
-      + `<dl class="evidence-grid">${body}</dl></section>`;
+      + (body ? `<dl class="evidence-grid">${body}</dl>` : '') + techHtml + '</section>';
   }
 
   /**
@@ -696,6 +755,9 @@ const Evidence = (function () {
 .evidence--held{font-size:1.2em;line-height:1.5}
 .evidence--held .evidence-grid{gap:.5rem 1rem}
 .evidence-paper{margin:.25rem 0 .5rem;font-weight:600}
+.evidence-tech{margin-top:.35rem}
+.evidence-tech>summary{cursor:pointer;font-size:.85em;opacity:.8}
+.evidence-tech>.evidence-grid{margin-top:.25rem}
 @container (max-width:28rem){.evidence-grid{grid-template-columns:1fr;gap:0}.evidence-grid dd{margin-bottom:.35rem}}
 @media (max-width:800px){.evidence-grid{grid-template-columns:1fr;gap:0}.evidence-grid dd{margin-bottom:.35rem}}
 `;
@@ -704,7 +766,7 @@ const Evidence = (function () {
     MONITORING_MODULES, ADAPTERS, CSS, PAPER_LINE,
     evidenceRows, renderEvidence, evidenceText, wireCopy, replacesDescription, noClipboard,
     plainDay, shortHash, shortPath, homeRelative, bytes, makersVerified, makerText, checkLabel, commandLine, shortCommand,
-    appSubject, breakable, commandsFor, findingSubjects,
+    appSubject, breakable, commandsFor, findingSubjects, cityCheckName,
   };
 })();
 
