@@ -7,7 +7,8 @@ import { groupMissions, buildTable, missionCounts } from '../missions/types.js';
 import { loadGames, gameFor, ownGames } from '../missions/games/index.js';
 import { assemble, resolveLink, unfinishedModules } from '../missions/research.js';
 import * as Run from '../missions/runner.js';
-import { renderMissionRows, renderMissionScreen, nextMissionLine } from './views/mission-run.js';
+import { renderMissionScreen, nextMissionLine } from './views/mission-run.js';
+import { renderMissionList } from './views/district.js';
 import { roundOf, markRound, recordRound, keepAnswer, recallAnswer, decisionHash, conceptState } from './profile/player-profile.js';
 import { conceptById } from './profile/skills.js';
 import { award, confirmItem, missionKey } from './ledger.js';
@@ -331,7 +332,7 @@ export function createMissionDesk(deps) {
   function districtMissionsHtml(districtId) {
     const list = d.missions.filter((m) => m.district === districtId);
     if (!list.length) return '';
-    return renderMissionRows(list, { mode: mode(), status: statusOf });
+    return renderMissionList(list, { mode: mode(), status: statusOf });
   }
 
   // --- clicks; true when handled ---

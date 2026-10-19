@@ -68,14 +68,15 @@ async function setup(d, { storage = memStore(), mode = 'standard', recheckDocs =
   return { ...t, ctl, storage, html: () => t.frame.innerHTML };
 }
 
-test('a district lists its missions: checkbox, title, count, severity and PART 1 OF 2', async () => {
+test('a district lists its missions: checkbox, title, count and severity, one row per type and severity', async () => {
   const t = await setup(doc());
   t.click({ 'data-go': 'district:gatehouse' });
   const h = t.html();
   assert.match(h, /class="mx-check"/);
   assert.match(h, /data-go="mx:simple:gatehouse:1"/);
-  assert.match(h, /Other<small class="mission-detail">4 items · PART 1 OF 2/);
-  assert.match(h, /3 items · PART 2 OF 2/);
+  // The critical part and the warning part are separate rows (types.js missionRows folds by severity).
+  assert.match(h, /Other<small class="mission-detail">4 items</);
+  assert.match(h, /data-go="mx:simple:gatehouse:2"[\s\S]*3 items</);
   assert.match(h, /badge crit">CRITICAL/);
   assert.doesNotMatch(h, /data-act="bulk-did"/, 'the old per-finding bulk rows are replaced');
 });

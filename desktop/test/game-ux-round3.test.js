@@ -308,8 +308,10 @@ test('a district splits many items into missions of a few each; a waiting check 
   const t = await setup(scan(mod('launch_agent_audit', many), mvt));
   t.click({ 'data-go': 'district:gatehouse' });
   const html = t.html();
-  assert.strictEqual((html.match(/PART \d OF 4/g) || []).length, 4, '14 items, at most 4 per mission');
-  assert.doesNotMatch(html, /PART 5/);
+  // 14 items, at most 4 per mission: four parts, folded into one district row (UX audit P1-4).
+  assert.match(html, /4 parts · 14 items/);
+  assert.strictEqual((html.split('mx-notes-label')[0].match(/data-go="mx:/g) || []).length, 1, 'one row for the four parts');
+  assert.doesNotMatch(html, /5 parts/);
   assert.match(html, /WAITING FOR YOUR GO-AHEAD/);
   assert.doesNotMatch(html.split('WAITING FOR YOUR GO-AHEAD')[0], /COULDN’T CHECK HERE/);
 });
