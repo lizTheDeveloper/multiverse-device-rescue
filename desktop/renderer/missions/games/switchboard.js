@@ -132,7 +132,7 @@ const KINDS = {
   },
   firewall: {
     chip: W('Firewall rule', 'Gate rule'),
-    via: W('Firewall rule', 'Gate rule'), to: W('Lets in', 'Lets through'),
+    via: W('Rule', 'Rule'), to: W('Lets in', 'Lets through'),
     head: W('', 'The gate lets callers through'),
     what: W('The firewall decides which apps other computers can reach. Each app let in is one more way in; apps you no longer use don’t need it.',
       'The gate decides who may ring in. Each name on its list is one more way in.'),
@@ -152,7 +152,7 @@ const KINDS = {
   },
   profile: {
     chip: W('DNS profile', 'Directory relay'),
-    via: W('Every website name', 'Every name'), to: W('Goes through', 'Relayed by'),
+    via: W('Sends', 'Sends'), to: W('Goes through', 'Relayed by'),
     head: W('', 'Your directory line goes through a relay'),
     what: W('A filtering profile sends every website name {me} looks up to the profile’s account. Its owner can see those names.',
       'Every name {me} asks for passes through this relay. Whoever holds its account sees the names.'),
@@ -180,7 +180,7 @@ const KINDS = {
   },
   proxy: {
     chip: W('Proxy', 'Relay'),
-    via: W('Your web traffic', 'Your calls'), to: W('Goes through', 'Relayed by'),
+    via: W('Sends', 'Sends'), to: W('Goes through', 'Relayed by'),
     head: W('', 'Your calls go through a relay'),
     what: W('A proxy sits between {me} and every website. Some workplaces, schools and privacy tools use one. Whoever runs it can see where you go.',
       'A relay sits between {me} and the street. Whoever runs it sees where your calls go.'),
@@ -323,7 +323,7 @@ function firewallLines(d, ctx, finding) {
   const city = ctx.mode === 'city';
   if (code.endsWith('allow_signed_enabled')) return [{ via: city ? 'Signed callers' : 'Signed apps', to: city ? 'Let through without asking' : 'Let in without asking', odd: true }];
   if (Array.isArray(d.apps) || Array.isArray(d.allowed_apps)) {
-    return list(d.apps || d.allowed_apps).map((a) => ({ via: city ? 'Gate list' : 'Firewall list', to: entryText(a) }));
+    return list(d.apps || d.allowed_apps).map((a) => ({ via: city ? 'Allowed list' : 'Allowed apps', to: entryText(a) }));
   }
   if (d.rule_name) {
     const what = d.issue_type === 'all_programs' || code.endsWith('all_programs') ? (city ? 'Any caller' : 'Any program') : (city ? 'Every socket' : 'Every port');
@@ -353,7 +353,7 @@ function dnsLines(d, ctx, finding) {
 }
 
 function profileLines(d, ctx) {
-  const via = say(KINDS.profile.via, ctx);
+  const via = ctx.mode === 'city' ? 'Every name' : 'Every website name';
   const servers = list(d.servers).map(entryText).filter(Boolean);
   const to = `${clip(d.provider || (ctx.mode === 'city' ? 'Unknown relay' : 'Unknown provider'))}${servers.length ? ` · ${servers.join(', ')}` : ''}`;
   return [{ via, to: clip(to), odd: false }];
@@ -382,7 +382,8 @@ function hostsLines(d, ctx) {
 
 function proxyLines(d, ctx) {
   const city = ctx.mode === 'city';
-  const via = (iface) => clip(iface ? `${say(KINDS.proxy.via, ctx)} (${iface})` : say(KINDS.proxy.via, ctx));
+  const what = ctx.mode === 'city' ? 'Your calls' : 'Your web traffic';
+  const via = (iface) => clip(iface ? `${what} (${iface})` : what);
   const iface = d.interface || d.target;
   const out = [];
   if (d.pac_url) out.push({ via: via(iface), to: clip(`Setup file: ${d.pac_url}`), odd: true });
@@ -579,8 +580,7 @@ export function research(item, ctx) {
   if (look) links.push(look);
   links.push({ kind: 'lesson', concept: KINDS[kind].concept });
   const unfinished = didntFinish(item);
-  let what = say(KINDS[kind].what, c);
-  if (unfinished) what += c.mode === 'city' ? ' This sweep didn’t finish, so it may have missed lines.' : ' This check didn’t finish, so it may have missed some.';
+  const what = say(KINDS[kind].what, c);
   const out = { rows: Array.isArray(rows) ? rows : [], what, links, unfinished };
   if (KINDS[kind].ask) out.ask = say(KINDS[kind].ask, c);
   return out;
@@ -622,7 +622,7 @@ export function render(view, ctx) {
   if (t.more) parts.push(`<p class="sb-more">${e(`and ${t.more} more`)}</p>`);
   if (r.ask) parts.push(`<div class="sb-ask"><strong>${e(city ? 'Whose relay is it?' : 'Whose profile is this?')}</strong><p>${e(r.ask.replace(/^Whose (?:profile is this|relay is it)\?\s*/, ''))}</p></div>`);
   if (r.what) parts.push(`<p class="sb-what">${e(r.what)}</p>`);
-  if (r.unfinished) parts.push(`<p class="sb-unfinished">${e(city ? 'This sweep didn’t finish.' : 'This check didn’t finish.')}</p>`);
+  if (r.unfinished || didntFinish(item)) parts.push(`<p class="sb-unfinished">${e(city ? 'This sweep didn’t finish, so it may have missed lines.' : 'This check didn’t finish, so it may have missed some.')}</p>`);
   parts.push('</article>');
   return parts.join('');
 }
