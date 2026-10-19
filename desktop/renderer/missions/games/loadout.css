@@ -1,0 +1,38 @@
+/* The Loadout: one browser add-on card. Uses the game's tokens (renderer/game/game.css :host). */
+.lo-card {
+  border: 1px solid var(--line, rgba(0,229,255,0.15));
+  border-left: 3px solid var(--cyan, #00E5FF);
+  background: var(--panel, rgba(26,31,43,0.55));
+  padding: 16px 18px;
+  display: grid; gap: 10px;
+  max-width: 640px;
+}
+.lo-card--known-bad, .lo-card--miner, .lo-card--mining-page, .lo-card--mining-hosts { border-left-color: var(--magenta, #FF2D9B); }
+.lo-card--hijack, .lo-card--managed, .lo-card--new-ext { border-left-color: var(--amber, #FF9F00); }
+.lo-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.lo-tag {
+  font-family: var(--font-display, sans-serif); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--cyan, #00E5FF); border: 1px solid rgba(0,229,255,0.35); padding: 2px 8px;
+}
+.lo-name { margin: 0; font-size: 18px; color: var(--offwhite, #EDEFF3); overflow-wrap: anywhere; }
+.lo-what { margin: 0; color: var(--dim, rgba(237,239,243,0.75)); }
+.lo-unfinished { margin: 0; color: var(--amber, #FF9F00); font-size: 14px; }
+.lo-label { margin: 0; font-family: var(--font-display, sans-serif); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--faint, rgba(237,239,243,0.5)); }
+.lo-powers { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.lo-power { padding: 4px 10px; border: 1px solid var(--line, rgba(0,229,255,0.15)); font-size: 14px; overflow-wrap: anywhere; }
+.lo-power--high { border-color: rgba(255,45,155,0.55); background: rgba(255,45,155,0.08); color: #fff; }
+.lo-power--med { border-color: rgba(255,159,0,0.5); background: rgba(255,159,0,0.06); }
+.lo-power--low { color: var(--dim, rgba(237,239,243,0.75)); }
+.lo-none { margin: 0; color: var(--lime, #C6FF00); }
+.lo-facts { margin: 0; display: grid; gap: 4px; }
+.lo-fact { display: grid; grid-template-columns: minmax(90px, max-content) 1fr; gap: 10px; }
+.lo-fact dt { color: var(--faint, rgba(237,239,243,0.5)); font-size: 13px; }
+.lo-fact dd { margin: 0; overflow-wrap: anywhere; }
+.lo-mono { font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
+.lo-names { margin: 0; padding-left: 18px; overflow-wrap: anywhere; }
+.lo-count { margin: 0; }
+.lo-count__n { font-family: var(--font-display, sans-serif); font-size: 28px; color: var(--amber, #FF9F00); margin-right: 6px; }
+.lo-coach { margin: 0; border-left: 2px solid var(--lime, #C6FF00); padding: 6px 12px; background: rgba(198,255,0,0.05); }
+.lo-summary { margin: 0 0 6px; }
+.lo-summary--note { color: var(--dim, rgba(237,239,243,0.75)); font-size: 14px; }
+@media (max-width: 520px) { .lo-fact { grid-template-columns: 1fr; gap: 0; } }
