@@ -14,6 +14,8 @@ export default {
   whatTheScanLooksFor: 'The checkup lists devices that have recently talked to this computer, looks for signs that something is intercepting your traffic, and checks which admin services your router offers to the network. On a Mac or a Windows computer, it also looks for cryptocurrency mining running right now.',
   questions: [
     {
+      key: 'hot-and-slow',
+      concept: 'wifi-and-mining',
       teach: 'A hot, loud, slow computer usually turns out to be cryptocurrency mining: a program using the computer’s power to make money for someone else. On a Mac or a Windows computer, the checkup looks for mining running right now. Your network and your router are separate checks.',
       prompt: 'Your computer is hot and slow. What does the checkup do about that?',
       options: [
@@ -24,8 +26,36 @@ export default {
         { text: 'It checks your router’s settings for the cause', correct: false,
           feedback: 'The router check looks at which admin services your router offers to the network, and whether UPnP is on. For a hot, slow computer, a separate check looks for mining running on the computer itself, on a Mac or a Windows computer.' },
       ],
+      variants: [
+        {
+          key: 'hot-and-slow-2',
+          prompt: 'What does a hot, loud, slow computer usually turn out to be?',
+          options: [
+            { text: 'Cryptocurrency mining: a program using its power to make money for someone else', correct: true,
+              feedback: 'Right. Mining is what a hot, loud, slow machine usually turns out to be.' },
+            { text: 'Too many devices on the Wi-Fi', correct: false,
+              feedback: 'Other devices on the Wi-Fi don’t heat this computer up. Mining running on the computer itself usually does.' },
+            { text: 'An old router', correct: false,
+              feedback: 'The router is a separate check. A hot, loud, slow computer usually turns out to be mining running on it.' },
+          ],
+        },
+        {
+          key: 'hot-and-slow-3',
+          prompt: 'A miner was stopped, but it’s back after a restart. What do you look for next?',
+          options: [
+            { text: 'What starts it again: a startup item, scheduled task or other startup entry', correct: true,
+              feedback: 'Right. Stopping a miner achieves nothing if a startup entry launches it again, and that is the normal arrangement.' },
+            { text: 'A faster computer', correct: false,
+              feedback: 'Speed isn’t the problem. Something is starting the miner again, so look for the startup entry that launches it.' },
+            { text: 'A new Wi-Fi passphrase', correct: false,
+              feedback: 'The passphrase controls who joins the Wi-Fi. The miner comes back because a startup entry launches it again.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'more-devices',
+      concept: 'wifi-and-mining',
       teach: 'Phones, laptops, TVs, printers, doorbells and smart plugs all count as devices. Most households are surprised by the count, and twenty is normal now. Name each one. For anything you can’t name, unplug it or switch it off and look again. The one that disappears is that device.',
       prompt: 'The list shows more devices than you expected. What’s most likely?',
       options: [
@@ -34,8 +64,36 @@ export default {
         { text: 'They’re your own things: phones, TV, printer, smart plugs', correct: true,
           feedback: 'Usually, yes. Name each one. For anything you can’t name, unplug it or switch it off and look again. The one that disappears is that device.' },
       ],
+      variants: [
+        {
+          key: 'more-devices-2',
+          prompt: 'There’s a device on the list you can’t name. What’s a simple way to find out what it is?',
+          options: [
+            { text: 'Unplug or switch things off one at a time and look again', correct: true,
+              feedback: 'Right. The entry that disappears is that device.' },
+            { text: 'Block its hardware address', correct: false,
+              feedback: 'A hardware address is easy to change, so blocking one doesn’t help. Unplug or switch things off and look again; the one that disappears is that device.' },
+            { text: 'Reset everything straight away', correct: false,
+              feedback: 'Find out what it is first. Unplug or switch things off and look again; the one that disappears is that device.' },
+          ],
+        },
+        {
+          key: 'more-devices-3',
+          prompt: 'Your phone doesn’t match the hardware address printed on its box. Why?',
+          options: [
+            { text: 'Modern phones use a different, randomly generated address on each network', correct: true,
+              feedback: 'Right. That is privacy behaviour, not an intruder.' },
+            { text: 'The phone has been swapped', correct: false,
+              feedback: 'Modern phones deliberately use a different, randomly generated address on every network. That is privacy behaviour, not an intruder.' },
+            { text: 'The checkup read it wrong', correct: false,
+              feedback: 'It read what the phone used. Modern phones deliberately use a different, randomly generated address on every network.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'full-device-list',
+      concept: 'wifi-and-mining',
       teach: 'The checkup lists devices that have recently talked to this computer, so its list can be incomplete. The router’s own admin page is the full list, including devices this computer hasn’t spoken to.',
       prompt: 'Where is the full list of devices on your network?',
       router: true,
@@ -45,8 +103,36 @@ export default {
         { text: 'The checkup’s device list', correct: false,
           feedback: 'That list only shows devices that have recently talked to this computer. The router’s admin page is the full list.' },
       ],
+      variants: [
+        {
+          key: 'full-device-list-2',
+          prompt: 'Why can the checkup’s device list be incomplete?',
+          options: [
+            { text: 'It only shows devices that have recently talked to this computer', correct: true,
+              feedback: 'Right. The router’s own admin page shows the devices this computer hasn’t spoken to.' },
+            { text: 'It leaves out devices on purpose', correct: false,
+              feedback: 'It shows what it can see: devices that have recently talked to this computer. The router’s admin page is the full list.' },
+            { text: 'It only lists phones', correct: false,
+              feedback: 'It lists any device that has recently talked to this computer. The router’s admin page is the full list.' },
+          ],
+        },
+        {
+          key: 'full-device-list-3',
+          prompt: 'On the router’s admin page, what might its list of connected devices be called?',
+          options: [
+            { text: 'Attached Devices, Device List, Client List or DHCP Clients', correct: true,
+              feedback: 'Right. Compare it with the checkup’s list.' },
+            { text: 'Firmware Update', correct: false,
+              feedback: 'That’s where the router’s own software is updated. The device list may be called Attached Devices, Device List, Client List or DHCP Clients.' },
+            { text: 'Remote Management', correct: false,
+              feedback: 'That setting should be off. The device list may be called Attached Devices, Device List, Client List or DHCP Clients.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'cut-off-order',
+      concept: 'cut-off-order',
       teach: 'If the person you’re worried about is someone you know, like a partner, an ex or a housemate, stop before you cut them off. Cutting off someone’s access tells them they’ve been found out. If they have ever frightened you, it’s worth getting help to plan the safest order.',
       prompt: 'You think a housemate who has frightened you is on your Wi-Fi. What comes first?',
       options: [
@@ -55,8 +141,36 @@ export default {
         { text: 'Change the Wi-Fi passphrase straight away', correct: false,
           feedback: 'That tells them they’ve been found out. When it’s someone who has frightened you, get help planning the safest order first.' },
       ],
+      variants: [
+        {
+          key: 'cut-off-order-2',
+          prompt: 'The person you’re worried about is an ex. Why can changing the Wi-Fi passphrase straight away be risky?',
+          options: [
+            { text: 'Cutting off their access tells them they’ve been found out', correct: true,
+              feedback: 'Right. If they have ever frightened you, get help planning the safest order first.' },
+            { text: 'It isn’t risky. Always do it first.', correct: false,
+              feedback: 'With someone you know, it can be. Cutting off their access tells them they’ve been found out, so plan the order first.' },
+            { text: 'It deletes everyone’s files', correct: false,
+              feedback: 'It doesn’t delete anything. The risk is that cutting off their access tells them they’ve been found out.' },
+          ],
+        },
+        {
+          key: 'cut-off-order-3',
+          prompt: 'The person you’re worried about is a stranger or a neighbour, not someone you know. What order do the steps go in?',
+          options: [
+            { text: 'Reclaim the network, then clean the devices, then rebuild the accounts', correct: true,
+              feedback: 'Right. Changing passwords first, on a computer that isn’t clean yet, can hand over the new ones.' },
+            { text: 'Change every password first, from this computer', correct: false,
+              feedback: 'Don’t change important passwords from a computer you haven’t cleaned yet. The order is the network, then the devices, then the accounts.' },
+            { text: 'Clean the devices, then reconnect them and carry on', correct: false,
+              feedback: 'Cleaning a laptop first and reconnecting it to a network someone else still controls means starting again. Reclaim the network first.' },
+          ],
+        },
+      ],
     },
     {
+      key: 'remove-everyone',
+      concept: 'wifi-and-mining',
       teach: 'The Wi-Fi passphrase is what devices use to join. Update the router’s firmware (its built-in software) first, because if the router has a known weakness, a new passphrase doesn’t help. Turn off WPS too, or its PIN gets around the new passphrase.',
       prompt: 'What actually removes everyone you haven’t allowed onto your Wi-Fi?',
       options: [
@@ -66,6 +180,32 @@ export default {
           feedback: 'A hardware address is easy to change, so blocking one only tells an intruder which address to stop using. A new Wi-Fi passphrase is what works. If it’s someone you know, stop and read the safety note before you change it. Cutting someone off tells them they’ve been found out.' },
         { text: 'Restarting the laptop', correct: false,
           feedback: 'That doesn’t change who can join. A new Wi-Fi passphrase does. If it’s someone you know, stop and read the safety note before you change it. Cutting someone off tells them they’ve been found out.' },
+      ],
+      variants: [
+        {
+          key: 'remove-everyone-2',
+          prompt: 'Before you set a new Wi-Fi passphrase, what should you do first on the router?',
+          options: [
+            { text: 'Update its firmware', correct: true,
+              feedback: 'Right. If the router has a known weakness, new passwords don’t help.' },
+            { text: 'Turn WPS on', correct: false,
+              feedback: 'WPS should be off: its PIN gets around the passphrase. Update the router’s firmware first.' },
+            { text: 'Restore a saved settings backup', correct: false,
+              feedback: 'A saved backup can bring back an intruder’s changes along with yours. Update the router’s firmware first.' },
+          ],
+        },
+        {
+          key: 'remove-everyone-3',
+          prompt: 'You’ve set a strong new Wi-Fi passphrase. Why turn off WPS as well?',
+          options: [
+            { text: 'Its PIN can be broken, and it gets around the new passphrase', correct: true,
+              feedback: 'Right. Leaving it on makes the strong passphrase you just set irrelevant.' },
+            { text: 'WPS makes the Wi-Fi slower', correct: false,
+              feedback: 'The problem is its PIN, which can be broken and gets around the passphrase.' },
+            { text: 'WPS is the passphrase', correct: false,
+              feedback: 'WPS lets a device join with a PIN instead of the passphrase, and that PIN can be broken. Turn it off.' },
+          ],
+        },
       ],
     },
   ],
