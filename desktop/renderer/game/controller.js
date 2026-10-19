@@ -13,7 +13,7 @@ import { buildPayload, publishOffered, lessonsLearned, deliver, PUBLISH_READY, P
 import { renderProfile, renderPublishSheet, focusProfile, profileKeyAct } from './views/profile.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds, mergeSame, severityCounts, foldPartly, notCheckedLine, todoCount, repeatsMerged, cityCounts, WAITING_TITLE } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES } from './ledger.js';
-import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ } from './clues.js';
+import { cluesFor, drillClues, scoutRead, scoutAgrees, drillRead, COULDNT_READ, pathOf } from './clues.js';
 import { loadDrills, chooseDrills, drillSignal, pickDrills } from './drills.js';
 import { renderDeck, preSweepCityHtml } from './views/deck.js';
 import { renderInstruments } from './views/instruments.js';
@@ -222,7 +222,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   };
   // The tile is always there (the cover); the notice says something new is
   // in there, until the person has been this sweep. One pointer, not two.
-  const sideTile = () => (inCity() ? sideTileHtml(side(), 0) : '');
+  const sideTile = () => (inCity() ? sideTileHtml(side(), s.held.length && !s.sideSeen ? 1 : 0) : '');
   const heldNotice = () => (inCity() && s.held.length && !s.sideSeen ? heldNoticeHtml(side()) : '');
 
   // loadLessons never rejects: a lesson that fails to load is left out.
@@ -971,6 +971,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const l = s.lesson && s.lessons.find((x) => x.id === s.lesson.id);
       const items = itemsOf(s.lesson.keys);
       if (l) return renderLesson({ lesson: writtenOf(l), items: items.length ? items : null, qIndex: s.lesson.q, picked: s.lesson.picked,
+        example: lessonExample(l),
         showTeach: s.lesson.showTeach !== false, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor,
         routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') });
       s.screen = noCity();
@@ -1114,6 +1115,21 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
   const checkNames = () => Object.fromEntries((s.doc && Array.isArray(s.doc.modules) ? s.doc.modules : [])
     .filter((x) => x && typeof x.check_name === 'string' && x.check_name.trim() && !HELD_MODULES.has(x.name)).map((x) => [x.name, x.check_name]));
+  // The lesson's own example from this checkup (P3-11): the first open
+  // mission from a check the lesson teaches that names a path. Never a held
+  // finding (those aren't missions); home folders as "~".
+  function lessonExample(l) {
+    const mods = new Set(Array.isArray(l && l.modules) ? l.modules : []);
+    if (!s.city || !mods.size) return null;
+    for (const d of s.city.districts) {
+      for (const m of d.missions) {
+        if (!mods.has(m.module) || HELD_MODULES.has(m.module)) continue;
+        const p = pathOf(m.primary);
+        if (p) return { path: EV.homeRelative(p), title: m.title };
+      }
+    }
+    return null;
+  }
   const scanModules = () => (s.doc && Array.isArray(s.doc.modules) ? s.doc.modules.map((x) => x && x.name).filter(Boolean) : []);
   // City mode: the help lives in the help district, so a mission carries no
   // hotline or advocate wording (QuietNotes.quiet, the list's own stripping),

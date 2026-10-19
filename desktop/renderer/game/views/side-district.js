@@ -12,9 +12,10 @@ export function sideTileHtml(district, heldCount = 0) {
     <button type="button" class="btn-s" data-go="side">${esc(district.name.toUpperCase())} ▶</button>${heldCount ? ' <span class="badge">NEW</span>' : ''}</div>`;
 }
 
-// On the deck when the checkup found something that belongs there. Only the place again.
+// On the deck when the checkup found something that belongs there. Only the
+// place again, and no second button: the tile (marked NEW) is the way there.
 export function heldNoticeHtml(district) {
-  return `<p class="link-notice" role="status">Something new in ${esc(district.name)}. <button type="button" class="btn-t" data-go="side">GO THERE ▶</button></p>`;
+  return `<p class="link-notice" role="status">Something new in ${esc(district.name)}. Its tile on the city is marked NEW.</p>`;
 }
 
 // One held item as what to write down: the shared evidence block, held. That

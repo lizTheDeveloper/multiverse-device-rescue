@@ -39,7 +39,8 @@ export function renderOneCityMap({ city, progress, accountCards, focus, cameBack
     <div class="districts">${device}</div>
     ${accountsError
       ? `<div class="ring-label"><span class="label">YOUR ACCOUNTS · YOU REPORT THESE</span></div><p class="say">${esc('Your accounts’ districts couldn’t load. Your computer’s districts still work.')}</p>`
-      : `<details class="accounts-fold"${(accountCards || []).some((c) => c.id === focus) ? ' open' : ''}><summary class="ring-label"><span class="label">YOUR ACCOUNTS (${(accountCards || []).length}) · YOU REPORT THESE</span></summary>
+      // Closed on the deck (P3-13); a worry that starts there lands on its label.
+      : `<details class="accounts-fold"><summary class="ring-label"${(accountCards || []).some((c) => c.id === focus) ? ' data-focus' : ''}><span class="label">YOUR ACCOUNTS (${(accountCards || []).length}) · YOU REPORT THESE</span></summary>
       <div class="districts">${accounts}</div></details>`}
     ${showScout ? `<div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(line)}</p></div>` : ''}
   </section>`;

@@ -8,7 +8,7 @@ import { isHidden } from '../profile/skills.js';
 const WORDS = {
   game: {
     title: 'YOUR FILE', rank: 'RANK', training: 'TRAINING', skills: 'SKILLS', drills: 'DRILLS', city: 'CITY',
-    history: 'DATA HISTORY', startOver: 'START OVER', publish: 'ADD TO MY SCHOOL PROFILE', back: 'BACK TO THE DECK',
+    history: 'SAVE FILE FORMAT', startOver: 'START OVER', publish: 'ADD TO MY SCHOOL PROFILE', back: 'BACK TO THE DECK',
     stamp: { learned: 'LEARNED', measuring: 'IN PROGRESS', skipped: 'SKIPPED — YOU SAID YOU KNOW THIS', 'worth-a-look': 'SKIPPED — A REFRESHER MAY HELP', refresher: 'REFRESHER', 'not-yet': 'NOT YET' },
     depth: { 'not-yet': 'NOT YET', introduced: 'INTRODUCED', practiced: 'PRACTICED' },
   },
@@ -70,9 +70,11 @@ function drillsHtml(d) {
   return lines.join('');
 }
 
+// How the saved progress was updated between versions: about the save file,
+// never the computer (P2-14), so it isn't read as "nothing was fixed".
 function historyHtml(s, w) {
   const rows = (s.migrations || []).map((m) => `<li>Moved to this version${m.from ? ` from version ${esc(m.from)}` : ''}: ${esc((m.changes || []).join('; '))}</li>`).join('');
-  return `<details><summary>${esc(w.history)}</summary>${rows ? `<ul>${rows}</ul>` : '<p>Nothing has been moved or changed.</p>'}</details>`;
+  return `<details><summary>${esc(w.history)}</summary>${rows ? `<ul>${rows}</ul>` : '<p>Your save file hasn’t needed updating.</p>'}</details>`;
 }
 
 export const START_OVER = 'Start over? This clears your lessons, drills, rank and missions here. Nothing on your computer changes.';

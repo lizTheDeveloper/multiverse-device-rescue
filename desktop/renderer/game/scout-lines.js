@@ -4,6 +4,8 @@ export const SCOUT = {
   mapHot: 'Start with {district}. Something there is worth a look first. Finding something doesn’t mean you’ve been hacked.',
   mapWarn: 'Nothing urgent. {district} has the most worth a look.',
   mapQuiet: 'Nothing stood out in the checks that ran. Fog means a place I couldn’t see into.',
+  // Said first when some checks couldn't run or didn't finish (P3-7): never "nothing urgent" alone.
+  mapBlind: 'I couldn’t see into part of the city. {district} has the most worth a look in the rest.',
   cameBack: 'Something you fixed came back since last time. It’s dark again on the map.',
   briefing: {
     critical: 'This one is worth doing first. Read what it is, then pick how you want to handle it.',
@@ -28,7 +30,8 @@ export function mapScoutLine(city) {
   const hot = ds.find((d) => d.status === 'hot');
   if (hot) return SCOUT.mapHot.replace('{district}', hot.name);
   const warm = ds.filter((d) => d.status === 'warn').sort((a, b) => b.missions.length - a.missions.length)[0];
-  if (warm) return SCOUT.mapWarn.replace('{district}', warm.name);
+  const blind = ds.some((d) => d.status === 'fog' || (d.fog && d.fog.length) || (d.unfinished && d.unfinished.length));
+  if (warm) return (blind ? SCOUT.mapBlind : SCOUT.mapWarn).replace('{district}', warm.name);
   return SCOUT.mapQuiet;
 }
 

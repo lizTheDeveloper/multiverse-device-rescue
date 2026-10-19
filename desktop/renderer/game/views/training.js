@@ -22,7 +22,8 @@ export function skipBar(scan, scanFinished = false) {
   }
   const label = scan && scan.error ? 'START THE CHECKUP ▶'
     : scanFinished ? 'RE-SWEEP ⟳' : 'SKIP TO THE CHECKUP ▶';
-  return `<div class="skip-bar"><span>${scanFinished ? 'Your checkup is done. Sweep again any time.' : 'You don’t need to finish any lessons first.'}</span>
+  // "Your checkup is done" is the banner's to say, once (P3-8).
+  return `<div class="skip-bar"><span>${scanFinished ? 'Sweep again any time.' : 'You don’t need to finish any lessons first.'}</span>
     <button type="button" class="btn-s quiet" data-act="start-checkup">${label}</button></div>`;
 }
 
@@ -69,7 +70,7 @@ export function renderTraining({ ordered, progress, worryTitle, forYou = false, 
     : '<p class="intel">Getting the lessons ready.</p>'}
     </div>
     <div class="quiz">
-      <div class="scout-row">${scout('happy', 72)}<p class="say">${esc(scanFinished ? 'These are short. Pick any one.' : 'These are short. Pick any one, or go straight to the checkup.')}</p></div>
+      <div class="scout-row">${scout('happy', 72)}<p class="say">${esc(scanFinished ? 'Pick any one.' : 'Pick any one, or go straight to the checkup.')}</p></div>
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>
       <p class="intel">Practice sorting made-up signals. Nothing in the range touches your computer.</p>
     </div>
