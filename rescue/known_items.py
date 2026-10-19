@@ -971,7 +971,9 @@ def _hash_regular_file(path: str) -> str | None:
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode) or st.st_size > _MAX_PROGRAM_BYTES:
             return None
-        key = (os.path.realpath(path), st.st_size, st.st_mtime_ns)
+        # Keyed only on the open handle's fstat: a program can restore mtime
+        # after a same-size rewrite, but not ctime, which the rewrite changes.
+        key = (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
         cache = _hash_state["cache"]
         if key in cache:
             return cache[key]

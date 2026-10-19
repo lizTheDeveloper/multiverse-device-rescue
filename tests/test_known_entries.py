@@ -397,6 +397,31 @@ def test_a_file_is_hashed_once_per_scan(tmp_path, hashing, monkeypatch):
     assert hashing._hash_regular_file(str(f)) != first
 
 
+def test_a_rewrite_with_the_same_size_and_a_restored_mtime_is_hashed_again(tmp_path, hashing):
+    # A program can set mtime, but not ctime: the cache must not trust size + mtime.
+    f = tmp_path / "prog"
+    f.write_bytes(b"good")
+    before = os.stat(f)
+    first = hashing._hash_regular_file(str(f))
+    f.write_bytes(b"evil")
+    os.utime(f, ns=(before.st_atime_ns, before.st_mtime_ns))
+    after = os.stat(f)
+    assert (after.st_size, after.st_mtime_ns) == (before.st_size, before.st_mtime_ns)
+    second = hashing._hash_regular_file(str(f))
+    assert second != first
+    assert second == hashlib.sha256(b"evil").hexdigest()
+
+
+def test_the_cache_key_comes_only_from_the_open_handle(tmp_path, hashing, monkeypatch):
+    f = tmp_path / "prog"
+    f.write_bytes(b"abc")
+    monkeypatch.setattr(os.path, "realpath", lambda *a, **k: pytest.fail("realpath after open"))
+    assert hashing._hash_regular_file(str(f)) == hashlib.sha256(b"abc").hexdigest()
+    st = os.stat(f)
+    assert list(hashing._hash_state["cache"]) == [
+        (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)]
+
+
 def test_the_scan_byte_budget_runs_out_and_those_files_get_none(tmp_path, hashing, monkeypatch):
     monkeypatch.setattr(known_items, "_SCAN_HASH_BYTES", 10)
     a, b = tmp_path / "a", tmp_path / "b"
