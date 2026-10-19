@@ -212,21 +212,44 @@ test('preserveFocus falls back to the first enabled box, then the fieldset', () 
   assert.strictEqual(last.list.getAttribute('tabindex'), '-1');
 });
 
-test('duplicate list ids get a suffix so label-for stays unique', () => {
-  Checklist.resetIds();
-  const mk = (id) => Checklist.html({ id, legend: 'L', items: items(1), actions: [MARK] });
-  const a = mk('dup');
-  const b = mk('dup');
-  const c = mk('d/p'); // collapses to d_p, distinct
-  const d2 = mk('d?p'); // collapses to d_p too
+test('element ids are a pure function of the input', () => {
+  const mk = (o) => Checklist.html({ id: 'dup', legend: 'L', items: items(2), actions: [MARK], ...o });
+  assert.strictEqual(mk({}), mk({}));
+  assert.strictEqual(mk({ scope: 'keylogger' }), mk({ scope: 'keylogger' }));
+  const a = mk({ scope: 'one' });
+  const b = mk({ scope: 'two' });
+  assert.match(a, /id="one--dup-item-0"/);
+  assert.match(a, /label for="one--dup-item-0"/);
+  assert.match(b, /id="two--dup-item-0"/);
   assert.match(a, /data-cl-list="dup"/);
-  assert.match(b, /data-cl-list="dup-2"/);
-  assert.match(b, /id="dup-2-item-0"/);
-  assert.match(b, /label for="dup-2-item-0"/);
+  assert.match(b, /data-cl-list="dup"/, 'data-cl-list stays the caller\'s id');
+  const ids = (h) => [...h.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
+  assert.strictEqual(new Set([...ids(a), ...ids(b)]).size, 4);
+});
+
+test('ids that sanitise to the same text stay distinct', () => {
+  const mk = (id) => Checklist.html({ id, legend: 'L', items: items(1), actions: [MARK] });
+  const c = mk('d/p');
+  const d = mk('d?p');
   assert.match(c, /data-cl-list="d_p"/);
-  assert.match(d2, /data-cl-list="d_p-2"/);
-  Checklist.resetIds();
-  assert.match(mk('dup'), /data-cl-list="dup"/, 'a redraw starts fresh');
+  const idOf = (h) => h.match(/ id="([^"]+)"/)[1];
+  assert.notStrictEqual(idOf(c), idOf(d));
+  assert.strictEqual(idOf(c), idOf(mk('d/p')));
+});
+
+test('focus is restored after a re-render that skips preserveFocus', () => {
+  const d = build(['a', 'b']);
+  d.doc.activeElement = d.boxes[1];
+  const key = Checklist.focusKey(d.boxes[1]);
+  d.root.removeChild(d.list);
+  const again = build(['a', 'b']);
+  d.root.appendChild(again.list);
+  again.boxes.forEach((b) => { b.focus = () => { d.doc.activeElement = b; }; });
+  // Lookup is by data-cl-list and data-cl-key, which do not change on redraw.
+  assert.deepStrictEqual(key, { listId: 'apps-1', attr: 'data-cl-key', value: 'b' });
+  const list = d.root.querySelector('[data-cl-list="apps-1"]');
+  list.querySelector('[data-cl-key="b"]').focus();
+  assert.strictEqual(d.doc.activeElement, again.boxes[1]);
 });
 
 test('preserveFocus finds the active element through a shadow root', () => {

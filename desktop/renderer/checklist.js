@@ -36,19 +36,23 @@ const Checklist = (function () {
     return String(s == null ? '' : s).replace(/[^a-zA-Z0-9_-]/g, '_');
   }
 
-  // Ids handed out since the last redraw. A second list that asks for a taken
-  // id (or one that collapses to it) gets a suffix, so `label for` stays right.
-  // preserveFocus() starts a fresh redraw; resetIds() does the same by hand.
-  let usedIds = new Set();
-  function resetIds() {
-    usedIds = new Set();
+  // Small stable hash, to tell apart ids that sanitise to the same text.
+  function hash(str) {
+    let h = 5381;
+    for (const ch of String(str)) h = ((h * 33) ^ ch.codePointAt(0)) >>> 0;
+    return h.toString(36);
   }
-  function uniqueId(raw) {
-    const base = safeId(raw);
-    let id = base;
-    for (let n = 2; usedIds.has(id); n += 1) id = `${base}-${n}`;
-    usedIds.add(id);
-    return id;
+
+  // Element ids are a pure function of the inputs: "<scope>--<id>", with a
+  // hash added only when sanitising changed the text (so "a/b" and "a?b"
+  // stay distinct). Nothing is remembered between calls.
+  function elementId(scope, id) {
+    const part = (v) => {
+      const raw = String(v == null ? '' : v);
+      const safe = safeId(raw);
+      return safe === raw ? safe : `${safe}-${hash(raw)}`;
+    };
+    return scope ? `${part(scope)}--${part(id)}` : part(id);
   }
 
   function nounFor(action, n) {
@@ -93,7 +97,8 @@ const Checklist = (function () {
 
   function html(opts) {
     const o = opts || {};
-    const listId = uniqueId(o.id);
+    const listId = safeId(o.id);
+    const elId = elementId(o.scope, o.id);
     const items = Array.isArray(o.items) ? o.items.filter((it) => it && typeof it.key === 'string') : [];
     const actions = Array.isArray(o.actions) ? o.actions.filter((a) => a && typeof a.id === 'string') : [];
     const theme = o.theme === 'game' ? 'game' : 'plain';
@@ -108,7 +113,7 @@ const Checklist = (function () {
     return `<fieldset class="checklist checklist--${theme}" data-cl-list="${listId}">`
       + `<legend class="checklist__legend">${esc(visible(o.legend))}</legend>`
       + bulk
-      + `<ul class="checklist__items">${items.map((it, i) => rowHtml(listId, it, i)).join('')}</ul>`
+      + `<ul class="checklist__items">${items.map((it, i) => rowHtml(elId, it, i)).join('')}</ul>`
       + more
       + `<p class="checklist__count" data-cl-count aria-live="polite">${esc(countText(0, choosable))}</p>`
       + `<div class="checklist__actions">${actions.map(actionHtml).join('')}</div>`
@@ -240,7 +245,6 @@ const Checklist = (function () {
   // control of the same list, if it is still there. Works in a shadow root.
   function preserveFocus(root, render) {
     const key = focusKey(activeIn(root));
-    resetIds();
     render();
     if (!key || !root || typeof root.querySelectorAll !== 'function') return;
     const list = Array.from(root.querySelectorAll('[data-cl-list]')).find((l) => l.getAttribute('data-cl-list') === key.listId);
@@ -259,7 +263,7 @@ const Checklist = (function () {
     if (typeof dest.focus === 'function') dest.focus();
   }
 
-  return { SHOWN, html, attach, actionLabel, countText, moveIndex, preserveFocus, resetIds, focusKey, esc, visible };
+  return { SHOWN, html, attach, actionLabel, countText, moveIndex, preserveFocus, focusKey, esc, visible };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
