@@ -10,6 +10,7 @@
 //   typeOf(finding, table) -> type id           info -> 'notes'; unmapped -> 'simple'
 //   groupMissions(doc, { mode, table }) -> Mission[]
 //   missionCounts(missions) -> { todo, notes }  equal to NotChecked.scanCounts(doc, { mode }).todo / .notes
+//   missionRows(missions) -> Row[]             a district's list: a type's parts folded, notes batches as one row
 //
 // Mission = { id, type, district, severity, items, title: {standard, city}, part, of, notes }
 // Item    = a NotChecked.displayItems item + { removal_alert }
@@ -227,6 +228,11 @@ export function typeOf(finding, table = DEFAULT_TABLE) {
 }
 
 const RANK = { critical: 2, warning: 1, info: 0 };
+// Which kind of mission comes first at the same severity: known-bad files,
+// then what starts on its own, the network, seals, powerful access, add-ons,
+// settings, clutter, the rest.
+export const IMPORTANCE = Object.freeze(['locker', 'door', 'switchboard', 'seal', 'keyring', 'loadout', 'locks', 'junkyard', 'simple', 'notes']);
+const importance = (t) => { const i = IMPORTANCE.indexOf(t); return i < 0 ? IMPORTANCE.length : i; };
 const NOT_CHECKED_CODE = /_(?:unknown|failed|unavailable|permission_denied)$/;
 const ORDER_OF_DISTRICT = new Map([...DISTRICTS.map((d) => d.id), OUTSKIRTS.id].map((id, i) => [id, i]));
 const isFixable = (f) => !!(f && f.fixable && typeof f.fixable === 'object');
@@ -294,8 +300,10 @@ export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE, o
     const parts = partsOf(sorted, MAX_ITEMS);
     parts.forEach((part, n) => missions.push(mission(g.type, g.district, part, n + 1, parts.length, false)));
   }
+  // Worst first, then alerting or fixable, then by what the type is about
+  // (IMPORTANCE), never type-major by table order; a type's parts stay in order.
   missions.sort((a, b) => (RANK[b.severity] - RANK[a.severity]) || (leadsMission(b) - leadsMission(a))
-    || (TYPE_IDS.indexOf(a.type) - TYPE_IDS.indexOf(b.type))
+    || (importance(a.type) - importance(b.type))
     || ((ORDER_OF_DISTRICT.get(a.district) ?? 99) - (ORDER_OF_DISTRICT.get(b.district) ?? 99)) || (a.part - b.part));
   const notes = [...shownAsNotes, ...list.info.filter((i) => !promoted.has(i.key)).map(dress)];
   for (const b of notesBatches(notes, batchNotes)) missions.push(mission('notes', b.area, b.items, b.part, b.parts, true));
@@ -403,4 +411,34 @@ export function missionCounts(missions) {
     for (const i of m.items) { if (i.fromNote) { notes += 1; continue; } for (const k of i.sourceKeys || [i.key]) todo.add(k); }
   }
   return { todo: todo.size, notes };
+}
+
+/*
+ * missionRows(missions) -> Row[]   the district list's rows (UX audit P1-4)
+ * Row = { id, type, district, severity, title, notes, missions, items, apps }
+ * - The parts of one type in one district at one severity are one row, where
+ *   its first part is ("The Keyring · 11 parts, 41 apps"). Opening it opens
+ *   its first part not done yet; the next part follows it in the mission order.
+ * - Every notes batch of a district is one row ("Good to know · 28 batches").
+ * `items`: the items in all its parts; `apps`: how many are apps (Keyring).
+ * Pure: the missions are kept as they are, in their order.
+ */
+export function missionRows(missions) {
+  const rows = [];
+  const at = new Map();
+  for (const m of Array.isArray(missions) ? missions : []) {
+    if (!m || !Array.isArray(m.items)) continue;
+    const k = m.notes ? `notes|${m.district}` : `${m.type}|${m.district}|${m.severity}`;
+    let row = at.get(k);
+    if (!row) {
+      row = { id: `row:${k}`, type: m.type, district: m.district, severity: m.severity, title: { ...m.title }, notes: !!m.notes, missions: [], items: 0, apps: 0 };
+      at.set(k, row);
+      rows.push(row);
+    }
+    row.missions.push(m);
+    row.items += m.items.length;
+    row.apps += m.items.filter((i) => i && i.app).length;
+    if (RANK[m.severity] > RANK[row.severity]) row.severity = m.severity;
+  }
+  return rows;
 }

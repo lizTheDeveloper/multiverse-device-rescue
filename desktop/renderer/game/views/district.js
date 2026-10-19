@@ -3,6 +3,7 @@ import { waitingId } from '../signals.js';
 import { esc } from '../escape.js';
 import { skyline, districtLine } from './map.js';
 import { reclaimedIn } from '../progress.js';
+import { missionRows } from '../../missions/types.js';
 
 // A check's name for people, never its raw id; a monitoring check is never
 // named on the city (held.js): just "A check".
@@ -18,8 +19,52 @@ export function checkWords(module, checkName = null) {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'A check';
 }
 
+const SEV = {
+  critical: '<span class="badge crit">CRITICAL</span>',
+  warning: '<span class="badge warn">WARNING</span>',
+};
+// (The notes row has no badge: its heading already says GOOD TO KNOW.)
+const words = (l, mode) => (l && typeof l === 'object' ? l[mode === 'city' ? 'city' : 'standard'] : String(l == null ? '' : l));
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/*
+ * renderMissionList(missions, { mode, status }) -> HTML   a district's missions (UX audit P1-4)
+ * One row per types.js missionRows row: a type's parts in one row ("The
+ * Keyring · 11 parts · 41 apps"), every notes batch in one row ("Good to know
+ * · 28 batches · 140 notes"), so a big scan is still a short list. A row opens
+ * its first part not done yet (the next part follows it in the mission order);
+ * its box is ticked when every part is done. `status(m)` -> { done, decided }.
+ */
+export function renderMissionList(missions, { mode = 'standard', status = () => ({ done: false, decided: 0 }) } = {}) {
+  const row = (r) => {
+    const st = r.missions.map((m) => status(m) || {});
+    const done = st.every((x) => x.done);
+    const doneParts = st.filter((x) => x.done).length;
+    const open = r.missions.find((_, i) => !st[i].done) || r.missions[0];
+    const unit = r.notes ? ['note', 'notes'] : r.apps === r.items ? ['app', 'apps'] : ['item', 'items'];
+    const parts = r.missions.length;
+    const detail = [];
+    if (parts > 1) detail.push(plural(parts, r.notes ? 'batch' : 'part', r.notes ? 'batches' : 'parts'));
+    detail.push(plural(r.items, ...unit));
+    if (!done && parts > 1 && doneParts) detail.push(`${doneParts} of ${parts} done`);
+    if (!done && parts === 1 && st[0].decided) detail.push(`${st[0].decided} of ${r.items} decided`);
+    return `<li class="mx-row${done ? ' mx-done' : ''}">
+      <input type="checkbox" class="mx-check" disabled${done ? ' checked' : ''} aria-label="${esc(done ? 'Done' : 'Not done yet')}">
+      <button type="button" class="mission-row mx-open" data-go="mx:${esc(open.id)}">
+        ${r.notes ? '' : SEV[r.severity] || ''}
+        <span class="mission-text">${esc(words(r.title, mode))}<small class="mission-detail">${esc(detail.join(' · '))}</small></span>
+        ${done ? '<span class="badge safe">DONE</span>' : ''}
+      </button></li>`;
+  };
+  const rows = missionRows(missions);
+  const todo = rows.filter((r) => !r.notes);
+  const notes = rows.filter((r) => r.notes);
+  return `${todo.length ? `<ul class="missions mx-list">${todo.map(row).join('')}</ul>` : ''}${notes.length
+    ? `<div class="label mx-notes-label">${esc(mode === 'city' ? 'SIGNAL OR NOISE (OPTIONAL)' : 'GOOD TO KNOW (OPTIONAL)')}</div><ul class="missions mx-list">${notes.map(row).join('')}</ul>` : ''}`;
+}
+
 // `missionsHtml`: the district's little missions (missions-city.js, by kind,
-// a few items each); the mission flow is the only flow. `message`: what the
+// a few items each; renderMissionList draws them); the mission flow is the only flow. `message`: what the
 // last move here found. `busy`: a re-check is running.
 // `waitingTitle`: what a check waiting for a go-ahead is called here (signals.js WAITING_TITLE).
 export function renderDistrict({ district: d, progress, scout, message = '', busy = false,
