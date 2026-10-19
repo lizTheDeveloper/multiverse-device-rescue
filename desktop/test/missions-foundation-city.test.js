@@ -224,16 +224,21 @@ test('a keyring app also flagged by the keylogger check: Keep pays nothing and i
   const a = await setup(d(), { storage, games: real });
   a.click({ 'data-go': 'mx:keyring:gatehouse:1' });
   if (/PRACTICE FIRST/.test(a.html())) a.click({ 'data-act': 'mx-know' });
-  assert.match(a.html(), /ITEM 1 OF 1/);
+  // One item per key (keyring perKey): every key of the flagged app is a monitoring item.
+  const of = Number((a.html().match(/ITEM 1 OF (\d+)/) || [])[1]);
+  assert.ok(of >= 1);
   assert.match(a.html(), /Removing this can alert whoever installed it\./, 'the runner warns');
-  a.click({ 'data-act': 'mx-decide:keep' });
-  if (/data-act="mx-confirm"/.test(a.html())) a.click({ 'data-act': 'mx-confirm' });
+  for (let i = 0; i < of; i += 1) {
+    a.click({ 'data-act': 'mx-decide:keep' });
+    if (/data-act="mx-confirm"/.test(a.html())) a.click({ 'data-act': 'mx-confirm' });
+  }
   await tick();
-  assert.strictEqual(savedProfile(storage).rank.points, 0, 'no points for it');
+  assert.strictEqual(savedProfile(storage).rank.points, 0, 'no points for any of its keys');
+  assert.strictEqual(Object.keys(savedProfile(storage).kept).length, 0, 'none remembered');
   const b = await setup(d(), { storage, games: real });
   b.click({ 'data-go': 'mx:keyring:gatehouse:1' });
   if (/PRACTICE FIRST/.test(b.html())) b.click({ 'data-act': 'mx-know' });
-  assert.match(b.html(), /ITEM 1 OF 1/, 'asked again on the next scan');
+  assert.match(b.html(), /ITEM 1 OF \d+/, 'asked again on the next scan');
 });
 
 test('a link under Check it yourself on a warned item waits for the warning, like Hand back', async () => {

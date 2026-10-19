@@ -20,8 +20,9 @@ import { isMonitoringModule } from '../missions/contract.js';
 // tool, an unknown background task, removal_alert) still warn, and pay and are
 // remembered like any other. contract.js isMonitoringFinding also counts
 // removal_alert and safety notes, so it is the warning rule, not this one.
-export const isMonitoringItem = (item) => !!item && typeof item === 'object'
-  && [item.finding, ...(Array.isArray(item.findings) ? item.findings : [])].some((f) => f && isMonitoringModule(f.module));
+// `monitoringApp`: one key of an app a monitoring check flagged (types.js keysOf).
+export const isMonitoringItem = (item) => !!item && typeof item === 'object' && (item.monitoringApp === true
+  || [item.finding, ...(Array.isArray(item.findings) ? item.findings : [])].some((f) => f && isMonitoringModule(f.module)));
 import { esc } from './escape.js';
 
 const visible = (s) => String(s == null ? '' : s).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
@@ -46,6 +47,7 @@ export function createMissionDesk(deps) {
   const mode = () => (deps.mode() === 'standard' ? 'standard' : 'city');
   const table = () => buildTable(ownGames(d.reg));
   const notesModule = () => (d.reg && d.reg.modules && d.reg.modules.notes) || null;
+  const keyringModule = () => (d.reg && d.reg.modules && d.reg.modules.keyring) || null;
 
   new Promise((r) => r((deps.loadMissionGames || loadGames)())).catch(() => null).then((reg) => {
     d.reg = reg;
@@ -55,7 +57,9 @@ export function createMissionDesk(deps) {
 
   function regroup() {
     const nm = notesModule();
-    d.missions = groupMissions(d.doc, { mode: mode(), table: table(), odd: d.odd, batchNotes: nm && typeof nm.batchNotes === 'function' ? nm.batchNotes : null });
+    const km = keyringModule();
+    d.missions = groupMissions(d.doc, { mode: mode(), table: table(), odd: d.odd, batchNotes: nm && typeof nm.batchNotes === 'function' ? nm.batchNotes : null,
+      perKey: km && typeof km.perKey === 'function' ? km.perKey : null });
     d.unfinished = unfinishedModules(d.doc);
     // A run under way follows the new scan: answers kept for items still there.
     if (d.run) {
@@ -123,7 +127,9 @@ export function createMissionDesk(deps) {
   // `district`: one district's, or every district's. Rows are the district
   // list's (types.js missionRows), so "3 of 9 missions" counts what it shows.
   function progress(district = null) {
-    const all = new Set(); const decided = new Set();
+    // A list item is decided when every mission item standing for it is (one
+    // app's keys are one item each in the Keyring, but one item on the list).
+    const all = new Map();
     let notes = 0; let notesSorted = 0;
     const here = d.missions.filter((m) => !district || m.district === district);
     for (const m of here) {
@@ -131,12 +137,13 @@ export function createMissionDesk(deps) {
       for (const i of m.items) {
         const todo = m.notes ? i.asNote === true : !i.fromNote;
         if (!todo) { notes += 1; if (rec[i.key]) notesSorted += 1; continue; }
-        for (const k of i.sourceKeys || [i.key]) { all.add(k); if (rec[i.key]) decided.add(k); }
+        for (const k of i.sourceKeys || [i.key]) all.set(k, (all.has(k) ? all.get(k) : true) && !!rec[i.key]);
       }
     }
+    const decided = [...all.values()].filter(Boolean);
     const rows = missionRows(here.filter((m) => !m.notes));
     const rowsDone = rows.filter((r) => r.missions.every((m) => statusOf(m).done)).length;
-    return { decided: decided.size, total: all.size, rows: rows.length, rowsDone, notes, notesSorted };
+    return { decided: decided.length, total: all.size, rows: rows.length, rowsDone, notes, notesSorted };
   }
 
   // A notice about one item names it, so it can't be read as being about the

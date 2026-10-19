@@ -309,3 +309,23 @@ test('a district’s NOTES badge is the list’s count; its notes are one GOOD T
   assert.match(h, /GOOD TO KNOW \(OPTIONAL\)/);
   assert.doesNotMatch(h, /<summary class="label">NOTES \(/, 'the old NOTES list isn’t drawn as well');
 });
+
+// --- keyring per key (group D's perKey, wired through groupMissions) ---
+
+test('keyring: one app holding two keys is one item per key in its mission', async () => {
+  const perm = (check, title) => f(title, 'warning', { check, apps: ['com.example.app'] }, { code: `security.app_permissions.${check}` });
+  const d = scan(mod('app_permissions', [perm('accessibility_access', '1 app can control your Mac'), perm('screen_recording', '1 app can record your screen')]));
+  const real = async () => (await import('../renderer/missions/games/index.js')).loadGames();
+  const t = await setup(d, { games: real });
+  const T = await import('../renderer/missions/types.js');
+  const I = await import('../renderer/missions/games/index.js');
+  const reg = await I.loadGames();
+  const plain = T.groupMissions(d, { table: T.buildTable(I.ownGames(reg)) }).filter((m) => m.type === 'keyring').flatMap((m) => m.items);
+  const split = T.groupMissions(d, { table: T.buildTable(I.ownGames(reg)), perKey: reg.modules.keyring.perKey }).filter((m) => m.type === 'keyring').flatMap((m) => m.items);
+  assert.ok(split.length > plain.length, `per key: ${split.length} items, was ${plain.length}`);
+  const id = (t.html().match(/data-go="(mx:keyring:[^"]+)"/) || [])[1];
+  assert.ok(id);
+  t.click({ 'data-go': id });
+  if (/PRACTICE FIRST/.test(t.html())) t.click({ 'data-act': 'mx-know' });
+  assert.match(t.html(), new RegExp(`ITEM 1 OF ${split.length}`));
+});

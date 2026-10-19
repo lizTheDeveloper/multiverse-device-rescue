@@ -17,7 +17,7 @@
 //
 // Built only from NotChecked.displayItems, so a mission never counts anything
 // the list doesn't. Pure; no DOM, no storage.
-import { TYPE_IDS, claimConflicts, isMonitoringFinding, isAlertingItem } from './contract.js';
+import { TYPE_IDS, claimConflicts, isMonitoringFinding, isMonitoringModule, isAlertingItem } from './contract.js';
 import { districtIdFor, DISTRICTS, OUTSKIRTS } from '../game/findings-to-city.js';
 
 const NC = globalThis.NotChecked;
@@ -257,7 +257,9 @@ function partsOf(items, size) {
 }
 
 /*
- * groupMissions(doc, { mode, table, odd, batchNotes }) -> Mission[]
+ * groupMissions(doc, { mode, table, odd, batchNotes, perKey }) -> Mission[]
+ * `perKey(items)`: the keyring game's own split of its per-app items into one item per
+ * key (UX audit P2-9), passed in like `batchNotes`; without it an app with several keys is one item.
  * - To-do items (critical, warning; stale marks as normal items) by (type,
  *   district), worst first, alerting or fixable first, at most MAX_ITEMS each.
  * - Keyring findings (one per permission, listing apps) become one item per
@@ -269,7 +271,7 @@ function partsOf(items, size) {
  *   checks didn't finish (R2).
  * - City mode: held items are in displayItems' `held` list, never here.
  */
-export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE, odd = null, batchNotes = null } = {}) {
+export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE, odd = null, batchNotes = null, perKey = null } = {}) {
   const list = NC.displayItems(doc, { mode });
   const mods = (doc && Array.isArray(doc.modules) ? doc.modules : []).filter(Boolean);
   const cats = new Map(mods.map((m) => [m.name, m.category]));
@@ -294,7 +296,7 @@ export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE, o
   }
   const missions = [];
   for (const g of groups.values()) {
-    const items = g.type === 'keyring' ? perApp(g.items) : g.items;
+    const items = g.type === 'keyring' ? keysOf(perApp(g.items), perKey) : g.items;
     const sorted = items.map((it, i) => ({ it, i }))
       .sort((a, b) => (RANK[b.it.severity] - RANK[a.it.severity]) || (leads(b.it) - leads(a.it)) || (a.i - b.i)).map((x) => x.it);
     const parts = partsOf(sorted, MAX_ITEMS);
@@ -355,6 +357,19 @@ const permissionOf = (f) => (f && f.data && typeof f.data.service === 'string' &
 // item warn and lead with that finding (so it pays nothing and is remembered
 // for the session only), and one held finding holds it. The key carries the
 // district, as the grouping does, so the same app in two districts is two items.
+// One item per key when the keyring game splits them; its own items if it throws or returns none.
+function keysOf(items, perKey) {
+  if (typeof perKey !== 'function') return items;
+  try {
+    const out = perKey(items);
+    if (!(Array.isArray(out) && out.length && out.every((i) => i && typeof i.key === 'string' && i.finding))) return items;
+    // An app a monitoring check flagged stays a monitoring app on every one of its keys
+    // (security fix I2: decided from all of the app's findings), so no key of it pays or is remembered.
+    const watched = items.filter((i) => [i.finding, ...(i.findings || [])].some((f) => f && isMonitoringModule(f.module))).map((i) => i.key);
+    return out.map((o) => (watched.some((k) => o.key === k || o.key.startsWith(`${k}|key:`)) ? { ...o, monitoringApp: true } : o));
+  } catch (_) { return items; }
+}
+
 function perApp(items) {
   const apps = new Map();
   const sev = new Map(); // finding -> the list severity of the item it came in
