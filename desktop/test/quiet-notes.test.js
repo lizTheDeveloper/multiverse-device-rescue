@@ -215,9 +215,11 @@ test('the list in standard mode: no hotline text except the one line on monitori
   ] });
   p.answer('known'); // the follow-up (Task 5)
   const html = p.byId('results-groups').innerHTML;
-  // The card has fix and mark buttons: the line is on its face, the note behind "Read this first".
+  // The card has fix and mark buttons: the line is on its face; the note is
+  // behind "Read this first" once, in the banner above the list (round 5).
   assert.strictEqual(html.split('Removing this can alert whoever installed it.').length, 2, 'the one line, once');
-  assert.doesNotMatch(html.replace(/<div class="finding-card__note finding-card__note--first"[\s\S]*?<\/details><\/div>/g, ''), DV);
+  assert.strictEqual(html.split('id="results-safety"').length, 2, 'one banner');
+  assert.doesNotMatch(html.replace(/<details data-safety-details>[\s\S]*?<\/details>/g, ''), DV);
 });
 
 test('the game’s mission screens read the same quiet text', async () => {

@@ -1308,6 +1308,8 @@ if (typeof document !== 'undefined') {
     // Per card, for the session answers: what "Copy for any AI" and the
     // technical details say about it. Reset on every render.
     let cardPicks = new Map(); // card key -> copy-ai pick
+    // While the list renders (standard mode): each card's QuietNotes text, for the one warning banner.
+    let safetyCards = null;
     let cardTech = new Map(); // card key -> technical-details object
     let nextCardKey = 0;
 
@@ -1392,6 +1394,7 @@ if (typeof document !== 'undefined') {
           // What this card may say (QuietNotes). Standard: no hotline text, and the one
           // line wherever removing something can alert someone. City: everything, unquieted.
           const card = QuietNotes.cardText(mode, finding);
+          if (safetyCards) safetyCards.push(card);
           // City mode, monitoring software: the hold line and its help. No fix,
           // no "It's mine", no steps, and it doesn't count toward the list's progress.
           const held = card.note === 'held';
@@ -1443,7 +1446,7 @@ if (typeof document !== 'undefined') {
               <div class="evidence-slot" data-evidence-slot>${EvidenceRule.renderEvidence(rows, { copy: !noClipboard })}</div>
               ${prose.why || lesson ? `<p class="finding-card__why">${escapeHtml(prose.why)}${lesson ? `${prose.why ? ' ' : ''}<button type="button" class="link-button finding-card__lesson" data-lesson-link="${lesson}">What does this mean?</button>` : ''}</p>` : ''}
               ${prose.todo ? `<p class="finding-card__todo"><strong>What to do:</strong> ${escapeHtml(prose.todo)}</p>` : ''}
-              ${QuietNotes.lineHtml(card, escapeHtml, { first: !!(fix || mark) })}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
+              ${QuietNotes.lineHtml(card, escapeHtml, { first: !!(fix || mark), banner: !!safetyCards })}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
               ${fix || mark || did ? `<div class="card-answers">${fix}${mark}${did}</div>` : ''}
               ${held ? '' : SettingPanes.findingButtonHtml(finding, currentPlatform())}
               ${held ? '' : RouterLink.findingLinkHtml(finding, routerCtx)}
@@ -1653,10 +1656,15 @@ if (typeof document !== 'undefined') {
       const groupsEl = document.getElementById('results-groups');
       const wasOpen = partial ? openDetailsIn(groupsEl) : new Set();
       const anchor = partial ? readingAnchor(groupsEl) : null;
+      // Standard mode: the removal warning once above the list, when any card
+      // carries it; those cards keep the one bold line. City mode: every
+      // card keeps its note in full, as before.
+      safetyCards = mode === 'city' ? null : [];
+      const cardsHtml = SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial, doc)).join('');
+      const banner = safetyCards ? QuietNotes.bannerHtml(QuietNotes.bannerNotes(safetyCards), escapeHtml) : '';
+      safetyCards = null;
       keepFocus(groupsEl, () => {
-        groupsEl.innerHTML = (partial ? '' : BULK_HTML)
-          + SEVERITY_ORDER.map((sev) => renderSeverityGroup(sev, groups[sev], !!partial, doc)).join('')
-          + ClearList.sectionHtml();
+        groupsEl.innerHTML = banner + (partial ? '' : BULK_HTML) + cardsHtml + ClearList.sectionHtml();
       });
       reopenDetailsIn(groupsEl, wasOpen);
       keepReadingAnchor(groupsEl, anchor);
@@ -2100,6 +2108,16 @@ if (typeof document !== 'undefined') {
       const btn = event.target.closest && event.target.closest('[data-setting-url]');
       if (btn) window.rescue.openSetting(btn.getAttribute('data-setting-url'));
       if (event.target.closest && event.target.closest('[data-rerun-slow]')) rerunSlow();
+    });
+    // "Read this first" on a card: the removal warning, said once above the list.
+    resultsRoot.addEventListener('click', (event) => {
+      const jump = event.target.closest && event.target.closest('[data-safety-jump]');
+      if (!jump) return;
+      const banner = document.getElementById('results-safety');
+      if (banner && typeof banner.scrollIntoView === 'function') banner.scrollIntoView({ block: 'start' });
+      const more = banner && typeof banner.querySelector === 'function' ? banner.querySelector('[data-safety-details]') : null;
+      if (more) more.open = true;
+      if (banner && typeof banner.focus === 'function') banner.focus();
     });
     // "What does this mean?": opens the one place it is taught, at that part.
     resultsRoot.addEventListener('click', (event) => {

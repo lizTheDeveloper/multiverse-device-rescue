@@ -45,15 +45,16 @@ async function listHtml(mode, fixable = true) {
   return p.byId('results-groups').innerHTML;
 }
 
-test('the list, standard mode: the one line, with the warning behind it; no hotline wording on the card', async () => {
+test('the list, standard mode: the one line on the card, the note once above the list; no hotline wording on its face', async () => {
   const html = await listHtml('standard');
-  // On its face, before the fix button (P1-8), with the full note behind "Read this first".
-  assert.match(html, /<p><strong>Removing this can alert whoever installed it\.<\/strong><\/p><details><summary>Read this first<\/summary>/);
-  assert.ok(html.indexOf('Removing this can alert whoever installed it.') < html.indexOf('data-fix-open'), 'the warning comes before the fix button');
+  // On its face, before the fix button (P1-8), with "Read this first" pointing at the note above the list (round 5).
+  assert.match(html, /<p class="finding-card__note finding-card__note--first" role="note" data-safety-line><strong>Removing this can alert whoever installed it\.<\/strong> <button type="button" class="link-button" data-safety-jump>Read this first<\/button><\/p>/);
+  assert.ok(html.indexOf('data-safety-line') < html.indexOf('data-fix-open'), 'the warning comes before the fix button');
   // And in the fix confirm itself.
   assert.match(/<div class="fix-panel"[\s\S]*?data-fix-confirm/.exec(html)[0], /data-fix-safety><strong>Removing this can alert whoever installed it\.<\/strong>/);
-  const note = /<div class="finding-card__note finding-card__note--first"[\s\S]*?<\/details><\/div>/.exec(html)[0];
-  assert.match(note, ALERT, 'the full note behind the line');
+  assert.ok(html.indexOf('id="results-safety"') < html.indexOf('data-card-key'), 'the banner is above the list');
+  const note = /<details data-safety-details>[\s\S]*?<\/details>/.exec(html)[0];
+  assert.match(note, ALERT, 'the full note behind "Read this first" in the banner');
   assert.doesNotMatch(html.replace(note, ''), DV);
   assert.match(html, /select Uninstall/);
   assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'the extra warning is city mode’s');

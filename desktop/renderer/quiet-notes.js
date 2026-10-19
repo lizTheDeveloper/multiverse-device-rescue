@@ -305,13 +305,41 @@ const QuietNotes = (function () {
 
   // `opts.first`: the card has fix or mark buttons, so the warning is on its
   // face above them, with the full note behind "Read this first".
+  //
+  // `opts.banner`: the list shows the note once, above the cards (bannerHtml),
+  // so the card keeps only the one bold line and a way to that note.
   function lineHtml(card, esc, opts = {}) {
     if (!card || card.note !== 'line') return '';
+    if (opts.banner) {
+      return `<p class="finding-card__note finding-card__note--first" role="note" data-safety-line><strong>${esc(LINE_SHORT)}</strong>`
+        + ` <button type="button" class="link-button" data-safety-jump>Read this first</button></p>`;
+    }
     if (opts.first) {
       return `<div class="finding-card__note finding-card__note--first" role="note"><p><strong>${esc(LINE_SHORT)}</strong></p>`
         + `<details><summary>Read this first</summary>${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</details></div>`;
     }
     return `<details class="finding-card__note"><summary>${esc(LINE)}</summary>${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</details>`;
+  }
+
+  // Standard mode's list: the removal warning once, above the cards, when any
+  // card carries it. `notes`: each card's full note (card.full), deduplicated
+  // here, so a note shared by many cards is said once.
+  const BANNER_HEAD = 'Removing some of these can alert whoever installed them.';
+  function bannerNotes(cards) {
+    const out = [];
+    for (const c of cards || []) {
+      if (!c || c.note !== 'line') continue;
+      for (const p of c.full || []) if (!out.includes(p)) out.push(p);
+    }
+    return out;
+  }
+  // The head on its face; the note itself behind "Read this first", as it
+  // was on each card (standard mode shows no hotline wording on its face).
+  function bannerHtml(notes, esc) {
+    if (!notes || !notes.length) return '';
+    return `<section class="results-safety" id="results-safety" role="note" tabindex="-1">`
+      + `<p><strong>${esc(BANNER_HEAD)}</strong> Those cards say so in bold.</p>`
+      + `<details data-safety-details><summary>Read this first</summary>${notes.map((p) => `<p>${esc(p)}</p>`).join('')}</details></section>`;
   }
 
   // The hold line, then the help behind it. `more: false` leaves out the
@@ -340,7 +368,7 @@ const QuietNotes = (function () {
       category: f.category, code: f.code };
   }
 
-  return { MONITORING_MODULES, NOT_DETECTIONS, MONITOR_CAPABLE, canMonitor, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml };
+  return { MONITORING_MODULES, NOT_DETECTIONS, MONITOR_CAPABLE, canMonitor, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml, BANNER_HEAD, bannerNotes, bannerHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

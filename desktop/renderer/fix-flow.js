@@ -290,7 +290,12 @@ const FixFlow = (function () {
     function closePanel(card) {
       const panel = card.querySelector('[data-fix-panel]');
       if (panel) panel.hidden = true;
+      setFaceLine(card, false);
       state.delete(card);
+    }
+    function setFaceLine(card, hide) {
+      const line = card && card.querySelector ? card.querySelector('[data-safety-line]') : null;
+      if (line) line.hidden = !!hide;
     }
 
     async function confirm(card) {
@@ -303,6 +308,7 @@ const FixFlow = (function () {
       const status = card.querySelector('[data-fix-status]');
       const open = card.querySelector('[data-fix-open]');
       if (panel) panel.hidden = true;
+      setFaceLine(card, false);
       if (open) open.hidden = true;
       status.hidden = false;
       status.innerHTML = runningHtml();
@@ -371,6 +377,9 @@ const FixFlow = (function () {
         const status = card.querySelector('[data-fix-status]');
         if (status) { status.hidden = true; status.innerHTML = ''; }
         if (panel) panel.hidden = false;
+        // The confirm says the removal warning itself: the card's own line
+        // above the button is hidden meanwhile, so it isn't said twice.
+        if (panel && panel.querySelector && panel.querySelector('[data-fix-safety]')) setFaceLine(card, true);
         state.set(card, 'confirming');
         // Focus moves to the confirmation (not its Yes button), so it is read first.
         if (panel && typeof panel.focus === 'function') {

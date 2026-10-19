@@ -4,6 +4,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { page, tick } = require('./page-harness.js');
+const FixFlow = require('../renderer/fix-flow.js');
+const Q = require('../renderer/quiet-notes.js');
 
 const mod = (name, findings, extra = {}) => Object.assign({ name, category: 'security', status: 'ok', supported: true, findings }, extra);
 
@@ -71,4 +73,77 @@ test('if the city can’t draw the stopped checkup, Plain shows the stopped scre
   await tick();
 });
 
-module.exports = { mod };
+
+// ---------------------------------------------------------------------------
+// (2) The removal warning: once above the list in standard mode, one bold line per card.
+// ---------------------------------------------------------------------------
+const SN = 'Before you remove or turn anything off: if you think someone close to you set this up to watch you, removing it can alert them. Talk to an advocate first. In the US: National Domestic Violence Hotline, 1-800-799-7233, or text START to 88788.';
+const watchy = (title, i) => ({ title, severity: 'warning', category: 'security', description: 'Starts by itself.',
+  data: { label: `com.x.${i}`, path: `/Users/u/Library/LaunchAgents/com.x.${i}.plist` }, remediation: { safety_note: SN, steps: [] } });
+async function listOf(mode, findings) {
+  const p = page({ store: { 'device-rescue.display': mode }, ready: false });
+  p.sandbox.FixFlow.fixControlsHtml = FixFlow.fixControlsHtml;
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  p.byId('btn-run-scan').click();
+  await p.finish({ schema_version: 1, platform: 'darwin', modules: [mod('launch_agent_audit', findings)] });
+  if (p.shown().includes('question')) p.answer('known');
+  return p.byId('results-groups').innerHTML;
+}
+
+test('standard mode: three cards with the removal warning get one banner above the list and one bold line each', async () => {
+  const html = await listOf('standard', [watchy('Task A', 1), watchy('Task B', 2), watchy('Task C', 3),
+    { title: 'Disk nearly full', severity: 'warning', category: 'storage', description: 'Low space.', data: {} }]);
+  assert.strictEqual(html.split('id="results-safety"').length, 2, 'one banner');
+  assert.ok(html.indexOf('id="results-safety"') < html.indexOf('data-card-key'), 'above the list');
+  assert.strictEqual(html.split(SN).length, 2, 'the note itself once, in the banner');
+  assert.strictEqual(html.split('data-safety-line').length, 4, 'one bold line on each of the three cards');
+  const disk = html.split('<li class="finding-card').find((c) => /Disk nearly full/.test(c));
+  assert.doesNotMatch(disk, /data-safety-line/, 'not on a card that doesn’t carry it');
+});
+
+test('standard mode: no card carries the warning, so no banner', async () => {
+  const html = await listOf('standard', [{ title: 'Disk nearly full', severity: 'warning', category: 'storage', description: 'Low space.', data: {} }]);
+  assert.doesNotMatch(html, /results-safety/);
+});
+
+test('city mode (the Plain list): no banner; every card keeps its note in full', async () => {
+  const html = await listOf('city', [watchy('Task A', 1), watchy('Task B', 2)]);
+  assert.doesNotMatch(html, /results-safety|data-safety-line/);
+  assert.strictEqual(html.split(SN).length, 3);
+});
+
+test('the banner helpers: notes said once, nothing without a line card', () => {
+  const card = { note: 'line', full: ['A.', 'B.'] };
+  assert.deepStrictEqual(Q.bannerNotes([card, { note: 'line', full: ['A.'] }, { note: 'none', full: ['C.'] }]), ['A.', 'B.']);
+  assert.strictEqual(Q.bannerHtml([], String), '');
+  assert.match(Q.bannerHtml(['A.'], String), /<details data-safety-details><summary>Read this first<\/summary><p>A\.<\/p><\/details>/);
+});
+
+test('the fix confirm says the warning, and the card’s own line hides meanwhile (not said twice)', async () => {
+  const els = {};
+  const mk = (name, attrs = {}) => {
+    const el = { name, attrs, hidden: false, innerHTML: '',
+      closest(sel) { return sel === '[data-fix-module]' ? els.card : null; },
+      hasAttribute(a) { return a in attrs; }, getAttribute(a) { return attrs[a]; }, setAttribute() {}, focus() {},
+      querySelector(sel) {
+        if (name === 'panel') return sel === '[data-fix-safety]' ? els.safety : null;
+        return { '[data-fix-panel]': els.panel, '[data-fix-status]': els.status, '[data-fix-open]': els.open, '[data-safety-line]': els.line }[sel] || null;
+      } };
+    els[name] = el;
+    return el;
+  };
+  mk('card', { 'data-fix-module': 'launch_agent_audit' });
+  mk('panel'); els.panel.hidden = true;
+  mk('safety', { 'data-fix-safety': '' });
+  mk('status'); mk('open', { 'data-fix-open': '' }); mk('cancel', { 'data-fix-cancel': '' }); mk('line', { 'data-safety-line': '' });
+  const listeners = {};
+  const root = { addEventListener(t, fn) { listeners[t] = fn; } };
+  const click = (target) => listeners.click({ target: { closest: () => target } });
+  FixFlow.attach(root, { runFix: async () => ({}) });
+  click(els.open);
+  assert.strictEqual(els.panel.hidden, false);
+  assert.strictEqual(els.line.hidden, true, 'one warning on screen: the confirm’s');
+  click(els.cancel);
+  assert.strictEqual(els.line.hidden, false, 'back on the card once the confirm closes');
+});
