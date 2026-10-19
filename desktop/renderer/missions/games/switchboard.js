@@ -78,7 +78,12 @@ export const covers = [
     'security.firewall_rules_audit.firewall_summary',
   ] },
   ...Object.keys(MODULE_KIND).filter((m) => m !== 'firewall_rules_audit').map((module) => ({ module })),
+  // The mining check's hosts-file line is a line in the address book (the rest of that check is the Loadout's).
+  { module: 'browser_cryptojacking_check', checks: ['mining_hosts_entry'] },
 ];
+
+// A hosts-file line from the browser mining check: { hostname, address, path }.
+const isMiningHosts = (f) => moduleOf(f) === 'browser_cryptojacking_check' && isObj(f && f.data) && f.data.check === 'mining_hosts_entry';
 
 function moduleOf(finding) {
   const f = finding || {};
@@ -90,6 +95,7 @@ function moduleOf(finding) {
 export function lineKind(finding) {
   const code = finding && finding.code;
   if (code && CODE_KIND[code]) return CODE_KIND[code];
+  if (isMiningHosts(finding)) return 'hosts';
   return MODULE_KIND[moduleOf(finding)] || 'conn';
 }
 
@@ -371,6 +377,12 @@ function hostsLines(d, ctx) {
       out.push({ via: clip(e.hostname || e.domain), to: blocked ? (city ? 'Blocked (sent nowhere)' : `Blocked (${ip})`) : clip(ip || '?'), odd: !blocked });
     } else out.push({ via: entryText(e), to: city ? 'Rerouted' : 'Redirected' });
   }
+  // The mining check names one line: a hostname and the address it's sent to.
+  if (!out.length && (d.hostname || d.domain) && (d.address || d.ip)) {
+    const ip = String(d.address || d.ip);
+    const blocked = BLOCKED.test(ip);
+    out.push({ via: clip(d.hostname || d.domain), to: blocked ? (city ? 'Blocked (sent nowhere)' : `Blocked (${ip})`) : clip(ip), odd: !blocked });
+  }
   for (const n of list(d.blocked_domains)) out.push({ via: entryText(n), to: 'Blocked', odd: true });
   for (const n of [...list(d.redirected_domains), ...list(d.redirects)]) {
     if (isObj(n)) out.push({ via: entryText(n), to: clip(n.ip || n.target || '?'), odd: true });
@@ -536,12 +548,33 @@ export function decisions(item, ctx) {
     effect: { kind: 'closer', checklist: checklistFor(kind, c) },
     hint: city ? 'What to check before you choose.' : 'What to check before you decide.',
   };
-  return [expected, odd, closer];
+  // The first decision is the default. "Expected" never leads on a critical or warning line (or one that can alert
+  // someone): Look closer does, or "close it" for a website name sent to an address that isn't a block.
+  const sev = (item && item.severity) || f.severity;
+  if (!(sev === 'critical' || sev === 'warning' || alerting)) return [expected, odd, closer];
+  if (kind === 'hosts' && redirectsElsewhere(f) && !(alerting && effect.kind === 'fix')) return [odd, closer, expected];
+  return [closer, odd, expected];
+}
+
+// A hosts entry that sends a name to a real address (not 0.0.0.0 / 127.0.0.1 / ::1, which only block it).
+export function redirectsElsewhere(f) {
+  const d = isObj(f && f.data) ? f.data : {};
+  const entries = list(d.entries || d.custom_entries).filter((e) => isObj(e) && (e.hostname || e.domain));
+  if (entries.some((e) => !BLOCKED.test(String(e.ip || '')))) return true;
+  if ((d.hostname || d.domain) && (d.address || d.ip) && !BLOCKED.test(String(d.address || d.ip))) return true;
+  return [...list(d.redirected_domains), ...list(d.redirects)].length > 0;
 }
 
 // ---- Research ----
 
+// A look-up searches a name (a program, a provider, a server), never the finding's title sentence.
 function lookupFor(kind, f, t, ctx) {
+  const l = lookupOf(kind, f, t, ctx);
+  const title = String((f && f.title) || '').trim();
+  return l && title && String(l.query).includes(title) ? null : l;
+}
+
+function lookupOf(kind, f, t, ctx) {
   const d = isObj(f.data) ? f.data : {};
   const first = t.lines[0] || {};
   const win = plat(ctx) === 'win32';
@@ -681,13 +714,23 @@ export const practice = {
       data: { check: 'bank_domain_redirect', count: 1, entries: [{ ip: '203.0.113.7', hostname: 'mybank.example' }] },
     }),
   ],
+  // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+  // an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
   script: [
-    { item: 0, say: W('Follow the line: port 631 is the printer service (cupsd), and it only answers this computer. That’s expected.',
-      'Follow the line: socket 631 is the printer service, and only your post can ring it. That’s expected.'), expect: 'expected' },
-    { item: 1, say: W('You don’t know “syncagentd”, and anyone on your network could reach it. Don’t guess: look closer first.',
-      'You don’t know “syncagentd”, and anyone on the street could ring it. Don’t guess: trace it first.'), expect: 'closer' },
-    { item: 2, say: W('A bank’s name is sent to an address that isn’t the bank. That line is odd: close it.',
-      'A bank’s name is sent to an address that isn’t the bank. That line is wrong: cut it.'), expect: 'odd' },
+    { item: 0, say: W('Read each line from left to right: this computer, the port or program it goes through, and where it goes.',
+      'Read each line from left to right: your post, the socket or crew it goes through, and where it goes.') },
+    { item: 0, expect: ['expected', 'closer'],
+      say: W('Follow this line. What is it, and who can reach it? What would you do?', 'Follow this line. What is it, and who can ring it? What would you do?'),
+      why: W('Port 631 is the printer service (cupsd), and it only answers this computer. That’s expected.',
+        'Socket 631 is the printer service, and only your post can ring it. That’s expected.') },
+    { item: 1, expect: 'closer',
+      say: W('Follow this line. Do you know the program? Who can reach it? What would you do?', 'Follow this line. Do you know the crew? Who can ring it? What would you do?'),
+      why: W('You don’t know “syncagentd”, and anyone on your network could reach it. Don’t guess: look closer first.',
+        'You don’t know “syncagentd”, and anyone on the street could ring it. Don’t guess: trace it first.') },
+    { item: 2, expect: ['odd', 'closer'],
+      say: W('Follow this line: a bank’s website name. Where is it sent? What would you do?', 'Follow this line: a bank’s name. Where is it sent? What would you do?'),
+      why: W('A bank’s name is sent to an address that isn’t the bank. That line is odd: close it.',
+        'A bank’s name is sent to an address that isn’t the bank. That line is wrong: cut it.') },
   ],
 };
 

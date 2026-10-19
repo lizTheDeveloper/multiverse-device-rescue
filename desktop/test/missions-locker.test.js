@@ -6,6 +6,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+// A practice step's best move (`expect` is one id or a list, the best first).
+const first = (e) => (Array.isArray(e) ? e[0] : e);
 
 const MISSIONS = path.join(__dirname, '..', 'renderer', 'missions');
 const loadContract = () => import(pathToFileURL(path.join(MISSIONS, 'contract.js')).href);
@@ -96,12 +98,15 @@ test('size shows when the engine recorded one; a list finding shows its names', 
   assert.deepStrictEqual([tag.kind, tag.entries.length, tag.moreEntries], ['system', 6, 2]);
 });
 
-test('decisions: Mine / Quarantine / Look closer for a file; a critical match puts Look closer first', async () => {
+test('decisions: Mine / Quarantine / Look closer for a file on a note; a critical or warning match puts Look closer first', async () => {
   const { game, byId, C } = await setup();
   const ctx = C.testContext();
-  assert.deepStrictEqual(ids(game.decisions(byId('locker-mac.json', 'dev-script'), ctx)), ['mine', 'quarantine', 'closer']);
+  const dev = byId('locker-mac.json', 'dev-script');
+  assert.deepStrictEqual(ids(game.decisions(dev, ctx)), ['closer', 'quarantine', 'mine'], 'a warning never leads with Mine');
   assert.deepStrictEqual(ids(game.decisions(byId('locker-mac.json', 'known-hash'), ctx)), ['closer', 'quarantine', 'mine']);
-  const labels = game.decisions(byId('locker-mac.json', 'dev-script'), ctx).map((d) => d.label);
+  const note = { ...dev, severity: 'info', finding: { ...dev.finding, severity: 'info' } };
+  assert.deepStrictEqual(ids(game.decisions(note, ctx)), ['mine', 'quarantine', 'closer']);
+  const labels = game.decisions(note, ctx).map((d) => d.label);
   assert.deepStrictEqual(labels.map((l) => l.standard), ['Mine', 'Quarantine', 'Look closer']);
   assert.deepStrictEqual(labels.map((l) => l.city), ['Mine', 'Bag it', 'Look closer']);
 });
@@ -157,9 +162,9 @@ test('programs, add-ons, settings and core parts get their own moves', async () 
   assert.deepStrictEqual(ids(miner), ['closer', 'stop', 'mine']);
   assert.match(miner[1].effect.steps.join('\n'), /Activity Monitor[\s\S]*xmrig \(ID 4242\)[\s\S]*Stop button/);
   const ext = game.decisions(byId('locker-mac.json', 'safari-ext'), ctx);
-  assert.deepStrictEqual(ids(ext), ['mine', 'turn-off', 'closer']);
+  assert.deepStrictEqual(ids(ext), ['closer', 'turn-off', 'mine']);
   assert.match(ext[1].effect.steps[0], /Safari > Settings > Extensions, and untick Example Search Helper/);
-  assert.deepStrictEqual(ids(game.decisions(byId('locker-mac.json', 'clamav-missing'), ctx)), ['mine', 'closer', 'later']);
+  assert.deepStrictEqual(ids(game.decisions(byId('locker-mac.json', 'clamav-missing'), ctx)), ['closer', 'mine', 'later']);
   const sip = game.decisions(byId('locker-mac.json', 'sip-off'), ctx);
   assert.deepStrictEqual(ids(sip), ['closer', 'mine', 'later']);
   assert.ok(!sip.some((d) => d.effect.kind === 'fix' || d.effect.focus === 'move-aside'), 'core parts are never moved by hand');
@@ -251,7 +256,7 @@ test('ten near-identical files: one group, each decided on its own, summed up to
   assert.strictEqual(new Set(group.map(G.groupKey)).size, 1, 'they read as one group');
   assert.strictEqual(new Set(group.map((i) => i.key)).size, 10, 'each keeps its own key');
   const sets = group.map((i) => game.decisions(i, ctx));
-  for (const d of sets) assert.deepStrictEqual(ids(d), ['mine', 'quarantine', 'closer']);
+  for (const d of sets) assert.deepStrictEqual(ids(d), ['closer', 'quarantine', 'mine']);
   // Each item's move-aside steps name that item's own file.
   sets.forEach((d, i) => assert.match(d[1].effect.steps.join('\n'), new RegExp(`postinstall-${i}\\.js`)));
   const part = group.slice(0, 4);
@@ -273,17 +278,19 @@ test('practice: a developer script (Mine), a dropped temp script (Quarantine), a
   const ctx = C.testContext({ practice: true });
   const { items, script } = game.practice;
   assert.strictEqual(items.length, 3);
-  assert.deepStrictEqual(script.map((s) => s.expect), ['mine', 'quarantine', 'closer']);
+  assert.deepStrictEqual(script.filter((s) => s.expect).map((s) => first(s.expect)), ['mine', 'quarantine', 'closer']);
   for (const step of script) {
-    assert.ok(ids(game.decisions(items[step.item], ctx)).includes(step.expect), step.expect);
+    if (step.expect) assert.ok(ids(game.decisions(items[step.item], ctx)).includes(first(step.expect)), step.expect);
     assert.ok(game.concepts.includes(step.concept), step.concept);
     assert.ok(step.say.standard && step.say.city);
   }
   assert.deepStrictEqual(Object.values(G.placeFlags(items[1].finding.data.path)).slice(0, 2), [true, true]);
   assert.strictEqual(G.placeFlags(items[2].finding.data.path).cache, true);
-  const html = strip(game.render({ item: items[2], research: game.research(items[2], ctx), decisions: [], index: 2, total: 3, practice: true, step: script[2] }, ctx));
+  const cacheStep = script.find((s) => s.item === 2);
+  const html = strip(game.render({ item: items[2], research: game.research(items[2], ctx), decisions: [], index: 3, total: 4, practice: true, step: cacheStep }, ctx));
   assert.match(html, /an app's cache/);
-  assert.match(html, /Look closer before you decide/);
+  assert.match(html, /Read where this one is/, 'the card asks; the verdict waits');
+  assert.match(cacheStep.why.standard, /Look closer before you decide/);
   // Synthetic: no real home folders.
   const txt = JSON.stringify(items);
   assert.doesNotMatch(txt, /\/Users\/(?!example\/)/);

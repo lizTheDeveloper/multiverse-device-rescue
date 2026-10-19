@@ -464,6 +464,10 @@ export function summary(results, ctx) {
     if (later) lines.push(`${later} set aside. They stay on your list.`);
     if (unknown) lines.push(`${unknown} couldn’t be checked, so ${unknown === 1 ? 'it isn’t' : 'they aren’t'} known to be on.`);
   }
+  // Points: the mission screen shows what was paid. Opening a settings page proves nothing, so a lock pays when
+  // a check sees it on; say so when nothing has paid yet, rather than leaving the points line blank.
+  const paid = list.some((r) => r && Number(r.points) > 0);
+  if (list.length && !paid) lines.push(mode === 'city' ? 'No points yet: a lock pays once the scout sees it shut. Check the lock after you flip it.' : 'No points yet: a setting pays once a check sees it on. Choose Done after you change it.');
   lines.push(mode === 'city' ? 'A shut lock lowers the odds; it doesn’t rule everything out.' : 'Locks lower the odds of a problem. They don’t rule one out.');
   return `<div class="lk-sum">${lines.map((l) => `<p>${e(l)}</p>`).join('')}</div>`;
 }
@@ -480,11 +484,19 @@ const practice = {
     practiceItem('encryption_check', 'security.encryption_check.filevault_disabled', 'Your Mac’s disk encryption is off', { fdesetup_output: 'FileVault is Off.' }, 'critical'),
     practiceItem('screen_lock_check', 'security.screen_lock_check.screen_lock_required', 'Your Mac does not lock after sleeping', { check: 'screen_lock_required', value: '0' }, 'critical'),
   ],
+  // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+  // an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
   script: [
-    { item: 0, say: { standard: 'Each lock says what it protects. This one installs security fixes for you.', city: 'Each lock says what it guards. This one lets patches in on their own.' } },
-    { item: 0, say: { standard: '“Where” is the exact switch. Turn it on opens that page; you flip the switch there.', city: '“Switch” is where the lever is. Lock it opens that panel; you flip it there.' }, expect: 'on' },
-    { item: 1, say: { standard: 'FileVault shows a recovery key when you turn it on. Write it down. Never paste it anywhere.', city: 'The vault hands you a spare key. Write it down. Never paste it anywhere.' }, expect: 'on' },
-    { item: 2, say: { standard: 'Already changed it? Done checks again, and the lock counts once the check sees it.', city: 'Already flipped it? Check the lock, and it counts once the scout sees it shut.' }, expect: 'done' },
+    { item: 0, say: { standard: 'Each lock says what it protects and where its switch is.', city: 'Each lock says what it guards and where its lever is.' } },
+    { item: 0, expect: 'on',
+      say: { standard: 'Automatic updates are off. Read what this protects and where the switch is. What would you do?', city: 'Patches don’t come in on their own. Read what this guards and where the lever is. What would you do?' },
+      why: { standard: '“Where” is the exact switch. Turn it on opens that page, and you flip the switch there.', city: '“Switch” is where the lever is. Lock it opens that panel, and you flip it there.' } },
+    { item: 1, expect: 'on',
+      say: { standard: 'Disk encryption is off. What would you do?', city: 'The vault is unlocked. What would you do?' },
+      why: { standard: 'Turn it on opens FileVault. It shows you a recovery key when you turn it on: write it down. Never paste it anywhere.', city: 'Lock it opens the vault panel. The vault hands you a spare key: write it down. Never paste it anywhere.' } },
+    { item: 2, expect: ['done', 'on'],
+      say: { standard: 'In this practice, you already changed this setting yourself. What would you do?', city: 'In this drill, you already flipped this lever yourself. What would you do?' },
+      why: { standard: 'Done checks again, and the lock counts once the check sees it.', city: 'Check the lock sends the scout again, and it counts once the scout sees it shut.' } },
   ],
 };
 

@@ -297,13 +297,17 @@ function decisions(item, ctx) {
   const removeEffect = (steps) => warn(f.fixable ? { kind: 'fix' } : { kind: 'note', note: 'remove', steps });
   const keep = (standard, city) => ({ id: 'keep', label: L(standard, city), effect: keepOf(item) });
   const remove = (standard, city, steps) => ({ id: 'remove', label: L(standard, city), effect: removeEffect(steps) });
+  // The first decision is the default. "Keep" leads only on a note (info); on a critical or warning item (or one
+  // that can alert whoever set it up) Look closer or the safe move (trim, reset, turn on) leads, Keep comes after.
+  const sev = (item && item.severity) || f.severity;
+  const wary = alerting || sev === 'critical' || sev === 'warning';
   switch (kind) {
-    case 'extension':
-      return [
-        keep('Keep it', 'Keep it'),
-        { id: 'trim', label: L('Trim its access', 'Trim its reach'), effect: warn({ kind: 'note', note: 'trim', steps: trimSteps(b, id, ctx) }) },
-        remove('Remove it', 'Drop it', removeSteps(b, id, ctx, kind)),
-      ];
+    case 'extension': {
+      const trim = { id: 'trim', label: L('Trim its access', 'Trim its reach'), effect: warn({ kind: 'note', note: 'trim', steps: trimSteps(b, id, ctx) }) };
+      const k = keep('Keep it', 'Keep it');
+      const r = remove('Remove it', 'Drop it', removeSteps(b, id, ctx, kind));
+      return wary ? [trim, k, r] : [k, trim, r];
+    }
     case 'known-bad':
     case 'miner':
       return [closer, remove('Remove it', 'Drop it', removeSteps(b, id, ctx, kind)), keep('Keep it', 'Keep it')];
@@ -311,22 +315,37 @@ function decisions(item, ctx) {
       return [closer, { id: 'reset', label: L('Reset start page'), effect: { kind: 'note', note: 'reset', steps: startupSteps(b, ctx) } }];
     case 'mining-hosts':
       return [closer, remove('Remove the line', 'Cut the line', hostsSteps(f, ctx))];
-    case 'hijack':
-      return [keep('I chose this', 'I chose this'), { id: 'reset', label: L('Reset it'), effect: { kind: 'note', note: 'reset', steps: resetSteps(b, f, ctx) } }, closer];
+    case 'hijack': {
+      const reset = { id: 'reset', label: L('Reset it'), effect: { kind: 'note', note: 'reset', steps: resetSteps(b, f, ctx) } };
+      const k = keep('I chose this', 'I chose this');
+      return wary ? [closer, reset, k] : [k, reset, closer];
+    }
     case 'managed':
-      return [keep('Work or school', 'Work or school'), closer];
-    case 'many':
-      return [keep('Keep them all', 'Keep the loadout'), { id: 'trim', label: L('Trim the list', 'Lighten the loadout'), effect: warn({ kind: 'note', note: 'trim', steps: manySteps(b, ctx) }) }];
-    case 'legacy':
-      return [keep('Keep them', 'Keep them'), remove('Remove them', 'Drop them', [openExtensions(SAFARI, '', ctx),
+      return wary ? [closer, keep('Work or school', 'Work or school')] : [keep('Work or school', 'Work or school'), closer];
+    case 'many': {
+      const trim = { id: 'trim', label: L('Trim the list', 'Lighten the loadout'), effect: warn({ kind: 'note', note: 'trim', steps: manySteps(b, ctx) }) };
+      const k = keep('Keep them all', 'Keep the loadout');
+      return wary ? [trim, k] : [k, trim];
+    }
+    case 'legacy': {
+      const k = keep('Keep them', 'Keep them');
+      const r = remove('Remove them', 'Drop them', [openExtensions(SAFARI, '', ctx),
         'Select each old one and click “Uninstall”.',
-        'If one isn’t listed: in Finder choose Go > Go to Folder, type ~/Library/Safari/Extensions and press Return, then move its .safariextz file to the Trash.'])];
-    case 'blockers-off':
-      return [keep('Leave it off', 'Leave it off'), { id: 'turn-on', label: L('Turn one on'), effect: { kind: 'note', note: 'turn-on', steps: [openExtensions(SAFARI, '', ctx), 'Tick a content blocker if you have one. If none is listed, you can leave this.'] } }];
-    case 'new-ext':
-      return [keep('I added these', 'I packed these'), closer, remove('Remove them', 'Drop them', newExtSteps(f, ctx))];
+        'If one isn’t listed: in Finder choose Go > Go to Folder, type ~/Library/Safari/Extensions and press Return, then move its .safariextz file to the Trash.']);
+      return wary ? [closer, k, r] : [k, r];
+    }
+    case 'blockers-off': {
+      const on = { id: 'turn-on', label: L('Turn one on'), effect: { kind: 'note', note: 'turn-on', steps: [openExtensions(SAFARI, '', ctx), 'Tick a content blocker if you have one. If none is listed, you can leave this.'] } };
+      const k = keep('Leave it off', 'Leave it off');
+      return wary ? [on, k] : [k, on];
+    }
+    case 'new-ext': {
+      const k = keep('I added these', 'I packed these');
+      const r = remove('Remove them', 'Drop them', newExtSteps(f, ctx));
+      return wary ? [closer, k, r] : [k, closer, r];
+    }
     default:
-      return [keep('Looks right', 'Looks right'), closer];
+      return wary ? [closer, keep('Looks right', 'Looks right')] : [keep('Looks right', 'Looks right'), closer];
   }
 }
 
@@ -544,16 +563,27 @@ const practice = {
       made_by: [{ subject: 'Midnight Sky Theme', name: 'Sky Themes (made up)', verified: true, how: 'practice', what: 'Midnight Sky Theme: changes the browser’s colours. Nothing else.' }],
     }),
   ],
+  // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+  // an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
   script: [
-    { item: 0, expect: 'keep', say: {
-      standard: 'A password manager can read every site: it has to, to fill in your passwords there. You know it and it needs that access, so keep it.',
-      city: 'This gear keeps your passwords. It reaches every site because it fills them in there. You know it and it needs the reach: keep it.' } },
-    { item: 1, expect: 'remove', say: {
-      standard: 'A coupon add-on from an unknown maker, reading every site and the cookies that keep you signed in. You don’t remember adding it, and it doesn’t need that much: remove it.',
-      city: 'Coupon gear from an unknown maker, reaching every site and the cookies that keep you signed in. You never packed it, and it doesn’t need that reach: drop it.' } },
+    { item: 0, say: {
+      standard: 'Each add-on lists what it can do, in plain words. Ask two things: who made it, and does it need that much?',
+      city: 'Each piece of gear lists what it can reach. Ask two things: who made it, and does it need that much reach?' } },
+    { item: 0, expect: ['keep', 'trim'], say: {
+      standard: 'A password manager that can read every site. Read who made it and what it can do. What would you do?',
+      city: 'Password gear that reaches every site. Read who made it and what it can reach. What would you do?' }, why: {
+      standard: 'It has to reach every site to fill in your passwords there, and its maker is known. Keep it.',
+      city: 'It reaches every site because it fills your passwords in there, and its maker is known. Keep it.' } },
+    { item: 1, expect: ['remove', 'trim'], say: {
+      standard: 'A coupon add-on that reads every site and the cookies that keep you signed in. Read who made it. What would you do?',
+      city: 'Coupon gear that reaches every site and the cookies that keep you signed in. Read who made it. What would you do?' }, why: {
+      standard: 'Its maker is unknown, and finding coupons doesn’t need your sign-in cookies. Remove it. Trimming its access is the gentler move if you still want it.',
+      city: 'Its maker is unknown, and coupons don’t need your sign-in cookies. Drop it. Trimming its reach is the gentler move if you still want it.' } },
     { item: 2, expect: 'keep', say: {
-      standard: 'A theme only changes colours and asks for no special access. Keep it.',
-      city: 'A theme only repaints the browser. No special powers: keep it.' } },
+      standard: 'A theme. Read what it can do. What would you do?',
+      city: 'A theme. Read what it can reach. What would you do?' }, why: {
+      standard: 'It only changes colours and asks for no special access. Keep it.',
+      city: 'It only repaints the browser. No special powers: keep it.' } },
   ],
 };
 

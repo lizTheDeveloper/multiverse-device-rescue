@@ -1,7 +1,10 @@
 // Odd Jobs: the fallback game, and the reference implementation of the
 // mini-game contract (../contract.js). One item at a time with the finding's
 // own actions: mark it as yours, fix it, or say you did it (a re-check). Later
-// is always first, the safe default. Pure: it returns decisions, research
+// is always first, the safe default. A setting or a reading (volume at 0%, a
+// worn battery, swap in use) isn't something "you did": it gets "That's fine"
+// (kept as it is) and "I changed it" (a re-check). Only an item about a program
+// shows who made it; the evidence rows are the runner's (R1), never the card's. Pure: it returns decisions, research
 // intents and HTML; the runner carries every effect out.
 
 const label = (standard, city) => ({ standard, city });
@@ -18,6 +21,15 @@ function subjectOf(finding) {
     return v;
   }
   return '';
+}
+
+// An item about a program (something with a maker), not a setting, a reading or a file.
+const PROGRAM_KEYS = ['program', 'label', 'bundle_id', 'executable', 'exe', 'binary', 'plist', 'app', 'extension_id', 'process'];
+export function isProgram(f) {
+  if (!f || typeof f !== 'object') return false;
+  if (Array.isArray(f.made_by) && f.made_by.some((e) => e && typeof e === 'object' && e.name)) return true;
+  const d = f.data && typeof f.data === 'object' ? f.data : {};
+  return PROGRAM_KEYS.some((k) => typeof d[k] === 'string' && d[k].trim());
 }
 
 const hasMark = (f) => !!(f && f.markable && typeof f.markable === 'object');
@@ -38,7 +50,12 @@ export default {
     const out = [{ id: 'later', label: label('Later', 'Later'), effect: { kind: 'later' } }];
     if (hasMark(f)) out.push({ id: 'mine', label: label('It’s mine', 'Mine'), effect: { kind: 'mark' } });
     if (hasFix(f)) out.push({ id: 'fix', label: label('Fix it', 'Patch it'), effect: { kind: 'fix' } });
-    if (out.length < 3) out.push({ id: 'did', label: label('I did this', 'Done it'), effect: { kind: 'recheck' } });
+    if (isProgram(f)) {
+      out.push({ id: 'did', label: label('I did this', 'Done it'), effect: { kind: 'recheck' } });
+    } else {
+      out.push({ id: 'fine', label: label('That’s fine', 'Leave it'), effect: { kind: 'keep' } });
+      out.push({ id: 'did', label: label('I changed it', 'Changed it'), effect: { kind: 'recheck' } });
+    }
     return out.slice(0, 3);
   },
 
@@ -60,20 +77,25 @@ export default {
           severity: 'warning', category: 'security', data: { label: 'com.example.helper' } },
         findings: [] },
     ],
+    // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict. No `expect`: an
+    // explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
     script: [
-      { item: 0, say: label('Each job has a few moves. Not sure yet? Later is always safe.', 'Every job has a few moves. Later is always safe.'), expect: 'later' },
-      { item: 1, say: label('Done it yourself? Say so and the app checks again.', 'Done it already? Say so and the city checks again.'), expect: 'did' },
+      { item: 0, expect: 'later',
+        say: label('A setting that is usually on is off, and you’re not sure why yet. What would you do?', 'A switch that is usually on is off, and you’re not sure why yet. What would you do?'),
+        why: label('Not sure yet? Later is always safe: the job stays on your list.', 'Not sure yet? Later is always safe: the job stays on the board.') },
+      { item: 1, expect: 'did',
+        say: label('In this practice, you already removed this helper yourself. What would you do?', 'In this drill, you already cleared this helper out yourself. What would you do?'),
+        why: label('“I did this” checks again, and the job counts once the check sees it gone.', '“Done it” sends the city to check again, and the job counts once it sees it gone.') },
     ],
   },
 
   render(view, ctx) {
     const f = (view && view.item && view.item.finding) || {};
     const r = (view && view.research) || {};
-    const rows = (Array.isArray(r.rows) ? r.rows : []).slice(0, 8)
-      .map((x) => `<div class="mg-row"><span class="mg-k">${ctx.esc(x && x.label)}</span> <span class="mg-v">${ctx.esc(x && x.value)}</span></div>`).join('');
     const about = ctx.mode === 'city' ? '' : `<p class="mg-about">${ctx.esc(firstParagraph(f.description))}</p>`;
-    const what = r.what ? `<p class="mg-what">${ctx.esc(r.what)}</p>` : '';
-    return `<div class="mg-card mg-simple"><h3 class="mg-title">${ctx.esc(f.title || '')}</h3>${about}${what}${rows ? `<div class="mg-rows">${rows}</div>` : ''}</div>`;
+    // Who made it: only for a program ("Unknown maker" on a volume setting says nothing).
+    const what = r.what && isProgram(f) ? `<p class="mg-what">${ctx.esc(r.what)}</p>` : '';
+    return `<div class="mg-card mg-simple"><h3 class="mg-title">${ctx.esc(f.title || '')}</h3>${about}${what}</div>`;
   },
 
   summary(results, ctx) {
@@ -82,6 +104,10 @@ export default {
     const done = list.length - later;
     const city = ctx && ctx.mode === 'city';
     const head = city ? `Odd jobs: ${done} done` : `${done} decided`;
-    return `<p class="mg-summary">${head}${later ? `, ${later} saved for later` : ''}.</p>`;
+    // Points: the mission screen shows what was paid; when nothing has, say how a job pays.
+    const paid = list.some((x) => x && Number(x.points) > 0);
+    const how = list.length && !paid
+      ? `<p class="mg-summary">${city ? 'No points yet: a job pays once it’s decided (Later doesn’t count) or the city sees it done.' : 'No points yet: a job pays once you decide it (Later doesn’t count) or a check sees it done.'}</p>` : '';
+    return `<p class="mg-summary">${head}${later ? `, ${later} saved for later` : ''}.</p>${how}`;
   },
 };

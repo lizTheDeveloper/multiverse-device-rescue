@@ -2,8 +2,8 @@
 //
 // An item is one "key" (a privacy permission: Accessibility, Input Monitoring, Screen Recording, Camera, Microphone,
 // Full Disk Access, Location, Automation, Contacts, Screen Time) and the apps holding it. Each app is a card with the
-// keys it holds as chips. One decision per key: Keep (the default) / Hand back (opens that exact privacy pane), plus
-// Look closer when a holder's maker isn't confirmed.
+// keys it holds as chips. One decision per key: Look closer (the default on a critical or warning key) / Keep /
+// Hand back (opens that exact privacy pane). On a note, Keep leads and Look closer shows when a maker isn't confirmed.
 //
 // Honest makers: an app named by a bundle id (or a process name) is what it says about itself, so it is never shown as
 // confirmed, whatever made_by says (serialize.py _unverify_named_apps does the same; this re-checks). Only a full path
@@ -129,11 +129,39 @@ const keyFindings = (item) => {
   return fs.length ? fs : findingsOf(item);
 };
 
-// The item's keys, without repeats.
+// The item's keys, without repeats. A per-key item (perKey) has just its own key.
 function itemKeys(item) {
   const seen = new Map();
   for (const f of keyFindings(item)) for (const k of keysOf(f)) if (!seen.has(k.id)) seen.set(k.id, k);
-  return [...seen.values()];
+  const one = str(obj(item).keyId);
+  return one && seen.has(one) ? [seen.get(one)] : [...seen.values()];
+}
+
+/*
+ * perKey(items) -> items: one item per key (audit P2-9). An app item holding several keys becomes one item per
+ * key, each with only the findings that grant that key, so Keep / Hand back decides one key at a time and opens
+ * that key's own page. The app's other keys ride along as `otherKeys` (shown, decided on their own items).
+ * Warnings and holds stay as the app's (never fewer warnings than the app had). An item with one key is unchanged.
+ * The grouping calls this after its per-app step (R4), as it calls the notes game's batchNotes.
+ */
+export function perKey(items) {
+  const out = [];
+  for (const item of Array.isArray(items) ? items : []) {
+    const keys = itemKeys(item);
+    if (keys.length <= 1 || str(obj(item).keyId)) { out.push(item); continue; }
+    const all = keyFindings(item);
+    for (const k of keys) {
+      const fs = all.filter((f) => keysOf(f).some((x) => x.id === k.id));
+      const lead = fs.find((f) => isMonitoringModule(moduleOf(f))) || fs.find((f) => f === item.finding) || fs[0];
+      const seen = [...new Set(fs.map((f) => moduleOf(f)).filter(Boolean))];
+      out.push({
+        ...item, key: `${item.key}|key:${k.id}`, keyId: k.id, otherKeys: keys.filter((x) => x.id !== k.id).map((x) => x.id),
+        finding: lead, findings: fs, seen_in: seen.length ? seen : item.seen_in,
+        ...(Array.isArray(item.keys) ? { keys: item.keys.filter((x) => fs.includes(obj(x).finding)) } : {}),
+      });
+    }
+  }
+  return out;
 }
 
 // A full path ("/…", "~/…", "C:\…"): something whose file attribution checked. A bundle id or process name is not.
@@ -257,9 +285,12 @@ export function decisions(item, ctx) {
       ? { ...pane, key: first.id, ...(also.length ? { steps: also } : {}), ...(warn ? { warning: true } : {}) }
       : { kind: 'closer', key: first.id, steps: [`Open ${first.where}.`, `Switch it off there${who ? ` for ${who}` : ''}.`, ...also], ...(warn ? { warning: true } : {}) },
   });
-  if ((apps.length && unconfirmed(apps)) || (isMonitoring(item) && !apps.length)) {
-    out.push({ id: 'closer', label: { standard: 'Look closer', city: 'Look closer' }, effect: { kind: 'closer', checklist: checklist(ctx) } });
-  }
+  const closer = { id: 'closer', label: { standard: 'Look closer', city: 'Look closer' }, effect: { kind: 'closer', checklist: checklist(ctx) } };
+  // The first decision is the default. Keep leads only on a note (info); on a critical or warning key (or one that
+  // can alert whoever set it up) Look closer leads and Keep comes after it.
+  const sev = obj(item).severity || f.severity;
+  if (sev === 'critical' || sev === 'warning' || warn) return [closer, out[0], out[1]];
+  if ((apps.length && unconfirmed(apps)) || (isMonitoring(item) && !apps.length)) out.push(closer);
   return out;
 }
 
@@ -358,6 +389,10 @@ export function render(view, ctx) {
       if (a.kind === 'path' || a.name !== a.subject) parts.push(`<code class="kr-app-id">${esc(a.subject)}</code>`);
       if (a.what) parts.push(`<p class="kr-app-what">${esc(a.what)}</p>`);
       parts.push(`<div class="kr-chips">${a.keys.map((k) => chip(k, m, esc, ids.has(k.id))).join('')}</div>`);
+      const others = (Array.isArray(item.otherKeys) ? item.otherKeys : []).filter((id) => KEYS[id] && !a.keys.some((k) => k.id === id));
+      if (others.length) {
+        parts.push(`<p class="kr-also">Also holds ${others.map((id) => esc(KEYS[id].name[m])).join(', ')}. ${m === 'city' ? 'Each key is its own move.' : 'You decide each one on its own.'}</p>`);
+      }
       parts.push('</li>');
     }
     parts.push('</ul>');
@@ -419,12 +454,19 @@ export const practice = {
       data: { check: 'suspicious_input_monitoring', apps: ['com.example.keyremap'] },
     }),
   ],
+  // Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+  // an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
   script: [
-    { item: 0, say: { standard: 'Each app shows the keys it holds. Frame Grabber is a screen recorder, its maker is confirmed, and seeing the screen is its job.', city: 'Each holder shows its keys. Frame Grabber records windows for a living, and its maker checks out.' } },
-    { item: 0, say: { standard: 'It needs that key, so keep it.', city: 'It needs that key. Keep it.' }, expect: 'keep' },
-    { item: 1, say: { standard: 'Puzzle Pop is a game holding Accessibility, the key that clicks and types for you. A game doesn’t need it.', city: 'A puzzle game holding the Control key? It has no use for it.' } },
-    { item: 1, say: { standard: 'Hand it back. The Accessibility list opens and you switch it off; you can switch it on again if you need it.', city: 'Hand it back. The switch room opens; flip it off, and you can flip it on again if you need it.' }, expect: 'hand_back' },
-    { item: 2, say: { standard: 'This keyboard tool is known only by its app id, so its maker isn’t confirmed, and it can see what you type. Look closer before you decide.', city: 'Known only by its tag, maker unconfirmed, and it hears every key. Look closer before you choose.' }, expect: 'closer' },
+    { item: 0, say: { standard: 'Each app shows the keys it holds and who made it. Ask two things: is the maker confirmed, and does the app need this key for its job?', city: 'Each holder shows its keys and its maker. Ask two things: does the maker check out, and does it need this key for its job?' } },
+    { item: 0, expect: ['keep', 'closer'],
+      say: { standard: 'Frame Grabber holds the Screen Recording key. What would you do?', city: 'Frame Grabber holds the Window key. What would you do?' },
+      why: { standard: 'A screen recorder has to see the screen, and its maker is confirmed. Keep it.', city: 'It records windows for a living, and its maker checks out. Keep the key.' } },
+    { item: 1, expect: ['hand_back', 'closer'],
+      say: { standard: 'Puzzle Pop holds Accessibility, the key that clicks and types for you. What would you do?', city: 'Puzzle Pop holds the Control key, the one that works every control. What would you do?' },
+      why: { standard: 'A puzzle game has no use for that key. Hand it back: the Accessibility page opens, you switch it off there, and you can switch it on again if you ever need it.', city: 'A puzzle game has no use for the Control key. Hand it back: the switch room opens, you flip it off, and you can flip it on again if you need it.' } },
+    { item: 2, expect: 'closer',
+      say: { standard: 'This keyboard tool can see what you type. Read its maker line. What would you do?', city: 'This tool hears every key you press. Read its maker line. What would you do?' },
+      why: { standard: 'It’s known only by its app id, so its maker isn’t confirmed. Look closer before you decide.', city: 'Known only by its tag, so its maker is unconfirmed. Look closer before you choose.' } },
   ],
 };
 

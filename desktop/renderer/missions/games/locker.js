@@ -11,7 +11,7 @@
 //   extension Mine / Turn it off / Look closer     steps for the browser's extensions page
 //   setting   Mine, I know why / Look closer / Later
 //   system    Look closer / Mine, I know why / Later   core parts of the computer: never moved by hand
-// A critical item puts Look closer first, so the default never waves through a known-bad match.
+// A critical or warning item puts Look closer first, so the default never waves through a known-bad match.
 //
 // Pure module (missions/contract.js): no DOM, storage, globals or network. Step and checklist texts in effects are
 // PLAIN TEXT (scan values passed through ctx.visible); whoever shows them must escape them.
@@ -425,7 +425,9 @@ function quarantineEffect(item, t, ctx) {
 export function decisions(item, ctx) {
   const f = (item && item.finding) || {};
   const t = tagOf(item, ctx);
-  const critical = (item && item.severity === 'critical') || f.severity === 'critical';
+  // The first decision is the default: "Mine" leads only on a note (info), never on a critical or warning item.
+  const sev = (item && item.severity) || f.severity;
+  const wary = sev === 'critical' || sev === 'warning' || !!t.alerting;
   const closer = { id: 'closer', label: LABEL.closer, effect: { kind: 'closer', focus: 'check', checklist: checklistFor(item, ctx) },
     hint: pick(ctx, ['See the evidence and what to check. It stays on your list until you decide.', 'See the evidence and what to check. It stays on the board until you decide.']) };
   const later = { id: 'later', label: LABEL.later, effect: { kind: 'later' } };
@@ -434,7 +436,7 @@ export function decisions(item, ctx) {
   }
   if (t.kind === 'setting') {
     const mine = { id: 'mine', label: LABEL.know, effect: mineEffect(f), hint: pick(ctx, ['You set this up on purpose.', 'You set this up on purpose.']) };
-    return critical ? [closer, mine, later] : [mine, closer, later];
+    return wary ? [closer, mine, later] : [mine, closer, later];
   }
   const mine = { id: 'mine', label: LABEL.mine, effect: mineEffect(f),
     hint: pick(ctx, ['You know it and want it.', 'You know it and want it.']) };
@@ -451,7 +453,7 @@ export function decisions(item, ctx) {
   }
   // R6: the runner shows the removal warning before carrying out an acting effect on an alerting item.
   if (t.alerting) act.effect = { ...act.effect, warning: true };
-  return critical ? [closer, act, mine] : [mine, act, closer];
+  return wary ? [closer, act, mine] : [mine, act, closer];
 }
 
 // ---- research ---------------------------------------------------------------
@@ -636,18 +638,33 @@ const PRACTICE_ITEMS = [
   }),
 ];
 
+// Steps ask before they tell: `say` asks, `why` (after the move) gives the verdict and its clue. No `expect`:
+// an explanation (one GOT IT). `expect` may list several moves that all fit (the first is the best).
 const PRACTICE_SCRIPT = [
-  { item: 0, expect: 'mine', concept: 'where-it-lives', say: {
-    standard: "This script is in your own project folder. It matched \"downloads and runs code\", which installers do. If you wrote it or added it, it's yours: choose Mine.",
-    city: "This exhibit is in your own project folder. It matched \"fetch-and-run code\", which installers do. If you wrote it or added it, it's yours: choose Mine.",
+  { item: 0, concept: 'where-it-lives', say: {
+    standard: 'Each tag says what matched and where the file is. Where it lives is often the best clue.',
+    city: 'Each tag says what matched and where the exhibit was found. Where it lives is often the best clue.',
   } },
-  { item: 1, expect: 'quarantine', concept: 'where-it-lives', say: {
+  { item: 0, expect: ['mine', 'closer'], concept: 'where-it-lives', say: {
+    standard: 'This script matched "downloads and runs code". Read where it is. What would you do?',
+    city: 'This exhibit matched "fetch-and-run code". Read where it is. What would you do?',
+  }, why: {
+    standard: "It's in your own project folder, and installers download and run code all the time. If you wrote it or added it, it's yours: Mine.",
+    city: "It's in your own project folder, and installers fetch and run code all the time. If you wrote it or added it, it's yours: Mine.",
+  } },
+  { item: 1, expect: ['quarantine', 'closer'], concept: 'where-it-lives', say: {
+    standard: 'The same kind of match. Read where it is and who made it. What would you do?',
+    city: 'The same kind of match. Read where it is and whose mark it carries. What would you do?',
+  }, why: {
     standard: 'A hidden folder inside a temporary folder, no maker, and code that hides what it does. Nobody installs things there. Quarantine moves it aside; nothing is deleted.',
-    city: 'A hidden spot inside a temporary folder, no maker\'s mark, and scrambled code. Nobody keeps things there. Bag it: it moves aside, nothing is deleted.',
+    city: "A hidden spot inside a temporary folder, no maker's mark, and scrambled code. Nobody keeps things there. Bag it: it moves aside, nothing is deleted.",
   } },
   { item: 2, expect: 'closer', concept: 'who-made-it', say: {
-    standard: "Same match, but this one is in an app's cache, a folder apps fill on their own. It is usually the app's own code. Look closer before you decide.",
-    city: "Same match, but this one is in an app's cache, a folder apps fill on their own. It is usually the app's own code. Look closer before you tag it.",
+    standard: 'The same match again. Read where this one is. What would you do?',
+    city: 'The same match again. Read where this one is. What would you do?',
+  }, why: {
+    standard: "It's in an app's cache, a folder apps fill on their own, so it is usually the app's own code. Look closer before you decide.",
+    city: "It's in an app's cache, a folder apps fill on their own, so it is usually the app's own code. Look closer before you tag it.",
   } },
 ];
 
