@@ -216,7 +216,14 @@ export function classify(finding) {
     if (o.disk) words.disk = o.disk;
     if (o.means) words.means = o.means;
   }
-  return { verdict, kind, win, sip: extra.includes('sip'), subject: subjectOf(f), search: searchName(f), maker: makerOf(f), ...words };
+  const maker = makerOf(f);
+  // Unsigned but naming a maker (from its own files): say so, rather than "nothing says who made it" next to a name.
+  if (verdict === 'unsigned' && maker && maker.name) {
+    words.makerText = kind === 'driver'
+      ? t('No signature. The driver names its maker itself, but nothing checks that.', 'No seal. It names its maker itself, but nothing checks that.')
+      : t('No signature. The app names its maker itself, but nothing checks that.', 'No seal. It names its maker itself, but nothing checks that.');
+  }
+  return { verdict, kind, win, sip: extra.includes('sip'), subject: subjectOf(f), search: searchName(f), maker, ...words };
 }
 
 // ---- decisions --------------------------------------------------------------
@@ -476,6 +483,7 @@ const HEAD = {
   kicker: t('App seal', 'Seal Check'),
   unfinished: t('This check didn’t finish, so it may have missed things.', 'This check didn’t finish, so it may have missed things.'),
   signer: t('Says it’s from', 'Seal says'),
+  names: t('Names itself as from', 'Calls itself'),
   verified: t('verified', 'checked'),
   notVerified: t('not verified', 'not checked'),
 };
@@ -490,7 +498,7 @@ export function render(view, ctx) {
   const index = num(view && view.index) || 0;
   const total = num(view && view.total) || 1;
   const signer = v.maker
-    ? `<p class="seal-signer">${e(say(HEAD.signer, ctx))}: <b>${e(v.maker.name)}</b> · ${e(say(v.maker.verified ? HEAD.verified : HEAD.notVerified, ctx))}</p>`
+    ? `<p class="seal-signer">${e(say(v.verdict === 'unsigned' ? HEAD.names : HEAD.signer, ctx))}: <b>${e(v.maker.name)}</b> · ${e(say(v.maker.verified ? HEAD.verified : HEAD.notVerified, ctx))}</p>`
     : '';
   const where = d.path ? `<p class="seal-path seal-mono">${e(d.path)}</p>` : '';
   const mismatch = ['tampered', 'unknown-maker', 'unsigned', 'checker-off'].includes(v.verdict);

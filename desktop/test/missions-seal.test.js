@@ -332,3 +332,26 @@ test('R1: render draws only the seal card, no buttons, evidence rows, links or t
     assert.match(html, /seal-compare/);
   }
 });
+
+test('an unsigned app that names a maker doesn’t also say "nothing says who made it" (P2-13)', async () => {
+  const C = await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', 'contract.js')).href);
+  const G = (await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', 'games', 'seal.js')).href)).default;
+  const app = '/Applications/Example Studio.app';
+  const f = { module: 'code_signature_audit', severity: 'warning', code: 'security.code_signature_audit.unsigned_system_app', title: 'Unsigned app Example Studio is installed for all users',
+    description: 'x', data: { check: 'unsigned_system_app', path: app, name: 'Example Studio' },
+    made_by: [{ subject: app, name: 'EXAMPLE STUDIO PTE. LTD.', verified: false, how: 'claims to be made by EXAMPLE STUDIO PTE. LTD.' }] };
+  for (const mode of ['standard', 'city']) {
+    const ctx = C.testContext({ mode });
+    const item = C.makeItem(f);
+    const html = G.render({ item, research: G.research(item, ctx), index: 0, total: 1 }, ctx);
+    assert.doesNotMatch(html, /nothing says who made it/);
+    assert.doesNotMatch(html, /Says it’s from|Seal says/);
+    assert.match(html, /names its maker itself, but nothing checks that/);
+    assert.match(html, /EXAMPLE STUDIO PTE\. LTD\./);
+    assert.match(html, /not verified|not checked/);
+    if (mode === 'city') assert.deepStrictEqual(C.checkCityWords(html), []);
+  }
+  // No maker named: the plain unsigned line stays.
+  const bare = C.makeItem({ ...f, made_by: [] });
+  assert.match(G.render({ item: bare, research: G.research(bare, C.testContext()), index: 0, total: 1 }, C.testContext()), /nothing says who made it/);
+});
