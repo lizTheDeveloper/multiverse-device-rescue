@@ -6,7 +6,7 @@
 // Nothing here touches the DOM, storage or the computer.
 //
 //   startRun(mission, { practiceDue, recalled }) -> run
-//   decisionsFor(run, game, item, ctx) -> Decision[]   checked, safe default first, closer dropped while looking closer
+//   decisionsFor(run, game, item, ctx) -> Decision[]   checked, safe default first, Look closer (id 'closer') dropped while looking closer
 //   viewFor(run, game, ctx, research) -> view          what the screen draws (game.render gets the same view)
 //   choose(run, id, game, ctx) -> { run, act }         act: null | { kind: mark|fix|settings|link|recheck|lesson|odd, … }
 //   confirmPending(run, game, ctx) / cancelPending(run) the warning-before-acting step (R6)
@@ -83,8 +83,10 @@ export function decisionsFor(run, game, item, ctx) {
     const safe = d.findIndex((x) => !REMOVING_KINDS.has(x.effect.kind));
     if (safe > 0) d = [d[safe], ...d.filter((_, i) => i !== safe)];
   }
+  // Only Look closer itself goes: a game's own acts that show steps
+  // (Quarantine, Stop it, Not mine...) are 'closer' effects too and must stay.
   if (run && item && run.closer[item.key]) {
-    const rest = d.filter((x) => x.effect.kind !== 'closer');
+    const rest = d.filter((x) => x.id !== 'closer');
     if (rest.length >= MIN_DECISIONS - 1) d = rest;
   }
   return d.slice(0, MAX_DECISIONS);
@@ -179,8 +181,17 @@ export function choose(run, id, game, ctx) {
       }
       return { run: advance(answered), act: odd };
     }
-    case 'closer':
+    case 'closer': {
+      // A game's own act shown as steps the person carries out (Quarantine,
+      // Stop it, Not mine, Hand back): that is the decision, so it is answered
+      // and its steps stay on screen until NEXT. Unless the game offers a
+      // re-check for it (a lock's "Done"): then the item stays open for that.
+      const all = decisionsFor(run, game, item, ctx);
+      if (d.id !== 'closer' && guide && (guide.steps.length || guide.checklist.length) && !all.some((x) => x.effect.kind === 'recheck')) {
+        return { run: { ...record(base, item, d), guide, showing: { key: item.key } }, act: { kind: 'steps', ...guide } };
+      }
       return { run: { ...base, closer: { ...run.closer, [item.key]: true }, guide }, act: guide ? { kind: 'steps', ...guide } : null };
+    }
     case 'mark':
       return { run: { ...base, guide, pending: { key: item.key, decision: d } }, act: { kind: 'mark', item, steps } };
     case 'fix':
