@@ -190,3 +190,11 @@ test('display-mode.js puts DisplayMode on window, where the game\'s modules read
   assert.strictEqual(typeof window.DisplayMode.ensureSeed, 'function');
   assert.match(read('game/controller.js'), /profileSeed\(storage, win\.DisplayMode\)/);
 });
+
+test('city mode: a removal warning in the description stays on the card’s face when there is no safety note to show it', async () => {
+  const doc = { schema_version: 1, platform: 'darwin', modules: [mod('launch_agent_audit', [warning('A helper starts at login', {
+    description: 'A helper starts at login.\n\nIf you think someone close to you set this up to monitor you, removing it can alert them.' })])] };
+  const p = await listAfterSweep(doc, 'city');
+  const face = p.byId('results-groups').innerHTML.split('<details class="tech-details">')[0];
+  assert.match(face, /removing it can alert them/);
+});

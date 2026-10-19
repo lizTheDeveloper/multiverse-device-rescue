@@ -1435,8 +1435,10 @@ if (typeof document !== 'undefined') {
       // evidence, the warning box, the steps or a lesson already say.
       const rows = cardEvidenceRows(finding, { mode, held, doc: shownDoc, commands: moduleCommandCache });
       cardFindings.set(key, { finding, held });
-      const alerts = card.note === 'line' || card.note === 'full';
-      const warned = alerts || (card.note === 'full' && card.full.length > 0);
+      // Whether the card shows the removal warning in its own box: then the
+      // why line leaves the same sentence out. A 'full' note with nothing to
+      // show (no safety note) keeps the sentence in the why line.
+      const warned = card.note === 'line' || (card.note === 'full' && card.full.length > 0);
       const prose = held ? { why: card.description, todo: '' }
         : EvidenceRule.replacesDescription(finding) ? { why: '', todo: '' }
           : cardProse(card.description, finding, { steps: steps.length, alertShown: warned });
