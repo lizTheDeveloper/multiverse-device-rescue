@@ -34,6 +34,7 @@
 const Evidence = (function () {
   // The same three checks as app.js's ALWAYS_SAFETY_MODULES and game/held.js.
   const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+  const VT = typeof VisibleText !== 'undefined' ? VisibleText : require('./visible-text.js');
   const MAX_LIST = 8;         // items shown in one list value before "and N more"
   const MAX_ROWS = 24;        // rows in one block, whatever the finding carries
   const MAX_VALUE = 300;      // characters of one value shown (copy keeps up to MAX_COPY)
@@ -131,11 +132,19 @@ const Evidence = (function () {
     return humanize(module);
   }
 
-  /** One row. `value` is clipped for show; `copy` keeps the whole of it. */
+  /**
+   * One row. `value` is clipped for show; `copy` keeps the whole of it.
+   * Control and format characters (a newline, U+2028, a bidi override) are a
+   * visible [U+XXXX] in the label, the value and the copy, so scan data can't
+   * start a line that reads like another row in "Copy all" or "Ask about this".
+   * `copy` as an array: one line each (the commands a check ran), each made
+   * visible on its own, so only this file's own line breaks remain.
+   */
   function row(label, value, { mono = false, copy } = {}) {
-    const shown = clip(String(value == null ? '' : value), MAX_VALUE);
-    const full = clip(String(copy == null ? value : copy), MAX_COPY);
-    return { label, value: shown, mono, copy: full };
+    const shown = clip(VT.visible(value == null ? '' : value), MAX_VALUE);
+    const whole = Array.isArray(copy) ? copy.map(VT.visible).join('\n') : VT.visible(copy == null ? (value == null ? '' : value) : copy);
+    const full = clip(whole, MAX_COPY);
+    return { label: VT.visible(label), value: shown, mono, copy: full };
   }
 
   const pathRow = (label, p) => row(label, shortPath(p), { mono: true, copy: homeRelative(p) });
@@ -274,7 +283,7 @@ const Evidence = (function () {
     if (!list.length) return null;
     const shorts = [...new Set(list.map(shortCommand).filter(Boolean))];
     const shown = shorts.slice(0, MAX_COMMANDS).join(', ') + (shorts.length > MAX_COMMANDS ? `, and ${shorts.length - MAX_COMMANDS} more` : '');
-    return row('Checked with', shown, { mono: true, copy: list.map(commandLine).join('\n') });
+    return row('Checked with', shown, { mono: true, copy: list.map(commandLine) });
   }
 
   // ---- per-module adapters -------------------------------------------------
@@ -542,7 +551,10 @@ const Evidence = (function () {
 
   /** The text "Copy all" puts on the clipboard: one "Label: value" line per row. */
   function evidenceText(rows) {
-    return (Array.isArray(rows) ? rows : []).map((r) => `${r.label}: ${r.copy != null ? r.copy : r.value}`).join('\n');
+    // Rows from row() are already visible (their only line breaks are a
+    // command list's own); the rest is made so here too, line by line.
+    const text = (v) => String(v == null ? '' : v).split('\n').map(VT.visible).join('\n');
+    return (Array.isArray(rows) ? rows : []).map((r) => `${VT.visible(r.label)}: ${text(r.copy != null ? r.copy : r.value)}`).join('\n');
   }
 
   const PAPER_LINE = 'Write this on paper or on another device.';

@@ -35,7 +35,9 @@ const MarkFlow = (function () {
   // most 128 characters, or it is the raw entry (bundle id or path) itself.
   const MAX_APP_NAME = 128;
   const MAX_APP_ID = 1024;
-  const CONTROL_OR_FORMAT = /[\p{Cc}\p{Cf}]/u;
+  // Control and format characters (renderer/visible-text.js): shown as [U+XXXX].
+  const VT = typeof VisibleText !== 'undefined' ? VisibleText : require('./visible-text.js');
+  const { CONTROL_OR_FORMAT } = VT;
   const NAME_MAKER_MISMATCH = 'The name doesn’t match its maker';
   // Well-known app names and the makers that really publish them. Only used to
   // flag a plain contradiction between a verified maker and the name an app
@@ -195,9 +197,7 @@ const MarkFlow = (function () {
 
   // Control and format characters (bidi overrides, zero-width spaces) shown as
   // [U+XXXX], so text can't reorder or hide itself on screen.
-  function visible(s) {
-    return String(s).replace(/[\p{Cc}\p{Cf}]/gu, (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
-  }
+  const visible = VT.visible;
 
   function validAppRow(r) {
     if (!r || typeof r !== 'object') return false;
