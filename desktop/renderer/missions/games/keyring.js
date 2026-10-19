@@ -129,11 +129,39 @@ const keyFindings = (item) => {
   return fs.length ? fs : findingsOf(item);
 };
 
-// The item's keys, without repeats.
+// The item's keys, without repeats. A per-key item (perKey) has just its own key.
 function itemKeys(item) {
   const seen = new Map();
   for (const f of keyFindings(item)) for (const k of keysOf(f)) if (!seen.has(k.id)) seen.set(k.id, k);
-  return [...seen.values()];
+  const one = str(obj(item).keyId);
+  return one && seen.has(one) ? [seen.get(one)] : [...seen.values()];
+}
+
+/*
+ * perKey(items) -> items: one item per key (audit P2-9). An app item holding several keys becomes one item per
+ * key, each with only the findings that grant that key, so Keep / Hand back decides one key at a time and opens
+ * that key's own page. The app's other keys ride along as `otherKeys` (shown, decided on their own items).
+ * Warnings and holds stay as the app's (never fewer warnings than the app had). An item with one key is unchanged.
+ * The grouping calls this after its per-app step (R4), as it calls the notes game's batchNotes.
+ */
+export function perKey(items) {
+  const out = [];
+  for (const item of Array.isArray(items) ? items : []) {
+    const keys = itemKeys(item);
+    if (keys.length <= 1 || str(obj(item).keyId)) { out.push(item); continue; }
+    const all = keyFindings(item);
+    for (const k of keys) {
+      const fs = all.filter((f) => keysOf(f).some((x) => x.id === k.id));
+      const lead = fs.find((f) => isMonitoringModule(moduleOf(f))) || fs.find((f) => f === item.finding) || fs[0];
+      const seen = [...new Set(fs.map((f) => moduleOf(f)).filter(Boolean))];
+      out.push({
+        ...item, key: `${item.key}|key:${k.id}`, keyId: k.id, otherKeys: keys.filter((x) => x.id !== k.id).map((x) => x.id),
+        finding: lead, findings: fs, seen_in: seen.length ? seen : item.seen_in,
+        ...(Array.isArray(item.keys) ? { keys: item.keys.filter((x) => fs.includes(obj(x).finding)) } : {}),
+      });
+    }
+  }
+  return out;
 }
 
 // A full path ("/…", "~/…", "C:\…"): something whose file attribution checked. A bundle id or process name is not.
@@ -361,6 +389,10 @@ export function render(view, ctx) {
       if (a.kind === 'path' || a.name !== a.subject) parts.push(`<code class="kr-app-id">${esc(a.subject)}</code>`);
       if (a.what) parts.push(`<p class="kr-app-what">${esc(a.what)}</p>`);
       parts.push(`<div class="kr-chips">${a.keys.map((k) => chip(k, m, esc, ids.has(k.id))).join('')}</div>`);
+      const others = (Array.isArray(item.otherKeys) ? item.otherKeys : []).filter((id) => KEYS[id] && !a.keys.some((k) => k.id === id));
+      if (others.length) {
+        parts.push(`<p class="kr-also">Also holds ${others.map((id) => esc(KEYS[id].name[m])).join(', ')}. ${m === 'city' ? 'Each key is its own move.' : 'You decide each one on its own.'}</p>`);
+      }
       parts.push('</li>');
     }
     parts.push('</ul>');

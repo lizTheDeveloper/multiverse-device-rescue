@@ -83,6 +83,7 @@
   border: 1px dashed var(--cyan, #00E5FF); border-radius: 8px;
   color: var(--cyan, #00E5FF);
 }
+.kr-also { margin: 8px 0 0; font-size: 13px; color: var(--dim, rgba(237, 239, 243, 0.55)); }
 .kr-held { margin: 0; color: var(--dim, rgba(237, 239, 243, 0.55)); }
 
 .kr-summary ul { margin: 0 0 8px; padding-left: 18px; }

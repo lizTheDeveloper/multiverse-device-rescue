@@ -273,3 +273,46 @@ test('per app (R4): the exploded item names only its app, with every key it hold
   assert.deepStrictEqual(looks, ['com.example.alpha']);
   assert.deepStrictEqual(C.runContractChecks(G, [alpha, beta, solo]), []);
 });
+
+test('per key (P2-9): an app holding several keys becomes one item per key, each handing back only its own key', async () => {
+  const { C, G, K: mod } = await load();
+  const app = '/Applications/Example Studio.app';
+  const made = [{ subject: app, name: 'Example Studio Ltd', verified: true, how: 'Developer ID signature', what: 'Example Studio: a made-up app.' }];
+  const fin = (code, service) => ({ module: 'privacy_permissions_audit', code: `security.privacy_permissions_audit.${code}`, title: `${code} list`, description: 'x',
+    severity: 'warning', category: 'security', data: { service, apps: [app] }, made_by: made });
+  const acc = fin('accessibility_access', 'kTCCServiceAccessibility');
+  const mic = fin('microphone_access', 'kTCCServiceMicrophone');
+  const scr = fin('screen_recording_access', 'kTCCServiceScreenCapture');
+  const item = { key: `app|gatehouse|${app}`, severity: 'warning', app: { subject: app, name: '' }, finding: acc, findings: [acc, mic, scr],
+    keys: [acc, mic, scr].map((f) => ({ permission: f.data.service, finding: f })), seen_in: ['privacy_permissions_audit'], sourceKeys: ['a', 'b', 'c'],
+    marked: false, held: false, removal_alert: false };
+  const split = mod.perKey([item]);
+  assert.deepStrictEqual(split.map((i) => i.keyId), ['accessibility', 'microphone', 'screen']);
+  assert.strictEqual(new Set(split.map((i) => i.key)).size, 3);
+  const panes = { accessibility: 'privacy-accessibility', microphone: 'privacy-microphone', screen: 'privacy-screen-recording' };
+  for (const it of split) {
+    assert.strictEqual(it.findings.length, 1);
+    const ctx = C.testContext();
+    const d = G.decisions(it, ctx);
+    const back = d.find((x) => x.id === 'hand_back').effect;
+    assert.strictEqual(back.pane, panes[it.keyId]);
+    assert.strictEqual(back.key, it.keyId);
+    assert.ok(!back.steps, 'no "also switch off" steps: the other keys are their own items');
+    assert.deepStrictEqual(C.runContractChecks(G, [it]), []);
+    for (const mode of ['standard', 'city']) {
+      const c = C.testContext({ mode });
+      const html = G.render({ item: it, research: G.research(it, c), decisions: G.decisions(it, c), index: 0, total: 3 }, c);
+      assert.match(html, /kr-also/);
+      assert.strictEqual((html.match(/class="kr-key-title"/g) || []).length, 1);
+    }
+  }
+  // One key: unchanged.
+  const one = { ...item, findings: [acc], keys: [{ permission: 'x', finding: acc }] };
+  assert.deepStrictEqual(mod.perKey([one]), [one]);
+  // A camera + microphone combo finding splits into two keys from the same finding.
+  const combo = fin('camera_microphone_combo', '');
+  delete combo.data.service;
+  const two = mod.perKey([{ ...item, finding: combo, findings: [combo], keys: [{ permission: 'x', finding: combo }] }]);
+  assert.deepStrictEqual(two.map((i) => i.keyId), ['camera', 'microphone']);
+  assert.ok(two.every((i) => i.findings[0] === combo));
+});
