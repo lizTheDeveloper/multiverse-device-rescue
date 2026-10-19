@@ -625,13 +625,13 @@ function couldntCheckGroups(items) {
 }
 
 /**
- * Plain's cards: one per item of NotChecked.displayItems, the list both views
- * render, so the cards are scanCounts' `todo` (critical + warning) and
+ * The LIST's cards (the name is from when this was Plain view): one per item
+ * of NotChecked.displayItems, the list the LIST and the city both render, so the cards are scanCounts' `todo` (critical + warning) and
  * `notes` (info). The merge rule lives there (same_key, then the thing the
  * finding names, then its title; a to-do never merges with a note;
  * monitoring never merges). Each card is NotChecked.asCard: the lead finding
  * with `seen_in` (every check that saw it) and `also` (the other findings).
- * Marked items are listed at their old severity (and start out cleared);
+ * Marked items are listed at their old severity, and say they were marked;
  * held items (city mode) stay on the list at theirs, out of the numbers.
  * A card carries the engine's removal warning when any of its findings does.
  */
