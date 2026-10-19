@@ -1558,7 +1558,7 @@ h3[tabindex="-1"]:focus {
 /* The scan screen: Full Disk Access on the face, once a check needed it. */
 .scan-tips__needed { margin: 0.6rem 0; }
 .scan-tips__needed p { margin: 0 0 0.4rem; }
-.errors-list__partly > summary { cursor: pointer; }
+.errors-list__partly > summary, .errors-list__names > summary { cursor: pointer; }
 
 /* ---------- UX round 3 (Plain) ---------- */
 /* Title with the quiet "See it as a city" link beside it. */

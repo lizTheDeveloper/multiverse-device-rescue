@@ -266,3 +266,35 @@ test('the log tail keeps the last lines only', () => {
   assert.strictEqual(tail.length, 40);
   assert.strictEqual(tail[39], 'line 99');
 });
+
+// ---------------------------------------------------------------------------
+// (6) A checkup that stopped early: a count and a fold, not a wall of names.
+// ---------------------------------------------------------------------------
+test('stopped early: “N checks didn’t get to run because the checkup stopped”, the names under a fold', async () => {
+  const never = Array.from({ length: 106 }, (_, i) => mod(`check_${i}`, [], { status: 'error', error: null, error_kind: 'stopped', complete: false, check_name: `Check ${i}` }));
+  const doc = { schema_version: 1, platform: 'darwin',
+    modules: [mod('remote_login_check', [{ title: 'Remote Login is on', severity: 'warning', description: 'On.', data: {} }]), ...never],
+    stopped: { stage: 'early', reason: 'exit', exit_code: 1, done: 1, total: 107 }, partial: { done: 1, total: 107, stopped: 'early' } };
+  const p = page();
+  p.byId('btn-get-started').click();
+  p.pick('hacked');
+  p.byId('btn-run-scan').click();
+  await p.finish(doc);
+  p.byId('btn-scan-sofar').click();
+  const list = p.byId('results-errors-list').innerHTML;
+  assert.match(list, /<span>106 checks didn’t get to run because the checkup stopped\.<\/span>/);
+  assert.match(list, /<details class="errors-list__names"><summary>See which \(106\)<\/summary>/);
+  assert.doesNotMatch(list.split('<details')[0], /Check 5/, 'no names in the line itself');
+  await tick();
+});
+
+test('a few names stay in the line; more than five go under the fold', () => {
+  const app = require('../renderer/app.js');
+  const item = (name) => ({ name, kind: 'failed', reason: '', raw: '' });
+  const few = app.couldntCheckGroups(['A', 'B', 'C'].map(item)).groups[0];
+  assert.strictEqual(few.line, '3 checks couldn’t run: A, B, C.');
+  assert.deepStrictEqual(few.folded, []);
+  const many = app.couldntCheckGroups(['A', 'B', 'C', 'D', 'E', 'F'].map(item)).groups[0];
+  assert.strictEqual(many.line, '6 checks couldn’t run.');
+  assert.deepStrictEqual(many.folded, ['A', 'B', 'C', 'D', 'E', 'F']);
+});

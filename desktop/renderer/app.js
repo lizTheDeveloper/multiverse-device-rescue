@@ -544,7 +544,7 @@ const UNFINISHED_LINE = 'It didn’t finish, so it may have missed something.';
 // The engine's error, in words: needs a permission, took too long, or
 // couldn't run. The raw text goes under "For tech helpers". The engine's
 // own `error_kind` decides when it gives one; the text is the fallback.
-const ENGINE_KINDS = { permission: 'permission', timeout: 'slow' };
+const ENGINE_KINDS = { permission: 'permission', timeout: 'slow', stopped: 'stopped' };
 function errorKind(error, engineKind) {
   if (engineKind && ENGINE_KINDS[engineKind]) return ENGINE_KINDS[engineKind];
   const e = String(error || '');
@@ -556,6 +556,7 @@ const ERROR_WORDS = {
   permission: 'Needs permission (Full Disk Access).',
   slow: 'Took too long.',
   failed: 'Couldn’t run.',
+  stopped: 'Didn’t get to run: the checkup stopped.',
 };
 
 /**
@@ -587,7 +588,9 @@ function couldntCheckItems(erroredModules, unfinishedModules, mode, partlyChecke
  * words, one per line. `raw`: every engine message, for the one
  * "For tech helpers" under the whole box.
  */
-const CAUSE_ORDER = ['permission', 'slow', 'failed', 'unfinished', 'partly'];
+const CAUSE_ORDER = ['permission', 'slow', 'failed', 'stopped', 'unfinished', 'partly'];
+// Past this many names, a cause's line gives the count and the names go under a fold.
+const NAMES_INLINE = 5;
 function couldntCheckGroups(items) {
   const by = new Map();
   for (const it of items || []) {
@@ -595,19 +598,24 @@ function couldntCheckGroups(items) {
     by.get(it.kind).push(it);
   }
   const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
-  const names = (list) => [...new Set(list.map((i) => i.name))].join(', ');
+  const uniq = (list) => [...new Set(list.map((i) => i.name))];
   const groups = [];
   for (const kind of CAUSE_ORDER) {
     const list = by.get(kind);
     if (!list || !list.length) continue;
     const c = list.length;
+    // A few names stay in the line; more go under a fold (`folded`), and the line ends at the count.
+    const all = uniq(list);
+    const folded = kind !== 'partly' && all.length > NAMES_INLINE;
+    const named = (head) => (folded ? `${head}.` : `${head}: ${all.join(', ')}.`);
     let line;
-    if (kind === 'permission') line = `${n(c, 'check needs', 'checks need')} Full Disk Access: ${names(list)}.`;
-    else if (kind === 'slow') line = `${n(c, 'check', 'checks')} took too long: ${names(list)}.`;
-    else if (kind === 'failed') line = `${n(c, 'check', 'checks')} couldn’t run: ${names(list)}.`;
-    else if (kind === 'unfinished') line = `${n(c, 'check', 'checks')} didn’t finish, so ${c === 1 ? 'it' : 'they'} may have missed something: ${names(list)}.`;
+    if (kind === 'permission') line = named(`${n(c, 'check needs', 'checks need')} Full Disk Access`);
+    else if (kind === 'slow') line = named(`${n(c, 'check', 'checks')} took too long`);
+    else if (kind === 'failed') line = named(`${n(c, 'check', 'checks')} couldn’t run`);
+    else if (kind === 'stopped') line = named(`${n(c, 'check', 'checks')} didn’t get to run because the checkup stopped`);
+    else if (kind === 'unfinished') line = named(`${n(c, 'check', 'checks')} didn’t finish, so ${c === 1 ? 'it' : 'they'} may have missed something`);
     else line = `${n(c, 'thing was', 'things were')} only partly checked`;
-    groups.push({ kind, line, names: list.map((i) => i.name),
+    groups.push({ kind, line, names: list.map((i) => i.name), folded: folded ? all : [],
       notes: kind === 'partly' ? list.map((i) => (i.reason ? `${i.name}: ${i.reason}` : i.name)) : [] });
   }
   const raw = (items || []).filter((i) => i.raw).map((i) => `${i.name}: ${i.raw}`).join('\n');
@@ -1802,6 +1810,7 @@ if (typeof document !== 'undefined') {
         + (g.kind === 'permission' && mac ? ` <button type="button" class="btn btn--secondary btn--small" data-setting-url="${FDA_URL}">Open the setting</button>` : '')
         + (g.kind === 'slow' && !partial && window.rescue && typeof window.rescue.recheckModule === 'function'
           ? ` <button type="button" class="btn btn--secondary btn--small" data-rerun-slow>Run ${g.names.length === 1 ? 'it' : 'them'} again</button>` : '')
+        + (g.folded && g.folded.length ? `<details class="errors-list__names"><summary>${escapeHtml(`See which (${g.folded.length})`)}</summary><ul>${g.folded.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul></details>` : '')
         + (g.notes.length ? `<details class="errors-list__partly"><summary>${escapeHtml(`See what was only partly checked (${g.notes.length})`)}</summary><ul>${g.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul></details>` : '')
         + '</li>').join('');
       tech.hidden = !raw;
