@@ -16,8 +16,9 @@ contextBridge.exposeInMainWorld('rescue', {
     ipcRenderer.on('scan-event', listener);
     return () => ipcRenderer.removeListener('scan-event', listener);
   },
-  // The connection watch: minutes from the app's list; progress arrives as {progress: {...}}.
-  runWatch: (minutes) => ipcRenderer.invoke('run-watch', minutes),
+  // The connection watch: minutes from the app's list, and whether to look up
+  // who runs each address (a boolean); progress arrives as {progress: {...}}.
+  runWatch: (minutes, lookups) => ipcRenderer.invoke('run-watch', minutes, lookups),
   stopWatch: () => ipcRenderer.invoke('stop-watch'),
   onWatchEvent: (cb) => {
     const listener = (_e, ev) => cb(ev);

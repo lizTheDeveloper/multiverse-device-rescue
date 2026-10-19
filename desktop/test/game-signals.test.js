@@ -151,3 +151,41 @@ test('bars with both counts non-zero are reported apart, never summed', async ()
     scanConfirmed: { missions: { [FC]: true } }, doc: d });
   assert.deepStrictEqual(r, { confirmed: 2, reported: 1 });
 });
+
+// The connection watch: every note it made is one signal.
+const dest = (address, port, snapshots, who = null) => ({ address, port, protocol: 'tcp', snapshots, who });
+const summary = (target, destinations, more = 0) => f(`${target}: ${destinations.length} destinations during the watch`, 'info',
+  { target, destinations, more, lookup_sources: ['RIPE NCC (stat.ripe.net)'] }, { code: 'network.connection_watch.watch_summary', category: 'network' });
+const WATCH_NOTES = [
+  summary('Safari', [dest('17.1.1.1', 443, 9), dest('8.8.8.8', 443, 2)]),
+  summary('Mail', [dest('17.1.1.1', 443, 4), dest('17.2.2.2', 993, 1)], 3),
+  f('Parts of the connection watch couldn’t be seen', 'info', { reasons: ['Looking up stopped early.'] },
+    { code: 'network.connection_watch.watch_incomplete', category: 'network' }),
+];
+
+test('the connection watch is one signal: info, real, its notes inside, never scored or stored', async () => {
+  const { sigs, v } = await build(doc(mod('mod_a', [f('A', 'info')]), net('connection_watch', WATCH_NOTES)));
+  const watch = sigs.filter((x) => x.module === 'connection_watch');
+  assert.strictEqual(watch.length, 1);
+  const [w] = watch;
+  assert.strictEqual(w.id, 'connection_watch|group');
+  assert.deepStrictEqual([w.kind, w.severity, w.missionId, w.fixable, w.marked, w.count], ['real', 'info', null, false, false, 1]);
+  // 2 apps; 17.1.1.1:443 is one place for both, plus Mail's 3 unlisted.
+  assert.strictEqual(w.title, 'Connection watch: 2 apps talked to 6 places');
+  assert.strictEqual(w.finding.module, 'connection_watch');
+  assert.strictEqual(w.finding.code, 'network.connection_watch.group');
+  assert.deepStrictEqual(w.finding.watch.map((n) => n.title), WATCH_NOTES.map((n) => n.title));
+  assert.strictEqual(w.fp, WATCH_NOTES.map((n) => v.fingerprint(n)).join('.'));
+  assert.ok(v.isWatchKey(w.id), 'no points, no stored tag');
+  assert.ok(sigs.some((x) => x.title === 'A'), 'other notes stay their own signals');
+});
+
+test('the watch signal’s title counts in the singular, and its tag holds until the watch changes', async () => {
+  const one = [summary('Safari', [dest('17.1.1.1', 443, 9)])];
+  const { sigs, v } = await build(doc(net('connection_watch', one)));
+  assert.strictEqual(sigs[0].title, 'Connection watch: 1 app talked to 1 place');
+  const deck = { ...v.emptyDeck(), tags: { 'connection_watch|group': { tag: 'mine', fp: sigs[0].fp, at: NOW } } };
+  assert.strictEqual(v.buildSignals(v.findingsToCity(doc(net('connection_watch', one))), deck)[0].tag, 'mine');
+  const changed = v.buildSignals(v.findingsToCity(doc(net('connection_watch', WATCH_NOTES))), deck)[0];
+  assert.deepStrictEqual([changed.tag, changed.changed], [null, true]);
+});

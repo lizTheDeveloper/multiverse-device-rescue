@@ -13,7 +13,7 @@ import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './
 import { renderDeck } from './views/deck.js';
 import { renderInstruments } from './views/instruments.js';
 import { renderWatch, watchOffered, idleWatch, watchStarted, watchProgress, watchFinished, watchProgressText,
-  WATCH_MINUTES } from './views/watch.js';
+  watchMinutes, watchToggleLookups, WATCH_MINUTES } from './views/watch.js';
 import { renderSignalPanel, renderRange } from './views/signal.js';
 import { renderHud } from './views/hud.js';
 import { renderMap } from './views/map.js';
@@ -541,21 +541,22 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.drillAnswers = {};
     s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
     // A new checkup replaces the watch's results (one can't start while a watch runs).
-    if (s.watch.state !== 'running') s.watch = idleWatch(s.watch.minutes);
+    if (s.watch.state !== 'running') s.watch = idleWatch(s.watch.minutes, s.watch.lookups);
     s.watchTags = {};
   }
 
-  // WATCH CONNECTIONS: only the minutes go to main, which refuses with a message
-  // (no checkup, monitoring software, busy). The result comes back the way a
-  // re-check's does; it is the same checkup, so not a new sweep. A redraw waits
-  // while a signal or another screen is open, so it can't wipe a question there.
+  // WATCH CONNECTIONS: only the minutes and the lookups switch go to main,
+  // which refuses with a message (no checkup, monitoring software, busy). The
+  // result comes back the way a re-check's does; it is the same checkup, so not
+  // a new sweep. A redraw waits while a signal or another screen is open, so it
+  // can't wipe a question there.
   async function startWatch() {
     if (s.watch.state === 'running' || !watchOffered(s.doc)) return;
     s.watch = watchStarted(s.watch);
     render();
     focusEl(findByAttr(frame, 'data-act', 'watch-stop'));
     let r;
-    try { r = await win.rescue.runWatch(s.watch.minutes); } catch (_) { r = null; }
+    try { r = await win.rescue.runWatch(s.watch.minutes, s.watch.lookups); } catch (_) { r = null; }
     s.watch = watchFinished(s.watch, r);
     if (r && r.ok) {
       if (!win.RescueHost.docChanged(r.doc)) return; // the gate closed: app.js showed the list
@@ -584,8 +585,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function watchAct(act) {
     if (act === 'watch-start') { startWatch().catch(watchCrashed); return; }
     if (act === 'watch-stop') { Promise.resolve().then(() => win.rescue.stopWatch()).catch(() => {}); return; }
+    if (act === 'watch-lookups') { s.watch = watchToggleLookups(s.watch); render(); return; }
     const m = act.startsWith('watch-minutes:') ? Number(act.slice(14)) : NaN;
-    if (WATCH_MINUTES.includes(m) && s.watch.state !== 'running') { s.watch = idleWatch(m); render(); }
+    if (WATCH_MINUTES.includes(m)) { s.watch = watchMinutes(s.watch, m); render(); }
   }
 
   // A district that had something open and now has nothing open in the checks that ran.

@@ -1029,7 +1029,10 @@ test('no router button when the ARP check says the router may be impersonated', 
 // The WATCH CONNECTIONS instrument on the deck (views/watch.js). `results` are
 // what runWatch resolves with, in order (or functions returning a promise of one).
 const watchF = (target) => ({ title: `${target} connected to 3 places`, description: 'What it connected to.', severity: 'info',
-  category: 'network', code: 'network.connection_watch.watch_summary', data: { target } });
+  category: 'network', code: 'network.connection_watch.watch_summary',
+  data: { target, destinations: ['1.1.1.1', '2.2.2.2', '3.3.3.3'].map((address) => ({ address, port: 443, protocol: 'tcp', snapshots: 1, who: null })) } });
+// Everything the watch noted is one signal (signals.js).
+const WATCH_TITLE = 'Connection watch: 1 app talked to 3 places';
 async function watchSetup({ before = scan(mod('mod_a', [finding('A')])), results = [], docChanged = () => true, show = true } = {}) {
   const { createController } = await import('../renderer/game/controller.js');
   const stub = stubWin([]);
@@ -1082,7 +1085,7 @@ test('watch: on the deck after a checkup; start sends only the minutes picked', 
   t.click({ 'data-act': 'watch-minutes:7' });
   assert.match(t.html(), /for 10 minutes/, 'a value off the list is ignored');
   t.click({ 'data-act': 'watch-start' });
-  assert.deepStrictEqual(t.calls.runWatch, [[10]]);
+  assert.deepStrictEqual(t.calls.runWatch, [[10, true]]);
   assert.match(t.html(), /Watching… 0 of 10 minutes, 0 snapshots\./);
   t.click({ 'data-act': 'watch-start' });
   assert.strictEqual(t.calls.runWatch.length, 1, 'one watch at a time');
@@ -1098,6 +1101,26 @@ test('watch: on the deck after a checkup; start sends only the minutes picked', 
   assert.match(t.html(), /Watching… 2 of 10 minutes, 25 snapshots\./);
   release({ ok: false, reason: 'busy', message: 'Something is already running.' });
   await tick();
+});
+
+test('watch: the lookups switch goes to main as a boolean, on unless the person turned it off', async () => {
+  const t = await watchSetup({ results: [{ ok: false, reason: 'busy', message: 'Busy.' }, { ok: false, reason: 'busy', message: 'Busy.' }] });
+  assert.match(t.html(), /data-act="watch-lookups" checked/);
+  t.click({ 'data-act': 'watch-start' });
+  await tick(); await tick();
+  t.click({ 'data-act': 'watch-lookups' });
+  assert.match(t.html(), /data-act="watch-lookups">/);
+  assert.match(t.html(), /Nothing leaves this computer/);
+  t.click({ 'data-act': 'watch-minutes:2' });
+  assert.match(t.html(), /data-act="watch-lookups">/, 'picking minutes keeps the switch');
+  t.click({ 'data-act': 'watch-start' });
+  await tick(); await tick();
+  assert.deepStrictEqual(t.calls.runWatch, [[5, true], [2, false]]);
+  // Lookup progress replaces the watching line in place.
+  t.win.rescue.runWatch = () => new Promise(() => {});
+  t.click({ 'data-act': 'watch-start' });
+  t.event({ progress: { phase: 'lookup', done: 4, total: 9 } });
+  assert.strictEqual(t.line.textContent, 'Looking up who runs each address… 4 of 9.');
 });
 
 test('watch: STOP calls stopWatch, even while a re-check runs', async () => {
@@ -1153,7 +1176,8 @@ test('watch: its findings arrive in INCOMING SIGNALS the way a re-check’s do',
   assert.match(t.html(), /data-act="resweep"/, 'RE-SWEEP is back');
   t.click({ 'data-act': 'toggle-low' });
   const queue = t.html().split('INCOMING SIGNALS')[1].split('deck-city')[0];
-  assert.match(queue, /Safari connected to 3 places/);
+  assert.ok(queue.includes(WATCH_TITLE), 'the watch is one signal');
+  assert.doesNotMatch(queue, /Safari connected/);
   // Going to the list and back shows the same document: that's not a new sweep.
   const sweeps = JSON.parse(t.storage.getItem('device-rescue.game.v1')).deck.sweeps.length;
   t.ctl.show(merged, { id: 'unsure' });
@@ -1165,10 +1189,10 @@ test('watch: findings score nothing and nothing about them is stored', async () 
   const t = await watchSetup({ results: [{ ok: true, doc: merged }] });
   t.click({ 'data-act': 'watch-start' });
   await tick(); await tick();
-  const { findingIdentity } = await import('../renderer/game/findings-to-city.js');
-  const id = findingIdentity({ ...watchF('Signal'), module: 'connection_watch' });
-  t.click({ 'data-go': `signal:${id}` });
-  assert.match(t.html(), /id="sig-title"[^>]*>Signal connected to 3 places/);
+  t.click({ 'data-go': 'signal:connection_watch|group' });
+  assert.match(t.html(), new RegExp(`id="sig-title"[^>]*>${WATCH_TITLE}`));
+  t.click({ 'data-act': 'clue:went' });
+  assert.match(t.html(), /WHERE THEY WENT[\s\S]*Signal: 1\.1\.1\.1:443, 2\.2\.2\.2:443, 3\.3\.3\.3:443/);
   for (const m of t.html().matchAll(/data-act="(clue:[a-z]+)"/g)) t.click({ 'data-act': m[1] });
   t.click({ 'data-act': 'tag:closer' });
   const saved = t.storage.getItem('device-rescue.game.v1');
@@ -1177,10 +1201,10 @@ test('watch: findings score nothing and nothing about them is stored', async () 
   // The tag holds for this session: it's sorted on the deck, LOOK CLOSER.
   t.click({ 'data-act': 'close-signal' });
   t.click({ 'data-act': 'toggle-low' });
-  assert.match(t.html(), /LOOK CLOSER<\/span><\/span><span class="sig-title">Signal connected/);
+  assert.match(t.html(), /LOOK CLOSER<\/span><\/span><span class="sig-title">Connection watch: /);
   // "These are all fine" sorts them too, still without storing anything.
   t.click({ 'data-act': 'batch-fine' });
-  assert.match(t.html(), /KNOWN AND NOTED \(\d+\)[\s\S]*Signal connected/);
+  assert.match(t.html(), /KNOWN AND NOTED \(\d+\)[\s\S]*Connection watch: /);
   assert.doesNotMatch(t.storage.getItem('device-rescue.game.v1'), /connection_watch|Signal connected/);
 });
 

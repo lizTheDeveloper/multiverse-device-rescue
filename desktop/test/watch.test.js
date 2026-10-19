@@ -50,6 +50,22 @@ test('only the listed durations are accepted', async () => {
   }
 });
 
+test('lookups: on unless false; anything but a boolean is refused before the watch starts', async () => {
+  const seen = [];
+  const run = async (minutes, onEvent, lookups) => { seen.push(lookups); return WATCH_DOC; };
+  assert.strictEqual((await handleWatch(5, { ...deps({ runWatch: run }).d })).ok, true);
+  assert.strictEqual((await handleWatch(5, { ...deps({ runWatch: run }).d, lookups: true })).ok, true);
+  assert.strictEqual((await handleWatch(5, { ...deps({ runWatch: run }).d, lookups: false })).ok, true);
+  assert.deepStrictEqual(seen, [true, true, false]);
+  for (const bad of ['false', 0, 1, null, 'yes', [], {}, NaN]) {
+    const t = deps({ runWatch: run });
+    const r = await handleWatch(5, { ...t.d, lookups: bad });
+    assert.strictEqual(r.ok, false, JSON.stringify(bad));
+    assert.strictEqual(r.reason, 'bad_lookups');
+  }
+  assert.strictEqual(seen.length, 3, 'a refused flag starts nothing');
+});
+
 test('no scan, no watch', async () => {
   for (const last of [null, {}, { modules: 'x' }]) {
     const t = deps({ getLastDoc: () => last });
@@ -155,6 +171,28 @@ test('runWatch spawns the engine read-only with the minutes and forwards progres
   child.emit('close', 0);
   assert.deepStrictEqual(await h.promise, WATCH_DOC);
   assert.deepStrictEqual(events, [{ progress: { phase: 'watch', elapsed: 1, total: 300, snapshots: 1 } }]);
+});
+
+test('runWatch adds --no-lookups only when lookups is false', () => {
+  const argsFor = (opts) => {
+    let args;
+    runWatch(2, () => {}, (_bin, a) => { args = a; const c = fakeChild(); setImmediate(() => c.emit('close', 1)); return c; }, opts)
+      .promise.catch(() => {});
+    return args;
+  };
+  assert.deepStrictEqual(argsFor({ lookups: false }), ['watch', '--minutes', '2', '--json', '--progress', '--no-lookups']);
+  for (const opts of [undefined, {}, { lookups: true }, { lookups: 'false' }, { lookups: 0 }]) {
+    assert.deepStrictEqual(argsFor(opts), ['watch', '--minutes', '2', '--json', '--progress'], JSON.stringify(opts));
+  }
+});
+
+test('main passes the checkbox’s flag through as it came; preload sends it', () => {
+  const main = read('main.js');
+  const handler = main.slice(main.indexOf("ipcMain.handle('run-watch'"), main.indexOf("ipcMain.handle('stop-watch'"));
+  assert.match(handler, /\(e, minutes, lookups\) =>/);
+  assert.match(handler, /handleWatch\(minutes, \{\s*lookups,/);
+  assert.match(handler, /runWatch\(m, onEvent, undefined, \{ lookups: on \}\)/);
+  assert.ok(read('preload.js').includes("runWatch: (minutes, lookups) => ipcRenderer.invoke('run-watch', minutes, lookups)"));
 });
 
 test('runWatch stop() writes "stop\\n" to stdin and still resolves with the document', async () => {

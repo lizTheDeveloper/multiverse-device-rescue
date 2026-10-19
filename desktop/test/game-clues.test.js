@@ -115,3 +115,90 @@ test('a drill’s read: right, or the tell, and it costs nothing', async () => {
   assert.strictEqual(drillRead(d, true), 'Right. It runs from a hidden folder.');
   assert.match(drillRead(d, false), /^Not this time, and it costs you nothing\. The tell: It runs from a hidden folder\.$/);
 });
+
+// The grouped connection watch (signals.js): WHERE THEY WENT.
+const who = (over = {}) => ({ hostname: null, hostname_confirmed: false, asn: null, as_name: null, prefix: null, network: null,
+  registrant: null, country: null, unavailable: [], ...over });
+const APPLE = who({ as_name: 'APPLE-ENGINEERING - Apple Inc.' });
+const GOOGLE = who({ as_name: 'GOOGLE - Google LLC', hostname: 'dns.google', hostname_confirmed: true });
+const CF = who({ as_name: 'CLOUDFLARENET - Cloudflare, Inc.' });
+const dst = (address, port, snapshots, w = null) => ({ address, port, protocol: 'tcp', snapshots, who: w });
+const app = (target, destinations, extra = {}) => ({ module: 'connection_watch', code: 'network.connection_watch.watch_summary',
+  title: `${target}: ${destinations.length} destinations during the watch`, severity: 'info',
+  data: { target, destinations, more: 0, not_stored: 0, lookup_sources: SOURCES, ...extra } });
+const SOURCES = ['reverse DNS (your computer’s own resolver)', 'RIPE NCC (stat.ripe.net)', 'rdap.org and the regional registry it redirects to'];
+const group = (...watch) => ({ module: 'connection_watch', code: 'network.connection_watch.group', watch });
+
+test('WHERE THEY WENT: one clue, the rollup by apps, each app busiest first, the gaps and the sources', async () => {
+  const { cluesFor, READING } = await load();
+  const clues = cluesFor(group(
+    app('Mail', [dst('17.1.1.1', 993, 3, APPLE), dst('104.16.1.1', 443, 1, CF)]),
+    app('Safari', [dst('17.1.1.2', 443, 9, APPLE), dst('8.8.8.8', 443, 2, GOOGLE), dst('104.16.1.2', 443, 2, CF)]),
+    app('Music', [dst('17.1.1.3', 443, 1, APPLE)]),
+    { module: 'connection_watch', code: 'network.connection_watch.watch_incomplete', title: 'Parts…', severity: 'info',
+      data: { reasons: ['Looking up stopped early.', 'Only the busiest 150 addresses were looked up.'] } },
+    { module: 'connection_watch', code: 'network.connection_watch.dns_not_visible', title: 'Couldn’t see which names were looked up', data: {} },
+  ));
+  assert.strictEqual(clues.length, 1);
+  const [c] = clues;
+  assert.deepStrictEqual([c.kind, c.label], ['went', 'WHERE THEY WENT']);
+  assert.strictEqual(c.reading, READING.went);
+  assert.strictEqual(READING.went.text, 'Who runs an address is usually a hosting or cloud company, not the app’s maker. Lookups sent the addresses, not what was in them.');
+  assert.deepStrictEqual(c.lines, [
+    'Talked to: Apple Inc. (3 apps), Cloudflare, Inc. (2), Google LLC (1)',
+    'Safari: Apple Inc. (17.1.1.2:443), Google LLC (8.8.8.8:443), Cloudflare, Inc. (104.16.1.2:443)',
+    'Mail: Apple Inc. (17.1.1.1:993), Cloudflare, Inc. (104.16.1.1:443)',
+    'Music: Apple Inc. (17.1.1.3:443)',
+    'Looking up stopped early.',
+    'Only the busiest 150 addresses were looked up.',
+    `Looked up with: ${SOURCES.join('; ')}.`,
+  ]);
+});
+
+test('WHERE THEY WENT: owner precedence mirrors the engine; an unconfirmed hostname is labelled, a bare address stands alone', async () => {
+  const { cluesFor, holderCompany } = await load();
+  assert.strictEqual(holderCompany('GOOGLE - Google LLC'), 'Google LLC');
+  assert.strictEqual(holderCompany('AKAMAI-ASN1 Akamai International B.V.'), 'Akamai International B.V.');
+  assert.strictEqual(holderCompany('AMAZON-02'), 'AMAZON-02', 'a handle alone stays');
+  assert.strictEqual(holderCompany('Hetzner Online GmbH'), 'Hetzner Online GmbH', 'no handle: the whole name');
+  assert.strictEqual(holderCompany('X - '), 'X - ', 'nothing after the dash: the whole name');
+  const [c] = cluesFor(group(app('App', [
+    dst('1.1.1.1', 443, 9, who({ registrant: 'Registrant Ltd', hostname: 'one.example', hostname_confirmed: true })),
+    dst('2.2.2.2', 443, 8, who({ hostname: 'host.example', hostname_confirmed: true })),
+    dst('3.3.3.3', 443, 7, who({ hostname: 'claims-to-be.bank.example', hostname_confirmed: false })),
+    dst('4.4.4.4', 443, 6, who({ unavailable: ['dns', 'owner', 'registry'] })),
+    dst('2001:db8::1', 443, 5, null),
+    dst('5.5.5.5', null, 4, null),
+  ])));
+  assert.strictEqual(c.lines[0], 'Talked to: Registrant Ltd (1 app), host.example (1)', 'an unverified hostname is never an owner');
+  assert.strictEqual(c.lines[1], 'App: Registrant Ltd (1.1.1.1:443), host.example (2.2.2.2:443), '
+    + 'claims-to-be.bank.example (unverified) (3.3.3.3:443), 4.4.4.4:443, [2001:db8::1]:443, 5.5.5.5');
+});
+
+test('WHERE THEY WENT: at most 8 places an app and 25 apps; top 5 owners; lookups off; no owners known', async () => {
+  const { cluesFor } = await load();
+  const many = Array.from({ length: 11 }, (_, i) => dst(`9.9.9.${i}`, 443, 20 - i, who({ as_name: `NET${i} - Owner ${i}` })));
+  const [c] = cluesFor(group(app('Busy', many, { more: 4, not_stored: 2 })));
+  assert.match(c.lines[1], /^Busy: Owner 0 \(9\.9\.9\.0:443\), .*Owner 7 \(9\.9\.9\.7:443\), and 9 more$/);
+  assert.strictEqual(c.lines[0].split('), ').length, 5, 'five owners in the rollup');
+  const apps = Array.from({ length: 27 }, (_, i) => app(`App${String(i).padStart(2, '0')}`, [dst('8.8.4.4', 53, 30 - i)]));
+  const [d] = cluesFor(group(...apps));
+  assert.strictEqual(d.lines[0], 'App00: 8.8.4.4:53', 'no owner known: no rollup line');
+  assert.strictEqual(d.lines[24], 'App24: 8.8.4.4:53');
+  assert.strictEqual(d.lines[25], 'And 2 more apps.');
+  const [off] = cluesFor(group(app('Mail', [dst('17.1.1.1', 993, 3)], { lookup_sources: [] }),
+    { module: 'connection_watch', code: 'network.connection_watch.watch_incomplete', data: { reasons: ['Looking up who runs each address was turned off.'] } }));
+  assert.deepStrictEqual(off.lines, ['Mail: 17.1.1.1:993', 'Looking up who runs each address was turned off.', 'Not looked up (turned off).']);
+  const [unknown] = cluesFor(group(app('unknown', [])));
+  assert.strictEqual(unknown.lines[0], 'A program Reclaim City couldn’t name: no places listed');
+});
+
+test('WHERE THEY WENT: registry and DNS text is capped and stripped of control characters', async () => {
+  const { cluesFor } = await load();
+  const long = `Evil\u0007 Corp ${'x'.repeat(300)}`;
+  const [c] = cluesFor(group(app('A', [dst('1.1.1.1', 443, 1, who({ registrant: long }))])));
+  const name = c.lines[0].slice('Talked to: '.length).replace(/ \(1 app\)$/, '');
+  assert.ok(name.length <= 80, `${name.length}`);
+  assert.ok(name.endsWith('…'));
+  assert.doesNotMatch(c.lines.join('\n'), /\u0007/);
+});

@@ -114,3 +114,16 @@ test('the Training Grounds offer the DRILL RANGE, with or without a scan', async
   assert.match(html, /data-go="range"[^>]*>DRILL RANGE ▶/);
   assert.match(html, /Nothing in the range touches your computer/);
 });
+
+test('test_clue_escapes_registry_text: a looked-up name is shown as text in WHERE THEY WENT', async () => {
+  const v = await views();
+  const who = { hostname: EVIL, hostname_confirmed: false, as_name: null, registrant: EVIL, unavailable: [] };
+  const note = { module: 'connection_watch', code: 'network.connection_watch.watch_summary', title: 'x', severity: 'info',
+    data: { target: EVIL, destinations: [{ address: '1.2.3.4', port: 443, protocol: 'tcp', snapshots: 1, who }], lookup_sources: [EVIL] } };
+  const finding = { module: 'connection_watch', code: 'network.connection_watch.group', watch: [note] };
+  const signal = real({ id: 'connection_watch|group', severity: 'info', title: 'Connection watch: 1 app talked to 1 place', finding, missionId: null });
+  const html = await panel({ signal, clues: v.cluesFor(finding), opened: ['went'] });
+  assert.match(html, /WHERE THEY WENT/);
+  assert.ok(!html.includes(EVIL), 'nothing from a registry or DNS is markup');
+  assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
+});

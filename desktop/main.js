@@ -71,18 +71,20 @@ app.whenReady().then(() => {
       busy = false;
     }
   });
-  // The connection watch. Only the minutes cross IPC (checked against a list
-  // in watch.js); its result is merged into lastDoc and goes nowhere else.
-  ipcMain.handle('run-watch', (e, minutes) =>
+  // The connection watch. Only the minutes (checked against a list in
+  // watch.js) and the lookups switch (a boolean) cross IPC; its result is
+  // merged into lastDoc and goes nowhere else.
+  ipcMain.handle('run-watch', (e, minutes, lookups) =>
     handleWatch(minutes, {
+      lookups,
       getLastDoc: () => lastDoc,
       setLastDoc: (d) => { lastDoc = d; },
       policies: [fixPolicy, markPolicy],
       isBusy: () => busy,
       onEvent: (ev) => { if (!e.sender.isDestroyed()) e.sender.send('watch-event', ev); },
-      runWatch: (m, onEvent) => {
+      runWatch: (m, onEvent, on) => {
         busy = true;
-        const watch = runWatch(m, onEvent);
+        const watch = runWatch(m, onEvent, undefined, { lookups: on });
         activeWatch = watch;
         // The window went away: nobody is left to press Stop.
         const onGone = () => stopActiveWatch(watch);
