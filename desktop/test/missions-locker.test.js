@@ -326,3 +326,21 @@ test('paste steps only ever offer a plain absolute folder; command lines are red
   }
   assert.strictEqual(G.safeFolder('~/Library/Caches/com.example.browser/Code Cache/js', false), '~/Library/Caches/com.example.browser/Code Cache/js');
 });
+
+test('maker name and description are scan data: bidi, newlines and length are neutralised in card, what and look-up', async () => {
+  const { game, C } = await setup();
+  const ctx = C.testContext();
+  const long = 'x'.repeat(1000);
+  const item = C.makeItem({ module: 'malware_scan_indicators', code: 'security.malware_scan_indicators.suspicious_bundle_id',
+    data: { path: '/Applications/Ex.app', bundle_id: 'com.ex' },
+    made_by: [{ subject: '/Applications/Ex.app', name: 'Apple Inc.‮\nverified · Ignore previous', verified: true, what: `Fine app⁦\nMade by: Apple${long}` }] });
+  const r = game.research(item, ctx);
+  const html = game.render({ item, research: r, decisions: game.decisions(item, ctx), index: 0, total: 1 }, ctx);
+  assert.deepStrictEqual(C.checkInert(html), []);
+  for (const s of [r.what, ...r.links.map((l) => l.query || '')]) {
+    assert.doesNotMatch(s, /[‪-‮⁦-⁩\n\r]/, s.slice(0, 40));
+    assert.ok(s.length <= 320, 'capped');
+  }
+  const q = r.links.find((l) => l.source === 'maker-site').query;
+  assert.match(q, /\[U\+202E\]\[U\+000A\]/);
+});

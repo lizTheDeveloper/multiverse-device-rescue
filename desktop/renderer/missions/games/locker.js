@@ -206,11 +206,12 @@ function fmtBytes(n) {
   return i === 0 ? `${Math.round(x)} bytes` : `${x.toFixed(x < 10 ? 1 : 0)} ${u[i]}`;
 }
 
-function makerOf(f, path) {
+function makerOf(f, path, v) {
   const list = Array.isArray(f.made_by) ? f.made_by.filter((m) => m && typeof m === 'object') : [];
   const m = list.find((x) => x.subject === path) || list[0];
   if (!m || !m.name) return null;
-  return { name: str(m.name), verified: m.verified === true, what: m.verified === true ? str(m.what) : '' };
+  // Scan data like every other field: control and bidi characters made visible, length capped.
+  return { name: v(clip(str(m.name), 120)), verified: m.verified === true, what: m.verified === true ? v(clip(str(m.what), 300)) : '' };
 }
 
 // Everything the tag shows, as plain (unescaped) text. The render escapes it.
@@ -249,7 +250,7 @@ export function tagOf(item, ctx) {
     entries: entries.slice(0, MAX_LIST).map((e) => v(clip(e, 120))),
     moreEntries: Math.max(0, entries.length - MAX_LIST),
     count: Number.isFinite(Number(d.count)) && d.count != null ? Number(d.count) : null,
-    maker: makerOf(f, path),
+    maker: makerOf(f, path, v),
     miner: MINER_CHECKS.has(check) || /miner/.test(str(f.module)),
     worm: /^ai_worm_/.test(str(f.module)),
     win: isWin(ctx, f),
