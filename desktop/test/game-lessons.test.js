@@ -269,3 +269,23 @@ test('every item in the remove-everyone and cut-off-order families carries the k
     }
   }
 });
+
+test('the bank is complete: every question has a key, a concept and at least two variants', async () => {
+  const { lessons } = await loadAll();
+  for (const l of lessons) {
+    for (const q of l.questions) {
+      assert.ok(typeof q.key === 'string', `${l.id}: "${q.prompt}" has no key`);
+      assert.ok(typeof q.concept === 'string', `${l.id}: ${q.key} has no concept`);
+      assert.ok(itemsOf(q).length >= 3, `${l.id}: ${q.key} has ${itemsOf(q).length} items; item response theory needs at least 3`);
+    }
+  }
+});
+
+test('the item bank builds every item, and every shown concept a lesson teaches has three or more', async () => {
+  const { lessons } = await loadAll();
+  const { buildBank } = await import(pathToFileURL(path.join(GAME, 'profile', 'item-bank.js')).href);
+  const bank = buildBank(lessons, []);
+  const total = lessons.reduce((n, l) => n + l.questions.flatMap(itemsOf).length, 0);
+  assert.strictEqual(bank.items.size, total, 'no item lost to a duplicate key');
+  for (const [c, keys] of bank.concepts) assert.ok(keys.length >= 3, `${c}: ${keys.length} items`);
+});
