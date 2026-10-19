@@ -159,6 +159,11 @@ export function choose(run, id, game, ctx) {
   const mode = ctx && ctx.mode === 'city' ? 'city' : 'standard';
   const guide = guideOf(item, d, mode);
   const steps = guide ? guide.steps : [];
+  // Keeping ("Mine") an item that warns is one click the person may regret:
+  // a one-line "only if it's yours" confirm first (MarkFlow's own mark has one).
+  if (e.kind === 'keep' && alerting(item) && !confirmed(run, item, d)) {
+    return { run: { ...run, phase: 'confirm', pending: { key: item.key, decision: d, warning: true, deferred: d.id, ask: 'keep' } }, act: null };
+  }
   // R6: a warned effect shows the removal warning first and acts only after
   // the person has read it (a fix's own confirm is FixFlow's panel).
   if (e.warning === true && e.kind !== 'fix' && !confirmed(run, item, d)) {

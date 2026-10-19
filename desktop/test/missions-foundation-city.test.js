@@ -192,6 +192,10 @@ test('remembered answers survive a new scan with the same evidence, and drop whe
   a.click({ 'data-go': 'mx:simple:gatehouse:1' });
   a.click({ 'data-act': 'mx-know' });
   a.click({ 'data-act': 'mx-decide:ok' });
+  // Keeping a warned item asks first, in one line.
+  assert.match(a.html(), /Keep it only if you know it’s yours\. Keep it\?/);
+  assert.match(a.html(), /ITEM 1 OF 4/);
+  a.click({ 'data-act': 'mx-confirm' });
   assert.match(a.html(), /ITEM 2 OF 4/);
   assert.strictEqual(savedProfile(s2).rank.points, 0, 'the warned sudo rule pays nothing');
   a.click({ 'data-act': 'mx-decide:ok' });
@@ -203,11 +207,13 @@ test('remembered answers survive a new scan with the same evidence, and drop whe
   b.click({ 'data-go': 'mx:simple:gatehouse:1' });
   assert.match(b.html(), /ITEM 1 OF 4/, 'a warned item is never remembered across scans');
   b.click({ 'data-act': 'mx-decide:ok' });
+  b.click({ 'data-act': 'mx-confirm' });
   assert.match(b.html(), /ITEM 3 OF 4/, 'the remembered item is skipped');
   // Its evidence changed: asked again.
   const c = await setup(doc({ part: 'piece' }), { storage: s2, games: keepGame });
   c.click({ 'data-go': 'mx:simple:gatehouse:1' });
   c.click({ 'data-act': 'mx-decide:ok' });
+  c.click({ 'data-act': 'mx-confirm' });
   assert.match(c.html(), /ITEM 2 OF 4/);
   assert.ok(t);
 });

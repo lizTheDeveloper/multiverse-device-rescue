@@ -223,3 +223,21 @@ test('a research link opens at once on a plain item, and waits behind the warnin
   assert.strictEqual(r.act, null);
   assert.strictEqual(Run.cancelPending(r.run).phase, 'item');
 });
+
+test('Keep on an item that warns asks a one-line confirm first; on a plain item it is one click', async () => {
+  const [Run, C, R] = await load();
+  const ctx = ctxOf(C, R);
+  const g = gameWith(() => [D('keep', 'keep'), D('later', 'later')]);
+  let run = Run.startRun(mission(C, 2, { removal_alert: true }));
+  let r = Run.choose(run, 'keep', g, ctx);
+  assert.strictEqual(r.run.phase, 'confirm');
+  assert.strictEqual(r.run.pending.ask, 'keep');
+  assert.strictEqual(Run.doneCount(r.run), 0, 'nothing kept yet');
+  assert.strictEqual(Run.cancelPending(r.run).phase, 'item');
+  const ok = Run.confirmPending(r.run, g, ctx);
+  assert.strictEqual(Run.doneCount(ok.run), 1);
+  assert.strictEqual(ok.run.results[0].decision, 'keep');
+  run = Run.startRun(mission(C, 2));
+  r = Run.choose(run, 'keep', g, ctx);
+  assert.strictEqual(Run.doneCount(r.run), 1, 'a plain item keeps at once');
+});

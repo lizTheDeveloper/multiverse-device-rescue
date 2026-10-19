@@ -141,7 +141,9 @@ export function renderMissionScreen(o) {
   const confirming = run.phase === 'confirm';
   const unfinished = research.unfinished ? `<p class="intel mx-unfinished"><span class="badge fog">DIDN’T FINISH</span> ${esc(research.unfinished)}</p>` : '';
   const confirm = confirming && !actHtml ? `<div class="panel mx-confirm" role="group" aria-label="Before you go on">
-      <p class="intel">${esc(mode === 'city' ? 'Read the line above first. Go on?' : 'Read the warning above first. Go on?')}</p>
+      <p class="intel">${esc(run.pending && run.pending.ask === 'keep'
+    ? (mode === 'city' ? 'Only if it’s yours. Keep it?' : 'Keep it only if you know it’s yours. Keep it?')
+    : (mode === 'city' ? 'Read the line above first. Go on?' : 'Read the warning above first. Go on?'))}</p>
       <div class="row"><button type="button" class="btn-p" data-act="mx-confirm">YES, GO ON</button><button type="button" class="btn-s" data-act="mx-cancel">CANCEL</button></div></div>` : '';
   const act = actHtml ? `<div class="mx-act">${actHtml}<button type="button" class="btn-t" data-act="mx-cancel">NOT NOW</button></div>` : '';
   return `<section class="mx-screen">${head}
