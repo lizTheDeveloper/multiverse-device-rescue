@@ -42,8 +42,9 @@ test('runRecheck timeout and failures use re-check wording, not fix wording', as
   const timedOut = await runRecheck('a_mod', hangSpawn, 10);
   assert.strictEqual(timedOut.engine_error, 'timeout');
   assert.strictEqual(killed, true);
-  assert.match(timedOut.message, /couldn’t re-check this just now/);
-  assert.match(timedOut.message, /Nothing was changed/);
+  assert.match(timedOut.message, /couldn’t check again just now/);
+  // A fix may already have been made: never "Nothing was changed".
+  assert.doesNotMatch(timedOut.message, /Nothing was changed/);
   assert.doesNotMatch(timedOut.message, /fix|checkup/i);
   const refused = await runRecheck('../x', hangSpawn, 10);
   assert.strictEqual(refused.message, timedOut.message);
@@ -75,9 +76,60 @@ test('runScan streams plan and finished-check entries as events, and keeps them 
   assert.deepStrictEqual(doc, { schema_version: 1, modules: [] });
   assert.deepStrictEqual(events.map((e) => e.type), ['plan', 'module', 'log']);
   assert.deepStrictEqual(events[1].result, entry);
-  await assert.rejects(runScan(fake(1, ''), null, () => {}), (err) => {
-    assert.match(err.message, /engine exited 1: Module check timed out: x/);
-    assert.doesNotMatch(err.message, /"module"|"plan"|disk_space/);
+  // Exit 1 with no document, after one check reported: what it found is kept.
+  const stoppedEvents = [];
+  const stopped = await runScan(fake(1, ''), null, (ev) => stoppedEvents.push(ev));
+  assert.deepStrictEqual(stopped.modules, [entry]);
+  assert.strictEqual(stopped.stopped.reason, 'exit');
+  assert.strictEqual(stopped.stopped.exit_code, 1);
+  assert.strictEqual(stoppedEvents.at(-1).type, 'stopped');
+});
+
+test('runScan: an engine that stops leaves what it found; tracebacks never reach an error message', async () => {
+  const { EventEmitter } = require('events');
+  const { runScan, SCAN_STOPPED_MESSAGE, isStoppedDoc } = require('../engine-runner');
+  const entry = (name) => ({ name, check_name: name, category: 'security', status: 'ok', error: null, supported: true, complete: true, error_kind: null, findings: [{ title: `t ${name}`, severity: 'warning' }] });
+  const traceback = 'Traceback (most recent call last):\n  File "/Users/someone/src/rescue/serialize.py", line 109\nTypeError: unhashable type: \'dict\'';
+  const fake = ({ code, stdout = '', modules = [], plan = null }) => () => {
+    const p = new EventEmitter();
+    p.stdout = new EventEmitter(); p.stderr = new EventEmitter();
+    setImmediate(() => {
+      if (plan) p.stderr.emit('data', JSON.stringify({ plan }) + '\n');
+      for (const m of modules) p.stderr.emit('data', JSON.stringify({ module: m }) + '\n');
+      p.stderr.emit('data', traceback + '\n');
+      if (stdout) p.stdout.emit('data', stdout);
+      p.emit('close', code);
+    });
+    return p;
+  };
+  const plan = { total: 3, modules: ['a_check', 'b_check', 'c_check'].map((m) => ({ module: m, check_name: `Check ${m}`, category: 'security' })) };
+  const events = [];
+  const doc = await runScan(fake({ code: 1, modules: [entry('b_check'), entry('a_check')], plan }), null, (ev) => events.push(ev));
+  assert.ok(isStoppedDoc(doc));
+  assert.deepStrictEqual(doc.modules.map((m) => m.name), ['a_check', 'b_check', 'c_check'], 'in plan order');
+  assert.deepStrictEqual(doc.stopped, { reason: 'exit', exit_code: 1, done: 2, total: 3 });
+  const never = doc.modules[2];
+  assert.strictEqual(never.status, 'error');
+  assert.strictEqual(never.complete, false);
+  assert.strictEqual(never.error_kind, 'stopped');
+  assert.strictEqual(never.check_name, 'Check c_check');
+  assert.ok(!('partial' in doc), 'stopped is not "still running"');
+  assert.ok(!JSON.stringify(doc).includes('Traceback'), 'the traceback is not in the document');
+  assert.ok(events.some((e) => e.type === 'log' && /Traceback/.test(e.line)), 'the traceback goes to the technical log');
+
+  // Exit 0 but stdout cut short: the same partial document.
+  const cut = await runScan(fake({ code: 0, stdout: '{"schema_version":1,"modu', modules: [entry('a_check')] }), null, () => {});
+  assert.strictEqual(cut.stopped.reason, 'unreadable');
+  assert.deepStrictEqual(cut.modules.map((m) => m.name), ['a_check']);
+
+  // A whole document with a non-zero exit is still the whole document.
+  const whole = await runScan(fake({ code: 2, stdout: '{"schema_version":1,"modules":[]}', modules: [entry('a_check')] }), null, () => {});
+  assert.deepStrictEqual(whole, { schema_version: 1, modules: [] });
+
+  // Nothing streamed: a plain rejection, no traceback, no home paths.
+  await assert.rejects(runScan(fake({ code: 1 }), null, () => {}), (err) => {
+    assert.strictEqual(err.message, SCAN_STOPPED_MESSAGE);
+    assert.doesNotMatch(err.message, /Traceback|\/Users\/|engine exited/);
     return true;
   });
 });
@@ -102,7 +154,7 @@ test('stopRunningScans sends SIGTERM to a running scan, and forgets finished one
   const running = runScan(fake, null, () => {});
   stopRunningScans();
   assert.deepStrictEqual(signals, ['SIGTERM']);
-  await assert.rejects(running, /engine exited 143/);
+  await assert.rejects(running, /The checkup stopped before it finished/);
   stopRunningScans();
   assert.deepStrictEqual(signals, ['SIGTERM'], 'nothing left to stop');
 });
@@ -155,6 +207,9 @@ test('main keeps the exec lines per check and the window can ask for one check',
   const preload = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
   assert.match(main, /execLog\.reset\(\);\s*const doc = await runScan/);
   assert.match(main, /if \(ev\.type === 'exec'\) execLog\.add\(ev\);/);
+  // A stopped checkup is shown, never acted on.
+  assert.match(main, /fixPolicy\.remember\(isStoppedDoc\(doc\) \? null : doc\)/);
+  assert.match(main, /markPolicy\.remember\(isStoppedDoc\(doc\) \? null : doc\)/);
   assert.match(main, /ipcMain\.handle\('module-commands', \(_e, name\) => execLog\.get\(name\)\)/);
   assert.match(preload, /moduleCommands: \(name\) => ipcRenderer\.invoke\('module-commands', name\)/);
 });

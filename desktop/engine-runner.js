@@ -113,17 +113,78 @@ function stopRunningScans(signal = 'SIGTERM') {
   runningScans.clear();
 }
 
+// What the person is told when the engine stops before it writes its final
+// document. The engine's own words (often a Python traceback with home-folder
+// paths) went to the technical log as {type:'log'} events and are never put
+// in an error message the screen could show.
+const SCAN_STOPPED_MESSAGE = 'The checkup stopped before it finished. Nothing on your computer was changed.';
+
+/**
+ * The checks that did finish, as a scan document, when the engine stopped
+ * before writing its own: the {"module"} entries it streamed, in the order
+ * planned, plus one entry for every planned check that never reported, so
+ * nothing reads as checked that wasn't. Marked `stopped` (never `partial`,
+ * which means "still running"): the views say "The checkup stopped before it
+ * finished", count it as not a clean bill of health, and offer no fixes or
+ * marks from it (main.js doesn't hand it to the fix and mark policies).
+ *
+ *   stopped: { reason: 'exit' | 'unreadable', exit_code, done, total }
+ */
+function stoppedDocOf(streamed, plan, info = {}) {
+  const got = new Map();
+  for (const m of streamed) if (m && typeof m.name === 'string') got.set(m.name, m);
+  const planned = plan && Array.isArray(plan.modules) ? plan.modules : [];
+  const modules = [];
+  const seen = new Set();
+  for (const p of planned) {
+    const name = p && typeof p.module === 'string' ? p.module : null;
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    modules.push(got.get(name) || {
+      name,
+      check_name: typeof p.check_name === 'string' ? p.check_name : null,
+      category: typeof p.category === 'string' ? p.category : null,
+      status: 'error',
+      error: 'The checkup stopped before this check ran.',
+      supported: true,
+      unsupported_reason: null,
+      complete: false,
+      error_kind: 'stopped',
+      findings: [],
+    });
+  }
+  for (const [name, m] of got) if (!seen.has(name)) modules.push(m);
+  const total = Math.max(planned.length, modules.length);
+  return {
+    schema_version: 1,
+    platform: info.platform || process.platform,
+    modules,
+    stopped: {
+      reason: info.reason === 'unreadable' ? 'unreadable' : 'exit',
+      exit_code: Number.isInteger(info.code) ? info.code : null,
+      done: got.size,
+      total,
+    },
+  };
+}
+
+function isStoppedDoc(doc) {
+  return !!(doc && doc.stopped && typeof doc.stopped === 'object');
+}
+
 function runScan(spawnFn = spawn, profile = null, onEvent = () => {}) {
   return new Promise((resolve, reject) => {
     const p = spawnFn(resolveEnginePath(), scanArgs(profile).concat(['--trace']));
     runningScans.add(p);
-    // `logs` keeps only the plain log lines, for an error message: the event
-    // lines (some of them a whole check's findings) aren't kept twice.
-    let out = '', logs = [], pending = '';
+    // The finished checks' entries and the plan, so a stopped engine still
+    // leaves the person what it found (stoppedDocOf).
+    const streamed = [];
+    let plan = null, out = '', pending = '';
     const take = (line) => {
       if (!line.trim()) return;
       const ev = parseStderrLine(line);
-      if (ev.type === 'log') logs.push(line);
+      if (ev.type === 'module' && ev.result && typeof ev.result.name === 'string') streamed.push(ev.result);
+      if (ev.type === 'plan' && !plan) plan = ev;
       onEvent(ev);
     };
     p.stdout.on('data', d => (out += d));
@@ -134,12 +195,26 @@ function runScan(spawnFn = spawn, profile = null, onEvent = () => {}) {
       for (const line of lines) take(line);
     });
     p.on('error', (err) => { runningScans.delete(p); reject(err); });
-    p.on('close', code => {
+    p.on('close', (code, signal) => {
+      // Stopped by stopRunningScans (the app is quitting): nothing to show.
+      const stoppedByUs = !runningScans.has(p);
       runningScans.delete(p);
       take(pending);
       pending = '';
-      if (code !== 0) return reject(new Error(`engine exited ${code}: ${logs.join('\n')}`));
-      try { resolve(parseEngineOutput(out)); } catch (e) { reject(e); }
+      let doc = null;
+      try { doc = parseEngineOutput(out); } catch (_) { doc = null; }
+      const whole = doc && typeof doc === 'object' && Array.isArray(doc.modules);
+      if (code === 0 && whole) return resolve(doc);
+      // For the technical log only: how it ended. The log lines are already there.
+      onEvent({ type: 'stopped', exit_code: Number.isInteger(code) ? code : null, signal: signal || null,
+        document: whole ? 'written' : 'missing' });
+      // A non-zero exit after a whole document was written still has every
+      // check's answer in that document.
+      if (whole) return resolve(doc);
+      if (streamed.length && !stoppedByUs) {
+        return resolve(stoppedDocOf(streamed, plan, { code, reason: code === 0 ? 'unreadable' : 'exit' }));
+      }
+      reject(new Error(SCAN_STOPPED_MESSAGE));
     });
   });
 }
@@ -190,7 +265,9 @@ function runUndo(quarantineId, spawnFn = spawn, timeoutMs = FIX_TIMEOUT_MS) {
 
 // Re-check one module after a fix: the same read-only scan, limited to it.
 const RECHECK_TIMEOUT_MS = 180000;
-const RECHECK_FAILED_MESSAGE = 'We couldn’t re-check this just now. Nothing was changed. You can try the re-check again.';
+// Said whatever came before it, so it never claims nothing changed: a fix may
+// already have been made (the views say so beside it).
+const RECHECK_FAILED_MESSAGE = 'We couldn’t check again just now. You can try again.';
 
 function scanModuleArgs(moduleName) {
   if (typeof moduleName !== 'string' || !FIX_MODULE_NAME.test(moduleName)) {
@@ -326,4 +403,4 @@ function runEngineJson(buildArgs, moduleName, spawnFn, timeoutMs, fail = (error,
   });
 }
 
-module.exports = { createExecLog, EXEC_LIMITS, resolveEnginePath, parseEngineOutput, runScan, stopRunningScans, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, scanModuleArgs, runRecheck, markArgs, unmarkArgs, runMark, runUnmark };
+module.exports = { createExecLog, EXEC_LIMITS, resolveEnginePath, parseEngineOutput, runScan, stoppedDocOf, isStoppedDoc, SCAN_STOPPED_MESSAGE, RECHECK_FAILED_MESSAGE, stopRunningScans, scanArgs, parseStderrLine, fixArgs, runFix, actionArgs, undoArgs, runAction, runUndo, scanModuleArgs, runRecheck, markArgs, unmarkArgs, runMark, runUnmark };

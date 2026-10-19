@@ -1,0 +1,6193 @@
+{
+ "modules": [
+  {
+   "category": "bloatware",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "bloatware",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "item_name": "text 1"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "bloatware",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "bloatware_name": "text 3",
+      "item_name": "text 2"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "login_items",
+   "supported": true
+  },
+  {
+   "category": "bloatware",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "process_scanner",
+   "supported": true
+  },
+  {
+   "category": "bloatware",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "startup_auditor",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 6",
+      "settings": {
+       "font_smoothing": null,
+       "increase_contrast": false,
+       "mouse_double_click": null,
+       "mouse_tracking_speed": null,
+       "reduce_motion": false,
+       "slow_keys": false,
+       "sticky_keys": false,
+       "trackpad_double_click": null,
+       "voiceover_enabled": false,
+       "zoom_enabled": false
+      }
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 7"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "accessibility_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 11"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "airport_wifi_scan",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 12",
+      "top_crashers": [
+       [
+        "text 13",
+        50
+       ],
+       [
+        "text 14",
+        3
+       ],
+       [
+        "text 15",
+        2
+       ],
+       [
+        "text 16",
+        2
+       ]
+      ],
+      "total_all": 63,
+      "total_recent": 62
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "app_name": "text 18",
+      "check": "text 17",
+      "crash_count": 50
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "app_crash_analyzer",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "apps": [
+       "text 20",
+       "text 21",
+       "text 22",
+       "text 23"
+      ],
+      "check": "text 19"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "apple_silicon": 42,
+      "check": "text 24",
+      "intel": 24,
+      "text 25": 0,
+      "total": 693,
+      "universal": 535
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "application_compatibility",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "app_name": "text 26",
+      "crash_count": 50,
+      "is_system_app": false,
+      "most_recent_date": "text 27"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "top_5_crashers": {
+       "chrome_crashpad_handler": 50,
+       "text 28": 3,
+       "text 29": 2,
+       "text 30": 2,
+       "text 31": 1
+      },
+      "total_crashes": 62
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "application_crash_report",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 32",
+      "device_count": 1,
+      "devices": [
+       {
+        "connected": true,
+        "name": "text 33",
+        "type": "text 34"
+       }
+      ]
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 35",
+      "volume_percent": 0
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "audio_config",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 36",
+      "current_input": null,
+      "current_output": null,
+      "device_count": 8,
+      "devices": [
+       {
+        "connected": true,
+        "has_input": true,
+        "has_output": false,
+        "name": "text 37",
+        "type": "text 38"
+       },
+       {
+        "connected": true,
+        "has_input": false,
+        "has_output": true,
+        "name": "text 39",
+        "type": "text 40"
+       },
+       {
+        "connected": true,
+        "has_input": true,
+        "has_output": false,
+        "name": "text 41",
+        "type": "text 42"
+       },
+       {
+        "connected": true,
+        "has_input": true,
+        "has_output": true,
+        "name": "text 43",
+        "type": "text 44"
+       }
+      ],
+      "muted": null,
+      "volume": 0
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 45",
+      "volume_percent": 0
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "audio_troubleshoot",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 46"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 47"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "backup_status",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "battery_health",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 48",
+      "version": "text 49"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "bluetooth_diagnostics",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 50"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "core_services_reset",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 51",
+      "device_count": 1,
+      "devices": [
+       {
+        "connected": true,
+        "name": "text 52",
+        "type": "text 53"
+       }
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "coreaudio_reset",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "app_name": "text 54",
+      "crash_count": 50,
+      "most_recent_date": "text 55"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "app_name": "text 56",
+      "crash_count": 3,
+      "most_recent_date": "text 57"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "top_5_crashers": {
+       "chrome_crashpad_handler": 50,
+       "text 58": 3,
+       "text 59": 2,
+       "text 60": 2,
+       "text 61": 1
+      },
+      "total_crashes": 62
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "crash_log_analyzer",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "browser_id": "com.example.item63",
+      "browser_name": "text 64",
+      "check": "text 62"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "browser_id": "com.example.item66",
+      "check": "text 65"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 67",
+      "email_id": "com.example.item68",
+      "email_name": "text 69"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "default_browser",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "directory_permissions",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 70",
+      "disk_type": "text 72",
+      "free_pct_str": "text 73",
+      "is_ssd": true,
+      "smart_status": "text 71"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "disk_health",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "issue": "text 75",
+      "path": "/scrubbed/item74"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "disk_permissions_repair",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "capacity_gb": null,
+      "check": "text 76",
+      "disk_type": "text 79",
+      "drive_model": "text 78",
+      "free_gb": null,
+      "free_percent": null,
+      "smart_status": "text 77"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "disk_smart_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 80",
+      "error_output": "",
+      "filesystem": "text 81",
+      "verify_status": "text 82"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "disk_utility_firstaid",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 84"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "display_config",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 85"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "display_issues",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check_type": "text 86",
+      "servers": [
+       "text 87",
+       "text 88"
+      ]
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check_type": "text 89",
+      "dns_servers": [
+       "text 90",
+       "text 91",
+       "text 92"
+      ],
+      "interface_dns": {
+       "text 93": [
+        "text 94",
+        "text 95",
+        "text 96"
+       ]
+      }
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "dns_config",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 97",
+      "type": "text 98"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 99",
+      "encrypted": true
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 100"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "filesystem_health_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 104",
+      "duplicates": {
+       "text 101": [
+        "/scrubbed/item102",
+        "/scrubbed/item103"
+       ]
+      }
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 106",
+      "count": 15,
+      "location": "/scrubbed/item105",
+      "size_bytes": 3014572
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 108",
+      "count": 0,
+      "location": "/scrubbed/item107",
+      "size_bytes": 0
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 110",
+      "count": 370,
+      "location": "/scrubbed/item109",
+      "size_bytes": 812024374
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "font_issues",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 111",
+      "driver_status": "text 115",
+      "metal_support": "text 114",
+      "model": "text 112",
+      "type": "text 113",
+      "vram": null
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "gpu_health",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 116",
+      "enabled": null
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 117",
+      "enabled": true
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 119",
+      "signed_in": true
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "handoff_continuity",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "cache_size_gb": 0.04,
+      "check": "text 120",
+      "doctor_issues_count": 0,
+      "installed_count": 0,
+      "outdated_count": 0
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "homebrew_health",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 121",
+      "computer_name": "text 122",
+      "hostname": "",
+      "local_hostname": "text 123"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 125"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 126",
+      "field": "text 127"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "hostname_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "account": "text 129",
+      "check": "text 128",
+      "signed_in": true
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 130",
+      "sync_enabled": false
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 131",
+      "size_bytes": 18355036231,
+      "size_gb": 17.09445959981531
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "icloud_status",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "available": false,
+      "check": "text 132"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 133",
+      "enabled": false
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 135",
+      "count": 5,
+      "files": [
+       "text 136",
+       "text 137",
+       "text 138",
+       "text 139"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "icloud_storage",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 140",
+      "signed_in": true
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 141",
+      "enabled": false
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "icloud_storage_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 144",
+      "settings": {
+       "initial_key_repeat": null,
+       "key_repeat": null
+      }
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 145",
+      "settings": {
+       "scroll_direction": false,
+       "tap_to_click": false,
+       "tracking_speed": null
+      }
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 146",
+      "settings": {
+       "mouse_scaling": null
+      }
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 147",
+      "devices": []
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 148",
+      "devices": [
+       "text 149",
+       "text 150",
+       "text 151",
+       "text 152"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "input_devices",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "most_recent_date": "text 153",
+      "panic_count": 1,
+      "severity_level": "text 154"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "identified_causes": {
+       "text 155": 1,
+       "text 156": 1,
+       "text 157": 1,
+       "text 158": 1,
+       "text 159": 1,
+       "text 160": 1,
+       "text 161": 1
+      }
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "kernel_panic_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 162"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "keychain_health",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "login_keychain_repair",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "build": "text 164",
+      "model": "text 165",
+      "status": "text 166",
+      "version": "text 163"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "macos_eol_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "architecture": "text 172",
+      "build": "text 169",
+      "check": "text 167",
+      "model": "text 170",
+      "model_name": "text 171",
+      "version": "text 168"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "macos_version_support",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 173",
+      "size_bytes": 3580523748,
+      "size_gb": 3.334622595459223
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 174",
+      "count": 0,
+      "disabled_count": 0,
+      "pop_count": 0
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "mail_config",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "network_diagnostics",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check_type": "text 175"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check_type": "text 176",
+      "description": "text 177"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "network_interface_audit",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 178",
+      "interfaces": [
+       {
+        "dhcp": false,
+        "dns": [],
+        "gateway": null,
+        "interface": null,
+        "ipv4": null,
+        "ipv6": null,
+        "mtu": null,
+        "service": "text 179",
+        "type": "text 180"
+       },
+       {
+        "dhcp": false,
+        "dns": [
+         "text 183"
+        ],
+        "gateway": "text 184",
+        "interface": null,
+        "ipv4": "text 182",
+        "ipv6": null,
+        "mtu": null,
+        "service": "text 181",
+        "type": "text 185"
+       },
+       {
+        "dhcp": false,
+        "dns": [
+         "text 188"
+        ],
+        "gateway": "text 189",
+        "interface": null,
+        "ipv4": "text 187",
+        "ipv6": null,
+        "mtu": null,
+        "service": "text 186",
+        "type": "text 190"
+       },
+       {
+        "dhcp": false,
+        "dns": [
+         "text 193"
+        ],
+        "gateway": "text 194",
+        "interface": null,
+        "ipv4": "text 192",
+        "ipv6": null,
+        "mtu": null,
+        "service": "text 191",
+        "type": "text 195"
+       }
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "network_interfaces_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 196"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "network_proxy_detect",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check_type": "text 197",
+      "latency_ms": 4.625
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check_type": "text 198",
+      "latency_ms": 7.785
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check_type": "text 199",
+      "time_ms": 9.0
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "network_speed_test",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 200",
+      "settings": {
+       "focus_enabled": false,
+       "has_focus_schedule": false,
+       "notification_center_enabled": false,
+       "preview_on_lock": "text 201",
+       "suppress_when_locked": false
+      }
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "notifications_config",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 202",
+      "size_bytes": 20578663716,
+      "size_gb": 19.16537407413125
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 203",
+      "enabled": false
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 204",
+      "download_originals": false,
+      "optimize_storage": false,
+      "setting": "text 205"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "photos_library_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 206",
+      "disk": "/scrubbed/item207"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "args": "",
+      "check": "text 208"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 210",
+      "volume": "text 211"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 212",
+      "settings": {
+       "text 213": "text 214"
+      }
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "pram_nvram_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "printer_diagnostics",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 215",
+      "count": 1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "printer_queue",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "apple_silicon": true,
+      "check": "text 216",
+      "recovery_found": false
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "recovery_partition_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "architecture": "text 217",
+      "rosetta_installed": true
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "rosetta_status",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 218",
+      "volume": "/scrubbed/item219"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "boot_time": "text 221",
+      "check": "text 220",
+      "uptime_days": 3
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "safe_boot_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "boot_time": "text 224",
+      "boot_volume": "/scrubbed/item223",
+      "check": "text 222",
+      "disk_filesystem": "text 225",
+      "in_safe_mode": false,
+      "panic_count": 0,
+      "verbose_boot": false
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "safe_mode_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 226"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "screen_time_password",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 227",
+      "enabled": true
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 228",
+      "events": [
+       "text 229",
+       "text 230",
+       "text 231",
+       "text 232"
+      ],
+      "scheduled_count": 4
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 233",
+      "total_wakes": 20,
+      "wake_reasons": [
+       "text 234",
+       "text 235",
+       "text 236",
+       "text 237"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "sleep_wake_issues",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 238",
+      "drive_model": null,
+      "drive_type": "text 240",
+      "smart_status": "text 239"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "smart_status",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 241",
+      "cpu_brand": "text 242"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "smc_reset_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 243",
+      "hardware_name": "text 245",
+      "is_apple_silicon": true,
+      "model": "text 244"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "smcreset_guide",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "apps_32bit_count": 0,
+      "check": "text 246",
+      "old_1year_count": 0,
+      "old_2year_count": 0,
+      "total_apps": 693
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "software_inventory",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "age_years": 0,
+      "build": "text 251",
+      "model": "text 247",
+      "serial": "text 249",
+      "status": "text 248",
+      "version": "text 250",
+      "year": null
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "system_age_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "active_count": 0,
+      "check": "text 252",
+      "driver_count": 0,
+      "endpoint_security_count": 0,
+      "known_security_products": [],
+      "network_count": 0,
+      "terminated_count": 0,
+      "total_count": 8,
+      "waiting_count": 0
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 253"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "system_extensions_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "error_count": 108966,
+      "top_sources": {
+       "text 254": 83972,
+       "text 255": 2631,
+       "text 256": 1321,
+       "text 257": 1140,
+       "text 258": 1140
+      },
+      "unique_sources": 99
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "known_bad_count": 7859,
+      "sample_errors": [
+       "text 259",
+       "text 260",
+       "text 261"
+      ]
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "system_log_errors",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 262"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "time_machine_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 263"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "time_machine_exclusions",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 264"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "time_machine_health",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 265",
+      "enabled": null
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 266",
+      "time": "text 267"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "time_sync_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 268",
+      "updates": [
+       "text 269",
+       "text 270"
+      ]
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 271",
+      "packages": [
+       "text 272",
+       "text 273",
+       "text 274",
+       "text 275"
+      ]
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "update_checker",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 276"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "usb_devices_check",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 277",
+      "users": [
+       "text 278",
+       "text 279",
+       "text 280"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "user_account_health",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "wifi_diagnostics",
+   "supported": true
+  },
+  {
+   "category": "integrity",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 281",
+      "current_network": null,
+      "network_count": 197,
+      "networks": [
+       "text 282",
+       "text 283",
+       "text 284",
+       "text 285"
+      ]
+     },
+     "severity": "info"
+    },
+    {
+     "category": "integrity",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 286",
+      "network_count": 197,
+      "threshold": 30
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "wifi_password_recovery",
+   "supported": true
+  },
+  {
+   "category": "network",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "arp_spoof_check",
+   "supported": true
+  },
+  {
+   "category": "network",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "network",
+     "code": "network.dns_over_https_check.dns_configuration",
+     "confidence": null,
+     "data": {
+      "check": "text 287",
+      "encryption_status": "text 291",
+      "is_encrypted": true,
+      "provider": "text 292",
+      "servers": [
+       "text 288",
+       "text 289",
+       "text 290"
+      ],
+      "source": "text 293"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "network",
+     "code": "network.dns_over_https_check.encrypted_dns_provider",
+     "confidence": null,
+     "data": {
+      "check": "text 294",
+      "provider": "text 295",
+      "servers": [
+       "text 296",
+       "text 297",
+       "text 298"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "dns_over_https_check",
+   "supported": true
+  },
+  {
+   "category": "network",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "network",
+     "code": "network.ethernet_diagnostics.ethernet_summary",
+     "confidence": null,
+     "data": {
+      "check": "text 299",
+      "interfaces": [
+       "text 300",
+       "text 301",
+       "text 302"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "ethernet_diagnostics",
+   "supported": true
+  },
+  {
+   "category": "network",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "network",
+     "code": "network.lan_device_inventory.lan_inventory",
+     "confidence": null,
+     "data": {
+      "check": "text 303",
+      "confidence": "text 316",
+      "device_count": 8,
+      "devices": [
+       {
+        "interface": "text 306",
+        "ips": [
+         "text 305"
+        ],
+        "is_gateway": true,
+        "mac": "text 304",
+        "randomised_mac": false,
+        "vendor": null
+       },
+       {
+        "interface": "text 309",
+        "ips": [
+         "text 308"
+        ],
+        "is_gateway": false,
+        "mac": "text 307",
+        "randomised_mac": false,
+        "vendor": null
+       },
+       {
+        "interface": "text 312",
+        "ips": [
+         "text 311"
+        ],
+        "is_gateway": false,
+        "mac": "text 310",
+        "randomised_mac": true,
+        "vendor": null
+       },
+       {
+        "interface": "text 315",
+        "ips": [
+         "text 314"
+        ],
+        "is_gateway": false,
+        "mac": "text 313",
+        "randomised_mac": true,
+        "vendor": null
+       }
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "lan_device_inventory",
+   "supported": true
+  },
+  {
+   "category": "network",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "network",
+     "code": "network.network_proxy_check.no_proxies",
+     "confidence": null,
+     "data": {
+      "check": "text 317"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "network_proxy_check",
+   "supported": true
+  },
+  {
+   "category": "network",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "network",
+     "code": "network.router_security_audit.admin_service_open",
+     "confidence": null,
+     "data": {
+      "check": "text 318",
+      "confidence": "text 322",
+      "gateway_ip": "text 320",
+      "port": 22,
+      "service": "text 321",
+      "target": "text 319"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "network",
+     "code": "network.router_security_audit.admin_service_open",
+     "confidence": null,
+     "data": {
+      "check": "text 323",
+      "confidence": "text 327",
+      "gateway_ip": "text 325",
+      "port": 80,
+      "service": "text 326",
+      "target": "text 324"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "network",
+     "code": "network.router_security_audit.admin_service_open",
+     "confidence": null,
+     "data": {
+      "check": "text 328",
+      "confidence": "text 332",
+      "gateway_ip": "text 330",
+      "port": 443,
+      "service": "text 331",
+      "target": "text 329"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "network",
+     "code": "network.router_security_audit.router_manual_review",
+     "confidence": null,
+     "data": {
+      "check": "text 333",
+      "confidence": "text 335",
+      "gateway_ip": "text 334"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "router_security_audit",
+   "supported": true
+  },
+  {
+   "category": "network",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "network",
+     "code": "network.vpn_leak_check.vpn_config_summary",
+     "confidence": null,
+     "data": {
+      "check": "text 336",
+      "vpn_configs": [
+       "text 337"
+      ],
+      "vpn_connected": null
+     },
+     "severity": "info"
+    },
+    {
+     "category": "network",
+     "code": "network.vpn_leak_check.vpn_not_connected",
+     "confidence": null,
+     "data": {
+      "check": "text 338",
+      "vpn_configs": [
+       "text 339"
+      ]
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "vpn_leak_check",
+   "supported": true
+  },
+  {
+   "category": "network",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "network",
+     "code": "network.wifi_security_audit.wifi_summary",
+     "confidence": null,
+     "data": {
+      "check": "text 340",
+      "current_network": null,
+      "saved_networks_count": 197
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "wifi_security_audit",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "browser": "text 342",
+      "size_bytes": 4241156974,
+      "size_formatted": "text 343",
+      "type": "text 341"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "browser": "text 345",
+      "size_bytes": 75377,
+      "size_formatted": "text 346",
+      "type": "text 344"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "browser": "text 348",
+      "size_bytes": 4241156974,
+      "size_formatted": "text 349",
+      "type": "text 347"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "browser_cache_cleanup",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "external_display": false,
+      "powernap": 1,
+      "proximitywake": 0,
+      "tcpkeepalive": 1,
+      "womp": 1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "clamshell_mode",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "disk_type": "text 350",
+      "filesystem": "text 351",
+      "usage_percent": 1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "disk_fragmentation_check",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 352",
+      "disk_type": "text 353",
+      "io_throughput": "text 354",
+      "is_ssd": true,
+      "trim_enabled": null
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "disk_io_health",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "device": "/scrubbed/item356",
+      "free_bytes": 53253140480,
+      "mount_point": "/scrubbed/item355",
+      "total_bytes": 994662584320,
+      "used_pct": 0.9150510601645228,
+      "used_pct_str": "text 357"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "disk_space",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "docker_cleanup",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 358",
+      "setting": "text 359",
+      "value": "text 360"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 364",
+      "setting": "text 365",
+      "value": "text 366"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 367",
+      "is_battery": false,
+      "setting": "text 368",
+      "value": "text 369"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 370",
+      "setting": "text 371",
+      "value": 3
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "energy_saver_check",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "issue": "text 373",
+      "setting": "text 372",
+      "value": 1
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "issue": "text 375",
+      "setting": "text 374",
+      "value": 0
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "disksleep": 0,
+      "displaysleep": 0,
+      "hibernatemode": 3,
+      "powernap": 1,
+      "sleep": 0,
+      "womp": 1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "energy_settings",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "cache_location": "/scrubbed/item376",
+      "cache_size_bytes": 9555968,
+      "cache_size_formatted": "text 377"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "atsutil_running": false
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "font_cache",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "system_cache_size": 0,
+      "total_size": 0,
+      "type": "text 378",
+      "var_folders_size": 0
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "font_count": 0,
+      "type": "text 379"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "responsive": true,
+      "type": "text 380"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "font_cache_repair",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": false,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "file_count": 3,
+      "files": [
+       {
+        "path": "/scrubbed/item383.gz",
+        "size": 9114919179
+       },
+       {
+        "path": "/scrubbed/item384.sqlite",
+        "size": 2147479552
+       },
+       {
+        "path": "/scrubbed/item385.mp4",
+        "size": 1348997489
+       }
+      ],
+      "total_size_bytes": 12611396220,
+      "total_size_formatted": "text 382",
+      "type": "text 381"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "categories": {
+       "text 387": [
+        {
+         "path": "/scrubbed/item388.mp4",
+         "size": 1348997489
+        }
+       ],
+       "text 389": [
+        {
+         "path": "/scrubbed/item390.gz",
+         "size": 9114919179
+        }
+       ],
+       "text 391": [
+        {
+         "path": "/scrubbed/item392.sqlite",
+         "size": 2147479552
+        }
+       ]
+      },
+      "type": "text 386"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "file_count": 2,
+      "files": [
+       {
+        "path": "/scrubbed/item395.gz",
+        "size": 9114919179
+       },
+       {
+        "path": "/scrubbed/item396.mp4",
+        "size": 1348997489
+       }
+      ],
+      "size_bytes": 10463916668,
+      "size_formatted": "text 394",
+      "type": "text 393"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "files_found": 3,
+      "time_budget_s": 30.0,
+      "type": "text 397",
+      "unfinished": [
+       "~/scrubbed/item398",
+       "text 399"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "large_files_finder",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "size_bytes": 22151132229,
+      "size_formatted": "text 401",
+      "type": "text 400"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "app_name": "text 403",
+      "size_bytes": 11295319876,
+      "size_formatted": "text 404",
+      "type": "text 402"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "app_name": "text 406",
+      "size_bytes": 4241553380,
+      "size_formatted": "text 407",
+      "type": "text 405"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "apps": {
+       "text 409": 78081142,
+       "text 410": 781560
+      },
+      "total_formatted": "text 411",
+      "total_size": 78862702,
+      "type": "text 408"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "caches": {
+       "com.example.item415": 909608374,
+       "com.example.item416": 876392232,
+       "com.example.item417": 805578390,
+       "electron": 329924797,
+       "text 413": 11295319876,
+       "text 414": 4241553380,
+       "text 418": 797703211,
+       "text 419": 521150967,
+       "text 420": 507674624,
+       "text 421": 440677574
+      },
+      "total_formatted": "text 422",
+      "total_size": 20725583425,
+      "type": "text 412"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "directory_count": 153,
+      "size_bytes": 22151132229,
+      "size_formatted": "text 424",
+      "type": "text 423"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "library_cache_cleanup",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "count": 1,
+      "items": [
+       "text 426"
+      ],
+      "type": "text 425"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "count": 5,
+      "items": [
+       "text 428",
+       "com.example.item429",
+       "com.example.item430",
+       "com.example.item431"
+      ],
+      "type": "text 427"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "count": 40,
+      "type": "text 432"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "count": 40,
+      "items": [
+       "text 434",
+       "text 435",
+       "text 436",
+       "text 437"
+      ],
+      "type": "text 433"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "login_items_cleanup",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "type": "text 438",
+      "user_count": 3,
+      "users": [
+       {
+        "days_since_login": 0,
+        "home": "/scrubbed/item440",
+        "last_login": "text 441",
+        "size_bytes": 0,
+        "uid": 501,
+        "username": "text 439"
+       },
+       {
+        "days_since_login": null,
+        "home": "/scrubbed/item443",
+        "last_login": "text 444",
+        "size_bytes": 0,
+        "uid": 502,
+        "username": "text 442"
+       },
+       {
+        "days_since_login": null,
+        "home": "/scrubbed/item446",
+        "last_login": "text 447",
+        "size_bytes": 0,
+        "uid": 503,
+        "username": "text 445"
+       }
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "macos_user_cleanup",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "size_bytes": 3580523748,
+      "size_formatted": "text 449",
+      "type": "text 448"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "mail_attachment_cleanup",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 450",
+      "swap_used_mb": 3935.38
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "memory_pressure",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 451",
+      "swap_used_mb": 3935.38,
+      "swap_used_pct": 76.862890625
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "active_bytes": 21508669440,
+      "available_bytes": 29857234944,
+      "check": "text 452",
+      "compressed_bytes": 0,
+      "pageouts": 0,
+      "swap_used_mb": 3935.38,
+      "wired_bytes": 0
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "memory_pressure_check",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 453",
+      "download_mbps": 0,
+      "latency_ms": 7.215,
+      "rpm": 100,
+      "upload_mbps": 0
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "network_quality",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "alert_count": 0,
+      "app_count": 0,
+      "check": "text 454",
+      "dnd_active": false
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "notification_center_check",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "issue": "text 456",
+      "setting": "text 455",
+      "value": 0
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "setting": "text 457",
+      "value": 1
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "displaysleep": 0,
+      "powernap": 1,
+      "sleep": 0,
+      "womp": 1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "power_settings",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "command": "text 459",
+      "cpu_percent": 107.6,
+      "memory_bytes": 2513731584,
+      "name": "text 458",
+      "pid": 6538
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "resource_hog_identifier",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 460",
+      "gpu_type": "text 464",
+      "native_resolution": "text 462",
+      "resolution": "text 461",
+      "scaling_mode": "text 463"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "screen_resolution_scaling",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "index_accessible": false,
+      "index_size_bytes": 0,
+      "indexing_enabled": true,
+      "indexing_stuck": false,
+      "mds_cpu_percent": 0.1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "spotlight_rebuild",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "excluded_paths": [],
+      "excluded_paths_count": 0,
+      "index_accessible": false,
+      "index_size_bytes": 0,
+      "indexing_active": true,
+      "indexing_enabled": true,
+      "mds_cpu_percent": 0.1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "spotlight_repair",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "indexing_active": true,
+      "indexing_enabled": true
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "spotlight_status",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "apps_registered": 12,
+      "count": 33,
+      "items": [
+       {
+        "arg_count": 2,
+        "label": "com.example.item465",
+        "last_exit": 0,
+        "pid": null,
+        "plist": "/scrubbed/item466.plist",
+        "program": "/scrubbed/item468",
+        "program_exists": true,
+        "running": false,
+        "scope": "text 467",
+        "when": [
+         "text 469"
+        ]
+       },
+       {
+        "arg_count": 2,
+        "label": "com.example.item470",
+        "last_exit": 0,
+        "pid": null,
+        "plist": "/scrubbed/item471.plist",
+        "program": "/scrubbed/item473",
+        "program_exists": true,
+        "running": false,
+        "scope": "text 472",
+        "when": [
+         "text 474"
+        ]
+       },
+       {
+        "arg_count": 0,
+        "label": "com.example.item475",
+        "last_exit": 0,
+        "pid": 2501,
+        "plist": null,
+        "program": null,
+        "program_exists": false,
+        "running": true,
+        "scope": null,
+        "when": []
+       },
+       {
+        "arg_count": 2,
+        "label": "com.example.item476",
+        "last_exit": 0,
+        "pid": 2485,
+        "plist": "/scrubbed/item477.plist",
+        "program": "/scrubbed/item479",
+        "program_exists": true,
+        "running": true,
+        "scope": "text 478",
+        "when": [
+         "text 480",
+         "text 481"
+        ]
+       }
+      ],
+      "stale_count": 2,
+      "third_party_labels": [
+       "com.example.item482",
+       "com.example.item483",
+       "com.example.item484",
+       "com.example.item485"
+      ]
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "startup_optimizer",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": false,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": "performance.storage_cleanup.total_reclaimable",
+     "confidence": null,
+     "data": {
+      "incomplete": true,
+      "size_bytes": 85836404556,
+      "size_formatted": "text 487",
+      "type": "text 486"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "file_count": 773,
+      "size_bytes": 4537174666,
+      "size_formatted": "text 489",
+      "type": "text 488"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "directory_count": 6,
+      "size_bytes": 18926226096,
+      "size_formatted": "text 491",
+      "type": "text 490"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "size_bytes": 73728,
+      "size_formatted": "text 493",
+      "type": "text 492"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "file_count": 5,
+      "size_bytes": 908787948,
+      "size_formatted": "text 495",
+      "type": "text 494"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "directory_count": 202,
+      "incomplete": true,
+      "size_bytes": 61464142118,
+      "size_formatted": "text 497",
+      "type": "text 496"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "areas": [
+       "text 499"
+      ],
+      "time_budget_s": 30.0,
+      "type": "text 498"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "storage_cleanup",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 500",
+      "swap_total_bytes": 5368709120,
+      "swap_usage_pct": 76.86289060860872,
+      "swap_used_bytes": 4126545018
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "active_bytes": 21902688256,
+      "check": "text 501",
+      "compressed_bytes": 0,
+      "free_bytes": 7177453568,
+      "inactive_bytes": 21108260864,
+      "wired_bytes": 6258425856
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 502",
+      "page_ins": 0,
+      "page_outs": 0
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "swap_memory_check",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 503",
+      "swap_free_bytes": 1242164101,
+      "swap_total_bytes": 5368709120,
+      "swap_usage_pct": 76.86289060860872,
+      "swap_used_bytes": 4126545018
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "check": "text 504",
+      "memory_pressure": 1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "swap_usage",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "size_bytes": 67668951198,
+      "size_formatted": "text 506",
+      "type": "text 505"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "size_bytes": 22158253345,
+      "size_formatted": "text 508",
+      "type": "text 507"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "old_files_count": 553,
+      "size_bytes": 968797548,
+      "size_formatted": "text 510",
+      "type": "text 509"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "size_bytes": 44504033641,
+      "size_formatted": "text 512",
+      "type": "text 511"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "size_bytes": 37866664,
+      "size_formatted": "text 514",
+      "type": "text 513"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "temp_file_scanner",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "thermal_throttle",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "thermal_throttle_check",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "item_count": 18,
+      "size_bytes": 73728,
+      "size_formatted": "text 516",
+      "type": "text 515"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "trash_cleanup",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "type": "text 517",
+      "user_count": 1,
+      "users": [
+       [
+        "text 518",
+        0
+       ]
+      ]
+     },
+     "severity": "info"
+    },
+    {
+     "category": "performance",
+     "code": null,
+     "confidence": null,
+     "data": {
+      "subdirs": {
+       "text 521": 11980300288,
+       "text 522": 1800986624,
+       "text 523": 18328760320,
+       "text 524": 335872000
+      },
+      "type": "text 519",
+      "user_name": "text 520"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "user_profile_size",
+   "supported": true
+  },
+  {
+   "category": "performance",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "xcode_cleanup",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.accessibility_permissions.accessibility_access",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "com.example.item526",
+       "com.example.item527",
+       "com.example.item528",
+       "com.example.item529"
+      ],
+      "check": "text 525"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.accessibility_permissions.suspicious_accessibility",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "com.example.item531",
+       "com.example.item532",
+       "com.example.item533",
+       "com.example.item534"
+      ],
+      "check": "text 530"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.accessibility_permissions.excessive_accessibility",
+     "confidence": null,
+     "data": {
+      "check": "text 535",
+      "count": 14
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "accessibility_permissions",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.ai_threat_indicators.launchagent_ai",
+     "confidence": null,
+     "data": {
+      "check": "text 536",
+      "matched": "text 538",
+      "plist_path": "/scrubbed/item537.plist"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.ai_threat_indicators.python_node_ai_process",
+     "confidence": null,
+     "data": {
+      "ai_indicator": "text 544",
+      "check": "text 542",
+      "process": "/scrubbed/item543"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "ai_threat_indicators",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.ai_worm_filesystem.obfuscated_script",
+     "confidence": null,
+     "data": {
+      "check": "text 557",
+      "confidence": "text 559",
+      "kind": "text 558",
+      "path": "/scrubbed/item560.py",
+      "pattern": "text 561"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.ai_worm_filesystem.obfuscated_script",
+     "confidence": null,
+     "data": {
+      "check": "text 592",
+      "confidence": "text 594",
+      "kind": "text 593",
+      "path": "/scrubbed/item595.js",
+      "pattern": "text 596"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.ai_worm_filesystem.obfuscated_script",
+     "confidence": null,
+     "data": {
+      "check": "text 602",
+      "confidence": "text 604",
+      "kind": "text 603",
+      "path": "/scrubbed/item605.sh",
+      "pattern": "text 606"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.ai_worm_filesystem.obfuscated_script",
+     "confidence": null,
+     "data": {
+      "check": "text 607",
+      "confidence": "text 608",
+      "count": 21,
+      "paths": [
+       "/scrubbed/item609.py",
+       "/scrubbed/item610.py",
+       "/scrubbed/item611.py",
+       "/scrubbed/item612.py"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "ai_worm_filesystem",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.ai_worm_git_ssh.git_hookspath_hijack",
+     "confidence": null,
+     "data": {
+      "check": "text 613",
+      "confidence": "text 614",
+      "value": "/scrubbed/item615"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "ai_worm_git_ssh",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "ai_worm_lateral",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.ai_worm_network.beaconing_detected",
+     "confidence": null,
+     "data": {
+      "binary": "/scrubbed/item623.12",
+      "check": "text 619",
+      "confidence": "text 620",
+      "dest": "text 622",
+      "interval_seconds": 5,
+      "pid": 3467,
+      "process": "text 621"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.ai_worm_network.beaconing_detected",
+     "confidence": null,
+     "data": {
+      "binary": "/scrubbed/item628.12",
+      "check": "text 624",
+      "confidence": "text 625",
+      "dest": "text 627",
+      "interval_seconds": 5,
+      "pid": 4629,
+      "process": "text 626"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.ai_worm_network.beaconing_detected",
+     "confidence": null,
+     "data": {
+      "binary": "/scrubbed/item633",
+      "check": "text 629",
+      "confidence": "text 630",
+      "dest": "text 632",
+      "interval_seconds": 5,
+      "pid": 80674,
+      "process": "text 631"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.ai_worm_network.beaconing_detected",
+     "confidence": null,
+     "data": {
+      "check": "text 634",
+      "confidence": "text 635",
+      "count": 28,
+      "processes": [
+       "text 636",
+       "text 637",
+       "text 638",
+       "text 639"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "ai_worm_network",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.ai_worm_persistence.sessionstart_hook",
+     "confidence": null,
+     "data": {
+      "check": "text 640",
+      "command": "text 643",
+      "confidence": "text 641",
+      "is_deadman_switch": false,
+      "path": "/scrubbed/item642.json",
+      "threat": "text 644"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "ai_worm_persistence",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.airdrop_config.airdrop_off",
+     "confidence": null,
+     "data": {
+      "check": "text 645"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "airdrop_config",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.airdrop_security_check.sharing_config",
+     "confidence": null,
+     "data": {
+      "airdrop_mode": "text 647",
+      "bluetooth_enabled": null,
+      "bluetooth_sharing_enabled": null,
+      "check": "text 646",
+      "handoff_enabled": null,
+      "wifi_enabled": true
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "airdrop_security_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.antivirus_status.xprotect_remediator",
+     "confidence": null,
+     "data": {
+      "check": "text 648",
+      "version": null
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.antivirus_status.no_third_party_av",
+     "confidence": null,
+     "data": {
+      "check": "text 650"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "antivirus_status",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.app_permissions.accessibility_access",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "com.example.item652",
+       "com.example.item653",
+       "com.example.item654",
+       "com.example.item655"
+      ],
+      "check": "text 651"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.app_permissions.full_disk_access",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "/scrubbed/item657",
+       "com.example.item658",
+       "com.example.item659"
+      ],
+      "check": "text 656"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.app_permissions.screen_recording",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "com.example.item661",
+       "com.example.item662",
+       "com.example.item663",
+       "com.example.item664"
+      ],
+      "check": "text 660"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "app_permissions",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.appleid_security_check.appleid_summary",
+     "confidence": null,
+     "data": {
+      "appleid_signed_in": true,
+      "autoupdate_enabled": true,
+      "check": "text 675",
+      "icloud_devices_count": 0,
+      "keychain_enabled": true,
+      "mail_privacy": false,
+      "private_relay": false,
+      "twofa_enabled": false
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "appleid_security_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.automatic_updates.app_store_auto",
+     "confidence": null,
+     "data": {
+      "check": "text 676"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "automatic_updates",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "bluetooth_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "browser_cryptojacking_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.browser_extension_audit.installed_extensions",
+     "confidence": null,
+     "data": {
+      "check": "text 677",
+      "count": 6,
+      "extensions": {
+       "text 678": {
+        "browser": "text 679",
+        "permissions": [
+         "text 680",
+         "text 681",
+         "text 682",
+         "text 683"
+        ]
+       },
+       "text 684": {
+        "browser": "text 685",
+        "permissions": [
+         "text 686",
+         "text 687",
+         "text 688",
+         "text 689"
+        ]
+       },
+       "text 690": {
+        "browser": "text 691",
+        "permissions": [
+         "text 692",
+         "text 693",
+         "text 694",
+         "text 695"
+        ]
+       },
+       "text 696": {
+        "browser": "text 697",
+        "permissions": [
+         "text 698",
+         "text 699",
+         "text 700",
+         "text 701"
+        ]
+       },
+       "text 702": {
+        "browser": "text 703",
+        "permissions": [
+         "text 704",
+         "text 705",
+         "text 706",
+         "text 707"
+        ]
+       },
+       "text 708": {
+        "browser": "text 709",
+        "permissions": [
+         "text 710",
+         "text 711",
+         "text 712",
+         "text 713"
+        ]
+       }
+      }
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "browser_extension_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.browser_hijack_check.all_browsers_clean",
+     "confidence": null,
+     "data": {
+      "check": "text 714"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "browser_hijack_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.browser_privacy_check.installed_browsers",
+     "confidence": null,
+     "data": {
+      "browsers": [
+       "text 716"
+      ],
+      "check": "text 715"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "browser_privacy_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "certificate_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "certificate_trust_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.chrome_extensions.broad_permissions",
+     "confidence": null,
+     "data": {
+      "check": "text 717",
+      "extension": "text 718",
+      "permissions": [
+       "text 719",
+       "text 720",
+       "text 721"
+      ]
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.chrome_extensions.broad_permissions",
+     "confidence": null,
+     "data": {
+      "check": "text 732",
+      "extension": "text 733",
+      "permissions": [
+       "text 734"
+      ]
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.chrome_extensions.installed_extensions",
+     "confidence": null,
+     "data": {
+      "check": "text 735",
+      "count": 6,
+      "extensions": {
+       "text 736": [
+        "text 737",
+        "text 738",
+        "text 739",
+        "text 740"
+       ],
+       "text 741": [
+        "text 742",
+        "text 743",
+        "text 744",
+        "text 745"
+       ],
+       "text 746": [
+        "text 747",
+        "text 748",
+        "text 749",
+        "text 750"
+       ],
+       "text 751": [
+        "text 752",
+        "text 753",
+        "text 754",
+        "text 755"
+       ],
+       "text 756": [
+        "text 757",
+        "text 758",
+        "text 759",
+        "text 760"
+       ],
+       "text 761": [
+        "text 762",
+        "text 763",
+        "text 764",
+        "text 765"
+       ]
+      }
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "chrome_extensions",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.clamav_scanner.clamav_not_installed",
+     "confidence": null,
+     "data": {
+      "check": "text 766"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "clamav_scanner",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": false,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.code_signature_audit.tampered_binary",
+     "confidence": null,
+     "data": {
+      "check": "text 767",
+      "detail": "text 770",
+      "name": "text 769",
+      "path": "/scrubbed/item768.app"
+     },
+     "severity": "critical"
+    },
+    {
+     "category": "security",
+     "code": "security.code_signature_audit.unsigned_system_app",
+     "confidence": null,
+     "data": {
+      "check": "text 779",
+      "detail": "text 782",
+      "name": "text 781",
+      "path": "/scrubbed/item780.app"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.code_signature_audit.inventory",
+     "confidence": null,
+     "data": {
+      "cap": 60,
+      "check": "text 787",
+      "coverage_capped": true,
+      "examined": 17,
+      "gatekeeper_rejected": 1,
+      "incomplete": 9,
+      "incomplete_apps": [
+       "/scrubbed/item788.app",
+       "/scrubbed/item789.app",
+       "/scrubbed/item790.app",
+       "/scrubbed/item791.app"
+      ],
+      "stopped_by_time_limit": true,
+      "tampered": 3,
+      "time_budget_s": 40.0,
+      "total_present": 110,
+      "unread_folders": [],
+      "unsigned": 1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "code_signature_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.cron_jobs_audit.cron_entries_found",
+     "confidence": null,
+     "data": {
+      "check": "text 792",
+      "count": 6,
+      "entries": [
+       "text 793",
+       "text 794",
+       "text 795",
+       "text 796"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "cron_jobs_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.crypto_miner_detect.high_cpu_process",
+     "confidence": null,
+     "data": {
+      "check": "text 797",
+      "cpu_percent": 101.1,
+      "pid": 6538,
+      "process": "text 798"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "crypto_miner_detect",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "crypto_miner_persistence",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.disk_encryption_recovery.recovery_key_unknown",
+     "confidence": null,
+     "data": {
+      "check": "text 799",
+      "institutional": "text 801",
+      "personal": "text 800"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.disk_encryption_recovery.disk_encryption_status",
+     "confidence": null,
+     "data": {
+      "check": "text 802",
+      "enabled_users": [],
+      "fv_enabled": true,
+      "institutional_recovery_key": "text 804",
+      "personal_recovery_key": "text 803"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "disk_encryption_recovery",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.dns_poisoning_check.dns_config",
+     "confidence": null,
+     "data": {
+      "check": "text 805",
+      "dns_servers": [
+       "text 806",
+       "text 807",
+       "text 808"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "dns_poisoning_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "encryption_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.evidence_bundle.readiness",
+     "confidence": null,
+     "data": {
+      "bundle_written": false,
+      "check": "text 809",
+      "collectable_categories": [
+       "text 811",
+       "text 812",
+       "text 813"
+      ],
+      "destination": "/scrubbed/item810",
+      "destination_writable": true,
+      "existing_bundles": []
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "evidence_bundle",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.filevault_recovery.recovery_key_unknown",
+     "confidence": null,
+     "data": {
+      "check": "text 814",
+      "institutional": "text 816",
+      "personal": "text 815"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.filevault_recovery.fv_status",
+     "confidence": null,
+     "data": {
+      "check": "text 817",
+      "enabled_users": [],
+      "fv_enabled": true,
+      "institutional_recovery_key": "text 819",
+      "personal_recovery_key": "text 818"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "filevault_recovery",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.find_my_mac_check.location_services_unknown",
+     "confidence": null,
+     "data": {
+      "location_services_enabled": null
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.find_my_mac_check.send_last_location_unknown",
+     "confidence": null,
+     "data": {
+      "send_last_location": null
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.find_my_mac_check.configured_ok",
+     "confidence": null,
+     "data": {
+      "activation_lock_enabled": true,
+      "find_my_mac_enabled": true,
+      "icloud_signed_in": true,
+      "location_services_enabled": null,
+      "send_last_location": null
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "find_my_mac_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.firewall_audit.stealth_mode",
+     "confidence": null,
+     "data": {
+      "check": "text 820"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "firewall_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.firewall_rules_audit.stealth_disabled",
+     "confidence": null,
+     "data": {
+      "check": "text 821"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.firewall_rules_audit.too_many_apps",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "text 823",
+       "text 824",
+       "text 825",
+       "text 826"
+      ],
+      "check": "text 822",
+      "count": 38
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.firewall_rules_audit.firewall_summary",
+     "confidence": null,
+     "data": {
+      "alf_enabled": true,
+      "allow_signed": true,
+      "allowed_apps": [
+       "text 829",
+       "text 830",
+       "text 831",
+       "text 832"
+      ],
+      "allowed_apps_count": 38,
+      "block_all": false,
+      "check": "text 828",
+      "stealth_enabled": false
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "firewall_rules_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.firmware_password.chip_type",
+     "confidence": null,
+     "data": {
+      "check": "text 833",
+      "chip_type": "text 834"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.firmware_password.startup_security_info",
+     "confidence": null,
+     "data": {
+      "check": "text 835"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "firmware_password",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.gatekeeper_quarantine_check.gatekeeper_enabled",
+     "confidence": null,
+     "data": {
+      "check": "text 836"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.gatekeeper_quarantine_check.quarantine_removed",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "text 839",
+       "text 840"
+      ],
+      "check": "text 838"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "gatekeeper_quarantine_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.guest_account_check.guest_disabled",
+     "confidence": null,
+     "data": {
+      "check": "text 842"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "guest_account_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.hosts_file_check.suspicious_ip_redirect",
+     "confidence": null,
+     "data": {
+      "check": "text 843",
+      "count": 1,
+      "entries": [
+       {
+        "hostname": "com.example.item845",
+        "ip": "text 844"
+       }
+      ]
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.hosts_file_check.custom_entries_list",
+     "confidence": null,
+     "data": {
+      "check": "text 846",
+      "count": 1,
+      "entries": [
+       {
+        "hostname": "com.example.item848",
+        "ip": "text 847"
+       }
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "hosts_file_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "kernel_extensions_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.kext_audit.kext_file",
+     "confidence": null,
+     "data": {
+      "check": "text 849",
+      "name": "text 851",
+      "path": "/scrubbed/item850.kext",
+      "source": "text 852"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "kext_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.keylogger_indicators.input_monitoring_access",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "com.example.item862",
+       "com.example.item863"
+      ],
+      "check": "text 861"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "keylogger_indicators",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.launch_agent_audit.too_many_agents",
+     "confidence": null,
+     "data": {
+      "check": "text 867",
+      "count": 36
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.launch_agent_audit.agent_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 872",
+      "check": "text 868",
+      "label": "com.example.item869",
+      "plist": "/scrubbed/item871.plist",
+      "program": "/scrubbed/item870"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.launch_agent_audit.suspicious_path",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 877",
+      "check": "text 873",
+      "content_sha256": "text 878",
+      "label": "com.example.item874",
+      "plist": "/scrubbed/item876.plist",
+      "program": "/scrubbed/item875"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.launch_agent_audit.missing_program",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 919",
+      "check": "text 915",
+      "label": "com.example.item916",
+      "plist": "/scrubbed/item918.plist",
+      "program": "/scrubbed/item917"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.launch_agent_audit.agent_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 924",
+      "check": "text 920",
+      "label": "com.example.item921",
+      "plist": "/scrubbed/item923.plist",
+      "program": "/scrubbed/item922.sh"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.launch_agent_audit.agent_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 949",
+      "check": "text 945",
+      "label": "com.example.item946",
+      "plist": "/scrubbed/item948.plist",
+      "program": ""
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.launch_agent_audit.agent_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 1064",
+      "check": "text 1060",
+      "label": "text 1061",
+      "plist": "/scrubbed/item1063.plist",
+      "program": "/scrubbed/item1062"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "launch_agent_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.launchd_persistence_audit.suspicious_path",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 1089",
+      "check": "text 1085",
+      "content_sha256": "text 1090",
+      "label": "com.example.item1086",
+      "plist": "/scrubbed/item1088.plist",
+      "program": "/scrubbed/item1087"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.launchd_persistence_audit.non_apple_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 1101",
+      "check": "text 1097",
+      "label": "com.example.item1098",
+      "plist": "/scrubbed/item1100.plist",
+      "program": "/scrubbed/item1099"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.launchd_persistence_audit.non_apple_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 1126",
+      "check": "text 1122",
+      "label": "com.example.item1123",
+      "plist": "/scrubbed/item1125.plist",
+      "program": "/scrubbed/item1124.sh"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.launchd_persistence_audit.non_apple_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 1151",
+      "check": "text 1147",
+      "label": "com.example.item1148",
+      "plist": "/scrubbed/item1150.plist",
+      "program": ""
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.launchd_persistence_audit.non_apple_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 1266",
+      "check": "text 1262",
+      "label": "text 1263",
+      "plist": "/scrubbed/item1265.plist",
+      "program": "/scrubbed/item1264"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.launchd_persistence_audit.non_apple_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 1291",
+      "check": "text 1287",
+      "label": "com.example.item1288",
+      "plist": "/scrubbed/item1290.plist",
+      "program": "/scrubbed/item1289.socket"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.launchd_persistence_audit.non_apple_info",
+     "confidence": null,
+     "data": {
+      "arguments_sha256": "text 1296",
+      "check": "text 1292",
+      "label": "com.example.item1293",
+      "plist": "/scrubbed/item1295.plist",
+      "program": "/scrubbed/item1294.vmnetd"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "launchd_persistence_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.location_services.location_services_enabled",
+     "confidence": null,
+     "data": {
+      "check": "text 1342"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "location_services",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.lock_screen_check.display_sleep",
+     "confidence": null,
+     "data": {
+      "check": "text 1343"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "lock_screen_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.login_password_policy.login_window_display",
+     "confidence": null,
+     "data": {
+      "check": "text 1344",
+      "display": "text 1345"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.login_password_policy.screensaver_timeout",
+     "confidence": null,
+     "data": {
+      "check": "text 1346",
+      "minutes": 60,
+      "seconds": 3600
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "login_password_policy",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.login_window_settings.login_settings_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1347"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "login_window_settings",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.malware_scan_indicators.clean_scan",
+     "confidence": null,
+     "data": {
+      "check": "text 1348"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "malware_scan_indicators",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.mdm_enrollment.no_mdm",
+     "confidence": null,
+     "data": {
+      "check": "text 1349"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "mdm_enrollment",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "mdm_enrollment_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.mvt_spyware_scan.mvt_scan_available",
+     "confidence": null,
+     "data": {
+      "backups_found": 1,
+      "check": "text 1350",
+      "confidence": "text 1351",
+      "mvt_bin": "/scrubbed/item1352"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "mvt_spyware_scan",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.network_connections_monitor.high_connection_count",
+     "confidence": null,
+     "data": {
+      "check": "text 1353",
+      "processes": [
+       "text 1354"
+      ]
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.network_connections_monitor.unusual_ports",
+     "confidence": null,
+     "data": {
+      "check": "text 1355",
+      "connections": [
+       "text 1356",
+       "text 1357",
+       "text 1358",
+       "text 1359"
+      ]
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.network_connections_monitor.connection_summary",
+     "confidence": null,
+     "data": {
+      "check": "text 1360",
+      "total_count": 67
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "network_connections_monitor",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.network_proxy.no_proxies",
+     "confidence": null,
+     "data": {
+      "check": "text 1361"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "network_proxy",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.open_ports_scan.listening_ports",
+     "confidence": null,
+     "data": {
+      "check": "text 1362",
+      "count": 15,
+      "ports": [
+       "text 1363",
+       "text 1364",
+       "text 1365",
+       "text 1366"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "open_ports_scan",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "privacy_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.privacy_permissions_audit.camera_access",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "com.example.item1370",
+       "com.example.item1371",
+       "com.example.item1372",
+       "com.example.item1373"
+      ],
+      "check": "text 1367",
+      "display_name": "text 1369",
+      "service": "text 1368"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.privacy_permissions_audit.microphone_access",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "/scrubbed/item1377",
+       "/scrubbed/item1378",
+       "/scrubbed/item1379",
+       "com.example.item1380"
+      ],
+      "check": "text 1374",
+      "display_name": "text 1376",
+      "service": "text 1375"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.privacy_permissions_audit.full_disk_access",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "/scrubbed/item1398",
+       "com.example.item1399",
+       "com.example.item1400"
+      ],
+      "check": "text 1395",
+      "display_name": "text 1397",
+      "service": "text 1396"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.privacy_permissions_audit.contacts_access",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "com.example.item1404"
+      ],
+      "check": "text 1401",
+      "display_name": "text 1403",
+      "service": "text 1402"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.privacy_permissions_audit.excessive_camera",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "com.example.item1406",
+       "com.example.item1407",
+       "com.example.item1408",
+       "com.example.item1409"
+      ],
+      "check": "text 1405",
+      "count": 15
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.privacy_permissions_audit.excessive_microphone",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "/scrubbed/item1411",
+       "/scrubbed/item1412",
+       "/scrubbed/item1413",
+       "com.example.item1414"
+      ],
+      "check": "text 1410",
+      "count": 41
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.privacy_permissions_audit.camera_microphone_combo",
+     "confidence": null,
+     "data": {
+      "apps": [
+       "com.example.item1416",
+       "com.example.item1417",
+       "com.example.item1418",
+       "com.example.item1419"
+      ],
+      "check": "text 1415"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "privacy_permissions_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.remote_login_check.all_disabled",
+     "confidence": null,
+     "data": {
+      "secure": true
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "remote_login_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.rootkit_check.all_clean",
+     "confidence": null,
+     "data": {
+      "check": "text 1425"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "rootkit_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "safari_extensions",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.launch_agent_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1426",
+      "command": "/scrubbed/item1430",
+      "label": "com.example.item1427",
+      "location": "/scrubbed/item1428.plist",
+      "type": "text 1429"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.launch_agent_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1431",
+      "command": "text 1435",
+      "label": "com.example.item1432",
+      "location": "/scrubbed/item1433.plist",
+      "type": "text 1434"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.launch_agent_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1446",
+      "command": "/scrubbed/item1450.py",
+      "label": "com.example.item1447",
+      "location": "/scrubbed/item1448.plist",
+      "type": "text 1449"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.launch_agent_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1476",
+      "command": "/scrubbed/item1480.sh",
+      "label": "com.example.item1477",
+      "location": "/scrubbed/item1478.plist",
+      "type": "text 1479"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.launch_agent_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1521",
+      "command": "/scrubbed/item1525.app",
+      "label": "com.example.item1522",
+      "location": "/scrubbed/item1523.plist",
+      "type": "text 1524"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.launch_agent_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1526",
+      "command": "/scrubbed/item1530.conf",
+      "label": "com.example.item1527",
+      "location": "/scrubbed/item1528.plist",
+      "type": "text 1529"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.launch_agent_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1541",
+      "command": "/scrubbed/item1545",
+      "label": "text 1542",
+      "location": "/scrubbed/item1543.plist",
+      "type": "text 1544"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.launch_agent_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1616",
+      "command": "/scrubbed/item1620.vmnetd",
+      "label": "com.example.item1617",
+      "location": "/scrubbed/item1618.plist",
+      "type": "text 1619"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.launch_agent_info",
+     "confidence": null,
+     "data": {
+      "check": "text 1631",
+      "command": "/scrubbed/item1635.socket",
+      "label": "com.example.item1632",
+      "location": "/scrubbed/item1633.plist",
+      "type": "text 1634"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.scheduled_tasks_audit.excessive_user_agents",
+     "confidence": null,
+     "data": {
+      "check": "text 1671",
+      "count": 36
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "scheduled_tasks_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.screen_lock_check.screensaver_idle_time",
+     "confidence": null,
+     "data": {
+      "check": "text 1672",
+      "value": 60
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "screen_lock_check",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.screen_time_audit.screen_time_disabled",
+     "confidence": null,
+     "data": {
+      "check": "text 1673"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "screen_time_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.screen_time_parental.screen_time_disabled",
+     "confidence": null,
+     "data": {
+      "check": "text 1674"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "screen_time_parental",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.security_baseline_diff.new_persistence",
+     "confidence": null,
+     "data": {
+      "added": [
+       "/scrubbed/item1676.plist"
+      ],
+      "baseline_captured_at": "text 1677",
+      "check": "text 1675"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.security_baseline_diff.new_listening_port",
+     "confidence": null,
+     "data": {
+      "added": [
+       "text 1679",
+       "text 1680",
+       "/scrubbed/item1681"
+      ],
+      "baseline_captured_at": "text 1682",
+      "check": "text 1678"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.security_baseline_diff.new_browser_extension",
+     "confidence": null,
+     "data": {
+      "added": [
+       "text 1684"
+      ],
+      "baseline_captured_at": "text 1685",
+      "check": "text 1683"
+     },
+     "severity": "warning"
+    }
+   ],
+   "name": "security_baseline_diff",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.session_revocation_scan.browser_sessions",
+     "confidence": null,
+     "data": {
+      "browsers": [
+       {
+        "browser": "text 1687",
+        "profiles": 7
+       },
+       {
+        "browser": "text 1688",
+        "profiles": 9
+       },
+       {
+        "browser": "text 1689",
+        "profiles": 1
+       },
+       {
+        "browser": "text 1690",
+        "profiles": 1
+       }
+      ],
+      "check": "text 1686",
+      "profile_count": 18
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.session_revocation_scan.system_accounts",
+     "confidence": null,
+     "data": {
+      "accounts": [
+       "text 1692"
+      ],
+      "check": "text 1691"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.session_revocation_scan.ssh_authorized_keys",
+     "confidence": null,
+     "data": {
+      "check": "text 1693",
+      "file": "~/scrubbed/item1694",
+      "key_count": 1,
+      "keys": [
+       {
+        "comment": "text 1699",
+        "line_sha256": "text 1698",
+        "options": false,
+        "sha256": "text 1697",
+        "type": "text 1696"
+       }
+      ],
+      "list_sha256": "text 1695"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.session_revocation_scan.inventory",
+     "confidence": null,
+     "data": {
+      "browser_profile_count": 18,
+      "check": "text 1700",
+      "provider_sessions_checked": false,
+      "ssh_key_count": 1,
+      "system_account_count": 1
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "session_revocation_scan",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.sharing_preferences_audit.config_secure",
+     "confidence": null,
+     "data": {
+      "config": "text 1701"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "sharing_preferences_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "sharing_services",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "sip_gatekeeper",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.siri_privacy.siri_enabled",
+     "confidence": null,
+     "data": {
+      "check": "text 1702"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "siri_privacy",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.ssh_key_audit.ed25519_keys",
+     "confidence": null,
+     "data": {
+      "check": "text 1703",
+      "keys": [
+       "text 1704",
+       "text 1705",
+       "text 1706",
+       "text 1707"
+      ]
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.ssh_key_audit.rsa_keys",
+     "confidence": null,
+     "data": {
+      "check": "text 1708",
+      "keys": [
+       "text 1709"
+      ]
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.ssh_key_audit.authorized_keys",
+     "confidence": null,
+     "data": {
+      "check": "text 1710",
+      "count": 1
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.ssh_key_audit.ssh_agent_running",
+     "confidence": null,
+     "data": {
+      "check": "text 1711",
+      "key_count": 1
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.ssh_key_audit.known_hosts",
+     "confidence": null,
+     "data": {
+      "check": "text 1712",
+      "count": 120
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "ssh_key_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "stalkerware_scan",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.sudo_config_audit.touchid_disabled",
+     "confidence": null,
+     "data": {
+      "check_type": "text 1713"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "sudo_config_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.sudo_touchid.touchid_status",
+     "confidence": null,
+     "data": {
+      "check": "text 1715",
+      "fingerprints": 7,
+      "has_hardware": true
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.sudo_touchid.sudo_not_enabled",
+     "confidence": null,
+     "data": {
+      "check": "text 1716"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "sudo_touchid",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.suspicious_connections.unusual_listening_port",
+     "confidence": null,
+     "data": {
+      "check": "text 1717",
+      "pid": 61084,
+      "port": 8765,
+      "ports": [
+       8765,
+       8766
+      ],
+      "process": "text 1718"
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.suspicious_connections.unusual_listening_port",
+     "confidence": null,
+     "data": {
+      "check": "text 1719",
+      "count": 5,
+      "processes": [
+       "text 1720",
+       "text 1721",
+       "text 1722"
+      ]
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.suspicious_connections.unusual_outbound_connection",
+     "confidence": null,
+     "data": {
+      "check": "text 1723",
+      "items": [
+       {
+        "pid": 765,
+        "ports": [
+         5228
+        ],
+        "process": "text 1724"
+       },
+       {
+        "pid": 7825,
+        "ports": [
+         5228
+        ],
+        "process": "text 1725"
+       },
+       {
+        "pid": 12874,
+        "ports": [
+         5228
+        ],
+        "process": "text 1726"
+       },
+       {
+        "pid": 15069,
+        "ports": [
+         5228
+        ],
+        "process": "text 1727"
+       }
+      ]
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.suspicious_connections.high_connection_count",
+     "confidence": null,
+     "data": {
+      "check": "text 1728",
+      "count": 26,
+      "process": "text 1729"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "suspicious_connections",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.suspicious_processes.high_cpu",
+     "confidence": null,
+     "data": {
+      "check": "text 1730",
+      "processes": [
+       {
+        "command": "text 1733",
+        "cpu": 113.2,
+        "name": "text 1732",
+        "pid": "text 1731"
+       }
+      ]
+     },
+     "severity": "warning"
+    },
+    {
+     "category": "security",
+     "code": "security.suspicious_processes.unsigned_apps",
+     "confidence": null,
+     "data": {
+      "apps": [
+       {
+        "name": "text 1736",
+        "path": "/scrubbed/item1735.app"
+       },
+       {
+        "name": "text 1738",
+        "path": "/scrubbed/item1737.app"
+       },
+       {
+        "name": "text 1740",
+        "path": "/scrubbed/item1739.app"
+       },
+       {
+        "name": "text 1742",
+        "path": "/scrubbed/item1741.app"
+       }
+      ],
+      "check": "text 1734"
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "suspicious_processes",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "system_extensions",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [],
+   "name": "usb_device_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.user_account_audit.admin_accounts",
+     "confidence": null,
+     "data": {
+      "check": "text 1743",
+      "users": [
+       "text 1744",
+       "text 1745",
+       "text 1746"
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "user_account_audit",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.vpn_config.vpn_list",
+     "confidence": null,
+     "data": {
+      "check": "text 1747",
+      "vpn_count": 1,
+      "vpn_list": [
+       {
+        "name": "text 1748",
+        "status": "text 1750",
+        "type": "com.example.item1749"
+       }
+      ]
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "vpn_config",
+   "supported": true
+  },
+  {
+   "category": "security",
+   "complete": true,
+   "error": null,
+   "findings": [
+    {
+     "category": "security",
+     "code": "security.xprotect_status.gatekeeper_status",
+     "confidence": null,
+     "data": {
+      "check": "text 1751",
+      "status": "text 1752"
+     },
+     "severity": "info"
+    },
+    {
+     "category": "security",
+     "code": "security.xprotect_status.xprotect_version",
+     "confidence": null,
+     "data": {
+      "check": "text 1753",
+      "version": 5367
+     },
+     "severity": "info"
+    }
+   ],
+   "name": "xprotect_status",
+   "supported": true
+  }
+ ],
+ "source": "shapes from one real macOS scan, every string scrubbed"
+}

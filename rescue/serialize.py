@@ -66,7 +66,10 @@ def _action_fixable(finding, module_name, app_actions):
         return None
     from rescue.actions.launch_agent import offer_target
 
-    hit = offer_target(getattr(finding, "data", None), severity, module_name)
+    try:
+        hit = offer_target(getattr(finding, "data", None), severity, module_name)
+    except Exception:
+        return None  # an odd data shape gets no fix offer, never a crash
     if hit is None:
         return None
     return {
@@ -105,9 +108,24 @@ def _makers_verified(entries, data) -> bool:
         return False
     apps = data.get("apps") if isinstance(data, dict) else None
     if isinstance(apps, list):
-        subjects = {e.get("subject") for e in entries}
-        return all(a in subjects for a in apps)
+        subjects = {e.get("subject") for e in entries if isinstance(e.get("subject"), str)}
+        # An app is a name, or a {path, name} dict (suspicious_processes): it is
+        # covered when one of the strings it is named by has a verified maker.
+        return all(any(n in subjects for n in _app_names(a)) for a in apps)
     return True
+
+
+def _app_names(app) -> list[str]:
+    """The strings an app in a finding's "apps" list can be looked up by."""
+    if isinstance(app, str):
+        return [app]
+    if isinstance(app, dict):
+        from rescue.attribution import _candidates
+
+        names = list(_candidates(app))
+        names += [v for k, v in app.items() if k in ("name", "bundle_id", "app") and isinstance(v, str)]
+        return names
+    return []
 
 
 def _dedupe(findings: list) -> list:
@@ -155,6 +173,63 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
     return out
 
 
+def _safe_finding(finding, *args) -> tuple[dict, bool]:
+    """``_finding``, or a minimal entry for a finding that could not be written
+    (and False), so one odd finding never costs the person the whole checkup."""
+    try:
+        out = _finding(finding, *args)
+        json.dumps(out)
+        return out, True
+    except Exception:
+        out = {}
+        for key in ("title", "description", "category", "code"):
+            try:
+                value = getattr(finding, key, None)
+                out[key] = None if value is None else str(value)
+            except Exception:
+                out[key] = None
+        severity = getattr(getattr(finding, "severity", None), "value", None)
+        out["severity"] = severity if severity in ("critical", "warning", "info") else "warning"
+        out["title"] = out["title"] or "A finding that couldn't be shown in full"
+        out["description"] = out["description"] or ""
+        out["data"] = {}
+        out["serialize_error"] = True
+        return out, False
+
+
+# What a check's entry says when its results couldn't be written at all.
+WRITE_FAILED = "This check's results couldn't be written out, so it may have missed something."
+
+
+def safe_module_entry(mod, check, *args, **kwargs) -> dict:
+    """``module_entry``, or a minimal "error" entry for a check whose results
+    could not be serialized. Never raises: the rest of the document still gets
+    written, and the failed check reads as not checked, never as clean."""
+    try:
+        entry = module_entry(mod, check, *args, **kwargs)
+        json.dumps(entry)
+        return entry
+    except Exception:
+        name = str(getattr(mod, "name", None) or getattr(check, "module_name", "") or "unknown")
+        try:
+            human = check_name(name)
+        except Exception:
+            human = name
+        category = getattr(mod, "category", None)
+        return {
+            "name": name,
+            "check_name": human,
+            "category": category if isinstance(category, str) else None,
+            "status": "error",
+            "error": WRITE_FAILED,
+            "supported": True,
+            "unsupported_reason": None,
+            "complete": False,
+            "error_kind": "error",
+            "findings": [],
+        }
+
+
 def module_entry(mod, check, walkthroughs=None, app_fixes=None, made_by=None, app_actions=None) -> dict:
     """One entry of the "modules" array, for one finished check.
 
@@ -167,6 +242,16 @@ def module_entry(mod, check, walkthroughs=None, app_fixes=None, made_by=None, ap
     offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
     supported = getattr(check, "supported", True)
     complete = bool(getattr(check, "complete", True))
+    written = [
+        _safe_finding(
+            f, walkthroughs, offer, made_by,
+            None if check.error else _action_fixable(f, mod.name, app_actions),
+            None if check.error else _markable(f, mod.name),
+        )
+        for f in check.findings
+    ]
+    if not all(ok for _, ok in written):
+        complete = False  # a finding was cut down: what it held may be missing
     return {
         "name": mod.name,
         # The check's name for people, from one table (rescue/check_names.py).
@@ -183,14 +268,7 @@ def module_entry(mod, check, walkthroughs=None, app_fixes=None, made_by=None, ap
         # What kind of "couldn't check" this was, or null when it ran:
         # timeout | permission | skipped | unsupported | error | unfinished.
         "error_kind": error_kind(check.error, supported, complete),
-        "findings": _dedupe([
-            _finding(
-                f, walkthroughs, offer, made_by,
-                None if check.error else _action_fixable(f, mod.name, app_actions),
-                None if check.error else _markable(f, mod.name),
-            )
-            for f in check.findings
-        ]),
+        "findings": _dedupe([f for f, _ in written]),
     }
 
 
@@ -222,7 +300,7 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
         supported, unsupported_reason, complete, error_kind, findings.
     """
     modules = [
-        module_entry(mod, check, walkthroughs, app_fixes, made_by, app_actions)
+        safe_module_entry(mod, check, walkthroughs, app_fixes, made_by, app_actions)
         for mod, check in results
     ]
     _link_task_marks(modules)

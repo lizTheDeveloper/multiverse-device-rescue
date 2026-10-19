@@ -295,9 +295,9 @@ def _emit_module(mod, check, walkthroughs, app_fixes, app_actions):
     The final document on stdout is unchanged and is the one to act on."""
     import json
 
-    from rescue.serialize import module_entry
+    from rescue.serialize import safe_module_entry
     try:
-        line = json.dumps({"module": module_entry(mod, check, walkthroughs, app_fixes, None, app_actions)})
+        line = json.dumps({"module": safe_module_entry(mod, check, walkthroughs, app_fixes, None, app_actions)})
     except Exception:
         return  # streaming is a convenience; never break a scan
     click.echo(line, err=True)
