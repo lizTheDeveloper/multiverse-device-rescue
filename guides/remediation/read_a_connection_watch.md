@@ -174,7 +174,7 @@ fullest picture this computer allows.
 
 ## Step 9: Before looking an address up
 
-Finding out who owns an address belongs to a later part of Device Rescue (the
+Finding out who owns an address belongs to a later part of Reclaim City (the
 Dossier), done one address at a time and only when you choose. That matters
 because a lookup is itself a disclosure: whichever service you ask learns
 which address you are curious about. Addresses on your own network and your

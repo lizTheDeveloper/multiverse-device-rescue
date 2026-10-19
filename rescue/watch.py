@@ -354,7 +354,7 @@ def _collector():
 def _dns_unavailable(platform: str) -> dict:
     return {
         "names": None,
-        "reason": "Couldn't load the part of Device Rescue that reads looked-up names.",
+        "reason": "Couldn't load the part of Reclaim City that reads looked-up names.",
     }
 
 
@@ -421,7 +421,7 @@ def run_watch(
             if helper is None:
                 return CheckResult(
                     module_name=_MODULE,
-                    error="Couldn't load the part of Device Rescue that reads connections.",
+                    error="Couldn't load the part of Reclaim City that reads connections.",
                 )
             collect = helper.snapshot
         if dns is None:
@@ -487,7 +487,7 @@ def _plural(n: int, word: str) -> str:
 
 
 def _label(process: str) -> str:
-    return "A program Device Rescue couldn't name" if process == _UNKNOWN else process
+    return "A program Reclaim City couldn't name" if process == _UNKNOWN else process
 
 
 def _checkin(pair: dict) -> float | None:
@@ -688,7 +688,7 @@ def _checkins(gathered, facts) -> list[Finding]:
 _NEXT_CHECKUP = {
     "expected": "It looks like an ordinary service, and the next checkup wouldn't raise it.",
     "unnamed": (
-        "Device Rescue couldn't confirm which program owns it, so the next checkup "
+        "Reclaim City couldn't confirm which program owns it, so the next checkup "
         "would mention it without a warning."
     ),
     "flag": (
