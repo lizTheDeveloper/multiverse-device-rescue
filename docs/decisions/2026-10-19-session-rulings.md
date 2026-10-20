@@ -8,10 +8,12 @@ These were decided so work could keep moving. Each one is easy to reverse. The h
 1. **App signature check: hitting the 60-app limit counts as "didn't finish".** On most Macs the Gatehouse is then
    never fully secured and a CLEAN SWEEP is rare. Honest (the other apps weren't checked), but less rewarding.
    Options: keep; or count the limit as finished and show "checked 16 of 110 apps" as a note.
+   **Owner (2026-10-19): keep.**
 2. **VS Code, Steam and other apps known only by their self-reported ID stay held in stealth mode** (in the help
    district, with "talk to an advocate"). Letting them out by name was a security hole (a keylogger can call itself
    Chrome). The real fix is confirming identity from macOS's own permission record (csreq) — the hourly loop is
    researching it. Options: keep until csreq lands; or show a gentler line for familiar names meanwhile.
+   **Owner (2026-10-19): these are not monitoring software — verify them via csreq now** (branch `csreq-verify`).
 3. **Your NextDNS profile shows as a warning** ("Your DNS goes through a filtering profile"), markable as yours.
    A DNS profile's owner sees every website name looked up, so an abuser could use one to watch browsing.
 4. **The removal warning stays on tampered-app findings** (a tampered app can be a disguised monitoring tool).
@@ -21,9 +23,9 @@ These were decided so work could keep moving. Each one is easy to reverse. The h
    removal warning (remote-access tools, unknown background tasks) pay normally. **City integrity rises only on a
    confirmed re-check**, never on a decision alone — so "decided" and "fixed" are shown separately.
 8. **Sleep / Power Nap / screen-off settings go to Odd Jobs**, because Lock Run has no sleep lock yet. Option: add a
-   sleep lock to Lock Run (small) and move them.
+   sleep lock to Lock Run (small) and move them. **Owner (2026-10-19): yes** (branch `lockrun-sleep-windows`).
 9. **"Mine" on an item with a removal warning asks a one-line confirm** instead of the full "It's mine" panel.
-10. **Lock Run practice is Mac-only**; Windows players get the Mac practice wording. Option: add Windows practice.
+10. **Lock Run practice is Mac-only**; Windows players get the Mac practice wording. Option: add Windows practice. **Owner (2026-10-19): yes** (branch `lockrun-sleep-windows`).
 
 ## Known rough edges (no decision needed unless you want to prioritise)
 
