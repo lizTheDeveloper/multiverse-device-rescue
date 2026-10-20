@@ -116,9 +116,13 @@ def test_developer_id_from_one_team_or_the_mac_app_store_pins_that_team():
     assert signer_for('identifier "com.valvesoftware.steam" and ' + STORE_OR_DEVID, "com.valvesoftware.steam") == "MXGJJ98X76"
     no_comments = STORE_OR_DEVID.replace(" /* exists */", "")
     assert signer_for(no_comments, "com.valvesoftware.steam") == "MXGJJ98X76"
+    quoted = STORE_OR_DEVID.replace("= MXGJJ98X76)", '= "MXGJJ98X76")')
+    assert signer_for(quoted, "com.valvesoftware.steam") == "MXGJJ98X76"
 
 
 @pytest.mark.parametrize("bad", [
+    STORE_OR_DEVID.replace("= MXGJJ98X76)", '= "MXGJJ98X76)'),                # unbalanced quote
+    STORE_OR_DEVID.replace("= MXGJJ98X76)", '= MXGJJ98X76")'),
     STORE_OR_DEVID.replace("6.1.9]", "6.1.12]"),                            # another certificate kind
     STORE_OR_DEVID.replace("and certificate leaf[subject.OU] = MXGJJ98X76", ""),  # no team pinned
     STORE_OR_DEVID.replace(" or ", " and "),

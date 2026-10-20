@@ -246,6 +246,9 @@ def _team_name(team: str | None, fallback: str) -> str:
 # How a maker reads when macOS's own permission record proved it: the TCC
 # grant's code requirement pins this Team ID (or Apple's anchor) for the bundle
 # id, so only that signer's code can use the access (rescue/code_requirement.py).
+# That includes "Mac App Store, or Developer ID from this team": TCC applies a
+# bundle-id row only to an app with that id, and the App Store signs an id only
+# for the team that registered it (owner-approved, 2026-10-20).
 REQUIREMENT_HOW = "macOS permission record (code requirement)"
 
 
