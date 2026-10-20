@@ -100,3 +100,14 @@ def test_non_strings_and_odd_clients_fail_closed():
     assert signer_for(DEVID, "") is None
     assert signer_for(DEVID.replace("com.microsoft.VSCode", "com.micro soft"), "com.micro soft") is None
     assert signer_for(DEVID * 50, VSC) is None  # absurdly long
+
+
+def test_a_requirement_that_also_admits_any_app_store_app_and_names_no_identifier_proves_nothing():
+    """Some vendors' designated requirement is "Developer ID from us, or any Mac
+    App Store app", with no identifier: any App Store app satisfies it, so it
+    can't say whose code holds the access."""
+    loose = ("anchor apple generic and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or "
+             "certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and "
+             "certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and "
+             "certificate leaf[subject.OU] = MXGJJ98X76)")
+    assert signer_for(loose, "com.valvesoftware.steam") is None

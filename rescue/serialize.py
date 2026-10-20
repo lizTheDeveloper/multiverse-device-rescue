@@ -114,8 +114,57 @@ def _makers_verified(entries, data) -> bool:
         subjects = {e.get("subject") for e in entries if isinstance(e.get("subject"), str)}
         # Each app is matched only by the subject attribution actually looked
         # up for it, never by a name it reports about itself.
-        return all((s := _app_subject(a)) is not None and s in subjects for a in apps)
+        return all((s := _app_subject(a, entries)) is not None and s in subjects for a in apps)
     return True
+
+
+# Checks whose findings may carry "verified_apps": TCC grants whose code
+# requirement (the rule macOS itself enforces for that permission) pinned a
+# known signer for the bundle id. Only these checks, never by name.
+REQUIREMENT_MODULES = frozenset({"keylogger_indicators"})
+_TEAM_OR_APPLE = re.compile(r"^(?:[A-Z0-9]{10}|apple)\Z")
+
+
+def _requirement_entries(module, data) -> dict:
+    """{bundle id: made_by dict} proven by macOS's permission record, from a
+    REQUIREMENT_MODULES finding's ``verified_apps``. Each must name an app in
+    ``data["apps"]`` and a signer the maker table knows; the maker name is
+    looked up again here, never taken from the finding."""
+    if module not in REQUIREMENT_MODULES or not isinstance(data, dict):
+        return {}
+    apps = data.get("apps")
+    proven = data.get("verified_apps")
+    if not isinstance(apps, list) or not isinstance(proven, list):
+        return {}
+    from rescue.attribution import requirement_made_by
+
+    out = {}
+    for v in proven:
+        if not isinstance(v, dict) or v.get("verified_by") != "macos_code_requirement":
+            continue
+        bid, team = v.get("bundle_id"), v.get("team_id")
+        if not isinstance(bid, str) or bid not in apps or _is_path(bid):
+            continue
+        if not isinstance(team, str) or not _TEAM_OR_APPLE.match(team):
+            continue
+        made = requirement_made_by(bid, team)
+        if made is not None:
+            out[bid] = made.to_dict(bid)
+    return out
+
+
+def _apply_requirement_entries(entries: list, proven: dict) -> None:
+    """Each proven bundle id's entry replaces any looked up for it (in place)."""
+    if not proven:
+        return
+    entries[:] = [e for e in entries if not (isinstance(e, dict) and e.get("subject") in proven)]
+    entries.extend(proven.values())
+
+
+def _requirement_verified(entry) -> bool:
+    from rescue.attribution import REQUIREMENT_HOW
+
+    return isinstance(entry, dict) and entry.get("verified") is True and entry.get("how") == REQUIREMENT_HOW
 
 
 def _is_path(s) -> bool:
@@ -153,14 +202,21 @@ def _unverify_named_apps(entries, data) -> None:
             entries[i] = _unverified(e)
 
 
-def _app_subject(app) -> str | None:
+def _app_subject(app, entries=None) -> str | None:
     """The one string attribution identifies an app in "apps" by: the app
     itself when it is a full path, else its path (rescue.attribution._candidates,
     first entry) for a {path, name} dict. A self-reported name, bundle id or
     "app" field never counts: a process can call itself anything, and a TCC
-    row's bundle id can belong to any program."""
+    row's bundle id can belong to any program. The one exception is a bundle
+    id whose entry in ``entries`` came from macOS's own permission record
+    (_requirement_entries): there the code requirement macOS enforces, not the
+    name, says whose code can use the access."""
     if isinstance(app, str):
-        return app if _is_path(app) else None
+        if _is_path(app):
+            return app
+        if entries and any(e.get("subject") == app and _requirement_verified(e) for e in entries if isinstance(e, dict)):
+            return app
+        return None
     if isinstance(app, dict):
         from rescue.attribution import _candidates
 
@@ -180,8 +236,10 @@ def _items_made_by(markable, made_by) -> None:
     for item in items:
         if isinstance(item, dict) and isinstance(item.get("key"), str) and item["key"] in by_subject:
             entry = by_subject[item["key"]]
-            # An entry keyed by a bundle id never carries a verified maker.
-            item["made_by"] = entry if _is_path(item["key"]) else _unverified(entry)
+            # An entry keyed by a bundle id never carries a verified maker,
+            # unless macOS's own permission record proved it.
+            keep = _is_path(item["key"]) or _requirement_verified(entry)
+            item["made_by"] = entry if keep else _unverified(entry)
 
 
 def _dedupe(findings: list) -> list:
@@ -220,9 +278,11 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
     elif fixable is not None:
         out["fixable"] = _fixable(fixable)
     entries = made_by.get(id(finding)) if made_by else None
-    if entries:
-        out["made_by"] = _plain(entries)
+    proven = _requirement_entries(module, out.get("data")) if made_by is not None else {}
+    if entries or proven:
+        out["made_by"] = _plain(entries or [])
         _unverify_named_apps(out["made_by"], out.get("data"))
+        _apply_requirement_entries(out["made_by"], proven)
         out["makers_verified"] = _makers_verified(out["made_by"], out.get("data"))
         _items_made_by(out.get("markable"), out["made_by"])
     guide = walkthroughs.get(getattr(finding, "code", None)) if walkthroughs else None

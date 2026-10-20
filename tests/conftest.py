@@ -39,3 +39,24 @@ def _no_real_app_names(monkeypatch):
     from rescue import app_names
 
     monkeypatch.setattr(app_names, "_index_cache", {})
+
+
+_REAL_POPEN = __import__("subprocess").Popen
+
+
+class _NoRealTCC(_REAL_POPEN):
+    """subprocess.Popen that refuses any command naming a TCC database."""
+
+    def __init__(self, args, *a, **kw):
+        argv = [args] if isinstance(args, (str, bytes, os.PathLike)) else list(args)
+        if any("com.apple.TCC" in os.fsdecode(x) for x in argv if isinstance(x, (str, bytes, os.PathLike))):
+            raise AssertionError(f"a test tried to read a real TCC database: {argv!r}; mock the module's runner")
+        super().__init__(args, *a, **kw)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_tcc(monkeypatch):
+    """Permission databases are the person's; no test ever queries the real one."""
+    import subprocess
+
+    monkeypatch.setattr(subprocess, "Popen", _NoRealTCC)

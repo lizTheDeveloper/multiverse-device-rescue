@@ -54,7 +54,7 @@ def collect() -> dict:
 
     keys = _load("keylogger_indicators")
     k = keys.Module()
-    k._get_input_monitoring_apps = lambda: [KEY_APP]
+    k._get_input_monitoring_grants = lambda: {KEY_APP: [{"client_type": 0, "signer": None}]}
     k._check_cgeventtap_usage = lambda: []
     k_result = k.check(None)
 
