@@ -90,6 +90,9 @@ export const BASE_COVERS = Object.freeze({
     { module: 'win_rootkit_check', codes: ['security.win_rootkit_check.secure_boot_disabled'] },
     { module: 'win_malware_indicators', codes: ['security.win_malware_indicators.safe_mode_disabled'] },
     { module: 'security_baseline_diff', codes: [`${SBD}protection_disabled`] },
+    // Sleep, screen-off, Power Nap and wake are settings, not clutter (Windows: the power plan's sleep timeout).
+    ...whole('energy_saver_check', 'energy_settings', 'power_settings', 'clamshell_mode'),
+    { module: 'win_power_plan_check', checks: ['sleep_timeout'] },
   ],
   junkyard: whole('storage_cleanup', 'large_files_finder', 'library_cache_cleanup', 'browser_cache_cleanup', 'trash_cleanup',
     'docker_cleanup', 'xcode_cleanup', 'mail_attachment_cleanup', 'crash_log_analyzer', 'app_crash_analyzer',
@@ -115,9 +118,9 @@ export const ODD_JOBS = Object.freeze([
   'recovery_partition_check', 'rosetta_status', 'safe_boot_check', 'safe_mode_check', 'screen_time_password', 'sleep_wake_issues',
   'smart_status', 'smc_reset_check', 'smcreset_guide', 'software_inventory', 'system_age_check', 'time_machine_exclusions',
   'time_machine_health', 'time_sync_check', 'usb_devices_check', 'user_account_health', 'wifi_diagnostics', 'wifi_password_recovery',
-  'arp_spoof_check', 'ethernet_diagnostics', 'lan_device_inventory', 'clamshell_mode', 'disk_fragmentation_check', 'disk_io_health',
+  'arp_spoof_check', 'ethernet_diagnostics', 'lan_device_inventory', 'disk_fragmentation_check', 'disk_io_health',
   'disk_space', 'font_cache_repair', 'font_cache', 'macos_user_cleanup', 'memory_pressure_check', 'memory_pressure', 'network_quality',
-  'notification_center_check', 'power_settings', 'energy_saver_check', 'energy_settings', 'screen_resolution_scaling', 'spotlight_rebuild', 'spotlight_repair',
+  'notification_center_check', 'screen_resolution_scaling', 'spotlight_rebuild', 'spotlight_repair',
   'spotlight_status', 'swap_memory_check', 'swap_usage', 'thermal_throttle_check', 'thermal_throttle', 'user_profile_size',
   'bluetooth_audit', 'disk_encryption_recovery', 'evidence_bundle', 'login_window_settings',
   'mdm_enrollment_check', 'mdm_enrollment', 'sip_gatekeeper', 'siri_privacy', 'ssh_key_audit', 'sudo_config_audit', 'sudo_touchid',
@@ -147,12 +150,6 @@ export const WIN_ODD_JOBS = Object.freeze([
 // whole one. A game that already claims the same keeps it (no double claim).
 export const MOVES = Object.freeze([
   { module: 'browser_cryptojacking_check', checks: ['mining_hosts_entry'], to: 'switchboard' },
-  // Sleep, screen-off and Power Nap are settings, not clutter. Lock Run is
-  // their place once games/locks.js has a lock for them (today it would draw
-  // them as "Automatic updates"); until then, Odd Jobs (listed in ODD_JOBS).
-  { module: 'energy_saver_check', to: 'simple' },
-  { module: 'energy_settings', to: 'simple' },
-  { module: 'power_settings', to: 'simple' },
 ]);
 
 // To-dos that are shown as notes (Good to know / Signal or Noise): the list
@@ -207,7 +204,9 @@ export function doubleClaims(table) {
 export function claimedType(finding, table = DEFAULT_TABLE) {
   const module = finding && finding.module;
   const code = finding && typeof finding.code === 'string' ? finding.code : '';
-  const check = finding && finding.data && typeof finding.data.check === 'string' ? finding.data.check : '';
+  // `checks` match data.check, or data.type for a module that names its findings that way (win_power_plan_check).
+  const data = finding && finding.data && typeof finding.data === 'object' ? finding.data : {};
+  const check = typeof data.check === 'string' && data.check ? data.check : typeof data.type === 'string' ? data.type : '';
   let wholeType = null;
   let best = null;
   let byCheck = null;

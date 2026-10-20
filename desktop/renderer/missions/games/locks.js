@@ -258,7 +258,39 @@ const LOCKS = {
     mac: { where: 'System Settings > your name. Sign in, then turn on iCloud Keychain under iCloud > Passwords.', pane: 'apple-id' },
     win: { where: '', pane: null, how: [] },
   },
+  'screen-off': {
+    name: { standard: 'Screen turns off', city: 'Night shutters' },
+    state: { standard: 'Needs a look', city: 'Loose' },
+    protects: 'Turns the screen off when no one is using it, so the screen lock can ask for your password.',
+    concept: 'lock-screen',
+    on: { standard: 'Change it', city: 'Set the shutters' },
+    mac: { where: 'System Settings > Lock Screen. Choose when “Turn display off when inactive” happens: not Never, and not so soon it gets in your way.', pane: 'lock-screen' },
+    win: { where: 'Settings > System > Power & battery > Screen and sleep. Set “Turn off my screen after” to a setting other than Never.', pane: 'windows-power' },
+  },
+  sleep: {
+    name: { standard: 'Sleep and wake', city: 'Night watch' },
+    state: { standard: 'Needs a look', city: 'Loose' },
+    protects: 'Lets the computer sleep when no one is using it, and wake only when you want it to.',
+    concept: 'lock-screen',
+    on: { standard: 'Change it', city: 'Set the watch' },
+    mac: { where: 'System Settings > Battery > Options (on a desktop Mac: Energy).', pane: 'battery' },
+    win: { where: 'Settings > System > Power & battery > Screen and sleep. Set “When plugged in, put my device to sleep after” to a setting other than Never.', pane: 'windows-power' },
+  },
 };
+
+// The Mac's sleep and wake switches, by the engine's data.setting (pmset names). Each says which switch on the
+// page; Proximity Wake has no switch in System Settings, so it shows steps instead of a page.
+const SLEEP_SETTINGS = {
+  sleep: { line: 'Under Options, turn off “Prevent automatic sleeping when the display is off”.' },
+  disablesleep: { line: 'Under Options, turn off “Prevent automatic sleeping when the display is off”.' },
+  powernap: { line: 'Under Options, set Power Nap to Only on Power Adapter, or turn it off.' },
+  wakeonlan: { line: 'Under Options, set “Wake for network access” to Only on Power Adapter, or Never.' },
+  womp: { line: 'Under Options, set “Wake for network access” to Only on Power Adapter, or Never.' },
+  disksleep: { line: 'Under Options, turn on “Put hard disks to sleep when possible”.' },
+  proximitywake: { where: 'There is no switch for Proximity Wake in System Settings. If your Mac waking near your iPhone doesn’t bother you, you can leave it.', pane: null,
+    how: ['If it doesn’t bother you, choose Not now.', 'If it does, a technical helper can turn Proximity Wake off from Terminal.'] },
+};
+const sleepLock = (d) => (d.setting === 'displaysleep' || d.check === 'display_sleep_disabled' ? 'screen-off' : 'sleep');
 
 // Module (and data.check or code) -> lock id.
 const BY_CHECK = {
@@ -278,6 +310,12 @@ const BY_CHECK = {
   win_local_admin_audit: (c) => ({ guest_enabled: 'guest', builtin_admin_enabled: 'admins', excessive_admins: 'admins', admin_accounts: 'admins' }[c] || 'password'),
   firewall_audit: (c, code) => (/stealth_mode/.test(code) || /^stealth_mode/.test(c) ? 'stealth' : 'firewall'),
   firewall_rules_audit: (c, code) => (/\.stealth_/.test(code) || /^stealth_/.test(c) ? 'stealth' : 'firewall'),
+  energy_saver_check: (c, code, d) => sleepLock(d),
+  energy_settings: (c, code, d) => sleepLock(d),
+  power_settings: (c, code, d) => sleepLock(d),
+  clamshell_mode: (c, code, d) => sleepLock(d),
+  // Only the sleep timeout is a lock; the power plan's speed items are the Junkyard's.
+  win_power_plan_check: (c, code, d) => (d.type === 'sleep_timeout' ? 'sleep' : null),
 };
 const BY_MODULE = {
   automatic_updates: 'updates', win_updates: 'updates', win_windows_update_status: 'updates', win_update_history: 'updates',
@@ -301,7 +339,7 @@ export function lockOf(finding) {
   const check = String(dataOf(f).check || '');
   const code = String(f.code || '');
   const byCheck = BY_CHECK[f.module];
-  const id = byCheck ? byCheck(check, code) : BY_MODULE[f.module];
+  const id = byCheck ? byCheck(check, code, dataOf(f)) : BY_MODULE[f.module];
   return LOCKS[id] ? id : null;
 }
 
@@ -322,7 +360,10 @@ function lockFor(item, ctx) {
   const id = lockOf(item && item.finding) || 'updates';
   const lock = LOCKS[id];
   const side = lock[platformOf(item, ctx)];
-  const place = side && (side.where || side.pane || (side.how && side.how.length)) ? side : lock.mac;
+  let place = side && (side.where || side.pane || (side.how && side.how.length)) ? side : lock.mac;
+  // A Mac sleep lock names its own switch on the page.
+  const extra = id === 'sleep' && place === lock.mac ? SLEEP_SETTINGS[String(dataOf(item && item.finding).setting || '')] : null;
+  if (extra) place = 'pane' in extra ? { ...place, ...extra } : { ...place, where: `${place.where} ${extra.line}` };
   return { id, lock, place };
 }
 
@@ -420,22 +461,22 @@ export function render(view, ctx) {
   const state = unknown ? 'unknown' : 'open';
   const pos = `${Number(v.index) + 1 || 1} of ${Number(v.total) || 1}`;
   const steps = (r.steps || []).map((s) => `<li>${e(s)}</li>`).join('');
-  const step = v.step && v.step.say ? `<p class="lk-coach">${e(v.step.say[mode] || v.step.say.standard || '')}</p>` : '';
+  const step = v.step && v.step.say ? `<p class="lr-coach">${e(v.step.say[mode] || v.step.say.standard || '')}</p>` : '';
   return `<section class="lk lk--${state}${v.practice ? ' lk--practice' : ''}" data-lock="${e(r.lock || '')}">
   ${row(v)}
   ${step}
   <div class="lk-card">
-    <div class="lk-head">${lockIcon(state)}<div>
+    <div class="lr-head">${lockIcon(state)}<div>
       <p class="lk-kicker">${e(mode === 'city' ? `Lock ${pos}` : `Setting ${pos}`)}${v.practice ? ` · ${e(mode === 'city' ? 'Drill' : 'Practice')}` : ''}</p>
       <h3 class="lk-name">${e(lock.name[mode])}</h3>
     </div><span class="lk-state lk-state--${state}">${e(state === 'open' && lock.state ? lock.state[mode] : STATE[state][mode])}</span></div>
-    <p class="lk-title">${e(f.title || '')}</p>
+    <p class="lr-title">${e(f.title || '')}</p>
     <dl class="lk-facts">
       <div><dt>${e(mode === 'city' ? 'Guards' : 'Protects')}</dt><dd>${e(r.what || lock.protects)}</dd></div>
       ${r.where ? `<div><dt>${e(mode === 'city' ? 'Switch' : 'Where')}</dt><dd>${e(r.where)}</dd></div>` : ''}
     </dl>
-    ${r.notChecked ? `<p class="lk-note lk-note--fog">${e(r.notChecked)}</p>` : ''}
-    ${r.neverPaste ? `<p class="lk-note lk-note--key"><strong>${e('Your recovery key stays with you.')}</strong> ${e(r.neverPaste)}</p>` : ''}
+    ${r.notChecked ? `<p class="lr-note lr-note--fog">${e(r.notChecked)}</p>` : ''}
+    ${r.neverPaste ? `<p class="lr-note lr-note--key"><strong>${e('Your recovery key stays with you.')}</strong> ${e(r.neverPaste)}</p>` : ''}
     ${steps ? `<ol class="lk-steps">${steps}</ol>` : ''}
   </div>
 </section>`;
@@ -500,6 +541,28 @@ const practice = {
   ],
 };
 
+// The same round for Windows players, in Windows words (contract R11): Windows Update paused, BitLocker off, a
+// computer that never sleeps. The same four steps, so the profile measures them alike.
+const practiceWin = {
+  items: [
+    practiceItem('win_windows_update_status', null, 'Windows Update is paused', { check: 'updates_paused' }),
+    practiceItem('win_bitlocker', 'security.win_bitlocker.os_drive_not_encrypted', 'Your computer’s main drive, C:, is not protected by BitLocker', { mount_point: 'C:', status: 'FullyDecrypted', is_os_drive: true }, 'critical'),
+    practiceItem('win_power_plan_check', null, 'Your computer never goes to sleep', { type: 'sleep_timeout', seconds: 0 }),
+  ],
+  script: [
+    { item: 0, say: { standard: 'Each lock says what it protects and where its switch is in Windows Settings.', city: 'Each lock says what it guards and where its lever is.' } },
+    { item: 0, expect: 'on',
+      say: { standard: 'Windows Update is paused. Read what this protects and where the switch is. What would you do?', city: 'Patches are on hold. Read what this guards and where the lever is. What would you do?' },
+      why: { standard: '“Where” is the exact page. Turn it on opens Settings > Windows Update, and you resume updates there.', city: '“Switch” is where the lever is. Lock it opens that panel, and you resume the patches there.' } },
+    { item: 1, expect: 'on',
+      say: { standard: 'BitLocker is off for the main drive. What would you do?', city: 'The vault is unlocked. What would you do?' },
+      why: { standard: 'Turn it on opens Device encryption. Windows gives you a recovery key when you turn it on: save it somewhere other than this computer. Never paste it anywhere.', city: 'Lock it opens the vault panel. The vault hands you a spare key: keep it somewhere other than this computer. Never paste it anywhere.' } },
+    { item: 2, expect: ['done', 'on'],
+      say: { standard: 'In this practice, you already set your computer to sleep and turn its screen off, under Settings > System > Power. What would you do?', city: 'In this drill, you already set the night watch yourself, under Settings > System > Power. What would you do?' },
+      why: { standard: 'Done checks again, and the lock counts once the check sees it. When the computer wakes, Windows asks you to sign in again: that is under Settings > Accounts > Sign-in options, with Windows Hello (face, fingerprint or PIN).', city: 'Check the lock sends the scout again, and it counts once the scout sees it set. On waking, the gate asks for your sign-in: Settings > Accounts > Sign-in options, with Windows Hello (face, fingerprint or PIN).' } },
+  ],
+};
+
 export const covers = [
   { module: 'automatic_updates' }, { module: 'update_checker' }, { module: 'appleid_security_check' },
   { module: 'macos_version_support' }, { module: 'macos_eol_check' },
@@ -515,6 +578,8 @@ export const covers = [
   { module: 'find_my_mac_check' }, { module: 'guest_account_check' }, { module: 'firmware_password' },
   { module: 'antivirus_status' }, { module: 'backup_status' }, { module: 'time_machine_check' },
   { module: 'session_revocation_scan' },
+  // Sleep, screen-off, Power Nap and wake (settings, not clutter).
+  { module: 'energy_saver_check' }, { module: 'energy_settings' }, { module: 'power_settings' }, { module: 'clamshell_mode' },
   // Windows equivalents
   { module: 'win_updates' }, { module: 'win_windows_update_status' }, { module: 'win_update_history' },
   { module: 'win_bitlocker' }, { module: 'win_bitlocker_check' },
@@ -526,6 +591,8 @@ export const covers = [
   { module: 'win_malware_indicators', codes: ['security.win_malware_indicators.safe_mode_disabled'] },
   // AutoRun/AutoPlay is a switch; admin accounts and saved sign-ins are locks (the Mac's guest and password ones are here too).
   { module: 'win_autorun' }, { module: 'win_local_admin_audit' }, { module: 'win_credential_manager_audit' },
+  // The sleep timeout (data.type) inside the power-plan check the Junkyard owns.
+  { module: 'win_power_plan_check', checks: ['sleep_timeout'] },
 ];
 
 export const LOCK_IDS = Object.keys(LOCKS);
@@ -538,6 +605,7 @@ export default {
   decisions,
   research,
   practice,
+  practiceByPlatform: { win32: practiceWin },
   render,
   summary,
 };

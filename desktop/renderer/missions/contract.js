@@ -37,11 +37,15 @@
 //      opens only after the person has read it), as every `fix` confirm does.
 //   R8 An info finding from a Lock Run module that says it couldn't check (code ending _unknown, _failed,
 //      _unavailable, _permission_denied) is a Lock Run item, never a mere note.
-//   R9 covers may narrow by `checks` (data.check values) for a module that emits no codes:
+//   R9 covers may narrow by `checks` (data.check values, or data.type when a finding has no data.check) for a module that emits no codes:
 //      { module, checks: ['unsigned_drivers'] }. Effects may carry `steps` (instructions when a page can't be
 //      linked); the runner shows them, escaped. A recheck effect is { kind: 'recheck', module?, modules? }.
 //      summary(results, ctx) receives [{ item, decision, effect, points? }] (decision: the Decision's id).
 //   R10 Any effect may carry `steps`; a link effect may carry its look-up intent in `effect.link`.
+//   R11 practiceByPlatform (optional): { win32: { items, script } }, a round in that platform's own words (Windows
+//      wording for Windows players). Same rules as practice, and the same number of steps (the profile measures a
+//      round's steps by index). practiceOf(game, platform) picks it; games/index.js gameFor hands the runner a game
+//      whose practice is the platform's round.
 //   covers: [{ module, codes?, checks? }]; the notes game's wildcard { module: '*', severities: ['info'] } means every
 //      note no other game claims; it is matched last and never counts as a double claim.
 
@@ -174,7 +178,35 @@ export function validateGame(game) {
   const pr = game.practice;
   if (!pr || !Array.isArray(pr.items) || pr.items.length < 2 || pr.items.length > 3) p.push('practice.items must hold 2–3 synthetic items');
   if (!pr || !Array.isArray(pr.script) || pr.script.length < 1) p.push('practice.script must have at least one step');
+  if ('practiceByPlatform' in game) p.push(...checkPlatformPractice(game));
   if ('covers' in game) p.push(...checkCovers(game));
+  return p;
+}
+
+export const PRACTICE_PLATFORMS = ['win32'];
+
+// The practice round for a platform: the game's own round for it (R11), else its default round.
+export function practiceOf(game, platform) {
+  const by = game && game.practiceByPlatform;
+  const own = by && typeof by === 'object' && PRACTICE_PLATFORMS.includes(platform) ? by[platform] : null;
+  return own && Array.isArray(own.items) && Array.isArray(own.script) ? own : game && game.practice;
+}
+
+function checkPlatformPractice(game) {
+  const by = game.practiceByPlatform;
+  if (!by || typeof by !== 'object' || Array.isArray(by)) return ['practiceByPlatform must be { win32: { items, script } }'];
+  const p = [];
+  for (const [platform, pr] of Object.entries(by)) {
+    if (!PRACTICE_PLATFORMS.includes(platform)) { p.push(`practiceByPlatform: unknown platform ${platform}`); continue; }
+    if (!pr || !Array.isArray(pr.items) || pr.items.length < 2 || pr.items.length > 3) p.push(`practiceByPlatform.${platform}.items must hold 2–3 synthetic items`);
+    if (!pr || !Array.isArray(pr.script) || pr.script.length < 1) { p.push(`practiceByPlatform.${platform}.script must have at least one step`); continue; }
+    if (game.practice && Array.isArray(game.practice.script) && pr.script.length !== game.practice.script.length) {
+      p.push(`practiceByPlatform.${platform}.script must have the same number of steps as practice.script`);
+    }
+    pr.script.forEach((st, i) => {
+      if (!st || !Number.isInteger(st.item) || !pr.items || !pr.items[st.item]) p.push(`practiceByPlatform.${platform}.script ${i}: item must point at one of its items`);
+    });
+  }
   return p;
 }
 
@@ -305,7 +337,8 @@ export function makeItem(finding, extra = {}) {
 // Run every contract check for a game against some items; returns problems with context.
 export function runContractChecks(game, items) {
   const out = validateGame(game).map((x) => `shape: ${x}`);
-  const all = [...(items || []), ...((game.practice && game.practice.items) || [])];
+  const byPlatform = game && game.practiceByPlatform && typeof game.practiceByPlatform === 'object' ? Object.values(game.practiceByPlatform) : [];
+  const all = [...(items || []), ...((game.practice && game.practice.items) || []), ...byPlatform.flatMap((pr) => (pr && Array.isArray(pr.items) ? pr.items : []))];
   for (const mode of ['standard', 'city']) {
     for (const item of all) {
       const ctx = testContext({ mode });

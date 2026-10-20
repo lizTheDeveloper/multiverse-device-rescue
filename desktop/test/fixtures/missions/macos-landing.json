@@ -145,7 +145,7 @@
   "security.clamav_scanner.freshclam_not_installed": "locks"
  },
  "clamshell_mode": {
-  "(no code)": "simple"
+  "(no code)": "locks"
  },
  "code_signature_audit": {
   "security.code_signature_audit.gatekeeper_rejected": "seal",
@@ -234,10 +234,10 @@
   "security.encryption_check.filevault_disabled": "locks"
  },
  "energy_saver_check": {
-  "(no code)": "simple"
+  "(no code)": "locks"
  },
  "energy_settings": {
-  "(no code)": "simple"
+  "(no code)": "locks"
  },
  "ethernet_diagnostics": {
   "network.ethernet_diagnostics.high_packet_errors": "simple",
@@ -476,7 +476,7 @@
   "(no code)": "simple"
  },
  "power_settings": {
-  "(no code)": "simple"
+  "(no code)": "locks"
  },
  "pram_nvram_check": {
   "(no code)": "simple"

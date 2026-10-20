@@ -18,6 +18,11 @@
     { "module": "macos_eol_check", "code": null, "severity": "warning", "title": "Your macOS Example no longer gets security updates", "data": { "version": "99.0", "build": "00A000", "model": "Mac0,0", "status": "unsupported" } },
     { "module": "backup_status", "code": null, "severity": "critical", "title": "Your Mac is not making automatic backups", "data": { "check": "timemachine_disabled" } },
     { "module": "session_revocation_scan", "code": "security.session_revocation_scan.ssh_authorized_keys", "severity": "warning", "removal_alert": true, "title": "2 saved key(s) could let another computer log in to this one", "data": { "check": "ssh_authorized_keys", "file": "~/.ssh/authorized_keys", "key_count": 2 } },
-    { "module": "appleid_security_check", "code": "security.appleid_security_check.icloud_keychain", "severity": "warning", "title": "iCloud Keychain is disabled", "data": { "check": "icloud_keychain" } }
+    { "module": "appleid_security_check", "code": "security.appleid_security_check.icloud_keychain", "severity": "warning", "title": "iCloud Keychain is disabled", "data": { "check": "icloud_keychain" } },
+    { "module": "energy_saver_check", "code": null, "severity": "warning", "category": "performance", "title": "Your screen never turns off", "data": {"check": "display_sleep_disabled", "setting": "displaysleep", "value": 0} },
+    { "module": "power_settings", "code": null, "severity": "warning", "category": "performance", "title": "Your Mac is set to never sleep", "data": {"setting": "sleep", "value": 0, "issue": "never_sleeps"} },
+    { "module": "energy_settings", "code": null, "severity": "warning", "category": "performance", "title": "Power Nap is on", "data": {"setting": "powernap", "value": 1, "issue": "battery_drain"} },
+    { "module": "energy_saver_check", "code": null, "severity": "warning", "category": "performance", "title": "Wake for network access is on while on battery", "data": {"check": "wake_on_lan_battery", "setting": "wakeonlan", "value": 1} },
+    { "module": "clamshell_mode", "code": null, "severity": "warning", "category": "performance", "title": "Your Mac wakes up when your iPhone is nearby", "data": {"setting": "proximitywake", "value": 1, "issue": "unexpected_wakes"} }
   ]
 }

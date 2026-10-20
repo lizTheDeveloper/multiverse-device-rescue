@@ -76,7 +76,7 @@ export function createMissionDesk(deps) {
   }
 
   const mission = (id) => d.missions.find((m) => m.id === id) || null;
-  const gameOf = (type) => gameFor(d.reg, type);
+  const gameOf = (type) => gameFor(d.reg, type, deps.platform());
 
   function ctxFor(m, extra = {}) {
     const md = mode();

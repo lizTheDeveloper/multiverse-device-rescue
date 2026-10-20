@@ -21,8 +21,7 @@ const KIND_BY_MODULE = {
   // Crashes and error logs.
   crash_log_analyzer: 'crash', app_crash_analyzer: 'crash', application_crash_report: 'crash',
   system_log_errors: 'crash', win_event_errors: 'crash', win_bsod_analysis: 'crash',
-  // Energy and performance settings.
-  energy_saver_check: 'setting', energy_settings: 'setting', power_settings: 'setting',
+  // Performance settings (sleep, screen-off, Power Nap and wake are Lock Run's).
   win_power_plan: 'setting', win_power_plan_check: 'setting', win_pagefile: 'setting',
   win_pagefile_check: 'setting', win_visual_effects: 'setting',
   // Programs using a lot, and pre-installed extras.
@@ -273,7 +272,7 @@ function crashLookup(item) {
 
 function settingSteps(item, ctx) {
   const f = findingOf(item); const d = dataOf(f);
-  const t = subtype(d); const setting = str(d.setting);
+  const t = subtype(d);
   if (f.module === 'win_power_plan' || f.module === 'win_power_plan_check') {
     if (t === 'disk_timeout_short' || t === 'disk_timeout') return { steps: ['Open the Start menu, type Edit power plan and open it.', 'Choose Change advanced power settings.', 'Under Hard disk, set Turn off hard disk after to a longer time.'] };
     return { steps: ['Open the Start menu, type Choose a power plan and open it.', 'Pick Balanced. It speeds up when you need it and saves power when you do not.'] };
@@ -285,16 +284,7 @@ function settingSteps(item, ctx) {
     if (t === 'transparency_low_ram') return { steps: ['Open Settings > Personalization > Colors.', 'Turn off Transparency effects.'] };
     return { steps: ['Open the Start menu, type Adjust the appearance and performance of Windows.', 'Choose Adjust for best performance, or untick the effects you do not need, then OK.'] };
   }
-  if (setting === 'displaysleep') return { pane: 'lock-screen', steps: ['Open Lock Screen settings (button above).', 'Set Turn display off when inactive to a shorter setting than Never.'] };
-  const line = {
-    sleep: 'Under Options, turn off Prevent automatic sleeping, so your Mac can sleep.',
-    disablesleep: 'Under Options, turn off Prevent automatic sleeping, so your Mac can sleep.',
-    powernap: 'Under Options, set Power Nap to Only on Power Adapter, or turn it off.',
-    wakeonlan: 'Under Options, set Wake for network access to Only on Power Adapter, or Never.',
-    womp: 'Under Options, set Wake for network access to Only on Power Adapter, or Never.',
-    disksleep: 'Under Options, turn on Put hard disks to sleep when possible.',
-  }[setting] || 'Look for the setting named on the card, under Options.';
-  return { pane: ctx && platformOf(item, ctx) === 'win32' ? undefined : 'battery', steps: ['Open Battery settings (button above). On a desktop Mac it is called Energy.', line] };
+  return { steps: ['Look for the setting named on the card.'] };
 }
 
 const isBloat = (item) => ['process_scanner', 'win_bloatware'].includes(findingOf(item).module);

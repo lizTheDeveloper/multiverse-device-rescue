@@ -5,10 +5,10 @@
 //
 //   loadGames({ importer }) -> Promise<{ games: {[type]: game}, modules: {[type]: module namespace}, own: Set<type>, problems: [string] }>
 //       `modules` keeps each game file's other exports (the notes game's batchNotes).
-//   gameFor(registry, type) -> game (simple when none)
+//   gameFor(registry, type, platform?) -> game (simple when none; with the platform's own practice round, R11)
 //   ownGames(registry) -> the games that loaded for their own type (their `covers` feed types.buildTable)
 import simple from './simple.js';
-import { TYPE_IDS, validateGame, noDoubleClaims } from '../contract.js';
+import { TYPE_IDS, validateGame, noDoubleClaims, practiceOf } from '../contract.js';
 
 const here = (type) => new URL(`./${type}.js`, import.meta.url).href;
 
@@ -40,8 +40,17 @@ export async function loadGames({ importer = (spec) => import(spec) } = {}) {
   return { games, modules, own, problems };
 }
 
-export function gameFor(registry, type) {
-  return (registry && registry.games && registry.games[type]) || simple;
+// `platform`: a game with its own practice round for that platform (contract R11) comes with that round as its
+// `practice`, the same object each time; otherwise the game itself.
+const byPlatform = new WeakMap();
+export function gameFor(registry, type, platform) {
+  const game = (registry && registry.games && registry.games[type]) || simple;
+  const practice = practiceOf(game, platform);
+  if (practice === game.practice) return game;
+  if (!byPlatform.has(game)) byPlatform.set(game, {});
+  const cache = byPlatform.get(game);
+  if (!cache[platform] || cache[platform].practice !== practice) cache[platform] = { ...game, practice };
+  return cache[platform];
 }
 
 export function ownGames(registry) {

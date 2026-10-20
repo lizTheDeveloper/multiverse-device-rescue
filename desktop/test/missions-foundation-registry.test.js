@@ -83,3 +83,16 @@ test('every registered game passes the contract, and no two games claim the same
   assert.deepStrictEqual(reg.problems, []);
   assert.deepStrictEqual(T.doubleClaims(T.buildTable(I.ownGames(reg))), []);
 });
+
+test('gameFor hands the Windows practice round on Windows, the default round elsewhere', async () => {
+  const I = await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', 'games', 'index.js')).href);
+  const reg = await I.loadGames();
+  const locks = I.gameFor(reg, 'locks');
+  assert.ok(locks.practiceByPlatform && locks.practiceByPlatform.win32, 'Lock Run has a Windows round');
+  const onWin = I.gameFor(reg, 'locks', 'win32');
+  assert.strictEqual(onWin.practice, locks.practiceByPlatform.win32);
+  assert.strictEqual(onWin.decisions, locks.decisions);
+  assert.strictEqual(I.gameFor(reg, 'locks', 'win32'), onWin, 'the same object each time');
+  assert.strictEqual(I.gameFor(reg, 'locks', 'darwin'), locks);
+  assert.strictEqual(I.gameFor(reg, 'simple', 'win32'), I.gameFor(reg, 'simple'), 'no Windows round: the game itself');
+});
