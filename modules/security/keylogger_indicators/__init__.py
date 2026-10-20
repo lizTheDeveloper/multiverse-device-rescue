@@ -39,6 +39,18 @@ FAMILIAR_SIGNERS = (
     ("com.valvesoftware.", frozenset({"MXGJJ98X76"})),
 )
 
+# Familiar apps that start other programs: a terminal, a script runner, a code
+# editor with a built-in terminal. macOS lets what they start use their
+# keyboard access, so a confirmed maker doesn't vouch for what runs inside.
+RUNS_OTHER_PROGRAMS = frozenset({
+    "com.apple.Terminal",
+    "com.apple.ScriptEditor2",
+    "com.apple.Automator",
+    "com.apple.shortcuts",
+    "com.microsoft.VSCode",
+    "com.microsoft.VSCodeInsiders",
+})
+
 # Reading a grant's code requirement: one small csreq call per row, bounded.
 CSREQ_TIMEOUT = 3.0
 CSREQ_BUDGET_SECONDS = 15.0
@@ -212,6 +224,7 @@ class Module(ModuleBase):
                     "team_id": signer,
                     "maker": maker_for_signer(signer),
                     "verified_by": "macos_code_requirement",
+                    **({"runs_other_programs": True} if app in RUNS_OTHER_PROGRAMS else {}),
                 })
             elif status == "impostor":
                 impostors.append({"bundle_id": app, "team_id": signer, "maker": maker_for_signer(signer)})
@@ -222,6 +235,12 @@ class Module(ModuleBase):
         if verified:
             verified.sort(key=lambda v: v["bundle_id"])
             named = ", ".join(f"{v['bundle_id']} ({v['maker']})" for v in verified)
+            hosts = [v["bundle_id"] for v in verified if v.get("runs_other_programs")]
+            shared = (
+                f" Programs started from {', '.join(hosts)} can use the same access, so "
+                "a script run there can read keys too."
+                if hosts else ""
+            )
             findings.append(
                 Finding(
                     title=(
@@ -231,8 +250,9 @@ class Module(ModuleBase):
                     description=(
                         f"These app(s) have Input Monitoring access: {named}. macOS's own "
                         "permission record says only code signed by the company named can "
-                        "use this access. If you don't remember installing one, turn its "
-                        "access off in System Settings > Privacy & Security > Input Monitoring."
+                        "use this access." + shared + " If you don't remember installing "
+                        "one, turn its access off in System Settings > Privacy & Security > "
+                        "Input Monitoring."
                     ),
                     severity=Severity.INFO,
                     category=self.category,

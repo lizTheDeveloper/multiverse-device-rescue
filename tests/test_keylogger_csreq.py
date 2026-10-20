@@ -90,7 +90,8 @@ def test_familiar_apps_whose_requirement_pins_the_expected_team_are_verified():
     assert f.severity == Severity.INFO
     assert f.data["apps"] == [VSC, STEAM]
     assert f.data["verified_apps"] == [
-        {"bundle_id": VSC, "team_id": MS, "maker": "Microsoft Corporation", "verified_by": "macos_code_requirement"},
+        {"bundle_id": VSC, "team_id": MS, "maker": "Microsoft Corporation", "verified_by": "macos_code_requirement",
+         "runs_other_programs": True},
         {"bundle_id": STEAM, "team_id": VALVE, "maker": "Valve Corporation (Steam)", "verified_by": "macos_code_requirement"},
     ]
     assert "confirmed by macOS" in f.title
@@ -295,3 +296,17 @@ def test_requirement_makers_and_apple_anchor_agree_with_attribution():
     assert attribution.describe(made).startswith("Visual Studio Code")
     # A Team ID is not enough for a description: the identifier must match too.
     assert attribution.describe(requirement_made_by("com.microsoft.Other", MS)) == ""
+
+
+def test_verified_apps_that_start_other_programs_say_those_programs_share_the_access():
+    # A terminal or code editor's grant covers whatever it runs (a script typed
+    # into it can read keys too), so confirming the maker isn't the whole story.
+    _, result = _check([(VSC, 0, "a"), ("com.apple.Terminal", 0, "b"), (STEAM, 0, "c")],
+                       {"a": _devid(VSC, MS), "b": 'identifier "com.apple.Terminal" and anchor apple',
+                        "c": _devid(STEAM, VALVE)})
+    (f,) = _by_check(result, "claimed_vendor_input_monitoring")
+    hosts = {v["bundle_id"]: v.get("runs_other_programs", False) for v in f.data["verified_apps"]}
+    assert hosts == {VSC: True, "com.apple.Terminal": True, STEAM: False}
+    assert "Programs started from" in f.description
+    assert "com.apple.Terminal" in f.description.split("Programs started from")[1]
+    assert STEAM not in f.description.split("Programs started from")[1]
