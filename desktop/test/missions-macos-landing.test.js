@@ -139,6 +139,6 @@ test('the moved items play in their new games: contract checks, the right lock a
   assert.ok(win.effect.checklist.some((s) => /Secure Boot/.test(s)));
   for (const it of moved.locks) {
     const html = L.render({ item: it, research: L.research(it, C.testContext({ mode: 'city' })), index: 0, total: 1 }, C.testContext({ mode: 'city' }));
-    assert.deepStrictEqual(C.checkCityWords(html.replace(/<p class="lk-title">[^<]*<\/p>/, '')), []);
+    assert.deepStrictEqual(C.checkCityWords(html.replace(/<p class="lr-title">[^<]*<\/p>/, '')), []);
   }
 });

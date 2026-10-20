@@ -420,22 +420,22 @@ export function render(view, ctx) {
   const state = unknown ? 'unknown' : 'open';
   const pos = `${Number(v.index) + 1 || 1} of ${Number(v.total) || 1}`;
   const steps = (r.steps || []).map((s) => `<li>${e(s)}</li>`).join('');
-  const step = v.step && v.step.say ? `<p class="lk-coach">${e(v.step.say[mode] || v.step.say.standard || '')}</p>` : '';
+  const step = v.step && v.step.say ? `<p class="lr-coach">${e(v.step.say[mode] || v.step.say.standard || '')}</p>` : '';
   return `<section class="lk lk--${state}${v.practice ? ' lk--practice' : ''}" data-lock="${e(r.lock || '')}">
   ${row(v)}
   ${step}
   <div class="lk-card">
-    <div class="lk-head">${lockIcon(state)}<div>
+    <div class="lr-head">${lockIcon(state)}<div>
       <p class="lk-kicker">${e(mode === 'city' ? `Lock ${pos}` : `Setting ${pos}`)}${v.practice ? ` · ${e(mode === 'city' ? 'Drill' : 'Practice')}` : ''}</p>
       <h3 class="lk-name">${e(lock.name[mode])}</h3>
     </div><span class="lk-state lk-state--${state}">${e(state === 'open' && lock.state ? lock.state[mode] : STATE[state][mode])}</span></div>
-    <p class="lk-title">${e(f.title || '')}</p>
+    <p class="lr-title">${e(f.title || '')}</p>
     <dl class="lk-facts">
       <div><dt>${e(mode === 'city' ? 'Guards' : 'Protects')}</dt><dd>${e(r.what || lock.protects)}</dd></div>
       ${r.where ? `<div><dt>${e(mode === 'city' ? 'Switch' : 'Where')}</dt><dd>${e(r.where)}</dd></div>` : ''}
     </dl>
-    ${r.notChecked ? `<p class="lk-note lk-note--fog">${e(r.notChecked)}</p>` : ''}
-    ${r.neverPaste ? `<p class="lk-note lk-note--key"><strong>${e('Your recovery key stays with you.')}</strong> ${e(r.neverPaste)}</p>` : ''}
+    ${r.notChecked ? `<p class="lr-note lr-note--fog">${e(r.notChecked)}</p>` : ''}
+    ${r.neverPaste ? `<p class="lr-note lr-note--key"><strong>${e('Your recovery key stays with you.')}</strong> ${e(r.neverPaste)}</p>` : ''}
     ${steps ? `<ol class="lk-steps">${steps}</ol>` : ''}
   </div>
 </section>`;

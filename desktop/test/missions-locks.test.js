@@ -231,7 +231,7 @@ test('practice: updates off, FileVault off, screen lock never — synthetic, wit
   // The coach line shows when the runner passes a step.
   const ctx = C.testContext();
   const html = game.render({ item: game.practice.items[0], research: game.research(game.practice.items[0], ctx), decisions: [], index: 0, total: 3, practice: true, step: game.practice.script[0] }, ctx);
-  assert.match(html, /lk-coach/);
+  assert.match(html, /lr-coach/);
   assert.match(textOf(html), /Practice/);
   assert.doesNotMatch(JSON.stringify(game.practice.items), /\/Users\/|\\Users\\/);
 });
@@ -334,4 +334,11 @@ test('summary: says how a lock pays when nothing has paid yet; no such line once
     assert.doesNotMatch(game.summary([], ctx), /No points yet/);
     if (mode === 'city') assert.deepStrictEqual(C.checkCityWords(none), []);
   }
+});
+
+test('Lock Run’s classes are its own: no class name shared with the Evidence Locker’s stylesheet', () => {
+  const classes = (file) => new Set(fs.readFileSync(path.join(MISSIONS, 'games', file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').match(/\.[a-z][a-z0-9_-]*/gi) || []);
+  const locks = classes('locks.css');
+  const shared = [...classes('locker.css')].filter((c) => locks.has(c));
+  assert.deepStrictEqual(shared, []);
 });

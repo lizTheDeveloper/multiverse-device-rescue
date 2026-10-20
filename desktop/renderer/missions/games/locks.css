@@ -10,29 +10,29 @@
 .lk-pip--here { color: var(--amber); border-color: var(--amber); box-shadow: 0 0 0 1px rgba(255,159,0,0.35), 0 0 14px rgba(255,159,0,0.25); }
 
 /* Coach line during practice. */
-.lk-coach { margin: 0; padding: 10px 14px; border-left: 3px solid var(--lime); background: rgba(198,255,0,0.07); color: var(--offwhite); }
+.lr-coach { margin: 0; padding: 10px 14px; border-left: 3px solid var(--lime); background: rgba(198,255,0,0.07); color: var(--offwhite); }
 
 /* The lock. */
 .lk-card { border: 1px solid rgba(0,229,255,0.28); background: var(--panel); padding: 18px; display: grid; gap: 12px; }
-.lk-head { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
-.lk-head > .lk-icon { width: 40px; height: 40px; color: var(--amber); }
-.lk--unknown .lk-head > .lk-icon { color: var(--dim); }
+.lr-head { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+.lr-head > .lk-icon { width: 40px; height: 40px; color: var(--amber); }
+.lk--unknown .lr-head > .lk-icon { color: var(--dim); }
 .lk-kicker { margin: 0; font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75); }
 .lk-name { margin: 2px 0 0; font-family: var(--font-display); font-size: 18px; letter-spacing: 1px; color: #fff; overflow-wrap: anywhere; }
 .lk-state { font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 6px 10px; border: 1px solid currentColor; white-space: nowrap; }
 .lk-state--open { color: var(--amber); }
 .lk-state--unknown { color: var(--dim); border-style: dashed; }
-.lk-title { margin: 0; color: var(--offwhite); overflow-wrap: anywhere; }
+.lr-title { margin: 0; color: var(--offwhite); overflow-wrap: anywhere; }
 
 .lk-facts { display: grid; gap: 8px; margin: 0; }
 .lk-facts > div { display: grid; grid-template-columns: 92px 1fr; gap: 12px; }
 .lk-facts dt { font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,229,255,0.75); padding-top: 3px; }
 .lk-facts dd { margin: 0; overflow-wrap: anywhere; }
 
-.lk-note { margin: 0; padding: 10px 14px; border-left: 3px solid var(--cyan); background: rgba(0,229,255,0.06); }
-.lk-note--fog { border-left-color: var(--dim); background: rgba(237,239,243,0.05); }
-.lk-note--key { border-left-color: var(--magenta); background: rgba(255,45,155,0.07); }
-.lk-note--key strong { color: #fff; }
+.lr-note { margin: 0; padding: 10px 14px; border-left: 3px solid var(--cyan); background: rgba(0,229,255,0.06); }
+.lr-note--fog { border-left-color: var(--dim); background: rgba(237,239,243,0.05); }
+.lr-note--key { border-left-color: var(--magenta); background: rgba(255,45,155,0.07); }
+.lr-note--key strong { color: #fff; }
 
 .lk-steps { margin: 0; padding: 0 0 0 1.6em; list-style: decimal outside; }
 .lk-steps li { padding: 2px 0; }
@@ -42,7 +42,7 @@
 .lk-sum p { margin: 0; }
 
 @media (max-width: 560px) {
-  .lk-head { grid-template-columns: auto 1fr; }
+  .lr-head { grid-template-columns: auto 1fr; }
   .lk-state { grid-column: 1 / -1; justify-self: start; }
   .lk-facts > div { grid-template-columns: 1fr; gap: 2px; }
 }
