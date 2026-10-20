@@ -200,14 +200,19 @@ const Evidence = (function () {
     const subjects = new Set(entries.map((e) => e.subject));
     // An app is matched only by what the engine looked up: the name itself
     // for a string, the path for a {path, name} entry (never its own name).
-    return apps.every((a) => { const k = verifiedSubject(a); return k != null && subjects.has(k); });
+    return apps.every((a) => { const k = verifiedSubject(a, entries); return k != null && subjects.has(k); });
   }
 
   // What a maker can be verified for: a full path (the file attribution
   // checked). A bundle id never is: it is what the app says it is, and a TCC
   // row's id can belong to any program (rescue/serialize.py _app_subject).
+  // Except when the engine's entry for it came from macOS's own permission
+  // record (the code requirement macOS enforces for the grant).
   const isPath = (a) => typeof a === 'string' && (/^[/~]/.test(a) || /^[A-Za-z]:[\\/]/.test(a));
-  const verifiedSubject = (a) => (typeof a === 'string' ? (isPath(a) ? a : null) : appSubject(a));
+  const REQUIREMENT_HOW = 'macOS permission record (code requirement)';
+  const requirementEntry = (a, entries) => (entries || []).some((e) => e.subject === a && e.verified === true && e.how === REQUIREMENT_HOW);
+  const verifiedSubject = (a, entries) => (typeof a === 'string'
+    ? (isPath(a) || requirementEntry(a, entries) ? a : null) : appSubject(a));
 
   /** The subject an "apps" entry was looked up by: itself, or its path. */
   function appSubject(a) {
