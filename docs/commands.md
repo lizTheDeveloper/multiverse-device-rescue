@@ -1626,8 +1626,10 @@ kextstat
 ### `keylogger_indicators`
 
 ```text
+/usr/bin/csreq -r - -t
 log show --last 1h --predicate "eventMessage CONTAINS 'CGEventTap' AND processImagePath != '/usr/bin/log'" --style compact
 sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceListenEvent' AND auth_value=2"
+sqlite3 … "SELECT hex(client), client_type, hex(csreq) FROM access WHERE service='kTCCServiceListenEvent' AND auth_value=2"
 ```
 
 ### `launch_agent_audit`

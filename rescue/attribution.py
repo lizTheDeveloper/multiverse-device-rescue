@@ -243,6 +243,31 @@ def _team_name(team: str | None, fallback: str) -> str:
     return _name_table().get("team_ids", {}).get(team or "", fallback)
 
 
+# How a maker reads when macOS's own permission record proved it: the TCC
+# grant's code requirement pins this Team ID (or Apple's anchor) for the bundle
+# id, so only that signer's code can use the access (rescue/code_requirement.py).
+REQUIREMENT_HOW = "macOS permission record (code requirement)"
+
+
+def maker_for_signer(signer) -> str | None:
+    """The maker table's name for a pinned signer (a Team ID, or "apple"), else None."""
+    if signer == _APPLE_ANCHOR:
+        return "Apple"
+    if isinstance(signer, str) and _TEAM_ID_RE.match(signer):
+        name = _name_table().get("team_ids", {}).get(signer)
+        return name if isinstance(name, str) and name else None
+    return None
+
+
+def requirement_made_by(bundle_id, signer) -> MadeBy | None:
+    """A verified maker for ``bundle_id`` from a code requirement that pinned
+    ``signer``; None for an unknown signer or an odd identifier."""
+    maker = maker_for_signer(signer)
+    if not maker or not isinstance(bundle_id, str) or not _IDENTIFIER_RE.match(bundle_id):
+        return None
+    return MadeBy(maker, True, REQUIREMENT_HOW, team=signer, identifier=bundle_id)
+
+
 # --- what it is -------------------------------------------------------------------
 
 # program_descriptions.json team_id for Apple's own programs (parts of macOS and
@@ -307,6 +332,9 @@ def describe(made: MadeBy) -> str:
         # the pinned identifier in Apple's namespace is what was verified.
         team = _APPLE_ANCHOR
     elif made.how == "Developer ID signature" and made.team:
+        team = made.team
+    elif made.how == REQUIREMENT_HOW and made.team:
+        # The TCC grant's code requirement pinned this signer for the identifier.
         team = made.team
     else:
         return ""

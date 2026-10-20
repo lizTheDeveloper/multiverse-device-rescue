@@ -227,15 +227,34 @@ const NotChecked = (function () {
   // whichever app declares that id says nothing about the program holding the
   // access (rescue/serialize.py _app_subject says the same).
   const isPathSubject = (a) => typeof a === 'string' && (/^[/~]/.test(a) || /^[A-Za-z]:[\\/]/.test(a));
+  // The one exception, and only on the engine's own proof: macOS's permission
+  // record for the grant holds a code requirement (what macOS itself enforces)
+  // that pinned the expected company's Team ID for that bundle id. The engine
+  // says so twice: a data.verified_apps entry (verified_by
+  // 'macos_code_requirement', a Team ID or 'apple', a maker from its table)
+  // and a verified made_by entry with REQUIREMENT_HOW (rescue/serialize.py
+  // _requirement_entries). A name, or a made_by entry alone, never counts.
+  const REQUIREMENT_HOW = 'macOS permission record (code requirement)';
+  const SIGNER = /^(?:[A-Z0-9]{10}|apple)$/;
+  const nonEmpty = (v) => typeof v === 'string' && v.trim() !== '';
+  function requirementProven(a, d, mb) {
+    if (typeof a !== 'string' || isPathSubject(a) || !Array.isArray(d.verified_apps)) return false;
+    const v = d.verified_apps.find((x) => x && typeof x === 'object' && x.bundle_id === a);
+    if (!v || v.verified_by !== 'macos_code_requirement' || typeof v.team_id !== 'string'
+      || !SIGNER.test(v.team_id) || !nonEmpty(v.maker)) return false;
+    return mb.some((m) => m.subject === a && m.verified === true && m.how === REQUIREMENT_HOW && nonEmpty(m.name));
+  }
   function familiarVerified(f, module = f && f.module) {
     if (!f || f.severity !== 'info' || f.code !== FAMILIAR_CODE || module !== 'keylogger_indicators') return false;
     if (f.makers_verified === false) return false;
     const d = f.data && typeof f.data === 'object' ? f.data : {};
     const apps = Array.isArray(d.apps) ? d.apps : [];
-    if (!apps.every(isPathSubject)) return false;
     const mb = Array.isArray(f.made_by) ? f.made_by.filter(Boolean) : [];
-    const known = (m) => m.verified === true && typeof m.what === 'string' && m.what.trim() !== ''
-      && typeof m.name === 'string' && m.name.trim() !== '';
+    if (!apps.every((a) => isPathSubject(a) || requirementProven(a, d, mb))) return false;
+    // A path app needs a known program (`what`); a requirement-proven one a
+    // known maker, which the engine only names from its own table.
+    const known = (m) => m.verified === true && nonEmpty(m.name)
+      && (nonEmpty(m.what) || (m.how === REQUIREMENT_HOW && requirementProven(m.subject, d, mb)));
     return d.check === FAMILIAR_CHECK && apps.length > 0 && mb.length > 0 && mb.every(known)
       && apps.every((a) => mb.some((m) => m.subject === a));
   }

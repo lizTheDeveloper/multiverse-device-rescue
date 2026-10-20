@@ -31,7 +31,11 @@ export const isDetection = NC.isDetection;
 // verified. The engine gives `what` only then (rescue/attribution.py), so
 // each app needs a made_by entry with verified === true and a `what`. A
 // signature alone is cheap, so a signed but unknown maker stays held, and so
-// does anything from the other monitoring checks, at any severity.
+// does anything from the other monitoring checks, at any severity. An app
+// named only by bundle id (a TCC row's client) counts only on the engine's
+// own proof that macOS's permission record pins the expected company's Team
+// ID for it (data.verified_apps plus a made_by entry whose `how` is the code
+// requirement's); never by its name.
 export const FAMILIAR_CODE = 'security.keylogger_indicators.suspicious_input_monitoring';
 export const FAMILIAR_CHECK = 'claimed_vendor_input_monitoring';
 // The rule itself lives in not-checked.js, so the counts leave out exactly

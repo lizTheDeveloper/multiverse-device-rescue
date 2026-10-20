@@ -987,7 +987,17 @@
  {
   "module": "keylogger_indicators",
   "code": "security.keylogger_indicators.suspicious_input_monitoring",
+  "description": "These app(s) have Input Monitoring access: ExampleApp. macOS's own permission record says only code signed by the company named can use this access. If you don't remember installing one, turn its access off in System Settings > Privacy & Security > Input Monitoring."
+ },
+ {
+  "module": "keylogger_indicators",
+  "code": "security.keylogger_indicators.suspicious_input_monitoring",
   "description": "These app(s) have Input Monitoring access and use the name of a familiar company or app: ExampleApp. This tool has not verified who actually made them, because an app can pick any name. If you don't remember installing one, turn its access off in System Settings > Privacy & Security > Input Monitoring."
+ },
+ {
+  "module": "keylogger_indicators",
+  "code": "security.keylogger_indicators.suspicious_input_monitoring",
+  "description": "ExampleApp app(s) have permission to see your keyboard input and use the name of a familiar company: ExampleApp. But macOS's own permission record says the code allowed to use that access was signed by someone else (ExampleApp). Borrowing a familiar name is a common disguise for spying software.\n\nIf you think someone close to you set this up to monitor you, removing it can alert them. Talk to an advocate first (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Go to System Settings > Privacy & Security > Input Monitoring. Turn off access for any app you don't recognize or didn't install yourself."
  },
  {
   "module": "keylogger_indicators",

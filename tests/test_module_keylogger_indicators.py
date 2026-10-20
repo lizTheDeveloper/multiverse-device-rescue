@@ -1,4 +1,5 @@
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -42,10 +43,11 @@ def _make_run_result(
 
         cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
 
-        # sqlite3 query for Input Monitoring
+        # sqlite3 query for Input Monitoring: hex(client)|client_type|hex(csreq),
+        # with no code requirement (nothing verified).
         if "sqlite3" in cmd_str and "kTCCServiceListenEvent" in cmd_str:
             if input_monitoring_apps and not expect_clean:
-                result.stdout = "\n".join(input_monitoring_apps) + "\n"
+                result.stdout = "".join(f"{a.encode().hex().upper()}|0|\n" for a in input_monitoring_apps)
             else:
                 result.stdout = ""
 
@@ -73,6 +75,15 @@ def _make_run_result(
     return fake_run
 
 
+@contextmanager
+def _commands(mod, fake):
+    """Route both subprocess.run (the log query) and the module's bounded
+    runner (TCC rows, code requirements) to ``fake``: no real command runs."""
+    kmod = sys.modules[type(mod).__module__]
+    with patch("subprocess.run", side_effect=fake), patch.object(kmod, "run", side_effect=fake):
+        yield
+
+
 def test_keylogger_indicators_discovered():
     """Test that the module is correctly discovered."""
     mod = _get_module()
@@ -86,7 +97,7 @@ def test_keylogger_indicators_clean_system():
     """Test when system has no keylogger indicators."""
     mod = _get_module()
     fake_run = _make_run_result(expect_clean=True)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     # Should have no findings when clean
     assert not result.has_issues
@@ -97,7 +108,7 @@ def test_keylogger_indicators_input_monitoring_info():
     mod = _get_module()
     apps = ["com.google.Chrome", "com.apple.Terminal"]
     fake_run = _make_run_result(input_monitoring_apps=apps)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     info_findings = [f for f in result.findings if f.data.get("check") == "input_monitoring_access"]
@@ -111,7 +122,7 @@ def test_keylogger_indicators_known_keylogger_critical():
     # Include a known keylogger
     apps = ["com.apple.Terminal", "com.spyrix.spyware", "com.google.Chrome"]
     fake_run = _make_run_result(input_monitoring_apps=apps)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     critical_findings = [f for f in result.findings if f.data.get("check") == "known_keyloggers"]
@@ -125,7 +136,7 @@ def test_keylogger_indicators_suspicious_app_warning():
     mod = _get_module()
     apps = ["com.apple.Terminal", "com.suspicious.unknown_app", "com.sketchy.app"]
     fake_run = _make_run_result(input_monitoring_apps=apps)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     suspicious_findings = [f for f in result.findings if f.data.get("check") == "suspicious_input_monitoring"]
@@ -139,7 +150,7 @@ def test_keylogger_indicators_ioreg_dump_never_flagged_as_hooks():
     dump = ["HIDKeyboard device at IOService", "KeyboardEventTap registered",
             '"IOKitDiagnostics" = {"Classes"={"AppleHIDKeyboardEventDriver"=1}}']
     fake_run = _make_run_result(keyboard_hooks=dump)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     assert not [f for f in result.findings if f.data.get("check") == "keyboard_hooks"]
     assert not any("hook" in f.title.lower() for f in result.findings)
@@ -148,7 +159,7 @@ def test_keylogger_indicators_ioreg_dump_never_flagged_as_hooks():
 def test_keylogger_indicators_steam_is_not_suspicious():
     mod = _get_module()
     fake_run = _make_run_result(input_monitoring_apps=["com.valvesoftware.steam"])
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     checks = [f.data.get("check") for f in result.findings]
     assert "suspicious_input_monitoring" not in checks
@@ -160,7 +171,7 @@ def test_keylogger_indicators_cgeventtap():
     mod = _get_module()
     processes = ["com.suspicious.app[12345]", "malware_process[67890]"]
     fake_run = _make_run_result(cgeventtap_processes=processes)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     cgeventtap_findings = [f for f in result.findings if f.data.get("check") == "cgeventtap_usage"]
@@ -182,7 +193,7 @@ def test_cgeventtap_query_excludes_only_the_system_log_tool():
         result.stdout = "2026-10-15 04:10:01.123 Df log[1:2] CGEventTapCreate\n"
         return result
 
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         names = mod._check_cgeventtap_usage()
     assert "processImagePath != '/usr/bin/log'" in " ".join(seen["cmd"])
     assert names == ["log"]
@@ -199,7 +210,7 @@ def test_keylogger_indicators_multiple_issues():
         keyboard_hooks=hooks,
         cgeventtap_processes=processes,
     )
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     assert result.has_issues
     # Should have findings for: input monitoring, known keyloggers, keyboard hooks, cgeventtap
@@ -215,7 +226,7 @@ def test_keylogger_indicators_all_known_keyloggers():
     # Test with a few different known keyloggers
     keyloggers = ["com.aobo.keylogger", "com.kidlogger.app", "com.mspy.monitor"]
     fake_run = _make_run_result(input_monitoring_apps=keyloggers)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     critical_findings = [f for f in result.findings if f.data.get("check") == "known_keyloggers"]
     assert len(critical_findings) > 0
@@ -227,7 +238,7 @@ def test_keylogger_indicators_fix_input_monitoring():
     mod = _get_module()
     apps = ["com.suspicious.app"]
     fake_run = _make_run_result(input_monitoring_apps=apps)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
     assert len(fix.actions) > 0
@@ -240,7 +251,7 @@ def test_keylogger_indicators_fix_known_keyloggers():
     mod = _get_module()
     apps = ["com.flexispy.spyware"]
     fake_run = _make_run_result(input_monitoring_apps=apps)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
     assert len(fix.actions) > 0
@@ -254,7 +265,7 @@ def test_keylogger_indicators_fix_cgeventtap():
     mod = _get_module()
     processes = ["unknown_process[12345]"]
     fake_run = _make_run_result(cgeventtap_processes=processes)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
     assert len(fix.actions) > 0
@@ -269,7 +280,7 @@ def test_keylogger_indicators_handles_subprocess_error():
     def error_run(cmd, **kwargs):
         raise OSError("Command failed")
 
-    with patch("subprocess.run", side_effect=error_run):
+    with _commands(mod, error_run):
         result = mod.check(_make_profile())
     # Should still complete without crashing
     assert isinstance(result.findings, list)
@@ -283,7 +294,7 @@ def test_keylogger_indicators_well_known_apps_not_flagged():
     # Use well-known apps that shouldn't be flagged
     apps = ["com.apple.Terminal", "com.microsoft.VSCode", "com.sublimetext.3"]
     fake_run = _make_run_result(input_monitoring_apps=apps)
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     # Should have INFO finding but not WARNING for suspicious apps
     suspicious_findings = [f for f in result.findings if f.data.get("check") == "suspicious_input_monitoring"]
@@ -303,7 +314,7 @@ def test_vendor_prefixed_app_is_listed_as_unverified_info_not_dropped():
     fake_run = _make_run_result(
         input_monitoring_apps=["com.valvesoftware.impostor", "com.logitech.evil", "com.apple.impostor"]
     )
-    with patch("subprocess.run", side_effect=fake_run):
+    with _commands(mod, fake_run):
         result = mod.check(_make_profile())
     claimed = [f for f in result.findings if f.data.get("check") == "claimed_vendor_input_monitoring"]
     assert len(claimed) == 1
