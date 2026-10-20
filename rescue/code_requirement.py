@@ -15,7 +15,12 @@ narrow. It credits a signer only for these shapes, as clauses joined by
   number of ``certificate <n|leaf|root>[field.<oid>]`` presence clauses
   (written ``/* exists */`` by csreq), as in a Developer ID requirement;
 - ``identifier "<client>"`` and ``anchor apple`` for a ``com.apple.`` client:
-  Apple's own code.
+  Apple's own code;
+- one exact "Mac App Store, or Developer ID from Team X" requirement (see
+  ``_STORE_OR_DEVID``), optionally after ``identifier "<client>" and``, for a
+  non-Apple client. TCC applies a bundle-id row only to an app with that id,
+  and the App Store signs an id only for the team that registered it, so
+  either branch is team X's code.
 
 Anything else fails closed (``None``): ``or``, ``!``, parentheses, any other
 comment, a clause it does not know (even one that would only be stricter),
@@ -37,6 +42,14 @@ _TEAM_RE = re.compile(r"^[A-Z0-9]{10}\Z")
 _WORD_RE = re.compile(r"^[A-Za-z0-9._\-\[\]=]+\Z")
 _FIELD_RE = re.compile(r"^(?:leaf|root|[0-9]+)\[field\.[0-9]+(?:\.[0-9]+)*\]\Z")
 _EXISTS_COMMENT = "/* exists */"
+_X = r"(?: /\* exists \*/)?"
+_STORE_OR_DEVID = re.compile(
+    r'(?:identifier "(?P<ident>[A-Za-z0-9][A-Za-z0-9._-]{0,254})" and )?'
+    r"anchor apple generic and \(certificate leaf\[field\.1\.2\.840\.113635\.100\.6\.1\.9\]" + _X
+    + r" or certificate 1\[field\.1\.2\.840\.113635\.100\.6\.2\.6\]" + _X
+    + r" and certificate leaf\[field\.1\.2\.840\.113635\.100\.6\.1\.13\]" + _X
+    + r" and certificate leaf\[subject\.OU\] = \"?(?P<team>[A-Z0-9]{10})\"?\)\Z"
+)
 
 
 def _tokens(text: str) -> list[tuple[str, str]] | None:
@@ -98,6 +111,11 @@ def signer_for(text, client) -> str | None:
     text = text.strip()
     if not text or len(text) > _MAX_LEN or any(c in text for c in "\r\n\t\0"):
         return None
+    store = _STORE_OR_DEVID.match(text)
+    if store:
+        if client.startswith("com.apple.") or store.group("ident") not in (None, client):
+            return None
+        return store.group("team")
     tokens = _tokens(text)
     if not tokens:
         return None

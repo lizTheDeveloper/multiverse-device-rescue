@@ -13,7 +13,7 @@ These were decided so work could keep moving. Each one is easy to reverse. The h
    district, with "talk to an advocate"). Letting them out by name was a security hole (a keylogger can call itself
    Chrome). The real fix is confirming identity from macOS's own permission record (csreq) — the hourly loop is
    researching it. Options: keep until csreq lands; or show a gentler line for familiar names meanwhile.
-   **Owner (2026-10-19): these are not monitoring software — verify them via csreq now** (branch `csreq-verify`).
+   **Owner (2026-10-19): these are not monitoring software — verify them via csreq now** (merged). VS Code verified; Steam's "Mac App Store or Valve's Developer ID" requirement accepted by the owner (2026-10-20).
 3. **Your NextDNS profile shows as a warning** ("Your DNS goes through a filtering profile"), markable as yours.
    A DNS profile's owner sees every website name looked up, so an abuser could use one to watch browsing.
 4. **The removal warning stays on tampered-app findings** (a tampered app can be a disguised monitoring tool).

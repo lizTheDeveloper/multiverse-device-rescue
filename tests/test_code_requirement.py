@@ -102,12 +102,36 @@ def test_non_strings_and_odd_clients_fail_closed():
     assert signer_for(DEVID * 50, VSC) is None  # absurdly long
 
 
-def test_a_requirement_that_also_admits_any_app_store_app_and_names_no_identifier_proves_nothing():
-    """Some vendors' designated requirement is "Developer ID from us, or any Mac
-    App Store app", with no identifier: any App Store app satisfies it, so it
-    can't say whose code holds the access."""
-    loose = ("anchor apple generic and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or "
-             "certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and "
-             "certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and "
-             "certificate leaf[subject.OU] = MXGJJ98X76)")
-    assert signer_for(loose, "com.valvesoftware.steam") is None
+STORE_OR_DEVID = ("anchor apple generic and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or "
+                  "certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and "
+                  "certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and "
+                  "certificate leaf[subject.OU] = MXGJJ98X76)")
+
+
+def test_developer_id_from_one_team_or_the_mac_app_store_pins_that_team():
+    """Some vendors' requirement is "Developer ID from us, or the Mac App Store".
+    TCC uses a bundle-id row only for an app with that id, and the App Store signs
+    an id only for the team that registered it, so either branch is that team's code."""
+    assert signer_for(STORE_OR_DEVID, "com.valvesoftware.steam") == "MXGJJ98X76"
+    assert signer_for('identifier "com.valvesoftware.steam" and ' + STORE_OR_DEVID, "com.valvesoftware.steam") == "MXGJJ98X76"
+    no_comments = STORE_OR_DEVID.replace(" /* exists */", "")
+    assert signer_for(no_comments, "com.valvesoftware.steam") == "MXGJJ98X76"
+
+
+@pytest.mark.parametrize("bad", [
+    STORE_OR_DEVID.replace("6.1.9]", "6.1.12]"),                            # another certificate kind
+    STORE_OR_DEVID.replace("and certificate leaf[subject.OU] = MXGJJ98X76", ""),  # no team pinned
+    STORE_OR_DEVID.replace(" or ", " and "),
+    STORE_OR_DEVID + " or anchor apple generic",                           # an extra way in
+    STORE_OR_DEVID.replace("anchor apple generic and ", ""),
+    STORE_OR_DEVID.replace("(", "").replace(")", ""),                      # precedence changed
+    "anchor apple generic and (anchor apple generic or certificate leaf[subject.OU] = MXGJJ98X76)",
+    'identifier "com.example.other" and ' + STORE_OR_DEVID,                # identifier for another app
+    "!" + STORE_OR_DEVID,
+])
+def test_store_or_developer_id_shape_is_exact(bad):
+    assert signer_for(bad, "com.valvesoftware.steam") is None
+
+
+def test_store_or_developer_id_never_stands_for_apple():
+    assert signer_for(STORE_OR_DEVID, "com.apple.Terminal") is None
