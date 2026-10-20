@@ -541,6 +541,28 @@ const practice = {
   ],
 };
 
+// The same round for Windows players, in Windows words (contract R11): Windows Update paused, BitLocker off, a
+// computer that never sleeps. The same four steps, so the profile measures them alike.
+const practiceWin = {
+  items: [
+    practiceItem('win_windows_update_status', null, 'Windows Update is paused', { check: 'updates_paused' }),
+    practiceItem('win_bitlocker', 'security.win_bitlocker.os_drive_not_encrypted', 'Your computer’s main drive, C:, is not protected by BitLocker', { mount_point: 'C:', status: 'FullyDecrypted', is_os_drive: true }, 'critical'),
+    practiceItem('win_power_plan_check', null, 'Your computer never goes to sleep', { type: 'sleep_timeout', seconds: 0 }),
+  ],
+  script: [
+    { item: 0, say: { standard: 'Each lock says what it protects and where its switch is in Windows Settings.', city: 'Each lock says what it guards and where its lever is.' } },
+    { item: 0, expect: 'on',
+      say: { standard: 'Windows Update is paused. Read what this protects and where the switch is. What would you do?', city: 'Patches are on hold. Read what this guards and where the lever is. What would you do?' },
+      why: { standard: '“Where” is the exact page. Turn it on opens Settings > Windows Update, and you resume updates there.', city: '“Switch” is where the lever is. Lock it opens that panel, and you resume the patches there.' } },
+    { item: 1, expect: 'on',
+      say: { standard: 'BitLocker is off for the main drive. What would you do?', city: 'The vault is unlocked. What would you do?' },
+      why: { standard: 'Turn it on opens Device encryption. Windows gives you a recovery key when you turn it on: save it somewhere other than this computer. Never paste it anywhere.', city: 'Lock it opens the vault panel. The vault hands you a spare key: keep it somewhere other than this computer. Never paste it anywhere.' } },
+    { item: 2, expect: ['done', 'on'],
+      say: { standard: 'In this practice, you already set your computer to sleep and turn its screen off, under Settings > System > Power. What would you do?', city: 'In this drill, you already set the night watch yourself, under Settings > System > Power. What would you do?' },
+      why: { standard: 'Done checks again, and the lock counts once the check sees it. When the computer wakes, Windows asks you to sign in again: that is under Settings > Accounts > Sign-in options, with Windows Hello (face, fingerprint or PIN).', city: 'Check the lock sends the scout again, and it counts once the scout sees it set. On waking, the gate asks for your sign-in: Settings > Accounts > Sign-in options, with Windows Hello (face, fingerprint or PIN).' } },
+  ],
+};
+
 export const covers = [
   { module: 'automatic_updates' }, { module: 'update_checker' }, { module: 'appleid_security_check' },
   { module: 'macos_version_support' }, { module: 'macos_eol_check' },
@@ -583,6 +605,7 @@ export default {
   decisions,
   research,
   practice,
+  practiceByPlatform: { win32: practiceWin },
   render,
   summary,
 };

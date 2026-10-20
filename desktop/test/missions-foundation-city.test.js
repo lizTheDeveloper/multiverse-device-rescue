@@ -304,6 +304,28 @@ test('practice on request: made-up items, a move, and the round recorded as play
   assert.strictEqual(savedProfile(storage).rounds.simple.how, 'played');
 });
 
+test('practice on Windows: the game’s Windows round, not the Mac one', async () => {
+  const winGame = async () => {
+    const I = await import('../renderer/missions/games/index.js');
+    const C = await import('../renderer/missions/contract.js');
+    const S = (await import('../renderer/missions/games/simple.js')).default;
+    const reg = await I.loadGames({ importer: async () => { throw new Error('none'); } });
+    const item = (title) => C.makeItem({ module: 'win_x', title, data: {} });
+    reg.games.simple = { ...S, practiceByPlatform: { win32: { items: [item('A made-up Windows thing'), item('Another made-up Windows thing')], script: S.practice.script } } };
+    return reg;
+  };
+  const d = doc();
+  d.platform = 'win32';
+  const t = await setup(d, { games: winGame });
+  t.click({ 'data-go': 'mx:simple:gatehouse:2' });
+  t.click({ 'data-act': 'mx-practice' });
+  assert.match(t.html(), /made-up Windows thing/);
+  const m = await setup(doc(), { games: winGame });
+  m.click({ 'data-go': 'mx:simple:gatehouse:2' });
+  m.click({ 'data-act': 'mx-practice' });
+  assert.doesNotMatch(m.html(), /made-up Windows thing/, 'a Mac gets the default round');
+});
+
 test('city mode: game words only on the district, the deck line and the mission screen; held never enters', async () => {
   const d = doc();
   d.modules.push(mod('stalkerware_scan', [f('Monitoring app found', 'critical', { path: '/Applications/W.app' }, { code: 'security.stalkerware_scan.found' })]));

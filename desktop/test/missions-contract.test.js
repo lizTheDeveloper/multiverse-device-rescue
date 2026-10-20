@@ -61,3 +61,22 @@ test('labels over four words and wrong counts are caught', async () => {
   assert.ok(p.some((x) => /over 4 words/.test(x)));
   assert.ok(p.some((x) => /expected 2–3/.test(x)));
 });
+
+test('a game may carry its own Windows practice round; practiceOf picks it by platform', async () => {
+  const C = await load();
+  const g = goodGame(C);
+  const win = { items: [C.makeItem({ module: 'win_x', title: 'w1' }), C.makeItem({ module: 'win_x', title: 'w2' })], script: [{ item: 1, say: { standard: 'Look', city: 'Look' } }] };
+  const both = { ...g, practiceByPlatform: { win32: win } };
+  assert.deepStrictEqual(C.validateGame(both), []);
+  assert.strictEqual(C.practiceOf(both, 'win32'), win);
+  assert.strictEqual(C.practiceOf(both, 'darwin'), g.practice);
+  assert.strictEqual(C.practiceOf(g, 'win32'), g.practice, 'no Windows round: the default one');
+  // The Windows round has the default round's shape and length (the profile measures steps by index).
+  assert.ok(C.validateGame({ ...g, practiceByPlatform: { win32: { items: win.items.slice(0, 1), script: win.script } } }).some((p) => /win32/.test(p)));
+  assert.ok(C.validateGame({ ...g, practiceByPlatform: { win32: { items: win.items, script: [...win.script, ...win.script] } } }).some((p) => /same number of steps/.test(p)));
+  assert.ok(C.validateGame({ ...g, practiceByPlatform: { linux: win } }).some((p) => /platform/.test(p)));
+  // Its items go through every contract check too.
+  const bad = { ...both, practiceByPlatform: { win32: { ...win, items: [...win.items, C.makeItem({ module: 'win_x', title: 'boom', data: { explode: true } })] } },
+    decisions: (item) => (item.finding.data.explode ? [] : g.decisions(item)) };
+  assert.ok(C.runContractChecks(bad, []).some((p) => /expected 2–3 decisions/.test(p)));
+});

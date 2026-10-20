@@ -21,15 +21,16 @@ async function load() {
 }
 
 const strip = (html) => String(html).replace(/<[^>]+>/g, ' ').replace(/&#39;|&rsquo;/g, '’').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+// Each game's rounds: its default one, and any platform's own (contract R11), with that platform's context.
+const rounds = (game) => [['darwin', game.practice], ...Object.entries(game.practiceByPlatform || {})];
 const wants = (step) => (Array.isArray(step.expect) ? step.expect : step.expect ? [step.expect] : []);
 
 test('practice steps: a judged step asks first and keeps its verdict for after the move', async () => {
   const { C, games } = await load();
-  for (const [type, game] of Object.entries(games)) {
-    const { items, script } = game.practice;
+  for (const [type, game] of Object.entries(games)) for (const [platform, { items, script }] of rounds(game)) {
     assert.ok(script.some((s) => s.expect), `${type}: at least one step judges a move`);
     for (const [n, step] of script.entries()) {
-      const where = `${type} step ${n + 1}`;
+      const where = `${type} ${platform} step ${n + 1}`;
       assert.ok(items[step.item], `${where}: points at a practice item`);
       for (const mode of ['standard', 'city']) {
         assert.ok(step.say && typeof step.say[mode] === 'string' && step.say[mode].trim(), `${where}: say.${mode}`);
@@ -42,7 +43,7 @@ test('practice steps: a judged step asks first and keeps its verdict for after t
       }
       assert.strictEqual(new Set(wants(step)).size, wants(step).length, `${where}: no repeats in expect`);
       for (const mode of ['standard', 'city']) {
-        const ctx = C.testContext({ mode, practice: true });
+        const ctx = C.testContext({ mode, practice: true, platform });
         const d = game.decisions(items[step.item], ctx);
         const ids = d.map((x) => x.id);
         for (const w of wants(step)) assert.ok(ids.includes(w), `${where} (${mode}): ${w} is one of ${ids}`);
@@ -60,12 +61,12 @@ test('practice steps: a judged step asks first and keeps its verdict for after t
 
 test('the card never prints the verdict: the screen shows why after the move', async () => {
   const { C, games } = await load();
-  for (const [type, game] of Object.entries(games)) {
-    for (const step of game.practice.script.filter((s) => s.why)) {
+  for (const [type, game] of Object.entries(games)) for (const [platform, round] of rounds(game)) {
+    for (const step of round.script.filter((s) => s.why)) {
       for (const mode of ['standard', 'city']) {
-        const ctx = C.testContext({ mode, practice: true });
-        const item = game.practice.items[step.item];
-        const view = { item, research: game.research(item, ctx), decisions: game.decisions(item, ctx), index: 0, total: game.practice.script.length, practice: true, step };
+        const ctx = C.testContext({ mode, practice: true, platform });
+        const item = round.items[step.item];
+        const view = { item, research: game.research(item, ctx), decisions: game.decisions(item, ctx), index: 0, total: round.script.length, practice: true, step };
         for (const answer of [null, { id: wants(step)[0], right: true }]) {
           const html = strip(game.render({ ...view, answer }, ctx));
           assert.ok(!html.includes(strip(ctx.esc(step.why[mode]))), `${type} (${mode}): the card repeats why`);

@@ -414,3 +414,33 @@ test('covers: Lock Run claims the sleep checks (and Windows’ sleep timeout by 
   const src = fs.readFileSync(path.join(__dirname, '..', '..', 'modules', 'performance', 'win_power_plan_check', '__init__.py'), 'utf8');
   assert.ok(src.includes('"type": "sleep_timeout"'));
 });
+
+// --- Windows practice ---
+test('Windows practice: Windows Update paused, BitLocker off, a computer that never sleeps — in Windows words', async () => {
+  const { C, game } = await setup();
+  const p = C.practiceOf(game, 'win32');
+  assert.notStrictEqual(p, game.practice);
+  assert.deepStrictEqual(p.items.map((i) => i.finding.module), ['win_windows_update_status', 'win_bitlocker', 'win_power_plan_check']);
+  assert.strictEqual(p.script.length, game.practice.script.length, 'same steps, so the profile measures them alike');
+  const ctx = C.testContext({ platform: 'win32' });
+  const panes = p.items.map((i) => game.decisions(i, ctx)[0].effect.pane);
+  assert.deepStrictEqual(panes, ['windows-update', 'windows-bitlocker', 'windows-power']);
+  for (const step of p.script) {
+    assert.ok(step.item >= 0 && step.item < p.items.length);
+    if (step.expect) assert.ok(game.decisions(p.items[step.item], ctx).some((d) => d.id === first(step.expect)));
+  }
+  const words = (mode) => [...p.items.map((i) => i.finding.title), ...p.script.flatMap((s) => [s.say[mode], s.why ? s.why[mode] : '']),
+    ...p.items.map((i) => { const r = game.research(i, C.testContext({ platform: 'win32', mode })); return `${r.where} ${r.what} ${r.steps.join(' ')}`; })].join(' ');
+  const std = words('standard');
+  assert.match(std, /Settings > Accounts > Sign-in options/);
+  assert.match(std, /Windows Hello/);
+  assert.match(std, /Settings > System > Power/);
+  assert.match(std, /Never paste/);
+  for (const mode of ['standard', 'city']) {
+    assert.doesNotMatch(words(mode), /\bMac\b|macOS|FileVault|System Settings|Time Machine/, `${mode}: no Mac words`);
+    assert.doesNotMatch(words(mode), /\b(?:seconds?|minutes?|hours?|quick(?:ly)?|soon|instantly|in no time)\b/i, `${mode}: no time words`);
+    assert.deepStrictEqual(C.checkCityWords(words('city')), []);
+  }
+  assert.doesNotMatch(JSON.stringify(p.items), /\/Users\/|\\Users\\/);
+  assert.deepStrictEqual(C.runContractChecks(game, []), []);
+});
