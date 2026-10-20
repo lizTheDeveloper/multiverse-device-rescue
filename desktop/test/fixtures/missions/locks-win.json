@@ -11,6 +11,7 @@
     { "module": "win_uac_check", "code": "security.win_uac_check.uac_never_notify", "severity": "warning", "title": "Your computer won't ask permission for big changes", "data": { "setting": "ConsentPromptBehaviorAdmin", "value": 0 } },
     { "module": "win_user_accounts", "code": "security.win_user_accounts.guest_account_enabled", "severity": "warning", "title": "Your computer's Guest account is turned on", "data": { "check": "guest_enabled" } },
     { "module": "win_credential_guard", "code": "security.win_credential_guard.password_min_length_below_threshold", "severity": "warning", "title": "Your password rules allow very short passwords (0 characters)", "data": { "check": "password_min_length", "current_length": 0 } },
-    { "module": "win_restore_points", "code": null, "severity": "critical", "title": "System Restore is turned off", "data": { "check": "restore_disabled" } }
+    { "module": "win_restore_points", "code": null, "severity": "critical", "title": "System Restore is turned off", "data": { "check": "restore_disabled" } },
+    { "module": "win_power_plan_check", "code": null, "severity": "warning", "category": "performance", "title": "Sleep timeout: 0 min", "data": {"type": "sleep_timeout", "seconds": 0} }
   ]
 }

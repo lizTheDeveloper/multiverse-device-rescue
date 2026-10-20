@@ -342,3 +342,75 @@ test('Lock Run’s classes are its own: no class name shared with the Evidence L
   const shared = [...classes('locker.css')].filter((c) => locks.has(c));
   assert.deepStrictEqual(shared, []);
 });
+
+// --- sleep, screen-off, Power Nap and wake: Lock Run's sleep locks ---
+const SLEEP_MODULES = ['energy_saver_check', 'energy_settings', 'power_settings', 'clamshell_mode'];
+
+test('sleep locks: screen-off opens Lock Screen, sleep / Power Nap / wake open Battery (Energy), Windows opens Power', async () => {
+  const { C, mod, game, mac, win } = await setup();
+  const ctx = C.testContext();
+  const screen = find(mac, 'energy_saver_check', /display_sleep/);
+  assert.strictEqual(mod.lockOf(screen.finding), 'screen-off');
+  assert.deepStrictEqual(game.decisions(screen, ctx)[0].effect, { kind: 'settings', pane: 'lock-screen' });
+  assert.match(game.research(screen, ctx).where, /Lock Screen/);
+  for (const [m, re, line] of [['power_settings', null, /Prevent automatic sleeping/], ['energy_settings', null, /Power Nap/], ['energy_saver_check', /wake_on_lan/, /Wake for network access/]]) {
+    const it = find(mac, m, re);
+    assert.strictEqual(mod.lockOf(it.finding), 'sleep', m);
+    assert.deepStrictEqual(game.decisions(it, ctx)[0].effect, { kind: 'settings', pane: 'battery' }, m);
+    const r = game.research(it, ctx);
+    assert.match(r.where, /Battery/, m);
+    assert.match(r.where, line, m);
+    assert.ok(r.links.some((l) => l.kind === 'settings' && l.pane === 'battery'), m);
+  }
+  // Proximity Wake has no switch in System Settings: the steps, no page.
+  const prox = find(mac, 'clamshell_mode');
+  assert.strictEqual(mod.lockOf(prox.finding), 'sleep');
+  const d = game.decisions(prox, ctx)[0];
+  assert.strictEqual(d.effect.kind, 'closer');
+  assert.ok(d.effect.checklist.length >= 1);
+  // Windows: the sleep timeout opens Settings > System > Power.
+  const w = find(win, 'win_power_plan_check');
+  const wctx = C.testContext({ platform: 'win32' });
+  assert.strictEqual(mod.lockOf(w.finding), 'sleep');
+  assert.deepStrictEqual(game.decisions(w, wctx)[0].effect, { kind: 'settings', pane: 'windows-power' });
+  assert.match(game.research(w, wctx).where, /Settings > System > Power/);
+  // Lock Run's other power-plan items aren't locks.
+  assert.strictEqual(mod.lockOf({ module: 'win_power_plan_check', data: { type: 'power_saver_active' } }), null);
+});
+
+test('sleep locks: names and states in both modes; labels are calm and short', async () => {
+  const { C, game, mac } = await setup();
+  for (const mode of ['standard', 'city']) {
+    const ctx = C.testContext({ mode });
+    for (const it of mac.filter((i) => SLEEP_MODULES.includes(i.finding.module))) {
+      const html = game.render({ item: it, research: game.research(it, ctx), decisions: game.decisions(it, ctx), index: 0, total: 1 }, ctx);
+      assert.doesNotMatch(textOf(html), /Automatic updates|Patch lock/, `${it.key} isn't drawn as the updates lock`);
+      if (mode === 'city') assert.deepStrictEqual(C.checkCityWords(html), [], it.key);
+      for (const dd of game.decisions(it, ctx)) assert.ok(dd.label[mode].split(/\s+/).length <= 4, dd.label[mode]);
+    }
+  }
+});
+
+test('covers: Lock Run claims the sleep checks (and Windows’ sleep timeout by its type); nothing else claims them', async () => {
+  const { game } = await setup();
+  const by = new Map(game.covers.map((c) => [c.module, c]));
+  for (const m of SLEEP_MODULES) assert.ok(by.has(m) && !by.get(m).codes && !by.get(m).checks, m);
+  assert.deepStrictEqual(by.get('win_power_plan_check').checks, ['sleep_timeout']);
+  const J = (await import(pathToFileURL(path.join(MISSIONS, 'games', 'junkyard.js')).href)).default;
+  for (const m of SLEEP_MODULES) assert.ok(!J.covers.some((c) => c.module === m), `the Junkyard gave up ${m}`);
+  const T = await import(pathToFileURL(path.join(MISSIONS, 'types.js')).href);
+  const I = await import(pathToFileURL(path.join(MISSIONS, 'games', 'index.js')).href);
+  const table = T.buildTable(I.ownGames(await I.loadGames()));
+  assert.deepStrictEqual(T.doubleClaims(table), []);
+  for (const m of SLEEP_MODULES) {
+    assert.strictEqual(T.typeOf({ module: m, severity: 'warning', data: { setting: 'sleep' } }, table), 'locks', m);
+    assert.strictEqual(T.typeOf({ module: m, severity: 'warning', data: { setting: 'sleep' } }), 'locks', `${m} (base table)`);
+    assert.ok(!T.ODD_JOBS.includes(m), `${m} left Odd Jobs`);
+  }
+  // A Windows sleep timeout the person calls odd is a lock; the power plan's other items stay in the Junkyard.
+  assert.strictEqual(T.claimedType({ module: 'win_power_plan_check', data: { type: 'sleep_timeout' } }, table), 'locks');
+  assert.strictEqual(T.typeOf({ module: 'win_power_plan_check', severity: 'warning', data: { type: 'power_saver_active' } }, table), 'junkyard');
+  // The real data.type value in the engine.
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'modules', 'performance', 'win_power_plan_check', '__init__.py'), 'utf8');
+  assert.ok(src.includes('"type": "sleep_timeout"'));
+});

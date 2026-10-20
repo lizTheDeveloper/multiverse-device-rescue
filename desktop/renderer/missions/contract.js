@@ -37,7 +37,7 @@
 //      opens only after the person has read it), as every `fix` confirm does.
 //   R8 An info finding from a Lock Run module that says it couldn't check (code ending _unknown, _failed,
 //      _unavailable, _permission_denied) is a Lock Run item, never a mere note.
-//   R9 covers may narrow by `checks` (data.check values) for a module that emits no codes:
+//   R9 covers may narrow by `checks` (data.check values, or data.type when a finding has no data.check) for a module that emits no codes:
 //      { module, checks: ['unsigned_drivers'] }. Effects may carry `steps` (instructions when a page can't be
 //      linked); the runner shows them, escaped. A recheck effect is { kind: 'recheck', module?, modules? }.
 //      summary(results, ctx) receives [{ item, decision, effect, points? }] (decision: the Decision's id).

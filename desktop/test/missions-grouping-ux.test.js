@@ -49,18 +49,19 @@ test('a mining line in the hosts file is a Switchboard line; the mining add-on s
   assert.strictEqual(T.typeOf({ module: 'browser_cryptojacking_check', severity: 'critical', data: { check: 'mining_hosts_entry' } }), 'switchboard');
 });
 
-test('sleep, screen-off and Power Nap leave the Junkyard (whatever its covers say)', async () => {
+test('sleep, screen-off, Power Nap and wake are Lock Run’s settings, not the Junkyard’s or Odd Jobs', async () => {
   const { T, table } = await liveTable();
-  for (const m of ['energy_saver_check', 'energy_settings', 'power_settings']) {
-    assert.strictEqual(T.typeOf({ module: m, severity: 'warning', data: { setting: 'sleep' } }, table), 'simple', m);
-    assert.strictEqual(T.typeOf({ module: m, severity: 'warning' }), 'simple', `${m} (base table)`);
-    assert.ok(T.ODD_JOBS.includes(m), `${m} is in Odd Jobs on purpose`);
-    assert.ok(!Object.values(table).flat().some((c) => c.module === m), `${m} is claimed by no game`);
+  assert.deepStrictEqual(T.doubleClaims(table), []);
+  for (const m of ['energy_saver_check', 'energy_settings', 'power_settings', 'clamshell_mode']) {
+    assert.strictEqual(T.typeOf({ module: m, severity: 'warning', data: { setting: 'sleep' } }, table), 'locks', m);
+    assert.strictEqual(T.typeOf({ module: m, severity: 'warning' }), 'locks', `${m} (base table)`);
+    assert.ok(!T.ODD_JOBS.includes(m), `${m} is not an Odd Job`);
+    assert.deepStrictEqual(Object.entries(table).filter(([, cs]) => cs.some((c) => c.module === m)).map(([t]) => t), ['locks'], `${m} is claimed by Lock Run only`);
   }
   assert.strictEqual(T.typeOf({ module: 'storage_cleanup', severity: 'warning' }, table), 'junkyard', 'the Junkyard keeps its piles');
-  // A game claiming a moved module gives it up in the table: no double claim from a move.
+  // A second whole claim on a sleep check is a double claim.
   const t2 = T.buildTable([{ type: 'junkyard', covers: [{ module: 'energy_settings' }, { module: 'trash_cleanup' }] }]);
-  assert.deepStrictEqual(t2.junkyard, [{ module: 'trash_cleanup' }]);
+  assert.ok(T.doubleClaims(t2).some((p) => /energy_settings/.test(p)));
 });
 
 test('“ClamAV isn’t installed” is a note, still counted as a to-do; a broken ClamAV stays a lock', async () => {

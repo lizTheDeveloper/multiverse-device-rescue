@@ -41,7 +41,7 @@ test('covers the storage, crash, energy and clutter checks on Mac and Windows', 
   const mods = game.covers.map((c) => c.module);
   for (const m of ['storage_cleanup', 'large_files_finder', 'library_cache_cleanup', 'browser_cache_cleanup', 'trash_cleanup',
     'docker_cleanup', 'xcode_cleanup', 'mail_attachment_cleanup', 'crash_log_analyzer', 'app_crash_analyzer',
-    'energy_saver_check', 'energy_settings', 'resource_hog_identifier', 'system_log_errors', 'process_scanner',
+    'resource_hog_identifier', 'system_log_errors', 'process_scanner',
     'win_disk_cleanup', 'win_temp_cleanup', 'win_temp_files', 'win_power_plan', 'win_pagefile', 'win_visual_effects',
     'win_bloatware', 'win_bsod_analysis', 'win_event_errors', 'temp_file_scanner']) {
     assert.ok(mods.includes(m), `covers ${m}`);
@@ -49,6 +49,8 @@ test('covers the storage, crash, energy and clutter checks on Mac and Windows', 
   assert.strictEqual(new Set(mods).size, mods.length, 'each module once');
   // Shared or other games' modules are left to them.
   for (const m of ['startup_optimizer', 'win_startup', 'win_startup_programs_audit']) assert.ok(!mods.includes(m), m);
+  // Sleep, screen-off, Power Nap and wake are Lock Run's.
+  for (const m of ['energy_saver_check', 'energy_settings', 'power_settings', 'clamshell_mode']) assert.ok(!mods.includes(m), m);
   // Every claimed module exists in the engine.
   const modulesDir = path.join(__dirname, '..', '..', 'modules');
   const all = new Set(fs.readdirSync(modulesDir).flatMap((cat) => {
@@ -128,15 +130,14 @@ test('crash items get Update it: a maker look-up intent, not Clear', async () =>
 });
 
 test('settings and programs: Change it / Quit it / Remove it with the right pane or steps', async () => {
-  const { C, game, items, byTitle } = await setup();
+  const { C, G, game, items, byTitle } = await setup();
   const mac = C.testContext();
   const win = C.testContext({ platform: 'win32' });
   const m = items('junkyard-mac.json');
   const w = items('junkyard-win.json');
-  const sleep = game.decisions(byTitle(m, /never goes to sleep/), mac);
-  assert.deepStrictEqual(ids(sleep), ['change', 'later', 'keep']);
-  assert.strictEqual(pickId(sleep, 'change').effect.pane, 'battery');
-  assert.strictEqual(pickId(game.decisions(byTitle(m, /Display never/), mac), 'change').effect.pane, 'lock-screen');
+  // Sleep, screen-off, Power Nap and wake are Lock Run's now, not settings here.
+  for (const module of ['energy_saver_check', 'energy_settings', 'power_settings']) assert.strictEqual(G.kindOf({ finding: { module } }), 'other', module);
+  assert.deepStrictEqual(ids(game.decisions(byTitle(w, /Power saver/), win)), ['change', 'later', 'keep']);
   assert.ok(pickId(game.decisions(byTitle(w, /Power saver/), win), 'change').effect.steps.some((s) => /Balanced/.test(s)));
   assert.ok(pickId(game.decisions(byTitle(w, /Virtual memory/), win), 'change').effect.steps.some((s) => /Automatically manage paging file/.test(s)));
   assert.ok(pickId(game.decisions(byTitle(w, /Transparency/), win), 'change').effect.steps.some((s) => /Transparency effects/.test(s)));
