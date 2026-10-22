@@ -1,7 +1,7 @@
 {
   "name": "device-rescue",
   "productName": "Reclaim City",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Reclaim City desktop app",
   "author": "The Multiverse School",
   "main": "main.js",
