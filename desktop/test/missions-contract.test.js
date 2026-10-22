@@ -80,3 +80,13 @@ test('a game may carry its own Windows practice round; practiceOf picks it by pl
     decisions: (item) => (item.finding.data.explode ? [] : g.decisions(item)) };
   assert.ok(C.runContractChecks(bad, []).some((p) => /expected 2–3 decisions/.test(p)));
 });
+
+test('checkDecisions accepts ask and rejects unknown kinds still', async () => {
+  const C = await load();
+  assert.ok(C.EFFECT_KINDS.includes('ask'));
+  const L = (s) => ({ standard: s, city: s });
+  const ok = [{ id: 'yes', label: L('Yes'), effect: { kind: 'ask' } }, { id: 'no', label: L('No'), effect: { kind: 'ask' } }];
+  assert.deepStrictEqual(C.checkDecisions(ok, C.makeItem({ title: 'x' })), []);
+  const bad = [ok[0], { id: 'zap', label: L('Zap'), effect: { kind: 'zap' } }];
+  assert.ok(C.checkDecisions(bad, C.makeItem({ title: 'x' })).some((p) => /zap: effect kind/.test(p)));
+});

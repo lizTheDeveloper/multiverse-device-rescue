@@ -179,8 +179,10 @@ export function renderMissionScreen(o) {
   // The decision bar: the decisions (or the confirm, or NEXT) stay in view at the
   // foot of the window however long the card and evidence are.
   const deciding = !(confirming || actHtml || busy || view.showing);
+  // A question step (contract R12): BACK to the question before, once one is answered.
+  const back = Array.isArray(view.answers) && view.answers.length ? '<button type="button" class="btn-s mx-unask" data-act="mx-unask">◀ BACK</button>' : '';
   const bar = `${confirm}${view.showing && !busy ? `<div class="row"><button type="button" class="btn-p" data-act="mx-continue">${esc(view.index + 1 < view.total ? 'NEXT ▶' : 'FINISH ▶')}</button></div>` : ''}${deciding
-    ? `${decisionButtons(view.decisions || [], mode, 'mx-decide')}<button type="button" class="btn-t mx-skip" data-act="mx-skip">SKIP FOR NOW</button>` : ''}`;
+    ? `${decisionButtons(view.decisions || [], mode, 'mx-decide')}${back}<button type="button" class="btn-t mx-skip" data-act="mx-skip">SKIP FOR NOW</button>` : ''}`;
   const act = actHtml ? `<div class="mx-act" role="group" aria-label="${esc(mode === 'city' ? 'Confirm the move' : 'Confirm')}">${actHtml}${/data-act="mx-cancel"/.test(actHtml) ? '' : '<button type="button" class="btn-t" data-act="mx-cancel">NOT NOW</button>'}</div>` : '';
   return `<section class="mx-screen">${head}
     <div class="row mx-progress"><span class="mx-where"><span class="label">${esc(mode === 'city' ? 'TARGET' : 'ITEM')} ${esc(view.index + 1)} OF ${esc(view.total)}</span>${sev}</span>${practiceBtn}</div>

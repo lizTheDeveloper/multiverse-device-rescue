@@ -42,6 +42,7 @@ import { pickDistrict, seedFrom } from './district-names.js';
 import { SIX_ROSES } from './side-district.js';
 import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
 import { createMissionDesk } from './missions-city.js';
+import { resolveLink } from '../missions/research.js';
 // The list's evidence block (a plain script, not an ES module).
 import * as evidenceModule from '../evidence.js';
 
@@ -378,11 +379,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     commands = new Map();
     shownEv.clear();
     // Monitoring software never becomes a mission or a signal (held.js).
-    const split = splitHeld(doc);
+    // City mode also holds remote-access tools there (held.js CITY_HELD_MODULES).
+    const split = splitHeld(doc, { mode: hostMode() });
     s.held = split.held;
     // Held findings' own districts, in memory only, so integrity and heat
     // still count them as open while they're never signals, points or stored.
-    s.heldCity = findingsToCity(heldOnly(doc));
+    s.heldCity = findingsToCity(heldOnly(doc, { mode: hostMode() }));
     // A note saying part of a check couldn't look is counted with the checks
     // that didn't finish, never among the notes (the same rule as the list).
     const folded = foldPartly(split.doc);
@@ -1092,7 +1094,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor(),
       firstSweep: !s.progress.deck.sweeps.length,
       // Swept so far: the same path as rebuild()'s, read-only (no progress, deck or store touched).
-      toCity: (d) => findingsToCity(quietDoc(splitHeld(d).doc)) });
+      toCity: (d) => findingsToCity(quietDoc(splitHeld(d, { mode: hostMode() }).doc)) });
     if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
     if (s.screen === 'milestone' && district(s.districtId)) {
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
@@ -1478,6 +1480,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act && act.startsWith('open-setting:')) {
       const url = win.SettingPanes ? win.SettingPanes.urlFor(act.slice(13)) : null;
       if (url) Promise.resolve().then(() => win.rescue.openSetting(url)).catch(() => {});
+      return;
+    }
+    // The help district's "go offline first" (a remote-access tool running now): the network settings for this
+    // platform, through research.js's fixed pane templates and main's allowlist. It changes nothing.
+    if (act === 'side-offline') {
+      const r = resolveLink({ kind: 'settings', pane: 'network' }, { mode: 'city', platform: platform() });
+      if (r && r.url) Promise.resolve().then(() => win.rescue.openSetting(r.url)).catch(() => {});
       return;
     }
     // The router's sign-in page: only the address goes to main, which builds the URL.

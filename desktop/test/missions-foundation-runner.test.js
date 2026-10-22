@@ -241,3 +241,113 @@ test('Keep on an item that warns asks a one-line confirm first; on a plain item 
   r = Run.choose(run, 'keep', g, ctx);
   assert.strictEqual(Run.doneCount(r.run), 1, 'a plain item keeps at once');
 });
+
+// --- R12: a question step (ask) ---
+
+// A two-question game: the first answer picks the second question, the second picks the outcome.
+const quiz = () => {
+  const seen = { decisions: [], research: [] };
+  const g = gameWith((item, ctx) => {
+    const a = (ctx && ctx.answers) || [];
+    seen.decisions.push(a.slice());
+    if (!a.length) return [D('mine', 'ask'), D('dunno', 'ask')];
+    if (a.length === 1) return [D('yes', 'ask'), D('no', 'ask')];
+    return [D('later', 'later'), D('keep', 'keep')];
+  }, {
+    research: (item, ctx) => { seen.research.push(((ctx && ctx.answers) || []).slice()); return { rows: [], what: '', links: [] }; },
+    render: (view) => `<p>${(view.answers || []).join(',')}</p>`,
+  });
+  return { g, seen };
+};
+
+test('ask keeps the item and grows answers', async () => {
+  const [Run, C, R] = await load();
+  const { g } = quiz();
+  let run = Run.startRun(mission(C, 2));
+  const key = run.items[0].key;
+  let r = Run.choose(run, 'mine', g, ctxOf(C, R));
+  assert.strictEqual(r.act, null);
+  run = r.run;
+  assert.strictEqual(run.phase, 'item');
+  assert.strictEqual(run.index, 0, 'the same item stays on screen');
+  assert.deepStrictEqual(run.answers[key], ['mine']);
+  assert.strictEqual(Run.doneCount(run), 0, 'nothing is recorded');
+  run = Run.choose(run, 'no', g, ctxOf(C, R)).run;
+  assert.deepStrictEqual(run.answers[key], ['mine', 'no']);
+  assert.strictEqual(run.index, 0);
+  // The outcome's own decision answers the item as usual.
+  run = Run.choose(run, 'keep', g, ctxOf(C, R)).run;
+  assert.strictEqual(run.index, 1);
+  assert.deepStrictEqual(Run.summaryResults(run).map((x) => x.decision), ['keep']);
+});
+
+test('ask answers reach decisions and render via ctx/view', async () => {
+  const [Run, C, R] = await load();
+  const { g, seen } = quiz();
+  let run = Run.startRun(mission(C, 1));
+  const ctx = ctxOf(C, R);
+  run = Run.choose(run, 'dunno', g, ctx).run;
+  const item = Run.currentItem(run);
+  const actx = Run.contextFor(run, ctx, item);
+  assert.deepStrictEqual(actx.answers, ['dunno']);
+  g.research(item, actx);
+  assert.deepStrictEqual(seen.research.pop(), ['dunno']);
+  const v = Run.viewFor(run, g, ctx, {});
+  assert.deepStrictEqual(v.answers, ['dunno']);
+  assert.deepStrictEqual(v.decisions.map((d) => d.id), ['yes', 'no']);
+  assert.deepStrictEqual(seen.decisions.pop(), ['dunno']);
+  assert.strictEqual(g.render(v, actx), '<p>dunno</p>');
+  // A fresh item has no answers.
+  const fresh = Run.startRun(mission(C, 1));
+  assert.deepStrictEqual(Run.viewFor(fresh, g, ctx, {}).answers, []);
+  assert.deepStrictEqual(Run.contextFor(fresh, ctx, Run.currentItem(fresh)).answers, []);
+});
+
+test('unask drops the last answer', async () => {
+  const [Run, C, R] = await load();
+  const { g } = quiz();
+  let run = Run.startRun(mission(C, 1));
+  const key = run.items[0].key;
+  run = Run.choose(run, 'mine', g, ctxOf(C, R)).run;
+  run = Run.choose(run, 'yes', g, ctxOf(C, R)).run;
+  run = Run.unask(run);
+  assert.deepStrictEqual(run.answers[key], ['mine']);
+  assert.strictEqual(run.phase, 'item');
+  run = Run.unask(run);
+  assert.deepStrictEqual(Run.viewFor(run, g, ctxOf(C, R), {}).answers, []);
+  assert.strictEqual(Run.unask(run), run, 'nothing to drop: the same run');
+});
+
+test('answers are never in remembers or summaryResults points', async () => {
+  const [Run, C, R] = await load();
+  const { g } = quiz();
+  let run = Run.startRun(mission(C, 1));
+  run = Run.choose(run, 'mine', g, ctxOf(C, R)).run;
+  run = Run.choose(run, 'yes', g, ctxOf(C, R)).run;
+  run = Run.choose(run, 'keep', g, ctxOf(C, R)).run;
+  const rs = Run.summaryResults(run);
+  assert.strictEqual(rs.length, 1);
+  assert.ok(!rs.some((x) => x.effect && x.effect.kind === 'ask'));
+  assert.ok(!rs.some((x) => 'answers' in x));
+  assert.strictEqual(Run.remembers({ outcome: 'done', effect: { kind: 'ask' } }), false);
+  // R13: an unpaid effect is never remembered either.
+  assert.strictEqual(Run.remembers({ outcome: 'done', effect: { kind: 'keep', unpaid: true } }), false);
+  assert.strictEqual(Run.remembers({ outcome: 'done', effect: { kind: 'keep' } }), true);
+});
+
+test('practice step answers reach decisions', async () => {
+  const [Run, C, R] = await load();
+  const { g, seen } = quiz();
+  g.practice = { items: g.practice.items, script: [{ item: 0, say: L('First'), expect: 'mine' }, { item: 0, answers: ['mine'], say: L('Then'), expect: 'yes' }] };
+  let run = Run.startPractice(Run.startRun(mission(C, 1), { practiceDue: true }), g);
+  let v = Run.viewFor(run, g, ctxOf(C, R), {});
+  assert.deepStrictEqual(v.decisions.map((d) => d.id), ['mine', 'dunno']);
+  assert.deepStrictEqual(v.answers, []);
+  run = Run.choosePractice(run, g, 'mine').run;
+  run = Run.nextPracticeStep(run, g);
+  v = Run.viewFor(run, g, ctxOf(C, R), {});
+  assert.deepStrictEqual(seen.decisions.pop(), ['mine']);
+  assert.deepStrictEqual(v.decisions.map((d) => d.id), ['yes', 'no']);
+  assert.deepStrictEqual(v.answers, ['mine']);
+  assert.strictEqual(v.expectLabel.standard, 'yes');
+});

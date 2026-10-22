@@ -443,3 +443,29 @@ test('the district: its sections are h3 headings under its h2, and opening it fo
   assert.doesNotMatch(html, /<div class="label">/);
   assert.ok(t.focused.includes('#side-title'), t.focused.join(', '));
 });
+
+// ---------------------------------------------------------------------------
+// Remote-access tools: held in city mode, with "go offline first" when running.
+// ---------------------------------------------------------------------------
+
+test('city: a running remote-access tool waits in the help district, offline first; no mission, points or stored answer', async () => {
+  const remote = finding('AnyDesk can let someone control this computer', 'critical', { code: 'security.remote_access_tools.unattended_recent',
+    removal_alert: true, data: { check: 'unattended_recent', tool: 'AnyDesk', tool_id: 'anydesk', path: '/Applications/AnyDesk.app',
+      added_on: '2026-03-03', lets_in_unattended: true, unattended_via: 'com.philandro.anydesk.service', running_now: true,
+      last_incoming: null, incoming_count: null, one_off: false, known_item_kind: 'remote_tool' } });
+  const t = await setup({ mode: 'city' }, scan(mod('remote_access_tools', [remote])));
+  const opened = [];
+  t.win.rescue.openSetting = async (u) => { opened.push(u); return true; };
+  assert.doesNotMatch(t.html(), /AnyDesk/, 'never on the deck');
+  t.click({ 'data-go': 'side' });
+  const h = t.html();
+  assert.ok(h.indexOf('AnyDesk is running now. To be safe, go offline first.') > 0);
+  assert.ok(h.indexOf('AnyDesk is running now. To be safe, go offline first.') < h.indexOf('class="held-items"'));
+  assert.match(h, /<dt>Last let someone in<\/dt><dd><span>Couldn’t tell<\/span>/);
+  t.click({ 'data-act': 'side-offline' });
+  await tick();
+  assert.strictEqual(opened.length, 1);
+  assert.match(opened[0], /^x-apple\.systempreferences:/);
+  assert.ok(!JSON.stringify(t.saved()).includes('AnyDesk'), 'nothing about it is stored');
+  assert.deepStrictEqual(forbiddenWrites(t.storage), []);
+});

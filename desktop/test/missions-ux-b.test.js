@@ -358,3 +358,53 @@ test('Lock Run: Turn it on (the page opened) and Done (still off) are decisions 
   await tick(); await tick();
   assert.strictEqual(savedProfile(storage).rank.points, 5 + 5 + 75 + 20, 'item 2 decided and confirmed (decide + CONFIRMED), and the finished mission’s bonus');
 });
+
+// --- R12 / R13: a question step and unpaid answers ---
+
+// Odd Jobs played by a stand-in: a question first, then an outcome whose every effect may be unpaid.
+const quizGame = (unpaid) => async () => {
+  const I = await import('../renderer/missions/games/index.js');
+  const S = (await import('../renderer/missions/games/simple.js')).default;
+  const reg = await I.loadGames({ importer: async () => { throw new Error('none'); } });
+  const L = (s) => ({ standard: s, city: s });
+  const u = unpaid ? { unpaid: true } : {};
+  reg.games.simple = { ...S, decisions: (item, ctx) => ((ctx && ctx.answers && ctx.answers.length)
+    ? [{ id: 'later', label: L('Later'), effect: { kind: 'later', ...u } }, { id: 'ok', label: L('Keep it'), effect: { kind: 'keep', ...u } }]
+    : [{ id: 'q', label: L('I installed it'), effect: { kind: 'ask' } }, { id: 'q2', label: L('Not sure'), effect: { kind: 'ask' } }]) };
+  return reg;
+};
+const oneItem = () => scan(mod('battery_health', [f('Worn part', 'warning', { name: 'part0' })]));
+
+test('a question keeps the item on screen with BACK; BACK goes to the question before', async () => {
+  const t = await setup(oneItem(), { games: quizGame(false) });
+  t.click({ 'data-act': 'investigate-next' });
+  if (/PRACTICE FIRST/.test(t.html())) t.click({ 'data-act': 'mx-know' });
+  assert.doesNotMatch(t.html(), /data-act="mx-unask"/, 'no BACK before the first answer');
+  t.click({ 'data-act': 'mx-decide:q' });
+  assert.match(t.html(), /data-act="mx-decide:ok"/, 'the next question is on screen');
+  assert.match(t.html(), /data-act="mx-unask"/, 'with BACK');
+  t.click({ 'data-act': 'mx-unask' });
+  assert.match(t.html(), /data-act="mx-decide:q"/, 'back at the first question');
+  assert.doesNotMatch(t.html(), /data-act="mx-unask"/);
+});
+
+test('unpaid result: no award, no keepAnswer, no bonus', async () => {
+  for (const unpaid of [false, true]) {
+    const s = memStore();
+    const t = await setup(oneItem(), { storage: s, games: quizGame(unpaid) });
+    t.click({ 'data-act': 'investigate-next' });
+    if (/PRACTICE FIRST/.test(t.html())) t.click({ 'data-act': 'mx-know' });
+    t.click({ 'data-act': 'mx-decide:q' });
+    t.click({ 'data-act': 'mx-decide:ok' });
+    await tick();
+    const p = savedProfile(s);
+    if (unpaid) {
+      assert.strictEqual(p.rank.points, 0, 'no award and no mission bonus');
+      assert.strictEqual(Object.keys(p.kept || {}).length, 0, 'not remembered');
+      assert.ok(!JSON.stringify(p).includes('"answers"'), 'answers are never stored');
+    } else {
+      assert.ok(p.rank.points > 0, 'the same answer pays when it isn’t unpaid');
+      assert.strictEqual(Object.keys(p.kept).length, 1);
+    }
+  }
+});

@@ -2,6 +2,8 @@ export default {
   id: 'password-asker',
   title: 'The tool that asks for your password',
   recommendedFor: ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'phone', 'helping', 'unsure'],
+  // remote_access_tools joins this list once the engine's check is on this branch (plan Task 7: the lesson test
+  // requires every module here to exist under modules/).
   modules: ['win_remote_access_audit'],
   districts: ['gatehouse'],
   sources: [
@@ -11,7 +13,7 @@ export default {
     'guides/home_network_intrusion/phase_3.md',
   ],
   briefing: 'Reclaim City never asks for an account password, a one-time code, a recovery code, a seed phrase, or a password-manager master password. There is no prompt for any of them anywhere in the tool.',
-  whatTheScanLooksFor: 'On Windows, the checkup looks for remote-access tools like TeamViewer, AnyDesk and VNC, which are common leftovers from “tech support” phone scams.',
+  whatTheScanLooksFor: 'The checkup looks for remote-access tools like TeamViewer, AnyDesk and VNC, which are common leftovers from “tech support” phone scams.',
   questions: [
     {
       key: 'scam-popup',

@@ -23,6 +23,9 @@ import { isMonitoringModule } from '../missions/contract.js';
 // `monitoringApp`: one key of an app a monitoring check flagged (types.js keysOf).
 export const isMonitoringItem = (item) => !!item && typeof item === 'object' && (item.monitoringApp === true
   || [item.finding, ...(Array.isArray(item.findings) ? item.findings : [])].some((f) => f && isMonitoringModule(f.module)));
+// Contract R13: an answer whose effect says `unpaid` (the Guest Book's "Someone I know") is treated the same:
+// no points, never kept in the profile, and no mission bonus.
+export const isUnpaidResult = (r) => !!(r && r.effect && r.effect.unpaid === true);
 import { esc } from './escape.js';
 
 const visible = (s) => String(s == null ? '' : s).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
@@ -328,7 +331,7 @@ export function createMissionDesk(deps) {
     for (const r of fresh) {
       if (!r.effect || r.effect.kind === 'later') continue;
       d.answered.set(r.key, r.decision);
-      const watched = isMonitoringItem(r.item);
+      const watched = isMonitoringItem(r.item) || isUnpaidResult(r);
       if (Run.remembers(r) && !watched) deps.keepProfile(keepAnswer(deps.getProfile(), r.key, Run.fingerprint(r.item), r.decision, deps.now()));
       // Notes pay per batch; every other decided item pays once, ever. A
       // monitoring item pays nothing, whatever was decided.
@@ -346,8 +349,8 @@ export function createMissionDesk(deps) {
     d.paidSummary.add(m.id + d.run.results.map((r) => r.key).join('|'));
     const allDecided = m.items.every((i) => d.run.results.some((r) => r.key === i.key && r.decision !== 'later'));
     if (!allDecided) return;
-    // A mission with a monitoring item in it pays no bonus.
-    if (m.items.some(isMonitoringItem)) return regroupOdd();
+    // A mission with a monitoring item in it, or an unpaid answer (R13), pays no bonus.
+    if (m.items.some(isMonitoringItem) || d.run.results.some(isUnpaidResult)) return regroupOdd();
     const lead = m.items[0].finding.module;
     const keys = m.items.map((i) => i.key).sort();
     if (m.notes) {
@@ -461,6 +464,8 @@ export function createMissionDesk(deps) {
     const ok = await recheckModules(modules);
     const still = d.missions.some((m) => m.items.some((i) => i.key === item.key || (i.sourceKeys || []).includes(item.key)));
     const before = d.run ? d.run.results.slice() : [];
+    const p = d.run && d.run.pending;
+    const unpaid = !!(p && p.key === item.key && isUnpaidResult({ effect: p.decision && p.decision.effect }));
     const entry = why === 'fix' ? d.done.find((x) => x.key === item.key && x.kind === 'fix') : null;
     if (entry) entry.state = !ok ? 'checking' : still ? 'still' : 'gone';
     if (!ok) {
@@ -468,7 +473,7 @@ export function createMissionDesk(deps) {
       if (why === 'mark') d.run = Run.settle(d.run, 'done', item); else d.run = Run.settle(d.run, 'cancelled', item);
     } else if (!still) {
       if (why !== 'mark') {
-        const watched = isMonitoringItem(item);
+        const watched = isMonitoringItem(item) || unpaid;
         const pts = watched ? 0 : deps.commitAward(confirmItem(deps.deck(), missionKey(item.finding.module, item.key), deps.now()));
         if (!watched) deps.logEntry('CONFIRMED', item.finding.title || '');
         d.notice = about(item, mode() === 'city' ? `Confirmed: the sweep doesn’t see it any more.${pts ? ` +${pts}` : ''}` : `Checked again: it’s gone.${pts ? ` +${pts} points` : ''}`);
@@ -529,9 +534,11 @@ export function createMissionDesk(deps) {
     if (!run || !m) return null;
     const game = gameOf(run.type);
     const practice = run.phase === 'practice';
-    const ctx = ctxFor(m, { practice });
-    const pv = Run.viewFor(run, game, ctx, {});
+    const ctx0 = ctxFor(m, { practice });
+    const pv = Run.viewFor(run, game, ctx0, {});
     const item = pv.item;
+    // R12: research and the card see the item's answers so far (a practice step's own).
+    const ctx = practice ? { ...ctx0, answers: pv.answers || [] } : Run.contextFor(run, ctx0, item);
     let research = { rows: [], what: '', links: [], unfinished: '' };
     let card = '';
     let evidence = '';
@@ -619,6 +626,9 @@ export function createMissionDesk(deps) {
       afterResults(before);
     } else if (act === 'mx-cancel') {
       d.act = null; d.run = Run.cancelPending(d.run);
+    } else if (act === 'mx-unask') {
+      // BACK on a question (R12): the question before, nothing recorded.
+      d.act = null; d.run = Run.unask(d.run);
     } else if (act === 'mx-skip') {
       d.run = Run.skip(d.run);
     } else if (act === 'mx-practice') {
@@ -640,7 +650,7 @@ export function createMissionDesk(deps) {
       if (d.run.phase !== 'practice' && d.run.practiced) deps.keepProfile(markRound(deps.getProfile(), d.run.type, 'played', deps.now()));
     } else if (act.startsWith('mx-link:')) {
       const item = Run.currentItem(d.run);
-      const links = item ? assemble(game, item, ctx, { unfinished: d.unfinished }).links : [];
+      const links = item ? assemble(game, item, Run.contextFor(d.run, ctx, item), { unfinished: d.unfinished }).links : [];
       const l = links[Number(act.slice(8))];
       if (l) {
         // R6 for links too: a warned item's page opens only after the warning was read.

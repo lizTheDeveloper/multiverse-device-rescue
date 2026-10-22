@@ -188,7 +188,7 @@ test('P1-11 / round 2: each held item is the shared evidence block, held: what t
   assert.match(html, /<dt>Where found<\/dt><dd><code class="evidence-mono">\/Applications\/&lt;b&gt;mSpy.app<\/code><\/dd>/);
   assert.match(html, /<dt>How detected<\/dt><dd><span>Found as app<\/span>/);
   assert.match(html, /<dt>Made by<\/dt><dd><span>Unknown maker · not verified<\/span>/);
-  assert.match(html, /<dt>Date<\/dt><dd><span>18 Oct 2026<\/span>/);
+  assert.match(html, /<dt>Found on<\/dt><dd><span>18 Oct 2026<\/span>/);
   // Monitoring software can read the clipboard: no copy anywhere on a held item.
   assert.doesNotMatch(html, /side-copy|COPY TO WRITE DOWN|data-evidence-copy|Copy all/);
   assert.match(html, /<h3 class="side-h">/);

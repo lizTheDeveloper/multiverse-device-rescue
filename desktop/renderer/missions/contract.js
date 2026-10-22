@@ -18,8 +18,8 @@
 //   Link     = { kind: LINK_KINDS[i], ...args }     // intents; runner/research.js turns them into allowlisted URLs
 //   Step     = { item: index into practice.items, say: { standard, city }, expect?: decision id }
 //   ctx      = { mode: 'standard'|'city', practice: bool, platform: 'darwin'|'win32'|'linux', districtName,
-//                esc(s), visible(s), evidenceRows(finding, {mode}) }
-//   view     = { item, research, decisions, index, total, practice, step? }
+//                esc(s), visible(s), evidenceRows(finding, {mode}), answers (R12) }
+//   view     = { item, research, decisions, index, total, practice, step?, answers }
 //
 // Games are pure: no DOM, no storage, no window/globals, no network, no clipboard. Only what ctx hands them.
 //
@@ -46,12 +46,19 @@
 //      wording for Windows players). Same rules as practice, and the same number of steps (the profile measures a
 //      round's steps by index). practiceOf(game, platform) picks it; games/index.js gameFor hands the runner a game
 //      whose practice is the platform's round.
+//   R12 A question step: an `ask` effect ({ kind: 'ask' }) adds the decision's id to the item's answers
+//      (run.answers[item.key], a list) and leaves the item on screen. Nothing is recorded, paid or remembered,
+//      and the answers live in memory only (never in the profile). decisions and research get them as
+//      ctx.answers ([] before the first), render as view.answers; BACK (runner unask) drops the last one. A
+//      practice step may carry `answers: string[]`, handed to the game as ctx.answers for that step.
+//   R13 Any effect may carry `unpaid: true`: its answer pays nothing, is never kept in the profile and stops the
+//      mission's bonus, as a monitoring check's item does (for an outcome where pay would be the wrong lesson).
 //   covers: [{ module, codes?, checks? }]; the notes game's wildcard { module: '*', severities: ['info'] } means every
 //      note no other game claims; it is matched last and never counts as a double claim.
 
-export const TYPE_IDS = ['door', 'keyring', 'loadout', 'seal', 'switchboard', 'locker', 'locks', 'junkyard', 'notes', 'simple'];
+export const TYPE_IDS = ['door', 'keyring', 'loadout', 'seal', 'guestbook', 'switchboard', 'locker', 'locks', 'junkyard', 'notes', 'simple'];
 
-export const EFFECT_KINDS = ['mark', 'fix', 'settings', 'link', 'closer', 'later', 'note', 'odd', 'recheck', 'keep'];
+export const EFFECT_KINDS = ['mark', 'fix', 'settings', 'link', 'closer', 'later', 'note', 'odd', 'recheck', 'keep', 'ask'];
 
 // Link intents. A game never builds a URL from scan data; research.js maps each intent to a fixed template.
 //   settings: { kind: 'settings', pane }            pane from SETTINGS_PANES

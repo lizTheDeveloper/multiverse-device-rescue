@@ -205,11 +205,13 @@ const isOpen = (x) => x.kind === 'real' && OPEN.has(x.severity) && !x.marked;
 
 // Monitoring findings are never signals, but an open one still means its
 // district isn't secure (and is hot), even while the game is withdrawn.
-function openMonitoring(city) {
+// `all`: every mission counts (the held city, built from held findings only, which in
+// city mode include remote-access tools as well as the monitoring checks).
+function openMonitoring(city, all = false) {
   const out = [];
   for (const d of (city && city.districts) || []) {
     for (const m of d.missions || []) {
-      if (!MONITORING_MODULES.has(m.module) || !OPEN.has(m.severity)) continue;
+      if (!(all || MONITORING_MODULES.has(m.module)) || !OPEN.has(m.severity)) continue;
       const stale = !!(m.primary && m.primary.data && m.primary.data.mark_stale === true);
       if (m.marked && !stale) continue;
       out.push({ districtId: d.id, severity: m.severity });
@@ -221,7 +223,7 @@ function openMonitoring(city) {
 // `held`: a city built from only the held monitoring findings (held.js), kept
 // in memory. They're never signals, but they're still open.
 export function cityIntegrity(city, signals, held = null) {
-  const openIn = new Set([...(signals || []).filter(isOpen), ...openMonitoring(city), ...openMonitoring(held)].map((x) => x.districtId));
+  const openIn = new Set([...(signals || []).filter(isOpen), ...openMonitoring(city), ...openMonitoring(held, true)].map((x) => x.districtId));
   const checkedIds = new Set();
   const securedIds = new Set();
   for (const d of (city && city.districts) || []) {
@@ -241,12 +243,12 @@ export function cityIntegrity(city, signals, held = null) {
 // The districts where a held monitoring finding is open. A change there is
 // never "secured" and never a clean sweep: that would reward removing it.
 export function heldDistrictIds(held) {
-  return new Set(openMonitoring(held).map((x) => x.districtId));
+  return new Set(openMonitoring(held, true).map((x) => x.districtId));
 }
 
 export function districtHeat(city, signals, held = null) {
   const out = {};
-  for (const x of [...(signals || []).filter(isOpen), ...openMonitoring(city), ...openMonitoring(held)]) {
+  for (const x of [...(signals || []).filter(isOpen), ...openMonitoring(city), ...openMonitoring(held, true)]) {
     out[x.districtId] = out[x.districtId] === 'hot' || x.severity === 'critical' ? 'hot' : 'warn';
   }
   return out;

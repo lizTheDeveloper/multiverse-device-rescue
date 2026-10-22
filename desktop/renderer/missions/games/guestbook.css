@@ -1,0 +1,47 @@
+/* The Guest Book: one remote-access tool per card, its evidence first (when it arrived, whether it lets someone in
+   without a click, when it last did), then the one question or the outcome. Uses the game's CSS variables with
+   fallbacks; the runner's mission chrome draws the buttons, the warning and the evidence rows. */
+
+.gb-card {
+  --gb-ink: var(--rc-ink, #e8f0ee);
+  --gb-dim: var(--rc-dim, #9fb3ae);
+  --gb-panel: var(--rc-panel, #14211f);
+  --gb-accent: var(--rc-accent, #5fd4b8);
+  --gb-warn: var(--rc-warn, #f2b44b);
+  --gb-line: var(--rc-border, #2c4440);
+  color: var(--gb-ink);
+  background: var(--gb-panel);
+  border: 1px solid var(--gb-line);
+  border-radius: 10px;
+  padding: 16px;
+  font: inherit;
+}
+
+.gb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.gb-chip {
+  font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid var(--gb-accent); color: var(--gb-accent);
+}
+.gb-count { font-size: 0.8rem; color: var(--gb-dim); margin-left: auto; }
+.gb-title { flex-basis: 100%; margin: 4px 0 0; font-size: 1.1rem; line-height: 1.3; overflow-wrap: anywhere; }
+
+.gb-step {
+  margin: 0 0 12px; padding: 10px 12px; border-left: 3px solid var(--gb-accent);
+  background: color-mix(in srgb, var(--gb-accent) 12%, transparent); border-radius: 4px;
+}
+
+/* The evidence, as a page of a guest book: one line per fact. */
+.gb-facts { list-style: none; margin: 0 0 12px; padding: 0; border-top: 1px dashed var(--gb-line); }
+.gb-facts li { padding: 6px 0; border-bottom: 1px dashed var(--gb-line); overflow-wrap: anywhere; }
+.gb-facts li.gb-running { color: var(--gb-warn); font-weight: 700; }
+.gb-others { margin: 0 0 12px; color: var(--gb-dim); overflow-wrap: anywhere; }
+
+.gb-ask { margin: 12px 0 0; padding: 12px; border-radius: 6px; border: 1px solid var(--gb-line); }
+.gb-question { border-color: var(--gb-accent); }
+.gb-stage-offline .gb-ask, .gb-stage-scam .gb-ask, .gb-stage-several .gb-ask { border-color: var(--gb-warn); }
+.gb-unfinished { margin: 10px 0 0; color: var(--gb-warn); }
+.gb-summary p { margin: 0 0 8px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .gb-ask { transition: border-color 0.2s ease; }
+}
