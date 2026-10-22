@@ -87,13 +87,20 @@ class Orchestrator:
         modules_dir: Path,
         profile: Profile | None = None,
         *,
-        module_timeout: float = DEFAULT_MODULE_TIMEOUT,
+        module_timeout: float | None = None,
         total_budget: float | None = None,
     ):
         self._modules_dir = modules_dir
         self._profile = profile
         self._module_timeout = module_timeout
         self._total_budget = total_budget
+
+    def _timeout_for(self, mod: ModuleBase) -> float:
+        """A timeout the caller chose wins; otherwise a module's own check_timeout
+        replaces the default."""
+        if self._module_timeout is not None:
+            return self._module_timeout
+        return getattr(mod, "check_timeout", None) or DEFAULT_MODULE_TIMEOUT
 
     def run_checks(self, on_progress=None) -> list[tuple[ModuleBase, CheckResult]]:
         """Run every applicable module's check().
@@ -142,8 +149,7 @@ class Orchestrator:
             report("start", index, total, mod, None)
             try:
                 check = _call_with_timeout(
-                    lambda m=mod: m.check(profile),
-                    getattr(mod, "check_timeout", None) or self._module_timeout,
+                    lambda m=mod: m.check(profile), self._timeout_for(mod)
                 )
             except _Timeout as exc:
                 logger.warning("Module check timed out: %s", mod.name)
