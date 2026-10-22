@@ -16,13 +16,16 @@ that reports something someone else may have installed.
 
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
+import errno
 import os
 import plistlib
 import re
 import sys
 import time
 from datetime import date, datetime
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from rescue.command import run
 from rescue.models import (
@@ -178,6 +181,28 @@ def _proc_names(profile: SystemProfile) -> set[str] | None:
     return names
 
 
+# kernel_path's answer for a process that exited after the list was taken.
+PROCESS_GONE = ""
+
+
+def _kernel_path(pid) -> str | None:
+    """The program a macOS process is running, as the kernel reports it
+    (libproc proc_pidpath). Unlike ps's command line (argv) a process can't set
+    it. PROCESS_GONE when the process has exited; None when it can't be read
+    (the program was deleted, or no access), which is never "not running"."""
+    try:
+        pid = int(pid)
+        lib = ctypes.CDLL(ctypes.util.find_library("proc") or "/usr/lib/libproc.dylib", use_errno=True)
+        buf = ctypes.create_string_buffer(4096)
+        ctypes.set_errno(0)
+        n = lib.proc_pidpath(pid, buf, ctypes.c_uint32(len(buf)))
+        if n > 0:
+            return buf.value.decode("utf-8", "surrogateescape")
+        return PROCESS_GONE if ctypes.get_errno() == errno.ESRCH else None
+    except Exception:
+        return None
+
+
 def _running(names: set[str] | None, patterns) -> bool | None:
     if names is None or not patterns:
         return None
@@ -212,6 +237,7 @@ class Module(ModuleBase):
     # Whether paths are judged as Windows paths only (see _local_path); tests set it.
     WINDOWS_HOST = sys.platform == "win32"
     now = staticmethod(lambda: datetime.now())
+    kernel_path = staticmethod(_kernel_path)
     clock = staticmethod(time.monotonic)
 
     # ---------------- check ----------------
@@ -364,6 +390,41 @@ class Module(ModuleBase):
         except (OverflowError, OSError, ValueError):
             return None
 
+    def _mac_kernel_names(self, profile: SystemProfile) -> tuple[set[str] | None, bool]:
+        """(lowercased program names from the kernel's path of each process,
+        whether every process still running could be read). (None, False)
+        without a process list."""
+        procs = getattr(profile, "processes", None) or []
+        if not procs:
+            return None, False
+        names: set[str] = set()
+        every = True
+        for proc in procs:
+            if not self._in_budget():
+                return names, False
+            path = self.kernel_path(getattr(proc, "pid", None))
+            if path == PROCESS_GONE:
+                continue
+            if not isinstance(path, str) or not path.startswith("/"):
+                every = False
+                continue
+            names.add(PurePosixPath(path).name.lower())
+        return names, every
+
+    @staticmethod
+    def _mac_running(argv_names, kernel_names, every_read: bool, patterns) -> bool | None:
+        """True on any match (the kernel's program, or the command line: a
+        process naming itself after a tool is worth a look). False only when
+        the kernel's program of every process was read and none is the tool;
+        the command line alone never says "not running"."""
+        if not patterns:
+            return None
+        if _running(kernel_names, patterns) is True or _running(argv_names, patterns) is True:
+            return True
+        if kernel_names is not None and every_read:
+            return False
+        return None
+
     def _expand(self, raw: str) -> Path | None:
         """A log path with ``~`` or ``%Name%`` filled in, or None when a name isn't set."""
         if raw.startswith("~"):
@@ -414,6 +475,7 @@ class Module(ModuleBase):
         else:
             launchd, launchd_readable = {}, False
         names = _proc_names(profile)
+        kernel_names, every_read = self._mac_kernel_names(profile)
         downloads = self._downloads_dir()
         out = []
         for tool in self._tool_entries():
@@ -421,7 +483,7 @@ class Module(ModuleBase):
                 continue
             found_apps = apps.get(tool.id, [])
             jobs = launchd.get(tool.id, [])
-            running = _running(names, tool.mac_processes)
+            running = self._mac_running(names, kernel_names, every_read, tool.mac_processes)
             if not found_apps and not jobs and running is not True:
                 continue
             installed = [a for a in found_apps if a.parent != downloads]

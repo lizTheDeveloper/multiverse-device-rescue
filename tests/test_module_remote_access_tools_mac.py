@@ -52,6 +52,7 @@ def _module(tmp_path):
     m.MAC_APP_DIRS = [apps, home / "Applications", home / "Downloads"]
     m.MAC_LAUNCHD_DIRS = [daemons, agents]
     m.now = lambda: datetime(2026, 3, 12, 12, 0, 0)
+    m.kernel_path = staticmethod(lambda pid: None)  # no real process is ever read
     return m, apps, daemons
 
 
@@ -148,13 +149,58 @@ def test_missing_launchd_dir_is_readable(tmp_path):
     assert _sightings(m)["anydesk"].lets_in_unattended is False
 
 
+def _kernel(m, paths):
+    """The kernel's executable path for each pid (proc_pidpath); a missing pid can't be read."""
+    m.kernel_path = staticmethod(lambda pid: paths.get(pid))
+
+
 def test_running_now_from_profile_processes(tmp_path):
     m, apps, _ = _module(tmp_path)
     _app(apps, "AnyDesk.app")
     _app(apps, "RustDesk.app")
+    _kernel(m, {100: "/Applications/AnyDesk.app/Contents/MacOS/AnyDesk",
+                101: "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"})
     got = _sightings(m, _profile(processes=["AnyDesk", "Finder"]))
     assert got["anydesk"].running_now is True
     assert got["rustdesk"].running_now is False
+
+
+def test_running_is_read_from_the_kernels_path_not_the_command_line(tmp_path):
+    # ps aux's command line is argv: "Splashtop Streamer" reads as "Splashtop",
+    # and a process can call itself anything. The kernel's path is the program.
+    m, apps, _ = _module(tmp_path)
+    _app(apps, "Splashtop Streamer.app")
+    _app(apps, "AnyDesk.app")
+    _kernel(m, {100: "/Applications/Splashtop Streamer.app/Contents/MacOS/Splashtop Streamer",
+                101: "/Applications/AnyDesk.app/Contents/MacOS/AnyDesk"})
+    got = _sightings(m, _profile(processes=["Splashtop", "launchd"]))
+    assert got["splashtop"].running_now is True
+    assert got["anydesk"].running_now is True
+
+
+def test_not_running_only_when_every_process_could_be_read(tmp_path):
+    m, apps, _ = _module(tmp_path)
+    _app(apps, "AnyDesk.app")
+    _kernel(m, {100: "/usr/libexec/logd"})  # pid 101's program can't be read (deleted, or no access)
+    assert _sightings(m, _profile(processes=["logd", "helper"]))["anydesk"].running_now is None
+    # A process that has exited since the list was taken is no process at all.
+    _kernel(m, {100: "/usr/libexec/logd", 101: MOD.PROCESS_GONE})
+    assert _sightings(m, _profile(processes=["logd", "helper"]))["anydesk"].running_now is False
+
+
+def test_a_command_line_match_still_counts(tmp_path):
+    m, apps, _ = _module(tmp_path)
+    _app(apps, "AnyDesk.app")
+    _kernel(m, {})
+    assert _sightings(m, _profile(processes=["AnyDesk"]))["anydesk"].running_now is True
+
+
+def test_the_kernel_path_reader_is_real_and_safe():
+    if sys.platform == "darwin":
+        mine = MOD.Module.kernel_path(os.getpid())
+        assert isinstance(mine, str) and mine.startswith("/") and os.path.exists(mine)
+    assert MOD.Module.kernel_path(-1) in (None, MOD.PROCESS_GONE)
+    assert MOD.Module.kernel_path("junk") is None
 
 
 def test_running_unknown_without_a_process_list(tmp_path):
