@@ -1,0 +1,722 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-10-22",
+  "note": "Remote-access tools: software that lets someone else see and control this computer. Identifiers come from the vendors' own installers; a field left empty is one we don't know, and detection falls back to the others. Windows display names are case-insensitive regexes over the uninstall entry's DisplayName. mac_launchd entries are label prefixes. Only TeamViewer and AnyDesk keep a connection log we read, and only its dates and a count are ever used. Quick Assist is built into Windows, so it is reported only while it is running.",
+  "tools": [
+    {
+      "id": "teamviewer",
+      "name": "TeamViewer",
+      "maker": "TeamViewer Germany GmbH",
+      "mac_bundle_ids": [
+        "com.teamviewer.TeamViewer",
+        "com.teamviewer.TeamViewerQS",
+        "com.teamviewer.TeamViewerHost"
+      ],
+      "mac_app_names": [
+        "TeamViewer.app",
+        "TeamViewerQS.app",
+        "TeamViewer QuickSupport.app",
+        "TeamViewerHost.app",
+        "TeamViewer Host.app"
+      ],
+      "mac_launchd": [
+        "com.teamviewer.teamviewer_service",
+        "com.teamviewer.Helper"
+      ],
+      "mac_processes": [
+        "TeamViewer",
+        "TeamViewer_Service",
+        "TeamViewer_Desktop",
+        "TeamViewerQS"
+      ],
+      "win_display_names": [
+        "^TeamViewer\\b"
+      ],
+      "win_services": [
+        "TeamViewer"
+      ],
+      "win_processes": [
+        "TeamViewer.exe",
+        "TeamViewer_Service.exe",
+        "TeamViewerQS.exe",
+        "tv_w32.exe",
+        "tv_x64.exe"
+      ],
+      "logs": [
+        {
+          "platform": "darwin",
+          "path": "/Library/Application Support/TeamViewer/Connections_incoming.txt",
+          "format": "teamviewer_incoming"
+        },
+        {
+          "platform": "win32",
+          "path": "%ProgramFiles%\\TeamViewer\\Connections_incoming.txt",
+          "format": "teamviewer_incoming"
+        },
+        {
+          "platform": "win32",
+          "path": "%ProgramFiles(x86)%\\TeamViewer\\Connections_incoming.txt",
+          "format": "teamviewer_incoming"
+        }
+      ]
+    },
+    {
+      "id": "anydesk",
+      "name": "AnyDesk",
+      "maker": "AnyDesk Software GmbH",
+      "mac_bundle_ids": [
+        "com.philandro.anydesk"
+      ],
+      "mac_app_names": [
+        "AnyDesk.app"
+      ],
+      "mac_launchd": [
+        "com.philandro.anydesk.service",
+        "com.philandro.anydesk.Helper"
+      ],
+      "mac_processes": [
+        "AnyDesk"
+      ],
+      "win_display_names": [
+        "^AnyDesk\\b"
+      ],
+      "win_services": [
+        "AnyDesk"
+      ],
+      "win_processes": [
+        "AnyDesk.exe"
+      ],
+      "logs": [
+        {
+          "platform": "darwin",
+          "path": "~/.anydesk/connection_trace.txt",
+          "format": "anydesk_trace"
+        },
+        {
+          "platform": "win32",
+          "path": "%ProgramData%\\AnyDesk\\connection_trace.txt",
+          "format": "anydesk_trace"
+        },
+        {
+          "platform": "win32",
+          "path": "%AppData%\\AnyDesk\\connection_trace.txt",
+          "format": "anydesk_trace"
+        }
+      ]
+    },
+    {
+      "id": "screenconnect",
+      "name": "ConnectWise ScreenConnect",
+      "maker": "ConnectWise",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "ScreenConnect Client.app",
+        "ConnectWiseControl.ClientSetup.app"
+      ],
+      "mac_launchd": [
+        "screenconnect-",
+        "connectwisecontrol-"
+      ],
+      "mac_processes": [
+        "ScreenConnect.ClientService",
+        "ScreenConnect.WindowsClient"
+      ],
+      "win_display_names": [
+        "^ScreenConnect Client\\b",
+        "^ConnectWise Control Client\\b"
+      ],
+      "win_services": [
+        "ScreenConnect Client"
+      ],
+      "win_processes": [
+        "ScreenConnect.ClientService.exe",
+        "ScreenConnect.WindowsClient.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "rustdesk",
+      "name": "RustDesk",
+      "maker": "Purslane Ltd",
+      "mac_bundle_ids": [
+        "com.carriez.rustdesk",
+        "com.rustdesk.RustDesk"
+      ],
+      "mac_app_names": [
+        "RustDesk.app"
+      ],
+      "mac_launchd": [
+        "com.carriez.RustDesk_service",
+        "com.carriez.RustDesk_server",
+        "com.rustdesk.RustDesk"
+      ],
+      "mac_processes": [
+        "RustDesk",
+        "rustdesk"
+      ],
+      "win_display_names": [
+        "^RustDesk\\b"
+      ],
+      "win_services": [
+        "RustDesk"
+      ],
+      "win_processes": [
+        "rustdesk.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "ultraviewer",
+      "name": "UltraViewer",
+      "maker": "DucFabulous",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [
+        "^UltraViewer\\b"
+      ],
+      "win_services": [
+        "UltraViewService"
+      ],
+      "win_processes": [
+        "UltraViewer_Desktop.exe",
+        "UltraViewer_Service.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "splashtop",
+      "name": "Splashtop Streamer",
+      "maker": "Splashtop Inc.",
+      "mac_bundle_ids": [
+        "com.splashtop.Splashtop-Streamer"
+      ],
+      "mac_app_names": [
+        "Splashtop Streamer.app",
+        "Splashtop SOS.app"
+      ],
+      "mac_launchd": [
+        "com.splashtop.streamer"
+      ],
+      "mac_processes": [
+        "Splashtop Streamer",
+        "SRStreamerDaemon"
+      ],
+      "win_display_names": [
+        "^Splashtop Streamer\\b",
+        "^Splashtop SOS\\b"
+      ],
+      "win_services": [
+        "SplashtopRemoteService"
+      ],
+      "win_processes": [
+        "SRService.exe",
+        "SRServer.exe",
+        "SRManager.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "logmein",
+      "name": "LogMeIn / GoTo",
+      "maker": "GoTo Technologies",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "LogMeIn Client.app",
+        "LogMeIn Rescue.app",
+        "GoTo Resolve.app"
+      ],
+      "mac_launchd": [
+        "com.logmein.logmeinserver",
+        "com.logmein.logmeinguiagent",
+        "com.logmein.rescue",
+        "com.goto.resolve"
+      ],
+      "mac_processes": [
+        "LogMeIn",
+        "LMIGuardianSvc",
+        "LogMeInRescue"
+      ],
+      "win_display_names": [
+        "^LogMeIn\\b(?!.*Hamachi)",
+        "^GoTo Resolve\\b"
+      ],
+      "win_services": [
+        "LogMeIn",
+        "LMIGuardianSvc",
+        "LMIRescue"
+      ],
+      "win_processes": [
+        "LogMeIn.exe",
+        "LMIGuardianSvc.exe",
+        "LMI_Rescue.exe",
+        "LogMeInRescue.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "zoho_assist",
+      "name": "Zoho Assist",
+      "maker": "Zoho Corporation",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "Zoho Assist.app",
+        "ZohoAssist.app"
+      ],
+      "mac_launchd": [
+        "com.zoho.assist"
+      ],
+      "mac_processes": [
+        "ZohoAssist",
+        "ZA_Connect"
+      ],
+      "win_display_names": [
+        "^Zoho Assist\\b"
+      ],
+      "win_services": [],
+      "win_processes": [
+        "ZA_Connect.exe",
+        "ZohoURS.exe",
+        "ZohoURSService.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "supremo",
+      "name": "Supremo",
+      "maker": "Nanosystems S.r.l.",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "Supremo.app"
+      ],
+      "mac_launchd": [],
+      "mac_processes": [
+        "Supremo"
+      ],
+      "win_display_names": [
+        "^Supremo\\b"
+      ],
+      "win_services": [
+        "SupremoService"
+      ],
+      "win_processes": [
+        "Supremo.exe",
+        "SupremoService.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "aeroadmin",
+      "name": "AeroAdmin",
+      "maker": "AeroAdmin Inc.",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [
+        "^AeroAdmin\\b"
+      ],
+      "win_services": [
+        "AeroadminService"
+      ],
+      "win_processes": [
+        "AeroAdmin.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "ammyy",
+      "name": "Ammyy Admin",
+      "maker": "Ammyy LLC",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [
+        "^Ammyy Admin\\b"
+      ],
+      "win_services": [
+        "AmmyyAdmin"
+      ],
+      "win_processes": [
+        "AA_v3.exe",
+        "AMMYY_Admin.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "remote_utilities",
+      "name": "Remote Utilities",
+      "maker": "Remote Utilities LLC",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [
+        "^Remote Utilities\\b"
+      ],
+      "win_services": [
+        "RManService"
+      ],
+      "win_processes": [
+        "rutserv.exe",
+        "rfusclient.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "simplehelp",
+      "name": "SimpleHelp",
+      "maker": "SimpleHelp Ltd",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "SimpleHelp Remote Access.app"
+      ],
+      "mac_launchd": [
+        "com.simplehelp."
+      ],
+      "mac_processes": [
+        "SimpleService"
+      ],
+      "win_display_names": [
+        "^SimpleHelp\\b"
+      ],
+      "win_services": [],
+      "win_processes": [
+        "SimpleService.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "hoptodesk",
+      "name": "HopToDesk",
+      "maker": "HopToDesk",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "HopToDesk.app"
+      ],
+      "mac_launchd": [],
+      "mac_processes": [
+        "HopToDesk"
+      ],
+      "win_display_names": [
+        "^HopToDesk\\b"
+      ],
+      "win_services": [
+        "HopToDesk"
+      ],
+      "win_processes": [
+        "HopToDesk.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "beyondtrust",
+      "name": "BeyondTrust Remote Support (Bomgar)",
+      "maker": "BeyondTrust Corporation",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "Remote Support Customer Client.app"
+      ],
+      "mac_launchd": [
+        "com.bomgar.",
+        "com.beyondtrust."
+      ],
+      "mac_processes": [
+        "bomgar-scc",
+        "bomgar-pac"
+      ],
+      "win_display_names": [
+        "^BeyondTrust Remote Support\\b",
+        "^Bomgar\\b"
+      ],
+      "win_services": [
+        "bomgar-ps"
+      ],
+      "win_processes": [
+        "bomgar-scc.exe",
+        "bomgar-pac.exe",
+        "bomgar-rdp.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "atera",
+      "name": "Atera agent",
+      "maker": "Atera Networks",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [
+        "com.atera.ateraagent"
+      ],
+      "mac_processes": [
+        "AteraAgent"
+      ],
+      "win_display_names": [
+        "^AteraAgent\\b"
+      ],
+      "win_services": [
+        "AteraAgent"
+      ],
+      "win_processes": [
+        "AteraAgent.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "ninjaone",
+      "name": "NinjaOne agent",
+      "maker": "NinjaOne",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [
+        "com.ninjarmm.",
+        "com.ninjaone."
+      ],
+      "mac_processes": [
+        "ninjarmm-macagent",
+        "NinjaRMMAgent"
+      ],
+      "win_display_names": [
+        "^NinjaRMMAgent\\b",
+        "^NinjaOne\\b"
+      ],
+      "win_services": [
+        "NinjaRMMAgent"
+      ],
+      "win_processes": [
+        "NinjaRMMAgent.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "action1",
+      "name": "Action1 agent",
+      "maker": "Action1 Corporation",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [
+        "com.action1."
+      ],
+      "mac_processes": [
+        "action1_agent"
+      ],
+      "win_display_names": [
+        "^Action1 Agent\\b"
+      ],
+      "win_services": [
+        "A1Agent"
+      ],
+      "win_processes": [
+        "action1_agent.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "chrome_remote_desktop",
+      "name": "Chrome Remote Desktop",
+      "maker": "Google LLC",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "Chrome Remote Desktop Host Uninstaller.app"
+      ],
+      "mac_launchd": [
+        "org.chromium.chromoting"
+      ],
+      "mac_processes": [
+        "remoting_me2me_host"
+      ],
+      "win_display_names": [
+        "^Chrome Remote Desktop Host\\b"
+      ],
+      "win_services": [
+        "chromoting"
+      ],
+      "win_processes": [
+        "remoting_host.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "realvnc",
+      "name": "RealVNC Server",
+      "maker": "RealVNC Ltd",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "VNC Server.app",
+        "RealVNC Server.app"
+      ],
+      "mac_launchd": [
+        "com.realvnc.vncserver"
+      ],
+      "mac_processes": [
+        "vncserver",
+        "vncagent"
+      ],
+      "win_display_names": [
+        "^VNC Server\\b",
+        "^RealVNC Server\\b"
+      ],
+      "win_services": [
+        "vncserver"
+      ],
+      "win_processes": [
+        "vncserver.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "tightvnc",
+      "name": "TightVNC",
+      "maker": "GlavSoft LLC",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [
+        "^TightVNC\\b"
+      ],
+      "win_services": [
+        "tvnserver"
+      ],
+      "win_processes": [
+        "tvnserver.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "ultravnc",
+      "name": "UltraVNC",
+      "maker": "uvnc bvba",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [
+        "^UltraVNC\\b"
+      ],
+      "win_services": [
+        "uvnc_service"
+      ],
+      "win_processes": [
+        "winvnc.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "parsec",
+      "name": "Parsec",
+      "maker": "Parsec Cloud, Inc.",
+      "mac_bundle_ids": [
+        "tv.parsec.www"
+      ],
+      "mac_app_names": [
+        "Parsec.app"
+      ],
+      "mac_launchd": [
+        "tv.parsec."
+      ],
+      "mac_processes": [
+        "parsecd"
+      ],
+      "win_display_names": [
+        "^Parsec\\b"
+      ],
+      "win_services": [
+        "Parsec"
+      ],
+      "win_processes": [
+        "parsecd.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "netsupport",
+      "name": "NetSupport Manager",
+      "maker": "NetSupport Ltd",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "NetSupport Manager.app"
+      ],
+      "mac_launchd": [
+        "com.netsupportsoftware."
+      ],
+      "mac_processes": [
+        "client32"
+      ],
+      "win_display_names": [
+        "^NetSupport Manager\\b"
+      ],
+      "win_services": [
+        "Client32"
+      ],
+      "win_processes": [
+        "client32.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "dwagent",
+      "name": "DWAgent",
+      "maker": "DWSNET OÜ",
+      "mac_bundle_ids": [],
+      "mac_app_names": [
+        "DWAgent.app"
+      ],
+      "mac_launchd": [
+        "net.dwservice."
+      ],
+      "mac_processes": [
+        "dwagent",
+        "dwagsvc"
+      ],
+      "win_display_names": [
+        "^DWAgent\\b"
+      ],
+      "win_services": [
+        "DWAgent"
+      ],
+      "win_processes": [
+        "dwagent.exe",
+        "dwagsvc.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "radmin",
+      "name": "Radmin Server",
+      "maker": "Famatech Corp.",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [
+        "^Radmin Server\\b"
+      ],
+      "win_services": [
+        "RServer3"
+      ],
+      "win_processes": [
+        "rserver3.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "quick_assist",
+      "name": "Quick Assist",
+      "maker": "Microsoft Corporation",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [],
+      "win_processes": [
+        "QuickAssist.exe"
+      ],
+      "logs": [],
+      "presence_only": true
+    }
+  ]
+}
