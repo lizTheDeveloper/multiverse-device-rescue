@@ -177,13 +177,15 @@ def test_detect_argv_and_environment_exactly(env, monkeypatch):
     mod.check(_profile())
 
     [call] = runner.named("detect")
-    cli = Path(call["args"][1])
-    # It runs from a private copy, not from the saved one in the cache.
-    assert cli.parts[-4:] == ("node_modules", "hackmyagent", "dist", "cli.js")
-    assert _install_dir(env) not in cli.parents and env["home"] not in cli.parents
-    assert not cli.exists(), "the run copy is removed afterwards"
+    entry = Path(call["args"][1])
+    # It runs Reclaim City's own start-up file in a private copy, which then
+    # loads cli.js with module lookup kept inside that copy.
+    assert entry.name == "rc-run-detect.cjs"
+    assert entry.parent.name == "hackmyagent" and entry.parent.parent.name.startswith(".run-")
+    assert _install_dir(env) not in entry.parents and env["home"] not in entry.parents
+    assert not entry.exists(), "the run copy is removed afterwards"
     assert call["args"] == [
-        str(env["bin"] / "node"), str(cli), "detect", str(env["home"]), "--json", "--depth", "0",
+        str(env["bin"] / "node"), str(entry), "detect", str(env["home"]), "--json", "--depth", "0",
         "--no-contribute",
     ]
     assert call["timeout"] == 60
@@ -263,8 +265,10 @@ def test_governance_findings_and_opena2a_advice_are_dropped(env, monkeypatch):
     _write_install(_install_dir(env))
     mod = _module(env, FakeRunner(), monkeypatch)
     result = mod.check(_profile())
+    # pytest names the temp dir after the test; take it out of each string
+    # before JSON escapes it (Windows paths gain doubled backslashes).
     text = json.dumps([[f.title, f.description, f.data] for f in result.findings])
-    text = text.replace(str(env["tmp"]), "<tmp>")  # pytest names the temp dir after the test
+    text = text.replace(json.dumps(str(env["tmp"]))[1:-1], "<tmp>")
     for word in ("SOUL", "governance", "Governance", "opena2a", "harden-soul",
                  "hackmyagent secure", "/Users/sam", "36 chars"):
         assert word not in text, word
@@ -400,10 +404,10 @@ def test_node_found_where_a_desktop_app_path_misses_it(env, monkeypatch):
 def test_usual_places_are_listed_for_each_platform(env, monkeypatch):
     mod = _module(env, FakeRunner(), monkeypatch)
     mod.system_node_dirs = None  # the real defaults
-    mac = [str(p) for p in mod._node_search_dirs(Platform.DARWIN)]
-    assert "/opt/homebrew/bin" in mac and "/usr/local/bin" in mac
-    assert str(env["home"] / ".local" / "bin") in mac
-    assert str(env["home"] / ".volta" / "bin") in mac
+    mac = mod._node_search_dirs(Platform.DARWIN)
+    assert Path("/opt/homebrew/bin") in mac and Path("/usr/local/bin") in mac
+    assert env["home"] / ".local" / "bin" in mac
+    assert env["home"] / ".volta" / "bin" in mac
     monkeypatch.setenv("ProgramFiles", r"C:\Program Files")
     win = [str(p) for p in mod._node_search_dirs(Platform.WIN32)]
     assert any(p.endswith("nodejs") and "Program Files" in p for p in win)
@@ -602,7 +606,13 @@ def test_a_planted_cli_js_with_downloads_off_is_deleted_not_run(env, monkeypatch
     assert not _install_dir(env).exists()
 
 
-@pytest.mark.parametrize("plant", ["changed_file", "missing_file", "unreadable", "fifo"])
+_POSIX_ONLY = pytest.mark.skipif(sys.platform == "win32", reason="POSIX only: chmod 0 doesn't stop "
+                                 "reading on Windows, and Windows has no FIFOs (mkfifo)")
+
+
+@pytest.mark.parametrize("plant", ["changed_file", "missing_file",
+                                   pytest.param("unreadable", marks=_POSIX_ONLY),
+                                   pytest.param("fifo", marks=_POSIX_ONLY)])
 def test_any_change_to_the_saved_copy_counts(env, monkeypatch, plant, tmp_path):
     monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
     install = _install_dir(env)
@@ -635,7 +645,7 @@ def test_extra_files_in_the_saved_copy_are_never_copied_or_run(env, monkeypatch,
     seen = {}
 
     def detect(args, cwd, e):
-        root = Path(args[1]).parents[3]
+        root = Path(args[1]).parent
         seen["files"] = sorted(p.relative_to(root).as_posix() for p in root.rglob("*")
                                if p.is_file() or p.is_symlink())
         return _result(args, 1, FIXTURE.read_text())
@@ -864,6 +874,11 @@ def test_junctions_are_links_even_without_isjunction(monkeypatch, tmp_path):
 # --- the run copy (N1) ---------------------------------------------------------------------
 
 
+def _cli_in(args):
+    """cli.js inside the run copy whose start-up file is args[1]."""
+    return Path(args[1]).parent / "node_modules" / "hackmyagent" / "dist" / "cli.js"
+
+
 def _changed(result):
     [finding] = result.findings
     assert finding.code == CODE + "changed_during_run"
@@ -874,7 +889,7 @@ def test_a_copy_changed_while_it_runs_is_a_warning_and_the_saved_copy_goes(env, 
     _write_install(_install_dir(env))
 
     def detect(args, cwd, e):
-        Path(args[1]).write_text("// swapped during the run\n")
+        _cli_in(args).write_text("// swapped during the run\n")
         return _result(args, 1, FIXTURE.read_text())
 
     runner = FakeRunner(detect=detect)
@@ -891,7 +906,7 @@ def test_a_run_that_fails_after_the_copy_changed_still_says_so(env, monkeypatch)
     _write_install(_install_dir(env))
 
     def detect(args, cwd, e):
-        (Path(args[1]).parents[2] / "extra.js").write_text("x")
+        (Path(args[1]).parent / "node_modules" / "hackmyagent" / "extra.js").write_text("x")
         return _result(args, 5)
 
     _changed(_module(env, FakeRunner(detect=detect), monkeypatch).check(_profile()))
@@ -902,7 +917,7 @@ def test_a_link_loop_planted_during_the_run_is_a_change_not_a_crash(env, monkeyp
     _write_install(_install_dir(env))
 
     def detect(args, cwd, e):
-        link = Path(args[1]).parents[3] / "node_modules" / "onnxruntime-node"
+        link = Path(args[1]).parent / "node_modules" / "onnxruntime-node"
         link.unlink()
         link.symlink_to(link.name)  # points at itself
         return _result(args, 1, FIXTURE.read_text())
@@ -917,14 +932,18 @@ def test_the_run_copy_is_private_and_verified(env, monkeypatch):
     seen = {}
 
     def detect(args, cwd, e):
-        root = Path(args[1]).parents[3]
+        root = Path(args[1]).parent
         seen["mode"] = stat.S_IMODE(root.parent.stat().st_mode)
         link = root / "node_modules" / "onnxruntime-node"
         seen["link"] = link.is_symlink() and link.resolve() == (root / "stub").resolve()
+        # Byte for byte (a text-mode write on Windows would add \r).
+        seen["bootstrap"] = Path(args[1]).read_bytes() == _code_module().BOOTSTRAP_JS.encode("utf-8")
         return _result(args, 1, FIXTURE.read_text())
 
     _module(env, FakeRunner(detect=detect), monkeypatch).check(_profile())
-    assert seen == {"mode": 0o700, "link": True}
+    assert seen["link"] is True and seen["bootstrap"] is True
+    if sys.platform != "win32":  # POSIX modes don't apply on Windows
+        assert seen["mode"] == 0o700
 
 
 # --- the child environment (N2) ------------------------------------------------------------
@@ -1119,6 +1138,11 @@ def test_capabilities_that_are_not_a_list_are_ignored(env, monkeypatch):
 # --- live ------------------------------------------------------------------------------------
 
 
+# Every bare name required or imported somewhere in HackMyAgent 0.33.2's tree
+# that the tree doesn't contain (found by scanning its .js files).
+OPTIONAL_NAMES_NOT_IN_THE_TREE = ['@cfworker/json-schema', '@ljharb/eslint-config', 'ava', 'core-js', 'ejs', 'error-cause', 'es-abstract', 'es-value-fixtures', 'fastify', 'for-each', 'functions-have-names', 'get-own-property-symbols', 'globalthis', 'has-bigints', 'has-override-mistake', 'has-property-descriptors', 'has-proto', 'has-strict-mode', 'has-tostringtag', 'itty-router', 'jsonfile', 'make-arrow-function', 'make-async-function', 'make-async-generator-function', 'make-generator-function', 'mkdirp', 'mock-property', 'neostandard', 'off', 'proxyquire', 're2', 'rimraf', 'semver', 'string.prototype.repeat', 'supports-color', 'tap', 'tape', 'tinybench', 'uri-js', 'vitest']
+
+
 def _snapshot(root: Path) -> dict:
     return {p.relative_to(root).as_posix(): (p.read_bytes() if p.is_file() else None)
             for p in sorted(root.rglob("*"))}
@@ -1155,6 +1179,19 @@ def test_live_fetch_and_detect_change_nothing_in_home(tmp_path, monkeypatch):
     assert _snapshot(home) == before and not cache.exists()
     shutil.rmtree(home / ".hackmyagent")
 
+    # Packages a require in the tree asks for but the tree doesn't have (debug's
+    # optional `supports-color`, for one), planted where node would otherwise
+    # look: ~/.node_modules, ~/node_modules and node_modules in the cache's
+    # parent folders. None of them may load.
+    marker = tmp_path / "planted-package-loaded"
+    for folder in (home / ".node_modules", home / "node_modules", tmp_path / "node_modules",
+                   cache / "node_modules", cache / "ReclaimCity" / "node_modules"):
+        for name in OPTIONAL_NAMES_NOT_IN_THE_TREE:
+            (folder / name).mkdir(parents=True)
+            (folder / name / "package.json").write_text(json.dumps({"name": name, "main": "index.js"}))
+            (folder / name / "index.js").write_text(
+                f"require('fs').appendFileSync({json.dumps(str(marker))}, {json.dumps(name + ' ')});\n")
+
     # 2. The real fetch and detect: findings, and home and XDG_CONFIG_HOME unchanged.
     before = _snapshot(home)
     result = check()
@@ -1164,6 +1201,7 @@ def test_live_fetch_and_detect_change_nothing_in_home(tmp_path, monkeypatch):
     assert install.is_dir()
     assert _snapshot(home) == before
     assert list(xdg.iterdir()) == []
+    assert not marker.exists(), marker.read_text()
 
     # 3. A planted cli.js (right version, changed code) is never run.
     marker = tmp_path / "planted-code-ran"
@@ -1188,7 +1226,7 @@ def test_every_working_folder_is_inside_the_users_cache_not_shared_tmp(env, monk
         return _result(args)
 
     def detect(args, cwd, e):
-        seen["run"] = Path(args[1]).parents[5]
+        seen["run"] = Path(args[1]).parents[2]
         seen["settings"] = Path(cwd).parent
         seen["tmpdir"] = Path(e["TMPDIR"]).parent
         return _result(args, 1, FIXTURE.read_text())
@@ -1232,17 +1270,19 @@ def test_a_link_planted_in_the_run_folder_is_never_written_through(tmp_path):
             os.symlink(outside, dest / "a")       # a folder step swapped for a link
         else:
             os.symlink(victim, dest / "top.js")   # a file swapped for a link
-        with pytest.raises(Exception) as err:
-            code.copy_from_manifest(src, dest, expected, Platform.DARWIN)
-        assert type(err.value).__name__ == "_DestinationError"
-        assert list(outside.iterdir()) == []
-        assert victim.read_text() == "keep me"
+        for platform in (Platform.DARWIN, Platform.WIN32):  # WIN32: the lstat-checked path
+            with pytest.raises(Exception) as err:
+                code.copy_from_manifest(src, dest, expected, platform)
+            assert type(err.value).__name__ == "_DestinationError", platform
+            assert list(outside.iterdir()) == []
+            assert victim.read_text() == "keep me"
     # A clean run folder: folders 0700, files 0600, nothing else.
     dest = tmp_path / "dest-clean"
     dest.mkdir()
     assert code.copy_from_manifest(src, dest, expected, Platform.DARWIN) is True
-    assert stat.S_IMODE((dest / "a").stat().st_mode) == 0o700
-    assert stat.S_IMODE((dest / "a" / "f.js").stat().st_mode) == 0o600
+    if sys.platform != "win32":  # POSIX modes don't apply on Windows
+        assert stat.S_IMODE((dest / "a").stat().st_mode) == 0o700
+        assert stat.S_IMODE((dest / "a" / "f.js").stat().st_mode) == 0o600
     assert (dest / "a" / "f.js").read_bytes() == b"GOOD"
 
 
@@ -1251,9 +1291,155 @@ def test_changed_during_run_text_with_downloads_off(env, monkeypatch):
     _write_install(_install_dir(env))
 
     def detect(args, cwd, e):
-        Path(args[1]).write_text("// swapped\n")
+        _cli_in(args).write_text("// swapped\n")
         return _result(args, 1, FIXTURE.read_text())
 
     f = _changed(_module(env, FakeRunner(detect=detect), monkeypatch).check(_profile()))
     assert "next checkup that's allowed to download" in f.description
     assert "downloaded next time" not in f.description
+
+
+# --- module lookup confined to the run copy -------------------------------------------------
+
+
+def test_a_start_up_file_changed_during_the_run_counts_as_a_change(env, monkeypatch):
+    _write_install(_install_dir(env))
+
+    def detect(args, cwd, e):
+        Path(args[1]).write_text("require('/elsewhere/evil.js');\n")
+        return _result(args, 1, FIXTURE.read_text())
+
+    _changed(_module(env, FakeRunner(detect=detect), monkeypatch).check(_profile()))
+
+
+def test_the_start_up_file_is_written_by_reclaim_city_and_confines_lookup():
+    code = _code_module()
+    text = code.BOOTSTRAP_JS
+    for needle in ("_nodeModulePaths", "_resolveLookupPaths", "_resolveFilename",
+                   "globalPaths", "registerHooks", "register(", "node_modules', 'hackmyagent', 'dist', 'cli.js'"):
+        assert needle in text, needle
+    assert code.BOOTSTRAP_NAME == "rc-run-detect.cjs"
+    assert code.DETECT_ARGS[1] == code.BOOTSTRAP_NAME
+
+
+def _node_binaries():
+    found = []
+    for candidate in [shutil.which("node"), "/opt/homebrew/opt/node@18/bin/node",
+                      "/opt/homebrew/opt/node@20/bin/node", "/opt/homebrew/opt/node@22/bin/node",
+                      "/usr/local/bin/node", "/opt/homebrew/bin/node"]:
+        if not candidate or not os.access(candidate, os.X_OK):
+            continue
+        import subprocess
+
+        try:
+            version = subprocess.run([candidate, "--version"], capture_output=True, text=True,
+                                     timeout=10).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if version.startswith("v") and version not in {v for v, _ in found}:
+            found.append((version, candidate))
+    return found
+
+
+def _canary(folder: Path, name: str):
+    (folder / name).mkdir(parents=True)
+    (folder / name / "package.json").write_text(json.dumps({"name": name, "main": "index.js"}))
+    (folder / name / "index.js").write_text(
+        f"require('fs').appendFileSync(process.env.MARK, {json.dumps(name + ' ')});\n")
+
+
+@pytest.mark.parametrize("version, node", _node_binaries() or [pytest.param(None, None, marks=pytest.mark.skip(reason="needs Node.js"))])
+def test_the_start_up_file_loads_nothing_from_outside_the_copy(tmp_path, version, node):
+    """Packages planted in a parent folder's node_modules and in ~/.node_modules
+    (by require, import(), and a static import inside an ES module) never load."""
+    import subprocess
+
+    code = _code_module()
+    marks = tmp_path / "marks"
+    marks.write_text("")
+    for name in ("canary-cjs", "canary-esm", "canary-static", "canary-dynamic"):
+        _canary(tmp_path / "node_modules", name)
+    _canary(tmp_path / "home" / ".node_modules", "canary-home")
+    root = tmp_path / "run" / "hackmyagent"
+    nm = root / "node_modules"
+    (root).mkdir(parents=True)
+    (root / code.BOOTSTRAP_NAME).write_text(code.BOOTSTRAP_JS)
+    _canary(nm, "local-cjs")
+    (nm / "local-esm").mkdir()
+    (nm / "local-esm" / "package.json").write_text('{"name":"local-esm","type":"module","main":"index.js"}')
+    (nm / "local-esm" / "index.js").write_text(
+        "import 'local-cjs'; try { await import('canary-dynamic'); } catch {} export default 1;\n")
+    (nm / "static-esm").mkdir()
+    (nm / "static-esm" / "package.json").write_text('{"name":"static-esm","type":"module","main":"index.js"}')
+    (nm / "static-esm" / "index.js").write_text("import 'canary-static'; export default 2;\n")
+    (nm / "hackmyagent" / "dist").mkdir(parents=True)
+    (nm / "hackmyagent" / "dist" / "cli.js").write_text("""
+const out = { argv: process.argv.slice(2) };
+try { require('canary-cjs'); } catch (e) {}
+try { require('canary-home'); } catch (e) {}
+(async () => {
+  try { await import('canary-esm'); } catch (e) {}
+  try { await import('local-esm'); out.localEsm = true; } catch (e) { out.localEsm = String(e); }
+  try { require('static-esm'); } catch (e) {}
+  try { require('local-cjs'); out.localCjs = true; } catch (e) {}
+  console.log(JSON.stringify(out));
+})();
+""")
+    env = {"PATH": os.environ.get("PATH", ""), "HOME": str(tmp_path / "home"),
+           "USERPROFILE": str(tmp_path / "home"), "MARK": str(marks)}
+    for name in ("SystemRoot", "SYSTEMROOT", "windir", "TEMP", "TMP"):  # node needs these on Windows
+        if name in os.environ:
+            env[name] = os.environ[name]
+    # Control: run cli.js directly, and the planted packages do load.
+    subprocess.run([node, str(nm / "hackmyagent" / "dist" / "cli.js")], capture_output=True,
+                   text=True, env=env, timeout=60)
+    assert "canary-cjs" in marks.read_text() and "canary-home" in marks.read_text()
+    marks.write_text("")
+    out = subprocess.run([node, str(root / code.BOOTSTRAP_NAME), "detect", "/h", "--json"],
+                         capture_output=True, text=True, env=env, timeout=60)
+    result = json.loads(out.stdout.strip().splitlines()[-1])
+    assert result["argv"] == ["detect", "/h", "--json"]
+    assert result["localEsm"] is True and result["localCjs"] is True  # inside the copy still works
+    assert "canary" not in marks.read_text(), (version, marks.read_text())
+
+
+def test_elevated_is_reported_before_downloads_off(env, monkeypatch):
+    """Administrator rights are the safety reason, so they win over --no-downloads."""
+    monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+    mod.elevated = True
+    f = _one(mod.check(_profile()), "could_not_check")
+    assert f.data["reason"] == "elevated"
+    assert runner.calls == []
+
+
+def test_the_log_is_closed_before_it_is_deleted(env, monkeypatch):
+    """Windows can't delete a file that is still open; the undo must close it first."""
+    _write_install(_install_dir(env))
+    mod = _module(env, FakeRunner(detect=_detect_appending_to_nanomind(env["home"])), monkeypatch)
+    code = sys.modules[type(mod).__module__]
+    open_fds = set()
+    real_open, real_close, real_unlink = os.open, os.close, os.unlink
+
+    def tracking_open(path, *a, **k):
+        fd = real_open(path, *a, **k)
+        if str(path).endswith("integrity-events.jsonl"):
+            open_fds.add(fd)
+        return fd
+
+    def tracking_close(fd):
+        open_fds.discard(fd)
+        return real_close(fd)
+
+    def windows_like_unlink(path, *a, **k):
+        if str(path).endswith("integrity-events.jsonl") and open_fds:
+            raise PermissionError("the file is still open")
+        return real_unlink(path, *a, **k)
+
+    monkeypatch.setattr(code.os, "open", tracking_open)
+    monkeypatch.setattr(code.os, "close", tracking_close)
+    monkeypatch.setattr(code.os, "unlink", windows_like_unlink)
+    result = mod.check(_profile())
+    assert list(env["home"].iterdir()) == []
+    assert "left_in_home" not in _one(result, "ai_inventory").data

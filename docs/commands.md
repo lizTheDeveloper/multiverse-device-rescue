@@ -1343,7 +1343,7 @@ sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceAccessibility' 
 
 ```text
 node --version
-node node_modules/hackmyagent/dist/cli.js detect … --json --depth 0 --no-contribute
+node rc-run-detect.cjs detect … --json --depth 0 --no-contribute
 npm ci --ignore-scripts --no-bin-links --no-audit --no-fund --registry=https://registry.npmjs.org/ --cache … --userconfig … --globalconfig …
 ```
 

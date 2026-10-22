@@ -369,6 +369,17 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
   locale, Windows system and proxy variables, and the ones the check sets).
   Variables such as `NODE_OPTIONS`, `NODE_PATH` or `npm_config_*` that could
   make node or npm load other code never reach them.
+- **Code is looked up only inside the checked copy.** node normally also
+  looks for packages in every parent folder's `node_modules`, in
+  `~/.node_modules`, `~/.node_libraries` and its own install folder, and
+  none of those is checked. So HackMyAgent isn't started directly: node runs
+  a short start-up file Reclaim City writes into the private copy itself
+  (`rc-run-detect.cjs`, part of the check after the run). It limits package
+  lookup to the private copy for `require` (CommonJS) and for `import` (ES
+  modules, through node's resolve hooks), then starts HackMyAgent. A package
+  the copy doesn't contain is reported missing instead of being loaded from
+  elsewhere. Tested with Node.js 20, 22, 24 and 26; on Node.js 18 before
+  18.19, which has no resolve hooks, the `import` part isn't covered.
 - **What runs.** Only `detect <home> --json --depth 0 --no-contribute`, with
   `OPENA2A_TELEMETRY=off`, and `OPENA2A_HOME`, `XDG_CONFIG_HOME` and the temp
   folder (`TMPDIR`, `TMP`, `TEMP`) all set to one temp folder deleted
@@ -406,8 +417,10 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
     saved HackMyAgent copy, not your Node.js. In the same way, a program
     already running as you could race a single run: swap a file in the
     private copy after it is checked and put it back before the check that
-    follows the run. Turn the check off with `--no-downloads` and delete the
-    saved copy if that matters to you.
+    follows the run. The start-up file keeps HackMyAgent's own package
+    lookups inside the checked copy, but node itself (its built-in modules
+    and the binary) is whatever is installed. Turn the check off with
+    `--no-downloads` and delete the saved copy if that matters to you.
 
 Updating the pinned version is a reviewed change to the lockfile, never
 automatic.

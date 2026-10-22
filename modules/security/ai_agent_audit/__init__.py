@@ -5,7 +5,10 @@ assistants on a machine (Claude Code, Cursor, Copilot, Claude Desktop, LM
 Studio...), the MCP servers ("add-ons") each one is wired to, and AI settings
 files that hold a credential. This module runs only that command:
 
-    node <install>/node_modules/hackmyagent/dist/cli.js detect <home> --json --depth 0
+    node <run copy>/rc-run-detect.cjs detect <home> --json --depth 0 --no-contribute
+
+(rc-run-detect.cjs is Reclaim City's own start-up file: it keeps module lookup
+inside the checked run copy, then loads node_modules/hackmyagent/dist/cli.js)
 
 with its usage reporting off (``OPENA2A_TELEMETRY=off``) and its own settings
 folder pointed at a temp dir (``OPENA2A_HOME``) that is deleted afterwards, so
@@ -86,8 +89,8 @@ _NPM_GLOBAL_RC = object()
 _HOME = object()
 
 # The three commands this module can run. argv[0] is replaced by the full
-# path of the node/npm that was found, argv[1] of DETECT_ARGS by the cli.js
-# inside the fetched copy. --userconfig/--globalconfig point at empty files
+# path of the node/npm that was found, argv[1] of DETECT_ARGS by the start-up
+# file below, written into the run copy. --userconfig/--globalconfig point at empty files
 # so the person's .npmrc (and any npm login token in it) isn't used.
 NODE_VERSION_ARGS = ["node", "--version"]
 NPM_CI_ARGS = [
@@ -96,9 +99,104 @@ NPM_CI_ARGS = [
     "--userconfig", _NPM_RC, "--globalconfig", _NPM_GLOBAL_RC,
 ]
 DETECT_ARGS = [
-    "node", "node_modules/hackmyagent/dist/cli.js", "detect", _HOME, "--json", "--depth", "0",
+    "node", "rc-run-detect.cjs", "detect", _HOME, "--json", "--depth", "0",
     "--no-contribute",
 ]
+
+
+# Reclaim City's own start-up file, written into each run copy (it is not part
+# of the npm download) and checked with it after the run. It confines module
+# lookup to the run copy, then loads HackMyAgent's cli.js: node otherwise also
+# looks in every parent folder's node_modules, in ~/.node_modules,
+# ~/.node_libraries and <prefix>/lib/node, none of which is checked. CommonJS
+# is confined by wrapping Module._nodeModulePaths, _resolveLookupPaths and
+# _resolveFilename; ES modules by a resolve hook (registerHooks on Node
+# 22.15+, register on 18.19+/20.6+). Tried on Node 20, 22, 24 and 26.
+BOOTSTRAP_NAME = "rc-run-detect.cjs"
+BOOTSTRAP_JS = r''''use strict';
+// Written by Reclaim City (ai_agent_audit). Runs HackMyAgent's cli.js with
+// module lookup confined to this folder: nothing is loaded from a parent
+// folder's node_modules, ~/.node_modules, ~/.node_libraries or <prefix>/lib/node.
+const Module = require('module');
+const path = require('path');
+const fs = require('fs');
+const url = require('url');
+
+const root = fs.realpathSync(__dirname);
+const within = (p) => p === root || p.startsWith(root + path.sep);
+const realInside = (p) => {
+  try {
+    return within(fs.realpathSync(p));
+  } catch {
+    return false;
+  }
+};
+const isBuiltin = (name) =>
+  typeof Module.isBuiltin === 'function'
+    ? Module.isBuiltin(name)
+    : Module.builtinModules.includes(String(name).replace(/^node:/, ''));
+
+const nodeModulePaths = Module._nodeModulePaths;
+Module._nodeModulePaths = function (from) {
+  return nodeModulePaths.call(this, from).filter((p) => within(path.resolve(p)));
+};
+const resolveLookupPaths = Module._resolveLookupPaths;
+Module._resolveLookupPaths = function (request, parent) {
+  const paths = resolveLookupPaths.call(this, request, parent);
+  return Array.isArray(paths) ? paths.filter((p) => within(path.resolve(p))) : paths;
+};
+const resolveFilename = Module._resolveFilename;
+Module._resolveFilename = function (request, parent, isMain, options) {
+  const found = resolveFilename.call(this, request, parent, isMain, options);
+  if (isBuiltin(found) || (path.isAbsolute(found) && realInside(found))) return found;
+  const error = new Error(`Cannot find module '${request}' inside Reclaim City's copy`);
+  error.code = 'MODULE_NOT_FOUND';
+  throw error;
+};
+if (Array.isArray(Module.globalPaths)) Module.globalPaths.length = 0;
+
+// ES modules resolve without the functions above; where the runtime offers
+// resolve hooks (Node 18.19+, 20.6+), the same rule applies to them.
+const hooks = `
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
+import { sep } from 'node:path';
+let root;
+export function initialize(data) { root = data.root; }
+export async function resolve(specifier, context, next) {
+  const result = await next(specifier, context);
+  if (result.url.startsWith('node:')) return result;
+  if (result.url.startsWith('file:')) {
+    try {
+      const real = realpathSync(fileURLToPath(result.url));
+      if (real === root || real.startsWith(root + sep)) return result;
+    } catch {}
+  }
+  const error = new Error("Cannot find package '" + specifier + "' inside Reclaim City's copy");
+  error.code = 'ERR_MODULE_NOT_FOUND';
+  throw error;
+}
+`;
+if (typeof Module.registerHooks === 'function') {
+  // Node 22.15+: in-thread hooks, which also cover require() of ES modules.
+  Module.registerHooks({
+    resolve(specifier, context, next) {
+      const result = next(specifier, context);
+      if (result.url.startsWith('node:')) return result;
+      if (result.url.startsWith('file:') && realInside(url.fileURLToPath(result.url))) return result;
+      const error = new Error(`Cannot find package '${specifier}' inside Reclaim City's copy`);
+      error.code = 'ERR_MODULE_NOT_FOUND';
+      throw error;
+    },
+  });
+} else if (typeof Module.register === 'function') {
+  Module.register('data:text/javascript,' + encodeURIComponent(hooks), { data: { root } });
+}
+
+const cli = path.join(root, 'node_modules', 'hackmyagent', 'dist', 'cli.js');
+process.argv = [process.argv[0], cli, ...process.argv.slice(2)];
+require(cli);
+'''
 
 
 _GET_NODE = (
@@ -440,6 +538,26 @@ def _create_no_follow(parts: list[str], out_chain: list[tuple[str, int]], root_f
                    0o600, dir_fd=parent_fd)
 
 
+def _checked_dirs_windows(dest: Path, parts: list[str]) -> Path:
+    """Make (or reuse) each folder of ``parts`` under ``dest``, refusing any link or junction.
+
+    Without O_NOFOLLOW or dir_fd this is a check-then-use, weaker than POSIX;
+    files are then created with O_EXCL, which refuses an existing link.
+    """
+    current = dest
+    for part in [None, *parts]:
+        if part is not None:
+            current = current / part
+        try:
+            st = os.lstat(current)
+        except FileNotFoundError:
+            os.mkdir(current, 0o700)
+            st = os.lstat(current)
+        if _is_link(current) or not stat.S_ISDIR(st.st_mode):
+            raise OSError(f"not a plain folder: {current}")
+    return current
+
+
 def copy_from_manifest(install: Path, dest: Path, expected: dict[str, str], platform: Platform) -> bool:
     """Copy exactly the files the manifest names from ``install`` into ``dest``, hashing as it goes.
 
@@ -493,9 +611,7 @@ def copy_from_manifest(install: Path, dest: Path, expected: dict[str, str], plat
             try:
                 try:
                     if windows:
-                        target = dest.joinpath(*parts)
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        out = open(target, "xb")
+                        out = open(_checked_dirs_windows(dest, parts[:-1]) / parts[-1], "xb")
                     else:
                         out = os.fdopen(_create_no_follow(parts, out_chain, out_root_fd), "wb")
                 except OSError as exc:
@@ -523,6 +639,12 @@ def copy_from_manifest(install: Path, dest: Path, expected: dict[str, str], plat
         for open_fd in (root_fd, out_root_fd):
             if open_fd is not None:
                 os.close(open_fd)
+
+
+def _with_bootstrap(expected: dict[str, str]) -> dict[str, str]:
+    """The manifest plus Reclaim City's start-up file, as a run copy holds them."""
+    digest = hashlib.sha256(BOOTSTRAP_JS.encode("utf-8")).hexdigest()
+    return {**expected, BOOTSTRAP_NAME: digest}
 
 
 def _matches(root: Path, expected: dict[str, str]) -> bool:
@@ -700,7 +822,7 @@ class Module(ModuleBase):
             except _CouldNotCheck as exc:
                 failure = exc
             finally:
-                changed_during_run = not _matches(run_dir, expected)
+                changed_during_run = not _matches(run_dir, _with_bootstrap(expected))
         finally:
             _remove_tree(run_dir.parent)
             if changed_during_run:
@@ -740,6 +862,12 @@ class Module(ModuleBase):
         try:
             (copy / "node_modules").mkdir(exist_ok=True)
             self._make_stub_link(copy, platform)
+            # O_BINARY: on Windows a text-mode fd would write \r\n and fail the after-run check.
+            fd = os.open(copy / BOOTSTRAP_NAME,
+                         os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+                         | getattr(os, "O_BINARY", 0), 0o600)
+            with os.fdopen(fd, "wb") as out:
+                out.write(BOOTSTRAP_JS.encode("utf-8"))
         except (OSError, _CouldNotCheck) as exc:
             _remove_tree(holder)
             if isinstance(exc, _CouldNotCheck):
@@ -869,7 +997,7 @@ class Module(ModuleBase):
             raise _CouldNotCheck("stub_link_failed", detail=str(exc)[:200]) from exc
 
     def _run_detect(self, node: Path, run_dir: Path, install: Path) -> dict:
-        cli = run_dir / "node_modules" / "hackmyagent" / "dist" / "cli.js"
+        cli = run_dir / BOOTSTRAP_NAME
         try:
             settings = _scratch(install.parent, ".settings-")
         except OSError as exc:
@@ -1007,14 +1135,19 @@ class Module(ModuleBase):
                 return left
             if not self._our_events(os.read(fd, opened.st_size), state["start"], end):
                 return left
-            now = os.lstat(log)
-            if (now.st_dev, now.st_ino) != (opened.st_dev, opened.st_ino):
-                return left
-            os.unlink(log)
         except OSError:
             return left
         finally:
             os.close(fd)
+        # Closed first: Windows can't delete a file that is still open.
+        # Unlinking never follows a link, and the inode must still be the one read.
+        try:
+            now = os.lstat(log)
+            if (now.st_dev, now.st_ino) != (opened.st_dev, opened.st_ino) or _is_link(log):
+                return left
+            os.unlink(log)
+        except OSError:
+            return left
         self._remove_our_folder(folder, state)
         return None
 
