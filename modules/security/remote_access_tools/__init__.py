@@ -100,6 +100,36 @@ def _iso(d: date | None) -> str | None:
     return d.isoformat() if d is not None else None
 
 
+_DRIVE = re.compile(r"^[A-Za-z]:$")
+
+
+def _local_path(path, windows_host: bool = sys.platform == "win32") -> str | None:
+    """`path` when it is safe to touch on this computer, else None.
+
+    On Windows only a path on a local drive letter (``C:\\...``) is used. A UNC
+    path (``\\\\host\\share``, ``//host``) makes Windows sign in to that host,
+    which can hand over the person's password hash; a device path (``\\\\?\\``,
+    ``\\\\.\\``) reaches a device. Registry values (HKCU is writable by any
+    program), service and process paths, and %Name% expansions can all be
+    pointed at one, so every path from them goes through here before anything
+    reads or stats it. On other systems (the tests) an absolute POSIX path is
+    also accepted. A rejected path means "Couldn't tell".
+    """
+    if not isinstance(path, (str, os.PathLike)):
+        return None
+    text = os.fspath(path)
+    if not isinstance(text, str) or not text or "\0" in text:
+        return None
+    if text.startswith(("\\\\", "//", "\\/", "/\\")):
+        return None
+    win = PureWindowsPath(text)
+    if _DRIVE.match(win.drive or "") and win.root == "\\":
+        return text
+    if not windows_host and text.startswith("/"):
+        return text
+    return None
+
+
 def _created_on(path) -> date | None:
     """A file or folder's creation date: birth time where the system keeps one
     (macOS, Windows on Python 3.12+), else Windows' st_ctime (creation there)."""
@@ -131,12 +161,19 @@ def _exe_from_command(command: str) -> str | None:
     return command[: at + 4] if at >= 0 else command.split(" ", 1)[0]
 
 
-def _proc_names(profile: SystemProfile) -> set[str] | None:
+# macOS's own programs: a system daemon that shares a tool's name (Apple's
+# CoreParsec "parsecd") is never that tool.
+_MAC_SYSTEM_PREFIXES = ("/System/", "/usr/libexec/", "/usr/sbin/", "/usr/bin/", "/sbin/", "/bin/")
+
+
+def _proc_names(profile: SystemProfile, skip_system: bool = False) -> set[str] | None:
     procs = getattr(profile, "processes", None) or []
     if not procs:
         return None
     names = set()
     for p in procs:
+        if skip_system and str(getattr(p, "command", "") or "").startswith(_MAC_SYSTEM_PREFIXES):
+            continue
         name = str(getattr(p, "name", "") or "").strip().lower()
         if name:
             names.add(name)
@@ -176,6 +213,8 @@ class Module(ModuleBase):
     HOME = Path.home()
     # %ProgramData%-style names in log paths; tests replace it.
     ENV = os.environ
+    # Whether paths are judged as Windows paths only (see _local_path); tests set it.
+    WINDOWS_HOST = sys.platform == "win32"
     now = staticmethod(lambda: datetime.now())
     clock = staticmethod(time.monotonic)
 
@@ -361,6 +400,8 @@ class Module(ModuleBase):
             path = self._expand(log.path)
             if path is None:
                 continue
+            if platform == "win32" and _local_path(str(path), self.WINDOWS_HOST) is None:
+                continue
             got = _ev.read_log(path, log.format)
             if got is not None:
                 results.append(got)
@@ -376,7 +417,7 @@ class Module(ModuleBase):
             launchd, launchd_readable = self._mac_launchd()
         else:
             launchd, launchd_readable = {}, False
-        names = _proc_names(profile)
+        names = _proc_names(profile, skip_system=True)
         downloads = self._downloads_dir()
         out = []
         for tool in self._tool_entries():
@@ -499,6 +540,8 @@ class Module(ModuleBase):
     def _win_downloads(self) -> dict[str, list[Path]]:
         """tool id -> programs sitting in Downloads, by program name (TeamViewerQS.exe...)."""
         found: dict[str, list[Path]] = {}
+        if _local_path(str(self._downloads_dir()), self.WINDOWS_HOST) is None:
+            return found
         listing = _bounded_listing(self._downloads_dir()) or []
         for tool in self._tool_entries():
             if tool.presence_only:
@@ -532,7 +575,8 @@ class Module(ModuleBase):
         out = []
         for tool in self._tool_entries():
             running = _running(names, tool.win_processes)
-            proc_paths = self._process_paths(profile, tool.win_processes) if running else []
+            proc_paths = [p for p in (self._process_paths(profile, tool.win_processes) if running else [])
+                          if _local_path(p, self.WINDOWS_HOST)]
             if tool.presence_only:
                 # Built into Windows: reported only while it's running, and it
                 # can't let anyone in without the person sharing a code.
@@ -556,12 +600,12 @@ class Module(ModuleBase):
             else:
                 unattended, via = False, None
             entry = matched[0] if matched else None
-            location = entry["install_location"] if entry and entry["install_location"] else None
+            location = _local_path(entry["install_location"], self.WINDOWS_HOST) if entry else None
             path = location or (str(dl[0]) if dl else None) or (proc_paths[0] if proc_paths else None)
             added = None
             if entry is not None:
                 added = _ev.date_from_install_date(entry.get("install_date"))
-            if added is None and path and self._in_budget():
+            if added is None and _local_path(path, self.WINDOWS_HOST) and self._in_budget():
                 added = _created_on(path)
             last, count = self._log_evidence(tool, "win32")
             loose = not matched and not svcs and (bool(dl) or any(self._in_downloads(p) for p in proc_paths))
@@ -583,6 +627,8 @@ class Module(ModuleBase):
     def _verified_maker(self, path: str | None, platform: str) -> bool:
         """Whether the program at `path` has a verified maker (signature checked)."""
         if not path:
+            return False
+        if platform == "win32" and _local_path(path, self.WINDOWS_HOST) is None:
             return False
         try:
             from rescue.attribution import identify

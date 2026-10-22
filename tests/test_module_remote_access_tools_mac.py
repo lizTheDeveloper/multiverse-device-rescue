@@ -326,3 +326,17 @@ def test_module_metadata():
     assert m.category == "security"
     assert set(m.platforms) == {Platform.DARWIN, Platform.WIN32}
     assert MOD.EVIDENCE_BUDGET_SECONDS == 20.0
+
+
+def test_a_macos_system_daemon_with_a_tools_name_is_not_that_tool(tmp_path):
+    # Apple's CoreParsec runs "parsecd"; it is not Parsec, the remote-desktop app.
+    m, _, _ = _module(tmp_path)
+    profile = _profile()
+    profile.processes = [ProcessInfo(pid=1, name="parsecd", cpu_percent=0.0, memory_bytes=0,
+                                     command="/System/Library/PrivateFrameworks/CoreParsec.framework/parsecd"),
+                         ProcessInfo(pid=2, name="Parsec", cpu_percent=0.0, memory_bytes=0,
+                                     command="/System/Library/Fake/Parsec")]
+    assert "parsec" not in _sightings(m, profile)
+    profile.processes.append(ProcessInfo(pid=3, name="Parsec", cpu_percent=0.0, memory_bytes=0,
+                                         command="/Applications/Parsec.app/Contents/MacOS/Parsec"))
+    assert _sightings(m, profile)["parsec"].running_now is True

@@ -213,3 +213,78 @@ def test_check_on_windows_uses_windows_evidence(tmp_path):
         result = m.check(_profile([("explorer.exe", "explorer.exe")]))
     assert result.supported and result.error is None
     assert any(f.data.get("tool_id") == "anydesk" for f in result.findings)
+
+
+# ---------------- never a network or device path ----------------
+
+def test_local_path_rules():
+    lp = MOD._local_path
+    assert lp(r"C:\Program Files\AnyDesk", True) == r"C:\Program Files\AnyDesk"
+    for bad in (r"\\evil\share\AnyDesk", "//evil/share", r"\\?\C:\x", r"\\.\PhysicalDrive0", r"\\?\UNC\evil\s",
+                "C:relative", "AnyDesk", "C:\\a\0b", "", None, "/tmp/x"):
+        assert lp(bad, True) is None, bad
+
+
+def _windows_host(m):
+    m.WINDOWS_HOST = True
+    return m
+
+
+def test_unc_install_location_is_never_touched(tmp_path):
+    m = _windows_host(_module(tmp_path))
+    m.HOME = Path("C:/Users/x")  # not a folder here; Downloads is simply empty
+    fake = _fake_reg(uninstall=_uninstall_block(HKLM, "AnyDesk", "AnyDesk", r"\\evil\share\AnyDesk"))
+    stats, ids = [], []
+    real_stat = MOD.os.stat
+    with patch.object(MOD.os, "stat", side_effect=lambda p, *a, **k: stats.append(str(p)) or real_stat(p, *a, **k)), \
+            patch("rescue.attribution.identify", side_effect=lambda *a, **k: ids.append(a)):
+        got = _sightings(m, fake)
+        findings = m._findings(list(got.values()), "win32")
+    s = got["anydesk"]
+    assert s.path is None and s.added_on is None
+    assert not [p for p in stats if "evil" in p]
+    assert ids == []
+    assert all(f.data.get("path") is None for f in findings if f.data.get("tool_id") == "anydesk")
+    assert "evil" not in repr([f.data for f in findings])
+
+
+def test_device_path_install_location_is_rejected(tmp_path):
+    m = _windows_host(_module(tmp_path))
+    m.HOME = Path("C:/Users/x")
+    fake = _fake_reg(uninstall=_uninstall_block(HKLM, "AnyDesk", "AnyDesk", r"\\?\C:\x"))
+    with patch.object(MOD, "_created_on", side_effect=AssertionError("stat on a device path")):
+        s = _sightings(m, fake)["anydesk"]
+    assert s.path is None and s.added_on is None
+
+
+def test_local_install_location_is_used(tmp_path):
+    m = _windows_host(_module(tmp_path))
+    m.HOME = Path("C:/Users/x")
+    fake = _fake_reg(uninstall=_uninstall_block(HKLM, "AnyDesk", "AnyDesk", r"C:\Program Files\AnyDesk", "20260303"))
+    s = _sightings(m, fake)["anydesk"]
+    assert s.path == r"C:\Program Files\AnyDesk" and s.added_on == date(2026, 3, 3)
+
+
+def test_unc_process_path_is_ignored(tmp_path):
+    m = _windows_host(_module(tmp_path))
+    m.HOME = Path("C:/Users/x")
+    with patch.object(MOD, "_created_on", side_effect=AssertionError("stat on a network path")):
+        s = _sightings(m, _fake_reg(), _profile([("AnyDesk.exe", r"\\evil\share\AnyDesk.exe")]))["anydesk"]
+    assert s.running_now is True and s.path is None and s.added_on is None
+
+
+def test_env_pointing_at_a_share_means_the_log_is_not_read(tmp_path):
+    m = _windows_host(_module(tmp_path))
+    m.HOME = Path("C:/Users/x")
+    m.ENV = {"ProgramData": r"\\evil\share", "AppData": r"\\evil\share2"}
+    fake = _fake_reg(uninstall=_uninstall_block(HKLM, "AnyDesk", "AnyDesk", r"C:\Program Files\AnyDesk"))
+    with patch.object(MOD._ev, "read_log", side_effect=AssertionError("read a log on a share")):
+        s = _sightings(m, fake)["anydesk"]
+    assert s.last_incoming is None and s.incoming_count is None
+
+
+def test_unc_downloads_folder_is_not_listed(tmp_path):
+    m = _windows_host(_module(tmp_path))
+    m.HOME = Path(r"\\evil\home")
+    with patch.object(MOD, "_bounded_listing", side_effect=AssertionError("listed a share")):
+        assert m._win_downloads() == {}
