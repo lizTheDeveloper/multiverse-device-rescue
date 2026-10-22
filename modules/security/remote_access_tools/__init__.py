@@ -47,7 +47,9 @@ _tools = load_content_module("modules/security/remote_access_tools/tools.py", "r
 _ev = load_content_module("modules/security/remote_access_tools/evidence.py", "rescue_remote_access_tools_evidence")
 
 EVIDENCE_BUDGET_SECONDS = 20.0
-MAX_DIR_ENTRIES = 500
+# Names only are read from a folder listing (a full Downloads folder is common); a
+# folder with more is cut short, and the check then says it didn't finish.
+MAX_DIR_ENTRIES = 5000
 MAX_PLIST_BYTES = 1_048_576
 MDLS_TIMEOUT = 5
 REG_TIMEOUT = 10.0
@@ -250,6 +252,7 @@ class Module(ModuleBase):
         except ValueError as exc:
             return CheckResult(module_name=self.name, error=str(exc))
         self._deadline = self.clock() + EVIDENCE_BUDGET_SECONDS
+        self._unread = False
         if profile.platform == Platform.DARWIN:
             sightings = self._mac_sightings(profile)
         elif profile.platform == Platform.WIN32:
@@ -257,7 +260,10 @@ class Module(ModuleBase):
         else:
             return CheckResult(module_name=self.name, supported=False,
                                unsupported_reason="This check runs on macOS and Windows.")
-        return CheckResult(module_name=self.name, findings=self._findings(sightings, profile.platform.value))
+        # A list that couldn't be read, or a spent budget, may hide a tool:
+        # never a clean result ("This check didn't finish").
+        return CheckResult(module_name=self.name, findings=self._findings(sightings, profile.platform.value),
+                           complete=not self._unread)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         """Guidance only: what to check and how to remove it is the person's call."""
@@ -306,11 +312,25 @@ class Module(ModuleBase):
 
     # ---------------- budget ----------------
 
+    def _not_read(self) -> None:
+        """Something that could hide a tool couldn't be read: the check isn't complete."""
+        self._unread = True
+
     def _in_budget(self) -> bool:
         deadline = getattr(self, "_deadline", None)
         if deadline is None:
             self._deadline = deadline = self.clock() + EVIDENCE_BUDGET_SECONDS
-        return self.clock() < deadline
+        if self.clock() < deadline:
+            return True
+        self._not_read()
+        return False
+
+    def _listing(self, directory: Path) -> list[Path]:
+        """_bounded_listing, noting a folder that couldn't be read or was cut short."""
+        listing = _bounded_listing(directory)
+        if listing is None or len(listing) >= MAX_DIR_ENTRIES:
+            self._not_read()
+        return listing or []
 
     def _tool_entries(self):
         tools = getattr(self, "_tool_list", None)
@@ -333,7 +353,7 @@ class Module(ModuleBase):
                 by_bundle.setdefault(b.lower(), tool.id)
         found: dict[str, list[Path]] = {}
         for directory in self.MAC_APP_DIRS:
-            for path in _bounded_listing(Path(directory)) or []:
+            for path in self._listing(Path(directory)):
                 if path.suffix.lower() != ".app" or path.is_symlink():
                     continue
                 tool_id = by_name.get(path.name.lower())
@@ -353,6 +373,8 @@ class Module(ModuleBase):
         readable = True
         for directory in self.MAC_LAUNCHD_DIRS:
             listing = _bounded_listing(Path(directory))
+            if listing is None or len(listing) >= MAX_DIR_ENTRIES:
+                self._not_read()
             if listing is None:
                 readable = False
                 continue
@@ -396,6 +418,7 @@ class Module(ModuleBase):
         without a process list."""
         procs = getattr(profile, "processes", None) or []
         if not procs:
+            self._not_read()
             return None, False
         names: set[str] = set()
         every = True
@@ -518,6 +541,7 @@ class Module(ModuleBase):
             self._deadline = deadline = self.clock() + EVIDENCE_BUDGET_SECONDS
         left = deadline - self.clock()
         if left <= 0:
+            self._not_read()
             return None
         return max(1.0, min(REG_TIMEOUT, left))
 
@@ -527,6 +551,7 @@ class Module(ModuleBase):
             return None
         res = run(["reg", "query", *args], timeout=timeout)
         if not res.ok or res.truncated:
+            self._not_read()
             return None
         return res.stdout or ""
 
@@ -600,7 +625,7 @@ class Module(ModuleBase):
         found: dict[str, list[Path]] = {}
         if _local_path(str(self._downloads_dir()), self.WINDOWS_HOST) is None:
             return found
-        listing = _bounded_listing(self._downloads_dir()) or []
+        listing = self._listing(self._downloads_dir())
         for tool in self._tool_entries():
             if tool.presence_only:
                 continue
@@ -630,6 +655,8 @@ class Module(ModuleBase):
         services = self._win_services()
         downloads = self._win_downloads()
         names = _proc_names(profile)
+        if names is None:
+            self._not_read()
         out = []
         for tool in self._tool_entries():
             running = _running(names, tool.win_processes)

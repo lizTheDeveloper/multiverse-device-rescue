@@ -393,3 +393,49 @@ def test_a_system_looking_command_line_does_not_hide_a_tool(tmp_path):
     profile.processes = [ProcessInfo(pid=1, name="AnyDesk", cpu_percent=0.0, memory_bytes=0,
                                      command="/System/Library/CoreServices/AnyDesk")]
     assert _sightings(m, profile)["anydesk"].running_now is True
+
+
+# ---------------- what couldn't be read is never a clean result ----------------
+
+def _mac_check(m, profile):
+    with patch.object(MOD, "run", side_effect=_no_mdls):
+        return m.check(profile)
+
+
+def _readable(m):
+    _kernel(m, {100: "/usr/libexec/logd"})
+    return _profile(processes=["logd"])
+
+
+def test_mac_check_is_complete_when_everything_was_read(tmp_path):
+    m, _, _ = _module(tmp_path)
+    assert _mac_check(m, _readable(m)).complete is True
+
+
+def test_mac_check_is_incomplete_when_a_folder_cannot_be_read(tmp_path):
+    not_a_folder = tmp_path / "file"
+    not_a_folder.write_text("x")
+    for attr in ("MAC_APP_DIRS", "MAC_LAUNCHD_DIRS"):
+        m, _, _ = _module(tmp_path / attr)
+        setattr(m, attr, list(getattr(m, attr)) + [not_a_folder])
+        result = _mac_check(m, _readable(m))
+        assert result.supported and result.error is None
+        assert result.complete is False, attr
+
+
+def test_mac_check_is_incomplete_without_a_process_list_or_budget(tmp_path):
+    m, _, _ = _module(tmp_path / "a")
+    assert _mac_check(m, _profile()).complete is False
+    m, _, _ = _module(tmp_path / "b")
+    profile = _readable(m)
+    with patch.object(MOD, "EVIDENCE_BUDGET_SECONDS", -1.0):  # spent as soon as check() starts it
+        assert _mac_check(m, profile).complete is False
+
+
+def test_mac_check_is_incomplete_when_a_folder_is_cut_short(tmp_path):
+    m, _, _ = _module(tmp_path)
+    for i in range(3):
+        (m.HOME / "Downloads" / f"file{i}.txt").write_text("x")
+    with patch.object(MOD, "MAX_DIR_ENTRIES", 3):
+        assert _mac_check(m, _readable(m)).complete is False
+    assert _mac_check(m, _readable(m)).complete is True

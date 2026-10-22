@@ -288,3 +288,36 @@ def test_unc_downloads_folder_is_not_listed(tmp_path):
     m.HOME = Path(r"\\evil\home")
     with patch.object(MOD, "_bounded_listing", side_effect=AssertionError("listed a share")):
         assert m._win_downloads() == {}
+
+
+# ---------------- what couldn't be read is never a clean result ----------------
+
+EXPLORER = [("explorer.exe", r"C:\Windows\explorer.exe")]
+
+
+def _check(m, fake, profile=None):
+    with patch.object(MOD, "run", side_effect=fake):
+        return m.check(profile or _profile(EXPLORER))
+
+
+def test_check_is_complete_when_everything_was_read(tmp_path):
+    result = _check(_module(tmp_path), _fake_reg(uninstall=_uninstall_block(HKLM, "AnyDesk", "AnyDesk")))
+    assert result.complete is True
+
+
+def test_check_is_incomplete_when_a_list_cannot_be_read(tmp_path):
+    for i, fail in enumerate(([r"HKLM\Software\Microsoft"], [r"HKLM\Software\WOW6432Node"], ["HKCU"],
+                              [r"HKLM\SYSTEM"])):
+        result = _check(_module(tmp_path / str(i)), _fake_reg(fail=fail))
+        assert result.supported and result.error is None, fail
+        assert result.complete is False, fail
+
+
+def test_check_is_incomplete_without_a_process_list(tmp_path):
+    assert _check(_module(tmp_path), _fake_reg(), _profile(())).complete is False
+
+
+def test_check_is_incomplete_when_the_time_budget_runs_out(tmp_path):
+    with patch.object(MOD, "EVIDENCE_BUDGET_SECONDS", -1.0):  # spent as soon as check() starts it
+        result = _check(_module(tmp_path), _fake_reg())
+    assert result.complete is False and result.findings == []
