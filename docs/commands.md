@@ -1776,6 +1776,12 @@ defaults read …
 sqlite3 …
 ```
 
+### `remote_access_tools`
+
+```text
+mdls -raw -name kMDItemDateAdded …
+```
+
 ### `remote_login_check`
 
 ```text

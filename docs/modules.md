@@ -32,12 +32,12 @@ $ rescue run <module_name>
 
 ## Coverage at a glance
 
-**284 modules** ship in the tree.
+**285 modules** ship in the tree.
 
 | Platform | Modules that run there |
 | --- | ---: |
-| macOS | 196 |
-| Windows | 98 |
+| macOS | 197 |
+| Windows | 99 |
 | Linux | 26 |
 
 A module can support more than one platform, so these numbers add up to more than the total.
@@ -48,7 +48,7 @@ A module can support more than one platform, so these numbers add up to more tha
 | [integrity](#integrity) | 106 |
 | [network](#network) | 8 |
 | [performance](#performance) | 51 |
-| [security](#security) | 115 |
+| [security](#security) | 116 |
 
 ## bloatware
 
@@ -259,7 +259,7 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 
 Malware and spyware indicators, persistence, remote access, credential exposure, and system hardening posture.
 
-115 modules — macOS 80, Windows 43, Linux 16.
+116 modules — macOS 81, Windows 44, Linux 16.
 
 | Module | Platforms | Risk | Duration | What it checks |
 | --- | --- | --- | --- | --- |
@@ -324,6 +324,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `open_ports_scan` | macOS | safe | 3s | — |
 | `privacy_audit` | macOS | safe | 5s | — |
 | `privacy_permissions_audit` | macOS | safe | 5s | — |
+| `remote_access_tools` | macOS, Windows | safe | 10s | Remote-access tools: software that lets someone else see and control this computer. |
 | `remote_login_check` | macOS | safe | 10s | — |
 | `rootkit_check` | macOS | safe | 5s | — |
 | `safari_extensions` | macOS | safe | 3s | — |

@@ -251,6 +251,7 @@ CHECK_NAMES: dict[str, str] = {
     "open_ports_scan": "Open ports",
     "privacy_audit": "Privacy settings",
     "privacy_permissions_audit": "Camera, microphone and other permissions",
+    "remote_access_tools": "Remote access tools",
     "remote_login_check": "Remote login",
     "rootkit_check": "Rootkit signs",
     "safari_extensions": "Safari extensions",
