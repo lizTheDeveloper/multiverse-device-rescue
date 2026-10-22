@@ -187,6 +187,8 @@ def test_changed_evidence_makes_the_mark_stale(kind):
 @pytest.mark.parametrize("kind", sorted(CASES))
 def test_a_mark_for_one_finding_code_does_not_cover_another(kind):
     code, data, _, _ = CASES[kind]
+    if ITEM_KINDS[kind].get("mark_code"):
+        pytest.skip("its codes are states of one item (see the remote-tool tests below)")
     _mark(kind, code, data)
     other_codes = [c for c, k in ITEM_CODES.items() if k == kind and c != code]
     for other in other_codes:
@@ -533,3 +535,38 @@ def test_only_the_gone_item_is_retired():
     kept = _mark("sharing_service", *b)
     _scan("sharing_services", [_f(*b)])
     assert [i.id for i in KnownItemsStore().load()] == [kept.id]
+
+
+# --- a remote-access tool starting and stopping is the same tool -------------------
+
+RUNNING = "security.remote_access_tools.running_now"
+FOUND = "security.remote_access_tools.tool_found"
+
+
+def _tool(running: bool):
+    _code, data, _, _ = CASES["remote_tool"]
+    return dict(data, check="running_now" if running else "tool_found", running_now=running)
+
+
+@pytest.mark.parametrize("marked_running", [True, False])
+def test_a_remote_tool_mark_survives_the_tool_starting_or_stopping(marked_running):
+    marked_code, other_code = (RUNNING, FOUND) if marked_running else (FOUND, RUNNING)
+    item = _mark("remote_tool", marked_code, _tool(marked_running))
+    later = _f(other_code, _tool(not marked_running))
+    out = _scan("remote_access_tools", [later])
+    assert [i.id for i in KnownItemsStore().load()] == [item.id]
+    assert not any(f.data.get("check") == "known_item_retired" for f in out)
+    assert later.data.get("marked_by_user") is True and later.severity == Severity.INFO
+
+
+def test_a_remote_tool_offer_is_the_same_whether_it_is_running_or_not():
+    running, found = _offer(RUNNING, _tool(True)), _offer(FOUND, _tool(False))
+    assert running["id"] == found["id"] and running["code"] == found["code"]
+
+
+@pytest.mark.parametrize("now_running", [True, False])
+def test_a_remote_tool_mark_is_saved_when_it_started_or_stopped_since_the_checkup(now_running):
+    offer = _offer(RUNNING if not now_running else FOUND, _tool(not now_running))
+    fresh = _f(RUNNING if now_running else FOUND, _tool(now_running))
+    kind, ident = known_items.find_item(offer["code"], offer["id"], lambda _m: [fresh])
+    assert kind == "remote_tool" and known_items.item_id(kind, ident) == offer["id"]

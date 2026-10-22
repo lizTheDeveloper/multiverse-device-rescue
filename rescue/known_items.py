@@ -914,7 +914,10 @@ ITEM_KINDS: dict[str, dict] = {
     "remote_tool": {
         # A remote-access tool (TeamViewer, AnyDesk...): the mark pins the tool
         # and where it is; a newer incoming connection, or unattended access
-        # turned on, makes the mark stale.
+        # turned on, makes the mark stale. One code for the kind: the same
+        # tool found while running (running_now) or not (tool_found) is one
+        # item, so a tool starting or stopping never loses its mark.
+        "mark_code": "security.remote_access_tools.tool_found",
         "keys": ("code", "tool_id", "tool", "path", "unattended", "last_incoming", "incoming_count"),
         "evidence_keys": ("unattended", "last_incoming", "incoming_count"),
         "modules": ("remote_access_tools",),
@@ -1459,6 +1462,12 @@ def item_kind_for(code) -> str | None:
     return kind
 
 
+def mark_code(kind: str, code: str) -> str:
+    """The code a mark of `kind` pins for a finding with `code`: the finding's own
+    code, or one fixed code where the kind's codes are states of one item."""
+    return KINDS.get(kind, {}).get("mark_code") or code
+
+
 def item_identity(finding) -> tuple[str, dict] | None:
     """(kind, identity including the code) of a finding about one item, or None."""
     kind = item_kind_for(getattr(finding, "code", None))
@@ -1470,7 +1479,7 @@ def item_identity(finding) -> tuple[str, dict] | None:
         return None
     if not isinstance(ident, dict):
         return None
-    ident = dict(ident, code=finding.code)
+    ident = dict(ident, code=mark_code(kind, finding.code))
     keys = ITEM_KINDS[kind]["keys"]
     if set(ident) != set(keys) or not all(isinstance(ident[k], str) and ident[k] for k in keys):
         return None
@@ -1706,7 +1715,10 @@ def _find_fresh(code: str, expect_id: str, run_check: Callable[[str], list]) -> 
     except Exception as exc:
         raise KnownItemsError(f"The check could not run again to confirm it ({exc}). Nothing was marked.") from exc
     for f in findings or []:
-        if getattr(f, "code", None) != code or getattr(f, "severity", None) != Severity.WARNING:
+        f_code = getattr(f, "code", None)
+        if not isinstance(f_code, str) or item_kind_for(f_code) != kind:
+            continue
+        if mark_code(kind, f_code) != mark_code(kind, code) or getattr(f, "severity", None) != Severity.WARNING:
             continue
         hit = item_identity(f)
         if hit and hit[0] == kind and item_id(kind, hit[1]) == expect_id:
@@ -1800,7 +1812,8 @@ def apply_marks(
 
     identify(finding) gives the identity of the item a finding is about
     (without the code), or None. The finding's own code is added, so a mark
-    covers only the kind of finding it was made for. A match is an exact match
+    covers only the kind of finding it was made for (a kind with a "mark_code"
+    pins that one code for all its codes). A match is an exact match
     of every pinned field (the id is a hash over all of them); anything else,
     including a missing or empty field, matches nothing. Critical findings are
     never downgraded; they are tagged instead.
@@ -1854,7 +1867,7 @@ def apply_marks(
         if not isinstance(identity, dict):
             continue
         identity = {k: v for k, v in identity.items() if k != content_key}
-        identity["code"] = code
+        identity["code"] = mark_code(kind, code)
         if set(identity) != set(base_keys) or not all(
             isinstance(identity[k], str) and identity[k] for k in base_keys
         ):

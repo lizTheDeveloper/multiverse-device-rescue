@@ -166,3 +166,28 @@ test('one list of what city mode holds, everywhere', async () => {
   assert.deepStrictEqual([...app.CITY_HELD_MODULES].sort(), want);
   assert.deepStrictEqual([...HELD_MODULES].sort(), [...app.ALWAYS_SAFETY_MODULES].sort(), 'the monitoring checks stay three');
 });
+
+test('city: every remote_access_tools finding is held, whatever its code or severity', async () => {
+  // A scan's own note when a mark is retired has no code and is info; it names the tool.
+  const retired = { title: 'No longer marked as yours: AnyDesk', description: 'This checkup didn’t find AnyDesk any more.',
+    severity: 'info', category: 'security', code: null, data: { check: 'known_item_retired', kind: 'remote_tool' } };
+  const quiet = tool({ severity: 'info' }, { one_off: true, lets_in_unattended: false, running_now: false, incoming_count: 0 });
+  const several = { title: 'More than one remote-access tool is on this computer', description: 'AnyDesk, TeamViewer',
+    severity: 'critical', category: 'security', code: `${RA}several_tools`, data: { check: 'several_tools', tools: ['AnyDesk', 'TeamViewer'] } };
+  for (const f of [retired, quiet, several, tool()]) {
+    assert.strictEqual(NotChecked.isHeld(f, 'remote_access_tools'), true, f.title);
+  }
+  const doc = scan(mod('remote_access_tools', [retired, quiet, several]));
+  const list = NotChecked.displayItems(doc, { mode: 'city' });
+  assert.strictEqual(list.held.length, 3);
+  for (const k of ['critical', 'warning', 'info', 'marked']) assert.strictEqual(list[k].length, 0, k);
+  const c = NotChecked.scanCounts(doc, { mode: 'city' });
+  assert.strictEqual(c.todo + c.notes + c.markedItems, 0);
+  const T = await import(url('missions', 'types.js'));
+  const ms = T.groupMissions(doc, { mode: 'city' });
+  assert.ok(!ms.some((m) => m.items.some((i) => i.finding.module === 'remote_access_tools')), 'no mission or note');
+  const { splitHeld } = await game('held.js');
+  const split = splitHeld(doc, { mode: 'city' });
+  assert.strictEqual(split.held.length, 3);
+  assert.ok(!JSON.stringify(split.doc).includes('AnyDesk'), 'nothing naming the tool outside the help district');
+});

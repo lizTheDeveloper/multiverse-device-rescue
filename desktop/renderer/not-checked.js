@@ -263,8 +263,12 @@ const NotChecked = (function () {
     return d.check === FAMILIAR_CHECK && apps.length > 0 && mb.length > 0 && mb.every(known)
       && apps.every((a) => mb.some((m) => m.subject === a));
   }
+  // A remote-access tool's check is held whole: every finding names a tool (even
+  // a code-less note, like a retired mark), so none of it leaves the help district.
   function isHeld(f, module = f && f.module) {
-    return !!f && HELD_IN_CITY.has(module) && isDetection(f) && !familiarVerified(f, module);
+    if (!f || !HELD_IN_CITY.has(module)) return false;
+    if (!MONITORING_MODULES.has(module)) return true;
+    return isDetection(f) && !familiarVerified(f, module);
   }
 
   const SUBJECT_KEYS = ['label', 'plist', 'path', 'program', 'bundle_id', 'extension_id', 'name', 'target', 'id'];

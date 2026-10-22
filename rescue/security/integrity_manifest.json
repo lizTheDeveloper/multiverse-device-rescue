@@ -26,7 +26,7 @@
     "fsbounds.py": "9eae7c588b5e31a373a42bc3d0fa029e3ac7df15f9d50409b61c2c80acbacdc8",
     "guides.py": "0c3898d0d3e2595095cbd09b5beb30fc2876dfea5184ff5f5a0fff07ebb1253b",
     "known_extensions.py": "cccb506706deb79cb1da44231cf40161ff62b2fed9d2517988348d25a715fafc",
-    "known_items.py": "4a023227516af9c771af7f844b63d12d76d0c50d47a89455d7db761f8a1363dc",
+    "known_items.py": "fdd6276d9f18f0cbe9ce6a4c56619130b92de377548bc780b5b354d739f2b37b",
     "macos_firewall.py": "05a323d35ca48a838e598c46e374ef5163d7f9fcafe3814629e829e63eb5308d",
     "macos_launchd.py": "20e60131fcc64c6617502763e90a4f1be6a110687944082485bfced437cdc8c9",
     "macos_profiles.py": "eb2d6c02dbd20e1ac301a704483bf8b313bd8756c1074ec28b8e405185568919",
