@@ -1,7 +1,9 @@
 // The "removing it can alert them" warning survives on every finding that
 // carries it, outside the three monitoring checks too, in both display modes:
-// on the city's LIST (read-only), on the game's mission screen, and in the fix
-// panel (the missions' own; the LIST has none).
+// on the LIST (read-only), on the game's mission screen (a remote tool is the
+// Guest Book's quiz in standard mode: the warning on every question and at the
+// outcome, before any removal), in the fix panel, and, in city mode, in the help
+// district, where a remote tool is held and never a mission.
 // Run against the engine's real AnyDesk finding (remote_access_tools; scripts/remote_access_fixture.py).
 const test = require('node:test');
 const assert = require('node:assert');
@@ -49,6 +51,13 @@ async function listHtml(mode, fixable = true) {
   p.pick('hacked');
   p.byId('btn-run-scan').click();
   await p.finish(doc({ fixable }));
+  if (mode === 'standard') {
+    // A remote-access tool can be how someone watches a screen (app.js CITY_HELD_MODULES), so standard mode
+    // asks the follow-up once, as for monitoring software; "Yes, I know about it" stays in standard mode.
+    assert.deepStrictEqual(p.shown(), ['question'], mode);
+    assert.match(p.byId('question-card').innerHTML, /something that can be used to watch a computer/);
+    p.answer('known');
+  }
   assert.deepStrictEqual(p.shown(), ['results'], mode);
   return p.byId('results-groups').innerHTML;
 }
@@ -74,9 +83,11 @@ test('the LIST, city mode: nothing quieted, the safety note in full; no fix pane
 });
 
 // The mission screen (game/missions-city.js renderMissionScreen through the mission desk), and the
-// fix confirm FixFlow draws there when the person picks the fixing decision ("Odd — close it").
-async function missionScreen(mode, fixable = true, theDoc = null) {
-  const { createController } = await import('../renderer/game/controller.js');
+// fix confirm FixFlow draws there when the person picks the fixing decision. `moves`: the decisions in order;
+// `item` is the screen before the last one, `steps` every screen before it (a remote tool is the Guest Book's
+// quiz: "I installed it", "No", then "Remove it"). In city mode a remote tool is held, never a mission: cityScreens.
+const GUESTBOOK_REMOVE = ['installed', 'nouse', 'remove'];
+function harness(mode) {
   const clicks = [];
   const frame = { innerHTML: '', addEventListener: (t, fn) => { if (t === 'click') clicks.push(fn); }, querySelector: () => null, querySelectorAll: () => [] };
   const shadow = { activeElement: null, getElementById: () => frame, addEventListener: () => {} };
@@ -90,69 +101,144 @@ async function missionScreen(mode, fixable = true, theDoc = null) {
       wantsSafety: (f) => ['line', 'full'].includes(Q.noteFor(mode, f)), scanTips: async () => [], leaveGame() {} },
     rescue: { recheckModule: async () => ({ ok: false }) },
   };
-  const ctl = createController({ win, storage: recordingStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}),
+  const click = (attrs) => { const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) }; clicks.forEach((fn) => fn({ target: { closest: () => el } })); };
+  return { frame, seen, win, click };
+}
+async function controllerFor(mode, theDoc) {
+  const { createController } = await import('../renderer/game/controller.js');
+  const h = harness(mode);
+  const ctl = createController({ win: h.win, storage: recordingStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}),
     loadTraining: async () => [], loadDrillBank: async () => [] });
   await new Promise((r) => setTimeout(r, 10));
-  ctl.show(theDoc || doc({ fixable }), { id: mode === 'city' ? 'city' : 'unsure' });
-  const click = (attrs) => { const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) }; clicks.forEach((fn) => fn({ target: { closest: () => el } })); };
+  ctl.show(theDoc, { id: mode === 'city' ? 'city' : 'unsure' });
+  return h;
+}
+async function missionScreen(mode, fixable = true, theDoc = null, moves = GUESTBOOK_REMOVE) {
+  const { frame, seen, click } = await controllerFor(mode, theDoc || doc({ fixable }));
   click({ 'data-go': 'district:gatehouse' });
   const id = /data-go="mx:([^"]+)"/.exec(frame.innerHTML)[1];
   click({ 'data-go': `mx:${id}` });
   if (/data-act="mx-know"/.test(frame.innerHTML)) click({ 'data-act': 'mx-know' });
+  const steps = [];
+  for (const m of moves.slice(0, -1)) {
+    steps.push(frame.innerHTML);
+    assert.match(frame.innerHTML, new RegExp(`data-act="mx-decide:${m}"`), `${mode}: ${m} is offered`);
+    click({ 'data-act': `mx-decide:${m}` });
+  }
   const item = frame.innerHTML;
-  click({ 'data-act': 'mx-decide:odd' });
-  return { item, html: frame.innerHTML, seen };
+  if (!moves.length) return { steps, item, html: item, seen, frame, click };
+  const last = moves[moves.length - 1];
+  assert.match(item, new RegExp(`data-act="mx-decide:${last}"`), `${mode}: ${last} is offered`);
+  click({ 'data-act': `mx-decide:${last}` });
+  return { steps, item, html: frame.innerHTML, seen, frame, click };
 }
 
-test('the mission screen, standard mode: the one line with "Read this first" and the note behind it; the fix confirm says it too', async () => {
-  const { item, html, seen } = await missionScreen('standard');
-  assert.match(item, /AnyDesk can let someone control this computer/);
-  assert.match(item, /<summary>Removing this can alert whoever installed it\. Read this first\.<\/summary>/);
-  const note = /<details class="finding-card__note">[\s\S]*?<\/details>/.exec(item)[0];
-  assert.match(note, ALERT);
-  assert.ok(item.indexOf(note) < item.indexOf('mx-decisions'), 'the note comes before the decisions');
-  assert.doesNotMatch(item.replace(note, ''), DV);
+// City mode: the map, the remote tool's district, and the help district (data-go="side").
+async function cityScreens(fixable = true) {
+  const { frame, seen, click } = await controllerFor('city', doc({ fixable }));
+  const map = frame.innerHTML;
+  click({ 'data-go': 'district:gatehouse' });
+  const district = frame.innerHTML;
+  click({ 'data-go': 'side' });
+  return { map, district, side: frame.innerHTML, seen };
+}
+
+const LINE_NOTE = /<summary>Removing this can alert whoever installed it\. Read this first\.<\/summary>/;
+const noteOf = (html) => /<details class="finding-card__note">[\s\S]*?<\/details>/.exec(html)[0];
+
+test('the mission screen, standard mode: the Guest Book quiz carries the line and the note on every step; at Not needed the fix confirm says it too', async () => {
+  const { steps, item, html, seen } = await missionScreen('standard');
+  // Each question (Q1 "how did this get here?", Q2 "do you still use it?") and the outcome: the line, the note behind it, first.
+  assert.strictEqual(steps.length, 2);
+  assert.match(steps[0], /How did this get here\?/);
+  assert.match(steps[1], /Do you still use it\?/);
+  assert.match(item, /gb-stage-notneeded/, 'the walk ends at Not needed');
+  for (const [i, h] of [...steps, item].entries()) {
+    assert.match(h, /AnyDesk/, `step ${i}`);
+    assert.match(h, LINE_NOTE, `step ${i}: the line`);
+    const note = noteOf(h);
+    assert.match(note, ALERT, `step ${i}: the full note behind "Read this first"`);
+    assert.ok(h.indexOf(note) < h.indexOf('mx-decisions'), `step ${i}: the note comes before the decisions`);
+    assert.doesNotMatch(h.replace(note, ''), DV, `step ${i}: no hotline wording on its face`);
+  }
+  // The removing decision never leads: "Later" first, "Remove it" after it.
+  const bar = /<div class="mx-decisions"[\s\S]*?<\/div>/.exec(item)[0];
+  assert.ok(bar.indexOf('mx-decide:later') < bar.indexOf('mx-decide:remove'), 'removal never first');
   assert.deepStrictEqual(seen, [['fix', false]]);
-  // The fix confirm says it too (moved here from the retired Plain cards).
+  // The fix confirm says it too.
   assert.match(/<div class="fix-panel"[\s\S]*?data-fix-confirm/.exec(html)[0], /data-fix-safety><strong>Removing this can alert whoever installed it\.<\/strong>/);
   assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'the extra warning is city mode’s');
 });
 
-test('the mission screen, city mode: the help lives in the help district; one warning line before the fix, and the fix panel says stop by it, in game words', async () => {
-  const { item, html, seen } = await missionScreen('city');
-  // UX round 1 ruling (P1-3): no hotline or advocate wording in a city mission, the fix panel included.
-  for (const h of [item, html]) { assert.doesNotMatch(h, DV); assert.doesNotMatch(h, CITY_FORBIDDEN); }
-  assert.match(item, /<b>Removing this can alert whoever installed it\.<\/b>/);
-  assert.match(item, /data-go="side"/, 'the way to the help district');
-  assert.ok(html.indexOf('Removing this can alert whoever installed it') < html.indexOf('data-fix-module'), 'the warning comes before the fix');
-  assert.match(item, /AnyDesk/);
-  assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'never the advocate line in the city');
-  const panel = /<div class="fix-panel"[\s\S]*?data-fix-confirm/.exec(html)[0];
-  assert.match(panel, /data-fix-city><strong>Removing this can alert whoever installed it\.<\/strong> Stop by [A-Z][^<.]+ before you change it\./);
-  assert.deepStrictEqual(seen, [['fix', true]]);
+test('city mode: the remote tool is held in the help district, never a mission; the warning is there; no hotline words anywhere else', async () => {
+  for (const fixable of [true, 'module', false]) {
+    const { map, district, side, seen } = await cityScreens(fixable);
+    // Never a mission: no mission link, no fix or mark flow drawn, no tool name outside the help district.
+    for (const [where, h] of [['map', map], ['district', district]]) {
+      assert.doesNotMatch(h, /data-go="mx:/, `${where}: no mission`);
+      assert.doesNotMatch(h, /AnyDesk/, `${where}: never named outside the help district`);
+      assert.doesNotMatch(h, DV, `${where}`);
+      assert.doesNotMatch(h, CITY_FORBIDDEN, `${where}`);
+      assert.doesNotMatch(h, /data-fix-|data-mark-/, `${where}: nothing to fix or mark`);
+    }
+    assert.deepStrictEqual(seen, [], 'no fix or mark flow was ever drawn');
+    assert.match(map, /data-go="side"/, 'the way to the help district');
+    // The help district: the tool's card, under "Don't remove it yet", and why (removing it can tip them off).
+    assert.match(side, /<h3 class="side-h">Don’t remove it yet\. Talk to an advocate first\.<\/h3>/);
+    assert.match(side, /can tip off the person who installed it/);
+    const card = /<li class="held-item">[\s\S]*?<\/li>/.exec(side)[0];
+    assert.match(card, /AnyDesk/);
+    assert.ok(side.indexOf('Don’t remove it yet') < side.indexOf(card), 'the warning before the card');
+    assert.doesNotMatch(side, /data-fix-|data-mark-|mx-decide/, 'nothing to remove from here');
+  }
 });
 
 test('the mission screen, standard mode, the engine’s real stalkerware finding (no removal_alert): the line and the note behind it', async () => {
   const M = require('./fixtures/monitoring-findings.json');
   const d = { schema_version: 1, platform: 'darwin', modules: [JSON.parse(JSON.stringify(M.stalkerware_scan))] };
   assert.ok(!d.modules[0].findings[0].removal_alert);
-  const { item } = await missionScreen('standard', false, d);
+  const { item } = await missionScreen('standard', false, d, []);
   assert.match(item, /ITEM 1 OF 1/);
   assert.match(item, /<summary>Removing this can alert whoever installed it\. Read this first\.<\/summary>/);
   const note = /<details class="finding-card__note">[\s\S]*?<\/details>/.exec(item)[0];
   assert.match(note, /advocate/);
 });
 
-test('a fix with no engine action: the warning in city mode, in the game; not in standard mode', async () => {
-  for (const mode of ['city', 'standard']) {
-    const game = (await missionScreen(mode, 'module')).html;
-    for (const [where, html] of [['game', game]]) {
-      assert.match(html, /data-fix-module="remote_access_tools"/, `${mode} ${where}: the fix is offered`);
-      assert.doesNotMatch(html, /data-fix-action=/, `${mode} ${where}: no engine action`);
-      assert.ok(!html.includes(FixFlow.WATCHED_WARNING), `${mode} ${where}: never the advocate line in the game`);
-      assert.strictEqual(/data-fix-city><strong>Removing this can alert whoever installed it\.<\/strong> Stop by /.test(html), mode === 'city', `${mode} ${where}`);
-    }
-  }
+test('a fix with no engine action, standard mode: the Guest Book’s "Remove it" is FixFlow’s module fix, its confirm warns; never in the city (held)', async () => {
+  const { html, seen } = await missionScreen('standard', 'module');
+  assert.match(html, /data-fix-module="remote_access_tools"/, 'the fix is offered');
+  assert.doesNotMatch(html, /data-fix-action=/, 'no engine action');
+  assert.match(/<div class="fix-panel"[\s\S]*?data-fix-confirm/.exec(html)[0], /data-fix-safety><strong>Removing this can alert whoever installed it\.<\/strong>/);
+  assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'never the advocate line in the game');
+  assert.doesNotMatch(html, /data-fix-city>/, 'the city words are city mode’s');
+  assert.deepStrictEqual(seen, [['fix', false]]);
+});
+
+test('no fix at all (the engine’s real finding): "Remove it" carries warning: true, so the warning and a confirm come before the steps', async () => {
+  const G = (await import('../renderer/missions/games/guestbook.js')).default;
+  const T = await import('../renderer/missions/types.js');
+  const it = T.groupMissions(doc(), { mode: 'standard' }).find((m) => m.type === 'guestbook').items[0];
+  const rm = G.decisions(it, { mode: 'standard', platform: 'win32', answers: ['installed', 'nouse'] }).find((x) => x.id === 'remove');
+  assert.strictEqual(rm.effect.kind, 'closer');
+  assert.strictEqual(rm.effect.warning, true);
+  const { item, html, seen, frame, click } = await missionScreen('standard', false);
+  assert.match(item, LINE_NOTE);
+  // R6: the confirm, under the warning, and no removal steps yet.
+  const confirm = /<div class="panel mx-confirm"[\s\S]*?<\/div><\/div>/.exec(html)[0];
+  assert.match(confirm, /Read the warning above first\. Go on\?/);
+  assert.match(html, LINE_NOTE);
+  assert.ok(html.indexOf(noteOf(html)) < html.indexOf(confirm), 'the warning above the confirm');
+  assert.doesNotMatch(html, /Uninstall/, 'the steps wait for the confirm');
+  assert.doesNotMatch(html.replace(noteOf(html), ''), DV);
+  assert.deepStrictEqual(seen, [], 'no fix flow: there is no fix');
+  // Read, then on: the removal steps, the warning still above them.
+  click({ 'data-act': 'mx-confirm' });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.match(frame.innerHTML, /Uninstall/, 'the steps after the confirm');
+  assert.match(frame.innerHTML, LINE_NOTE);
+});
+
+test('FixFlow’s own warnings: the advocate line only when watched outside the game; game words with the help district’s name', () => {
   assert.ok(FixFlow.fixControlsHtml({ module: 'm', fixable: MODULE_FIX }, { watched: true }).includes(FixFlow.WATCHED_WARNING));
   assert.ok(!FixFlow.fixControlsHtml({ module: 'm', fixable: MODULE_FIX }, { watched: false }).includes(FixFlow.WATCHED_WARNING));
   // With the help district's name (the game in city mode): the game words, never the advocate line.
