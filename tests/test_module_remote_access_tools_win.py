@@ -321,3 +321,13 @@ def test_check_is_incomplete_when_the_time_budget_runs_out(tmp_path):
     with patch.object(MOD, "EVIDENCE_BUDGET_SECONDS", -1.0):  # spent as soon as check() starts it
         result = _check(_module(tmp_path), _fake_reg())
     assert result.complete is False and result.findings == []
+
+
+def test_unattended_is_unknown_when_we_know_no_service_to_look_for(tmp_path):
+    # No service name is known for these on Windows, so nothing was looked for: never "no".
+    fake = _fake_reg(uninstall=_uninstall_block(HKLM, "Z", "Zoho Assist") + _uninstall_block(HKLM, "S", "SimpleHelp"),
+                     services={"SomeOtherService": 2})
+    got = _sightings(_module(tmp_path), fake)
+    for tool_id in ("zoho_assist", "simplehelp"):
+        assert got[tool_id].lets_in_unattended is None, tool_id
+        assert got[tool_id].one_off is False

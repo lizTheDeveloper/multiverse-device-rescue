@@ -439,3 +439,12 @@ def test_mac_check_is_incomplete_when_a_folder_is_cut_short(tmp_path):
     with patch.object(MOD, "MAX_DIR_ENTRIES", 3):
         assert _mac_check(m, _readable(m)).complete is False
     assert _mac_check(m, _readable(m)).complete is True
+
+
+@pytest.mark.parametrize("app,tool_id", [("Supremo.app", "supremo"), ("HopToDesk.app", "hoptodesk")])
+def test_unattended_is_unknown_when_we_know_no_part_of_it_to_look_for(tmp_path, app, tool_id):
+    # No launchd label is known for it on macOS, so nothing was looked for: never "no".
+    m, apps, _ = _module(tmp_path)
+    _app(apps, app)
+    s = _sightings(m)[tool_id]
+    assert s.lets_in_unattended is None and s.one_off is False

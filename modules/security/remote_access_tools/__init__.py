@@ -513,6 +513,9 @@ class Module(ModuleBase):
             app = (installed or found_apps or [None])[0]
             if jobs:
                 unattended, via = True, jobs[0][0]
+            elif not tool.mac_launchd:
+                # No part of it is known to look for here: nothing was looked at.
+                unattended, via = None, None
             elif launchd_readable:
                 unattended, via = False, None
             else:
@@ -678,7 +681,8 @@ class Module(ModuleBase):
             if not matched and not svcs and not dl and running is not True:
                 continue
             auto = [n for n, start in svcs if start in _AUTO_START]
-            if services is None:
+            if services is None or not svc_prefixes:
+                # Unreadable, or no service is known to look for: nothing was looked at.
                 unattended, via = None, None
             elif auto:
                 unattended, via = True, auto[0]
