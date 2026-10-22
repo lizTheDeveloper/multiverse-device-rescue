@@ -500,9 +500,9 @@
   "(no code)": "simple"
  },
  "remote_access_tools": {
-  "security.remote_access_tools.running_now": "switchboard",
-  "security.remote_access_tools.several_tools": "switchboard",
-  "security.remote_access_tools.unattended_recent": "switchboard"
+  "security.remote_access_tools.running_now": "guestbook",
+  "security.remote_access_tools.several_tools": "guestbook",
+  "security.remote_access_tools.unattended_recent": "guestbook"
  },
  "remote_login_check": {
   "security.remote_login_check.remote_apple_events_enabled": "switchboard",

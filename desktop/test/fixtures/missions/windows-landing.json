@@ -63,9 +63,9 @@
   "(no code)": "junkyard"
  },
  "remote_access_tools": {
-  "security.remote_access_tools.running_now": "switchboard",
-  "security.remote_access_tools.several_tools": "switchboard",
-  "security.remote_access_tools.unattended_recent": "switchboard"
+  "security.remote_access_tools.running_now": "guestbook",
+  "security.remote_access_tools.several_tools": "guestbook",
+  "security.remote_access_tools.unattended_recent": "guestbook"
  },
  "resource_hog_identifier": {
   "(no code)": "junkyard"

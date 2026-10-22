@@ -54,8 +54,6 @@ const MODULE_KIND = {
   airdrop_security_check: 'sharing',
   win_rdp_check: 'sharing',
   win_remote_access_audit: 'sharing',
-  // Until the Guest Book game claims it (plan 2026-10-22, Task 7).
-  remote_access_tools: 'sharing',
   win_network_shares_audit: 'sharing',
   wifi_security_audit: 'wifi',
   router_security_audit: 'router',

@@ -2,9 +2,7 @@ export default {
   id: 'password-asker',
   title: 'The tool that asks for your password',
   recommendedFor: ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'phone', 'helping', 'unsure'],
-  // remote_access_tools joins this list once the engine's check is on this branch (plan Task 7: the lesson test
-  // requires every module here to exist under modules/).
-  modules: ['win_remote_access_audit'],
+  modules: ['win_remote_access_audit', 'remote_access_tools'],
   districts: ['gatehouse'],
   sources: [
     'docs/trust-and-safety.md',
